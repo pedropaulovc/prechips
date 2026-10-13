@@ -216,6 +216,62 @@ sides, so the face is that whole rectangle but for the band; a hole of any size,
 or a notch reaching further in, however little area it takes, makes it false, as
 does a face lying wholly in the band (a rim along three sides).
 
+### Face topology
+
+The job is schema `version = 2`. For every setup, `setups.<id>.face_topology`
+maps each mapped **planar** feature face reference (the exact `faces` string,
+never a renamed or merged key) to the native wires of that one imported face,
+posed in that setup's frame. Mapped non-planar faces have no record:
+
+```text
+{ ref, index, kind = "Plane", normal = [x, y, z], z_mm, area_mm2,
+  centre_mm = [x, y, z], outer = <loop>, inner = [<loop>, …], error_mm }
+```
+
+`index` is the same imported face index as `mapping`; `normal`, `z_mm` and
+`centre_mm` are the posed plane's outward normal, height and native face centre
+of mass (COM); `area_mm2` is the face's own area; `error_mm` is the kernel's finite,
+non-negative fit tolerance for the record. `outer` is the face's outer wire
+and `inner` holds every other wire, so an original hole is always present;
+a plane whose wires the kernel cannot classify keeps the record with
+`kind = "unsupported"` loops and a `reason`. Each loop is one of:
+
+- `{ kind = "circle", centre_mm, normal, radius_mm, error_mm }`: one complete
+  native circle edge, its posed centre, axis and radius with its own fit error.
+- `{ kind = "polygon", points_mm = [[x, y, z], …], error_mm }`: an ordered,
+  open (first ≠ last) wire of straight segments only, serialized for
+  provenance.
+- `{ kind = "unsupported", reason }`: anything else: a partial arc, a slit, a
+  wire mixing arcs and lines, B-spline edges.
+
+The engine transforms every loop with the setup, so the same STEP face keeps
+the same `ref` in every setup with its loops re-posed, never re-centred or
+omitted. Nothing is inferred from radius extrema, bounding boxes or sampled
+outlines: a sector or a slit whose bounding box matches a disk is
+`unsupported`, a notched rectangle is a six-point `polygon`, and an annulus is
+a `circle` outer with one `circle` inner. The host's only consumer is the
+[usable-land certificate](rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check),
+which credits circles alone; polygons and unsupported loops leave that rule
+unknown, and the rectangle path still reads `fills_bbox`.
+
+The circular certificate uses that COM and normal to bound native tangent
+height variation across all four corners of each 0.5 mm square. It also checks
+the carried source normal about the transformed AS-CUT source-axis point,
+including that point's Z difference from the final printed standing height
+(the maximum group standing height for multi-reference contacts) plus corner
+tangent variation. The overall physical-versus-native nominal Z residual is
+not penalized. Both height debts must fit the 1e-6 mm length tolerance after DRO snapping.
+This is not a repair of the inherited rectangle/whole-face height exposure
+tracked in [#217](https://github.com/pedropaulovc/prechips/issues/217).
+
+The schema change and the `kernel/*.py` digest change together invalidate
+every previously cached key: the engine accepts only version-2 jobs, and no
+stored schema-1 result can be returned for a schema-2 job. Every example
+therefore needs a
+cold private regeneration on the native kernel before its expected
+report/traveler and the CI result cache are current; see the
+[#208 acceptance status](rules-operations.md#issue-208-acceptance-status).
+
 Plan-owned joint cylinders are separate analytic targets, labelled with their
 `plan.joint_features.<id>` provenance. They are never assigned synthetic STEP
 entity references and never enter final face, source, as-is, coverage or corner

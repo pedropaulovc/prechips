@@ -1116,11 +1116,41 @@ sheet.
    face's standing DRO Z: an edge whose `dro_z` is another step is `✗`.
    Carried faces use their transformed native plane and the nearest enterable
    Axis Set, with the residual recorded. An axial plunge with a proved
-   remaining annulus requires touching outside its computed diameter;
+   remaining land requires touching outside its computed diameter;
    an oblique plane lacking exact native source-plane or datum evidence stays `?`.
    Missing kernel/mapping/bbox/units/frame/
    radius inputs stay `?` with `zero_check` naming the feature and the input;
    explicit invalid `bounds` never fall back. No schema change.
+   **Exact native touch-land topology (2026-10-13, #208):** the native job is
+   schema 2 and emits `face_topology` (outer and every inner wire of each
+   mapped face, posed per setup: complete `circle`, ordered `polygon` or
+   `unsupported`). `zero_check` credits a post-plunge contact only by an exact
+   witness: the existing `fills_bbox` rectangle, or complete native circles
+   reproducing the face's area with every original hole and every exclusion
+   deducted about its own centre, the 0.5 mm square found by a deterministic
+   64-angle search on the receiving DRO grid and recertified analytically.
+   Each circular candidate must also fit independent native and carried-source
+   normal corner-height budgets of 1e-6 mm after DRO snapping; the first
+   candidate passing height and material wins. The source bound adds its
+   physical anchor's difference from the final printed standing height
+   (maximum group standing height for multi-reference contacts) to corner tilt;
+   legitimate overall physical-versus-native nominal Z residual is not debt.
+   Single-reference/earlier checks default to the physical source anchor.
+   The inherited rectangle/whole-face
+   exposure remains separate and unfixed
+   ([#217](https://github.com/pedropaulovc/prechips/issues/217)).
+   Exclusions keep their source frame and own centre through re-facing (#215).
+   Polygon, sector, slit and unsupported faces stay `?`; radius extrema and
+   feature names prove nothing. The circular contact reports its square's DRO
+   XY, keep-off centre and diameter, and `touch_land_height_debt_mm` (maximum
+   certified native/source corner-height bound); uncut contacts gain no fields. Named
+   producer/supply, component lineage and +Z gates are unchanged. The schema
+   and engine digest miss every prior cache key; cold private all-example
+   regeneration, the exactly parallel cone's expected unchanged return to exit 0
+   and CI are **PENDING**. #208 is deferred to **0.1.2**; **0.1.1 ships #198 and
+   #192 only**. No native runs were performed for this draft; later native
+   execution requires an explicit GO
+   ([acceptance status](docs/rules-operations.md#issue-208-acceptance-status)).
 2. **M2 — local declared-input implementation completed 2026-10-03.**
    Turned-profile monotonicity,
    supported stick-out, collet/chuck diameter capacity, exact-first indexing,

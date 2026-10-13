@@ -220,7 +220,7 @@ class Engine:
             chained.append({"stock_in": previous, **setup})
             previous = setup["id"]
         return {
-            "version": 1,
+            "version": 2,
             "step_path": str(step),
             "step_sha256": hashlib.sha256(data).hexdigest(),
             "features": features or {},
@@ -329,7 +329,13 @@ def test_inventory_reuse_invalidates_real_identity_or_recipe(inventory_probe, mo
         os.utime(path, ns=(stat.st_atime_ns, stat.st_mtime_ns))
     elif changed == "recipe":
         original = engine.job
-        monkeypatch.setattr(engine, "job", lambda path: {**original(path), "version": 2})
+
+        def changed_job(path):
+            job = original(path)
+            job["version"] += 1
+            return job
+
+        monkeypatch.setattr(engine, "job", changed_job)
     else:
         monkeypatch.setattr(kernel, "_engine_digest", lambda: "engine-B")
     assert engine.faces(step)[0]["area_mm2"] == 2

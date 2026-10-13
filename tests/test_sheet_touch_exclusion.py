@@ -341,3 +341,110 @@ def test_non_grid_carried_touch_operations_consume_checked_typed_axis_set():
     assert sheet.tip_note(setup, drill) == (
         "Break through: the full diameter runs at least 0.500 past the exit face."
     )
+
+
+def native_touch_report_fields(units="mm"):
+    return {
+        "touch_land_ref": FACE,
+        "touch_land_dro_xy": [1.25, -2.5],
+        "touch_keep_off_dro_xy": [-3.75, 4.0],
+        "touch_land_units": units,
+        "touch_land_dro_decimals": 3 if units == "mm" else 4,
+        "touch_land_width_mm": 0.5,
+        "touch_land_candidate": 7,
+        "touch_land_search": (
+            "64 fixed angles at conservative ring mid-radius; first certified square"
+        ),
+        "touch_exclusion_dia_mm": 11.5701,
+        "credited_faces": [FACE],
+    }
+
+
+def native_contact_sheet(path, fields):
+    """Exercise each existing traveler contact route, without native execution."""
+    if path == "retouch":
+        data = bundle(
+            "mill",
+            mill_zero({"face": "top", "tool": "mill"}, retouch_after=[10, 20]),
+            FACED,
+            {"top_z": 2.0},
+        )
+        finding = evaluate(data)[0]
+        index = [row["op"] for row in finding.numbers["retouch"]].index(10)
+        sheet, setup = with_rows(data, (("retouch", index), fields))
+        return sheet, setup, MILL_TOOLS
+    data = bundle("mill", mill_zero(DECK), OPS)
+    if path == "zero":
+        updates = (("axes", "z"), fields)
+    elif path == "derived":
+        updates = (("derived_touches", 0), fields)
+    else:
+        derived = evaluate(data)[0].numbers["derived_touches"][0]
+        updates = (("tool_touches",), {**derived, **fields})
+    sheet, setup = with_rows(data, updates)
+    return sheet, setup, TOOLS
+
+
+@pytest.mark.parametrize("path", ["zero", "derived", "explicit", "retouch"])
+@pytest.mark.parametrize("units", ["mm", "in"])
+def test_every_native_touch_contact_prints_plan_unit_xy_square_and_centred_keepoff(path, units):
+    sheet, setup, tools = native_contact_sheet(path, native_touch_report_fields(units))
+    lines = paragraphs(sheet.dro(setup, tools))
+    if path == "zero":
+        # The initial touch is the Z row of the zero table, not a later paragraph.
+        lines.append(zero_rows(sheet.dro(setup, tools))["Z"][0])
+    digits = 3 if units == "mm" else 4
+    expected = (
+        f"touch at DRO X {1.25:.{digits}f}, Y {-2.5:.{digits}f} {units} "
+        "on the proved 0.5 mm square on this face; "
+        f"keep off Ø11.571 mm centred at DRO X {-3.75:.{digits}f}, Y {4.0:.{digits}f} {units}"
+    )
+    assert any(expected in line for line in lines), lines
+    assert any(f"produced plane: {FACE}" in line and expected in line for line in lines), lines
+
+
+@pytest.mark.parametrize("path", ["zero", "derived", "explicit", "retouch"])
+@pytest.mark.parametrize(
+    "missing",
+    [
+        "touch_land_ref",
+        "touch_land_dro_xy",
+        "touch_keep_off_dro_xy",
+        "touch_land_units",
+        "touch_land_dro_decimals",
+        "touch_land_width_mm",
+        "touch_exclusion_dia_mm",
+    ],
+)
+def test_missing_native_witness_report_fields_never_print_a_confirmed_numeric_contact(
+    path, missing
+):
+    fields = native_touch_report_fields()
+    del fields[missing]
+    sheet, setup, tools = native_contact_sheet(path, fields)
+    text = sheet_text(sheet.dro(setup, tools))
+    assert "touch location and cut footprint ?; usable land is unconfirmed" in text
+    assert "touch at DRO X" not in text and "keep off Ø11.571" not in text
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("touch_land_ref", None),
+        ("touch_land_ref", "unknown"),
+        ("touch_land_dro_xy", [float("nan"), 0]),
+        ("touch_keep_off_dro_xy", [0]),
+        ("touch_land_dro_decimals", True),
+        ("touch_land_units", "cm"),
+        ("touch_land_width_mm", 1.0),
+        ("touch_land_width_mm", -0.5),
+        ("touch_exclusion_dia_mm", float("inf")),
+    ],
+)
+def test_forged_native_witness_report_fields_print_unconfirmed_not_a_touch_location(field, value):
+    fields = native_touch_report_fields()
+    fields[field] = value
+    sheet, setup, tools = native_contact_sheet("zero", fields)
+    text = sheet_text(sheet.dro(setup, tools))
+    assert "touch location and cut footprint ?; usable land is unconfirmed" in text
+    assert "touch at DRO X" not in text

@@ -1301,7 +1301,7 @@ def build_job(bundle):
         )
     aimed = faced_aims(bundle)
     return {
-        "version": 1,
+        "version": 2,
         "step_path": str(Path(bundle.paths["step"]).resolve())
         if "step" in bundle.paths
         else UNKNOWN,

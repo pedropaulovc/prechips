@@ -113,7 +113,7 @@ def read(name):
 
 def setup(name):
     solid = read(name)
-    owner = job._Job({"version": 1, "setups": []})
+    owner = job._Job({"version": 2, "setups": []})
     owner.solid = solid
     owner.labels = [name + ":" + str(index) for index in range(len(solid.Faces))]
     owner.raw_supplies = {"stock": (solid, None)}

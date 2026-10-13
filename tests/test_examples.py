@@ -47,7 +47,7 @@ def _assert_bundle_bytes_equal(actual, expected, comparison):
         ("pivot-shaft", "plan.toml", "expected", 0),
         ("rocker-arm", "plan.toml", "expected", 0),
         ("pivot-bracket", "plan.toml", "expected", 0),
-        ("cone-pivot-post", "built-up.toml", "expected/built-up", 4),
+        ("cone-pivot-post", "built-up.toml", "expected/built-up", 0),
     ],
 )
 def test_examples_match_reference_bytes_and_repeat(

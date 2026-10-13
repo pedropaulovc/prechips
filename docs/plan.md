@@ -60,6 +60,28 @@ higher top down to `top_z` first, no deeper per pass than the setup's least op
 `doc_mm`, in plan units rounded down onto the DRO grid (unknown plan units print
 no cap).
 
+After a cut, a setup-DRO Z contact or tool retouch needs surviving material at
+the stated touch location, not merely the named face's height. The native
+face-topology certificate uses the receiving setup's exact face facts, original
+holes and cumulative cut exclusions, each in its own centre/frame, to prove a
+0.5 mm square. A circular witness prints its touch XY and keep-off centre on the
+receiving DRO grid and recertifies the square after snapping. The first
+candidate passing both material and independent native/carried-source
+corner-height budgets of 1e-6 mm wins; `touch_land_height_debt_mm` reports their
+maximum. The source bound adds its physical anchor's Z difference from the
+final printed standing height (maximum group standing height for multi-reference
+contacts) to corner tangent variation; legitimate overall physical-versus-native
+nominal Z residual is not penalized. Single-reference/earlier checks default
+to the physical source anchor. These are internal computed bounds, not new
+authored inputs. Refacing does not
+erase other cuts' exclusions. The inherited rectangle/whole-face height
+exposure remains separate ([#217](https://github.com/pedropaulovc/prechips/issues/217)).
+These are computed output facts, not zero-recipe
+or `tool_touches` inputs. Authored pickup coordinates and tool-change semantics
+remain unchanged; see [operation contact proofs](rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check),
+[native topology](rules-geometry.md#face-topology) and
+[coordinates and DRO zero](rules-coordinates.md#zero_check).
+
 `checks` maps requirement names to inventory gauge references. Every key must
 belong to the selected resolved feature's `requirements` list (exported or
 plan-owned); otherwise loading raises `BadInput`, even if another feature owns that name.

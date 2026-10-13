@@ -22,6 +22,15 @@ action in authored order. Marking that operation performed does not accept the
 recommendation or verify actual cutting conditions. The paper layout adds no
 cutting-data field and does not replace unknown recommendations with numbers.
 
+Speed/feed suggestions also prove neither physical material at a post-cut
+touch location nor the tool geometry used to exclude a cut's footprint. A cited
+recommendation cannot supply missing native face topology, original holes,
+engagement radius or surviving 0.5 mm touch land. These proofs consume geometry
+and setup/tool facts, not new cutting-data fields; see
+[usable touch land](rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check),
+[native face topology](rules-geometry.md#face-topology) and
+[DRO contact checks](rules-coordinates.md#zero_check).
+
 `[[deep_hole]]` rows derate a spindle operation's starting speed in deep holes.
 A row names one `operation` (for example `drill`), a `depth_over_dia` threshold
 and an `sfm_factor` in `(0, 1]`. When the hole's depth is strictly more than

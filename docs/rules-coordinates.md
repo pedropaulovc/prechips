@@ -1005,18 +1005,24 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
   of the cuts beside it are counted, and whether it is there at all can rest on
   geometry no operator can check. The value is illustrative, not measured; a
   larger one only leaves more Z unknown, and a narrower land is unknown, never
-  pass. The land must lie on surface shown to be there: the kernel's one STEP
-  face for the feature (`faces`) is a plane that fills its own box (`fills_bbox`:
-  one wire, each edge a straight segment within the kernel's 1e-6 mm side
-  tolerance of a side of the box, more area than that band), flat in setup Z,
-  with each box corner on a corner of its setup X/Y box, which is the footprint.
+  pass. The land must lie on surface shown to be there: either the kernel's one
+  STEP face for the feature (`faces`) is a plane that fills its own box
+  (`fills_bbox`: one wire, each edge a straight segment within the kernel's
+  1e-6 mm side tolerance of a side of the box, more area than that band), flat
+  in setup Z, with each box corner on a corner of its setup X/Y box, which is
+  the footprint; or the current setup's native `face_topology` record for that
+  face is a plane whose outer wire and every inner wire are complete native
+  circles reproducing its area ([usable land](rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check)).
   Within `FILL_MARGIN_MM` (1.5e-6 mm: that side tolerance plus the 5e-7 mm the
   record's 6-decimal rounding may move each side) and the 1e-6 corner tolerance of
   a side of the box, a notch may still run, so no land counts there. Without a
-  kernel result, or for a round, holed, notched or L-shaped face or one turned
-  against the setup axes, the box's corners may hold no surface, however little
+  kernel result, or for a notched, L-shaped, slit, sector or otherwise
+  unsupported or polygon-bounded face, or one turned against the setup axes,
+  the box's corners may hold no surface, however little
   of its area the face lacks: a 0.005 mm hole can be the only part of the box
-  every cut spares. A touch on a surface, whether a zero, a tool touch or a
+  every cut spares. A round or holed face is surface only where its circles say
+  so, each original hole deducted about its own centre.
+  A touch on a surface, whether a zero, a tool touch or a
   listed retouch, is a paper touch at
   a nominal Z. It does not show what the ops since the surface was made left of
   it, so it carries their partial cuts and any doubt about them. A touch on a
@@ -1123,12 +1129,20 @@ unknown; an unrelated datum or the enclosing oblique box is never a substitute.
 No kernel run or new native fields are added for this.
 
 An overlapping axial drill, ream, spot or counterbore preserves usable touch
-land only when a single native `Plane` with `fills_bbox = true` proves an
-axis-aligned rectangle retaining a 0.5 mm square outside the cumulative
-bounded footprint. The worst-case radial footprint includes its cutter and
+land only by an exact native witness retaining a 0.5 mm square outside the
+cumulative bounded footprint: a single native `Plane` with `fills_bbox = true`
+proving an axis-aligned rectangle, or the current setup's `face_topology`
+record proving complete outer and inner circles that reproduce the face's area,
+with every original hole and every exclusion deducted about its own centre and
+the square found by a deterministic 64-angle search on the receiving DRO grid
+and recertified analytically, with native and carried source normal tangent
+variation across all four corners fitting independent 1e-6 mm height budgets;
+the first candidate passing both height and material wins
+([usable land](rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check)).
+The worst-case radial footprint includes its cutter and
 aim shift. Radius extrema alone prove neither circular topology nor usable
-land; round, holed and missing-shape faces stay unknown after an overlapping
-plunge, pending [native topology evidence #208](https://github.com/pedropaulovc/prechips/issues/208).
+land; sector, slit, notched, polygon-bounded and unsupported faces stay unknown
+after an overlapping plunge, as does any face whose native record is missing.
 For a resolved `center_drill_set` member, engagement no deeper than its pilot
 length uses the pilot radius; deeper engagement uses
 `pilot_radius + (depth - pilot_length) * tan(countersink_half_angle)`,
@@ -1138,8 +1152,29 @@ The credited touch then carries
 `touch_exclusion_dia_mm` in physical millimetres (zero before any relevant
 plunge); the card requires `touch the face outside Ø… mm` when it is positive,
 with that diameter rounded outward to the sheet's millimetre precision. A
+circle-certified contact also carries the square's DRO centre
+(`touch_land_ref` naming the chosen certified face of a multi-plane group,
+`touch_land_dro_xy`, `touch_land_units`, `touch_land_dro_decimals`,
+`touch_land_width_mm`, `touch_land_candidate`, `touch_land_search`,
+`touch_land_height_debt_mm`, the maximum certified native/source corner-height
+bound in millimetres) and the
+keep-off circle's centre rounded to that DRO grid (`touch_keep_off_dro_xy`),
+with the diameter grown by that rounding's X/Y debt; the card prints that
+touch XY and the keep-off Ø about it. An uncut contact gains none of these. A
 footprint covering the face, an oblique plunge, a lateral sweep that could
 lower it or any unbounded effect leaves the carry unknown, never a guessed Z.
+
+The source bound uses the transformed AS-CUT source-axis point and charges its
+Z difference from the final printed standing height **plus** corner tangent
+variation. For a multi-reference group, that printed height is the maximum
+group standing height; a lower chosen face must fit that same height budget.
+Single-reference and earlier survival checks default to the source anchor's
+physical Z. The legitimate overall physical AS-CUT versus native nominal Z
+residual is not a nominal-height error. This native-square guard does not
+repair the inherited rectangle/whole-face height exposure
+([#217](https://github.com/pedropaulovc/prechips/issues/217)); for example,
+500 mm times `tan(0.5e-6 degrees)` is about 4.3633e-6 mm despite passing the
+existing direction guard.
 
 A carried face was not cut onto this frame's grid. Its authored edge must
 agree with the transformed physical height or the exact raw native plane

@@ -646,40 +646,174 @@ def _primitive_spares_plane(bundle, setup, op, plane):
     return False
 
 
-def _rectangular_spares_plunge(bundle, setup, target, plane, footprint, previous, excluded):
-    """A native filled rectangle retains the existing square touch-land witness."""
+def _exclusions_in_frame(bundle, setup, exclusions, plane=None):
+    """Carry each cut column's own centre, never a re-faced plane's new centre."""
     from .coordinates import UNIT_MM, frame_axes, frame_point, model_point
 
-    if plane is None or footprint is None:
+    scale = UNIT_MM[bundle.features["units"]]
+    frame = setup_frame(bundle, setup)
+    axes = frame_axes(frame)
+    if not _native_basis(axes):
+        return None
+    height = _plane_in_frame(bundle, plane, setup) if plane is not None else None
+    if plane is not None and not (number(height) and math.isfinite(height)):
+        return None
+    if height is not None:
+        height *= scale
+    result = []
+    for exclusion in exclusions:
+        source = exclusion.get("frame")
+        source_axes = frame_axes(source)
+        point, radius = exclusion.get("centre_mm"), exclusion.get("radius_mm")
+        error = exclusion.get("error_mm")
+        if not (
+            _native_basis(source_axes)
+            and isinstance(point, list)
+            and len(point) == 3
+            and all(number(v) and math.isfinite(v) for v in point)
+            and number(radius)
+            and math.isfinite(radius)
+            and radius > 0
+            and number(error)
+            and math.isfinite(error)
+            and error >= 0
+        ):
+            return None
+        turned = [sum(a * b for a, b in zip(source_axes[2], axis, strict=True)) for axis in axes]
+        if (
+            math.degrees(math.atan2(math.hypot(*turned[:2]), abs(turned[2])))
+            > _NATIVE_DIRECTION_TOLERANCE_DEG
+        ):
+            return None
+        local = frame_point(model_point([v / scale for v in point], source), frame)
+        if not all(number(v) and math.isfinite(v) for v in local):
+            return None
+        across, axial = math.hypot(*turned[:2]), abs(turned[2])
+        if height is None:
+            if across > 64 * math.ulp(max(1.0, axial)):
+                return None
+        else:
+            # A tilted column meets this plane away from its original height; its
+            # section is an ellipse. Enclose both that shift and its major radius.
+            error += abs(height - local[2] * scale) * across / axial
+            error += radius * max(0.0, math.hypot(*turned) / axial - 1.0)
+        if not math.isfinite(error):
+            return None
+        result.append(
+            {"centre_mm": [v * scale for v in local], "radius_mm": radius, "error_mm": error}
+        )
+    return result
+
+
+def _plunge_exclusion(bundle, setup, footprint):
+    from .coordinates import UNIT_MM
+
+    point, radius = footprint
+    scale = UNIT_MM[bundle.features["units"]]
+    return {
+        "frame": setup_frame(bundle, setup),
+        "centre_mm": [v * scale for v in point],
+        "radius_mm": radius,
+        "error_mm": 0.0,
+    }
+
+
+def _native_touch_land(bundle, setup, target, plane, exclusions, *, reference_height_mm=None):
+    """Exact owned circular native topology, plus independently located later cuts."""
+    from .coordinates import UNIT_MM, dro_grid, frame_axes, frame_point, model_point
+    from .touch_land import certify
+
+    if plane is None:
+        return None
+    refs = target.get("faces")
+    if not isinstance(refs, list) or len(refs) != 1:
+        return None
+    kernel = mapping(getattr(bundle, "kernel", None))
+    index = mapping(kernel.get("mapping")).get(refs[0])
+    topology = mapping(
+        mapping(mapping(mapping(kernel.get("setups")).get(setup["id"])).get("face_topology")).get(
+            refs[0]
+        )
+    )
+    normal = topology.get("normal")
+    nominal = _plane_in_frame(bundle, plane, setup, physical=False)
+    scale = UNIT_MM[bundle.features["units"]]
+    if not (
+        kernel.get("status") == "ok"
+        and isinstance(index, int)
+        and not isinstance(index, bool)
+        and topology.get("ref") == refs[0]
+        and type(topology.get("index")) is int
+        and topology.get("index") == index
+        and _native_unit(normal)
+        and normal[2] > 0
+        and number(nominal)
+        and number(topology.get("z_mm"))
+        and abs(topology["z_mm"] - nominal * scale) <= LENGTH_TOLERANCE_MM
+    ):
+        return None
+    located = _exclusions_in_frame(bundle, setup, exclusions, plane)
+    if located is None:
+        return None
+    receiving = setup_frame(bundle, setup)
+    source_axes, axes = frame_axes(plane["frame"]), frame_axes(receiving)
+    if not _native_basis(source_axes) or not _native_basis(axes):
+        return None
+    source_normal = [plane["normal_z"] * v for v in source_axes[2]]
+    formed = plane.get("formed_z_mm", plane["z_mm"])
+    if not number(formed) or not math.isfinite(formed):
+        return None
+    source_point = frame_point(model_point([0.0, 0.0, formed / scale], plane["frame"]), receiving)
+    return certify(
+        topology,
+        located,
+        grid_mm=dro_grid(bundle, setup)[0] * scale,
+        reference_z_mm=nominal * scale,
+        touch_plane={
+            "centre_mm": [v * scale for v in source_point],
+            "reference_z_mm": (
+                source_point[2] * scale if reference_height_mm is None else reference_height_mm
+            ),
+            "normal": [
+                sum(a * b for a, b in zip(source_normal, basis, strict=True)) for basis in axes
+            ],
+        },
+    )
+
+
+def _rectangular_touch_land(bundle, setup, target, plane, exclusions):
+    """The existing filled-rectangle square, outside every independently carried cut."""
+    if plane is None:
         return False
     held = _rectangle(bundle, setup, target)
-    if held is None:
+    if held is None or not number(_plane_in_frame(bundle, plane, setup)):
         return False
-    source_axes = frame_axes(plane["frame"])
-    axes = frame_axes(setup_frame(bundle, setup))
-    if not _native_basis(source_axes) or not _native_basis(axes):
-        return False
-    turned = [sum(a * b for a, b in zip(source_axes[2], axis, strict=True)) for axis in axes]
-    if (
-        math.degrees(math.atan2(math.hypot(*turned[:2]), abs(turned[2])))
-        > _NATIVE_DIRECTION_TOLERANCE_DEG
-    ):
+    from .coordinates import UNIT_MM
+
+    located = _exclusions_in_frame(bundle, setup, exclusions, plane)
+    if located is None:
         return False
     scale = UNIT_MM[bundle.features["units"]]
-    centre = frame_point(
-        model_point([0.0, 0.0, plane.get("formed_z_mm", plane["z_mm"]) / scale], plane["frame"]),
-        setup_frame(bundle, setup),
-    )
-    if not all(number(v) and math.isfinite(v) for v in centre):
+    regions = [
+        [
+            [
+                cut["centre_mm"][i] / scale - (cut["radius_mm"] + cut["error_mm"]) / scale,
+                cut["centre_mm"][i] / scale + (cut["radius_mm"] + cut["error_mm"]) / scale,
+            ]
+            for i in (0, 1)
+        ]
+        for cut in located
+    ]
+    return _uncut(*held, regions)
+
+
+def _rectangular_spares_plunge(bundle, setup, target, plane, footprint, previous, excluded):
+    if footprint is None:
         return False
-    point, radius = footprint
-    reach = max(previous, radius + math.hypot(point[0] - centre[0], point[1] - centre[1]) * scale)
-    if not math.isfinite(reach):
+    addition = _plunge_exclusion(bundle, setup, footprint)
+    if not _rectangular_touch_land(bundle, setup, target, plane, [*previous, addition]):
         return False
-    region = [[centre[i] - reach / scale, centre[i] + reach / scale] for i in (0, 1)]
-    if not _uncut(*held, [region]):
-        return False
-    excluded.append(reach)
+    excluded.append(addition)
     return True
 
 
@@ -704,7 +838,7 @@ def _carry_boxes(bundle, setup, target, plane):
     ]
 
 
-def _carry_cut(bundle, setup, op, target, plane=None, excluded=None, previous=0.0, debts=None):
+def _carry_cut(bundle, setup, op, target, plane=None, excluded=None, previous=(), debts=None):
     """Whether a cut invalidates the plane; preserve only proven bounded primitives."""
     from .coordinates import UNIT_MM
 
@@ -761,12 +895,17 @@ def _carry_cut(bundle, setup, op, target, plane=None, excluded=None, previous=0.
             excluded if excluded is not None else [],
         ):
             return False
+        addition = _plunge_exclusion(bundle, setup, footprint)
+        if _native_touch_land(bundle, setup, target, plane, [*previous, addition]) is not None:
+            if excluded is not None:
+                excluded.append(addition)
+            return False
         if debts is not None:
             debts.append(
                 f"{setup['id']} op {op['op']} has no proven usable touch land: "
-                "an overlapping plunge needs a native fills_bbox rectangle retaining "
-                f"a {TOUCH_LAND_MM:g} mm square; circular/holed shape topology is unproven "
-                "(native evidence gap: https://github.com/pedropaulovc/prechips/issues/208)"
+                f"a {TOUCH_LAND_MM:g} mm square, or validated native circular face loops "
+                "retaining that square outside every original hole and cutting footprint"
+                " (native evidence gap: https://github.com/pedropaulovc/prechips/issues/208)"
             )
         return True
     return not _primitive_spares_plane(bundle, setup, op, plane)
@@ -1059,7 +1198,7 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
             "plane": plane,
             "normal": None,
             "area_unknown": False,
-            "excluded_mm": 0.0,
+            "exclusions": [],
         }
 
     for current in route:
@@ -1101,7 +1240,7 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
                 "plane": plane,
                 "normal": normal,
                 "area_unknown": any(row["area_unknown"] for row in inputs),
-                "excluded_mm": max((row["excluded_mm"] for row in carrying), default=0.0),
+                "exclusions": [cut for row in inputs for cut in row["exclusions"]],
             }
         stock_facts = mapping(mapping(kernel.get("setups")).get(current.get("id")))
         stock_debt = bool(stock_facts.get("stock_reason")) or (
@@ -1239,13 +1378,13 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
                         surface,
                         row["plane"],
                         excluded,
-                        row["excluded_mm"],
+                        row["exclusions"],
                         supply_gaps,
                     ):
                         row["present"] = UNKNOWN
                         row["area_unknown"] = True
                     elif excluded:
-                        row["excluded_mm"] = max(row["excluded_mm"], *excluded)
+                        row["exclusions"].extend(excluded)
         outputs[current["id"]] = state
     state = outputs[setup["id"]]
 
@@ -1355,6 +1494,57 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
             f"carried {face} needs its exact source native plane or stock-proven datum "
             "(native evidence gap: https://github.com/pedropaulovc/prechips/issues/203)"
         )
+    witnesses, keep_off = {}, {}
+    from .coordinates import dro_grid, dro_point, frame_point, model_point
+
+    for ref in refs:
+        row = state[ref]
+        if not row["exclusions"]:
+            keep_off[ref] = 0.0
+            continue
+        surface = {**target, "faces": [ref]}
+        witness = _native_touch_land(
+            bundle,
+            setup,
+            surface,
+            row["plane"],
+            row["exclusions"],
+            reference_height_mm=raw * scale,
+        )
+        located = _exclusions_in_frame(bundle, setup, row["exclusions"], row["plane"])
+        if located is None:
+            return unknown(f"carried {face} has no independently located cutting footprints")
+        if witness is not None:
+            witnesses[ref] = witness
+            topology = kernel["setups"][setup["id"]]["face_topology"][ref]
+            centre = topology["outer"]["centre_mm"]
+            printed_centre = dro_point([v / scale for v in centre], dro_grid(bundle, setup))[:2]
+            witness["keep_off_dro_xy"] = printed_centre
+            keep_off[ref] = witness["keep_off_radius_mm"] + math.hypot(
+                *(centre[i] - printed_centre[i] * scale for i in (0, 1))
+            )
+        elif _rectangular_touch_land(bundle, setup, surface, row["plane"], row["exclusions"]):
+            plane = row["plane"]
+            centre = frame_point(
+                model_point([0.0, 0.0, plane["z_mm"] / scale], plane["frame"]),
+                setup_frame(bundle, setup),
+            )
+            # The legacy card names only an enclosing diameter. Without a
+            # printed centre it is usable only about this setup's DRO zero.
+            if math.hypot(*centre[:2]) * scale > LENGTH_TOLERANCE_MM:
+                return unknown(f"carried {face} has an unprinted offset touch keep-off centre")
+            keep_off[ref] = max(
+                math.hypot(*cut["centre_mm"][:2]) + cut["radius_mm"] + cut["error_mm"]
+                for cut in located
+            )
+            radius = keep_off[ref] / scale
+            held = _rectangle(bundle, setup, surface)
+            if held is None or not _uncut(*held, [[[-radius, radius], [-radius, radius]]]):
+                return unknown(
+                    f"carried {face} has no proven usable touch land outside the printed keep-off"
+                )
+        else:
+            return unknown(f"carried {face} has no proven usable touch land after all carried cuts")
     if credited is not None:
         credited.extend(refs)
     if constraint is not None:
@@ -1366,9 +1556,26 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
         ]
         if all(number(z) for z in native_heights):
             constraint["native_edge_mm"] = max(native_heights)
-        constraint["touch_exclusion_dia_mm"] = round(
-            2 * max(state[ref]["excluded_mm"] for ref in refs), 9
-        )
+        if witnesses:
+            ref = next(ref for ref in refs if ref in witnesses)
+            witness = witnesses[ref]
+            # This circle belongs to the chosen contact face, not a differently
+            # centred member of the coplanar feature group.
+            # Keep the proved bound intact; the traveler rounds it outward.
+            constraint["touch_exclusion_dia_mm"] = 2 * keep_off[ref]
+            constraint.update(
+                touch_land_ref=ref,
+                touch_land_dro_xy=[v / scale for v in witness["centre_mm"][:2]],
+                touch_keep_off_dro_xy=witness["keep_off_dro_xy"],
+                touch_land_units=bundle.features["units"],
+                touch_land_dro_decimals=dro_grid(bundle, setup)[1],
+                touch_land_width_mm=witness["width_mm"],
+                touch_land_candidate=witness["candidate"],
+                touch_land_search=witness["search"],
+                touch_land_height_debt_mm=witness["height_debt_mm"],
+            )
+        else:
+            constraint["touch_exclusion_dia_mm"] = round(2 * max(keep_off.values()), 9)
     return raw
 
 

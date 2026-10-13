@@ -58,6 +58,16 @@ a plan centre must carry its own Table 6 geometry: pilot `dia` (D), `pilot_len`
 shorter than `pilot_len`; `flute_len` stays the cutting length reach compares.
 `chart` is a source citation, never a downloaded chart.
 
+A post-cut touch-land certificate uses the resolved tool's actual engagement
+radius and conservative aim/DRO-grid footprint, not a diameter inferred from
+its display name. That footprint is excluded at the cut's own location; the
+receiving setup's stated touch location must still hold a 0.5 mm square clear
+of every relevant cut and original hole. Missing tool geometry cannot be
+replaced by native face topology, and no new tool field is introduced. See
+[usable touch land](rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check),
+[native face evidence](rules-geometry.md#face-topology) and
+[DRO contact checks](rules-coordinates.md#zero_check).
+
 A limit-gauge set (`pin_gauge`, `pin_gauge_set` or `plug_gauge` for holes;
 `ring_gauge` or `snap_gauge` for a boss or shaft) lists the sizes it physically
 holds in `sizes_mm`. A plan GO / NO-GO pair may only name listed sizes: an unlisted

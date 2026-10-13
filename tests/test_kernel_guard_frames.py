@@ -179,7 +179,7 @@ def test_offsets_never_change_the_finished_part_a_later_leave_free_finish_cuts_a
     # tolerances with every guard built, until S4:20's clearance cut left invalid stock.
     plan = json.loads(PNOS6.read_text(encoding="utf-8"))
     digest = hashlib.sha256(STEP.read_bytes()).hexdigest()
-    job = {"version": 1, "step_path": str(STEP), "step_sha256": digest, **plan}
+    job = {"version": 2, "step_path": str(STEP), "step_sha256": digest, **plan}
     setups = engine.run(job)["setups"]
     # Every stock through S5's entry is known: S4's pad finish hands on one valid solid.
     assert all("stock_reason" not in setups[setup] for setup in ("S2", "S3", "S4", "S5"))

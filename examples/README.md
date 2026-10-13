@@ -143,7 +143,7 @@ remaining acceptance are tracked in [PLAN §8 M3](../PLAN.md#8-milestones).
 | `pivot-shaft` | A short-gripped prep setup (S0) faces the plain end and #2 centre-drills it from the tailstock; then three-jaw drive with the tailstock dead centre in that centre and a follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0** |
 | `rocker-arm` | Bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, the hub filed round to buttons on the pivot bore at the bench (S3F), then shoulder-screw profiling roughed in single-axis stairs and filed to a scribed template, with independently held scrap. | **0** |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear (single-axis stairs, then filed to buttons on the cross bore at the bench), reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0** |
-| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. S8/S9 post-plunge touch-land proof is missing; see below. | **4** |
+| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. S8/S9 post-plunge touch-land proof now has a rule (#208) but no regenerated native result yet; see below. | **0** (#208 target, unverified; #192 interim evaluation is 4) |
 
 The cone's interim exit 4 is a proof stop, not a physically absent touch land
 or a weakened plan. Main's earlier pass followed a feature-name-only bypass:
@@ -160,13 +160,30 @@ The offline STEP/native-cache provenance summary traces the two concentric
 circle loops of crank face `#329` (outer/inner radii 10.965/5.719 mm) and cone
 face `#1426` (8.6/6.1404 mm). Their conservative remaining annular widths are
 at least 5.180 mm and 2.4596 mm (about 2.46 mm at the narrowest), respectively,
-well above the 0.5 mm touch-land policy. Current exported radius extrema do
-not certify that topology. S8/S9 initial contacts remain proved; the drill
-and reamer retouches and their dependent tip/breakthrough readings remain
-unknown until [#208](https://github.com/pedropaulovc/prechips/issues/208) supplies
-native face-loop topology and certified land credit. Release 0.1.1 ships
-#198 and #192 with this documented interim exit 4; exit-0 restoration by
-#208 is deferred to release 0.1.2 alongside #199. No plan input is relaxed.
+well above the 0.5 mm touch-land policy. Exported radius extrema do not certify
+that topology; the native job's schema-2 `face_topology` record does
+([face topology](../docs/rules-geometry.md#face-topology)), and the host
+credits a 0.5 mm square only on complete native circles with every original
+hole and every plunge exclusion deducted about its own centre, with native
+and carried-source normal corner-height bounds each fitting 1e-6 mm; the
+first candidate passing both material and height wins
+([usable land](../docs/rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check)).
+S8/S9 initial contacts remain proved. The drill and reamer retouches and their
+dependent tip/breakthrough readings are expected to resolve by that proof, with
+the card stating the proved square's DRO XY and the keep-off diameter about the
+face centre, which is the required exit-0 acceptance for **0.1.2**; no plan input is
+relaxed. **0.1.1 ships #198 and #192 without #208**; #208 and #199 are deferred
+to 0.1.2. This draft leaves inherited exit-0 goldens untouched; they do not
+prove this schema-2 implementation.
+The exactly parallel cone is expected to remain unaffected by the height guard,
+but native acceptance is **PENDING**, not observed: no native runs were made,
+and execution requires a later explicit GO. The inherited
+rectangle/whole-face height exposure is not fixed here
+([#217](https://github.com/pedropaulovc/prechips/issues/217)).
+The schema change and engine digest
+miss every old cache key, so the checked-in `expected/built-up/` report and
+traveler, this table's exit and the CI native cache all wait on a cold private
+regeneration of every example ([#208 acceptance status](../docs/rules-operations.md#issue-208-acceptance-status)).
 
 ### Rocker-arm supported route
 
@@ -742,6 +759,13 @@ STEP identities. A fresh frozen-baseline control reproduced those differences
 while all six render PNG hashes matched. Their ultimate native cause and
 harmlessness remain unproven; these observations do not authorize changing
 values or tolerances.
+
+No stored result predates native job schema 2 usefully: the schema and the
+engine's `kernel/*.py` digest both enter the cache key, so every key cached
+before #208 misses and each example's expected report/traveler needs a cold
+private regeneration before its native facts (including `face_topology`) are
+current. That regeneration and its CI cache are unobserved at this revision
+([#208 acceptance status](../docs/rules-operations.md#issue-208-acceptance-status)).
 
 Report repeatability and layout smoke proofs do not establish painter
 equivalence, final print acceptance or a physical printer/pen/operator trial.
