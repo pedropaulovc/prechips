@@ -44,8 +44,9 @@ The [offline STEP/native-cache provenance summary](examples/README.md#expected-c
 shows ample real land: at least 2.4596 mm (about 2.46 mm), versus the 0.5 mm
 policy. Missing circular-topology proof, not physical land, keeps S8/S9's
 post-plunge retouches unknown pending [#208](https://github.com/pedropaulovc/prechips/issues/208).
-That proof must restore the cone to exit 0 before release 0.1.1; the authored
-plan and its requirements are unchanged.
+Release 0.1.1 includes #198 and #192 with that documented interim exit 4.
+Exit-0 restoration by #208 is deferred to release 0.1.2, alongside #199;
+the authored plan and its requirements are unchanged.
 
 See the example guide's [print and native acceptance limits](examples/README.md#print-and-native-acceptance-limits).
 
