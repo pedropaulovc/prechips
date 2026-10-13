@@ -418,6 +418,19 @@ def carried_stock_bundle(*, journal=False):
     return data
 
 
+def carried_rectangular_stock_bundle(*, journal=False):
+    """The same 2x2-mm native face, explicitly proved filled and rectangular."""
+    data = carried_stock_bundle(journal=journal)
+    data.kernel["faces"][0].update(fills_bbox=True, area_mm2=4.0)
+    source = data.plan["setups"][1]
+    source["ops"] = source["ops"][:1]
+    feature = data.plan["setups"][-1]["zero"]["z"]["face"]
+    data.kernel["setups"][source["id"]]["revolved"][feature].update(
+        radii_mm=[0.0, math.sqrt(2.0)], end_radii_mm=[math.sqrt(2.0), math.sqrt(2.0)]
+    )
+    return data
+
+
 def carried_two_level_bundle(
     *, units="mm", prepared="lower", lower_mm=0.0, upper_mm=10.0, source_grid_mm=0.005
 ):
@@ -439,10 +452,13 @@ def carried_two_level_bundle(
     data.inventory["machines"]["lathe"]["resolution_mm"] = source_grid_mm
     data.kernel["faces"][0]["bbox_mm"] = [-3.0, -3.0, lower_mm, 3.0, 3.0, lower_mm]
     data.kernel["faces"][1]["bbox_mm"] = [-1.0, -1.0, upper_mm, 1.0, 1.0, upper_mm]
+    data.kernel["faces"][0].update(fills_bbox=True, area_mm2=36.0)
+    data.kernel["faces"][1].update(fills_bbox=True, area_mm2=4.0)
     data.kernel["ops"][f"{source['id']}:10"].update(claimed_indices=[index], faced_side=1)
     data.kernel["setups"][source["id"]]["revolved"][feature].update(
         z_mm=[lower_mm, upper_mm],
-        end_radii_mm=[3.0, 1.0],
+        radii_mm=[0.0, math.sqrt(18.0)],
+        end_radii_mm=[math.sqrt(18.0), math.sqrt(2.0)],
         end_faces=[
             {"z_mm": lower_mm, "normal_z": 1},
             {"z_mm": upper_mm, "normal_z": 1},
@@ -459,7 +475,7 @@ def carried_two_level_bundle(
 
 def carried_supplied_component_bundle():
     """Existing sleeve/body route, with the sleeve face proven before any cut."""
-    data = carried_stock_bundle(journal=True)
+    data = carried_rectangular_stock_bundle(journal=True)
     source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
     feature = receiver["zero"]["z"]["face"]
     source["ops"] = []
@@ -572,8 +588,29 @@ def carried_native_source_plane_bundle(*, nominal=21.0055, source_grid=0.01, shi
     return data
 
 
+def carried_rectangular_source_plane_bundle(*, nominal=21.0055, source_grid=0.01, shift=0.0):
+    """Exact source/as-cut height with an actual axis-aligned 2x2 native rectangle."""
+    data = carried_native_source_plane_bundle(nominal=nominal, source_grid=source_grid, shift=shift)
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    data.features["frames"][source["frame"]].update(
+        origin=[0.0, 0.0, 0.0], x=[1.0, 0.0, 0.0], y=[0.0, 1.0, 0.0], z=[0.0, 0.0, 1.0]
+    )
+    data.features["frames"][receiver["frame"]].update(
+        origin=[0.0, 0.0, -shift], x=[0.0, -1.0, 0.0], y=[1.0, 0.0, 0.0], z=[0.0, 0.0, 1.0]
+    )
+    data.kernel["faces"][0].update(
+        bbox_mm=[-1.0, -1.0, nominal, 1.0, 1.0, nominal], fills_bbox=True, area_mm2=4.0
+    )
+    data.feature_definitions["hole"].update(at=[0.0, 0.0, nominal], axis=[0.0, 0.0, -1.0])
+    feature = receiver["zero"]["z"]["face"]
+    data.kernel["setups"][source["id"]]["revolved"][feature].update(
+        radii_mm=[0.0, math.sqrt(2.0)], end_radii_mm=[math.sqrt(2.0), math.sqrt(2.0)]
+    )
+    return data
+
+
 def carry_with_through_drill(*, aim_shift=0.0):
-    data = carried_stock_bundle()
+    data = carried_rectangular_stock_bundle()
     receiver = data.plan["setups"][-1]
     receiver["ops"].append(op(30, "ream", "hole", "reamer"))
     data.inventory["tools"]["reamer"] = {"kind": "reamer", "dia_mm": 0.9}
@@ -628,7 +665,7 @@ def carried_bbox_mill_bundle(*, mode="axial", flipped=False):
 
 def measured_native_retouch_bundle(*, bounded=True):
     """Synthetic measured primary zero followed by an ordinary paper retouch."""
-    data = carried_stock_bundle()
+    data = carried_rectangular_stock_bundle()
     receiver = data.plan["setups"][-1]
     face = receiver["zero"]["z"]["face"]
     receiver["ops"] = receiver["ops"][:1]
@@ -647,7 +684,7 @@ def measured_native_retouch_bundle(*, bounded=True):
 
 def carry_with_refaced_hole(*, bounded=True, later_setup=False):
     """Synthetic drill then whole re-face; a skim cannot restore lost material."""
-    data = carried_stock_bundle(journal=True)
+    data = carried_rectangular_stock_bundle(journal=True)
     source, bond = data.plan["setups"][1:3]
     first_face = source["ops"][0]
     reface = {**first_face, "op": 20}
@@ -693,7 +730,7 @@ def carry_with_refaced_hole(*, bounded=True, later_setup=False):
 
 @pytest.mark.parametrize("journal", [False, True], ids=["S3-C4-to-S8-CH", "S2-J3-to-S9-JH"])
 def test_a_whole_prepared_face_carries_through_bonding_in_its_new_frame(journal):
-    data = carried_stock_bundle(journal=journal)
+    data = carried_rectangular_stock_bundle(journal=journal)
     finding = evaluate(data)[-1]
     stands = 21.0 if journal else 0.0
     assert finding.status == "pass", finding.sentence
@@ -1003,7 +1040,7 @@ def test_a_component_supplied_plane_still_requires_an_above_touch(side):
 
 
 def test_a_plain_stock_supplied_native_face_keeps_its_existing_seed_behavior():
-    data = carried_stock_bundle()
+    data = carried_rectangular_stock_bundle()
     source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
     data.plan["stock"] = {"as_is_faces": ["#1/NORTH", "#2/SOUTH"]}
     source.update(stock_in="stock", ops=source["ops"][1:])
@@ -1216,7 +1253,7 @@ def test_a_carried_native_datum_types_height_plus_paper_once_on_the_safe_down_gr
     data = carried_native_datum_bundle()
     data.plan["setups"][-1]["zero"]["z"]["paper_mm"] = paper
     finding = evaluate(data)[-1]
-    assert finding.status == "pass", finding.sentence
+    assert finding.status == "unknown", finding.sentence
     row = finding.numbers["axes"]["z"]
     desired = 21.0055 + paper
     assert row["edge_mm"] == pytest.approx(21.0055, rel=0, abs=1e-9)
@@ -1224,9 +1261,8 @@ def test_a_carried_native_datum_types_height_plus_paper_once_on_the_safe_down_gr
     assert row["setting_residual_mm"] == pytest.approx(desired - typed)
     assert row["check_reading"] == pytest.approx(typed + 5.0)
     [touch] = finding.numbers["derived_touches"]
-    assert touch["edge_mm"] == pytest.approx(21.0055, rel=0, abs=1e-9)
-    assert touch["z_axis_set"] == typed
-    assert touch["setting_residual_mm"] == pytest.approx(desired - typed)
+    assert touch["z_axis_set"] == "unknown" and "credited_faces" not in touch
+    assert "no proven usable touch land" in finding.sentence
 
 
 @pytest.mark.parametrize(
@@ -1303,7 +1339,7 @@ def test_an_exact_source_native_plane_carries_without_an_oblique_bbox_or_datum_g
     if same_frame:
         data.plan["setups"][-1]["frame"] = "J3"
     finding = evaluate(data)[-1]
-    assert finding.status == "pass", finding.sentence
+    assert finding.status == "unknown", finding.sentence
     row = finding.numbers["axes"]["z"]
     assert row["credited_faces"] == ["#1/NORTH"]
     assert row["edge_mm"] == pytest.approx(21.01)
@@ -1311,8 +1347,8 @@ def test_an_exact_source_native_plane_carries_without_an_oblique_bbox_or_datum_g
     assert row["axis_set"] == 21.01
     assert row["setting_residual_mm"] == 0.0
     [touch] = finding.numbers["derived_touches"]
-    assert touch["z_axis_set"] == 21.01
-    assert touch["touch_exclusion_dia_mm"] == pytest.approx(0.3)
+    assert touch["z_axis_set"] == "unknown" and "credited_faces" not in touch
+    assert "no proven usable touch land" in finding.sentence
 
 
 @pytest.mark.parametrize(
@@ -1335,10 +1371,16 @@ def test_an_exact_source_native_plane_carries_without_an_oblique_bbox_or_datum_g
     ],
 )
 @pytest.mark.parametrize("route", ["primary-derived", "explicit-touch", "listed-retouch"])
+@pytest.mark.parametrize("topology", ["filled-rectangle", "unproved-oblique-outline"])
 def test_every_carried_contact_is_safe_down_from_the_producer_as_cut_height(
-    nominal, source_grid, receiving_grid, shift, physical, typed, route
+    nominal, source_grid, receiving_grid, shift, physical, typed, route, topology
 ):
-    data = carried_native_source_plane_bundle(nominal=nominal, source_grid=source_grid, shift=shift)
+    fixture = (
+        carried_rectangular_source_plane_bundle
+        if topology == "filled-rectangle"
+        else carried_native_source_plane_bundle
+    )
+    data = fixture(nominal=nominal, source_grid=source_grid, shift=shift)
     receiver = data.plan["setups"][-1]
     zero = receiver["zero"]["z"]
     face = zero["face"]
@@ -1358,7 +1400,9 @@ def test_every_carried_contact_is_safe_down_from_the_producer_as_cut_height(
         receiver["stock_state"] = {"top_z": nominal + shift, "top_feature": face}
         zero.update(face="top", retouch_after=[10])
     finding = evaluate(data)[-1]
-    assert finding.status == "pass", finding.sentence
+    assert finding.status == ("pass" if topology == "filled-rectangle" else "unknown"), (
+        finding.sentence
+    )
     primary = finding.numbers["axes"]["z"]
     row = (
         finding.numbers["derived_touches"][0]
@@ -1370,12 +1414,19 @@ def test_every_carried_contact_is_safe_down_from_the_producer_as_cut_height(
     setting = row["axis_set" if route == "listed-retouch" else "z_axis_set"]
     assert primary["edge_mm"] == pytest.approx(physical)
     assert primary["native_edge_mm"] == pytest.approx(nominal + shift)
-    assert primary["axis_set"] == typed == setting
-    assert row["edge_mm" if route != "listed-retouch" else "top_z"] == pytest.approx(physical)
+    assert primary["axis_set"] == typed
+    if topology == "filled-rectangle":
+        assert setting == typed
+        assert row["edge_mm" if route != "listed-retouch" else "top_z"] == pytest.approx(physical)
+    else:
+        assert setting == "unknown" and "credited_faces" not in row
+        assert "no proven usable touch land" in finding.sentence
+        assert "https://github.com/pedropaulovc/prechips/issues/208" in finding.sentence
     residual = physical - typed
     assert residual >= 0
     assert primary["setting_residual_mm"] == pytest.approx(residual)
-    assert row["setting_residual_mm"] == pytest.approx(residual)
+    if topology == "filled-rectangle":
+        assert row["setting_residual_mm"] == pytest.approx(residual)
     assert primary["check_reading"] == pytest.approx(typed + 5.0)
     assert primary["mirrored_reading"] == pytest.approx(typed - 5.0)
     # The authored native nominal is valid provenance, but typing high would
@@ -1386,7 +1437,7 @@ def test_every_carried_contact_is_safe_down_from_the_producer_as_cut_height(
 
 
 def test_same_setup_and_remounted_touches_agree_on_one_producer_as_cut_face():
-    data = carried_native_source_plane_bundle()
+    data = carried_rectangular_source_plane_bundle()
     source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
     face = receiver["zero"]["z"]["face"]
     source["ops"].append(op(20, "fit", face, "turner"))
@@ -1432,7 +1483,7 @@ def test_unknown_or_nonmatching_producer_never_supplies_a_nominal_as_cut_height(
 
 
 def test_keep_out_bounds_are_compared_with_the_producer_as_cut_plane_not_its_native_nominal():
-    data = carried_stock_bundle(journal=True)
+    data = carried_rectangular_stock_bundle(journal=True)
     source, bond, receiver = data.plan["setups"][1:]
     source["ops"] = source["ops"][:1]
     source["ops"][0]["to_z"] = 0.0055
@@ -1489,11 +1540,116 @@ def test_source_native_plane_evidence_cannot_be_missing_misbound_flipped_or_wron
 def test_axial_plunges_leave_a_proven_plane_with_a_cumulative_touch_exclusion(aim_shift):
     data = carry_with_through_drill(aim_shift=aim_shift)
     finding = evaluate(data)[-1]
-    assert finding.status == "pass", finding.sentence
+    assert finding.status == ("unknown" if aim_shift else "pass"), finding.sentence
     before = {row["before_ops"][0]: row for row in finding.numbers["derived_touches"]}
     assert before[20]["touch_exclusion_dia_mm"] == pytest.approx(0.3 + 2 * aim_shift)
-    assert before[30]["touch_exclusion_dia_mm"] == pytest.approx(0.8 + 2 * aim_shift)
+    assert before[20]["credited_faces"] == ["#1/NORTH"]
+    if aim_shift:
+        from prechips.rules.zero_recipe import _axial_cut_footprint
+
+        receiver = data.plan["setups"][-1]
+        point, radius = _axial_cut_footprint(data, receiver, receiver["ops"][1])
+        assert 2 * (radius + math.hypot(*point[:2])) == pytest.approx(1.17)
+        assert before[30]["z_axis_set"] == "unknown" and "credited_faces" not in before[30]
+        assert "no proven usable touch land" in finding.sentence
+    else:
+        assert before[30]["touch_exclusion_dia_mm"] == pytest.approx(0.8)
+        assert before[30]["credited_faces"] == ["#1/NORTH"]
+
+
+@pytest.mark.parametrize(
+    ("reach", "status"),
+    [(0.15, "pass"), (0.49999, "pass"), (0.499998, "unknown"), (0.5, "unknown")],
+)
+def test_a_genuine_filled_rectangle_needs_the_existing_half_mm_square_witness(reach, status):
+    data = carried_rectangular_stock_bundle()
+    receiver = data.plan["setups"][-1]
+    receiver["zero"]["z"]["tool"] = "drill"
+    receiver["ops"] = [op(10, "drill", "hole", "drill"), op(20, "ream", "hole", "reamer")]
+    data.inventory["tools"]["drill"]["dia_mm"] = 2 * reach
+    data.inventory["tools"]["reamer"] = {"kind": "reamer", "dia_mm": 0.9}
+    finding = evaluate(data)[-1]
+    assert finding.status == status, finding.sentence
+    assert finding.numbers["axes"]["z"]["axis_set"] == 0.0
+    [touch] = finding.numbers["derived_touches"]
+    if status == "pass":
+        assert touch["z_axis_set"] == 0.0 and touch["credited_faces"] == ["#1/NORTH"]
+        assert touch["touch_exclusion_dia_mm"] == pytest.approx(2 * reach)
+    else:
+        assert touch["z_axis_set"] == "unknown" and "credited_faces" not in touch
+        assert "no proven usable touch land" in finding.sentence
+        assert "S8 op 10" in finding.sentence and "0.5 mm square" in finding.sentence
+
+
+def test_rectangular_touch_land_keeps_the_union_of_prior_and_smaller_plunge_exclusions():
+    data = carried_rectangular_stock_bundle()
+    receiver = data.plan["setups"][-1]
+    receiver["zero"]["z"]["tool"] = "drill"
+    receiver["ops"] = [
+        op(10, "drill", "hole", "drill"),
+        op(20, "spot", "hole", "centre/1", depth_mm=0.15),
+        op(30, "ream", "hole", "reamer"),
+    ]
+    data.inventory["tools"]["reamer"] = {"kind": "reamer", "dia_mm": 0.9}
+    data.kernel["ops"]["S8:30"] = {"claimed_indices": [3]}
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    before = {row["before_ops"][0]: row for row in finding.numbers["derived_touches"]}
+    assert before[20]["touch_exclusion_dia_mm"] == pytest.approx(0.8)
+    assert before[30]["touch_exclusion_dia_mm"] == pytest.approx(0.8)
     assert all(row["credited_faces"] == ["#1/NORTH"] for row in before.values())
+
+
+@pytest.mark.parametrize(
+    ("inner", "reach"),
+    [(0.0, 0.15), (5.0, 0.15), (9.999, 0.15), (0.0, 9.999)],
+    ids=["ample-round", "ample-annular-extrema", "original-tiny-annulus", "plunge-tiny-annulus"],
+)
+@pytest.mark.parametrize("shape_fact", [False, None], ids=["nonrectangular", "missing-shape"])
+def test_radial_extrema_never_prove_usable_round_or_holed_touch_land(inner, reach, shape_fact):
+    data = carried_stock_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    source["ops"] = source["ops"][:1]
+    fact = data.kernel["setups"][source["id"]]["revolved"]["crank_boss_faces"]
+    fact.update(radii_mm=[inner, 10.0], end_radii_mm=[10.0, 10.0])
+    data.kernel["faces"][0].update(
+        bbox_mm=[-10.0, -10.0, -21.3753, 10.0, 10.0, -21.3753],
+        area_mm2=math.pi * (100.0 - inner * inner),
+        fills_bbox=False,
+    )
+    if shape_fact is None:
+        del data.kernel["faces"][0]["fills_bbox"]
+    receiver["zero"]["z"]["tool"] = "drill"
+    receiver["ops"] = [op(10, "drill", "hole", "drill"), op(20, "ream", "hole", "reamer")]
+    data.inventory["tools"]["drill"]["dia_mm"] = 2 * reach
+    data.inventory["tools"]["reamer"] = {"kind": "reamer", "dia_mm": 0.9}
+    from prechips.rules.zero_recipe import _axial_cut_footprint
+
+    point, radius = _axial_cut_footprint(data, receiver, receiver["ops"][0])
+    assert point[:2] == [0.0, 0.0]
+    assert radius == pytest.approx(reach)
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert finding.numbers["axes"]["z"]["axis_set"] == 0.0
+    [touch] = finding.numbers["derived_touches"]
+    assert touch["z_axis_set"] == "unknown" and "credited_faces" not in touch
+    assert "no proven usable touch land" in finding.sentence
+    assert "S8 op 10" in finding.sentence and "crank_boss_faces" in finding.sentence
+    assert "https://github.com/pedropaulovc/prechips/issues/208" in finding.sentence
+
+
+def test_a_nonrectangular_native_datum_outline_cannot_borrow_its_radius_for_touch_land():
+    data = carried_native_datum_bundle()
+    for facts in data.kernel["setups"].values():
+        for edge in facts["render_scene"]["datums"][0]["outline_mm"]:
+            for point in edge:
+                point[0] *= 10.0
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown"
+    assert finding.numbers["axes"]["z"]["axis_set"] == pytest.approx(21.005)
+    [touch] = finding.numbers["derived_touches"]
+    assert touch["z_axis_set"] == "unknown" and "credited_faces" not in touch
+    assert "no proven usable touch land" in finding.sentence
 
 
 @pytest.mark.parametrize(
@@ -1516,7 +1672,7 @@ def test_resolved_combined_drill_member_bounds_its_engaged_mouth_and_aim_shift(
     assert tool["kind"] == "center_drill_set"
     assert tool["pilot_len_mm"] == 0.2
     finding = evaluate(data)[-1]
-    assert finding.status == "pass", finding.sentence
+    assert finding.status == ("unknown" if aim_shift else "pass"), finding.sentence
     touch = finding.numbers["derived_touches"][0]
     assert touch["touch_exclusion_dia_mm"] == pytest.approx(diameter + 2 * aim_shift)
 
@@ -1533,7 +1689,7 @@ def test_combined_drill_footprint_and_blind_depth_use_the_same_explicit_spot_dep
     receiver["ops"][0]["depth_mm"] = depth
     data.feature_definitions["hole"]["depth"] = [0.2, 1.0]
     finding = evaluate(data)[-1]
-    assert finding.status == "pass", finding.sentence
+    assert finding.status == ("unknown" if aim_shift else "pass"), finding.sentence
     endpoint_finding = next(row for row in evaluate_depth(data) if row.subject == "hole")
     spot_endpoint = next(
         row
@@ -1709,7 +1865,7 @@ def test_remaining_plane_area_uses_that_native_end_radius_not_another_end():
 
 
 def test_a_cut_on_an_independent_prebond_branch_does_not_mutate_the_carried_face():
-    data = carried_stock_bundle()
+    data = carried_rectangular_stock_bundle()
     body = data.plan["setups"][0]
     data.plan["setups"][:2] = [data.plan["setups"][1], body]
     body["machine"] = "mill"
@@ -1721,7 +1877,7 @@ def test_a_cut_on_an_independent_prebond_branch_does_not_mutate_the_carried_face
 
 
 def test_an_existing_native_parting_face_is_also_a_valid_carry_producer():
-    data = carried_native_source_plane_bundle()
+    data = carried_rectangular_source_plane_bundle()
     source = data.plan["setups"][1]
     data.inventory["tools"]["parter"] = {"kind": "parting_blade", "blade_width_mm": 1.0}
     source["zero"]["x"]["tool"] = "parter"
@@ -1753,14 +1909,15 @@ def test_every_carried_touch_route_retains_the_same_bounded_exclusion(route):
         receiver["stock_state"] = {"top_z": 0.0, "top_feature": face}
         receiver["zero"]["z"].update(face="top", retouch_after=[20])
     finding = evaluate(data)[-1]
-    assert finding.status == "pass", finding.sentence
+    assert finding.status == "unknown", finding.sentence
     row = (
         finding.numbers["tool_touches"][0]
         if route == "explicit-touch"
         else finding.numbers["retouch"][0]
     )
-    assert row["touch_exclusion_dia_mm"] == pytest.approx(1.17)
-    assert row["credited_faces"] == ["#1/NORTH"]
+    assert row["z_axis_set" if route == "explicit-touch" else "axis_set"] == "unknown"
+    assert "credited_faces" not in row
+    assert "no proven usable touch land" in finding.sentence
 
 
 def test_a_supplied_native_face_with_known_outward_normal_cannot_borrow_an_upward_bbox():

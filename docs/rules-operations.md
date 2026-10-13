@@ -166,7 +166,51 @@ wrong-facing member remains unknown. A single native plane retains its
 existing physical/native edge contradiction check and its proved physical
 standing height.
 
+## Usable carried touch land after a plunge (`zero_check`)
 
+A bounded axial plunge that intersects a carried face does not preserve a
+usable touch merely because its radial reach is smaller than a reported outer
+radius. A nonempty annulus can be too thin for the paper/tool contact. More
+fundamentally, the existing native `revolved` radius extrema and outward-plane
+normal do not prove circular or annular topology: horizontal noncircular
+patches can have the same facts. Sampled datum outlines and a model AABB are
+not substitutes for that proof, nor do they rule out the face's original hole.
+
+The supported overlapping-plunge preservation path is the existing exact
+rectangular witness:
+
+- The selected native face is a single `Plane` with `fills_bbox = true`.
+  This native fact requires a filled, one-wire, straight-sided rectangle;
+  round, holed, notched and L-shaped faces do not qualify.
+- Its transformed box is flat in setup Z and axis-aligned in setup X/Y. The
+  existing `FILL_MARGIN_MM` and corner-tolerance shrink keeps the witness
+  inside the area actually proved filled.
+- The existing `TOUCH_LAND_MM` policy requires a **0.5 mm by 0.5 mm square**
+  outside the bounded plunge exclusion. The plunge's conservative engagement,
+  location/aim and DRO-grid envelope are still used, not the nominal tool
+  diameter alone.
+- Prior and current exclusions remain cumulative. A conservative square
+  envelope about the rigidly carried source-plane centre encloses all the
+  removed radial regions; its reach is the maximum of the prior reach and
+  the current plunge's radius plus centre offset. The existing `_uncut`
+  witness must lie outside that whole envelope, not merely outside the last
+  smaller cut. Re-facing does not erase prior unknown cut-area debt.
+
+A missing filled-rectangle witness or no remaining 0.5-mm square leaves the
+subsequent contact **unknown**, with the setup/op and named contact face in
+the usable-land debt. Even an ample reported radius on a round or holed face
+remains unknown after an overlapping plunge. Exact native circle/annulus
+topology and original-inner-hole evidence are tracked in
+[issue #208](https://github.com/pedropaulovc/prechips/issues/208); this rule
+does not invent those facts or add a native schema field.
+
+The initial contact before the plunge remains eligible when its plane,
+presence, outward normal, lineage and touch side are proved. Proven disjoint
+cuts retain the existing preservation path. Supported rectangular contacts
+still report their cumulative exclusion diameter, and the traveler keeps its
+outward-rounded exclusion note; unsupported contacts print no credited face
+or numeric Axis Set. This is a checker limitation/stop, not a claim that no
+physical touch patch exists.
 
 ## `blind_depth` (tip endpoints)
 
