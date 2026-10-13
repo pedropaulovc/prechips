@@ -16,6 +16,9 @@ measurement checklist. It checks declared facts and sampled B-rep measurements,
 not a CAM simulation or a CAD model's machinability, and does not generate
 toolpaths.
 
+Setup and profile pictures follow the [render geometry contract](docs/rules-geometry.md#renders): a separate paint-only finished-outline stream uses scale-aware deflection requested within 0.5 px at the maximum fourfold Y stretch, without a fixed 0.001 mm floor; coincident-only profiles have no profile-derived bound and guide views retain their bounded scale. The fine discretization has no coarser retry; an exception fails the job with error status. This bounds the request, not an independently certified vendor polyline.
+[Traveler render binding](docs/report-and-telemetry.md#kernel-renders) preserves main's accepted leader placement: the original ordinary-tolerance outline samples, in their original edge order, remain every layout, viewport and anchor input. Fine samples affect only outline painting. PR #198 retains tessellation accuracy only; [#211](https://github.com/pedropaulovc/prechips/issues/211) remains open for a dedicated future leader PR. This changes no authored coordinates, cutting values, inventory facts or policy verdicts.
+
 The reference bundles include consumer-exported geometry. With `approach = "rotary"`,
 M4 evaluates horizontal dividing-head samples presented at top dead centre to a vertical
 cutter, with window-bounded radial and wall-tangent cutter-column removal

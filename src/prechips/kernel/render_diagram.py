@@ -64,6 +64,24 @@ _EVERY_PASS = 8
 # The least height a profile sketch's plot keeps between its key rows; a picture whose
 # sketches cannot all keep it grows taller.
 _SKETCH_PLOT_MIN = 30
+_SKETCH_SPAN_EPSILON_MM = 1e-9
+# Finished-outline chords stay within half a pixel at the largest possible profile-sketch
+# scale. A one-op band may use the full page width and grow to this height.
+_SKETCH_PLOT_WIDTH_PX = 1600 - 2 * 32 - 72
+_SKETCH_CHORD_ERROR_PX = 0.5
+_SKETCH_Y_EXAG_MAX = 4
+_SKETCH_Y_EXAG_MIN_PLOT_PX = 24
+_SKETCH_Y_EXAG_MIN_WIDTH_PX = 60
+# Guide details fit a frame padded by at least 1 mm per side into this 720 px viewport.
+_DETAIL_VIEW_LEFT_PX = 440
+_DETAIL_VIEW_RIGHT_PX = 1160
+_GUIDE_FRAME_PAD_MM = 1.0
+_DETAIL_MAX_SCALE_PX_PER_MM = (
+    0.9 * (_DETAIL_VIEW_RIGHT_PX - _DETAIL_VIEW_LEFT_PX) / (2 * _GUIDE_FRAME_PAD_MM)
+)
+_DETAIL_OUTLINE_DEFLECTION_MM = _SKETCH_CHORD_ERROR_PX / _DETAIL_MAX_SCALE_PX_PER_MM
+_DRAWN_OUTLINE_CELL_PX = 100  # Quantize projected coincidences to 0.01 px.
+
 # The legend a path sketch prints once it has drawn a raster's lifted return: the cycle
 # is one way (feed a pass, lift, rapid back to the next pass's start).
 _RETURNS = "DASHED: LIFTED RETURN"
@@ -231,6 +249,67 @@ def _xy_projector(bounds, centre, scales):
         )
 
     return project
+
+
+def _profile_outline_deflection(paths, waypoints):
+    """Maximum model-space chord error for a half-pixel profile-sketch outline.
+
+    Every positive XY span contributes, using the plot's denominator and maximum
+    Y stretch; only coincident points supply no sketch bound. There is no physical
+    tolerance floor. Path ``xy`` values are point lists; waypoint ``xy`` values are
+    single points.
+    """
+    bounds = {}
+    for items in (paths, waypoints):
+        for item in items:
+            points = item.get("xy")
+            if not isinstance(points, (list, tuple)):
+                continue
+            if len(points) >= 2 and all(isinstance(value, (int, float)) for value in points[:2]):
+                points = (points,)
+            extent = bounds.setdefault(
+                str(item.get("op", "")), [math.inf, math.inf, -math.inf, -math.inf]
+            )
+            for point in points:
+                if not isinstance(point, (list, tuple)) or len(point) < 2:
+                    continue
+                x, y = point[:2]
+                if not (
+                    isinstance(x, (int, float))
+                    and isinstance(y, (int, float))
+                    and math.isfinite(x)
+                    and math.isfinite(y)
+                ):
+                    continue
+                extent[0] = min(extent[0], x)
+                extent[1] = min(extent[1], y)
+                extent[2] = max(extent[2], x)
+                extent[3] = max(extent[3], y)
+
+    scale = 0.0
+    for xmin, ymin, xmax, ymax in bounds.values():
+        span_x, span_y = xmax - xmin, ymax - ymin
+        if span_x <= 0 and span_y <= 0:
+            continue
+        if not (math.isfinite(span_x) and math.isfinite(span_y)):
+            raise ValueError("profile sketch spans must be finite")
+        scale_x = _SKETCH_Y_EXAG_MAX * _SKETCH_PLOT_WIDTH_PX / max(span_x, _SKETCH_SPAN_EPSILON_MM)
+        # The base scale uses epsilon, but Y stretch fits the actual positive span.
+        # Thus Y is bounded by both 4H/epsilon and H/span_y, even below epsilon.
+        scale_y = _PANEL_MAX_HEIGHT / max(span_y, _SKETCH_SPAN_EPSILON_MM / _SKETCH_Y_EXAG_MAX)
+        # A narrower multi-op panel may enable Y exaggeration even when a full-width
+        # estimate does not; bound every sketch by the renderer's maximum stretch.
+        scale = max(scale, min(scale_x, scale_y))
+    return _SKETCH_CHORD_ERROR_PX / scale if scale else None
+
+
+def _nominal_outline_deflection(paths, waypoints):
+    """Model-space chord error safe for both profile plots and zoomed guide-axis details."""
+    sketch_bound = _profile_outline_deflection(paths, waypoints)
+    return min(
+        _DETAIL_OUTLINE_DEFLECTION_MM,
+        sketch_bound if sketch_bound is not None else _DETAIL_OUTLINE_DEFLECTION_MM,
+    )
 
 
 def _centre(box):
@@ -623,7 +702,7 @@ def _keys_crowd(points, scale):
 
 
 def _dash_segments(polylines, project, clip=None):
-    """Clipped on-dash fragments, retaining phase across tessellated chords of an edge."""
+    """Clipped on-dash fragments, retaining phase across tessellated chords of a path."""
     for polyline in polylines:
         pixels = [project(p) for p in polyline]
         phase = 0.0
@@ -649,6 +728,118 @@ def _dash_segments(polylines, project, clip=None):
                         yield segment
                 distance += run
                 phase = (phase + run) % 14
+
+
+def _identity_projection(point):
+    return point
+
+
+def _outline_cell_candidates(grid, start, end):
+    """Cells in a one-cell-wide chord strip, without scanning its bounding rectangle."""
+    size = _DRAWN_OUTLINE_CELL_PX  # One pixel per bin; cells themselves remain 0.01 px.
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    for x_bin in range((start[0] - 1) // size, (end[0] + 1) // size + 1):
+        if dx:
+            # A qualifying cell's perpendicular foot can be one cell outside its bin.
+            # Intersect that expanded X slab with the chord, then bound Y exactly with
+            # integer floor/ceil division. Padding Y by one cell includes both slopes.
+            low_x = max(start[0], x_bin * size - 1)
+            high_x = min(end[0], (x_bin + 1) * size)
+            low_y = start[1] * dx + dy * (low_x - start[0])
+            high_y = start[1] * dx + dy * (high_x - start[0])
+            first_y = (min(low_y, high_y) // dx - 1) // size
+            last_y = ((max(low_y, high_y) + dx - 1) // dx + 1) // size
+        else:
+            first_y = (min(start[1], end[1]) - 1) // size
+            last_y = (max(start[1], end[1]) + 1) // size
+        for y_bin in range(first_y, last_y + 1):
+            yield from grid.get((x_bin, y_bin), ())
+
+
+def _drawn_outline_paths(polylines, project):
+    """Join unique nominal chords in the rendered plane before carrying their dash phase.
+
+    Splitting at every existing vertex makes collinear overlaps share one path. Branches
+    remain path endpoints because, without source face loops, their continuation is ambiguous.
+    """
+    where, chords = {}, set()
+    for line in polylines:
+        points = []
+        for point in line:
+            pixel = tuple(float(value) for value in project(point))
+            cell = tuple(round(value * _DRAWN_OUTLINE_CELL_PX) for value in pixel)
+            if cell not in where or pixel < where[cell]:
+                where[cell] = pixel
+            if not points or points[-1] != cell:
+                points.append(cell)
+        for start, end in zip(points, points[1:], strict=False):
+            if start != end:
+                chords.add((start, end) if start < end else (end, start))
+    if not chords:
+        return []
+
+    grid = defaultdict(list)
+    for vertex in where:
+        grid[(vertex[0] // _DRAWN_OUTLINE_CELL_PX, vertex[1] // _DRAWN_OUTLINE_CELL_PX)].append(
+            vertex
+        )
+    pieces = set()
+    for start, end in sorted(chords):
+        dx, dy = end[0] - start[0], end[1] - start[1]
+        length_squared = dx * dx + dy * dy
+        cuts = []
+        for vertex in _outline_cell_candidates(grid, start, end):
+            vx, vy = vertex[0] - start[0], vertex[1] - start[1]
+            along = vx * dx + vy * dy
+            if 0 < along < length_squared and (vx * dy - vy * dx) ** 2 <= length_squared:
+                cuts.append((along, vertex))
+        cuts.sort()
+        stops = [start, *(vertex for _, vertex in cuts), end]
+        pieces.update((a, b) if a < b else (b, a) for a, b in zip(stops, stops[1:], strict=False))
+
+    edge_cells = sorted(pieces)
+    edges = [(where[start], where[end]) for start, end in edge_cells]
+    incidence = defaultdict(list)
+    for index, (start, end) in enumerate(edge_cells):
+        incidence[start].append(index)
+        incidence[end].append(index)
+
+    unvisited = set(range(len(edges)))
+    branch_starts = sorted(
+        (vertex, index)
+        for vertex, connected in incidence.items()
+        if len(connected) != 2
+        for index in connected
+    )
+    branch_index = 0
+    paths = []
+    while unvisited:
+        while branch_index < len(branch_starts) and branch_starts[branch_index][1] not in unvisited:
+            branch_index += 1
+        if branch_index < len(branch_starts):
+            start, index = branch_starts[branch_index]
+            branch_index += 1
+        else:
+            index = min(unvisited)
+            start = edge_cells[index][0]
+        first, last = edge_cells[index]
+        path = list(edges[index] if first == start else reversed(edges[index]))
+        unvisited.remove(index)
+        current = last if first == start else first
+        while len(incidence[current]) == 2:
+            next_edges = [edge for edge in incidence[current] if edge in unvisited]
+            if not next_edges:
+                break
+            next_index = next_edges[0]
+            first, last = edge_cells[next_index]
+            next_path = edges[next_index]
+            if first != current:
+                next_path = tuple(reversed(next_path))
+            path.extend(next_path[1:])
+            unvisited.remove(next_index)
+            current = last if first == current else first
+        paths.append(tuple(path))
+    return paths
 
 
 def _dashed(canvas, polylines, project, colour, clip=None, halo_width=0):
@@ -783,6 +974,13 @@ class _Diagram:
         self.nominal = [line for line in spec.get("nominal_outline_mm", []) if len(line) >= 2]
         if self.view == "lathe":
             self.nominal = []
+        # Preserve main's geometry inputs for layout and every leader choice.
+        # Fine samples are explicit paint-only data, never a legacy fallback.
+        self.render_nominal = (
+            [line for line in spec["nominal_render_outline_mm"] if len(line) >= 2]
+            if self.nominal
+            else []
+        )
         self.is_vise = any(_role(c) in ("fixed_jaw", "moving_jaw", "jaw") for c in self.components)
         self.is_chuck = self.view == "lathe" or any(
             _role(c).startswith("chuck") for c in self.components
@@ -1220,7 +1418,8 @@ class _Diagram:
                 )
 
     def _nominal_overlay(self, project, clip=None, faint=False):
-        _dashed(self.canvas, self.nominal, project, _NOMINAL_FAINT if faint else _BLUE, clip)
+        paths = _drawn_outline_paths(self.render_nominal, project)
+        _dashed(self.canvas, paths, _identity_projection, _NOMINAL_FAINT if faint else _BLUE, clip)
 
     def _component_label(self, component):
         """A holding component's printed name: role groups, jaw names and plural kits."""
@@ -2122,10 +2321,13 @@ class _Diagram:
         the scale its width allows, declares the Y exaggeration it is drawn at."""
         xmin, ymin, xmax, ymax = _bounds(points)
         span_x, span_y = xmax - xmin, ymax - ymin
-        factor = (width - 72) / max(span_x, 1e-9)
+        factor = (width - 72) / max(span_x, _SKETCH_SPAN_EPSILON_MM)
         lines = 0
-        if 0 < span_y * factor < 24 and span_x * factor >= 60:
-            lines = len(_wrap(self.canvas, "Y EXAG x4", width - 16))
+        if (
+            0 < span_y * factor < _SKETCH_Y_EXAG_MIN_PLOT_PX
+            and span_x * factor >= _SKETCH_Y_EXAG_MIN_WIDTH_PX
+        ):
+            lines = len(_wrap(self.canvas, f"Y EXAG x{_SKETCH_Y_EXAG_MAX}", width - 16))
         widths = [_badge_width(self.canvas, label) for label, _ in keys]
         up, down = _band_rows([(x, -y) for _, (x, y) in keys], widths, width - 12)
         return lines, up, down
@@ -2155,11 +2357,14 @@ class _Diagram:
         plot_top = band_top + _BADGE_PITCH * up + 6
         plot_bottom = bottom - _BADGE_PITCH * down - 6
         room = max(plot_bottom - plot_top, _SKETCH_PLOT_MIN)
-        factor = min((width - 72) / max(span_x, 1e-9), room / max(span_y, 1e-9))
+        factor = min(
+            (width - 72) / max(span_x, _SKETCH_SPAN_EPSILON_MM),
+            room / max(span_y, _SKETCH_SPAN_EPSILON_MM),
+        )
         factor_y = factor
         if lines:
             # Limit graphic distortion even when the key bands leave ample space.
-            stretch = math.floor(min(room / (span_y * factor), 4))
+            stretch = math.floor(min(room / (span_y * factor), _SKETCH_Y_EXAG_MAX))
             if stretch > 1:
                 factor_y = factor * stretch
                 exaggeration = f"Y EXAG x{_mm(stretch)}"
@@ -3071,7 +3276,7 @@ def _detail_viewport(frame, camera, extra=0, top=100):
     """The detail band's viewport: full width, and only as tall as the framed geometry
     needs at that width, between the room its keys need and the full band, plus
     ``extra`` rows the keys turned out to need; ``top`` below the band's header."""
-    left, right = 440, 1160
+    left, right = _DETAIL_VIEW_LEFT_PX, _DETAIL_VIEW_RIGHT_PX
     top = max(top, 200 + _BADGE_PITCH)
     xs = [_dot3(p, camera[0]) for p in _corners(frame)]
     ys = [_dot3(p, camera[1]) for p in _corners(frame)]
@@ -3548,7 +3753,7 @@ class _GuideView(_HoldingDetail):
             points.append(self.tail)
         low = [min(p[i] for p in points) for i in range(3)]
         high = [max(p[i] for p in points) for i in range(3)]
-        pads = [0.05 * (high[i] - low[i]) + 1.0 for i in range(3)]
+        pads = [0.05 * (high[i] - low[i]) + _GUIDE_FRAME_PAD_MM for i in range(3)]
         frame = [low[i] - pads[i] for i in range(3)] + [high[i] + pads[i] for i in range(3)]
         meshes = [tuple(mesh) for mesh in guide["meshes"]]
         # Header space belongs to this view, not to the setup's label lanes.
@@ -3566,6 +3771,11 @@ class _GuideView(_HoldingDetail):
         super().__init__(meshes, spec, frame, camera, gain, (1, 1), extra, top)
         self.gain = self.canvas.scale / main_scale
         self.nominal = [line for line in spec.get("nominal_outline_mm", []) if len(line) >= 2]
+        self.render_nominal = (
+            [line for line in spec["nominal_render_outline_mm"] if len(line) >= 2]
+            if self.nominal
+            else []
+        )
 
     def _title(self):
         nouns = {name.rsplit(" ", 1)[-1] for name in self.names}

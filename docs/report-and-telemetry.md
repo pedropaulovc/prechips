@@ -119,6 +119,46 @@ reliefs without hiding the full stock length in the main view. Mill/custom
 views overlay a dashed **nominal part outline**, including behind arriving
 stock, solely to locate the drawing relative to pads, pins and coordinate keys.
 That outline is never a claim that the supply already has the finished shape.
+For every positive-span profile sketch, the paint-only finished-outline stream
+requests at most `0.5 / S` mm at the conservative maximum render scale `S`, including the
+plot's `1e-9` mm numerical denominator and maximum fourfold Y exaggeration.
+There is no physical deflection floor or tiny-positive-span exemption; only
+coincident points (or no finite points) lack a sketch bound. An unrepresentable
+span is refused. The request also retains the `0.5 / 324` mm guide-axis detail
+bound when no sketch supplies one. See the
+[rendering scale contract](rules-geometry.md#renders) for the formula.
+The native adapter captures `nominal_outline_mm` first with main's exact ordinary
+`Deflection=tolerance` samples and edge order, then captures
+`nominal_render_outline_mm` with the bounded `Deflection`, with no coarser retry.
+A native precision exception escapes setup rendering and becomes
+`run_job`'s `status: "error"` with its reason, not a PNG or successful cache entry.
+The mathematical request bound does not independently certify the vendor's
+returned polyline; native support for very fine tolerances is separate.
+Projected outline coincidences retain 0.01-pixel quantization and the canonical
+minimum floating coordinate in each cell. One two-dimensional, one-pixel-bin
+index contains every cell, including collapsed source edges. Each chord queries
+only its intersected strip, conservatively padded by one quantized cell, then
+uses the exact existing along/cross-product test before sorting cuts and walking
+paths. Index construction is O(V); candidate discovery costs the number of strip
+bins visited plus their stored cells, not all vertices in an X range or a
+diagonal's bounding rectangle. Cut and path ordering remain deterministic.
+The two streams have distinct consumers. `nominal_outline_mm` alone supplies
+nominal viewport fitting, bounds, layout, badges and every leader choice.
+`nominal_render_outline_mm` supplies only outline painting in setup/isometric/
+section views, guide-axis details and profile plots. A spec with nominal geometry
+requires the explicit fine field; a missing field is an error rather than a silent
+legacy painting fallback. Absence of nominal geometry remains legitimate.
+Finished-outline callouts preserve main's accepted placement and exact selection
+algorithm: the original primary point assigns the lane, and every original
+ordinary-tolerance vertex remains eligible. The guide view likewise retains main's
+original projected primary point and all legacy vertices, including offscreen
+inputs; painting alone is clipped to its panel. No native-only anchor selection,
+foreign-dash crossing filter, fallback pool or new landing debt is retained.
+Fine geometry and dash phase may change without changing leader endpoints or layout.
+Guide-rim callouts also keep their existing placement.
+PR #198 retains tessellation accuracy only;
+[#211](https://github.com/pedropaulovc/prechips/issues/211) remains open for a
+dedicated future leader PR, not a fix or waiver in this change.
 Selected cutters use the traveler's short human tool names. A separate feed
 arrow, when the plan declares its direction, is a direction symbol, not a path.
 An unresolved saw cut plane produces a plain STOP annotation and retains its

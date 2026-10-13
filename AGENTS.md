@@ -252,8 +252,20 @@ separate acceptance work. Do not claim them complete without observation.
 After a change to what the traveler prints (layout, wording, pictures, tables),
 run the blind machinist review on each affected example traveler with the other
 model family from the author: `uv run scripts/machinist_review.py --reviewer
-<codex|claude> --traveler out/<bundle>` (or `--bundle examples/<b>/plan.toml`).
-It passes only on a blind `CLEAR` with no blocker, clutter or clarity finding;
-fix the plan or the traveler, never the prompt, to get there. It is a dev tool
+<codex|claude> --traveler out/<bundle>` (or `--bundle examples/<b>/plan.toml`,
+or the same printed document via `--pdf`). For render-only changes, run the same
+blind gate and unchanged rubric on main and the proposed output, with complete
+page coverage (split large PDFs into bounded chunks and aggregate the findings
+when provider limits prevent inspection). Attribute each affected traveler's
+findings to introduced, baseline or fixed issues; reviewer mention differences
+alone do not prove a regression or a fix. Run randomized paired A/B blind
+reviews of changed pictures against main; each current picture must be no worse
+than main. A current-only minor observation is non-gating when the reviewer
+prefers current overall: record it with its crop in the PR and a follow-up issue.
+Negative-control fixtures are not required to reach `CLEAR`. Track baseline
+defects in grouped issues, and fix every introduced gating defect before shipping.
+Other printed-content changes pass only on a blind
+`CLEAR` with no blocker, clutter or clarity finding. Fix the plan or traveler,
+never the prompt, to pass. The blind review is a dev tool
 that calls a hosted model, not a check, so the no-network rule for checks above
 is untouched.

@@ -295,6 +295,7 @@
   "Brown/purple: holding. Green: selected tool and approach."
  ],
  "nominal_outline_mm": [],
+ "nominal_render_outline_mm": [],
  "notes": [],
  "paths": [],
  "preload": null,

@@ -64327,7 +64327,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "b5754613aed83ca71a9a6c4d40d34e76029257cdfc0a36f69fb95a01539ec046",
+  "hash": "4593a489813171c33af9fcd6d94cc7e543d8eec5352a21912c301ff2b43bfa99",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -64367,11 +64367,11 @@
     },
     "render:S1": {
       "path": "setup-S6.png",
-      "sha256": "77f5b13040e75867bdb910c030b4bdabe18310e7d06ac8aa63b35c6d70ffbc23"
+      "sha256": "86216076cdb1f103049185b23dfd4058a5ba072a8ac6fda768ceb8d92745878a"
     },
     "render:S2": {
       "path": "setup-S7.png",
-      "sha256": "4f8c7dcf6dad8c5f68c8a7dd5d481ca65d470e27af5592d8e09c4d6dfdcd7dc7"
+      "sha256": "eccda3acac220e0b345860dc708506fc8eaa14ee90febc19fabb42aebab27e0e"
     },
     "render:S3": {
       "path": "setup-S8.png",
@@ -64379,11 +64379,11 @@
     },
     "render:S3F": {
       "path": "setup-S9.png",
-      "sha256": "4a139968147eb67d2813110158cb52d123a14a5bc4f0f3beef536a3a320bc15b"
+      "sha256": "aaa6626a78aa3719475bf38edb2febd006644eb6de4fb8a56867cd84b9310bea"
     },
     "render:S4": {
       "path": "setup-S10.png",
-      "sha256": "b739aac0d1d356b93d4e26557c8cda1e3f1ad46ed952cbe6c11483f84d5053fa"
+      "sha256": "b55671d4b46e7cdd811141c5addede0f18a9c1602e61f855836ec1affd2eb967"
     },
     "render:S4:50:position_dia": {
       "path": "setup-S10-op50-position_dia.png",
@@ -65165,7 +65165,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "77f5b13040e75867bdb910c030b4bdabe18310e7d06ac8aa63b35c6d70ffbc23"
+      "sha256": "86216076cdb1f103049185b23dfd4058a5ba072a8ac6fda768ceb8d92745878a"
     },
     "S2": {
       "fixture": "modeled",
@@ -65512,7 +65512,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "4f8c7dcf6dad8c5f68c8a7dd5d481ca65d470e27af5592d8e09c4d6dfdcd7dc7"
+      "sha256": "eccda3acac220e0b345860dc708506fc8eaa14ee90febc19fabb42aebab27e0e"
     },
     "S3": {
       "fixture": "modeled",
@@ -66127,7 +66127,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "4a139968147eb67d2813110158cb52d123a14a5bc4f0f3beef536a3a320bc15b"
+      "sha256": "aaa6626a78aa3719475bf38edb2febd006644eb6de4fb8a56867cd84b9310bea"
     },
     "S4": {
       "fixture": "modeled",
@@ -66799,7 +66799,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "b739aac0d1d356b93d4e26557c8cda1e3f1ad46ed952cbe6c11483f84d5053fa"
+      "sha256": "b55671d4b46e7cdd811141c5addede0f18a9c1602e61f855836ec1affd2eb967"
     }
   },
   "rules_version": "m5-rev10",

@@ -2031,6 +2031,50 @@ its point keys would sit closer than their badges need (a jaw-end dome), it is
 enlarged until they stand apart, as in the shaft's S2 and S3. Contour
 sketches show both sides and share `P` waypoint keys with the coordinate
 tables. Custom plates show pads, locators and authored clamp-action order.
+For every profile operation with a positive XY span, the separate paint-only
+finished-outline stream requests model-space deflection at most `0.5 / S` mm. Here
+`S = min(4W / max(sx, e), H / max(sy, e/4))`, `W = 1464` px is the full-width
+plot, `H = 1792` px bounds its print band, and `e = 1e-9` mm is the renderer's
+numerical span denominator. This covers the largest possible sketch scale,
+including fourfold Y exaggeration: even when `0 < sy < e`, the stretched scale
+is bounded by both `4H/e` and `H/sy`. Across operations the largest `S` supplies
+the bound. There is no fixed physical deflection floor or small-positive-span
+exception; only coincident points (or no finite points) supply no sketch bound.
+An unrepresentable span from finite coordinates is refused, not treated as
+coincident. The guide-axis detail bound still limits the request to `0.5 / 324`
+mm, including when no profile sketch supplies a bound. The native adapter sends
+the smaller of these bounds and its ordinary rendering tolerance directly to
+`edge.discretize(Deflection=...)` for the fine painting stream; it never retries
+with a coarser tolerance.
+A native discretization exception propagates out of setup rendering to
+`run_job`, which returns `status: "error"` and its reason, without a PNG or a
+successful cache entry. These are bounds on the requested deflection, not an
+independent geometric certification of the vendor's returned polyline. Extremely
+small spans can demand precision the native kernel cannot support; that native
+acceptance remains separate from the mathematical scale bound.
+The render spec captures two explicit streams from the same finished-face edges,
+in the same insertion order. `nominal_outline_mm` keeps main's exact
+`Deflection=tolerance` samples and remains the sole nominal input to viewport
+fitting, bounds, layout, badges and leader selection. `nominal_render_outline_mm`
+uses `min(tolerance, _nominal_outline_deflection(sketch, waypoints))` and is used
+only to paint the outline in setup/isometric/section views, guide-axis details
+and profile plots. A spec with nominal geometry must provide the fine field;
+missing fine data is an error, never a fallback to legacy drawing data. A spec
+without nominal geometry remains legitimate.
+In each painted plane, duplicate and collinear-overlapping fine chords are split
+and de-duplicated before dashing, preserving phase along the unique contour.
+The spatial index retains the deterministic topology without an all-vertex
+quadratic scan.
+Main's accepted leader placement is unchanged: the original primary nominal
+point assigns its lane, and all original ordinary-tolerance vertices remain
+the finished-outline leader choices under the exact main selection algorithm.
+This includes the guide view's original projected vertices and primary point,
+even when they lie outside its viewport; no native-only selector, crossing
+filter, interior fallback or new landing debt is introduced. Fine chord geometry
+and dash phase may differ, but fine samples never feed layout or anchors.
+PR #198 retains tessellation accuracy only.
+[#211](https://github.com/pedropaulovc/prechips/issues/211) remains open for a
+dedicated future leader PR; this change neither fixes that issue nor grants a waiver.
 Table/vise-body/headstock/tailstock context outlines are marked schematic;
 they never add fabricated solids or authorize a cut. Inventory stop solids
 require `hold.stop_fixture` and a numeric `hold.stop_pose`.

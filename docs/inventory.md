@@ -285,6 +285,9 @@ the same holder gauge/grip, tool OAL and projection facts with measurement
 required (and `headroom` the envelope limits), so an operation can be
 geometrically checked while its spindle stack is still M5 measurement debt.
 
+Resolved tool, holder and fixture dimensions and solids supply the modeled scene extents used for picture scale under [render geometry](rules-geometry.md#renders).
+[Traveler outline overlays](report-and-telemetry.md#kernel-renders) use a separate bounded stream for painting only, preserving main's accepted leaders and all original ordinary-tolerance layout and anchor inputs. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR. This adds no inventory field and changes none of those inventory facts or their measurement and verification debt.
+
 A vise enters the job solely when `jaw_height`, `jaw_width`, `jaw_depth` and
 `opening` all resolve that way; the parallels fixture needs a positive
 `height`, and its optional `length` (along the jaws) and `width` (along the
