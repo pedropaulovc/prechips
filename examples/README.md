@@ -143,7 +143,29 @@ remaining acceptance are tracked in [PLAN §8 M3](../PLAN.md#8-milestones).
 | `pivot-shaft` | A short-gripped prep setup (S0) faces the plain end and #2 centre-drills it from the tailstock; then three-jaw drive with the tailstock dead centre in that centre and a follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0** |
 | `rocker-arm` | Bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, the hub filed round to buttons on the pivot bore at the bench (S3F), then shoulder-screw profiling roughed in single-axis stairs and filed to a scribed template, with independently held scrap. | **0** |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear (single-axis stairs, then filed to buttons on the cross bore at the bench), reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0** |
-| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. | **0** |
+| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. S8/S9 post-plunge touch-land proof is missing; see below. | **4** |
+
+The cone's interim exit 4 is a proof stop, not a physically absent touch land
+or a weakened plan. Main's earlier pass followed a feature-name-only bypass:
+drilling `crank_bore` or `journal_bore` did not count as cutting the differently
+named contact face. That bypass originated in
+[`b7c7d295`](https://github.com/pedropaulovc/prechips/commit/b7c7d295f8ec2d1c5be4377184bd0c013df958af),
+with event proof in
+[`f530cce4`](https://github.com/pedropaulovc/prechips/commit/f530cce40ae90ea44105a72010e962f168cb4dee)
+and a rectangle-land check reached only for recorded scars in
+[`d837c883`](https://github.com/pedropaulovc/prechips/commit/d837c88363788c08c42b45fb69d532a2b940732f).
+It ignored physically overlapping holes and is not restored.
+
+The offline STEP/native-cache provenance summary traces the two concentric
+circle loops of crank face `#329` (outer/inner radii 10.965/5.719 mm) and cone
+face `#1426` (8.6/6.1404 mm). Their conservative remaining annular widths are
+at least 5.180 mm and 2.4596 mm (about 2.46 mm at the narrowest), respectively,
+well above the 0.5 mm touch-land policy. Current exported radius extrema do
+not certify that topology. S8/S9 initial contacts remain proved; the drill
+and reamer retouches and their dependent tip/breakthrough readings remain
+unknown until [#208](https://github.com/pedropaulovc/prechips/issues/208) supplies
+native face-loop topology and certified land credit. Restoring exit 0 by that
+proof is required before release 0.1.1; no plan input is relaxed.
 
 ### Rocker-arm supported route
 

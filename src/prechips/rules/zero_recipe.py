@@ -524,7 +524,7 @@ def _axial_cut_footprint(bundle, setup, op):
     return (point, radius) if math.isfinite(radius) else None
 
 
-def _primitive_spares_plane(bundle, setup, op, plane, excluded):
+def _primitive_spares_plane(bundle, setup, op, plane):
     """Exact radial/axial primitive bounds; claims alone prove no preservation."""
     from ..joint_features import joint_operation
     from .coordinates import UNIT_MM, formed_z, frame_axes, frame_point, model_point
@@ -538,8 +538,6 @@ def _primitive_spares_plane(bundle, setup, op, plane, excluded):
     axes = frame_axes(frame)
     if not _native_basis(source_axes) or not _native_basis(axes):
         return False
-    source_axis = source_axes[2]
-    turned = [sum(a * b for a, b in zip(source_axis, axis, strict=True)) for axis in axes]
     centre = frame_point(
         model_point([0.0, 0.0, plane.get("formed_z_mm", plane["z_mm"]) / scale], plane["frame"]),
         frame,
@@ -645,17 +643,41 @@ def _primitive_spares_plane(bundle, setup, op, plane, excluded):
             if side == 1
             else low > max(cut) + LENGTH_TOLERANCE_MM / scale
         )
-    footprint = _axial_cut_footprint(bundle, setup, op)
-    if footprint is None:
+    return False
+
+
+def _rectangular_spares_plunge(bundle, setup, target, plane, footprint, previous, excluded):
+    """A native filled rectangle retains the existing square touch-land witness."""
+    from .coordinates import UNIT_MM, frame_axes, frame_point, model_point
+
+    if plane is None or footprint is None:
         return False
+    held = _rectangle(bundle, setup, target)
+    if held is None:
+        return False
+    source_axes = frame_axes(plane["frame"])
+    axes = frame_axes(setup_frame(bundle, setup))
+    if not _native_basis(source_axes) or not _native_basis(axes):
+        return False
+    turned = [sum(a * b for a, b in zip(source_axes[2], axis, strict=True)) for axis in axes]
     if (
         math.degrees(math.atan2(math.hypot(*turned[:2]), abs(turned[2])))
         > _NATIVE_DIRECTION_TOLERANCE_DEG
     ):
         return False
-    point, reach = footprint
-    reach += math.hypot(point[0] - centre[0], point[1] - centre[1]) * scale
-    if not math.isfinite(reach) or plane["outer_radius_mm"] - reach <= LENGTH_TOLERANCE_MM:
+    scale = UNIT_MM[bundle.features["units"]]
+    centre = frame_point(
+        model_point([0.0, 0.0, plane.get("formed_z_mm", plane["z_mm"]) / scale], plane["frame"]),
+        setup_frame(bundle, setup),
+    )
+    if not all(number(v) and math.isfinite(v) for v in centre):
+        return False
+    point, radius = footprint
+    reach = max(previous, radius + math.hypot(point[0] - centre[0], point[1] - centre[1]) * scale)
+    if not math.isfinite(reach):
+        return False
+    region = [[centre[i] - reach / scale, centre[i] + reach / scale] for i in (0, 1)]
+    if not _uncut(*held, [region]):
         return False
     excluded.append(reach)
     return True
@@ -682,7 +704,7 @@ def _carry_boxes(bundle, setup, target, plane):
     ]
 
 
-def _carry_cut(bundle, setup, op, target, plane=None, excluded=None):
+def _carry_cut(bundle, setup, op, target, plane=None, excluded=None, previous=0.0, debts=None):
     """Whether a cut invalidates the plane; preserve only proven bounded primitives."""
     from .coordinates import UNIT_MM
 
@@ -728,9 +750,26 @@ def _carry_cut(bundle, setup, op, target, plane=None, excluded=None):
         ):
             # An unrelated bounded axial column cannot touch even an oblique face.
             return False
-    return not _primitive_spares_plane(
-        bundle, setup, op, plane, excluded if excluded is not None else []
-    )
+    if footprint is not None:
+        if _rectangular_spares_plunge(
+            bundle,
+            setup,
+            target,
+            plane,
+            footprint,
+            previous,
+            excluded if excluded is not None else [],
+        ):
+            return False
+        if debts is not None:
+            debts.append(
+                f"{setup['id']} op {op['op']} has no proven usable touch land: "
+                "an overlapping plunge needs a native fills_bbox rectangle retaining "
+                f"a {TOUCH_LAND_MM:g} mm square; circular/holed shape topology is unproven "
+                "(native evidence gap: https://github.com/pedropaulovc/prechips/issues/208)"
+            )
+        return True
+    return not _primitive_spares_plane(bundle, setup, op, plane)
 
 
 def _native_scene_plane(bundle, setup, face, geometry=None, *, normal_z=1):
@@ -1194,7 +1233,14 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
                 elif row["present"] is not False:
                     excluded = []
                     if cuts is None or _carry_cut(
-                        bundle, current, op, surface, row["plane"], excluded
+                        bundle,
+                        current,
+                        op,
+                        surface,
+                        row["plane"],
+                        excluded,
+                        row["excluded_mm"],
+                        supply_gaps,
                     ):
                         row["present"] = UNKNOWN
                         row["area_unknown"] = True

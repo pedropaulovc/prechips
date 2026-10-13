@@ -22,7 +22,7 @@ cutter, with window-bounded radial and wall-tangent cutter-column removal
 outside the finished part. Op windows may claim part of a face; coverage and
 finish coverage need the exact union of the claiming windows to cover the
 whole face. This is sampled geometry, not continuous toolpath proof.
-Local artifact validation ran all four reference travelers twice; all eight
+Earlier local artifact validation ran all four reference travelers twice; all eight
 invocations exited 0, and the two generations produced 48 byte-identical output
 files. The example validator passed for 26 TOML inputs, four reference bundles
 and seven geometry controls. A final full-suite run and the combined ten-minute
@@ -31,6 +31,18 @@ first-article machining and live prechips farm/App Insights acceptance also
 remain unobserved. Exported CAD inputs and artifact validation do not establish
 those acceptances. See [PLAN.md](PLAN.md) for the current contract and remaining
 acceptance work.
+
+The built-up cone now truthfully stops with exit **4**: main's feature-name-only
+retouch bypass ignored overlapping holes
+([`b7c7d295`](https://github.com/pedropaulovc/prechips/commit/b7c7d295f8ec2d1c5be4377184bd0c013df958af),
+[`f530cce4`](https://github.com/pedropaulovc/prechips/commit/f530cce40ae90ea44105a72010e962f168cb4dee),
+[`d837c883`](https://github.com/pedropaulovc/prechips/commit/d837c88363788c08c42b45fb69d532a2b940732f)).
+The [offline STEP/native-cache provenance summary](examples/README.md#expected-consumer-cli-exits)
+shows ample real land: at least 2.4596 mm (about 2.46 mm), versus the 0.5 mm
+policy. Missing circular-topology proof, not physical land, keeps S8/S9's
+post-plunge retouches unknown pending [#208](https://github.com/pedropaulovc/prechips/issues/208).
+That proof must restore the cone to exit 0 before release 0.1.1; the authored
+plan and its requirements are unchanged.
 
 See the example guide's [print and native acceptance limits](examples/README.md#print-and-native-acceptance-limits).
 
@@ -241,10 +253,12 @@ the DRO grid; an authored edge the DRO reads on another step is `✗`. A whole
 face can carry through a traced stock lineage into a remounted setup:
 its transformed height sets the nearest enterable Axis Set, with the setting
 residual reported. A height-changing or unknown cut breaks that credit.
-An axial plunge can preserve it outside a bounded footprint when native
-geometry proves remaining face area; the card then requires touching outside
-the computed diameter. An oblique plane without exact native source-plane
-or bound datum evidence stays `?`, never an assumed Z.
+An overlapping axial plunge preserves it only when the existing native
+`Plane`/`fills_bbox` rectangle retains a 0.5 mm square outside the cumulative
+bounded footprint; the card then requires touching outside the computed
+diameter. Radius extrema alone prove no usable circular land, pending #208.
+An oblique plane without exact native source-plane or bound datum evidence
+stays `?`, never an assumed Z.
 Each touch row lists the credited STEP refs as `credited_faces`, which the traveler prints
 as `produced plane: …` ([coordinates](docs/rules-coordinates.md)).
 

@@ -1594,9 +1594,9 @@ def test_rocker_outline_fragments_chain_through_the_bottom_arc_in_cutting_order(
 
 def carried_entry_bundle(units="mm"):
     """The carried source-plane fixture, with a nominal entry in model units."""
-    from test_tool_change_touch import carried_native_source_plane_bundle
+    from test_tool_change_touch import carried_rectangular_source_plane_bundle
 
-    bundle = carried_native_source_plane_bundle()
+    bundle = carried_rectangular_source_plane_bundle()
     scale = {"mm": 1.0, "in": 25.4}[units]
     bundle.features["units"] = units
     for frame in bundle.features["frames"].values():
@@ -1695,15 +1695,37 @@ def test_an_unplaced_carried_plane_does_not_invent_a_native_entry_mismatch():
     )
 
 
+def test_an_extrema_only_source_plane_keeps_the_primary_entry_but_not_a_post_plunge_touch():
+    from test_tool_change_touch import carried_native_source_plane_bundle
+
+    bundle = carried_native_source_plane_bundle()
+    setup = bundle.plan["setups"][-1]
+    setup["stock_state"] = {
+        "entry_z": {"hole": 21.0055},
+        "local_thickness": {"hole": 10.0},
+    }
+    setup["ops"][1]["exit_mm"] = 0.5
+    finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
+    assert finding.status == "unknown", finding.sentence
+    spot, drill = finding.numbers["endpoints"]
+    assert spot["dro_entry_z"] == 21.01
+    assert spot["physical_entry_z"] == pytest.approx(21.01)
+    assert spot["dro_tip_z"] == 20.86
+    assert drill["dro_entry_z"] == drill["dro_tip_z"] == "unknown"
+    assert drill["physical_entry_z"] == drill["physical_exit_bound_z"] == "unknown"
+    assert drill["dro_exit_face"] == "unknown"
+    assert "Bad input" not in finding.sentence
+
+
 @pytest.mark.parametrize("paper", [0.0, 0.0024])
 @pytest.mark.parametrize("route", ["primary-derived", "explicit-touch", "listed-retouch"])
 def test_non_grid_carried_contact_anchors_operation_entry_depth_and_exit_to_its_typed_setting(
     paper, route
 ):
-    from test_tool_change_touch import carried_native_source_plane_bundle
+    from test_tool_change_touch import carried_rectangular_source_plane_bundle
 
     nominal, typed = 21.0075, 21.005
-    bundle = carried_native_source_plane_bundle(nominal=nominal, source_grid=0.0005)
+    bundle = carried_rectangular_source_plane_bundle(nominal=nominal, source_grid=0.0005)
     setup = bundle.plan["setups"][-1]
     zero = setup["zero"]["z"]
     face = zero["face"]
@@ -1761,9 +1783,9 @@ def test_non_grid_carried_contact_anchors_operation_entry_depth_and_exit_to_its_
 def test_carried_through_exit_is_a_thickness_bound_not_a_translated_opposite_producer_plane(
     source_grid, north_z, south_z, exit_bound
 ):
-    from test_tool_change_touch import carried_native_source_plane_bundle, op
+    from test_tool_change_touch import carried_rectangular_source_plane_bundle, op
 
-    bundle = carried_native_source_plane_bundle(source_grid=source_grid)
+    bundle = carried_rectangular_source_plane_bundle(source_grid=source_grid)
     source, setup = bundle.plan["setups"][1], bundle.plan["setups"][-1]
     north = setup["zero"]["z"]["face"]
     south_ref = "#2/SOUTH"
@@ -1833,9 +1855,9 @@ def test_carried_through_exit_is_a_thickness_bound_not_a_translated_opposite_pro
 
 
 def test_a_carried_contact_does_not_disable_blind_depth_guards_or_invent_an_unknown_endpoint():
-    from test_tool_change_touch import carried_native_source_plane_bundle
+    from test_tool_change_touch import carried_rectangular_source_plane_bundle
 
-    bundle = carried_native_source_plane_bundle(nominal=21.0075, source_grid=0.0005)
+    bundle = carried_rectangular_source_plane_bundle(nominal=21.0075, source_grid=0.0005)
     setup = bundle.plan["setups"][-1]
     setup["stock_state"] = {"entry_z": {"hole": 21.0075}}
     bundle.feature_definitions["hole"].update(thru=False, depth=[0.5, 1.0])
@@ -1860,9 +1882,9 @@ def test_a_carried_contact_does_not_disable_blind_depth_guards_or_invent_an_unkn
 
 @pytest.mark.parametrize("pad_claim", ["known", "unknown"])
 def test_a_local_entry_cut_on_a_carried_dro_is_not_shifted_as_an_imported_plane_again(pad_claim):
-    from test_tool_change_touch import carried_native_source_plane_bundle, op
+    from test_tool_change_touch import carried_rectangular_source_plane_bundle, op
 
-    bundle = carried_native_source_plane_bundle(nominal=21.0075, source_grid=0.0005)
+    bundle = carried_rectangular_source_plane_bundle(nominal=21.0075, source_grid=0.0005)
     setup = bundle.plan["setups"][-1]
     zero = setup["zero"]["z"]
     face = zero["face"]

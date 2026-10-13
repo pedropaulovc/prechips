@@ -1122,10 +1122,13 @@ emitted only after the native stock carries their surface. Missing facts stay
 unknown; an unrelated datum or the enclosing oblique box is never a substitute.
 No kernel run or new native fields are added for this.
 
-An axial drill, ream, spot or counterbore parallel to the face normal preserves
-the plane outside its bounded footprint. The worst-case radial footprint
-includes its cutter and aim shift, and native geometry must prove nonempty
-remaining face area outside it.
+An overlapping axial drill, ream, spot or counterbore preserves usable touch
+land only when a single native `Plane` with `fills_bbox = true` proves an
+axis-aligned rectangle retaining a 0.5 mm square outside the cumulative
+bounded footprint. The worst-case radial footprint includes its cutter and
+aim shift. Radius extrema alone prove neither circular topology nor usable
+land; round, holed and missing-shape faces stay unknown after an overlapping
+plunge, pending [native topology evidence #208](https://github.com/pedropaulovc/prechips/issues/208).
 For a resolved `center_drill_set` member, engagement no deeper than its pilot
 length uses the pilot radius; deeper engagement uses
 `pilot_radius + (depth - pilot_length) * tan(countersink_half_angle)`,

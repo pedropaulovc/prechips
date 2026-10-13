@@ -21,7 +21,8 @@ from test_tool_change_touch import (
     carried_bbox_mill_bundle,
     carried_native_datum_bundle,
     carried_native_source_plane_bundle,
-    carried_stock_bundle,
+    carried_rectangular_source_plane_bundle,
+    carried_rectangular_stock_bundle,
     carry_with_refaced_hole,
     carry_with_through_drill,
     measured_native_retouch_bundle,
@@ -1547,9 +1548,9 @@ def test_indexing_verdict_is_the_one_its_head_and_tolerance_decide(tolerance, ve
     ("case", "verdict"),
     [
         ("bonded-stock", "pass"),
-        ("native-datum", "pass"),
+        ("native-datum", "unknown"),
         ("native-source-plane", "pass"),
-        ("through-drill", "pass"),
+        ("through-drill", "unknown"),
         ("lateral-sweep", "unknown"),
         ("bbox-mill", "pass"),
         ("flipped-bbox-mill", "unknown"),
@@ -1562,16 +1563,16 @@ def test_indexing_verdict_is_the_one_its_head_and_tolerance_decide(tolerance, ve
         ("missing-native-datum", "unknown"),
         ("intervening-cut", "unknown"),
         ("wrong-edge", "error"),
-        ("explicit-touch", "pass"),
-        ("listed-retouch", "pass"),
+        ("explicit-touch", "unknown"),
+        ("listed-retouch", "unknown"),
         ("measured", "pass"),
     ],
 )
 def test_zero_oracle_uses_its_own_carried_physical_height_and_typed_setting(case, verdict):
     if case in {"bonded-stock", "intervening-cut", "wrong-edge"}:
-        data = carried_stock_bundle()
+        data = carried_rectangular_stock_bundle()
     elif case == "native-source-plane":
-        data = carried_native_source_plane_bundle()
+        data = carried_rectangular_source_plane_bundle()
     elif case in {"through-drill", "lateral-sweep"}:
         data = carry_with_through_drill(aim_shift=0.185)
     elif case in {"bbox-mill", "flipped-bbox-mill", "supplied-no-normal"}:
@@ -1649,31 +1650,16 @@ def test_zero_oracle_uses_its_own_carried_physical_height_and_typed_setting(case
     forged["status"] = "unknown" if verdict != "unknown" else "pass"
     with pytest.raises(ValueError):
         VALIDATOR["check_zero"](setup, forged, entries, own)
-    if case in {"native-datum", "native-source-plane", "explicit-touch", "listed-retouch"}:
-        row = (
-            finding["numbers"]["tool_touches"][0]
-            if case == "explicit-touch"
-            else finding["numbers"]["retouch"][0]
-            if case == "listed-retouch"
-            else finding["numbers"]["axes"]["z"]
-        )
-        field = "z_axis_set" if case == "explicit-touch" else "axis_set"
+    if case in {"native-datum", "native-source-plane"}:
+        row = finding["numbers"]["axes"]["z"]
+        field = "axis_set"
         # Safe down from the as-cut contact: the source-plane producer's lathe grid left
         # it at 21.01; the datum bundle's 21.0055 contact (plus 0.0024 paper) floors.
-        typed, residual = {
-            "native-source-plane": (21.01, 0.0),
-            "explicit-touch": (21.005, 0.0029),
-        }.get(case, (21.005, 0.0005))
+        typed, residual = (21.01, 0.0) if case == "native-source-plane" else (21.005, 0.0005)
         assert row[field] == typed
         assert row["setting_residual_mm"] == pytest.approx(residual)
         forged = copy.deepcopy(finding)
-        forged_row = (
-            forged["numbers"]["tool_touches"][0]
-            if case == "explicit-touch"
-            else forged["numbers"]["retouch"][0]
-            if case == "listed-retouch"
-            else forged["numbers"]["axes"]["z"]
-        )
+        forged_row = forged["numbers"]["axes"]["z"]
         forged_row["setting_residual_mm"] = residual + 0.001
         with pytest.raises(ValueError):
             VALIDATOR["check_zero"](setup, forged, entries, own)
@@ -1686,18 +1672,141 @@ def test_zero_oracle_uses_its_own_carried_physical_height_and_typed_setting(case
         complete = zero_recipe.evaluate(data)[-1].to_dict()
         with pytest.raises(ValueError):
             VALIDATOR["check_zero"](setup, complete, entries, own)
-    if case == "through-drill":
-        row = finding["numbers"]["derived_touches"][-1]
-        assert row["touch_exclusion_dia_mm"] == pytest.approx(1.17)
-        row["touch_exclusion_dia_mm"] = 0.8
+    if case in {"through-drill", "explicit-touch", "listed-retouch"}:
+        row = (
+            finding["numbers"]["tool_touches"][0]
+            if case == "explicit-touch"
+            else finding["numbers"]["retouch"][0]
+            if case == "listed-retouch"
+            else finding["numbers"]["derived_touches"][-1]
+        )
+        assert row["z_axis_set" if case != "listed-retouch" else "axis_set"] == "unknown"
+        assert "touch_exclusion_dia_mm" not in row
+        row["touch_exclusion_dia_mm"] = 1.17
         with pytest.raises(ValueError):
             VALIDATOR["check_zero"](setup, finding, entries, own)
+
+
+@pytest.mark.parametrize(
+    ("fixture", "inner"),
+    [("oblique-plane", 0.0), ("holed-plane", 0.5)],
+)
+def test_endpoint_zero_oracle_keeps_only_the_primary_contact_without_native_full_shape(
+    fixture, inner, monkeypatch
+):
+    data = (
+        carried_native_source_plane_bundle()
+        if fixture == "oblique-plane"
+        else carried_rectangular_source_plane_bundle()
+    )
+    setup, entries, own = zero_oracle(data)
+    source = data.plan["setups"][1]
+    name = setup["zero"]["z"]["face"]
+    data.kernel["faces"][0]["fills_bbox"] = False
+    data.kernel["setups"][source["id"]]["revolved"][name]["radii_mm"] = [inner, 1.0]
+    # Primary native identity is available; the first plunge leaves no certified
+    # 0.5 mm square. Neither abundant extrema nor a nominal bore establishes it.
+    own.kernel = copy.deepcopy(data.kernel)
+    primary = VALIDATOR["carried_source_plane"](own, entries, setup, name, 0)
+    later = VALIDATOR["carried_source_plane"](own, entries, setup, name, 1)
+    assert primary["physical"] == pytest.approx(21.01)
+    assert "unknown" in later
+    honest = zero_recipe.evaluate(data)[-1].to_dict()
+    assert honest["status"] == "unknown"
+    assert honest["numbers"]["axes"]["z"]["axis_set"] == 21.01
+    assert honest["numbers"]["derived_touches"][0]["z_axis_set"] == "unknown"
+    VALIDATOR["check_zero"](setup, copy.deepcopy(honest), entries, own)
+
+    # The oracle cannot agree with a checker that invents usable rectangular land.
+    def forged_land(bundle, setup, target, plane, footprint, previous, excluded):
+        excluded.append(max(previous, footprint[1]))
+        return True
+
+    monkeypatch.setattr(zero_recipe, "_rectangular_spares_plunge", forged_land)
+    forged = zero_recipe.evaluate(data)[-1].to_dict()
+    assert forged["numbers"]["derived_touches"][0]["z_axis_set"] == 21.01
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, forged, entries, own)
+
+
+@pytest.mark.parametrize(
+    ("radius", "reach", "fills", "expected"),
+    [
+        (1.0, 0.4999965, True, True),
+        (1.0, 0.4999985, True, False),
+        (1.0, 0.5, True, False),
+        (10.0, 9.999, True, False),
+        (10.0, 0.1, False, False),
+        (10.0, 9.999, False, False),
+    ],
+    ids=[
+        "just-usable-rectangle",
+        "just-too-small-rectangle",
+        "marginal-square",
+        "tiny-remaining-land",
+        "ample-extrema-without-shape",
+        "round-or-holed-sliver",
+    ],
+)
+def test_carried_touch_oracle_requires_the_native_rectangular_square_witness(
+    radius, reach, fills, expected
+):
+    identity = {
+        "origin": [0.0, 0.0, 0.0],
+        "x": [1.0, 0.0, 0.0],
+        "y": [0.0, 1.0, 0.0],
+        "z": [0.0, 0.0, 1.0],
+    }
+    own = SimpleNamespace(
+        plan={},
+        features={"units": "mm", "frames": {"F": identity}},
+    )
+    setup = {"id": "S", "frame": "F"}
+    plane = {
+        "touch_face": {
+            "index": 0,
+            "kind": "Plane",
+            "fills_bbox": fills,
+            "bbox_mm": [-radius, -radius, 0.0, radius, radius, 0.0],
+        }
+    }
+    assert (
+        VALIDATOR["rectangular_touch_land"](own, setup, plane, [0.0, 0.0, 0.0], reach) is expected
+    )
+
+
+def test_carried_touch_oracle_does_not_substitute_radial_extrema_for_shape_or_ignore_prior_cuts():
+    identity = {
+        "origin": [0.0, 0.0, 0.0],
+        "x": [1.0, 0.0, 0.0],
+        "y": [0.0, 1.0, 0.0],
+        "z": [0.0, 0.0, 1.0],
+    }
+    own = SimpleNamespace(plan={}, features={"units": "mm", "frames": {"F": identity}})
+    setup = {"id": "S", "frame": "F"}
+    plane = {
+        "outer_radius_mm": 10.0,
+        "touch_face": {
+            "index": 0,
+            "kind": "Plane",
+            "bbox_mm": [-1.0, -1.0, 0.0, 1.0, 1.0, 0.0],
+        },
+    }
+    witness = VALIDATOR["rectangular_touch_land"]
+    assert not witness(own, setup, plane, [0.0, 0.0, 0.0], 0.1)
+    plane["touch_face"]["fills_bbox"] = True
+    assert witness(own, setup, plane, [0.0, 0.0, 0.0], 0.1)
+    assert not witness(own, setup, plane, [0.0, 0.0, 0.0], 0.6)
+    # A model rectangle oblique to the setup axes does not fill its posed AABB.
+    root = math.sqrt(0.5)
+    identity.update(x=[root, root, 0.0], y=[-root, root, 0.0])
+    assert not witness(own, setup, plane, [0.0, 0.0, 0.0], 0.1)
 
 
 def half_step_source_plane(depth=0.25, shift=0.0):
     """The exact source native plane cut on a 0.0001 lathe grid, so it stands as cut at
     21.0055; with 0.002 paper the contact is 21.0075, half a 0.005 mill step."""
-    data = carried_native_source_plane_bundle(source_grid=0.0001, shift=shift)
+    data = carried_rectangular_source_plane_bundle(source_grid=0.0001, shift=shift)
     receiver = data.plan["setups"][-1]
     receiver["zero"]["z"]["paper_mm"] = 0.002
     receiver["ops"][0]["depth_mm"] = depth
@@ -1846,7 +1955,7 @@ def test_zero_oracle_derives_a_carried_source_plane_without_the_checkers_carry(m
 def test_endpoint_oracle_reads_a_carried_touch_off_its_typed_setting(thickness):
     # Off grid: physical 21.0147 types down to 21.010; the native nominal 21.0102, where
     # the received stock's top (the carried face) is entered, would round up to 21.015.
-    data = carried_native_source_plane_bundle(shift=0.0047)
+    data = carried_rectangular_source_plane_bundle(shift=0.0047)
     receiver = data.plan["setups"][-1]
     receiver["stock_state"] = {"top_z": 21.0102, "top_feature": receiver["zero"]["z"]["face"]}
     if thickness is not None:

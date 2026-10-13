@@ -20,6 +20,7 @@ import tomllib
 from datetime import date
 from fractions import Fraction
 from html.parser import HTMLParser
+from itertools import product
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -106,7 +107,7 @@ EXPECTED_EXIT = {
     "pivot-shaft": 0,
     "rocker-arm": 0,
     "pivot-bracket": 0,
-    "cone-pivot-post/built-up.toml": 0,
+    "cone-pivot-post/built-up.toml": 4,
 }
 # (bundle, plan, expected dir, exit, discriminating rule, modeled setups, setups the rule
 # errors on). Setups outside the modeled set must render as partial pictures with debts.
@@ -1631,6 +1632,10 @@ CARRY_PLUNGES = frozenset({"spot", "drill", "ream", "counterbore"})
 CARRY_PLUNGE_KINDS = frozenset({"hole", "counterbore", "threaded_hole", "thread"})
 CARRY_TURNS = frozenset({"turn", "rough_turn", "finish_turn"})
 CARRY_FACINGS = FACING | {"part_off", "cut_to_fit"}
+# The existing rectangular-touch contract: a visible 0.5 mm square remains,
+# inset by native box-side/rounding uncertainty before testing cut exclusions.
+CARRY_TOUCH_LAND_MM = 0.5
+CARRY_FILL_MARGIN_MM = 1.5e-6
 
 
 def table_of(value) -> dict:
@@ -1773,7 +1778,19 @@ def carried_plane_cut(own, entries: Entries, setup: dict, op: dict, face: str, i
     kind = tool_field(tool, "kind", entries) if isinstance(tool, str) else "unknown"
     if lathe and (not isinstance(kind, str) or kind == "unknown" or kind in TURNING_BLADE_KINDS):
         return "blade"
-    return {**plane, "formed": dro_up(to_z, dro_grid(setup, own.features, entries))}
+    selected = next(
+        (
+            record
+            for record in as_list(kernel.get("faces"))
+            if table_of(record).get("index") == index
+        ),
+        {},
+    )
+    return {
+        **plane,
+        "formed": dro_up(to_z, dro_grid(setup, own.features, entries)),
+        "touch_face": selected,
+    }
 
 
 def plunge_footprint(own, entries: Entries, setup: dict, op: dict) -> tuple | None:
@@ -1948,13 +1965,68 @@ def facing_spares(own, entries: Entries, setup: dict, op: dict, plane: dict, cen
     return centre[2] - extent > max(cut) + tolerance
 
 
-def plane_cut_reach(own, entries: Entries, setup: dict, op: dict, plane: dict):
+def rectangular_touch_land(own, setup: dict, plane: dict, centre: list, excluded_mm) -> bool:
+    """Independently prove the existing rectangular 0.5 mm square touch witness.
+
+    Native extrema and a plane normal do not prove circular topology. Only the
+    selected single native Plane whose real ``fills_bbox`` fact certifies its
+    rectangular interior supplies surface; a round or holed face supplies none.
+    The cumulative axial footprint is enclosed by one square about the carried
+    centre. With one axis-aligned exclusion, a free land can be slid to a corner
+    of the rectangle, so its four corner placements exhaust the square witness.
+    """
+    face = table_of(plane.get("touch_face"))
+    box = face.get("bbox_mm")
+    scale = UNIT_MM.get(own.features.get("units"))
+    if not (
+        scale is not None
+        and face.get("kind") == "Plane"
+        and face.get("fills_bbox") is True
+        and isinstance(box, list)
+        and len(box) == 6
+        and all(map(finite, box))
+        and finite(excluded_mm)
+        and excluded_mm >= 0
+    ):
+        return False
+    sides = [[box[i] / scale, box[i + 3] / scale] for i in range(3)]
+    if any(low > high for low, high in sides):
+        return False
+    frame = setup_frame(setup, own.plan, own.features)
+    corners = [frame_point(list(point), frame) for point in product(*sides)]
+    if not all(map(finite, (value for point in corners for value in point))):
+        return False
+    spans = [
+        [min(point[i] for point in corners), max(point[i] for point in corners)] for i in range(3)
+    ]
+    tolerance = LENGTH_TOLERANCE_MM
+    if spans[2][1] - spans[2][0] > tolerance or any(
+        min(abs(point[i] - end) for end in spans[i]) > tolerance
+        for point in corners
+        for i in (0, 1)
+    ):
+        return False
+    margin = CARRY_FILL_MARGIN_MM / scale + tolerance
+    land = CARRY_TOUCH_LAND_MM / scale
+    rectangle = [[low + margin, high - margin] for low, high in spans[:2]]
+    if any(high - low < land for low, high in rectangle):
+        return False
+    reach = excluded_mm / scale
+    cut = [[centre[i] - reach, centre[i] + reach] for i in (0, 1)]
+    return any(
+        any(position[i] + land <= cut[i][0] or position[i] >= cut[i][1] for i in (0, 1))
+        for position in product(*[[low, high - land] for low, high in rectangle])
+    )
+
+
+def plane_cut_reach(own, entries: Entries, setup: dict, op: dict, plane: dict, excluded_mm):
     """What cut ``op`` of ``setup`` leaves of the carried ``plane``: None when it may take
     any of its touch area; else the radius (mm) about the plane's centre a touch must keep
     off, 0.0 when the cut keeps clear of the whole plane. Kernel claims must be known;
     a cut is clear of it when its authored removal bounds or its plunge footprint miss the
-    plane's disc, or a turn or facing cut provably spares it; a coaxial plunge inside the
-    disc leaves the rest, with its footprint (radius plus offset) kept off."""
+    plane's enclosing disc, or a turn or facing cut provably spares it. An overlapping
+    axial plunge preserves only a proven rectangular 0.5 mm square touch land outside
+    the cumulative exclusion; radial extrema alone never prove an annulus usable."""
     kernel = table_of(own.kernel)
     claims, away, invalid = op_claims(own, kernel, setup, op)
     if claims is None or away or invalid:
@@ -2007,7 +2079,12 @@ def plane_cut_reach(own, entries: Entries, setup: dict, op: dict, plane: dict):
         return None
     point, cutter = footprint
     reach = cutter + math.hypot(point[0] - centre[0], point[1] - centre[1]) * scale
-    return reach if math.isfinite(reach) and radius - reach > LENGTH_TOLERANCE_MM else None
+    cumulative = max(excluded_mm, reach)
+    return (
+        reach
+        if math.isfinite(reach) and rectangular_touch_land(own, setup, plane, centre, cumulative)
+        else None
+    )
 
 
 def under_zero(setup: dict, op: dict) -> bool:
@@ -2108,7 +2185,11 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
                 continue
             carried = state["plane"]
             known = cuts is True and carried is not None
-            reach = plane_cut_reach(own, entries, current, op, carried) if known else None
+            reach = (
+                plane_cut_reach(own, entries, current, op, carried, state["excluded"])
+                if known
+                else None
+            )
             if reach is None:
                 state.update(present="unknown", lost=True)
             else:
