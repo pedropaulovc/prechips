@@ -2031,14 +2031,26 @@ its point keys would sit closer than their badges need (a jaw-end dome), it is
 enlarged until they stand apart, as in the shaft's S2 and S3. Contour
 sketches show both sides and share `P` waypoint keys with the coordinate
 tables. Custom plates show pads, locators and authored clamp-action order.
-For each profile operation with at least one XY span above 0.01 mm, dashed
-finished-outline edges are discretized to at most 0.5 px chord error at the
-largest possible sketch scale. The bound is `min(4W/sx, H/sy)`, with `sx` and
-`sy` floored at 0.01 mm: the full-width plot scale with maximum fourfold Y
-exaggeration, capped by the print-band height. Outline tolerance is floored at
-0.001 mm so sliver operations cannot force runaway tessellation. The 0.5 px bound
-holds unless the floor binds; for op spans under about 3.6 mm, chord error can reach about 0.9 px.
-A 0.5 px cap also covers magnified guide-axis details, even when no profile sketch supplies a scale bound.
+For every profile operation with a positive XY span, the requested model-space
+finished-outline deflection is at most `0.5 / S` mm. Here
+`S = min(4W / max(sx, e), H / max(sy, e/4))`, `W = 1464` px is the full-width
+plot, `H = 1792` px bounds its print band, and `e = 1e-9` mm is the renderer's
+numerical span denominator. This covers the largest possible sketch scale,
+including fourfold Y exaggeration: even when `0 < sy < e`, the stretched scale
+is bounded by both `4H/e` and `H/sy`. Across operations the largest `S` supplies
+the bound. There is no fixed physical deflection floor or small-positive-span
+exception; only coincident points (or no finite points) supply no sketch bound.
+An unrepresentable span from finite coordinates is refused, not treated as
+coincident. The guide-axis detail bound still limits the request to `0.5 / 324`
+mm, including when no profile sketch supplies a bound. The native adapter sends
+the smaller of these bounds and its ordinary rendering tolerance directly to
+`edge.discretize(Deflection=...)`; it never retries with a coarser tolerance.
+A native discretization exception propagates out of setup rendering to
+`run_job`, which returns `status: "error"` and its reason, without a PNG or a
+successful cache entry. These are bounds on the requested deflection, not an
+independent geometric certification of the vendor's returned polyline. Extremely
+small spans can demand precision the native kernel cannot support; that native
+acceptance remains separate from the mathematical scale bound.
 In each rendered plane, duplicate and collinear-overlapping nominal chords are split and
 de-duplicated before dashing, preserving phase along the unique contour; callout candidates
 use native edge endpoints, not tessellation samples, so leader placement is independent of

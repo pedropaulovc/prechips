@@ -119,6 +119,19 @@ reliefs without hiding the full stock length in the main view. Mill/custom
 views overlay a dashed **nominal part outline**, including behind arriving
 stock, solely to locate the drawing relative to pads, pins and coordinate keys.
 That outline is never a claim that the supply already has the finished shape.
+For every positive-span profile sketch, finished-outline discretization requests
+at most `0.5 / S` mm at the conservative maximum render scale `S`, including the
+plot's `1e-9` mm numerical denominator and maximum fourfold Y exaggeration.
+There is no physical deflection floor or tiny-positive-span exemption; only
+coincident points (or no finite points) lack a sketch bound. An unrepresentable
+span is refused. The request also retains the `0.5 / 324` mm guide-axis detail
+bound when no sketch supplies one. See the
+[rendering scale contract](rules-geometry.md#renders) for the formula.
+The native adapter passes the bounded `Deflection` directly, with no coarser
+retry; a native precision exception escapes setup rendering and becomes
+`run_job`'s `status: "error"` with its reason, not a PNG or successful cache entry.
+The mathematical request bound does not independently certify the vendor's
+returned polyline; native support for very fine tolerances is separate.
 Projected outline coincidences retain 0.01-pixel quantization and the canonical
 minimum floating coordinate in each cell. One two-dimensional, one-pixel-bin
 index contains every cell, including collapsed source edges. Each chord queries

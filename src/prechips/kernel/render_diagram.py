@@ -65,9 +65,6 @@ _EVERY_PASS = 8
 # sketches cannot all keep it grows taller.
 _SKETCH_PLOT_MIN = 30
 _SKETCH_SPAN_EPSILON_MM = 1e-9
-# Tiny/sliver sketch extents do not justify unbounded detail in a raster overlay.
-_PROFILE_OUTLINE_MIN_SPAN_MM = 0.01
-_PROFILE_OUTLINE_MIN_DEFLECTION_MM = 1e-3
 # Finished-outline chords stay within half a pixel at the largest possible profile-sketch
 # scale. A one-op band may use the full page width and grow to this height.
 _SKETCH_PLOT_WIDTH_PX = 1600 - 2 * 32 - 72
@@ -257,7 +254,10 @@ def _xy_projector(bounds, centre, scales):
 def _profile_outline_deflection(paths, waypoints):
     """Maximum model-space chord error for a half-pixel profile-sketch outline.
 
-    Path ``xy`` values are point lists; waypoint ``xy`` values are single points.
+    Every positive XY span contributes, using the plot's denominator and maximum
+    Y stretch; only coincident points supply no sketch bound. There is no physical
+    tolerance floor. Path ``xy`` values are point lists; waypoint ``xy`` values are
+    single points.
     """
     bounds = {}
     for items in (paths, waypoints):
@@ -289,23 +289,18 @@ def _profile_outline_deflection(paths, waypoints):
     scale = 0.0
     for xmin, ymin, xmax, ymax in bounds.values():
         span_x, span_y = xmax - xmin, ymax - ymin
-        if span_x <= _PROFILE_OUTLINE_MIN_SPAN_MM and span_y <= _PROFILE_OUTLINE_MIN_SPAN_MM:
+        if span_x <= 0 and span_y <= 0:
             continue
-        scale_x = (
-            _SKETCH_Y_EXAG_MAX * _SKETCH_PLOT_WIDTH_PX / max(span_x, _PROFILE_OUTLINE_MIN_SPAN_MM)
-        )
-        scale_y = _PANEL_MAX_HEIGHT / max(span_y, _PROFILE_OUTLINE_MIN_SPAN_MM)
+        if not (math.isfinite(span_x) and math.isfinite(span_y)):
+            raise ValueError("profile sketch spans must be finite")
+        scale_x = _SKETCH_Y_EXAG_MAX * _SKETCH_PLOT_WIDTH_PX / max(span_x, _SKETCH_SPAN_EPSILON_MM)
+        # The base scale uses epsilon, but Y stretch fits the actual positive span.
+        # Thus Y is bounded by both 4H/epsilon and H/span_y, even below epsilon.
+        scale_y = _PANEL_MAX_HEIGHT / max(span_y, _SKETCH_SPAN_EPSILON_MM / _SKETCH_Y_EXAG_MAX)
         # A narrower multi-op panel may enable Y exaggeration even when a full-width
         # estimate does not; bound every sketch by the renderer's maximum stretch.
         scale = max(scale, min(scale_x, scale_y))
-    return (
-        max(
-            _SKETCH_CHORD_ERROR_PX / scale,
-            _PROFILE_OUTLINE_MIN_DEFLECTION_MM,
-        )
-        if scale
-        else None
-    )
+    return _SKETCH_CHORD_ERROR_PX / scale if scale else None
 
 
 def _nominal_outline_deflection(paths, waypoints):

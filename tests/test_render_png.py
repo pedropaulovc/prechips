@@ -1,5 +1,6 @@
 """Consumer-visible raster, camera, visibility and print-label contracts; no FreeCAD."""
 
+import ast
 import bisect
 import json
 import math
@@ -8,8 +9,10 @@ import re
 import struct
 import zlib
 from collections import defaultdict
+from contextlib import contextmanager
 from pathlib import Path
 from time import perf_counter
+from types import SimpleNamespace
 
 import pytest
 
@@ -1610,13 +1613,229 @@ def test_profile_outline_deflection_bounds_circle_chord_error_at_sketch_scale(mo
     assert sagitta * max_scale <= 0.5
 
 
-def test_profile_outline_deflection_floors_sliver_extents():
-    thin = {"op": "20", "xy": [[0, 0], [1e-5, 1]]}
-    sliver = {"op": "20", "xy": [[0, 0], [1e-5, 1e-5]]}
+@pytest.mark.parametrize("width", [720, 1536], ids=["half_width", "full_width"])
+@pytest.mark.parametrize(
+    ("span_x", "span_y", "stretched"),
+    [
+        (0.1, 0.1, False),
+        (0.011, 0.011, False),
+        (0.1, 1e-5, True),
+        (1e-5, 1, False),
+        (1e-5, 1e-5, False),
+        (0.005, 0, False),
+        (0, 0.005, False),
+        (1e-9, 1e-12, True),
+        (1e-12, 1e-12, False),
+        (5e-324, 0, False),
+        (0, 5e-324, False),
+    ],
+    ids=[
+        "tenth_mm_square",
+        "eleven_microns_square",
+        "shallow_positive_y",
+        "thin_positive_x",
+        "positive_sliver",
+        "horizontal",
+        "vertical",
+        "stretched_subepsilon_y",
+        "subepsilon_square",
+        "smallest_positive_x",
+        "smallest_positive_y",
+    ],
+)
+def test_profile_outline_deflection_bounds_actual_positive_span_plot(
+    monkeypatch, width, span_x, span_y, stretched
+):
+    points = [[0, 0], [span_x, span_y]]
+    paths = [{"op": "20", "xy": points}]
+    scales = []
+    xy_projector = render_module._xy_projector
 
-    assert _profile_outline_deflection([thin], []) >= 1e-3
-    assert _profile_outline_deflection([sliver], []) is None
-    assert render_module._nominal_outline_deflection([sliver], []) >= 1e-3
+    def observe_projector(bounds, centre, factors):
+        scales.append(factors)
+        return xy_projector(bounds, centre, factors)
+
+    monkeypatch.setattr(render_module, "_xy_projector", observe_projector)
+    diagram = _Diagram([], {"view": "plan", "stock_box": [0, 0, 0, 10, 10, 1]})
+    diagram._sketch_plot((32, 64, 32 + width, 1792), points, [])
+
+    ((scale_x, scale_y),) = scales
+    assert all(math.isfinite(scale) and scale > 0 for scale in scales[0])
+    if stretched:
+        assert scale_y == pytest.approx(4 * scale_x)
+        assert scale_x == pytest.approx((width - 72) / max(span_x, 1e-9))
+    else:
+        assert scale_y == scale_x
+    tolerance = _profile_outline_deflection(paths, [])
+    nominal_tolerance = render_module._nominal_outline_deflection(paths, [])
+    assert tolerance is not None and math.isfinite(tolerance) and tolerance > 0
+    assert 0 < nominal_tolerance <= tolerance
+    assert tolerance * max(scale_x, scale_y) <= 0.5
+    assert nominal_tolerance * max(scale_x, scale_y) <= 0.5
+
+
+@pytest.mark.parametrize(
+    ("span_x", "span_y"),
+    [(24, 0.1), (10, 10), (200, 40), (12, 0), (0, 4), (2, 5)],
+)
+def test_profile_outline_deflection_preserves_normal_unfloored_bounds(span_x, span_y):
+    paths = [{"op": "20", "xy": [[0, 0], [span_x, span_y]]}]
+    previous_scale = min(4 * 1464 / max(span_x, 0.01), 1792 / max(span_y, 0.01))
+    previous_bound = 0.5 / previous_scale
+
+    assert previous_bound >= 1e-3
+    assert _profile_outline_deflection(paths, []) == previous_bound
+    assert render_module._nominal_outline_deflection(paths, []) == min(previous_bound, 0.5 / 324)
+
+
+@pytest.mark.parametrize("span", [0.1, 0.011, 1e-5])
+def test_profile_outline_deflection_has_no_physical_floor(span):
+    paths = [{"op": "20", "xy": [[0, 0], [span, span]]}]
+    tolerance = _profile_outline_deflection(paths, [])
+
+    assert tolerance == pytest.approx(0.5 * span / 1792)
+    assert 0 < tolerance < 1e-3
+
+
+@pytest.mark.parametrize(
+    ("paths", "waypoints"),
+    [
+        ([], []),
+        ([{"op": "20", "xy": [[1, 2], [1, 2]]}], []),
+        ([], [{"op": "20", "xy": [1, 2]}]),
+        (
+            [{"op": "20", "xy": [[1, 2]]}],
+            [{"op": "20", "xy": [1, 2]}],
+        ),
+        ([{"op": "20", "xy": [[math.nan, 0], [0, math.inf]]}], []),
+    ],
+    ids=["empty", "coincident_path", "single_waypoint", "coincident_mixed", "no_finite_points"],
+)
+def test_profile_outline_deflection_without_a_span_retains_guide_bound(paths, waypoints):
+    assert _profile_outline_deflection(paths, waypoints) is None
+    assert render_module._nominal_outline_deflection(paths, waypoints) == 0.5 / 324
+
+
+@pytest.mark.parametrize("axis", [0, 1], ids=["x", "y"])
+def test_profile_outline_deflection_rejects_overflowed_finite_coordinate_span(axis):
+    start, end = [0, 0], [0, 0]
+    start[axis], end[axis] = -1e308, 1e308
+    paths = [{"op": "20", "xy": [start, end]}]
+
+    with pytest.raises(ValueError, match="profile sketch spans must be finite"):
+        _profile_outline_deflection(paths, [])
+    with pytest.raises(ValueError, match="profile sketch spans must be finite"):
+        render_module._nominal_outline_deflection(paths, [])
+
+
+@pytest.fixture(scope="module")
+def pure_native_outline_render():
+    """Load the real native adapter and job error boundary, but no native imports."""
+    engine = Path(render_module.__file__).with_name("freecad_job.py")
+    tree = ast.parse(engine.read_text(encoding="utf-8"))
+    helpers = [
+        node
+        for node in tree.body
+        if (
+            isinstance(node, (ast.FunctionDef, ast.ClassDef))
+            and node.name in {"_fixture_kind", "_Unknown", "_timed", "run_job"}
+            or isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name)
+                and target.id in {"UNKNOWN", "STOCK_TOL", "STOCK_MM3", "_COLOURS"}
+                for target in node.targets
+            )
+        )
+    ]
+    setup = next(
+        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "_Setup"
+    )
+    native_render = next(
+        node for node in setup.body if isinstance(node, ast.FunctionDef) and node.name == "_render"
+    )
+    namespace = {
+        "contextmanager": contextmanager,
+        "_nominal_outline_deflection": render_module._nominal_outline_deflection,
+    }
+    exec(
+        compile(ast.Module(body=[*helpers, native_render], type_ignores=[]), str(engine), "exec"),
+        namespace,
+    )
+    return namespace
+
+
+@pytest.mark.parametrize("span", [0.1, 0.011])
+@pytest.mark.parametrize("error_type", [RuntimeError, ValueError])
+def test_native_outline_discretization_failure_is_not_coarsened(
+    monkeypatch, pure_native_outline_render, span, error_type
+):
+    namespace = pure_native_outline_render
+    paths = [{"op": "20", "xy": [[0, 0], [span, span]]}]
+    requested = render_module._nominal_outline_deflection(paths, [])
+    calls = []
+
+    class NativeEdge:
+        Length = 1.0
+
+        def hashCode(self):
+            return 1
+
+        def discretize(self, **kwargs):
+            calls.append(kwargs)
+            raise error_type("requested deflection is below native precision")
+
+    face = SimpleNamespace(Edges=[NativeEdge()])
+    solid = SimpleNamespace(Faces=[face], tessellate=lambda tolerance: ([], []))
+    renderer = SimpleNamespace(
+        box=[0, 0, 0, 10, 10, 1],
+        setup={"id": "S1", "machine_kind": "mill"},
+        stock_out=None,
+        part=solid,
+        hold=None,
+        fixture_ready=False,
+        fixture_reason="not declared",
+        fixture_debts=[],
+        fixture_gaps=[],
+        fixture=[],
+        jaws=None,
+        owner=SimpleNamespace(features={}),
+        ops=[{"subject": "S1:20"}],
+        finished=solid,
+        faces=[face],
+        _rest_render=lambda debts: [],
+        _expects_parallels=lambda: False,
+        _render_tool=lambda annotation, lathe, rests: (None, None),
+        _clipped_sketch=lambda annotation: (paths, [], []),
+        _render_components=lambda annotation, named=False: [],
+        _indices=lambda op: [0],
+        _round_stock_dia=lambda lathe: None,
+    )
+
+    def forbid_png(*args, **kwargs):
+        pytest.fail("a native discretization failure must not produce a PNG")
+
+    class NativeJob:
+        def __init__(self, job, clocks):
+            pass
+
+        def run(self):
+            return namespace["_render"](renderer)
+
+    monkeypatch.setitem(namespace, "Part", SimpleNamespace(Compound=lambda faces: solid))
+    monkeypatch.setitem(namespace, "render_diagram", forbid_png)
+    monkeypatch.setitem(namespace, "_Job", NativeJob)
+
+    assert math.isfinite(requested) and 0 < requested < 1e-3
+    with pytest.raises(error_type, match="requested deflection is below native precision"):
+        namespace["_render"](renderer)
+    assert calls == [{"Deflection": requested}]
+    calls.clear()
+    result = namespace["run_job"]({})
+    assert result == {
+        "status": "error",
+        "reason": f"{error_type.__name__}: requested deflection is below native precision",
+    }
+    assert calls == [{"Deflection": requested}]
 
 
 @pytest.mark.parametrize(
@@ -1645,7 +1864,9 @@ def test_guide_axis_outline_deflection_bounds_circle_chord_error(radius, minimum
         }
     tolerance = render_module._nominal_outline_deflection([], [])
     short_span = {"op": "20", "xy": [[0, 0], [1, 0.1]]}
-    assert render_module._nominal_outline_deflection([short_span], []) == pytest.approx(1e-3)
+    short_bound = _profile_outline_deflection([short_span], [])
+    assert 0 < short_bound < 1e-3
+    assert render_module._nominal_outline_deflection([short_span], []) == short_bound
     segments = 128
     centre = (0.25, 0) if minimum_padded_frame else (170, 20)
     circle = [

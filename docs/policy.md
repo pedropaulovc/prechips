@@ -39,6 +39,9 @@ not a rule `pass`, inspection acceptance, clearance to proceed, readiness or
 approval, and adds no policy selector or status. Handwritten marks cannot clear
 STOP/unknown findings or change the report's gate.
 
+Policy selectors and thresholds govern findings and the report gate, not picture geometry or scale, whose contract is in [render geometry](rules-geometry.md#renders).
+[Traveler outline overlays and visible guide leaders](report-and-telemetry.md#kernel-renders) add no policy field, waiver or verdict and cannot turn unknown or unsupported geometry into approval.
+
 Drill-kind `rough_profile` / `chain_drill` operations retain their existing
 `setup:op` finding subjects while `speeds_feeds` selects drilling data and
 reports axial feed. No policy selector or waiver is added: missing, ambiguous

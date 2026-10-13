@@ -29,6 +29,9 @@ exclude the reference basic size, and interpreting those fit semantics is not
 implemented. Do not conflate a fit's reference geometry with its acceptance
 target.
 
+Manifest units, frames and bound STEP geometry supply the finished-outline coordinates and projected spans used for picture scale under [render geometry](rules-geometry.md#renders).
+[Traveler outline overlays and visible guide leaders](report-and-telemetry.md#kernel-renders) do not change authored feature coordinates, nominal dimensions, tolerance bands or requirement identities.
+
 Chain drilling does not require an invented hole feature or a new manifest field.
 For a drill-kind `rough_profile` / `chain_drill` operation, deep-hole speed
 derating uses the canonical before-stock state's entry for the named feature

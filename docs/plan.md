@@ -34,6 +34,10 @@ them with `top_z` / `bottom_z`. `entry_z` permits
 a separate local entry surface. `zero.transfer` describes a pickup from another
 setup, and `tool_touches` explicitly records tool changes. Neither invents a
 measured trial-cut diameter.
+
+Setup frames, stock state and authored operation bounds supply the geometry and spans used for picture scale under [render geometry](rules-geometry.md#renders).
+The [traveler render binding](report-and-telemetry.md#kernel-renders) changes finished-outline overlays and visible guide-leader anchors, not authored setup coordinates, zero recipes or operation values.
+
 Every zero recipe's `edge_mm` is the authored pickup coordinate in the setup
 frame. A Z recipe with `face = "top"` uses the stock state's top; other named
 faces require their own explicit `edge_mm`, not the stock top or a value copied

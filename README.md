@@ -16,6 +16,9 @@ measurement checklist. It checks declared facts and sampled B-rep measurements,
 not a CAM simulation or a CAD model's machinability, and does not generate
 toolpaths.
 
+Setup and profile pictures follow the [render geometry contract](docs/rules-geometry.md#renders): every positive profile span uses scale-aware finished-outline deflection requested within 0.5 px at the actual maximum fourfold Y stretch, without a fixed 0.001 mm floor; coincident-only profiles have no profile-derived bound and guide views retain their bounded scale. Native discretization is requested once at that bound with no coarser retry; an exception fails the job with error status. This bounds the request, not an independently certified vendor polyline.
+[Traveler render binding](docs/report-and-telemetry.md#kernel-renders) keeps guide leaders on visible outline anchors (or reports an outline not shown), without changing authored coordinates, cutting values, inventory facts or policy verdicts.
+
 The reference bundles include consumer-exported geometry. With `approach = "rotary"`,
 M4 evaluates horizontal dividing-head samples presented at top dead centre to a vertical
 cutter, with window-bounded radial and wall-tangent cutter-column removal

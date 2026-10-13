@@ -1275,6 +1275,9 @@ sheet.
    kernel yields one console `?` line and unknown geometry, not fabricated
    passes; named mapping and directional-claim errors remain errors.
 
+   **#186 rendering work / PR #198 review fixes — verification ongoing:** P1 spatial-query acceleration preserves output; P2 restricts guide leaders to visible anchors under the [traveler render contract](docs/report-and-telemetry.md#kernel-renders).
+   The new review fix applies the [scale-aware outline bound](docs/rules-geometry.md#renders) to every positive profile span without a fixed tolerance floor. Source changes changed all 11 example cache keys; one authorized private cold regeneration completed all 11 jobs with expected exits, and a native-forbidden cache-only validator passed with no writes. All regenerated output bytes, including PNGs and findings, matched the prior PR head `2d82bfc5`. These local observations do not establish merged delivery, printed-shop acceptance or independent native-polyline certification; final CI and Codex disposition remain separate.
+
    **Retained-stock reach and shank clearance shipped (2026-10-06, round 4):**
    reach and holder-wall hits are measured on the stock each op meets, not the
    setup-entry block. A tool's shank past its flutes, from the inventory
