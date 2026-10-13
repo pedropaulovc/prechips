@@ -26,7 +26,22 @@ Rev 6 design, with current delivery status. Manual arcs (D1): the manual
 mill cuts arcs only by the 1898 method (layout, single-axis stairs or a chain
 drill outside the line, bench filing to buttons or a template checked with a
 radius gauge, or chords / a rotary table); the MDI/`contouring` path and
-`arc_table` are removed.
+`arc_table` are removed. Shipped straight joins support stairs and chain drilling:
+finite drill legs retain exact endpoints and nominal equal spacing within pitch
+(DRO snapping may shift printed spacing); after method/stage/full-hole/
+requested-no-web preconditions, a bounded chain is clipped at drill granularity (offset path
+against bounds eroded by the drill radius, each retained arc/leg regenerated
+at equal nominal intervals within pitch that leave a web, too-short spans
+drop an end hole, safe-side grid snap with a wider end/junction search or
+true-curve back-off, actual cylinders judged; no swept-chord clip holes) and
+prints that stock past the bound is not cleared; omitted joins add no join
+debt while other tables remain (wholly excluded or disconnected stages keep
+clip debt); reported stock/cap uses the worst printed break-out residual (arc
+radial depth, join polyline nearest-finished-wall distance), capped once. The
+kernel credits an unbounded chain with its discrete drilled cylinders only
+(webs stay stock, named as overstock debt pointing at `stock_removal_bounds`,
+which certifies the author's break-out footprint); an explicit break-out phase
+is tracked in [#213](https://github.com/pedropaulovc/prechips/issues/213).
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial

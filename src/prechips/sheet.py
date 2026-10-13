@@ -36,6 +36,7 @@ from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
     HAND_FINISH,
+    LENGTH_TOLERANCE_MM,
     MAKE_OP_FIELDS,
     MANUAL,
     NAMED_REFERENCE,
@@ -2238,12 +2239,12 @@ def _number(value, precision=None):
 
 
 def _leftover(arc):
-    """Where a manual-arc rough's leftover stock goes: a later rough, else the file."""
+    """Residual-stock verb phrase; its caption supplies the subject and punctuation."""
     left = _number(arc.get("stock_left_mm"), 3)
     recut = arc.get("recut_by")
     if isinstance(recut, str) and recut:
-        return f"leaving at most {left} mm for {recut}"
-    return f"leaving at most {left} mm for the file (cap {_number(arc.get('stock_cap_mm'))} mm)"
+        return f"leaves at most {left} mm for {recut}"
+    return f"leaves at most {left} mm for the file (cap {_number(arc.get('stock_cap_mm'))} mm)"
 
 
 def _places(value):
@@ -7170,25 +7171,35 @@ class _Traveler:
         return [_mapping(p) for p in points] if isinstance(points, list) else []
 
     def waypoint(self, waypoints, op, point, row=None):
-        """A table row's picture label: the waypoint listing its row id ``row`` (an arc or
-        join table row, keyed by the same printed rows as the picture), else the waypoint at
-        its ``point`` (any other table)."""
+        """The nearest same-op picture key at the actual DRO point, within length tolerance.
+
+        Picture points are mm; table points are in plan units. Native clipped sketches
+        can retain original row ids after holes disappear, so an id only breaks a tie
+        between keys at the same point, never establishes a geometric match.
+        """
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        if (
+            scale is None
+            or not isinstance(point, (list, tuple))
+            or len(point) != 2
+            or not all(map(_known, point))
+        ):
+            return ""
+        target = [value * scale for value in point]
+        matches = []
         for record in waypoints:
             if str(record.get("op")) != str(op):
                 continue
-            if row is not None:
-                if row in (record.get("rows") or []):
-                    return str(record.get("label", ""))
-                continue
-            xy = record.get("xy", record.get("xz"))
-            if (
-                isinstance(xy, list)
-                and len(xy) == 2
-                and all(_known(v) for v in (*xy, *point))
-                and math.dist(xy, point) <= 0.01
-            ):
-                return str(record.get("label", ""))
-        return ""
+            xy = record.get("xy") if row is not None else record.get("xy", record.get("xz"))
+            if isinstance(xy, (list, tuple)) and len(xy) == 2 and all(map(_known, xy)):
+                distance = math.dist(xy, target)
+                if distance <= LENGTH_TOLERANCE_MM:
+                    matches.append(
+                        (distance, row is None or row not in (record.get("rows") or []), record)
+                    )
+        if not matches:
+            return ""
+        return str(min(matches, key=lambda match: match[:2])[2].get("label", ""))
 
     def cut_order(self, table, narrate=True):
         """Stage, then a cutting order only where coordinates established one. With
@@ -7214,23 +7225,78 @@ class _Traveler:
         return text + f"; rows NOT in an established cutting order: {reason}"
 
     @staticmethod
-    def clip(table, markers, rows):
-        """Where the kernel clipped this table at its op's stock_removal_bounds, named by
-        the printed row the cutter starts or stops at, and the piece no cut links."""
+    def clip(table, markers, rows, label_column=0):
+        """Name real clipped ends, not every generated hole that carries a clip marker.
+
+        Whole-hole exclusions use ``dropped_ends``; a split chain's 1-based fragment
+        identifies its internal break ends. Neither invents another drill position.
+        A singleton names the stock drilling leaves, never a web breakout.
+        These are sentence fragments: the coordinate caption owns the final period.
+        """
         ends = []
-        for index, marker in enumerate(markers):
-            if not marker or index >= len(rows):
-                continue
-            point = rows[index][0] or f"row {index + 1}"
-            ends.append(("starts at " if index == 0 else "stops at ") + point)
+        fragment = table.get("fragment")
+        chain = table.get("method") == "chain_drill"
+        if chain and rows:
+            last = len(rows) - 1
+            flags = [bool(markers and markers[0]), last < len(markers) and bool(markers[last])]
+            dropped = table.get("dropped_ends")
+            known_ends = (
+                isinstance(dropped, list)
+                and len(dropped) == 2
+                and all(isinstance(end, bool) for end in dropped)
+            )
+            split = (
+                isinstance(fragment, list)
+                and len(fragment) == 2
+                and all(
+                    isinstance(value, int) and not isinstance(value, bool) for value in fragment
+                )
+                and 1 <= fragment[0] <= fragment[1]
+                and fragment[1] > 1
+            )
+            if split:
+                flags = [
+                    fragment[0] > 1 or (dropped[0] if known_ends else flags[0]),
+                    fragment[0] < fragment[1] or (dropped[1] if known_ends else flags[1]),
+                ]
+            elif known_ends:
+                # Regenerated rows all carry provenance markers, not end-stop flags.
+                flags = (
+                    list(dropped)
+                    if table.get("regeneration") == "true_curve"
+                    else [flags[0] or dropped[0], flags[1] or dropped[1]]
+                )
+            for index, flag, verb in ((0, flags[0], "starts"), (last, flags[1], "stops")):
+                if flag:
+                    point = rows[index][label_column] or f"hole #{index + 1}"
+                    ends.append(f"{verb} at {point}")
+        elif not chain:
+            for index, marker in enumerate(markers):
+                if not marker or index >= len(rows):
+                    continue
+                point = rows[index][label_column] or f"row {index + 1}"
+                ends.append(("starts at " if index == 0 else "stops at ") + point)
         text = ""
         if ends:
-            text = (
-                f"; {' and '.join(ends)}: the stock past "
-                + ("it" if len(ends) == 1 else "them")
-                + " is outside this op's area"
-            )
-        fragment = table.get("fragment")
+            if chain and len(rows) == 1:
+                point = rows[0][label_column] or "#1"
+                text = (
+                    f"; retained hole {point}: stock beyond its bounded "
+                    + ("end" if len(ends) == 1 else "ends")
+                    + " is outside this op's area and not cleared by drilling"
+                )
+            elif chain:
+                text = (
+                    f"; {' and '.join(ends)}: stock beyond "
+                    + ("it" if len(ends) == 1 else "them")
+                    + " is outside this op's area, not for this breakout"
+                )
+            else:
+                text = (
+                    f"; {' and '.join(ends)}: the stock past "
+                    + ("it" if len(ends) == 1 else "them")
+                    + " is outside this op's area"
+                )
         if isinstance(fragment, list) and len(fragment) == 2:
             text += (
                 f"; piece {fragment[0]} of {fragment[1]}: no cut links the pieces, so the "
@@ -7484,7 +7550,7 @@ class _Traveler:
                 points.append(record.get("dro_xy") or ["unknown", "unknown"])
                 entry["z"].add(o(record.get("dro_tip_z", arc.get("dro_tip_z"))))
                 key = row_id(subject, "arc_table", arc, index)
-                labels.append(self.waypoint(waypoints, arc.get("op"), None, key))
+                labels.append(self.waypoint(waypoints, arc.get("op"), points[-1], key))
             centre = arc.get("centre_setup_xy") or ["unknown", "unknown"]
             description = (
                 f"Cutter-centre arc R{o(arc.get('cutter_centre_radius_mm'))} "
@@ -7508,7 +7574,7 @@ class _Traveler:
                     )
                 description += (
                     f"; rough stairs kept outside {self.arc_line(setup, arc.get('op'))}, "
-                    "one handwheel axis per row, " + _leftover(arc)
+                    "one handwheel axis per row; this " + _leftover(arc)
                 )
             elif method == "chain_drill":
                 headings = ["hole #", "P", "X", "Y"]
@@ -7516,12 +7582,23 @@ class _Traveler:
                     [str(index), label, o(xy[0]), o(xy[1])]
                     for index, (label, xy) in enumerate(zip(labels, points, strict=True), 1)
                 ]
-                description = (
-                    f"Chain drill: drill Ø{_number(arc.get('drill_dia_mm'))} mm, "
-                    f"pitch {_number(arc.get('pitch_mm'))} mm; every hole outside "
-                    + self.arc_line(setup, arc.get("op"))
-                )
-                after = f"After drilling, {_text(arc.get('break_out'))}; " + _leftover(arc) + "."
+                if len(rows) == 1:
+                    description = (
+                        f"Single retained hole: drill Ø{_number(arc.get('drill_dia_mm'))} mm; "
+                        "hole outside " + self.arc_line(setup, arc.get("op"))
+                    )
+                    after = "Drilling " + _leftover(arc) + "."
+                else:
+                    description = (
+                        f"Chain drill: drill Ø{_number(arc.get('drill_dia_mm'))} mm, "
+                        f"pitch {_number(arc.get('pitch_mm'))} mm; every hole outside "
+                        + self.arc_line(setup, arc.get("op"))
+                    )
+                    after = (
+                        f"After drilling, {_text(arc.get('break_out'))}; this "
+                        + _leftover(arc)
+                        + "."
+                    )
             elif method == "chords":
                 headings = [
                     "chord #",
@@ -7616,7 +7693,10 @@ class _Traveler:
                 entry["stops"].append("manual arc method not established")
                 continue
             description += self.cut_order(arc) + self.clip(
-                arc, [row.get("clipped_at") for row in samples], rows
+                arc,
+                [row.get("clipped_at") for row in samples],
+                rows,
+                label_column=1 if method == "chain_drill" else 0,
             )
             entry["parts"].append((order(entry, arc), description, headings, rows, after))
         for line in numbers.get("line_table", []):
@@ -7635,7 +7715,7 @@ class _Traveler:
                 entry["z"].add(o(line.get("dro_tip_z")))
                 rows.append(
                     [
-                        self.waypoint(waypoints, line.get("op"), None, key),
+                        self.waypoint(waypoints, line.get("op"), dro, key),
                         OVERSHOOT_NOTE if ok else "",
                         o(dro[0]),
                         o(dro[1]),
@@ -7648,23 +7728,54 @@ class _Traveler:
             side = _text(line.get("side"))
             description = f"Straight joins on the {side} side" + self.cut_order(line)
             description += self.clip(line, line.get("clipped_at") or [], rows)
-            if axes:
+            after = None
+            if line.get("method") == "chain_drill":
+                if len(rows) == 1:
+                    description = (
+                        f"Single retained hole on the {side} join: "
+                        f"drill Ø{_number(line.get('drill_dia_mm'))} mm; hole outside "
+                        + self.arc_line(setup, line.get("op"))
+                    )
+                    after = "Drilling " + _leftover(line) + "."
+                else:
+                    description = (
+                        f"Chain drill straight joins on the {side} side: "
+                        f"drill Ø{_number(line.get('drill_dia_mm'))} mm, "
+                        f"pitch {_number(line.get('pitch_mm'))} mm; every hole outside "
+                        + self.arc_line(setup, line.get("op"))
+                    )
+                    after = (
+                        f"After drilling, {_text(line.get('break_out'))}; this "
+                        + _leftover(line)
+                        + "."
+                    )
+                description += self.cut_order(line) + self.clip(
+                    line, line.get("clipped_at") or [], rows
+                )
+                rows = [[str(index), *row[:-1]] for index, row in enumerate(rows, 1)]
+                headings = ["hole #", "P", "", "X", "Y", "Z"]
+            elif axes:
                 description += "; one handwheel axis per row"
                 if _known(line.get("stair_cusp_mm")):
                     # A bound: rounded up onto the DRO grid, never printed finer than it.
                     step = dro_grid(self.bundle, setup)[0]
                     cusp = math.ceil(round(line["stair_cusp_mm"] / step, 6)) * step
                     description += f", the stair leaves ≤ {o(cusp)}"
-            headings = ["P", "", "X", "Y", "Z", "handwheel axis"]
-            entry["parts"].append((order(entry, line), description, headings, rows, None))
-        arc_ops = {str(arc.get("op")) for arc in numbers.get("arc_table", []) or []}
+            if line.get("method") != "chain_drill":
+                headings = ["P", "", "X", "Y", "Z", "handwheel axis"]
+            entry["parts"].append((order(entry, line), description, headings, rows, after))
+        table_ops = {
+            str(table.get("op"))
+            for kind in ("arc_table", "line_table")
+            for table in numbers.get(kind, []) or []
+        }
         raster_stages = {}
         for profile in numbers.get("profiles", []):
             if isinstance(profile, dict) and isinstance(profile.get("raster"), dict):
                 raster_stages.setdefault(str(profile.get("op")), set()).add(profile.get("stage"))
         for profile in numbers.get("profiles", []):
             op = str(profile.get("op"))
-            if op in arc_ops:
+            if op in table_ops:
                 continue
             points = profile.get("cutter_centre")
             entry = block(op)

@@ -1,8 +1,8 @@
 """Shop annotations retain table targets without inventing connected toolpaths.
 
-Arc and line tables draw the values the DRO prints (``dro_xy``), and each of their keys
-lists the printed row ids it labels: the same ids the sheet's tables and the kernel's
-checks use. A bounded op's tables are left to the kernel, which draws only its clip.
+Arc and line tables draw the values the DRO prints (``dro_xy``); physical geometry
+binds their keys to rows. Row ids remain useful provenance but are not aliases when a
+bounded op loses holes during clipping. Bounded tables are left to the kernel's clip.
 """
 
 from types import SimpleNamespace
@@ -12,6 +12,7 @@ from test_coordinates_checkpoints import finding, plan
 
 from prechips.kernel.render_inputs import contour_annotations, setup_annotations
 from prechips.rules import coordinates
+from prechips.rules.resolution import LENGTH_TOLERANCE_MM
 
 
 def _bundle(units="mm"):
@@ -67,6 +68,33 @@ def test_arc_end_midpoint_and_line_corners_share_keys_only_within_their_operatio
     _assert_table_keys(waypoints)
 
 
+@pytest.mark.parametrize("scale", [1.0, 25.4])
+@pytest.mark.parametrize("separation", [0.5, 2.0])
+def test_common_point_keys_use_physical_length_tolerance_not_a_loose_merge(scale, separation):
+    delta = LENGTH_TOLERANCE_MM * separation
+    first = {"op": 10, "side": "west", "dro_xy": [[0, 0], [1 / scale, 0]]}
+    second = {
+        "op": 10,
+        "side": "east",
+        "dro_xy": [[(1 + delta) / scale, 0], [2 / scale, 0]],
+    }
+
+    paths, waypoints = contour_annotations({"line_table": [first, second]}, scale, "S1")
+
+    assert len(paths) == 2
+    assert len(waypoints) == (3 if separation < 1 else 4)
+    near = [point for point in waypoints if abs(point["xy"][0] - 1) <= delta * 1.1]
+    first_id = coordinates.row_id("S1:10", "line_table", first, 1)
+    second_id = coordinates.row_id("S1:10", "line_table", second, 0)
+    if separation < 1:
+        assert len(near) == 1
+        assert near[0]["rows"] == [first_id, second_id]
+    else:
+        assert len(near) == 2
+        assert [point["rows"] for point in near] == [[first_id], [second_id]]
+    _assert_table_keys(waypoints)
+
+
 def test_mirrored_line_points_keep_their_signed_setup_coordinates():
     west = [[-7.25, 1.5], [-3.5, 5.0], [-1.0, 5.0]]
     east = [[7.25, 1.5], [3.5, 5.0], [1.0, 5.0]]
@@ -85,6 +113,83 @@ def test_mirrored_line_points_keep_their_signed_setup_coordinates():
     for left, right in zip(west, east, strict=True):
         assert keys[tuple(left)] != keys[tuple(right)]
     _assert_table_keys(waypoints)
+
+
+@pytest.mark.parametrize("method", ["chain_drill", "stairs", "chords", None])
+def test_join_only_annotations_label_only_printed_checkpoints_not_raw_profile_points(method):
+    printed = [[1.0, 0.0], [2.0, 0.0], [2.0, 1.0], [3.0, 1.0], [3.0, 2.0]]
+    raw = [[x + 0.0004, y + 0.0004] for x, y in printed]
+    line = {
+        "op": 10,
+        "stage": "rough",
+        "side": "west",
+        "setup_xy": raw,
+        "dro_xy": printed,
+        "dro_tip_z": -2.0,
+    }
+    if method is not None:
+        line["method"] = method
+    if method == "stairs":
+        line.update(stair_cusp_mm=0.1, overshoot=[False, False, True, False, False])
+    numbers = {
+        "line_table": [line],
+        "profiles": [{"op": "10", "cutter_centre": raw}],
+    }
+
+    paths, waypoints = contour_annotations(numbers, 1.0, "S1")
+    (table,) = coordinates.checkpoints("S1:10", numbers, 10)
+
+    assert paths == [{"op": "10", "xy": printed, "directed": False}]
+    checkpoints = {row: xy for row, xy, _, _ in table["rows"]}
+    assert list(checkpoints.values()) == printed
+    selected = [0, 2, 4] if method == "stairs" else list(range(len(printed)))
+    ids = list(checkpoints)
+    assert [row for waypoint in waypoints for row in waypoint["rows"]] == [
+        ids[index] for index in selected
+    ]
+    assert set(_point_keys(waypoints, 10)) == {tuple(printed[index]) for index in selected}
+    assert all(
+        waypoint["xy"] == checkpoints[row] for waypoint in waypoints for row in waypoint["rows"]
+    )
+    _assert_table_keys(waypoints)
+
+
+@pytest.mark.parametrize("kind", ["arc_table", "line_table"])
+@pytest.mark.parametrize("scale", [1.0, 25.4])
+def test_singleton_hole_table_keeps_its_real_waypoint_without_a_connected_path(kind, scale):
+    point = [0.25, -0.5]
+    table = {"op": 10, "method": "chain_drill", "stage": "rough", "side": "west"}
+    if kind == "arc_table":
+        table["rows"] = [{"dro_xy": point}]
+    else:
+        table.update(setup_xy=[point], dro_xy=[point])
+
+    paths, waypoints = contour_annotations({kind: [table]}, scale, "S1")
+
+    assert paths == [], "one hole must not invent a drill-centre traverse"
+    (waypoint,) = waypoints
+    assert waypoint["op"] == "10" and waypoint["label"] == "P1"
+    assert waypoint["xy"] == pytest.approx([value * scale for value in point])
+    assert waypoint["rows"] == [coordinates.row_id("S1:10", kind, table, 0)]
+    _assert_table_keys(waypoints)
+
+
+@pytest.mark.parametrize("unavailable", ["kernel_clip", "unknown-point", "empty-table"])
+def test_join_only_table_without_drawable_points_never_falls_back_to_raw_profile(unavailable):
+    points = [[1.0, 0.0], [2.0, 1.0], [3.0, 2.0]]
+    line = {"op": 10, "method": "chain_drill", "dro_xy": points}
+    if unavailable == "kernel_clip":
+        line["kernel_clip"] = True
+    elif unavailable == "unknown-point":
+        line["dro_xy"] = [points[0], ["unknown", 1.0], points[-1]]
+    else:
+        line["dro_xy"] = []
+    numbers = {
+        "line_table": [line],
+        "profiles": [{"op": 10, "cutter_centre": points}],
+    }
+
+    assert contour_annotations(numbers, 1.0, "S1") == ([], [])
 
 
 def test_inch_contour_points_and_waypoint_keys_are_converted_to_millimetres():

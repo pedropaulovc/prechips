@@ -229,11 +229,116 @@ naming them. Each table is recorded under `arc_table` (its joins under
 - `chain_drill` (rough only; holes no more than `pitch_mm` apart along the
   rough path, drilled with the op's drill): every hole's full diameter must stay
   outside the line (`hole_clear_mm` ≥ 0) and neighbours must leave a web
-  (centres more than a drill diameter apart); either failure is an error. The
-  webs are broken out along the hole centres (`break_out`): every centre-to-centre
-  segment must stay outside the line (it runs inside it is an error), and the
-  file meets `stock_left_mm` = the larger of allowance + drill radius and the
-  deepest material the break-out leaves off the line along a radius.
+  (centres more than a drill diameter apart); either failure is an error.
+  Host DRO selection and kernel regeneration/actual-hole validation use one
+  shared pure finite-boundary clearance predicate. For an actual closed
+  finished loop (including a joined bottom outline or full circle), its sign
+  comes from point-in-region and its magnitude from the nearest finite
+  boundary: negative in kept material. Unordered exact lines and arcs are
+  connected by their real endpoints, with authored scrap normals determining
+  the kept side; arc sweeps are not tessellated or extended.
+  True open arcs and the current top-plus-land wall packets lack a complete
+  finished loop in the packet: no closure edge is invented. Linked taper and
+  bottom-arc facts can exist in the host model without being carried in that
+  partial top packet; fuller actual closed-boundary transport is tracked in
+  [#212](https://github.com/pedropaulovc/prechips/issues/212).
+  Their fallback uses oriented finite projections
+  and real free-end cap distances; shared concave vertices classify the actual
+  nearest-vertex sector, rather than treating a kept-side corner as a positive
+  cap. Distance ties are conservative, not a global AND of distant supporting
+  half-planes. Missing, ambiguous or unsupported region geometry is unknown,
+  never an unsigned-distance pass. With no admissible grid point, the stage is
+  unknown and its cut tables are withheld. Every actual cylinder still needs
+  web, bounds and native collision checks; the open fallback is not a proof
+  of the whole finished part.
+  The webs are broken out along the hole centres (`break_out`): every
+  centre-to-centre segment must stay outside kept material. For closed loops,
+  the same predicate checks entry against the whole finite boundary, not just
+  the join's own line; an entry is an error. The
+  file meets `stock_left_mm` = the maximum of allowance + drill radius, the
+  radial depth left by the actual printed arc centre-to-centre break-outs, and
+  the greatest distance from the retained printed join centre-to-centre
+  break-out polyline to the nearest finite finished wall (nearest-wall
+  distance, not one wall's normal, so a concave neighbour wall does not
+  over-report corner runout). Straight joins use the
+  same drill-radius + allowance offset as the arc. Each finite straight leg
+  keeps its exact join endpoints/miter, and its nominal holes divide the leg
+  into equal intervals no longer than `pitch_mm`; snapping each hole onto the
+  DRO grid can move the printed spacing off that bound. Holes are repositioning
+  checkpoints, not handwheel cutting moves, and the kernel credits an unbounded
+  chain with removing only its actual drilled cylinders: the webs between
+  them, and the stock between them and the claimed wall, stay in stock until
+  a later known removal (no drill-radius sweep between centres, no cutter
+  corridor, no +Z claim sweep), so retained webs beside a claimed wall are
+  named stock debt pointing at `stock_removal_bounds`; declaring that box on
+  the chain op is the author's certification of the actual break-out/chisel
+  footprint, not a demonstrated toolpath
+  ([rules-geometry](rules-geometry.md#in-process-stock); explicit break-out
+  phase tracked in [#213](https://github.com/pedropaulovc/prechips/issues/213)).
+  Join tables print hole numbers,
+  checkpoint P, X/Y and Z, drill size, pitch, break-out instructions and the
+  reported stock/cap or `recut_by`; a table left with a single hole prints no
+  pitch or break-out sentence (there is no neighbour to break through to).
+  Each P label names the printed DRO X/Y
+  point it stands on (matched within 1e-6 mm), never a hole index that a clip
+  or respacing could shift. Arc and join records share the worst residual of
+  their rough stage. Method, stage, full-hole-outside-the-line and requested
+  no-web errors (an authored `pitch_mm` no greater than the selected drill's
+  diameter can leave no web at any spacing) are preconditions found on the
+  authored tables before any clip, and stay errors even for holes a clip would
+  exclude; a clip's single-hole or dropped-end result never hides them.
+  The authored arc radial/full-hole invariant remains a pre-clip check in
+  addition to the shared finite-boundary predicate. It is intentionally not
+  imposed on regenerated endpoints: a physically safe finite-cap hole beyond
+  the actual sweep may lie inside the authored supporting circle.
+  A bounded chain (`stock_removal_bounds`)
+  is clipped by the kernel at drill granularity: it intersects the
+  drill-centre offset arc and join lines with the bounds eroded by the full
+  drill radius (a closed arc's fragments across its seam are one span), then
+  regenerates each retained arc or straight leg on its own with equal nominal
+  intervals along that curve, choosing the hole count so the nominal spacing
+  is no longer than `pitch_mm` and still leaves a web (centres more than a
+  drill diameter apart); that web is judged on the actual snapped DRO centres,
+  not the nominal span alone: for a retained span longer than the length
+  tolerance, the pitch-required count is always tried at its snapped
+  positions, even when it exceeds the nominal-length web bound, and any higher
+  nominally feasible count is also tried before the span is shortened (a span
+  within that tolerance, whether an isolated point or a tiny retained arc or
+  leg between two shared junctions, keeps exactly one hole, never a duplicate
+  row at the same centre); exact
+  junctions stay shared. A span whose snapped
+  placement leaves no positive web at any such count omits its clipped end
+  hole (reported as a dropped end, never as
+  a fabricated no-web error). Every actual hole then snaps onto the DRO grid
+  inside the bound and passes the same shared predicate: its centre must be
+  in scrap with finite-boundary clearance for the whole drill and allowance.
+  Closed loops use region membership even beyond an individual wall's
+  projection; genuine open packets use the finite-projection/free-end and
+  concave-shared-vertex fallback above. Bounds never waive that test.
+  The nominal-distance/offset guards remain additional placement constraints,
+  not independent unsigned side acceptance. All holes search the symmetric
+  square within three
+  grid steps on each axis and choose the nearest safe point by Euclidean
+  distance, with a deterministic coordinate tie-break. A diagonal is not
+  rejected merely for lying outside a one-step circle. Ends and junctions may
+  back off inward along the true curve; a clipped end is therefore not promised
+  within one step of the true bound crossing. A hole with no such grid
+  candidate after its full search and back-off leaves the whole clip unknown,
+  never a hole in finished material. Every actual
+  hole cylinder is judged; the printed spacing is the DRO spacing, which can
+  differ from the nominal interval. A raw swept-chord
+  intersection never becomes an extra hole. The web/break-out checks and the
+  single T6 `numbers.max_filing_stock_mm` cap enforcement run on the actual
+  regenerated residual. Unsigned nearest-wall distances intentionally remain
+  the stock/residual measurements, not scrap-side proof. Its table names
+  only genuine dropped ends and piece breaks where stock beyond is not cleared
+  or part of the chiselled chain; an intact arc/join junction continues into
+  the adjacent table. Omitted joins add no join debt while an arc
+  or other table remains; a stage the clip excludes entirely, or retained
+  pieces that no longer connect, keeps the existing clip debt.
+  When a chain error withholds cut tables, profile facts still report
+  `stock_left_mm` and `stock_cap_mm` where the residual was computed (a
+  precondition error may prevent it), for diagnosis, not permission to cut.
 - `chords` (finish; `count` straight chords): the chord ends sit on the edge
   radius that centres each chord's sagitta `c²/8R` in the feature's radial band
   (`dia` halved for a full circle, `bottom_radius` or `radius` otherwise); a
@@ -282,7 +387,7 @@ faces to the file (`recut_by`), instead of the cap. The claim test does not
 compare depth: an op between them may cut the same faces from the other side.
 Rough methods on a finish stage are an error (`file_to_line` finishes them);
 finish methods cannot be clipped by `stock_removal_bounds` (unknown); methods
-other than `stairs` along straight joins are unknown. A diagonal edge on a
+other than `stairs` and `chain_drill` along straight joins are unknown. A diagonal edge on a
 `linear_table` outline is unknown: single-axis stairs along an outline are not
 computed. Rasters and outlines whose edges are all axis-parallel need no
 manual-arc method.
@@ -441,12 +546,13 @@ all use these clipped rows and their ids; the op's removal stays its box.
 every axis: the DRO grid is the setup machine's declared inventory
 `resolution` (`resolution_mm` or `resolution_in`), else 0.001 plan units
 (`DRO_DEFAULT_STEP`), printed at the decimals of one step (`dro_grid`). Every
-arc row and join point carries `dro_xy`, the nearest grid point that, for each
-of the feature's walls (its arcs between their ends, its lands and tapers, a top
-arc's linked lands), is no nearer that wall than the exact point or the authored
-cutter-centre offset, whichever is less (a corner of its grid cell, else up to
-two steps out, else unknown); a table end and the join it meets print one
-value. Every table carries `dro_tip_z`, and each profile and operation
+arc row and join point carries `dro_xy`, the nearest grid point no nearer each
+finite wall than the exact point or the authored cutter-centre offset,
+whichever is less (a corner of its grid cell, else up to two steps out, else
+unknown). For chain drilling, the nearest finite finished-wall side guard above
+also applies; unsigned distance alone cannot admit a finished-side point.
+A table end and the join it meets print one value. Every table carries
+`dro_tip_z`, and each profile and operation
 `dro_to_z`: the authored depth rounded up, never deeper (−2.07825 prints −2.078
 on the default grid). The op rows and contour table headers print the same
 value, and so does every later Z printed for that face: a start Z, a Z zero and
@@ -580,6 +686,12 @@ supports on is an accessibility error naming the row; an unresolved check is
 run-out past the land and taper walls into scrap. The traveler prints
 "corner overshoot into scrap — OK" on that row only when the kernel proved the
 op's rows clear; a row with an error keeps its error and prints no note.
+
+For a regenerated chain table (`regeneration = "true_curve"`), row clip markers
+record provenance, not where the chain stops. The traveler names only its
+`dropped_ends` and genuine breaks between retained pieces. A retained arc/join
+junction carries the chain on into the adjacent table; it never gets a note
+excluding that next leg from the breakout.
 
 Exact message:
 

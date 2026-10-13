@@ -841,7 +841,7 @@ a contained cone apex or sphere pole) extends the column. A wider back
 countersink is therefore not reserved, and a blind hole's column stops at its
 actual cap rather than running on as an unbounded rod; pins or rods outside
 that span are not reserved hole stock.
-A profile op (`profile`, `rough_profile`, `finish_profile`) with no
+A milling profile op (`profile`, `rough_profile`, `finish_profile`) with no
 `stock_removal_bounds` clears its cutter corridor beside its vertical claimed
 walls and the sweep of the cutter-centre paths the traveler prints for it,
 never the stock past both. The walls' level sections are chained;
@@ -853,15 +853,37 @@ disc at each open path end. It stands from `to_z` (else the walls' foot) to
 above the setup-entry stock. A concave claim (for example an R800 edge) gets
 the same corridor, not its whole circle, so an unclaimed web wider than 2r, a
 clamped rail or an ear beyond it stays stock until an op that really cuts it.
-The operator really drives the printed path, corner miters (two linear moves
-past a convex corner) and run-outs included, so every point within r of each
-printed table (its displayed `dro_xy` rows as chords, from its displayed tip up)
-is credited removal too. **Rule A′** limits that path, row by row: a printed
+The operator really drives the printed milling path, corner miters (two linear
+moves past a convex corner) and run-outs included, so every point within r of
+each printed milling table (its displayed `dro_xy` rows as chords, from its
+displayed tip up) is credited removal too. A `chain_drill` table is not a
+driven path: its rows are repositioning checkpoints at which the operator
+drills one discrete cylinder each, then chisels the webs. An unbounded profile
+op whose every non-empty printed path is a `chain_drill` chain (the authoritative
+method is each path's own `method`) therefore removes only each actual hole
+cylinder, at the full drill radius from its actual tip Z: no corridor beside
+its walls, no +Z sweep of its non-vertical claims, no lineage band and no
+drill-radius sweep along the chords between hole centres. The positive webs
+between neighbouring holes, the stock between the holes and the claimed wall
+and any rail or ear beyond them stay in stock until an op that really cuts
+them, bounded or milling, in this or a later setup; the printed break-out
+instruction is not credited removal. A path with an unknown, empty or missing
+method never counts as a chain. In an op that prints both kinds, each chain
+path keeps only its holes and each milling path keeps its sweep. An explicit
+`stock_removal_bounds` on the chain op is the author's certification of the
+actual drilled-and-chiselled footprint under the same bounded-box rules
+below (finite numbers, setup-entry stock intersection, finished and
+protected-leave material never taken): the box is then its removal, as for
+any bounded op. It is not a demonstrated toolpath or measured execution. An
+explicit break-out/chisel phase or schema is tracked in
+[#213](https://github.com/pedropaulovc/prechips/issues/213), not implied here.
+**Rule A′** limits every printed table, row by row: a printed
 row is an accessibility error naming the row when its cutter meets the finished
 part or the op's rough leave (its guard), a fixture component, stock outside a
 bounded op's box, or stock a later setup bears on. A row's scrap is what it
 removes past its op's design (the corridor and claim sweeps, or a bounded op's
-box). Retained scrap may be nicked unless a later setup (one whose stock
+box; an unbounded chain op has no implicit design sweep, so all that each of
+its holes removes is scrap and is screened). Retained scrap may be nicked unless a later setup (one whose stock
 descends from this setup) contacts it: where the scrap still borders that
 setup's entry stock and lies within 0.01 mm in front of a flat face of one of
 its jaws, clamps (press, locate or support), locators, rests, parallels, risers
@@ -873,20 +895,33 @@ extension or, with undrawn supports, the later seat; unknown never passes.
 Fixtures are never stock, so a cutter that meets them stays an accessibility
 hit. An unknown cutter radius, an ambiguous wall side, an unknown printed row or
 a corridor or run-out OCC cannot build makes the cut underivable (named stock
-debt, never a guessed removal). Non-vertical claims of a profile op still sweep
-along +Z.
+debt, never a guessed removal). Non-vertical claims of a milling profile op
+still sweep along +Z.
 Every claimed face with a horizontal normal component is checked for
 remaining overstock above `to_z`,
 including drafted walls whose +Z sweep is nonzero. Exact face contact catches
 small retained ears; nearest-contact probes inset from the face boundary
-distinguish a drafted sliver from legitimately retained neighbours.
+distinguish a drafted sliver from legitimately retained neighbours. The webs
+an unbounded `chain_drill` op leaves beside a claimed wall are such overstock:
+the op is named stock debt (`overstock still touches claimed wall(s) … above
+its to_z; its unbounded chain_drill holes certify only drilling, so the webs
+between them stay stock; declare stock_removal_bounds on the op to certify
+the actual break-out/chisel removal`), and every later setup whose
+stock descends from it stays unresolved through the ordinary unknown
+propagation above. The remedy is a later op that really clears the webs, or
+a `stock_removal_bounds` box on the chain op that certifies the actual
+break-out/chisel footprint; neither the stock nor the reported filing cap
+changes to hide the debt. This is a per-wall contact test, not a rule that
+every unbounded chain fails: a chain whose webs the same setup's later
+milling clears, or whose claimed wall no web touches, is not debt.
 A `complete_form` hole op's own claimed caps are then checked against the
 setup's final stock with the same contact test, without the `to_z` clip (see
 [accessibility](#accessibility)); a touched cap is named output-stock debt.
 An operation can declare numeric `stock_removal_bounds` (one setup-frame box)
 to clear only outside-finished material inside that volume. The box is the
 explicit cleared footprint the author declares, for example the envelope of
-several roughing passes; it is not capped to the claimed faces' XY bounding
+several roughing passes or, on a `chain_drill` op, the drilled-and-chiselled
+break-out footprint; it is not capped to the claimed faces' XY bounding
 box dilated by the cutter radius, and it is not a proof that a whole toolpath
 exists or clears. The remaining guards all hold: the cutter radius must be
 known (an unknown radius leaves the bounds `?` with a reason naming the
@@ -1042,7 +1077,32 @@ except as the rough leave below moves it.
 **Printed checkpoints (rule A′).** For an op whose coordinates tables print
 cutter-centre rows ([rules-coordinates](rules-coordinates.md)), the kernel
 stands the op's cutter cylinder (radius less 0.001 mm) at every printed row's
-displayed setup XY from its displayed tip up above the setup-entry stock.
+displayed setup XY from its displayed tip up above the setup-entry stock; a
+`chain_drill` row stands its drill cylinder at its full radius from its
+actual tip Z, since each hole is a real drilled cylinder, not a lifted sweep.
+Host DRO selection and kernel regeneration/actual-hole acceptance share one
+pure finite-boundary clearance predicate for all chain arc and join holes,
+bounded or unbounded. Actual closed finished loops, including joined bottom
+outlines and full circles, use point-in-region plus nearest finite-boundary
+distance, signed negative in kept material. Unordered exact lines and finite
+arcs are connected by real endpoints and interpreted using authored scrap
+normals; neither tessellation nor invented closure supplies missing geometry.
+True open arcs and the current partial top-plus-land wall packets use oriented
+finite projections. The top packet does not carry the tapers and bottom arc,
+even when those linked facts exist in the host model; fuller actual
+closed-boundary transport is tracked in
+[#212](https://github.com/pedropaulovc/prechips/issues/212), not supplied by
+inventing closure. The open fallback uses
+real free-end caps and shared-concave-vertex sector classification instead:
+a kept-side shared corner is not an unsigned cap pass. Ties are conservative,
+not a global AND of distant supporting half-planes. Missing, ambiguous,
+inconsistent or unsupported region geometry is unknown; no admissible grid
+point leaves cut tables withheld. Closed-loop break-out centre segments are
+checked for kept-region entry against the whole finite boundary, not merely
+their own join lines. The open fallback is not full-part region proof.
+This declared profile guard does not certify the whole STEP or replace the
+existing 3D cylinder/accessibility backstop, bounds, rough-leave, fixture and
+later-setup collision checks below.
 A bounded op's tables arrive whole and are clipped first: the kernel sweeps
 that cylinder along each printed path and ends it where its common volume with
 the op's before-op stock outside its `stock_removal_bounds` box, less the
@@ -1056,10 +1116,77 @@ seam are one); one with no legal part has none. Facts: `checkpoint_clips`
 `rows`, `pieces` of `row` indices and clip points `after` a row at fraction `t`
 with `exact_xy` and `dro_xy` in plan units, `dropped_rows`, `clip_points`), or
 its `reason` when the clip is unknown: the frame, cutter radius, DRO grid,
-before-op stock or a boolean is unresolved, and then no row remains. The kept
+before-op stock or a boolean is unresolved, and then no row remains.
+A bounded `chain_drill` path is not swept: the kernel intersects its true
+drill-centre offset curves (`chain_geometry`: the arc and finite join lines,
+their walls, pitch and offset in the setup frame) with the bounds box eroded
+by the full drill radius, to `PLANE_TOL`. A closed arc's retained fragments
+across its seam are one span; an exact tangent contact keeps its one real
+hole. Each retained arc or straight-leg span is regenerated on its own with
+equal nominal intervals along that curve (not one uniform respacing across a
+miter): the hole count is chosen so the nominal spacing is no longer than the
+pitch and still leaves a web (centres more than a drill diameter apart). That
+web is judged on the actual snapped DRO centres, not on the nominal span
+alone: for a retained span longer than the length tolerance, the
+pitch-required count is always tried at its snapped positions, even when it
+exceeds the nominal-length web bound, and any higher nominally feasible count
+is also tried before the span is shortened; a span within that tolerance (an
+isolated point such as an exact tangent contact, or a tiny retained arc or leg
+between two shared junctions) keeps exactly one real hole, never a duplicate
+row at the same centre.
+Exact junctions between legs are kept and shared across tables. A span whose
+snapped placement leaves no positive web at any such count omits its clipped
+end hole (a junction's shared point stays unless the short tail is the chain's
+own end) and records that in
+`dropped_ends`; clipping alone does not fabricate a no-web error. Every actual
+hole snaps onto the DRO grid inside the eroded box and passes the shared
+finite-boundary predicate with clearance for the whole drill and allowance.
+Closed loops require scrap-region membership, including beyond a particular
+wall's finite projection; true open packets use the finite-projection,
+free-end-cap and shared-concave-vertex fallback above. Bounds never waive
+this test. Nominal-distance/offset guards remain additional placement
+constraints, not separate unsigned side acceptance. The authored radial
+whole-hole precondition is intentionally preserved before clipping, but is
+not imposed on regenerated finite-cap holes beyond the actual sweep: such
+a hole may lie inside the authored supporting circle when physically safe.
+Unsigned finite-wall distances still measure stock/residual and collision
+or nearest-search geometry, not kept-region membership. The T6
+`numbers.max_filing_stock_mm` cap is enforced on the actual regenerated
+residual. Every
+hole searches the symmetric square within three grid steps on each axis;
+the nearest safe point wins by Euclidean distance with a deterministic
+coordinate tie-break. A diagonal is not rejected by a one-step circular
+cutoff. Ends and junctions may back off inward along the true curve until a
+safe grid point exists; a junction's shared point is one fixed DRO point
+across its tables. A backed-off end hole is therefore not promised within one
+step of the true bound intersection (the shipped rocker trial happens to keep
+its ends within one step; that is evidence, not the guarantee). A hole with no
+such grid candidate after its full search and back-off is never placed in
+finished material; it leaves the clip unknown, as below. A fractional
+swept-chord intersection never becomes a hole. The chain's `checkpoint_clips`
+entry carries `regeneration = "true_curve"`, `pieces` of `generated` points
+(`exact_xy`, the nominal point on the true offset curve the hole was generated
+at, after any back-off; `dro_xy`, the actual centre; `model_xy` in the feature
+plane; an arc hole's `angle_deg`, continuous across a closed arc's seam; and `overshoot` at an exact miter),
+`dropped_ends` (whether the chain's first or last nominal end was lost to the
+clip or to a short tail), the authored `dropped_rows`, and empty
+`clip_points`; `clipped_at` records regeneration against the true offset curve
+at the eroded bounds, not a separate end stop at every marked row, and
+`precision_mm` is `PLANE_TOL`. Unknown or disconnected chain geometry, a
+box too small for one full drill, any retained interval with no safe grid
+point after its full search and back-off (an end or junction included), or
+no surviving centre leaves the entire
+clip unknown, even when another piece survives: never a partial table.
+Deliberately shortening a free end to preserve a positive web remains allowed.
+Internal `chain_geometry.walls` carry line scrap normals and arc outward
+signs for this shared predicate, not new user schema or policy. The pure
+`kernel/chain_boundary.py` helper participates in the `kernel/*.py` engine
+source digest, so adding or changing it re-keys every kernel job, not just
+chain jobs.
+The kept
 rows, renamed per piece with the coordinates row-id formats, are the only rows
 the row check and the setup picture's waypoints use; a bounded op's removal
-stays its box, never a printed run-out. Each
+stays its box, and an unbounded chain's its discrete holes, never a printed run-out. Each
 row is an error naming it when that cylinder meets the finished part, the op's
 rough leave (its guard less the finished part, inside what the row removes),
 a fixture component, or, for a bounded op, before-op stock outside its

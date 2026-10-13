@@ -281,8 +281,32 @@ tables, with the rough allowance added to the cutter radius.
 The PM-30MV is a manual mill: arcs follow the 1898 manual method
 ([plan Manual arcs](docs/plan.md#manual-arcs)). A `scribe` op lays out the
 centre, radius and ends; a rough op steps single-axis `stairs` or drills a
-`chain_drill` outside the line, every corner and full hole proven outside it and
-the leftover held to the shop policy's cited `max_filing_stock_mm`; a
+`chain_drill` outside the line, including straight joins: each finite drill leg
+keeps exact endpoints and nominal holes at equal intervals no greater than the
+pitch (DRO-grid snapping can move the printed spacing). Method, stage,
+full-hole-outside-the-line and requested-pitch-leaves-no-web errors are found
+before clipping; a bounded chain
+is then clipped at drill granularity (offset path intersected with the bounds
+eroded by the drill radius, each retained arc or leg regenerated with equal
+nominal intervals within pitch that still leave a web, a too-short span
+dropping its end hole rather than failing, every hole snapped to a safe grid
+point: every hole searches a symmetric square of three grid steps per axis,
+choosing the nearest safe point by Euclidean distance; ends and junctions
+may back off inward along the true curve; every actual hole cylinder
+judged; swept-chord clip points never become holes), every retained web and
+break-out is proven outside the line, the table names only true dropped ends
+and piece breaks where stock beyond is not cleared, omitted joins add no join
+debt while other tables remain (a
+wholly excluded or disconnected stage keeps its clip debt), and the worst
+residual (arc radial depth, and the join break-out polyline's greatest
+distance to the nearest finished wall) is held once to the shop policy's cited
+`max_filing_stock_mm`. The kernel credits an unbounded chain with its actual
+drilled cylinders only: the webs stay in stock until a later known removal
+(no sweep between centres, no corridor or +Z claim sweep), retained webs on a
+claimed wall are named stock debt pointing at `stock_removal_bounds`, and
+declaring that box on the chain op is the author's certification of the
+actual break-out footprint, not a demonstrated toolpath (explicit break-out
+phase: [#213](https://github.com/pedropaulovc/prechips/issues/213)); a
 `file_to_line` op at the bench files to hardened buttons pinned through the
 arc's bore (or a template) and checks R with a radius gauge whose range covers
 it. `chords` (sagitta proven inside the band, ends on the DRO grid) and a
@@ -676,7 +700,8 @@ is never credited with a later op's removal. Missing surface normals or
 unresolved pose facts never become clearance or reach passes.
 Facing uses a planar outer-wire sweep to clear raw caps over hole mouths
 while preserving finished islands. `stock_removal_bounds` is an authored
-cleared footprint (possibly several passes), not capped to the claims' XY
+cleared footprint (possibly several passes, or a chain drill's certified
+break-out), not capped to the claims' XY
 bounding box plus cutter radius and not a toolpath proof; known radius,
 finite bounds, stock intersection, finished protection, exact claim/piece
 contact, future hole columns and no split of an original solid still apply.

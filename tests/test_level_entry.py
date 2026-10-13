@@ -24,7 +24,15 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 PLUNGE_AT = re.compile(r"plunge[^;]*? at \d+ mm/min|plunge \d+ mm/min")
 
 
-def open_path(box_top, approach=2.0, plunge=True, center_cutting=True, operation=None, line=None):
+def open_path(
+    box_top,
+    approach=2.0,
+    plunge=True,
+    center_cutting=True,
+    operation=None,
+    line=None,
+    profiles=None,
+):
     """``level_paths`` for one open two-level line (0,-5) → (0,5) inside a 20 mm stock box
     whose top is ``box_top``, with the setup's stock top at Z0. ``operation`` replaces the
     op's coordinates entry (its depth levels), ``line`` its join table; ``center_cutting``
@@ -60,6 +68,7 @@ def open_path(box_top, approach=2.0, plunge=True, center_cutting=True, operation
     numbers = {
         "operations": [operation or levels],
         "line_table": [line or {"op": 20, "stage": "rough", "dro_xy": [[0.0, -5.0], [0.0, 5.0]]}],
+        "profiles": profiles or [],
     }
     states = [(op, {"top_z": 0.0}, {})]
 
@@ -110,6 +119,50 @@ def test_an_end_mill_not_proven_centre_cutting_has_no_plunge_into_the_stock(cent
     [record], debts = open_path(box_top=1.0, center_cutting=center_cutting, line=line)
     assert [down["air"] for down in record["entries"]] == [True]
     assert "plunge_mm_rev" not in record and debts == []
+
+
+def test_join_only_chain_holes_need_no_endmill_plunge_feed_or_return_height():
+    printed = [[0.0, -5.0], [0.0, 5.0]]
+    raw = [[0.0004, -5.0004], [0.0004, 5.0004]]
+    records, debts = open_path(
+        box_top=1.0,
+        approach="unknown",
+        plunge=False,
+        center_cutting=False,
+        line={
+            "op": 20,
+            "method": "chain_drill",
+            "stage": "rough",
+            "setup_xy": raw,
+            "dro_xy": printed,
+        },
+        profiles=[{"op": 20, "cutter_centre": raw}],
+    )
+    # With the arc clipped away, these are still drill holes, not either the
+    # join table or its raw profile copy interpreted as an end-mill path.
+    assert records == []
+    assert debts == []
+
+
+def test_join_only_stairs_enter_the_printed_path_once_not_its_raw_profile_copy():
+    printed = [[0.0, -5.0], [0.0, 5.0]]
+    raw = [[0.0004, -5.0004], [0.0004, 5.0004]]
+    [record], debts = open_path(
+        box_top=1.0,
+        line={
+            "op": 20,
+            "method": "stairs",
+            "stage": "rough",
+            "setup_xy": raw,
+            "dro_xy": printed,
+        },
+        profiles=[{"op": 20, "cutter_centre": raw}],
+    )
+    assert debts == []
+    assert record["entries"] == [{"xy": printed[0], "air": False, "pass": False}]
+    assert record["closed"] is False
+    assert record["plunge_mm_rev"] == 0.05
+    assert (record["raise_z"], record["raise_clear"]) == (2.0, True)
 
 
 @pytest.mark.parametrize(
