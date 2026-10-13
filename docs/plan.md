@@ -36,7 +36,7 @@ setup, and `tool_touches` explicitly records tool changes. Neither invents a
 measured trial-cut diameter.
 
 Setup frames, stock state and authored operation bounds supply the geometry and spans used for picture scale under [render geometry](rules-geometry.md#renders).
-The [traveler render binding](report-and-telemetry.md#kernel-renders) changes finished-outline overlays and visible guide-leader anchors, not authored setup coordinates, zero recipes or operation values.
+The [traveler render binding](report-and-telemetry.md#kernel-renders) preserves main's accepted leader placement and all original ordinary-tolerance layout and anchor inputs; a separate bounded stream is used only for outline painting. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR. This adds no plan field and changes no authored setup coordinates, zero recipes or operation values.
 
 Every zero recipe's `edge_mm` is the authored pickup coordinate in the setup
 frame. A Z recipe with `face = "top"` uses the stock state's top; other named

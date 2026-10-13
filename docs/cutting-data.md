@@ -37,7 +37,7 @@ recommendation or verify actual cutting conditions. The paper layout adds no
 cutting-data field and does not replace unknown recommendations with numbers.
 
 Cutting-data rows supply recommendations, not picture geometry or scale; those come from the setup, manifest and inventory under [render geometry](rules-geometry.md#renders).
-[Traveler outline overlays and visible guide leaders](report-and-telemetry.md#kernel-renders) do not change cited cutting values, RPM or feed recommendations.
+[Traveler outline overlays](report-and-telemetry.md#kernel-renders) use a separate bounded stream for painting only, preserving main's accepted leaders and all original ordinary-tolerance layout and anchor inputs. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR. This adds no cutting-data field and changes no cited cutting values, RPM or feed recommendations.
 
 `[[deep_hole]]` rows derate a spindle operation's starting speed in deep holes.
 A row names one `operation` (for example `drill`), a `depth_over_dia` threshold

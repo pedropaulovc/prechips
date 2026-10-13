@@ -26077,7 +26077,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "ad8687e3db22b9e9ddf9aa3efbec1734d18de8e5e3104ea99ff6d0786155eac2",
+  "hash": "1b11c7145ecc97d34bbed4ba83d28c5e74e65369c0ad8ed7acd8c10be5f0563e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26105,7 +26105,7 @@
     },
     "render:S11": {
       "path": "setup-S11.png",
-      "sha256": "6ac1bf97f327b41b4acf4561d32f70ab169ee78a143e29a1c724daf0b1831355"
+      "sha256": "69bde9aa3844c249c64c5411adb7d4d8ef7850ddaf98e9a0932bd5075dc10801"
     },
     "render:S11:110:angularity_dia": {
       "path": "setup-S11-op110-angularity_dia.png",
@@ -26141,11 +26141,11 @@
     },
     "render:S8": {
       "path": "setup-S8.png",
-      "sha256": "df18cadf1e9f0bfcdbe2d08e023ade54e6718df7a53023fabb10851088346a48"
+      "sha256": "e1002efeafb23dc3b64ea6c82bbafcd93663e91aec6f032272246d91286b912c"
     },
     "render:S9": {
       "path": "setup-S9.png",
-      "sha256": "05e2c2988c51a24c5712e31e362e72673173e73fdcefcc083bf11a91d3361e3c"
+      "sha256": "c6e0b88f76503235488f03853d87389db64ef5cea3a3b396916706d0ea5f1735"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
@@ -26576,7 +26576,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "6ac1bf97f327b41b4acf4561d32f70ab169ee78a143e29a1c724daf0b1831355"
+      "sha256": "69bde9aa3844c249c64c5411adb7d4d8ef7850ddaf98e9a0932bd5075dc10801"
     },
     "S12": {
       "fixture": "modeled",
@@ -27306,7 +27306,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "df18cadf1e9f0bfcdbe2d08e023ade54e6718df7a53023fabb10851088346a48"
+      "sha256": "e1002efeafb23dc3b64ea6c82bbafcd93663e91aec6f032272246d91286b912c"
     },
     "S9": {
       "fixture": "modeled",
@@ -27414,7 +27414,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "05e2c2988c51a24c5712e31e362e72673173e73fdcefcc083bf11a91d3361e3c"
+      "sha256": "c6e0b88f76503235488f03853d87389db64ef5cea3a3b396916706d0ea5f1735"
     }
   },
   "rules_version": "m5-rev10",

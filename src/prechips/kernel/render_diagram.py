@@ -730,11 +730,6 @@ def _dash_segments(polylines, project, clip=None):
                 phase = (phase + run) % 14
 
 
-def _outline_point_key(point):
-    """Stable identity for native endpoints used by leader placement."""
-    return tuple(round(float(value), 6) for value in point)
-
-
 def _identity_projection(point):
     return point
 
@@ -845,57 +840,6 @@ def _drawn_outline_paths(polylines, project):
             current = last if first == current else first
         paths.append(tuple(path))
     return paths
-
-
-def _outline_anchor_points(polylines):
-    """Native-edge endpoints for leader choices, independent of tessellation density."""
-    points = {}
-    for line in polylines:
-        if len(line) < 2:
-            continue
-        for point in (line[0], line[-1]):
-            candidate = tuple(point)
-            key = _outline_point_key(candidate)
-            if key not in points or candidate < points[key]:
-                points[key] = candidate
-    return tuple(points[key] for key in sorted(points))
-
-
-def _visible_outline_anchors(polylines, native_anchors, project, viewport):
-    """Prefer visible native endpoints; otherwise use only actual viewport crossings."""
-    left, top, right, bottom = viewport
-
-    def inside(point):
-        return left <= point[0] <= right and top <= point[1] <= bottom
-
-    anchors = tuple(point for native in native_anchors if inside(point := project(native)))
-    if anchors:
-        return anchors
-    crossings = {}
-    for line in polylines:
-        pixels = [project(point) for point in line]
-        for a, b in zip(pixels, pixels[1:], strict=False):
-            segment = _clip_segment(a, b, viewport)
-            if segment is None:
-                continue
-            for source, clipped in zip((a, b), segment, strict=True):
-                if inside(source):
-                    continue  # A visible tessellation vertex is not a new native anchor.
-                point = list(clipped)
-                for axis, low, high in ((0, left, right), (1, top, bottom)):
-                    # The clipping multiply/add can land a few ulps beyond its boundary.
-                    # Normalize only these computed crossings, never an offscreen source.
-                    tolerance = 4 * max(
-                        math.ulp(a[axis]), math.ulp(b[axis]), math.ulp(low), math.ulp(high)
-                    )
-                    if low - tolerance <= point[axis] < low:
-                        point[axis] = low
-                    elif high < point[axis] <= high + tolerance:
-                        point[axis] = high
-                candidate = tuple(point)
-                if inside(candidate):
-                    crossings[candidate] = None
-    return tuple(sorted(crossings))
 
 
 def _dashed(canvas, polylines, project, colour, clip=None, halo_width=0):
@@ -1030,7 +974,13 @@ class _Diagram:
         self.nominal = [line for line in spec.get("nominal_outline_mm", []) if len(line) >= 2]
         if self.view == "lathe":
             self.nominal = []
-        self.nominal_anchors = _outline_anchor_points(self.nominal)
+        # Preserve main's geometry inputs for layout and every leader choice.
+        # Fine samples are explicit paint-only data, never a legacy fallback.
+        self.render_nominal = (
+            [line for line in spec["nominal_render_outline_mm"] if len(line) >= 2]
+            if self.nominal
+            else []
+        )
         self.is_vise = any(_role(c) in ("fixed_jaw", "moving_jaw", "jaw") for c in self.components)
         self.is_chuck = self.view == "lathe" or any(
             _role(c).startswith("chuck") for c in self.components
@@ -1340,13 +1290,12 @@ class _Diagram:
         self._context()
         if self.nominal:
             self._nominal_overlay(self.canvas.project)
-            anchors = tuple(self.canvas.project(point) for point in self.nominal_anchors)
             self.callouts.append(
                 _Callout(
                     "FINISHED OUTLINE",
                     [self.canvas.project(self.nominal[0][0])],
                     _BLUE,
-                    along=anchors,
+                    along=tuple(self.canvas.project(p) for line in self.nominal for p in line),
                 )
             )
         self._components()
@@ -1469,7 +1418,7 @@ class _Diagram:
                 )
 
     def _nominal_overlay(self, project, clip=None, faint=False):
-        paths = _drawn_outline_paths(self.nominal, project)
+        paths = _drawn_outline_paths(self.render_nominal, project)
         _dashed(self.canvas, paths, _identity_projection, _NOMINAL_FAINT if faint else _BLUE, clip)
 
     def _component_label(self, component):
@@ -3822,7 +3771,11 @@ class _GuideView(_HoldingDetail):
         super().__init__(meshes, spec, frame, camera, gain, (1, 1), extra, top)
         self.gain = self.canvas.scale / main_scale
         self.nominal = [line for line in spec.get("nominal_outline_mm", []) if len(line) >= 2]
-        self.nominal_anchors = _outline_anchor_points(self.nominal)
+        self.render_nominal = (
+            [line for line in spec["nominal_render_outline_mm"] if len(line) >= 2]
+            if self.nominal
+            else []
+        )
 
     def _title(self):
         nouns = {name.rsplit(" ", 1)[-1] for name in self.names}
@@ -3850,19 +3803,14 @@ class _GuideView(_HoldingDetail):
             _text(c, 34, self.note_y + index * _LEADING, line, _MUTED)
         self._nominal_overlay(c.project, clip=self.viewport)
         if self.nominal:
-            anchors = _visible_outline_anchors(
-                self.nominal, self.nominal_anchors, c.project, self.viewport
-            )
-            if anchors:
-                primary = c.project(self.nominal[0][0])
-                left, top, right, bottom = self.viewport
-                if not (left <= primary[0] <= right and top <= primary[1] <= bottom):
-                    primary = anchors[0]
-                self.callouts.append(_Callout("FINISHED OUTLINE", [primary], _BLUE, along=anchors))
-            else:
-                self.render_debts.append(
-                    "NOT SHOWN: FINISHED OUTLINE is outside this view, so it has no leader."
+            self.callouts.append(
+                _Callout(
+                    "FINISHED OUTLINE",
+                    [c.project(self.nominal[0][0])],
+                    _BLUE,
+                    along=tuple(c.project(p) for line in self.nominal for p in line),
                 )
+            )
         self._file()
         self._rims()
         self._holding()

@@ -64327,7 +64327,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "e817ccb1e0e4f648afb1290aca9247e9910f766594c93621575f0fa967019021",
+  "hash": "4593a489813171c33af9fcd6d94cc7e543d8eec5352a21912c301ff2b43bfa99",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -64371,11 +64371,11 @@
     },
     "render:S2": {
       "path": "setup-S7.png",
-      "sha256": "3067916581b8e54e3e5142cc178a6677f0cb829f2d9500bf20e1dde0e258f417"
+      "sha256": "eccda3acac220e0b345860dc708506fc8eaa14ee90febc19fabb42aebab27e0e"
     },
     "render:S3": {
       "path": "setup-S8.png",
-      "sha256": "bea4a31a64a07214fc0dcae2d8b2aff943918a14267754f884234a8c16defc29"
+      "sha256": "755f5733f4f24d6f5bb7167172b28ae8c16b2c8b40b0f5c32e401026e3db1b56"
     },
     "render:S3F": {
       "path": "setup-S9.png",
@@ -65512,7 +65512,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "3067916581b8e54e3e5142cc178a6677f0cb829f2d9500bf20e1dde0e258f417"
+      "sha256": "eccda3acac220e0b345860dc708506fc8eaa14ee90febc19fabb42aebab27e0e"
     },
     "S3": {
       "fixture": "modeled",
@@ -65995,7 +65995,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "bea4a31a64a07214fc0dcae2d8b2aff943918a14267754f884234a8c16defc29"
+      "sha256": "755f5733f4f24d6f5bb7167172b28ae8c16b2c8b40b0f5c32e401026e3db1b56"
     },
     "S3F": {
       "fixture": "modeled",

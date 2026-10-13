@@ -32,7 +32,6 @@ from prechips.kernel.render_diagram import (
     _holding_details,
     _HoldingDetail,
     _main_diagram,
-    _outline_anchor_points,
     _profile_outline_deflection,
     _solid_name,
     _tag_at,
@@ -1547,6 +1546,9 @@ def test_isometric_axes_phrase_keeps_pixel_gutter_from_colored_legend_samples():
         "stock_box": stock,
         "legend": ["retained", "removed", "holding", "tool"],
         "nominal_outline_mm": [[[0, 0, 0], [18, 0, 0], [18, 26.2, 0], [0, 26.2, 0], [0, 0, 0]]],
+        "nominal_render_outline_mm": [
+            [[0, 0, 0], [18, 0, 0], [18, 26.2, 0], [0, 26.2, 0], [0, 0, 0]]
+        ],
     }
     diagram, _ = _composed_diagram([], spec)
     axes_words = [box for box in diagram.canvas.text_boxes if box[0] in {"VIEW", "NORMAL"}]
@@ -1593,6 +1595,7 @@ def test_profile_outline_deflection_bounds_circle_chord_error_at_sketch_scale(mo
     spec["paths"] = paths
     spec["waypoints"] = []
     spec["nominal_outline_mm"] = [circle]
+    spec["nominal_render_outline_mm"] = [circle]
     scales = []
     xy_projector = render_module._xy_projector
 
@@ -1764,6 +1767,93 @@ def pure_native_outline_render():
     return namespace
 
 
+def _mock_outline_renderer(monkeypatch, namespace, paths, edges, waypoints=()):
+    """Exercise the real spec producer with no FreeCAD imports or geometry."""
+    face = SimpleNamespace(Edges=edges)
+    solid = SimpleNamespace(Faces=[face], tessellate=lambda tolerance: ([], []))
+    monkeypatch.setitem(namespace, "Part", SimpleNamespace(Compound=lambda faces: solid))
+    return SimpleNamespace(
+        box=[0, 0, 0, 10, 10, 1],
+        setup={"id": "S1", "machine_kind": "mill"},
+        stock_out=None,
+        part=solid,
+        hold=None,
+        fixture_ready=False,
+        fixture_reason="not declared",
+        fixture_debts=[],
+        fixture_gaps=[],
+        fixture=[],
+        fixture_possible=[],
+        jaws=None,
+        owner=SimpleNamespace(features={}),
+        ops=[{"subject": "S1:20"}],
+        finished=solid,
+        faces=[face],
+        _rest_render=lambda debts: [],
+        _expects_parallels=lambda: False,
+        _render_tool=lambda annotation, lathe, rests: (None, None),
+        _clipped_sketch=lambda annotation: (paths, list(waypoints), []),
+        _render_components=lambda annotation, named=False: [],
+        _indices=lambda op: [0],
+        _round_stock_dia=lambda lathe: None,
+        _index_arc=lambda annotation, fixture_kind: None,
+        _blade_paths=lambda held: [],
+        _guide_stops=lambda held, section_view: ({}, {}),
+        _guide_view=lambda stops, solids, drawn, removal: None,
+        _render_contacts=lambda held, tolerance, section_view: [],
+        _cut_clearances=lambda held, drawn, by_op, blades, undecided: ([], None),
+    )
+
+
+@pytest.mark.parametrize("span", [None, 0.1, 10])
+def test_native_outline_capture_separates_main_samples_from_bounded_paint(
+    monkeypatch, pure_native_outline_render, span
+):
+    namespace = pure_native_outline_render
+    paths = [] if span is None else [{"op": "20", "xy": [[0, 0], [span, span]]}]
+    tolerance = 10 / 400  # Exact main tolerance for this mock's stock box.
+    fine_tolerance = min(tolerance, render_module._nominal_outline_deflection(paths, []))
+    calls, captured = [], []
+
+    class NativeEdge:
+        Length = 1.0
+
+        def __init__(self, identity):
+            self.identity = identity
+
+        def hashCode(self):
+            return self.identity
+
+        def discretize(self, **kwargs):
+            calls.append((self.identity, kwargs))
+            return [SimpleNamespace(x=self.identity, y=kwargs["Deflection"], z=z) for z in (0, 1)]
+
+    first, second, short = NativeEdge(2), NativeEdge(1), NativeEdge(3)
+    short.Length = 0
+    renderer = _mock_outline_renderer(monkeypatch, namespace, paths, [first, second, first, short])
+    png = b"\0" * 16 + struct.pack(">II", 1600, 1000)
+
+    def capture(meshes, spec):
+        captured.append(spec)
+        return png, [], []
+
+    monkeypatch.setitem(namespace, "render_diagram", capture)
+    result, _ = namespace["_render"](renderer)
+    (spec,) = captured
+    assert result == png
+    assert calls == [
+        (identity, {"Deflection": requested})
+        for requested in (tolerance, fine_tolerance)
+        for identity in (2, 1)
+    ]
+    assert spec["nominal_outline_mm"] == [
+        [[identity, tolerance, 0], [identity, tolerance, 1]] for identity in (2, 1)
+    ]
+    assert spec["nominal_render_outline_mm"] == [
+        [[identity, fine_tolerance, 0], [identity, fine_tolerance, 1]] for identity in (2, 1)
+    ]
+
+
 @pytest.mark.parametrize("span", [0.1, 0.011])
 @pytest.mark.parametrize("error_type", [RuntimeError, ValueError])
 def test_native_outline_discretization_failure_is_not_coarsened(
@@ -1782,34 +1872,11 @@ def test_native_outline_discretization_failure_is_not_coarsened(
 
         def discretize(self, **kwargs):
             calls.append(kwargs)
-            raise error_type("requested deflection is below native precision")
+            if kwargs["Deflection"] == requested:
+                raise error_type("requested deflection is below native precision")
+            return [SimpleNamespace(x=0, y=0, z=0), SimpleNamespace(x=1, y=0, z=0)]
 
-    face = SimpleNamespace(Edges=[NativeEdge()])
-    solid = SimpleNamespace(Faces=[face], tessellate=lambda tolerance: ([], []))
-    renderer = SimpleNamespace(
-        box=[0, 0, 0, 10, 10, 1],
-        setup={"id": "S1", "machine_kind": "mill"},
-        stock_out=None,
-        part=solid,
-        hold=None,
-        fixture_ready=False,
-        fixture_reason="not declared",
-        fixture_debts=[],
-        fixture_gaps=[],
-        fixture=[],
-        jaws=None,
-        owner=SimpleNamespace(features={}),
-        ops=[{"subject": "S1:20"}],
-        finished=solid,
-        faces=[face],
-        _rest_render=lambda debts: [],
-        _expects_parallels=lambda: False,
-        _render_tool=lambda annotation, lathe, rests: (None, None),
-        _clipped_sketch=lambda annotation: (paths, [], []),
-        _render_components=lambda annotation, named=False: [],
-        _indices=lambda op: [0],
-        _round_stock_dia=lambda lathe: None,
-    )
+    renderer = _mock_outline_renderer(monkeypatch, namespace, paths, [NativeEdge()])
 
     def forbid_png(*args, **kwargs):
         pytest.fail("a native discretization failure must not produce a PNG")
@@ -1821,21 +1888,20 @@ def test_native_outline_discretization_failure_is_not_coarsened(
         def run(self):
             return namespace["_render"](renderer)
 
-    monkeypatch.setitem(namespace, "Part", SimpleNamespace(Compound=lambda faces: solid))
     monkeypatch.setitem(namespace, "render_diagram", forbid_png)
     monkeypatch.setitem(namespace, "_Job", NativeJob)
 
     assert math.isfinite(requested) and 0 < requested < 1e-3
     with pytest.raises(error_type, match="requested deflection is below native precision"):
         namespace["_render"](renderer)
-    assert calls == [{"Deflection": requested}]
+    assert calls == [{"Deflection": 10 / 400}, {"Deflection": requested}]
     calls.clear()
     result = namespace["run_job"]({})
     assert result == {
         "status": "error",
         "reason": f"{error_type.__name__}: requested deflection is below native precision",
     }
-    assert calls == [{"Deflection": requested}]
+    assert calls == [{"Deflection": 10 / 400}, {"Deflection": requested}]
 
 
 @pytest.mark.parametrize(
@@ -1880,6 +1946,7 @@ def test_guide_axis_outline_deflection_bounds_circle_chord_error(radius, minimum
     spec["paths"] = []
     spec["waypoints"] = []
     spec["nominal_outline_mm"] = [circle]
+    spec["nominal_render_outline_mm"] = [circle]
     main, _ = _main_diagram(meshes, spec)
     view = _guide_view(spec, main)
 
@@ -1976,7 +2043,7 @@ def _reference_outline_paths(polylines, project, *, x_scan=False):
 def test_finished_outline_index_matches_existing_example_specs(name):
     spec = _example_spec(name)
     diagram = _Diagram([], spec)
-    lines = spec["nominal_outline_mm"]
+    lines = spec["nominal_render_outline_mm"]
     project = diagram.canvas.project
     expected = _reference_outline_paths(lines, project)
 
@@ -2233,30 +2300,61 @@ def test_finished_outline_overlaps_render_once_with_even_dash_phase():
     assert 0.6 <= ratio <= 0.75
 
 
-def test_finished_outline_callout_anchor_is_independent_of_tessellation_density():
+@pytest.mark.parametrize("view", ["plan", "elevation", "isometric"])
+def test_fine_outline_density_preserves_main_leaders_and_complete_layout(monkeypatch, view):
+    def circle(segments):
+        return [
+            [
+                5.1 * math.cos(2 * math.pi * index / segments),
+                5.1 * math.sin(2 * math.pi * index / segments),
+                0,
+            ]
+            for index in range(segments + 1)
+        ]
+
+    legacy = [circle(16)]
+    painted = []
+    paths = render_module._drawn_outline_paths
+
+    def observe(lines, project):
+        painted.append(lines)
+        return paths(lines, project)
+
+    monkeypatch.setattr(render_module, "_drawn_outline_paths", observe)
+
     def render_outline(segments):
         spec = _example_spec("rocker-s1")
-        spec["nominal_outline_mm"] = [
-            [
-                [
-                    5.1 * math.cos(start + math.pi * index / segments),
-                    5.1 * math.sin(start + math.pi * index / segments),
-                    0,
-                ]
-                for index in range(segments + 1)
-            ]
-            for start in (0, math.pi)
-        ]
+        spec["view"] = view
+        spec["camera"] = render_module._CAMERAS["isometric"] if view == "isometric" else _FRONT
+        spec["nominal_outline_mm"] = legacy
+        spec["nominal_render_outline_mm"] = [circle(segments)]
+        before = len(painted)
         diagram, _ = _composed_diagram([], spec)
+        assert len(painted) > before
+        assert all(lines == spec["nominal_render_outline_mm"] for lines in painted[before:])
+        (outline,) = [item for item in diagram.callouts if item.label == "FINISHED OUTLINE"]
+        assert outline.along == tuple(
+            diagram.canvas.project(point) for line in legacy for point in line
+        )
         return diagram
 
-    coarse = render_outline(4)
-    dense = render_outline(64)
-    coarse_leaders = [path for label, path in coarse.leaders if label == "FINISHED OUTLINE"]
-    dense_leaders = [path for label, path in dense.leaders if label == "FINISHED OUTLINE"]
-
-    assert _outline_anchor_points(coarse.nominal) == _outline_anchor_points(dense.nominal)
-    assert coarse_leaders == dense_leaders
+    coarse, dense = render_outline(16), render_outline(128)
+    assert coarse.nominal == dense.nominal == legacy
+    assert coarse.render_nominal != dense.render_nominal
+    assert coarse.leaders == dense.leaders
+    assert coarse.callouts == dense.callouts
+    assert coarse.obstacles == dense.obstacles
+    assert coarse.dimensions == dense.dimensions
+    assert coarse.viewport == dense.viewport
+    assert coarse.canvas.scale == dense.canvas.scale
+    assert coarse.canvas._world_centre == dense.canvas._world_centre
+    assert coarse.canvas._pixel_centre == dense.canvas._pixel_centre
+    assert coarse.canvas.text_boxes == dense.canvas.text_boxes
+    assert coarse.render_debts == dense.render_debts
+    assert coarse.print_panels == dense.print_panels
+    assert [detail.canvas.text_boxes for detail in coarse.annotation_details] == [
+        detail.canvas.text_boxes for detail in dense.annotation_details
+    ]
 
 
 def test_profile_outline_deflection_includes_single_xy_waypoints():
@@ -2933,151 +3031,76 @@ def _guide_outline_scene(fraction_lines):
         ]
         for line in fraction_lines
     ]
+    spec["nominal_render_outline_mm"] = spec["nominal_outline_mm"]
     return meshes, spec
 
 
 @pytest.mark.parametrize(
-    ("line", "expected"),
+    "line",
     [
-        ([(-0.5, 0.3), (0.4, 0.3), (1.5, 0.3)], [(0, 0.3), (1, 0.3)]),
-        ([(-0.5, 0.3), (0.4, 0.3)], [(0.4, 0.3)]),
-        ([(0.4, 0.3), (1.5, 0.3)], [(0.4, 0.3)]),
-        ([(-0.2, -0.2), (1.2, 1.2)], [(0, 0), (1, 1)]),
-        (
-            [(-0.2, -0.2 + 1e-12), (1.2, 1.2 + 1e-12)],
-            [(0, 1e-12), (1 - 1e-12, 1)],
-        ),
+        [(-0.5, 0.3), (0.4, 0.3), (1.5, 0.3)],
+        [(0.8, 0.3), (0.5, 0.4), (0.2, 0.3)],
+        [(3, 3), (4, 3)],
     ],
-    ids=[
-        "both-native-ends-outside-no-interior-sample-anchor",
-        "last-native-end-visible",
-        "original-primary-visible",
-        "closed-corner-crossings",
-        "near-corner-crossings",
-    ],
+    ids=["offscreen-ends", "visible-vertices", "outside"],
 )
-def test_guide_finished_outline_anchors_only_visible_endpoints_or_clip_crossings(
-    monkeypatch, line, expected
-):
+def test_guide_fine_density_keeps_exact_main_legacy_candidates_and_layout(monkeypatch, line):
     _, spec = _guide_outline_scene([line])
-    view = _GuideView(spec, _FRONT, 1)
-    labels = render_module._Diagram._labels
+    legacy = spec["nominal_outline_mm"]
+    labels = _Diagram._labels
     primaries = []
 
-    def observe_labels(diagram):
+    def observe(diagram):
         primaries.extend(
             item.points[0] for item in diagram.callouts if item.label == "FINISHED OUTLINE"
         )
         return labels(diagram)
 
-    monkeypatch.setattr(_GuideView, "_labels", observe_labels)
-    view.render()
-    left, top, right, bottom = view.viewport
-    (callout,) = [item for item in view.callouts if item.label == "FINISHED OUTLINE"]
-    original = view.canvas.project(view.nominal[0][0])
-    original_visible = left <= original[0] <= right and top <= original[1] <= bottom
-    assert primaries == [original if original_visible else callout.along[0]]
-    actual = [((x - left) / (right - left), (y - top) / (bottom - top)) for x, y in callout.along]
-
-    assert len(actual) == len(expected)
-    for found, wanted in zip(actual, expected, strict=True):
-        assert found == pytest.approx(wanted, abs=1e-10)
-    assert all(left <= x <= right and top <= y <= bottom for x, y in callout.along)
-    (leader,) = [path for label, path in view.leaders if label == "FINISHED OUTLINE"]
-    assert leader[0] in callout.along
-    pixels = [view.canvas.project(point) for point in view.nominal[0]]
-    assert (
-        min(_point_segment_px(leader[0], a, b) for a, b in zip(pixels, pixels[1:], strict=False))
-        < 1e-9
-    )
-    assert not any("FINISHED OUTLINE" in debt for debt in view.render_debts)
-
-
-@pytest.mark.parametrize(
-    ("a", "b"),
-    [
-        ((-0.7, 0.1), (1.3, 0.9)),
-        ((1.3, 0.9), (-0.7, 0.1)),
-        # Exact binary offsets enter at (0, 1); decimal offsets need not be symmetric.
-        ((-1e6, 1 + 2**-40), (1e6, 1 - 2**-40)),
-        ((-0.2, -0.2 + 1e-12), (1.2, 1.2 + 1e-12)),
-        ((-0.5, 0.5), (0.5, -0.5)),
-        ((0, 0), (2, 0.5)),
-    ],
-)
-def test_guide_finished_outline_clip_roundoff_keeps_closed_boundary_candidates(a, b):
-    lines = [[a, b]]
-    anchors = render_module._visible_outline_anchors(
-        lines, _outline_anchor_points(lines), render_module._identity_projection, (0, 0, 1, 1)
-    )
-    clipped = render_module._clip_segment(a, b, (0, 0, 1, 1))
-
-    assert clipped is not None
-    assert anchors
-    assert all(0 <= x <= 1 and 0 <= y <= 1 for x, y in anchors)
-    assert all(min(math.dist(point, end) for end in clipped) < 1e-9 for point in anchors)
+    monkeypatch.setattr(_GuideView, "_labels", observe)
+    coarse = _GuideView(spec, _FRONT, 1)
+    coarse.render()
+    spec = dict(spec)
+    spec["nominal_render_outline_mm"] = [
+        [
+            tuple(a[axis] + step / 16 * (b[axis] - a[axis]) for axis in range(3))
+            for a, b in zip(run, run[1:], strict=False)
+            for step in range(16)
+        ]
+        + [run[-1]]
+        for run in legacy
+    ]
+    dense = _GuideView(spec, _FRONT, 1)
+    dense.render()
+    expected = tuple(coarse.canvas.project(point) for run in legacy for point in run)
+    assert primaries == [coarse.canvas.project(legacy[0][0])] * 2
+    for view in (coarse, dense):
+        (outline,) = [item for item in view.callouts if item.label == "FINISHED OUTLINE"]
+        assert outline.along == expected  # Includes offscreen vertices, exactly as main.
+    assert coarse.leaders == dense.leaders
+    assert coarse.callouts == dense.callouts
+    assert coarse.obstacles == dense.obstacles
+    assert coarse.viewport == dense.viewport
+    assert coarse.frame == dense.frame
+    assert coarse.canvas.scale == dense.canvas.scale
+    assert coarse.canvas._world_centre == dense.canvas._world_centre
+    assert coarse.canvas._pixel_centre == dense.canvas._pixel_centre
+    assert coarse.canvas.text_boxes == dense.canvas.text_boxes
+    assert coarse.render_debts == dense.render_debts
 
 
-def test_guide_finished_outline_wholly_outside_is_explicit_debt_and_layout_settles(monkeypatch):
-    meshes, spec = _guide_outline_scene([[(3, 3), (4, 3)]])
-    main_diagram = render_module._main_diagram
-    note_attempts = []
+@pytest.mark.parametrize("guide", [False, True], ids=["setup", "guide"])
+def test_nominal_presence_requires_explicit_fine_stream_but_absence_is_legitimate(guide):
+    _, spec = _guide_outline_scene([[(0.2, 0.3), (0.8, 0.3)]])
+    spec.pop("nominal_render_outline_mm")
 
-    def observe(meshes, spec):
-        note_attempts.append(tuple(spec.get("notes", [])))
-        return main_diagram(meshes, spec)
+    def construct():
+        return _GuideView(spec, _FRONT, 1) if guide else _Diagram([], spec)
 
-    monkeypatch.setattr(render_module, "_main_diagram", observe)
-    diagram, _ = _composed_diagram(meshes, spec)
-    (guide,) = diagram.guide_details
-    debt = "NOT SHOWN: FINISHED OUTLINE is outside this view, so it has no leader."
-
-    assert guide.render_debts.count(debt) == 1
-    assert diagram.render_debts.count(debt) == 1
-    assert not any(label == "FINISHED OUTLINE" for label, _ in guide.leaders)
-    assert not any(item.label == "FINISHED OUTLINE" for item in guide.callouts)
-    assert len(note_attempts) == 2  # One discovery pass, one pass printing the fixed debt.
-    assert debt not in note_attempts[0]
-    assert note_attempts[1].count(debt) == 1
-    printed = " ".join(box[0] for box in diagram.canvas.text_boxes)
-    assert printed.count(debt.upper()) == 1
-
-
-def test_guide_finished_outline_fully_visible_retains_byte_identical_old_callouts(monkeypatch):
-    _, spec = _guide_outline_scene([[(0.8, 0.3), (0.5, 0.4), (0.2, 0.3)]])
-    current = _GuideView(spec, _FRONT, 1)
-    current.render()
-
-    def old_candidates(polylines, native_anchors, project, viewport):
-        return tuple(project(point) for point in native_anchors)
-
-    monkeypatch.setattr(render_module, "_visible_outline_anchors", old_candidates)
-    baseline = _GuideView(spec, _FRONT, 1)
-    baseline.render()
-
-    assert current.callouts == baseline.callouts
-    assert current.leaders == baseline.leaders
-    assert current.canvas.png() == baseline.canvas.png()
-
-
-@pytest.mark.parametrize("view", ["plan", "elevation", "isometric"])
-@pytest.mark.parametrize("camera", [_FRONT, render_module._CAMERAS["isometric"]])
-def test_other_native_outline_anchor_caller_frames_every_endpoint(view, camera):
-    lines = [[(-2000, -500, -70), (0, 700, 50), (3000, -200, 90)]]
-    spec = {
-        "view": view,
-        "camera": camera,
-        "stock_box": [-1, -1, -1, 1, 1, 1],
-        "nominal_outline_mm": lines,
-    }
-    diagram = _Diagram([], spec)
-    left, top, right, bottom = diagram.viewport
-
-    assert diagram.nominal_anchors == _outline_anchor_points(lines)
-    assert all(
-        left < x < right and top < y < bottom
-        for x, y in (diagram.canvas.project(point) for line in lines for point in line)
-    )
+    with pytest.raises(KeyError, match="nominal_render_outline_mm"):
+        construct()
+    spec.pop("nominal_outline_mm")
+    diagram = construct()
+    assert diagram.nominal == diagram.render_nominal == []
 
 
 @pytest.mark.parametrize("stops", [1, 2])
@@ -3712,6 +3735,7 @@ def test_a_datum_face_turned_away_from_the_view_is_marked_hidden_not_drawn_in_fr
         "view": "isometric",
         "stock_box": [0, 0, 0, 20, 20, 10],
         "nominal_outline_mm": [outline],
+        "nominal_render_outline_mm": [outline],
         "datums": [
             {
                 "label": "B: strap face",

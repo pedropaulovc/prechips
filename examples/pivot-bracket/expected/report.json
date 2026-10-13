@@ -22929,7 +22929,7 @@
       "subject": "S5"
     }
   ],
-  "hash": "34e64a390d1b2214b5ff02b4c07b989c742974f4abe20d2e475def89827f5ee6",
+  "hash": "7931626a03f14178457f4bc8ad392809bd4fab8cabc28b2aa75bfdd15e4ad35a",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -22985,7 +22985,7 @@
     },
     "render:S4": {
       "path": "setup-S10.png",
-      "sha256": "1835b7f0a3c03c6c457b84c498e5a867ef7dee59d5fd72d1add08d2bbd534f51"
+      "sha256": "036c4a54cb54255feb7e75797a1f80731d49b46b7948773eec372476c6f0fe86"
     },
     "render:S4F": {
       "path": "setup-S11.png",
@@ -24262,7 +24262,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "1835b7f0a3c03c6c457b84c498e5a867ef7dee59d5fd72d1add08d2bbd534f51"
+      "sha256": "036c4a54cb54255feb7e75797a1f80731d49b46b7948773eec372476c6f0fe86"
     },
     "S4F": {
       "fixture": "modeled",

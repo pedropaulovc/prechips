@@ -8240,8 +8240,8 @@ class _Setup:
             for edge in self.faces[index].Edges:
                 if edge.Length > STOCK_TOL:
                     edges.setdefault(edge.hashCode(), edge)
-        # Nominal edges appear in both profile plots and magnified guide-axis details.
-        # Bound sketch error when available and cap for magnified guide-axis details.
+        # Main's ordinary samples remain the sole layout and leader input.
+        # The independently bounded stream is used only to paint finished outlines.
         outline_tolerance = min(tolerance, _nominal_outline_deflection(sketch, waypoints))
         spec = {
             "setup_id": self.setup.get("id"),
@@ -8274,6 +8274,12 @@ class _Setup:
             "notes": notes + render_debts,
             # Only the finished faces this setup cuts: the overlay shows the cuts' target.
             "nominal_outline_mm": [
+                [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
+                for edge in edges.values()
+            ]
+            if not lathe
+            else [],
+            "nominal_render_outline_mm": [
                 [[p.x, p.y, p.z] for p in edge.discretize(Deflection=outline_tolerance)]
                 for edge in edges.values()
             ]
