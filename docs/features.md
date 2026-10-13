@@ -28,6 +28,14 @@ It is not a general fit-system basic-size field: displaced g6/p6 zones can
 exclude the reference basic size, and interpreting those fit semantics is not
 implemented. Do not conflate a fit's reference geometry with its acceptance
 target.
+
+Chain drilling does not require an invented hole feature or a new manifest field.
+For a drill-kind `rough_profile` / `chain_drill` operation, deep-hole speed
+derating uses the canonical before-stock state's entry for the named feature
+(else its stock top), minus the plan's `to_z`, converted from manifest units
+to mm. An earlier chain operation's endpoint is not the next entry surface.
+See [cutting data](cutting-data.md) for row selection and unresolved-depth behavior.
+
 `separation` is a supported dimension/tolerance field: for example,
 `requirements = ["separation"]` with `separation = [9.9, 10.1]` declares a band
 that needs its own `checks.separation` inspection gauge. Supplying

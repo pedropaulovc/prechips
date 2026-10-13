@@ -2190,8 +2190,9 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: Entries
     or unverified tool) unknown, else pass; a non-hole feature's is not applicable.
     Returns the material depth each hole op's full diameter cuts, keyed ``(setup, op)``,
     as the plan derives it (a through hole's local thickness, a blind or tapped hole's
-    planned depth, a drilled centre's prepared depth), never the point or exit lead and
-    never the report's own depth."""
+    planned depth, a drilled centre's prepared depth), never the point or exit lead.
+    Chain drills add their before-state entry-to-to_z penetration. No reported
+    operand enters either depth."""
     setups = {setup["id"]: setup for setup in plan["setups"]}
     definitions = operative_definitions(plan, features)
     stock = SimpleNamespace(plan=plan, features=features, feature_definitions=definitions)
@@ -2337,6 +2338,22 @@ def check_endpoints(plan: dict, features: dict, findings: dict, entries: Entries
             f"{name}: endpoint verdict {finding['status']} is not the {verdict} its plan "
             "ops, tools and depth guard decide",
         )
+    for setup in plan["setups"]:
+        for op in setup["ops"]:
+            if (
+                op.get("do") != "rough_profile"
+                or not isinstance(op.get("contour"), dict)
+                or op["contour"].get("method") != "chain_drill"
+                or selected_tool(op.get("tool"), entries, "kind")
+                not in {"drill", "drill_index", "drill_set"}
+            ):
+                continue
+            start, _, _ = entry_surface(stock, setup, op)
+            end, scale = op.get("to_z", "unknown"), UNIT_MM.get(units)
+            depth = (
+                (start - end) * scale if numeric(start) and numeric(end) and scale else "unknown"
+            )
+            depths[(setup["id"], op["op"])] = depth if positive(depth) else "unknown"
     return depths
 
 
@@ -2621,6 +2638,13 @@ def check_speeds(
     tool = op.get("tool", "unknown")
     diameter = cutting_diameter_mm(setup, op, entries, definitions, features.get("units"), lathe)
     operation = CUT_OPERATIONS.get(op["do"], op["do"])
+    if (
+        op["do"] == "rough_profile"
+        and isinstance(op.get("contour"), dict)
+        and op.get("contour", {}).get("method") == "chain_drill"
+        and selected_tool(tool, entries, "kind") in {"drill", "drill_index", "drill_set"}
+    ):
+        operation = "drill"
     tool_material = selected_tool(tool, entries, "material")
     require(row.get("operation") == operation, f"{where}: cutting-data operation")
     require((row.get("material"), row.get("material_class")) == material, f"{where}: material")
@@ -2669,6 +2693,27 @@ def check_speeds(
         same(row.get("feed_mm_rev", "unknown"), per_rev, f"{where}: feed per revolution")
     else:
         require("feed_mm_rev" not in row, f"{where}: a mill op feeds per tooth")
+    drilling = operation == "drill" and selected_tool(tool, entries, "kind") in {
+        "drill",
+        "drill_index",
+        "drill_set",
+    }
+    if drilling:
+        require(row.get("feed_direction") == "axial", f"{where}: drilling feed is axial")
+        require("axial_feed_mm_rev" in row, f"{where}: drilling feed per revolution is reported")
+        axial = (
+            per_rev
+            if lathe
+            else flutes * chip
+            if positive(flutes) and positive(chip)
+            else "unknown"
+        )
+        near(row["axial_feed_mm_rev"], axial, f"{where}: axial feed per revolution")
+    else:
+        require(
+            "feed_direction" not in row and "axial_feed_mm_rev" not in row,
+            f"{where}: non-drilling feed has no drilling direction or per-revolution operand",
+        )
     depth = depths.get((setup["id"], op["op"]), "unknown")
     factor, derate, unresolved = deep_hole_derate(cutting, operation, depth, diameter)
     deep_fields = {"depth_over_dia", "deep_hole_row", "deep_hole_sfm_factor"}

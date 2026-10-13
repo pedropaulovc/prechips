@@ -34,6 +34,12 @@ action/tool/holder`, the resolved tool/holder rows). `thin_wall_under_clamp`
 also cites `shop-policy.numbers.thin_wall_floor_mm`. The kernel itself reports
 measurements only; it never emits citations.
 
+Drill-kind `rough_profile` / `chain_drill` operations use drilling starting
+data without changing their geometric face claims or kernel removal contract.
+Deep-hole speed derating consumes the canonical before-stock feature entry
+(else stock top), not a previous chain endpoint; see
+[cutting data](cutting-data.md) for this depth and axial-feed contract.
+
 ## One job, one kernel, no network
 
 A run evaluates geometry at most once per bundle. The CLI builds a canonical

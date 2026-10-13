@@ -6764,7 +6764,14 @@ class _Traveler:
         rpm = numbers.get("rpm")
         speed = _number(rpm, 0) + (" rpm" if saw_table else "") if _known(rpm) else "STOP"
         per_rev, per_min = numbers.get("feed_mm_rev"), numbers.get("feed_mm_min")
-        if "feed_mm_rev" in numbers:
+        if numbers.get("feed_direction") == "axial":
+            axial = numbers.get("axial_feed_mm_rev")
+            feed = (
+                f"axial {_number(per_min, 0)} mm/min ({axial:.3f} mm/rev)"
+                if _known(per_min) and _known(axial)
+                else "STOP"
+            )
+        elif "feed_mm_rev" in numbers:
             feed = (
                 [f"{per_rev:.3f}".rstrip("0").rstrip(".") + " mm/rev"]
                 if _known(per_rev)

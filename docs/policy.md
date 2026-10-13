@@ -39,6 +39,13 @@ not a rule `pass`, inspection acceptance, clearance to proceed, readiness or
 approval, and adds no policy selector or status. Handwritten marks cannot clear
 STOP/unknown findings or change the report's gate.
 
+Drill-kind `rough_profile` / `chain_drill` operations retain their existing
+`setup:op` finding subjects while `speeds_feeds` selects drilling data and
+reports axial feed. No policy selector or waiver is added: missing, ambiguous
+or uncited drilling data remains unresolved and blocks when required, just
+like other cutting starts. See [cutting data](cutting-data.md) for tool-chart
+precedence and deep-hole derating.
+
 When no policy path is supplied, the loader requires `tool_resolves`, `sizing`,
 `op_chain`, `blind_depth`, `inspection`, `coordinates`, and `zero_check` on `"*"`.
 The fallback is not an extra file and therefore has no file digest in inputs.
