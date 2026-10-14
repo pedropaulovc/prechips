@@ -2430,17 +2430,34 @@
             "exit_face": -72.08,
             "exit_mm": 0.5,
             "feature": "crank_bore",
-            "lead_mm": 1.0,
+            "lead_mm": "unknown",
             "local_thickness": 72.08,
             "op": 30,
             "physical_entry_z": "unknown",
             "physical_exit_bound_z": "unknown",
             "setting_residual_mm": "unknown",
             "setup": "S8",
-            "tip_z": -73.58
+            "tip_z": "unknown"
           }
         ],
-        "kind": "hole"
+        "kind": "hole",
+        "measurements": [
+          {
+            "category": "tools",
+            "cite": [
+              "inventory.tools.reamers-decimal/0.4500in.lead"
+            ],
+            "field": [
+              "lead"
+            ],
+            "id": "tools.reamers-decimal/0.4500in.lead",
+            "identity": "reamers-decimal/0.4500in",
+            "instruction": "measure: reamers-decimal/0.4500in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
+            "reason": "This fact's measurement is assumed (by: example value (realistic, not a shop measurement)), not a physical shop measurement.",
+            "status": "assumed",
+            "units": "mm"
+          }
+        ]
       },
       "rule": "blind_depth",
       "status": "unknown",
@@ -2662,17 +2679,34 @@
             "exit_face": -21.074499999999997,
             "exit_mm": 0.5,
             "feature": "journal_bore",
-            "lead_mm": 1.0,
+            "lead_mm": "unknown",
             "local_thickness": 42.08,
             "op": 30,
             "physical_entry_z": "unknown",
             "physical_exit_bound_z": "unknown",
             "setting_residual_mm": "unknown",
             "setup": "S9",
-            "tip_z": -22.574499999999997
+            "tip_z": "unknown"
           }
         ],
-        "kind": "hole"
+        "kind": "hole",
+        "measurements": [
+          {
+            "category": "tools",
+            "cite": [
+              "inventory.tools.reamers-decimal/0.4835in.lead"
+            ],
+            "field": [
+              "lead"
+            ],
+            "id": "tools.reamers-decimal/0.4835in.lead",
+            "identity": "reamers-decimal/0.4835in",
+            "instruction": "measure: reamers-decimal/0.4835in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
+            "reason": "This fact's measurement is assumed (by: example value (realistic, not a shop measurement)), not a physical shop measurement.",
+            "status": "assumed",
+            "units": "mm"
+          }
+        ]
       },
       "rule": "blind_depth",
       "status": "unknown",
@@ -2859,7 +2893,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "800dfd517fc0bafa2f98f601d143513202d3aac2fe440b60a8c1dd5d188b7f58"
+            "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
           },
           "plan": {
             "path": "examples/cone-pivot-post/built-up.toml",
@@ -3529,8 +3563,8 @@
         "binding": "nominal",
         "contours": [],
         "dro_grid": {
-          "decimals": 3,
-          "step": 0.001
+          "decimals": "not used",
+          "step": "not used"
         },
         "entry_surfaces": [
           {
@@ -5404,8 +5438,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
-        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder verification",
         "plan.setups[S11].ops[10].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -5416,7 +5450,7 @@
         "doc_mm": 0.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-4in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "face",
         "over_limit": false,
@@ -5427,7 +5461,7 @@
         "recommended_doc_mm": 0.5,
         "tool": "endmills-lms-6784/3-4in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 82.6
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -5527,8 +5561,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/7-16in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/7-16in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/7-16in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S11].ops[60].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -5539,7 +5573,7 @@
         "doc_mm": 0.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "counterbore",
         "over_limit": false,
@@ -5550,7 +5584,7 @@
         "recommended_doc_mm": 0.5,
         "tool": "endmills-lms-6784/7-16in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 66.7
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -5560,8 +5594,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/7-16in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/7-16in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/7-16in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S11].ops[70].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -5572,7 +5606,7 @@
         "doc_mm": 0.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "counterbore",
         "over_limit": false,
@@ -5583,7 +5617,7 @@
         "recommended_doc_mm": 0.5,
         "tool": "endmills-lms-6784/7-16in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 66.7
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -6806,11 +6840,33 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S8: measured part, fixture and tool stacks fit between spindle-to-table minimum and maximum.",
+      "message": "S8: spindle envelope remains unmeasured or unresolved. author: Measure plan.setups.S8.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; measure: reamers-decimal/0.4500in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured).",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": 100.0,
-        "measurements": [],
+        "measurements": [
+          {
+            "cite": [
+              "plan.setups.S8.ops.30"
+            ],
+            "id": "plan.setups.S8.ops.30.z_geometry",
+            "instruction": "author: Measure plan.setups.S8.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
+            "units": "mm"
+          },
+          {
+            "category": "tools",
+            "cite": [
+              "inventory.tools.reamers-decimal/0.4500in.lead"
+            ],
+            "field": [
+              "lead"
+            ],
+            "id": "tools.reamers-decimal/0.4500in.lead",
+            "identity": "reamers-decimal/0.4500in",
+            "instruction": "measure: reamers-decimal/0.4500in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
+            "units": "mm"
+          }
+        ],
         "part_extents_mm": {
           "x": 86.0,
           "y": 42.7506,
@@ -6863,26 +6919,26 @@
             "approach_mm": 5.0,
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "lower_margin_mm": 282.49440000000004,
+            "lower_margin_mm": 283.99440000000004,
             "op": 30,
             "spindle_nose_table_band_mm": [
-              343.4544,
+              344.9544,
               423.0358
             ],
             "stack_mm": 418.0358,
             "tip_z_bounds_mm": [
-              -73.58,
+              -72.08,
               6.0014
             ],
             "tool": "reamers-decimal/0.4500in",
             "tool_projection_mm": 150.0,
             "upper_margin_mm": 8.76419999999996,
-            "verified": true
+            "verified": false
           }
         ]
       },
       "rule": "envelope",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S8"
     },
     {
@@ -6915,11 +6971,33 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "S9: measured part, fixture and tool stacks fit between spindle-to-table minimum and maximum.",
+      "message": "S9: spindle envelope remains unmeasured or unresolved. author: Measure plan.setups.S9.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; measure: reamers-decimal/0.4835in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured).",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": 100.0,
-        "measurements": [],
+        "measurements": [
+          {
+            "cite": [
+              "plan.setups.S9.ops.30"
+            ],
+            "id": "plan.setups.S9.ops.30.z_geometry",
+            "instruction": "author: Measure plan.setups.S9.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
+            "units": "mm"
+          },
+          {
+            "category": "tools",
+            "cite": [
+              "inventory.tools.reamers-decimal/0.4835in.lead"
+            ],
+            "field": [
+              "lead"
+            ],
+            "id": "tools.reamers-decimal/0.4835in.lead",
+            "identity": "reamers-decimal/0.4835in",
+            "instruction": "measure: reamers-decimal/0.4835in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
+            "units": "mm"
+          }
+        ],
         "part_extents_mm": {
           "x": 86.0,
           "y": 57.56337675754815,
@@ -6972,26 +7050,26 @@
             "approach_mm": 5.0,
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "lower_margin_mm": 313.297,
+            "lower_margin_mm": 314.797,
             "op": 30,
             "spindle_nose_table_band_mm": [
-              374.257,
+              375.757,
               425.084
             ],
             "stack_mm": 420.084,
             "tip_z_bounds_mm": [
-              -22.574499999999997,
+              -21.074499999999997,
               28.2525
             ],
             "tool": "reamers-decimal/0.4835in",
             "tool_projection_mm": 150.0,
             "upper_margin_mm": 6.715999999999951,
-            "verified": true
+            "verified": false
           }
         ]
       },
       "rule": "envelope",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S9"
     },
     {
@@ -21550,27 +21628,48 @@
       "numbers": {
         "measurements": [
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.x"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "x"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.x",
-            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.y"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "y"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.y",
-            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.z"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "z"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.z",
-            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           }
         ],
@@ -22319,27 +22418,48 @@
       "numbers": {
         "measurements": [
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.x"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "x"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.x",
-            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.y"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "y"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.y",
-            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.z"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "z"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.z",
-            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           }
         ],
@@ -22397,27 +22517,48 @@
       "numbers": {
         "measurements": [
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.x"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "x"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.x",
-            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.y"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "y"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.y",
-            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.cone-bond-bench.envelope.travel.z"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "z"
+            ],
             "id": "machines.cone-bond-bench.envelope.travel.z",
-            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "cone-bond-bench",
+            "instruction": "measure: cone-bond-bench Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           }
         ],
@@ -22511,9 +22652,31 @@
         "inventory.machines.PM-30MV.envelope.travel.y",
         "inventory.machines.PM-30MV.envelope.travel.z"
       ],
-      "message": "S8: declared XY cutter-centre spans and spindle-nose Z bands including safe approaches fit measured XYZ travel.",
+      "message": "S8: declared operation travel remains unmeasured or unresolved. author: Measure plan.setups.S8.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; measure: reamers-decimal/0.4500in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured).",
       "numbers": {
-        "measurements": [],
+        "measurements": [
+          {
+            "cite": [
+              "plan.setups.S8.ops.30"
+            ],
+            "id": "plan.setups.S8.ops.30.z_geometry",
+            "instruction": "author: Measure plan.setups.S8.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
+            "units": "mm"
+          },
+          {
+            "category": "tools",
+            "cite": [
+              "inventory.tools.reamers-decimal/0.4500in.lead"
+            ],
+            "field": [
+              "lead"
+            ],
+            "id": "tools.reamers-decimal/0.4500in.lead",
+            "identity": "reamers-decimal/0.4500in",
+            "instruction": "measure: reamers-decimal/0.4500in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
+            "units": "mm"
+          }
+        ],
         "operations": [
           {
             "approach_mm": 5.0,
@@ -22659,14 +22822,14 @@
               "exit_face": -72.08,
               "exit_mm": 0.5,
               "feature": "crank_bore",
-              "lead_mm": 1.0,
+              "lead_mm": "unknown",
               "local_thickness": 72.08,
               "op": 30,
               "physical_entry_z": "unknown",
               "physical_exit_bound_z": "unknown",
               "setting_residual_mm": "unknown",
               "setup": "S8",
-              "tip_z": -73.58
+              "tip_z": "unknown"
             },
             "extent_mm": {
               "x": [
@@ -22688,7 +22851,7 @@
             "op": 30,
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
-              -73.58,
+              -72.08,
               6.0014
             ],
             "tool": "reamers-decimal/0.4500in",
@@ -22706,10 +22869,10 @@
               ]
             },
             "z_bounds_mm": [
-              171.42000000000002,
+              172.92000000000002,
               251.0014
             ],
-            "z_verified": true
+            "z_verified": false
           }
         ],
         "travel_checks": {
@@ -22734,19 +22897,19 @@
             "travel_verified": true
           },
           "z": {
-            "located_span_mm": 150.37669999999997,
-            "lower_bound_margin_mm": 205.2233,
-            "margin_mm": 205.2233,
-            "minimum_required_mm": 150.37669999999997,
-            "required_mm": 150.37669999999997,
-            "required_verified": true,
+            "located_span_mm": 121.37669999999999,
+            "lower_bound_margin_mm": 234.2233,
+            "margin_mm": "unknown",
+            "minimum_required_mm": 121.37669999999999,
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": 355.59999999999997,
             "travel_verified": true
           }
         }
       },
       "rule": "travel",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S8"
     },
     {
@@ -22800,9 +22963,31 @@
         "inventory.machines.PM-30MV.envelope.travel.y",
         "inventory.machines.PM-30MV.envelope.travel.z"
       ],
-      "message": "S9: declared XY cutter-centre spans and spindle-nose Z bands including safe approaches fit measured XYZ travel.",
+      "message": "S9: declared operation travel remains unmeasured or unresolved. author: Measure plan.setups.S9.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; measure: reamers-decimal/0.4835in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured).",
       "numbers": {
-        "measurements": [],
+        "measurements": [
+          {
+            "cite": [
+              "plan.setups.S9.ops.30"
+            ],
+            "id": "plan.setups.S9.ops.30.z_geometry",
+            "instruction": "author: Measure plan.setups.S9.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm",
+            "units": "mm"
+          },
+          {
+            "category": "tools",
+            "cite": [
+              "inventory.tools.reamers-decimal/0.4835in.lead"
+            ],
+            "field": [
+              "lead"
+            ],
+            "id": "tools.reamers-decimal/0.4835in.lead",
+            "identity": "reamers-decimal/0.4835in",
+            "instruction": "measure: reamers-decimal/0.4835in reamer lead length, steel rule or calipers, mm (assumed value, not physically measured)",
+            "units": "mm"
+          }
+        ],
         "operations": [
           {
             "approach_mm": 5.0,
@@ -22948,14 +23133,14 @@
               "exit_face": -21.074499999999997,
               "exit_mm": 0.5,
               "feature": "journal_bore",
-              "lead_mm": 1.0,
+              "lead_mm": "unknown",
               "local_thickness": 42.08,
               "op": 30,
               "physical_entry_z": "unknown",
               "physical_exit_bound_z": "unknown",
               "setting_residual_mm": "unknown",
               "setup": "S9",
-              "tip_z": -22.574499999999997
+              "tip_z": "unknown"
             },
             "extent_mm": {
               "x": [
@@ -22977,7 +23162,7 @@
             "op": 30,
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
-              -22.574499999999997,
+              -21.074499999999997,
               28.2525
             ],
             "tool": "reamers-decimal/0.4835in",
@@ -22995,10 +23180,10 @@
               ]
             },
             "z_bounds_mm": [
-              222.4255,
+              223.9255,
               273.2525
             ],
-            "z_verified": true
+            "z_verified": false
           }
         ],
         "travel_checks": {
@@ -23023,19 +23208,19 @@
             "travel_verified": true
           },
           "z": {
-            "located_span_mm": 151.2525,
-            "lower_bound_margin_mm": 204.34749999999997,
-            "margin_mm": 204.34749999999997,
-            "minimum_required_mm": 151.2525,
-            "required_mm": 151.2525,
-            "required_verified": true,
+            "located_span_mm": 131.2525,
+            "lower_bound_margin_mm": 224.34749999999997,
+            "margin_mm": "unknown",
+            "minimum_required_mm": 131.2525,
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": 355.59999999999997,
             "travel_verified": true
           }
         }
       },
       "rule": "travel",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S9"
     },
     {
@@ -26127,7 +26312,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "2a6868cd5f16b43f5d6571ad576f9e6db14e1168524eb209096a8e9bb4ac27ed",
+  "hash": "94b266ab39b15f5f5c3c9c745edf6a56f5862a6b06bcfcee0fcd25af5ef9c602",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26139,7 +26324,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "800dfd517fc0bafa2f98f601d143513202d3aac2fe440b60a8c1dd5d188b7f58"
+      "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
     },
     "plan": {
       "path": "examples/cone-pivot-post/built-up.toml",
@@ -27467,7 +27652,7 @@
       "sha256": "c6e0b88f76503235488f03853d87389db64ef5cea3a3b396916706d0ea5f1735"
     }
   },
-  "rules_version": "m5-rev10",
+  "rules_version": "m5-rev12",
   "step_sha256": "5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b",
   "verification": "planned"
 }
