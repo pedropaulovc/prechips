@@ -2995,25 +2995,25 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
             face_unknowns.append(f"{who} on {face} ({carried['unknown']})")
             return "unknown", [], None
         stands = carried["physical"]
-        if not grid_trusted:
-            face_unknowns.append(f"{who} on {face} (unverified DRO grid)")
-            return "unknown", [], None
         if not credited_from_above(own, entries, setup, touch, face, stands, lathe):
             reason = "native-plane credit requires a known +Z/above touch"
             face_unknowns.append(f"{who} on {face} ({reason})")
             return "unknown", [], None
+        if not grid_trusted:
+            # Readings stay on the nominal grid; an unverified grid certifies nothing.
+            face_unknowns.append(f"{who} on {face} (unverified DRO grid)")
         if carried["current"]:
             # This setup's own framed producer: the exact DRO grid, as any local face,
             # with only the surviving-area exclusion carried onto the row.
             independent_contacts.add((face, done))
             shown = dro_up(edge, grid)
-            if numeric(edge) and shown != stands:
+            if grid_trusted and numeric(edge) and shown != stands:
                 face_errors.append(
                     f"{who} on {face} uses edge {edge:g} (DRO Z {shown:g}); "
                     f"the face stands at {stands:g}"
                 )
             shown = dro_up(stands, grid)
-            if round(shown - stands, 9):
+            if grid_trusted and round(shown - stands, 9):
                 face_errors.append(f"{who} sets {face} as Z {shown:g}, which stands at {stands:g}")
             exclusion = round(2 * carried["excluded_mm"], 9)
             # As the checker, a whole surviving face records no exclusion at all.

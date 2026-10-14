@@ -2422,14 +2422,15 @@ def _face_checker(bundle, setup, errors, unknowns):
             detail = f" ({'; '.join(debts)})" if debts else ""
             unknowns.append(f"{who} on {face}{detail}")
             return UNKNOWN, [], False
-        if grid_debt:
-            unknowns.append(f"{who} on {face}: {grid_debt}")
-            return UNKNOWN, [], False
         if credited and _credited_side(bundle, setup, touch, face, stands) != 1:
             unknowns.append(
                 f"{who} on {face} (native-plane credit requires a known +Z/above touch)"
             )
             return UNKNOWN, [], False
+        if grid_debt:
+            # An unverified grid certifies nothing, but the readings stay printed on
+            # its nominal step; grid-exactness errors are not judged on it.
+            unknowns.append(f"{who} on {face}: {grid_debt}")
         if carried and "native_edge_mm" in carried[0]:
             from .coordinates import UNIT_MM
 
@@ -2443,6 +2444,8 @@ def _face_checker(bundle, setup, errors, unknowns):
                     f"the carried face physically stands at {stands:g}"
                 )
             return stands, credited, carried[0]
+        if grid_debt:
+            return stands, credited, carried[0] if carried else False
         shown_edge = dro_z(edge, grid)
         if number(edge) and shown_edge != stands:
             errors.append(
