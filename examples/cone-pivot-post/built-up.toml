@@ -394,7 +394,7 @@ deburr_cite = ["harmonic-analyzer/cad/config/title_block.yaml:45"]
 od_mm = 19.05
 north_end_z = 22.0055 # AUTHOR'S CHOICE: nominal 1 mm facing allowance on a 75 mm blank; the Z zero uses the measured blank length M
 south_end_z = -52.9945
-note = "AUTHOR'S CHOICE: cone-sleeve blank sawn nominal 75 long, from the raw north end Z22.0055 to the grip end Z-52.9945. Op 10 faces the north end to Z21.0055, which leaves the cap exactly 74.0 from the grip end whatever the sawn blank measures."
+note = "AUTHOR'S CHOICE: cone-sleeve blank sawn nominal 75 long, from the raw north end Z22.01 to the grip end Z-52.99. Op 10 faces the north end to Z21.01, which leaves the cap exactly 74.0 from the grip end whatever the sawn blank measures."
 [setups.hold]
 fixture = "chuck-3jaw-6-d1-4"
 support = "none"
@@ -450,7 +450,7 @@ direction = "radially_inward"
 doc_mm = 0.25 # example (plausible, not measured); below the 0.04 in (1.0 mm) smallest depth column of Machinery's Handbook 27th ed. Table 5a p.1035, whose depth factor only raises speed for lighter cuts (Table 1 p.1027 carbide basis 0.1 in depth, p.1026)
 feed_mm_rev = 0.05 # example (plausible, not measured); .0020 in/rev, inside Machinery's Handbook 27th ed. Table 5a p.1035 feed ratios 0.1-1.0 of Table 1 p.1027 optimum feed .017 in/rev (.0017-.017 in/rev)
 approach_mm = 3.0
-note = "Face in passes down to the Z21.0055 DRO reading (M - 74 mm off the raw end, 1 mm on a 75.0 blank), then a light finishing pass for the Ra. This cap ends up on the outside of the post."
+note = "Face in passes down to the Z21.01 DRO reading (M - 74 mm off the raw end, 1 mm on a 75.0 blank), then a light finishing pass for the Ra. This cap ends up on the outside of the post."
 [setups.ops.checks]
 finish_ra = "roughness-comparator"
 [[setups.ops]]

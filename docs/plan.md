@@ -27,7 +27,12 @@ geometry rules `?`. See [geometry rules](rules-geometry.md).
 Use `[[setups]]` and `[[setups.ops]]`. `stock_state` records received surfaces in
 the setup frame; `local_thickness` is per hole, not the whole bar thickness.
 `top_feature` identifies the touched face that facing advances; `top_z` is then
-that feature's +Z face. `bottom_feature` likewise names the seated face: `bottom_z`
+that feature's +Z face. A facing op with `stock_removal_bounds` advances it only
+when the box holds that feature's whole X/Y footprint: its `bounds`, or for a
+bounds-free `kind = "face"` the matched kernel box of each listed plane at the
+op's `to_z`, with every listed face resolved and any `contour.keep_out` island
+clear of the face by the cutter radius
+([coordinates](rules-coordinates.md)). `bottom_feature` likewise names the seated face: `bottom_z`
 is that feature's -Z face. The kernel gives each named face's height and the
 entering stock's over it, and [consistency](rules-setup.md#consistency) compares
 them with `top_z` / `bottom_z`. `entry_z` permits
@@ -1360,7 +1365,10 @@ they removed in `raster.keep_out_skipped`, and counts pieces in `raster.passes`.
 The geometry kernel honours the same split: the op removes no stock inside an
 island or in the cusps its printed pieces leave between their ends, and its floor
 poses stand at least one cutter radius outside it (see
-[rules-geometry.md](rules-geometry.md)).
+[rules-geometry.md](rules-geometry.md)). Stock tracking agrees: a surface an
+island grown by the cutter radius reaches is at most partly faced, and an unknown
+cutter radius leaves its coverage `?` (see
+[coordinates](rules-coordinates.md)).
 
 ## Guide
 

@@ -66,34 +66,101 @@ def _subtract(*values):
     return values[0] - sum(values[1:]) if all(number(v) for v in values) else UNKNOWN
 
 
-def _operative(row, bundle, setup, face):
-    """Add the endpoint as the DRO shows it, every Z on the setup's grid (``dro_z``):
-    ``dro_entry_z`` is the entry surface ``face`` as its producer cut it
-    (:func:`operative_z`), ``dro_exit_face`` the exit face. The tip keeps its analytical
-    distance below the surface it is worked from (the entry; a through hole's exit face),
-    then rounds up, never deeper than worked. ``dro_depth_mm`` is the depth that leaves
-    below the entry, held to ``depth_floor_mm`` (unknown unless a band end is authored);
-    ``dro_exit_mm`` the break-through it leaves below the nominal exit face, the lower."""
-    from .coordinates import dro_grid, dro_grid_debt, dro_z
+def _operative(row, bundle, setup, face, op):
+    """Add the actual DRO endpoint, preserving physical carry evidence separately.
+
+    A carried touch supplies its typed setting, not another rounding of the raw
+    native plane. An imported entry must name that native nominal; return a
+    named input error otherwise, without offering an operative stop. Cuts still
+    round upward. A through exit is a dimension-derived bound, not another
+    face's native or as-cut plane identity. An unverified DRO grid is recorded as
+    ``dro_grid_debt``.
+    """
+    from .coordinates import UNIT_MM, dro_grid, dro_grid_debt, dro_z
+    from .zero_recipe import _framed, carried_z_reading
 
     grid = dro_grid(bundle, setup)
     grid_debt = dro_grid_debt(bundle, setup)
     if grid_debt:
         row["dro_grid_debt"] = grid_debt
     through = row["exit_face"] != "not_applicable"
-    row["dro_entry_z"] = operative_z(bundle, setup, row["entry_z"], face, source=row["entry_from"])
-    if through:
-        row["dro_exit_face"] = dro_z(row["exit_face"], grid)
-    surface, worked = ("dro_exit_face", "exit_face") if through else ("dro_entry_z", "entry_z")
-    shift = _subtract(row[surface], row[worked])
+    reading = carried_z_reading(bundle, setup, op)
+    bad_input = None
+    if reading is not None:
+        reference = reading["native_edge_mm"]
+        anchor = _subtract(reading["z_axis_set"], reading["paper_offset_mm"])
+        shift = _subtract(anchor, reference)
+        physical_shift = _subtract(reading["edge_mm"], reference)
+        producer = _producer(bundle, setup, row["entry_z"], face, 0, row["entry_from"])
+        if (
+            number(shift)
+            and number(physical_shift)
+            and producer not in (None, UNKNOWN)
+            and producer[0] is setup
+            and _framed(*producer)
+        ):
+            # A surviving numeric touch proves this DRO. A local cut already
+            # ran on it, so do not shift its printed face as an imported native
+            # coordinate again; an original producer cannot repair a lost touch.
+            formed = operative_z(bundle, setup, row["entry_z"], face, source=row["entry_from"])
+            shift = _subtract(formed, row["entry_z"])
+            residual = reading.get("setting_residual_mm", UNKNOWN)
+            scale = UNIT_MM.get(bundle.features.get("units"))
+            physical_shift = (
+                shift + residual / scale
+                if number(shift) and number(residual) and scale is not None
+                else UNKNOWN
+            )
+        else:
+            scale = UNIT_MM.get(bundle.features.get("units"))
+            if (
+                number(row["entry_z"])
+                and number(reference)
+                and "credited_faces" in reading
+                and scale is not None
+                and abs(row["entry_z"] - reference) * scale > LENGTH_TOLERANCE_MM
+            ):
+                bad_input = (
+                    f"{row['entry_from']} must equal the carried native entry Z {reference:g} "
+                    f"within {LENGTH_TOLERANCE_MM:g} mm; got {row['entry_z']:g}"
+                )
+                shift = physical_shift = UNKNOWN
+        entry = row["entry_z"] + shift if number(row["entry_z"]) and number(shift) else UNKNOWN
+        row["dro_entry_z"] = dro_z(entry, grid)
+        row["physical_entry_z"] = (
+            row["entry_z"] + physical_shift
+            if number(row["entry_z"]) and number(physical_shift)
+            else UNKNOWN
+        )
+        row["setting_residual_mm"] = reading.get("setting_residual_mm", UNKNOWN)
+        if through:
+            # The stock's local thickness can be its allowed maximum. It bounds
+            # break-through from this physical entry, but identifies no opposite
+            # plane whose own producer offset could be inherited from the entry.
+            exit_face = _subtract(entry, row["local_thickness"])
+            row["physical_exit_bound_z"] = _subtract(
+                row["physical_entry_z"], row["local_thickness"]
+            )
+            row["dro_exit_face"] = dro_z(exit_face, grid)
+            shift = _subtract(row["dro_exit_face"], row["exit_face"])
+    else:
+        row["dro_entry_z"] = operative_z(
+            bundle, setup, row["entry_z"], face, source=row["entry_from"]
+        )
+        if through:
+            exit_face = row["exit_face"]
+            row["dro_exit_face"] = dro_z(exit_face, grid)
+        surface, worked = ("dro_exit_face", "exit_face") if through else ("dro_entry_z", "entry_z")
+        shift = _subtract(row[surface], row[worked])
     tip = row["tip_z"] + shift if number(row["tip_z"]) and number(shift) else UNKNOWN
     row["dro_tip_z"] = dro_z(tip, grid)
     if through:
         lead = row.get("lead_mm", row.get("point_mm", UNKNOWN))
-        row["dro_exit_mm"] = _subtract(row["exit_face"], lead, row["dro_tip_z"])
+        row["dro_exit_mm"] = _subtract(exit_face, lead, row["dro_tip_z"])
     elif "depth_mm" in row:
         row["dro_depth_mm"] = _subtract(row["depth_mm"], _subtract(row["dro_tip_z"], tip))
         row.setdefault("depth_floor_mm", UNKNOWN)
+    return bad_input
 
 
 def _feature_depth_mm(feature, field, units, end=1):
@@ -125,6 +192,8 @@ def _covers(cut, target, whole=False):
     merely overlap them or hold its ``at`` point."""
     bounds = mapping(cut.get("bounds"))
     if not bounds or cut.get("frame", "model") != target.get("frame", "model"):
+        return False
+    if target.get("kind") == "face" and not mapping(target.get("bounds")):
         return False
     at = target.get("at")
     other = _footprint(target) if whole else mapping(target.get("bounds"))
@@ -165,12 +234,14 @@ def _axis(feature):
 
 
 def _footprint(target):
-    """``target``'s explicit ``bounds``, else the X/Y square holding a round feature about
-    a unit Z :func:`_axis` (its ``at`` plus or minus half its largest ``dia``); empty when
-    unknown."""
+    """``target``'s explicit ``bounds``, else a non-face round feature's X/Y square
+    about a unit Z :func:`_axis` (``at`` plus or minus half its largest ``dia``).
+    A face's incidental point/diameter metadata never declares its footprint."""
     bounds = mapping(target.get("bounds"))
     if bounds:
         return bounds
+    if target.get("kind") == "face":
+        return {}
     at, dia, axis = target.get("at"), target.get("dia"), _axis(target)
     sizes = dia if isinstance(dia, list) else [dia]
     if not (isinstance(at, list) and len(at) == 3 and all(number(v) for v in at[:2])):
@@ -218,9 +289,10 @@ def _disc(target):
 
 def _corners(bundle, target, frame):
     """The corners of ``target``'s footprint box in ``frame``, else None: its own
-    ``bounds`` (Z from ``at`` when they omit it), else a round feature's box
-    (:func:`_disc`), with an omitted axis taken only from its ``plane`` value. Unknown,
-    omitted, empty or malformed spans, or a non-numeric frame, give None."""
+    ``bounds`` (Z from ``at`` when they omit it), else a non-face round feature's box
+    (:func:`_disc`), with an omitted axis taken only from its ``plane`` value. A face
+    without nonempty authored bounds has no declared corners. Unknown, omitted,
+    empty or malformed spans, or a non-numeric frame, give None."""
     from .coordinates import frame_point, model_point
 
     at, bounds, plane = (
@@ -228,6 +300,8 @@ def _corners(bundle, target, frame):
         mapping(target.get("bounds")),
         mapping(target.get("plane")),
     )
+    if target.get("kind") == "face" and not bounds:
+        return None
     spans = {axis: bounds.get(axis) for axis in AXES} if bounds else _disc(target)
     if bounds and "z" not in bounds and isinstance(at, list) and len(at) == 3:
         spans["z"] = [at[2]]
@@ -248,18 +322,91 @@ def _frame(bundle, feature):
     return mapping(mapping(bundle.features.get("frames")).get(feature.get("frame", "model")))
 
 
-def _setup_footprint(bundle, setup, target):
-    """The setup-frame X/Y box enclosing ``target``'s footprint (:func:`_corners`), else
-    None. Turned against the setup it holds more than the feature, so it can prove a
-    surface held, never a cut. A process end face's footprint is its section of the stock
-    this setup receives (:func:`prechips.process_features.arriving_bounds`)."""
+def _kernel_face_boxes(bundle, target, frame):
+    """Every geometry-matched face's enclosing setup-frame X/Y/Z box and raw ref.
+
+    Resolve the complete list before selecting a producer plane: a missing face must
+    not silently shrink the surface to its known patches. Kernel lengths are mm,
+    unlike the plan's frame coordinates. Rebounded boxes need not be exact extents.
+    """
+    from .coordinates import UNIT_MM, frame_point
+
+    refs = target.get("faces")
+    if not (
+        isinstance(refs, list)
+        and refs
+        and all(isinstance(ref, str) and ref != UNKNOWN for ref in refs)
+    ):
+        return None, "no footprint: provide feature bounds or a complete feature faces list"
+    kernel = mapping(getattr(bundle, "kernel", None))
+    if kernel.get("status") != "ok":
+        return None, (
+            "no footprint: feature bounds are absent and a successful kernel face "
+            "mapping/bbox_mm is missing"
+        )
+    scale = UNIT_MM.get(bundle.features.get("units"))
+    if scale is None:
+        return None, "no footprint: feature units are unknown"
+    matched = mapping(kernel.get("mapping"))
+    errors = kernel.get("mapping_errors", {})
+    if not isinstance(errors, dict):
+        return None, "no footprint: kernel.mapping_errors is malformed"
+    faces = {face.get("index"): face for face in map(mapping, records(kernel.get("faces")))}
+    boxes = []
+    for ref in refs:
+        index = matched.get(ref)
+        if ref in errors or not isinstance(index, int) or isinstance(index, bool):
+            return None, f"no footprint: kernel.mapping has no matched face for {ref}"
+        box = mapping(faces.get(index)).get("bbox_mm")
+        if not (
+            isinstance(box, list)
+            and len(box) == 6
+            and all(number(v) and math.isfinite(v) for v in box)
+            and all(box[i] <= box[i + 3] for i in range(3))
+        ):
+            return None, (
+                f"no footprint: kernel.faces[{index}].bbox_mm is missing or malformed for {ref}"
+            )
+        spans = [[box[i] / scale, box[i + 3] / scale] for i in range(3)]
+        points = [frame_point(list(p), frame) for p in itertools.product(*spans)]
+        if not all(number(v) and math.isfinite(v) for p in points for v in p):
+            return None, "no footprint: setup frame origin/x/y/z is unknown or malformed"
+        boxes.append(
+            (
+                ref,
+                [[min(p[i] for p in points), max(p[i] for p in points)] for i in range(3)],
+            )
+        )
+    return boxes, None
+
+
+def _setup_footprint(bundle, setup, target, debts=None):
+    """The setup-frame X/Y box enclosing ``target``'s footprint, else None.
+
+    Authored bounds and non-face discs take precedence. A bounds-free face uses only
+    the existing kernel's geometry-matched boxes, never incidental point/diameter
+    metadata. Either enclosing box proves containment, never a cut. A process end
+    face uses its section of the arriving stock.
+    """
     from prechips.process_features import arriving_bounds, process_of
 
     if process_of(target) and target.get("bounds"):
         target = {**target, "bounds": arriving_bounds(bundle, setup, target)}
-    points = _corners(bundle, target, setup_frame(bundle, setup))
+    frame = setup_frame(bundle, setup)
+    points = _corners(bundle, target, frame)
     if points is None:
-        return None
+        reason = "no footprint: feature bounds/plane/at or setup frame origin/x/y/z is unknown"
+        if target.get("kind") == "face" and "bounds" not in target:
+            boxes, reason = _kernel_face_boxes(bundle, target, frame)
+            if boxes is not None:
+                return [
+                    [min(box[i][0] for _, box in boxes), max(box[i][1] for _, box in boxes)]
+                    for i in range(2)
+                ]
+        if points is None:
+            if debts is not None:
+                debts.append(reason)
+            return None
     return [[min(p[i] for p in points), max(p[i] for p in points)] for i in range(2)]
 
 
@@ -296,32 +443,246 @@ def cut_region(op):
     None when an axis is unknown, omitted or malformed."""
     box = mapping(op.get("stock_removal_bounds"))
     region = [box.get("x"), box.get("y")]
-    return region if all(_span(s) and len(s) == 2 for s in region) else None
+    return (
+        region
+        if all(_span(s) and len(s) == 2 and all(math.isfinite(v) for v in s) for s in region)
+        else None
+    )
 
 
-def cut_coverage(bundle, setup, op, target):
-    """How much of surface ``target`` the cut ``op`` made: ``"whole"``, ``"partial"`` or
-    ``UNKNOWN``. An op without ``stock_removal_bounds`` cuts all of its own feature, and
-    of another surface what its feature holds (:func:`_feature_holds`). Else its
-    :func:`cut_region` and ``target``'s footprint (:func:`_setup_footprint`) decide:
-    ``"whole"`` when the region holds it, ``"partial"`` when it does not. An unknown
-    region or footprint leaves it unknown, never whole; overlap or a held ``at`` point is
-    never whole."""
+def _keep_out_circles(bundle, setup, op, own):
+    """Raster keep-out centres in setup XY, with island plus cutter radius in plan units."""
+    from .coordinates import UNIT_MM, frame_point, model_point
+
+    contour = mapping(op.get("contour"))
+    circles = contour.get("keep_out", [])
+    if not isinstance(circles, list):
+        return None, "contour.keep_out must be a list of circles"
+    if not circles:
+        return [], None
+    scale = UNIT_MM.get(bundle.features.get("units"))
+    if scale is None:
+        return None, "contour.keep_out cannot map radii: feature units are unknown"
+    tool = record(resolve(bundle, "tools", op.get("tool")))
+    diameter = length_mm(tool, "dia")
+    if not number(diameter) or not math.isfinite(diameter) or diameter <= 0:
+        return None, "contour.keep_out cutter radius is unknown: provide the selected tool.dia"
+    frame = setup_frame(bundle, setup)
+    frames = mapping(bundle.features.get("frames"))
+    sweep_frame = frames.get(contour.get("sweep_frame", own.get("frame", "model")))
+    mapped = []
+    for circle in circles:
+        circle = mapping(circle)
+        at, dia = circle.get("at"), circle.get("dia_mm")
+        if not (
+            isinstance(at, list)
+            and len(at) == 2
+            and all(number(v) and math.isfinite(v) for v in at)
+            and number(dia)
+            and math.isfinite(dia)
+            and dia > 0
+        ):
+            return None, "contour.keep_out needs numeric XY at and positive dia_mm"
+        centre = frame_point(model_point([*at, 0.0], sweep_frame), frame)[:2]
+        if not all(number(v) and math.isfinite(v) for v in centre):
+            return None, "contour.keep_out centre has no numeric sweep/setup frame mapping"
+        mapped.append((centre, (dia + diameter) / 2 / scale))
+    return mapped, None
+
+
+def _keep_out_hits(circles, boxes):
+    return any(
+        math.hypot(
+            max(box[0][0] - centre[0], 0.0, centre[0] - box[0][1]),
+            max(box[1][0] - centre[1], 0.0, centre[1] - box[1][1]),
+        )
+        <= radius
+        for centre, radius in circles
+        for box in boxes
+    )
+
+
+def cut_coverage(bundle, setup, op, target, debts=None, credited=None):
+    """``"whole"``, ``"partial"`` or ``UNKNOWN`` coverage of the producer's surface.
+
+    Unbounded own-feature cuts retain declared whole coverage; cross-feature native
+    containment needs an explicit footprint. Bounded cuts use matched kernel boxes
+    for every ``kind="face"`` target without ``bounds``: incidental ``at``/``dia`` or
+    axis/plane metadata does not declare its extent. Authored bounds and non-face round
+    features retain declared containment. Resolve every ref, then select only boxes
+    whose whole setup-Z span is at to_z. Existing boxes carry no oriented
+    normal: a downward-facing plane at that same Z is an accepted limitation of this
+    above-cut model, not an inferred +Z normal. Keep-out islands prevent whole credit.
+    Only a whole eligible kernel-box producer appends raw refs to ``credited``.
+    """
+    from .coordinates import UNIT_MM, frame_axes
+
     name = op_feature(op)  # None for an inspect op's feature list: it cuts no feature
     own = mapping(mapping(bundle.feature_definitions).get(name))
-    if "stock_removal_bounds" not in op:
-        if name is not None and target == own:
-            return "whole"
-        return _feature_holds(bundle, setup, own, target)
-    region, held = cut_region(op), _setup_footprint(bundle, setup, target)
-    if held is None or region is None:
+    circles, reason = _keep_out_circles(bundle, setup, op, own)
+    if circles is None:
+        if debts is not None:
+            debts.append(reason)
         return UNKNOWN
-    if all(
-        region[i][0] - SAME_Z <= held[i][0] and held[i][1] <= region[i][1] + SAME_Z
-        for i in range(2)
-    ):
-        return "whole"
-    return "partial"
+    if target.get("kind") == "face" and "bounds" in target and not mapping(target.get("bounds")):
+        if debts is not None:
+            debts.append("no footprint: explicit face bounds are unknown, empty or malformed")
+        return UNKNOWN
+    if "stock_removal_bounds" not in op:
+        coverage = (
+            "whole"
+            if name is not None and target == own
+            else _feature_holds(bundle, setup, own, target)
+        )
+        if coverage == UNKNOWN and debts is not None:
+            debts.append(
+                "no footprint: declared feature bounds/plane/at and setup frame origin/x/y/z "
+                "cannot establish unbounded containment"
+            )
+        if circles and coverage == "whole":
+            held = _setup_footprint(bundle, setup, target, debts)
+            if held is None:
+                return UNKNOWN
+            if not all(number(v) and math.isfinite(v) for span in held for v in span):
+                if debts is not None:
+                    debts.append("contour.keep_out footprint or setup frame is non-finite")
+                return UNKNOWN
+            if _keep_out_hits(circles, [held]):
+                return "partial"
+        return coverage
+
+    region = cut_region(op)
+    if region is None:
+        if debts is not None:
+            debts.append("stock_removal_bounds.x/y is missing or malformed")
+        return UNKNOWN
+    frame = setup_frame(bundle, setup)
+    native = target.get("kind") == "face" and "bounds" not in target
+    refs = []
+    if native:
+        faces, reason = _kernel_face_boxes(bundle, target, frame)
+        if faces is None:
+            if debts is not None:
+                debts.append(reason)
+            return UNKNOWN
+        tolerance = LENGTH_TOLERANCE_MM / UNIT_MM[bundle.features["units"]]
+        # Complete native boxes disjoint in XY cannot be touched, regardless of floor.
+        # Check this before plane selection so a later unrelated cut cannot hide a
+        # known earlier producer. A missing ref above still leaves the whole result debt.
+        if all(
+            any(
+                span[0] > region[i][1] + tolerance or span[1] < region[i][0] - tolerance
+                for i, span in enumerate(box[:2])
+            )
+            for _, box in faces
+        ):
+            return "partial"
+        to_z = op.get("to_z")
+        if not number(to_z) or not math.isfinite(to_z):
+            if debts is not None:
+                debts.append("eligible kernel face plane needs numeric op.to_z")
+            return UNKNOWN
+        kernel = mapping(getattr(bundle, "kernel", None))
+        kinds = {
+            item.get("index"): item.get("kind")
+            for item in map(mapping, records(kernel.get("faces")))
+        }
+        matched = mapping(kernel.get("mapping"))
+        flat = [(ref, box) for ref, box in faces if all(abs(z - to_z) <= tolerance for z in box[2])]
+        # A thin cylinder is not an axial plane merely because its box fits the length
+        # tolerance: bbox-only plane proof stands only where no contrary kind is known.
+        eligible = [
+            (ref, box)
+            for ref, box in flat
+            if kinds.get(matched.get(ref)) in (None, UNKNOWN, "Plane")
+        ]
+        if not eligible:
+            if debts is not None:
+                surface = next(
+                    (
+                        key
+                        for key, feature in bundle.feature_definitions.items()
+                        if feature == target
+                    ),
+                    "feature",
+                )
+                debts.append(
+                    f"no eligible face for {surface} at to_z {to_z:g}: "
+                    + (
+                        "matched faces at that Z are known non-Plane kinds"
+                        if flat
+                        else "matched bbox_mm Z spans differ"
+                    )
+                )
+            return UNKNOWN
+        refs = [ref for ref, _ in eligible]
+        boxes = [box[:2] for _, box in eligible]
+        axes = frame_axes(frame)
+        # Only a signed permutation preserves the actual model-box extrema. Even a
+        # small nonzero oblique component may enlarge the rebounded footprint.
+        exact = all(sorted(abs(value) for value in axis) == [0.0, 0.0, 1.0] for axis in axes)
+        margins = [
+            margin
+            for box in boxes
+            for i, span in enumerate(box)
+            for margin in (span[0] - region[i][0], region[i][1] - span[1])
+        ]
+        # Rounded kernel edges cannot prove containment or leftover land within the
+        # tolerance band, including an edge authored exactly on its rounded value.
+        whole = all(margin > tolerance for margin in margins)
+        disjoint = any(
+            span[0] > region[i][1] + tolerance or span[1] < region[i][0] - tolerance
+            for box in boxes
+            for i, span in enumerate(box)
+        )
+        if disjoint or (exact and any(margin < -tolerance for margin in margins)):
+            return "partial"
+        if not whole:
+            if debts is not None:
+                debts.append(
+                    "kernel bbox boundary uncertainty within LENGTH_TOLERANCE_MM of "
+                    "stock_removal_bounds"
+                    if all(margin >= -tolerance for margin in margins)
+                    else "setup frame rotation gives a rebound over-approximation; overlapping "
+                    "kernel bbox_mm does not prove partial coverage"
+                )
+            return UNKNOWN
+        if _keep_out_hits(circles, boxes):
+            if exact:
+                return "partial"
+            if debts is not None:
+                debts.append(
+                    "contour.keep_out intersects a rebound over-approximation of kernel bbox_mm; "
+                    "setup frame rotation leaves coverage unknown"
+                )
+            return UNKNOWN
+        # X/Y containment proves no plane the permitted removal volume never reaches.
+        span = mapping(op.get("stock_removal_bounds")).get("z")
+        if not (
+            _span(span)
+            and len(span) == 2
+            and all(math.isfinite(v) for v in span)
+            and span[0] - SAME_Z <= to_z <= span[1] + SAME_Z
+        ):
+            if debts is not None:
+                debts.append("stock_removal_bounds.z must be a finite span containing op.to_z")
+            return UNKNOWN
+    else:
+        held = _setup_footprint(bundle, setup, target, debts)
+        if held is None:
+            return UNKNOWN
+        if not all(number(v) and math.isfinite(v) for span in held for v in span):
+            if debts is not None:
+                debts.append("no footprint: feature bounds/plane/at or setup frame is non-finite")
+            return UNKNOWN
+        if not all(
+            region[i][0] - SAME_Z <= held[i][0] and held[i][1] <= region[i][1] + SAME_Z
+            for i in range(2)
+        ) or _keep_out_hits(circles, [held]):
+            return "partial"
+    if credited is not None and refs and forms_face(bundle, setup, op) is True:
+        credited.extend(refs)
+    return "whole"
 
 
 def stock_states(bundle, setup):
@@ -716,19 +1077,37 @@ def forms_face(bundle, setup, op):
     return UNKNOWN
 
 
-def _producer(bundle, setup, value, face, done, source, path=False):
+def _producer(bundle, setup, value, face, done, source, path=False, debts=None, credited=None):
+    """Resolve the existing producer; optionally collect its whole eligible face refs."""
     ops = setup.get("ops", [])
     features = bundle.feature_definitions
     if source is None and face == "top" and done:
         states = list(stock_states(bundle, setup))[:done]
         source = states[-1][2]["top_from"] if states else None
-    if source == UNKNOWN:
+    unknown_source = source == UNKNOWN
+    # Preserve the unknown stock source, but trace its cut when a touch asks why.
+    if unknown_source and debts is None:
         return UNKNOWN
     match = re.fullmatch(r"(\S+) op (\S+) to_z", source) if isinstance(source, str) else None
     if match and match[1] == setup.get("id"):
-        return next(((setup, op) for op in ops if str(op.get("op")) == match[2]), None)
+        producer = next(((setup, op) for op in ops if str(op.get("op")) == match[2]), None)
+        if producer is not None:
+            op = producer[1]
+            top = mapping(setup.get("stock_state")).get("top_feature")
+            surface_name = top or op_feature(op) if face == "top" else face
+            surface = mapping(features.get(surface_name)) if isinstance(surface_name, str) else {}
+            matched = [] if credited is not None else None
+            if surface.get("kind") == "face" and not mapping(surface.get("bounds")):
+                coverage = cut_coverage(bundle, setup, op, surface, debts, matched)
+                if coverage != "whole":
+                    return UNKNOWN if coverage == UNKNOWN else None
+            elif matched is not None:
+                cut_coverage(bundle, setup, op, surface, credited=matched)
+            if credited is not None:
+                credited.extend(matched)
+        return producer
     if not isinstance(face, str):
-        return None
+        return UNKNOWN if unknown_source else None
     frame = setup.get("frame")
     cuts = [
         (earlier, op)
@@ -736,7 +1115,7 @@ def _producer(bundle, setup, value, face, done, source, path=False):
         if frame not in (None, UNKNOWN) and earlier.get("frame") == frame
         for op in earlier.get("ops", [])
     ]
-    if face != "top":
+    if face != "top" or unknown_source:
         cuts += [(setup, op) for op in ops[:done]]
     top = mapping(setup.get("stock_state")).get("top_feature")
     for cut_setup, op in reversed(cuts):
@@ -750,11 +1129,14 @@ def _producer(bundle, setup, value, face, done, source, path=False):
                 bundle, cut_setup, op
             )
         else:
-            # A facing or pocketing cut clears its whole footprint at its to_z.
+            # Faces without a nonempty declared footprint need coverage proof,
+            # including authored unknown/empty bounds that must remain debt.
+            surface = mapping(features.get(face))
+            guarded = surface.get("kind") == "face" and not mapping(surface.get("bounds"))
             forms = (
                 op.get("do") in FACING | POCKETING
                 and "to_z" in op
-                and _covers_xy(mapping(features.get(name)), mapping(features.get(face)))
+                and (guarded or _covers_xy(mapping(features.get(name)), surface))
             )
         if not forms:
             continue
@@ -762,17 +1144,38 @@ def _producer(bundle, setup, value, face, done, source, path=False):
         # An op that cut only part of the surface did not produce it: the uncut part
         # still stands where its last whole producer left it. Unknown coverage proves
         # neither.
-        coverage = cut_coverage(bundle, cut_setup, op, surface)
+        missing = [] if debts is not None else None
+        matched = [] if credited is not None else None
+        coverage = cut_coverage(bundle, cut_setup, op, surface, missing, matched)
         if coverage == UNKNOWN:
+            if debts is not None:
+                surface_name = top or name if face == "top" else face
+                debts.extend(f"coverage unknown for {surface_name}: {reason}" for reason in missing)
             return UNKNOWN
         if coverage != "whole":
             continue
-        if forms is True and number(to_z) and abs(to_z - value) > SAME_Z:
-            # It left this face at another Z: the face at value is not its.
-            return None
+        if forms is True and number(to_z) and number(value) and abs(to_z - value) > SAME_Z:
+            from .coordinates import dro_grid, dro_z
+            from .zero_recipe import blade
+
+            # A non-blade face also matches where the DRO actually left it. Do not
+            # call formed_z here: its touch-readings lookup may itself be resolving
+            # producer metadata. The caller still uses formed_z to reject unknown
+            # readings. A blade's touched corner is not its raw to_z on the grid.
+            standing = (
+                UNKNOWN
+                if blade(bundle, op.get("tool"))
+                else dro_z(to_z, dro_grid(bundle, cut_setup))
+            )
+            if not number(standing) or abs(standing - value) > SAME_Z:
+                return UNKNOWN if unknown_source else None
         # Where it left the face; unknown when that is (:func:`formed_z`).
+        if unknown_source:
+            return UNKNOWN
+        if credited is not None:
+            credited.extend(matched)
         return cut_setup, op
-    return None
+    return UNKNOWN if unknown_source else None
 
 
 def _centre_mouth(bundle, setup, feature, entry):
@@ -876,6 +1279,7 @@ def evaluate(bundle):
     negative_exit = set()
     # Per centre: why it is not the centre its selected tool cuts from the touched surface.
     centre_errors = {}
+    input_errors = {}
     debts = {}
     for setup in bundle.plan["setups"]:
         for op, before, _ in stock_states(bundle, setup):
@@ -1006,7 +1410,11 @@ def evaluate(bundle):
                     if debt:
                         debts.setdefault(name, {})[debt["id"]] = debt
             face = name if name in before["entry_z"] else "top"
-            _operative(row, bundle, setup, face)
+            bad_input = _operative(row, bundle, setup, face, op)
+            if bad_input is not None:
+                input_errors.setdefault(name, []).append(bad_input)
+            if row.get("dro_tip_z") == UNKNOWN:
+                unresolved.add(name)
             if row.get("dro_grid_debt"):
                 unresolved.add(name)
                 debts.setdefault(name, {}).update(
@@ -1019,7 +1427,9 @@ def evaluate(bundle):
         grid_debts = sorted({row["dro_grid_debt"] for row in rows if "dro_grid_debt" in row})
         if feature.get("kind") not in _HOLE_KINDS | {"centre_hole"}:
             status, sentence = "not_applicable", "Not a hole; no tip endpoint applies."
-        elif name in errors or name in negative_exit or name in centre_errors:
+        elif (
+            name in errors or name in negative_exit or name in centre_errors or name in input_errors
+        ):
             sentence = " ".join(
                 text
                 for flagged, text in (
@@ -1030,6 +1440,7 @@ def evaluate(bundle):
                         "The centre is not the one its selected tool cuts from the touched "
                         f"entry surface: {'; '.join(centre_errors.get(name, []))}.",
                     ),
+                    (input_errors, f"Bad input: {'; '.join(input_errors.get(name, []))}."),
                 )
                 if name in flagged
             )

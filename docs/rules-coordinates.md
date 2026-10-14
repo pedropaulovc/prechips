@@ -632,13 +632,58 @@ footprint. The footprint comes from the feature's own `bounds` (Z from `at` when
 they omit it), else from a round feature's `at` ± half its largest `dia` (else
 ± its `radius`) across its principal `axis`, which must be a unit vector within
 `1e-6`: a scaled or zero `axis` has no known footprint. Only its `plane` value
-can supply an omitted axis. When the bounds hold the footprint, coverage is whole. When they
+can supply an omitted axis. A `kind = "face"` feature with no `bounds` key takes
+its footprint from its `faces` list instead. Every listed ref must resolve
+first: each ref's geometry-matched STEP face in an already-present successful
+kernel result (`mapping` to `faces[].bbox_mm`, model-space mm), converted to
+manifest units and posed in the setup frame. A bounded op covers only the
+eligible faces: those whose posed box has both its lowest and highest setup Z
+at the op's `to_z`, within the kernel length tolerance (`LENGTH_TOLERANCE_MM`,
+1e-6 mm, in manifest units), and whose kernel `kind` is `Plane` or not known.
+A listed face at another Z, such as an underside or a step, or a known
+non-planar face (a `Cylinder` whose box is thinner than that tolerance) is
+neither faced nor credited by that op. A feature with no eligible
+face leaves coverage unknown, with debt naming the feature (no eligible face at
+`to_z`), never whole. The kernel record carries no face orientation, so a
+downward-facing plane lying exactly at `to_z` cannot be told from the faced one
+by its box. This is an accepted limitation: a facing op cuts down from above,
+so the plane it leaves at `to_z` faces +Z.
+Each eligible face is judged by its own posed box. Coverage is whole only when
+every eligible box lies inside the bounds by more than that tolerance on each
+side, and the op's `stock_removal_bounds.z` is a finite ascending span containing
+`to_z` (within `SAME_Z`); a missing, malformed or non-reaching Z span leaves it
+unknown, never credited. A face edge within the tolerance of a bound may lie on either side of it,
+so it is unknown (kernel bbox boundary uncertainty), never partial. Partial is
+claimed only where it is known: an eligible box lies clear of the bounds, or the
+setup frame turns the model axes by a signed permutation (each setup axis along
+± one model axis), so the posed box is the face's exact box and bounds cutting
+across it miss part of the face. Under any other turn the posed box
+over-approximates the face: turned 45°, a square's box holds twice its area. Bounds
+holding that box still hold the face, but bounds crossing it may hold all of a
+diagonal strip, so they are unknown (rebound over-approximation debt).
+A whole cover credits its eligible faces, and only them: the raw `faces` refs it
+credited are reported on the touch rows that read that producer
+(`credited_faces`, under Touched faces below). Authored `bounds` that are unknown,
+empty, malformed or missing an axis are never replaced by the kernel boxes. When
+the bounds hold the footprint, coverage is whole. When they
 miss part of it, coverage is partial: the op neither advances that top or entry
 nor produces the surface, which keeps the uncut height its last whole producer
 left. When the bounds or the footprint are unknown, omitted, empty or malformed,
 coverage is unknown: that top or entry, its producer and its operative Z stay
-unknown and are never credited. A faced surface therefore needs its footprint
-authored. An op without `stock_removal_bounds` cuts its whole feature. For another
+unknown and are never credited. A missing kernel result, unlisted `faces`, an
+unmatched ref, a face record without `bbox_mm`, unknown manifest units or an
+unknown setup frame leaves a bounds-free face's footprint unknown; `zero_check`
+names the touched feature and that missing input. The rule never starts the
+kernel. A faced surface therefore needs its footprint authored or matched.
+An op whose `contour.keep_out` islands reach the surface did not cut all of it,
+bounded or not. The whole cutter stays outside each island, so the land within
+one cutter radius of an island stands uncut. Each circle is mapped to setup XY
+as the raster maps it (`raster.keep_out`) and grown by the cutter radius. A grown
+circle meeting the footprint makes coverage partial, or unknown where a matched
+face's box over-approximates the face (above). An unknown cutter radius, or a
+circle whose centre, diameter, units or mapping is unknown, leaves coverage
+unknown, with `contour.keep_out` debt. Otherwise an op
+without `stock_removal_bounds` cuts its whole feature. For another
 surface, containment is proven in that feature's own frame, where its box is
 exact: the setup Z must run along one of the frame's axes, and the box enclosing
 the surface there must lie within the feature's spans on the other two. Overlap
@@ -1135,7 +1180,9 @@ source's recipe names its own tool's edge, so the re-touch is tool-neutral:
   - it is unnamed (a zero with no `face`);
   - an op on a feature the plan does not name has run since it was made, or a
     face op while the stock's `top_feature` is unresolved (the top);
-  - an op's coverage of it is unknown, it may be gone, or a touch on it disagrees
+  - an op's coverage of it is unknown (a footprint missing an input names the
+    touched feature and that input, such as the kernel result, an unmatched
+    `faces` ref or its `bbox_mm`), it may be gone, or a touch on it disagrees
     with (or cannot be checked against) the Z its op made or the tracked top's;
   - partial cuts together leave no land of it, or it is not shown to fill its
     footprint.
@@ -1160,23 +1207,131 @@ another tool's Axis Set scraps the part. An authored tool touch for that tool
 before the op replaces the derivation.
 
 Touched faces: every non-measured Z touch (the zero, a tool touch, a derived
-re-touch or a listed top retouch) sets its Axis Set from its face as this
-setup's DRO shows it (the surface the sheet prints, `operative_z`). When an op
-cut that face under a set Z DRO, in this setup before the touch or in a
-same-frame setup of its `stock_in` lineage (the producer `operative_z` finds:
-any op that leaves the face at its `to_z`, `forms_face`, a facing op or a blade
-part-off alike; ops before their setup's Z zero do not count: the zero places
-their faces), the face stands at that op's `formed_z` (`face_stands`). A face
+re-touch or a listed top retouch) sets its Axis Set from the known face height
+in this setup's frame. When an op cut that face under a set Z DRO in this
+setup before the touch (the producer `operative_z` finds: any op that leaves
+the face at its `to_z`, `forms_face`, a facing op or a blade part-off alike;
+ops before the setup's Z zero do not count: the zero places their faces),
+the face stands at that op's `formed_z` (`face_stands`), and the
+touch sets that standing Z, not its authored edge. The row's numeric `edge_mm`
+(a retouch's `top_z`) is that standing Z, and its Axis Set, check and mirrored
+readings follow from it. The DRO stops a cut at its `to_z` rounded up onto the
+grid, so an authored edge whose own DRO reading (`dro_z(edge)` on this setup's
+grid) is the standing Z is that rounding and passes silently. On a 0.005 grid
+with 0.05 paper, a floor and edge of 5.21875 stand at 5.220 and set 5.270; 7.497
+stands at 7.500 and sets 7.550. An edge read on any other step contradicts the
+face: an `error` naming the edge, its reading and the standing Z, with no
+numeric tolerance. A face
 standing off this DRO's grid (a blade's off-grid width, a finer producer grid)
 is set where it is not, so every Z the tool then cuts to lands off by the
 difference: an `error`
 (`{who} sets {face} as Z {shown}, which stands at {formed_z}`), whatever cut
-reads the touch next. A face standing at an unknown Z (`formed_z` unknown,
-including an op that may have left it, `forms_face` unknown) is `unknown`, and
+reads the touch next. An earlier setup's native credited plane uses the
+carried-face rule below, not this frame's one-sided cut rounding.
+A face standing at an unknown Z (`formed_z` unknown, including an op that
+may have left it, `forms_face` unknown) is `unknown`, and
 the sheet prints its Axis Set as `?`. A measured touch reads its face and is
 not checked; a face no op produced (the stock, or a face only a saw, a manual
 step or a cut proven to leave none, such as a diameter alone, touched) stands
-where the touch sets it.
+where the touch sets it. A bounds-free `kind = "face"` feature named only by its
+matched STEP faces needs a whole eligible producer or the traced carry below:
+unfaced, partly faced, beside a `keep_out` island, or unknown coverage leaves
+its Z unknown, never the authored edge or the raw stock height. Only the
+genuine raw `top` stands where the touch sets it.
+Owning a native face is not itself plane evidence: a new touch surface needs a
+native plane at the cut's raw `to_z`. A known cylinder remains ineligible even
+when its enclosing Z span happens to fit the length tolerance.
+A touch whose producer was credited from matched kernel planes reads them only
+from above: off a lathe a tool touch comes down on its face, and a zero or
+listed retouch must come `from = "+z"`. An unknown or other side may meet
+another face, so it is `unknown` and takes no credit. Each zero-check row that
+reads such a producer (`axes.z`, `tool_touches`, `derived_touches`, `retouch`)
+lists the raw STEP refs credited in `credited_faces`, absent when none. The
+report JSON retains those proof refs for validation; the operator traveler names
+the face and any required contact constraint, without raw native entity IDs.
+
+A whole credited face may carry through the traced `stock_in` lineage into
+a bonded or remounted setup. An intervening cut that can lower that face, or
+whose effect is unknown for it, breaks the credit; an untraceable stock link
+also leaves it unknown. The new physical height carries the producer's AS-CUT
+`formed_z`, not the native CAD nominal. The source native plane establishes
+identity, orientation and raw nominal Z; its point is displaced by
+`formed_z - native_z` along source setup Z, then that displaced point and the
+normal pass through the recorded source and receiving rigid frames.
+A transformed native box
+proves the height only when its setup-Z span is flat within length tolerance.
+An enclosing box whose oblique turn loses the plane's coordinate correlation
+cannot prove it. Exact existing native plane evidence can: a source setup's
+`revolved` fact with `kinds = ["Plane"]`, a flat native `end_faces` plane and
+its outward `normal_z`, bound to the face its cut produced. Both its point
+and normal are transformed through the recorded source and receiving rigid
+frames; the receiving normal must be +Z within the native direction guard
+of 0.000001 degrees (also used for plunge parallelism). Frames must have finite
+unit, orthogonal bases.
+Alternatively, a bound setup-local scene datum needs that normal and an outline whose Z span
+lies at the touched height within length tolerance. Native datum facts are
+emitted only after the native stock carries their surface. Missing facts stay
+unknown; an unrelated datum or the enclosing oblique box is never a substitute.
+No kernel run or new native fields are added for this.
+
+An overlapping axial drill, ream, spot or counterbore preserves usable touch
+land only when a single native `Plane` with `fills_bbox = true` proves an
+axis-aligned rectangle retaining a 0.5 mm square outside the cumulative
+bounded footprint. The worst-case radial footprint includes its cutter and
+aim shift. Radius extrema alone prove neither circular topology nor usable
+land; round, holed and missing-shape faces stay unknown after an overlapping
+plunge, pending [native topology evidence #208](https://github.com/pedropaulovc/prechips/issues/208).
+For a resolved `center_drill_set` member, engagement no deeper than its pilot
+length uses the pilot radius; deeper engagement uses
+`pilot_radius + (depth - pilot_length) * tan(countersink_half_angle)`,
+bounded by the body radius. Missing member geometry leaves the footprint
+unknown; the pilot alone cannot prove clearance after the countersink engages.
+The credited touch then carries
+`touch_exclusion_dia_mm` in physical millimetres (zero before any relevant
+plunge); the card requires `touch the face outside Ø… mm` when it is positive,
+with that diameter rounded outward to the sheet's millimetre precision. A
+footprint covering the face, an oblique plunge, a lateral sweep that could
+lower it or any unbounded effect leaves the carry unknown, never a guessed Z.
+
+A carried face was not cut onto this frame's grid. Its authored edge must
+agree with the transformed physical height or the exact raw native plane
+within the existing length tolerance, else an error names the mismatch.
+An authored nominal edge matching that raw plane does not contradict a
+proven producer's rounded AS-CUT height. An unknown producer cut cannot
+invent an AS-CUT height: it stays unknown unless the existing native-fallback
+rule explicitly proves the fallback.
+From above, its Axis Set rounds physical height plus paper **down** to the
+receiving DRO grid, unlike the upward rounding of a cut endpoint. The finding
+records `setting_residual_mm` (physical height plus paper minus typed setting,
+in mm), nonnegative and at most one receiving step. With no paper, a physical
+21.0075 face on a 0.005 grid sets 21.005, retaining +0.0025 mm; it must not set
+21.010 and make later authored tips cut deeper. S2's raw nominal 21.0055
+faces to 21.01 on its lathe's 0.01 grid; carried unchanged into S9 it is
+physical 21.010 and sets 21.010, residual zero.
+For a unit-converted grid with a recurring decimal step, contact equality uses
+the actual printed grid-line value at the grid's display precision, not an
+ideal step quotient. Only binary roundoff may meet that line from below;
+the native length tolerance never permits rounding a genuinely lower contact
+up onto it.
+For an imported hole entry, `stock_state.entry_z.<feature>` (or `top_z`
+when it supplies that entry) must remain the transformed **native nominal**
+within the physical length tolerance of 0.000001 mm, in the manifest's units.
+Only the touch's authored edge may alternatively name the proven AS-CUT height.
+Entering that AS-CUT height in both fields would apply the producer offset
+twice: it is a deterministic `error` naming the authored stock-state field,
+with no numeric operative entry, tip or through exit offered. Unknown native
+evidence or an unknown entry stays unknown, not a mismatch. An entry advanced
+by a cut in this same setup already belongs to its own DRO and keeps that
+local producer's endpoint rather than being shifted as imported stock.
+Every later operation's operative entry, depth, exit and breakthrough uses
+the actual typed Axis Set; physical face height remains separate evidence.
+Cut endpoints still use ordinary upward `dro_z` and retain their depth guards.
+For a through hole, `physical_exit_bound_z` is physical entry minus the
+declared `local_thickness`: a dimension-derived worst-case exit boundary,
+not evidence of an independently identified native exit plane. Its operative
+`dro_exit_face`, tip and breakthrough margin remain conservatively anchored
+to the typed entry. A longest allowed thickness does not establish the
+actual opposite face's AS-CUT height.
 
 Templates:
 
@@ -1190,8 +1345,16 @@ Templates:
   ` Measured setup/tool or trial-cut verification remains unknown.`
 - then (after any blade-corner sentence), when a touch sets its DRO off its face:
   ` A Z touch sets its DRO off where its face stands ({who} sets {face} as Z {shown}, which stands at {formed_z}; …): every Z the tool then cuts to lands off by the difference. Plan the face onto this DRO's grid, or set Z from a measured reading of it.`
+  An authored edge on another DRO step is listed there as
+  `{who} on {face} uses edge {edge} (DRO Z {dro_z(edge)}); the face stands at {stands}`.
 - when a touch meets a face standing at an unknown Z:
   ` A Z touch meets a face its op left at an unknown Z ({who} on {face}; …): its Axis Set is not known.`
+  Missing eligible native-plane evidence is listed as
+  `{who} on {face} ({face} has no eligible native plane at raw to_z)`;
+  failed carry provenance or surviving-area proof as
+  `{who} on {face} (no surviving credited stock plane with a bounded touch area for {face})`;
+  and a credited plane met from no known side above as
+  `{who} on {face} (native-plane credit requires a known +Z/above touch)`.
 
 Evidence: per-axis contact/set/check/mirror/sign, source edge, finder radius,
 paper, jog and DRO direction, retouch list, per-tool touches, derived and

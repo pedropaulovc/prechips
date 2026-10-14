@@ -1388,7 +1388,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
+            "sha256": "800dfd517fc0bafa2f98f601d143513202d3aac2fe440b60a8c1dd5d188b7f58"
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
@@ -10658,6 +10658,9 @@
               50
             ],
             "corner_from": "face normal",
+            "credited_faces": [
+              "#491/ADVANCED_FACE[17]/HAF_SHOULDER_THRUST__P01"
+            ],
             "edge_mm": 0.0,
             "gauge": "micrometers/0-1in",
             "method": "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z",
@@ -10775,6 +10778,9 @@
               40
             ],
             "corner_from": "face normal",
+            "credited_faces": [
+              "#63/ADVANCED_FACE[3]/HAF_SHOULDER_NORTH_FACE__P01"
+            ],
             "edge_mm": -7.5,
             "gauge": "micrometers/0-1in",
             "method": "spindle stopped; feed the chuck-side corner in until the paper drags; withdraw along X without moving Z",
@@ -10793,6 +10799,9 @@
             "after_op": 40,
             "before_ops": [
               50
+            ],
+            "credited_faces": [
+              "#63/ADVANCED_FACE[3]/HAF_SHOULDER_NORTH_FACE__P01"
             ],
             "edge_mm": -7.5,
             "gauge": "micrometers/0-1in",
@@ -10950,7 +10959,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "26ee4fa32e922788d34af7d74853fad037297c2d351156c9f412a4ccc364dd1f",
+  "hash": "948327f71f8d576ca632fc1d5bdcd0e33ef503c0613edd76e66476a4908fb585",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -10962,7 +10971,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
+      "sha256": "800dfd517fc0bafa2f98f601d143513202d3aac2fe440b60a8c1dd5d188b7f58"
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
@@ -11348,7 +11357,7 @@
       "sha256": "ba7552971766fc01f52c1eabb9bbc6b87fae5cd9256dfefee62ccee33f8be031"
     }
   },
-  "rules_version": "m5-rev12",
+  "rules_version": "m5-rev10",
   "step_sha256": "cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc",
   "verification": "checked"
 }

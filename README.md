@@ -25,7 +25,7 @@ cutter, with window-bounded radial and wall-tangent cutter-column removal
 outside the finished part. Op windows may claim part of a face; coverage and
 finish coverage need the exact union of the claiming windows to cover the
 whole face. This is sampled geometry, not continuous toolpath proof.
-Local artifact validation ran all four reference travelers twice; all eight
+Earlier local artifact validation ran all four reference travelers twice; all eight
 invocations exited 0, and the two generations produced 48 byte-identical output
 files. The example validator passed for 26 TOML inputs, four reference bundles
 and seven geometry controls. A final full-suite run and the combined ten-minute
@@ -34,6 +34,19 @@ first-article machining and live prechips farm/App Insights acceptance also
 remain unobserved. Exported CAD inputs and artifact validation do not establish
 those acceptances. See [PLAN.md](PLAN.md) for the current contract and remaining
 acceptance work.
+
+The built-up cone now truthfully stops with exit **4**: main's feature-name-only
+retouch bypass ignored overlapping holes
+([`b7c7d295`](https://github.com/pedropaulovc/prechips/commit/b7c7d295f8ec2d1c5be4377184bd0c013df958af),
+[`f530cce4`](https://github.com/pedropaulovc/prechips/commit/f530cce40ae90ea44105a72010e962f168cb4dee),
+[`d837c883`](https://github.com/pedropaulovc/prechips/commit/d837c88363788c08c42b45fb69d532a2b940732f)).
+The [offline STEP/native-cache provenance summary](examples/README.md#expected-consumer-cli-exits)
+shows ample real land: at least 2.4596 mm (about 2.46 mm), versus the 0.5 mm
+policy. Missing circular-topology proof, not physical land, keeps S8/S9's
+post-plunge retouches unknown pending [#208](https://github.com/pedropaulovc/prechips/issues/208).
+Release 0.1.1 includes #198 and #192 with that documented interim exit 4.
+Exit-0 restoration by #208 is deferred to release 0.1.2, alongside #199;
+the authored plan and its requirements are unchanged.
 
 See the example guide's [print and native acceptance limits](examples/README.md#print-and-native-acceptance-limits).
 
@@ -233,6 +246,31 @@ On the lathe, a parting/grooving blade's Z touch names the blade corner it sets
 op row prints Z as that corner's reading. Each toolpost tool's first touch-off in
 a setup is preceded by setting it on centre height, and squaring a blade to the
 spindle axis ([zero_check](docs/rules-coordinates.md#zero_check)).
+
+A facing op's `stock_removal_bounds` advance a bounds-free `kind = "face"`
+feature's top only when every listed face resolves in an already-present
+matched kernel result (never started for this) and each listed plane lying at
+the op's `to_z` is held inside the bounds beyond the kernel's 1e-6 mm box
+tolerance. Only those planes are credited; a listed face at another Z, such as
+an underside, is not. A `contour.keep_out` island within a cutter radius of the
+face, an edge inside that tolerance, a setup turn that over-approximates the
+face's box, or no listed plane at `to_z` leaves it partial or `?`, never whole.
+A partial box keeps the unfaced stock, and a missing kernel, mapping, face box,
+unit or cutter radius stays `?` with `zero_check` naming the feature and the
+missing input. A same-setup touch sets the Z where its producer left it on
+the DRO grid; an authored edge the DRO reads on another step is `✗`. A whole
+face can carry through a traced stock lineage into a remounted setup:
+its transformed height sets the nearest enterable Axis Set, with the setting
+residual reported. A height-changing or unknown cut breaks that credit.
+An overlapping axial plunge preserves it only when the existing native
+`Plane`/`fills_bbox` rectangle retains a 0.5 mm square outside the cumulative
+bounded footprint; the card then requires touching outside the computed
+diameter. Radius extrema alone prove no usable circular land, pending #208.
+An oblique plane without exact native source-plane or bound datum evidence
+stays `?`, never an assumed Z.
+Each touch row retains the credited STEP refs as `credited_faces` in the report JSON
+for validation, not on the operator card; the traveler names the face and any
+required contact constraint ([coordinates](docs/rules-coordinates.md)).
 
 The literal `"unknown"` never means zero, absence, approval or a pass. A
 `verify = true` inventory entry is verification debt, not certified geometry:
