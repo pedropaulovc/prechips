@@ -799,6 +799,8 @@ def trap_native_coverage(monkeypatch, forged_whole=False):
         ("no-eligible-plane", "unknown"),
         ("missing-to-z", "unknown"),
         ("nonplanar-box", "unknown"),
+        ("thin-known-cylinder", "unknown"),
+        ("thin-known-bspline", "unknown"),
         ("boundary", "unknown"),
         ("keep-out", "partial"),
         ("missing-cutter", "unknown"),
@@ -885,6 +887,10 @@ def test_native_face_coverage_oracle_uses_only_matched_boxes(tmp_path, monkeypat
         op["contour"]["sweep_frame"] = "missing"
     elif case == "missing-frame":
         producer["frame"] = "unknown"
+    elif case in {"thin-known-cylinder", "thin-known-bspline"}:
+        # Flat at to_z within tolerance, but a known non-planar STEP face is no plane.
+        kind = "Cylinder" if case == "thin-known-cylinder" else "BSplineSurface"
+        data.kernel["faces"][0]["kind"] = kind
     elif case == "signed-permutation":
         data.features["frames"]["A"].update(x=[0.0, 1.0, 0.0], y=[-1.0, 0.0, 0.0])
         op["stock_removal_bounds"].update(x=[-3.0, 9.0], y=[-16.0, 6.0])

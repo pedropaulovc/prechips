@@ -577,8 +577,19 @@ def cut_coverage(bundle, setup, op, target, debts=None, credited=None):
             if debts is not None:
                 debts.append("eligible kernel face plane needs numeric op.to_z")
             return UNKNOWN
+        kernel = mapping(getattr(bundle, "kernel", None))
+        kinds = {
+            item.get("index"): item.get("kind")
+            for item in map(mapping, records(kernel.get("faces")))
+        }
+        matched = mapping(kernel.get("mapping"))
+        flat = [(ref, box) for ref, box in faces if all(abs(z - to_z) <= tolerance for z in box[2])]
+        # A thin cylinder is not an axial plane merely because its box fits the length
+        # tolerance: bbox-only plane proof stands only where no contrary kind is known.
         eligible = [
-            (ref, box) for ref, box in faces if all(abs(z - to_z) <= tolerance for z in box[2])
+            (ref, box)
+            for ref, box in flat
+            if kinds.get(matched.get(ref)) in (None, UNKNOWN, "Plane")
         ]
         if not eligible:
             if debts is not None:
@@ -592,7 +603,11 @@ def cut_coverage(bundle, setup, op, target, debts=None, credited=None):
                 )
                 debts.append(
                     f"no eligible face for {surface} at to_z {to_z:g}: "
-                    "matched bbox_mm Z spans differ"
+                    + (
+                        "matched faces at that Z are known non-Plane kinds"
+                        if flat
+                        else "matched bbox_mm Z spans differ"
+                    )
                 )
             return UNKNOWN
         refs = [ref for ref, _ in eligible]

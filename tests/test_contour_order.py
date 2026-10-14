@@ -725,6 +725,27 @@ def test_a_box_holding_every_matched_face_of_an_unbounded_face_produces_the_top(
     assert recipe.numbers["retouch"][0]["axis_set"] == pytest.approx(-8.7)
 
 
+@pytest.mark.parametrize("kind", ["Cylinder", "BSplineSurface"])
+def test_a_known_non_plane_face_thin_in_setup_z_produces_no_top(tmp_path, kind):
+    # The box is flat at op 10's floor within LENGTH tolerance, but the STEP face is a
+    # known non-planar kind: no planar top/entry is established, so coverage is unknown.
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY, "x = [0.0, 10.0], y = [0.0, 10.0], ")
+    setup["stock_state"]["top_feature"] = "target"
+    matched_faces(bundle, NEAR)
+    bundle.kernel["faces"][0]["kind"] = kind
+    target = bundle.feature_definitions["target"]
+    debts, credited = [], []
+    coverage = tip_endpoints.cut_coverage(bundle, setup, setup["ops"][0], target, debts, credited)
+    assert coverage == "unknown" and credited == []
+    assert debts == [
+        "no eligible face for target at to_z -8.8: "
+        "matched faces at that Z are known non-Plane kinds"
+    ]
+    (_, _, after), _ = stock_states(bundle, setup)
+    assert after["top_z"] != -8.8
+    assert _producer(bundle, setup, -8.8, "top", 1, None) in (None, "unknown")
+
+
 @pytest.mark.parametrize("boxes", [(NEAR, FAR), (FAR,)], ids=["distant-patch", "disjoint"])
 def test_a_box_missing_any_matched_face_leaves_the_unfaced_top(tmp_path, boxes):
     # The feature's complete face list reaches past op 10's box: it faced part of the top

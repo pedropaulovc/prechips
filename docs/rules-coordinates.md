@@ -604,8 +604,10 @@ kernel result (`mapping` to `faces[].bbox_mm`, model-space mm), converted to
 manifest units and posed in the setup frame. A bounded op covers only the
 eligible faces: those whose posed box has both its lowest and highest setup Z
 at the op's `to_z`, within the kernel length tolerance (`LENGTH_TOLERANCE_MM`,
-1e-6 mm, in manifest units). A listed face at another Z, such as an underside
-or a step, is neither faced nor credited by that op. A feature with no eligible
+1e-6 mm, in manifest units), and whose kernel `kind` is `Plane` or not known.
+A listed face at another Z, such as an underside or a step, or a known
+non-planar face (a `Cylinder` whose box is thinner than that tolerance) is
+neither faced nor credited by that op. A feature with no eligible
 face leaves coverage unknown, with debt naming the feature (no eligible face at
 `to_z`), never whole. The kernel record carries no face orientation, so a
 downward-facing plane lying exactly at `to_z` cannot be told from the faced one

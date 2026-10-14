@@ -1759,7 +1759,7 @@ def surface_cut_coverage(own, entries: Entries, setup: dict, op: dict, target: d
         and isinstance(native, list)
     ):
         return "unknown"
-    boxes = []
+    boxes, kinds = [], []
     for ref in refs:
         index = mapping.get(ref)
         if ref in errors or not isinstance(index, int) or isinstance(index, bool):
@@ -1787,6 +1787,7 @@ def surface_cut_coverage(own, entries: Entries, setup: dict, op: dict, target: d
         if not all(finite(value) for point in points for value in point):
             return "unknown"
         boxes.append([[min(p[i] for p in points), max(p[i] for p in points)] for i in range(3)])
+        kinds.append(matched[0].get("kind"))
     tolerance = LENGTH_TOLERANCE_MM / scale
     if all(
         any(
@@ -1798,7 +1799,14 @@ def surface_cut_coverage(own, entries: Entries, setup: dict, op: dict, target: d
         return "partial"
     if not finite(op.get("to_z")):
         return "unknown"
-    boxes = [box[:2] for box in boxes if all(abs(z - op["to_z"]) <= tolerance for z in box[2])]
+    # Only a face of no known contrary kind can be a plane: a thin cylinder's box fitting
+    # the length tolerance is no planar producer.
+    boxes = [
+        box[:2]
+        for box, kind in zip(boxes, kinds, strict=True)
+        if kind in (None, "unknown", "Plane")
+        and all(abs(z - op["to_z"]) <= tolerance for z in box[2])
+    ]
     if not boxes:
         return "unknown"
     exact = all(sorted(abs(value) for value in axis) == [0.0, 0.0, 1.0] for axis in axes)
