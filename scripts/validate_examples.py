@@ -1677,6 +1677,158 @@ def kernel_face(definitions: dict, name) -> bool:
     return target.get("kind") == "face" and "bounds" not in target
 
 
+def surface_cut_coverage(own, entries: Entries, setup: dict, op: dict, target: dict) -> str:
+    """Independent face-extent guards and bounded native coverage from our own inputs.
+
+    Incidental ``at``/``dia`` metadata never declares a face's extent, including with
+    empty/unknown explicit bounds. A valid own-feature unbounded cut retains declared
+    whole semantics without islands; cross-feature native unbounded containment and
+    unbounded native keep-outs are unsupported here and independently unknown.
+    Bounded native cuts resolve every authored ref through our kernel mapping and pose
+    its finite model-mm box in setup units before selecting boxes wholly at ``to_z``.
+    Boxes prove enclosure, not normals or filled topology; carried planes have their
+    separate exact-plane/above-touch gates. Only signed permutations preserve extrema
+    for partial-overlap/keep-out decisions. Valid authored bounds and non-face coverage
+    still use the checker under #214, never these face-extent classifications.
+    """
+    if target.get("kind") != "face":
+        return cut_coverage(own, setup, op, target)
+    if "bounds" in target:
+        if not isinstance(target["bounds"], dict) or not target["bounds"]:
+            return "unknown"
+        return cut_coverage(own, setup, op, target)
+    if "stock_removal_bounds" not in op:
+        name = op.get("feature")
+        cut = table_of(own.feature_definitions.get(name)) if isinstance(name, str) else {}
+        islands = table_of(op.get("contour")).get("keep_out", [])
+        return "whole" if target == cut and isinstance(islands, list) and not islands else "unknown"
+    region = [table_of(op.get("stock_removal_bounds")).get(axis) for axis in ("x", "y")]
+    if not all(
+        isinstance(span, list) and len(span) == 2 and all(map(finite, span)) and span[0] <= span[1]
+        for span in region
+    ):
+        return "unknown"
+    scale = UNIT_MM.get(own.features.get("units"))
+    frame = setup_frame(setup, own.plan, own.features)
+    axes = frame_basis(frame)
+    if scale is None or axes is None or not all(map(finite, frame["origin"])):
+        return "unknown"
+    contour = table_of(op.get("contour"))
+    islands = contour.get("keep_out", [])
+    if not isinstance(islands, list):
+        return "unknown"
+    circles = []
+    if islands:
+        diameter = tool_length_mm(op.get("tool"), "dia", entries)
+        name = op.get("feature")
+        cut = table_of(own.feature_definitions.get(name)) if isinstance(name, str) else {}
+        sweep = table_of(own.features.get("frames")).get(
+            contour.get("sweep_frame", cut.get("frame", "model"))
+        )
+        if (
+            not finite(diameter)
+            or diameter <= 0
+            or frame_basis(sweep) is None
+            or not all(map(finite, sweep["origin"]))
+        ):
+            return "unknown"
+        for island in islands:
+            island = table_of(island)
+            at, dia = vector_of(island.get("at"), 2), island.get("dia_mm")
+            if at is None or not all(map(finite, at)) or not finite(dia) or dia <= 0:
+                return "unknown"
+            centre = frame_point(model_point([*at, 0.0], sweep), frame)[:2]
+            radius = (dia + diameter) / (2 * scale)
+            if not all(map(finite, centre)) or not finite(radius):
+                return "unknown"
+            circles.append((centre, radius))
+    refs = target.get("faces")
+    kernel = table_of(own.kernel)
+    mapping, errors, native = (
+        kernel.get("mapping"),
+        kernel.get("mapping_errors", {}),
+        kernel.get("faces"),
+    )
+    if not (
+        isinstance(refs, list)
+        and refs
+        and all(isinstance(ref, str) and ref and ref != "unknown" for ref in refs)
+        and kernel.get("status") == "ok"
+        and isinstance(mapping, dict)
+        and isinstance(errors, dict)
+        and isinstance(native, list)
+    ):
+        return "unknown"
+    boxes = []
+    for ref in refs:
+        index = mapping.get(ref)
+        if ref in errors or not isinstance(index, int) or isinstance(index, bool):
+            return "unknown"
+        matched = [
+            face
+            for face in native
+            if isinstance(face, dict)
+            and isinstance(face.get("index"), int)
+            and not isinstance(face["index"], bool)
+            and face["index"] == index
+        ]
+        if len(matched) != 1:
+            return "unknown"
+        box = matched[0].get("bbox_mm")
+        if not (
+            isinstance(box, list)
+            and len(box) == 6
+            and all(map(finite, box))
+            and all(box[i] <= box[i + 3] for i in range(3))
+        ):
+            return "unknown"
+        spans = [[box[i] / scale, box[i + 3] / scale] for i in range(3)]
+        points = [frame_point(list(point), frame) for point in product(*spans)]
+        if not all(finite(value) for point in points for value in point):
+            return "unknown"
+        boxes.append([[min(p[i] for p in points), max(p[i] for p in points)] for i in range(3)])
+    tolerance = LENGTH_TOLERANCE_MM / scale
+    if all(
+        any(
+            box[i][0] > region[i][1] + tolerance or box[i][1] < region[i][0] - tolerance
+            for i in range(2)
+        )
+        for box in boxes
+    ):
+        return "partial"
+    if not finite(op.get("to_z")):
+        return "unknown"
+    boxes = [box[:2] for box in boxes if all(abs(z - op["to_z"]) <= tolerance for z in box[2])]
+    if not boxes:
+        return "unknown"
+    exact = all(sorted(abs(value) for value in axis) == [0.0, 0.0, 1.0] for axis in axes)
+    margins = [
+        margin
+        for box in boxes
+        for i, span in enumerate(box)
+        for margin in (span[0] - region[i][0], region[i][1] - span[1])
+    ]
+    disjoint = any(
+        span[0] > region[i][1] + tolerance or span[1] < region[i][0] - tolerance
+        for box in boxes
+        for i, span in enumerate(box)
+    )
+    if disjoint or (exact and any(margin < -tolerance for margin in margins)):
+        return "partial"
+    if not all(margin > tolerance for margin in margins):
+        return "unknown"
+    excluded = any(
+        math.hypot(
+            max(box[0][0] - centre[0], 0.0, centre[0] - box[0][1]),
+            max(box[1][0] - centre[1], 0.0, centre[1] - box[1][1]),
+        )
+        <= radius
+        for centre, radius in circles
+        for box in boxes
+    )
+    return ("partial" if exact else "unknown") if excluded else "whole"
+
+
 def carry_route(plan: dict, setup: dict) -> list | None:
     """The setups whose stock flows into ``setup``, in plan order and ending with it: each
     ``stock_in`` names the root stock, one of its components or an earlier setup, else
@@ -1743,8 +1895,9 @@ def carried_plane_cut(own, entries: Entries, setup: dict, op: dict, face: str, i
     """The exact plane ``op`` of ``setup`` cuts ``face`` (kernel index ``index``) to whole,
     as that setup's own kernel fact states it at the op's ``to_z``, with the height the
     cut leaves it at (``formed``: where the op's DRO stopped, ``to_z`` rounded up on its
-    grid); None when ``op`` makes no such plane; "blade" when it does but a blade corner's
-    reading leaves it, which no plan-only derivation places."""
+    grid); None when ``op`` makes no such plane; "unknown" when its native
+    footprint cannot cover that plane whole; "blade" when a blade corner's reading
+    leaves it, which no plan-only derivation places."""
     kernel = table_of(own.kernel)
     action, to_z = op.get("do"), op.get("to_z")
     detail = table_of(table_of(kernel.get("ops")).get(f"{setup.get('id')}:{op.get('op')}"))
@@ -1766,7 +1919,10 @@ def carried_plane_cut(own, entries: Entries, setup: dict, op: dict, face: str, i
     claims, away, invalid = op_claims(own, kernel, setup, op)
     if claims is None or away or invalid or index not in claims:
         return None
-    if cut_coverage(own, setup, op, table_of(own.feature_definitions.get(face))) != "whole":
+    target = table_of(own.feature_definitions.get(face))
+    if surface_cut_coverage(own, entries, setup, op, target) != "whole":
+        if kernel_face(own.feature_definitions, face):
+            return "unknown"
         return None
     if frame_basis(setup_frame(setup, own.plan, own.features)) is None:
         return None
@@ -2109,8 +2265,11 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
     later cut must leave it (:func:`plane_cut_reach`), else its area is lost for good, as
     stock debt loses it. The as-cut source point and the nominal one carry rigidly into
     this setup's frame, where the plane must face +Z: ``physical`` and ``native`` heights,
-    its one credited ref and the widest keep-off (``excluded_mm``)."""
+    its one credited ref and the widest keep-off (``excluded_mm``). Empty/non-table
+    explicit face bounds are independently unknown, never a checker-disc fallback."""
     target = table_of(own.feature_definitions.get(face)) if isinstance(face, str) else {}
+    if target.get("kind") == "face" and "bounds" in target and not table_of(target["bounds"]):
+        return {"unknown": f"{face} has no valid explicitly authored face bounds"}
     refs = target.get("faces")
     kernel = table_of(own.kernel)
     scale = UNIT_MM.get(own.features.get("units"))
@@ -2142,7 +2301,7 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
     axes = frame_basis(frame)
     if axes is None:
         return None
-    outputs, made = {}, False
+    outputs, made, unproven = {}, False, False
     for current in route:
         sid, receiving = current.get("id"), current is setup
         rows = [
@@ -2175,6 +2334,10 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
                 plane = carried_plane_cut(own, entries, current, op, face, index)
             if plane == "blade":
                 return None
+            if plane == "unknown":
+                # Do not replace a surviving earlier plane with partial/ambiguous
+                # production. Its ordinary cut-reach guard still decides survival.
+                unproven, plane = True, None
             if plane is not None:
                 made = True
                 frame_of = setup_frame(current, own.plan, own.features)
@@ -2196,6 +2359,8 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
                 state["excluded"] = max(state["excluded"], reach)
         outputs[sid] = state
     if not made:
+        if unproven:
+            return {"unknown": f"native cut does not establish the whole {face} plane"}
         return None
     final = outputs[setup.get("id")]
     if final["present"] is not True:
@@ -2840,17 +3005,35 @@ def entry_producer(stock: SimpleNamespace, setup: dict, entry, face: str, source
     ``entry`` (:func:`entry_surface`), as ``(setup, op)``; None when no op cut it, so the
     authored surface stands; unknown when one may have cut it to an unknown Z or over an
     unknown part of it. From authored inputs and independent kernel facts: the op of
-    ``setup`` that ``source`` names;
-    else the last op, in the setups ``setup`` receives stock from (``lineage``) and shares
-    a known frame with, that cut the whole surface (``cut_coverage``): for ``"top"`` a
-    facing op on the setup's ``top_feature`` (any, when it names none), for a feature one
-    that leaves its face (:func:`leaves_face`) or a facing or pocketing op whose
-    footprint covers it. One that left the surface at another Z did not produce it."""
+    ``setup`` that ``source`` names, with native coverage independently checked; else
+    the last op in the same-frame stock lineage that cut the whole surface. For
+    ``"top"`` this is a facing op on ``top_feature`` (any when none is named); for a
+    feature it leaves its face or is a facing/pocketing candidate. Bounds-free faces
+    use our matched boxes for bounded candidates, never authored discs/containment;
+    unsupported unbounded cross-feature containment and invalid face bounds are
+    unknown. An XY-disjoint cut is skipped before plane eligibility, preserving an
+    earlier producer; a whole producer at another Z did not produce this entry."""
     if source == "unknown":
         return "unknown"
     made = re.fullmatch(r"(\S+) op (\S+) to_z", source) if isinstance(source, str) else None
     if made and made[1] == setup["id"]:
-        return next(((setup, op) for op in setup["ops"] if str(op.get("op")) == made[2]), None)
+        producer = next(((setup, op) for op in setup["ops"] if str(op.get("op")) == made[2]), None)
+        if producer is not None:
+            op = producer[1]
+            top = table_of(setup.get("stock_state")).get("top_feature")
+            surface_name = (top or op.get("feature")) if face == "top" else face
+            surface = (
+                table_of(stock.feature_definitions.get(surface_name))
+                if isinstance(surface_name, str)
+                else {}
+            )
+            if surface.get("kind") == "face" and not table_of(surface.get("bounds")):
+                coverage = surface_cut_coverage(stock, entries, setup, op, surface)
+                if coverage != "whole":
+                    # This local source is a checker stock_states whole claim.
+                    # Falling back to its numeric entry would accept that same claim.
+                    return "unknown"
+        return producer
     frame = setup.get("frame")
     definitions = stock.feature_definitions
     top = setup.get("stock_state", {}).get("top_feature")
@@ -2862,23 +3045,26 @@ def entry_producer(stock: SimpleNamespace, setup: dict, entry, face: str, source
     ]
     for earlier, op in reversed(cuts):
         name, action = op.get("feature"), op.get("do")
+        surface_name = (top or name) if face == "top" else face
+        surface = table_of(definitions.get(surface_name)) if isinstance(surface_name, str) else {}
+        guarded_face = surface.get("kind") == "face" and not table_of(surface.get("bounds"))
         if face == "top":
             forms = action in FACING and "to_z" in op and top in (None, name)
         elif name == face:
             forms = leaves_face(earlier, op, entries)
         else:
-            cut, target = definitions.get(name), definitions.get(face)
+            cut = definitions.get(name) if isinstance(name, str) else None
+            target = definitions.get(face)
             forms = (
                 action in FACING | POCKETING
                 and "to_z" in op
                 and isinstance(cut, dict)
                 and isinstance(target, dict)
-                and covers_xy(cut, target)
+                and (guarded_face or covers_xy(cut, target))
             )
         if not forms:
             continue
-        surface = definitions.get((top or name) if face == "top" else face)
-        coverage = cut_coverage(stock, earlier, op, surface if isinstance(surface, dict) else {})
+        coverage = surface_cut_coverage(stock, entries, earlier, op, surface)
         if coverage == "unknown":
             return "unknown"
         if coverage != "whole":

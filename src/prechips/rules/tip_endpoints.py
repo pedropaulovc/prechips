@@ -181,6 +181,8 @@ def _covers(cut, target, whole=False):
     bounds = mapping(cut.get("bounds"))
     if not bounds or cut.get("frame", "model") != target.get("frame", "model"):
         return False
+    if target.get("kind") == "face" and not mapping(target.get("bounds")):
+        return False
     at = target.get("at")
     other = _footprint(target) if whole else mapping(target.get("bounds"))
     for i, axis in enumerate(("x", "y", "z")):
@@ -220,12 +222,14 @@ def _axis(feature):
 
 
 def _footprint(target):
-    """``target``'s explicit ``bounds``, else the X/Y square holding a round feature about
-    a unit Z :func:`_axis` (its ``at`` plus or minus half its largest ``dia``); empty when
-    unknown."""
+    """``target``'s explicit ``bounds``, else a non-face round feature's X/Y square
+    about a unit Z :func:`_axis` (``at`` plus or minus half its largest ``dia``).
+    A face's incidental point/diameter metadata never declares its footprint."""
     bounds = mapping(target.get("bounds"))
     if bounds:
         return bounds
+    if target.get("kind") == "face":
+        return {}
     at, dia, axis = target.get("at"), target.get("dia"), _axis(target)
     sizes = dia if isinstance(dia, list) else [dia]
     if not (isinstance(at, list) and len(at) == 3 and all(number(v) for v in at[:2])):
@@ -273,9 +277,10 @@ def _disc(target):
 
 def _corners(bundle, target, frame):
     """The corners of ``target``'s footprint box in ``frame``, else None: its own
-    ``bounds`` (Z from ``at`` when they omit it), else a round feature's box
-    (:func:`_disc`), with an omitted axis taken only from its ``plane`` value. Unknown,
-    omitted, empty or malformed spans, or a non-numeric frame, give None."""
+    ``bounds`` (Z from ``at`` when they omit it), else a non-face round feature's box
+    (:func:`_disc`), with an omitted axis taken only from its ``plane`` value. A face
+    without nonempty authored bounds has no declared corners. Unknown, omitted,
+    empty or malformed spans, or a non-numeric frame, give None."""
     from .coordinates import frame_point, model_point
 
     at, bounds, plane = (
@@ -283,6 +288,8 @@ def _corners(bundle, target, frame):
         mapping(target.get("bounds")),
         mapping(target.get("plane")),
     )
+    if target.get("kind") == "face" and not bounds:
+        return None
     spans = {axis: bounds.get(axis) for axis in AXES} if bounds else _disc(target)
     if bounds and "z" not in bounds and isinstance(at, list) and len(at) == 3:
         spans["z"] = [at[2]]
@@ -364,9 +371,10 @@ def _kernel_face_boxes(bundle, target, frame):
 def _setup_footprint(bundle, setup, target, debts=None):
     """The setup-frame X/Y box enclosing ``target``'s footprint, else None.
 
-    Declared bounds/discs take precedence; a face without bounds can use the existing
-    kernel's geometry-matched boxes. Either enclosing box proves containment, never a
-    cut. A process end face uses its section of the arriving stock.
+    Authored bounds and non-face discs take precedence. A bounds-free face uses only
+    the existing kernel's geometry-matched boxes, never incidental point/diameter
+    metadata. Either enclosing box proves containment, never a cut. A process end
+    face uses its section of the arriving stock.
     """
     from prechips.process_features import arriving_bounds, process_of
 
@@ -485,9 +493,12 @@ def _keep_out_hits(circles, boxes):
 def cut_coverage(bundle, setup, op, target, debts=None, credited=None):
     """``"whole"``, ``"partial"`` or ``UNKNOWN`` coverage of the producer's surface.
 
-    Unbounded cuts retain declared containment; bounded cuts may use matched kernel
-    boxes only when the declared footprint is absent. Resolve every ref, then select
-    only boxes whose whole setup-Z span is at to_z. Existing boxes carry no oriented
+    Unbounded own-feature cuts retain declared whole coverage; cross-feature native
+    containment needs an explicit footprint. Bounded cuts use matched kernel boxes
+    for every ``kind="face"`` target without ``bounds``: incidental ``at``/``dia`` or
+    axis/plane metadata does not declare its extent. Authored bounds and non-face round
+    features retain declared containment. Resolve every ref, then select only boxes
+    whose whole setup-Z span is at to_z. Existing boxes carry no oriented
     normal: a downward-facing plane at that same Z is an accepted limitation of this
     above-cut model, not an inferred +Z normal. Keep-out islands prevent whole credit.
     Only a whole eligible kernel-box producer appends raw refs to ``credited``.
@@ -500,6 +511,10 @@ def cut_coverage(bundle, setup, op, target, debts=None, credited=None):
     if circles is None:
         if debts is not None:
             debts.append(reason)
+        return UNKNOWN
+    if target.get("kind") == "face" and "bounds" in target and not mapping(target.get("bounds")):
+        if debts is not None:
+            debts.append("no footprint: explicit face bounds are unknown, empty or malformed")
         return UNKNOWN
     if "stock_removal_bounds" not in op:
         coverage = (
@@ -530,11 +545,7 @@ def cut_coverage(bundle, setup, op, target, debts=None, credited=None):
             debts.append("stock_removal_bounds.x/y is missing or malformed")
         return UNKNOWN
     frame = setup_frame(bundle, setup)
-    native = (
-        target.get("kind") == "face"
-        and "bounds" not in target
-        and _corners(bundle, target, frame) is None
-    )
+    native = target.get("kind") == "face" and "bounds" not in target
     refs = []
     if native:
         faces, reason = _kernel_face_boxes(bundle, target, frame)
@@ -542,12 +553,23 @@ def cut_coverage(bundle, setup, op, target, debts=None, credited=None):
             if debts is not None:
                 debts.append(reason)
             return UNKNOWN
+        tolerance = LENGTH_TOLERANCE_MM / UNIT_MM[bundle.features["units"]]
+        # Complete native boxes disjoint in XY cannot be touched, regardless of floor.
+        # Check this before plane selection so a later unrelated cut cannot hide a
+        # known earlier producer. A missing ref above still leaves the whole result debt.
+        if all(
+            any(
+                span[0] > region[i][1] + tolerance or span[1] < region[i][0] - tolerance
+                for i, span in enumerate(box[:2])
+            )
+            for _, box in faces
+        ):
+            return "partial"
         to_z = op.get("to_z")
         if not number(to_z) or not math.isfinite(to_z):
             if debts is not None:
                 debts.append("eligible kernel face plane needs numeric op.to_z")
             return UNKNOWN
-        tolerance = LENGTH_TOLERANCE_MM / UNIT_MM[bundle.features["units"]]
         eligible = [
             (ref, box) for ref, box in faces if all(abs(z - to_z) <= tolerance for z in box[2])
         ]
@@ -1031,13 +1053,19 @@ def _producer(bundle, setup, value, face, done, source, path=False, debts=None, 
     match = re.fullmatch(r"(\S+) op (\S+) to_z", source) if isinstance(source, str) else None
     if match and match[1] == setup.get("id"):
         producer = next(((setup, op) for op in ops if str(op.get("op")) == match[2]), None)
-        if producer is not None and credited is not None:
+        if producer is not None:
             op = producer[1]
             top = mapping(setup.get("stock_state")).get("top_feature")
-            surface_name = top or op.get("feature") if face == "top" else face
-            surface = mapping(features.get(surface_name))
-            matched = []
-            if cut_coverage(bundle, setup, op, surface, credited=matched) == "whole":
+            surface_name = top or op_feature(op) if face == "top" else face
+            surface = mapping(features.get(surface_name)) if isinstance(surface_name, str) else {}
+            matched = [] if credited is not None else None
+            if surface.get("kind") == "face" and not mapping(surface.get("bounds")):
+                coverage = cut_coverage(bundle, setup, op, surface, debts, matched)
+                if coverage != "whole":
+                    return UNKNOWN if coverage == UNKNOWN else None
+            elif matched is not None:
+                cut_coverage(bundle, setup, op, surface, credited=matched)
+            if credited is not None:
                 credited.extend(matched)
         return producer
     if not isinstance(face, str):
@@ -1063,11 +1091,14 @@ def _producer(bundle, setup, value, face, done, source, path=False, debts=None, 
                 bundle, cut_setup, op
             )
         else:
-            # A facing or pocketing cut clears its whole footprint at its to_z.
+            # Faces without a nonempty declared footprint need coverage proof,
+            # including authored unknown/empty bounds that must remain debt.
+            surface = mapping(features.get(face))
+            guarded = surface.get("kind") == "face" and not mapping(surface.get("bounds"))
             forms = (
                 op.get("do") in FACING | POCKETING
                 and "to_z" in op
-                and _covers_xy(mapping(features.get(name)), mapping(features.get(face)))
+                and (guarded or _covers_xy(mapping(features.get(name)), surface))
             )
         if not forms:
             continue

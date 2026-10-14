@@ -220,9 +220,32 @@ counterbore and bore operations, and for `center_drill` on a plan
 Stock-state facing/pocketing advances only the named or explicitly covered
 same-frame entry surfaces. A known setup-frame `stock_removal_bounds` that
 contains a feature's whole X/Y footprint (its declared one, or for a bounds-free
-face each listed plane at the op's `to_z` by its own matched kernel `bbox_mm`;
-see [coordinates](rules-coordinates.md)) can advance its seeded local entry without
-requiring a redundant bounds box on the cutting op's own feature. For an operation
+`kind = "face"` each listed plane at the op's `to_z` by its own matched kernel
+`bbox_mm`; see [coordinates](rules-coordinates.md)) can advance its seeded local
+entry without requiring a redundant bounds box on the cutting op's own feature.
+A native face's incidental `at`/`dia`, axis or plane metadata is never a declared
+extent, even if it describes a smaller disc wholly inside the cut. The complete
+face list must resolve before a bounded cut selects the planes at `to_z`.
+Missing or ambiguous mappings, invalid native boxes, or unresolved units/setup frames
+leave native coverage unknown and earn no face credit; they never fall back to that
+disc. Explicit authored face `bounds` and true round non-face features retain
+declared-footprint behavior. An authored empty or whole-record unknown face `bounds`
+is debt, not permission to use a disc or native-box fallback. Malformed explicit
+bounds also remain debt when their containment cannot be established.
+Unbounded cuts of their own feature retain the existing declared-whole semantics;
+their keep-out checks use actual native boxes for bounds-free faces. Cross-feature
+unbounded native-face containment without explicit target bounds leaves its producer
+unknown, not a disc-based whole producer. This does not advance a seeded local entry:
+the unboxed entry-selection path retains its existing skip behavior when there is
+no declared footprint candidate, keeping the seed and its origin unchanged.
+Bounded cross-feature facing/pocketing producers
+are decided by native coverage even when the cutting feature has no authored
+footprint. An authored empty/unknown target face footprint is also a guarded producer
+candidate: unresolved coverage cannot silently become a skipped op and an accepted
+numeric contact edge. An explicit local operation source must still prove whole native
+coverage; partial or unknown coverage cannot supply that face. A later bounded cut whose
+complete native boxes are XY-disjoint is non-producing even at another floor, so it
+does not hide an earlier proved producer. For an operation
 with `stock_removal_bounds`, the box's Z interval must contain both the current entry
 and `to_z`. That boxed cut cannot numerically raise the entry; a higher floor outside
 the same-plane float tolerance (`SAME_Z`, 1e-9 plan units), or a box wholly above or
