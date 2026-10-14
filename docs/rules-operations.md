@@ -166,9 +166,54 @@ wrong-facing member remains unknown. A single native plane retains its
 existing physical/native edge contradiction check and its proved physical
 standing height.
 
-## Usable carried touch land after a plunge (`zero_check`)
+## Same-setup native producer survival (`zero_check`)
 
-A bounded axial plunge that intersects a carried face does not preserve a
+A whole face producer proves a prepared plane, not that it survives until
+the next contact. A framed producer in the touching setup (one cut under the
+setup's Z zero) that has its own native plane is checked with the same
+cut-by-cut survival ledger as a carried producer, from that producer through
+the contact's exact operation boundary: `before_ops` excludes its first named
+operation, while `after_op` includes the named operation. Explicit tool
+touches, listed retouches and derived tool-change touches all require that
+proof before emitting a numeric contact or `credited_faces`. Invalid claims,
+unknown cutting actions or declared cut depths, ambiguous removal bounds and
+unresolved plunge footprints leave the contact **unknown**; provably disjoint
+cuts preserve the plane, and an overlapping bounded plunge preserves only the
+filled-rectangle touch land described below. The current producer keeps its
+exact DRO-step/formed-Z comparison; only a nonzero local keep-off diameter is
+reported, with no carried safe-down rounding, native-entry remap or
+physical-setting residual.
+
+A window-limited turning cut (a lathe turn with no `to_z`, not facing,
+pocketing, axial drilling, parting, cut-to-fit, transfer, saw or manual work,
+over a finite `z_from`/`z_to` window) cannot reach a plane when the setup's Z
+is coaxial with the plane's normal and the whole window lies on the plane's
+open, outward side within `LENGTH_TOLERANCE_MM`, because the kernel limits its
+removal to that window. The window is taken at its dialled ends (each rounded
+up on the setup's DRO grid). A grooving or parting blade, or a tool of unknown
+kind, also needs a known blade width: its groove runs that full width up from
+the window's chuck-side end, as the plunge model places it. A tilted frame, a
+window crossing the plane, an unknown width or any cut outside that kind
+still needs the existing radial proof.
+
+An authored-edge contradiction cannot re-fetch the original producer to upgrade
+an invalidated contact: recovery repeats the same survival proof and is skipped
+while survival debts remain. Established contradictions keep **error**
+precedence over missing survival proof, which remains **unknown**. A plane
+whose survival is unproven may be gone, so its producer's height neither
+credits nor contradicts the reading.
+
+A Z touch whose own operation boundary does not resolve (an empty or partly
+unknown `before_ops`, or an unknown `after_op`) is **unknown**; it is never
+read against the plane as it stood before the setup's first op.
+
+Pre-zero producers, latest-re-face area debt and authored or non-native
+fallback surfaces keep their existing behavior; closing those paths is tracked
+in [issue #227](https://github.com/pedropaulovc/prechips/issues/227).
+
+## Usable native touch land after a plunge (`zero_check`)
+
+A bounded axial plunge that intersects a current or carried face does not preserve a
 usable touch merely because its radial reach is smaller than a reported outer
 radius. A nonempty annulus can be too thin for the paper/tool contact. More
 fundamentally, the existing native `revolved` radius extrema and outward-plane
@@ -262,6 +307,12 @@ Profiles never move the touched top; `top_feature` restricts which facing
 operation moves that top. An omitted local `entry_z` retains the existing
 stock-state top fallback. Each record preserves entry origin, setup/op,
 point/lead, thickness, allowance and tip endpoint.
+The effective native touch must also survive until its own contact boundary.
+When that reading has an unknown physical edge or typed setting, a known local
+entry producer cannot recover numeric DRO/physical entry, exit or endpoint
+values. The local-entry no-double-shift exception applies only to a surviving
+numeric touch reading; nominal stock-state dimensions are not replacement
+touch evidence.
 
 Arithmetic in mm: stock-state top/entry coordinates and operation `depth_mm`
 are machine millimetres even when the feature manifest uses inches. Feature

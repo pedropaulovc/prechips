@@ -24959,7 +24959,7 @@
         "AUTHOR'S CHOICE: the AXA holder's height nut, checked against the tailstock dead-centre point or a pip-free facing cut, because both checks need no extra gauge",
         "AUTHOR'S CHOICE: square the blade off the chuck face or a faced shoulder because both are square to the spindle axis and at hand in every lathe setup"
       ],
-      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings.",
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown. A Z touch meets a face its op left at an unknown Z (the turning-tools-fine-nose/AR-R0.2 touch on foot_seat (no surviving credited stock plane with a bounded touch area for foot_seat (stock.body face foot_seat (#218/ADVANCED_FACE[5]/HAF_FOOT_SEAT__P01) is not declared stock as-is))): its Axis Set is not known.",
       "numbers": {
         "axes": {
           "x": {
@@ -25037,10 +25037,7 @@
             "before_ops": [
               50
             ],
-            "credited_faces": [
-              "#218/ADVANCED_FACE[5]/HAF_FOOT_SEAT__P01"
-            ],
-            "edge_mm": 0.0,
+            "edge_mm": "unknown",
             "gauge": "micrometers/1-2in",
             "method": "touch_then_set",
             "paper_mm": 0.0,
@@ -25048,13 +25045,13 @@
             "x_axis_set": "measured D",
             "x_face_status": "pass",
             "x_method": "trial_cut_measure",
-            "z_axis_set": 0.0,
+            "z_axis_set": "unknown",
             "z_face": "foot_seat"
           }
         ]
       },
       "rule": "zero_check",
-      "status": "pass",
+      "status": "unknown",
       "subject": "S1"
     },
     {
@@ -26130,7 +26127,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "56e411a4747615ae1855c6f45957dbe37cab6f17358424b3bc1277fb6043670b",
+  "hash": "2a6868cd5f16b43f5d6571ad576f9e6db14e1168524eb209096a8e9bb4ac27ed",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

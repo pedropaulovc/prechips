@@ -2247,6 +2247,472 @@ def zero_oracle(data):
     return data.plan["setups"][-1], VALIDATOR["Entries"](data.inventory), own
 
 
+def native_survival_oracle_bundle(route="current", cut="unknown", touch="explicit"):
+    """A real native plane, one intervening cut and a later contact on that plane."""
+    data = carried_rectangular_source_plane_bundle(nominal=21.01 if route == "current" else 21.0055)
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    face = receiver["zero"]["z"]["face"]
+    tools = data.inventory["tools"]["centre"]
+    tools["sizes"].append(2)
+    tools["members"]["2"] = copy.deepcopy(tools["members"]["1"])
+    producer = copy.deepcopy(source["ops"][0])
+    producer.update(op=5, tool="centre/1")
+    plunge = {"op": 10, "do": "drill", "feature": "hole", "tool": "drill", "depth_mm": 0.15}
+    consumer = {"op": 20, "do": "spot", "feature": "hole", "tool": "centre/2", "depth_mm": 0.15}
+    receiver["stock_state"] = {"top_z": 22.0, "top_feature": face}
+    if cut == "unknown":
+        del data.inventory["tools"]["drill"]["dia_mm"]
+    elif cut == "disjoint":
+        plunge["stock_removal_bounds"] = {"x": [30.0, 40.0], "y": [30.0, 40.0], "z": [20.0, 23.0]}
+    elif cut == "none":
+        plunge = None
+    receiver["zero"]["z"].update(face="bench reference", edge_mm=22.0)
+    if route == "current":
+        receiver["stock_in"] = "stock.sleeve"
+        data.plan["setups"] = [receiver]
+        receiver["ops"] = [producer, *([plunge] if plunge else []), consumer]
+        data.kernel["setups"] = {receiver["id"]: copy.deepcopy(data.kernel["setups"][source["id"]])}
+        data.kernel["ops"][f"{receiver['id']}:5"] = {
+            "approach": "axial",
+            "claimed_indices": [0],
+            "faced_side": 1,
+        }
+    elif route == "receiving":
+        receiver["stock_state"]["top_z"] = 21.0055
+        receiver["ops"] = [*([plunge] if plunge else []), consumer]
+        receiver["zero"]["z"].update(face=face, edge_mm=21.0055)
+    else:
+        owner = source
+        if route == "remount":
+            owner = {
+                "id": "S4",
+                "machine": "mill",
+                "frame": receiver["frame"],
+                "stock_in": source["id"],
+                "ops": [],
+            }
+            data.plan["setups"].insert(2, owner)
+            data.plan["setups"][3]["stock_in"] = [data.plan["setups"][0]["id"], owner["id"]]
+        if plunge:
+            owner["ops"].append(plunge)
+            data.kernel["ops"][f"{owner['id']}:10"] = {"approach": "axial", "claimed_indices": [3]}
+            if owner is source:
+                plunge["op"] = 15
+                data.kernel["ops"][f"{owner['id']}:15"] = data.kernel["ops"].pop(
+                    f"{owner['id']}:10"
+                )
+                # Keep the original face operation's native approach intact.
+                data.kernel["ops"][f"{source['id']}:10"] = {
+                    "approach": "turning",
+                    "claimed_indices": [0],
+                    "faced_side": 1,
+                }
+        receiver["ops"] = [consumer]
+        receiver["stock_state"]["top_z"] = 21.0055
+        receiver["zero"]["z"].update(face=face, edge_mm=21.0055)
+    if route in {"current", "receiving"} and plunge:
+        data.kernel["ops"][f"{receiver['id']}:10"] = {"approach": "axial", "claimed_indices": [3]}
+    edge = 21.01 if route == "current" else 21.0055
+    if touch == "explicit":
+        receiver["zero"]["tool_touches"] = [
+            {
+                "tool": "centre/2",
+                "z_face": face,
+                "edge_mm": edge,
+                "paper_mm": 0.0,
+                "method": "touch_then_set",
+                "from": "+z",
+                "before_ops": [20],
+            }
+        ]
+    elif touch == "listed":
+        receiver["zero"]["z"].update(
+            face="top",
+            method="measure_then_set",
+            measure="independent bench registration",
+            gauge="mic",
+            offset_mm=22.0,
+            retouch_after=[10 if plunge else 5],
+        )
+    elif touch == "primary":
+        receiver["zero"]["z"].update(face=face, edge_mm=21.0055)
+    return data
+
+
+def forbid_native_survival_helpers(monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("independent native survival called a checker native helper")
+
+    for helper in (
+        "_native_scene_plane",
+        "_carry_cut",
+        "_native_surface_planes",
+        "_native_plane_geometry",
+        "_axial_cut_footprint",
+        "_carried_face_z",
+        "_rectangular_spares_plunge",
+    ):
+        monkeypatch.setattr(zero_recipe, helper, forbidden)
+    monkeypatch.setattr(zero_recipe, "op_claims", forbidden)
+
+
+@pytest.mark.parametrize("route", ["current", "receiving", "source", "remount"])
+@pytest.mark.parametrize("cut", ["none", "disjoint", "bounded", "unknown"])
+def test_native_survival_oracle_scans_every_producer_to_contact_cut(route, cut, monkeypatch):
+    touch = "primary" if route in {"source", "remount"} else "explicit"
+    data = native_survival_oracle_bundle(route, cut, touch)
+    setup, entries, own = zero_oracle(data)
+    face = data.feature_definitions[setup["stock_state"]["top_feature"]]
+    forbid_native_survival_helpers(monkeypatch)
+    plane = VALIDATOR["carried_source_plane"](
+        own, entries, setup, setup["stock_state"]["top_feature"], len(setup["ops"]) - 1
+    )
+    if cut == "unknown":
+        assert "unknown" in plane
+        assert "ref" not in plane and "physical" not in plane and "native" not in plane
+    else:
+        assert plane["ref"] == face["faces"][0]
+        assert plane["physical"] == pytest.approx(21.01)
+        assert plane["excluded_mm"] == (0.0 if cut in {"none", "disjoint"} else pytest.approx(0.4))
+        assert plane["current"] is (route == "current")
+
+
+@pytest.mark.parametrize("touch", ["explicit", "listed", "derived"])
+@pytest.mark.parametrize("cut", ["none", "disjoint", "unknown"])
+def test_current_native_zero_routes_reject_forced_checker_survival(touch, cut, monkeypatch):
+    data = native_survival_oracle_bundle(cut=cut, touch=touch)
+    setup, entries, own = zero_oracle(data)
+    expected = "unknown" if cut == "unknown" else "pass"
+    status, numbers, _ = VALIDATOR["zero_rows"](setup, own, entries)
+    assert status == expected
+    row = (
+        numbers["tool_touches"][-1]
+        if touch == "explicit"
+        else numbers["retouch"][-1]
+        if touch == "listed"
+        else numbers["derived_touches"][-1]
+    )
+    field = "axis_set" if touch == "listed" else "z_axis_set"
+    assert row[field] == ("unknown" if cut == "unknown" else 21.01)
+    if cut == "unknown":
+        assert not any(
+            key in row for key in ("credited_faces", "touch_exclusion_dia_mm", "native_edge_mm")
+        )
+    else:
+        assert row["credited_faces"] == [
+            data.feature_definitions[setup["stock_state"]["top_feature"]]["faces"][0]
+        ]
+        # A zero keep-off is omitted, exactly as the checker emits it.
+        assert "touch_exclusion_dia_mm" not in row
+        assert "native_edge_mm" not in row and "setting_residual_mm" not in row
+    # Mutate the real shared production cut helper, not merely a supplied verdict.
+    # #214 event scheduling is still shared; native survival and emitted operands are not.
+    monkeypatch.setattr(zero_recipe, "_carry_cut", lambda *args, **kwargs: False)
+    assert VALIDATOR["zero_rows"](setup, own, entries)[0] == expected
+    forged = zero_recipe.evaluate(data)[-1].to_dict()
+    if cut == "unknown":
+        forged["status"] = "pass"
+        forged_row = (
+            forged["numbers"]["tool_touches"][-1]
+            if touch == "explicit"
+            else forged["numbers"]["retouch"][-1]
+            if touch == "listed"
+            else forged["numbers"]["derived_touches"][-1]
+        )
+        assert forged_row[field] == 21.01
+        forged_row.update({field: 21.01, "edge_mm": 21.01, "credited_faces": ["#1/NORTH"]})
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, forged, entries, own)
+    else:
+        VALIDATOR["check_zero"](setup, forged, entries, own)
+
+
+def test_native_unknown_current_survival_decides_no_contradiction_from_its_producer(monkeypatch):
+    data = native_survival_oracle_bundle()
+    setup, entries, own = zero_oracle(data)
+    setup["zero"]["tool_touches"][0]["edge_mm"] = 22.0
+    status, numbers, _ = VALIDATOR["zero_rows"](setup, own, entries)
+    # As the checker: a plane whose survival is unproven may be gone, so its producer's
+    # height neither credits nor contradicts the reading.
+    assert status == "unknown"
+    row = numbers["tool_touches"][0]
+    assert row["edge_mm"] == row["z_axis_set"] == "unknown"
+    assert "credited_faces" not in row
+    VALIDATOR["check_zero"](setup, zero_recipe.evaluate(data)[-1].to_dict(), entries, own)
+
+
+@pytest.mark.parametrize(
+    "boundary",
+    [{"before_ops": [999]}, {"before_ops": [20, 999]}, {"before_ops": []}, {"after_op": 999}],
+    ids=["unresolved-before", "partly-unresolved", "empty-before", "unresolved-after"],
+)
+def test_an_unresolved_touch_boundary_is_unknown_never_the_initial_plane(boundary):
+    data = native_survival_oracle_bundle("receiving", "unknown")
+    touch = data.plan["setups"][-1]["zero"]["tool_touches"][0]
+    touch.pop("before_ops", None)
+    touch.pop("after_op", None)
+    touch.update(boundary)
+    setup, entries, own = zero_oracle(data)
+    # Collapsed to the initial boundary, the upstream plane (before this setup's unknown
+    # cut) would print a numeric Axis Set with its native refs.
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    row = finding["numbers"]["tool_touches"][0]
+    assert finding["status"] == "unknown"
+    assert row["z_axis_set"] == row["edge_mm"] == "unknown"
+    assert "credited_faces" not in row
+    VALIDATOR["check_zero"](setup, finding, entries, own)
+
+
+@pytest.mark.parametrize("contradiction", [False, True], ids=["datum-debt", "known-over-guard"])
+def test_endpoint_oracle_never_recovers_unknown_current_touch_from_an_original_local_producer(
+    contradiction, monkeypatch
+):
+    data = native_survival_oracle_bundle()
+    setup, entries, own = zero_oracle(data)
+    setup["ops"][-1]["do"] = "drill"
+    hole = data.feature_definitions["hole"]
+    hole.update(thru=False, depth=0.1 if contradiction else 1.0)
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    row = findings["blind_depth", "hole"]["numbers"]["endpoints"][-1]
+    assert row["entry_from"] == f"{setup['id']} op 5 to_z"
+    # Real checker survival is forced safe, while the oracle's own unknown drill
+    # footprint must still forbid re-fetching that local producer's numeric Z.
+    monkeypatch.setattr(zero_recipe, "_carry_cut", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        zero_recipe,
+        "_carried_face_z",
+        lambda *args, **kwargs: pytest.fail("endpoint oracle delegated native survival"),
+    )
+    findings["zero_check", setup["id"]] = {"status": "pass"}
+    row["dro_entry_z"] = row["dro_tip_z"] = "unknown"
+    row["dro_depth_mm"] = "unknown"
+    for key in ("physical_entry_z", "setting_residual_mm"):
+        row[key] = "unknown"
+    expected = "error" if contradiction else "unknown"
+    findings["blind_depth", "hole"]["status"] = expected
+    VALIDATOR["check_endpoints"](
+        data.plan, data.features, findings, entries, lambda: copy.deepcopy(own.kernel)
+    )
+    forged = copy.deepcopy(findings)
+    forged["blind_depth", "hole"]["numbers"]["endpoints"][-1]["dro_entry_z"] = 21.01
+    with pytest.raises(ValueError, match="printed entry Z.*unknown"):
+        VALIDATOR["check_endpoints"](
+            data.plan, data.features, forged, entries, lambda: copy.deepcopy(own.kernel)
+        )
+    forged = copy.deepcopy(findings)
+    forged["blind_depth", "hole"]["status"] = "pass"
+    with pytest.raises(ValueError, match=rf"endpoint verdict pass is not the {expected}"):
+        VALIDATOR["check_endpoints"](
+            data.plan, data.features, forged, entries, lambda: copy.deepcopy(own.kernel)
+        )
+
+
+@pytest.mark.parametrize(
+    ("record", "expected"),
+    [
+        ({}, 0),
+        ({"after_op": None}, 0),
+        ({"after_op": 5}, 1),
+        ({"before_ops": [20, 10]}, 1),
+        ({"after_op": 20}, 3),
+        ({"after_op": 999}, "unknown"),
+        ({"before_ops": []}, "unknown"),
+        ({"before_ops": [20, 999]}, "unknown"),
+    ],
+)
+def test_native_touch_boundary_is_derived_from_own_raw_operation_names(record, expected):
+    assert VALIDATOR["touch_position"]([{"op": 5}, {"op": 10}, {"op": 20}], record) == expected
+
+
+def test_declared_native_touch_cannot_skip_unknown_cut_via_shared_position_helper(monkeypatch):
+    data = native_survival_oracle_bundle()
+    setup, entries, own = zero_oracle(data)
+    monkeypatch.setattr(zero_recipe, "_position", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(zero_recipe, "_carry_cut", lambda *args, **kwargs: False)
+    status, numbers, _ = VALIDATOR["zero_rows"](setup, own, entries)
+    row = numbers["tool_touches"][0]
+    assert status == "unknown" and row["z_axis_set"] == "unknown"
+    assert "credited_faces" not in row and "native_edge_mm" not in row
+    forged = {"status": "pass", "numbers": copy.deepcopy(numbers)}
+    forged["numbers"]["tool_touches"][0].update(
+        {"z_axis_set": 21.01, "edge_mm": 21.01, "credited_faces": ["#1/NORTH"]}
+    )
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, forged, entries, own)
+
+
+@pytest.mark.parametrize("absence", ["route", "frame"])
+def test_native_proof_absence_never_delegates_to_checker_credit(absence, monkeypatch):
+    data = native_survival_oracle_bundle(cut="none")
+    setup, entries, own = zero_oracle(data)
+    if absence == "route":
+        setup["stock_in"] = "missing-setup"
+    elif absence == "frame":
+        own.features["frames"][setup["frame"]]["x"] = "unknown"
+    forbid_native_survival_helpers(monkeypatch)
+    plane = VALIDATOR["carried_source_plane"](
+        own, entries, setup, setup["stock_state"]["top_feature"], len(setup["ops"]) - 1
+    )
+    assert "unknown" in plane
+    assert not any(key in plane for key in ("ref", "physical", "native", "excluded_mm"))
+
+
+@pytest.mark.parametrize("cut", ["none", "disjoint"])
+def test_endpoint_oracle_retains_numeric_current_touch_when_own_plane_survives(cut, monkeypatch):
+    data = native_survival_oracle_bundle(cut=cut)
+    setup, entries, own = zero_oracle(data)
+    setup["ops"][-1]["do"] = "drill"
+    data.feature_definitions["hole"].update(thru=False, depth=1.0)
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    monkeypatch.setattr(zero_recipe, "_carry_cut", lambda *args, **kwargs: False)
+    monkeypatch.setattr(
+        zero_recipe,
+        "_carried_face_z",
+        lambda *args, **kwargs: pytest.fail("endpoint oracle delegated native survival"),
+    )
+    VALIDATOR["check_endpoints"](
+        data.plan, data.features, findings, entries, lambda: copy.deepcopy(own.kernel)
+    )
+
+
+@pytest.mark.parametrize("invalid", ["claims", "mapping", "bounds", "action", "unfilled-land"])
+def test_native_postproducer_cut_with_invalid_or_ambiguous_own_inputs_fails_closed(
+    invalid, monkeypatch
+):
+    data = native_survival_oracle_bundle(cut="bounded")
+    setup, entries, own = zero_oracle(data)
+    cut = setup["ops"][1]
+    detail = own.kernel["ops"][f"{setup['id']}:10"]
+    if invalid == "claims":
+        detail["claimed_indices"] = [False]
+    elif invalid == "mapping":
+        detail["mapping_errors"] = ["#4/BORE"]
+    elif invalid == "bounds":
+        cut["stock_removal_bounds"] = {"x": [-1.0, 1.0], "y": [-1.0, 1.0]}
+    elif invalid == "action":
+        cut["do"] = "unknown"
+    else:
+        own.kernel["faces"][0]["fills_bbox"] = False
+    forbid_native_survival_helpers(monkeypatch)
+    plane = VALIDATOR["carried_source_plane"](
+        own, entries, setup, setup["stock_state"]["top_feature"], 2
+    )
+    assert "unknown" in plane
+    assert not any(key in plane for key in ("ref", "physical", "native", "excluded_mm"))
+
+
+@pytest.mark.parametrize("route", ["receiving", "source", "remount"])
+def test_carried_native_routes_reject_numeric_credit_from_real_forced_safe_cut_helper(
+    route, monkeypatch
+):
+    data = native_survival_oracle_bundle(route, "unknown")
+    setup, entries, own = zero_oracle(data)
+    monkeypatch.setattr(zero_recipe, "_carry_cut", lambda *args, **kwargs: False)
+    status, numbers, _ = VALIDATOR["zero_rows"](setup, own, entries)
+    row = numbers["tool_touches"][0]
+    assert status == "unknown" and row["z_axis_set"] == "unknown"
+    assert "credited_faces" not in row and "native_edge_mm" not in row
+    forged = zero_recipe.evaluate(data)[-1].to_dict()
+    assert forged["numbers"]["tool_touches"][0]["z_axis_set"] == pytest.approx(21.01)
+    forged["status"] = "pass"
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, forged, entries, own)
+
+
+def oracle_turned_window_plane(normal):
+    """The sleeve's lathe source and one of its end planes in the oracle's own form,
+    with the spigot's turned radius inside that plane so no radial proof spares it."""
+    from test_tool_change_touch import carried_rectangular_stock_bundle
+
+    data = carried_rectangular_stock_bundle()
+    source = data.plan["setups"][1]
+    data.kernel["setups"][source["id"]]["revolved"]["spigot"]["radii_mm"] = [0.5, 0.5]
+    data.inventory["tools"].update(
+        {
+            "blade-1": {"kind": "grooving_blade", "blade_width_mm": 1.0},
+            "blade-2": {"kind": "grooving_blade", "blade_width_mm": 2.0},
+            "blade-unknown": {"kind": "grooving_blade"},
+        }
+    )
+    _, entries, own = zero_oracle(data)
+    height = 0.0 if normal == 1 else -72.0
+    plane = {
+        "source": source["id"],
+        "frame": VALIDATOR["setup_frame"](source, own.plan, own.features),
+        "formed": height,
+        "z_mm": height,
+        "normal_z": normal,
+        "outer_radius_mm": math.sqrt(2.0),
+    }
+    return own, entries, source, plane
+
+
+@pytest.mark.parametrize(
+    ("normal", "window"), [(1, (0.0, 3.0)), (-1, (-72.0, -80.0))], ids=["plus-z", "minus-z"]
+)
+def test_oracle_turning_window_on_the_open_side_spares_the_plane(normal, window, monkeypatch):
+    own, entries, source, plane = oracle_turned_window_plane(normal)
+    forbid_native_survival_helpers(monkeypatch)
+    at_plane, far = window
+    cut = {"op": 20, "do": "finish_turn", "feature": "spigot", "tool": "turner"}
+    cut.update(z_from=far, z_to=at_plane)
+    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) == 0.0
+    crossing = {**cut, "z_to": at_plane - 2 * LENGTH_TOLERANCE_MM * normal}
+    assert VALIDATOR["plane_cut_reach"](own, entries, source, crossing, plane, 0.0) is None
+
+
+@pytest.mark.parametrize("excluded", ["to_z", "part_off"])
+def test_oracle_cut_outside_window_limited_turning_still_invalidates(excluded, monkeypatch):
+    own, entries, source, plane = oracle_turned_window_plane(1)
+    forbid_native_survival_helpers(monkeypatch)
+    cut = {"op": 20, "do": "finish_turn", "feature": "spigot", "tool": "turner"}
+    cut.update(z_from=3.0, z_to=0.0)
+    if excluded == "to_z":
+        cut["to_z"] = 0.0
+    else:
+        cut["do"] = "part_off"
+    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) is None
+
+
+def test_oracle_turning_window_spares_no_plane_tilted_off_its_axis(monkeypatch):
+    from test_contour_order import tilted
+
+    own, entries, source, plane = oracle_turned_window_plane(1)
+    forbid_native_survival_helpers(monkeypatch)
+    cut = {"op": 20, "do": "finish_turn", "feature": "spigot", "tool": "turner"}
+    cut.update(z_from=20.0, z_to=0.0)
+    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) == 0.0
+    leaning = {**plane, "frame": tilted(plane["frame"])}
+    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, leaning, 0.0) is None
+
+
+@pytest.mark.parametrize(
+    ("tool", "spared"),
+    [("blade-1", True), ("blade-2", False), ("blade-unknown", False)],
+    ids=["inside", "wider", "unknown"],
+)
+def test_oracle_blade_groove_spares_the_plane_only_over_its_whole_known_width(
+    tool, spared, monkeypatch
+):
+    own, entries, source, plane = oracle_turned_window_plane(-1)
+    forbid_native_survival_helpers(monkeypatch)
+    cut = {"op": 20, "do": "groove", "feature": "spigot", "tool": tool}
+    cut.update(z_from=-73.0, z_to=-72.5)
+    reach = VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0)
+    assert reach == 0.0 if spared else reach is None
+
+
+def test_oracle_turning_window_spares_the_plane_only_at_its_dialled_ends(monkeypatch):
+    own, entries, source, plane = oracle_turned_window_plane(-1)
+    forbid_native_survival_helpers(monkeypatch)
+    cut = {"op": 20, "do": "finish_turn", "feature": "spigot", "tool": "turner"}
+    cut.update(z_from=-80.0, z_to=-72.5)
+    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) == 0.0
+    oracle = VALIDATOR["plane_cut_reach"].__globals__
+    monkeypatch.setitem(oracle, "dro_grid", lambda *args: (5.0, 0))
+    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) is None
+
+
 @pytest.mark.parametrize(
     ("depth", "diameter"),
     [(0.15, 0.3), (0.25, 0.3 + 0.1 * math.tan(math.radians(30))), (0.8, 0.4)],

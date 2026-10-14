@@ -87,9 +87,16 @@ def _operative(row, bundle, setup, face, op):
         shift = _subtract(anchor, reference)
         physical_shift = _subtract(reading["edge_mm"], reference)
         producer = _producer(bundle, setup, row["entry_z"], face, 0, row["entry_from"])
-        if producer not in (None, UNKNOWN) and producer[0] is setup and _framed(*producer):
-            # A local cut already ran on this DRO: its printed face is not an
-            # imported native coordinate to shift by the contact offset again.
+        if (
+            number(shift)
+            and number(physical_shift)
+            and producer not in (None, UNKNOWN)
+            and producer[0] is setup
+            and _framed(*producer)
+        ):
+            # A surviving numeric touch proves this DRO. A local cut already
+            # ran on it, so do not shift its printed face as an imported native
+            # coordinate again; an original producer cannot repair a lost touch.
             formed = operative_z(bundle, setup, row["entry_z"], face, source=row["entry_from"])
             shift = _subtract(formed, row["entry_z"])
             residual = reading.get("setting_residual_mm", UNKNOWN)

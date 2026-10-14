@@ -1891,13 +1891,16 @@ def exact_end_plane(kernel: dict, sid, face: str) -> dict | None:
     return {"z_mm": height, "normal_z": ends[0]["normal_z"], "outer_radius_mm": radii[at[0]]}
 
 
-def carried_plane_cut(own, entries: Entries, setup: dict, op: dict, face: str, index: int):
+def carried_plane_cut(
+    own, entries: Entries, setup: dict, op: dict, face: str, index: int, current: bool = False
+):
     """The exact plane ``op`` of ``setup`` cuts ``face`` (kernel index ``index``) to whole,
     as that setup's own kernel fact states it at the op's ``to_z``, with the height the
     cut leaves it at (``formed``: where the op's DRO stopped, ``to_z`` rounded up on its
     grid); None when ``op`` makes no such plane; "unknown" when its native
     footprint cannot cover that plane whole; "blade" when a blade corner's reading
-    leaves it, which no plan-only derivation places."""
+    leaves it, which no plan-only derivation places. A ``current`` (touch-setup)
+    producer's admissibility is its whole coverage and exact plane, not op claims."""
     kernel = table_of(own.kernel)
     action, to_z = op.get("do"), op.get("to_z")
     detail = table_of(table_of(kernel.get("ops")).get(f"{setup.get('id')}:{op.get('op')}"))
@@ -1917,7 +1920,12 @@ def carried_plane_cut(own, entries: Entries, setup: dict, op: dict, face: str, i
     ):
         return None
     claims, away, invalid = op_claims(own, kernel, setup, op)
-    if claims is None or away or invalid or index not in claims:
+    if away or invalid:
+        return None
+    lenient = (
+        current and claims is None and (op.get("feature") == face or action in FACING | POCKETING)
+    )
+    if (claims is None or index not in claims) and not lenient:
         return None
     target = table_of(own.feature_definitions.get(face))
     if surface_cut_coverage(own, entries, setup, op, target) != "whole":
@@ -2227,6 +2235,39 @@ def plane_cut_reach(own, entries: Entries, setup: dict, op: dict, plane: dict, e
         ):
             return 0.0
     action = op.get("do")
+    # The kernel limits a lathe turning-approach cut (a lathe's non-axial action; no
+    # to_z; not manual, saw, facing, pocketing, parting or transfer) to its
+    # z_from..z_to window: a window wholly on the plane's outward side, in a frame
+    # coaxial with the plane, leaves the plane whole. Its ends are the dialled
+    # (rounded-up) ones, and a blade (or an unknown kind) cuts its whole known width
+    # up from the window's chuck-side end.
+    window = [op.get("z_from"), op.get("z_to")]
+    outward = plane["normal_z"] * normal[2] if plane.get("normal_z") in (1, -1) else 0
+    if (
+        machine_kind(setup, entries) == "lathe"
+        and "to_z" not in op
+        and isinstance(action, str)
+        and action not in AXIAL_LATHE_ACTIONS | MANUAL | SAW_OPS | FACING | POCKETING
+        and action not in {"part_off", "cut_to_fit", "transfer", "unknown"}
+        and all(map(finite, window))
+        and off_z_deg(normal) <= CARRY_DIRECTION_TOLERANCE_DEG
+    ):
+        tool = op.get("tool")
+        kind = tool_field(tool, "kind", entries) if isinstance(tool, str) else "unknown"
+        width = 0.0
+        if not isinstance(kind, str) or kind == "unknown" or kind in TURNING_BLADE_KINDS:
+            width = tool_length_mm(tool, "blade_width", entries)
+            known = isinstance(tool, str) and not entries.uncertain(tool, "tools")
+            if not (known and positive(width)):
+                width = None
+        dialled = [dro_up(z, dro_grid(setup, own.features, entries)) for z in window]
+        if width is not None and all(map(finite, dialled)):
+            low = min(window)
+            high = max(*dialled, low + width / scale)
+            if (outward > 0 and low >= centre[2] - tolerance) or (
+                outward < 0 and high <= centre[2] + tolerance
+            ):
+                return 0.0
     if action in CARRY_TURNS:
         return 0.0 if turn_spares(own, setup, op, plane, centre) else None
     if action in CARRY_FACINGS:
@@ -2243,30 +2284,48 @@ def plane_cut_reach(own, entries: Entries, setup: dict, op: dict, plane: dict, e
     )
 
 
+def touch_position(ops: list, record: dict):
+    """Own operation boundary: earliest named before-op, else after-op, else zero.
+    A declared name that does not resolve is unknown, never an implicit initial zero."""
+    names = [str(op.get("op")) for op in ops]
+    if "before_ops" in record:
+        before = as_list(record["before_ops"])
+        if not before or any(str(name) not in names for name in before):
+            return "unknown"
+        return min(names.index(str(name)) for name in before)
+    after = record.get("after_op")
+    if after is not None:
+        return names.index(str(after)) + 1 if str(after) in names else "unknown"
+    return 0
+
+
 def under_zero(setup: dict, op: dict) -> bool:
     """Whether ``setup``'s ``op`` cuts under its Z zero: ops before the zero's ``after_op``
     run before any tool set the Z DRO, so the zero, not they, places their faces."""
     ops = setup.get("ops", [])
     recipe = table_of(table_of(setup.get("zero")).get("z"))
-    start = zero_rules._position(ops, {"after_op": recipe.get("after_op")}) or 0
-    return any(cut is op for cut in ops[start:])
+    start = touch_position(ops, {"after_op": recipe.get("after_op")})
+    return isinstance(start, int) and any(cut is op for cut in ops[start:])
 
 
 def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) -> dict | None:
-    """Where ``face`` stands when an upstream setup cut it as one exact native plane and
-    the stock carried it into ``setup`` (through its first ``done`` ops), from the
-    validator's own plan, inventory and kernel run alone: None when that is not how
-    ``face`` reaches ``setup`` (it has bounds or several refs, is supplied as-is or cut in
-    ``setup`` itself, no upstream op cut it, or a blade's corner did); else
-    ``{"unknown": reason}`` or the carried plane.
+    """Where ``face`` stands when a setup cut it as one exact native plane and it
+    survived into ``setup``'s first ``done`` ops, from the validator's own plan,
+    inventory and kernel run alone: None when that is not how ``face`` reaches the
+    touch (it has bounds or several refs, is supplied as-is, no op under a Z zero cut
+    it, a blade's corner did, or this setup cuts it without such a framed producer);
+    else ``{"unknown": reason}`` or the plane.
 
-    Along the stock route (:func:`carry_route`), the last op that cuts it whole to its own
-    kernel plane (:func:`carried_plane_cut`) makes it at that op's as-cut height; every
-    later cut must leave it (:func:`plane_cut_reach`), else its area is lost for good, as
-    stock debt loses it. The as-cut source point and the nominal one carry rigidly into
-    this setup's frame, where the plane must face +Z: ``physical`` and ``native`` heights,
-    its one credited ref and the widest keep-off (``excluded_mm``). Empty/non-table
-    explicit face bounds are independently unknown, never a checker-disc fallback."""
+    Along the stock route (:func:`carry_route`, or this setup alone for a legacy local
+    recipe), the last op that cuts it whole to its own kernel plane
+    (:func:`carried_plane_cut`), including a producer in this setup before the touch,
+    makes it at that op's as-cut height; every later cut must leave it
+    (:func:`plane_cut_reach`), else its area is lost for good, as stock debt loses it.
+    The as-cut source point and the nominal one carry rigidly into this setup's frame,
+    where the plane must face +Z: ``physical`` and ``native`` heights, its one credited
+    ref, the widest keep-off (``excluded_mm``) and whether this setup cut it
+    (``current``). Empty/non-table explicit face bounds are independently unknown,
+    never a checker-disc fallback."""
     target = table_of(own.feature_definitions.get(face)) if isinstance(face, str) else {}
     if target.get("kind") == "face" and "bounds" in target and not table_of(target["bounds"]):
         return {"unknown": f"{face} has no valid explicitly authored face bounds"}
@@ -2292,15 +2351,20 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
     supplied = as_list(table_of(own.plan.get("stock")).get("as_is_faces"))
     if any(item == ref for item in supplied):
         return None
-    if any(face in (op_features(op) or ()) for op in setup.get("ops", [])[:done]):
-        return None  # cut in this setup: its own producer places it
+    named = [op for op in setup.get("ops", [])[:done] if face in (op_features(op) or ())]
+    local = bool(named)
+    # A framed local producer is placed only by its own surviving native plane: with no
+    # traceable route or receiving frame its area is unknown, never the checker's.
+    framed = any(under_zero(setup, op) for op in named)
     route = carry_route(own.plan, setup)
+    if route is None and local and "stock_in" not in setup:
+        route = [setup]  # a legacy local recipe names no incoming route
     if route is None:
-        return None
+        return {"unknown": f"{face} has no valid native stock route"} if framed else None
     frame = setup_frame(setup, own.plan, own.features)
     axes = frame_basis(frame)
     if axes is None:
-        return None
+        return {"unknown": f"{face} has no known receiving rigid frame"} if framed else None
     outputs, made, unproven = {}, False, False
     for current in route:
         sid, receiving = current.get("id"), current is setup
@@ -2330,8 +2394,10 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
             if cuts is False:
                 continue
             plane = None
-            if not receiving and cuts is True and not debt and under_zero(current, op):
-                plane = carried_plane_cut(own, entries, current, op, face, index)
+            if (not receiving or local) and cuts is True and not debt and under_zero(current, op):
+                plane = carried_plane_cut(
+                    own, entries, current, op, face, index, receiving and local
+                )
             if plane == "blade":
                 return None
             if plane == "unknown":
@@ -2358,14 +2424,19 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
             else:
                 state["excluded"] = max(state["excluded"], reach)
         outputs[sid] = state
+    final = outputs[setup.get("id")]
+    if local and (final["plane"] is None or final["plane"]["source"] != setup.get("id")):
+        return None  # cut here without an exact framed producer: its own reading places it
     if not made:
         if unproven:
             return {"unknown": f"native cut does not establish the whole {face} plane"}
         return None
-    final = outputs[setup.get("id")]
+    current = final["plane"] is not None and final["plane"]["source"] == setup.get("id")
     if final["present"] is not True:
         reason = f"no surviving credited stock plane with a bounded touch area for {face}"
-        return {"unknown": reason}
+        # An unproven survival leaves the reading unknown even against this setup's own
+        # producer height: no contradiction is decided from a plane that may be gone.
+        return {"unknown": reason, "current": current}
     plane = final["plane"]
     source_axes = frame_basis(plane["frame"])
     turned = [dot([plane["normal_z"] * v for v in source_axes[2]], basis) for basis in axes]
@@ -2375,7 +2446,13 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
     native = frame_point(model_point([0.0, 0.0, plane["z_mm"] / scale], plane["frame"]), frame)[2]
     if not (finite(physical) and finite(native)):
         return {"unknown": f"carried {face} has no finite plane in the receiving rigid frame"}
-    return {"physical": physical, "native": native, "ref": ref, "excluded_mm": final["excluded"]}
+    return {
+        "physical": physical,
+        "native": native,
+        "ref": ref,
+        "excluded_mm": final["excluded"],
+        "current": current,
+    }
 
 
 def credited_from_above(own, entries: Entries, setup: dict, touch: dict, face, edge, lathe):
@@ -2494,12 +2571,25 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
     grid = dro_grid(setup, own.features, entries)
     top_feature = table_of(setup.get("stock_state")).get("top_feature")
     carry = {}
+    independent_contacts = set()
+
+    def contact_side(touch, face, edge, done):
+        if (face, done) in independent_contacts:
+            # The own current-producer proof already requires the selected outward
+            # normal to face receiving +Z; unknown survival cannot recover raw credit.
+            return 1
+        return zero_rules.touch_side(own, setup, touch, face, edge, lathe)
 
     def touch_face(touch, face, edge, done, who, *source):
         """``(stands, credited refs, constraint or None)`` of a Z touch on ``face``: a
-        native source plane carried here (:func:`carried_source_plane`) is the validator's
-        own; any other face the checker's surface reading of it."""
+        native plane cut whole and surviving to the touch (:func:`carried_source_plane`),
+        here or upstream, is the validator's own; any other face the checker's surface
+        reading of it. The touch's operation boundary is its own raw op names."""
         native = top_feature if face == "top" else face
+        if not isinstance(done, int):
+            independent_contacts.add((face, done))
+            face_unknowns.append(f"{who} on {face} (unknown operation boundary)")
+            return "unknown", [], None
         carried = None
         if face and touch.get("method") not in MEASURED_ZERO:
             carried = carried_source_plane(own, entries, setup, native, done)
@@ -2507,6 +2597,8 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
             stands, credited, constraint = face_check(touch, face, edge, done, who, *source)
             return stands, credited, constraint or None
         if "unknown" in carried:
+            if carried.get("current"):
+                independent_contacts.add((face, done))
             face_unknowns.append(f"{who} on {face} ({carried['unknown']})")
             return "unknown", [], None
         stands = carried["physical"]
@@ -2514,6 +2606,23 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
             reason = "native-plane credit requires a known +Z/above touch"
             face_unknowns.append(f"{who} on {face} ({reason})")
             return "unknown", [], None
+        if carried["current"]:
+            # This setup's own framed producer: the exact DRO grid, as any local face,
+            # with only the surviving-area exclusion carried onto the row.
+            independent_contacts.add((face, done))
+            shown = dro_up(edge, grid)
+            if numeric(edge) and shown != stands:
+                face_errors.append(
+                    f"{who} on {face} uses edge {edge:g} (DRO Z {shown:g}); "
+                    f"the face stands at {stands:g}"
+                )
+            shown = dro_up(stands, grid)
+            if round(shown - stands, 9):
+                face_errors.append(f"{who} sets {face} as Z {shown:g}, which stands at {stands:g}")
+            exclusion = round(2 * carried["excluded_mm"], 9)
+            # As the checker, a whole surviving face records no exclusion at all.
+            constraint = {"touch_exclusion_dia_mm": exclusion} if exclusion else None
+            return stands, [carried["ref"]], constraint
         tolerance = LENGTH_TOLERANCE_MM / units_mm
         if numeric(edge) and all(abs(edge - z) > tolerance for z in (stands, carried["native"])):
             face_errors.append(
@@ -2528,8 +2637,11 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
 
     def settle(key, touch, face, row, field, stands, constraint, stand_off, authored):
         """Type a carried contact safely down (:func:`safe_down_setting`) and record what an
-        op reading it anchors on; a native face its touch cannot place reads unknown."""
-        if constraint:
+        op reading it anchors on; a native face its touch cannot place reads unknown. A
+        current producer's exact setting is not carried: only its exclusion is recorded."""
+        if constraint and "native_edge_mm" not in constraint:
+            row.update(constraint)
+        elif constraint:
             safe_down_setting(row, field, constraint, grid, units_mm)
             carry[key] = {
                 "typed": row[field],
@@ -2566,7 +2678,7 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
         gauge_ok = ready(recipe.get("gauge"), "gauges")
         edge = recipe.get("edge_mm", "unknown")
         face = recipe.get("face", recipe.get("feature"))
-        done = zero_rules._position(ops, {"after_op": recipe.get("after_op")}) or 0
+        done = touch_position(ops, {"after_op": recipe.get("after_op")})
         paper, stand_off, contact = "not_applicable", None, "unknown"
         credited, carried = [], False
         if axis == "z" or method == "trial_cut_measure":
@@ -2583,12 +2695,12 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
         if axis == "z":
             if recipe.get("face") == "top":
                 # The top as the ops through after_op left it, not the incoming top.
-                edge = tops[done]
+                edge = tops[done] if isinstance(done, int) else "unknown"
             z_touch = {**recipe, "from": recipe.get("from", "unknown")}
             authored = edge
             edge, credited, carried = touch_face(z_touch, face, edge, done, "the Z zero touch")
             paper = recipe.get("paper_mm", "unknown")
-            side = zero_rules.touch_side(own, setup, recipe, face, edge, lathe)
+            side = contact_side(recipe, face, edge, done)
             stand_off = paper_stand_off(paper, side)
             contact = edge + stand_off if numeric(edge) and numeric(stand_off) else "unknown"
         elif (
@@ -2641,7 +2753,7 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
             )
             axis_set = top + paper if numeric(top) and numeric(paper) else "unknown"
             row = {"op": op["op"], "top_z": top, "paper_mm": paper, "axis_set": axis_set}
-            side = zero_rules.touch_side(own, setup, contact, "top", top, lathe)
+            side = contact_side(contact, "top", top, index + 1)
             stand_off = paper_stand_off(paper, side)
             key = ("retouch", op["op"])
             settle(key, contact, "top", row, "axis_set", top, carried, stand_off, tops[index + 1])
@@ -2655,10 +2767,9 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
         edge, paper = record.get("edge_mm", "unknown"), record.get("paper_mm", "unknown")
         authored, z_face = edge, record.get("z_face")
         who = f"the {record.get('tool', 'unknown')} touch"
-        edge, credited, carried = touch_face(
-            record, z_face, edge, zero_rules._position(ops, record) or 0, who
-        )
-        side = zero_rules.touch_side(own, setup, record, record.get("z_face"), edge, lathe)
+        done = touch_position(ops, record)
+        edge, credited, carried = touch_face(record, z_face, edge, done, who)
+        side = contact_side(record, z_face, edge, done)
         stand_off = paper_stand_off(paper, side)
         trial_cut = record.get("x_method") == "trial_cut_measure"
         x_set = (
@@ -2696,7 +2807,7 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
         row.update(served.get(str(row["op"]), idle))
     for row in derived:
         who = f"the {row.get('tool', 'unknown')} re-touch"
-        done = zero_rules._position(ops, row) or 0
+        done = touch_position(ops, row)
         previous = row.get("edge_mm")
         offset = (
             row["z_axis_set"] - previous
@@ -2704,10 +2815,10 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
             else "unknown"
         )
         edge, credited, carried = touch_face(row, row.get("z_face"), previous, done, who)
-        if carried:
+        if carried and "native_edge_mm" in carried:
             offset = paper_stand_off(
                 row.get("paper_mm", "unknown"),
-                zero_rules.touch_side(own, setup, row, row.get("z_face"), edge, lathe),
+                contact_side(row, row.get("z_face"), edge, done),
             )
         if row.get("z_face"):
             row["edge_mm"] = edge
@@ -3298,8 +3409,13 @@ def check_endpoints(
                 producer = entry_producer(stock, setup, entry, face, source, entries)
                 local = isinstance(producer, tuple) and producer[0] is setup
                 planned.update(carried=carried, units_mm=UNIT_MM.get(units))
-                if local and under_zero(setup, producer[1]):
-                    # A face this setup cut under its zero already stands on this DRO.
+                known_touch = isinstance(carried, dict) and all(
+                    numeric(carried.get(key))
+                    for key in ("typed", "stand_off", "native", "physical", "residual")
+                )
+                if known_touch and local and under_zero(setup, producer[1]):
+                    # A face this setup cut under its zero already stands on this DRO;
+                    # an unknown touch never recovers it from that local producer.
                     planned["local"] = printed_entry(stock, setup, entry, face, source, entries)
             tool = op.get("tool", "unknown")
             # A missing tool resolves nothing; an unverified one proves no contradiction.
