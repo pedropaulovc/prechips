@@ -926,7 +926,8 @@ def through(**row):
     bundle = rocker()
     setup = bundle.plan["setups"][0]
     endpoint = {"setup": setup["id"], "op": 60, "entry_z": 0.0, "entry_from": "stock", **row}
-    _operative(endpoint, bundle, setup, "top")
+    op = SPOT["ops"][0]
+    _operative(endpoint, bundle, setup, "top", op)
     sheet = mapped({("blind_depth", "hole"): {"endpoints": [endpoint]}}, {})
     sheet.bundle = bundle
     return sheet, endpoint, setup

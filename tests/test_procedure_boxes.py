@@ -25,7 +25,7 @@ FINDER = {
 
 def mill_bundle(finder=FINDER, spindle=None, setups=1):
     """A mill setup zeroed in X and Y with ``finder``; ``setups`` copies of it."""
-    data = bundle("mill", mill_zero(DECK), [op(10, "spot", "hole", "centre")])
+    data = bundle("mill", mill_zero(DECK), [op(10, "spot", "hole", "centre/1")])
     data.inventory["tools"]["finder"] = dict(finder)
     data.inventory["machines"]["mill"]["spindle"] = (
         {"rpm_min": 50, "rpm_max": 3000} if spindle is None else spindle
@@ -254,7 +254,7 @@ KIT = {
 
 
 def kit_bundle(kit=KIT, setups=1):
-    data = bundle("mill", mill_zero(DECK), [op(10, "spot", "hole", "centre")])
+    data = bundle("mill", mill_zero(DECK), [op(10, "spot", "hole", "centre/1")])
     data.inventory["fixtures"] = {"kit": copy.deepcopy(kit)}
     data.inventory["gauges"] = {"mic": {"kind": "micrometer"}, "dti": {"kind": "dti"}}
     first = data.plan["setups"][0]
@@ -401,11 +401,11 @@ def test_an_explicitly_unknown_receipt_declaration_stops(field):
         ({"zero": {"x": {"gauge": "kit"}}}, "gauges"),
         ({"zero": {"transfer": {"gauge": "kit"}}}, "gauges"),
         ({"zero": {"transfer": {"tool": "kit"}}}, "gauges"),
-        ({"zero": {"tool_touches": [{"tool": "centre", "z_gauge": "kit"}]}}, "gauges"),
-        ({"ops": [{"op": 10, "tool": "centre", "holder": "kit"}]}, "holders"),
-        ({"ops": [{"op": 10, "tool": "centre", "checks": {"dia": "kit"}}]}, "gauges"),
-        ({"ops": [{"op": 10, "tool": "centre", "guide": {"gauge": "kit"}}]}, "gauges"),
-        ({"ops": [{"op": 10, "tool": "centre", "process_holds": [{"gauge": "kit"}]}]}, "gauges"),
+        ({"zero": {"tool_touches": [{"tool": "centre/1", "z_gauge": "kit"}]}}, "gauges"),
+        ({"ops": [{"op": 10, "tool": "centre/1", "holder": "kit"}]}, "holders"),
+        ({"ops": [{"op": 10, "tool": "centre/1", "checks": {"dia": "kit"}}]}, "gauges"),
+        ({"ops": [{"op": 10, "tool": "centre/1", "guide": {"gauge": "kit"}}]}, "gauges"),
+        ({"ops": [{"op": 10, "tool": "centre/1", "process_holds": [{"gauge": "kit"}]}]}, "gauges"),
     ],
 )
 def test_every_slot_a_setup_uses_an_item_in_reads_its_receipt_checks(use, category):

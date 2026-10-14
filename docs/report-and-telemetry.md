@@ -584,6 +584,30 @@ Setup overview/operations section, in this order:
    from the − side and edge + r from the + side; a later setup on the same mill
    names `EDGE FINDER box, Setup S1 sheet 1`. A missing or unknown finder or
    spindle fact prints `STOP:`.
+   For a proven carried planar Z contact, the physical face height prints
+   separately from the report's typed Axis Set. The producer's AS-CUT height
+   travels through the recorded rigid frames; the +Z contact setting rounds
+   down to the receiving grid, retaining a nonnegative residual of at most
+   one step. The renderer does not re-round that face or setting.
+   On a unit-converted recurring-decimal grid, contact equality uses the
+   printed grid-line value; only binary roundoff may meet it from below,
+   never the native length tolerance. Subsequent operation entry, depth,
+   exit and breakthrough prose consumes the checked
+   operative endpoint rows using that actual Axis Set. Authored dimensional
+   notes are not rewritten by a general prose substitution.
+   An imported `stock_state.entry_z.<feature>` (or entry supplied by `top_z`)
+   is the transformed native nominal, not the carried AS-CUT height; equality
+   uses the physical 0.000001 mm length tolerance in manifest units. An AS-CUT
+   touch edge is allowed, but an entry differing from native is a named bad-input
+   ERROR with unknown operative stops, never a second application of the carry
+   offset. Unknown inputs remain unknown, and a same-setup producer's entry
+   retains its local DRO endpoint. The independent endpoint oracle rejects
+   a mismatched authored entry even if forged output repeats the double shift.
+   A through endpoint's dimension-derived exit boundary is conservative,
+   not native exit-plane credit: `physical_exit_bound_z` records physical
+   entry minus `local_thickness`. The printed breakthrough target and margin
+   use the checked operative boundary, without claiming the independently
+   cut opposite face stands at that bound.
 6. **OPERATIONS**: full-width groups naming the op and action with depth of
    cut, feature, `T#` tool, rpm, feed, Z target and cut direction, followed by
    associated inspection records. A lathe table with any op measured in the

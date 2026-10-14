@@ -64,6 +64,205 @@ Templates:
 Evidence: authored sequence and violations. Citations: PLAN §4.1 and plan
 setup/operation sequence plus `stock_in`/`zero.transfer`.
 
+## Component-supplied touch planes (`zero_check`)
+
+A bounds-free native face may be touched in a later setup without a new facing
+operation when its exact STEP face is listed in `stock.as_is_faces` and its
+own component root proves that it arrives as that surface. The global as-is
+check validates the joined stock union only; it cannot credit a sleeve face to
+a body branch. A component supply is an exact declared `stock.<component id>`
+on the validated upstream route, consumed alone by its root setup. A joined
+root, an undeclared stock-like name or a literal `stock` alongside components
+is not component-local proof. Ordinary single-stock seeding is unchanged.
+
+Component credit requires all of these existing facts:
+
+- The root's `stock_state.top_feature` or `bottom_feature` names the touched
+  feature. Its matching pre-cut native `stock_faces_mm` side (`up` or `down`)
+  has finite `face_z` and `stock_z`, equal within the absolute physical length
+  tolerance of **1e-6 mm**. A reason, missing height or stock-height mismatch is
+  debt, not a supplied face.
+- The exact geometry-matched source native plane resolves the selected STEP
+  face, its source-frame Z and outward normal. Its Z agrees with the pre-cut
+  face height within that same physical tolerance. A model AABB or generic
+  revolved geometry alone proves no entering component material.
+- The same component root's `render_scene` contains the exact named datum for
+  that feature, with a finite coplanar outline and the matching outward normal
+  and Z. Native datum emission requires the named surface to be on that
+  component's material. This additional proof is necessary:
+  `stock_faces_mm` intentionally retains a same-Z height even when the stock
+  carries a face only in part.
+- The component root has no entering or retained-stock debt. The plane then
+  survives the existing stock-DAG operation and bounded-touch-area checks.
+
+The render datum describes the root's material after its operations; it never
+bootstraps an as-is supply when the pre-cut proof is absent or mismatched.
+A datum on a later joined or receiving solid cannot replace either root proof.
+Unrelated roots that do not name the target remain unseeded, not declared
+geometrically absent; they do not poison a separately proven supplier. A named
+candidate with missing proof remains unknown. With no proven supplier, the
+unknown names the component and face instead of silently treating it as absent.
+
+The supplied plane is carried through the normal rigid-frame rules, not reset
+to a model-box height or a later cut's nominal Z. A source `down` face may
+become receiving +Z after a rigid flip; credit still requires a finite +Z
+outward plane and a known above/+Z touch in the receiving setup. Subsequent
+cuts retain the same preservation, bounded exclusion and tool-change touch
+rules as an upstream-prepared face. Missing component proof prints no credited
+face or numeric contact setting.
+
+## Carried multi-plane touch selection (`zero_check`)
+
+A bounds-free named face may contain STEP planes at several Z heights. The
+authored contact edge selects the native plane group; it is not automatically
+the highest member of the feature's bounding box. The rule traces every group
+internally, but only the uniquely selected group's exact raw STEP refs receive
+credit. An unprepared upper member does not prevent contact on a separately
+prepared lower +Z member, and selecting a prepared maximum member keeps the
+same behavior.
+
+Each group has its exact raw native height in the receiving frame. Flat
+geometry-matched native boxes can provide that height; an oblique world box
+cannot. An oblique plane instead requires its exact source native plane or
+named stock-proven source datum, rigidly transformed into the receiving frame.
+Missing or inconsistent native height proof is unknown, never a maximum-box
+or nearest-plane fallback.
+
+An authored edge matches a group within the absolute physical length
+tolerance of **1e-6 mm**, in either millimetre or inch manifests, at either:
+
+- its exact transformed native height; or
+- its traced, eligible producer's actual as-cut height after the source DRO
+  grid and rigid frame transform.
+
+These are two ways to identify the same group, not two separate groups. In
+contrast, distinct native planes are not merged merely because their heights
+are within the matching tolerance. Exactly coplanar numerical planes may
+share one group and credit all its refs. If two distinct groups match through
+any combination of native and eligible as-cut heights, the contact is
+**unknown**; the checker never picks the nearest one or the one that happens
+to have a producer.
+
+With complete plane/eligible-height proof, no matching group on a multi-plane
+face is an **error** naming the authored edge and known candidate heights.
+There is no invented numeric Axis Set and no borrowed credited face. Missing
+eligible physical-height proof stays **unknown**, not proof that the plane is
+absent or that the no-match comparison is complete. An eligible whole-plane
+producer with an unknown formed height carries that height debt; a later
+genuinely proved whole producer may replace it without clearing any prior
+unknown cut-area debt.
+
+An independently proved non-+Z member is known ineligibility, not missing
+physical proof, and does not poison another uniquely selected valid +Z group.
+It still participates in raw native matching and ambiguity; if selected, its
+normal is rejected by the existing +Z contact rule. Unknown intersecting cut
+or touch-area debt on the selected group remains unresolved.
+
+Selection does not establish stock presence, +Z orientation, touch side or
+surviving touch land. The chosen group still needs the normal existing
+producer/supply, lineage, rigid-frame, bounded-area and above-touch proofs,
+including the component-root facts described above. A matched but unfaced or
+wrong-facing member remains unknown. A single native plane retains its
+existing physical/native edge contradiction check and its proved physical
+standing height.
+
+## Same-setup native producer survival (`zero_check`)
+
+A whole face producer proves a prepared plane, not that it survives until
+the next contact. A framed producer in the touching setup (one cut under the
+setup's Z zero) that has its own native plane is checked with the same
+cut-by-cut survival ledger as a carried producer, from that producer through
+the contact's exact operation boundary: `before_ops` excludes its first named
+operation, while `after_op` includes the named operation. Explicit tool
+touches, listed retouches and derived tool-change touches all require that
+proof before emitting a numeric contact or `credited_faces`. Invalid claims,
+unknown cutting actions or declared cut depths, ambiguous removal bounds and
+unresolved plunge footprints leave the contact **unknown**; provably disjoint
+cuts preserve the plane, and an overlapping bounded plunge preserves only the
+filled-rectangle touch land described below. The current producer keeps its
+exact DRO-step/formed-Z comparison; only a nonzero local keep-off diameter is
+reported, with no carried safe-down rounding, native-entry remap or
+physical-setting residual.
+
+A window-limited turning cut (a lathe turn with no `to_z`, not facing,
+pocketing, axial drilling, parting, cut-to-fit, transfer, saw or manual work,
+over a finite `z_from`/`z_to` window) cannot reach a plane when the setup's Z
+is coaxial with the plane's normal and the whole window lies on the plane's
+open, outward side within `LENGTH_TOLERANCE_MM`, because the kernel limits its
+removal to that window. The window is taken at its dialled ends (each rounded
+up on the setup's DRO grid) as well as its raw ones, whichever is worse. A
+grooving or parting blade, or a tool of unknown kind, also needs a known blade
+width: its groove runs that full width up from the dialled chuck-side end, as
+the plunge model places it. A tilted frame, a window crossing the plane, an
+unknown width or any cut outside that kind still needs the existing radial
+proof.
+
+An authored-edge contradiction cannot re-fetch the original producer to upgrade
+an invalidated contact: recovery repeats the same survival proof and is skipped
+while survival debts remain. Established contradictions keep **error**
+precedence over missing survival proof, which remains **unknown**. A plane
+whose survival is unproven may be gone, so its producer's height neither
+credits nor contradicts the reading.
+
+A Z touch whose own operation boundary does not resolve (an empty or partly
+unknown `before_ops`, or an unknown `after_op`, including the primary
+`zero.z.after_op`) is **unknown**; it is never read against the plane as it stood
+before the setup's first op.
+
+Pre-zero producers, latest-re-face area debt and authored or non-native
+fallback surfaces keep their existing behavior; closing those paths is tracked
+in [issue #227](https://github.com/pedropaulovc/prechips/issues/227).
+
+## Usable native touch land after a plunge (`zero_check`)
+
+A bounded axial plunge that intersects a current or carried face does not preserve a
+usable touch merely because its radial reach is smaller than a reported outer
+radius. A nonempty annulus can be too thin for the paper/tool contact. More
+fundamentally, the existing native `revolved` radius extrema and outward-plane
+normal do not prove circular or annular topology: horizontal noncircular
+patches can have the same facts. Sampled datum outlines and a model AABB are
+not substitutes for that proof, nor do they rule out the face's original hole.
+
+The supported overlapping-plunge preservation path is the existing exact
+rectangular witness:
+
+- The selected native face is a single `Plane` with `fills_bbox = true`.
+  This native fact requires a filled, one-wire, straight-sided rectangle;
+  round, holed, notched and L-shaped faces do not qualify.
+- Its transformed box is flat in setup Z and axis-aligned in setup X/Y. The
+  existing `FILL_MARGIN_MM` and corner-tolerance shrink keeps the witness
+  inside the area actually proved filled.
+- The existing `TOUCH_LAND_MM` policy requires a **0.5 mm by 0.5 mm square**
+  outside the bounded plunge exclusion. The plunge's conservative engagement,
+  location/aim and DRO-grid envelope are still used, not the nominal tool
+  diameter alone.
+- Prior and current exclusions remain cumulative. A conservative square
+  envelope about the rigidly carried source-plane centre encloses all the
+  removed radial regions; its reach is the maximum of the prior reach and
+  the current plunge's radius plus centre offset. The existing `_uncut`
+  witness must lie outside that whole envelope, not merely outside the last
+  smaller cut. Re-facing does not erase prior unknown cut-area debt. That
+  envelope is about its own plane's centre: a re-face whose plane centre axis
+  differs (non-parallel normals, or origins more than `LENGTH_TOLERANCE_MM`
+  apart across the axis) leaves the earlier exclusion's extent **unknown**
+  rather than re-centring it.
+
+A missing filled-rectangle witness or no remaining 0.5-mm square leaves the
+subsequent contact **unknown**, with the setup/op and named contact face in
+the usable-land debt. Even an ample reported radius on a round or holed face
+remains unknown after an overlapping plunge. Exact native circle/annulus
+topology and original-inner-hole evidence are tracked in
+[issue #208](https://github.com/pedropaulovc/prechips/issues/208); this rule
+does not invent those facts or add a native schema field.
+
+The initial contact before the plunge remains eligible when its plane,
+presence, outward normal, lineage and touch side are proved. Proven disjoint
+cuts retain the existing preservation path. Supported rectangular contacts
+still report their cumulative exclusion diameter, and the traveler keeps its
+outward-rounded exclusion note; unsupported contacts print no credited face
+or numeric Axis Set. This is a checker limitation/stop, not a claim that no
+physical touch patch exists.
+
 ## `blind_depth` (tip endpoints)
 
 One subject per feature, with an `endpoints` array for spot, drill, ream, tap,
@@ -71,8 +270,33 @@ counterbore and bore operations, and for `center_drill` on a plan
 [process](plan.md#process-features) `centre_hole`.
 Stock-state facing/pocketing advances only the named or explicitly covered
 same-frame entry surfaces. A known setup-frame `stock_removal_bounds` that
-contains a feature's whole X/Y footprint can advance its seeded local entry without
-requiring a redundant bounds box on the cutting op's own feature. For an operation
+contains a feature's whole X/Y footprint (its declared one, or for a bounds-free
+`kind = "face"` each listed plane at the op's `to_z` by its own matched kernel
+`bbox_mm`; see [coordinates](rules-coordinates.md)) can advance its seeded local
+entry without requiring a redundant bounds box on the cutting op's own feature.
+A native face's incidental `at`/`dia`, axis or plane metadata is never a declared
+extent, even if it describes a smaller disc wholly inside the cut. The complete
+face list must resolve before a bounded cut selects the planes at `to_z`.
+Missing or ambiguous mappings, invalid native boxes, or unresolved units/setup frames
+leave native coverage unknown and earn no face credit; they never fall back to that
+disc. Explicit authored face `bounds` and true round non-face features retain
+declared-footprint behavior. An authored empty or whole-record unknown face `bounds`
+is debt, not permission to use a disc or native-box fallback. Malformed explicit
+bounds also remain debt when their containment cannot be established.
+Unbounded cuts of their own feature retain the existing declared-whole semantics;
+their keep-out checks use actual native boxes for bounds-free faces. Cross-feature
+unbounded native-face containment without explicit target bounds leaves its producer
+unknown, not a disc-based whole producer. This does not advance a seeded local entry:
+the unboxed entry-selection path retains its existing skip behavior when there is
+no declared footprint candidate, keeping the seed and its origin unchanged.
+Bounded cross-feature facing/pocketing producers
+are decided by native coverage even when the cutting feature has no authored
+footprint. An authored empty/unknown target face footprint is also a guarded producer
+candidate: unresolved coverage cannot silently become a skipped op and an accepted
+numeric contact edge. An explicit local operation source must still prove whole native
+coverage; partial or unknown coverage cannot supply that face. A later bounded cut whose
+complete native boxes are XY-disjoint is non-producing even at another floor, so it
+does not hide an earlier proved producer. For an operation
 with `stock_removal_bounds`, the box's Z interval must contain both the current entry
 and `to_z`. That boxed cut cannot numerically raise the entry; a higher floor outside
 the same-plane float tolerance (`SAME_Z`, 1e-9 plan units), or a box wholly above or
@@ -89,12 +313,25 @@ Profiles never move the touched top; `top_feature` restricts which facing
 operation moves that top. An omitted local `entry_z` retains the existing
 stock-state top fallback. Each record preserves entry origin, setup/op,
 point/lead, thickness, allowance and tip endpoint.
+The effective native touch must also survive until its own contact boundary.
+When that reading has an unknown physical edge or typed setting, a known local
+entry producer cannot recover numeric DRO/physical entry, exit or endpoint
+values. The local-entry no-double-shift exception applies only to a surviving
+numeric touch reading; nominal stock-state dimensions are not replacement
+touch evidence.
 
 Arithmetic in mm: stock-state top/entry coordinates and operation `depth_mm`
 are machine millimetres even when the feature manifest uses inches. Feature
 depth limits are converted from the manifest's units. A tap without an
 operation depth uses the upper `thread_depth`, or `depth` if no thread-depth
 field is present; an explicitly unknown operation depth does not fall back.
+For a resolved centre-drill member used to spot, carried-face touch exclusion
+uses the same explicit operation `depth_mm` as the tip endpoint: the pilot
+radius expands by `max(0, depth_mm - pilot_len_mm) * tan(angle_deg / 2)`,
+capped at the body's `shank_mm / 2`. A feature-only spot depth is not an
+operation depth and leaves preservation unknown. Missing, unknown or unverified
+engagement facts also remain debt; located aim and DRO-grid shifts still enlarge
+the exclusion.
 
 - Drill point `P = D / (2*tan(included_point_angle/2))`, requiring D > 0 and
   0 < angle < 180 degrees and a finite cone length. An underflowed zero
