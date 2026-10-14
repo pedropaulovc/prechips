@@ -1523,7 +1523,7 @@ def test_a_touch_on_a_faced_plane_sets_the_dro_where_the_face_stands(
     # same step is the grid's rounding; one on another step contradicts the face, named
     # with its DRO reading and where the face stands.
     bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
-    bundle.inventory["machines"]["mill"]["resolution_mm"] = 0.005
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
     setup["stock_state"]["top_z"] = 8.0
     op = setup["ops"][0]
     op["to_z"] = to_z

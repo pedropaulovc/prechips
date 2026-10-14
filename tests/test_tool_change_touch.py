@@ -358,7 +358,7 @@ def carried_stock_bundle(*, journal=False):
         "ops": [op(10, "fit", feature, "unknown")],
     }
     data.inventory["machines"]["bench"] = {"kind": "bench"}
-    data.inventory["machines"]["mill"]["resolution_mm"] = 0.005
+    data.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
     data.inventory["tools"]["centre"] = {
         "kind": "center_drill_set",
         "sizes": [1],
@@ -459,7 +459,7 @@ def carried_two_level_bundle(
         op(10, "face", feature, "turner", faces=[ref], to_z=height / scale, to_dia=0.0)
     ]
     receiver["zero"]["z"]["edge_mm"] = height / scale
-    data.inventory["machines"]["lathe"]["resolution_mm"] = source_grid_mm
+    data.inventory["machines"]["lathe"]["resolution_mm"] = measured(source_grid_mm)
     data.kernel["faces"][0]["bbox_mm"] = [-3.0, -3.0, lower_mm, 3.0, 3.0, lower_mm]
     data.kernel["faces"][1]["bbox_mm"] = [-1.0, -1.0, upper_mm, 1.0, 1.0, upper_mm]
     data.kernel["faces"][0].update(fills_bbox=True, area_mm2=36.0)
@@ -535,7 +535,7 @@ def carried_native_datum_bundle(*, physical=21.0055):
         at=list(source_frame["origin"]), axis=[-v for v in source_frame["z"]]
     )
     consumer["zero"]["z"]["edge_mm"] = physical
-    data.inventory["machines"]["mill"]["resolution_mm"] = 0.005
+    data.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
     data.features["datums"] = {"D": {"feature": feature, "surface": "north sleeve face"}}
     data.kernel["features"] = {feature: [0]}
     data.kernel["faces"][0]["bbox_mm"] = [
@@ -577,7 +577,7 @@ def carried_native_source_plane_bundle(*, nominal=21.0055, source_grid=0.01, shi
     data.features["frames"]["J3"]["origin"] = [0.0, 0.0, 0.0]
     source["zero"]["z"]["edge_mm"] = 22.0
     source["ops"][0]["to_z"] = nominal
-    data.inventory["machines"]["lathe"]["resolution_mm"] = source_grid
+    data.inventory["machines"]["lathe"]["resolution_mm"] = measured(source_grid)
     receiving = data.features["frames"][consumer["frame"]]
     receiving["origin"] = [-shift * v for v in receiving["z"]]
     consumer["zero"]["z"]["edge_mm"] = nominal + shift
@@ -1394,7 +1394,7 @@ def test_every_carried_contact_is_safe_down_from_the_producer_as_cut_height(
     receiver = data.plan["setups"][-1]
     zero = receiver["zero"]["z"]
     face = zero["face"]
-    data.inventory["machines"]["mill"]["resolution_mm"] = receiving_grid
+    data.inventory["machines"]["mill"]["resolution_mm"] = measured(receiving_grid)
     if route == "explicit-touch":
         receiver["zero"]["tool_touches"] = [
             {
@@ -1497,7 +1497,7 @@ def test_keep_out_bounds_are_compared_with_the_producer_as_cut_plane_not_its_nat
     source, bond, receiver = data.plan["setups"][1:]
     source["ops"] = source["ops"][:1]
     source["ops"][0]["to_z"] = 0.0055
-    data.inventory["machines"]["lathe"]["resolution_mm"] = 0.01
+    data.inventory["machines"]["lathe"]["resolution_mm"] = measured(0.01)
     data.kernel["faces"][0]["bbox_mm"][2] = -21.0055
     data.kernel["faces"][0]["bbox_mm"][5] = -21.0055
     fact = data.kernel["setups"][source["id"]]["revolved"][receiver["zero"]["z"]["face"]]

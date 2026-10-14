@@ -160,7 +160,11 @@ def face_bundle(resolution, stands=7.5):
         zero=zero(stands),
         ops=[],
     )
-    data.features["features"]["deck"] = {"kind": "face", "frame": "model"}
+    data.features["features"]["deck"] = {
+        "kind": "face",
+        "frame": "model",
+        "bounds": {"x": [-5.0, 5.0], "y": [-5.0, 5.0], "z": [stands, stands]},
+    }
     data.inventory["machines"]["fine_mill"] = {
         "kind": "mill",
         "resolution_mm": fact(value=0.001),
@@ -170,6 +174,7 @@ def face_bundle(resolution, stands=7.5):
         {
             "id": "S0",
             "machine": "fine_mill",
+            "stock_in": "stock",
             "frame": "F",
             "stock_state": {"top_z": 10.0, "top_feature": "deck"},
             "zero": zero(10.0),
