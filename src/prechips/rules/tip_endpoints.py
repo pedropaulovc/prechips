@@ -651,6 +651,17 @@ def cut_coverage(bundle, setup, op, target, debts=None, credited=None):
                     "setup frame rotation leaves coverage unknown"
                 )
             return UNKNOWN
+        # X/Y containment proves no plane the permitted removal volume never reaches.
+        span = mapping(op.get("stock_removal_bounds")).get("z")
+        if not (
+            _span(span)
+            and len(span) == 2
+            and all(math.isfinite(v) for v in span)
+            and span[0] - SAME_Z <= to_z <= span[1] + SAME_Z
+        ):
+            if debts is not None:
+                debts.append("stock_removal_bounds.z must be a finite span containing op.to_z")
+            return UNKNOWN
     else:
         held = _setup_footprint(bundle, setup, target, debts)
         if held is None:

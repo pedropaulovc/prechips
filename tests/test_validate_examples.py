@@ -801,6 +801,10 @@ def trap_native_coverage(monkeypatch, forged_whole=False):
         ("nonplanar-box", "unknown"),
         ("thin-known-cylinder", "unknown"),
         ("thin-known-bspline", "unknown"),
+        ("missing-removal-z", "unknown"),
+        ("removal-z-above", "unknown"),
+        ("removal-z-descending", "unknown"),
+        ("removal-z-non-finite", "unknown"),
         ("boundary", "unknown"),
         ("keep-out", "partial"),
         ("missing-cutter", "unknown"),
@@ -891,6 +895,17 @@ def test_native_face_coverage_oracle_uses_only_matched_boxes(tmp_path, monkeypat
         # Flat at to_z within tolerance, but a known non-planar STEP face is no plane.
         kind = "Cylinder" if case == "thin-known-cylinder" else "BSplineSurface"
         data.kernel["faces"][0]["kind"] = kind
+    elif case.startswith(("missing-removal-z", "removal-z-")):
+        # X/Y still hold the face; the removal volume's Z never establishes its plane.
+        bounds = op["stock_removal_bounds"]
+        if case == "missing-removal-z":
+            del bounds["z"]
+        else:
+            bounds["z"] = {
+                "removal-z-above": [op["to_z"] + 0.5, 0.0],
+                "removal-z-descending": [0.0, -4.0],
+                "removal-z-non-finite": [-4.0, math.nan],
+            }[case]
     elif case == "signed-permutation":
         data.features["frames"]["A"].update(x=[0.0, 1.0, 0.0], y=[-1.0, 0.0, 0.0])
         op["stock_removal_bounds"].update(x=[-3.0, 9.0], y=[-16.0, 6.0])
@@ -1142,7 +1157,12 @@ def test_carried_native_plane_coverage_cannot_fall_back_to_checker_credit(monkey
     face = receiver["zero"]["z"]["face"]
     target = data.feature_definitions[face]
     target.update(at=[0.0, 0.0, 21.0055], axis=[0.0, 0.0, 1.0], dia=0.2)
-    source["ops"][0]["stock_removal_bounds"] = {"x": [-2.0, 2.0], "y": [-2.0, 2.0]}
+    # A finite removal Z reaching the plane; only X/Y coverage varies below.
+    source["ops"][0]["stock_removal_bounds"] = {
+        "x": [-2.0, 2.0],
+        "y": [-2.0, 2.0],
+        "z": [20.0, 22.0],
+    }
     own = VALIDATOR["zero_inputs"](
         data.plan, data.features, data.inventory, data.policy, lambda: copy.deepcopy(data.kernel)
     )
@@ -2467,6 +2487,27 @@ def test_an_unresolved_touch_boundary_is_unknown_never_the_initial_plane(boundar
     assert row["z_axis_set"] == row["edge_mm"] == "unknown"
     assert "credited_faces" not in row
     VALIDATOR["check_zero"](setup, finding, entries, own)
+
+
+@pytest.mark.parametrize("cut", ["none", "unknown"])
+def test_an_unresolved_primary_z_after_op_is_unknown_never_the_initial_plane(cut):
+    data = native_survival_oracle_bundle("receiving", cut)
+    receiver = data.plan["setups"][-1]
+    receiver["zero"]["tool_touches"] = []
+    receiver["zero"]["z"]["after_op"] = 999
+    setup, entries, own = zero_oracle(data)
+    # Collapsed to the initial boundary, the carried plane would print 21.01 with its
+    # native refs, and with no intervening cut the zero check would pass.
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    axis = finding["numbers"]["axes"]["z"]
+    assert finding["status"] == "unknown"
+    assert axis["axis_set"] == "unknown" and "credited_faces" not in axis
+    VALIDATOR["check_zero"](setup, finding, entries, own)
+    forged = copy.deepcopy(finding)
+    forged["status"] = "pass"
+    forged["numbers"]["axes"]["z"].update(axis_set=21.01, credited_faces=["#1/NORTH"])
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, forged, entries, own)
 
 
 @pytest.mark.parametrize("contradiction", [False, True], ids=["datum-debt", "known-over-guard"])

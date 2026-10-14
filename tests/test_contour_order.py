@@ -746,6 +746,46 @@ def test_a_known_non_plane_face_thin_in_setup_z_produces_no_top(tmp_path, kind):
     assert _producer(bundle, setup, -8.8, "top", 1, None) in (None, "unknown")
 
 
+@pytest.mark.parametrize(
+    ("z", "expected"),
+    [
+        ([-10.0, 1.0], "whole"),
+        ([-8.8, -8.8], "whole"),
+        (None, "unknown"),
+        ("unknown", "unknown"),
+        ([1.0, -10.0], "unknown"),
+        ([-10.0, math.inf], "unknown"),
+        ([-5.0, 1.0], "unknown"),
+        ([-12.0, -9.0], "unknown"),
+    ],
+    ids=["contains", "at-plane", "missing", "unknown", "descending", "infinite", "above", "below"],
+)
+def test_a_bounded_cut_credits_a_native_plane_only_within_its_removal_z(tmp_path, z, expected):
+    # Op 10's X/Y box holds the whole face at its floor, but only a finite removal Z span
+    # that reaches -8.8 lets that floor be the cut's plane.
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY, "x = [0.0, 10.0], y = [0.0, 10.0], ")
+    setup["stock_state"]["top_feature"] = "target"
+    refs = matched_faces(bundle, NEAR)
+    op = setup["ops"][0]
+    if z is None:
+        del op["stock_removal_bounds"]["z"]
+    else:
+        op["stock_removal_bounds"]["z"] = z
+    target = bundle.feature_definitions["target"]
+    debts, credited = [], []
+    coverage = tip_endpoints.cut_coverage(bundle, setup, op, target, debts, credited)
+    assert coverage == expected
+    (_, _, after), _ = stock_states(bundle, setup)
+    if expected == "whole":
+        assert credited == refs and debts == []
+        assert after["top_z"] == -8.8
+    else:
+        assert credited == []
+        assert debts == ["stock_removal_bounds.z must be a finite span containing op.to_z"]
+        assert after["top_z"] != -8.8
+        assert _producer(bundle, setup, -8.8, "top", 1, None) in (None, "unknown")
+
+
 @pytest.mark.parametrize("boxes", [(NEAR, FAR), (FAR,)], ids=["distant-patch", "disjoint"])
 def test_a_box_missing_any_matched_face_leaves_the_unfaced_top(tmp_path, boxes):
     # The feature's complete face list reaches past op 10's box: it faced part of the top

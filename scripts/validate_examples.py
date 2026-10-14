@@ -1834,7 +1834,18 @@ def surface_cut_coverage(own, entries: Entries, setup: dict, op: dict, target: d
         for centre, radius in circles
         for box in boxes
     )
-    return ("partial" if exact else "unknown") if excluded else "whole"
+    if excluded:
+        return "partial" if exact else "unknown"
+    # X/Y containment proves no plane the permitted removal volume never reaches.
+    span = table_of(op.get("stock_removal_bounds")).get("z")
+    reaches = (
+        isinstance(span, list)
+        and len(span) == 2
+        and all(map(finite, span))
+        and span[0] <= span[1]
+        and span[0] - SAME_Z <= op["to_z"] <= span[1] + SAME_Z
+    )
+    return "whole" if reaches else "unknown"
 
 
 def carry_route(plan: dict, setup: dict) -> list | None:

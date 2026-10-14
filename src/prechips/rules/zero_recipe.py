@@ -2572,16 +2572,18 @@ def evaluate(bundle):
                 radius = length_mm(tool, "dia")
             if not indicated and number(radius):
                 radius /= 2
+            # A named after_op that does not resolve places the touch nowhere known,
+            # never at the initial boundary.
+            done = _boundary(ops, {"after_op": recipe.get("after_op")})
             if axis == "z" and recipe.get("face") == "top":
                 # The top as the ops up to and including after_op left it, not the
                 # incoming stock top.
-                edge = tops[_position(ops, {"after_op": recipe.get("after_op")}) or 0]
+                edge = tops[done] if done != UNKNOWN else UNKNOWN
             # Paper stands the tool off its face on the side it meets the face from.
             face = recipe.get("face", recipe.get("feature"))
             stand_off = None
             credited, carried = [], False
             if axis == "z":
-                done = _position(ops, {"after_op": recipe.get("after_op")}) or 0
                 edge, credited, carried = face_check(
                     {**recipe, "from": recipe.get("from", UNKNOWN)},
                     face,

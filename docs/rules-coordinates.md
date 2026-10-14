@@ -615,7 +615,9 @@ by its box. This is an accepted limitation: a facing op cuts down from above,
 so the plane it leaves at `to_z` faces +Z.
 Each eligible face is judged by its own posed box. Coverage is whole only when
 every eligible box lies inside the bounds by more than that tolerance on each
-side. A face edge within the tolerance of a bound may lie on either side of it,
+side, and the op's `stock_removal_bounds.z` is a finite ascending span containing
+`to_z` (within `SAME_Z`); a missing, malformed or non-reaching Z span leaves it
+unknown, never credited. A face edge within the tolerance of a bound may lie on either side of it,
 so it is unknown (kernel bbox boundary uncertainty), never partial. Partial is
 claimed only where it is known: an eligible box lies clear of the bounds, or the
 setup frame turns the model axes by a signed permutation (each setup axis along

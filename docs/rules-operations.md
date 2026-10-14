@@ -205,8 +205,9 @@ whose survival is unproven may be gone, so its producer's height neither
 credits nor contradicts the reading.
 
 A Z touch whose own operation boundary does not resolve (an empty or partly
-unknown `before_ops`, or an unknown `after_op`) is **unknown**; it is never
-read against the plane as it stood before the setup's first op.
+unknown `before_ops`, or an unknown `after_op`, including the primary
+`zero.z.after_op`) is **unknown**; it is never read against the plane as it stood
+before the setup's first op.
 
 Pre-zero producers, latest-re-face area debt and authored or non-native
 fallback surfaces keep their existing behavior; closing those paths is tracked
