@@ -530,6 +530,7 @@ def test_level_path_records_carry_refused_diameter_through_string_plunge_debt(
     case, status, outside
 ):
     data = bundle()
+    data.inventory["tools"]["cutter"]["kind"] = "endmill"
     baseline = paths(data, outside=outside)
     [record], debts = baseline
     assert debts == []
@@ -561,14 +562,24 @@ def test_lowering_at_the_stock_top_does_not_acquire_unused_diameter_debt():
 def test_plunge_lookup_collects_only_facts_it_reaches_and_preserves_its_tuple_api():
     data = bundle()
     op = data.plan["setups"][0]["ops"][0]
+    tool = data.inventory["tools"]["cutter"]
     measurements = []
+    # A drill's own cited chart sets its axial feed without reading the diameter.
+    tool["dia_mm"] = fact(6.35, "assumed")
+    assert speeds_feeds.plunge_row(data, op, measurements=measurements) == (
+        0.1,
+        "synthetic cutting chart",
+        None,
+    )
+    assert measurements == []
+    tool["kind"] = "endmill"
+    tool["dia_mm"] = fact(6.35)
     assert speeds_feeds.plunge_row(data, op, measurements=measurements) == (
         0.05,
         "synthetic plunge row",
         None,
     )
     assert measurements == []
-    tool = data.inventory["tools"]["cutter"]
     tool["dia_mm"] = fact(6.35, "assumed")
     feed, cite, why = speeds_feeds.plunge_row(data, op, measurements=measurements)
     assert (feed, cite) == ("unknown", "unknown")

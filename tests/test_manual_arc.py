@@ -2452,8 +2452,8 @@ def test_unbounded_joined_chain_prints_only_scrap_side_cylinders(
     plan = joined_chain_plan(tmp_path, cap=100.0)
     change(
         plan.with_name("inventory.toml"),
-        "kind = 'mill'",
-        f"kind = 'mill'\nresolution_mm = {resolution}",
+        "resolution_mm = { value = 0.001,",
+        f"resolution_mm = {{ value = {resolution},",
     )
     bundle = load_bundle(plan)
     assert "stock_removal_bounds" not in bundle.plan["setups"][0]["ops"][0]

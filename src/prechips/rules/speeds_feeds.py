@@ -275,9 +275,15 @@ def plunge_row(bundle, op, *, measurements=None):
     category, identity, _ = select(bundle, op.get("tool"), "tools")
     debt = length_debt(tool, "dia", category, identity) if tool else None
     drilling = tool.get("kind") in DRILL_KINDS and _operation(op, tool) == "drill"
-    if drilling or tool.get("center_cutting") is True:
-        if debt is not None and measurements is not None:
-            measurements.append(debt)
+    # A drill's own cited chart never reads the diameter; a cutting-data row is chosen by it.
+    if drilling:
+        consumes = not _cited(tool.get("chart", UNKNOWN))
+    else:
+        consumes = tool.get("center_cutting") is True
+    if not consumes:
+        debt = None
+    elif debt is not None and measurements is not None:
+        measurements.append(debt)
     if drilling:
         _, chip, _, cite, row_debt = _starting_data(bundle, op, tool, length_mm(tool, "dia"))
         flutes = tool.get("flutes", UNKNOWN)
