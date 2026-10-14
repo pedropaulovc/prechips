@@ -15859,12 +15859,14 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
+        "axial_feed_mm_rev": 0.11,
         "chip_load_mm_per_tooth": 0.055,
         "cutting_data_row": "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.055 mm = 0.11 mm/rev (.0043 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.002-0.006 in/rev for 1/8-1/4 in drills and 0.004-0.010 in/rev for 1/4-1/2 in drills",
         "deep_hole_row": "example (plausible, not measured); threshold from Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1065: when drilling holes deeper than three times the drill diameter, withdraw the drill (peck feed) at intervals to clear chips and let coolant reach the tip. The handbook gives no deep-hole speed factor, so 0.8 is chosen to keep 80 fpm x 0.8 = 64 fpm inside Table 17 p.1061 traditional HSS drilling speeds 60-100 fpm for plain carbon steels 1006-1026 (60 at 225-275 HB); the UFL MAE Design Lab 'Speeds and Feeds' Example 1A tip (-50% past 3xD) and norsemandrill.com (-45-50% past 4xD) are secondary and would fall below that range. The feed stays at the p.1060 row value",
         "deep_hole_sfm_factor": 0.8,
         "depth_over_dia": 12.038410929757273,
         "diameter_in": 0.281251968503937,
+        "feed_direction": "axial",
         "feed_mm_min": 93.5,
         "flutes": 2,
         "material": "1018 low-carbon steel",
@@ -15893,12 +15895,14 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
+        "axial_feed_mm_rev": 0.11,
         "chip_load_mm_per_tooth": 0.055,
         "cutting_data_row": "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.055 mm = 0.11 mm/rev (.0043 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.002-0.006 in/rev for 1/8-1/4 in drills and 0.004-0.010 in/rev for 1/4-1/2 in drills",
         "deep_hole_row": "example (plausible, not measured); threshold from Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1065: when drilling holes deeper than three times the drill diameter, withdraw the drill (peck feed) at intervals to clear chips and let coolant reach the tip. The handbook gives no deep-hole speed factor, so 0.8 is chosen to keep 80 fpm x 0.8 = 64 fpm inside Table 17 p.1061 traditional HSS drilling speeds 60-100 fpm for plain carbon steels 1006-1026 (60 at 225-275 HB); the UFL MAE Design Lab 'Speeds and Feeds' Example 1A tip (-50% past 3xD) and norsemandrill.com (-45-50% past 4xD) are secondary and would fall below that range. The feed stays at the p.1060 row value",
         "deep_hole_sfm_factor": 0.8,
         "depth_over_dia": 12.038410929757273,
         "diameter_in": 0.281251968503937,
+        "feed_direction": "axial",
         "feed_mm_min": 93.5,
         "flutes": 2,
         "material": "1018 low-carbon steel",
@@ -16513,12 +16517,14 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
+        "axial_feed_mm_rev": 0.11,
         "chip_load_mm_per_tooth": 0.055,
         "cutting_data_row": "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.055 mm = 0.11 mm/rev (.0043 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.002-0.006 in/rev for 1/8-1/4 in drills and 0.004-0.010 in/rev for 1/4-1/2 in drills",
         "deep_hole_row": "example (plausible, not measured); threshold from Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1065: when drilling holes deeper than three times the drill diameter, withdraw the drill (peck feed) at intervals to clear chips and let coolant reach the tip. The handbook gives no deep-hole speed factor, so 0.8 is chosen to keep 80 fpm x 0.8 = 64 fpm inside Table 17 p.1061 traditional HSS drilling speeds 60-100 fpm for plain carbon steels 1006-1026 (60 at 225-275 HB); the UFL MAE Design Lab 'Speeds and Feeds' Example 1A tip (-50% past 3xD) and norsemandrill.com (-45-50% past 4xD) are secondary and would fall below that range. The feed stays at the p.1060 row value",
         "deep_hole_sfm_factor": 0.8,
         "depth_over_dia": 3.885291338582677,
         "diameter_in": 0.43750000000000006,
+        "feed_direction": "axial",
         "feed_mm_min": 60.5,
         "flutes": 2,
         "material": "1018 low-carbon steel",
@@ -16545,12 +16551,14 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
+        "axial_feed_mm_rev": 0.18,
         "chip_load_mm_per_tooth": 0.09,
         "cutting_data_row": "example (plausible, not measured); reduced-shank socket drill: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.09 mm = 0.18 mm/rev (.0071 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.007-0.015 in/rev for 1/2-1 in drills",
         "deep_hole_row": "not_applicable",
         "deep_hole_sfm_factor": 1.0,
         "depth_over_dia": 1.9805183486238531,
         "diameter_in": 0.8582677165354331,
+        "feed_direction": "axial",
         "feed_mm_min": 54.0,
         "flutes": 2,
         "material": "1018 low-carbon steel",
@@ -16637,12 +16645,14 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
+        "axial_feed_mm_rev": 0.11,
         "chip_load_mm_per_tooth": 0.055,
         "cutting_data_row": "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.055 mm = 0.11 mm/rev (.0043 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.002-0.006 in/rev for 1/8-1/4 in drills and 0.004-0.010 in/rev for 1/4-1/2 in drills",
         "deep_hole_row": "example (plausible, not measured); threshold from Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1065: when drilling holes deeper than three times the drill diameter, withdraw the drill (peck feed) at intervals to clear chips and let coolant reach the tip. The handbook gives no deep-hole speed factor, so 0.8 is chosen to keep 80 fpm x 0.8 = 64 fpm inside Table 17 p.1061 traditional HSS drilling speeds 60-100 fpm for plain carbon steels 1006-1026 (60 at 225-275 HB); the UFL MAE Design Lab 'Speeds and Feeds' Example 1A tip (-50% past 3xD) and norsemandrill.com (-45-50% past 4xD) are secondary and would fall below that range. The feed stays at the p.1060 row value",
         "deep_hole_sfm_factor": 0.8,
         "depth_over_dia": 3.7822272215973003,
         "diameter_in": 0.43750000000000006,
+        "feed_direction": "axial",
         "feed_mm_min": 60.5,
         "flutes": 2,
         "material": "1018 low-carbon steel",
@@ -16669,12 +16679,14 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
+        "axial_feed_mm_rev": 0.18,
         "chip_load_mm_per_tooth": 0.09,
         "cutting_data_row": "example (plausible, not measured); reduced-shank socket drill: speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.09 mm = 0.18 mm/rev (.0071 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.007-0.015 in/rev for 1/2-1 in drills",
         "deep_hole_row": "not_applicable",
         "deep_hole_sfm_factor": 1.0,
         "depth_over_dia": 2.4651026392961874,
         "diameter_in": 0.6712598425196851,
+        "feed_direction": "axial",
         "feed_mm_min": 63.0,
         "flutes": 2,
         "material": "1018 low-carbon steel",
@@ -16833,12 +16845,14 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
+        "axial_feed_mm_rev": 0.11,
         "chip_load_mm_per_tooth": 0.055,
         "cutting_data_row": "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.055 mm = 0.11 mm/rev (.0043 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.002-0.006 in/rev for 1/8-1/4 in drills and 0.004-0.010 in/rev for 1/4-1/2 in drills",
         "deep_hole_row": "example (plausible, not measured); threshold from Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1065: when drilling holes deeper than three times the drill diameter, withdraw the drill (peck feed) at intervals to clear chips and let coolant reach the tip. The handbook gives no deep-hole speed factor, so 0.8 is chosen to keep 80 fpm x 0.8 = 64 fpm inside Table 17 p.1061 traditional HSS drilling speeds 60-100 fpm for plain carbon steels 1006-1026 (60 at 225-275 HB); the UFL MAE Design Lab 'Speeds and Feeds' Example 1A tip (-50% past 3xD) and norsemandrill.com (-45-50% past 4xD) are secondary and would fall below that range. The feed stays at the p.1060 row value",
         "deep_hole_sfm_factor": 0.8,
         "depth_over_dia": 6.435714285714286,
         "diameter_in": 0.4409448818897638,
+        "feed_direction": "axial",
         "feed_mm_min": 60.5,
         "flutes": 2,
         "material": "1018 low-carbon steel",
@@ -16925,12 +16939,14 @@
       ],
       "message": "Starting RPM and feed are sourced; raw RPM is rounded to nearest 50, then clamped to the actual machine range.",
       "numbers": {
+        "axial_feed_mm_rev": 0.11,
         "chip_load_mm_per_tooth": 0.055,
         "cutting_data_row": "example (plausible, not measured); speed inside Machinery's Handbook 27th ed. (Industrial Press, 2004) Table 17 p.1061 traditional HSS drilling speeds for plain carbon steels 1006-1026, 60-100 fpm (100 at 100-125 HB, 90 at 125-175, 70 at 175-225, 60 at 225-275); 2 flutes x 0.055 mm = 0.11 mm/rev (.0043 in/rev), inside the same handbook's p.1060 drill feeds for the traditional speeds 0.002-0.006 in/rev for 1/8-1/4 in drills and 0.004-0.010 in/rev for 1/4-1/2 in drills",
         "deep_hole_row": "example (plausible, not measured); threshold from Machinery's Handbook 27th ed. (Industrial Press, 2004) p.1065: when drilling holes deeper than three times the drill diameter, withdraw the drill (peck feed) at intervals to clear chips and let coolant reach the tip. The handbook gives no deep-hole speed factor, so 0.8 is chosen to keep 80 fpm x 0.8 = 64 fpm inside Table 17 p.1061 traditional HSS drilling speeds 60-100 fpm for plain carbon steels 1006-1026 (60 at 225-275 HB); the UFL MAE Design Lab 'Speeds and Feeds' Example 1A tip (-50% past 3xD) and norsemandrill.com (-45-50% past 4xD) are secondary and would fall below that range. The feed stays at the p.1060 row value",
         "deep_hole_sfm_factor": 0.8,
         "depth_over_dia": 3.4921161825726137,
         "diameter_in": 0.4744094488188977,
+        "feed_direction": "axial",
         "feed_mm_min": 55.0,
         "flutes": 2,
         "material": "1018 low-carbon steel",
@@ -26246,7 +26262,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "2e7d6351449a1b82f39a8740b28bb494466eb1e3c7e5928a60effc77efa26b09",
+  "hash": "7b33cf95f3d6f89c91cc7664e13f40da0237d277d2e820bb9758fcc85ab37335",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26274,7 +26290,7 @@
     },
     "render:S11": {
       "path": "setup-S11.png",
-      "sha256": "a857ab916621085bf0da5c85dfa3e727974d4f197890f503809e84422faad394"
+      "sha256": "69bde9aa3844c249c64c5411adb7d4d8ef7850ddaf98e9a0932bd5075dc10801"
     },
     "render:S11:110:angularity_dia": {
       "path": "setup-S11-op110-angularity_dia.png",
@@ -26310,11 +26326,11 @@
     },
     "render:S8": {
       "path": "setup-S8.png",
-      "sha256": "13f0e84af680a0ae16a62c99f12cb9436f8fc4653e479a5a0372c40cfdfad8b7"
+      "sha256": "e1002efeafb23dc3b64ea6c82bbafcd93663e91aec6f032272246d91286b912c"
     },
     "render:S9": {
       "path": "setup-S9.png",
-      "sha256": "b9cf182b4fcc2e2f4d66ddc1316d98511d08945fb636b8b93b8c3e946d8fdfca"
+      "sha256": "c6e0b88f76503235488f03853d87389db64ef5cea3a3b396916706d0ea5f1735"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
@@ -26745,7 +26761,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "a857ab916621085bf0da5c85dfa3e727974d4f197890f503809e84422faad394"
+      "sha256": "69bde9aa3844c249c64c5411adb7d4d8ef7850ddaf98e9a0932bd5075dc10801"
     },
     "S12": {
       "fixture": "modeled",
@@ -27475,7 +27491,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "13f0e84af680a0ae16a62c99f12cb9436f8fc4653e479a5a0372c40cfdfad8b7"
+      "sha256": "e1002efeafb23dc3b64ea6c82bbafcd93663e91aec6f032272246d91286b912c"
     },
     "S9": {
       "fixture": "modeled",
@@ -27583,7 +27599,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "b9cf182b4fcc2e2f4d66ddc1316d98511d08945fb636b8b93b8c3e946d8fdfca"
+      "sha256": "c6e0b88f76503235488f03853d87389db64ef5cea3a3b396916706d0ea5f1735"
     }
   },
   "rules_version": "m5-rev12",
