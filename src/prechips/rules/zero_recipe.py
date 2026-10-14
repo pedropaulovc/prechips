@@ -581,8 +581,10 @@ def _primitive_spares_plane(bundle, setup, op, plane):
             (UNKNOWN if uncertain(tool) else length_mm(tool, "blade_width")) if possible else 0.0
         )
         if all(number(z) for z in dialled) and number(blade) and (blade > 0 or not possible):
-            low = min(window)
-            high = max(*dialled, low + blade / scale)
+            # Both ends conservatively: the lower of raw and dialled for the open +Z
+            # side; the groove grown from the deeper-dialled chuck-side wall for -Z.
+            low = min(*window, *dialled)
+            high = max(*window, *dialled, max(min(window), min(dialled)) + blade / scale)
             tolerance = LENGTH_TOLERANCE_MM / scale
             if (outward > 0 and low >= centre[2] - tolerance) or (
                 outward < 0 and high <= centre[2] + tolerance
@@ -724,6 +726,35 @@ def _rectangular_spares_plunge(bundle, setup, target, plane, footprint, previous
         return False
     excluded.append(reach)
     return True
+
+
+def _same_plane_axis(bundle, old, new):
+    """Whether two native planes share one centre axis (parallel normals, frame origins
+    within LENGTH tolerance across it), so a keep-off radius about one is about the other."""
+    from .coordinates import UNIT_MM, frame_axes, model_point
+
+    if old is None or new is None:
+        return False
+    old_axes, new_axes = frame_axes(old["frame"]), frame_axes(new["frame"])
+    if not _native_basis(old_axes) or not _native_basis(new_axes):
+        return False
+    along = abs(sum(a * b for a, b in zip(old_axes[2], new_axes[2], strict=True)))
+    if math.degrees(math.acos(min(1.0, along))) > _NATIVE_DIRECTION_TOLERANCE_DEG:
+        return False
+    offset = [
+        a - b
+        for a, b in zip(
+            model_point([0.0, 0.0, 0.0], old["frame"]),
+            model_point([0.0, 0.0, 0.0], new["frame"]),
+            strict=True,
+        )
+    ]
+    axial = sum(a * b for a, b in zip(offset, new_axes[2], strict=True))
+    lateral = math.sqrt(max(0.0, sum(v * v for v in offset) - axial * axial))
+    return (
+        math.isfinite(lateral)
+        and lateral * UNIT_MM[bundle.features["units"]] <= LENGTH_TOLERANCE_MM
+    )
 
 
 def _carry_boxes(bundle, setup, target, plane):
@@ -1299,7 +1330,11 @@ def _carried_face_z(
                             continue
                 if produced:
                     # Re-facing does not fill either a bounded or an unknown hole.
-                    # The latter debt survives every cut on this same stock route.
+                    # The latter debt survives every cut on this same stock route. A
+                    # kept-off radius is about the plane's own centre: a re-face about
+                    # another centre leaves the old exclusion's extent unproven.
+                    if row["excluded_mm"] > 0 and not _same_plane_axis(bundle, row["plane"], plane):
+                        row["area_unknown"] = True
                     row["plane"] = plane
                     row["normal"] = normal
                     row["present"] = UNKNOWN if row["area_unknown"] else True

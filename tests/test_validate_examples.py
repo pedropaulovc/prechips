@@ -2632,6 +2632,7 @@ def oracle_turned_window_plane(normal):
             "blade-1": {"kind": "grooving_blade", "blade_width_mm": 1.0},
             "blade-2": {"kind": "grooving_blade", "blade_width_mm": 2.0},
             "blade-unknown": {"kind": "grooving_blade"},
+            "blade-witness": {"kind": "grooving_blade", "blade_width_mm": 1.002},
         }
     )
     _, entries, own = zero_oracle(data)
@@ -2711,6 +2712,50 @@ def test_oracle_turning_window_spares_the_plane_only_at_its_dialled_ends(monkeyp
     oracle = VALIDATOR["plane_cut_reach"].__globals__
     monkeypatch.setitem(oracle, "dro_grid", lambda *args: (5.0, 0))
     assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) is None
+
+
+def test_oracle_blade_groove_grows_its_width_from_the_dialled_chuck_side_end(monkeypatch):
+    own, entries, source, plane = oracle_turned_window_plane(-1)
+    forbid_native_survival_helpers(monkeypatch)
+    cut = {"op": 20, "do": "groove", "feature": "spigot", "tool": "blade-witness"}
+    cut.update(z_from=-73.003, z_to=-72.5)
+    oracle = VALIDATOR["plane_cut_reach"].__globals__
+    # On a 0.001 grid the wall stops at -72.001; dialled to -73.000 on 0.005, -71.998.
+    monkeypatch.setitem(oracle, "dro_grid", lambda *args: (0.001, 3))
+    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) == 0.0
+    monkeypatch.setitem(oracle, "dro_grid", lambda *args: (0.005, 3))
+    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) is None
+
+
+@pytest.mark.parametrize("shift", [0.0, 0.5], ids=["same-centre", "shifted-centre"])
+def test_oracle_accepts_only_an_unknown_reface_about_another_centre(tmp_path, shift):
+    from test_contour_order import refaced_about
+
+    data, _, _ = refaced_about(tmp_path, shift)
+    setup, entries, own = zero_oracle(data)
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    assert finding["status"] == ("pass" if shift == 0.0 else "unknown")
+    VALIDATOR["check_zero"](setup, finding, entries, own)
+
+
+def test_oracle_exclusion_centre_axis_is_its_own_frame_comparison():
+    from test_contour_order import tilted
+
+    own, _, source, plane = oracle_turned_window_plane(1)
+    frame = plane["frame"]
+    axes = VALIDATOR["frame_basis"](frame)
+    origin = VALIDATOR["model_point"]([0.0, 0.0, 0.0], frame)
+    shares = VALIDATOR["shares_plane_axis"]
+
+    def moved(x, z):
+        shifted = zip(origin, axes[0], axes[2], strict=True)
+        return {**frame, "origin": [o + x * a + z * b for o, a, b in shifted]}
+
+    assert shares(own, plane, frame)
+    assert shares(own, plane, moved(0.0, 3.0))  # along the axis: same centre line
+    assert not shares(own, plane, moved(2.0, 0.0))  # across it: another centre
+    assert not shares(own, plane, tilted(frame))
+    assert not shares(own, None, frame)
 
 
 @pytest.mark.parametrize(

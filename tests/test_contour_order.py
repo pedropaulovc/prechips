@@ -2528,6 +2528,65 @@ def test_current_rectangular_land_keeps_all_exclusions_without_becoming_a_carrie
     assert all(ref not in " ".join(text) for ref in refs)
 
 
+def refaced_about(tmp_path, shift):
+    """S1 faces the pad and plunges its Ø0.8 hole; S2, framed ``shift`` along X, re-faces
+    the pad and reams a Ø0.3 spot on its own centre; the S2 touch is made before op 60."""
+    import copy
+
+    from prechips.rules.coordinates import model_point
+    from prechips.rules.resolution import setup_frame
+
+    bundle, setup, refs = current_native_face_bundle(tmp_path)
+    first, last = setup["ops"]
+    setup["ops"] = [first, local_plunge()]
+    setup["stock_in"] = "stock"
+    frame = copy.deepcopy(setup_frame(bundle, setup))
+    frame["origin"] = model_point([shift, 0.0, 0.0], setup_frame(bundle, setup))
+    bundle.plan.setdefault("frames", {})["moved"] = frame
+    x, ref = 5.0 + shift, "#91/ADVANCED_FACE[2]/HOLE"
+    bundle.feature_definitions["spot"] = {
+        **bundle.feature_definitions["hole"],
+        "at": [x, 2.0, -7.8],
+        "dia": 0.3,
+        "faces": [ref],
+    }
+    bundle.kernel["mapping"][ref] = 2
+    bundle.kernel["features"]["spot"] = [2]
+    bundle.kernel["faces"].append(
+        {"index": 2, "kind": "Cylinder", "bbox_mm": [x - 0.15, 1.85, -8.8, x + 0.15, 2.15, -7.8]}
+    )
+    receiver = copy.deepcopy(setup)
+    ream = {**local_plunge(30, tool="reamer", action="ream"), "feature": "spot"}
+    receiver.update(
+        id="S2",
+        stock_in="S1",
+        frame="moved",
+        ops=[{**first, "op": 25, "do": "finish_face"}, ream, {**last, "op": 60}],
+    )
+    receiver["zero"]["tool_touches"] = [current_face_touch(before=60)]
+    bundle.plan["setups"].append(receiver)
+    bundle.kernel["ops"].update(
+        {f"S2:{op}": {"claimed_indices": [index]} for op, index in ((25, 0), (30, 2), (60, 0))}
+    )
+    return bundle, receiver, refs
+
+
+@pytest.mark.parametrize("shift", [0.0, 0.5], ids=["same-centre", "shifted-centre"])
+def test_a_reface_about_another_centre_cannot_keep_an_earlier_exclusion_radius(tmp_path, shift):
+    bundle, receiver, refs = refaced_about(tmp_path, shift)
+    credited, carried = [], []
+    standing = zero_recipe.face_stands(
+        bundle, receiver, "target", -8.8, done=2, credited=credited, carried=carried
+    )
+    if shift == 0.0:
+        assert standing == -8.8 and credited == refs
+        assert carried == [{"touch_exclusion_dia_mm": 0.8}]
+    else:
+        # S1's Ø0.8 keep-off is about the old centre: about the re-face's centre it would
+        # credit land the old hole took. The kept-off extent is unproven.
+        assert standing == "unknown" and credited == [] and carried == []
+
+
 @pytest.mark.parametrize("later_setup", [False, True], ids=["current-reface", "same-frame-route"])
 def test_a_later_whole_reface_cannot_erase_unknown_current_cut_area(tmp_path, later_setup):
     import copy
@@ -2820,4 +2879,20 @@ def test_a_turning_window_spares_the_plane_only_at_its_dialled_ends(monkeypatch)
     assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is False
     # On a 5-unit DRO grid the -72.5 end is dialled up to -70, into the plane's material.
     monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (5.0, 0))
+    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is True
+
+
+def test_a_blade_groove_grows_its_width_from_the_dialled_chuck_side_end(monkeypatch):
+    from test_tool_change_touch import op
+
+    from prechips.rules import coordinates
+
+    bundle, source, target, plane = turned_window_plane("#2/SOUTH")
+    bundle.inventory["tools"]["blade"] = {"kind": "grooving_blade", "blade_width_mm": 1.002}
+    cut = op(20, "groove", "spigot", "blade", z_from=-73.003, z_to=-72.5)
+    # On a 0.001 grid the end stays -73.003: its wall stops at -72.001, short of -72.
+    monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (0.001, 3))
+    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is False
+    # Dialled up to -73.000 on a 0.005 grid, the blade's far wall reaches -71.998.
+    monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (0.005, 3))
     assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is True

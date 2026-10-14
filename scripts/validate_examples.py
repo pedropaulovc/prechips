@@ -2239,8 +2239,8 @@ def plane_cut_reach(own, entries: Entries, setup: dict, op: dict, plane: dict, e
     # to_z; not manual, saw, facing, pocketing, parting or transfer) to its
     # z_from..z_to window: a window wholly on the plane's outward side, in a frame
     # coaxial with the plane, leaves the plane whole. Its ends are the dialled
-    # (rounded-up) ones, and a blade (or an unknown kind) cuts its whole known width
-    # up from the window's chuck-side end.
+    # (rounded-up) ones, taken with the raw ones whichever is worse, and a blade (or an
+    # unknown kind) cuts its whole known width up from the dialled chuck-side end.
     window = [op.get("z_from"), op.get("z_to")]
     outward = plane["normal_z"] * normal[2] if plane.get("normal_z") in (1, -1) else 0
     if (
@@ -2262,8 +2262,8 @@ def plane_cut_reach(own, entries: Entries, setup: dict, op: dict, plane: dict, e
                 width = None
         dialled = [dro_up(z, dro_grid(setup, own.features, entries)) for z in window]
         if width is not None and all(map(finite, dialled)):
-            low = min(window)
-            high = max(*dialled, low + width / scale)
+            low = min(*window, *dialled)
+            high = max(*window, *dialled, max(min(window), min(dialled)) + width / scale)
             if (outward > 0 and low >= centre[2] - tolerance) or (
                 outward < 0 and high <= centre[2] + tolerance
             ):
@@ -2306,6 +2306,24 @@ def under_zero(setup: dict, op: dict) -> bool:
     recipe = table_of(table_of(setup.get("zero")).get("z"))
     start = touch_position(ops, {"after_op": recipe.get("after_op")})
     return isinstance(start, int) and any(cut is op for cut in ops[start:])
+
+
+def shares_plane_axis(own, old: dict | None, frame: dict) -> bool:
+    """Own check that ``frame``'s centre axis is ``old`` plane's: parallel Z axes and
+    origins within LENGTH tolerance across them."""
+    if old is None:
+        return False
+    old_axes, new_axes = frame_basis(old["frame"]), frame_basis(frame)
+    if old_axes is None or new_axes is None:
+        return False
+    if off_z_deg([dot(old_axes[2], basis) for basis in new_axes]) > CARRY_DIRECTION_TOLERANCE_DEG:
+        return False
+    a = model_point([0.0, 0.0, 0.0], old["frame"])
+    b = model_point([0.0, 0.0, 0.0], frame)
+    offset = [p - q for p, q in zip(a, b, strict=True)]
+    axial = dot(offset, new_axes[2])
+    lateral = math.sqrt(max(0.0, dot(offset, offset) - axial * axial))
+    return finite(lateral) and lateral * UNIT_MM[own.features["units"]] <= LENGTH_TOLERANCE_MM
 
 
 def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) -> dict | None:
@@ -2407,6 +2425,10 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
             if plane is not None:
                 made = True
                 frame_of = setup_frame(current, own.plan, own.features)
+                # A keep-off radius is about its plane's own centre: a re-face about
+                # another centre leaves the old exclusion's extent unproven.
+                if state["excluded"] > 0 and not shares_plane_axis(own, state["plane"], frame_of):
+                    state["lost"] = True
                 state["plane"] = {**plane, "source": sid, "frame": frame_of}
                 state["present"] = "unknown" if state["lost"] else True
                 continue

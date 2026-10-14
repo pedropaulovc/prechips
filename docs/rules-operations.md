@@ -190,11 +190,12 @@ over a finite `z_from`/`z_to` window) cannot reach a plane when the setup's Z
 is coaxial with the plane's normal and the whole window lies on the plane's
 open, outward side within `LENGTH_TOLERANCE_MM`, because the kernel limits its
 removal to that window. The window is taken at its dialled ends (each rounded
-up on the setup's DRO grid). A grooving or parting blade, or a tool of unknown
-kind, also needs a known blade width: its groove runs that full width up from
-the window's chuck-side end, as the plunge model places it. A tilted frame, a
-window crossing the plane, an unknown width or any cut outside that kind
-still needs the existing radial proof.
+up on the setup's DRO grid) as well as its raw ones, whichever is worse. A
+grooving or parting blade, or a tool of unknown kind, also needs a known blade
+width: its groove runs that full width up from the dialled chuck-side end, as
+the plunge model places it. A tilted frame, a window crossing the plane, an
+unknown width or any cut outside that kind still needs the existing radial
+proof.
 
 An authored-edge contradiction cannot re-fetch the original producer to upgrade
 an invalidated contact: recovery repeats the same survival proof and is skipped
@@ -239,7 +240,11 @@ rectangular witness:
   removed radial regions; its reach is the maximum of the prior reach and
   the current plunge's radius plus centre offset. The existing `_uncut`
   witness must lie outside that whole envelope, not merely outside the last
-  smaller cut. Re-facing does not erase prior unknown cut-area debt.
+  smaller cut. Re-facing does not erase prior unknown cut-area debt. That
+  envelope is about its own plane's centre: a re-face whose plane centre axis
+  differs (non-parallel normals, or origins more than `LENGTH_TOLERANCE_MM`
+  apart across the axis) leaves the earlier exclusion's extent **unknown**
+  rather than re-centring it.
 
 A missing filled-rectangle witness or no remaining 0.5-mm square leaves the
 subsequent contact **unknown**, with the setup/op and named contact face in
