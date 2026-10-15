@@ -286,6 +286,15 @@ Z recipe without `retouch_after` is unresolved, not a known-empty declaration.
 Explicit empty tables/lists remain known empty; no policy file still selects the
 built-in required-rule set.
 
+A tool shank in a holder's single nominal collet capacity fits on the ISO 286
+h6 band below that size (`capacity - IT6` to `capacity`, IT6 from ISO
+286-1:2010 Table 1), so a measured 0.3748 in shank fits a 3/8 in collet; an
+oversize or below-band shank is `tool shank does not match selected collet`,
+and a size past the 500 mm table is `?`. An off-nominal shank's
+`tool_resolves` finding also reports `shank_fit` and `shank_band_mm` and cites
+the table; a nominal shank's finding is unchanged. See
+[tool resolution](docs/rules-tools.md#tool_resolves).
+
 M5 machine envelope limits, fixture bed height, holder gauge/grip, tool OAL
 and tool/holder projection need a fact-local
 `measured = { status = "measured", by, date, instrument }`; `status` is
