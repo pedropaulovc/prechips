@@ -362,6 +362,10 @@ def test_an_ungoverned_basic_scalar_has_no_band(tmp_path):
             },
             r"position_dia is not a BASIC dimension the inspection rule reads",
         ),
+        (
+            {"top_edge": TOP_EDGE.replace('["A", "B", "C"]', '["A", "B", "D"]')},
+            r"top_edge: surface_profile_datums D is not a declared datum",
+        ),
     ],
     ids=[
         "unlisted",
@@ -380,6 +384,7 @@ def test_an_ungoverned_basic_scalar_has_no_band(tmp_path):
         "unknown-requirements",
         "uninspected-target",
         "zone-target",
+        "undeclared-datum",
     ],
 )
 def test_a_malformed_profile_is_bad_input(tmp_path, features, match):
@@ -595,6 +600,16 @@ def test_a_process_hold_on_a_drawn_angle_band_reads_its_linear_zone(tmp_path):
     assert row["gauge_status"] == "pass", row["gauge_message"]
 
 
+@pytest.mark.parametrize("land", ["[0.0, 6.1]", "[-5.08, 6.1]"])
+def test_an_angle_read_across_a_face_of_no_positive_least_extent_is_unknown(tmp_path, land):
+    tip = drawn_tip('"tip_land"').replace("tip_land = [5.08, 6.1]", f"tip_land = {land}")
+    loaded = bundle(tmp_path, {"tip": tip}, subject="tip", requirement="land_angle_deg")
+    row = inspection_finding(loaded, "tip:land_angle_deg")
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["tilt_across_length"] == "unknown"
+    assert "no positive face extent" in row.numbers["tilt_across_reason"]
+
+
 @pytest.mark.parametrize("land", ["tip_land_pos_x", "tip_land_neg_x"])
 def test_the_rocker_tip_land_angle_reads_as_its_linear_zone_across_the_land(land):
     row = inspection_finding(load_bundle(ROCKER), f"{land}:land_angle_deg")
@@ -696,6 +711,68 @@ def test_the_profile_zone_passes_only_in_a_declared_datum_frame(tmp_path, datums
     assert row.status == status, row.sentence
     expected = "unknown" if datums is None else json.loads(datums)
     assert row.numbers["surface_profile_datums"] == expected
+
+
+DATUMS = (
+    '[datums.A]\nfeature = "base"\n[datums.B]\nfeature = "axis"\n[datums.C]\nfeature = "side"\n'
+)
+# A declared datum label that names no manifest feature, as manifest rewrites.
+UNRESOLVED_DATUMS = {
+    "unknown-feature": [('[datums.C]\nfeature = "side"\n', '[datums.C]\nfeature = "unknown"\n')],
+    "absent-feature": [('[datums.C]\nfeature = "side"\n', '[datums.C]\nfeature = "ghost"\n')],
+    "no-feature": [('[datums.C]\nfeature = "side"\n', '[datums.C]\nsurface = "side face"\n')],
+    "unknown-datum": [('[datums.A]\nfeature = "base"\n', '[datums]\nA = "unknown"\n')],
+    "unknown-table": [
+        (DATUMS, ""),
+        ('frames = "unknown"\n', 'frames = "unknown"\ndatums = "unknown"\n'),
+    ],
+}
+
+
+def rewrite_manifest(path, edits):
+    """Apply ``(old, new)`` edits, each matching once, to the bundle's features.toml."""
+    manifest = path.parent / "features.toml"
+    text = manifest.read_text(encoding="utf-8")
+    for old, new in edits:
+        assert text.count(old) == 1, old
+        text = text.replace(old, new)
+    manifest.write_text(text, encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("edits", UNRESOLVED_DATUMS.values(), ids=UNRESOLVED_DATUMS.keys())
+def test_a_profile_datum_naming_no_manifest_feature_leaves_its_bands_unknown(tmp_path, edits):
+    from prechips.rules._profile import requirement_band
+
+    loaded = load_bundle(rewrite_manifest(write_bundle(tmp_path, {"top_edge": TOP_EDGE}), edits))
+    derived, reason = requirement_band(loaded, "top_edge", "radius")
+    assert derived is None
+    assert "the datum reference frame is unknown" in reason
+    assert inspection_finding(loaded, "top_edge:radius").status == "unknown"
+
+
+@pytest.mark.parametrize("edits", UNRESOLVED_DATUMS.values(), ids=UNRESOLVED_DATUMS.keys())
+def test_a_profile_zone_whose_datum_names_no_manifest_feature_is_unknown(tmp_path, edits):
+    path = write_bundle(
+        tmp_path, {"top_edge": TOP_EDGE}, requirement="surface_profile", gauge="cmm"
+    )
+    row = inspection_finding(load_bundle(rewrite_manifest(path, edits)), "top_edge:surface_profile")
+    assert row.status == "unknown", row.sentence
+
+
+def test_a_profile_datum_a_feature_declares_resolves_its_frame(tmp_path):
+    from prechips.rules._profile import requirement_band
+
+    path = write_bundle(
+        tmp_path, {"top_edge": TOP_EDGE}, requirement="surface_profile", gauge="cmm"
+    )
+    edits = [
+        ('[datums.C]\nfeature = "side"\n', ""),
+        ('[features.side]\nkind = "face"\n', '[features.side]\nkind = "face"\ndatum = "C"\n'),
+    ]
+    loaded = load_bundle(rewrite_manifest(path, edits))
+    assert inspection_finding(loaded, "top_edge:surface_profile").status == "pass"
+    assert requirement_band(loaded, "top_edge", "radius")[0] == pytest.approx([799.5, 800.0])
 
 
 # The concave R30 dish of the manual-arc tests, its radius BASIC under a U0.5 profile.

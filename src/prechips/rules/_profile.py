@@ -31,6 +31,39 @@ def governing(bundle, name, requirement):
     ]
 
 
+def datum_features(bundle):
+    """``{label: feature}`` the manifest declares: its ``datums`` table, a feature's own
+    ``datum`` label taking precedence. A value may be ``"unknown"`` or name no feature."""
+    features = record(bundle.features.get("features"))
+    labels = {
+        label: record(datum).get("feature")
+        for label, datum in record(bundle.features.get("datums")).items()
+    }
+    labels.update(
+        {
+            feature["datum"]: name
+            for name, feature in features.items()
+            if isinstance(feature.get("datum"), str) and feature["datum"] != UNKNOWN
+        }
+    )
+    return labels
+
+
+def frame_unresolved(bundle, datums):
+    """Why a surface profile's datum reference frame ``datums`` is unknown, else None. Every
+    label must resolve through :func:`datum_features` to a manifest feature; an empty frame
+    (form only) resolves."""
+    if not isinstance(datums, list):
+        return "the datum reference frame is unknown"
+    declared = datum_features(bundle)
+    features = record(bundle.features.get("features"))
+    for label in datums:
+        feature = declared.get(label)
+        if label == UNKNOWN or not isinstance(feature, str) or feature not in features:
+            return f"the datum reference frame is unknown: datum {label} names no manifest feature"
+    return None
+
+
 def requirement_band(bundle, name, requirement):
     """``(band, reason)``: the acceptance band ``[lo, hi]`` (manifest units, or degrees) of
     ``requirement`` of feature ``name``, or ``None`` and why it is unknown.
@@ -86,11 +119,14 @@ def tilt_reading(band, nominal, length):
 
 
 def least_extent(across, feature):
-    """``(l_min, reason)``: a ``tilt_across`` number, else the named band's lower limit."""
+    """``(l_min, reason)``: a ``tilt_across`` number, else the named band's lower limit,
+    which must be a known positive length."""
     extent = across if number(across) else feature.get(across)
     limits = [extent] if number(extent) else extent if isinstance(extent, list) else []
     if not limits or not all(number(v) for v in limits):
         return None, f"the least limit of {across} is unknown"
+    if min(limits) <= 0:
+        return None, f"the least limit of {across} is no positive face extent"
     return min(limits), None
 
 
@@ -102,8 +138,8 @@ def _zone_band(bundle, owner, entry, feature, nominal, requirement):
     datums = profile.get("surface_profile_datums", UNKNOWN)
     if not number(zone):
         return None, "the zone t is unknown"
-    if not isinstance(datums, list) or any(not d.strip() or d == UNKNOWN for d in datums):
-        return None, "the datum reference frame is unknown"
+    if unresolved := frame_unresolved(bundle, datums):
+        return None, unresolved
     if not datums:
         return None, "with no datums it controls form only, never a size, location or angle"
     if entry == UNKNOWN:

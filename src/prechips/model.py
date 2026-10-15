@@ -1211,8 +1211,15 @@ class Features(InputModel):
 
     @model_validator(mode="after")
     def surface_profiles(self) -> Features:
-        """A profile zone 0 < t, 0 <= U <= t, listed in its feature's requirements, and the
-        BASIC scalars it governs."""
+        """A profile zone 0 < t, 0 <= U <= t, listed in its feature's requirements, the datum
+        labels of its frame declared, and the BASIC scalars it governs."""
+        # The labels a frame may name: the datums table's and the features' own ``datum``. An
+        # unknown datums table denies none; its labels resolve, or not, when rules run.
+        declared = (
+            None
+            if self.datums == UNKNOWN
+            else {*self.datums, *(feature.datum for feature in self.features.values())}
+        )
         for name, feature in self.features.items():
             given = feature.model_fields_set
             if "surface_profile" not in given:
@@ -1231,6 +1238,13 @@ class Features(InputModel):
             most = math.inf if zone == UNKNOWN else zone
             if disposition != UNKNOWN and not 0 <= disposition <= most:
                 raise ValueError(f"{name}: surface_profile_u must lie in [0, surface_profile]")
+            labels = feature.surface_profile_datums
+            for label in labels if isinstance(labels, list) and declared is not None else ():
+                if label != UNKNOWN and label not in declared:
+                    raise ValueError(
+                        f"{name}: surface_profile_datums {label} is not a declared datum (a "
+                        "datums table label or a feature's datum)"
+                    )
             governs = feature.surface_profile_governs
             for key, entry in governs.items() if isinstance(governs, dict) else ():
                 _governed(self.features, name, key, entry)

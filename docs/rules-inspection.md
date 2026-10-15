@@ -275,9 +275,10 @@ geometric kind (`cmm`, `dial_indicator`, `dial_test_indicator`, `height_gauge`),
 a declared `inspection_methods.surface_profile` procedure, and a gauge resolution
 no coarser than t; a missing check is an error, a missing or `"unknown"` method
 unknown, a caliper an error. It passes only in a declared frame: an omitted or
-`"unknown"` `surface_profile_datums`, or one with an unknown datum, leaves it
+`"unknown"` `surface_profile_datums`, or one with a datum that resolves to no
+manifest feature through the `datums` table or a feature's `datum`, leaves it
 unknown even with a capable gauge and method; an explicit `[]` (form only) or a
-known datum list may pass. Evidence adds `surface_profile_datums`. A feature
+resolved datum list may pass. Evidence adds `surface_profile_datums`. A feature
 declaring a zone must list `surface_profile` in its requirements (bad input
 otherwise), so a zone never goes uninspected. Each BASIC scalar it governs
 (`surface_profile_governs`) is read against the band the zone derives for it
@@ -285,7 +286,7 @@ instead of its bare BASIC value: `limits` is that band and the gauge must span
 it and resolve its width, as for any drawn band, and evidence adds
 `profile_band` (the governing profiles, or why the band is unknown). The band is
 pointwise from the DRF-located BASIC origin, not a fitted size. An unresolved
-derivation (unknown t, U, DRF or entry, an empty DRF, a tilt the zone cannot
+derivation (unknown t, U, DRF or entry, an unresolved DRF datum, an empty DRF, a tilt the zone cannot
 bound) leaves `limits = "unknown"` and the finding unknown. A process hold on a
 governed requirement must lie inside the same derived band.
 

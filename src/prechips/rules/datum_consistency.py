@@ -8,7 +8,7 @@ height's band derived from its surface profile included.
 """
 
 from prechips.findings import Finding
-from prechips.rules._profile import requirement_band
+from prechips.rules._profile import datum_features, requirement_band
 from prechips.rules.resolution import HAND_FINISH, MANUAL, SAW_OPS, operations
 
 _NONFINISH = {"spot", "inspect", "release", "fit", "scribe", "transfer", "deburr"} | SAW_OPS
@@ -63,17 +63,7 @@ def _indicated(setups, feature_cut, datum_cut, datum_feature, datum_name):
 def evaluate(bundle):
     setups = bundle.plan["setups"]
     features = bundle.features["features"]
-    datum_map = {
-        name: _mapping(datum).get("feature")
-        for name, datum in _mapping(bundle.features.get("datums")).items()
-    }
-    datum_map.update(
-        {
-            feature["datum"]: name
-            for name, feature in features.items()
-            if isinstance(feature.get("datum"), str) and feature["datum"] != "unknown"
-        }
-    )
+    datum_map = datum_features(bundle)
     budget = _mapping(bundle.policy.get("numbers")).get("refixture_budget_mm", "unknown")
     verified = bundle.policy.get("numbers_verify", False)
     if isinstance(verified, dict):

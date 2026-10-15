@@ -36,6 +36,7 @@ from ..measurements import length_debt, length_fact, record_debt
 from ..model import reference_only, tolerance_requirements
 from ._profile import (
     DIAMETERS,
+    frame_unresolved,
     governing,
     least_extent,
     requirement_band,
@@ -346,11 +347,11 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
                 for datum in angularity_datums
             )
         )
-        # A profile's frame may be empty (form only) but must be declared and known.
+        # A profile's frame may be empty (form only), but each datum must resolve to a
+        # manifest feature.
         profile_datums = feature.get("surface_profile_datums", "unknown")
-        profile_frame_known = isinstance(profile_datums, list) and all(
-            isinstance(datum, str) and bool(datum.strip()) and datum != "unknown"
-            for datum in profile_datums
+        profile_frame_known = (
+            requirement == "surface_profile" and frame_unresolved(bundle, profile_datums) is None
         )
         if geometric:
             nums["inspection_method"] = method or "unknown"
