@@ -1042,6 +1042,74 @@ def test_certain_hits_survive_unknown_context(bundle, debt, kind, hits, status):
         assert exit_code([row], {"required": {}}, bundle) == 2
 
 
+# The rocker's S3:30 chain on its top edge (prechips#236): bounded to X+-135.8 on a face
+# that runs to X+-145.24, 4 of its 53 samples need the #29 drill to cut stock past X+-135.8.
+UNREACHED = {"sample_count": 4, "indices": [1]}
+
+
+def _bounded(bundle, carrier, later_claims):
+    """S1:10 carries ``UNREACHED`` (or S1:20 does, when ``carrier`` is ``"S1:20"``); S1:20
+    is a second finishing op on the same feature whose kernel claim is ``later_claims``."""
+    ops = bundle.plan["setups"][0]["ops"]
+    ops.append({**ops[0], "op": 20})
+    facts = bundle.kernel["ops"]
+    facts["S1:20"] = {**deepcopy(facts["S1:10"]), "claimed_indices": later_claims}
+    if carrier == "S1:20":
+        facts["S1:10"]["claimed_indices"] = later_claims
+        facts["S1:20"]["claimed_indices"] = [1]
+    facts[carrier]["bounds_unreached"] = deepcopy(UNREACHED)
+    return finding(accessibility, bundle, carrier)
+
+
+def test_bounded_samples_beyond_the_box_are_carried_to_a_later_claim(bundle):
+    row = _bounded(bundle, "S1:10", [1])
+    assert row.status == "pass"
+    assert row.numbers["bounds_unreached"] == {
+        "sample_count": 4,
+        "faces": ["#1"],
+        "carried_to": {"#1": ["S1:20"]},
+    }
+    assert "4 claimed-face sample(s) need its cutter beyond its stock_removal_bounds" in (
+        row.sentence
+    )
+    assert "carried to S1:20" in row.sentence
+
+
+def test_bounded_samples_beyond_the_box_with_no_later_claim_are_an_error(bundle):
+    bundle.kernel["ops"]["S1:10"]["bounds_unreached"] = deepcopy(UNREACHED)
+    row = finding(accessibility, bundle)
+    assert row.status == "error"
+    assert row.numbers["bounds_unreached"]["carried_to"] == {}
+    assert "no later op claims #1" in row.sentence
+
+
+@pytest.mark.parametrize(
+    "carrier,claims,status",
+    [
+        # A later op claiming another face never discharges this one.
+        ("S1:10", [2], "error"),
+        # Nor does an earlier op: the box's debt is carried forward only.
+        ("S1:20", [1], "error"),
+        # A later op naming the face with an unknown claim leaves the debt unknown.
+        ("S1:10", "unknown", "unknown"),
+    ],
+)
+def test_carried_debt_needs_a_known_later_claim_of_that_face(bundle, carrier, claims, status):
+    row = _bounded(bundle, carrier, claims)
+    assert row.status == status
+    assert row.numbers["bounds_unreached"]["carried_to"] == {}
+    if status == "unknown":
+        assert "whether a later op claims #1 is unknown" in row.sentence
+
+
+def test_carried_debt_never_hides_a_certain_hit_inside_the_box(bundle):
+    bundle.kernel["ops"]["S1:10"].update(tool_hits=2, min_hits={"tool": 2, "holder": 0})
+    row = _bounded(bundle, "S1:10", [1])
+    assert row.status == "error"
+    assert "certainly occluded" in row.sentence
+    assert row.numbers["bounds_unreached"]["carried_to"] == {"#1": ["S1:20"]}
+
+
 @pytest.mark.parametrize("rule", [accessibility, internal_corner_radius])
 @pytest.mark.parametrize("context", ["invalid", "away"])
 def test_context_errors_take_precedence_over_finished_facts(bundle, rule, context):

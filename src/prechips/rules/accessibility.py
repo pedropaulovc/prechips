@@ -4,6 +4,10 @@ Printed DRO checkpoints (coordinates arc/line tables) are checked in the kernel 
 checkpoint whose cutter meets the finished part, the op's rough leave, a fixture component or
 stock outside a bounded op's box, or removes stock a later setup grips, presses, locates,
 rests or supports on, is an error naming the row; an unknown check never passes the op.
+
+A bounded op is judged only on the claimed-face samples its cutter reaches without meeting
+stock outside its stock_removal_bounds; the rest is debt a later op claiming that face must
+discharge.
 """
 
 from dataclasses import replace
@@ -15,10 +19,19 @@ from prechips.rules.geometry_common import (
     TURNING_TOOL_KEYS,
     blade_keys,
     fact_reason,
+    finishing_subjects,
+    op_claims,
     op_contexts,
     with_measurement_debts,
 )
-from prechips.rules.resolution import identity, number
+from prechips.rules.resolution import (
+    claim_refs,
+    identity,
+    known_refs,
+    number,
+    operations,
+    record,
+)
 
 _CHECKPOINT_KEYS = (
     "checkpoint_count",
@@ -102,6 +115,69 @@ def _engagement(bundle, setup, op, entry, feed_z, scale):
     return "pass", declared, None
 
 
+def _carried(bundle, facts, op, unreached):
+    """(numbers, verdict, why) for a bounded op's claimed-face samples whose cutter would
+    meet its stock outside its stock_removal_bounds (kernel ``bounds_unreached``), or None.
+
+    The kernel judges the op only where its cutter may stand; the rest of each such face
+    stays under the stock as carried debt. A later finishing op (:func:`finishing_subjects`)
+    whose kernel claim holds the face discharges it, and judges it in turn. A later
+    finishing op naming the face, or one whose refs are unknown, with an unknown claim
+    leaves it unknown. With neither, no op makes that part of the face: an error.
+    """
+    if not isinstance(unreached, dict):
+        return None
+    count, indices = unreached.get("sample_count"), unreached.get("indices")
+    numbers = {"sample_count": count, "faces": [], "carried_to": {}}
+    if not (
+        number(count)
+        and count > 0
+        and isinstance(indices, list)
+        and indices
+        and all(isinstance(index, int) and not isinstance(index, bool) for index in indices)
+    ):
+        return numbers, "unknown", "its claimed-face samples beyond its box are unresolved"
+    refs = {
+        face.get("index"): face.get("ref")
+        for face in facts.get("faces") or []
+        if isinstance(face, dict) and isinstance(face.get("ref"), str)
+    }
+    mapping = record(facts.get("mapping"))
+    finishing = finishing_subjects(bundle)
+    ops = operations(bundle)
+    position = next(k for k, (_, other) in enumerate(ops) if other is op)
+    later = [
+        (f"{other_setup['id']}:{other['op']}", other_setup, other)
+        for other_setup, other in ops[position + 1 :]
+        if f"{other_setup['id']}:{other['op']}" in finishing
+    ]
+    unresolved, uncovered = [], []
+    for index in sorted(indices):
+        ref = refs.get(index, f"face index {index}")
+        numbers["faces"].append(ref)
+        takers, open_claim = [], False
+        for subject, other_setup, other in later:
+            claims = op_claims(bundle, facts, other_setup, other)[0]
+            if claims is None:
+                named = claim_refs(bundle, other)
+                open_claim = open_claim or not known_refs(named)
+                open_claim = open_claim or any(mapping.get(name) == index for name in named)
+            elif index in claims:
+                takers.append(subject)
+        if takers:
+            numbers["carried_to"][ref] = takers
+        else:
+            (unresolved if open_claim else uncovered).append(ref)
+    beyond = f"{count} claimed-face sample(s) need its cutter beyond its stock_removal_bounds"
+    if uncovered:
+        return numbers, "error", f"{beyond} and no later op claims {', '.join(uncovered)}"
+    if unresolved:
+        faces = ", ".join(unresolved)
+        return numbers, "unknown", f"{beyond} and whether a later op claims {faces} is unknown"
+    takers = sorted({subject for named in numbers["carried_to"].values() for subject in named})
+    return numbers, "pass", f"{beyond}, carried to {', '.join(takers)}"
+
+
 def evaluate(bundle):
     rows = []
     required = (
@@ -112,7 +188,7 @@ def evaluate(bundle):
         "holder_gauge_len_mm",
     )
     turning = TURNING_TOOL_KEYS + TURNING_HOLDER_KEYS
-    for setup, op, _, detail, inputs, cite, blocked in op_contexts(
+    for setup, op, facts, detail, inputs, cite, blocked in op_contexts(
         bundle, "accessibility", required, fixture=True, turning=turning
     ):
         turned = inputs.get("approach") == TURNING
@@ -191,6 +267,17 @@ def evaluate(bundle):
                 "error",
                 "selected cutter or holder is certainly occluded by part/fixture material",
             )
+        carried = _carried(bundle, facts, op, detail.get("bounds_unreached"))
+        if carried is not None:
+            values["bounds_unreached"], verdict, why = carried
+            if verdict == "error":
+                message = f"{message}; {why}" if status == "error" else why
+                status = "error"
+            elif verdict == "unknown" and status != "error":
+                message = why if status == "pass" else f"{message}; {why}"
+                status = "unknown"
+            elif status == "pass":
+                message = f"{message}; {why}"
         values.update(checkpoints)
         windows = detail.get("window_poses")
         if isinstance(windows, list) and windows:

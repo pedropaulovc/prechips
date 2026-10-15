@@ -1267,7 +1267,13 @@ unknown), while genuine collisions with finished material remain independent
 errors. It shapes the stock later flutes of this setup and later setups meet,
 and excludes this operation's own derivable allowance from its flute obstacles;
 accessibility holder obstacles and holding facts still use setup-entry stock,
-while reach, holder-wall and shank screens see it ([`reach`](rules-geometry.md#reach)). This is an
+while reach, holder-wall and shank screens see it ([`reach`](rules-geometry.md#reach)).
+The box also confines this op's cutter: accessibility judges a claimed face
+only where the cutter can stand without meeting stock outside the box (air and
+the finished part beyond it do not stop it). Samples it cannot reach are
+carried to a later finishing op that claims the same face (a file to the line,
+for example); with none, the finding is an
+error ([`accessibility`](rules-geometry.md#accessibility)). This is an
 authored process/fixture volume, not a
 measured toolpath or proof that the whole toolpath is safe. Without it, any claimed wall
 whose interior still touches overstock above `to_z` (including a drafted wall)
