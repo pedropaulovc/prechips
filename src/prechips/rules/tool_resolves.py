@@ -7,6 +7,7 @@ shop-made item's make operation names a ``tools`` key and states its cutting dat
 """
 
 from ..findings import Finding
+from ..measurements import length_debt, length_fact
 from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
     MANUAL,
@@ -183,11 +184,21 @@ def evaluate(bundle):
             "present": item is not None,
             "verified": item is not None and not uncertain(item),
         }
+        diameter_reason = None
         if item:
             numbers["kind"] = item.get("kind", "unknown")
-            dia = length_mm(item, "dia")
-            if number(dia):
-                numbers["dia_mm"] = dia
+            diameter = length_fact(item, "dia", require_measured=False)
+            if diameter["verified"] and number(diameter["value"]):
+                numbers["dia_mm"] = diameter["value"]
+            elif diameter["measurement_status"] != UNKNOWN or (
+                uncertain(item) and number(diameter["value"])
+            ):
+                status = "unknown"
+                numbers["verified"] = False
+                diameter_reason = diameter["reason"]
+                debt = length_debt(item, "dia", category, ref)
+                if debt:
+                    numbers["measurements"] = [debt]
         findings.append(
             Finding(
                 "tool_resolves",
@@ -201,6 +212,11 @@ def evaluate(bundle):
                     if item is None
                     else "listed; presence or catalogue identity needs verification."
                     if uncertain(item)
+                    else (
+                        "listed identity resolves, but its diameter is unverified: "
+                        f"{diameter_reason}"
+                    )
+                    if diameter_reason
                     else "listed inventory identity resolves."
                 ),
             )

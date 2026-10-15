@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from test_envelope_m5 import measured
 from test_sheet_ops import Markup, content
 
 from prechips.inputs import Bundle
@@ -104,7 +105,16 @@ def _lathe(ops, features, tools, units="mm", zero=None):
             "frames": {"model": dict(_IDENTITY), "T": dict(_IDENTITY)},
             "features": features,
         },
-        inventory={"machines": {"lathe": {"kind": "lathe"}}, "tools": tools},
+        inventory={
+            "machines": {
+                "lathe": {
+                    "kind": "lathe",
+                    # The isolated numeric rules use a known 0.001 grid in plan units.
+                    "resolution_mm": measured(0.0254 if units == "in" else 0.001),
+                }
+            },
+            "tools": tools,
+        },
         policy={},
         cutting_data={},
         paths={},
@@ -236,7 +246,7 @@ def test_a_half_way_travel_rounds_up_on_a_coarser_dro(dia, radial):
 
     op = {"op": 10, "do": "part_off", "feature": "relief", "tool": "blade", "to_z": 0.0}
     bundle = _lathe([op], {"relief": dict(_RELIEF)}, {"blade": _blade()})
-    bundle.inventory["machines"]["lathe"]["resolution_mm"] = 0.01
+    bundle.inventory["machines"]["lathe"]["resolution_mm"] = measured(0.01)
     sheet = _Traveler(bundle, [], {}, None)
     setup = sheet.setup = bundle.plan["setups"][0]
     sheet.records[("coordinates", "S1")] = {"x_display": "diameter"}
@@ -380,7 +390,7 @@ def _rest_row(monkeypatch, engage_z, declared, units="mm", window=(166.0, 0.2)):
     setup = {"id": "S1", "hold": {"supports": [rest]}}
     op = {"op": 10, "do": "rough_turn", "z_from": window[0], "z_to": window[1]}
     inputs = {key: 1.0 for key in TURNING_TOOL_KEYS + TURNING_HOLDER_KEYS}
-    inputs.update(approach=TURNING, feed_z=-1)
+    inputs.update(approach=TURNING, feed_z=-1, measurement_debts=[])
     detail = {
         "sample_count": 19,
         "tool_hits": 0,
@@ -455,7 +465,7 @@ def _sheet(units, resolution_mm, numbers, z_from, z_to):
 
     op = {"op": 10, "do": "rough_turn", "z_from": z_from, "z_to": z_to}
     bundle = _lathe([op], {}, {}, units=units)
-    bundle.inventory["machines"]["lathe"]["resolution_mm"] = resolution_mm
+    bundle.inventory["machines"]["lathe"]["resolution_mm"] = measured(resolution_mm)
     setup = bundle.plan["setups"][0]
     sheet = _Traveler(bundle, [], {}, None)
     sheet.setup = setup
@@ -873,7 +883,7 @@ def _parted(touch, ends, side, to_z=-5.0, face="shoulder"):
     op = {"op": 40, "do": "part_off", "feature": "end", "tool": "blade", "to_z": to_z}
     zero = {"tool_touches": [{**touch, "before_ops": [40]}]}
     bundle = _lathe([op], {}, {"blade": _blade()}, zero=zero)
-    bundle.inventory["machines"]["lathe"]["resolution_mm"] = 0.01
+    bundle.inventory["machines"]["lathe"]["resolution_mm"] = measured(0.01)
     facts = {} if side is None else {"faced_side": side}
     kernel = {
         "status": "ok",
@@ -1227,7 +1237,7 @@ def _retouched(width):
     bundle.plan["dro"].update(
         mode="abs", direction={"x": "away_from_spindle_axis", "z": "toward_exposed_end"}
     )
-    bundle.inventory["machines"]["lathe"]["resolution_mm"] = 0.1
+    bundle.inventory["machines"]["lathe"]["resolution_mm"] = measured(0.1)
     bundle.inventory["tools"]["blade"]["blade_width_mm"] = width
     bundle.inventory["gauges"] = {"mic": {"kind": "micrometer", "resolution_mm": 0.01}}
     bundle.inventory["tools"]["turner"] = dict(_AR)
@@ -1423,7 +1433,7 @@ def test_a_later_setup_zeroed_on_a_turned_shoulder_reads_where_it_stands(fact, t
     # the end is stock its touch sets.
     bundle = _retouched(1.6)
     lathe = bundle.inventory["machines"]["lathe"]
-    bundle.inventory["machines"]["fine_lathe"] = {**lathe, "resolution_mm": 0.01}
+    bundle.inventory["machines"]["fine_lathe"] = {**lathe, "resolution_mm": measured(0.01)}
     first = bundle.plan["setups"][0]
     first["machine"] = "fine_lathe"
     first["ops"][1] = {"op": 40, "do": "turn", "feature": "end", "tool": "turner", "to_z": to_z}

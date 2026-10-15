@@ -8,6 +8,7 @@ from itertools import pairwise, product
 
 from ..findings import Finding
 from ..joint_features import _lineage
+from ..measurements import length_debt, length_keys, measurement_checklist
 from ..model import UNIT_TOLERANCE
 from ._bench import manual_bench, not_applicable
 from .geometry_common import TURNING_BLADE_KINDS, approach, cutting_action, op_claims
@@ -67,6 +68,12 @@ DIRECTIONS = {
 }
 
 
+def _touch_diameter(tool):
+    """Use the contact tip when authored; only an absent tip can use the tool diameter."""
+    field = "tip" if length_keys(tool, "tip", tool.get("units"), bare=True) else "dia"
+    return length_mm(tool, field), field
+
+
 def finder_procedure(bundle, setup, tool):
     """The EDGE FINDER box's facts for an X/Y pick-up with ``tool``: its type, tip Ø and
     radius, and the rpm bands it runs at on this setup's mill (its own band intersected
@@ -76,9 +83,7 @@ def finder_procedure(bundle, setup, tool):
     error where no spindle band turns any of the finder's band. An electronic finder
     signals contact with the spindle stopped, so it needs no speed."""
     kind = tool.get("finder_type", UNKNOWN)
-    tip = length_mm(tool, "tip")
-    if not number(tip):
-        tip = length_mm(tool, "dia")
+    tip, _ = _touch_diameter(tool)
     band = tool.get("rpm_range", UNKNOWN)
     missing = [
         name
@@ -2360,11 +2365,13 @@ def _face_checker(bundle, setup, errors, unknowns):
     A same-setup producer keeps its exact DRO-step comparison. A carried face's
     authored edge must agree with its transformed native nominal or as-cut height
     within LENGTH tolerance; the +Z Axis Set separately rounds height plus paper
-    down to the current display step. Measured touches remain independent.
+    down to the current display step. Measured touches remain independent. On an
+    unverified DRO grid a face's known standing Z still reads unknown.
     """
-    from .coordinates import dro_grid, dro_z, formed_z
+    from .coordinates import dro_grid, dro_grid_debt, dro_z, formed_z
 
     grid = dro_grid(bundle, setup)
+    grid_debt = dro_grid_debt(bundle, setup)
 
     def check(touch, face, edge, done, who, source=None):
         if done == UNKNOWN:
@@ -2420,6 +2427,10 @@ def _face_checker(bundle, setup, errors, unknowns):
                 f"{who} on {face} (native-plane credit requires a known +Z/above touch)"
             )
             return UNKNOWN, [], False
+        if grid_debt:
+            # An unverified grid certifies nothing, but the readings stay printed on
+            # its nominal step; grid-exactness errors are not judged on it.
+            unknowns.append(f"{who} on {face}: {grid_debt}")
         if carried and "native_edge_mm" in carried[0]:
             from .coordinates import UNIT_MM
 
@@ -2433,6 +2444,8 @@ def _face_checker(bundle, setup, errors, unknowns):
                     f"the carried face physically stands at {stands:g}"
                 )
             return stands, credited, carried[0]
+        if grid_debt:
+            return stands, credited, carried[0] if carried else False
         shown_edge = dro_z(edge, grid)
         if number(edge) and shown_edge != stands:
             errors.append(
@@ -2489,6 +2502,8 @@ def _carried_setting(bundle, setup, row, field, constraint=None):
 
 
 def evaluate(bundle):
+    from .coordinates import dro_grid_debt, dro_grid_measurements
+
     result = []
     dro = mapping(bundle.plan.get("dro"))
     for setup in bundle.plan["setups"]:
@@ -2530,6 +2545,7 @@ def evaluate(bundle):
         face_check = _face_checker(bundle, setup, face_errors, face_unknowns)
         # The edge finder's procedure facts (:func:`finder_procedure`) of each pick-up.
         finder_status = set()
+        tip_measurements = []
 
         unknown = (
             not frame
@@ -2561,17 +2577,17 @@ def evaluate(bundle):
                 if axis == "z" or method == "trial_cut_measure"
                 else 0
                 if indicated
-                else length_mm(tool, "tip")
+                else _touch_diameter(tool)[0]
             )
-            if (
-                axis != "z"
-                and not indicated
-                and method != "trial_cut_measure"
-                and not number(radius)
-            ):
-                radius = length_mm(tool, "dia")
             if not indicated and number(radius):
                 radius /= 2
+            if axis != "z" and not indicated and method not in MEASURED and tool:
+                _, field = _touch_diameter(tool)
+                category, tool_ref = identity(bundle, recipe.get("tool"), "spindle")
+                if tool.get("kind") != UNKNOWN:
+                    debt = length_debt(tool, field, category, tool_ref)
+                    if debt:
+                        tip_measurements.append(debt)
             # A named after_op that does not resolve places the touch nowhere known,
             # never at the initial boundary.
             done = _boundary(ops, {"after_op": recipe.get("after_op")})
@@ -2819,6 +2835,14 @@ def evaluate(bundle):
             "derived_touches": derived,
             "missing_touches": missing,
         }
+        grid_debt = dro_grid_debt(bundle, setup) if face_unknowns else None
+        if grid_debt:
+            numbers["dro_grid_debt"] = grid_debt
+            numbers["measurements"] = dro_grid_measurements(bundle, setup)
+        if tip_measurements:
+            numbers["measurements"] = measurement_checklist(
+                [], debts=[*numbers.get("measurements", []), *tip_measurements]
+            )
         if lathe:
             numbers["tool_setting"] = tool_setting(bundle, setup, zero, touches, derived)
         if "transfer" in zero:
@@ -2892,7 +2916,11 @@ def evaluate(bundle):
             )
         if face_unknowns:
             sentence += (
-                " A Z touch meets a face its op left at an unknown Z ("
+                (
+                    " A Z touch cannot be certified on an unverified DRO grid ("
+                    if grid_debt
+                    else " A Z touch meets a face its op left at an unknown Z ("
+                )
                 + "; ".join(face_unknowns)
                 + "): its Axis Set is not known."
             )

@@ -14,16 +14,11 @@ RADIUS = 4.7625  # a 3/8 in cutter: every offset lands between 0.005 grid points
 
 def scratch(tmp_path, feature, op, band=None):
     """S1 op 20 on a 0.005 mm DRO with a 9.525 mm cutter; ``band`` is a thickness band."""
-    plan = coordinate_bundle(tmp_path, feature, op)
+    plan = coordinate_bundle(tmp_path, feature, op, resolution=STEP)
     root = plan.parent
     inventory = root / "inventory.toml"
     inventory.write_text(
-        inventory.read_text(encoding="utf-8")
-        .replace(
-            "[machines.mill]\nkind = 'mill'\n",
-            "[machines.mill]\nkind = 'mill'\nresolution_mm = 0.005\n",
-        )
-        .replace(
+        inventory.read_text(encoding="utf-8").replace(
             "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\n",
             "[tools.cutter]\nkind = 'endmill'\ndia_mm = 9.525\n",
         ),

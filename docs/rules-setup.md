@@ -243,7 +243,7 @@ lathe operation is never asked for a fictitious toolpost gauge length.
 
 | Rule / subject | Inputs and tier | Sheet sentence |
 |---|---|---|
-| `envelope` / setup | M5: authored stock and setup stock-state/frame; already-present successful kernel bbox only; fixture bed height plus parallels/supports; measured holder gauge and tool/holder projection; each operation's authored `approach_mm` and commanded Z band; measured spindle-to-table min/max | `S1: op 10 … exceeds spindle-to-table maximum … mm by … mm.` or `? S1: spindle envelope remains unmeasured or unresolved. measure: PM-30MV spindle nose to table at full Z-down, steel rule, mm.` |
+| `envelope` / setup | M5: authored stock and setup stock-state/frame; already-present successful kernel bbox only; fixture bed height plus parallels/supports; measured holder gauge and tool/holder projection; each operation's authored `approach_mm` and commanded Z band; measured spindle-to-table min/max | `S1: op 10 … exceeds spindle-to-table maximum … mm by … mm.` or `? S1: spindle envelope remains unmeasured or unresolved — ? M1`, linked to the named input and full action in that setup's STOP box. |
 | `travel` / setup | M5: transformed operation feature extents/centres or conservative authored stock span; selected cutter radius for profile extents only; commanded tip targets and advanced hole entry/exit; authored `approach_mm`; per-op holder gauge and projection; measured X/Y/Z travel | `S1: … exceeds measured X travel …` or a `?` naming the usable axis travel, feature extent, holder/tool length or safe approach to measure and author. |
 
 Child `counterbore` and other point operations with no `at` inherit the named
@@ -307,12 +307,19 @@ travel pass; declare a correctly unit-bound millimetre manifest instead.
 Each M5 finding cites the input fields and retains nominal vendor numbers only
 as evidence. A missing value stays `"unknown"`. Limits, fixture heights, holder
 gauge/grip, tool OAL/projection and cutter geometry require a complete
-fact-local `measured = { by, date, instrument }`; `verify = true`, a block or
-root record, a source flag or a citation cannot establish a pass or a measured
-overrun. A known verified axis/stack violation still stops if other
+fact-local `measured = { status = "measured", by, date, instrument }`;
+`verify = true`, a block or root record, a source flag, a citation or a record
+whose status is `assumed`/`illustrative` (or omitted) cannot establish a pass
+or a measured overrun: the row stays `?` naming that status and `by`.
+A known verified axis/stack violation still stops if other
 measurements remain unknown. Every unresolved applicable row carries concrete
 `measure:` instructions, keyed by the exact fact consumed (set member or
-tool/holder pair included); an operation whose holder does not resolve is told
+tool/holder pair included). The traveler prints each full instruction once in
+the setup STOP box, uses short numbered references elsewhere, and returns
+measured values for re-issue rather than treating measurement as a missing
+planning calculation. Fixture instructions use only the actual fixture kind's
+consumed dimensions; a riser is not asked for a vise jaw height. An operation
+whose holder does not resolve is told
 to add or resolve the holder, not to measure an unowned item.
 `numbers.measurements` carries those entries; `tools --measure` lists the
 current plans' measurement debt, sorted and deduplicated by id, without starting
@@ -472,7 +479,9 @@ Three checks need no prose:
   rounds it at the setup's DRO decimals; another op's row at the same value does
   not stand in. The named op's row missing or not computed leaves the check
   unknown, and so does a picture cut naming no op (its op unknown, empty or
-  absent): which row it restates cannot be checked. A saw's blade path carries
+  absent): which row it restates cannot be checked. A setup whose
+  `cut_clearances` holds uncomputed rows with no `closest_cut` is unknown
+  naming those ops, never a silent pass. A saw's blade path carries
   no row, so the cut it names restates none.
 - `stock_state` heights are checked against the kernel's setup-entry stock,
   beyond its 0.001 mm stock tolerance. Each height is judged by the one evidence

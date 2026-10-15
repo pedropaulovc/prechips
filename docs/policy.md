@@ -61,7 +61,8 @@ M5 does not change this default. To require measured mill feasibility, add
 `envelope = "*"` and `travel = "*"` to the shop's `[required]` table alongside
 its existing requirements. There is no `holder_stack` rule to require: a
 selected holder's unmeasured gauge keeps `envelope` and `travel` at `?`
-where that gauge is consumed. Missing or vendor-only values produce `?` and
+where that gauge is consumed. Missing, vendor-only, `assumed` or
+`illustrative` values produce `?` and
 exit 4 when required; a measured envelope/travel violation always produces
 exit 2. Mill-only envelope/travel rows are `not_applicable` on a lathe.
 See [measured setup screens](rules-setup.md#m5-measured-inventory-screens) and

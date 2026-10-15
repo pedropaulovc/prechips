@@ -2230,7 +2230,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "800dfd517fc0bafa2f98f601d143513202d3aac2fe440b60a8c1dd5d188b7f58"
+            "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
           },
           "plan": {
             "path": "examples/rocker-arm/plan.toml",
@@ -44064,8 +44064,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
-        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder verification",
         "plan.setups[P1].ops[10].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44076,7 +44076,7 @@
         "doc_mm": 1.525,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-4in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "face",
         "over_limit": false,
@@ -44087,7 +44087,7 @@
         "recommended_doc_mm": 1.525,
         "tool": "endmills-lms-6784/3-4in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 82.6
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44097,8 +44097,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
-        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder verification",
         "plan.setups[P2].ops[10].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44109,7 +44109,7 @@
         "doc_mm": 2.8,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-4in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "face",
         "over_limit": false,
@@ -44120,7 +44120,7 @@
         "recommended_doc_mm": 2.8,
         "tool": "endmills-lms-6784/3-4in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 82.6
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44130,8 +44130,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
-        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder verification",
         "plan.setups[P3].ops[10].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44142,7 +44142,7 @@
         "doc_mm": 2.8,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-4in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "face",
         "over_limit": false,
@@ -44153,7 +44153,7 @@
         "recommended_doc_mm": 2.8,
         "tool": "endmills-lms-6784/3-4in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 82.6
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44163,8 +44163,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
-        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder verification",
         "plan.setups[P4].ops[10].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44175,7 +44175,7 @@
         "doc_mm": 1.525,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-4in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "face",
         "over_limit": false,
@@ -44186,7 +44186,7 @@
         "recommended_doc_mm": 1.525,
         "tool": "endmills-lms-6784/3-4in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 82.6
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44196,8 +44196,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
-        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder verification",
         "plan.setups[P5].ops[10].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44208,7 +44208,7 @@
         "doc_mm": 5.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-4in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "profile",
         "over_limit": false,
@@ -44219,7 +44219,7 @@
         "recommended_doc_mm": 5.5,
         "tool": "endmills-lms-6784/3-4in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 82.6
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44229,8 +44229,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
-        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-4in: selected holder verification",
         "plan.setups[P5].ops[20].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44241,7 +44241,7 @@
         "doc_mm": 5.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-4in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "profile",
         "over_limit": false,
@@ -44252,7 +44252,7 @@
         "recommended_doc_mm": 5.5,
         "tool": "endmills-lms-6784/3-4in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 82.6
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44262,8 +44262,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S1].ops[10].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44274,7 +44274,7 @@
         "doc_mm": 0.2,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "finish_face",
         "over_limit": false,
@@ -44285,7 +44285,7 @@
         "recommended_doc_mm": 0.2,
         "tool": "endmills-lms-6784/3-8in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44295,8 +44295,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S1].ops[20].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44307,7 +44307,7 @@
         "doc_mm": 1.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_face",
         "over_limit": false,
@@ -44318,7 +44318,7 @@
         "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/3-8in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44328,8 +44328,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S1].ops[25].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44340,7 +44340,7 @@
         "doc_mm": 0.2,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "finish_face",
         "over_limit": false,
@@ -44351,7 +44351,7 @@
         "recommended_doc_mm": 0.2,
         "tool": "endmills-lms-6784/3-8in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44361,8 +44361,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S1].ops[30].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44373,7 +44373,7 @@
         "doc_mm": 1.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_profile",
         "over_limit": false,
@@ -44384,7 +44384,7 @@
         "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/3-8in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44394,8 +44394,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S1].ops[32].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44406,7 +44406,7 @@
         "doc_mm": 0.2,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "finish_face",
         "over_limit": false,
@@ -44417,7 +44417,7 @@
         "recommended_doc_mm": 0.2,
         "tool": "endmills-lms-6784/3-8in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44427,8 +44427,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S1].ops[40].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44439,7 +44439,7 @@
         "doc_mm": 1.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_profile",
         "over_limit": false,
@@ -44450,7 +44450,7 @@
         "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/3-8in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44460,8 +44460,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S1].ops[5].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44472,7 +44472,7 @@
         "doc_mm": 1.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_face",
         "over_limit": false,
@@ -44483,7 +44483,7 @@
         "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/3-8in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44493,8 +44493,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/1-4in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/1-4in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/1-4in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S1].ops[50].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44505,7 +44505,7 @@
         "doc_mm": 1.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_profile",
         "over_limit": false,
@@ -44516,7 +44516,7 @@
         "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/1-4in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 61.9
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44556,8 +44556,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S2].ops[10].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44568,7 +44568,7 @@
         "doc_mm": 0.3,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "finish_face",
         "over_limit": false,
@@ -44579,7 +44579,7 @@
         "recommended_doc_mm": 0.3,
         "tool": "endmills-lms-6784/3-8in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44589,8 +44589,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S2].ops[15].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44601,7 +44601,7 @@
         "doc_mm": 1.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_face",
         "over_limit": false,
@@ -44612,7 +44612,7 @@
         "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/3-8in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44622,8 +44622,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S2].ops[20].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44634,7 +44634,7 @@
         "doc_mm": 0.2,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "finish_face",
         "over_limit": false,
@@ -44645,7 +44645,7 @@
         "recommended_doc_mm": 0.2,
         "tool": "endmills-lms-6784/3-8in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44670,8 +44670,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S2].ops[28].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44682,7 +44682,7 @@
         "doc_mm": 1.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_profile",
         "over_limit": false,
@@ -44693,7 +44693,7 @@
         "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/3-8in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44703,8 +44703,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S2].ops[29].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44715,7 +44715,7 @@
         "doc_mm": 0.2,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "finish_face",
         "over_limit": false,
@@ -44726,7 +44726,7 @@
         "recommended_doc_mm": 0.2,
         "tool": "endmills-lms-6784/3-8in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44781,8 +44781,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S2].ops[40].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44793,7 +44793,7 @@
         "doc_mm": 1.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_profile",
         "over_limit": false,
@@ -44804,7 +44804,7 @@
         "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/3-8in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44814,8 +44814,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/3-8in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S2].ops[5].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44826,7 +44826,7 @@
         "doc_mm": 1.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_face",
         "over_limit": false,
@@ -44837,7 +44837,7 @@
         "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/3-8in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 63.5
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44847,8 +44847,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/1-4in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/1-4in-2fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/1-4in-2fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S2].ops[50].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44859,7 +44859,7 @@
         "doc_mm": 1.5,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_profile",
         "over_limit": false,
@@ -44870,7 +44870,7 @@
         "recommended_doc_mm": 1.5,
         "tool": "endmills-lms-6784/1-4in-2fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 61.9
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44940,8 +44940,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/1-4in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/1-4in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/1-4in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S4].ops[25].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44952,7 +44952,7 @@
         "doc_mm": 3.75,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_profile",
         "over_limit": false,
@@ -44963,7 +44963,7 @@
         "recommended_doc_mm": 3.75,
         "tool": "endmills-lms-6784/1-4in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 61.9
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -44973,8 +44973,8 @@
       "cite": [
         "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
         "inventory.tools.endmills-lms-6784/1-4in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
-        "inventory.tools.endmills-lms-6784/1-4in-4fl: explicit-unit diameter/projection/OAL",
-        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder grip/verification",
+        "inventory.tools.endmills-lms-6784/1-4in-4fl: explicit-unit diameter/projection",
+        "inventory.holders.r8-collets-lms-4860/3-8in: selected holder verification",
         "plan.setups[S4].ops[27].doc_mm",
         "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
         "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
@@ -44985,7 +44985,7 @@
         "doc_mm": 3.75,
         "doc_scale": 1,
         "holder": "r8-collets-lms-4860/3-8in",
-        "holder_grip_mm": 25.0,
+        "holder_grip_mm": "not used",
         "missing_inputs": [],
         "operation": "rough_profile",
         "over_limit": false,
@@ -44996,7 +44996,7 @@
         "recommended_doc_mm": 3.75,
         "tool": "endmills-lms-6784/1-4in-4fl",
         "tool_kind": "endmill_set",
-        "tool_oal_mm": 61.9
+        "tool_oal_mm": "not used"
       },
       "rule": "engagement",
       "status": "pass",
@@ -47503,12 +47503,12 @@
         "bed_height_mm": 28.87175,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
-        "fixture_height_mm": "unknown",
+        "fixture_height_mm": "not_applicable",
         "fixture_verify": false,
         "holder_gauge_len_mm": 95.0,
         "insertion_mm": 25,
         "jaw_obstruction": {
-          "jaw_top_z": "unknown",
+          "jaw_top_z": "not_applicable",
           "requires_path_check": false
         },
         "measurements": [],
@@ -47541,7 +47541,7 @@
         "stock_extent_x_mm": 340.0,
         "stock_extent_y_mm": 65.0,
         "stock_height_mm": 11.52825,
-        "stock_top_above_jaws_mm": "unknown",
+        "stock_top_above_jaws_mm": "not_applicable",
         "stock_top_z": 0.0,
         "sum_mm": 232.4,
         "support_blocks_mm": 0,
@@ -47603,12 +47603,12 @@
         "bed_height_mm": 28.87175,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
-        "fixture_height_mm": "unknown",
+        "fixture_height_mm": "not_applicable",
         "fixture_verify": false,
         "holder_gauge_len_mm": 6.0,
         "insertion_mm": 25,
         "jaw_obstruction": {
-          "jaw_top_z": "unknown",
+          "jaw_top_z": "not_applicable",
           "requires_path_check": false
         },
         "measurements": [],
@@ -47652,7 +47652,7 @@
         "stock_extent_x_mm": 340.0,
         "stock_extent_y_mm": 65.0,
         "stock_height_mm": 11.52825,
-        "stock_top_above_jaws_mm": "unknown",
+        "stock_top_above_jaws_mm": "not_applicable",
         "stock_top_z": 0.0,
         "sum_mm": 96.4,
         "support_blocks_mm": 0,
@@ -61775,27 +61775,48 @@
       "numbers": {
         "measurements": [
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.fitting-bench.envelope.travel.x"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "x"
+            ],
             "id": "machines.fitting-bench.envelope.travel.x",
-            "instruction": "measure: fitting-bench X safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "fitting-bench",
+            "instruction": "measure: fitting-bench X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.fitting-bench.envelope.travel.y"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "y"
+            ],
             "id": "machines.fitting-bench.envelope.travel.y",
-            "instruction": "measure: fitting-bench Y safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "fitting-bench",
+            "instruction": "measure: fitting-bench Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           },
           {
+            "category": "machines",
             "cite": [
               "inventory.machines.fitting-bench.envelope.travel.z"
             ],
+            "field": [
+              "envelope",
+              "travel",
+              "z"
+            ],
             "id": "machines.fitting-bench.envelope.travel.z",
-            "instruction": "measure: fitting-bench Z safe usable travel, stop-to-stop, steel rule or calipers, mm",
+            "identity": "fitting-bench",
+            "instruction": "measure: fitting-bench Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
             "units": "mm"
           }
         ],
@@ -64327,7 +64348,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "4593a489813171c33af9fcd6d94cc7e543d8eec5352a21912c301ff2b43bfa99",
+  "hash": "1b1143f90897ec3dd962f261b89c0afbebcccd75145b6d292dac94427f82b69c",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -64339,7 +64360,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "800dfd517fc0bafa2f98f601d143513202d3aac2fe440b60a8c1dd5d188b7f58"
+      "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
     },
     "plan": {
       "path": "examples/rocker-arm/plan.toml",
@@ -66802,7 +66823,7 @@
       "sha256": "b55671d4b46e7cdd811141c5addede0f18a9c1602e61f855836ec1affd2eb967"
     }
   },
-  "rules_version": "m5-rev10",
+  "rules_version": "m5-rev12",
   "step_sha256": "e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e",
   "verification": "checked"
 }

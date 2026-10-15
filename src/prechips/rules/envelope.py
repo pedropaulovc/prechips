@@ -80,9 +80,13 @@ def evaluate(bundle):
                 )
         cite.extend(extent_cite)
         height = extents["z"]
+        height_pending = "z" in extents.get("geometry_pending_axes", [])
         if not number(height):
             missing.append(
-                f"measure: {setup['id']} supported blank height and setup orientation, "
+                f"Geometry pending: {setup['id']} supported blank height needs the "
+                "kernel bounding box in its declared setup frame"
+                if height_pending
+                else f"measure: {setup['id']} supported blank height and setup orientation, "
                 "caliper and square, mm; author stock/stock_state and frame"
             )
         elif height <= 0:
@@ -91,7 +95,7 @@ def evaluate(bundle):
         target, owner = setup_frame_ref(bundle, setup)
         cite.extend(plan_frame_cite(bundle, setup))
         initial_top = record(setup.get("stock_state")).get("top_z", UNKNOWN)
-        if missing:
+        if missing and not height_pending:
             authoring_entry(
                 debts,
                 f"plan.setups.{setup['id']}.supported_height",

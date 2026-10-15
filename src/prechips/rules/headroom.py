@@ -30,7 +30,7 @@ spindle stack or travel.
 from fractions import Fraction
 
 from prechips.findings import Finding
-from prechips.measurements import length_fact, measurement_entry
+from prechips.measurements import length_debt, length_fact, measurement_entry
 from prechips.rules._bench import manual_bench, not_applicable
 from prechips.rules.resolution import (
     MANUAL,
@@ -90,9 +90,26 @@ def _limit(machine, identity, field, debts, cite):
     cite.extend(result["cite"])
     cite.append(f"inventory.machines.{identity}.{field}")
     if not result["verified"]:
-        entry = measurement_entry("machines", identity, field)
+        entry = measurement_entry(
+            "machines", identity, field, status=result["measurement_status"], item=machine
+        )
         debts[entry["id"]] = entry
     return result
+
+
+def _length(bundle, item, field, slot, reference, debts):
+    """Read the existing nominal policy and name only this consumed refused fact."""
+    if isinstance(item, dict) and item:
+        category, identity, selected = select(bundle, reference, slot)
+        if (
+            isinstance(selected, dict)
+            and isinstance(identity, str)
+            and identity not in (_UNKNOWN, "none", "not_applicable")
+        ):
+            entry = length_debt(item, field, category, identity)
+            if entry is not None:
+                debts[entry["id"]] = entry
+    return length_mm(item, field)
 
 
 def _entry_stock(bundle, setup, frame):
@@ -222,7 +239,7 @@ def _span(op, coordinates, axis):
     return None
 
 
-def _clear_of_jaws(bundle, setup, op, faces, coordinates):
+def _clear_of_jaws(bundle, setup, op, faces, coordinates, debts):
     """Whether ``op``'s cutter stays more than :data:`CRASH_ZONE_MM` clear of the vise jaws:
     inside both jaw faces along the clamp axis, or wholly beyond the jaws' ends along the
     axis they run (a blank end overhanging the vise). The jaw ends stand at the declared
@@ -230,7 +247,9 @@ def _clear_of_jaws(bundle, setup, op, faces, coordinates):
     is clear."""
     if faces is None:
         return False
-    dia = length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "dia")
+    tool_ref = op.get("tool")
+    tool = resolve(bundle, "tools", tool_ref) or {}
+    dia = _length(bundle, tool, "dia", "tools", tool_ref, debts)
     if not _numeric(dia):
         return False
     axis, (low, high) = faces
@@ -244,8 +263,13 @@ def _clear_of_jaws(bundle, setup, op, faces, coordinates):
     hold = _mapping(setup.get("hold"))
     fixture_ref = hold.get("fixture")
     fixture = resolve(bundle, "workholding", fixture_ref) or {}
-    centre, width = hold.get("jaw_center_along_mm"), length_mm(fixture, "jaw_width")
+    centre = hold.get("jaw_center_along_mm")
     along = _span(op, coordinates, 1 - axis)
+    width = (
+        _length(bundle, fixture, "jaw_width", "workholding", fixture_ref, debts)
+        if along and _numeric(centre)
+        else length_mm(fixture, "jaw_width")
+    )
     if not (along and _numeric(centre) and _numeric(width)) or uncertain(fixture):
         return False
     ends = (centre - width / 2, centre + width / 2)
@@ -282,7 +306,7 @@ def evaluate(bundle):
                 )
             )
             continue
-        debts = {}
+        debts, consumed = {}, {}
         cite = [
             "PLAN.md §4.1 headroom",
             "inventory: machine, fixture, support, tool and holder dimensions",
@@ -304,14 +328,29 @@ def evaluate(bundle):
             if support_ref in (None, "none", "not_applicable")
             else _height(support, hold.get("support_orientation"))
         )
+        if parallels and not _numeric(parallel_height):
+            _length(bundle, parallels, "height", "fixtures", parallels_ref, consumed)
+        if support and not _numeric(support_height):
+            _length(bundle, support, "height", "fixtures", support_ref, consumed)
         # The legacy riser declaration selects a 1-in block; without an explicit
         # orientation preserve the unknown rather than inventing a stack height.
         bottom = state.get("retained_rail_bottom_z", state.get("bottom_z", _UNKNOWN))
         top = state.get("top_z", _UNKNOWN)
         stock_height = top - bottom if _numeric(top) and _numeric(bottom) else _UNKNOWN
         head = fixture.get("kind") == "dividing_head"
-        bed = _UNKNOWN if head else length_mm(fixture, "bed_height")
-        jaw = length_mm(fixture, "jaw_height")
+        jaw_fixture = fixture.get("kind") in {"vise", "chuck_3jaw", "chuck_4jaw"}
+        bed = (
+            _UNKNOWN
+            if head
+            else _length(bundle, fixture, "bed_height", "workholding", fixture_ref, consumed)
+        )
+        jaw = (
+            _length(bundle, fixture, "jaw_height", "workholding", fixture_ref, consumed)
+            if jaw_fixture
+            else length_mm(fixture, "jaw_height")
+            if head
+            else "not_applicable"
+        )
         spindle = _limit(machine, machine_ref, "envelope.spindle_to_table_max", debts, cite)
         numbers = {
             "bed_height_mm": "not_applicable" if head else bed,
@@ -340,7 +379,7 @@ def evaluate(bundle):
             # The chucked work hangs on the head axis: its top sits at the head's centre
             # height plus the stock top's offset above the posed axis origin, raised by
             # any declared parallels/blocks under the head (the established support stack).
-            centre = length_mm(fixture, "centre_height")
+            centre = _length(bundle, fixture, "centre_height", "workholding", fixture_ref, consumed)
             axis_z = _head_axis_z(_mapping(hold.get("pose")))
             offset = top - axis_z if _numeric(top) and _numeric(axis_z) else _UNKNOWN
             work_top = _sum(parallel_height, support_height, centre, offset)
@@ -369,17 +408,21 @@ def evaluate(bundle):
             if op["do"] in MANUAL or op["do"] in SAW_OPS:
                 continue
             holder_ref = op.get("holder")
-            tool = resolve(bundle, "tools", op.get("tool")) or {}
+            tool_ref = op.get("tool")
+            tool = resolve(bundle, "tools", tool_ref) or {}
             holder = resolve(bundle, "holders", holder_ref) or {}
-            oal, gauge = length_mm(tool, "oal"), length_mm(holder, "gauge_len")
+            oal = _length(bundle, tool, "oal", "tools", tool_ref, consumed)
+            gauge = _length(bundle, holder, "gauge_len", "holders", holder_ref, consumed)
             pair, conflict = projection_holder(bundle, tool, holder_ref)
             # Two spellings of the holder in the map state it twice: unknown, never OAL - grip.
             declared = pair is not None or conflict is not None
             projection = (
-                length_mm(tool, ("projection", pair)) if holder and pair is not None else _UNKNOWN
+                _length(bundle, tool, ("projection", pair), "tools", tool_ref, consumed)
+                if holder and pair is not None
+                else _UNKNOWN
             )
             if holder and not declared:
-                grip = length_mm(holder, "grip")
+                grip = _length(bundle, holder, "grip", "holders", holder_ref, consumed)
                 projection = oal - grip if _numeric(oal) and _numeric(grip) else _UNKNOWN
             if conflict:
                 conflicts.append(f"op {op['op']}: {conflict}")
@@ -425,7 +468,7 @@ def evaluate(bundle):
         # The vise jaw rises from the supported stock bottom; a head's chuck jaws do not.
         jaw_top_z = (
             "not_applicable"
-            if head
+            if head or not jaw_fixture
             else bottom + jaw - support_stack
             if all(_numeric(v) for v in (bottom, jaw, support_stack))
             else _UNKNOWN
@@ -434,7 +477,7 @@ def evaluate(bundle):
             top - jaw_top_z
             if _numeric(top) and _numeric(jaw_top_z)
             else "not_applicable"
-            if head
+            if head or not jaw_fixture
             else _UNKNOWN
         )
         faces = None if head else _jaw_faces(bundle, setup)
@@ -445,7 +488,7 @@ def evaluate(bundle):
             if op["do"] not in SAW_OPS
             and _numeric(op.get("to_z"))
             and _numeric(jaw_top_z)
-            and not _clear_of_jaws(bundle, setup, op, faces, printed)
+            and not _clear_of_jaws(bundle, setup, op, faces, printed, consumed)
         }
         numbers.update(
             {
@@ -469,7 +512,14 @@ def evaluate(bundle):
         travels = {}
         for axis, extent in (("x", stock_x), ("y", stock_y)):
             travel = _limit(machine, machine_ref, f"envelope.travel.{axis}", debts, cite)
-            fixture_extent = length_mm(fixture, "length" if axis == "x" else "width")
+            fixture_extent = _length(
+                bundle,
+                fixture,
+                "length" if axis == "x" else "width",
+                "workholding",
+                fixture_ref,
+                consumed,
+            )
             required = (
                 max(extent, fixture_extent)
                 if _numeric(extent) and _numeric(fixture_extent)
@@ -490,8 +540,10 @@ def evaluate(bundle):
             ):
                 errors.append(f"part/fixture envelope exceeds {axis.upper()} travel")
         numbers["travel_checks"] = travels
-        numbers["measurements"] = [debts[key] for key in sorted(debts)]
         status = "error" if errors else "unknown" if unknown else "pass"
+        if status == "unknown":
+            debts.update(consumed)
+        numbers["measurements"] = [debts[key] for key in sorted(debts)]
         sentence = (
             f"{setup['id']}: "
             + (
@@ -519,7 +571,7 @@ def evaluate(bundle):
 
 def _lathe(bundle, setup, machine, machine_ref):
     """Swing over bed/cross slide and length between centres for a lathe setup."""
-    debts = {}
+    debts, consumed = {}, {}
     cite = [
         "PLAN.md §4.1 headroom",
         "inventory: lathe swing/between-centres facts and chuck body dimensions",
@@ -539,8 +591,8 @@ def _lathe(bundle, setup, machine, machine_ref):
     )
     stickout = hold.get("stickout_mm", _UNKNOWN)
     exposed = stickout if _numeric(stickout) else length
-    body_dia = length_mm(fixture, "body_dia")
-    body_length = length_mm(fixture, "body_length")
+    body_dia = _length(bundle, fixture, "body_dia", "workholding", fixture_ref, consumed)
+    body_length = _length(bundle, fixture, "body_length", "workholding", fixture_ref, consumed)
     bed = _limit(machine, machine_ref, "envelope.swing_over_bed", debts, cite)
     slide = _limit(machine, machine_ref, "envelope.swing_over_cross_slide", debts, cite)
     centres = _limit(machine, machine_ref, "envelope.between_centres", debts, cite)
@@ -574,8 +626,10 @@ def _lathe(bundle, setup, machine, machine_ref):
             unknown = True
         elif value > limit["value"]:
             errors.append(message)
-    numbers["measurements"] = [debts[key] for key in sorted(debts)]
     status = "error" if errors else "unknown" if unknown else "pass"
+    if status == "unknown":
+        debts.update(consumed)
+    numbers["measurements"] = [debts[key] for key in sorted(debts)]
     message = (
         "; ".join(errors)
         if errors

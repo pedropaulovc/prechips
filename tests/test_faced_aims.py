@@ -307,12 +307,19 @@ def test_every_setup_cuts_the_part_the_faced_aim_makes(engine, plates, length):
     assert seated == {"face_z": pytest.approx(-length), "stock_z": pytest.approx(-length)}
 
 
-def test_without_the_aim_the_cad_face_lies_outside_the_aimed_removal_box(engine, plates):
-    # The review's case: the frame and zero stand on the aim, the kernel on the CAD face.
+def test_missing_aim_leaves_hits_inside_its_refused_clearing_box_unknown(engine, plates):
+    # The frame and zero stand on the aim, but the CAD claim lies below the clearing box.
     result = engine.run(_flip_job(engine, plates["plate"], 10.03, None))
     assert "lie outside its stock_removal_bounds" in result["setups"]["S3"]["stock_reason"]
-    # Its cut is unknown, so the stock it would remove stands in the cutter's way.
-    assert result["ops"]["S2:10"]["tool_hits"] > 0
+    assert "S2:10" in result["setups"]["S3"]["stock_reason"]
+    # The flute hits stock inside that box: the unresolved own cut could remove it.
+    # Known before-stock and a measurable box do not credit the rejected clearance.
+    detail = result["ops"]["S2:10"]
+    assert detail["tool_hits"] == detail["min_hits"]["tool"] == "unknown"
+    assert detail["obstacles"]["tool"] == ["part"]
+    assert "its own cut stopped the stock builder" in detail["reasons"]["tool_hits"]
+    assert "lie outside its stock_removal_bounds" in detail["reasons"]["tool_hits"]
+    assert detail["holder_hits"] == detail["min_hits"]["holder"] == 0
 
 
 def test_an_aim_at_the_nominal_leaves_the_face_where_it_stands(engine, plates):

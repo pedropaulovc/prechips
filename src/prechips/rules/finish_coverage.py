@@ -31,6 +31,16 @@ from prechips.rules.resolution import (
 )
 
 
+def _unresolved(bundle, mapping, op, doubtful):
+    """Record the faces an unresolved claim may finish in ``doubtful``; ``True`` when its
+    refs are unknown or unmapped, so the claim bounds no feature and every row is debt."""
+    refs = claim_refs(bundle, op)
+    if known_refs(refs) and all(ref in mapping for ref in refs):
+        doubtful.update(mapping[ref] for ref in refs)
+        return False
+    return True
+
+
 def evaluate(bundle):
     from prechips.kernel import run_geometry
 
@@ -38,6 +48,7 @@ def evaluate(bundle):
     finishers = finishing_subjects(bundle)
     claimed, rotary, invalid_refs, debt = set(), set(), [], False
     unsupported = set()
+    doubtful = set()  # faces an unresolved claim may finish: debt only for their features
     unformed, cap_pending = set(), {}  # cap index -> why its formation is unknown
     mapping, op_facts = record(facts.get("mapping")), record(facts.get("ops"))
     for setup, op in operations(bundle):
@@ -51,7 +62,7 @@ def evaluate(bundle):
             continue
         subject = f"{setup['id']}:{op['op']}"
         if cutting_action(op) is None:
-            debt = True
+            debt = _unresolved(bundle, mapping, op, doubtful) or debt
         # A thread's tap drill owns its caps but is no finisher once the tap follows.
         completion = record(record(op_facts.get(subject)).get("cap_completion"))
         caps = completion.get("caps")
@@ -74,7 +85,7 @@ def evaluate(bundle):
             ):
                 unsupported.update(mapping[ref] for ref in refs)
             else:
-                debt = True
+                debt = _unresolved(bundle, mapping, op, doubtful) or debt
         else:
             # A rotary finishing claim names faces its window merely intersects; only the
             # finishing ops' window union finishes a face, and as-stock never does.
@@ -104,7 +115,7 @@ def evaluate(bundle):
             if invalid:
                 values["mapping_errors"] = invalid
                 status, message = "error", "invalid STEP face reference(s): " + ", ".join(invalid)
-            elif indices is None or debt:
+            elif indices is None or debt or indices & doubtful:
                 status, message = (
                     "unknown",
                     "finish face references or finishing operation claims are unresolved",

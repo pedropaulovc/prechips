@@ -54,18 +54,11 @@ class Rule:
     evaluate: Callable[[Bundle], list[Finding]]
 
 
-MEASUREMENT_RULES = [
-    Rule("headroom", headroom.evaluate),
-    Rule("envelope", envelope.evaluate),
-    Rule("travel", travel.evaluate),
-]
-
 RULES: list[Rule] = [
     Rule("tool_resolves", tool_resolves.evaluate),
     Rule("sizing", sizing.evaluate),
     Rule("op_chain", op_chain.evaluate),
     Rule("order", op_order.evaluate),
-    Rule("blind_depth", tip_endpoints.evaluate),
     Rule("speeds_feeds", speeds_feeds.evaluate),
     Rule("zero_check", zero_recipe.evaluate),
     Rule("coordinates", coordinates.evaluate),
@@ -75,13 +68,16 @@ RULES: list[Rule] = [
     Rule("purchased_tooling", purchased_tooling.evaluate),
     Rule("centre_support", centre_support.evaluate),
     Rule("prepared_blank", prepared_blank.evaluate),
-    *MEASUREMENT_RULES,
+    Rule("blind_depth", tip_endpoints.evaluate),
+    Rule("headroom", headroom.evaluate),
+    Rule("envelope", envelope.evaluate),
+    Rule("travel", travel.evaluate),
+    Rule("turning_deflection", turning_deflection.evaluate),
     Rule("datum_consistency", datum_consistency.evaluate),
     Rule("turned_profile", turned_profile.evaluate),
     Rule("stickout", stickout.evaluate),
     Rule("stock_diameter", stock_diameter.evaluate),
     Rule("indexing", indexing.evaluate),
-    Rule("turning_deflection", turning_deflection.evaluate),
     Rule("engagement", engagement.evaluate),
     Rule("construction", construction.evaluate),
     Rule("finish_route", finish_route.evaluate),

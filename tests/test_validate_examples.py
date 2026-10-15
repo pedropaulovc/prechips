@@ -11,11 +11,19 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 from test_cli import copy_examples
 from test_contour_order import carried_entry_bundle
 from test_deep_hole_speed import DEEP, drill_bundle
 from test_operative_surface import plan as surface_plan
-from test_process_features import set_process_key, set_tool_fact, shaft
+from test_prepared_blank import synthetic_prep_geometry
+from test_process_features import (
+    set_process_key,
+    set_tool_fact,
+    shaft,
+    synthetic_centre_tool,
+    synthetic_shaft_cutting_geometry,
+)
 from test_sheet_fixture import END_MILL, MAKE_OP
 from test_tool_change_touch import (
     carried_bbox_mill_bundle,
@@ -52,6 +60,299 @@ from prechips.rules.tip_endpoints import evaluate as endpoint_findings
 
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
+
+
+def synthetic_fact(value):
+    """A new isolated test measurement, never a relabelling of shipped example evidence."""
+    return {
+        "value": value,
+        "measured": {
+            "status": "measured",
+            "by": "synthetic test operator",
+            "date": "2026-10-03",
+            "instrument": "synthetic test gauge",
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    ("measurement", "trusted"),
+    [
+        (synthetic_fact(6.35)["measured"], True),
+        ({"by": "shop operator", "date": "2026-10-03", "instrument": "micrometer"}, False),
+        ({**synthetic_fact(6.35)["measured"], "status": "assumed"}, False),
+        ({**synthetic_fact(6.35)["measured"], "status": "illustrative"}, False),
+        ({**synthetic_fact(6.35)["measured"], "by": ""}, False),
+        ({**synthetic_fact(6.35)["measured"], "by": "unknown"}, False),
+        ({**synthetic_fact(6.35)["measured"], "instrument": "  "}, False),
+        ({**synthetic_fact(6.35)["measured"], "date": "2026-02-30"}, False),
+        ({**synthetic_fact(6.35)["measured"], "date": "20261003"}, False),
+        ({**synthetic_fact(6.35)["measured"], "instrument": None}, False),
+        ({"status": "measured", "by": "test", "date": "2026-10-03"}, False),
+    ],
+)
+def test_measurement_oracle_requires_explicit_status_and_complete_metadata(measurement, trusted):
+    fact = {"value": 6.35, "measured": measurement}
+    assert VALIDATOR["accepted"](fact) is trusted
+    entries = VALIDATOR["Entries"]({"tools": {"drill": {"kind": "drill", "dia_mm": fact}}})
+    assert VALIDATOR["tool_length_mm"]("drill", "dia", entries) == (6.35 if trusted else "unknown")
+
+
+def test_measurement_oracle_never_guesses_status_from_prose():
+    measurement = {
+        "by": "shop operator: physically measured and checked",
+        "date": "2026-10-03",
+        "instrument": "micrometer",
+    }
+    assert not VALIDATOR["accepted"]({"value": 6.35, "measured": measurement})
+    assert VALIDATOR["accepted"]({"value": 6.35, "measured": {**measurement, "status": "measured"}})
+
+
+def test_nominal_fact_contract_remains_distinct_from_measurement_provenance():
+    assert VALIDATOR["accepted"](6.35)
+    assert VALIDATOR["accepted"]({"value": 6.35})
+    assert VALIDATOR["accepted"]({"value": 6.35, "measured": "unknown"})
+    assert not VALIDATOR["accepted"](synthetic_fact(6.35) | {"verify": True})
+    assert not VALIDATOR["accepted"](synthetic_fact(6.35) | {"verify": "unknown"})
+
+
+@pytest.mark.parametrize("status", ["assumed", "illustrative", None])
+def test_centre_oracle_cannot_print_a_numeric_tool_fact_on_untrusted_provenance(status):
+    tool = {
+        "kind": "center_drill",
+        "dia_mm": synthetic_fact(1.98),
+        "pilot_len_mm": synthetic_fact(1.98),
+        "angle_deg": synthetic_fact(60.0),
+        "shank_in": synthetic_fact(0.1875),
+        "point_angle": synthetic_fact(118.0),
+    }
+    for fact in tool.values():
+        if isinstance(fact, dict):
+            if status is None:
+                del fact["measured"]["status"]
+            else:
+                fact["measured"]["status"] = status
+    entries = VALIDATOR["Entries"]({"tools": {"centre": tool}})
+    assert VALIDATOR["centre_tool_facts"]("centre", entries) == dict.fromkeys(
+        VALIDATOR["CENTRE_TOOL_FACTS"], "unknown"
+    )
+
+
+def test_length_oracle_never_uses_an_alternate_key_to_bypass_provenance_debt():
+    fact = synthetic_fact(6.35)
+    fact["measured"]["status"] = "illustrative"
+    entries = VALIDATOR["Entries"](
+        {"tools": {"drill": {"kind": "drill", "dia_mm": fact, "dia_in": 0.25}}}
+    )
+    assert VALIDATOR["tool_length_mm"]("drill", "dia", entries) == "unknown"
+
+
+@pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
+@pytest.mark.parametrize(
+    ("field", "value", "millimetres"),
+    [("resolution_mm", 0.001, 0.001), ("resolution_in", 0.0001, 0.00254)],
+)
+def test_gauge_oracle_independently_requires_trusted_resolution(status, field, value, millimetres):
+    fact = synthetic_fact(value)
+    if status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    gauge = {"kind": "dial_indicator", field: fact}
+    resolution = VALIDATOR["gauge_resolution"](gauge)
+    if status == "measured":
+        assert resolution == pytest.approx(millimetres)
+        assert VALIDATOR["blank_form_check"](gauge, "sweep the face", 0.01, {}) == "pass"
+    else:
+        assert resolution == "unknown"
+        assert VALIDATOR["blank_form_check"](gauge, "sweep the face", 0.01, {}) == "unknown"
+
+
+@pytest.mark.parametrize("verification", [True, "unknown"])
+def test_gauge_oracle_keeps_fact_and_plain_range_verification_debt(verification):
+    gauge = {
+        "kind": "caliper",
+        "range_mm": [0.0, 300.0],
+        "resolution_mm": synthetic_fact(0.001),
+    }
+    assert VALIDATOR["blank_size_check"](gauge, [20.0, 20.1], {"units": "mm"}, {}) == "pass"
+    gauge["resolution_mm"]["verify"] = verification
+    assert VALIDATOR["gauge_resolution"](gauge) == "unknown"
+    assert VALIDATOR["blank_size_check"](gauge, [20.0, 20.1], {"units": "mm"}, {}) == "unknown"
+    gauge["resolution_mm"] = synthetic_fact(0.001)
+    gauge["verify"] = verification
+    assert VALIDATOR["blank_size_check"](gauge, [20.0, 20.1], {"units": "mm"}, {}) == "unknown"
+
+
+@pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
+@pytest.mark.parametrize(
+    ("field", "value", "maximum"),
+    [("range_mm", 300.0, 300.0), ("range_in", 12.0, 304.8)],
+)
+def test_scalar_gauge_range_oracle_requires_its_own_explicit_measured_status(
+    status, field, value, maximum
+):
+    # An isolated reader-seam record, not a promotion or schema change to shop data.
+    fact = synthetic_fact(value)
+    if status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    gauge = {"kind": "caliper", field: fact, "resolution_mm": synthetic_fact(0.001)}
+    row = {}
+    verdict = VALIDATOR["blank_size_check"](gauge, [20.0, 20.1], {"units": "mm"}, row)
+    assert row["resolution_mm"] == 0.001
+    if status == "measured":
+        assert verdict == "pass"
+        assert row["range_mm"] == pytest.approx([0.0, maximum])
+        assert row["band_mm"] == pytest.approx(0.1)
+    else:
+        assert verdict == "unknown"
+        assert row["range_mm"] == "unknown"
+        assert "band_mm" not in row
+
+
+@pytest.mark.parametrize("verification", [True, "unknown"])
+def test_scalar_gauge_range_oracle_preserves_fact_verification_debt(verification):
+    fact = synthetic_fact(300.0) | {"verify": verification}
+    gauge = {"kind": "caliper", "range_mm": fact, "resolution_mm": synthetic_fact(0.001)}
+    row = {}
+    assert VALIDATOR["blank_size_check"](gauge, [20.0, 20.1], {"units": "mm"}, row) == "unknown"
+    assert row["range_mm"] == "unknown"
+    assert row["resolution_mm"] == 0.001
+
+
+@pytest.mark.parametrize(
+    ("range_fact", "maximum"),
+    [
+        ({"range_mm": 300.0}, 300.0),
+        ({"range_in": 12.0}, 304.8),
+        ({"range_mm": [0.0, 300.0]}, 300.0),
+    ],
+)
+def test_plain_catalogue_gauge_ranges_keep_their_numeric_contract(range_fact, maximum):
+    gauge = {"kind": "caliper", **range_fact, "resolution_mm": synthetic_fact(0.001)}
+    row = {}
+    assert VALIDATOR["blank_size_check"](gauge, [20.0, 20.1], {"units": "mm"}, row) == "pass"
+    assert row["range_mm"] == pytest.approx([0.0, maximum])
+    assert row["resolution_mm"] == 0.001
+    assert row["band_mm"] == pytest.approx(0.1)
+
+
+def test_worked_example_gauge_resolutions_are_demo_facts_and_ranges_remain_bare_nominals():
+    inventory = tomllib.loads(
+        (ROOT / "examples" / "inventory" / "pedro-shop.toml").read_text(encoding="utf-8")
+    )
+    for name in (
+        "rocker-profile-template",
+        "rocker-datum-indicator",
+        "rocker-position-height-gauge",
+        "rocker-position-pins",
+        "rocker-position-blocks",
+        "radius-gauge",
+        "bracket-cross-bore-pins",
+        "rocker-outline-template",
+        "calipers-18in",
+    ):
+        gauge = inventory["gauges"][name]
+        assert gauge["resolution_mm"]["measured"] == {
+            "status": "measured",
+            "by": "example value (realistic, not a shop measurement)",
+            "date": "2026-10-11",
+            "instrument": "example fixture (no physical measurement)",
+        }, name
+        assert "verify" not in gauge, name
+        assert VALIDATOR["gauge_resolution"](gauge) == gauge["resolution_mm"]["value"], name
+
+
+@pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
+@pytest.mark.parametrize(
+    ("field", "value", "step"),
+    [("resolution_mm", 0.005, 0.005), ("resolution_in", 0.0005, 0.0127)],
+)
+def test_dro_oracle_keeps_declared_grid_without_certifying_its_provenance(
+    status, field, value, step
+):
+    fact = synthetic_fact(value)
+    if status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    entries = VALIDATOR["Entries"]({"machines": {"mill": {field: fact}}})
+    grid = VALIDATOR["dro_grid"]({"machine": "mill"}, {"units": "mm"}, entries)
+    assert grid[0] == pytest.approx(step)
+    assert VALIDATOR["dro_up"](7.497, grid) == pytest.approx(
+        7.5 if field == "resolution_mm" else 7.5057
+    )
+    assert VALIDATOR["accepted"](fact) is (status == "measured")
+    assert VALIDATOR["dro_grid_trusted"]({"machine": "mill"}, {"units": "mm"}, entries) is (
+        status == "measured"
+    )
+
+
+@pytest.mark.parametrize(
+    "resolution",
+    [{}, {"resolution_mm": "unknown"}, {"resolution_mm": 0.0}, {"resolution_mm": -0.005}],
+)
+def test_dro_oracle_preserves_missing_and_nonpositive_default_semantics(resolution):
+    entries = VALIDATOR["Entries"]({"machines": {"mill": resolution}})
+    grid = VALIDATOR["dro_grid"]({"machine": "mill"}, {"units": "mm"}, entries)
+    assert grid[0] == VALIDATOR["DRO_DEFAULT_STEP"]
+    assert not VALIDATOR["dro_grid_trusted"]({"machine": "mill"}, {"units": "mm"}, entries)
+
+
+@pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
+def test_dro_oracle_inherits_bench_source_grid_and_its_measurement_trust(status):
+    fact = synthetic_fact(0.01)
+    if status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    producer = {"id": "S1", "machine": "mill", "stock_in": "stock"}
+    bench = {"id": "S2", "machine": "bench", "stock_in": "S1"}
+    plan = {"setups": [producer, bench]}
+    entries = VALIDATOR["Entries"](
+        {"machines": {"mill": {"kind": "mill", "resolution_mm": fact}, "bench": {"kind": "manual"}}}
+    )
+    assert VALIDATOR["dro_grid_source"](bench, entries, plan) is producer
+    assert VALIDATOR["dro_grid"](bench, {"units": "mm"}, entries, plan) == (0.01, 2)
+    assert VALIDATOR["dro_grid_trusted"](bench, {"units": "mm"}, entries, plan) is (
+        status == "measured"
+    )
+
+
+def test_dro_oracle_keeps_bare_nominal_step_but_never_certifies_it():
+    entries = VALIDATOR["Entries"]({"machines": {"mill": {"resolution_mm": 0.005}}})
+    assert VALIDATOR["dro_grid"]({"machine": "mill"}, {"units": "mm"}, entries) == (0.005, 3)
+    assert not VALIDATOR["dro_grid_trusted"]({"machine": "mill"}, {"units": "mm"}, entries)
+
+
+def test_shared_inventory_uses_exact_demo_markers_and_preserves_real_vise_readings():
+    inventory_path = ROOT / "examples" / "inventory" / "pedro-shop.toml"
+    inventory = tomllib.loads(inventory_path.read_text(encoding="utf-8"))
+    filename = "cone-pivot-post/built-up.toml"
+    plans = {filename: tomllib.loads((ROOT / "examples" / filename).read_text(encoding="utf-8"))}
+    found = VALIDATOR["check_example_measurements"](inventory, plans)
+    assert len(found["real"]) == 6
+    assert len(found["demo"]) == 817
+    assert len(found["assumed"]) == 2
+    for path, fact in VALIDATOR["example_measurement_records"](inventory):
+        measurement = fact["measured"]
+        if path in found["real"]:
+            assert measurement["status"] == "measured", path
+            assert measurement["by"] == "Pedro Paulo Vezza Campos", path
+            assert measurement["date"] == "2026-10-05", path
+            assert VALIDATOR["accepted"](fact), path
+        else:
+            status = "assumed" if path in found["assumed"] else "measured"
+            assert measurement == {
+                "status": status,
+                "by": "example value (realistic, not a shop measurement)",
+                "date": "2026-10-11",
+                "instrument": "example fixture (no physical measurement)",
+            }, path
+            assert VALIDATOR["accepted"](fact) is (status == "measured"), path
+    assert ("machines", "PM-30MV", "resolution_mm") in found["demo"]
 
 
 def shifted(value):
@@ -115,7 +416,7 @@ def test_rejects_self_consistent_wrong_z_edge(freecad_kernel, part, feature, act
             VALIDATOR["check_zero"](setup, corrupted, entries, own)
 
 
-def cone_inputs(*, fresh_pure=False):
+def cone_inputs(*, fresh_pure=False, joint_kernel=None):
     folder = ROOT / "examples" / "cone-pivot-post"
     bundle = load_bundle(folder / "built-up.toml")
     report = json.loads((folder / "expected" / "built-up" / "report.json").read_bytes())
@@ -136,6 +437,17 @@ def cone_inputs(*, fresh_pure=False):
             *headroom.evaluate(bench_bundle),
         ]
         refreshed = {(row.rule, row.subject): row.to_dict() for row in derived}
+        report["findings"] = [
+            refreshed.pop((row["rule"], row["subject"]), row) for row in report["findings"]
+        ] + list(refreshed.values())
+    if joint_kernel is not None:
+        # Explicit test kernel facts isolate assembly outcome discrimination; the
+        # shipped report keeps its honest unknowns from illustrative shop dimensions.
+        synthetic_bundle = replace(bundle, kernel=joint_kernel())
+        refreshed = {
+            (row.rule, row.subject): row.to_dict()
+            for row in joints.evaluate_assembly(synthetic_bundle)
+        }
         report["findings"] = [
             refreshed.pop((row["rule"], row["subject"]), row) for row in report["findings"]
         ] + list(refreshed.values())
@@ -191,7 +503,7 @@ def test_accepts_cited_kernel_revolved_bases_without_declared_diameters(freecad_
         for path in (ROOT / "examples").rglob("*.toml")
     }
     code, missing = VALIDATOR["validate_fixture"]("pivot-shaft", documents)
-    assert code == 0
+    assert code == 0  # explicit measured-branch demo facts preserve the worked positive control
     assert missing == []
 
 
@@ -316,20 +628,28 @@ def pivot_shaft_inputs():
 @pytest.mark.parametrize(
     "case", ["support_unselected", "support_unverified", "ratio_halved", "report_named_support"]
 )
-def test_stickout_verdict_and_support_come_from_the_plan_hold_and_inventory(freecad_kernel, case):
-    # pivot-shaft S1 holds 167.5 mm out against a 22.8 mm unsupported limit and passes
-    # only on its selected, verified dead centre; S2 holds 14 mm, inside its limit. Change
-    # what the plan selects, the inventory verifies or the policy allows: the stick-out
-    # row derived from those inputs is accepted, and the shipped approval is not.
-    plan, features, inventory, policy, report = pivot_shaft_inputs()
-    kernel = VALIDATOR["independent_kernel"](ROOT / "examples" / "pivot-shaft" / "plan.toml")
+def test_stickout_verdict_and_support_come_from_the_plan_hold_and_inventory(shaft_bundle, case):
+    # The isolated shaft has known test-owned cutting geometry. S1 holds 167.5 mm
+    # out against a 22.8 mm unsupported limit and passes only on its selected,
+    # verified dead centre; S2 holds 14 mm, inside its limit. Change only the support
+    # or ratio: the derived row is accepted and the unchanged approval is not.
+    bundle = copy.deepcopy(shaft_bundle)
+    plan, features, inventory, policy = (
+        bundle.plan,
+        bundle.features,
+        bundle.inventory,
+        bundle.policy,
+    )
+
+    def kernel():
+        return bundle.kernel
+
     sid = "S1" if case.startswith("support_") else "S2"
     setup = next(item for item in plan["setups"] if item["id"] == sid)
-    shipped = next(
-        item for item in report["findings"] if item["rule"] == "stickout" and item["subject"] == sid
-    )
-    assert shipped["status"] == "pass"
-    derived = copy.deepcopy(shipped)
+    baseline = next(item.to_dict() for item in stickout.evaluate(bundle) if item.subject == sid)
+    assert baseline["status"] == "pass"
+    VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, baseline, kernel)
+    derived = copy.deepcopy(baseline)
     row = derived["numbers"]
     if case == "support_unselected":
         setup["hold"]["support"] = "none"  # the follow rest alone is no stick-out support
@@ -342,18 +662,18 @@ def test_stickout_verdict_and_support_come_from_the_plan_hold_and_inventory(free
     else:
         policy["numbers"]["stickout_ld_max"] = 2.0
         row.update(stickout_ld_max=2.0, unsupported_limit_mm=row["diameter_mm"] * 2.0)
-        shipped["numbers"].update(
+        baseline["numbers"].update(
             stickout_ld_max=2.0, unsupported_limit_mm=row["diameter_mm"] * 2.0
         )
         derived["status"] = "error"
         if case == "report_named_support":
-            shipped["numbers"]["support_status"] = "pass"
-            shipped["numbers"]["supports"] = [
+            baseline["numbers"]["support_status"] = "pass"
+            baseline["numbers"]["supports"] = [
                 {"reference": "tailstock", "kind": "accessory", "status": "pass", "source": "x"}
             ]
     VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, derived, kernel)
     with pytest.raises(ValueError):
-        VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, shipped, kernel)
+        VALIDATOR["check_stickout"](setup, plan, features, inventory, policy, baseline, kernel)
 
 
 def test_stickout_cannot_call_a_lathe_hold_inapplicable(freecad_kernel):
@@ -393,8 +713,30 @@ def test_stickout_reads_a_machine_selected_by_its_category_as_that_machine(freec
 
 
 @pytest.fixture(scope="module")
-def shaft_bundle(freecad_kernel):
-    bundle = load_bundle(ROOT / "examples" / "pivot-shaft" / "plan.toml")
+def shaft_bundle(tmp_path_factory, freecad_kernel):
+    """Native shaft stock for numeric stick-out tests, not proof of the shipped inputs."""
+    plan = shaft(tmp_path_factory.mktemp("validator-shaft"))
+    synthetic_centre_tool(plan)
+    bundle = load_bundle(plan)
+    synthetic_shaft_cutting_geometry(bundle)
+    blade = bundle.inventory["tools"]["parting-blade-lms-1728"]
+    for key, value in {
+        "nose_radius_mm": 0.1,
+        "insert_angle_deg": 87.0,
+        "entering_angle_deg": 90.0,
+        "edge_len_mm": 1.6,
+        "head_len_mm": 12.7,
+        "shank_width_mm": 1.6,
+        "functional_width_mm": 1.6,
+        "blade_width_mm": 1.6,
+        "reach_mm": 15.0,
+        "shank_in": 0.5,
+    }.items():
+        blade[key] = synthetic_fact(value)
+    blade["projection_mm"] = {"qctp-axa-lms-2280/7-parting": synthetic_fact(15.0)}
+    holder = bundle.inventory["holders"]["qctp-axa-lms-2280"]["members"]["7-parting"]
+    holder.update(body_width_mm=synthetic_fact(50.0), body_depth_mm=synthetic_fact(32.0))
+    bundle.inventory["machines"]["PM-1127VF-LB"]["resolution_mm"] = synthetic_fact(0.01)
     facts = run_geometry(bundle)
     assert facts["status"] == "ok", facts.get("reason")
     return bundle
@@ -468,27 +810,30 @@ def test_endpoint_oracle_checks_member_facts_units_and_action_specific_depth(act
     # Isolated synthetic facts, never a claim about shop inventory.
     operation = {"op": 10, "do": action, "feature": "h", "tool": "cutter/installed"}
     operation.update({"depth_mm": 5.0} if action == "tap" else {"exit_mm": 0.5})
-    measured = {"by": "test", "date": "2026-10-03", "instrument": "synthetic gauge"}
+    measured = synthetic_fact(0)["measured"]
     bundle = SimpleNamespace(
         plan={
             "setups": [
                 {
                     "id": "S",
+                    "machine": "test-mill",
                     "stock_state": {"top_z": 10.0, "local_thickness": {"h": 20.0}},
                     "ops": [operation],
                 }
             ]
         },
         features={
+            "units": "mm",
             "features": {
                 "h": {
                     "kind": "threaded_hole" if action == "tap" else "hole",
                     "thru": action != "tap",
                     "depth": [4.0, 8.0],
                 },
-            }
+            },
         },
         inventory={
+            "machines": {"test-mill": {"kind": "mill", "resolution_mm": synthetic_fact(0.001)}},
             "tools": {
                 "cutter": {
                     "kind": "drill_set",
@@ -505,7 +850,7 @@ def test_endpoint_oracle_checks_member_facts_units_and_action_specific_depth(act
                         }
                     },
                 },
-            }
+            },
         },
     )
     bundle.feature_definitions = bundle.features["features"]
@@ -543,11 +888,15 @@ def centre_findings(tmp_path, where=None, key=None, value=None):
     """The engine's own blind_depth findings for a changed pivot-shaft centre: its endpoint
     row, a validator call that checks them, and the centre's finding."""
     plan = shaft(tmp_path)
+    synthetic_centre_tool(plan)
     if where == "plan":
         set_process_key(plan, "plain_end_centre", key, value)
     elif where == "tool":
         set_tool_fact(plan, key, value)
     bundle = load_bundle(plan)
+    # Fresh isolated DRO readings, with the source grids' physical precision preserved.
+    for machine, resolution in (("PM-30MV", 0.005), ("PM-1127VF-LB", 0.01)):
+        bundle.inventory["machines"][machine]["resolution_mm"] = synthetic_fact(resolution)
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(bundle)}
     entries = VALIDATOR["Entries"](bundle.inventory)
     finding = findings["blind_depth", "plain_end_centre"]
@@ -1248,8 +1597,9 @@ def test_endpoint_oracle_starts_a_hole_on_the_face_its_producer_cut_on_its_own_g
     path = surface_plan(tmp_path, coarse=True, depth="[2.95, 3.0]")
     inventory = path.with_name("inventory.toml")
     text = inventory.read_text(encoding="utf-8")
-    assert "resolution_mm = 0.01\n" in text
-    coarse = text.replace("resolution_mm = 0.01\n", f"resolution_mm = {producer_grid}\n")
+    authored = "resolution_mm = { value = 0.01,"
+    assert text.count(authored) == 1
+    coarse = text.replace(authored, f"resolution_mm = {{ value = {producer_grid},", 1)
     inventory.write_text(coarse, encoding="utf-8")
     data = load_bundle(path)
     row, check = printed_endpoint(data)
@@ -1265,6 +1615,36 @@ def test_endpoint_oracle_starts_a_hole_on_the_face_its_producer_cut_on_its_own_g
     row.update(dro_entry_z=entry, dro_tip_z=tip, dro_depth_mm=row["depth_mm"] - (tip - planned_tip))
     with pytest.raises(ValueError):
         check()
+
+
+@pytest.mark.parametrize("status", ["assumed", "illustrative", None, "bare"])
+def test_endpoint_oracle_keeps_declared_stops_without_certifying_untrusted_grid(status):
+    data = drill_bundle(thickness=20.0)
+    baseline = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    assert baseline["blind_depth", "hole"]["status"] == "pass"
+    machine = data.inventory["machines"][data.plan["setups"][0]["machine"]]
+    fact = machine["resolution_mm"]
+    if status == "bare":
+        machine["resolution_mm"] = fact["value"]
+    elif status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
+    finding = findings["blind_depth", "hole"]
+    assert finding["status"] == "unknown"
+    (before,) = baseline["blind_depth", "hole"]["numbers"]["endpoints"]
+    (after,) = finding["numbers"]["endpoints"]
+    assert {key: value for key, value in after.items() if key != "dro_grid_debt"} == before
+    entries = VALIDATOR["Entries"](data.inventory)
+    VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+    finding["status"] = "pass"
+    with pytest.raises(ValueError, match="endpoint verdict"):
+        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
+    finding["status"] = "unknown"
+    after["dro_tip_z"] -= 1.0
+    with pytest.raises(ValueError, match="printed tip Z"):
+        VALIDATOR["check_endpoints"](data.plan, data.features, findings, entries)
 
 
 def test_centre_oracle_holds_the_printed_quill_endpoint(tmp_path):
@@ -1535,6 +1915,136 @@ def check_reference_verdict(data, subject, verdict):
             VALIDATOR["check_references"](
                 data.plan, entries, {**findings, key: {**findings[key], "status": forged}}
             )
+
+
+@pytest.mark.parametrize(("field", "value"), [("dia_mm", 6.35), ("dia_in", 0.25), ("dia", 6.35)])
+@pytest.mark.parametrize(
+    ("case", "verdict"),
+    [
+        ("bare", "pass"),
+        ("catalogue", "pass"),
+        ("measured", "pass"),
+        ("assumed", "unknown"),
+        ("illustrative", "unknown"),
+        ("omitted", "unknown"),
+        ("unknown_value", "unknown"),
+    ],
+)
+def test_reference_oracle_qualifies_only_its_selected_diameter(field, value, case, verdict):
+    data = drill_bundle()
+    drill = data.inventory["tools"]["drill"]
+    for name in ("dia_mm", "dia_in", "dia"):
+        drill.pop(name, None)
+    drill["units"] = "mm"
+    fact = value if case == "bare" else {"value": value}
+    if case not in {"bare", "catalogue"}:
+        fact = synthetic_fact(value)
+        if case in {"assumed", "illustrative"}:
+            fact["measured"]["status"] = case
+        elif case == "omitted":
+            del fact["measured"]["status"]
+        elif case == "unknown_value":
+            fact["value"] = "unknown"
+    drill[field] = fact
+    Inventory.model_validate(data.inventory)
+    findings = {(f.rule, f.subject): f.to_dict() for f in tool_resolves.evaluate(data)}
+    entries = VALIDATOR["Entries"](data.inventory)
+    key = "tool_resolves", "drill"
+    native = findings[key]
+    trusted = verdict == "pass"
+    assert native["status"] == verdict
+    assert native["numbers"]["verified"] is trusted
+    if trusted:
+        assert native["numbers"]["dia_mm"] == pytest.approx(6.35)
+    else:
+        assert "dia_mm" not in native["numbers"]
+    assert VALIDATOR["check_references"](data.plan, entries, findings) == []
+    for forged in sorted({"pass", "unknown", "error"} - {verdict}):
+        with pytest.raises(ValueError):
+            VALIDATOR["check_references"](
+                data.plan, entries, {**findings, key: {**native, "status": forged}}
+            )
+    for numbers in [
+        {**native["numbers"], "verified": not trusted},
+        {**native["numbers"], "dia_mm": 6.6},
+        {
+            name: number
+            for name, number in native["numbers"].items()
+            if name != ("dia_mm" if trusted else "verified")
+        },
+    ]:
+        with pytest.raises(ValueError):
+            VALIDATOR["check_references"](
+                data.plan, entries, {**findings, key: {**native, "numbers": numbers}}
+            )
+
+
+@pytest.mark.parametrize("field", ["flute_len_mm", "oal_mm"])
+def test_reference_oracle_does_not_consume_unrelated_measurement_records(field):
+    data = drill_bundle()
+    fact = synthetic_fact(20.0)
+    fact["measured"]["status"] = "illustrative"
+    data.inventory["tools"]["drill"][field] = fact
+    check_reference_verdict(data, "drill", "pass")
+
+
+@pytest.mark.parametrize("case", ["assumed", "illustrative", "omitted"])
+def test_reference_oracle_keeps_named_only_diameters_out_of_identity_verification(case):
+    data = drill_bundle()
+    fact = synthetic_fact(6.35)
+    if case == "omitted":
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = case
+    data.inventory["tools"]["named-drill"] = {"kind": "drill", "dia_mm": fact}
+    data.plan["setups"][0]["note"] = "Also listed: tools.named-drill."
+    check_reference_verdict(data, "tools.named-drill", "pass")
+
+
+def incomplete_reference_data(field, value, *, named=False):
+    """An intentionally invalid measurement for schema and raw-reader boundary tests."""
+    data = drill_bundle()
+    drill = copy.deepcopy(data.inventory["tools"]["drill"])
+    for name in ("dia_mm", "dia_in", "dia"):
+        drill.pop(name, None)
+    fact = synthetic_fact(value)
+    del fact["measured"]["instrument"]
+    drill.update(units="mm", **{field: fact})
+    data.inventory["tools"]["named-drill" if named else "drill"] = drill
+    if named:
+        data.plan["setups"][0]["note"] = "Also listed: tools.named-drill."
+    return data
+
+
+@pytest.mark.parametrize("named", [False, True])
+@pytest.mark.parametrize(("field", "value"), [("dia_mm", 6.35), ("dia_in", 0.25), ("dia", 6.35)])
+def test_reference_measurement_schema_rejects_incomplete_records_even_for_named_items(
+    field, value, named
+):
+    data = incomplete_reference_data(field, value, named=named)
+    with pytest.raises(ValidationError, match="instrument"):
+        Inventory.model_validate(data.inventory)
+
+
+@pytest.mark.parametrize(("field", "value"), [("dia_mm", 6.35), ("dia_in", 0.25), ("dia", 6.35)])
+def test_reference_oracle_defensively_rejects_incomplete_unvalidated_measurements(field, value):
+    """Raw-reader contract only: this inventory cannot pass the producer's schema."""
+    data = incomplete_reference_data(field, value)
+    findings = {(f.rule, f.subject): f.to_dict() for f in tool_resolves.evaluate(data)}
+    entries = VALIDATOR["Entries"](data.inventory)
+    key = "tool_resolves", "drill"
+    native = findings[key]
+    assert native["status"] == "unknown"
+    assert native["numbers"]["verified"] is False
+    assert "dia_mm" not in native["numbers"]
+    assert VALIDATOR["check_references"](data.plan, entries, findings) == []
+    for forged in [
+        {**native, "status": "pass"},
+        {**native, "numbers": {**native["numbers"], "verified": True}},
+        {**native, "numbers": {**native["numbers"], "dia_mm": 6.35}},
+    ]:
+        with pytest.raises(ValueError):
+            VALIDATOR["check_references"](data.plan, entries, {**findings, key: forged})
 
 
 QUALIFIED_SELECTIONS = {
@@ -3284,10 +3794,19 @@ DRO_EDITS = [
 def test_zero_polarity_scale_and_mode_come_from_the_plans_dro(
     freecad_kernel, part, setup_id, path, value, verdict
 ):
-    setup, _, entries, own = zero_case(part, setup_id)
-    before = native_zero(part, setup_id)
+    setup, _, _, own = zero_case(part, setup_id)
+    # The DRO modes are this mechanism's variable; supply a fresh local grid without
+    # certifying the illustrative source or changing its physical precision.
+    machine = setup["machine"]
+    resolution = 0.01 if part == "pivot-shaft" else 0.005
+    grid_edit = inventory_edits(
+        (("machines", machine, "resolution_mm"), synthetic_fact(resolution))
+    )
+    grid_edit(own.inventory)
+    entries = VALIDATOR["Entries"](own.inventory)
+    before = native_zero(part, setup_id, inventory_edit=grid_edit)
     set_key(path, value)(own.plan["dro"])
-    native = native_zero(part, setup_id, set_key(path, value))
+    native = native_zero(part, setup_id, set_key(path, value), inventory_edit=grid_edit)
     assert native["status"] == verdict
     VALIDATOR["check_zero"](setup, copy.deepcopy(native), entries, own)
     # The unedited plan's finding printing the edited plan's DRO modes (the reviewer's
@@ -3299,6 +3818,33 @@ def test_zero_polarity_scale_and_mode_come_from_the_plans_dro(
     for forged in sorted({"pass", "unknown", "error"} - {verdict}):
         with pytest.raises(ValueError):
             VALIDATOR["check_zero"](setup, {**native, "status": forged}, entries, own)
+
+
+def test_zero_oracle_grid_metadata_debt_preserves_readings_without_certification(freecad_kernel):
+    setup, _, _, own = zero_case("pivot-shaft", "S1")
+    machine = setup["machine"]
+    fact = synthetic_fact(0.01)
+    grid_edit = inventory_edits((("machines", machine, "resolution_mm"), fact))
+    grid_edit(own.inventory)
+    baseline = native_zero("pivot-shaft", "S1", inventory_edit=grid_edit)
+    assert baseline["status"] == "pass"
+    entries = VALIDATOR["Entries"](own.inventory)
+    VALIDATOR["check_zero"](setup, baseline, entries, own)
+    for status in ("assumed", "illustrative", None):
+        if status is None:
+            del fact["measured"]["status"]
+        else:
+            fact["measured"]["status"] = status
+        native = native_zero("pivot-shaft", "S1", inventory_edit=grid_edit)
+        assert native["status"] == "unknown"
+        assert {
+            key: value
+            for key, value in native["numbers"].items()
+            if key not in {"dro_grid_debt", "measurements"}
+        } == baseline["numbers"]
+        VALIDATOR["check_zero"](setup, native, entries, own)
+        with pytest.raises(ValueError, match="zero verdict"):
+            VALIDATOR["check_zero"](setup, {**native, "status": "pass"}, entries, own)
 
 
 @pytest.mark.parametrize(("part", "setup_id"), [("pivot-bracket", "S2"), ("pivot-shaft", "S1")])
@@ -3440,7 +3986,7 @@ def test_zero_readiness_radius_and_lathe_come_from_the_inventory(
 
 def coverage_case():
     """The built-up cone's plan, manifest and report findings keyed by rule and subject,
-    and the validator's coverage check on its own inventory read and bundle load."""
+    and the validator's coverage check on its own inventory read and native bundle load."""
     plan, features, inventory, _, report = cone_inputs()
     entries = VALIDATOR["Entries"](inventory)
     checked = VALIDATOR["checker_findings"](ROOT / "examples" / "cone-pivot-post" / "built-up.toml")
@@ -3464,7 +4010,9 @@ def coverage_row(rule, subject, selector, status="unknown"):
         ("not_implemented_check", [], "*"),  # an empty selection of one
     ],
 )
-def test_required_coverage_comes_from_the_policy_not_the_report(rule, selector, subject):
+def test_required_coverage_comes_from_the_policy_not_the_report(
+    freecad_kernel, rule, selector, subject
+):
     plan, features, findings, check = coverage_case()
     policy = {"required": {rule: selector}}
     key = (rule, subject)
@@ -3486,7 +4034,7 @@ def test_required_coverage_comes_from_the_policy_not_the_report(rule, selector, 
         check(policy, plan, features, {**findings, **rows})
 
 
-def test_required_coverage_row_carries_the_policys_selector():
+def test_required_coverage_row_carries_the_policys_selector(freecad_kernel):
     plan, features, findings, check = coverage_case()
     # An empty selection's coverage row is required by the policy's selection of its
     # rule, never by the selector the report prints on it.
@@ -3567,6 +4115,39 @@ def test_rules_only_the_checker_models_are_its_own_rows_on_the_validators_inputs
             rejected({**findings, key: {**row, "numbers": {**row["numbers"], "forged": True}}})
 
 
+@pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
+def test_consistency_oracle_independently_rejects_uncertified_picture_grid(monkeypatch, status):
+    fact = synthetic_fact(0.01)
+    if status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    setup = {"id": "S1", "machine": "mill", "ops": []}
+    plan = {"setups": [setup]}
+    features = {"units": "mm", "features": {}}
+    entries = VALIDATOR["Entries"]({"machines": {"mill": {"kind": "mill", "resolution_mm": fact}}})
+    row = {
+        "status": "pass",
+        "numbers": {"claims": 1, "contradictions": [], "unchecked": []},
+        "cite": ["kernel setup picture: closest_cut and per-op cut_clearances"],
+    }
+    check = VALIDATOR["check_required_coverage"]
+    # Emulate a checker trust regression: equality to its own row alone would accept
+    # this provisional printed claim. The oracle reads the unchanged source number.
+    monkeypatch.setitem(
+        check.__globals__, "rule_subjects", lambda *args: {"consistency": {"S1": row}}
+    )
+    findings = {("consistency", "S1"): row}
+    if status == "measured":
+        check({"required": {}}, plan, features, findings, entries, None)
+    else:
+        with pytest.raises(ValueError, match="unverified picture grid cannot pass"):
+            check({"required": {}}, plan, features, findings, entries, None)
+        row["status"] = "unknown"
+        row["numbers"]["unchecked"] = ["synthetic picture grid is provisional"]
+        check({"required": {}}, plan, features, findings, entries, None)
+
+
 def cone_coordinates(tmp_path, setup_id, aim=None, measured=False):
     """The engine's coordinates finding for one setup of the built-up cone (``aim``
     replaces the requirement and value of plan ``aims.crank_bore``, which asks 39.517 of
@@ -3579,6 +4160,23 @@ def cone_coordinates(tmp_path, setup_id, aim=None, measured=False):
         authored = 'requirement = "separation"\nvalue_mm = 39.517\n'
         assert authored in text
         plan_path.write_text(text.replace(authored, aim), encoding="utf-8")
+    # Fresh test grids in the copied input: both the native run and the validator's
+    # independent kernel load must read the same facts. Shipped records stay illustrative.
+    inventory_path = plan_path.parents[1] / "inventory" / "pedro-shop.toml"
+    lines = inventory_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    for machine, resolution in (("PM-30MV", 0.005), ("PM-1127VF-LB", 0.01)):
+        start = lines.index(f"[machines.{machine}]\n")
+        end = next(n for n in range(start + 1, len(lines)) if lines[n].startswith("["))
+        reading = (
+            f'resolution_mm = {{ value = {resolution}, measured = {{ status = "measured", '
+            'by = "synthetic test operator", date = "2026-10-03", '
+            'instrument = "synthetic test DRO" } }\n'
+        )
+        lines[start + 1 : end] = [
+            reading if line.startswith("resolution_mm =") else line
+            for line in lines[start + 1 : end]
+        ]
+    inventory_path.write_text("".join(lines), encoding="utf-8")
     bundle = load_bundle(plan_path)
     if measured:
         assert run_geometry(bundle)["status"] == "ok"
@@ -3785,9 +4383,15 @@ def test_coordinate_oracle_ends_a_kernel_span_where_its_own_kernel_run_measures_
 
 @pytest.fixture(scope="module")
 def rocker_blank(freecad_kernel):
-    """The rocker-arm bundle, whose prepared blank P5 cuts and gauges no setup names
-    check, and its kernel facts."""
+    """An isolated rocker prepared-blank case with fresh test cutter/support/gauge
+    facts and its native kernel cut. The shipped example remains unverified."""
     bundle = load_bundle(ROOT / "examples" / "rocker-arm" / "plan.toml")
+    synthetic_prep_geometry(bundle)
+    bundle.inventory["gauges"]["calipers-18in"] = {
+        "kind": "caliper",
+        "range_mm": [0.0, 450.0],
+        "resolution_mm": synthetic_fact(0.02),
+    }
     facts = run_geometry(bundle)
     assert facts["status"] == "ok", facts.get("reason")
     return bundle, facts
@@ -3841,6 +4445,205 @@ def blank_case(rocker_blank, case=None):
         )
 
     return bundle, native, check
+
+
+@pytest.fixture
+def host_rocker_blank(monkeypatch):
+    """Raw authored inputs with explicitly synthetic handed-on stock, never a native run."""
+    bundle = load_bundle(ROOT / "examples" / "rocker-arm" / "plan.toml")
+    raw = {
+        name: tomllib.loads(bundle.paths[name].read_text(encoding="utf-8"))
+        for name in ("plan", "features", "inventory")
+    }
+    bundle = replace(
+        bundle,
+        **raw,
+        kernel={
+            "status": "ok",
+            "setups": {
+                "P5": {
+                    "stock_out_bbox_mm": [-170.0, -20.0, -8.0, 170.0, 45.0, 8.0],
+                    "stock_out_volume_mm3": 340.0 * 65.0 * 16.0,
+                }
+            },
+        },
+    )
+
+    def injected_geometry(selected):
+        if selected.kernel is None:
+            pytest.fail("the host prepared-blank oracle fixture must never request native geometry")
+        return selected.kernel
+
+    monkeypatch.setattr("prechips.kernel.run_geometry", injected_geometry)
+    return bundle
+
+
+def test_prepared_member_oracle_reads_the_authored_nominal_micrometer_resolution(host_rocker_blank):
+    bundle, native, check = blank_case((host_rocker_blank, host_rocker_blank.kernel))
+    assert bundle.inventory["gauges"]["micrometers"]["resolution_in"] == 0.0001
+    assert native["status"] == "pass"
+    for key in ("section_0", "section_1"):
+        assert native["numbers"]["checks"][key]["resolution_mm"] == pytest.approx(0.00254)
+    assert check(native) == []
+
+
+@pytest.mark.parametrize("qualified", [False, True])
+@pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
+@pytest.mark.parametrize(
+    ("field", "value"), [("resolution_mm", 0.00254), ("resolution_in", 0.0001)]
+)
+def test_prepared_member_oracle_keeps_fact_local_trust_and_named_debt(
+    host_rocker_blank, qualified, status, field, value
+):
+    gauge = host_rocker_blank.inventory["gauges"]["micrometers"]
+    gauge.pop("resolution_in")
+    fact = synthetic_fact(value)
+    if status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    gauge[field] = fact
+    if qualified:
+        checks = host_rocker_blank.plan["stock"]["prepared"]["checks"]
+        for key in ("section_0", "section_1"):
+            checks[key] = f"gauges.{checks[key]}"
+    _, native, check = blank_case((host_rocker_blank, host_rocker_blank.kernel))
+    trusted = status == "measured"
+    assert native["status"] == ("pass" if trusted else "unknown")
+    assert check(native) == []
+    rows = native["numbers"]["checks"]
+    for key in ("section_0", "section_1"):
+        assert rows[key]["status"] == ("pass" if trusted else "unknown")
+        if trusted:
+            assert rows[key]["resolution_mm"] == pytest.approx(0.00254)
+            assert "measurements" not in rows[key]
+        else:
+            assert rows[key]["resolution_mm"] == "unknown"
+            assert len(rows[key]["measurements"]) == 1
+    if trusted:
+        assert "measurements" not in native["numbers"]
+    else:
+        debts = native["numbers"]["measurements"]
+        assert {debt["id"] for debt in debts} == {
+            "gauges.micrometers/0-1in.resolution",
+            "gauges.micrometers/2-3in.resolution",
+        }
+        for debt in debts:
+            assert debt["status"] == (status or "assumed")
+            assert debt["instruction"].startswith("measure:")
+            assert f"inventory.{debt['id']}" in debt["cite"]
+        forged = copy.deepcopy(native)
+        forged["status"] = "pass"
+        for key in ("section_0", "section_1"):
+            forged["numbers"]["checks"][key]["status"] = "pass"
+            forged["numbers"]["checks"][key]["resolution_mm"] = 0.00254
+        with pytest.raises(ValueError, match="verdict"):
+            check(forged)
+        for missing in ("row", "aggregate"):
+            unnamed = copy.deepcopy(native)
+            if missing == "row":
+                del unnamed["numbers"]["checks"]["section_0"]["measurements"]
+            else:
+                del unnamed["numbers"]["measurements"]
+            with pytest.raises(ValueError, match="evidence"):
+                check(unnamed)
+
+
+@pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
+def test_prepared_form_oracle_retains_named_resolution_debt(host_rocker_blank, status):
+    gauge = host_rocker_blank.inventory["gauges"]["dti"]
+    fact = synthetic_fact(0.0005)
+    if status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    gauge["resolution_in"] = fact
+    _, native, check = blank_case((host_rocker_blank, host_rocker_blank.kernel))
+    trusted = status == "measured"
+    assert native["status"] == ("pass" if trusted else "unknown")
+    assert check(native) == []
+    for key in ("flat", "square", "parallel"):
+        row = native["numbers"]["checks"][key]
+        assert row["status"] == ("pass" if trusted else "unknown")
+        if trusted:
+            assert row["resolution_mm"] == pytest.approx(0.0127)
+            assert "measurements" not in row
+        else:
+            assert row["resolution_mm"] == "unknown"
+            assert [debt["id"] for debt in row["measurements"]] == ["gauges.dti.resolution"]
+    if trusted:
+        assert "measurements" not in native["numbers"]
+    else:
+        debts = native["numbers"]["measurements"]
+        assert len(debts) == 1
+        assert debts[0]["id"] == "gauges.dti.resolution"
+        assert debts[0]["status"] == (status or "assumed")
+        assert debts[0]["instruction"].startswith("measure:")
+        forged = copy.deepcopy(native)
+        forged["status"] = "pass"
+        with pytest.raises(ValueError, match="verdict"):
+            check(forged)
+
+
+@pytest.mark.parametrize("status", ["measured", "assumed", "illustrative", None])
+def test_resolved_member_scalar_range_oracle_keeps_its_own_trust(status):
+    fact = synthetic_fact(300.0)
+    if status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = status
+    gauge = {
+        "kind": "micrometer_set",
+        "range_mm": fact,
+        "resolution_mm": synthetic_fact(0.001),
+    }
+    row = {}
+    verdict = VALIDATOR["blank_size_check"](gauge, [20.0, 20.1], {"units": "mm"}, row)
+    assert row["resolution_mm"] == 0.001
+    if status == "measured":
+        assert verdict == "pass"
+        assert row["range_mm"] == [0.0, 300.0]
+    else:
+        assert verdict == "unknown"
+        assert row["range_mm"] == "unknown"
+
+
+@pytest.mark.parametrize("verification", [True, "unknown"])
+@pytest.mark.parametrize("location", ["fact", "item"])
+def test_prepared_member_oracle_preserves_legacy_verification_debt(
+    host_rocker_blank, verification, location
+):
+    gauge = host_rocker_blank.inventory["gauges"]["micrometers"]
+    if location == "fact":
+        gauge["resolution_in"] = synthetic_fact(0.0001) | {"verify": verification}
+    else:
+        gauge["verify"] = verification
+    _, native, check = blank_case((host_rocker_blank, host_rocker_blank.kernel))
+    assert native["status"] == "unknown"
+    assert check(native) == []
+    # Resolution's legacy verify flag propagates to the selected member's identity;
+    # both consumed dimensions retain their debt, including its generated raw range.
+    assert {debt["id"] for debt in native["numbers"]["measurements"]} == {
+        f"gauges.micrometers/{member}.{field}"
+        for member in ("0-1in", "2-3in")
+        for field in ("range", "resolution")
+    }
+    forged = copy.deepcopy(native)
+    forged["status"] = "pass"
+    with pytest.raises(ValueError, match="verdict"):
+        check(forged)
+
+
+@pytest.mark.parametrize("case", ["kernel_unavailable", "cut_unexplained", "cut_missing"])
+def test_prepared_member_oracle_never_approves_an_underivable_cut(host_rocker_blank, case):
+    _, native, check = blank_case((host_rocker_blank, host_rocker_blank.kernel), case)
+    assert native["status"] == "unknown"
+    assert check(native) == []
+    assert "measurements" not in native["numbers"]
+    forged = copy.deepcopy(native)
+    forged["status"] = "pass"
+    with pytest.raises(ValueError, match="verdict"):
+        check(forged)
 
 
 @pytest.mark.parametrize(
@@ -4042,7 +4845,7 @@ def joined(unresolved=None, error=None):
     "corruption", ["fit_pass", "missing", "socket", "assembly_pass", "branches"]
 )
 def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corruption):
-    plan, features, _, _, report = cone_inputs(fresh_pure=True)
+    plan, features, _, _, report = cone_inputs(fresh_pure=True, joint_kernel=joined())
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
     kernel = joined()
     VALIDATOR["check_joint_declarations"](plan, features, findings, kernel)
@@ -4086,10 +4889,10 @@ def test_built_up_joint_report_cannot_clear_numeric_debt_or_change_identity(corr
     "corruption", ["unresolved", "refused", "no_kernel", "no_setup_facts", "completed"]
 )
 def test_joint_assembly_verdict_is_the_validators_own_kernel_join(corruption):
-    # The report approves S7's join as shipped, but the validator's own kernel run leaves
+    # The report's assembly verdict is not accepted when the validator's own kernel leaves
     # its joined stock unknown, refuses it, never ran or derived nothing for S7; or the
     # report claims a joint feature completed that the join never completed.
-    plan, features, _, _, report = cone_inputs()
+    plan, features, _, _, report = cone_inputs(joint_kernel=joined())
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
     assembly = findings["joint_assembly", "S7"]
     VALIDATOR["check_joint_declarations"](plan, features, findings, joined())
@@ -4117,9 +4920,9 @@ REFUSED = "spigot insertion sweep meets socket material"
     ("run", "sid", "status", "numbers"),
     [
         # No kernel ran: an always-required join is unknown debt, never inapplicable,
-        # whether the report keeps the shipped join evidence or the kernel's failure.
-        ("unavailable", "S6", "not_applicable", "shipped"),
-        ("unavailable", "S7", "not_applicable", "shipped"),
+        # whether the report keeps synthetic joined evidence or the kernel's failure.
+        ("unavailable", "S6", "not_applicable", "joined"),
+        ("unavailable", "S7", "not_applicable", "joined"),
         ("unavailable", "S7", "not_applicable", None),
         # The validator's run refused S7: the report cannot call it unavailable debt.
         ("refused", "S7", "unknown", {"kernel_status": "unknown", "kernel_unavailable": True}),
@@ -4133,9 +4936,9 @@ REFUSED = "spigot insertion sweep meets socket material"
 def test_joint_assembly_report_cannot_name_a_kernel_outcome_its_validator_did_not_run(
     run, sid, status, numbers
 ):
-    plan, features, _, _, report = cone_inputs()
+    plan, features, _, _, report = cone_inputs(joint_kernel=joined())
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
-    shipped = copy.deepcopy(findings["joint_assembly", sid]["numbers"])
+    joined_numbers = copy.deepcopy(findings["joint_assembly", sid]["numbers"])
     if run == "unavailable":
         facts = UNAVAILABLE
         for subject in ("S6", "S7"):
@@ -4150,7 +4953,9 @@ def test_joint_assembly_report_cannot_name_a_kernel_outcome_its_validator_did_no
     VALIDATOR["check_joint_declarations"](plan, features, findings, lambda: facts)
     findings["joint_assembly", sid]["status"] = status
     if numbers is not None:
-        findings["joint_assembly", sid]["numbers"] = shipped if numbers == "shipped" else numbers
+        findings["joint_assembly", sid]["numbers"] = (
+            joined_numbers if numbers == "joined" else numbers
+        )
     with pytest.raises(ValueError):
         VALIDATOR["check_joint_declarations"](plan, features, findings, lambda: facts)
 
@@ -4310,7 +5115,8 @@ def test_indexing_oracle_handles_continuous_and_unresolved_declarations(
 @pytest.mark.parametrize("binding", ["nominal", "unknown"])
 @pytest.mark.parametrize("kind", ["hole", "profile"])
 @pytest.mark.parametrize("z", [3.0, "unknown"])
-def test_ordinary_coordinate_verdict_is_derived_from_source_targets(binding, kind, z):
+@pytest.mark.parametrize("grid_status", ["measured", "assumed", "illustrative", None, "bare"])
+def test_ordinary_coordinate_verdict_is_derived_from_source_targets(binding, kind, z, grid_status):
     frame = {
         "origin": [0.0, 0.0, 0.0],
         "x": [1.0, 0.0, 0.0],
@@ -4330,16 +5136,30 @@ def test_ordinary_coordinate_verdict_is_derived_from_source_targets(binding, kin
         "ops": [{"op": 10, "do": "inspect", "feature": "hole"}],
     }
     plan = {"setups": [setup]}
-    inventory = {"machines": {"mill": {"kind": "mill", "resolution_mm": 0.001}}}
+    fact = synthetic_fact(0.001)
+    if grid_status == "bare":
+        fact = fact["value"]
+    elif grid_status is None:
+        del fact["measured"]["status"]
+    else:
+        fact["measured"]["status"] = grid_status
+    inventory = {"machines": {"mill": {"kind": "mill", "resolution_mm": fact}}}
     entries = VALIDATOR["Entries"](inventory)
     # An inspected profile is not a located/hole feature, but its explicit partial at
     # still prints a target row and leaves the setup unknown (coordinates.evaluate).
-    native = "unknown" if binding == "unknown" or z == "unknown" else "pass"
+    native = (
+        "unknown" if binding == "unknown" or z == "unknown" or grid_status != "measured" else "pass"
+    )
     finding = {
         "status": native,
         "cite": [],
         "numbers": {
             "dro_grid": {"step": 0.001, "decimals": 3},
+            **(
+                {"dro_grid_debt": "synthetic declared grid is not measured"}
+                if grid_status != "measured"
+                else {}
+            ),
             "rows": [
                 {
                     "feature": "hole",
@@ -4383,7 +5203,7 @@ def test_coordinate_oracle_requires_every_authored_lathe_station(omitted, radius
         "features": {"shaft": {"kind": "shaft", "dia_nominal": 4.0, "z_mm": [0.0, 10.0]}},
     }
     plan = {"setups": [setup], "dro": {} if radius_mode is None else {"radius_mode": radius_mode}}
-    inventory = {"machines": {"lathe": {"kind": "lathe", "resolution_mm": 0.001}}}
+    inventory = {"machines": {"lathe": {"kind": "lathe", "resolution_mm": synthetic_fact(0.001)}}}
     entries = VALIDATOR["Entries"](inventory)
     finding = {
         "status": "unknown" if radius_mode is None else "pass",
@@ -4434,15 +5254,21 @@ def test_coordinate_oracle_requires_every_authored_lathe_station(omitted, radius
         ("fit-up reading", 1.0, "error"),
     ],
 )
-def test_stickout_oracle_merges_fit_up_debt(freecad_kernel, measure, nominal_delta, native):
-    plan, features, inventory, policy, report = pivot_shaft_inputs()
-    kernel = VALIDATOR["independent_kernel"](ROOT / "examples" / "pivot-shaft" / "plan.toml")
-    setup = next(item for item in plan["setups"] if item["id"] == "S2")
-    finding = next(
-        item
-        for item in report["findings"]
-        if item["rule"] == "stickout" and item["subject"] == "S2"
+def test_stickout_oracle_merges_fit_up_debt(shaft_bundle, measure, nominal_delta, native):
+    bundle = copy.deepcopy(shaft_bundle)
+    plan, features, inventory, policy = (
+        bundle.plan,
+        bundle.features,
+        bundle.inventory,
+        bundle.policy,
     )
+
+    def kernel():
+        return bundle.kernel
+
+    setup = next(item for item in plan["setups"] if item["id"] == "S2")
+    finding = next(item.to_dict() for item in stickout.evaluate(bundle) if item.subject == "S2")
+    assert finding["status"] == "pass"
     length = setup["hold"]["stickout_mm"]
     fit = {"measure": measure, "nominal_mm": length - 2.0 + nominal_delta, "add_mm": 2.0}
     setup["hold"]["stickout_fit"] = fit

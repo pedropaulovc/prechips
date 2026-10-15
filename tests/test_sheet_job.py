@@ -6,7 +6,7 @@ import tomllib
 import pytest
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
 from test_sheet_ops import Markup, content
-from test_sheet_precision import sections, tagged, text
+from test_sheet_precision import sections, table_rows, tagged, text
 
 from prechips.inputs import load_bundle
 from prechips.rules.coordinates import dro_grid
@@ -24,6 +24,53 @@ def run(tmp_path, bundle, edit=None):
         edit(examples)
     _, report, html = traveler(examples / bundle, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     return report, html
+
+
+def _illustrative_rocker_fixtures(examples, *, measured_arm=False):
+    """Qualify only selected fixture solids in this test's copied inventory."""
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    authored = inventory.read_text(encoding="utf-8")
+    fixtures = tomllib.loads(authored)["fixtures"]
+    for reference in (
+        "rocker-vise-stop",
+        "rocker-s2-support-jack",
+        "rocker-profile-fixture",
+        "rocker-hub-strap",
+        "rocker-rod-diamond-pin",
+        "rocker-hub-filing-buttons",
+        "rocker-pivot-screw",
+        "rocker-rail-clamp",
+    ):
+        section = re.search(
+            rf"^\[fixtures\.{re.escape(reference)}\]\n.*?(?=^\[|\Z)",
+            authored,
+            re.MULTILINE | re.DOTALL,
+        )
+        assert section is not None, reference
+
+        def qualify(match, reference=reference):
+            trusted = measured_arm and reference == "rocker-vise-stop" and match[2] == "arm"
+            status = "measured" if trusted else "illustrative"
+            # Complete demo metadata is not a physical measurement. Only the arm's
+            # explicit measured status exercises the trusted positive control.
+            return (
+                match[1]
+                + f'{{ status = "{status}", '
+                + 'by = "example value (realistic, not a shop measurement)", '
+                + 'date = "2026-10-11", instrument = "example fixture (no physical measurement)" }'
+            )
+
+        replacement, count = re.subn(
+            r'^(  \{ name = "([^"]+)"[^\n]*?measured = )\{[^{}\n]*\}',
+            qualify,
+            section[0],
+            flags=re.MULTILINE,
+        )
+        assert count == len(fixtures[reference]["solids"]) > 0, reference
+        if measured_arm and reference == "rocker-vise-stop":
+            assert sum(solid["name"] == "arm" for solid in fixtures[reference]["solids"]) == 1
+        authored = authored[: section.start()] + replacement + authored[section.end() :]
+    inventory.write_text(authored, encoding="utf-8")
 
 
 @pytest.fixture(scope="module")
@@ -54,34 +101,47 @@ def test_the_job_page_states_release_without_checker_jargon(shaft):
     )
 
 
-def test_example_fixture_dimensions_are_labelled_once_and_marked_on_their_rows(rocker, shaft):
-    _, html = rocker
+def test_example_fixture_dimensions_are_labelled_once_and_marked_on_their_rows(tmp_path, shaft):
+    _, html = run(tmp_path, "rocker-arm/plan.toml", _illustrative_rocker_fixtures)
     markup = Markup(html)
     legends = [node for node in tagged(markup, "p") if "†" in content(node)]
-    # The marked example-dimension legend belongs to the job page, once.
+    # The authored-setting legend belongs to the job page, once; no installed clearance.
     assert len(legends) == 1
+    assert "Make-to-drawing expected settings; check the physical fixture as made" in (
+        content(legends[0])
+    )
     assert "†" in text(pages(html)[0])
     tables = sections(html, "SHOP-MADE FIXTURE")
     assert tables and all("†" in table for table in tables)
+    for table in tables:
+        markup = Markup(table)
+        (fixture,) = markup.find("fixture")
+        rows = table_rows(markup, fixture)
+        assert all("†" in row[0] for row in rows), rows
     # No shop-made fixture, no example mark or legend.
     _, plain = shaft
     assert "†" not in text(plain)
 
 
-def test_only_rows_with_example_dimensions_carry_the_mark(tmp_path):
+def test_only_rows_with_non_measured_dimensions_carry_the_mark(tmp_path):
     def measured_arm(examples):
-        inventory = examples / "inventory" / "pedro-shop.toml"
-        authored = inventory.read_text(encoding="utf-8")
-        arm = 'by = "example (plausible, not measured)", date = "2026-10-05", instrument = '
-        arm += '"calipers and steel rule, arm section and length"'
-        assert authored.count(arm) == 1
-        measured = arm.replace("example (plausible, not measured)", "a test shop measurement")
-        inventory.write_text(authored.replace(arm, measured), encoding="utf-8")
+        _illustrative_rocker_fixtures(examples, measured_arm=True)
 
     _, html = run(tmp_path, "rocker-arm/plan.toml", measured_arm)
     stop = next(t for t in sections(html, "SHOP-MADE FIXTURE") if "blank-end stop" in t)
     rows = text(stop)
     assert "|arm|" in rows and "|finger †|" in rows, rows
+    for table in sections(html, "SHOP-MADE FIXTURE"):
+        markup = Markup(table)
+        (fixture,) = markup.find("fixture")
+        components = [row[0] for row in table_rows(markup, fixture)]
+        if "blank-end stop" in table:
+            assert components.count("arm") == 1, components
+            assert "finger †" in components, components
+            others = [component for component in components if component != "arm"]
+        else:
+            others = components
+        assert others and all("†" in component for component in others), components
 
 
 def test_coating_cells_print_the_shop_name_of_a_consumable_or_service(shaft, bracket):
@@ -125,13 +185,28 @@ def test_mill_xy_check_jogs_are_made_raised_clear_of_the_work(bracket, shaft):
     assert all("raise Z" not in text(zero) for zero in sections(plain, "DRO ZERO"))
 
 
-def test_job_page_stock_sizes_print_on_the_receiving_machine_grid(shaft, rocker):
+def test_job_page_stock_sizes_print_on_the_receiving_machine_grid():
+    def stock_markup(folder, machine, resolution):
+        bundle = load_bundle(ROOT / "examples" / folder / "plan.toml")
+        # Only this formatting regression supplies synthetic evidence for its DRO grid.
+        bundle.inventory["machines"][machine]["resolution_mm"] = {
+            "value": resolution,
+            "measured": {
+                "status": "measured",
+                "by": "synthetic test operator",
+                "date": "2026-10-05",
+                "instrument": "synthetic DRO readout",
+            },
+        }
+        html = _Traveler(bundle, [], {}, None).header(bundle.plan["setups"])
+        return Markup(sections(html, "STOCK AND ROUTE")[0])
+
     # The shaft bar goes to the 0.01 lathe; the rocker blank to the 0.005 mill.
-    markup = Markup(sections(shaft[1], "STOCK AND ROUTE")[0])
+    markup = stock_markup("pivot-shaft", "PM-1127VF-LB", 0.01)
     (stock,) = [content(node) for node in tagged(markup, "p") if content(node).startswith("Stock:")]
     assert "Ø10.00 × 180.50 long" in stock, stock
     assert not re.search(r"\d\.\d{3}", stock), stock
-    markup = Markup(sections(rocker[1], "STOCK AND ROUTE")[0])
+    markup = stock_markup("rocker-arm", "PM-30MV", 0.005)
     (stock,) = [content(node) for node in tagged(markup, "p") if content(node).startswith("Stock:")]
     assert "76.200 × 19.050 × 345.000 long" in stock, stock
     # The prepared blank is printed as CHECK THE BLANK, never as a raw field dump.

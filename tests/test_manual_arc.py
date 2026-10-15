@@ -38,6 +38,8 @@ POLICY = (
 )
 INVENTORY = (
     "[machines.mill]\nkind = 'mill'\nverify = false\n"
+    "resolution_mm = { value = 0.001, measured = { status = 'measured', "
+    "by = 'synthetic test operator', date = '2026-10-05', instrument = 'test DRO' } }\n"
     "[machines.mill.spindle]\nrotation = 'cw'\n"
     "[tools.cutter]\nkind = 'endmill'\nmaterial = 'HSS'\ncenter_cutting = true\ndia_mm = 6.0\n"
     "verify = false\n"
@@ -1748,7 +1750,11 @@ def banded_rotary(tmp_path, side, by, resolution, band):
         change(plan.with_name("inventory.toml"), "max_work_mm = 150.0", "max_work_mm = 300.0")
         swing = [-2.0, -101.0, -10.0, 2.0, -99.0, 0.0]
     inventory = plan.with_name("inventory.toml")
-    change(inventory, "kind = 'mill'", f"kind = 'mill'\nresolution_mm = {resolution}")
+    change(
+        inventory,
+        "resolution_mm = { value = 0.001,",
+        f"resolution_mm = {{ value = {resolution},",
+    )
     change(plan.with_name("features.toml"), "dia = [6.0, 6.03]", "dia = [6.0, 6.0]")
     return coordinates_row(plan, stock_bbox=swing)
 
@@ -2276,6 +2282,7 @@ def inch(tmp_path, ops, dia="[1.99, 2.01]", *, units="in", hold="fixture = 'unkn
     target = ARC.replace("[19.8, 20.2]", dia).replace("dia_nominal = 20.0", "dia_nominal = 2.0")
     plan = scratch(tmp_path, ops, target=target, hold=hold)
     change(plan.with_name("features.toml"), 'units = "mm"', f'units = "{units}"')
+    change(plan.with_name("inventory.toml"), "resolution_mm =", "resolution_in =")
     return plan
 
 
@@ -2445,8 +2452,8 @@ def test_unbounded_joined_chain_prints_only_scrap_side_cylinders(
     plan = joined_chain_plan(tmp_path, cap=100.0)
     change(
         plan.with_name("inventory.toml"),
-        "kind = 'mill'",
-        f"kind = 'mill'\nresolution_mm = {resolution}",
+        "resolution_mm = { value = 0.001,",
+        f"resolution_mm = {{ value = {resolution},",
     )
     bundle = load_bundle(plan)
     assert "stock_removal_bounds" not in bundle.plan["setups"][0]["ops"][0]

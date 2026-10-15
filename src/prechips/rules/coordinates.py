@@ -25,7 +25,14 @@ import math
 
 from .. import trig
 from ..findings import Finding
-from ..measurements import angle_fact, length_fact
+from ..measurements import (
+    angle_fact,
+    length_debt,
+    length_fact,
+    measurement_checklist,
+    record_debt,
+    record_trusted,
+)
 from ..model import tolerance_requirements
 from ._bench import manual_bench, not_applicable
 from .datum_consistency import _cuts
@@ -34,6 +41,7 @@ from .resolution import (
     LENGTH_TOLERANCE_MM,
     UNKNOWN,
     _citations,
+    identity,
     length_mm,
     number,
     op_features,
@@ -667,28 +675,36 @@ def _cross(a, b):
     return a[0] * b[1] - a[1] * b[0]
 
 
-def cut_order(machine, op):
+def cut_order(machine, op, *, machine_ref=None):
     """(required sign of (n x t)·Z or None, order record) from op direction and spindle.
 
     Only an authored ``conventional``/``climb`` op on a machine whose spindle ``rotation``
-    is declared (bare, or a ``{value, measured}`` fact not flagged ``verify``) has a
+    is declared (bare, or a trusted fact-local record) has a
     cutting order; anything else keeps the order unknown.
     """
     direction = op.get("direction", UNKNOWN)
     rotation = mapping(mapping(machine).get("spindle")).get("rotation", UNKNOWN)
-    flagged = isinstance(rotation, dict) and rotation.get("verify") is True
+    rotation_record = rotation
+    trusted, why = record_trusted(rotation, require_measured=False)
     if isinstance(rotation, dict):
         rotation = rotation.get("value", UNKNOWN)
     if direction not in _CUT_SENSE:
         reason = f"op direction {direction!r} is neither conventional nor climb"
-    elif flagged:
-        reason = "the machine spindle rotation is flagged verify"
+    elif not trusted:
+        reason = f"the machine spindle rotation is unverified: {why}"
     elif rotation not in _SPINDLE_SENSE:
         reason = "the machine spindle rotation is not declared"
     else:
         sense = _CUT_SENSE[direction] * _SPINDLE_SENSE[rotation]
         return sense, {"cut_order": direction, "spindle_rotation": rotation}
-    return None, {"cut_order": UNKNOWN, "cut_order_reason": reason}
+    order = {"cut_order": UNKNOWN, "cut_order_reason": reason}
+    if direction in _CUT_SENSE and not trusted and machine_ref is not None:
+        debt = record_debt(
+            rotation_record, "machines", machine_ref, "spindle.rotation", owner=machine
+        )
+        if debt:
+            order["measurements"] = [debt]
+    return None, order
 
 
 def _reversal(a, b, normal, sense):
@@ -818,34 +834,41 @@ DRO_DEFAULT_STEP = 0.001
 OVERSHOOT_NOTE = "corner overshoot into scrap — OK"
 
 
-def dro_grid(bundle, setup):
-    """(step, decimals): the setup machine's DRO grid in plan units.
-
-    The step is the inventory machine's declared ``resolution`` when it is a positive
-    length, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly. A bench
-    (``kind`` bench or manual) declaring none has no DRO of its own: its surfaces are the
-    ones the nearest machine setup in its stock lineage left, so they print on that
-    machine's grid, one surface one value.
-    """
+def dro_grid_source(bundle, setup):
+    """The setup supplying the grid: a bench with no positive declared step inherits
+    its nearest machine setup's grid and measurement debt together."""
     from ._bench import BENCH_KINDS
     from .tip_endpoints import lineage
 
+    machine = resolve(bundle, "machines", setup.get("machine")) or {}
+    declared = length_fact(machine, "resolution")["value"]
+    if (number(declared) and declared > 0) or machine.get("kind") not in BENCH_KINDS:
+        return setup
+    return next(
+        (
+            source
+            for source in reversed(lineage(bundle, setup))
+            if (resolve(bundle, "machines", source.get("machine")) or {}).get("kind")
+            not in BENCH_KINDS
+        ),
+        setup,
+    )
+
+
+def dro_grid(bundle, setup):
+    """(step, decimals): the setup machine's DRO grid in plan units.
+
+    The step is the inventory machine's positive declared ``resolution``, even when
+    untrusted, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly.
+    Trust is separate (:func:`dro_grid_debt`): instructions never gain precision by
+    discarding a declaration. A bench with no positive declared step inherits the
+    machine grid that left its surfaces (:func:`dro_grid_source`).
+    """
     units = bundle.features.get("units")
     scale = {"mm": 1.0, "in": 25.4}.get(units)
-    machine = resolve(bundle, "machines", setup.get("machine")) or {}
-    declared = length_mm(machine, "resolution") if scale else UNKNOWN
-    if not (number(declared) and declared > 0) and machine.get("kind") in BENCH_KINDS:
-        source = next(
-            (
-                s
-                for s in reversed(lineage(bundle, setup))
-                if (resolve(bundle, "machines", s.get("machine")) or {}).get("kind")
-                not in BENCH_KINDS
-            ),
-            None,
-        )
-        if source is not None:
-            return dro_grid(bundle, source)
+    source = dro_grid_source(bundle, setup)
+    machine = resolve(bundle, "machines", source.get("machine")) or {}
+    declared = length_fact(machine, "resolution")["value"] if scale else UNKNOWN
     step = declared / scale if number(declared) and declared > 0 else DRO_DEFAULT_STEP
     decimals = next((d for d in range(9) if abs(round(step, d) - step) <= 1e-12), 9)
     return step, decimals
@@ -856,18 +879,36 @@ def dro_grid_debt(bundle, setup):
 
     The grid is a shop fact only when the manifest units are mm or in and the inventory
     machine's ``resolution`` is a positive length qualified by its own complete
-    measurement. A provisional grid still places and prints the targets, but no band check
-    passes on it.
+    measurement. A provisional grid still places and prints the targets, but no judging
+    consumer certifies it. Bench lineage preserves the source machine's debt.
     """
     if bundle.features.get("units") not in UNIT_MM:
         return "feature units are not mm or in, so the DRO grid is provisional"
-    name = setup.get("machine")
+    source = dro_grid_source(bundle, setup)
+    name = source.get("machine")
     fact = length_fact(resolve(bundle, "machines", name) or {}, "resolution")
     if not number(fact["value"]) or fact["value"] <= 0:
-        return f"machine {name} declares no DRO resolution, so its grid is provisional"
+        return (
+            f"machine {name} declares no positive numeric DRO resolution, "
+            "so its grid is provisional"
+        )
     if not fact["verified"]:
-        return f"machine {name}'s DRO resolution is unverified: {fact['reason']}"
+        return f"machine {name}'s declared DRO resolution is unverified: {fact['reason']}"
     return None
+
+
+def dro_grid_measurements(bundle, setup):
+    """The effective grid's measurement checklist entry, including a bench's source."""
+    source = dro_grid_source(bundle, setup)
+    name = source.get("machine")
+    debt = length_debt(
+        resolve(bundle, "machines", name) or {},
+        "resolution",
+        "machines",
+        name,
+        require_measured=True,
+    )
+    return [debt] if debt is not None else []
 
 
 def _grid(value, step, decimals, up):
@@ -3193,6 +3234,14 @@ REMOVED_ARC_TABLE = (
     "rough the arc in stairs or chain_drill and file it to the line, or cut it as chords "
     "or on a rotary_table"
 )
+
+
+def _grid_refusal(grid_debt, errors, method, stage):
+    """Whether manual-arc errors judged on an untrusted DRO grid become debt: a
+    rough method run at another stage is refused regardless of the grid."""
+    return bool(grid_debt and errors and not (method in ROUGH_METHODS and stage != "rough"))
+
+
 DIAGONAL_OUTLINE = (
     "needs diagonal moves: a manual mill moves one handwheel at a time and single-axis "
     "stairs along an outline are not computed"
@@ -3671,7 +3720,7 @@ def rotary_table(bundle, setup):
     if not isinstance(fixture, dict) or fixture.get("kind") != "rotary_table":
         return None
     resolution = fixture.get("vernier_deg", fixture.get("graduation_deg", UNKNOWN))
-    return {
+    table = {
         "id": reference,
         "name": fixture.get("name", reference),
         "resolution_deg": resolution if number(resolution) and resolution > 0 else UNKNOWN,
@@ -3680,6 +3729,15 @@ def rotary_table(bundle, setup):
         "bore_dia_mm": length_mm(fixture, "bore_dia"),
         "uncertain": uncertain(fixture),
     }
+    _, fixture_ref = identity(bundle, reference, "fixtures")
+    measurements = {
+        field: debt
+        for field in ("max_work", "bore_dia")
+        if (debt := length_debt(fixture, field, "fixtures", fixture_ref))
+    }
+    if measurements:
+        table["measurement_debts"] = measurements
+    return table
 
 
 def _made_before(bundle, op, name):
@@ -3805,6 +3863,10 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
         hole = sorted(size) if _band(size) else [size, size] if number(size) else None
         hole = [v * scale for v in hole] if hole else None
         pin = hole[0] if hole else UNKNOWN
+        if by == "pin" and hole is not None:
+            debt = table.get("measurement_debts", {}).get("bore_dia")
+            if debt:
+                arc["measurements"] = [*arc.get("measurements", []), debt]
         if by == "pin" and hole is None:
             debts.append(f"{label}: {name}'s diameter is unknown, so no centre pin is sized")
         elif by == "pin" and not number(seat):
@@ -3823,6 +3885,9 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
     if arc["cut_order"] == UNKNOWN or len(points) < 2 or not all(_pair(p) for p in points):
         debts.append(f"{label}: its cutting order or cutter path is unknown")
     reach, capacity = _swing(bundle, setup), table["max_work_mm"]
+    debt = table.get("measurement_debts", {}).get("max_work")
+    if debt:
+        arc["measurements"] = [*arc.get("measurements", []), debt]
     if reach is None or not number(capacity):
         debts.append(f"{label}: the stock's swing or the table's max_work is unknown")
     elif 2 * reach > capacity + _WALL_TOL:
@@ -4058,6 +4123,7 @@ def evaluate(bundle, *, pre_kernel=False):
         arc_errors = []  # manual-arc plans that cut into the part or cannot be cut
         leave_errors = []  # rough stages whose leave would cut into the finished part
         arc_debts = []  # manual-arc plans whose inputs are unknown
+        cut_order_measurements = []
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
             "binding": frame.get("binding", "nominal"),
@@ -4089,7 +4155,10 @@ def evaluate(bundle, *, pre_kernel=False):
             for op in setup["ops"]
         ]
         grid = dro_grid(bundle, setup)
-        numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
+        grid_debt = dro_grid_debt(bundle, setup)
+        # Authored Z targets consume the grid even when their calculation stays unknown.
+        # Merely selecting a machine (a bare saw cut, for example) consumes no DRO fact.
+        grid_consumed = any(key in op for op in setup["ops"] for key in ("to_z", "z_from", "z_to"))
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
         # The stock top before op ``done`` as the setup prints it: a path starts or lifts
         # from that surface.
@@ -4117,7 +4186,7 @@ def evaluate(bundle, *, pre_kernel=False):
                     # The face the printed corner reading leaves (:func:`formed_z`).
                     entry["dro_to_z"] = target["formed_z"]
                     error = _allowed_error(op, target)
-                    if error:
+                    if error and not grid_debt:
                         allowed_errors.append(error)
             levels = None
             if not lathe:
@@ -4130,7 +4199,7 @@ def evaluate(bundle, *, pre_kernel=False):
             if op.get("do") in RASTER_OPS and number(op.get("to_z")) and _xy_box(op):
                 cleared.append((op.get("feature"), _xy_box(op), op["to_z"]))
         entries = {str(entry.get("op")): entry for entry in numbers["operations"]}
-        residuals = _z_residuals(bundle, setup, grid, features, entries)
+        residuals = [] if grid_debt else _z_residuals(bundle, setup, grid, features, entries)
         unknown = not frame or frame.get("binding") == UNKNOWN or blade_unknown
         if lathe:
             from .geometry_common import _AXIAL_LATHE_ACTIONS
@@ -4188,6 +4257,8 @@ def evaluate(bundle, *, pre_kernel=False):
             located = name in located_names
             vector = isinstance(at, list) and len(at) == 3
             placed = vector and all(number(value) for value in at)
+            # A requested location remains a grid consumer if its frame/geometry fails.
+            grid_consumed |= located or vector
             why = None
             if located and not placed and (lathe or name in revolved_names):
                 # A feature the kernel measured revolved about setup Z through X0 Y0 is
@@ -4234,6 +4305,8 @@ def evaluate(bundle, *, pre_kernel=False):
                 numbers["rows"].append(row)
                 unknown |= UNKNOWN in local
             if lathe:
+                stations = feature.get("z_mm")
+                grid_consumed |= isinstance(stations, list) and bool(stations)
                 numbers["rows"].extend(
                     _lathe_rows(name, feature, setup, frame, frames, dro.get("radius_mode"))
                 )
@@ -4246,7 +4319,6 @@ def evaluate(bundle, *, pre_kernel=False):
             for name, rows, at in planned
             if at and name in machined and "dro" in rows[0]
         }
-        grid_debt = dro_grid_debt(bundle, setup)
         for name, rows, _ in planned:
             errors, debt = _band_rows(
                 bundle, name, rows, frame, targets, grid_debt, name in machined
@@ -4259,6 +4331,8 @@ def evaluate(bundle, *, pre_kernel=False):
         for done, (op, before, after) in enumerate(stock_states(bundle, setup)):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))
+            # Unknown authoring still requests targets; mapping it to {} loses that intent.
+            grid_consumed |= bool(contour) or op.get("contour") == UNKNOWN
             unknown |= op.get("contour") == UNKNOWN
             leave, refusal = rough_leave(op)
             if refusal:
@@ -4279,7 +4353,18 @@ def evaluate(bundle, *, pre_kernel=False):
                 if op.get("do", "").startswith("rough_")
                 else [("rough", leave), ("finish", 0)]
             )
-            sense, order = cut_order(machine, op)
+            _, machine_ref = identity(bundle, setup.get("machine"), "machines")
+            order_required = not refusal and contour.get("method") in (
+                (ARC_METHODS - {"chain_drill"}) | {"linear_table"}
+            )
+            sense, order = cut_order(
+                machine,
+                op,
+                machine_ref=machine_ref if order_required else None,
+            )
+            # Declared order consumes rotation even when independent cutter/geometry
+            # debt prevents materializing a path. Do not wait for generated rows.
+            cut_order_measurements.extend(order.get("measurements", []))
             bounded = "stock_removal_bounds" in op
             subject = f"{setup['id']}:{op['op']}"
             for stage, allowance in stages:
@@ -4356,6 +4441,13 @@ def evaluate(bundle, *, pre_kernel=False):
                                 label,
                                 scale,
                             )
+                            if _grid_refusal(grid_debt, errors, method, stage):
+                                # A grid-dependent refusal stays debt, and its unsafe nominal
+                                # path stays withheld; only a verified grid can judge the cut.
+                                profile["arc_reason"] = errors[0]
+                                refused, arcs, lines = True, [], []
+                                debts.extend(errors)
+                                errors = []
                     elif number(offset):
                         debts = [f"{label}: no {method} rows: contour.{_NEEDS[method]} is unknown"]
                     debt = None
@@ -4381,8 +4473,13 @@ def evaluate(bundle, *, pre_kernel=False):
                         more, unknown_debts = _manual(
                             bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale
                         )
-                        errors.extend(more)
                         debts.extend(unknown_debts)
+                        if _grid_refusal(grid_debt, more, method, stage):
+                            profile["arc_reason"] = more[0]
+                            refused, arcs, lines = True, [], []
+                            debts.extend(more)
+                        else:
+                            errors.extend(more)
                     if method == "chain_drill":
                         measured = [
                             table for table in (*arcs, *lines) if number(table.get("stock_left_mm"))
@@ -4435,7 +4532,7 @@ def evaluate(bundle, *, pre_kernel=False):
                         profile.update(raster)
                         if profile["cut_order"] == UNKNOWN:
                             unordered.add(profile["cut_order_reason"])
-                        if stage == "finish":
+                        if stage == "finish" and not grid_debt:
                             grid_errors.extend(
                                 _grid_residual(op, feature, raster["grid_residual_mm"], grid)
                             )
@@ -4448,7 +4545,7 @@ def evaluate(bundle, *, pre_kernel=False):
                         generated = True
                 elif contour.get("method") == "linear_table":
                     path, residual = _linear(feature, op, offset, radius, frame, frames, grid)
-                    if residual is not None and stage == "finish":
+                    if residual is not None and stage == "finish" and not grid_debt:
                         grid_errors.extend(_grid_residual(op, feature, residual, grid))
                     if path:
                         profile["grid_residual_mm"] = residual
@@ -4491,10 +4588,17 @@ def evaluate(bundle, *, pre_kernel=False):
                         unknown |= not number(dome["tool_nose_compensation_mm"])
                 if not generated:
                     profile["cutter_centre"] = UNKNOWN
+                if method in ARC_METHODS | {"linear_table"} and not refused:
+                    category, tool_ref = identity(bundle, op.get("tool"), "tools")
+                    debt = length_debt(tool, "dia", category, tool_ref) if tool else None
+                    if debt:
+                        profile["measurements"] = [*profile.get("measurements", []), debt]
+                        unknown = True
                 numbers["profiles"].append(profile)
                 unknown |= (not generated and not refused) or not tool or uncertain(tool)
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
+        path_measurements = []
         if not lathe:
             from .level_entry import level_paths
 
@@ -4504,6 +4608,35 @@ def evaluate(bundle, *, pre_kernel=False):
             if paths:
                 numbers["level_paths"] = paths
             plan_debts.extend(path_debts)
+            path_measurements = [entry for path in paths for entry in path.get("measurements", [])]
+        if grid_consumed:
+            numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
+            if grid_debt:
+                numbers["dro_grid_debt"] = grid_debt
+                numbers["measurements"] = dro_grid_measurements(bundle, setup)
+                unknown = True
+        else:
+            numbers["dro_grid"] = {"step": "not used", "decimals": "not used"}
+            grid_debt = None
+        measurements = [
+            entry
+            for path in (
+                *numbers["arc_table"],
+                *numbers["line_table"],
+                *numbers["profiles"],
+            )
+            for entry in path.get("measurements", [])
+        ]
+        if measurements or path_measurements or cut_order_measurements:
+            numbers["measurements"] = measurement_checklist(
+                [],
+                debts=[
+                    *numbers.get("measurements", []),
+                    *cut_order_measurements,
+                    *measurements,
+                    *path_measurements,
+                ],
+            )
         status = (
             "error"
             if residuals
@@ -4521,6 +4654,8 @@ def evaluate(bundle, *, pre_kernel=False):
             "Feature targets use the declared model-to-setup basis; cutter tables use explicit "
             "nominal geometry and authored allowance."
         )
+        if grid_debt:
+            sentence += f" DRO grid debt: {grid_debt}"
         if unknown:
             sentence += (
                 " Missing geometry or unverified tool/frame binding prevents a cleared toolpath."

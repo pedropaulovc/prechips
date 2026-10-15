@@ -239,18 +239,30 @@ def evaluate(bundle):
             if fallback:
                 cite.extend(stock_cite)
             if not op_xy_complete:
-                missing.append(
-                    f"Measure {label} full feature.bounds x/y/z or point-operation feature.at "
-                    "in its declared frame with calipers, a height gauge or CMM, in mm; "
-                    "for a broad cut record plan.stock.length_mm and section_mm/dia_mm "
-                    "with calipers instead of using a nominal feature width"
+                geometry_pending = (
+                    fallback
+                    and path_known
+                    and not invalid_stock
+                    and any(axis in stock.get("geometry_pending_axes", []) for axis in ("x", "y"))
                 )
-                authoring_entry(
-                    debts,
-                    f"{label}.xy_geometry",
-                    missing[-1],
-                    f"features.features.{name}.bounds/at; plan.stock",
-                )
+                if geometry_pending:
+                    missing.append(
+                        f"Geometry pending: {label} broad-cut XY spans need the kernel "
+                        "bounding box in the declared setup frame"
+                    )
+                else:
+                    missing.append(
+                        f"Measure {label} full feature.bounds x/y/z or point-operation feature.at "
+                        "in its declared frame with calipers, a height gauge or CMM, in mm; "
+                        "for a broad cut record plan.stock.length_mm and section_mm/dia_mm "
+                        "with calipers instead of using a nominal feature width"
+                    )
+                    authoring_entry(
+                        debts,
+                        f"{label}.xy_geometry",
+                        missing[-1],
+                        f"features.features.{name}.bounds/at; plan.stock",
+                    )
             endpoint = endpoints.get((setup["id"], op["op"], name))
             assembly = spindle_nose_band(
                 bundle, op, before, extent, endpoint, debts, cite, missing, errors, label
@@ -302,8 +314,8 @@ def evaluate(bundle):
             if travel["verified"] and not verified:
                 missing.append(
                     f"Measure inventory.machines.{setup.get('machine', UNKNOWN)}."
-                    f"envelope.travel.{axis} safe usable stop-to-stop stroke with a steel rule "
-                    "or calipers and record a finite nonnegative travel in mm"
+                    f"envelope.travel.{axis} safe usable stop-to-stop stroke with a calibrated "
+                    "DRO or indicator and record a finite nonnegative travel in mm"
                 )
             lower_margin = (
                 travel["value"] - minimum_required

@@ -4,6 +4,7 @@ import math
 from pathlib import Path
 
 import pytest
+from test_envelope_m5 import measured
 from test_headroom import coordinate_bundle
 
 from prechips.inputs import load_bundle
@@ -88,7 +89,7 @@ def test_outside_contours_follow_spindle_direction_and_setup_frame(
     [
         ("'conventional'", None, "spindle rotation is not declared"),
         ("'conventional'", "'unknown'", "spindle rotation is not declared"),
-        ("'conventional'", "{ value = 'cw', verify = true }", "flagged verify"),
+        ("'conventional'", "{ value = 'cw', verify = true }", "explicitly requires verification"),
         ("'unknown'", "'cw'", "neither conventional nor climb"),
         ("'positive_setup_x'", "'cw'", "neither conventional nor climb"),
     ],
@@ -229,6 +230,7 @@ def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A", 
         f"sweep_frame = '{sweep_frame}', "
         "sweep_bounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [0.0, 1.0] }, "
         f"keep_out = {circles} }}\n",
+        resolution=0.001 if resolution is None else resolution,
     )
     if sweep_frame == "B":
         features = plan.with_name("features.toml")
@@ -238,12 +240,6 @@ def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A", 
                 "x = [1.0, 0.0, 0.0]\ny = [0.0, -1.0, 0.0]\nz = [0.0, 0.0, -1.0]\n"
                 "binding = 'measured'\n"
             )
-    if resolution is not None:
-        inventory = plan.with_name("inventory.toml")
-        text = inventory.read_text(encoding="utf-8").replace(
-            "kind = 'mill'\n", f"kind = 'mill'\nresolution_mm = {resolution}\n", 1
-        )
-        inventory.write_text(text, encoding="utf-8")
     row = next(row for row in coordinates.evaluate(load_bundle(plan)) if row.subject == "S1")
     (profile,) = row.numbers["profiles"]
     return row, profile
@@ -480,10 +476,11 @@ def test_an_inch_plan_face_raster_steps_and_overruns_in_inches(tmp_path):
     )
     bundle = load_bundle(plan)
     bundle.features["units"] = "in"
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.0254)
     row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
     (profile,) = row.numbers["profiles"]
     passes = profile["cutter_centre"]
-    # A 2 in x 1 in face, Ø6 mm cutter, 4 mm step on the default 0.001 in DRO grid: passes
+    # A 2 in x 1 in face, Ø6 mm cutter, 4 mm step on a measured 0.001 in DRO grid: passes
     # no more than 4/25.4 in apart across the 1 in span, each running at least 3/25.4 in
     # (rounded outward to the grid, so less than one step more) past both ends of the 2 in
     # span.
@@ -510,6 +507,7 @@ def test_an_inch_plan_keep_out_island_clears_by_its_millimetre_diameter(tmp_path
     )
     bundle = load_bundle(plan)
     bundle.features["units"] = "in"
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.0254)
     row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
     (profile,) = row.numbers["profiles"]
     assert row.status == "pass", (row.sentence, profile.get("raster_reason"))
@@ -1525,7 +1523,7 @@ def test_a_touch_on_a_faced_plane_sets_the_dro_where_the_face_stands(
     # same step is the grid's rounding; one on another step contradicts the face, named
     # with its DRO reading and where the face stands.
     bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
-    bundle.inventory["machines"]["mill"]["resolution_mm"] = 0.005
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
     setup["stock_state"]["top_z"] = 8.0
     op = setup["ops"][0]
     op["to_z"] = to_z
@@ -1759,7 +1757,7 @@ def test_a_boxed_cut_preserves_the_entry_it_does_not_remove(
     setup = bundle.plan["setups"][0]
     setup["frame"] = "model"
     setup["stock_state"]["entry_z"] = {"target": 0.0 if lowered else -4.0}
-    bundle.inventory["machines"]["mill"]["resolution_mm"] = 0.005
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
     states = {op["op"]: (before, after) for op, before, after in stock_states(bundle, setup)}
     prior = "S1 op 10 to_z" if lowered else "S1 stock_state.entry_z.target"
     source = "S1 op 20 to_z" if produced else prior
@@ -1852,6 +1850,20 @@ def test_a_boxed_cut_cannot_resolve_an_entry_without_known_removal_z(tmp_path, e
 
 def test_rocker_seeded_final_entry_keeps_the_finishing_ops_source_and_endpoints():
     bundle = load_bundle(ROCKER)
+    # The entry-source scenario owns a known DRO grid and its three hole-making tools.
+    bundle.inventory["machines"]["PM-30MV"]["resolution_mm"] = measured(0.005)
+    tools = bundle.inventory["tools"]
+    for member in ("3-8in-2fl", "3-8in-4fl"):
+        tools["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(9.525)
+    tools["center-drills-lms-4859"]["members"]["2"].update(
+        dia_mm=measured(1.98), point_angle=measured(118), oal_mm=measured(47.6)
+    )
+    tools["rocker-rod-pilot-drill"]["members"]["1.85mm"].update(
+        dia_mm=measured(1.85), point_angle=measured(118)
+    )
+    tools["rocker-rod-reamer"]["members"]["2.0mm"].update(
+        dia_mm=measured(2.004), lead_mm=measured(0.4)
+    )
     setup = next(s for s in bundle.plan["setups"] if s["id"] == "S2")
     # The seed is the eventual strap face, not the raw material above the hub.
     # Only op 20 cuts that plane; equality must still credit its as-cut DRO Z.
@@ -1999,6 +2011,18 @@ def rocker_profile_chains(bundle):
 @pytest.mark.parametrize("direction", ["conventional", "climb"])
 def test_rocker_outline_fragments_chain_through_the_bottom_arc_in_cutting_order(direction):
     bundle = load_bundle(ROCKER)
+    # Cutter-centre traversal is isolated from the example's unresolved physical evidence.
+    bundle.inventory["machines"]["PM-30MV"]["resolution_mm"] = measured(0.005)
+    bundle.inventory["machines"]["PM-30MV"]["spindle"]["rotation"] = {
+        "value": "cw",
+        "measured": measured(0)["measured"],
+    }
+    for member in ("3-8in-2fl", "3-8in-4fl"):
+        bundle.inventory["tools"]["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(
+            9.525
+        )
+    for member in ("1-4in-2fl", "1-4in-4fl"):
+        bundle.inventory["tools"]["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(6.35)
     for setup in bundle.plan["setups"]:
         for op in setup["ops"]:
             if "contour" in op:

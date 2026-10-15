@@ -6,9 +6,12 @@ from html.parser import HTMLParser
 
 import pytest
 from test_cli import ROOT, SYNTHETIC_KERNEL, copy_examples, traveler
+from test_envelope_m5 import measured
 from test_sheet_ops import Markup, content
 
+from prechips.inputs import load_bundle
 from prechips.rules.resolution import MANUAL
+from prechips.sheet import _Traveler
 
 
 class VisibleText(HTMLParser):
@@ -141,8 +144,56 @@ def test_unknown_inventory_category_still_renders_its_references(tmp_path):
     assert re.search(r"\? Ø [^|]*: \? gauges\.micrometers/0-1in\b", text(html))
 
 
-def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explicit(bracket):
-    report, html = bracket
+def test_known_numbers_without_drawing_precision_print_and_unknowns_stay_explicit(tmp_path):
+    plan = copy_examples(tmp_path) / "pivot-bracket" / "plan.toml"
+    # This rendering scenario supplies only the cutter sizes, one drill cone and
+    # the DRO/spindle evidence it needs; the other example facts remain illustrative.
+    setup = (
+        SYNTHETIC_KERNEL
+        + """
+def measured(value):
+    return {"value": value, "measured": {
+        "status": "measured", "by": "synthetic test operator",
+        "date": "2026-10-05", "instrument": "synthetic precision specification",
+    }}
+_precision_load = cli.load_bundle
+def _precision_bundle(*args, **kwargs):
+    bundle = _precision_load(*args, **kwargs)
+    machine = bundle.inventory["machines"]["PM-30MV"]
+    machine["resolution_mm"] = measured(0.005)
+    machine["spindle"]["rotation"] = {"value": "cw", "measured": measured(0)["measured"]}
+    tools = bundle.inventory["tools"]
+    for member, diameter in (
+        ("1-4in-2fl", 6.35), ("1-4in-4fl", 6.35),
+        ("3-8in-2fl", 9.525), ("3-8in-4fl", 9.525), ("3-4in-4fl", 19.05),
+    ):
+        tools["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(diameter)
+    tools["bracket-long-endmill"]["dia_mm"] = measured(9.525)
+    tools["drill-index-115"]["members"]["#15"].update(
+        dia_mm=measured(4.572), point_angle=measured(118)
+    )
+    # This host-only rendering fixture explicitly retains the one bounded arch table.
+    # It is synthetic clip output, not a certificate for the shipped stock or tooling.
+    from prechips.rules import coordinates
+    requested = next(
+        row for row in coordinates.evaluate(bundle, pre_kernel=True) if row.subject == "S4"
+    )
+    paths = coordinates.checkpoints("S4:15", requested.numbers, 15)
+    assert paths, "Expected the synthetic S4 arch contour"
+    bundle.kernel["ops"]["S4:15"] = {"checkpoint_clips": {
+        "clipped_at": "synthetic printing scenario",
+        "precision_mm": 1e-4,
+        "paths": [
+            {"table": path["rows"][0][0], "rows": len(path["rows"]),
+             "pieces": [[{"row": i} for i in range(len(path["rows"]))]]}
+            for path in paths
+        ],
+    }}
+    return bundle
+cli.load_bundle = _precision_bundle
+"""
+    )
+    _, report, html = traveler(plan, tmp_path / "out", setup=setup)
     contours = sections(html, "CONTOURS")
     assert contours
     for page in contours:
@@ -206,6 +257,19 @@ _faced = cli.load_bundle
 def _faced_bundle(*args, **kwargs):
     bundle = _faced(*args, **kwargs)
     bundle.kernel["ops"]["S3:10"] = {"faced_side": 1}
+    def measured(value):
+        return {"value": value, "measured": {
+            "status": "measured", "by": "synthetic test operator",
+            "date": "2026-10-05", "instrument": "synthetic lathe specification",
+        }}
+    bundle.inventory["machines"]["PM-1127VF-LB"]["resolution_mm"] = measured(0.01)
+    bundle.inventory["tools"]["hss-toolbit-3-8-rh"].update(
+        nose_radius_mm=measured(0.4), entering_angle_deg=measured(93.0),
+        insert_angle_deg=measured(60.0),
+    )
+    bundle.inventory["tools"]["parting-blade-lms-1728"].update(
+        blade_width_mm=measured(1.6), nose_radius_mm=measured(0.1),
+    )
     return bundle
 cli.load_bundle = _faced_bundle
 """
@@ -333,13 +397,26 @@ def test_lathe_feed_prints_per_revolution_with_the_true_value(tmp_path):
 
 
 def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
-    # The job page is read first; it must never look clear over a stopped setup. Each
-    # shaft setup parts or grooves with the blade; unselecting it stops all three.
+    # The job page must name all stopped setups. Unselect the blade for S1-S3 and
+    # S0's centre drill, so every stop is owned by this test, not example provenance.
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     authored = plan.read_text(encoding="utf-8")
+    blade_consumers = {
+        setup["id"]
+        for setup in tomllib.loads(authored)["setups"]
+        if any(op.get("tool") == "parting-blade-lms-1728" for op in setup["ops"])
+    }
+    assert blade_consumers == {"S1", "S2", "S3"}
     unselected = authored.replace(
         'tool = "parting-blade-lms-1728"\nholder', 'tool = "unknown"\nholder'
     )
+    unselected, changed = re.subn(
+        r'tool = "center-drills-lms-4859/2"\nholder',
+        'tool = "unknown"\nholder',
+        unselected,
+        count=1,
+    )
+    assert changed == 1
     plan.write_text(unselected, encoding="utf-8")
     _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
     stopped = [
@@ -347,7 +424,7 @@ def test_job_status_names_every_setup_that_has_a_stop(tmp_path):
         for page in html.split("<h2>")[1:]
         if page.startswith("SETUP ") and '<div class="stop">' in page
     ]
-    assert len(set(stopped)) == 3
+    assert set(stopped) == {"S0", *blade_consumers}
     job = sections(html, "JOB STATUS")[0]
     box = job[job.index('<div class="stop">') :]
     box = box[: box.index("</div>")]
@@ -517,18 +594,53 @@ def test_job_status_lists_stock_to_obtain_before_the_first_setup(tmp_path):
     assert "obtain the stock" not in text(sections(html, "JOB STATUS")[0])
 
 
-def test_job_page_states_each_machine_dro_grid(bracket, tmp_path):
-    # DRO targets print on the machine's declared resolution; with none declared the
-    # job page says the default grid is used rather than implying a measured one.
-    _, html = bracket
+def test_job_page_states_each_machine_dro_grid(tmp_path):
+    # An illustrative DRO still controls instruction rounding but never certifies
+    # a judgement. Only an absent declaration uses the provisional default grid.
+    examples = copy_examples(tmp_path)
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    authored = inventory.read_text(encoding="utf-8")
+    illustrative_grid, changed = re.subn(
+        r"(?m)^resolution_mm = .*\n",
+        'resolution_mm = { value = 0.005, measured = { status = "illustrative", '
+        'by = "synthetic test operator", date = "2026-10-05", instrument = "DRO readout" } }\n',
+        authored,
+        count=1,
+    )
+    assert changed == 1
+    inventory.write_text(illustrative_grid, encoding="utf-8")
+    _, _, html = traveler(
+        examples / "pivot-bracket" / "plan.toml", tmp_path / "illustrative", setup=SYNTHETIC_KERNEL
+    )
     markup = Markup(sections(html, "JOB STATUS")[0])
     (resolution,) = [
         content(node) for node in tagged(markup, "p") if content(node).startswith("DRO resolution:")
     ]
-    assert re.search(r"PM-30MV 0\.005 mm\b", resolution)
+    assert re.search(r"EL400 0\.005 mm\b", resolution)
+    assert "grid not verified; EL400 installed readout step" in resolution
+    assert len(re.findall(r"\?M\d+\b", resolution)) == 1 and "Setup S" not in resolution
+    assert resolution.count("not verified") == 1 and "†" not in resolution
     assert "default grid" not in resolution
-    examples = copy_examples(tmp_path)
-    inventory = examples / "inventory" / "pedro-shop.toml"
+    measured_grid, changed = re.subn(
+        r"(?m)^resolution_mm = .*\n",
+        'resolution_mm = { value = 0.005, measured = { status = "measured", '
+        'by = "synthetic test operator", date = "2026-10-05", instrument = "DRO readout" } }\n',
+        illustrative_grid,
+        count=1,
+    )
+    assert changed == 1
+    inventory.write_text(measured_grid, encoding="utf-8")
+    _, _, measured_html = traveler(
+        examples / "pivot-bracket" / "plan.toml", tmp_path / "measured", setup=SYNTHETIC_KERNEL
+    )
+    measured_markup = Markup(sections(measured_html, "JOB STATUS")[0])
+    (measured_resolution,) = [
+        content(node)
+        for node in tagged(measured_markup, "p")
+        if content(node).startswith("DRO resolution:")
+    ]
+    assert re.search(r"EL400 0\.005 mm\b", measured_resolution)
+    assert "default grid" not in measured_resolution
     stripped, removed = re.subn(
         r"(?m)^resolution_mm = .*\n", "", inventory.read_text(encoding="utf-8"), count=1
     )
@@ -541,7 +653,7 @@ def test_job_page_states_each_machine_dro_grid(bracket, tmp_path):
     (resolution,) = [
         content(node) for node in tagged(markup, "p") if content(node).startswith("DRO resolution:")
     ]
-    assert re.search(r"PM-30MV 0\.001 mm\b", resolution)
+    assert re.search(r"EL400 0\.001 mm\b", resolution)
     assert "default grid" in resolution
 
 
@@ -584,8 +696,11 @@ def test_follow_rest_hold_prints_its_jaw_lead_as_a_distance_not_a_diameter(side,
     )
     assert count == 1
     plan.write_text(edited, encoding="utf-8")
-    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    front = html.split('data-sheet="SETUP S1 sheet 1"')[1].split("</section>")[0]
+    bundle = load_bundle(plan)
+    # This distance-formatting case owns its 0.01 mm grid, not the example's DRO fact.
+    bundle.inventory["machines"]["PM-1127VF-LB"]["resolution_mm"] = measured(0.01)
+    setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == "S1")
+    front = "".join(sum(_Traveler(bundle, [], {}, None).setup_section(setup), []))
     markup = Markup(sections(front, "HOLD")[0])
     (line,) = [
         content(node)

@@ -16,7 +16,7 @@ unknown.
 from __future__ import annotations
 
 from prechips.findings import Finding
-from prechips.measurements import nominal_limits_mm
+from prechips.measurements import length_debt, limits_debt, limits_fact, record_debt
 from prechips.rules.coordinates import (
     _CENTRE_FORMS,
     ROUGH_METHODS,
@@ -79,8 +79,8 @@ def _range(item):
     return None
 
 
-def _template(bundle, reference, radius, role, errors, debts):
-    """The template/gauge record for ``reference`` covering ``radius`` mm, with findings."""
+def _template(bundle, reference, radius, role, errors, debts, measurements):
+    """The template/gauge range and its consumed verification debt."""
     item = resolve(bundle, "gauges", reference)
     if not isinstance(item, dict):
         debts.append(f"the {role} {reference} is not in the gauges inventory")
@@ -92,6 +92,12 @@ def _template(bundle, reference, radius, role, errors, debts):
         )
     elif span is None or uncertain(item):
         debts.append(f"the {role} {reference} range is unknown")
+        category, key = identity(bundle, reference, "gauges")
+        debt = length_debt(item, "range", category, key) if span is None else None
+        if debt is None and item.get("verify") in (True, UNKNOWN):
+            debt = record_debt(item, category, key, "range")
+        if debt:
+            measurements.append(debt)
     elif number(radius) and not span[0] - _TOL <= radius <= span[1] + _TOL:
         errors.append(
             f"the {role} {reference} reads {span[0]:g} to {span[1]:g} mm, not R{radius:g}"
@@ -126,7 +132,10 @@ def _guide_stack(bundle, item, bore, scale):
     (``button_runout_mm``, a TIR) and ``bore``'s drawing limits in feature units times
     ``scale`` (``bore_dia_mm``). Each is read from its own fact, measurement not required;
     UNKNOWN when it is not declared."""
-    stack = {key: nominal_limits_mm(item, stem) for stem, key, _ in _STACK}
+    stack = {}
+    for stem, key, _ in _STACK:
+        fact = limits_fact(item, stem, require_measured=False)
+        stack[key] = fact["value"] if fact["verified"] else UNKNOWN
     runout = length_mm(item, "button_runout")
     stack["button_runout_mm"] = runout if number(runout) and runout >= 0 else UNKNOWN
     hole = record(bundle.feature_definitions.get(bore)).get("dia")
@@ -174,6 +183,24 @@ def rim_band(bundle, item, bore, scale):
     return found[1] if found else None
 
 
+def _button_measurements(bundle, item, reference):
+    """Only the filing stack's three limit pairs and OD runout can owe measurements."""
+    category, key = identity(bundle, reference, "fixtures")
+    debts = []
+    for field, _, _ in _STACK:
+        debt = limits_debt(item, field, category, key)
+        if debt is None and item.get("verify") in (True, UNKNOWN):
+            debt = record_debt(item, category, key, field)
+        if debt:
+            debts.append(debt)
+    debt = length_debt(item, "button_runout", category, key)
+    if debt is None and item.get("verify") in (True, UNKNOWN):
+        debt = record_debt(item, category, key, "button_runout")
+    if debt:
+        debts.append(debt)
+    return debts
+
+
 def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
     """The filing-button guide record and the radius it files to, worst case over the
     declared limits of every element between the rim and the bore axis
@@ -197,11 +224,17 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
         errors.append(f"{bore} is not drilled, reamed or bored to size before this filing")
     if uncertain(item):
         debts.append(f"filing buttons {kit} are flagged to verify")
+        measurements = _button_measurements(bundle, item, kit)
+        if measurements:
+            record_["measurements"] = measurements
         return record_
     elements = (*_STACK, ("", "button_runout_mm", "button OD runout"), ("", "bore_dia_mm", bore))
     missing = [str(words) for _, key, words in elements if record_[key] == UNKNOWN]
     if missing:
         debts.append(f"the {', '.join(missing)} limits are unknown, so no filed radius is proven")
+        measurements = _button_measurements(bundle, item, kit)
+        if measurements:
+            record_["measurements"] = measurements
         return record_
     blocked = _blocked(record_, bore)
     pin = record_["pin_dia_mm"]
@@ -270,6 +303,7 @@ def evaluate(bundle):
             if action not in {"scribe", "file_to_line"} or not _arc_feature(feature):
                 continue
             errors, debts = [], []
+            measurements = []
             layout = arc_layout(bundle, setup, name)
             numbers = {"op": op["op"], "do": action, "feature": name}
             cite = [
@@ -300,7 +334,7 @@ def evaluate(bundle):
                 elif how == "template":
                     ref = guide.get("template", UNKNOWN)
                     numbers["template"] = ref
-                    _template(bundle, ref, radius, "layout template", errors, debts)
+                    _template(bundle, ref, radius, "layout template", errors, debts, measurements)
                     cite.append(f"inventory gauges.{ref}: layout template")
             else:
                 if layout and band is None:
@@ -310,10 +344,19 @@ def evaluate(bundle):
                     numbers["guide"] = _buttons(
                         bundle, setup, op, guide, layout, band, scale or 1.0, errors, debts
                     )
+                    measurements.extend(numbers["guide"].get("measurements", []))
                     cite.append(f"inventory fixtures.{guide['buttons']}: filing buttons")
                 elif guide.get("template") is not None:
                     numbers["guide"] = {"kind": "template", "kit": guide["template"]}
-                    _template(bundle, guide["template"], radius, "filing template", errors, debts)
+                    _template(
+                        bundle,
+                        guide["template"],
+                        radius,
+                        "filing template",
+                        errors,
+                        debts,
+                        measurements,
+                    )
                     cite.append(f"inventory gauges.{guide['template']}: filing template")
                 else:
                     numbers["guide"] = {"kind": UNKNOWN}
@@ -323,7 +366,9 @@ def evaluate(bundle):
                     numbers["gauge"] = {"ref": UNKNOWN, "range_mm": UNKNOWN}
                     debts.append("no radius gauge checks the filed arc")
                 else:
-                    numbers["gauge"] = _template(bundle, gauge, radius, "gauge", errors, debts)
+                    numbers["gauge"] = _template(
+                        bundle, gauge, radius, "gauge", errors, debts, measurements
+                    )
                     cite.append(f"inventory gauges.{gauge}: radius gauge")
                 numbers["layout_op"] = _layout_op(bundle, op, name)
                 if numbers["layout_op"] is None and not buttons:
@@ -342,6 +387,9 @@ def evaluate(bundle):
                 numbers["errors"] = errors
             if debts:
                 numbers["debts"] = debts
+            if status == UNKNOWN and measurements:
+                by_id = {entry["id"]: entry for entry in measurements}
+                numbers["measurements"] = [by_id[key] for key in sorted(by_id)]
             sentence = (
                 f"{sid} op {op['op']}: {action.replace('_', ' ')} {name}"
                 + (f" R{radius:g}" if number(radius) else "")

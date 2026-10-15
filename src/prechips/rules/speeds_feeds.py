@@ -34,6 +34,7 @@ from __future__ import annotations
 import math
 
 from ..findings import Finding
+from ..measurements import length_debt
 from . import tip_endpoints
 from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
@@ -46,6 +47,7 @@ from .resolution import (
     number,
     resolve,
     rough_leave,
+    select,
     uncertain,
 )
 from .tip_endpoints import mapping, records
@@ -264,15 +266,28 @@ def _starting_data(bundle, op, tool, diameter):
     return UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, range_unknown
 
 
-def plunge_row(bundle, op):
+def plunge_row(bundle, op, *, measurements=None):
     """``(feed_mm_rev, cite, why)`` for axial entry: a drill's cited drilling tooth
     feed times flutes, or a declared centre-cutting end mill's unique cited plunge
-    row. Missing, ambiguous, unverified or non-positive data stays unknown."""
+    row. Missing, ambiguous, unverified or non-positive data stays unknown.
+    ``measurements``, when supplied, receives only refused facts this lookup consumes."""
     tool = resolve(bundle, "tools", op.get("tool")) or {}
-    if tool.get("kind") in DRILL_KINDS and _operation(op, tool) == "drill":
-        _, chip, _, cite, debt = _starting_data(bundle, op, tool, length_mm(tool, "dia"))
+    category, identity, _ = select(bundle, op.get("tool"), "tools")
+    debt = length_debt(tool, "dia", category, identity) if tool else None
+    drilling = tool.get("kind") in DRILL_KINDS and _operation(op, tool) == "drill"
+    # A drill's own cited chart never reads the diameter; a cutting-data row is chosen by it.
+    if drilling:
+        consumes = not _cited(tool.get("chart", UNKNOWN))
+    else:
+        consumes = tool.get("center_cutting") is True
+    if not consumes:
+        debt = None
+    elif debt is not None and measurements is not None:
+        measurements.append(debt)
+    if drilling:
+        _, chip, _, cite, row_debt = _starting_data(bundle, op, tool, length_mm(tool, "dia"))
         flutes = tool.get("flutes", UNKNOWN)
-        if debt or uncertain(tool) or not _positive(chip) or not _positive(flutes):
+        if row_debt or uncertain(tool) or not _positive(chip) or not _positive(flutes):
             return UNKNOWN, UNKNOWN, "the drilling row/chart or tool tooth feed is unresolved"
         return chip * flutes, cite, None
     centre = tool.get("center_cutting")
@@ -283,7 +298,10 @@ def plunge_row(bundle, op):
     diameter = length_mm(tool, "dia")
     key = (stock_material_class(bundle), tool.get("material", UNKNOWN))
     if UNKNOWN in key or not number(diameter):
-        return UNKNOWN, UNKNOWN, "the material class, tool material or tool diameter is unknown"
+        why = "the material class, tool material or tool diameter is unknown"
+        if debt is not None:
+            why += f": {debt['id']} ({debt['status']}): {debt['reason'].rstrip('.')}"
+        return UNKNOWN, UNKNOWN, why
     matching = []
     for row in records(mapping(bundle.cutting_data).get("plunge")):
         band = row.get("diameter_range", UNKNOWN)
@@ -492,6 +510,11 @@ def evaluate(bundle):
                 or range_unknown
                 or deep_unknown
             )
+            if unknown and tool and (not lathe or op.get("do") in _AXIAL_LATHE_ACTIONS):
+                category, identity, _ = select(bundle, op.get("tool"), "tools")
+                debt = length_debt(tool, "dia", category, identity)
+                if debt is not None:
+                    numbers["measurements"] = [debt]
             cite = [
                 "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 "
                 "ties-to-even then clamp",

@@ -1388,7 +1388,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "800dfd517fc0bafa2f98f601d143513202d3aac2fe440b60a8c1dd5d188b7f58"
+            "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
@@ -10959,7 +10959,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "948327f71f8d576ca632fc1d5bdcd0e33ef503c0613edd76e66476a4908fb585",
+  "hash": "ec6d2349c253dca16dd148cb974caa76d085b484484eb2d40f38905d59a9ba02",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -10971,7 +10971,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "800dfd517fc0bafa2f98f601d143513202d3aac2fe440b60a8c1dd5d188b7f58"
+      "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
@@ -11357,7 +11357,7 @@
       "sha256": "ba7552971766fc01f52c1eabb9bbc6b87fae5cd9256dfefee62ccee33f8be031"
     }
   },
-  "rules_version": "m5-rev10",
+  "rules_version": "m5-rev12",
   "step_sha256": "cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc",
   "verification": "checked"
 }

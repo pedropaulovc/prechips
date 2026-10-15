@@ -35,20 +35,23 @@ requirements = ["dia", "thru"]
 INVENTORY = """[machines.mill]
 kind = "mill"
 verify = false
+[machines.mill.resolution_mm]
+value = 0.001
+measured = { status = "measured", by = "test", date = "2026-10-03", instrument = "DRO readout" }
 [machines.mill.envelope]
 [machines.mill.envelope.spindle_to_table_max_mm]
 value = 400.0
-measured = { by = "test", date = "2026-10-03", instrument = "synthetic height gauge" }
+measured = { status = "measured", by = "test", date = "2026-10-03", instrument = "height gauge" }
 [machines.mill.spindle]
 taper = "R8"
 rpm_min = 100.0
 rpm_max = 3000.0
 [machines.mill.envelope.travel_mm.x]
 value = 500.0
-measured = { by = "test", date = "2026-10-03", instrument = "synthetic steel rule" }
+measured = { status = "measured", by = "test", date = "2026-10-03", instrument = "steel rule" }
 [machines.mill.envelope.travel_mm.y]
 value = 200.0
-measured = { by = "test", date = "2026-10-03", instrument = "synthetic steel rule" }
+measured = { status = "measured", by = "test", date = "2026-10-03", instrument = "steel rule" }
 [tools.em10]
 kind = "endmill"
 dia_mm = 10.0

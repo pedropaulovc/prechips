@@ -12,7 +12,7 @@ from prechips.inputs import load_bundle
 from prechips.rules import coordinates
 from prechips.rules.headroom import evaluate
 
-MEASURED = {"by": "test", "date": "2026-10-03", "instrument": "steel rule"}
+MEASURED = {"status": "measured", "by": "test", "date": "2026-10-03", "instrument": "steel rule"}
 
 
 def measured(value):
@@ -484,8 +484,8 @@ def test_structural_unknown_cannot_certify_physical_envelope(section):
         assert finding.numbers["travel_checks"]["x"]["required_mm"] == "unknown"
 
 
-def coordinate_bundle(tmp_path, feature, operations):
-    """A scratch bundle with coordinates as its sole required rule."""
+def coordinate_bundle(tmp_path, feature, operations, *, resolution=0.001):
+    """A scratch bundle with coordinates as its sole required rule and a measured test DRO."""
     root = tmp_path / "coordinate-bundle"
     root.mkdir()
     plan = root / "plan.toml"
@@ -514,6 +514,8 @@ def coordinate_bundle(tmp_path, feature, operations):
     )
     (root / "inventory.toml").write_text(
         "[machines.mill]\nkind = 'mill'\nverify = false\n"
+        f"resolution_mm = {{ value = {resolution}, measured = {{ status = 'measured', "
+        "by = 'synthetic test operator', date = '2026-10-05', instrument = 'test DRO' } }\n"
         "[machines.mill.spindle]\nrotation = 'cw'\n"
         "[tools.cutter]\nkind = 'endmill'\ndia_mm = 6.0\nmaterial = 'HSS'\ncenter_cutting = true\n"
         "verify = false\n"

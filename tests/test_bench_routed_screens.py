@@ -7,7 +7,7 @@ import pytest
 from prechips import kernel as native_kernel
 from prechips.rules import coordinates, headroom, zero_recipe
 
-MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "steel rule"}
+MEASURED = {"status": "measured", "by": "test", "date": "2026-10-05", "instrument": "steel rule"}
 SCREENS = [zero_recipe, coordinates, headroom]
 NO_KERNEL = {
     "status": "unknown",

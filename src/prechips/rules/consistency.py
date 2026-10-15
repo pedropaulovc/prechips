@@ -856,25 +856,39 @@ def _picture_cut(bundle, setup):
     ``cut_clearances``), each printed as its surface prints it at the setup's DRO decimals:
     the picture must print that op's value beside the same holding solid. That op's row
     missing or not computed leaves it unknown, as does a cut naming no op (unknown, empty
-    or absent): another op's row of the same value never stands in. A saw's blade path
-    carries no row, so the cut it names restates none."""
+    or absent): another op's row of the same value never stands in. An unverified DRO grid
+    cannot certify their printed agreement. A saw's blade path carries no row, so the cut
+    it names restates none."""
     from prechips.kernel import run_geometry
     from prechips.kernel.render_diagram import _dro
-    from prechips.rules.coordinates import dro_grid
+    from prechips.rules.coordinates import dro_grid, dro_grid_debt
     from prechips.sheet import _number
 
     facts = record(record(record(run_geometry(bundle)).get("setups")).get(setup["id"]))
     scene = record(facts.get("render_scene"))
     cut = record(scene.get("closest_cut"))
-    if not cut:
-        return 0, [], []
     rows = [record(row) for row in scene.get("cut_clearances") or []]
-    decimals = dro_grid(bundle, setup)[1]
+    if not cut:
+        unresolved = [str(row.get("op", UNKNOWN)) for row in rows if not number(row.get("mm"))]
+        if unresolved:
+            return (
+                1,
+                [],
+                [
+                    "the setup picture's nearest cut cannot be compared: CLEARANCE rows "
+                    f"for ops {', '.join(unresolved)} are not computed"
+                ],
+            )
+        return 0, [], []
     holder = _holder(cut.get("tag"))
     if not number(cut.get("mm")):
         return 1, [], [f"the setup picture's cut from the {holder} has no measured value"]
     if cut.get("blade"):
         return 0, [], []
+    grid_debt = dro_grid_debt(bundle, setup)
+    if grid_debt:
+        return 1, [], [f"the setup picture's cut cannot be compared: {grid_debt}"]
+    decimals = dro_grid(bundle, setup)[1]
     said = f'"CUT {_dro(cut["mm"], decimals)} mm" from the {holder}'
     op = cut.get("op")
     if op is None or str(op).strip() in ("", UNKNOWN):
@@ -931,6 +945,8 @@ def evaluate(bundle):
     # sheet imports the rules.
     from prechips.sheet import _Traveler
 
+    from .coordinates import dro_grid_debt, dro_grid_measurements
+
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     frames = set(record(bundle.plan.get("frames")))
     traveler = _Traveler(bundle, [], {}, None)
@@ -964,7 +980,39 @@ def evaluate(bundle):
             cite.append("SHOP-MADE FIXTURE tables: made rows' Size mm and make notes")
         if any(picture):
             cite.append("kernel setup picture: closest_cut and per-op cut_clearances")
-        result.append(_finding(sid, checks, cite))
+        finding = _finding(sid, checks, cite)
+        if finding.status == UNKNOWN:
+            debts = {}
+            grid_debt = dro_grid_debt(bundle, setup) if picture[0] else None
+            if grid_debt:
+                finding.numbers["dro_grid_debt"] = grid_debt
+                debts.update((entry["id"], entry) for entry in dro_grid_measurements(bundle, setup))
+            if checks[4][2] or picture[2]:
+                kernel = record(getattr(bundle, "kernel", None))
+                measurement_debts = record(kernel.get("measurement_debts"))
+                entries = list(record(measurement_debts.get("setups")).get(sid, []))
+                if picture[2]:
+                    scene = record(
+                        record(record(kernel.get("setups")).get(sid)).get("render_scene")
+                    )
+                    cut = record(scene.get("closest_cut"))
+                    operations = (
+                        [cut["op"]]
+                        if cut.get("op") not in (None, "", UNKNOWN)
+                        else [
+                            record(row).get("op")
+                            for row in scene.get("cut_clearances") or []
+                            if not number(record(row).get("mm"))
+                        ]
+                    )
+                    for operation in operations:
+                        entries.extend(
+                            record(measurement_debts.get("ops")).get(f"{sid}:{operation}", [])
+                        )
+                debts.update((entry["id"], entry) for entry in entries)
+            if debts:
+                finding.numbers["measurements"] = [debts[key] for key in sorted(debts)]
+        result.append(finding)
         for op in setup.get("ops", []):
             texts = [
                 t for key in ("note", "inspection_note", "layout") for t in _texts(op.get(key))
