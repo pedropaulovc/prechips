@@ -1173,11 +1173,10 @@ sheet.
    XY, keep-off centre and diameter, and `touch_land_height_debt_mm` (maximum
    certified native/source corner-height bound); uncut contacts gain no fields. Named
    producer/supply, component lineage and +Z gates are unchanged. The schema
-   and engine digest miss every prior cache key; cold private all-example
-   regeneration, the exactly parallel cone's expected unchanged return to exit 0
-   and CI are **PENDING**. #208 is deferred to **0.1.2**; **0.1.1 ships #198 and
-   #192 only**. No native runs were performed for this draft; later native
-   execution requires an explicit GO
+   and engine digest miss every prior cache key; a cold private all-example
+   native regeneration at the 0.1.1 merge certified the cone's S8/S9 land,
+   which still exits 4 on #199's two assumed reamer lead facts. #208 is
+   deferred to **0.1.2**; **0.1.1 ships #198, #192 and #199**
    ([acceptance status](docs/rules-operations.md#issue-208-acceptance-status)).
 2. **M2 — local declared-input implementation completed 2026-10-03.**
    Turned-profile monotonicity,

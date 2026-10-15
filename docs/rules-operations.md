@@ -416,7 +416,7 @@ physical touch patch exists.
 ### Issue #208 acceptance status
 
 Implementation and host tests are complete for this **0.1.2 draft**.
-**0.1.1 ships #198, #192 and #199 only.** No native runs or regeneration were performed:
+**0.1.1 ships #198, #192 and #199 only.**
 
 - [x] Native job schema 2 emits `face_topology` for every mapped planar face
       in every setup; schema 1 jobs are refused by the engine.
@@ -432,17 +432,14 @@ Implementation and host tests are complete for this **0.1.2 draft**.
       current-setup `face_topology` selection and the report fields above.
 - [ ] Focused actual-FreeCAD topology tests (authored annulus, thin land,
       off-centre holes, sector/slit/notch and setup transforms): **NOT RUN**.
-- [ ] Cold private regeneration of every example on native FreeCAD with the
-      new schema and engine digest: **NOT RUN**; a later explicit GO is required.
-- [ ] Cone `built-up.toml` restored to exit 0 by this proof (its S8/S9 crank
-      and cone faces are concentric native circle pairs with at least 2.4596 mm
-      of annulus; see the [example guide](../examples/README.md#expected-consumer-cli-exits)).
-      Expected unchanged for exactly parallel planes under the new height
-      budget; no PASS has been observed.
-- [ ] CI with the regenerated native result cache green: unobserved.
-
-Until those run, every statement here about the cone is an expectation from
-the rule, not a result.
+- [x] Cold private regeneration of every example on native FreeCAD 1.1 with the
+      new schema and engine digest, at merge `9805c105`: 10 of 11 outputs
+      byte-identical to 0.1.1; the cone changed only report/traveler.
+- [x] Cone S8/S9 land certified natively: zero_check S8/S9 unknown → pass
+      (height debt at most 1.04e-7 mm). The cone still exits **4**, the authored
+      target, on the two assumed reamer lead lengths (#199) and S1's
+      foot-seat touch; exit 0 needs those lead facts measured (0.1.2).
+- [ ] CI with the regenerated native result cache green: see the PR's exact-head run.
 
 ## `blind_depth` (tip endpoints)
 

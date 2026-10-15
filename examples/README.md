@@ -193,7 +193,7 @@ means the generated bundles match their exact contracts, not shop approval.
 | `pivot-shaft` | A short-gripped prep setup (S0) faces the plain end and #2 centre-drills it from the tailstock; then three-jaw drive with the tailstock dead centre in that centre and a follow rest, journals/shoulder/both reliefs/both domes, then indicated rechucks and assembly-dependent plain-end fitting. No final hole, flat or indexing. | **0** (authored demo-fixture target) |
 | `rocker-arm` | Bounded rough/finish facing inside a retained rail frame, modeled magnetic end stop, permanent rod-hole pin and supported hub ream, the hub filed round to buttons on the pivot bore at the bench (S3F), then shoulder-screw profiling roughed in single-axis stairs and filed to a scribed template, with independently held scrap. | **0** (authored demo-fixture target) |
 | `pivot-bracket` | Seat-up, foot-top-up and side-on ear setups; full raw-top facing, walls-first/floor-last L-foot relief, arched ear (single-axis stairs, then filed to buttons on the cross bore at the bench), reamed cross-bore and two hold-down holes. The v39 STEP is bound; bands remain explicitly illustrative without a dimensioned drawing. | **0** (authored demo-fixture target) |
-| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. S8/S9 post-plunge touch-land proof now has a rule (#208) but no regenerated native result yet; see below. | **4** (authored target; two assumed lead facts; #208's exit-0 target unverified) |
+| `cone-pivot-post/built-up.toml` | Twelve setups: a turned body and head plus cone and crank sleeves bonded into reamed sockets, with dividing-head, bench-cradle, saw-cradle and soft-jaw holds. S8/S9 post-plunge touch land is certified natively (#208); see below. | **4** (authored target; two assumed lead facts) |
 
 The cone's interim exit 4 is a proof stop, not a physically absent touch land
 or a weakened plan. Main's earlier pass followed a feature-name-only bypass:
@@ -218,23 +218,20 @@ hole and every plunge exclusion deducted about its own centre, with native
 and carried-source normal corner-height bounds each fitting 1e-6 mm; the
 first candidate passing both material and height wins
 ([usable land](../docs/rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check)).
-S8/S9 initial contacts remain proved. The drill and reamer retouches and their
-dependent tip/breakthrough readings are expected to resolve by that proof, with
-the card stating the proved square's DRO XY and the keep-off diameter about the
-face centre, which is the required exit-0 acceptance for **0.1.2**; no plan input is
-relaxed. Release 0.1.1 ships #198, #192 and #199 with the documented interim
-exit 4; exit-0 restoration by #208 and measured values for the two assumed lead
-facts are deferred to release 0.1.2. This draft leaves the checked-in interim
-goldens untouched; they do not prove this schema-2 implementation.
-The exactly parallel cone is expected to remain unaffected by the height guard,
-but native acceptance is **PENDING**, not observed: no native runs were made,
-and execution requires a later explicit GO. The inherited
-rectangle/whole-face height exposure is not fixed here
-([#217](https://github.com/pedropaulovc/prechips/issues/217)).
-The schema change and engine digest
-miss every old cache key, so the checked-in `expected/built-up/` report and
-traveler, this table's exit and the CI native cache all wait on a cold private
-regeneration of every example ([#208 acceptance status](../docs/rules-operations.md#issue-208-acceptance-status)).
+S8/S9 initial contacts remain proved, and the drill and reamer retouches now
+pass by that proof: the card states the proved square's DRO XY and the keep-off
+diameter about the face centre (crank `#329` square at DRO X -64.360/-64.325,
+keep-off Ø11.441/Ø11.570 mm at X -72.700; cone `#1426` square at X -26.000,
+keep-off Ø12.289 mm at X -33.370; height debt at most 1.04e-7 mm). No plan input
+is relaxed. The cone still exits 4: the dependent blind-depth, envelope and
+travel endpoints now resolve numerically but stay unknown on the two assumed
+reamer lead lengths (M1/M2, #199), whose measured values are deferred to
+release 0.1.2, and S1's foot-seat touch remains unknown as in 0.1.1. These
+goldens come from one cold private native regeneration of every example at
+`9805c105` (FreeCAD 1.1, one worker); only the cone report and traveler
+changed. The inherited rectangle/whole-face height exposure is not fixed here
+([#217](https://github.com/pedropaulovc/prechips/issues/217)); see the
+[#208 acceptance status](../docs/rules-operations.md#issue-208-acceptance-status).
 
 ### Rocker-arm supported route
 

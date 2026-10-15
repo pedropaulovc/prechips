@@ -48,10 +48,11 @@ the missing proof: native job schema 2 exports each face's exact outer and
 inner wires, and the host certifies a 0.5 mm square on complete circles only,
 with native and carried-source normal corner-height bounds each at most 1e-6 mm
 ([usable land](docs/rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check)).
-That rule is expected to restore the exactly parallel cone to exit 0 under the
-height guard, but exit-0 restoration by #208 is deferred to release **0.1.2**.
-Native acceptance is **PENDING** and no native run was made for this draft.
-Cold regeneration needs a later explicit GO; see the
+A cold private native regeneration at the 0.1.1 merge (`9805c105`) observed it
+certify both S8/S9 lands (zero_check S8/S9 pass); the cone still exits **4**
+because #199 holds its blind-depth, envelope and travel endpoints on the two
+assumed reamer lead lengths (M1/M2) until they are measured (0.1.2), and S1's
+foot-seat touch stays unknown as on main. See the
 [#208 acceptance status](docs/rules-operations.md#issue-208-acceptance-status).
 The authored plan and its requirements are unchanged.
 The inherited rectangle/whole-face height exposure is not fixed by this
