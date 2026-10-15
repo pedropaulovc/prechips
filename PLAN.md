@@ -1148,6 +1148,12 @@ sheet.
    Missing kernel/mapping/bbox/units/frame/
    radius inputs stay `?` with `zero_check` naming the feature and the input;
    explicit invalid `bounds` never fall back. No schema change.
+   **Collet shank band (2026-10-15, #235):** a tool shank in a holder's single
+   nominal capacity fits on the ISO 286 h6 band (`capacity - IT6` to
+   `capacity`, IT6 from ISO 286-1:2010 Table 1), not 1 nm equality; oversize or
+   below-band shanks still error, a size past the 500 mm table is `?`, and an
+   off-nominal shank's finding reports `shank_fit` and `shank_band_mm`. A
+   nominal shank's finding is unchanged. No schema change.
 2. **M2 — local declared-input implementation completed 2026-10-03.**
    Turned-profile monotonicity,
    supported stick-out, collet/chuck diameter capacity, exact-first indexing,

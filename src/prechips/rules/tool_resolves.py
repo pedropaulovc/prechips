@@ -36,6 +36,37 @@ from .resolution import (
 SAW_MACHINE_KINDS = frozenset({"mill", "bench", "bandsaw"})
 SAW_TOOL_KINDS = frozenset({"bandsaw"})
 
+# A cutter shank is ground to a tolerance class below its nominal size: a nominal collet
+# accepts the ISO 286 h6 shaft band, upper deviation 0 and lower deviation -IT6. IT6 in
+# micrometres by nominal size, "above" the previous bound "up to and including" this one, in
+# mm (ISO 286-1:2010 Table 1). A size above the last bound has no IT6 here.
+SHANK_FIT = "ISO 286 h6"
+SHANK_FIT_CITE = "ISO 286-1:2010 Table 1 IT6"
+_IT6_UM = (
+    (3, 6),
+    (6, 8),
+    (10, 9),
+    (18, 11),
+    (30, 13),
+    (50, 16),
+    (80, 19),
+    (120, 22),
+    (180, 25),
+    (250, 29),
+    (315, 32),
+    (400, 36),
+    (500, 40),
+)
+
+
+def _h6_band(nominal):
+    """``[low, nominal]`` in mm for an h6 shaft of ``nominal`` mm, or :data:`UNKNOWN` above
+    the table. The low limit is rounded to the nanometre ``same_length`` compares at."""
+    for upper, it6 in _IT6_UM:
+        if nominal <= upper or same_length(nominal, upper):
+            return [round(nominal - it6 / 1000, 6), nominal]
+    return UNKNOWN
+
 
 def _saw_assembly(subject, op, tool, machine, machine_ref):
     nums = {
@@ -284,6 +315,8 @@ def evaluate(bundle):
             "machine": setup["machine"],
         }
         problems = []
+        cite = ["inventory spindle/holder/shank fields", "PLAN.md §4.1"]
+        fit_unknown = None
         unknown = op["do"] == "unknown" or tool is None or holder is None or machine is None
         if not unknown:
             spindle = machine.get("spindle", {})
@@ -317,8 +350,20 @@ def evaluate(bundle):
             max_shank = length_mm(holder, "max_shank")
             nums.update(shank_mm=shank, holder_capacity_mm=capacity)
             if number(shank) and number(capacity):
+                # A shank at nominal needs no class; one off nominal is judged on the band.
                 if not same_length(shank, capacity):
-                    problems.append("tool shank does not match selected collet")
+                    band = _h6_band(capacity)
+                    nums.update(shank_fit=SHANK_FIT, shank_band_mm=band)
+                    cite.append(SHANK_FIT_CITE)
+                    if band == UNKNOWN and shank < capacity:
+                        fit_unknown = (
+                            "ISO 286-1 Table 1 gives no IT6 above 500 mm, so a shank under "
+                            "the nominal collet size has no known fit"
+                        )
+                    elif band == UNKNOWN or not (
+                        band[0] <= shank <= capacity or same_length(shank, band[0])
+                    ):
+                        problems.append("tool shank does not match selected collet")
             elif number(shank) and number(max_shank):
                 if shank > max_shank and not same_length(shank, max_shank):
                     problems.append("tool shank exceeds holder capacity")
@@ -333,21 +378,18 @@ def evaluate(bundle):
             if any(uncertain(item) for item in (tool, holder, machine)):
                 unknown = True
                 problems = []
-        status = "error" if problems else "unknown" if unknown else "pass"
-        message = (
-            "; ".join(problems)
-            if problems
-            else "assembly fit needs measured shank, holder and machine facts"
-            if unknown
-            else "holder interface and shank fit"
-        )
+        reasons = ["assembly fit needs measured shank, holder and machine facts"] if unknown else []
+        if fit_unknown:
+            reasons.append(fit_unknown)
+        status = "error" if problems else "unknown" if reasons else "pass"
+        message = "; ".join(problems or reasons) or "holder interface and shank fit"
         findings.append(
             Finding(
                 "tool_resolves",
                 subject,
                 status,
                 nums,
-                ["inventory spindle/holder/shank fields", "PLAN.md §4.1"],
+                cite,
                 f"{subject}: {message}.",
             )
         )

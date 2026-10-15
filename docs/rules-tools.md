@@ -56,6 +56,17 @@ required; incompatible known machine/tool kinds are errors and unverified
 identities remain debt. A saw naming a groove cannot replace that groove's
 size-setting tool, and a saw does not establish a finished datum.
 
+A tool shank in a holder with one nominal capacity (`capacity_mm` /
+`capacity_in` as a single collet size, not a `[low, high]` range or a
+`max_shank`) fits when it is inside the ISO 286 h6
+shaft band for that nominal size: `capacity - IT6 <= shank <= capacity`, upper
+deviation 0, both limits inclusive at the 1 nm length tolerance. IT6 is read
+from ISO 286-1:2010 Table 1 by nominal size (9 µm above 6 up to and including
+10 mm, so a 3/8 in collet accepts 9.516-9.525 mm). An oversize shank, or one
+below the band, is `tool shank does not match selected collet`. A nominal
+size above 500 mm, past the table, leaves an undersize shank unknown, never a
+pass. Only h6 is applied; no collet or policy entry changes the class.
+
 Sentence templates:
 
 - `{ref}: not listed in the inventory.`
@@ -69,14 +80,21 @@ Sentence templates:
 - `{category.key} make op {n}: its tool resolves and its cutting data is stated.`
 - `{setup:op}: holder interface and shank fit.`
 - `{setup:op}: assembly fit needs measured shank, holder and machine facts.`
+- `{setup:op}: ISO 286-1 Table 1 gives no IT6 above 500 mm, so a shank under
+  the nominal collet size has no known fit.` (after the sentence above, joined
+  with `; `, when both apply)
 - `{setup:op}: {violations}.` Violations are `holder interface does not match
   machine`, `tool shank does not match selected collet`, `tool shank exceeds
   holder capacity`, or `tool shank outside holder range`, joined with `; `.
 
 Evidence: `reference`, `present`, `verified`, kind and available diameter;
-assembly selected refs, interface names, shank and holder capacity in mm.
+assembly selected refs, interface names, shank and holder capacity in mm. A
+shank off the nominal capacity also reports `shank_fit = "ISO 286 h6"` and
+`shank_band_mm = [low, capacity]` (the low limit rounded to the nanometre;
+`"unknown"` above 500 mm); a shank at nominal reports neither.
 Citations identify inventory selected identity/member coverage and PLAN §3.3,
-or spindle/holder/shank fields and PLAN §4.1. Resolver conversions use exactly
+or spindle/holder/shank fields and PLAN §4.1, plus `ISO 286-1:2010 Table 1 IT6`
+when the band is read. Resolver conversions use exactly
 25.4 mm/in with declared units; no network catalog lookup occurs.
 
 ## `sizing`

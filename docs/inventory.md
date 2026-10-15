@@ -45,7 +45,11 @@ or a list. An `endmill_set` member `<size>in-<n>fl` resolves when the size is in
 any group and `n` is a declared flute count.
 
 Mill holder compatibility uses spindle taper; lathe compatibility uses toolpost
-series. Collet capacity, range and maximum shank checks are separate. Drill point
+series. Collet capacity, range and maximum shank checks are separate. A holder's
+single nominal capacity (a collet size) accepts a tool `shank` on the ISO 286 h6
+band below it, `capacity - IT6` up to `capacity` with IT6 from ISO 286-1:2010
+Table 1 (a 3/8 in collet: 9.516-9.525 mm), so a measured shank below nominal
+still fits; see [`tool_resolves`](rules-tools.md#tool_resolves). Drill point
 angle, reamer lead, flute length, projection, holder gauge length and fixture bed
 height are operative geometry, not values to infer from unrelated angles or
 overall dimensions. A centre drill's centre-seat angle is not its drill-point
@@ -950,7 +954,7 @@ on hand.
 | `length_mm` | `MeasuredLength` |
 | `width_mm` | `MeasuredLength` |
 | `width_in` | `MeasuredLength` |
-| `capacity_mm` | `float` |
+| `capacity_mm` | `float` (a holder's single nominal collet size accepts a tool shank on its ISO 286 h6 band, [`tool_resolves`](rules-tools.md#tool_resolves)) |
 | `capacity_min_mm` / `capacity_min_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
 | `capacity_max_mm` / `capacity_max_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
 | `jaw_angles_deg` | `list[Number]` (follow rest jaw directions about the spindle, degrees from the tool) |
