@@ -30,6 +30,9 @@ PROFILE_GOVERNABLE = TOLERANCE_REQUIREMENTS - {
     "finish_ra",
     "surface_profile",
 }
+# The face extents a tilt is read across (``tilt_across``): every recognised linear dimension
+# in manifest length units, never an angle, a roughness or a geometric zone.
+LENGTH_REQUIREMENTS = frozenset(r for r in PROFILE_GOVERNABLE if not r.endswith("_deg"))
 
 
 def tolerance_requirements(feature: dict[str, Any]) -> list[str]:
@@ -1286,9 +1289,10 @@ def _governed(features: dict[str, Any], owner: str, key: str, entry: ProfileEntr
 
 
 def _face_extent(where: str, name: str, feature: Any, listed: list, across: str | float) -> None:
-    """A ``tilt_across`` face extent: a listed length band of feature ``name``, or > 0."""
+    """A ``tilt_across`` face extent: a listed band of a recognised length dimension
+    (``LENGTH_REQUIREMENTS``) of feature ``name``, or a number > 0."""
     if isinstance(across, str):
-        length = across in listed and not across.endswith("_deg")
+        length = across in listed and across in LENGTH_REQUIREMENTS
         if not length or not isinstance(getattr(feature, across), list):
             raise ValueError(f"{where}: tilt_across {across} is not a listed length band of {name}")
     elif across <= 0:

@@ -216,8 +216,14 @@ A `surface_profile_governs` entry says how the governed BASIC value `n` reads in
   normal). Each offset is divided by cos θ.
 - `{ tilt_across = "<banded length requirement of the governed feature>" }` or
   `{ tilt_across = <least face extent, manifest units> }`: a BASIC angle (degrees)
-  of a planar governed face. The band is n ± asin(t / l_min) in degrees, l_min
-  being the named band's lower limit or the number; it does not depend on U.
+  of a planar governed face. A named extent is a listed band of a recognised length
+  dimension, in manifest length units: `dia`, `nominal_dia`, `depth`, `length`,
+  `width`, `height`, `radius`, `thickness`, `height_above_pivot`, `arc_len`,
+  `bottom_radius`, `bottom_arc_len`, `tip_land`, `station`, `groove_width`,
+  `groove_depth` or `separation`; never an angle, a roughness (`finish_ra`) or a
+  zone (`position_dia`, `coaxiality_dia`, `angularity_dia`). The band is
+  n ± asin(t / l_min) in degrees, l_min being the named band's lower limit or the
+  number; it does not depend on U.
   When t >= l_min the zone bounds no tilt: unknown. Inspection reads the band as
   the linear zone it is, end to end across l_min (2t wide for one zone), never as
   degrees against a millimetre gauge ([inspection](rules-inspection.md#surface-profiles)).
@@ -249,7 +255,8 @@ feature's `requirements`, or one whose value is not a BASIC scalar (a band, an
 zone such as `position_dia`, or a field outside the recognised set such as
 `dome_height`, whose derived band no check would read); a sense entry on an angle
 (`*_deg`) requirement or a `tilt_across` on a length; a `tilt_across` naming anything
-but a listed length band of the governed feature, or a number <= 0; `obliquity_deg`
+but a listed length band of the governed feature (a `finish_ra` or `position_dia`
+band is none), or a number <= 0; `obliquity_deg`
 outside [0, 90).
 
 ```toml
@@ -285,7 +292,7 @@ angle requirement:
 
 | Field | Meaning |
 |---|---|
-| `tilt_across` | Table keyed by a listed drawn angle band of this feature (`"land_angle_deg"`). The value is the face extent the angle is read across: a listed length band of the same feature (its lower limit, the least extent) or a number > 0 (manifest units). |
+| `tilt_across` | Table keyed by a listed drawn angle band of this feature (`"land_angle_deg"`). The value is the face extent the angle is read across: a listed band of a recognised length dimension of the same feature (the set [above](#surface-profiles); its lower limit, the least extent) or a number > 0 (manifest units). |
 
 Inspection reads `[lo, hi]` about its mid angle `m` as a linear zone
 w = l·(sin(hi − m) − sin(lo − m)) = 2l·sin((hi − lo)/2), the chord between the
@@ -295,7 +302,8 @@ stays unknown. The band itself is unchanged; `tilt_across` adds no tolerance.
 Bad input (exit 3): a key that is not a listed `*_deg` requirement of the
 feature, or one whose value is a BASIC scalar rather than a drawn band (a BASIC
 angle reads its tilt through its surface profile's `tilt_across`); a value
-naming anything but a listed length band of the feature, or a number <= 0.
+naming anything but a listed length band of the feature (a `finish_ra` or zone
+band is none), or a number <= 0.
 
 ```toml
 ["features"."tip_land_pos_x"]

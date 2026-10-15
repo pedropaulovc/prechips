@@ -631,6 +631,28 @@ def test_a_malformed_drawn_angle_length_is_bad_input(tmp_path, tip, match):
         bundle(tmp_path, {"tip": tip})
 
 
+# Listed bands that are no face extent: a roughness and a geometric zone.
+NOT_LENGTHS = {"finish_ra": "[0.4, 1.6]", "position_dia": "[0.0, 0.2]"}
+
+
+def listing(tip, requirement):
+    """``tip`` also listing ``requirement`` as its ``NOT_LENGTHS`` band."""
+    listed = tip.replace('requirements = ["', f'requirements = ["{requirement}", "')
+    return listed + f"{requirement} = {NOT_LENGTHS[requirement]}\n"
+
+
+@pytest.mark.parametrize("extent", sorted(NOT_LENGTHS))
+@pytest.mark.parametrize("form", ["profile", "drawn"])
+def test_a_tilt_read_across_a_listed_band_that_is_no_length_is_bad_input(tmp_path, form, extent):
+    if form == "profile":
+        governs = f'{{ "tip:land_angle_deg" = {{ tilt_across = "{extent}" }} }}'
+        features = {"tip": listing(TIP_LAND, extent), "zone": profile(governs)}
+    else:
+        features = {"tip": listing(drawn_tip(f'"{extent}"'), extent)}
+    with pytest.raises(BadInput, match=rf"tilt_across {extent} is not a listed length band of tip"):
+        bundle(tmp_path, features)
+
+
 @pytest.mark.parametrize(
     ("gauge", "method", "status"),
     [
