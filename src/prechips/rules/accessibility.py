@@ -18,13 +18,15 @@ from prechips.rules.geometry_common import (
     TURNING_HOLDER_KEYS,
     TURNING_TOOL_KEYS,
     blade_keys,
+    cutting_action,
     fact_reason,
-    finishing_subjects,
     op_claims,
     op_contexts,
     with_measurement_debts,
 )
 from prechips.rules.resolution import (
+    HAND_FINISH,
+    SAW_OPS,
     claim_refs,
     identity,
     known_refs,
@@ -115,15 +117,27 @@ def _engagement(bundle, setup, op, entry, feed_z, scale):
     return "pass", declared, None
 
 
+def _takes(op):
+    """Whether a later ``op`` can take a carried face: True when it cuts (rough cuts
+    included) or files to the line, False for a saw, a coating or other non-cutting work,
+    None when its action is unknown."""
+    if op.get("do") in SAW_OPS | {"coating"}:
+        return False
+    if op.get("do") in HAND_FINISH:
+        return True
+    return cutting_action(op)
+
+
 def _carried(bundle, facts, op, unreached):
     """(numbers, verdict, why) for a bounded op's claimed-face samples whose cutter would
     meet its stock outside its stock_removal_bounds (kernel ``bounds_unreached``), or None.
 
     The kernel judges the op only where its cutter may stand; the rest of each such face
-    stays under the stock as carried debt. A later finishing op (:func:`finishing_subjects`)
-    whose kernel claim holds the face discharges it, and judges it in turn. A later
-    finishing op naming the face, or one whose refs are unknown, with an unknown claim
-    leaves it unknown. With neither, no op makes that part of the face: an error.
+    stays under the stock as carried debt. A later op that cuts or files to the line
+    (:func:`_takes`; never a saw) whose kernel claim holds the face discharges it, and is
+    judged on it in turn. A later op naming the face, or one whose refs are unknown, with
+    an unknown claim, or an op of unknown action claiming it, leaves it unknown. With
+    neither, no op makes that part of the face: an error.
     """
     if not isinstance(unreached, dict):
         return None
@@ -143,27 +157,29 @@ def _carried(bundle, facts, op, unreached):
         if isinstance(face, dict) and isinstance(face.get("ref"), str)
     }
     mapping = record(facts.get("mapping"))
-    finishing = finishing_subjects(bundle)
     ops = operations(bundle)
     position = next(k for k, (_, other) in enumerate(ops) if other is op)
     later = [
-        (f"{other_setup['id']}:{other['op']}", other_setup, other)
+        (f"{other_setup['id']}:{other['op']}", other_setup, other, takes)
         for other_setup, other in ops[position + 1 :]
-        if f"{other_setup['id']}:{other['op']}" in finishing
+        if (takes := _takes(other)) is not False
     ]
     unresolved, uncovered = [], []
     for index in sorted(indices):
         ref = refs.get(index, f"face index {index}")
         numbers["faces"].append(ref)
         takers, open_claim = [], False
-        for subject, other_setup, other in later:
+        for subject, other_setup, other, takes in later:
             claims = op_claims(bundle, facts, other_setup, other)[0]
             if claims is None:
                 named = claim_refs(bundle, other)
                 open_claim = open_claim or not known_refs(named)
                 open_claim = open_claim or any(mapping.get(name) == index for name in named)
             elif index in claims:
-                takers.append(subject)
+                if takes:
+                    takers.append(subject)
+                else:
+                    open_claim = True
         if takers:
             numbers["carried_to"][ref] = takers
         else:

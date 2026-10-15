@@ -1047,13 +1047,16 @@ def test_certain_hits_survive_unknown_context(bundle, debt, kind, hits, status):
 UNREACHED = {"sample_count": 4, "indices": [1]}
 
 
-def _bounded(bundle, carrier, later_claims):
+def _bounded(bundle, carrier, later_claims, do=None):
     """S1:10 carries ``UNREACHED`` (or S1:20 does, when ``carrier`` is ``"S1:20"``); S1:20
-    is a second finishing op on the same feature whose kernel claim is ``later_claims``."""
+    is a second op on the same feature, a copy of S1:10 unless ``do`` names its action,
+    whose kernel claim is ``later_claims`` (a file's from the kernel's hand model)."""
     ops = bundle.plan["setups"][0]["ops"]
-    ops.append({**ops[0], "op": 20})
+    ops.append({**ops[0], "op": 20, **({"do": do} if do else {})})
     facts = bundle.kernel["ops"]
     facts["S1:20"] = {**deepcopy(facts["S1:10"]), "claimed_indices": later_claims}
+    if do == "file_to_line":
+        facts["S1:20"]["approach"] = "hand"
     if carrier == "S1:20":
         facts["S1:10"]["claimed_indices"] = later_claims
         facts["S1:20"]["claimed_indices"] = [1]
@@ -1108,6 +1111,25 @@ def test_carried_debt_never_hides_a_certain_hit_inside_the_box(bundle):
     assert row.status == "error"
     assert "certainly occluded" in row.sentence
     assert row.numbers["bounds_unreached"]["carried_to"] == {"#1": ["S1:20"]}
+
+
+@pytest.mark.parametrize(
+    "do,status",
+    [
+        # A rough cut reaching the face takes the debt; it is judged there in turn.
+        ("rough_profile", "pass"),
+        ("file_to_line", "pass"),
+        # A saw removes stock but never forms a claimed face.
+        ("saw_cut", "error"),
+        # Whether an op of unknown action cuts there is unknown.
+        ("unknown", "unknown"),
+    ],
+)
+def test_carried_debt_is_taken_by_a_later_cut_or_file_never_a_saw(bundle, do, status):
+    row = _bounded(bundle, "S1:10", [1], do=do)
+    assert row.status == status
+    taken = {"#1": ["S1:20"]} if status == "pass" else {}
+    assert row.numbers["bounds_unreached"]["carried_to"] == taken
 
 
 @pytest.mark.parametrize("later", [False, True])

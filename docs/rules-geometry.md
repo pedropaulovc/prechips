@@ -1183,13 +1183,13 @@ unreached, `sample_count` is unknown with that reason. When the stock outside
 the box is unknown, every sample is judged as before; unknown stock already
 leaves the tool hits unknown. Hole and joint cuts keep their own poses.
 
-The rule carries those faces as debt. A later finishing op (a cut or a file to
-the line, never a saw) whose kernel claim holds the face discharges it and is
-judged on it in turn. The finding's `bounds_unreached` evidence lists `faces` and,
+The rule carries those faces as debt. A later op that cuts (a rough cut
+included) or files to the line, never a saw or a coating, whose kernel claim
+holds the face discharges it and is judged on it in turn. The finding's `bounds_unreached` evidence lists `faces` and,
 for each face, the later ops it is `carried_to`. If no later op claims the face,
 the finding is an error: no op makes that part of it. An earlier claim never
-discharges it. If a later finishing op names the face, or has unknown refs, and
-its claim is unknown, the debt stays unknown. Certain hits at the reached
+discharges it. If a later op names the face, or has unknown refs, and its
+claim is unknown, or an op of unknown action claims it, the debt stays unknown. Certain hits at the reached
 samples still fail the op. The debt is judged even when a missing tool or
 holder dimension, or other unresolved context, leaves the op's own hits
 unknown: with no later claim of the face it is still an error.
