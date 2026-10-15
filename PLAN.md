@@ -403,6 +403,15 @@ contract:
   hand-written manifests were cross-checked against drawing dimension counts;
   the pivot-bracket remains hand-authored on the v39 STEP without a dimensioned
   drawing, so its example bands are illustrative rather than sourced limits.
+- A BASIC value toleranced only by a drawing SURFACE PROFILE carries no band of
+  its own. The owning feature declares the zone (`surface_profile`, optional
+  `surface_profile_u`, `surface_profile_datums`) and the BASIC requirements it
+  governs (`surface_profile_governs`); rules read the band the zone derives,
+  pointwise from the DRF-located BASIC origin
+  ([features](docs/features.md#surface-profiles)). Status: implemented for
+  inspection, process holds, `manual_arc` and `datum_consistency`; coordinates
+  arc tables and the traveler's printed limits still read the exported value.
+  The rocker export adopting it is harmonic-analyzer #1544.
 
 **Historical design sketch, not the current manifest.** The excerpt below
 predates M3: placeholder face names, inch-derived bands and material/profile

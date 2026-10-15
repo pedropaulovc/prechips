@@ -944,7 +944,11 @@ radiused end or a declared semicircle), subject `S<n>:<op>`; always required
 ([plan](plan.md#manual-arcs)). It reads the arc's layout in the op's setup:
 `centre_setup_xy`, `centre_on` (the hole whose axis is the centre), nominal
 `radius_mm`, `radius_band_mm`, `convex` and `ends_setup_xy` (none for a full
-circle). Unknown geometry is unknown.
+circle). Unknown geometry is unknown. `radius_band_mm` is the drawing's radial
+band, or for a BASIC radius a surface profile governs the band the zone derives
+([features](features.md#surface-profiles), harmonic-analyzer #1544), pointwise
+from the DRF-located centre; an ungoverned BASIC radius or an unresolved profile
+leaves it unknown. The `coordinates` arc tables still read the drawing band only.
 
 - `scribe`: `layout` must be `dividers`, `trammel` or `template` (else
   unknown); a template (`guide.template`) must be an inventory radius or profile

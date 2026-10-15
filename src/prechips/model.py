@@ -16,7 +16,7 @@ type Vector = list[Number] | Unknown
 type Citations = str | list[str]
 TOLERANCE_REQUIREMENTS = frozenset(
     "dia position_dia angularity_dia finish_ra depth length width height radius thickness "
-    "coaxiality_dia "
+    "coaxiality_dia surface_profile "
     "height_above_pivot arc_len bottom_radius bottom_arc_len tip_land land_angle_deg station "
     "groove_width groove_depth separation".split()
 )
@@ -41,6 +41,13 @@ def tolerance_requirements(feature: dict[str, Any]) -> list[str]:
         if requirement == UNKNOWN or requirement in TOLERANCE_REQUIREMENTS or band:
             result.append(requirement)
     return sorted(result)
+
+
+def profile_target(owner: str, key: str) -> tuple[str, str]:
+    """``(feature, requirement)`` a ``surface_profile_governs`` key of feature ``owner``
+    names: a bare ``requirement`` is the owner's own, ``"feature:requirement"`` another's."""
+    feature, _, requirement = key.rpartition(":")
+    return feature or owner, requirement
 
 
 def reference_only(feature: dict[str, Any], requirement: str) -> bool:
@@ -1073,6 +1080,32 @@ Plane = record("Plane", {**texts("frame axis"), "value": Number})
 Notes = record(
     "Notes", {"manufacturing": list[str], **texts("process edge_break"), "cite": Citations}
 )
+
+
+class ProfileReading(InputModel):
+    """A BASIC length read at ``obliquity_deg`` (0 <= θ < 90) to a planar governed surface's
+    normal at a fixed transverse station: each zone offset reads ``1 / cos θ`` longer."""
+
+    sense: Literal["increases", "decreases"]
+    obliquity_deg: float
+
+
+class ProfileTilt(InputModel):
+    """A BASIC angle of a planar governed face, tilted by the zone across the face's least
+    extent: a banded length requirement of the governed feature (its lower limit), or a
+    number in manifest units."""
+
+    tilt_across: str | float
+
+
+# How a governed BASIC requirement reads in a profile zone (docs/features.md "Surface
+# profiles"): how the length moves when material is added, or an angle's tilt.
+type ProfileEntry = Literal["increases", "decreases", "unknown"] | ProfileReading | ProfileTilt
+PROFILE_FIELDS = frozenset(
+    {"surface_profile_u", "surface_profile_datums", "surface_profile_governs"}
+)
+
+
 Feature = record(
     "Feature",
     {
@@ -1086,6 +1119,10 @@ Feature = record(
         "precision": dict[str, int | Unknown],
         "position_datums": list[str],
         "angularity_datums": list[str],
+        "surface_profile_datums": list[str],
+        "surface_profile_governs": dict[str, ProfileEntry],
+        "surface_profile": float,
+        "surface_profile_u": float,
         "thru": bool,
         "mirror_symmetric": bool,
         "at": Vector,
@@ -1157,6 +1194,60 @@ class Features(InputModel):
                 if requirement not in feature.model_fields_set:
                     raise ValueError(f"{name}: missing required field {requirement}")
         return self
+
+    @model_validator(mode="after")
+    def surface_profiles(self) -> Features:
+        """A profile zone 0 < t, 0 <= U <= t, and the BASIC scalars it governs."""
+        for name, feature in self.features.items():
+            given = feature.model_fields_set
+            if "surface_profile" not in given:
+                if dependants := sorted(given & PROFILE_FIELDS):
+                    raise ValueError(f"{name}: {', '.join(dependants)} need a surface_profile zone")
+                continue
+            zone, disposition = feature.surface_profile, feature.surface_profile_u
+            if zone != UNKNOWN and zone <= 0:
+                raise ValueError(f"{name}: surface_profile zone must be positive")
+            most = math.inf if zone == UNKNOWN else zone
+            if disposition != UNKNOWN and not 0 <= disposition <= most:
+                raise ValueError(f"{name}: surface_profile_u must lie in [0, surface_profile]")
+            governs = feature.surface_profile_governs
+            for key, entry in governs.items() if isinstance(governs, dict) else ():
+                _governed(self.features, name, key, entry)
+        return self
+
+
+def _governed(features: dict[str, Any], owner: str, key: str, entry: ProfileEntry) -> None:
+    """A ``surface_profile_governs`` entry names a listed BASIC scalar its form can read."""
+    where = f"{owner}: surface_profile_governs {key}"
+    name, requirement = profile_target(owner, key)
+    feature = features.get(name)
+    if feature is None:
+        raise ValueError(f"{where} names no manifest feature {name}")
+    listed = feature.requirements if isinstance(feature.requirements, list) else []
+    if requirement in (UNKNOWN, "surface_profile") or requirement not in listed:
+        raise ValueError(f"{where}: {requirement} is not a listed requirement of {name}")
+    value = getattr(feature, requirement)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise ValueError(
+            f"{where}: {name} {requirement} must be a BASIC scalar, not a band or unknown"
+        )
+    angle = requirement.endswith("_deg")
+    if isinstance(entry, ProfileTilt):
+        across = entry.tilt_across
+        if not angle:
+            raise ValueError(f"{where}: tilt_across bounds only an angle (a _deg requirement)")
+        if isinstance(across, str):
+            length = across in listed and not across.endswith("_deg")
+            if not length or not isinstance(getattr(feature, across), list):
+                raise ValueError(
+                    f"{where}: tilt_across {across} is not a listed length band of {name}"
+                )
+        elif across <= 0:
+            raise ValueError(f"{where}: tilt_across must be a positive face extent")
+    elif angle and entry != UNKNOWN:
+        raise ValueError(f"{where}: {requirement} is an angle: only tilt_across bounds it")
+    if isinstance(entry, ProfileReading) and not 0 <= entry.obliquity_deg < 90:
+        raise ValueError(f"{where}: obliquity_deg must lie in [0, 90)")
 
 
 Source = record("Source", {**texts("vendor by url note cite"), "sku": str | int, "verify": bool})

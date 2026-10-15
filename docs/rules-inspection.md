@@ -6,9 +6,10 @@ Subjects are `feature:requirement` for every requirements-listed two-element
 numeric-or-unknown `[low, high]` band, even outside the named tolerance set, plus
 each declared requirement in the recognized scalar/unknown tolerance set:
 `dia`, `position_dia`, `finish_ra`, `depth`, `length`, `width`, `height`,
-`thickness`, `separation`, `coaxiality_dia`, `angularity_dia`, `height_above_pivot`, `radius`,
-`station`, `arc_len`, `bottom_radius`, `bottom_arc_len`, `tip_land`,
-`land_angle_deg`, `groove_width`, `groove_depth`. This shared model selection also
+`thickness`, `separation`, `coaxiality_dia`, `angularity_dia`, `surface_profile`,
+`height_above_pivot`, `radius`, `station`, `arc_len`, `bottom_radius`,
+`bottom_arc_len`, `tip_land`, `land_angle_deg`, `groove_width`, `groove_depth`.
+This shared model selection also
 drives policy `toleranced_features`; unknown generic dimensions cannot evade it.
 An omitted or wholly unknown requirements list, or an unknown list element,
 creates `feature:unknown` with unknown status and remains selected by policy
@@ -173,7 +174,9 @@ span/resolution test. Its row is flagged `?` and prints `GO / NO-GO sizes not se
 An op's `process_holds` adds one `{setup}:{op}` inspection subject. Each hold's
 `band` must lie inside its drawing requirement band, limits included. Only a
 scalar zone or maximum (`position_dia`, `coaxiality_dia`, `angularity_dia`,
-`finish_ra`) `v` reads as [0, v]; any other scalar is a nominal with no band, so
+`surface_profile`, `finish_ra`) `v` reads as [0, v]; a BASIC scalar a surface
+profile governs reads as its derived band ([Surface profiles](#surface-profiles));
+any other scalar is a nominal with no band, so
 the hold is `unknown`. Each hold's gauge is graded like a drawing check, against
 the hold band: it must be able to measure the requirement, span the band and
 resolve its width. A hold's own `go_no_go = { go, no_go }` makes that a limit
@@ -243,3 +246,28 @@ share the setup, have a valid transfer from after its finishing cut, or fit the
 budget. Unknown referenced geometry or an unknown cross-setup tolerance/budget
 remains unresolved. Position and coaxiality keep their existing datum-budget
 semantics.
+
+## Surface profiles
+
+A drawing SURFACE PROFILE ([features](features.md#surface-profiles),
+harmonic-analyzer #1544) is two things to this rule. The zone itself,
+`feature:surface_profile`, is a geometric zone [0, t] inspected like
+`position_dia`: it needs a requirement-keyed `checks.surface_profile` gauge of a
+geometric kind (`cmm`, `dial_indicator`, `dial_test_indicator`, `height_gauge`),
+a declared `inspection_methods.surface_profile` procedure, and a gauge resolution
+no coarser than t; a missing check is an error, a missing or `"unknown"` method
+unknown, a caliper an error. Each BASIC scalar it governs
+(`surface_profile_governs`) is read against the band the zone derives for it
+instead of its bare BASIC value: `limits` is that band and the gauge must span
+it and resolve its width, as for any drawn band, and evidence adds
+`profile_band` (the governing profiles, or why the band is unknown). The band is
+pointwise from the DRF-located BASIC origin, not a fitted size. An unresolved
+derivation (unknown t, U, DRF or entry, an empty DRF, a tilt the zone cannot
+bound) leaves `limits = "unknown"` and the finding unknown. A process hold on a
+governed requirement must lie inside the same derived band.
+
+`datum_consistency` relates each `surface_profile_datums` datum at the zone t,
+the same tolerance convention as a scalar angularity zone; a profile with no
+datums (form only) relates none, and an omitted list with a zone is unresolved.
+A `height_from` on a feature whose BASIC height a profile governs takes the
+derived band's width.

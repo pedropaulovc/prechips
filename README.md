@@ -233,6 +233,14 @@ warn once and disable exporters without changing the report or checker exit.
   [geometry and workholding on the kernel](docs/rules-geometry.md).
 - [Reports, approval, renders and telemetry](docs/report-and-telemetry.md).
 
+A drawing SURFACE PROFILE is a `surface_profile` zone with its datum reference
+frame and the BASIC requirements it governs
+([features](docs/features.md#surface-profiles)). Inspection, process holds,
+manual-arc layout/filing and datum consistency read each governed BASIC value
+against the band the zone derives pointwise from the DRF-located BASIC origin,
+not a fitted size; an unknown zone, disposition, frame or reading stays `?`
+(harmonic-analyzer #1544: the rocker's R800, 8.0 above pivot and R816).
+
 Native [saw cut-off](docs/plan.md#saw-cut-off) supports `saw_cut` / `cut_off` on
 mill, bench and bandsaw setups: an explicit blade-centre plane plus inventory
 kerf removes only the discarded stock side. The traveler shows cited blade sfm

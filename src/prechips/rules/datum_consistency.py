@@ -1,10 +1,14 @@
 """Compare finishing setups to drawing datum cuts, never to frame names.
 
 An indicated pickup must originate after the referenced datum's finishing cut;
-indicating an earlier pilot does not establish a later reamed datum.
+indicating an earlier pilot does not establish a later reamed datum. A surface profile
+relates each datum of its reference frame at its zone ``t``; a profile with no datums
+controls form only and relates none. A ``height_from`` reads the height band, a BASIC
+height's band derived from its surface profile included.
 """
 
 from prechips.findings import Finding
+from prechips.rules._profile import requirement_band
 from prechips.rules.resolution import HAND_FINISH, MANUAL, SAW_OPS, operations
 
 _NONFINISH = {"spot", "inspect", "release", "fit", "scribe", "transfer", "deburr"} | SAW_OPS
@@ -85,6 +89,9 @@ def evaluate(bundle):
         angularity_unknown = angularity_datums == "unknown" or (
             "angularity_dia" in feature and angularity_datums == []
         )
+        profile_datums = feature.get(
+            "surface_profile_datums", "unknown" if "surface_profile" in feature else []
+        )
         relationships = []
         if isinstance(position_datums, list):
             relationships.extend(
@@ -103,6 +110,11 @@ def evaluate(bundle):
             relationships.extend(
                 (datum, datum_map.get(datum), tolerance) for datum in angularity_datums
             )
+        if isinstance(profile_datums, list):
+            relationships.extend(
+                (datum, datum_map.get(datum), feature.get("surface_profile", "unknown"))
+                for datum in profile_datums
+            )
         if "coaxial_to" in feature:
             relationships.append(
                 (
@@ -118,20 +130,20 @@ def evaluate(bundle):
                 (k for k in ("height_above_pivot", "height", "separation") if k in feature),
                 None,
             )
-            band = feature[key] if key else "unknown"
-            tolerance = (
-                band[1] - band[0]
-                if isinstance(band, list) and len(band) == 2 and all(_number(v) for v in band)
-                else "unknown"
-            )
+            band = requirement_band(bundle, name, key)[0] if key else None
+            tolerance = band[1] - band[0] if band else "unknown"
             relationships.append((feature["height_from"], feature["height_from"], tolerance))
         numbers = {
             "position_datums": position_datums,
             "angularity_datums": angularity_datums,
         }
+        if "surface_profile" in feature:
+            numbers["surface_profile_datums"] = profile_datums
         if "datum" in feature:
             numbers["datum"] = feature["datum"]
-        if not relationships and position_datums != "unknown" and not angularity_unknown:
+        resolved = position_datums != "unknown" and not angularity_unknown
+        resolved &= profile_datums != "unknown"
+        if not relationships and resolved:
             findings.append(
                 Finding(
                     "datum_consistency",
@@ -154,7 +166,7 @@ def evaluate(bundle):
         )
         if feature_cuts:
             numbers["feature_op"] = _label(feature_cuts[-1])
-        unknown = position_datums == "unknown" or angularity_unknown or not feature_cuts
+        unknown = not resolved or not feature_cuts
         failed = []
         cross_setup = False
         for datum_name, datum_feature, tolerance in relationships:

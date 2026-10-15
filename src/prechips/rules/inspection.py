@@ -17,12 +17,17 @@ or one requirement's entry) is still a limit check, with sizes nobody has chosen
 
 A ``dro_scale`` gauge (a machine's own axis read-out) reads a length along that axis
 only, never a diameter or a form.
+
+A BASIC scalar a surface profile governs (``surface_profile_governs``) reads against the
+band the zone derives for it (:func:`._profile.requirement_band`), in checks and holds
+alike; the zone ``surface_profile`` itself is a geometric zone [0, t] like a position.
 """
 
 from ..findings import Finding
 from ..joint_features import source_cite
 from ..measurements import length_debt, length_fact, record_debt
 from ..model import reference_only, tolerance_requirements
+from ._profile import governing, requirement_band
 from .resolution import (
     HOLE_KINDS,
     UNKNOWN,
@@ -39,7 +44,11 @@ from .resolution import (
 )
 
 PROCESS_HOLD_CITE = ["PLAN.md §4.1 inspection", "plan process_holds", "features requirement band"]
-ZONES = frozenset({"position_dia", "coaxiality_dia", "angularity_dia", "finish_ra"})
+ZONES = frozenset(
+    {"position_dia", "coaxiality_dia", "angularity_dia", "finish_ra", "surface_profile"}
+)
+# The geometric zones read in a datum frame: a capable gauge needs a declared method.
+GEOMETRIC = frozenset({"position_dia", "coaxiality_dia", "angularity_dia", "surface_profile"})
 # The lengths a machine axis read-out measures, along its own axis.
 AXIAL_LENGTHS = frozenset({"length", "depth", "height", "thickness", "station"})
 # A limit check's gauge kinds: plugs/pins enter a hole; rings/snaps pass over a boss or shaft.
@@ -141,7 +150,7 @@ def process_holds(bundle, setup, op):
     rows = []
     for hold in op["process_holds"]:
         feature = record(bundle.feature_definitions.get(hold["feature"]))
-        limits = feature.get(hold["requirement"], UNKNOWN)
+        limits = _limits(bundle, hold["feature"], hold["requirement"], feature)[0]
         drawing = _drawing_band(hold["requirement"], limits)
         low, high = hold["band"]
         inside = None if drawing is None else drawing[0] <= low and high <= drawing[1]
@@ -218,6 +227,15 @@ def process_holds(bundle, setup, op):
     )
 
 
+def _limits(bundle, name, requirement, feature):
+    """``(limits, reason)``: ``requirement``'s value as drawn, but a BASIC scalar a surface
+    profile governs reads as its derived band (``"unknown"`` with the reason, unresolved)."""
+    if not governing(bundle, name, requirement):
+        return feature.get(requirement, UNKNOWN), None
+    band, reason = requirement_band(bundle, name, requirement)
+    return band or UNKNOWN, reason
+
+
 def _nominal_band_error(feature, requirement):
     limits = feature.get(requirement)
     if not (isinstance(limits, list) and len(limits) == 2 and all(number(v) for v in limits)):
@@ -264,7 +282,7 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
         if pair is not None:
             return _go_no_go(bundle, feature, requirement, accept, pair, gauge, gauge_ref, nums)
         method = record(op.get("inspection_methods")).get(requirement)
-        geometric = requirement in {"position_dia", "coaxiality_dia", "angularity_dia"}
+        geometric = requirement in GEOMETRIC
         method_known = procedure_known(method)
         angularity_datums = feature.get("angularity_datums", "unknown")
         angularity_geometry_known = (
@@ -488,8 +506,10 @@ def evaluate(bundle):
                     for s, o in finishing[cutters[-1] :]
                     if requirement in record(o.get("checks"))
                 ]
-            value = feature.get(requirement, "unknown")
+            value, profile_band = _limits(bundle, name, requirement, feature)
             nums = {"requirement": requirement, "limits": value, "gauge": "unknown"}
+            if profile_band is not None:
+                nums["profile_band"] = profile_band
             # A limit check accepts the band as the traveler prints it (rounded inward).
             accept = printed_band(value, drawing_precision(bundle, name, requirement))
             accept = accept or _drawing_band(requirement, value)
