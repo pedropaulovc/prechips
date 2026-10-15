@@ -25,14 +25,23 @@ import math
 
 from .. import trig
 from ..findings import Finding
-from ..measurements import angle_fact, length_fact
+from ..measurements import (
+    angle_fact,
+    length_debt,
+    length_fact,
+    measurement_checklist,
+    record_debt,
+    record_trusted,
+)
 from ..model import tolerance_requirements
 from ._bench import manual_bench, not_applicable
 from .datum_consistency import _cuts
 from .resolution import (
     HAND_FINISH,
+    LENGTH_TOLERANCE_MM,
     UNKNOWN,
     _citations,
+    identity,
     length_mm,
     number,
     op_features,
@@ -666,28 +675,36 @@ def _cross(a, b):
     return a[0] * b[1] - a[1] * b[0]
 
 
-def cut_order(machine, op):
+def cut_order(machine, op, *, machine_ref=None):
     """(required sign of (n x t)·Z or None, order record) from op direction and spindle.
 
     Only an authored ``conventional``/``climb`` op on a machine whose spindle ``rotation``
-    is declared (bare, or a ``{value, measured}`` fact not flagged ``verify``) has a
+    is declared (bare, or a trusted fact-local record) has a
     cutting order; anything else keeps the order unknown.
     """
     direction = op.get("direction", UNKNOWN)
     rotation = mapping(mapping(machine).get("spindle")).get("rotation", UNKNOWN)
-    flagged = isinstance(rotation, dict) and rotation.get("verify") is True
+    rotation_record = rotation
+    trusted, why = record_trusted(rotation, require_measured=False)
     if isinstance(rotation, dict):
         rotation = rotation.get("value", UNKNOWN)
     if direction not in _CUT_SENSE:
         reason = f"op direction {direction!r} is neither conventional nor climb"
-    elif flagged:
-        reason = "the machine spindle rotation is flagged verify"
+    elif not trusted:
+        reason = f"the machine spindle rotation is unverified: {why}"
     elif rotation not in _SPINDLE_SENSE:
         reason = "the machine spindle rotation is not declared"
     else:
         sense = _CUT_SENSE[direction] * _SPINDLE_SENSE[rotation]
         return sense, {"cut_order": direction, "spindle_rotation": rotation}
-    return None, {"cut_order": UNKNOWN, "cut_order_reason": reason}
+    order = {"cut_order": UNKNOWN, "cut_order_reason": reason}
+    if direction in _CUT_SENSE and not trusted and machine_ref is not None:
+        debt = record_debt(
+            rotation_record, "machines", machine_ref, "spindle.rotation", owner=machine
+        )
+        if debt:
+            order["measurements"] = [debt]
+    return None, order
 
 
 def _reversal(a, b, normal, sense):
@@ -817,34 +834,41 @@ DRO_DEFAULT_STEP = 0.001
 OVERSHOOT_NOTE = "corner overshoot into scrap — OK"
 
 
-def dro_grid(bundle, setup):
-    """(step, decimals): the setup machine's DRO grid in plan units.
-
-    The step is the inventory machine's declared ``resolution`` when it is a positive
-    length, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly. A bench
-    (``kind`` bench or manual) declaring none has no DRO of its own: its surfaces are the
-    ones the nearest machine setup in its stock lineage left, so they print on that
-    machine's grid, one surface one value.
-    """
+def dro_grid_source(bundle, setup):
+    """The setup supplying the grid: a bench with no positive declared step inherits
+    its nearest machine setup's grid and measurement debt together."""
     from ._bench import BENCH_KINDS
     from .tip_endpoints import lineage
 
+    machine = resolve(bundle, "machines", setup.get("machine")) or {}
+    declared = length_fact(machine, "resolution")["value"]
+    if (number(declared) and declared > 0) or machine.get("kind") not in BENCH_KINDS:
+        return setup
+    return next(
+        (
+            source
+            for source in reversed(lineage(bundle, setup))
+            if (resolve(bundle, "machines", source.get("machine")) or {}).get("kind")
+            not in BENCH_KINDS
+        ),
+        setup,
+    )
+
+
+def dro_grid(bundle, setup):
+    """(step, decimals): the setup machine's DRO grid in plan units.
+
+    The step is the inventory machine's positive declared ``resolution``, even when
+    untrusted, else :data:`DRO_DEFAULT_STEP`; the decimals print one step exactly.
+    Trust is separate (:func:`dro_grid_debt`): instructions never gain precision by
+    discarding a declaration. A bench with no positive declared step inherits the
+    machine grid that left its surfaces (:func:`dro_grid_source`).
+    """
     units = bundle.features.get("units")
     scale = {"mm": 1.0, "in": 25.4}.get(units)
-    machine = resolve(bundle, "machines", setup.get("machine")) or {}
-    declared = length_mm(machine, "resolution") if scale else UNKNOWN
-    if not (number(declared) and declared > 0) and machine.get("kind") in BENCH_KINDS:
-        source = next(
-            (
-                s
-                for s in reversed(lineage(bundle, setup))
-                if (resolve(bundle, "machines", s.get("machine")) or {}).get("kind")
-                not in BENCH_KINDS
-            ),
-            None,
-        )
-        if source is not None:
-            return dro_grid(bundle, source)
+    source = dro_grid_source(bundle, setup)
+    machine = resolve(bundle, "machines", source.get("machine")) or {}
+    declared = length_fact(machine, "resolution")["value"] if scale else UNKNOWN
     step = declared / scale if number(declared) and declared > 0 else DRO_DEFAULT_STEP
     decimals = next((d for d in range(9) if abs(round(step, d) - step) <= 1e-12), 9)
     return step, decimals
@@ -855,18 +879,36 @@ def dro_grid_debt(bundle, setup):
 
     The grid is a shop fact only when the manifest units are mm or in and the inventory
     machine's ``resolution`` is a positive length qualified by its own complete
-    measurement. A provisional grid still places and prints the targets, but no band check
-    passes on it.
+    measurement. A provisional grid still places and prints the targets, but no judging
+    consumer certifies it. Bench lineage preserves the source machine's debt.
     """
     if bundle.features.get("units") not in UNIT_MM:
         return "feature units are not mm or in, so the DRO grid is provisional"
-    name = setup.get("machine")
+    source = dro_grid_source(bundle, setup)
+    name = source.get("machine")
     fact = length_fact(resolve(bundle, "machines", name) or {}, "resolution")
     if not number(fact["value"]) or fact["value"] <= 0:
-        return f"machine {name} declares no DRO resolution, so its grid is provisional"
+        return (
+            f"machine {name} declares no positive numeric DRO resolution, "
+            "so its grid is provisional"
+        )
     if not fact["verified"]:
-        return f"machine {name}'s DRO resolution is unverified: {fact['reason']}"
+        return f"machine {name}'s declared DRO resolution is unverified: {fact['reason']}"
     return None
+
+
+def dro_grid_measurements(bundle, setup):
+    """The effective grid's measurement checklist entry, including a bench's source."""
+    source = dro_grid_source(bundle, setup)
+    name = source.get("machine")
+    debt = length_debt(
+        resolve(bundle, "machines", name) or {},
+        "resolution",
+        "machines",
+        name,
+        require_measured=True,
+    )
+    return [debt] if debt is not None else []
 
 
 def _grid(value, step, decimals, up):
@@ -917,6 +959,94 @@ def _to_arc(centre, radius, a, b, middle):
         return min(math.dist(point, a), math.dist(point, b))
 
     return distance
+
+
+def _finished_boundary(walls):
+    return next((wall for wall in walls if hasattr(wall, "cuts_segment")), None)
+
+
+def _boundary_walls(walls, geometry, tolerance=_JOIN_TOL):
+    """One compiled finished-region predicate; unknown topology never becomes unsigned."""
+    from ..kernel.chain_boundary import compile_clearance
+
+    if not walls:
+        return []
+    try:
+        boundary = compile_clearance(geometry, tolerance)
+    except ValueError:
+        return []
+    return [*walls, boundary]
+
+
+def _chain_wall_geometry(tables):
+    """Carry known authored sides onto finite walls without inventing missing geometry."""
+    geometry = next(
+        (
+            mapping(table.get("chain_geometry")).get("walls")
+            for table in tables
+            if mapping(table.get("chain_geometry")).get("walls")
+        ),
+        None,
+    )
+    if geometry is None:
+        return [
+            {"kind": "line", **wall} for table in tables for wall in table.get("join_walls", [])
+        ]
+    if not isinstance(geometry, list) or not all(isinstance(wall, dict) for wall in geometry):
+        return None
+    result = []
+    for source in geometry:
+        wall = dict(source)
+        for table in tables:
+            if (
+                wall.get("kind") == "arc"
+                and "outward" not in wall
+                and _pair(wall.get("centre"))
+                and _pair(table.get("centre_setup_xy"))
+                and number(wall.get("radius"))
+                and number(table.get("wall_radius_mm"))
+                and number(table.get("cutter_centre_radius_mm"))
+                and math.dist(wall["centre"], table["centre_setup_xy"]) <= _WALL_TOL
+                and abs(wall["radius"] - table["wall_radius_mm"]) <= _WALL_TOL
+            ):
+                wall["outward"] = (
+                    1 if table["cutter_centre_radius_mm"] > table["wall_radius_mm"] else -1
+                )
+            if wall.get("kind") == "line" and "normal" not in wall:
+                for join in table.get("join_walls", []):
+                    if wall.get("ends") == join.get("ends"):
+                        wall["normal"] = join.get("normal")
+        result.append(wall)
+    return result
+
+
+def _signed_chain_walls(tables, walls):
+    """Compile the actual packet's closed region or explicitly open finite boundary."""
+    if _finished_boundary(walls) is not None:
+        return walls
+    geometry = _chain_wall_geometry(tables)
+    return _boundary_walls(walls, geometry) if geometry or geometry is None else walls
+
+
+def _chain_arc_walls(arc, walls):
+    """Retain a known finite primary wall when a direct caller has no compiled packet."""
+    if _finished_boundary(walls) is not None:
+        return walls
+    geometry = _chain_wall_geometry([arc])
+    if geometry is None:
+        return []
+    if not geometry and arc.get("full_circle"):
+        geometry = [
+            {
+                "kind": "arc",
+                "centre": arc["centre_setup_xy"],
+                "radius": arc["wall_radius_mm"],
+                "start_deg": 0.0,
+                "sweep_deg": 360.0,
+                "outward": (1 if arc["cutter_centre_radius_mm"] > arc["wall_radius_mm"] else -1),
+            }
+        ]
+    return _boundary_walls(walls, geometry)
 
 
 def _ray_capsule(origin, direction, a, b, radius):
@@ -1036,15 +1166,20 @@ def _material(face, normal, legs, radius):
 
 
 def _dro_xy(xy, grid, walls, offset):
-    """``xy`` as the DRO prints it on ``grid`` (:func:`dro_grid`), on the safe side: the
-    nearest grid point no nearer any wall (``walls``: point -> distance) than ``xy`` or
-    than the authored cutter-centre ``offset``, whichever is less; a corner of its grid
-    cell, else up to two steps out, else unknown."""
+    """Nearest DRO point preserving wall floors and the chain's whole-disk allowance.
+
+    Unsigned search constraints keep the authored gap or offset, whichever is less.
+    The compiled finished boundary always requires the complete cutter-centre offset.
+    A cell corner, else up to two steps out, else unknown.
+    """
     if not walls or not all(number(v) for v in xy):
         return [UNKNOWN, UNKNOWN]
     step, decimals = grid
     base = [_grid(v, step, decimals, False) for v in xy]
-    floors = [min(wall(xy), offset) - _WALL_TOL for wall in walls]
+    floors = [
+        (offset if hasattr(wall, "cuts_segment") else min(wall(xy), offset)) - _WALL_TOL
+        for wall in walls
+    ]
     for reach in (1, 3):
         span = range(1 - reach, reach + 1)
         options = [
@@ -1063,21 +1198,23 @@ def _printed(arcs, lines, grid, walls, offset):
     (:func:`_dro_xy`) and ``dro_tip_z`` (:func:`dro_z`). The sheet prints these; the kernel
     clips, checks and credits them. Points within _JOIN_TOL of each other (a table end and
     the join it meets) print one value."""
+    walls = _signed_chain_walls([*arcs, *lines], walls)
     done = []
 
-    def dro(xy):
+    def dro(xy, distances=walls):
         if all(number(v) for v in xy):
             for point, value in done:
                 if math.dist(point, xy) <= _JOIN_TOL:
                     return value
-        value = _dro_xy(xy, grid, walls, offset)
+        value = _dro_xy(xy, grid, distances, offset)
         done.append((xy, value))
         return value
 
     for arc in arcs:
         arc["dro_tip_z"] = dro_z(arc.get("tip_z"), grid)
+        distances = _chain_arc_walls(arc, walls) if arc.get("method") == "chain_drill" else walls
         for row in arc["rows"]:
-            row["dro_xy"] = dro(row["setup_xy"])
+            row["dro_xy"] = dro(row["setup_xy"], distances)
             row["dro_tip_z"] = dro_z(row.get("tip_z"), grid)
     for line in lines:
         line["dro_tip_z"] = dro_z(line.get("tip_z"), grid)
@@ -1419,9 +1556,13 @@ def _arc(
     within the contour's ``cusp_mm`` (:func:`_stair_angles`, :func:`_respaced`; joins are
     split likewise) and step in single-axis moves of a cutter of radius ``cutter``
     (:func:`_jog`, which drops a tangent row a move runs through); ``chain_drill`` rows
-    are hole centres no more than ``pitch_mm`` apart along the path; ``rotary_table`` rows
-    sample the cutter-centre arc every ``step_deg``; ``chords`` rows are the ``count + 1``
-    chord vertices :func:`_chords` replaces.
+    are nominal hole centres equally spaced no more than ``pitch_mm`` apart along the
+    path (DRO-grid snapping can change that spacing); ``rotary_table`` rows sample the
+    cutter-centre arc every ``step_deg``; ``chords`` rows are the ``count + 1`` chord
+    vertices :func:`_chords` replaces.
+
+    Chain-drill ``chain_geometry`` preserves unrounded pre-grid curves and walls using
+    the same deterministic trigonometry as the nominal rows, not platform libm angles.
     """
     radius = _nominal(feature, "radius")
     centre = feature.get("arc_centre", feature.get("at"))
@@ -1578,19 +1719,44 @@ def _arc(
         return arc
 
     arc = table(angles)
-    walls, miters = [], []  # point -> distance to each feature wall; join miter points
+    walls, miters, wall_geometry = [], [], []
     known = all(number(v) for v in centre_xy)  # else no wall is placed and no DRO value
 
-    def rim(wall_radius, end_xy):
+    def rim(wall_radius, end_xy, scrap=outward):
         """point -> distance to the wall arc of ``wall_radius`` about the centre: mirrored
         from ``end_xy`` through its lowest point (an upper semicircle's highest), a full
         circle when ``end_xy`` is None. Never its circle past its ends."""
-        if end_xy is None:
-            return lambda p: abs(math.dist(p, centre_xy) - wall_radius)
-        dip = -wall_radius if vertical_angle else wall_radius
-        mirror = [2 * centre[0] - end_xy[0], end_xy[1]]
-        a, b, m = (setup_xy(q) for q in (end_xy, mirror, [centre[0], centre[1] + dip]))
-        return _to_arc(centre_xy, wall_radius, a, b, m)
+        start_angle, sweep = 0.0, 360.0
+        if end_xy is not None:
+            dip = -wall_radius if vertical_angle else wall_radius
+            mirror = [2 * centre[0] - end_xy[0], end_xy[1]]
+            a, b, m = (setup_xy(q) for q in (end_xy, mirror, [centre[0], centre[1] + dip]))
+            if all(_pair(p) for p in (a, b, m, centre_xy)):
+                angles = [
+                    math.degrees(trig.atan2(p[1] - centre_xy[1], p[0] - centre_xy[0]))
+                    for p in (a, b, m)
+                ]
+                start_angle = angles[0]
+                sweep = (angles[1] - start_angle) % 360
+                if (angles[2] - start_angle) % 360 > sweep:
+                    sweep -= 360
+        wall_geometry.append(
+            dict(
+                kind="arc",
+                centre=centre_xy,
+                radius=wall_radius,
+                start_deg=start_angle,
+                sweep_deg=sweep,
+            )
+        )
+        distance = (
+            (lambda p: abs(math.dist(p, centre_xy) - wall_radius))
+            if end_xy is None
+            else _to_arc(centre_xy, wall_radius, a, b, m)
+        )
+        if method == "chain_drill":
+            wall_geometry[-1]["outward"] = scrap
+        return distance
 
     if known:
         if full:
@@ -1599,9 +1765,21 @@ def _arc(
             walls.append(rim(radius, feature["bottom_end"] if bottom else feature["end"]))
         else:
             walls.append(rim(radius, [centre[0] + radius, centre[1]]))
-    for a, b in ([setup_xy(a), setup_xy(b)] for a, b in lands):
+    for model_a, model_b in lands:
+        a, b = setup_xy(model_a), setup_xy(model_b)
         known = known and all(number(v) for v in (*a, *b))
-        walls.append(lambda p, a=a, b=b: _to_segment(p, a, b))
+
+        def distance(point, a=a, b=b):
+            return _to_segment(point, a, b)
+
+        walls.append(distance)
+        wall_geometry.append({"kind": "line", "ends": [a, b]})
+        if known and method == "chain_drill":
+            shifted, _ = _offset_line(model_a, model_b, 1.0)
+            side = 1 if model_a[0] >= centre[0] else -1
+            away = setup_xy([model_a[i] + side * (shifted[i] - model_a[i]) for i in range(2)])
+            normal = [away[i] - a[i] for i in range(2)]
+            wall_geometry[-1]["normal"] = normal
     lines = []
     if bottom and joins:
         sides = (-1, 1) if feature.get("mirror_symmetric") is True else (1,)
@@ -1611,7 +1789,7 @@ def _arc(
         left = [shifted[i] - top_end[i] for i in range(2)]
         top_r = _nominal(top, "radius")
         if known:
-            walls.append(rim(top_r, top_end))
+            walls.append(rim(top_r, top_end, -1))
         for side in sides:
             xy = [[centre[0] + side * (p[0] - centre[0]), p[1]] for p in joins]
             local = [setup_xy(p) for p in xy]
@@ -1623,6 +1801,7 @@ def _arc(
             known = known and all(number(v) for point in ends for v in point)
             for a, b in itertools.pairwise(ends):
                 walls.append(lambda p, a=a, b=b: _to_segment(p, a, b))
+                wall_geometry.append({"kind": "line", "ends": [a, b]})
             miters.append(xy[1])
             normal = [
                 local[0][i] - wall[i] if number(local[0][i]) and number(wall[i]) else UNKNOWN
@@ -1638,6 +1817,39 @@ def _arc(
                 "tip_z": op.get("to_z", UNKNOWN),
                 "join_method": "line-line miter and exact line-circle intersections",
             }
+            if method == "chain_drill":
+                join_walls = []
+                for a, b in itertools.pairwise(
+                    (top_end, feature["radial_tip_end"], feature["bottom_end"])
+                ):
+                    shifted, _ = _offset_line(a, b, 1.0)
+                    normal_model = [shifted[i] - a[i] for i in range(2)]
+                    base = setup_xy([centre[0] + side * (a[0] - centre[0]), a[1]])
+                    away = setup_xy(
+                        [
+                            centre[0] + side * (a[0] - centre[0] + normal_model[0]),
+                            a[1] + normal_model[1],
+                        ]
+                    )
+                    normal_setup = (
+                        [away[i] - base[i] for i in range(2)]
+                        if _pair(away) and _pair(base)
+                        else [UNKNOWN, UNKNOWN]
+                    )
+                    join_walls.append(
+                        {
+                            "ends": ends[len(join_walls) : len(join_walls) + 2],
+                            "normal": normal_setup,
+                        }
+                    )
+                line.update(
+                    method=method,
+                    cutter_radius_mm=cutter * scale if number(cutter) else UNKNOWN,
+                    join_walls=join_walls,
+                )
+                if known:
+                    for geometry, join in zip(wall_geometry[-2:], join_walls, strict=True):
+                        geometry["normal"] = join["normal"]
             reverse = _reversal(local[0], local[1], normal, sense)
             lines.append(_ordered(line, reverse, order, ("model_xy", "setup_xy")))
             line["cutter_side"] = _side(local[0], local[1], normal, reverse)
@@ -1646,7 +1858,71 @@ def _arc(
     if method == "stairs":
         for line in lines:
             _split(line, contour["cusp_mm"] / scale)
+    elif method == "chain_drill":
+        # Preserve the true finite geometry before nominal hole spacing and DRO rounding.
+        # model_xy is feature-plane XY, not world XY; the affine basis preserves that
+        # provenance even for translated, rotated and reflected setup frames.
+        origin = setup_xy([0.0, 0.0])
+        axes = [setup_xy([1.0, 0.0]), setup_xy([0.0, 1.0])]
+        basis = (
+            [[p[j] - origin[j] for j in range(2)] for p in axes]
+            if _pair(origin) and all(_pair(p) for p in axes)
+            else None
+        )
+        common = {
+            "pitch_mm": contour["pitch_mm"],
+            "offset": offset,
+            "setup_origin": origin,
+            "basis": basis,
+            "walls": wall_geometry,
+        }
+        if basis is not None and arc["rows"]:
+            first, last = arc["rows"][0], arc["rows"][-1]
+            hand = 1 if _cross(*basis) > 0 else -1
+            polar = math.degrees(
+                trig.atan2(
+                    first["setup_xy"][1] - centre_xy[1],
+                    first["setup_xy"][0] - centre_xy[0],
+                )
+            )
+            arc["chain_geometry"] = {
+                **common,
+                "curves": [
+                    {
+                        "kind": "arc",
+                        "centre": centre_xy,
+                        "radius": cutter_radius,
+                        "start_deg": polar,
+                        "sweep_deg": hand * (last["angle_deg"] - first["angle_deg"]),
+                        "angle_start_deg": first["angle_deg"],
+                        "angle_sweep_deg": last["angle_deg"] - first["angle_deg"],
+                        "outward": outward,
+                    }
+                ],
+            }
+        for line in lines:
+            curves = []
+            for a, b in itertools.pairwise(line["setup_xy"]):
+                run = [b[i] - a[i] for i in range(2)]
+                length = math.hypot(*run)
+                candidates = line["join_walls"]
+                normal = (
+                    min(
+                        (wall["normal"] for wall in candidates),
+                        key=lambda n: (
+                            abs(sum(run[i] * n[i] for i in range(2))) if _pair(n) else math.inf
+                        ),
+                    )
+                    if candidates and length
+                    else [UNKNOWN, UNKNOWN]
+                )
+                curves.append({"kind": "line", "ends": [a, b], "normal": normal})
+            line["chain_geometry"] = {**common, "curves": curves}
+        for line in lines:
+            _split_chain(line, contour["pitch_mm"] / scale)
     walls = walls if known else []
+    if method == "chain_drill" and walls:
+        walls = _boundary_walls(walls, wall_geometry, LENGTH_TOLERANCE_MM / scale)
     if space is not None and walls:
 
         def measure(angles):
@@ -1717,6 +1993,20 @@ def _split(line, cusp):
             model.append(_between(line["model_xy"][k - 1], line["model_xy"][k], i / pieces))
             setup.append(_between(a, b, i / pieces))
         model.append(line["model_xy"][k])
+        setup.append(b)
+    line.update(model_xy=model, setup_xy=setup)
+
+
+def _split_chain(line, pitch):
+    """Equal-pitch hole centres on each finite join leg, retaining the exact miter and
+    line-circle intersections (shared ends print once through :func:`_printed`)."""
+    model, setup = [line["model_xy"][0]], [line["setup_xy"][0]]
+    for k, (a, b) in enumerate(itertools.pairwise(line["setup_xy"])):
+        pieces = max(1, math.ceil(math.dist(a, b) / pitch)) if _pair(a) and _pair(b) else 1
+        for i in range(1, pieces):
+            model.append(_between(line["model_xy"][k], line["model_xy"][k + 1], i / pieces))
+            setup.append(_between(a, b, i / pieces))
+        model.append(line["model_xy"][k + 1])
         setup.append(b)
     line.update(model_xy=model, setup_xy=setup)
 
@@ -2606,6 +2896,8 @@ def checkpoints(subject, numbers, op):
                     "cutter_side": table.get("cutter_side", UNKNOWN),
                     "directed": table.get("cut_order") in _CUT_SENSE,
                     "stepped": "stair_cusp_mm" in table,
+                    "method": table.get("method"),
+                    "chain_geometry": table.get("chain_geometry"),
                 }
             )
     return result
@@ -2653,6 +2945,25 @@ def _clip_row(rows, point, marker):
     ``row`` itself, or the clip point a fraction ``t`` along the printed chord after row
     ``after`` at its exact setup XY ``exact_xy``, printed at its safe-side ``dro_xy``."""
     point = mapping(point)
+    if point.get("generated") is True:
+        exact, printed, model = (point.get(key) for key in ("exact_xy", "dro_xy", "model_xy"))
+        if not rows or not all(_pair(p) for p in (exact, printed, model)):
+            return None
+        row = {
+            "setup_xy": exact,
+            "dro_xy": printed,
+            "model_xy": model,
+            "overshoot": point.get("overshoot") is True,
+            "clipped_at": marker,
+        }
+        for key in ("tip_z", "dro_tip_z"):
+            if key in rows[0]:
+                row[key] = rows[0][key]
+        if "angle_deg" in rows[0]:
+            if not number(point.get("angle_deg")):
+                return None
+            row.update(angle_deg=point["angle_deg"], x=exact[0], y=exact[1])
+        return row
     clipped = "after" in point
     index = point.get("after" if clipped else "row")
     if not isinstance(index, int) or not 0 <= index < len(rows) - clipped:
@@ -2682,23 +2993,25 @@ def _pair(value):
     return isinstance(value, list) and len(value) == 2 and all(number(v) for v in value)
 
 
-def _kernel_clip(subject, arcs, lines, clips):
+def _kernel_clip(subject, arcs, lines, clips, scale=1.0):
     """(arc pieces, line pieces, debt or None): one stage's printed tables as the kernel
     clipped them (``clips``: the op's ``checkpoint_clips``) at the cutter's first contact
     with stock outside the op's stock_removal_bounds.
 
-    Each piece keeps the printed rows the kernel names and adds its clip points, marked
-    ``clipped_at``. A table cut into pieces lists each as ``fragment`` [k, n]; tables
-    sharing a kept end are one path. A path left in more than one piece is debt: no
-    credited cut links the pieces and none is reconnected. Facts that do not match the
-    printed tables, or no piece at all, leave the stage unprinted with a reason.
+    Each piece keeps the printed rows the kernel names, or a drilled chain's regenerated
+    true-curve holes with explicit nominal model/setup coordinates and actual DRO XY.
+    Raw swept-chord ``after,t`` intersections never become drill positions.
+    A table cut into pieces lists each as ``fragment`` [k, n]; shared ends are one path.
+    A path left in more than one piece is debt: no credited cut links the pieces and
+    none is reconnected.
+    Facts that do not match the tables, or no piece at all, leave a reason.
     """
     paths = {
         entry.get("table"): entry for entry in clips.get("paths", []) if isinstance(entry, dict)
     }
     marker = clips.get("clipped_at", UNKNOWN)
     result = {"arc_table": [], "line_table": []}
-    count, ends = 0, []
+    ends = []
     tables = [("arc_table", arc) for arc in arcs] + [("line_table", line) for line in lines]
     for kind, table in tables:
         arc = kind == "arc_table"
@@ -2707,24 +3020,55 @@ def _kernel_clip(subject, arcs, lines, clips):
         pieces = entry.get("pieces")
         if entry.get("rows") != len(rows) or not isinstance(pieces, list):
             return [], [], "the kernel's clip does not match its printed table"
+        if table.get("method") == "chain_drill":
+            pieces = [
+                kept
+                for piece in pieces
+                if (kept := [point for point in piece if "after" not in mapping(point)])
+            ]
+            if entry.get("regeneration") == "true_curve" and (
+                not all(
+                    mapping(point).get("generated") is True for piece in pieces for point in piece
+                )
+                or not isinstance(entry.get("dropped_ends"), list)
+                or len(entry["dropped_ends"]) != 2
+                or not all(type(flag) is bool for flag in entry["dropped_ends"])
+            ):
+                return [], [], "the kernel's regenerated chain provenance is incomplete"
         built = [[_clip_row(rows, point, marker) for point in piece] for piece in pieces]
         if any(row is None for piece in built for row in piece):
             return [], [], "the kernel's clip does not match its printed table"
         kept = [mapping(point).get("row") for piece in pieces for point in piece]
         if len(built) == 1 and kept == list(range(len(rows))):
             built = None
-        count += 1 if built is None else len(built)
         end = len(rows) - 1
         first = built is None or bool(pieces) and mapping(pieces[0][0]).get("row") == 0
         last = built is None or bool(pieces) and mapping(pieces[-1][-1]).get("row") == end
-        ends.append((first, rows[0]["setup_xy"], last, rows[-1]["setup_xy"]))
+        dropped_ends = entry.get("dropped_ends", [not first, not last])
+        for piece in [rows] if built is None else built:
+            if piece:
+                ends.append((piece[0].get("dro_xy"), piece[-1].get("dro_xy")))
         if built is None:
             result[kind].append(table)
             continue
         dropped = len(rows) - len({row for row in kept if row is not None})
+        if entry.get("regeneration") == "true_curve":
+            dropped = len(entry.get("dropped_rows", []))
         for k, piece in enumerate(built, start=1):
             if arc:
                 clipped = {**table, "rows": piece, "dropped_rows": dropped}
+                if entry.get("regeneration") == "true_curve":
+                    clipped["full_circle"] = (
+                        len(piece) > 1
+                        and math.isclose(
+                            abs(piece[-1]["angle_deg"] - piece[0]["angle_deg"]),
+                            360.0,
+                            rel_tol=0.0,
+                            abs_tol=1e-9,
+                        )
+                        and math.dist(piece[0]["dro_xy"], piece[-1]["dro_xy"]) * scale
+                        <= LENGTH_TOLERANCE_MM
+                    )
             else:
                 columns = {
                     key: [row.get(key) for row in piece] for key in _STEPPED_COLUMNS if key in table
@@ -2735,13 +3079,30 @@ def _kernel_clip(subject, arcs, lines, clips):
                 clipped["dropped_points"] = dropped
                 if not any(clipped["overshoot"]):
                     clipped.pop("overshoot_note", None)
+            if table.get("method") == "chain_drill":
+                clipped["dropped_ends"] = [
+                    k == 1 and dropped_ends[0],
+                    k == len(built) and dropped_ends[1],
+                ]
+                if entry.get("regeneration") == "true_curve":
+                    clipped["regeneration"] = "true_curve"
             if len(built) > 1:
                 clipped["fragment"] = [k, len(built)]
             result[kind].append(clipped)
-    for a, b in itertools.combinations(ends, 2):
-        for x, y in ((0, 0), (0, 2), (2, 0), (2, 2)):
-            if a[x] and b[y] and _joined(a[x + 1], b[y + 1]):
-                count -= 1
+    # Connected components of actual retained endpoints, not old source-row indices.
+    # Unioning components (rather than subtracting pair matches) also handles a closed
+    # chain or a shared endpoint represented in more than two tables honestly.
+    groups = list(range(len(ends)))
+    for i, a in enumerate(ends):
+        for j, b in enumerate(ends[:i]):
+            if any(
+                _pair(x) and _pair(y) and math.dist(x, y) * scale <= LENGTH_TOLERANCE_MM
+                for x in a
+                for y in b
+            ):
+                old, new = groups[i], groups[j]
+                groups = [new if group == old else group for group in groups]
+    count = len(set(groups))
     if not result["arc_table"] and not result["line_table"]:
         return (
             [],
@@ -2873,6 +3234,14 @@ REMOVED_ARC_TABLE = (
     "rough the arc in stairs or chain_drill and file it to the line, or cut it as chords "
     "or on a rotary_table"
 )
+
+
+def _grid_refusal(grid_debt, errors, method, stage):
+    """Whether manual-arc errors judged on an untrusted DRO grid become debt: a
+    rough method run at another stage is refused regardless of the grid."""
+    return bool(grid_debt and errors and not (method in ROUGH_METHODS and stage != "rough"))
+
+
 DIAGONAL_OUTLINE = (
     "needs diagonal moves: a manual mill moves one handwheel at a time and single-axis "
     "stairs along an outline are not computed"
@@ -2945,26 +3314,35 @@ def _leaves(cap, recut):
     return {"recut_by": recut} if recut else {"stock_cap_mm": cap}
 
 
-def _holes(arc, walls, drill, allowance, cap, label, scale, recut=None):
+def _holes(arc, walls, drill, allowance, label, scale):
     """(errors, debts): a drilled chain keeps every hole's full diameter outside the line,
     a web between neighbours and, once the webs are broken out along the straight runs
     between hole centres, every run outside the line (a convex arc's run dips toward its
-    centre) and at most ``cap`` for the file: the most material between the line and a
-    run along the arc's radius (a concave arc's run bulges away from the line), never
-    less than the allowance plus a drill radius. Geometry and the ``drill`` radius are
-    plan units, the allowance and recorded measures mm (``scale`` mm per unit)."""
+    centre). Record the most material between the line and a run along the arc's radius
+    (a concave arc's run bulges away from the line), never less than the allowance plus
+    a drill radius. Geometry and the ``drill`` radius are plan units; recorded measures
+    are mm (``scale`` mm per unit). The whole stage's cap is enforced by :func:`_chain`.
+    A retained singleton has neither a hole-to-hole pitch nor webs to break out."""
+    walls = _chain_arc_walls(arc, walls)
     holes = [row["dro_xy"] for row in arc["rows"]]
     centre, radius = arc["centre_setup_xy"], arc["wall_radius_mm"]
-    known = _pair(centre) and number(radius) and all(_pair(p) for p in holes)
+    known = _pair(centre) and number(radius) and bool(holes) and all(_pair(p) for p in holes)
     if not walls or not number(drill) or not known:
         return [], [f"{label}: its hole centres or the finished line are unknown"]
     convex = arc["cutter_centre_radius_mm"] > radius
     errors = []
+    boundary = _finished_boundary(walls)
     clear = [min(wall(p) for wall in walls) - drill for p in holes]
     for k, gap in enumerate(clear, start=1):
         if gap < -_INSIDE_TOL:
             errors.append(f"{label}: hole {k} reaches {-gap * scale:.3f} past the line")
-    deepest = 0.0
+        elif number(allowance) and gap < allowance / scale - _WALL_TOL:
+            errors.append(
+                f"{label}: hole {k} leaves {gap * scale:.3f} mm stock, "
+                f"below the {allowance:g} mm allowance"
+            )
+    outward = 1 if convex else -1
+    deepest = max(outward * (math.dist(p, centre) - radius) for p in holes)
     for k, (a, b) in enumerate(itertools.pairwise(holes), start=1):
         if math.dist(a, b) <= 2 * drill + _WALL_TOL:
             errors.append(
@@ -2972,26 +3350,180 @@ def _holes(arc, walls, drill, allowance, cap, label, scale, recut=None):
                 f"no web for a {2 * drill * scale:g} mm drill to run against"
             )
         near, far = _to_segment(centre, a, b), max(math.dist(a, centre), math.dist(b, centre))
-        least, most = (near - radius, far - radius) if convex else (radius - far, radius - near)
-        if least < -_INSIDE_TOL:
+        most = far - radius if convex else radius - near
+        if boundary.cuts_segment(a, b):
             errors.append(
-                f"{label}: the break-out between holes {k} and {k + 1} runs "
-                f"{-least * scale:.3f} past the line"
+                f"{label}: the break-out between holes {k} and {k + 1} "
+                "runs past the line into finished material"
             )
         deepest = max(deepest, most)
     stock = max(allowance + drill * scale, deepest * scale)
     arc.update(
         drill_dia_mm=2 * drill * scale,
-        pitch_mm=max(math.dist(a, b) for a, b in itertools.pairwise(holes)) * scale,
         hole_clear_mm=min(clear) * scale,
         stock_left_mm=stock,
-        break_out=CHAIN_BREAK_OUT,
-        **_leaves(cap, recut),
     )
-    if recut:
-        return errors, []
-    more, debts = _filed(stock, cap, f"{label} chain drill")
-    return errors + more, debts
+    if len(holes) > 1:
+        arc.update(
+            pitch_mm=max(math.dist(a, b) for a, b in itertools.pairwise(holes)) * scale,
+            break_out=CHAIN_BREAK_OUT,
+        )
+    else:
+        arc.pop("pitch_mm", None)
+        arc.pop("break_out", None)
+    return errors, []
+
+
+def _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut=None):
+    """Validate the retained arc and straight-join holes, then enforce one worst-stage
+    filing residual. Bounds are applied first, so excluded joins owe no cut or stock."""
+    errors, debts = [], []
+    walls = _signed_chain_walls([*arcs, *lines], walls)
+    boundary = _finished_boundary(walls)
+    for arc in arcs:
+        more, unknown = _holes(arc, walls, drill, allowance, label, scale)
+        errors.extend(more)
+        debts.extend(unknown)
+    for line in lines:
+        holes = line["dro_xy"]
+        join_walls = line.get("join_walls", [])
+        if (
+            not walls
+            or not number(drill)
+            or not holes
+            or not all(_pair(p) for p in holes)
+            or not join_walls
+            or not all(
+                _pair(wall["normal"]) and all(_pair(p) for p in wall["ends"]) for wall in join_walls
+            )
+        ):
+            debts.append(f"{label}: its join hole centres or the finished line are unknown")
+            continue
+        clear = [min(wall(p) for wall in walls) - drill for p in holes]
+        for k, gap in enumerate(clear, start=1):
+            if gap < -_INSIDE_TOL:
+                errors.append(
+                    f"{label} {line['side']} join: hole {k} reaches "
+                    f"{-gap * scale:.3f} past the line"
+                )
+            elif number(allowance) and gap < allowance / scale - _WALL_TOL:
+                errors.append(
+                    f"{label} {line['side']} join: hole {k} leaves {gap * scale:.3f} mm stock, "
+                    f"below the {allowance:g} mm allowance"
+                )
+        legs = list(itertools.pairwise(holes))
+        for k, (a, b) in enumerate(legs, start=1):
+            if math.dist(a, b) <= 2 * drill + _WALL_TOL:
+                errors.append(
+                    f"{label} {line['side']} join: holes {k} and {k + 1} are "
+                    f"{math.dist(a, b) * scale:.3f} mm apart, "
+                    f"no web for a {2 * drill * scale:g} mm drill to run against"
+                )
+            if boundary is not None and boundary.cuts_segment(a, b):
+                errors.append(
+                    f"{label} {line['side']} join: the break-out between holes "
+                    f"{k} and {k + 1} crosses the finished line"
+                )
+        deepest = _join_stock(holes, join_walls)
+        line.update(
+            drill_dia_mm=2 * drill * scale,
+            hole_clear_mm=min(clear) * scale,
+            stock_left_mm=max(allowance + drill * scale, deepest * scale),
+        )
+        if legs:
+            line.update(
+                pitch_mm=max(math.dist(a, b) for a, b in legs) * scale,
+                break_out=CHAIN_BREAK_OUT,
+            )
+        else:
+            line.pop("pitch_mm", None)
+            line.pop("break_out", None)
+    tables = [table for table in (*arcs, *lines) if number(table.get("stock_left_mm"))]
+    if not tables:
+        return errors, debts
+    stock = max(table["stock_left_mm"] for table in tables)
+    for table in tables:
+        table.update(stock_left_mm=stock, **_leaves(cap, recut))
+    if not recut:
+        more, unknown = _filed(stock, cap, f"{label} chain drill")
+        errors.extend(more)
+        debts.extend(unknown)
+    return errors, debts
+
+
+def _join_stock(holes, walls):
+    """Greatest distance from the printed break-out polyline to its nearest finite wall.
+
+    A wall's squared distance along a straight run is convex quadratic until its
+    nearest point changes between an end and the wall interior. The minimum of those
+    distances can peak only at a regime end or a crossing of two wall distances.
+    Evaluate those finite candidates, including Voronoi switches inside a run.
+    """
+    ends = [wall["ends"] for wall in walls]
+    deepest = max((min(_to_segment(p, *wall) for wall in ends) for p in holes), default=0.0)
+    for a, b in itertools.pairwise(holes):
+        delta = [b[i] - a[i] for i in range(2)]
+        stops = {0.0, 1.0}
+        for p, q in ends:
+            direction = [q[i] - p[i] for i in range(2)]
+            span = sum(v * v for v in direction)
+            along = sum(delta[i] * direction[i] for i in range(2))
+            if span and along:
+                start = sum((a[i] - p[i]) * direction[i] for i in range(2))
+                for boundary in (0.0, span):
+                    t = _fraction((boundary - start) / along)
+                    if t is not None:
+                        stops.add(t)
+        for low, high in itertools.pairwise(sorted(stops)):
+            p = [a[i] + low * delta[i] for i in range(2)]
+            q = [a[i] + high * delta[i] for i in range(2)]
+            squares = [_wall_square(p, q, wall) for wall in ends]
+            candidates = {0.0, 1.0}
+            for u, v in itertools.combinations(squares, 2):
+                candidates.update(_square_crossings([u[i] - v[i] for i in range(3)]))
+            for t in candidates:
+                point = [p[i] + t * (q[i] - p[i]) for i in range(2)]
+                deepest = max(deepest, min(_to_segment(point, *wall) for wall in ends))
+    return deepest
+
+
+def _wall_square(a, b, ends):
+    """Squared wall distance coefficients on one fixed nearest-point regime."""
+    p, q = ends
+    direction = [q[i] - p[i] for i in range(2)]
+    span = sum(v * v for v in direction)
+    relative = [a[i] - p[i] for i in range(2)]
+    step = [b[i] - a[i] for i in range(2)]
+    start = sum(relative[i] * direction[i] for i in range(2)) / span if span else 0.0
+    advance = sum(step[i] * direction[i] for i in range(2)) / span if span else 0.0
+    middle = start + advance / 2
+    if 0 < middle < 1:
+        relative = [relative[i] - start * direction[i] for i in range(2)]
+        step = [step[i] - advance * direction[i] for i in range(2)]
+    elif middle >= 1:
+        relative = [a[i] - q[i] for i in range(2)]
+    return (
+        sum(v * v for v in step),
+        2 * sum(relative[i] * step[i] for i in range(2)),
+        sum(v * v for v in relative),
+    )
+
+
+def _square_crossings(square):
+    """Roots in [0, 1] of a difference of squared wall distances."""
+    largest = max(abs(v) for v in square)
+    if not largest:
+        return []
+    a, b, c = (v / largest for v in square)
+    if abs(a) < 1e-14:
+        roots = [-c / b] if abs(b) >= 1e-14 else []
+    else:
+        discriminant = b * b - 4 * a * c
+        if discriminant < -1e-14:
+            return []
+        root = -0.5 * (b + math.copysign(math.sqrt(max(0.0, discriminant)), b))
+        roots = [root / a, c / root] if root else [-b / (2 * a)]
+    return [t for value in roots if (t := _fraction(value)) is not None]
 
 
 def _rotate(point, degrees):
@@ -3188,7 +3720,7 @@ def rotary_table(bundle, setup):
     if not isinstance(fixture, dict) or fixture.get("kind") != "rotary_table":
         return None
     resolution = fixture.get("vernier_deg", fixture.get("graduation_deg", UNKNOWN))
-    return {
+    table = {
         "id": reference,
         "name": fixture.get("name", reference),
         "resolution_deg": resolution if number(resolution) and resolution > 0 else UNKNOWN,
@@ -3197,6 +3729,15 @@ def rotary_table(bundle, setup):
         "bore_dia_mm": length_mm(fixture, "bore_dia"),
         "uncertain": uncertain(fixture),
     }
+    _, fixture_ref = identity(bundle, reference, "fixtures")
+    measurements = {
+        field: debt
+        for field in ("max_work", "bore_dia")
+        if (debt := length_debt(fixture, field, "fixtures", fixture_ref))
+    }
+    if measurements:
+        table["measurement_debts"] = measurements
+    return table
 
 
 def _made_before(bundle, op, name):
@@ -3322,6 +3863,10 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
         hole = sorted(size) if _band(size) else [size, size] if number(size) else None
         hole = [v * scale for v in hole] if hole else None
         pin = hole[0] if hole else UNKNOWN
+        if by == "pin" and hole is not None:
+            debt = table.get("measurement_debts", {}).get("bore_dia")
+            if debt:
+                arc["measurements"] = [*arc.get("measurements", []), debt]
         if by == "pin" and hole is None:
             debts.append(f"{label}: {name}'s diameter is unknown, so no centre pin is sized")
         elif by == "pin" and not number(seat):
@@ -3340,6 +3885,9 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
     if arc["cut_order"] == UNKNOWN or len(points) < 2 or not all(_pair(p) for p in points):
         debts.append(f"{label}: its cutting order or cutter path is unknown")
     reach, capacity = _swing(bundle, setup), table["max_work_mm"]
+    debt = table.get("measurement_debts", {}).get("max_work")
+    if debt:
+        arc["measurements"] = [*arc.get("measurements", []), debt]
     if reach is None or not number(capacity):
         debts.append(f"{label}: the stock's swing or the table's max_work is unknown")
     elif 2 * reach > capacity + _WALL_TOL:
@@ -3464,17 +4012,63 @@ def _recut_by(bundle, op):
     return last
 
 
-def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale):
-    """(errors, debts) of one arc stage cut by its manual method (:data:`ARC_METHODS`); the
-    tables' geometry is plan units, ``scale`` mm per unit."""
-    arc = arcs[0]
-    method = arc["method"]
+def _manual_preconditions(op, stage, arcs, lines, label):
+    """Method/stage/join constraints independent of any stock-removal clip."""
+    method = (arcs[0] if arcs else lines[0])["method"]
     if method in ROUGH_METHODS and stage != "rough":
         return [f"{label}: {method} only roughs outside the line; file_to_line finishes it"], []
-    if method != "stairs" and lines:
+    if method not in ROUGH_METHODS and lines:
         return [], [f"{label}: {method} along the arc's straight joins is not computed"]
     if method in FINISH_METHODS and "stock_removal_bounds" in op:
         return [], [f"{label}: {method} cuts its whole arc; stock_removal_bounds cannot clip it"]
+    return [], []
+
+
+def _chain_preconditions(op, stage, arcs, lines, walls, label, scale):
+    """Reject invalid authored holes before the kernel can omit them by clipping."""
+    errors, debts = _manual_preconditions(op, stage, arcs, lines, label)
+    if errors or debts:
+        return errors, debts
+    pitch = mapping(op.get("contour")).get("pitch_mm")
+    radius = (arcs[0] if arcs else lines[0]).get("cutter_radius_mm")
+    if number(pitch) and number(radius) and pitch <= 2 * radius + _WALL_TOL * scale:
+        errors.append(f"{label}: pitch {pitch:g} mm leaves no web for a {2 * radius:g} mm drill")
+        return errors, debts
+    walls = _signed_chain_walls([*arcs, *lines], walls)
+    for table in (*arcs, *lines):
+        drill = table["cutter_radius_mm"]
+        name = label if "rows" in table else f"{label} {table['side']} join"
+        if not walls or not number(drill):
+            debts.append(f"{name}: its finished scrap side or drill radius is unknown")
+            continue
+        drill /= scale
+        holes = [row["dro_xy"] for row in table["rows"]] if "rows" in table else table["dro_xy"]
+        distances = _chain_arc_walls(table, walls) if "rows" in table else walls
+        if not distances:
+            debts.append(f"{name}: its finished scrap side is unknown")
+            continue
+        for k, point in enumerate(holes, start=1):
+            if _pair(point):
+                gap = min(wall(point) for wall in distances) - drill
+                if "rows" in table:
+                    # These are authored holes, not regenerated finite-wall cap endpoints.
+                    radial = math.dist(point, table["centre_setup_xy"]) - table["wall_radius_mm"]
+                    if table["cutter_centre_radius_mm"] < table["wall_radius_mm"]:
+                        radial = -radial
+                    gap = min(gap, radial - drill)
+                if gap < -_INSIDE_TOL:
+                    errors.append(f"{name}: hole {k} reaches {-gap * scale:.3f} past the line")
+    return errors, debts
+
+
+def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale):
+    """(errors, debts) of one arc stage cut by its manual method (:data:`ARC_METHODS`); the
+    tables' geometry is plan units, ``scale`` mm per unit."""
+    arc = arcs[0] if arcs else lines[0]
+    method = arc["method"]
+    errors, debts = _manual_preconditions(op, stage, arcs, lines, label)
+    if errors or debts:
+        return errors, debts
     cap = filing_cap(bundle)
     recut = _recut_by(bundle, op)
     if method == "stairs":
@@ -3482,7 +4076,7 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scal
     if method == "chain_drill":
         drill = arc["cutter_radius_mm"]
         drill = drill / scale if number(drill) else UNKNOWN
-        return _holes(arc, walls, drill, allowance, cap, label, scale, recut)
+        return _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut)
     features, frames = bundle.feature_definitions, mapping(bundle.features.get("frames"))
     feature = mapping(features.get(arc["feature"]))
     table = rotary_table(bundle, setup)
@@ -3529,6 +4123,7 @@ def evaluate(bundle, *, pre_kernel=False):
         arc_errors = []  # manual-arc plans that cut into the part or cannot be cut
         leave_errors = []  # rough stages whose leave would cut into the finished part
         arc_debts = []  # manual-arc plans whose inputs are unknown
+        cut_order_measurements = []
         numbers = {
             "frame": setup.get("frame", UNKNOWN),
             "binding": frame.get("binding", "nominal"),
@@ -3560,7 +4155,10 @@ def evaluate(bundle, *, pre_kernel=False):
             for op in setup["ops"]
         ]
         grid = dro_grid(bundle, setup)
-        numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
+        grid_debt = dro_grid_debt(bundle, setup)
+        # Authored Z targets consume the grid even when their calculation stays unknown.
+        # Merely selecting a machine (a bare saw cut, for example) consumes no DRO fact.
+        grid_consumed = any(key in op for op in setup["ops"] for key in ("to_z", "z_from", "z_to"))
         declared = mapping(mapping(setup.get("stock_state")).get("entry_z"))
         # The stock top before op ``done`` as the setup prints it: a path starts or lifts
         # from that surface.
@@ -3588,7 +4186,7 @@ def evaluate(bundle, *, pre_kernel=False):
                     # The face the printed corner reading leaves (:func:`formed_z`).
                     entry["dro_to_z"] = target["formed_z"]
                     error = _allowed_error(op, target)
-                    if error:
+                    if error and not grid_debt:
                         allowed_errors.append(error)
             levels = None
             if not lathe:
@@ -3601,7 +4199,7 @@ def evaluate(bundle, *, pre_kernel=False):
             if op.get("do") in RASTER_OPS and number(op.get("to_z")) and _xy_box(op):
                 cleared.append((op.get("feature"), _xy_box(op), op["to_z"]))
         entries = {str(entry.get("op")): entry for entry in numbers["operations"]}
-        residuals = _z_residuals(bundle, setup, grid, features, entries)
+        residuals = [] if grid_debt else _z_residuals(bundle, setup, grid, features, entries)
         unknown = not frame or frame.get("binding") == UNKNOWN or blade_unknown
         if lathe:
             from .geometry_common import _AXIAL_LATHE_ACTIONS
@@ -3659,6 +4257,8 @@ def evaluate(bundle, *, pre_kernel=False):
             located = name in located_names
             vector = isinstance(at, list) and len(at) == 3
             placed = vector and all(number(value) for value in at)
+            # A requested location remains a grid consumer if its frame/geometry fails.
+            grid_consumed |= located or vector
             why = None
             if located and not placed and (lathe or name in revolved_names):
                 # A feature the kernel measured revolved about setup Z through X0 Y0 is
@@ -3705,6 +4305,8 @@ def evaluate(bundle, *, pre_kernel=False):
                 numbers["rows"].append(row)
                 unknown |= UNKNOWN in local
             if lathe:
+                stations = feature.get("z_mm")
+                grid_consumed |= isinstance(stations, list) and bool(stations)
                 numbers["rows"].extend(
                     _lathe_rows(name, feature, setup, frame, frames, dro.get("radius_mode"))
                 )
@@ -3717,7 +4319,6 @@ def evaluate(bundle, *, pre_kernel=False):
             for name, rows, at in planned
             if at and name in machined and "dro" in rows[0]
         }
-        grid_debt = dro_grid_debt(bundle, setup)
         for name, rows, _ in planned:
             errors, debt = _band_rows(
                 bundle, name, rows, frame, targets, grid_debt, name in machined
@@ -3730,6 +4331,8 @@ def evaluate(bundle, *, pre_kernel=False):
         for done, (op, before, after) in enumerate(stock_states(bundle, setup)):
             numbers["entry_surfaces"].append({"op": op["op"], **after["entry_z"]})
             contour = mapping(op.get("contour"))
+            # Unknown authoring still requests targets; mapping it to {} loses that intent.
+            grid_consumed |= bool(contour) or op.get("contour") == UNKNOWN
             unknown |= op.get("contour") == UNKNOWN
             leave, refusal = rough_leave(op)
             if refusal:
@@ -3750,7 +4353,18 @@ def evaluate(bundle, *, pre_kernel=False):
                 if op.get("do", "").startswith("rough_")
                 else [("rough", leave), ("finish", 0)]
             )
-            sense, order = cut_order(machine, op)
+            _, machine_ref = identity(bundle, setup.get("machine"), "machines")
+            order_required = not refusal and contour.get("method") in (
+                (ARC_METHODS - {"chain_drill"}) | {"linear_table"}
+            )
+            sense, order = cut_order(
+                machine,
+                op,
+                machine_ref=machine_ref if order_required else None,
+            )
+            # Declared order consumes rotation even when independent cutter/geometry
+            # debt prevents materializing a path. Do not wait for generated rows.
+            cut_order_measurements.extend(order.get("measurements", []))
             bounded = "stock_removal_bounds" in op
             subject = f"{setup['id']}:{op['op']}"
             for stage, allowance in stages:
@@ -3806,30 +4420,80 @@ def evaluate(bundle, *, pre_kernel=False):
                     for table in (*arcs, *lines):
                         table.update(stage=stage, allowance_mm=allowance, offset_mm=offset)
                     errors, debts = [], []
+                    clipped_chain = bounded and method == "chain_drill"
                     if scale is None:
                         debts = [f"{label}: the feature units are not mm or in"]
                     elif arcs:
-                        errors, debts = _manual(
-                            bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale
-                        )
+                        if clipped_chain:
+                            errors, debts = _chain_preconditions(
+                                op, stage, arcs, lines, walls, label, scale
+                            )
+                        else:
+                            errors, debts = _manual(
+                                bundle,
+                                setup,
+                                op,
+                                stage,
+                                allowance,
+                                arcs,
+                                lines,
+                                walls,
+                                label,
+                                scale,
+                            )
+                            if _grid_refusal(grid_debt, errors, method, stage):
+                                # A grid-dependent refusal stays debt, and its unsafe nominal
+                                # path stays withheld; only a verified grid can judge the cut.
+                                profile["arc_reason"] = errors[0]
+                                refused, arcs, lines = True, [], []
+                                debts.extend(errors)
+                                errors = []
                     elif number(offset):
                         debts = [f"{label}: no {method} rows: contour.{_NEEDS[method]} is unknown"]
+                    debt = None
+                    blocked = errors or any("stair_reason" in t for t in (*arcs, *lines))
+                    if not blocked and bounded and (arcs or lines):
+                        if pre_kernel:
+                            for table in (*arcs, *lines):
+                                table["kernel_clip"] = True
+                        else:
+                            clips, why = _clip_facts(bundle, subject)
+                            if clips is None:
+                                arcs, lines = [], []
+                                debt = f"its bounds clip is unknown: {why}"
+                            else:
+                                arcs, lines, debt = _kernel_clip(subject, arcs, lines, clips, scale)
+                    if (
+                        clipped_chain
+                        and not blocked
+                        and not pre_kernel
+                        and (arcs or lines)
+                        and scale is not None
+                    ):
+                        more, unknown_debts = _manual(
+                            bundle, setup, op, stage, allowance, arcs, lines, walls, label, scale
+                        )
+                        debts.extend(unknown_debts)
+                        if _grid_refusal(grid_debt, more, method, stage):
+                            profile["arc_reason"] = more[0]
+                            refused, arcs, lines = True, [], []
+                            debts.extend(more)
+                        else:
+                            errors.extend(more)
+                    if method == "chain_drill":
+                        measured = [
+                            table for table in (*arcs, *lines) if number(table.get("stock_left_mm"))
+                        ]
+                        if measured:
+                            profile.update(
+                                stock_left_mm=max(table["stock_left_mm"] for table in measured),
+                                **_leaves(filing_cap(bundle), _recut_by(bundle, op)),
+                            )
                     arc_errors.extend(errors)
                     arc_debts.extend(debts)
-                    if errors or any("stair_reason" in t for t in (*arcs, *lines)):
+                    if errors or blocked:
                         profile["arc_reason"] = (errors + debts)[0]
                         refused, arcs, lines = True, [], []
-                    debt = None
-                    if bounded and (arcs or lines) and pre_kernel:
-                        for table in (*arcs, *lines):
-                            table["kernel_clip"] = True
-                    elif bounded and (arcs or lines):
-                        clips, why = _clip_facts(bundle, subject)
-                        if clips is None:
-                            arcs, lines = [], []
-                            debt = f"its bounds clip is unknown: {why}"
-                        else:
-                            arcs, lines, debt = _kernel_clip(subject, arcs, lines, clips)
                     if debt:
                         profile["clip_reason"] = debt
                         clip_debts.append(f"op {op['op']} {stage}: {debt}")
@@ -3838,9 +4502,12 @@ def evaluate(bundle, *, pre_kernel=False):
                         numbers["arc_table"].extend(arcs)
                         numbers["line_table"].extend(lines)
                         # Clip pieces stay separate lists: nothing reconnects them.
-                        profile["cutter_centre"] = (
-                            arcs[0]["rows"] if len(arcs) == 1 else [arc["rows"] for arc in arcs]
-                        )
+                        if arcs:
+                            profile["cutter_centre"] = (
+                                arcs[0]["rows"] if len(arcs) == 1 else [arc["rows"] for arc in arcs]
+                            )
+                        else:
+                            profile["cutter_centre"] = []
                         unordered.update(
                             item["cut_order_reason"]
                             for item in (*arcs, *lines)
@@ -3865,7 +4532,7 @@ def evaluate(bundle, *, pre_kernel=False):
                         profile.update(raster)
                         if profile["cut_order"] == UNKNOWN:
                             unordered.add(profile["cut_order_reason"])
-                        if stage == "finish":
+                        if stage == "finish" and not grid_debt:
                             grid_errors.extend(
                                 _grid_residual(op, feature, raster["grid_residual_mm"], grid)
                             )
@@ -3878,7 +4545,7 @@ def evaluate(bundle, *, pre_kernel=False):
                         generated = True
                 elif contour.get("method") == "linear_table":
                     path, residual = _linear(feature, op, offset, radius, frame, frames, grid)
-                    if residual is not None and stage == "finish":
+                    if residual is not None and stage == "finish" and not grid_debt:
                         grid_errors.extend(_grid_residual(op, feature, residual, grid))
                     if path:
                         profile["grid_residual_mm"] = residual
@@ -3921,10 +4588,17 @@ def evaluate(bundle, *, pre_kernel=False):
                         unknown |= not number(dome["tool_nose_compensation_mm"])
                 if not generated:
                     profile["cutter_centre"] = UNKNOWN
+                if method in ARC_METHODS | {"linear_table"} and not refused:
+                    category, tool_ref = identity(bundle, op.get("tool"), "tools")
+                    debt = length_debt(tool, "dia", category, tool_ref) if tool else None
+                    if debt:
+                        profile["measurements"] = [*profile.get("measurements", []), debt]
+                        unknown = True
                 numbers["profiles"].append(profile)
                 unknown |= (not generated and not refused) or not tool or uncertain(tool)
             if lathe:
                 unknown |= not number(length_mm(tool, "nose_radius"))
+        path_measurements = []
         if not lathe:
             from .level_entry import level_paths
 
@@ -3934,6 +4608,35 @@ def evaluate(bundle, *, pre_kernel=False):
             if paths:
                 numbers["level_paths"] = paths
             plan_debts.extend(path_debts)
+            path_measurements = [entry for path in paths for entry in path.get("measurements", [])]
+        if grid_consumed:
+            numbers["dro_grid"] = {"step": grid[0], "decimals": grid[1]}
+            if grid_debt:
+                numbers["dro_grid_debt"] = grid_debt
+                numbers["measurements"] = dro_grid_measurements(bundle, setup)
+                unknown = True
+        else:
+            numbers["dro_grid"] = {"step": "not used", "decimals": "not used"}
+            grid_debt = None
+        measurements = [
+            entry
+            for path in (
+                *numbers["arc_table"],
+                *numbers["line_table"],
+                *numbers["profiles"],
+            )
+            for entry in path.get("measurements", [])
+        ]
+        if measurements or path_measurements or cut_order_measurements:
+            numbers["measurements"] = measurement_checklist(
+                [],
+                debts=[
+                    *numbers.get("measurements", []),
+                    *cut_order_measurements,
+                    *measurements,
+                    *path_measurements,
+                ],
+            )
         status = (
             "error"
             if residuals
@@ -3951,6 +4654,8 @@ def evaluate(bundle, *, pre_kernel=False):
             "Feature targets use the declared model-to-setup basis; cutter tables use explicit "
             "nominal geometry and authored allowance."
         )
+        if grid_debt:
+            sentence += f" DRO grid debt: {grid_debt}"
         if unknown:
             sentence += (
                 " Missing geometry or unverified tool/frame binding prevents a cleared toolpath."

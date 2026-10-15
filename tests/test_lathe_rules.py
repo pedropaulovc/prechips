@@ -6,7 +6,7 @@ import pytest
 
 from prechips.rules import headroom, speeds_feeds
 
-MEASURED = {"by": "test", "date": "2026-10-03", "instrument": "tape"}
+MEASURED = {"status": "measured", "by": "test", "date": "2026-10-03", "instrument": "tape"}
 
 
 def measured(value):

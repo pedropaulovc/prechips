@@ -27,7 +27,8 @@ from __future__ import annotations
 
 import math
 
-from .resolution import UNKNOWN, length_mm, number, resolve
+from ..measurements import length_debt
+from .resolution import UNKNOWN, length_mm, number, resolve, select
 from .speeds_feeds import plunge_row
 from .tip_endpoints import mapping
 
@@ -71,18 +72,23 @@ def _xy(point):
 def _pieces(numbers):
     """``{op: [(points, raster)]}`` in the order the setup sheet prints each op's tables:
     rough before finish, then the proven cut sequence, then listed order; outlines and
-    rasters after its arc and join tables."""
+    rasters only for ops without those tables."""
     stages = {"rough": 0, "finish": 1}
     found = {}
     tables = [
         *(("arc", t) for t in numbers.get("arc_table") or [] if t.get("method") in _PATH_METHODS),
-        *(("line", t) for t in numbers.get("line_table") or []),
+        *(("line", t) for t in numbers.get("line_table") or [] if t.get("method") != "chain_drill"),
     ]
     skipped = {
         str(t.get("op"))
         for t in numbers.get("arc_table") or []
         if t.get("method") not in _PATH_METHODS
     }
+    skipped.update(
+        str(t.get("op"))
+        for t in numbers.get("line_table") or []
+        if t.get("method") == "chain_drill"
+    )
     for kind, table in tables:
         points = (
             [row.get("dro_xy") for row in table.get("rows", [])]
@@ -95,11 +101,15 @@ def _pieces(numbers):
             sequence if isinstance(sequence, int) else -1,
         )
         found.setdefault(str(table.get("op")), []).append((rank, points, False))
-    arc_ops = {str(t.get("op")) for t in numbers.get("arc_table") or []}
+    table_ops = {
+        str(table.get("op"))
+        for kind in ("arc_table", "line_table")
+        for table in numbers.get(kind) or []
+    }
     for profile in numbers.get("profiles") or []:
         op = str(profile.get("op"))
         points = profile.get("cutter_centre")
-        if op in arc_ops or not isinstance(points, list) or not points:
+        if op in table_ops or not isinstance(points, list) or not points:
             continue
         rank = (3, -1)
         if isinstance(profile.get("raster"), dict):
@@ -121,7 +131,9 @@ def _same(a, b, tol):
 def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
     """``(records, debts)``: one record per path op (see the module docstring). ``top``
     prints the stock top before op ``done`` as the setup prints it
-    (:func:`~.tip_endpoints.operative_z`): a start on the top, and the lift above it."""
+    (:func:`~.tip_endpoints.operative_z`): a start on the top, and the lift above it.
+    Records carry optional ``measurements`` for refused facts consumed by entry/plunge
+    decisions; the caller merges those into its UNKNOWN finding's measurement entries."""
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     box = stock_box(bundle, setup)
     tolerance = grid[0] / 2
@@ -150,7 +162,8 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
         if start is None:
             entry_z = profile.get("entry_z")
             start = printed_top if entry_z is None else dro_z(entry_z, grid)
-        radius = length_mm(resolve(bundle, "tools", op.get("tool")) or {}, "dia")
+        tool = resolve(bundle, "tools", op.get("tool")) or {}
+        radius = length_mm(tool, "dia")
         radius = radius / 2 if number(radius) else UNKNOWN
         raster = any(is_raster for _, is_raster in pieces)
         downs, last = [], None
@@ -191,6 +204,12 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
             and depths[0] * scale >= box[5] - STOCK_TOL_MM
         ):
             record["lowered"] = "top"
+        measurements = []
+        if "lowered" not in record and box is not None and scale and tool:
+            category, identity, _ = select(bundle, op.get("tool"), "tools")
+            debt = length_debt(tool, "dia", category, identity)
+            if debt is not None:
+                measurements.append(debt)
         # A return to an entry: between levels of an open path, between pieces, and
         # after every raster pass. An unknown level count claims no return between levels.
         several = isinstance(depths, list) and len(depths) > 1
@@ -220,7 +239,7 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
                         "the stock it receives"
                     )
         if "lowered" not in record and any(not down["air"] for down in downs):
-            feed, _, why = plunge_row(bundle, op)
+            feed, _, why = plunge_row(bundle, op, measurements=measurements)
             record["plunge_mm_rev"] = feed
             if not number(feed):
                 record["plunge_reason"] = why
@@ -228,5 +247,8 @@ def level_paths(bundle, setup, numbers, states, grid, units, dro_z, top):
                     f"op {record['op']} plunges into the stock but its plunge feed is "
                     f"unknown: {why}"
                 )
+        if measurements:
+            unique = {entry["id"]: entry for entry in measurements}
+            record["measurements"] = [unique[key] for key in sorted(unique)]
         records.append(record)
     return records, debts

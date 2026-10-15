@@ -1,8 +1,13 @@
 """A saw removes its kerf and discarded side, never any of the finished target."""
 
 from prechips.findings import Finding
-from prechips.measurements import length_fact
-from prechips.rules.geometry_common import unavailable
+from prechips.measurements import length_debt, length_fact
+from prechips.rules.geometry_common import (
+    kernel_measurement_debts,
+    prepared_job,
+    unavailable,
+    with_measurement_debts,
+)
 from prechips.rules.resolution import (
     SAW_OPS,
     UNKNOWN,
@@ -10,6 +15,7 @@ from prechips.rules.resolution import (
     operations,
     record,
     resolve,
+    select,
     uncertain,
 )
 
@@ -32,6 +38,7 @@ def evaluate(bundle):
         return []
     facts = run_geometry(bundle)
     findings = []
+    job = None
     for setup, op in cuts:
         subject = f"{setup['id']}:{op['op']}"
         machine = record(resolve(bundle, "machines", setup.get("machine")))
@@ -50,6 +57,12 @@ def evaluate(bundle):
             "docs/rules-geometry.md: saw cut-off",
             *kerf["cite"],
         ]
+        debts = []
+        if blade:
+            category, identity, _ = select(bundle, op.get("tool"), "tools")
+            debt = length_debt(blade, "kerf", category, identity)
+            if debt is not None:
+                debts.append(debt)
         invalid = []
         missing = []
         if machine.get("kind", UNKNOWN) not in {UNKNOWN, "mill", "bench", "bandsaw"}:
@@ -70,7 +83,11 @@ def evaluate(bundle):
         if invalid:
             status, message = "error", "; ".join(invalid)
         elif blocked is not None:
-            findings.append(blocked)
+            if blocked.status == UNKNOWN and facts.get("measurement_debts"):
+                if job is None:
+                    job = prepared_job(bundle)
+                debts.extend(kernel_measurement_debts(job, setup, op, stock=True))
+            findings.append(with_measurement_debts(blocked, debts))
             continue
         else:
             reason = detail.get("saw_reason", detail.get("stock_reason"))
@@ -85,7 +102,10 @@ def evaluate(bundle):
                 else "blade kerf and discarded slab remove only excess stock; "
                 "the retained piece preserves the finished target"
             )
-        findings.append(
-            Finding("saw_cut", subject, status, numbers, cite, f"{subject}: {message}.")
-        )
+        finding = Finding("saw_cut", subject, status, numbers, cite, f"{subject}: {message}.")
+        if status == UNKNOWN and facts.get("measurement_debts") and detail.get("stock_reason"):
+            if job is None:
+                job = prepared_job(bundle)
+            debts.extend(kernel_measurement_debts(job, setup, op, stock=True))
+        findings.append(with_measurement_debts(finding, debts))
     return findings

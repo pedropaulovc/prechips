@@ -256,7 +256,11 @@ def centre_tool(bundle, op: dict) -> dict:
         if not fact["verified"]:
             unknown.append(f"tool {reference!r} {field} is not accepted: {fact['reason']}")
             if item:
-                measurements.append(measurement_entry(category, tool_key, field))
+                measurements.append(
+                    measurement_entry(
+                        category, tool_key, field, status=fact["measurement_status"], item=item
+                    )
+                )
     for key in ("drill_dia_mm", "drill_length_mm", "countersink_angle_deg"):
         declared, own = process.get(key, UNKNOWN), tool[key]
         if not _number(declared):

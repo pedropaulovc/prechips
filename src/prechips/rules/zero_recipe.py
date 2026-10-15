@@ -8,6 +8,7 @@ from itertools import pairwise, product
 
 from ..findings import Finding
 from ..joint_features import _lineage
+from ..measurements import length_debt, length_keys, measurement_checklist
 from ..model import UNIT_TOLERANCE
 from ._bench import manual_bench, not_applicable
 from .geometry_common import TURNING_BLADE_KINDS, approach, cutting_action, op_claims
@@ -34,6 +35,7 @@ from .tip_endpoints import (
     _kernel_face_boxes,
     _producer,
     _setup_footprint,
+    _turning_window,
     cut_coverage,
     cut_region,
     forms_face,
@@ -66,6 +68,12 @@ DIRECTIONS = {
 }
 
 
+def _touch_diameter(tool):
+    """Use the contact tip when authored; only an absent tip can use the tool diameter."""
+    field = "tip" if length_keys(tool, "tip", tool.get("units"), bare=True) else "dia"
+    return length_mm(tool, field), field
+
+
 def finder_procedure(bundle, setup, tool):
     """The EDGE FINDER box's facts for an X/Y pick-up with ``tool``: its type, tip Ø and
     radius, and the rpm bands it runs at on this setup's mill (its own band intersected
@@ -75,9 +83,7 @@ def finder_procedure(bundle, setup, tool):
     error where no spindle band turns any of the finder's band. An electronic finder
     signals contact with the spindle stopped, so it needs no speed."""
     kind = tool.get("finder_type", UNKNOWN)
-    tip = length_mm(tool, "tip")
-    if not number(tip):
-        tip = length_mm(tool, "dia")
+    tip, _ = _touch_diameter(tool)
     band = tool.get("rpm_range", UNKNOWN)
     missing = [
         name
@@ -527,7 +533,15 @@ def _axial_cut_footprint(bundle, setup, op):
 def _primitive_spares_plane(bundle, setup, op, plane):
     """Exact radial/axial primitive bounds; claims alone prove no preservation."""
     from ..joint_features import joint_operation
-    from .coordinates import UNIT_MM, formed_z, frame_axes, frame_point, model_point
+    from .coordinates import (
+        UNIT_MM,
+        dro_grid,
+        dro_z,
+        formed_z,
+        frame_axes,
+        frame_point,
+        model_point,
+    )
     from .geometry_common import finishing_subjects
 
     if plane is None or not number(plane.get("outer_radius_mm")):
@@ -545,6 +559,42 @@ def _primitive_spares_plane(bundle, setup, op, plane):
     if not all(number(v) and math.isfinite(v) for v in centre):
         return False
     action = op.get("do")
+    # The kernel limits a lathe turning-approach cut's removal to its z_from..z_to
+    # window, so a window wholly on the plane's open (outward-normal) side leaves its
+    # land whatever its radius: only in a frame coaxial with the plane's normal, with the
+    # window's dialled (rounded-up) ends, and a blade's groove its full width from the
+    # chuck-side wall (an unknown width proves nothing).
+    window = [op.get(key) for key in ("z_from", "z_to")]
+    normal = [sum(a * b for a, b in zip(source_axes[2], basis, strict=True)) for basis in axes]
+    coaxial = (
+        math.degrees(math.atan2(math.hypot(*normal[:2]), abs(normal[2])))
+        <= _NATIVE_DIRECTION_TOLERANCE_DEG
+    )
+    outward = plane.get("normal_z") * normal[2] if plane.get("normal_z") in (1, -1) else 0
+    if (
+        coaxial
+        and _turning_window(bundle, setup, op)
+        and all(number(z) and math.isfinite(z) for z in window)
+    ):
+        grid = dro_grid(bundle, setup)
+        dialled = [dro_z(z, grid) for z in window]
+        tool = resolve(bundle, "tools", op.get("tool")) or {}
+        kind = tool.get("kind")
+        # An unresolved tool kind may be a blade: it then needs a known width too.
+        possible = not isinstance(kind, str) or kind == UNKNOWN or kind in TURNING_BLADE_KINDS
+        blade = (
+            (UNKNOWN if uncertain(tool) else length_mm(tool, "blade_width")) if possible else 0.0
+        )
+        if all(number(z) for z in dialled) and number(blade) and (blade > 0 or not possible):
+            # Both ends conservatively: the lower of raw and dialled for the open +Z
+            # side; the groove grown from the deeper-dialled chuck-side wall for -Z.
+            low = min(*window, *dialled)
+            high = max(*window, *dialled, max(min(window), min(dialled)) + blade / scale)
+            tolerance = LENGTH_TOLERANCE_MM / scale
+            if (outward > 0 and low >= centre[2] - tolerance) or (
+                outward < 0 and high <= centre[2] + tolerance
+            ):
+                return True
     if action in TURNED:
         if plane.get("radius_is_upper") is not True:
             return False
@@ -817,6 +867,35 @@ def _rectangular_spares_plunge(bundle, setup, target, plane, footprint, previous
     return True
 
 
+def _same_plane_axis(bundle, old, new):
+    """Whether two native planes share one centre axis (parallel normals, frame origins
+    within LENGTH tolerance across it), so a keep-off radius about one is about the other."""
+    from .coordinates import UNIT_MM, frame_axes, model_point
+
+    if old is None or new is None:
+        return False
+    old_axes, new_axes = frame_axes(old["frame"]), frame_axes(new["frame"])
+    if not _native_basis(old_axes) or not _native_basis(new_axes):
+        return False
+    along = abs(sum(a * b for a, b in zip(old_axes[2], new_axes[2], strict=True)))
+    if math.degrees(math.acos(min(1.0, along))) > _NATIVE_DIRECTION_TOLERANCE_DEG:
+        return False
+    offset = [
+        a - b
+        for a, b in zip(
+            model_point([0.0, 0.0, 0.0], old["frame"]),
+            model_point([0.0, 0.0, 0.0], new["frame"]),
+            strict=True,
+        )
+    ]
+    axial = sum(a * b for a, b in zip(offset, new_axes[2], strict=True))
+    lateral = math.sqrt(max(0.0, sum(v * v for v in offset) - axial * axial))
+    return (
+        math.isfinite(lateral)
+        and lateral * UNIT_MM[bundle.features["units"]] <= LENGTH_TOLERANCE_MM
+    )
+
+
 def _carry_boxes(bundle, setup, target, plane):
     """Existing selected boxes translated only by a proved source cut's offset."""
     from .coordinates import UNIT_MM, frame_axes
@@ -1075,7 +1154,7 @@ def _native_surface_planes(bundle, setup, face, to_z):
     return list(refs) if number(height) and abs(height - to_z) <= tolerance else []
 
 
-def _carried_native_plane_groups(bundle, route, setup, face, boxes):
+def _carried_native_plane_groups(bundle, route, setup, face, boxes, *, current=False):
     """Raw receiving planes, before any stock or as-cut credit; None for proof gaps."""
     from .coordinates import UNIT_MM
 
@@ -1100,7 +1179,7 @@ def _carried_native_plane_groups(bundle, route, setup, face, boxes):
             # geometry or this same named source datum can supply its raw Z.
             source_heights = []
             for source in route:
-                if source.get("id") == setup.get("id"):
+                if not current and source.get("id") == setup.get("id"):
                     continue
                 plane = _native_plane_geometry(bundle, source, face, [ref])
                 if plane is None and target.get("faces") == [ref]:
@@ -1126,8 +1205,21 @@ def _carried_native_plane_groups(bundle, route, setup, face, boxes):
     return groups
 
 
-def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint=None, errors=None):
-    """The selected prepared plane carried by its stock DAG, with bounded touch keep-off."""
+def _carried_face_z(
+    bundle,
+    setup,
+    face,
+    edge,
+    done,
+    debts,
+    credited,
+    constraint=None,
+    errors=None,
+    *,
+    current_refs=None,
+):
+    """A surviving selected plane, including a current producer's own native refs
+    (``current_refs``), with bounded touch keep-off."""
     from .coordinates import UNIT_MM, formed_z, frame_axes
 
     def unknown(reason):
@@ -1137,6 +1229,10 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
 
     target = mapping(bundle.feature_definitions.get(face))
     route = _stock_route(bundle, setup)
+    if route is None and current_refs is not None and "stock_in" not in setup:
+        # Legacy local recipes name no incoming route. A whole local producer
+        # still establishes this surface; no upstream supply is borrowed.
+        route = [setup]
     if route is None:
         roots = [current.get("stock_in") for current in records(bundle.plan.get("setups"))]
         return unknown(f"untraceable stock_in lineage for {face}: {roots!r}")
@@ -1159,9 +1255,13 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
         ]
         detail = f"{face} on {', '.join(dict.fromkeys(roots))}: " if roots else ""
         return unknown(f"{detail}{reason}")
+    if current_refs is not None:
+        boxes = [(ref, box) for ref, box in boxes if ref in current_refs]
     scale = UNIT_MM[bundle.features["units"]]
     tolerance = LENGTH_TOLERANCE_MM / scale
-    groups = _carried_native_plane_groups(bundle, route, setup, face, boxes)
+    groups = _carried_native_plane_groups(
+        bundle, route, setup, face, boxes, current=current_refs is not None
+    )
     if not groups:
         return unknown(
             f"{face} needs exact native plane heights in the receiving frame "
@@ -1265,14 +1365,22 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
                 surface = {**target, "faces": [ref]}
                 row = state[ref]
                 produced, plane, normal = False, None, None
+                # The touch's own setup producer goes through this same survival
+                # ledger; its admissibility is _producer's, not op claims.
+                local = receiving and current_refs is not None
                 potential = (
-                    not receiving
+                    (not receiving or local)
                     and cuts is not False
                     and (
-                        claims is None
-                        and op.get("feature") == face
-                        or claims is not None
-                        and mapping_refs[ref] in claims
+                        local
+                        and (op.get("feature") == face or op.get("do") in FACING | POCKETING)
+                        or not local
+                        and (
+                            claims is None
+                            and op.get("feature") == face
+                            or claims is not None
+                            and mapping_refs[ref] in claims
+                        )
                     )
                     and forms is not False
                     and framed
@@ -1281,7 +1389,8 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
                     stock_debt
                     or cuts is not True
                     or forms is not True
-                    or claims is None
+                    or not local
+                    and claims is None
                     or away
                     or invalid
                     or not _native_basis(frame_axes(setup_frame(bundle, current)))
@@ -1365,7 +1474,11 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
                             continue
                 if produced:
                     # Re-facing does not fill either a bounded or an unknown hole.
-                    # The latter debt survives every cut on this same stock route.
+                    # The latter debt survives every cut on this same stock route. An
+                    # earlier exclusion was proved against the plane's own centre: a
+                    # re-face about another centre leaves its extent unproven (#192).
+                    if row["exclusions"] and not _same_plane_axis(bundle, row["plane"], plane):
+                        row["area_unknown"] = True
                     row["plane"] = plane
                     row["normal"] = normal
                     row["present"] = UNKNOWN if row["area_unknown"] else True
@@ -1548,14 +1661,17 @@ def _carried_face_z(bundle, setup, face, edge, done, debts, credited, constraint
     if credited is not None:
         credited.extend(refs)
     if constraint is not None:
-        native_heights = [
-            _plane_in_frame(bundle, state[ref]["plane"], setup, physical=False)
-            if state[ref]["plane"] is not None
-            else None
-            for ref in refs
-        ]
-        if all(number(z) for z in native_heights):
-            constraint["native_edge_mm"] = max(native_heights)
+        if current_refs is None:
+            # Only a carried plane has an imported native nominal; a current
+            # producer keeps its exact local DRO comparison.
+            native_heights = [
+                _plane_in_frame(bundle, state[ref]["plane"], setup, physical=False)
+                if state[ref]["plane"] is not None
+                else None
+                for ref in refs
+            ]
+            if all(number(z) for z in native_heights):
+                constraint["native_edge_mm"] = max(native_heights)
         if witnesses:
             ref = next(ref for ref in refs if ref in witnesses)
             witness = witnesses[ref]
@@ -1641,6 +1757,24 @@ def _position(ops, record):
         return min(named)
     after = str(record.get("after_op"))
     return names.index(after) + 1 if after in names else None
+
+
+def _boundary(ops, record):
+    """The index of the op a Z touch is made before, as :func:`_position`, but with every
+    declared name required to resolve: an empty or partly unresolved ``before_ops``, or an
+    unresolved ``after_op``, is UNKNOWN, never the initial boundary. A touch declaring
+    neither is made before the first op."""
+    names = [str(op.get("op")) for op in ops]
+    if "before_ops" in record:
+        before = record["before_ops"]
+        before = before if isinstance(before, list) else [before]
+        if not before or any(str(n) not in names for n in before):
+            return UNKNOWN
+        return min(names.index(str(n)) for n in before)
+    after = record.get("after_op")
+    if after is None:
+        return 0
+    return names.index(str(after)) + 1 if str(after) in names else UNKNOWN
 
 
 def _features(op):
@@ -2169,11 +2303,11 @@ def carried_z_reading(bundle, setup, op, readings=None):
     native = mapping(setup.get("stock_state")).get("top_feature") if face == "top" else face
     if not _kernel_face(bundle, native):
         return None
-    done = _position(records(setup.get("ops")), touch) or 0
+    done = _boundary(records(setup.get("ops")), touch)
     edge, credited, carried = _face_checker(bundle, setup, [], [])(
         touch, face, authored, done, "the effective Z touch"
     )
-    if not carried and number(edge):
+    if number(edge) and (not carried or "native_edge_mm" not in carried):
         return None
     stand_off = paper_offset(
         touch.get("paper_mm", UNKNOWN),
@@ -2211,7 +2345,9 @@ def reads_unknown(bundle, setup, op, readings=None):
         known = number(paper_offset(touch.get("paper_mm", UNKNOWN), side))
     if not known:
         return True
-    done = _position(records(setup.get("ops")), touch) or 0
+    done = _boundary(records(setup.get("ops")), touch)
+    if done == UNKNOWN:
+        return True
     credited = []
     stands = face_stands(bundle, setup, face, edge, done, credited=credited)
     return (stands is not None and not number(stands)) or (
@@ -2338,7 +2474,9 @@ def face_stands(
     """Where ``face`` physically stands once ``setup``'s first ``done`` ops have run.
 
     A whole producer in this setup under a set Z DRO leaves its :func:`formed_z`,
-    not the touch's authored edge. An unknown producer or a named native plane without
+    not the touch's authored edge; a native one must also have run before the
+    touch and survive every later cut through the same ledger as a carried face
+    (:func:`_carried_face_z`). An unknown producer or a named native plane without
     a whole eligible producer is unknown unless its exact native face was supplied
     as-is or whole-produced upstream and survives its traced stock route. Carried
     faces rigidly transform the producer's as-cut offset from their exact native
@@ -2361,6 +2499,14 @@ def face_stands(
     native = mapping(setup.get("stock_state")).get("top_feature") if face == "top" else face
     current = producer not in (None, UNKNOWN) and producer[0].get("id") == setup.get("id")
     if current:
+        if not any(cut is producer[1] for cut in records(setup.get("ops"))[:done]):
+            # The touch's own raw operation cutoff precedes this producer.
+            if debts is not None:
+                debts.append(
+                    f"{setup['id']} op {producer[1].get('op')} has not run before the touch "
+                    f"on {native}"
+                )
+            return UNKNOWN
         planes = _native_surface_planes(bundle, setup, native, producer[1].get("to_z"))
         if planes == []:
             if debts is not None:
@@ -2386,6 +2532,26 @@ def face_stands(
         return None
     if not _framed(*producer):
         return None
+    if current and planes is not None:
+        # A same-setup native producer is not an escape hatch: every cut between
+        # it and the touch must leave proven land, through the shared ledger.
+        constraint = {}
+        stands = _carried_face_z(
+            bundle,
+            setup,
+            native,
+            edge,
+            done,
+            debts,
+            credited,
+            constraint,
+            errors,
+            current_refs=planes,
+        )
+        if number(stands) and carried is not None and constraint["touch_exclusion_dia_mm"]:
+            # Local keep-off metadata, not a carried coordinate transform.
+            carried.append(constraint)
+        return stands
     if credited is not None:
         credited.extend(matched)
     return formed_z(bundle, *producer)
@@ -2406,13 +2572,20 @@ def _face_checker(bundle, setup, errors, unknowns):
     A same-setup producer keeps its exact DRO-step comparison. A carried face's
     authored edge must agree with its transformed native nominal or as-cut height
     within LENGTH tolerance; the +Z Axis Set separately rounds height plus paper
-    down to the current display step. Measured touches remain independent.
+    down to the current display step. Measured touches remain independent. On an
+    unverified DRO grid a face's known standing Z still reads unknown.
     """
-    from .coordinates import dro_grid, dro_z, formed_z
+    from .coordinates import dro_grid, dro_grid_debt, dro_z, formed_z
 
     grid = dro_grid(bundle, setup)
+    grid_debt = dro_grid_debt(bundle, setup)
 
     def check(touch, face, edge, done, who, source=None):
+        if done == UNKNOWN:
+            # A touch whose own operation boundary does not resolve stands nowhere
+            # known: no surface reading, measured or surveyed, places it.
+            unknowns.append(f"{who} on {face} (unknown operation boundary)")
+            return UNKNOWN, [], False
         if touch.get("method") in MEASURED or not face:
             return edge, [], False
         debts, credited, carried, contradictions = [], [], [], []
@@ -2422,26 +2595,34 @@ def _face_checker(bundle, setup, errors, unknowns):
         if contradictions:
             errors.extend(f"{who} on {face}: {reason}" for reason in contradictions)
             return UNKNOWN, [], False
-        if number(edge) and not number(stands):
-            # Strict producer matching may reject the authored edge. Recover only
-            # the physical face for the contradiction check below, not raw credit
-            # for a partial or unknown cut.
-            matched = []
-            producer = _producer(bundle, setup, UNKNOWN, face, done, source, credited=matched)
+        if number(edge) and not number(stands) and not debts:
+            # Strict edge matching can reject a real producer. Recover its
+            # physical face for the contradiction check below only through the
+            # same survival proof, never by copying its refs over a lost area.
+            producer = _producer(bundle, setup, UNKNOWN, face, done, source)
             native = mapping(setup.get("stock_state")).get("top_feature") if face == "top" else face
-            planes = (
-                _native_surface_planes(bundle, producer[0], native, producer[1].get("to_z"))
-                if producer not in (None, UNKNOWN)
-                else []
-            )
             if (
                 producer not in (None, UNKNOWN)
                 and _framed(*producer)
-                and planes != []
                 and (not _kernel_face(bundle, native) or producer[0].get("id") == setup.get("id"))
             ):
-                stands, credited = formed_z(bundle, *producer), matched or planes or []
-                debts.clear()
+                candidate = formed_z(bundle, *producer)
+                if number(candidate):
+                    stands = face_stands(
+                        bundle,
+                        setup,
+                        face,
+                        candidate,
+                        done,
+                        source,
+                        debts,
+                        credited,
+                        carried,
+                        contradictions,
+                    )
+                    if contradictions:
+                        errors.extend(f"{who} on {face}: {reason}" for reason in contradictions)
+                        return UNKNOWN, [], False
         if stands is None and not debts:
             return edge, [], False
         if not number(stands):
@@ -2453,7 +2634,11 @@ def _face_checker(bundle, setup, errors, unknowns):
                 f"{who} on {face} (native-plane credit requires a known +Z/above touch)"
             )
             return UNKNOWN, [], False
-        if carried:
+        if grid_debt:
+            # An unverified grid certifies nothing, but the readings stay printed on
+            # its nominal step; grid-exactness errors are not judged on it.
+            unknowns.append(f"{who} on {face}: {grid_debt}")
+        if carried and "native_edge_mm" in carried[0]:
             from .coordinates import UNIT_MM
 
             tolerance = LENGTH_TOLERANCE_MM / UNIT_MM[bundle.features["units"]]
@@ -2466,6 +2651,8 @@ def _face_checker(bundle, setup, errors, unknowns):
                     f"the carried face physically stands at {stands:g}"
                 )
             return stands, credited, carried[0]
+        if grid_debt:
+            return stands, credited, carried[0] if carried else False
         shown_edge = dro_z(edge, grid)
         if number(edge) and shown_edge != stands:
             errors.append(
@@ -2475,7 +2662,7 @@ def _face_checker(bundle, setup, errors, unknowns):
         shown = dro_z(stands, grid)
         if round(shown - stands, 9):
             errors.append(f"{who} sets {face} as Z {shown:g}, which stands at {stands:g}")
-        return stands, credited, False
+        return stands, credited, carried[0] if carried else False
 
     return check
 
@@ -2486,6 +2673,10 @@ def _carried_setting(bundle, setup, row, field, constraint=None):
 
     if constraint is not None:
         row.update(constraint)
+        if "native_edge_mm" not in constraint:
+            # A same-setup plane retains its exact current DRO comparison and
+            # Axis Set; only its surviving-land keep-off note is carried here.
+            return
     desired = row[field]
     grid = dro_grid(bundle, setup)
     shown = _grid(desired, *grid, True) if number(desired) else UNKNOWN
@@ -2518,6 +2709,8 @@ def _carried_setting(bundle, setup, row, field, constraint=None):
 
 
 def evaluate(bundle):
+    from .coordinates import dro_grid_debt, dro_grid_measurements
+
     result = []
     dro = mapping(bundle.plan.get("dro"))
     for setup in bundle.plan["setups"]:
@@ -2559,6 +2752,7 @@ def evaluate(bundle):
         face_check = _face_checker(bundle, setup, face_errors, face_unknowns)
         # The edge finder's procedure facts (:func:`finder_procedure`) of each pick-up.
         finder_status = set()
+        tip_measurements = []
 
         unknown = (
             not frame
@@ -2590,27 +2784,29 @@ def evaluate(bundle):
                 if axis == "z" or method == "trial_cut_measure"
                 else 0
                 if indicated
-                else length_mm(tool, "tip")
+                else _touch_diameter(tool)[0]
             )
-            if (
-                axis != "z"
-                and not indicated
-                and method != "trial_cut_measure"
-                and not number(radius)
-            ):
-                radius = length_mm(tool, "dia")
             if not indicated and number(radius):
                 radius /= 2
+            if axis != "z" and not indicated and method not in MEASURED and tool:
+                _, field = _touch_diameter(tool)
+                category, tool_ref = identity(bundle, recipe.get("tool"), "spindle")
+                if tool.get("kind") != UNKNOWN:
+                    debt = length_debt(tool, field, category, tool_ref)
+                    if debt:
+                        tip_measurements.append(debt)
+            # A named after_op that does not resolve places the touch nowhere known,
+            # never at the initial boundary.
+            done = _boundary(ops, {"after_op": recipe.get("after_op")})
             if axis == "z" and recipe.get("face") == "top":
                 # The top as the ops up to and including after_op left it, not the
                 # incoming stock top.
-                edge = tops[_position(ops, {"after_op": recipe.get("after_op")}) or 0]
+                edge = tops[done] if done != UNKNOWN else UNKNOWN
             # Paper stands the tool off its face on the side it meets the face from.
             face = recipe.get("face", recipe.get("feature"))
             stand_off = None
             credited, carried = [], False
             if axis == "z":
-                done = _position(ops, {"after_op": recipe.get("after_op")}) or 0
                 edge, credited, carried = face_check(
                     {**recipe, "from": recipe.get("from", UNKNOWN)},
                     face,
@@ -2751,7 +2947,7 @@ def evaluate(bundle):
             edge, paper = record.get("edge_mm", UNKNOWN), record.get("paper_mm", UNKNOWN)
             who = f"the {record.get('tool', UNKNOWN)} touch"
             edge, credited, carried = face_check(
-                record, record.get("z_face"), edge, _position(ops, record) or 0, who
+                record, record.get("z_face"), edge, _boundary(ops, record), who
             )
             side = touch_side(bundle, setup, record, record.get("z_face"), edge, lathe)
             stand_off = paper_offset(paper, side)
@@ -2810,7 +3006,7 @@ def evaluate(bundle):
             row.update(served.get(str(row["op"]), idle))
         for row in derived:
             who = f"the {row.get('tool', UNKNOWN)} re-touch"
-            done = _position(ops, row) or 0
+            done = _boundary(ops, row)
             previous = row.get("edge_mm")
             offset = (
                 row["z_axis_set"] - previous
@@ -2818,7 +3014,7 @@ def evaluate(bundle):
                 else UNKNOWN
             )
             edge, credited, carried = face_check(row, row.get("z_face"), previous, done, who)
-            if carried:
+            if carried and "native_edge_mm" in carried:
                 offset = paper_offset(
                     row.get("paper_mm", UNKNOWN),
                     touch_side(bundle, setup, row, row.get("z_face"), edge, lathe),
@@ -2846,6 +3042,14 @@ def evaluate(bundle):
             "derived_touches": derived,
             "missing_touches": missing,
         }
+        grid_debt = dro_grid_debt(bundle, setup) if face_unknowns else None
+        if grid_debt:
+            numbers["dro_grid_debt"] = grid_debt
+            numbers["measurements"] = dro_grid_measurements(bundle, setup)
+        if tip_measurements:
+            numbers["measurements"] = measurement_checklist(
+                [], debts=[*numbers.get("measurements", []), *tip_measurements]
+            )
         if lathe:
             numbers["tool_setting"] = tool_setting(bundle, setup, zero, touches, derived)
         if "transfer" in zero:
@@ -2919,7 +3123,11 @@ def evaluate(bundle):
             )
         if face_unknowns:
             sentence += (
-                " A Z touch meets a face its op left at an unknown Z ("
+                (
+                    " A Z touch cannot be certified on an unverified DRO grid ("
+                    if grid_debt
+                    else " A Z touch meets a face its op left at an unknown Z ("
+                )
                 + "; ".join(face_unknowns)
                 + "): its Axis Set is not known."
             )

@@ -4,6 +4,7 @@ import math
 from pathlib import Path
 
 import pytest
+from test_envelope_m5 import measured
 from test_headroom import coordinate_bundle
 
 from prechips.inputs import load_bundle
@@ -88,7 +89,7 @@ def test_outside_contours_follow_spindle_direction_and_setup_frame(
     [
         ("'conventional'", None, "spindle rotation is not declared"),
         ("'conventional'", "'unknown'", "spindle rotation is not declared"),
-        ("'conventional'", "{ value = 'cw', verify = true }", "flagged verify"),
+        ("'conventional'", "{ value = 'cw', verify = true }", "explicitly requires verification"),
         ("'unknown'", "'cw'", "neither conventional nor climb"),
         ("'positive_setup_x'", "'cw'", "neither conventional nor climb"),
     ],
@@ -229,6 +230,7 @@ def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A", 
         f"sweep_frame = '{sweep_frame}', "
         "sweep_bounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [0.0, 1.0] }, "
         f"keep_out = {circles} }}\n",
+        resolution=0.001 if resolution is None else resolution,
     )
     if sweep_frame == "B":
         features = plan.with_name("features.toml")
@@ -238,12 +240,6 @@ def keep_out_face(tmp_path, circles, direction="conventional", sweep_frame="A", 
                 "x = [1.0, 0.0, 0.0]\ny = [0.0, -1.0, 0.0]\nz = [0.0, 0.0, -1.0]\n"
                 "binding = 'measured'\n"
             )
-    if resolution is not None:
-        inventory = plan.with_name("inventory.toml")
-        text = inventory.read_text(encoding="utf-8").replace(
-            "kind = 'mill'\n", f"kind = 'mill'\nresolution_mm = {resolution}\n", 1
-        )
-        inventory.write_text(text, encoding="utf-8")
     row = next(row for row in coordinates.evaluate(load_bundle(plan)) if row.subject == "S1")
     (profile,) = row.numbers["profiles"]
     return row, profile
@@ -480,10 +476,11 @@ def test_an_inch_plan_face_raster_steps_and_overruns_in_inches(tmp_path):
     )
     bundle = load_bundle(plan)
     bundle.features["units"] = "in"
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.0254)
     row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
     (profile,) = row.numbers["profiles"]
     passes = profile["cutter_centre"]
-    # A 2 in x 1 in face, Ø6 mm cutter, 4 mm step on the default 0.001 in DRO grid: passes
+    # A 2 in x 1 in face, Ø6 mm cutter, 4 mm step on a measured 0.001 in DRO grid: passes
     # no more than 4/25.4 in apart across the 1 in span, each running at least 3/25.4 in
     # (rounded outward to the grid, so less than one step more) past both ends of the 2 in
     # span.
@@ -510,6 +507,7 @@ def test_an_inch_plan_keep_out_island_clears_by_its_millimetre_diameter(tmp_path
     )
     bundle = load_bundle(plan)
     bundle.features["units"] = "in"
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.0254)
     row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
     (profile,) = row.numbers["profiles"]
     assert row.status == "pass", (row.sentence, profile.get("raster_reason"))
@@ -620,6 +618,9 @@ FACE_ONLY = "kind = 'face'\n"
 NEAR = (6.0, 3.0, -7.8, 14.0, 11.0, -7.8)
 FAR = (26.0, 3.0, -7.8, 34.0, 11.0, -7.8)
 UNDER = (6.0, 3.0, -8.5, 14.0, 11.0, -8.5)
+# Incidental point/diameter metadata describes a Ø2 disc at setup (5, 5, -8.8), whose
+# box X/Y 4..6 lies inside op 10's 0..10 box. It does not bound the listed native faces.
+FACE_WITH_DISC = FACE_ONLY + "at = [10.0, 7.0, -7.8]\naxis = [0.0, 0.0, 1.0]\ndia = 2.0\n"
 
 
 def matched_faces(bundle, *boxes):
@@ -695,12 +696,15 @@ def named_face_touch(bundle, setup, edge, paper=0.1):
     ],
     ids=["faced-feature", "named-top", "every-patch"],
 )
+@pytest.mark.parametrize(
+    "feature", [FACE_ONLY, FACE_WITH_DISC], ids=["native-only", "incidental-disc"]
+)
 def test_a_box_holding_every_matched_face_of_an_unbounded_face_produces_the_top(
-    tmp_path, top_feature, boxes, box
+    tmp_path, top_feature, boxes, box, feature
 ):
     # Op 10's box holds every STEP plane the feature lists, each at op 10's floor: it faced
     # all of the top, so a Z touch after it reads op 10's DRO Z.
-    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY, box)
+    bundle, setup = left_strip_faced(tmp_path, feature, box)
     if top_feature is not None:
         setup["stock_state"]["top_feature"] = top_feature
     refs = matched_faces(bundle, *boxes)
@@ -719,6 +723,67 @@ def test_a_box_holding_every_matched_face_of_an_unbounded_face_produces_the_top(
     assert recipe.numbers["retouch"][0]["axis_set"] == pytest.approx(-8.7)
 
 
+@pytest.mark.parametrize("kind", ["Cylinder", "BSplineSurface"])
+def test_a_known_non_plane_face_thin_in_setup_z_produces_no_top(tmp_path, kind):
+    # The box is flat at op 10's floor within LENGTH tolerance, but the STEP face is a
+    # known non-planar kind: no planar top/entry is established, so coverage is unknown.
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY, "x = [0.0, 10.0], y = [0.0, 10.0], ")
+    setup["stock_state"]["top_feature"] = "target"
+    matched_faces(bundle, NEAR)
+    bundle.kernel["faces"][0]["kind"] = kind
+    target = bundle.feature_definitions["target"]
+    debts, credited = [], []
+    coverage = tip_endpoints.cut_coverage(bundle, setup, setup["ops"][0], target, debts, credited)
+    assert coverage == "unknown" and credited == []
+    assert debts == [
+        "no eligible face for target at to_z -8.8: "
+        "matched faces at that Z are known non-Plane kinds"
+    ]
+    (_, _, after), _ = stock_states(bundle, setup)
+    assert after["top_z"] != -8.8
+    assert _producer(bundle, setup, -8.8, "top", 1, None) in (None, "unknown")
+
+
+@pytest.mark.parametrize(
+    ("z", "expected"),
+    [
+        ([-10.0, 1.0], "whole"),
+        ([-8.8, -8.8], "whole"),
+        (None, "unknown"),
+        ("unknown", "unknown"),
+        ([1.0, -10.0], "unknown"),
+        ([-10.0, math.inf], "unknown"),
+        ([-5.0, 1.0], "unknown"),
+        ([-12.0, -9.0], "unknown"),
+    ],
+    ids=["contains", "at-plane", "missing", "unknown", "descending", "infinite", "above", "below"],
+)
+def test_a_bounded_cut_credits_a_native_plane_only_within_its_removal_z(tmp_path, z, expected):
+    # Op 10's X/Y box holds the whole face at its floor, but only a finite removal Z span
+    # that reaches -8.8 lets that floor be the cut's plane.
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY, "x = [0.0, 10.0], y = [0.0, 10.0], ")
+    setup["stock_state"]["top_feature"] = "target"
+    refs = matched_faces(bundle, NEAR)
+    op = setup["ops"][0]
+    if z is None:
+        del op["stock_removal_bounds"]["z"]
+    else:
+        op["stock_removal_bounds"]["z"] = z
+    target = bundle.feature_definitions["target"]
+    debts, credited = [], []
+    coverage = tip_endpoints.cut_coverage(bundle, setup, op, target, debts, credited)
+    assert coverage == expected
+    (_, _, after), _ = stock_states(bundle, setup)
+    if expected == "whole":
+        assert credited == refs and debts == []
+        assert after["top_z"] == -8.8
+    else:
+        assert credited == []
+        assert debts == ["stock_removal_bounds.z must be a finite span containing op.to_z"]
+        assert after["top_z"] != -8.8
+        assert _producer(bundle, setup, -8.8, "top", 1, None) in (None, "unknown")
+
+
 @pytest.mark.parametrize("boxes", [(NEAR, FAR), (FAR,)], ids=["distant-patch", "disjoint"])
 def test_a_box_missing_any_matched_face_leaves_the_unfaced_top(tmp_path, boxes):
     # The feature's complete face list reaches past op 10's box: it faced part of the top
@@ -733,6 +798,255 @@ def test_a_box_missing_any_matched_face_leaves_the_unfaced_top(tmp_path, boxes):
     assert after["top_z"] == 0.0 and after["top_from"] == "S1 stock_state.top_z"
     assert operative_z(bundle, setup, 0.0, "top", done=1) == 0.0
     assert _producer(bundle, setup, -8.8, "target", 1, None) is None
+
+
+@pytest.mark.parametrize("boxes", [(NEAR, FAR), (FAR,)], ids=["distant-patch", "disjoint"])
+def test_incidental_disc_metadata_cannot_shrink_a_bounds_free_native_face(tmp_path, boxes):
+    # The small metadata disc is fully inside op 10's cut. FAR is wholly outside:
+    # with NEAR also listed only that patch is reached; with FAR alone none is reached.
+    # Neither witness proves a whole native surface merely by holding the small disc.
+    bundle, setup = left_strip_faced(tmp_path, FACE_WITH_DISC)
+    matched_faces(bundle, *boxes)
+    setup["stock_state"]["entry_z"] = {"target": 0.0}
+    target = bundle.feature_definitions["target"]
+    assert tip_endpoints._corners(bundle, target, bundle.features["frames"]["A"]) is None
+    assert tip_endpoints._footprint(target) == {}
+    # Frame A is a pure translation: the legacy disc would span setup XY 4..6.
+    origin = bundle.features["frames"]["A"]["origin"]
+    radius = target["dia"] / 2
+    disc = [
+        [target["at"][i] - origin[i] - radius, target["at"][i] - origin[i] + radius]
+        for i in range(2)
+    ]
+    assert disc == [[4.0, 6.0], [4.0, 6.0]]
+    assert all(0.0 <= low <= high <= 10.0 for low, high in disc)
+    credited = []
+    coverage = tip_endpoints.cut_coverage(bundle, setup, setup["ops"][0], target, None, credited)
+    assert coverage == "partial" and credited == []
+    (_, _, after), _ = stock_states(bundle, setup)
+    assert after["top_z"] == 0.0 and after["top_from"] == "S1 stock_state.top_z"
+    assert after["entry_z"] == {"target": 0.0}
+    assert after["entry_from"] == {"target": "S1 stock_state.entry_z.target"}
+    assert operative_z(bundle, setup, 0.0, "top", done=1) == 0.0
+    assert _producer(bundle, setup, -8.8, "target", 1, None) is None
+    assert _producer(bundle, setup, -8.8, "top", 1, None) is None
+    recipe, row = named_face_touch(bundle, setup, -8.8)
+    matched = []
+    assert (
+        zero_recipe.face_stands(bundle, setup, "target", -8.8, done=1, credited=matched)
+        == "unknown"
+    )
+    assert matched == []
+    assert recipe.status == "unknown"
+    assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
+    # Naming the native surface as the top cannot turn the uncut stock's Z 0 into
+    # proof of that surface: its post-op zero and listed retouch also remain unknown.
+    setup["stock_state"]["top_feature"] = "target"
+    recipe = zero_after_first_face(bundle, setup, pick_up=True)
+    assert recipe.status == "unknown"
+    assert recipe.numbers["axes"]["z"]["axis_set"] == "unknown"
+    assert recipe.numbers["retouch"][0]["axis_set"] == "unknown"
+    assert "credited_faces" not in recipe.numbers["axes"]["z"]
+    assert "credited_faces" not in recipe.numbers["retouch"][0]
+
+
+def test_an_unbounded_cross_feature_cut_cannot_use_a_native_faces_incidental_disc(tmp_path):
+    # The authored pocket spans setup XY 0..10 and contains the incidental disc.
+    # FAR is setup X 21..29, outside that pocket. Without declared target bounds,
+    # cross-feature native containment is unsupported, not a smaller-disc whole cut.
+    bundle, setup = left_strip_faced(tmp_path, FACE_WITH_DISC)
+    matched_faces(bundle, NEAR, FAR)
+    target = bundle.feature_definitions["target"]
+    field = {
+        "kind": "pocket",
+        "frame": "model",
+        "bounds": {"x": [5.0, 15.0], "y": [2.0, 12.0], "z": [-9.0, 2.0]},
+    }
+    bundle.feature_definitions["field"] = field
+    setup["stock_state"]["entry_z"] = {"target": 0.0}
+    op = setup["ops"][0]
+    op.update(do="rough_pocket", feature="field")
+    del op["stock_removal_bounds"]
+    assert not tip_endpoints._covers_xy(field, target)
+    debts, credited = [], []
+    assert tip_endpoints.cut_coverage(bundle, setup, op, target, debts, credited) == "unknown"
+    assert credited == [] and "containment" in " ".join(debts)
+    (_, _, after), _ = stock_states(bundle, setup)
+    assert after["top_z"] == 0.0 and after["top_from"] == "S1 stock_state.top_z"
+    assert after["entry_z"] == {"target": 0.0}
+    assert after["entry_from"] == {"target": "S1 stock_state.entry_z.target"}
+    assert _producer(bundle, setup, -8.8, "target", 1, None) == "unknown"
+    recipe, row = named_face_touch(bundle, setup, -8.8)
+    assert recipe.status == "unknown"
+    assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
+
+
+@pytest.mark.parametrize(
+    ("at", "expected"),
+    [([40.0, 30.0], "whole"), ([30.0, 7.0], "partial")],
+    ids=["clear-island", "island-on-far-patch"],
+)
+def test_an_unbounded_own_native_face_cut_uses_native_boxes_for_keep_outs(tmp_path, at, expected):
+    # Declaring a cut of the whole feature still produces it without a removal box.
+    # An island at model (30, 7) excludes land on FAR, far from the small metadata
+    # disc; an island at (40, 30) is clear of both native patches and retains credit.
+    bundle, setup = left_strip_faced(tmp_path, FACE_WITH_DISC)
+    refs = matched_faces(bundle, NEAR, FAR)
+    setup["stock_state"]["entry_z"] = {"target": 0.0}
+    op = setup["ops"][0]
+    del op["stock_removal_bounds"]
+    op["contour"] = {
+        "method": "linear_table",
+        "step_mm": 4.0,
+        "keep_out": [{"at": at, "dia_mm": 2.0}],
+    }
+    target = bundle.feature_definitions["target"]
+    credited = []
+    assert tip_endpoints.cut_coverage(bundle, setup, op, target, None, credited) == expected
+    assert credited == []  # Unbounded own-feature coverage retains its legacy credit path.
+    (_, _, after), _ = stock_states(bundle, setup)
+    whole = expected == "whole"
+    assert after["top_z"] == (-8.8 if whole else 0.0)
+    assert after["entry_z"] == {"target": -8.8 if whole else 0.0}
+    assert after["entry_from"] == {
+        "target": "S1 op 10 to_z" if whole else "S1 stock_state.entry_z.target"
+    }
+    recipe, row = named_face_touch(bundle, setup, -8.8)
+    assert recipe.status == ("pass" if whole else "unknown"), recipe.sentence
+    if whole:
+        assert row["z_axis_set"] == pytest.approx(-8.7)
+        assert row["credited_faces"] == refs
+        return
+    assert _producer(bundle, setup, -8.8, "target", 1, None) is None
+    assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
+
+
+@pytest.mark.parametrize("expected", ["whole", "partial", "unknown"])
+def test_a_native_local_source_must_prove_coverage_without_a_credit_collector(tmp_path, expected):
+    # An explicit op source is not coverage proof: the op either holds NEAR, misses
+    # FAR beside it, or lacks the native box needed to decide.
+    bundle, setup = left_strip_faced(tmp_path, FACE_WITH_DISC)
+    boxes = (NEAR, FAR) if expected == "partial" else (NEAR,)
+    refs = matched_faces(bundle, *boxes)
+    if expected == "unknown":
+        del bundle.kernel["faces"][0]["bbox_mm"]
+    source = "S1 op 10 to_z"
+    producer = _producer(bundle, setup, -8.8, "target", 1, source)
+    credited = []
+    collected = _producer(bundle, setup, -8.8, "target", 1, source, credited=credited)
+    if expected == "whole":
+        assert producer == collected == (setup, setup["ops"][0])
+        assert credited == refs
+        return
+    assert producer == collected == ("unknown" if expected == "unknown" else None)
+    assert credited == []
+    named_face_touch(bundle, setup, -8.8)
+    matched = []
+    assert (
+        zero_recipe.face_stands(
+            bundle, setup, "target", -8.8, done=1, source=source, credited=matched
+        )
+        == "unknown"
+    )
+    assert matched == []
+
+
+@pytest.mark.parametrize("expected", ["whole", "partial", "unknown"])
+def test_a_bounded_cross_feature_native_producer_needs_no_authored_cut_footprint(
+    tmp_path, expected
+):
+    # The pocket has no authored bounds, but its removal box is still the cut.
+    # Native coverage, not a nonexistent or incidental authored disc, decides.
+    bundle, setup = left_strip_faced(tmp_path, FACE_WITH_DISC)
+    boxes = (NEAR, FAR) if expected == "partial" else (NEAR,)
+    refs = matched_faces(bundle, *boxes)
+    if expected == "unknown":
+        del bundle.kernel["mapping"][refs[0]]
+    bundle.feature_definitions["field"] = {"kind": "pocket", "frame": "model"}
+    op = setup["ops"][0]
+    op.update(do="rough_pocket", feature="field")
+    target = bundle.feature_definitions["target"]
+    assert not tip_endpoints._covers_xy(bundle.feature_definitions["field"], target)
+    credited = []
+    producer = _producer(bundle, setup, -8.8, "target", 1, None, credited=credited)
+    if expected == "whole":
+        assert producer == (setup, op)
+        assert credited == refs
+    else:
+        assert producer == ("unknown" if expected == "unknown" else None)
+        assert credited == []
+    recipe, row = named_face_touch(bundle, setup, -8.8)
+    assert recipe.status == ("pass" if expected == "whole" else "unknown"), recipe.sentence
+    if expected == "whole":
+        assert row["z_axis_set"] == pytest.approx(-8.7)
+        assert row["credited_faces"] == refs
+        return
+    assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
+
+
+def test_a_later_xy_disjoint_cut_at_another_floor_keeps_the_native_producer(tmp_path):
+    # Op 10 pockets NEAR at -8.8. Op 20 is entirely to its right and stops at -9:
+    # absence of an eligible -9 plane must not hide op 10's whole -8.8 producer.
+    bundle, setup = left_strip_faced(tmp_path, FACE_WITH_DISC)
+    refs = matched_faces(bundle, NEAR)
+    for name in ("field", "other"):
+        bundle.feature_definitions[name] = {"kind": "pocket", "frame": "model"}
+    first, later = setup["ops"]
+    first.update(do="rough_pocket", feature="field")
+    later.update(do="rough_pocket", feature="other")
+    later["stock_removal_bounds"]["x"] = [20.0, 30.0]
+    setup["stock_state"]["entry_z"] = {"target": 0.0}
+    target = bundle.feature_definitions["target"]
+    credited = []
+    assert tip_endpoints.cut_coverage(bundle, setup, later, target, None, credited) == "partial"
+    assert credited == []
+    debts = []
+    producer = _producer(bundle, setup, -8.8, "target", 2, None, debts=debts, credited=credited)
+    assert producer == (setup, first)
+    assert credited == refs and debts == []
+    (_, _, after_first), (_, _, after_later) = stock_states(bundle, setup)
+    assert after_first["entry_z"] == after_later["entry_z"] == {"target": -8.8}
+    assert after_later["entry_from"] == {"target": "S1 op 10 to_z"}
+
+
+def test_a_later_xy_overlapping_cut_at_another_floor_leaves_native_contact_unknown(tmp_path):
+    # Op 10 pockets all of NEAR at -8.8. Op 20 crosses its right-hand X 5..9 strip
+    # and stops below it at -9. Its native coverage/surviving contact is unresolved:
+    # unlike a disjoint cut, it must not silently retain op 10's earlier credit.
+    bundle, setup = left_strip_faced(tmp_path, FACE_WITH_DISC)
+    matched_faces(bundle, NEAR)
+    for name in ("field", "other"):
+        bundle.feature_definitions[name] = {"kind": "pocket", "frame": "model"}
+    first, later = setup["ops"]
+    first.update(do="rough_pocket", feature="field")
+    later.update(do="rough_pocket", feature="other")
+    later["stock_removal_bounds"]["x"] = [5.0, 15.0]
+    setup["stock_state"]["entry_z"] = {"target": 0.0}
+    target = bundle.feature_definitions["target"]
+    debts, credited = [], []
+    assert tip_endpoints.cut_coverage(bundle, setup, later, target, debts, credited) == "unknown"
+    assert credited == [] and "to_z" in " ".join(debts)
+    assert _producer(bundle, setup, -8.8, "target", 2, None, credited=credited) == "unknown"
+    assert credited == []
+    (_, _, after_first), (_, _, after_later) = stock_states(bundle, setup)
+    assert after_first["entry_z"] == {"target": -8.8}
+    assert after_later["entry_z"] == after_later["entry_from"] == {"target": "unknown"}
+    touch = {
+        "tool": "cutter",
+        "z_face": "target",
+        "edge_mm": -8.8,
+        "paper_mm": 0.1,
+        "after_op": 20,
+    }
+    recipe = zero_on_raw_top(bundle, setup, touches=[touch])
+    (row,) = recipe.numbers["tool_touches"]
+    assert recipe.status == "unknown"
+    assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
+    assert (
+        zero_recipe.face_stands(bundle, setup, "target", -8.8, done=2, credited=credited)
+        == "unknown"
+    )
+    assert credited == []
 
 
 @pytest.mark.parametrize(
@@ -924,8 +1238,17 @@ def _unmapped(bundle, refs):
     del bundle.kernel["mapping"][refs[1]]
 
 
+def _invalid_mapping(bundle, refs):
+    bundle.kernel["mapping"][refs[1]] = True
+
+
 def _no_bbox(bundle, refs):
     del bundle.kernel["faces"][1]["bbox_mm"]
+
+
+def _reversed_bbox(bundle, refs):
+    box = bundle.kernel["faces"][1]["bbox_mm"]
+    box[0] = box[3] + 1.0
 
 
 def _no_face_record(bundle, refs):
@@ -949,7 +1272,9 @@ MISSING_FOOTPRINT = {
     "no kernel": (_no_kernel, "kernel"),
     "failed kernel": (_failed_kernel, "kernel"),
     "unmapped face": (_unmapped, "#41/ADVANCED_FACE[2]/NONE"),
+    "invalid mapping index": (_invalid_mapping, "#41/ADVANCED_FACE[2]/NONE"),
     "no face bbox": (_no_bbox, "bbox_mm"),
+    "reversed face bbox": (_reversed_bbox, "bbox_mm"),
     "no face record": (_no_face_record, "bbox_mm"),
     "no faces list": (_no_faces_list, "faces"),
     "unknown setup origin": (_unknown_frame_origin, "origin"),
@@ -960,11 +1285,18 @@ MISSING_FOOTPRINT = {
 
 
 @pytest.mark.parametrize("case", MISSING_FOOTPRINT)
-def test_a_matched_face_footprint_missing_an_input_stays_unknown_and_names_it(tmp_path, case):
-    # Every listed face is needed: the known patch alone never stands for the surface.
+@pytest.mark.parametrize(
+    "feature", [FACE_ONLY, FACE_WITH_DISC], ids=["native-only", "incidental-disc"]
+)
+def test_a_matched_face_footprint_missing_an_input_stays_unknown_and_names_it(
+    tmp_path, case, feature
+):
+    # Every listed face is needed: neither the known patch nor incidental at/dia is
+    # a fallback for missing or invalid native coverage data.
     remove, missing = MISSING_FOOTPRINT[case]
-    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY, "x = [0.0, 30.0], y = [0.0, 10.0], ")
+    bundle, setup = left_strip_faced(tmp_path, feature, "x = [0.0, 30.0], y = [0.0, 10.0], ")
     refs = matched_faces(bundle, NEAR, FAR)
+    setup["stock_state"]["entry_z"] = {"target": 0.0}
     remove(bundle, refs)
     target = bundle.feature_definitions["target"]
     credited = []
@@ -972,10 +1304,14 @@ def test_a_matched_face_footprint_missing_an_input_stays_unknown_and_names_it(tm
     assert coverage == "unknown" and credited == []
     (_, _, after), _ = stock_states(bundle, setup)
     assert after["top_z"] == after["top_from"] == "unknown"
+    assert after["entry_z"] == after["entry_from"] == {"target": "unknown"}
     assert _producer(bundle, setup, -8.8, "target", 1, None) == "unknown"
     recipe = zero_after_first_face(bundle, setup, pick_up=True)
     assert recipe.status == "unknown"
     assert recipe.numbers["axes"]["z"]["axis_set"] == "unknown"
+    assert recipe.numbers["retouch"][0]["axis_set"] == "unknown"
+    assert "credited_faces" not in recipe.numbers["axes"]["z"]
+    assert "credited_faces" not in recipe.numbers["retouch"][0]
     # The zero check names the touched feature and the footprint input it lacks.
     reported = str(recipe.to_dict())
     assert "target" in reported and missing in reported
@@ -1001,6 +1337,91 @@ def test_explicit_invalid_face_bounds_stay_debt_beside_a_kernel_box(tmp_path, bo
     recipe = zero_after_first_face(bundle, setup, pick_up=True)
     assert recipe.status == "unknown"
     assert recipe.numbers["axes"]["z"]["axis_set"] == "unknown"
+
+
+@pytest.mark.parametrize("bounds", ["'unknown'", "{}"], ids=["whole-record-unknown", "empty"])
+@pytest.mark.parametrize("boxed", [False, True], ids=["own-unbounded", "boxed"])
+def test_empty_or_unknown_face_bounds_never_fall_back_to_incidental_disc(tmp_path, bounds, boxed):
+    # A bounds key is an explicit footprint claim. Unknown/empty claims are debt,
+    # not a disc fallback and not permission to replace them with native boxes.
+    bundle, setup = left_strip_faced(tmp_path, FACE_WITH_DISC + f"bounds = {bounds}\n")
+    matched_faces(bundle, NEAR, FAR)
+    setup["stock_state"]["entry_z"] = {"target": 0.0}
+    target = bundle.feature_definitions["target"]
+    assert tip_endpoints._footprint(target) == {}
+    assert tip_endpoints._corners(bundle, target, bundle.features["frames"]["A"]) is None
+    assert tip_endpoints._setup_footprint(bundle, setup, target) is None
+    op = setup["ops"][0]
+    if not boxed:
+        del op["stock_removal_bounds"]
+    debts, credited = [], []
+    assert tip_endpoints.cut_coverage(bundle, setup, op, target, debts, credited) == "unknown"
+    assert credited == [] and "bounds" in " ".join(debts)
+    (_, _, after), _ = stock_states(bundle, setup)
+    assert after["top_z"] == after["top_from"] == "unknown"
+    assert after["entry_z"] == after["entry_from"] == {"target": "unknown"}
+    assert _producer(bundle, setup, -8.8, "target", 1, None) == "unknown"
+    recipe = zero_after_first_face(bundle, setup, pick_up=True)
+    assert recipe.status == "unknown"
+    assert recipe.numbers["axes"]["z"]["axis_set"] == "unknown"
+    assert recipe.numbers["retouch"][0]["axis_set"] == "unknown"
+    assert "credited_faces" not in recipe.numbers["axes"]["z"]
+    assert "credited_faces" not in recipe.numbers["retouch"][0]
+
+
+@pytest.mark.parametrize("bounds", ["'unknown'", "{}"], ids=["whole-record-unknown", "empty"])
+@pytest.mark.parametrize("boxed", [False, True], ids=["unbounded", "boxed"])
+def test_cross_feature_unknown_face_bounds_leave_current_producer_and_touch_unknown(
+    tmp_path, bounds, boxed
+):
+    # The cutting pocket's bounds hold the incidental disc, not FAR. A target with
+    # an explicit unknown/empty footprint is a guarded candidate, not a skipped
+    # operation that lets the authored contact edge masquerade as a known surface.
+    bundle, setup = left_strip_faced(tmp_path, FACE_WITH_DISC + f"bounds = {bounds}\n")
+    matched_faces(bundle, NEAR, FAR)
+    bundle.feature_definitions["field"] = {
+        "kind": "pocket",
+        "frame": "model",
+        "bounds": {"x": [5.0, 15.0], "y": [2.0, 12.0], "z": [-9.0, 2.0]},
+    }
+    op = setup["ops"][0]
+    op.update(do="rough_pocket", feature="field")
+    if not boxed:
+        del op["stock_removal_bounds"]
+    assert _producer(bundle, setup, -8.8, "target", 1, None) == "unknown"
+    debts, credited = [], []
+    assert (
+        _producer(bundle, setup, -8.8, "target", 1, None, debts=debts, credited=credited)
+        == "unknown"
+    )
+    assert credited == [] and "bounds" in " ".join(debts)
+    recipe, row = named_face_touch(bundle, setup, -8.8)
+    assert recipe.status == "unknown"
+    assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
+    assert (
+        zero_recipe.face_stands(bundle, setup, "target", -8.8, done=1, credited=credited)
+        == "unknown"
+    )
+    assert credited == []
+
+
+@pytest.mark.parametrize(("x", "expected"), [([-6.0, 16.0], "whole"), ([-6.0, 10.0], "partial")])
+def test_explicit_face_bounds_retain_declared_coverage_beside_native_metadata(
+    tmp_path, x, expected
+):
+    # Authored bounds are setup X -5..15, Y -2..8: the first cut holds them, the
+    # second leaves 5 mm beyond it. FAR is disjoint from either cut but cannot
+    # replace the explicit bounds; this legacy path earns no native face credit.
+    feature = SLAB.replace("kind = 'plane'", "kind = 'face'") + FACE_WITH_DISC[len(FACE_ONLY) :]
+    bundle, setup = left_strip_faced(tmp_path, feature, f"x = {x}, y = [-3.0, 9.0], ")
+    matched_faces(bundle, FAR)
+    credited = []
+    target = bundle.feature_definitions["target"]
+    assert (
+        tip_endpoints.cut_coverage(bundle, setup, setup["ops"][0], target, None, credited)
+        == expected
+    )
+    assert credited == []
 
 
 # A 1 x 2 in model face at Z 0.5 in, as the kernel boxes it in mm; setup origin in inches.
@@ -1102,7 +1523,7 @@ def test_a_touch_on_a_faced_plane_sets_the_dro_where_the_face_stands(
     # same step is the grid's rounding; one on another step contradicts the face, named
     # with its DRO reading and where the face stands.
     bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
-    bundle.inventory["machines"]["mill"]["resolution_mm"] = 0.005
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
     setup["stock_state"]["top_z"] = 8.0
     op = setup["ops"][0]
     op["to_z"] = to_z
@@ -1336,7 +1757,7 @@ def test_a_boxed_cut_preserves_the_entry_it_does_not_remove(
     setup = bundle.plan["setups"][0]
     setup["frame"] = "model"
     setup["stock_state"]["entry_z"] = {"target": 0.0 if lowered else -4.0}
-    bundle.inventory["machines"]["mill"]["resolution_mm"] = 0.005
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = measured(0.005)
     states = {op["op"]: (before, after) for op, before, after in stock_states(bundle, setup)}
     prior = "S1 op 10 to_z" if lowered else "S1 stock_state.entry_z.target"
     source = "S1 op 20 to_z" if produced else prior
@@ -1429,6 +1850,20 @@ def test_a_boxed_cut_cannot_resolve_an_entry_without_known_removal_z(tmp_path, e
 
 def test_rocker_seeded_final_entry_keeps_the_finishing_ops_source_and_endpoints():
     bundle = load_bundle(ROCKER)
+    # The entry-source scenario owns a known DRO grid and its three hole-making tools.
+    bundle.inventory["machines"]["PM-30MV"]["resolution_mm"] = measured(0.005)
+    tools = bundle.inventory["tools"]
+    for member in ("3-8in-2fl", "3-8in-4fl"):
+        tools["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(9.525)
+    tools["center-drills-lms-4859"]["members"]["2"].update(
+        dia_mm=measured(1.98), point_angle=measured(118), oal_mm=measured(47.6)
+    )
+    tools["rocker-rod-pilot-drill"]["members"]["1.85mm"].update(
+        dia_mm=measured(1.85), point_angle=measured(118)
+    )
+    tools["rocker-rod-reamer"]["members"]["2.0mm"].update(
+        dia_mm=measured(2.004), lead_mm=measured(0.4)
+    )
     setup = next(s for s in bundle.plan["setups"] if s["id"] == "S2")
     # The seed is the eventual strap face, not the raw material above the hub.
     # Only op 20 cuts that plane; equality must still credit its as-cut DRO Z.
@@ -1576,6 +2011,18 @@ def rocker_profile_chains(bundle):
 @pytest.mark.parametrize("direction", ["conventional", "climb"])
 def test_rocker_outline_fragments_chain_through_the_bottom_arc_in_cutting_order(direction):
     bundle = load_bundle(ROCKER)
+    # Cutter-centre traversal is isolated from the example's unresolved physical evidence.
+    bundle.inventory["machines"]["PM-30MV"]["resolution_mm"] = measured(0.005)
+    bundle.inventory["machines"]["PM-30MV"]["spindle"]["rotation"] = {
+        "value": "cw",
+        "measured": measured(0)["measured"],
+    }
+    for member in ("3-8in-2fl", "3-8in-4fl"):
+        bundle.inventory["tools"]["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(
+            9.525
+        )
+    for member in ("1-4in-2fl", "1-4in-4fl"):
+        bundle.inventory["tools"]["endmills-lms-6784"]["members"][member]["dia_mm"] = measured(6.35)
     for setup in bundle.plan["setups"]:
         for op in setup["ops"]:
             if "contour" in op:
@@ -1960,3 +2407,577 @@ def test_a_local_entry_cut_on_a_carried_dro_is_not_shifted_as_an_imported_plane_
     assert spot["physical_entry_z"] == pytest.approx(19.0075)
     assert spot["dro_tip_z"] == 18.855
     assert spot["dro_depth_mm"] == pytest.approx(0.15)
+
+
+def current_native_face_bundle(tmp_path, *, filled=True):
+    """A local native 2x2 pad and located plunge, using the existing contour fixture."""
+    bundle, setup = left_strip_faced(tmp_path, FACE_ONLY, "x = [-2.0, 2.0], y = [-2.0, 2.0], ")
+    refs = matched_faces(bundle, (4.0, 1.0, -7.8, 6.0, 3.0, -7.8))
+    bundle.kernel["faces"][0].update(fills_bbox=filled, area_mm2=4.0)
+    hole_ref = "#90/ADVANCED_FACE[1]/HOLE"
+    bundle.feature_definitions["hole"] = {
+        "kind": "hole",
+        "frame": "model",
+        "at": [5.0, 2.0, -7.8],
+        "axis": [0.0, 0.0, -1.0],
+        "dia": 0.8,
+        "faces": [hole_ref],
+    }
+    bundle.kernel["mapping"][hole_ref] = 1
+    bundle.kernel["features"] = {"target": [0], "hole": [1]}
+    bundle.kernel["faces"].append(
+        {"index": 1, "kind": "Cylinder", "bbox_mm": [4.6, 1.6, -8.8, 5.4, 2.4, -7.8]}
+    )
+    bundle.kernel["ops"] = {
+        "S1:10": {"claimed_indices": [0]},
+        "S1:20": {"claimed_indices": [1]},
+        "S1:30": {"claimed_indices": [1]},
+        "S1:40": {"claimed_indices": [0]},
+    }
+    bundle.inventory["tools"]["drill"] = {"kind": "drill", "dia_mm": 0.8, "point_angle": 118}
+    bundle.inventory["tools"]["reamer"] = {"kind": "reamer", "dia_mm": 0.3}
+    first = setup["ops"][0]
+    last = {**first, "op": 40, "do": "finish_face"}
+    setup["ops"] = [first, last]
+    setup["stock_state"]["top_feature"] = "unknown"
+    zero_on_raw_top(bundle, setup)
+    return bundle, setup, refs
+
+
+def local_plunge(op=20, *, tool="drill", action="drill"):
+    return {"op": op, "do": action, "feature": "hole", "tool": tool, "depth_mm": 0.5}
+
+
+def current_face_touch(*, edge=-8.8, before=40, after=None, paper=0.05):
+    touch = {
+        "tool": "cutter",
+        "z_face": "target",
+        "edge_mm": edge,
+        "paper_mm": paper,
+        "from": "+z",
+        "before_ops": [before],
+    }
+    if after is not None:
+        touch["after_op"] = after
+    return touch
+
+
+@pytest.mark.parametrize(
+    "debt", ["diameter", "point-angle", "claim", "action", "bounds", "usable-land"]
+)
+def test_every_ambiguous_current_native_cut_invalidates_root_and_recovery_credit(tmp_path, debt):
+    bundle, setup, _ = current_native_face_bundle(tmp_path)
+    cut = local_plunge()
+    setup["ops"].insert(1, cut)
+    if debt == "diameter":
+        del bundle.inventory["tools"]["drill"]["dia_mm"]
+    elif debt == "point-angle":
+        del bundle.inventory["tools"]["drill"]["point_angle"]
+    elif debt == "claim":
+        bundle.kernel["ops"]["S1:20"]["mapping_errors"] = ["#90/ADVANCED_FACE[1]/HOLE"]
+    elif debt == "action":
+        cut["do"] = "unknown"
+    elif debt == "bounds":
+        cut["stock_removal_bounds"] = {"x": "unknown", "y": [-1.0, 1.0], "z": [-10.0, 1.0]}
+    else:
+        bundle.kernel["faces"][0]["fills_bbox"] = False
+    debts, credited, carried = [], [], []
+    assert (
+        zero_recipe.face_stands(
+            bundle, setup, "target", -8.8, done=2, debts=debts, credited=credited, carried=carried
+        )
+        == "unknown"
+    )
+    assert debts and credited == carried == []
+    errors, unknowns = [], []
+    edge, refs, constraint = zero_recipe._face_checker(bundle, setup, errors, unknowns)(
+        current_face_touch(), "target", -8.8, 2, "the explicit touch"
+    )
+    assert edge == "unknown" and refs == [] and constraint is False
+    assert errors == [] and unknowns
+
+
+@pytest.mark.parametrize("edge", [-8.8, -8.79], ids=["matching-edge", "recovery-candidate"])
+def test_invalid_current_contact_prints_no_numeric_recipe_or_native_refs(tmp_path, edge):
+    import re
+
+    from test_tool_change_touch import paragraphs
+
+    from prechips.sheet import _Traveler
+
+    bundle, setup, refs = current_native_face_bundle(tmp_path)
+    setup["ops"].insert(1, local_plunge())
+    del bundle.inventory["tools"]["drill"]["dia_mm"]
+    finding = zero_on_raw_top(bundle, setup, touches=[current_face_touch(edge=edge)])
+    (row,) = finding.numbers["tool_touches"]
+    assert finding.status == "unknown", finding.sentence
+    assert row["edge_mm"] == row["z_axis_set"] == "unknown"
+    assert "credited_faces" not in row and "touch_exclusion_dia_mm" not in row
+    report = finding.to_dict()
+    assert report["numbers"]["tool_touches"][0]["z_axis_set"] == "unknown"
+    text = paragraphs(_Traveler(bundle, [finding], {}, {}).dro(setup, {}))
+    (instruction,) = [line for line in text if "Before op 40" in line and "target" in line]
+    assert re.search(r"Axis Set Z [+-]?\d", instruction) is None, instruction
+    assert all(ref not in " ".join(text) for ref in refs)
+    assert "ADVANCED_FACE" not in " ".join(text)
+
+
+@pytest.mark.parametrize("native_op_facts", [False, True], ids=["legacy-plane", "native-op"])
+def test_a_fresh_current_whole_face_keeps_its_exact_dro_and_paper_setting(
+    tmp_path, native_op_facts
+):
+    bundle, setup, refs = current_native_face_bundle(tmp_path)
+    if not native_op_facts:
+        del bundle.kernel["ops"]
+    credited, carried = [], []
+    assert (
+        zero_recipe.face_stands(
+            bundle, setup, "target", -8.8, done=1, credited=credited, carried=carried
+        )
+        == -8.8
+    )
+    assert credited == refs and carried == []
+    finding = zero_on_raw_top(bundle, setup, touches=[current_face_touch(paper=0.0037)])
+    (row,) = finding.numbers["tool_touches"]
+    assert finding.status == "pass", finding.sentence
+    assert row["z_axis_set"] == pytest.approx(-8.7963)
+    assert row["credited_faces"] == refs
+    assert "native_edge_mm" not in row and "setting_residual_mm" not in row
+    assert zero_recipe.carried_z_reading(bundle, setup, setup["ops"][-1]) is None
+
+
+@pytest.mark.parametrize("kind", ["column", "removal-box"])
+def test_a_provably_xy_disjoint_current_cut_preserves_the_native_touch(tmp_path, kind):
+    bundle, setup, refs = current_native_face_bundle(tmp_path)
+    cut = local_plunge()
+    if kind == "column":
+        bundle.feature_definitions["hole"]["at"][0] = 10.0
+    else:
+        cut.update(
+            do="rough_pocket",
+            tool="cutter",
+            to_z=-9.0,
+            stock_removal_bounds={"x": [4.0, 6.0], "y": [-2.0, 2.0], "z": [-10.0, 1.0]},
+        )
+    setup["ops"].insert(1, cut)
+    debts, credited = [], []
+    assert (
+        zero_recipe.face_stands(
+            bundle, setup, "target", -8.8, done=2, debts=debts, credited=credited
+        )
+        == -8.8
+    )
+    assert credited == refs and debts == []
+    finding = zero_on_raw_top(bundle, setup, touches=[current_face_touch()])
+    (row,) = finding.numbers["tool_touches"]
+    assert finding.status == "pass", finding.sentence
+    assert row["z_axis_set"] == pytest.approx(-8.75) and row["credited_faces"] == refs
+    assert row.get("touch_exclusion_dia_mm", 0.0) == 0.0
+
+
+@pytest.mark.parametrize("reface", [False, True], ids=["cumulative-cuts", "cumulative-reface"])
+def test_current_rectangular_land_keeps_all_exclusions_without_becoming_a_carried_setting(
+    tmp_path, reface
+):
+    from test_tool_change_touch import paragraphs
+
+    from prechips.sheet import _Traveler
+
+    bundle, setup, refs = current_native_face_bundle(tmp_path)
+    first, last = setup["ops"]
+    cuts = [local_plunge(), local_plunge(30, tool="reamer", action="ream")]
+    if reface:
+        cuts.insert(1, {**first, "op": 25, "do": "finish_face"})
+        bundle.kernel["ops"]["S1:25"] = {"claimed_indices": [0]}
+    setup["ops"] = [first, *cuts, last]
+    credited, carried = [], []
+    done = len(setup["ops"]) - 1
+    assert (
+        zero_recipe.face_stands(
+            bundle, setup, "target", -8.8, done=done, credited=credited, carried=carried
+        )
+        == -8.8
+    )
+    assert credited == refs
+    assert carried == [{"touch_exclusion_dia_mm": 0.8}]
+    finding = zero_on_raw_top(bundle, setup, touches=[current_face_touch(paper=0.0037)])
+    (row,) = finding.numbers["tool_touches"]
+    assert finding.status == "pass", finding.sentence
+    assert row["touch_exclusion_dia_mm"] == 0.8 and row["credited_faces"] == refs
+    assert row["z_axis_set"] == pytest.approx(-8.7963)
+    assert "native_edge_mm" not in row and "setting_residual_mm" not in row
+    assert zero_recipe.carried_z_reading(bundle, setup, last) is None
+    text = paragraphs(_Traveler(bundle, [finding], {}, {}).dro(setup, {}))
+    (instruction,) = [line for line in text if "Before op 40" in line and "target" in line]
+    assert "touch the face outside Ø0.8 mm" in instruction
+    assert all(ref not in " ".join(text) for ref in refs)
+
+
+def refaced_about(tmp_path, shift):
+    """S1 faces the pad and plunges its Ø0.8 hole; S2, framed ``shift`` along X, re-faces
+    the pad and reams a Ø0.3 spot on its own centre; the S2 touch is made before op 60."""
+    import copy
+
+    from prechips.rules.coordinates import model_point
+    from prechips.rules.resolution import setup_frame
+
+    bundle, setup, refs = current_native_face_bundle(tmp_path)
+    first, last = setup["ops"]
+    setup["ops"] = [first, local_plunge()]
+    setup["stock_in"] = "stock"
+    frame = copy.deepcopy(setup_frame(bundle, setup))
+    frame["origin"] = model_point([shift, 0.0, 0.0], setup_frame(bundle, setup))
+    bundle.plan.setdefault("frames", {})["moved"] = frame
+    x, ref = 5.0 + shift, "#91/ADVANCED_FACE[2]/HOLE"
+    bundle.feature_definitions["spot"] = {
+        **bundle.feature_definitions["hole"],
+        "at": [x, 2.0, -7.8],
+        "dia": 0.3,
+        "faces": [ref],
+    }
+    bundle.kernel["mapping"][ref] = 2
+    bundle.kernel["features"]["spot"] = [2]
+    bundle.kernel["faces"].append(
+        {"index": 2, "kind": "Cylinder", "bbox_mm": [x - 0.15, 1.85, -8.8, x + 0.15, 2.15, -7.8]}
+    )
+    receiver = copy.deepcopy(setup)
+    ream = {**local_plunge(30, tool="reamer", action="ream"), "feature": "spot"}
+    receiver.update(
+        id="S2",
+        stock_in="S1",
+        frame="moved",
+        ops=[{**first, "op": 25, "do": "finish_face"}, ream, {**last, "op": 60}],
+    )
+    receiver["zero"]["tool_touches"] = [current_face_touch(before=60)]
+    bundle.plan["setups"].append(receiver)
+    bundle.kernel["ops"].update(
+        {f"S2:{op}": {"claimed_indices": [index]} for op, index in ((25, 0), (30, 2), (60, 0))}
+    )
+    return bundle, receiver, refs
+
+
+@pytest.mark.parametrize("shift", [0.0, 0.5], ids=["same-centre", "shifted-centre"])
+def test_a_reface_about_another_centre_cannot_keep_an_earlier_exclusion_radius(tmp_path, shift):
+    bundle, receiver, refs = refaced_about(tmp_path, shift)
+    credited, carried = [], []
+    standing = zero_recipe.face_stands(
+        bundle, receiver, "target", -8.8, done=2, credited=credited, carried=carried
+    )
+    if shift == 0.0:
+        assert standing == -8.8 and credited == refs
+        assert carried == [{"touch_exclusion_dia_mm": 0.8}]
+    else:
+        # S1's Ø0.8 keep-off is about the old centre: about the re-face's centre it would
+        # credit land the old hole took. The kept-off extent is unproven.
+        assert standing == "unknown" and credited == [] and carried == []
+
+
+@pytest.mark.parametrize("later_setup", [False, True], ids=["current-reface", "same-frame-route"])
+def test_a_later_whole_reface_cannot_erase_unknown_current_cut_area(tmp_path, later_setup):
+    import copy
+
+    bundle, setup, _ = current_native_face_bundle(tmp_path)
+    first, last = setup["ops"]
+    setup["ops"] = [first, local_plunge(), {**first, "op": 30}, last]
+    bundle.kernel["ops"]["S1:30"] = {"claimed_indices": [0]}
+    del bundle.inventory["tools"]["drill"]["dia_mm"]
+    bundle.inventory.setdefault("gauges", {})["bench"] = {"kind": "height_gauge"}
+    measured = {
+        "tool": "cutter",
+        "z_face": "independent bench reference",
+        "edge_mm": 0.0,
+        "paper_mm": 0.0,
+        "method": "measure_then_set",
+        "z_gauge": "bench",
+        "z_measure": "independent bench reference",
+        "z_offset_mm": 0.0,
+        "before_ops": [30],
+    }
+    setup["zero"]["tool_touches"] = [measured]
+    if later_setup:
+        receiver = copy.deepcopy(setup)
+        receiver.update(id="S2", stock_in="S1", ops=[{**last, "op": 60}])
+        setup["stock_in"] = "stock"
+        bundle.plan["setups"].append(receiver)
+        setup = receiver
+        bundle.kernel["ops"]["S2:60"] = {"claimed_indices": [0]}
+        touch = current_face_touch(before=60)
+    else:
+        touch = current_face_touch()
+    setup["zero"]["tool_touches"] = [touch] if later_setup else [measured, touch]
+    debts, credited = [], []
+    assert (
+        zero_recipe.face_stands(
+            bundle,
+            setup,
+            "target",
+            -8.8,
+            done=len(setup["ops"]) - 1,
+            debts=debts,
+            credited=credited,
+        )
+        == "unknown"
+    )
+    assert debts and credited == []
+    finding = zero_recipe.evaluate(bundle)[-1]
+    row = finding.numbers["tool_touches"][-1]
+    assert finding.status == "unknown", finding.sentence
+    assert row["edge_mm"] == row["z_axis_set"] == "unknown"
+    assert "credited_faces" not in row
+
+
+@pytest.mark.parametrize("placement", ["before-cut", "after-face", "after-cut"])
+def test_current_face_survival_stops_at_the_exact_touch_operation_boundary(tmp_path, placement):
+    bundle, setup, refs = current_native_face_bundle(tmp_path)
+    setup["ops"].insert(1, local_plunge())
+    del bundle.inventory["tools"]["drill"]["dia_mm"]
+    touch = (
+        current_face_touch(before=20)
+        if placement == "before-cut"
+        else current_face_touch(before=20, after=10)
+        if placement == "after-face"
+        else current_face_touch(after=20)
+    )
+    setup["zero"]["tool_touches"] = [touch]
+    finding = zero_recipe.evaluate(bundle)[0]
+    (row,) = finding.numbers["tool_touches"]
+    if placement == "after-cut":
+        assert finding.status == "unknown"
+        assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
+    else:
+        assert row["z_axis_set"] == pytest.approx(-8.75) and row["credited_faces"] == refs
+
+
+@pytest.mark.parametrize("invalidated", [False, True], ids=["surviving-mismatch", "invalid-area"])
+def test_current_recovery_reports_only_survival_proved_dro_contradictions(tmp_path, invalidated):
+    bundle, setup, refs = current_native_face_bundle(tmp_path)
+    if invalidated:
+        setup["ops"].insert(1, local_plunge())
+        del bundle.inventory["tools"]["drill"]["dia_mm"]
+    finding = zero_on_raw_top(bundle, setup, touches=[current_face_touch(edge=-8.79)])
+    (row,) = finding.numbers["tool_touches"]
+    if invalidated:
+        assert finding.status == "unknown" and row["z_axis_set"] == "unknown"
+        assert "credited_faces" not in row
+    else:
+        assert finding.status == "error"
+        assert "DRO Z -8.79" in finding.sentence and "face stands at -8.8" in finding.sentence
+        assert row["z_axis_set"] == pytest.approx(-8.75) and row["credited_faces"] == refs
+
+
+def test_an_independent_known_error_still_precedes_unknown_native_area(tmp_path):
+    bundle, setup, _ = current_native_face_bundle(tmp_path)
+    setup["ops"].insert(1, local_plunge())
+    del bundle.inventory["tools"]["drill"]["dia_mm"]
+    setup["zero"]["tool_touches"] = [current_face_touch()]
+    bundle.plan["dro"]["mode"] = "incremental"
+    finding = zero_recipe.evaluate(bundle)[0]
+    (row,) = finding.numbers["tool_touches"]
+    assert finding.status == "error"
+    assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
+
+
+def test_an_explicit_native_producer_source_cannot_look_past_the_touch_boundary(tmp_path):
+    bundle, setup, _ = current_native_face_bundle(tmp_path)
+    debts, credited = [], []
+    assert (
+        zero_recipe.face_stands(
+            bundle,
+            setup,
+            "target",
+            -8.8,
+            done=1,
+            source="S1 op 40 to_z",
+            debts=debts,
+            credited=credited,
+        )
+        == "unknown"
+    )
+    assert credited == [] and "has not run before the touch" in " ".join(debts)
+
+
+# A primary zero touching a face cut before that zero (pre-zero producer) is the
+# deferred pre-zero class, tracked outside #192; these routes all follow the zero.
+@pytest.mark.parametrize("route", ["listed-retouch", "derived-touch"])
+def test_every_current_native_zero_contact_route_observes_unknown_intervening_cuts(tmp_path, route):
+    bundle, setup, _ = current_native_face_bundle(tmp_path)
+    setup["ops"].insert(1, local_plunge())
+    del bundle.inventory["tools"]["drill"]["dia_mm"]
+    if route == "listed-retouch":
+        setup["stock_state"]["top_feature"] = "target"
+        setup["zero"]["z"]["retouch_after"] = [20]
+    finding = zero_recipe.evaluate(bundle)[0]
+    assert finding.status == "unknown", finding.sentence
+    if route == "listed-retouch":
+        (row,) = finding.numbers["retouch"]
+        field = "axis_set"
+    else:
+        (row,) = [
+            touch for touch in finding.numbers["derived_touches"] if touch["before_ops"] == [40]
+        ]
+        field = "z_axis_set"
+    assert row[field] == "unknown" and "credited_faces" not in row
+
+
+@pytest.mark.parametrize("through", [False, True], ids=["blind-endpoint", "through-endpoint"])
+def test_an_invalid_native_touch_cannot_recover_numeric_endpoints_from_a_local_entry_producer(
+    tmp_path, through
+):
+    bundle, setup, _ = current_native_face_bundle(tmp_path)
+    setup["stock_state"]["entry_z"] = {"hole": 0.0}
+    setup["stock_state"]["local_thickness"]["hole"] = 1.0
+    bundle.feature_definitions["hole"].update(thru=through, depth=[0.5, 0.6])
+    first = setup["ops"][0]
+    final = local_plunge(40, tool="endpoint-drill")
+    if through:
+        final["exit_mm"] = 0.1
+    bundle.inventory["tools"]["endpoint-drill"] = {
+        "kind": "drill",
+        "dia_mm": 0.3,
+        "point_angle": 118,
+    }
+    setup["ops"] = [first, local_plunge(), final]
+    bundle.kernel["ops"]["S1:40"] = {"claimed_indices": [1]}
+    del bundle.inventory["tools"]["drill"]["dia_mm"]
+    touch = {**current_face_touch(), "tool": "endpoint-drill"}
+    setup["zero"]["tool_touches"] = [touch]
+    reading = zero_recipe.carried_z_reading(bundle, setup, final)
+    assert reading is not None
+    assert reading["edge_mm"] == reading["z_axis_set"] == "unknown"
+    before = next(before for cut, before, _ in stock_states(bundle, setup) if cut is final)
+    assert before["entry_z"]["hole"] == -8.8
+    assert _producer(bundle, setup, -8.8, "hole", 0, before["entry_from"]["hole"]) == (setup, first)
+    assert operative_z(bundle, setup, -8.8, "hole", source=before["entry_from"]["hole"]) == -8.8
+    finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
+    endpoint = next(row for row in finding.numbers["endpoints"] if row["op"] == 40)
+    assert endpoint["dro_entry_z"] == endpoint["physical_entry_z"] == "unknown"
+    assert endpoint["dro_tip_z"] == "unknown"
+    if through:
+        assert endpoint["dro_exit_face"] == endpoint["physical_exit_bound_z"] == "unknown"
+        assert endpoint["dro_exit_mm"] == "unknown"
+    else:
+        assert endpoint["dro_depth_mm"] == "unknown"
+
+
+def test_current_rectangular_credit_requires_a_remaining_half_mm_square(tmp_path):
+    bundle, setup, _ = current_native_face_bundle(tmp_path)
+    setup["ops"].insert(1, local_plunge())
+    bundle.inventory["tools"]["drill"]["dia_mm"] = 1.2
+    credited = []
+    assert (
+        zero_recipe.face_stands(bundle, setup, "target", -8.8, done=2, credited=credited)
+        == "unknown"
+    )
+    assert credited == []
+
+
+def turned_window_plane(ref):
+    """The rectangular sleeve's lathe source and one end plane, with the spigot's own
+    turned radius inside that plane so no radial proof can spare it."""
+    from test_tool_change_touch import carried_rectangular_stock_bundle
+
+    bundle = carried_rectangular_stock_bundle()
+    source = bundle.plan["setups"][1]
+    feature = bundle.plan["setups"][-1]["zero"]["z"]["face"]
+    bundle.kernel["setups"][source["id"]]["revolved"]["spigot"]["radii_mm"] = [0.5, 0.5]
+    plane = zero_recipe._native_plane_geometry(bundle, source, feature, [ref])
+    assert plane is not None
+    return bundle, source, bundle.feature_definitions[feature], plane
+
+
+@pytest.mark.parametrize(
+    ("ref", "window", "normal"),
+    [("#1/NORTH", (0.0, 3.0), 1), ("#2/SOUTH", (-72.0, -80.0), -1)],
+    ids=["open-plus-z", "open-minus-z"],
+)
+def test_a_turning_window_wholly_on_the_planes_open_side_spares_it(ref, window, normal):
+    from test_tool_change_touch import op
+
+    bundle, source, target, plane = turned_window_plane(ref)
+    assert plane["normal_z"] == normal
+    at_plane, far = window
+    cut = op(20, "finish_turn", "spigot", "turner", z_from=far, z_to=at_plane)
+    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is False
+    # The same window reaching two tolerances past the plane crosses it.
+    crossing = {**cut, "z_to": at_plane - 2 * LENGTH_TOLERANCE_MM * normal}
+    assert zero_recipe._carry_cut(bundle, source, crossing, target, plane) is True
+
+
+@pytest.mark.parametrize("excluded", ["to_z", "part_off"])
+def test_a_cut_outside_the_kernels_window_limited_turning_still_invalidates(excluded):
+    from test_tool_change_touch import op
+
+    bundle, source, target, plane = turned_window_plane("#1/NORTH")
+    if excluded == "to_z":
+        cut = op(20, "finish_turn", "spigot", "turner", z_from=3.0, z_to=0.0, to_z=0.0)
+    else:
+        cut = op(20, "part_off", "spigot", "turner", z_from=3.0, z_to=0.0)
+    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is True
+
+
+def tilted(frame):
+    """``frame`` turned 45 degrees about its own X axis."""
+    c = math.sqrt(0.5)
+    x, y, z = (frame[key] for key in ("x", "y", "z"))
+    return {
+        **frame,
+        "y": [c * a + c * b for a, b in zip(y, z, strict=True)],
+        "z": [c * b - c * a for a, b in zip(y, z, strict=True)],
+        "x": list(x),
+    }
+
+
+def test_a_turning_window_spares_no_plane_tilted_off_its_axis():
+    from test_tool_change_touch import op
+
+    bundle, source, target, plane = turned_window_plane("#1/NORTH")
+    cut = op(20, "finish_turn", "spigot", "turner", z_from=20.0, z_to=0.0)
+    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is False
+    leaning = {**plane, "frame": tilted(plane["frame"])}
+    assert zero_recipe._carry_cut(bundle, source, cut, target, leaning) is True
+
+
+@pytest.mark.parametrize(
+    ("width", "spared"),
+    [(1.0, True), (2.0, False), (None, False)],
+    ids=["inside", "wider", "unknown"],
+)
+def test_a_blade_groove_spares_the_plane_only_over_its_whole_known_width(width, spared):
+    from test_tool_change_touch import op
+
+    bundle, source, target, plane = turned_window_plane("#2/SOUTH")
+    blade = {"kind": "grooving_blade"}
+    if width is not None:
+        blade["blade_width_mm"] = width
+    bundle.inventory["tools"]["blade"] = blade
+    cut = op(20, "groove", "spigot", "blade", z_from=-73.0, z_to=-72.5)
+    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is not spared
+
+
+def test_a_turning_window_spares_the_plane_only_at_its_dialled_ends(monkeypatch):
+    from test_tool_change_touch import op
+
+    from prechips.rules import coordinates
+
+    bundle, source, target, plane = turned_window_plane("#2/SOUTH")
+    cut = op(20, "finish_turn", "spigot", "turner", z_from=-80.0, z_to=-72.5)
+    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is False
+    # On a 5-unit DRO grid the -72.5 end is dialled up to -70, into the plane's material.
+    monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (5.0, 0))
+    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is True
+
+
+def test_a_blade_groove_grows_its_width_from_the_dialled_chuck_side_end(monkeypatch):
+    from test_tool_change_touch import op
+
+    from prechips.rules import coordinates
+
+    bundle, source, target, plane = turned_window_plane("#2/SOUTH")
+    bundle.inventory["tools"]["blade"] = {"kind": "grooving_blade", "blade_width_mm": 1.002}
+    cut = op(20, "groove", "spigot", "blade", z_from=-73.003, z_to=-72.5)
+    # On a 0.001 grid the end stays -73.003: its wall stops at -72.001, short of -72.
+    monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (0.001, 3))
+    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is False
+    # Dialled up to -73.000 on a 0.005 grid, the blade's far wall reaches -71.998.
+    monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (0.005, 3))
+    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is True

@@ -7,6 +7,7 @@ import random
 import re
 import subprocess
 import threading
+from copy import deepcopy
 from html import unescape
 from html.parser import HTMLParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -156,7 +157,13 @@ def shop(records, kind="mill"):
     sheet = bare(3)
     sheet.records = records
     sheet.report = {}
-    sheet.bundle = SimpleNamespace(features={"units": "mm"}, inventory={}, plan={"setups": []})
+    sheet.bundle = SimpleNamespace(
+        features={"units": "mm"},
+        inventory={},
+        plan={"setups": []},
+        kernel=None,
+    )
+    sheet.findings = []
     sheet.plan = sheet.bundle.plan
     sheet.units = "mm"
     sheet.bench = lambda text, setup=None: text
@@ -921,9 +928,12 @@ def rocker():
 def through(**row):
     """(a sheet over a through op 60's endpoint as tip_endpoints derives it on the rocker's
     S1 0.005 mm DRO grid, the endpoint, the setup)."""
+    from test_envelope_m5 import measured
+
     from prechips.rules.tip_endpoints import _operative
 
-    bundle = rocker()
+    bundle = deepcopy(rocker())
+    bundle.inventory["machines"]["PM-30MV"]["resolution_mm"] = measured(0.005)
     setup = bundle.plan["setups"][0]
     endpoint = {"setup": setup["id"], "op": 60, "entry_z": 0.0, "entry_from": "stock", **row}
     op = SPOT["ops"][0]
@@ -1155,7 +1165,7 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
     sheet.clearance = lambda setup, tools: ""
     sheet.feature_map = lambda setup: "<h2>FEATURE MAP</h2>" if details else ""
     sheet.blank_checks = lambda setup: ""
-    sheet.contours = lambda setup, tools: "<h2>CONTOURS</h2>"
+    sheet.contours = lambda setup, tools, stops: "<h2>CONTOURS</h2>"
     original_operations = sheet.operations
 
     def operations(setup, tools, sheets):
@@ -1303,7 +1313,8 @@ def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_co
     assert "deburr" in content(markup.find("op-action", deburred)[0])
     for operation in (painted, deburred):
         assert len(markup.find("performed-mark", operation)) == 1
-        assert markup.find("inspection-message", operation)
+        assert not markup.find("inspection-message", operation)
+        assert not markup.find("inspection-record", operation)
         for css in ("op-speed", "op-feed", "op-target", "op-direction", "op-tool"):
             assert not markup.find(css, operation)
 
@@ -1435,14 +1446,14 @@ def test_a_lathe_op_whose_turn_is_unknown_leaves_the_known_turns_in_their_cells(
     html, rows, stops = _lathe_sheet(ops, {"rh": "right", "bit": None})
     assert rows["10"][-1] == "FORWARD"
     assert "whenever it runs" not in html
-    assert stops["spindle direction not known"] == ["20"]
+    assert stops["spindle direction not known — the tool's hand is not declared"] == ["20"]
 
 
 def test_a_lathe_tool_without_a_declared_hand_is_a_stop_not_a_guessed_direction():
     ops = [{"op": 10, "do": "face", "feature": "body", "tool": "bit"}]
     html, rows, stops = _lathe_sheet(ops, {"bit": None})
     assert "STOP: spindle direction not known" in " ".join(rows["10"])
-    assert stops["spindle direction not known"] == ["10"]
+    assert stops["spindle direction not known — the tool's hand is not declared"] == ["10"]
     assert "FORWARD" not in html
 
 
@@ -1496,7 +1507,7 @@ def test_a_turn_over_names_where_the_old_plus_x_end_goes(x_after, ends):
     )
 
 
-_MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "caliper"}
+_MEASURED = {"status": "measured", "by": "test", "date": "2026-10-05", "instrument": "caliper"}
 
 
 @pytest.mark.parametrize("unmeasured", [None, "spigot_length_mm", "thickness_mm"])
@@ -1747,12 +1758,38 @@ def ledger(features, ops):
     sheet.rest_engagement = lambda setup, op: []
     sheet.unset_z = lambda setup, op, target: target
     sheet.crash_boxes = lambda setup, op: [_Box(op["safety"])] if op.get("safety") else []
-    sheet.manual_arc_lines = lambda setup, op, stops: []
+    sheet.manual_arc_lines = lambda setup, op: []
     sheet.tip_note = lambda setup, op: None
     sheet.direction = lambda direction: direction
     html, notes, worksheets, stops = sheet.operations(sheet.setup, T4, {"notes": 2, "contours": 3})
     assert not worksheets
     return Markup(html), notes, stops
+
+
+def test_empty_inspection_has_no_placeholder_row_but_real_checks_and_messages_remain():
+    markup, _, _ = ledger(
+        {"bore": {"kind": "hole", "dia": [6.33, 6.35]}},
+        [
+            {"op": 10, "do": "face", "feature": "bore", "tool": "c"},
+            {"op": 20, "do": "inspect", "feature": "bore", "tool": "c", "checks": {"dia": "mic"}},
+            {"op": 30, "do": "inspect", "feature": "bore", "tool": "c", "checks": "unknown"},
+        ],
+    )
+    empty, checked, unknown = markup.find("operation")
+    assert not markup.find("inspection-message", within=empty)
+    assert not markup.find("inspection-record", within=empty)
+    assert not markup.find("writing-blank", within=empty)
+    assert len(markup.find("performed-mark", within=empty)) == 1
+    (record,) = markup.find("inspection-record", within=checked)
+    assert record["attrs"]["data-requirement"] == "dia"
+    assert json.loads(record["attrs"]["data-features"]) == ["bore"]
+    assert "6.330–6.350" in content(record)
+    assert len(markup.find("result-field", within=record)) == 1
+    assert len(markup.find("writing-blank", within=record)) == 1
+    assert not markup.find("inspection-message", within=checked)
+    (message,) = markup.find("inspection-message", within=unknown)
+    assert content(message) == "? inspection checks not set"
+    assert not markup.find("inspection-record", within=unknown)
 
 
 def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safety():
@@ -2477,7 +2514,7 @@ def test_coating_does_not_duplicate_existing_requirement_or_authored_prompt_area
     assert not other.find("process-observations")
 
 
-def test_grouped_clearance_actions_keep_the_supplied_check_in_full_width_rows():
+def test_grouped_clearance_actions_keep_the_supplied_check_once_above_all_rows():
     operations = [
         {"op": op, "do": "pocket", "feature": "surface", "tool": "c"}
         for op in (10, 20, 40, 45, 50, 55)
@@ -2506,16 +2543,25 @@ def test_grouped_clearance_actions_keep_the_supplied_check_in_full_width_rows():
     bodies = [node for node in markup.nodes if node["tag"] == "tbody"]
     assert len(bodies) == len(supplied) == 2
     assert [row[0] for row in supplied] == ["10, 40, 45", "20, 50, 55"]
+    actions = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "p" and content(node).startswith("action for every clearance row:")
+    ]
+    assert len(actions) == 1
+    action = actions[0]
+    assert content(action) == "action for every clearance row: " + supplied[0][4]
+    assert all(row[4] == supplied[0][4] for row in supplied)
+    assert "check the tip clears the jaws before plunging" in content(action)
+    assert content(markup.nodes[0]).count(supplied[0][4]) == 1
     for body, row in zip(bodies, supplied, strict=True):
         summary = next(
             node for node in markup.nodes if node["tag"] == "tr" and node["parent"] is body
         )
         cells = [node for node in markup.nodes if node["tag"] == "td" and node["parent"] is summary]
         assert [content(cell) for cell in cells] == list(row[:4])
-        action = markup.find("see", body)[0]
+        assert not markup.find("see", body)
         assert row[4] in content(action)
-        assert "check the tip clears the jaws before plunging" in content(action)
-        assert int(action["parent"]["attrs"]["colspan"]) == len(cells)
 
 
 def test_shaft_fit_up_prose_fields_keep_their_source_and_sole_boxes():
@@ -2774,7 +2820,7 @@ def printed_sheet(tmp_path):
     thread.start()
     canary = f"http://127.0.0.1:{proxy.server_port}/browser-fixture-positive-control"
 
-    def print_html(source, probe, prepare=None):
+    def print_html(source, probe, prepare=None, *, expected_error=None):
         document = tmp_path / "traveler.html"
         document.write_text(
             '<!doctype html><html><head><meta charset="utf-8">'
@@ -2849,8 +2895,10 @@ def printed_sheet(tmp_path):
         )
         assert report is not None, result.stderr
         output = json.loads(content(report))
-        assert output["error"] is None, output["error"]
+        assert output["error"] == expected_error, output["error"]
         assert output["idempotent"]
+        if expected_error is not None:
+            return Markup(output["html"]), output["details"]
         assert output["overflows"] == 0
         assert output["blankBack"] == (output["pages"] % 2 == 1)
         return Markup(output["html"]), output["details"]
@@ -2864,7 +2912,7 @@ def printed_sheet(tmp_path):
 
 
 @pytest.mark.parametrize("column", [1, 2])
-def test_printed_tool_fragments_keep_every_value_under_its_original_heading(printed_sheet, column):
+def test_printed_tools_refuse_an_oversized_whole_row_instead_of_splitting_it(printed_sheet, column):
     sheet = example_sheet("rocker-arm/plan.toml")
     words = " ".join(f"AuthoredWord{index:04}" for index in range(180))
     sheet.tool_name = lambda reference: words if column == 1 else "Authored cutter"
@@ -2875,30 +2923,15 @@ def test_printed_tool_fragments_keep_every_value_under_its_original_heading(prin
         "machine": "mill",
         "ops": [{"op": 30, "do": "pocket", "tool": "c", "holder": "h"}],
     }
+    sheet.plan["setups"] = [setup]
     _, _, source = sheet.tool_table(setup)
     original = Markup(source)
     expected = [content(node) for node in original.nodes if node["tag"] == "td"]
-    printed, _ = printed_sheet(source, "() => null")
-    tables = [node for node in printed.nodes if node["tag"] == "table"]
-    assert len(tables) > 1
-    values = [[] for _ in expected]
-    for table in tables:
-        body_rows = [
-            node
-            for node in printed.nodes
-            if node["tag"] == "tr"
-            and node["parent"]["tag"] == "tbody"
-            and node["parent"]["parent"] is table
-        ]
-        for row in body_rows:
-            cells = [
-                node for node in printed.nodes if node["tag"] == "td" and node["parent"] is row
-            ]
-            assert len(cells) == len(expected)
-            assert all(cell["attrs"].get("colspan", "1") == "1" for cell in cells)
-            for target, cell in zip(values, cells, strict=True):
-                target.append(content(cell))
-    assert ["".join(parts) for parts in values] == expected
+    printed, _ = printed_sheet(
+        source, "() => null", expected_error="A complete TOOLS row cannot fit on a print page."
+    )
+    assert not any("data-duplex-fragment" in node["attrs"] for node in printed.nodes)
+    assert [content(node) for node in printed.nodes if node["tag"] == "td"] == expected
 
 
 def test_printed_inspection_continuations_repeat_the_whole_operation_without_marks(printed_sheet):

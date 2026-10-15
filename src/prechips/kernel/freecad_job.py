@@ -187,10 +187,12 @@ from enum import Enum
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import boolean_pool  # noqa: E402
+import chain_boundary  # noqa: E402
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
 from render_diagram import (  # noqa: E402
     _common_plane,
+    _nominal_outline_deflection,
     _shared_plane,
     render_diagram,
     render_inspection,
@@ -653,6 +655,30 @@ def _number(value):
 def _positive(record, key):
     value = record.get(key)
     return float(value) if _number(value) and value > 0 else None
+
+
+def _unbounded_chain(op):
+    """Whether ``op`` is an unbounded chain-drill profile: a profile action with no
+    ``stock_removal_bounds`` whose printed ``checkpoints`` carry at least one nonempty path
+    and only ``chain_drill`` ones (each path's ``method``, the stock contract; rows are the
+    collision payload). Its discrete holes certify only drilling: the webs between them
+    stay stock, and no claim sweep, wall corridor or lineage band is credited
+    (:meth:`_Setup._op_sweep`, :meth:`_Setup._cut`); an authored ``stock_removal_bounds``
+    certifies the actual break-out. A missing, empty or other path method is not a chain."""
+    table = op.get("checkpoints")
+    if (
+        op.get("do") not in PROFILE_ACTIONS
+        or "stock_removal_bounds" in op
+        or not isinstance(table, dict)
+        or not isinstance(table.get("paths"), list)
+    ):
+        return False
+    printed = [
+        path for path in table["paths"] if not (isinstance(path, dict) and path.get("xy_mm") == [])
+    ]
+    return bool(printed) and all(
+        isinstance(path, dict) and path.get("method") == "chain_drill" for path in printed
+    )
 
 
 def _islands(op):
@@ -4560,9 +4586,10 @@ class _Setup:
         # accepted after it (its before stock when it stopped the builder), None) or (None,
         # None, why that stock is unknown); the facts of each saw it reached; and (end
         # stock, None) or (None, why it stopped). ``stopped_cut`` is id() of the op whose
-        # cut stopped it, else None.
+        # cut stopped it; ``stopped_plan`` is its derived but unaccepted cutting volumes.
         self.cuts = {}
         self.stopped_cut = None
+        self.stopped_plan = None
         # id(op) of each bench file whose removal the stock builder accepted.
         self.filed = set()
         # Each printed-checkpoint op awaiting the later setups (:meth:`_checkpoint_facts`).
@@ -5312,6 +5339,7 @@ class _Setup:
                 self.cuts[id(op)] = (None, None, stopped)
                 continue
             before = stock
+            plan = None
             try:
                 if _sawn(op):
                     after, detail = self._saw_stock(op, stock)
@@ -5363,6 +5391,7 @@ class _Setup:
                 self.cuts[id(op)] = (before, stock, None)
                 if stopped is not None:
                     self.stopped_cut = id(op)
+                    self.stopped_plan = plan
         return (None, stopped) if stopped is not None else (stock, None)
 
     @staticmethod
@@ -5432,8 +5461,10 @@ class _Setup:
         paths sweep (:meth:`_run_out`); other claims sweep along +Z. Either way unclaimed
         rails, ears, webs and overstock past them stay. A
         lower-leave op also cuts the lineage leave off its claimed lateral faces of ``stock``
-        (:meth:`_band`). A raster split round keep-out islands removes neither, in its own
-        cut or its band, where its printed pieces do not sweep (:func:`_unswept`).
+        (:meth:`_band`). An unbounded chain-drill profile (:func:`_unbounded_chain`) removes
+        only its discrete holes: no corridor, claim sweep or lineage band. A raster split
+        round keep-out islands removes neither, in its own cut or its band, where its
+        printed pieces do not sweep (:func:`_unswept`).
         """
         process = op.get("process_cut")
         if isinstance(process, dict) and process.get("reason"):
@@ -5491,11 +5522,13 @@ class _Setup:
             removal, why = self._removal(op, valid, to_z, leave)
         if why is not None:
             return None, why
-        band, why = self._band(
-            stock, valid, to_z, leave, carried, self._reach_window(op, leave, carried)
-        )
-        if why is not None:
-            return None, why
+        band = None
+        if not _unbounded_chain(op):
+            band, why = self._band(
+                stock, valid, to_z, leave, carried, self._reach_window(op, leave, carried)
+            )
+            if why is not None:
+                return None, why
         if keep[0] and (removal is not None or band):
             # Its printed pieces sweep neither an island nor the cusps between their ends:
             # whatever its box, claims or the lineage leave would remove there stays.
@@ -5605,7 +5638,8 @@ class _Setup:
         rotary one) claims with a horizontal normal component must be clear of overstock
         beyond its op's guard at its interior (:meth:`_protect` within the claims' reach,
         the guard's derivable window); merely sweeping a sliver from a drafted wall does
-        not prove it cleared.
+        not prove it cleared. An unbounded chain-drill profile's holes leave their webs, so
+        its debt points at the stock_removal_bounds that would certify their break-out.
         Each complete-form hole op's own claimed caps (``cap_completion`` in its ``ops``
         facts) must likewise be clear of it, even when its cut removes nothing new; touched
         caps are named there and make the output stock debt.
@@ -5638,12 +5672,21 @@ class _Setup:
                     return None, f"{subject} {why}; {where}"
                 covered = self._covered(overstock, claimed, to_z, reach)
                 if covered:
+                    if _unbounded_chain(op):
+                        remedy = (
+                            "its unbounded chain_drill holes certify only drilling, so the "
+                            "webs between them stay stock; declare stock_removal_bounds on "
+                            "the op to certify the actual break-out/chisel removal"
+                        )
+                    else:
+                        remedy = (
+                            "the setup approach does not fully clear this profile wall and "
+                            "the op declares no stock_removal_bounds (cleared XY footprint, "
+                            "retained rail/ear volume of an interrupted profile) for it"
+                        )
                     return None, (
                         f"{subject}: overstock still touches claimed wall(s) "
-                        f"{', '.join(covered)} above its to_z; the setup approach does not "
-                        "fully clear this profile wall and the op declares no "
-                        "stock_removal_bounds (cleared XY footprint, retained rail/ear volume "
-                        f"of an interrupted profile) for it; {where}"
+                        f"{', '.join(covered)} above its to_z; {remedy}; {where}"
                     )
             forms = [
                 (self._subject(op), ops[self._subject(op)]["cap_completion"])
@@ -6159,7 +6202,8 @@ class _Setup:
         A facing action sweeps each planar claim's outer loop, so raw pins over hole
         mouths go too; subtracting the guard still keeps islands, bosses and the leave. The
         whole sweep is guarded and its pieces judged by claim contact before ``to_z``
-        clips them.
+        clips them. An unbounded chain-drill profile's pieces are its actual hole
+        cylinders: each guarded hole is drilled whether or not it borders a claim.
         """
         faces, sweep, why = self._op_sweep(op, valid, to_z)
         if why is not None:
@@ -6169,11 +6213,12 @@ class _Setup:
         cut, why = self._protect(sweep, leave, _sweep_window(sweep))
         if why is not None:
             return None, why
+        drilled = _unbounded_chain(op)
         kept = [
             piece
             for piece in cut.Solids
             if piece.Volume > HIT_MM3
-            and any(_distance(piece, f)[0] < leave + STOCK_TOL for f in faces)
+            and (drilled or any(_distance(piece, f)[0] < leave + STOCK_TOL for f in faces))
         ]
         if not kept:
             return None, None
@@ -6193,11 +6238,20 @@ class _Setup:
         cutter-centre paths the sheet prints for it (:meth:`_run_out`). The operator cuts
         what is printed, corner miters and run-outs included, so that is credited; stock
         past both, an unclaimed web or a clamped rail, stays. Rule A′ keeps a printed row
-        off stock a later setup contacts (:meth:`_finish_checkpoints`).
+        off stock a later setup contacts (:meth:`_finish_checkpoints`). An unbounded
+        chain-drill profile (:func:`_unbounded_chain`) clears only its actual holes: no
+        claim sweep or corridor, and no design, so all each hole removes is scrap.
         """
         action = op.get("do")
         if action not in PROFILE_ACTIONS:
             return (*self._sweep(valid, action), None)
+        if _unbounded_chain(op):
+            radius = _positive(op, "radius_mm")
+            if radius is None:
+                return [], None, "the cutter radius is unknown, so its drilled holes are unknown"
+            self.designs[id(op)] = None
+            holes, why = self._run_out(op, radius)
+            return ([], None, why) if why is not None else ([], holes, None)
         walls = [index for index in valid if _vertical(self.faces[index], Z)]
         rest = [index for index in valid if index not in walls]
         faces, sweep = self._sweep(rest, action) if rest else ([], None)
@@ -6235,7 +6289,8 @@ class _Setup:
         Each printed table (``checkpoints`` ``paths``: the values the DRO shows, an arc's
         rows as chords, a join's points) is one level polyline; every point within the
         radius of it stands from the table's printed tip to above the setup-entry stock, as
-        :meth:`_corridor` does.
+        :meth:`_corridor` does. A ``chain_drill`` table's rows are discrete holes, each its
+        own single-point path: the drill never travels between them.
         """
         if id(op) in self.run_outs:
             return self.run_outs[id(op)]
@@ -6244,7 +6299,12 @@ class _Setup:
         try:
             if table.get("reason"):
                 raise ValueError(table["reason"])
-            paths = [(path["xy_mm"], path["tip_z_mm"]) for path in table.get("paths", [])]
+            paths = []
+            for path in table.get("paths", []):
+                if path.get("method") == "chain_drill":
+                    paths.extend(([point], path["tip_z_mm"]) for point in path["xy_mm"])
+                else:
+                    paths.append((path["xy_mm"], path["tip_z_mm"]))
             swept = _centre_sweep(paths, radius, top)
             if swept is not None:
                 result = swept, None
@@ -6765,17 +6825,87 @@ class _Setup:
                 self.skins[key] = (primitives, None)
         return self.skins[key]
 
+    def _stopping_tool_material(self, op):
+        """Known before-stock outside a stopped op's candidate removal, never credited stock.
+
+        Derived cutting volumes, a bounded op's box and a turning window bound what its
+        rejected cut could remove. Protected finished material also survives ordinary
+        milling/turning cuts. Joint, process and hole cuts may own material inside that
+        protection, so only their independently derived cutting volumes prove it survives.
+        """
+        if id(op) != self.stopped_cut:
+            return None
+        before = self.cuts[id(op)][0]
+        special = any(isinstance(op.get(key), dict) for key in ("hole", "joint_cut", "process_cut"))
+        protected = None if special else before.common(self.protected)
+        retained = None
+        try:
+            if self.stopped_plan is not None:
+                own, groups = self.stopped_plan
+                retained = before
+                for cut in ([own] if own is not None else []) + [
+                    cut for group in groups for cut in group
+                ]:
+                    retained = retained.cut(cut)
+                if not (retained.isNull() or retained.isValid()):
+                    retained = None
+            if retained is None and "stock_removal_bounds" in op:
+                retained, _, why = self._checkpoint_stock(op)
+                if why is not None:
+                    retained = None
+            elif (
+                retained is None
+                and _turned(op)
+                and all(_number(op.get(key)) for key in ("z_from", "z_to"))
+            ):
+                low, high = sorted((op["z_from"], op["z_to"]))
+                retained = before.cut(_band(0.0, self._outer(), low, high))
+            if retained is not None and not (retained.isNull() or retained.isValid()):
+                retained = None
+            if protected is not None and retained is not None:
+                return protected.fuse(retained)
+            return protected if protected is not None else retained
+        except MemoryError:
+            raise
+        except Exception:
+            return protected
+
+    def _stopping_tool_regions(self, op, regions):
+        material = self._stopping_tool_material(op)
+        return (
+            {
+                index: _Culled(region.shape.common(material)) if region is not None else None
+                for index, (region, _) in regions.items()
+            }
+            if material is not None
+            else {}
+        )
+
+    def _stopping_tool_minimum(self, op, hits, dependent_hits, independent_hits):
+        """Only hits inside a stopped op's unresolved own removal lose certainty."""
+        if id(op) == self.stopped_cut and dependent_hits:
+            return independent_hits or UNKNOWN
+        return hits
+
+    def _stopping_tool_reason(self):
+        return (
+            f"its own cut stopped the stock builder ({self.built[1]}); "
+            "its before-op stock is known, but tool hits depend on its uncredited own removal; "
+            "independent finished-material/orientation/fixture hits remain certain"
+        )
+
     @staticmethod
     def _unproven(facts, reason):
-        """Unknown stock blocks clearance; only component-certain hits and corner radii survive."""
+        """Unknown stock blocks tool certainty; holder minima and corner radii survive."""
         why = f"in-process stock unknown: {reason}"
         facts["stock_reason"] = reason
         facts["reason"] = why
         reasons = facts.setdefault("reasons", {})
-        for kind in ("tool", "holder"):
-            value = facts.get(kind + "_hits")
-            if _number(value):
-                facts.setdefault("min_hits", {}).setdefault(kind, value)
+        minimum = facts.setdefault("min_hits", {})
+        minimum["tool"] = UNKNOWN
+        value = facts.get("holder_hits")
+        if _number(value):
+            minimum.setdefault("holder", value)
         clearances = (key for key in (*CLEARANCE_KEYS, "holder_clear_top_z_mm") if key in facts)
         for key in (
             "tool_hits",
@@ -6787,7 +6917,9 @@ class _Setup:
             *clearances,
         ):
             facts[key] = UNKNOWN
-            reasons[key] = why
+            reasons[key] = (
+                f"{why}; {reasons[key]}" if key == "tool_hits" and key in reasons else why
+            )
 
     @staticmethod
     def _subject(op):
@@ -8419,6 +8551,9 @@ class _Setup:
             for edge in self.faces[index].Edges:
                 if edge.Length > STOCK_TOL:
                     edges.setdefault(edge.hashCode(), edge)
+        # Main's ordinary samples remain the sole layout and leader input.
+        # The independently bounded stream is used only to paint finished outlines.
+        outline_tolerance = min(tolerance, _nominal_outline_deflection(sketch, waypoints))
         spec = {
             "setup_id": self.setup.get("id"),
             "view": view,
@@ -8451,6 +8586,12 @@ class _Setup:
             # Only the finished faces this setup cuts: the overlay shows the cuts' target.
             "nominal_outline_mm": [
                 [[p.x, p.y, p.z] for p in edge.discretize(Deflection=tolerance)]
+                for edge in edges.values()
+            ]
+            if not lathe
+            else [],
+            "nominal_render_outline_mm": [
+                [[p.x, p.y, p.z] for p in edge.discretize(Deflection=outline_tolerance)]
                 for edge in edges.values()
             ]
             if not lathe
@@ -9043,9 +9184,12 @@ class _Setup:
                 tip = path["tip_z_mm"]
                 low, high = sweep.get("levels_mm", (tip, tip))
                 low, high = min(low, tip), max(high, tip)
-                moves.append((path["xy_mm"], low, high, None))
-                for end in (path["xy_mm"][0], path["xy_mm"][-1]):
-                    moves.append(([end], low, max(entry, high), None))
+                if path.get("method") == "chain_drill":
+                    moves.extend(([point], low, max(entry, high), None) for point in path["xy_mm"])
+                else:
+                    moves.append((path["xy_mm"], low, high, None))
+                    for end in (path["xy_mm"][0], path["xy_mm"][-1]):
+                        moves.append(([end], low, max(entry, high), None))
         elif sweep.get("tables"):
             raise _Unknown("its arc tables reached the kernel as no printed checkpoints")
         if isinstance(op.get("hole"), dict):
@@ -9112,10 +9256,11 @@ class _Setup:
 
     def _clipped_sketch(self, annotation):
         """(sketch paths, waypoints, render debts): the annotation's sketch plus each bounded
-        op's clipped printed paths (:meth:`_clip_checkpoints`), keyed like the tables by
-        their row ``rows`` ids: an arc piece at its ends and apex, a stair-stepped join at
-        its ends and miters, any other join at every point. A bounded op whose clip is
-        unknown draws no path, only a debt; no unclipped path."""
+        op's clipped printed paths (:meth:`_clip_checkpoints`). Row ids are references,
+        not geometry identities: same-op waypoints merge only within PLANE_TOL (1e-6 mm)
+        of their actual DRO XY. An arc piece marks its ends and apex, a stair-stepped join
+        its ends and miters, any other join every point. Unknown clips draw only debt.
+        """
         paths = list(annotation.get("paths", []))
         waypoints = [dict(waypoint) for waypoint in annotation.get("waypoints", [])]
         debts = []
@@ -9129,7 +9274,7 @@ class _Setup:
                 continue
             for path in table.get("paths", []):
                 points, ids = path["xy_mm"], path["ids"]
-                if len(points) < 2:
+                if not points:
                     continue
                 paths.append({"op": name, "xy": points, "directed": path.get("directed") is True})
                 count = len(points)
@@ -9148,7 +9293,7 @@ class _Setup:
                             for w in waypoints
                             if w.get("op") == name
                             and isinstance(w.get("xy"), list)
-                            and math.dist(w["xy"], point) ** 2 < 1e-8
+                            and math.dist(w["xy"], point) <= PLANE_TOL
                         ),
                         None,
                     )
@@ -9516,7 +9661,8 @@ class _Setup:
         clearing box: the box is all it may remove. Any other op has none: what its printed
         paths cut is credited (:meth:`_run_out`), so retained scrap they nick is removed, and
         only its guard, fixtures and later-setup contacts limit them (rule A′,
-        :meth:`_finish_checkpoints`).
+        :meth:`_finish_checkpoints`). A derived empty remainder is also None, with its
+        obstacle name but no unknown reason: it has no volume to hit and no bounding box.
         """
         if "stock_removal_bounds" not in op:
             return None, None, None
@@ -9527,14 +9673,18 @@ class _Setup:
         if why is not None:
             return None, name, why
         try:
-            return before.cut(box), name, None
+            retained = before.cut(box)
+            if retained.isNull() or retained.Volume <= HIT_MM3:
+                return None, name, None
+            return retained, name, None
         except Exception as exc:
             return None, name, f"its stock outside the box could not be derived ({exc})"
 
     def _designed(self, op):
         """(setup-frame volume a printed op clears by design, or None, and why it is
         unknown): a bounded op's clearing box, else its claim sweeps and cutter corridor
-        before its printed run-out (:meth:`_op_sweep`). What a row removes past it is scrap."""
+        before its printed run-out (:meth:`_op_sweep`); an unbounded chain-drill profile
+        has none. What a row removes past it is scrap."""
         if "stock_removal_bounds" in op:
             if not self.stock_states:
                 return None, f"in-process stock unknown: {self.stock_reason}"
@@ -9581,6 +9731,9 @@ class _Setup:
         printed row. Only the clipped rows and paths remain in ``checkpoints``: the row check
         (:meth:`_checkpoint_facts`), the run-out and the sketch use nothing else. When the
         clip is unknown no row remains and the table says why.
+        Chain drilling instead intersects the true offset curves with the full-radius
+        eroded XY rectangle at PLANE_TOL, then regenerates and judges actual cylinders.
+        No fractional swept-chord intersection is a drilled hole.
         """
         clips = {"clipped_at": CLIP_CONTACT, "precision_mm": CLIP_PRECISION_MM, "paths": []}
         facts["checkpoint_clips"] = clips
@@ -9602,7 +9755,23 @@ class _Setup:
         clipped = []
         if why is None:
             try:
-                clipped = [self._clip_path(path, obstacle, radius, dro) for path in table["paths"]]
+                chain = [p for p in table["paths"] if p.get("method") == "chain_drill"]
+                regenerated = (
+                    iter(self._regenerate_chain(chain, op.get("stock_removal_bounds"), radius, dro))
+                    if chain
+                    else iter(())
+                )
+                clipped = [
+                    next(regenerated)
+                    if path.get("method") == "chain_drill"
+                    else self._clip_path(path, obstacle, radius, dro)
+                    for path in table["paths"]
+                ]
+                if chain:
+                    clips["precision_mm"] = PLANE_TOL
+                    clips["clipped_at"] = (
+                        "true offset curve at full-radius eroded stock_removal_bounds"
+                    )
             except _ClipUnknown as exc:
                 why = str(exc)
             except Exception as exc:  # OCC booleans and offsets
@@ -9626,14 +9795,471 @@ class _Setup:
                     else [v * dro["scale"] for v in point["dro_xy"]]
                     for point in piece
                 ]
-                flags = ["row" in point and path["overshoot"][point["row"]] for point in piece]
+                flags = [
+                    path["overshoot"][point["row"]]
+                    if "row" in point
+                    else point.get("overshoot") is True
+                    for point in piece
+                ]
                 for row, point, flag in zip(ids, xy, flags, strict=True):
-                    rows.append({"id": row, "xy_mm": point, "tip_z_mm": path["tip_z_mm"]})
+                    rows.append(
+                        {
+                            "id": row,
+                            "xy_mm": point,
+                            "tip_z_mm": path["tip_z_mm"],
+                            "method": path.get("method"),
+                        }
+                    )
                     if flag:
                         rows[-1]["overshoot"] = True
                 paths.append({**path, "xy_mm": xy, "ids": ids, "overshoot": flags})
         table["rows"], table["paths"] = rows, paths
         self.run_outs.pop(id(op), None)  # a run-out is only ever of the clipped paths
+
+    @staticmethod
+    def _regenerate_chain(paths, bounds, radius, dro):
+        """Regenerate bounded drill positions on true finite curves, not swept chords.
+
+        Lengths in ``chain_geometry`` are plan units; pitch and bounds are mm. Each
+        retained arc or straight leg has equal nominal intervals <= pitch, with exact
+        junctions forced and shared across tables. Every hole searches a three-step
+        square per axis; ends back off on the true curve if necessary.
+        The full-radius eroded box and signed finished-region clearance constrain every snap.
+        Short clipped tails lose their end hole rather than acquire overlapping holes.
+        Returned model coordinates invert the supplied feature-plane basis at the nominal
+        curve point; ``dro_xy`` alone commands the actual cylinder.
+        """
+        scale, step, decimals = dro["scale"], dro["step"], dro["decimals"]
+        tol, drill = PLANE_TOL / scale, radius / scale
+        if not isinstance(bounds, dict):
+            raise _ClipUnknown("chain bounds are unknown")
+        inner = []
+        for axis in ("x", "y"):
+            span = bounds.get(axis)
+            if not (isinstance(span, list) and len(span) == 2 and all(map(_number, span))):
+                raise _ClipUnknown("chain bounds need numeric X and Y spans")
+            inner.append([(span[0] + radius) / scale, (span[1] - radius) / scale])
+        if any(lo > hi for lo, hi in inner):
+            raise _ClipUnknown("no full drill cylinder fits inside the bounds")
+
+        def pair(p):
+            return isinstance(p, list) and len(p) == 2 and all(map(_number, p))
+
+        def valid(curve, wall=False):
+            if not isinstance(curve, dict):
+                return False
+            if curve.get("kind") == "arc":
+                return (
+                    pair(curve.get("centre"))
+                    and _positive(curve, "radius")
+                    and _number(curve.get("start_deg"))
+                    and _number(curve.get("sweep_deg"))
+                    and 0 < abs(curve["sweep_deg"]) <= 360
+                    and curve.get("outward") in (-1, 1)
+                    and (
+                        wall
+                        or (
+                            _number(curve.get("angle_start_deg"))
+                            and _number(curve.get("angle_sweep_deg"))
+                        )
+                    )
+                )
+            ends = curve.get("ends")
+            return (
+                curve.get("kind") == "line"
+                and isinstance(ends, list)
+                and len(ends) == 2
+                and all(map(pair, ends))
+                and math.dist(*ends) > tol
+                and pair(curve.get("normal"))
+                and abs(math.hypot(*curve["normal"]) - 1) <= 1e-9
+            )
+
+        def at(curve, t):
+            if curve["kind"] == "line":
+                a, b = curve["ends"]
+                return [a[i] + t * (b[i] - a[i]) for i in range(2)]
+            angle = math.radians(curve["start_deg"] + t * curve["sweep_deg"])
+            return [
+                curve["centre"][i] + curve["radius"] * v
+                for i, v in enumerate((math.cos(angle), math.sin(angle)))
+            ]
+
+        def parameters(curve, angle):
+            start, sweep = curve["start_deg"], curve["sweep_deg"]
+            low, high = sorted((start, start + sweep))
+            return [
+                (angle + 360 * k - start) / sweep
+                for k in range(math.ceil((low - angle) / 360), math.floor((high - angle) / 360) + 1)
+            ]
+
+        def gap(curve, point):
+            if curve["kind"] == "arc":
+                centre = curve["centre"]
+                angle = math.degrees(math.atan2(point[1] - centre[1], point[0] - centre[0]))
+                if parameters(curve, angle):
+                    return abs(math.dist(point, centre) - curve["radius"])
+                return min(math.dist(point, at(curve, t)) for t in (0, 1))
+            a, b = curve["ends"]
+            run = [b[i] - a[i] for i in range(2)]
+            t = max(
+                0,
+                min(1, sum((point[i] - a[i]) * run[i] for i in range(2)) / sum(v * v for v in run)),
+            )
+            return math.dist(point, at(curve, t))
+
+        def inside(point):
+            return all(lo - tol <= point[i] <= hi + tol for i, (lo, hi) in enumerate(inner))
+
+        def intervals(curve):
+            cuts = [0.0, 1.0]
+            if curve["kind"] == "arc":
+                for angle in (0, 90, 180, 270):
+                    cuts.extend(parameters(curve, angle))
+            for axis, span in enumerate(inner):
+                for edge in span:
+                    if curve["kind"] == "line":
+                        a, b = curve["ends"]
+                        delta = b[axis] - a[axis]
+                        if delta:
+                            cuts.append((edge - a[axis]) / delta)
+                    else:
+                        ratio = (edge - curve["centre"][axis]) / curve["radius"]
+                        if -1 <= ratio <= 1:
+                            angle = math.degrees(
+                                math.acos(ratio) if axis == 0 else math.asin(ratio)
+                            )
+                            for theta in (angle, -angle if axis == 0 else 180 - angle):
+                                cuts.extend(parameters(curve, theta))
+            cuts = sorted(set(t for t in cuts if 0 <= t <= 1))
+            result = []
+            for a, b in zip(cuts, cuts[1:], strict=False):
+                if all(inside(at(curve, t)) for t in (a, (a + b) / 2, b)):
+                    if result and result[-1][1] == a:
+                        result[-1][1] = b
+                    else:
+                        result.append([a, b])
+            # An exact tangent can leave one legal centre and no positive-length arc.
+            # Keep that real hole; do not invent a minimum-length interval around it.
+            result.extend(
+                [t, t]
+                for t in cuts
+                if inside(at(curve, t)) and not any(a <= t <= b for a, b in result)
+            )
+            return sorted(result)
+
+        geometries = []
+        clearances = {}
+        compiled_packets = []
+        for path in paths:
+            geometry = path.get("chain_geometry")
+            if not isinstance(geometry, dict):
+                raise _ClipUnknown(f"{path['table']}: true chain geometry is unknown")
+            basis, origin = geometry.get("basis"), geometry.get("setup_origin")
+            curves, walls = geometry.get("curves"), geometry.get("walls")
+            if not (
+                _positive(geometry, "pitch_mm")
+                and _number(geometry.get("offset"))
+                and geometry["offset"] >= drill - tol
+                and pair(origin)
+                and isinstance(basis, list)
+                and len(basis) == 2
+                and all(map(pair, basis))
+                and all(
+                    abs(sum(basis[i][k] * basis[j][k] for k in range(2)) - (i == j)) <= 1e-9
+                    for i in range(2)
+                    for j in range(2)
+                )
+                and isinstance(curves, list)
+                and curves
+                and all(valid(c) for c in curves)
+                and isinstance(walls, list)
+                and walls
+                and all(valid(w, True) for w in walls)
+            ):
+                raise _ClipUnknown(f"{path['table']}: true chain geometry is incomplete")
+            if any(
+                math.dist(at(a, 1), at(b, 0)) > tol
+                for a, b in zip(curves, curves[1:], strict=False)
+            ):
+                raise _ClipUnknown(f"{path['table']}: finite join legs are disconnected")
+            clearance = next(
+                (compiled for packet, compiled in compiled_packets if packet == walls), None
+            )
+            if clearance is None:
+                try:
+                    clearance = chain_boundary.compile_clearance(walls, tol)
+                except ValueError as error:
+                    raise _ClipUnknown(
+                        f"{path['table']}: finished-region clearance is unknown ({error})"
+                    ) from error
+                compiled_packets.append((walls, clearance))
+            clearances[id(geometry)] = clearance
+            geometries.append(geometry)
+
+        web = max(tol, 1e-9)
+        separation = 2 * drill + web
+
+        def safe(point, exact, curve, geometry, boundary):
+            if clearances[id(geometry)](point) < max(drill, geometry["offset"]) - 1e-9:
+                return False
+            if curve["kind"] == "arc":
+                if (
+                    not boundary
+                    and curve["outward"] * (math.dist(point, curve["centre"]) - curve["radius"])
+                    < -1e-9
+                ):
+                    return False
+            elif (
+                not boundary
+                and sum((point[i] - exact[i]) * curve["normal"][i] for i in range(2)) < -1e-9
+            ):
+                return False
+            return all(
+                gap(w, point) >= min(gap(w, exact), geometry["offset"]) - 1e-9
+                for w in geometry["walls"]
+            )
+
+        def incident(exact):
+            return [
+                (c, g)
+                for g in geometries
+                for c in g["curves"]
+                for t in (0, 1)
+                if math.dist(at(c, t), exact) <= tol
+            ]
+
+        def options(exact, curve, geometry, boundary):
+            # Search the same coordinate square for every hole. A circular
+            # one-step cutoff can reject every safe scrap-side diagonal.
+            reach = 3
+            spans = [
+                range(math.ceil(v / step - reach), math.floor(v / step + reach) + 1) for v in exact
+            ]
+            neighbours = incident(exact) if boundary else []
+            candidates = (
+                [round(i * step, decimals), round(j * step, decimals)]
+                for i in spans[0]
+                for j in spans[1]
+            )
+            return sorted(
+                (
+                    point
+                    for point in candidates
+                    if inside(point)
+                    and safe(point, exact, curve, geometry, boundary)
+                    and all(safe(point, exact, c, g, True) for c, g in neighbours)
+                ),
+                key=lambda p: (math.dist(p, exact), p),
+            )
+
+        # Only true shared endpoints are fixed globally. Trial interior snaps must not
+        # change the phase or the chosen junction of a later table.
+        junctions = []
+        for geometry in geometries:
+            for curve in geometry["curves"]:
+                for t in (0, 1):
+                    exact = at(curve, t)
+                    if any(math.dist(exact, nominal) <= tol for nominal, _ in junctions):
+                        continue
+                    if len(incident(exact)) > 1:
+                        choices = options(exact, curve, geometry, True)
+                        if choices:
+                            junctions.append((exact, choices[0]))
+
+        def junction(exact):
+            return next(
+                (actual for nominal, actual in junctions if math.dist(nominal, exact) <= tol),
+                None,
+            )
+
+        def choices(curve, geometry, t, boundary):
+            exact = at(curve, t)
+            shared = junction(exact) if boundary else None
+            return [shared] if shared is not None else options(exact, curve, geometry, boundary)
+
+        def backed_end(curve, geometry, start, end, length):
+            if choices(curve, geometry, start, True):
+                return start
+            # A near-tangent box crossing can leave an empty safe wedge at its exact
+            # boundary. Walk inward on the actual curve, never on a chord or midpoint
+            # of unrelated walls. The wider grid box overlaps consecutive samples.
+            count = max(1, math.ceil(abs(end - start) * length / (step / 2)))
+            for k in range(1, count + 1):
+                t = start + (end - start) * k / count
+                if choices(curve, geometry, t, True):
+                    return t
+            return None
+
+        def generated(curve, geometry, index, t, actual):
+            exact = at(curve, t)
+            delta = [exact[i] - geometry["setup_origin"][i] for i in range(2)]
+            point = {
+                "generated": True,
+                "exact_xy": exact,
+                "dro_xy": actual,
+                "model_xy": [
+                    sum(delta[i] * axis[i] for i in range(2)) for axis in geometry["basis"]
+                ],
+                "overshoot": curve["kind"] == "line"
+                and ((index > 0 and t == 0) or (index + 1 < len(geometry["curves"]) and t == 1)),
+            }
+            if curve["kind"] == "arc":
+                point["angle_deg"] = curve["angle_start_deg"] + t * curve["angle_sweep_deg"]
+            return point
+
+        retained = [{"exact_xy": exact, "dro_xy": actual} for exact, actual in junctions]
+
+        def spaced(exact, actual, others):
+            return all(
+                math.dist(exact, point["exact_xy"]) <= tol
+                and math.dist(actual, point["dro_xy"]) <= tol
+                or math.dist(actual, point["dro_xy"]) > separation
+                for point in others
+            )
+
+        def sample(curve, geometry, index, low, high, count, require_web=True):
+            parameters = [
+                low + (high - low) * k / count if count else low for k in range(count + 1)
+            ]
+            # Pick the two ends together, then reserve the far end while selecting
+            # interiors. A nearest snap that destroys the last web is not a solution.
+            first = choices(curve, geometry, low, True)
+            last = choices(curve, geometry, high, True) if count else first
+            for a in first:
+                begin = generated(curve, geometry, index, low, a)
+                if require_web and not spaced(begin["exact_xy"], a, retained):
+                    continue
+                if not count:
+                    return [begin]
+                for b in last:
+                    end = generated(curve, geometry, index, high, b)
+                    if require_web and not spaced(end["exact_xy"], b, retained):
+                        continue
+                    if require_web and not spaced(end["exact_xy"], b, [begin]):
+                        continue
+                    piece = [begin]
+                    for t in parameters[1:-1]:
+                        exact = at(curve, t)
+                        actual = next(
+                            (
+                                p
+                                for p in choices(curve, geometry, t, False)
+                                if not require_web
+                                or (
+                                    spaced(exact, p, retained)
+                                    and spaced(exact, p, piece)
+                                    and spaced(exact, p, [end])
+                                )
+                            ),
+                            None,
+                        )
+                        if actual is None:
+                            break
+                        piece.append(generated(curve, geometry, index, t, actual))
+                    else:
+                        return [*piece, end]
+            return None
+
+        def populate(curve, geometry, index, low, high, length):
+            start = backed_end(curve, geometry, low, high, length)
+            if start is None:
+                raise _ClipUnknown(
+                    f"chain curve {index + 1}: no safe DRO-grid drill centre after "
+                    "full-interval search and back-off"
+                )
+            end = backed_end(curve, geometry, high, start, length)
+            if end is None:
+                raise _ClipUnknown(
+                    f"chain curve {index + 1}: no safe DRO-grid end drill centre after "
+                    "full-interval search and back-off"
+                )
+            span = (end - start) * length
+            pitch = geometry["pitch_mm"] / scale
+            minimum = 0 if span <= tol else max(1, math.ceil(span / pitch))
+            # Snapped cylinders can leave a web even when nominal endpoints cannot.
+            # Judge the pitch-required count before a nominal bound shortens the span.
+            maximum = max(minimum, math.floor(span / separation))
+            for count in range(minimum, maximum + 1):
+                piece = sample(curve, geometry, index, start, end, count)
+                if piece is not None:
+                    return piece
+            fixed_start = junction(at(curve, start)) is not None
+            fixed_end = junction(at(curve, end)) is not None
+            if low == start == 0 and high == end == 1 and fixed_start and fixed_end:
+                # Both authored junctions are mandatory: clipping did not create this
+                # infeasible interval. Keep the geometry for the host's concrete
+                # authored no-web error rather than silently unlinking valid tables.
+                return sample(curve, geometry, index, start, end, minimum, False) or []
+            # No count fits the whole interval. Keep its shared junction, if any, and
+            # shorten only the free END. All retained intervals remain equal and <=pitch.
+            reverse = fixed_end and not fixed_start
+            for count in range(min(minimum - 1, maximum), -1, -1):
+                run = min(span, count * pitch) / length
+                a, b = (end - run, end) if reverse else (start, start + run)
+                piece = sample(curve, geometry, index, a, b, count)
+                if piece is not None:
+                    return piece
+            return []
+
+        result = []
+        for path, geometry in zip(paths, geometries, strict=True):
+            curves, pieces = geometry["curves"], []
+            for index, curve in enumerate(curves):
+                length = (
+                    math.dist(*curve["ends"])
+                    if curve["kind"] == "line"
+                    else curve["radius"] * abs(math.radians(curve["sweep_deg"]))
+                )
+                for low, high in intervals(curve):
+                    piece = populate(curve, geometry, index, low, high, length)
+                    if not piece:
+                        continue
+                    retained.extend(piece)
+                    if (
+                        pieces
+                        and math.dist(pieces[-1][-1]["exact_xy"], piece[0]["exact_xy"]) <= tol
+                    ):
+                        pieces[-1].extend(piece[1:])
+                    else:
+                        pieces.append(piece)
+            closed = (
+                len(curves) == 1
+                and curves[0]["kind"] == "arc"
+                and abs(curves[0]["sweep_deg"]) == 360
+            )
+            if (
+                closed
+                and len(pieces) > 1
+                and math.dist(pieces[0][0]["exact_xy"], at(curves[0], 0)) <= tol
+                and math.dist(pieces[-1][-1]["exact_xy"], at(curves[0], 1)) <= tol
+            ):
+                # As for swept paths, the last and first fragments meet at one seam
+                # hole. Shift only the angular phase, not nominal/model coordinates.
+                sweep = curves[0]["angle_sweep_deg"]
+                first = [{**point, "angle_deg": point["angle_deg"] + sweep} for point in pieces[0]]
+                pieces = [pieces[-1] + first[1:], *pieces[1:-1]]
+            dropped = [
+                not pieces or math.dist(pieces[0][0]["exact_xy"], at(curves[0], 0)) > tol,
+                not pieces or math.dist(pieces[-1][-1]["exact_xy"], at(curves[-1], 1)) > tol,
+            ]
+            entry = {
+                "table": path["table"],
+                "rows": len(path["xy_mm"]),
+                "regeneration": "true_curve",
+                "pieces": pieces,
+                "dropped_ends": dropped,
+                "dropped_rows": [
+                    row
+                    for row, xy in zip(path["ids"], path["xy_mm"], strict=True)
+                    if not inside([v / scale for v in xy])
+                ],
+                "clip_points": [],
+            }
+            result.append((entry, pieces))
+        if not any(pieces for _, pieces in result):
+            raise _ClipUnknown("no drill centre fits the full-radius eroded bounds")
+        return result
 
     def _clip_path(self, path, obstacle, radius, dro):
         """(its ``checkpoint_clips`` entry, its legal pieces) for one printed path.
@@ -9647,7 +10273,9 @@ class _Setup:
         points (``after`` a row at fraction ``t``, ``exact_xy`` and ``dro_xy`` in plan
         units). A path that leaves and re-enters legality is several pieces, never
         reconnected (a closed path's pieces across its seam are one); one with no legal part
-        has none. Pieces no longer than CLIP_PRECISION_MM are dropped.
+        has none. Pieces no longer than CLIP_PRECISION_MM are dropped. An absent obstacle
+        means the derived stock remainder is empty, not that its geometry is unknown;
+        :meth:`_clip_checkpoints` keeps unresolved stock out of this method.
         """
         xy, ids = path["xy_mm"], path["ids"]
         count, z0, top = len(xy), path["tip_z_mm"] + LIFT, self.box[5] + COVER_MM
@@ -9749,7 +10377,7 @@ class _Setup:
                 f"no DRO grid point near its clip after {ids[i]} is clear and no nearer its walls"
             )
 
-        if z0 >= top:
+        if obstacle is None or z0 >= top:
             pieces = [[{"row": i} for i in range(count)]]
         elif count == 1:
             pieces = [[{"row": 0}]] if not meets(points[0], points[0]) else []
@@ -9856,18 +10484,21 @@ class _Setup:
             # The pool runs every row's booleans ahead; one token keeps their sharing.
             calls = {}
             for index, row in enumerate(rows):
-                (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + LIFT
+                chain = row.get("method") == "chain_drill"
+                (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + (0 if chain else LIFT)
                 if z0 < top:
-                    cylinder = (x, y, radius - LIFT, z0, top)
+                    cylinder = (x, y, radius if chain else radius - LIFT, z0, top)
                     args = (present, boxes, checked, cylinder)
                     calls[index] = batch.submit(loaded, "checkpoint_row", *args)
             for index, row in enumerate(rows):
-                (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + LIFT
+                chain = row.get("method") == "chain_drill"
+                (x, y), z0 = row["xy_mm"], row["tip_z_mm"] + (0 if chain else LIFT)
                 if z0 >= top:
                     continue
-                cylinder = (x, y, radius - LIFT, z0, top)
-                tool = Part.makeCylinder(radius - LIFT, top - z0, V(x, y, z0))
-                reach = radius - LIFT + PLANE_TOL
+                rho = radius if chain else radius - LIFT
+                cylinder = (x, y, rho, z0, top)
+                tool = Part.makeCylinder(rho, top - z0, V(x, y, z0))
+                reach = rho + PLANE_TOL
                 near = (x - reach, y - reach, z0 - PLANE_TOL, x + reach, y + reach, top + PLANE_TOL)
                 taken = boolean_pool.answer(calls.get(index))
                 if taken is None:
@@ -10159,6 +10790,9 @@ class _Setup:
         solid is unknown."""
         radius = _positive(op, "radius_mm")
         flute = _positive(op, "flute_len_mm")
+        unbuilt = self.stock_reason
+        if unbuilt is None:
+            unbuilt = self.cuts[id(op)][2]
         facts = {
             "reasons": {},
             "claimed_indices": self._indices(op),
@@ -10167,8 +10801,10 @@ class _Setup:
             "corner_radii_mm": [],
             "obstacles": {"tool": [], "holder": []},
             "hit_refs": {"tool": [], "holder": []},
-            "min_hits": {"tool": 0, "holder": 0},
+            "min_hits": {"tool": UNKNOWN if unbuilt is not None else 0, "holder": 0},
         }
+        stopped = id(op) == self.stopped_cut
+        independent_material = self._stopping_tool_material(op)
         solids = {}
         if isinstance(tool, str):
             facts["reasons"]["tool_hits"] = tool
@@ -10201,14 +10837,39 @@ class _Setup:
             if solid is None:
                 facts[kind + "_hits"] = UNKNOWN
                 continue
-            hit = solid.common(after).Volume > HIT_MM3
+            material = self.cuts[id(op)][0] if kind == "tool" and stopped else after
+            hit = solid.common(material).Volume > HIT_MM3
             obstacles = set(self._fixture_hits(solid)) if self.fixture_ready else set()
+            fixture_hits = int(bool(obstacles))
+            independent_part = (
+                hit
+                and independent_material is not None
+                and solid.common(independent_material).Volume > HIT_MM3
+            )
+            independent_hit = bool(fixture_hits or independent_part)
+            dependent_hit = stopped and hit and not independent_part
             if hit:
                 obstacles.add("part")
             certain = int(bool(obstacles))
-            facts["min_hits"][kind] = certain
+            facts["min_hits"][kind] = (
+                UNKNOWN
+                if kind == "tool" and unbuilt is not None
+                else self._stopping_tool_minimum(op, certain, dependent_hit, int(independent_hit))
+                if kind == "tool"
+                else certain
+            )
             facts["obstacles"][kind] = sorted(obstacles)
-            if not self.fixture_ready or self.fixture_gaps or self.fixture_possible:
+            if kind == "tool" and unbuilt is not None:
+                facts[kind + "_hits"] = UNKNOWN
+                facts["reasons"][kind + "_hits"] = (
+                    f"the stock before this op is unknown ({unbuilt}); "
+                    f"{certain} axial pose(s) hit the remaining finished or fixture obstacles, "
+                    "but tool collision certainty is unproven"
+                )
+            elif kind == "tool" and dependent_hit:
+                facts[kind + "_hits"] = UNKNOWN
+                facts["reasons"][kind + "_hits"] = self._stopping_tool_reason()
+            elif not self.fixture_ready or self.fixture_gaps or self.fixture_possible:
                 facts[kind + "_hits"] = UNKNOWN
                 facts["reasons"][kind + "_hits"] = (
                     self.fixture_reason or "fixture geometry is incomplete"
@@ -10241,18 +10902,22 @@ class _Setup:
             return self._saw_facts(op, self.cuts[id(op)][2])
         owner = self.owner
         process = op.get("process_cut")
+        process_reason = None
         if isinstance(process, dict):
-            if process.get("reason"):
-                return self._op_unknown(op, process["reason"])
-            if not _turned(op):
+            process_reason = process.get("reason") or None
+            if process_reason is None and not _turned(op):
                 if self.stock_reason is not None:
-                    return self._op_unknown(op, self.stock_reason)
-                if process.get("kind") != "end_face":
+                    process_reason = self.stock_reason
+                elif process.get("kind") != "end_face":
                     return self._process_axial_op(op)
-                # A milled end face is sampled like any milled claim: its transient section.
-                _, reason = self._process_removal(op, self.part)
-                if reason is not None:
-                    return self._op_unknown(op, reason)
+                else:
+                    _, process_reason = self._process_removal(op, self.part)
+            if process_reason is not None and (
+                process.get("kind") != "end_face" or _hand(op) or _turned(op) or _rotary(op)
+            ):
+                return self._op_unknown(op, process_reason)
+            # A milled end face's validated claims and corners do not need its cutter
+            # sweep. Keep that geometry, but do not sample an unknown physical cut.
         if isinstance(op.get("joint_cut"), dict):
             if self.stock_reason is not None:
                 return self._op_unknown(op, self.stock_reason)
@@ -10351,10 +11016,10 @@ class _Setup:
             if not isinstance(corner, list):
                 reasons["corner_radii_mm"] = corner
             radius = _positive(op, "radius_mm")
-            if radius is None:
+            if process_reason is not None or radius is None:
                 for key in self._MEASURED:
                     facts[key] = UNKNOWN
-                    reasons[key] = "op lacks a measured cutter radius_mm"
+                    reasons[key] = process_reason or "op lacks a measured cutter radius_mm"
             else:
                 self._sample_facts(op, sampled, radius, facts)
                 if undefined:
@@ -10842,20 +11507,44 @@ class _Setup:
         Earlier ops' material is absent only because their accepted cuts removed it; later
         cuts are never credited, nor is the cut of an op that stopped the builder: it meets
         its whole before-op stock. A milling op with a claim facing away from the approach
-        is credited no removal either; a hole op always is. Once an earlier cut is
-        underivable the stock before this op is unknown: only finished material, present in
-        any real stock, remains a flute obstacle. Accessibility's holder obstacles never see
+        is credited no removal either; a hole op always is. Unknown upstream stock keeps
+        only finished material, less an independently derivable own hole cut: that cut's
+        claims, tool axis, radius and depth do not need the upstream removal. Unknown or
+        invalid own cuts receive no credit. Accessibility's holder obstacles never see
         this; they keep the setup-entry ``regions``.
         """
-        if self.stock_reason is not None:
-            return regions
-        before, after, unknown = self.cuts[id(op)]
+        unknown = self.stock_reason
         if unknown is not None:
-            stock = self.finished
-        elif isinstance(op.get("hole"), dict) or not self._claims(op)[1]:
-            stock = after
+            stock = self.part
         else:
-            stock = before
+            before, after, unknown = self.cuts[id(op)]
+            if unknown is not None:
+                stock = self.finished
+            elif isinstance(op.get("hole"), dict) or not self._claims(op)[1]:
+                stock = after
+            else:
+                stock = before
+        if (
+            unknown is not None
+            and isinstance(op.get("hole"), dict)
+            and not _hand(op)
+            and not _turned(op)
+            and not _rotary(op)
+            and not isinstance(op.get("joint_cut"), dict)
+            and not isinstance(op.get("process_cut"), dict)
+        ):
+            # _cut's claim/depth gates reuse _sample_facts' cached own hole record, never
+            # another op's clearance or a guessed stock envelope. Milling cuts need stock.
+            try:
+                plan, why = self._cut(op, self.part)
+                own = plan[0] if why is None else None
+                if own is not None and own.isValid():
+                    kept = stock.cut(own)
+                    if kept.isNull() or kept.isValid():
+                        stock = kept
+            except Exception:
+                # The stock is already unknown; a failed own cut cannot clear an obstacle.
+                pass
         if stock is self.part:
             return regions
         gone = self.part.cut(stock)
@@ -11373,8 +12062,11 @@ class _Setup:
             for index in indices
         }
         flute_regions = self._flute_regions(op, regions)
-        # Why the stock before this op is unknown: its flute then met finished material only.
-        unbuilt = None if self.stock_reason is not None else self.cuts[id(op)][2]
+        independent_regions = self._stopping_tool_regions(op, flute_regions)
+        # Unknown setup entry or an earlier stopped cut cannot establish tool certainty.
+        unbuilt = self.stock_reason
+        if unbuilt is None:
+            unbuilt = self.cuts[id(op)][2]
         region_reason = (
             "; ".join(reason for _, reason in regions.values() if reason is not None) or None
         )
@@ -11433,7 +12125,20 @@ class _Setup:
                 or self.fixture_gaps
                 or any(_tool_hits_box(cylinder, box, solid) for _, box in self.fixture_possible)
             )
-            return frozenset(labels), refs, uncertain
+            independent_part = False
+            if kind == "tool" and "part" in labels and index in independent_regions:
+                remaining = independent_regions[index]
+                independent_part = (
+                    remaining is not None and remaining.common(*cylinder, solid) is not None
+                )
+            independent = bool(labels - {"part"}) or independent_part
+            dependent = (
+                kind == "tool"
+                and id(op) == self.stopped_cut
+                and "part" in labels
+                and not independent_part
+            )
+            return frozenset(labels), refs, uncertain, dependent, independent
 
         def cutter(ax, ay, tip):
             recipe = (ax, ay, tip, radius - LIFT, slope, flute, seat)
@@ -11451,6 +12156,7 @@ class _Setup:
 
         # Per kind: certain hits, hits only in the undeclared jaw extension, labels, refs.
         counters = {"tool": [0, 0, set(), set()], "holder": [0, 0, set(), set()]}
+        tool_dependent_hits, tool_independent_hits = 0, 0
         with _ahead() as batch:
             # The pool runs each new pose's boolean ahead, in the order classify needs them.
             for index, _, ax, ay, tip, downward in placed:
@@ -11470,15 +12176,19 @@ class _Setup:
                         if kind == "tool":
                             counter[0] += 1
                             counter[2].add("part")
+                            tool_independent_hits += 1
                         continue
                     pose = (kind, index, cylinder)
                     if pose not in outcomes:
                         outcomes[pose] = classify(kind, index, ax, ay, tip, cylinder, counter[3])
-                    labels, refs, uncertain = outcomes[pose]
+                    labels, refs, uncertain, dependent, independent = outcomes[pose]
                     counter[3].update(refs)
                     if labels:
                         counter[0] += 1
                         counter[2].update(labels)
+                        if kind == "tool":
+                            tool_dependent_hits += dependent
+                            tool_independent_hits += independent
                     elif uncertain:
                         counter[1] += 1
         facts["obstacles"] = {kind: sorted(counters[kind][2]) for kind in counters}
@@ -11493,7 +12203,15 @@ class _Setup:
         ):
             key = kind + "_hits"
             certain, uncertain = counters[kind][0], counters[kind][1]
-            facts["min_hits"][kind] = certain
+            facts["min_hits"][kind] = (
+                UNKNOWN
+                if kind == "tool" and unbuilt is not None
+                else self._stopping_tool_minimum(
+                    op, certain, tool_dependent_hits, tool_independent_hits
+                )
+                if kind == "tool"
+                else certain
+            )
             if sample_reason:
                 facts[key] = UNKNOWN
                 reasons[key] = sample_reason
@@ -11504,8 +12222,12 @@ class _Setup:
                 facts[key] = UNKNOWN
                 reasons[key] = (
                     f"the stock before this op is unknown ({unbuilt}); "
-                    f"{certain} sample(s) certainly hit finished or fixture material"
+                    f"{certain} sample(s) hit the remaining finished or fixture obstacles, "
+                    "but tool collision certainty is unproven"
                 )
+            elif kind == "tool" and tool_dependent_hits:
+                facts[key] = UNKNOWN
+                reasons[key] = self._stopping_tool_reason()
             elif not self.fixture_ready:
                 facts[key] = UNKNOWN
                 reasons[key] = (
@@ -12348,6 +13070,11 @@ class _Setup:
             segments = []
             obstacle_reason = obstacle_reason or f"meridian section for tool poses failed ({exc})"
         part_box = _bbox(part) if part.Solids else self.box
+        tool_part, tool_box = part, part_box
+        if id(op) == self.stopped_cut:
+            tool_part = self.cuts[id(op)][0]
+            tool_box = _bbox(tool_part) if tool_part.Solids else self.box
+        independent_material = self._stopping_tool_material(op)
         placed = self.fixture_ready
         outer = self._outer()
         subject = self._subject(op)
@@ -12356,6 +13083,7 @@ class _Setup:
         rest_gaps = list(blocked)
         counters = {"tool": [0, set(), set()], "holder": [0, set(), set()]}
         uncertain = {"tool": 0, "holder": 0}
+        tool_dependent_hits, tool_independent_hits = 0, 0
         reach, wall_hits = 0.0, 0
         # A single-point tool facing to to_z feeds radially through stock it has just faced:
         # only material left by the op (a shoulder beside the nose) is buried depth. A blade
@@ -12398,18 +13126,32 @@ class _Setup:
                 if solid is None:
                     continue
                 labels = set(rest_hits[kind])
-                if _boxes_overlap(_bbox(solid), part_box):
-                    common = solid.common(part)
+                independent_part = False
+                material, box = (tool_part, tool_box) if kind == "tool" else (part, part_box)
+                if _boxes_overlap(_bbox(solid), box):
+                    common = solid.common(material)
                     if common.Volume > HIT_MM3:
                         labels.add("part")
                         counters[kind][2].update(
                             self._turn_hit_refs(common, solid, index, counters[kind][2])
                         )
+                        independent_part = (
+                            kind == "tool"
+                            and independent_material is not None
+                            and solid.common(independent_material).Volume > HIT_MM3
+                        )
                         wall_hits += kind == "holder"
                 labels.update(self._turn_fixture(solid, subject) or ())
+                independent = bool(labels - {"part"}) or independent_part
                 if labels:
                     counters[kind][0] += 1
                     counters[kind][1].update(labels)
+                    if kind == "tool":
+                        dependent = (
+                            id(op) == self.stopped_cut and "part" in labels and not independent_part
+                        )
+                        tool_dependent_hits += dependent
+                        tool_independent_hits += independent
                     if window is not None:
                         window["meets"].update(labels)
                 elif (
@@ -12450,7 +13192,14 @@ class _Setup:
                 facts["rest_engagement"] = engage
         facts["obstacles"] = {kind: sorted(counters[kind][1]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
-        facts["min_hits"] = {kind: counters[kind][0] for kind in counters}
+        facts["min_hits"] = {
+            kind: self._stopping_tool_minimum(
+                op, counters[kind][0], tool_dependent_hits, tool_independent_hits
+            )
+            if kind == "tool"
+            else counters[kind][0]
+            for kind in counters
+        }
         if radial_feed and obstacle is None:
             facts["reach_depth_mm"] = UNKNOWN
             reasons["reach_depth_mm"] = obstacle_reason or "the faced profile is unknown"
@@ -12467,6 +13216,9 @@ class _Setup:
             if kind == "holder" and holder_reason:
                 facts[key] = UNKNOWN
                 reasons[key] = holder_reason
+            elif kind == "tool" and tool_dependent_hits:
+                facts[key] = UNKNOWN
+                reasons[key] = self._stopping_tool_reason()
             elif obstacle_reason:
                 facts[key] = UNKNOWN
                 reasons[key] = f"{obstacle_reason}; {certain} sample(s) hit certain branch material"
@@ -13202,8 +13954,11 @@ class _Setup:
         seat = _seat_solid(op)
         regions = {index: self._region(index) for index in indices}
         flute_regions = self._flute_regions(op, regions)
-        # Why the stock before this op is unknown: its flute then met finished material only.
-        unbuilt = None if self.stock_reason is not None else self.cuts[id(op)][2]
+        independent_regions = self._stopping_tool_regions(op, flute_regions)
+        # The shared flute regions cannot establish tool certainty on unknown stock.
+        unbuilt = self.stock_reason
+        if unbuilt is None:
+            unbuilt = self.cuts[id(op)][2]
         region_reason = (
             "; ".join(reason for _, reason in regions.values() if reason is not None) or None
         )
@@ -13214,6 +13969,7 @@ class _Setup:
         leaves, _ = self._op_stock(op, 1)
         counters = {"tool": [0, set(), set()], "holder": [0, set(), set()]}
         uncertain = {"tool": 0, "holder": 0}
+        tool_dependent_hits, tool_independent_hits = 0, 0
         wall_hits = 0
         for index, phi, ax, ay, tip, downward in placed:
             solids = {}
@@ -13231,22 +13987,37 @@ class _Setup:
                     if kind == "tool":
                         counter[0] += 1
                         counter[1].add("part")
+                        tool_independent_hits += 1
                     continue
                 back = head.rotated(presented, -phi)
                 labels = set()
+                independent_part = False
                 if (flute_reason if kind == "tool" else region_reason) is None:
                     obstacle = (flute_regions if kind == "tool" else regions)[index][0]
                     common = obstacle.common_solid(back)
                     if common is not None:
                         labels.add("part")
                         counter[2].update(self._turn_hit_refs(common, back, index))
+                        remaining = independent_regions.get(index)
+                        independent_part = (
+                            kind == "tool"
+                            and remaining is not None
+                            and remaining.common_solid(back) is not None
+                        )
                 if kind == "holder" and meets is not None and meets.common_solid(back) is not None:
                     wall_hits += 1
                 if self.fixture_ready:
                     labels.update(self._rotary_fixture_hits(presented, back))
+                independent = bool(labels - {"part"}) or independent_part
                 if labels:
                     counter[0] += 1
                     counter[1].update(labels)
+                    if kind == "tool":
+                        dependent = (
+                            id(op) == self.stopped_cut and "part" in labels and not independent_part
+                        )
+                        tool_dependent_hits += dependent
+                        tool_independent_hits += independent
                 elif not self.fixture_ready or self.fixture_gaps:
                     uncertain[kind] += 1
         # Reach: highest material the op meets within r + band of the tool axis above each
@@ -13288,7 +14059,16 @@ class _Setup:
             reasons["shank_hits"] = shank_why
         facts["obstacles"] = {kind: sorted(counters[kind][1]) for kind in counters}
         facts["hit_refs"] = {kind: sorted(counters[kind][2]) for kind in counters}
-        facts["min_hits"] = {kind: counters[kind][0] for kind in counters}
+        facts["min_hits"] = {
+            kind: UNKNOWN
+            if kind == "tool" and unbuilt is not None
+            else self._stopping_tool_minimum(
+                op, counters[kind][0], tool_dependent_hits, tool_independent_hits
+            )
+            if kind == "tool"
+            else counters[kind][0]
+            for kind in counters
+        }
         for kind, missing in (
             ("tool", "op lacks flute_len_mm" if flute is None else flute_reason),
             ("holder", holder_reason),
@@ -13301,8 +14081,12 @@ class _Setup:
                 facts[key] = UNKNOWN
                 reasons[key] = (
                     f"the stock before this op is unknown ({unbuilt}); "
-                    f"{certain} sample(s) certainly hit finished or fixture material"
+                    f"{certain} sample(s) hit the remaining finished or fixture obstacles, "
+                    "but tool collision certainty is unproven"
                 )
+            elif kind == "tool" and tool_dependent_hits:
+                facts[key] = UNKNOWN
+                reasons[key] = self._stopping_tool_reason()
             elif not self.fixture_ready:
                 facts[key] = UNKNOWN
                 reasons[key] = (

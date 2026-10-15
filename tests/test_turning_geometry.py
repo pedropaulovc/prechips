@@ -8,9 +8,13 @@ or a hemispherical end (r 4 about z 36).  Assertions read the engine's JSON.
 
 import math
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 from test_kernel_geometry import IDENTITY, Engine
+
+from prechips.rules import accessibility
+from prechips.rules.geometry_common import TURNING, TURNING_HOLDER_KEYS, TURNING_TOOL_KEYS
 
 _AUTHOR = r"""
 import sys
@@ -197,12 +201,12 @@ def _dome(engine, step):
     return {"dome": engine.refs(step, (-4, -4, 36), (4, 4, 40), kind="Sphere")}
 
 
-def _formed(engine, step, ops):
+def _formed(engine, step, ops, *, features=None):
     hold = {"reason": "chuck not modelled here"}
     return engine.run(
         engine.job(
             step,
-            _dome(engine, step),
+            {**_dome(engine, step), **(features or {})},
             [_lathe(ops), {**_lathe([], "S2"), "hold": hold}],
             stock=_bar(length=45.0),
         )
@@ -218,19 +222,69 @@ def test_facing_to_a_dome_apex_clears_the_axis(engine, shafts):
     assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(math.pi * 36 * 40, rel=1e-6)
 
 
-def test_a_dome_form_is_posed_on_the_profile_after_its_own_and_earlier_removals(engine, shafts):
+def _assert_dome_collision_review(monkeypatch, detail, form):
+    """Consume the real native lower bound, not a replacement collision fact."""
+    inputs = {key: form[key] for key in TURNING_TOOL_KEYS + TURNING_HOLDER_KEYS}
+    inputs.update(approach=TURNING, measurement_debts=[])
+    contexts = [(_lathe([]), {"op": 20, **form}, {}, detail, inputs, [], None)]
+    with monkeypatch.context() as patch:
+        patch.setattr(accessibility, "op_contexts", lambda *_, **__: iter(contexts))
+        [review] = accessibility.evaluate(SimpleNamespace(features={"units": "mm"}))
+    assert detail["tool_hits"] == "unknown"
+    assert detail["nose_z_mm"][0] < form["z_to"]
+    assert review.status == "error"
+    assert review.numbers["certain_tool_hits"] == 1
+    assert review.numbers["tool_hits"] == "unknown"
+    return review
+
+
+def test_a_dome_form_distinguishes_uncredited_removal_from_independent_obstacles(
+    engine, shafts, monkeypatch
+):
     step = shafts["domed"]
     facing = _turn("S1:10", "dome", to_z=40.0)
-    faced = _formed(engine, step, [facing, _turn("S1:20", "dome", z_from=40.0, z_to=36.0)])
-    assert faced["ops"]["S1:20"]["min_hits"]["tool"] == 0
-    # Without the facing op the stub beyond the apex is still there when the dome is formed.
+    original_form = _turn("S1:20", "dome", z_from=40.0, z_to=36.0)
+    faced = _formed(engine, step, [facing, original_form])
+    detail = faced["ops"]["S1:20"]
+    # The rejected profile leaves stock inside its candidate removal at twelve poses.
+    # One commanded end pose also reaches below z_to=36 into the still-unturned R6 bar:
+    # that outside-window hit is certain even though the own-removal hits are unknown.
+    assert detail["tool_hits"] == "unknown"
+    assert detail["min_hits"]["tool"] == 1
+    assert detail["window_poses"][-1]["meets"] == ["part"]
+    assert "its own cut stopped the stock builder" in detail["reasons"]["tool_hits"]
+    _assert_dome_collision_review(monkeypatch, detail, original_form)
+    # Preserve the original unfaced case: its stub beyond z_from=40 is outside the
+    # candidate removal, while hits inside that removal still cannot be credited.
     unfaced = _formed(engine, step, [_turn("S1:10", "dome", z_from=40.0, z_to=36.0)])
     assert unfaced["ops"]["S1:10"]["min_hits"]["tool"] > 0
     assert unfaced["ops"]["S1:10"]["obstacles"]["tool"] == ["part"]
-    # A 60-degree insert presented square to the work reaches only normals within 60
-    # degrees of radial: forming the crown, its leading flank gouges the dome.
-    neutral = _turn("S1:20", "dome", z_from=40.0, z_to=36.0, entering_angle_deg=60.0)
-    neutral = _formed(engine, step, [facing, neutral])
+    assert unfaced["ops"]["S1:10"]["tool_hits"] == "unknown"
+    # Turn the journal first: otherwise the nose's equator-side extent hits that R6 bar
+    # independently of how the dome forms. Facing 0.5 mm above the apex also avoids the
+    # tangent curved-cut/stock-plane boundary, while leaving real stock for the form.
+    journal = engine.refs(step, (-4, -4, 20), (4, 4, 36), kind="Cylinder")
+    assert len(journal) == 1
+    features = {"journal": journal}
+    prep = _turn("S1:15", "journal", z_from=36.0, z_to=20.0)
+    clear_facing = _turn("S1:10", "dome", to_z=40.5)
+    form = _turn("S1:20", "dome", z_from=40.5, z_to=36.0)
+    clear = _formed(engine, step, [clear_facing, prep, form], features=features)
+    assert clear["ops"]["S1:20"]["min_hits"]["tool"] == 0
+    assert clear["ops"]["S1:20"]["obstacles"]["tool"] == []
+    # With the journal prepared but no facing, only the stub past the apex blocks the form.
+    unfaced = _formed(
+        engine,
+        step,
+        [prep, _turn("S1:20", "dome", z_from=40.0, z_to=36.0)],
+        features=features,
+    )
+    assert unfaced["ops"]["S1:20"]["min_hits"]["tool"] > 0
+    assert unfaced["ops"]["S1:20"]["obstacles"]["tool"] == ["part"]
+    # On the same prepared/faced stock the neutral 60-degree insert's leading flank gouges
+    # the finished dome: neither unknown own removal nor an unturned journal explains it.
+    neutral = {**form, "entering_angle_deg": 60.0}
+    neutral = _formed(engine, step, [clear_facing, prep, neutral], features=features)
     assert neutral["ops"]["S1:20"]["min_hits"]["tool"] > 0
     assert neutral["ops"]["S1:20"]["obstacles"]["tool"] == ["part"]
 

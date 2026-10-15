@@ -7,7 +7,7 @@ from test_physics_m2 import turning_bundle
 
 from prechips.rules import turning_deflection
 
-MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "calipers"}
+MEASURED = {"status": "measured", "by": "test", "date": "2026-10-05", "instrument": "calipers"}
 INERTIA = math.pi * 10**4 / 64
 
 

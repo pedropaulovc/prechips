@@ -1,7 +1,7 @@
 """Concave claimed-face edges perpendicular to the setup tool axis."""
 
 from prechips.findings import Finding
-from prechips.rules.geometry_common import fact_reason, op_contexts
+from prechips.rules.geometry_common import fact_reason, op_contexts, with_measurement_debts
 from prechips.rules.resolution import UNKNOWN, _citations, number, record, same_length
 
 # STEP exports round radii to 5–6 significant digits; below this a corner is CAD-sharp.
@@ -32,14 +32,14 @@ def admits(corner_mm, tool_mm, allowance_mm):
 def evaluate(bundle):
     rows = []
     for setup, op, _, detail, inputs, cite, blocked in op_contexts(
-        bundle, "internal_corner_radius", ("radius_mm",), stock=False
+        bundle, "internal_corner_radius", stock=False
     ):
         if blocked:
             rows.append(blocked)
             continue
         subject = f"{setup['id']}:{op['op']}"
         radii = detail.get("corner_radii_mm", "unknown")
-        radius = inputs["radius_mm"]
+        radius = inputs.get("radius_mm", UNKNOWN)
         values = {"corner_radii_mm": radii, "tool_radius_mm": radius}
         status, message = (
             "unknown",
@@ -51,6 +51,8 @@ def evaluate(bundle):
                     "not_applicable",
                     "claimed faces have no concave edges perpendicular to the tool axis",
                 )
+            elif not number(radius):
+                message = "selected cutter radius is unmeasured or unavailable"
             else:
                 name = op.get("feature", UNKNOWN)
                 allowance = corner_allowance_mm(bundle, name)
@@ -80,8 +82,16 @@ def evaluate(bundle):
                     )
                 )
         rows.append(
-            Finding(
-                "internal_corner_radius", subject, status, values, cite, f"{subject}: {message}."
+            with_measurement_debts(
+                Finding(
+                    "internal_corner_radius",
+                    subject,
+                    status,
+                    values,
+                    cite,
+                    f"{subject}: {message}.",
+                ),
+                inputs["measurement_debts"],
             )
         )
     return rows

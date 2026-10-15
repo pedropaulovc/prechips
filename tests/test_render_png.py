@@ -1,11 +1,18 @@
 """Consumer-visible raster, camera, visibility and print-label contracts; no FreeCAD."""
 
+import ast
+import bisect
 import json
 import math
+import random
 import re
 import struct
 import zlib
+from collections import defaultdict
+from contextlib import contextmanager
 from pathlib import Path
+from time import perf_counter
+from types import SimpleNamespace
 
 import pytest
 
@@ -16,12 +23,16 @@ from prechips.kernel.render_diagram import (
     _AnnotationDetail,
     _compose_diagram,
     _corners,
+    _dash_segments,
     _dashed,
     _Diagram,
+    _drawn_outline_paths,
     _guide_view,
+    _GuideView,
     _holding_details,
     _HoldingDetail,
     _main_diagram,
+    _profile_outline_deflection,
     _solid_name,
     _tag_at,
     render_diagram,
@@ -1535,6 +1546,9 @@ def test_isometric_axes_phrase_keeps_pixel_gutter_from_colored_legend_samples():
         "stock_box": stock,
         "legend": ["retained", "removed", "holding", "tool"],
         "nominal_outline_mm": [[[0, 0, 0], [18, 0, 0], [18, 26.2, 0], [0, 26.2, 0], [0, 0, 0]]],
+        "nominal_render_outline_mm": [
+            [[0, 0, 0], [18, 0, 0], [18, 26.2, 0], [0, 26.2, 0], [0, 0, 0]]
+        ],
     }
     diagram, _ = _composed_diagram([], spec)
     axes_words = [box for box in diagram.canvas.text_boxes if box[0] in {"VIEW", "NORMAL"}]
@@ -1557,6 +1571,815 @@ def test_isometric_axes_phrase_keeps_pixel_gutter_from_colored_legend_samples():
     assert pixels == diagram.canvas.rgb
     assert width == 1600 and height / width * 7.5 <= 8.4
     diagram.canvas.assert_text_layout(min_scale=5)
+
+
+@pytest.mark.parametrize("radius", [5.1, 3.25])
+def test_profile_outline_deflection_bounds_circle_chord_error_at_sketch_scale(monkeypatch, radius):
+    paths = [
+        {
+            "op": "20",
+            "xy": [[-12, 0], [12, 0], [12, 0.1], [-12, 0.1], [-12, 0]],
+            "directed": True,
+        }
+    ]
+    segments = 128
+    circle = [
+        [
+            radius * math.cos(2 * math.pi * index / segments),
+            radius * math.sin(2 * math.pi * index / segments),
+            0,
+        ]
+        for index in range(segments + 1)
+    ]
+    spec = _example_spec("rocker-s1")
+    spec["paths"] = paths
+    spec["waypoints"] = []
+    spec["nominal_outline_mm"] = [circle]
+    spec["nominal_render_outline_mm"] = [circle]
+    scales = []
+    xy_projector = render_module._xy_projector
+
+    def observe_projector(bounds, centre, factors):
+        scales.append(factors)
+        return xy_projector(bounds, centre, factors)
+
+    monkeypatch.setattr(render_module, "_xy_projector", observe_projector)
+    _composed_diagram([], spec)
+
+    assert len(scales) == 1
+    scale_x, scale_y = scales[0]
+    assert scale_y == pytest.approx(4 * scale_x)
+    tolerance = _profile_outline_deflection(paths, [])
+    max_scale = max(scale_x, scale_y)
+    assert tolerance * max_scale <= 0.5
+    sagitta = radius * (1 - math.cos(math.pi / segments))
+    assert sagitta * max_scale <= 0.5
+
+
+@pytest.mark.parametrize("width", [720, 1536], ids=["half_width", "full_width"])
+@pytest.mark.parametrize(
+    ("span_x", "span_y", "stretched"),
+    [
+        (0.1, 0.1, False),
+        (0.011, 0.011, False),
+        (0.1, 1e-5, True),
+        (1e-5, 1, False),
+        (1e-5, 1e-5, False),
+        (0.005, 0, False),
+        (0, 0.005, False),
+        (1e-9, 1e-12, True),
+        (1e-12, 1e-12, False),
+        (5e-324, 0, False),
+        (0, 5e-324, False),
+    ],
+    ids=[
+        "tenth_mm_square",
+        "eleven_microns_square",
+        "shallow_positive_y",
+        "thin_positive_x",
+        "positive_sliver",
+        "horizontal",
+        "vertical",
+        "stretched_subepsilon_y",
+        "subepsilon_square",
+        "smallest_positive_x",
+        "smallest_positive_y",
+    ],
+)
+def test_profile_outline_deflection_bounds_actual_positive_span_plot(
+    monkeypatch, width, span_x, span_y, stretched
+):
+    points = [[0, 0], [span_x, span_y]]
+    paths = [{"op": "20", "xy": points}]
+    scales = []
+    xy_projector = render_module._xy_projector
+
+    def observe_projector(bounds, centre, factors):
+        scales.append(factors)
+        return xy_projector(bounds, centre, factors)
+
+    monkeypatch.setattr(render_module, "_xy_projector", observe_projector)
+    diagram = _Diagram([], {"view": "plan", "stock_box": [0, 0, 0, 10, 10, 1]})
+    diagram._sketch_plot((32, 64, 32 + width, 1792), points, [])
+
+    ((scale_x, scale_y),) = scales
+    assert all(math.isfinite(scale) and scale > 0 for scale in scales[0])
+    if stretched:
+        assert scale_y == pytest.approx(4 * scale_x)
+        assert scale_x == pytest.approx((width - 72) / max(span_x, 1e-9))
+    else:
+        assert scale_y == scale_x
+    tolerance = _profile_outline_deflection(paths, [])
+    nominal_tolerance = render_module._nominal_outline_deflection(paths, [])
+    assert tolerance is not None and math.isfinite(tolerance) and tolerance > 0
+    assert 0 < nominal_tolerance <= tolerance
+    assert tolerance * max(scale_x, scale_y) <= 0.5
+    assert nominal_tolerance * max(scale_x, scale_y) <= 0.5
+
+
+@pytest.mark.parametrize(
+    ("span_x", "span_y"),
+    [(24, 0.1), (10, 10), (200, 40), (12, 0), (0, 4), (2, 5)],
+)
+def test_profile_outline_deflection_preserves_normal_unfloored_bounds(span_x, span_y):
+    paths = [{"op": "20", "xy": [[0, 0], [span_x, span_y]]}]
+    previous_scale = min(4 * 1464 / max(span_x, 0.01), 1792 / max(span_y, 0.01))
+    previous_bound = 0.5 / previous_scale
+
+    assert previous_bound >= 1e-3
+    assert _profile_outline_deflection(paths, []) == previous_bound
+    assert render_module._nominal_outline_deflection(paths, []) == min(previous_bound, 0.5 / 324)
+
+
+@pytest.mark.parametrize("span", [0.1, 0.011, 1e-5])
+def test_profile_outline_deflection_has_no_physical_floor(span):
+    paths = [{"op": "20", "xy": [[0, 0], [span, span]]}]
+    tolerance = _profile_outline_deflection(paths, [])
+
+    assert tolerance == pytest.approx(0.5 * span / 1792)
+    assert 0 < tolerance < 1e-3
+
+
+@pytest.mark.parametrize(
+    ("paths", "waypoints"),
+    [
+        ([], []),
+        ([{"op": "20", "xy": [[1, 2], [1, 2]]}], []),
+        ([], [{"op": "20", "xy": [1, 2]}]),
+        (
+            [{"op": "20", "xy": [[1, 2]]}],
+            [{"op": "20", "xy": [1, 2]}],
+        ),
+        ([{"op": "20", "xy": [[math.nan, 0], [0, math.inf]]}], []),
+    ],
+    ids=["empty", "coincident_path", "single_waypoint", "coincident_mixed", "no_finite_points"],
+)
+def test_profile_outline_deflection_without_a_span_retains_guide_bound(paths, waypoints):
+    assert _profile_outline_deflection(paths, waypoints) is None
+    assert render_module._nominal_outline_deflection(paths, waypoints) == 0.5 / 324
+
+
+@pytest.mark.parametrize("axis", [0, 1], ids=["x", "y"])
+def test_profile_outline_deflection_rejects_overflowed_finite_coordinate_span(axis):
+    start, end = [0, 0], [0, 0]
+    start[axis], end[axis] = -1e308, 1e308
+    paths = [{"op": "20", "xy": [start, end]}]
+
+    with pytest.raises(ValueError, match="profile sketch spans must be finite"):
+        _profile_outline_deflection(paths, [])
+    with pytest.raises(ValueError, match="profile sketch spans must be finite"):
+        render_module._nominal_outline_deflection(paths, [])
+
+
+@pytest.fixture(scope="module")
+def pure_native_outline_render():
+    """Load the real native adapter and job error boundary, but no native imports."""
+    engine = Path(render_module.__file__).with_name("freecad_job.py")
+    tree = ast.parse(engine.read_text(encoding="utf-8"))
+    helpers = [
+        node
+        for node in tree.body
+        if (
+            isinstance(node, (ast.FunctionDef, ast.ClassDef))
+            and node.name in {"_fixture_kind", "_Unknown", "_timed", "run_job"}
+            or isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name)
+                and target.id in {"UNKNOWN", "STOCK_TOL", "STOCK_MM3", "_COLOURS"}
+                for target in node.targets
+            )
+        )
+    ]
+    setup = next(
+        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "_Setup"
+    )
+    native_render = next(
+        node for node in setup.body if isinstance(node, ast.FunctionDef) and node.name == "_render"
+    )
+    namespace = {
+        "contextmanager": contextmanager,
+        "_nominal_outline_deflection": render_module._nominal_outline_deflection,
+    }
+    exec(
+        compile(ast.Module(body=[*helpers, native_render], type_ignores=[]), str(engine), "exec"),
+        namespace,
+    )
+    return namespace
+
+
+def _mock_outline_renderer(monkeypatch, namespace, paths, edges, waypoints=()):
+    """Exercise the real spec producer with no FreeCAD imports or geometry."""
+    face = SimpleNamespace(Edges=edges)
+    solid = SimpleNamespace(Faces=[face], tessellate=lambda tolerance: ([], []))
+    monkeypatch.setitem(namespace, "Part", SimpleNamespace(Compound=lambda faces: solid))
+    return SimpleNamespace(
+        box=[0, 0, 0, 10, 10, 1],
+        setup={"id": "S1", "machine_kind": "mill"},
+        stock_out=None,
+        part=solid,
+        hold=None,
+        fixture_ready=False,
+        fixture_reason="not declared",
+        fixture_debts=[],
+        fixture_gaps=[],
+        fixture=[],
+        fixture_possible=[],
+        jaws=None,
+        owner=SimpleNamespace(features={}),
+        ops=[{"subject": "S1:20"}],
+        finished=solid,
+        faces=[face],
+        _rest_render=lambda debts: [],
+        _expects_parallels=lambda: False,
+        _render_tool=lambda annotation, lathe, rests: (None, None),
+        _clipped_sketch=lambda annotation: (paths, list(waypoints), []),
+        _render_components=lambda annotation, named=False: [],
+        _indices=lambda op: [0],
+        _round_stock_dia=lambda lathe: None,
+        _index_arc=lambda annotation, fixture_kind: None,
+        _blade_paths=lambda held: [],
+        _guide_stops=lambda held, section_view: ({}, {}),
+        _guide_view=lambda stops, solids, drawn, removal: None,
+        _render_contacts=lambda held, tolerance, section_view: [],
+        _cut_clearances=lambda held, drawn, by_op, blades, undecided: ([], None),
+    )
+
+
+@pytest.mark.parametrize("span", [None, 0.1, 10])
+def test_native_outline_capture_separates_main_samples_from_bounded_paint(
+    monkeypatch, pure_native_outline_render, span
+):
+    namespace = pure_native_outline_render
+    paths = [] if span is None else [{"op": "20", "xy": [[0, 0], [span, span]]}]
+    tolerance = 10 / 400  # Exact main tolerance for this mock's stock box.
+    fine_tolerance = min(tolerance, render_module._nominal_outline_deflection(paths, []))
+    calls, captured = [], []
+
+    class NativeEdge:
+        Length = 1.0
+
+        def __init__(self, identity):
+            self.identity = identity
+
+        def hashCode(self):
+            return self.identity
+
+        def discretize(self, **kwargs):
+            calls.append((self.identity, kwargs))
+            return [SimpleNamespace(x=self.identity, y=kwargs["Deflection"], z=z) for z in (0, 1)]
+
+    first, second, short = NativeEdge(2), NativeEdge(1), NativeEdge(3)
+    short.Length = 0
+    renderer = _mock_outline_renderer(monkeypatch, namespace, paths, [first, second, first, short])
+    png = b"\0" * 16 + struct.pack(">II", 1600, 1000)
+
+    def capture(meshes, spec):
+        captured.append(spec)
+        return png, [], []
+
+    monkeypatch.setitem(namespace, "render_diagram", capture)
+    result, _ = namespace["_render"](renderer)
+    (spec,) = captured
+    assert result == png
+    assert calls == [
+        (identity, {"Deflection": requested})
+        for requested in (tolerance, fine_tolerance)
+        for identity in (2, 1)
+    ]
+    assert spec["nominal_outline_mm"] == [
+        [[identity, tolerance, 0], [identity, tolerance, 1]] for identity in (2, 1)
+    ]
+    assert spec["nominal_render_outline_mm"] == [
+        [[identity, fine_tolerance, 0], [identity, fine_tolerance, 1]] for identity in (2, 1)
+    ]
+
+
+@pytest.mark.parametrize("span", [0.1, 0.011])
+@pytest.mark.parametrize("error_type", [RuntimeError, ValueError])
+def test_native_outline_discretization_failure_is_not_coarsened(
+    monkeypatch, pure_native_outline_render, span, error_type
+):
+    namespace = pure_native_outline_render
+    paths = [{"op": "20", "xy": [[0, 0], [span, span]]}]
+    requested = render_module._nominal_outline_deflection(paths, [])
+    calls = []
+
+    class NativeEdge:
+        Length = 1.0
+
+        def hashCode(self):
+            return 1
+
+        def discretize(self, **kwargs):
+            calls.append(kwargs)
+            if kwargs["Deflection"] == requested:
+                raise error_type("requested deflection is below native precision")
+            return [SimpleNamespace(x=0, y=0, z=0), SimpleNamespace(x=1, y=0, z=0)]
+
+    renderer = _mock_outline_renderer(monkeypatch, namespace, paths, [NativeEdge()])
+
+    def forbid_png(*args, **kwargs):
+        pytest.fail("a native discretization failure must not produce a PNG")
+
+    class NativeJob:
+        def __init__(self, job, clocks):
+            pass
+
+        def run(self):
+            return namespace["_render"](renderer)
+
+    monkeypatch.setitem(namespace, "render_diagram", forbid_png)
+    monkeypatch.setitem(namespace, "_Job", NativeJob)
+
+    assert math.isfinite(requested) and 0 < requested < 1e-3
+    with pytest.raises(error_type, match="requested deflection is below native precision"):
+        namespace["_render"](renderer)
+    assert calls == [{"Deflection": 10 / 400}, {"Deflection": requested}]
+    calls.clear()
+    result = namespace["run_job"]({})
+    assert result == {
+        "status": "error",
+        "reason": f"{error_type.__name__}: requested deflection is below native precision",
+    }
+    assert calls == [{"Deflection": 10 / 400}, {"Deflection": requested}]
+
+
+@pytest.mark.parametrize(
+    ("radius", "minimum_padded_frame"),
+    [(5.1, False), (3.25, False), (0.5, True)],
+    ids=["radius_5_1", "radius_3_25", "minimum_padded_frame"],
+)
+def test_guide_axis_outline_deflection_bounds_circle_chord_error(radius, minimum_padded_frame):
+    meshes, spec, _ = _guided_buttons()
+    if minimum_padded_frame:
+        # A sub-millimetre rim and its nearby stock leave the 1 mm minimum padding to
+        # set every side of the guide frame.
+        spec["guide_stops"] = [
+            {
+                "tag": "kit:upper-button",
+                "at_mm": [0.25, 0, 0],
+                "rim_mm": [[[0.25, -0.02, 0], [0.25, 0.02, 0]]],
+            }
+        ]
+        spec["guide_view"] = {
+            "axis_mm": [[0, 0, 0], [0, 0, 1]],
+            "meshes": [
+                _block([0.2, -0.02, -0.02, 0.3, 0.02, 0.02], (120, 98, 76), "kit:upper-button"),
+                _block([0, -0.02, -0.02, 0.15, 0.02, 0.02], (226, 177, 60), "removal"),
+            ],
+        }
+    tolerance = render_module._nominal_outline_deflection([], [])
+    short_span = {"op": "20", "xy": [[0, 0], [1, 0.1]]}
+    short_bound = _profile_outline_deflection([short_span], [])
+    assert 0 < short_bound < 1e-3
+    assert render_module._nominal_outline_deflection([short_span], []) == short_bound
+    segments = 128
+    centre = (0.25, 0) if minimum_padded_frame else (170, 20)
+    circle = [
+        [
+            centre[0] + radius * math.cos(2 * math.pi * index / segments),
+            centre[1] + radius * math.sin(2 * math.pi * index / segments),
+            0,
+        ]
+        for index in range(segments + 1)
+    ]
+    spec["paths"] = []
+    spec["waypoints"] = []
+    spec["nominal_outline_mm"] = [circle]
+    spec["nominal_render_outline_mm"] = [circle]
+    main, _ = _main_diagram(meshes, spec)
+    view = _guide_view(spec, main)
+
+    assert view is not None
+    assert view.canvas.scale <= render_module._DETAIL_MAX_SCALE_PX_PER_MM
+    if minimum_padded_frame:
+        assert all(2 < view.frame[i + 3] - view.frame[i] < 2.5 for i in range(3))
+    sagitta = radius * (1 - math.cos(math.pi / segments))
+    assert tolerance * view.canvas.scale <= 0.5
+    assert sagitta * view.canvas.scale <= 0.5
+
+
+def _reference_outline_paths(polylines, project, *, x_scan=False):
+    """Frozen pre-index topology, with an all-cell oracle or the old X-only scan."""
+    where, chords = {}, set()
+    for line in polylines:
+        points = []
+        for point in line:
+            pixel = tuple(float(value) for value in project(point))
+            cell = tuple(round(value * 100) for value in pixel)
+            if cell not in where or pixel < where[cell]:
+                where[cell] = pixel
+            if not points or points[-1] != cell:
+                points.append(cell)
+        for start, end in zip(points, points[1:], strict=False):
+            if start != end:
+                chords.add((start, end) if start < end else (end, start))
+    vertices = sorted(where)
+    x_values = [point[0] for point in vertices]
+    pieces = set()
+    for start, end in sorted(chords):
+        dx, dy = end[0] - start[0], end[1] - start[1]
+        length_squared = dx * dx + dy * dy
+        if x_scan:
+            first = bisect.bisect_left(x_values, min(start[0], end[0]) - 1)
+            last = bisect.bisect_right(x_values, max(start[0], end[0]) + 1)
+            candidates = vertices[first:last]
+        else:
+            candidates = vertices
+        cuts = []
+        for vertex in candidates:
+            vx, vy = vertex[0] - start[0], vertex[1] - start[1]
+            along = vx * dx + vy * dy
+            if 0 < along < length_squared and (vx * dy - vy * dx) ** 2 <= length_squared:
+                cuts.append((along, vertex))
+        cuts.sort()
+        stops = [start, *(vertex for _, vertex in cuts), end]
+        pieces.update((a, b) if a < b else (b, a) for a, b in zip(stops, stops[1:], strict=False))
+    edge_cells = sorted(pieces)
+    edges = [(where[start], where[end]) for start, end in edge_cells]
+    incidence = defaultdict(list)
+    for index, (start, end) in enumerate(edge_cells):
+        incidence[start].append(index)
+        incidence[end].append(index)
+    unvisited = set(range(len(edges)))
+    branch_starts = sorted(
+        (vertex, index)
+        for vertex, connected in incidence.items()
+        if len(connected) != 2
+        for index in connected
+    )
+    branch_index = 0
+    paths = []
+    while unvisited:
+        while branch_index < len(branch_starts) and branch_starts[branch_index][1] not in unvisited:
+            branch_index += 1
+        if branch_index < len(branch_starts):
+            start, index = branch_starts[branch_index]
+            branch_index += 1
+        else:
+            index = min(unvisited)
+            start = edge_cells[index][0]
+        first, last = edge_cells[index]
+        path = list(edges[index] if first == start else reversed(edges[index]))
+        unvisited.remove(index)
+        current = last if first == start else first
+        while len(incidence[current]) == 2:
+            next_edges = [edge for edge in incidence[current] if edge in unvisited]
+            if not next_edges:
+                break
+            next_index = next_edges[0]
+            first, last = edge_cells[next_index]
+            next_path = edges[next_index]
+            if first != current:
+                next_path = tuple(reversed(next_path))
+            path.extend(next_path[1:])
+            unvisited.remove(next_index)
+            current = last if current == first else first
+        paths.append(tuple(path))
+    return paths
+
+
+@pytest.mark.parametrize("name", sorted(path.stem for path in _SPECS.glob("*.json")))
+def test_finished_outline_index_matches_existing_example_specs(name):
+    spec = _example_spec(name)
+    diagram = _Diagram([], spec)
+    lines = spec["nominal_render_outline_mm"]
+    project = diagram.canvas.project
+    expected = _reference_outline_paths(lines, project)
+
+    assert _drawn_outline_paths(lines, project) == expected
+    assert _reference_outline_paths(lines, project, x_scan=True) == expected
+
+
+@pytest.mark.parametrize(
+    "cells",
+    [
+        [[(-500, -100), (500, -100)], [(300, -100), (-300, -100)], [(0, -100), (0, 300)]],
+        [[(-100, -500), (-100, 500)], [(-99, 0), (-99, 0)], [(-98, 100), (-98, 100)]],
+        [[(-500, -500), (500, 500)], [(0, 1), (0, 1)], [(0, 2), (0, 2)]],
+        [[(-500, 500), (500, -500)], [(-100, 100), (100, -100)]],
+        [[(-2, -1), (2, -1)], [(0, 0), (0, 0)], [(0, 1), (0, 1)]],
+        [[(0, 0), (1, 1)], [(0, 1), (0, 1)], [(1, 0), (1, 0)]],
+        [[(-100, -100), (-100, -100)]],
+        [],
+    ],
+    ids=[
+        "reversed-overlap-and-t",
+        "vertical-one-cell-boundary",
+        "diagonal-and-zero-chords",
+        "negative-slope-overlap",
+        "horizontal-one-cell-boundary",
+        "tiny-diagonal-tied-cuts",
+        "only-zero-chord",
+        "empty",
+    ],
+)
+def test_finished_outline_index_matches_all_cell_oracle_at_boundaries(cells):
+    lines = [[(x / 100, y / 100, 0) for x, y in line] for line in cells]
+
+    def project(point):
+        return point[:2]
+
+    expected = _reference_outline_paths(lines, project)
+
+    assert _drawn_outline_paths(lines, project) == expected
+    assert _reference_outline_paths(lines, project, x_scan=True) == expected
+
+
+def test_finished_outline_index_keeps_collapsed_source_cells_and_canonical_projection_aliases():
+    lines = [
+        [(-2, 0, 0), (2, 0, 0)],
+        [(0.004, 0.009, 7), (-0.004, 0.011, -7)],  # One quantized cell, no source chord.
+        [(0.004, 0.009, 7), (0.004, 0.009, -7)],
+    ]
+
+    def project(point):
+        return point[:2]
+
+    expected = [((-2.0, 0.0), (-0.004, 0.011), (2.0, 0.0))]
+
+    assert _reference_outline_paths(lines, project) == expected
+    assert _drawn_outline_paths(lines, project) == expected
+    assert _drawn_outline_paths(list(reversed(lines)), project) == expected
+
+
+def test_finished_outline_index_matches_deterministic_randomized_all_cell_oracle():
+    randomizer = random.Random(198)
+    for scene in range(100):
+        cells = [(randomizer.randint(-800, 800), randomizer.randint(-800, 800)) for _ in range(18)]
+        cells += [(0, 0), (100, 0), (-100, 0), (0, 100), (0, -100)]
+        lines = []
+        for _ in range(24):
+            a, b = randomizer.sample(cells, 2)
+            line = [(a[0] / 100, a[1] / 100, 0), (b[0] / 100, b[1] / 100, 0)]
+            lines.append(line)
+            if randomizer.randrange(3) == 0:
+                lines.append(list(reversed(line)))
+            if randomizer.randrange(3) == 0:
+                middle = ((a[0] + b[0]) / 200, (a[1] + b[1]) / 200, 4)
+                lines.append([line[0], middle])
+                lines.append([middle, line[-1]])
+        for x, y in cells:
+            # Aliased Z plus subcell jitter exercises the canonical floating tie minimum.
+            pixel = (x / 100 - 0.004, y / 100 + 0.004, scene)
+            lines.append([pixel, (x / 100 + 0.004, y / 100 - 0.004, -scene)])
+
+        def project(point):
+            return point[:2]
+
+        expected = _reference_outline_paths(lines, project)
+        assert _drawn_outline_paths(lines, project) == expected, scene
+        assert _reference_outline_paths(lines, project, x_scan=True) == expected, scene
+        randomizer.shuffle(lines)
+        assert _drawn_outline_paths(lines, project) == expected, scene
+
+
+@pytest.mark.parametrize("end", [(800, 800), (800, -800), (-100, 800), (800, -100)])
+def test_finished_outline_strip_query_is_an_exact_predicate_superset(end):
+    start = (-100, -100)
+    cells = [(x, y) for x in range(-103, 804, 7) for y in range(-103, 804, 7)]
+    cells += [(x, y) for x in range(-102, 103) for y in range(-102, 103)]
+    queried = []
+
+    class RecordingGrid(defaultdict):
+        def get(self, key, default=None):
+            queried.append(key)
+            return super().get(key, default)
+
+    grid = RecordingGrid(list)
+    for cell in set(cells):
+        grid[(cell[0] // 100, cell[1] // 100)].append(cell)
+    candidates = list(render_module._outline_cell_candidates(grid, start, end))
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length_squared = dx * dx + dy * dy
+    accepted = {
+        (x, y)
+        for x, y in cells
+        if 0 < (x - start[0]) * dx + (y - start[1]) * dy < length_squared
+        and ((x - start[0]) * dy - (y - start[1]) * dx) ** 2 <= length_squared
+    }
+
+    assert accepted <= set(candidates)
+    assert len(candidates) == len(set(candidates))
+    # A rectangle scan visits quadratically many diagonal bins; a strip does not.
+    assert len(queried) <= 3 * (math.ceil(abs(dx) / 100) + math.ceil(abs(dy) / 100) + 3)
+
+
+def _dense_outline_circles(*, diagonals=False):
+    """The identical 200 x 300 workload for the regression and old/new timing recipe."""
+    lines = []
+    for circle in range(200):
+        cx, cy = (circle % 20) * 30 - 300, (circle // 20) * 30 - 150
+        points = [
+            (
+                cx + 10 * math.cos(2 * math.pi * index / 300),
+                cy + 10 * math.sin(2 * math.pi * index / 300),
+                0,
+            )
+            for index in range(300)
+        ]
+        lines.append([*points, points[0]])
+    if diagonals:
+        for index in range(100):
+            offset = (index - 50) / 5
+            lines.extend(
+                [
+                    [(-320, -170 + offset, 0), (300, 150 + offset, 0)],
+                    [(-320, 150 + offset, 0), (300, -170 + offset, 0)],
+                ]
+            )
+    return lines
+
+
+@pytest.mark.parametrize("diagonals", [False, True], ids=["circles", "long-diagonal-chords"])
+def test_finished_outline_dense_index_performance(diagonals):
+    lines = _dense_outline_circles(diagonals=diagonals)
+    started = perf_counter()
+    paths = _drawn_outline_paths(lines, lambda point: point[:2])
+    elapsed = perf_counter() - started
+
+    long_chords = len(lines) - 200
+    print(f"outline-index circles=200 chords=300 long-diagonals={long_chords}: {elapsed:.6f}s")
+    # Target <1 s; leave scheduling headroom on the shared Windows development host.
+    assert elapsed < 3.0
+    if not diagonals:
+        assert len(paths) == 200
+        assert all(len(path) == 301 and path[0] == path[-1] for path in paths)
+    else:
+        assert paths
+        assert min(point[0] for path in paths for point in path) == -320
+        assert max(point[0] for path in paths for point in path) == 300
+
+
+def test_finished_outline_dash_phase_continues_across_native_edges():
+    count = 96
+    vertices = [
+        (20 * math.cos(2 * math.pi * index / count), 20 * math.sin(2 * math.pi * index / count), 0)
+        for index in range(count)
+    ]
+    edges = [(vertices[index], vertices[(index + 1) % count]) for index in range(count)]
+    edges = [*edges[::2], *(tuple(reversed(edge)) for edge in edges[1::2])]
+
+    (path,) = _drawn_outline_paths(edges, lambda point: point[:2])
+    fragments = list(_dash_segments([path], render_module._identity_projection))
+    outline_length = sum(math.dist(a, b) for a, b in zip(path, path[1:], strict=False))
+    ink_length = sum(math.dist(*fragment) for fragment in fragments)
+
+    assert path[0] == path[-1]
+    assert len(path) == count + 1
+    assert ink_length < outline_length * 0.7
+    assert all(math.dist(*fragment) <= 8 + 1e-8 for fragment in fragments)
+
+
+def test_finished_outline_overlaps_render_once_with_even_dash_phase():
+    def project(point):
+        return (60 + 10 * point[0], 60 - 10 * point[1])
+
+    def render_dashed(edges, projector=project):
+        canvas = _canvas(width=200, height=120)
+        paths = _drawn_outline_paths(edges, projector)
+        _dashed(canvas, paths, render_module._identity_projection, render_module._BLUE)
+        return canvas
+
+    def render_solid(edges, projector=project):
+        canvas = _canvas(width=200, height=120)
+        for path in _drawn_outline_paths(edges, projector):
+            for start, end in zip(path, path[1:], strict=False):
+                canvas.line(start, end, render_module._BLUE, width=2)
+        return canvas
+
+    def ink_pixels(canvas):
+        rgb = canvas.rgb
+        colour = bytes(render_module._BLUE)
+        return sum(rgb[offset : offset + 3] == colour for offset in range(0, len(rgb), 3))
+
+    start, middle, end = (0, 0, 0), (1, 0, 0), (2, 0, 0)
+    line = (start, end)
+    cases = [
+        ("reversed duplicate", [line, tuple(reversed(line))], [line]),
+        ("same-direction duplicate", [line, line], [line]),
+        ("joint split", [(start, middle), (middle, end)], [line]),
+        ("shared-start overlap", [line, (start, middle)], [line]),
+        ("interior subsegment", [line, ((0.5, 0, 0), (1.5, 0, 0))], [line]),
+    ]
+    rectangle = ((0, 0, 0), (2, 0, 0), (2, 1, 0), (0, 1, 0), (0, 0, 0))
+    lower_rectangle = tuple((point[0], point[1], -2) for point in rectangle)
+    seams = [((point[0], point[1], 0), (point[0], point[1], -2)) for point in rectangle[:-1]]
+    cases.append(("plan-coincident rectangle", [rectangle, lower_rectangle, *seams], [rectangle]))
+    steps = 24
+    upper = tuple(
+        (2 * math.cos(math.pi * index / steps), 2 * math.sin(math.pi * index / steps), 0)
+        for index in range(steps + 1)
+    )
+    lower = tuple(
+        (
+            2 * math.cos(math.pi + math.pi * index / steps),
+            2 * math.sin(math.pi + math.pi * index / steps),
+            0,
+        )
+        for index in range(steps + 1)
+    )
+    cases.append(("two-semicircle cycle", [upper, lower, tuple(reversed(upper))], [upper, lower]))
+
+    for name, copies, unique in cases:
+        rendered = render_dashed(copies)
+        expected = render_dashed(unique)
+
+        assert rendered.rgb == expected.rgb, name
+
+    long_line = ((0, 0, 0), (20, 0, 0))
+    ratio_edges = [long_line, tuple(reversed(long_line)), ((5, 0, 0), (15, 0, 0))]
+    ratio_unique = [long_line]
+
+    def ratio_project(point):
+        return (40 + 5 * point[0], 60 - 5 * point[1])
+
+    rendered = render_dashed(ratio_edges, ratio_project)
+    assert rendered.rgb == render_dashed(ratio_unique, ratio_project).rgb
+    ratio = ink_pixels(rendered) / ink_pixels(render_solid(ratio_unique, ratio_project))
+    assert 0.6 <= ratio <= 0.75
+
+
+@pytest.mark.parametrize("view", ["plan", "elevation", "isometric"])
+def test_fine_outline_density_preserves_main_leaders_and_complete_layout(monkeypatch, view):
+    def circle(segments):
+        return [
+            [
+                5.1 * math.cos(2 * math.pi * index / segments),
+                5.1 * math.sin(2 * math.pi * index / segments),
+                0,
+            ]
+            for index in range(segments + 1)
+        ]
+
+    legacy = [circle(16)]
+    painted = []
+    paths = render_module._drawn_outline_paths
+
+    def observe(lines, project):
+        painted.append(lines)
+        return paths(lines, project)
+
+    monkeypatch.setattr(render_module, "_drawn_outline_paths", observe)
+
+    def render_outline(segments):
+        spec = _example_spec("rocker-s1")
+        spec["view"] = view
+        spec["camera"] = render_module._CAMERAS["isometric"] if view == "isometric" else _FRONT
+        spec["nominal_outline_mm"] = legacy
+        spec["nominal_render_outline_mm"] = [circle(segments)]
+        before = len(painted)
+        diagram, _ = _composed_diagram([], spec)
+        assert len(painted) > before
+        assert all(lines == spec["nominal_render_outline_mm"] for lines in painted[before:])
+        (outline,) = [item for item in diagram.callouts if item.label == "FINISHED OUTLINE"]
+        assert outline.along == tuple(
+            diagram.canvas.project(point) for line in legacy for point in line
+        )
+        return diagram
+
+    coarse, dense = render_outline(16), render_outline(128)
+    assert coarse.nominal == dense.nominal == legacy
+    assert coarse.render_nominal != dense.render_nominal
+    assert coarse.leaders == dense.leaders
+    assert coarse.callouts == dense.callouts
+    assert coarse.obstacles == dense.obstacles
+    assert coarse.dimensions == dense.dimensions
+    assert coarse.viewport == dense.viewport
+    assert coarse.canvas.scale == dense.canvas.scale
+    assert coarse.canvas._world_centre == dense.canvas._world_centre
+    assert coarse.canvas._pixel_centre == dense.canvas._pixel_centre
+    assert coarse.canvas.text_boxes == dense.canvas.text_boxes
+    assert coarse.render_debts == dense.render_debts
+    assert coarse.print_panels == dense.print_panels
+    assert [detail.canvas.text_boxes for detail in coarse.annotation_details] == [
+        detail.canvas.text_boxes for detail in dense.annotation_details
+    ]
+
+
+def test_profile_outline_deflection_includes_single_xy_waypoints():
+    path = [{"op": "20", "xy": [[0, 0], [1, 1]]}]
+    path_only = _profile_outline_deflection(path, [])
+    with_waypoint = _profile_outline_deflection(path, [{"op": "20", "xy": [100, 0]}])
+    waypoint_only = _profile_outline_deflection(
+        [],
+        [
+            {"op": "20", "xy": [0, 0]},
+            {"op": "20", "xy": [10, 10]},
+        ],
+    )
+
+    assert with_waypoint > path_only
+    assert waypoint_only is not None
+
+
+def test_profile_outline_deflection_ignores_degenerate_ops():
+    path = [{"op": "10", "xy": [[0, 0], [10, 10]]}]
+    degenerate = {"op": "20", "xy": [[0, 0], [0, 0]]}
+    expected = _profile_outline_deflection(path, [])
+
+    assert _profile_outline_deflection([degenerate], []) is None
+    assert _profile_outline_deflection([*path, degenerate], []) == expected
 
 
 @pytest.mark.parametrize("surface_color", [(120, 98, 76), (160, 175, 185)])
@@ -2187,6 +3010,121 @@ def _guided_buttons(stops=2):
     return meshes, spec, removal
 
 
+def _guide_outline_scene(fraction_lines):
+    """Place test outlines relative to the real, independently fitted guide viewport."""
+    meshes, spec, _ = _guided_buttons()
+    spec["paths"] = []
+    spec["waypoints"] = []
+    probe = _GuideView(spec, _FRONT, 1)
+    left, top, right, bottom = probe.viewport
+    cx, cy = probe.canvas._world_centre
+    px, py = probe.canvas._pixel_centre
+    scale = probe.canvas.scale
+    spec["nominal_outline_mm"] = [
+        [
+            (
+                cx + (left + x * (right - left) - px) / scale,
+                cy - (top + y * (bottom - top) - py) / scale,
+                0,
+            )
+            for x, y in line
+        ]
+        for line in fraction_lines
+    ]
+    spec["nominal_render_outline_mm"] = spec["nominal_outline_mm"]
+    return meshes, spec
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        [(-0.5, 0.3), (0.4, 0.3), (1.5, 0.3)],
+        [(0.8, 0.3), (0.5, 0.4), (0.2, 0.3)],
+        [(3, 3), (4, 3)],
+    ],
+    ids=["offscreen-ends", "visible-vertices", "outside"],
+)
+def test_guide_fine_density_keeps_exact_main_legacy_candidates_and_layout(monkeypatch, line):
+    _, spec = _guide_outline_scene([line])
+    legacy = spec["nominal_outline_mm"]
+    labels = _Diagram._labels
+    primaries = []
+
+    def observe(diagram):
+        primaries.extend(
+            item.points[0] for item in diagram.callouts if item.label == "FINISHED OUTLINE"
+        )
+        return labels(diagram)
+
+    monkeypatch.setattr(_GuideView, "_labels", observe)
+    coarse = _GuideView(spec, _FRONT, 1)
+    coarse.render()
+    spec = dict(spec)
+    spec["nominal_render_outline_mm"] = [
+        [
+            tuple(a[axis] + step / 16 * (b[axis] - a[axis]) for axis in range(3))
+            for a, b in zip(run, run[1:], strict=False)
+            for step in range(16)
+        ]
+        + [run[-1]]
+        for run in legacy
+    ]
+    dense = _GuideView(spec, _FRONT, 1)
+    dense.render()
+    expected = tuple(coarse.canvas.project(point) for run in legacy for point in run)
+    assert primaries == [coarse.canvas.project(legacy[0][0])] * 2
+    for view in (coarse, dense):
+        (outline,) = [item for item in view.callouts if item.label == "FINISHED OUTLINE"]
+        assert outline.along == expected  # Includes offscreen vertices, exactly as main.
+    assert coarse.leaders == dense.leaders
+    assert coarse.callouts == dense.callouts
+    assert coarse.obstacles == dense.obstacles
+    assert coarse.viewport == dense.viewport
+    assert coarse.frame == dense.frame
+    assert coarse.canvas.scale == dense.canvas.scale
+    assert coarse.canvas._world_centre == dense.canvas._world_centre
+    assert coarse.canvas._pixel_centre == dense.canvas._pixel_centre
+    assert coarse.canvas.text_boxes == dense.canvas.text_boxes
+    assert coarse.render_debts == dense.render_debts
+
+
+@pytest.mark.parametrize("guide", [False, True], ids=["setup", "guide"])
+def test_nominal_presence_requires_explicit_fine_stream_but_absence_is_legitimate(guide):
+    _, spec = _guide_outline_scene([[(0.2, 0.3), (0.8, 0.3)]])
+    spec.pop("nominal_render_outline_mm")
+
+    def construct():
+        return _GuideView(spec, _FRONT, 1) if guide else _Diagram([], spec)
+
+    with pytest.raises(KeyError, match="nominal_render_outline_mm"):
+        construct()
+    spec.pop("nominal_outline_mm")
+    diagram = construct()
+    assert diagram.nominal == diagram.render_nominal == []
+
+
+@pytest.mark.parametrize("stops", [1, 2])
+def test_other_along_anchor_caller_frames_all_guide_rim_vertices(stops):
+    _, spec, _ = _guided_buttons(stops)
+    view = _GuideView(spec, _FRONT, 1)
+    view.render()
+    left, top, right, bottom = view.viewport
+    rims = [item for item in view.callouts if item.label.startswith("FILE STOPS ON")]
+
+    assert rims
+    assert all(
+        left <= x <= right and top <= y <= bottom
+        for item in rims
+        for x, y in (*item.points, *item.along)
+    )
+    assert all(
+        view._in_tile(point)
+        for stop in spec["guide_stops"]
+        for run in stop["rim_mm"]
+        for point in run
+    )
+
+
 @pytest.mark.parametrize("stops", [2, 1], ids=["both_rims", "one_rim"])
 def test_a_file_guided_by_buttons_keys_where_it_stops_never_a_zero_clearance(stops):
     # The hub is filed down to the buttons' rims: the file touching them is the intended
@@ -2791,10 +3729,13 @@ def test_a_datum_face_turned_away_from_the_view_is_marked_hidden_not_drawn_in_fr
     # Isometric from +Z: a datum on the block's underside cannot be the face in front.
     z = 0 if hidden else 10
     outline = [[0, 0, z], [20, 0, z], [20, 20, z], [0, 20, z], [0, 0, z]]
+    # Coincident projections keep the nominal blue and hidden datum styles separate.
     spec = {
         "setup_id": "S2",
         "view": "isometric",
         "stock_box": [0, 0, 0, 20, 20, 10],
+        "nominal_outline_mm": [outline],
+        "nominal_render_outline_mm": [outline],
         "datums": [
             {
                 "label": "B: strap face",
@@ -2819,7 +3760,9 @@ def test_a_datum_face_turned_away_from_the_view_is_marked_hidden_not_drawn_in_fr
         assert (30, 35, 40) in inked
     else:
         assert "HIDDEN" not in label and "UNDERSIDE" not in label
-        assert marker_top != (30, 35, 40)
+        edge = [diagram.canvas.project([t, 0, z]) for t in range(2, 19)]
+        inked = [_pixel(diagram.canvas, math.floor(px), math.floor(py)) for px, py in edge]
+        assert render_module._BLUE in inked
 
 
 def _view_camera(up, toward):

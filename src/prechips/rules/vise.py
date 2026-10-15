@@ -5,7 +5,7 @@ between the jaw planes plus any round bar between the work and the moving jaw an
 both jaw buttons' thickness."""
 
 from prechips.findings import Finding
-from prechips.rules.geometry_common import fact_reason, setup_contexts
+from prechips.rules.geometry_common import fact_reason, setup_contexts, with_measurement_debts
 from prechips.rules.resolution import number, same_length
 
 _FACTS = ("parallel_pair", "jaw_separation_mm", "contact_grip_mm", "claimed_in_jaws")
@@ -64,5 +64,10 @@ def evaluate(bundle):
             if known
             else fact_reason(detail, _FACTS, "vise contact geometry is unresolved")
         )
-        rows.append(Finding("vise", subject, status, values, cite, f"{subject}: {message}."))
+        rows.append(
+            with_measurement_debts(
+                Finding("vise", subject, status, values, cite, f"{subject}: {message}."),
+                inputs["measurement_debts"],
+            )
+        )
     return rows

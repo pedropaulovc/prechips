@@ -15,6 +15,7 @@ from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
 import pytest
+from test_envelope_m5 import measured
 from test_sheet_ops import Markup, content
 from test_sheet_ops import printed_sheet as printed_sheet
 
@@ -92,6 +93,14 @@ def test_long_rough_and_finish_lathe_tables_keep_every_page_counted_and_sheets_o
     # A 0.01 axial step and a 1.0 rough leave run the shaft's S2 dome rough and finish
     # tables, printed side by side when short, over several pages each, unequal in length.
     bundle = load_bundle(ROOT / "examples" / "pivot-shaft" / "plan.toml")
+    # The long compensated dome table needs its own known nose and DRO grid,
+    # not a blanket certification of the shipped shaft inventory.
+    bundle.inventory["machines"]["PM-1127VF-LB"]["resolution_mm"] = measured(0.01)
+    bundle.inventory["tools"]["hss-toolbit-3-8-rh"].update(
+        nose_radius_mm=measured(0.4),
+        entering_angle_deg=measured(93.0),
+        insert_angle_deg=measured(60.0),
+    )
     (dome,) = (
         op
         for setup in bundle.plan["setups"]
@@ -2544,3 +2553,173 @@ def test_original_stock_fixture_caption_moves_with_first_complete_setup_figure(
     assert sum(content(node) == caption for node in printed.nodes if node["tag"] == "p") == 1
     path = Path(url2pathname(urlsplit(asset["path"]).path))
     assert hashlib.sha256(path.read_bytes()).hexdigest() == asset["sha256"]
+
+
+def test_tools_pull_list_rows_and_short_measurement_markers_print_whole(printed_sheet):
+    from test_sheet_measurement_debt import data, fact
+
+    tools = {
+        f"cutter-{index}": {
+            "kind": "endmill",
+            "name": f"Pull-list cutter {index}",
+            "dia_mm": fact(6.35, "assumed"),
+            "shank_mm": fact(8.0, "assumed"),
+            "flute_len_mm": fact(20.0, "assumed"),
+            "oal_mm": fact(60.0, "assumed"),
+        }
+        for index in range(1, 19)
+    }
+    ops = [
+        {"op": index * 10, "do": "face", "feature": "deck", "tool": f"cutter-{index}", "to_z": 8.0}
+        for index in range(1, 19)
+    ]
+    bundle = data(ops, tools)
+    sheet = _Traveler(bundle, [], {}, None)
+    _, _, source = sheet.tool_table(bundle.plan["setups"][0])
+    original = Markup(source)
+    expected = [content(node) for node in original.nodes if node["tag"] == "tbody"]
+    printed, details = printed_sheet(
+        '<p>Original work before the pull list.</p><div style="height:550px"></div>' + source,
+        r"""pageOf => ({
+          pages: Number(document.querySelector('section.page').dataset.pages),
+          rows: [...document.querySelectorAll('table.tools tbody')].map(body => {
+            const row = body.rows[0], rect = row.getBoundingClientRect();
+            const tops = [document.querySelector('section.page').getBoundingClientRect().top,
+              ...[...document.querySelectorAll('.cont-head')]
+                .map(head => head.getBoundingClientRect().top)];
+            const endPage = tops.findLastIndex(top => top < rect.bottom-.01);
+            return {
+              page: pageOf(row), endPage,
+              fragments: body.hasAttribute('data-duplex-fragment'),
+              text: body.textContent
+            };
+          }),
+          markers: [...document.querySelectorAll('table.tools .measurement-ref')].map(mark => ({
+            text: mark.textContent, lines: mark.getClientRects().length,
+            whiteSpace: getComputedStyle(mark).whiteSpace
+          }))
+        })""",
+    )
+    assert details["pages"] > 1
+    assert len(details["rows"]) == len(expected)
+    assert [row["text"] for row in details["rows"]] == expected
+    assert all(row["page"] == row["endPage"] and not row["fragments"] for row in details["rows"])
+    assert all(mark["lines"] == 1 and mark["whiteSpace"] == "nowrap" for mark in details["markers"])
+    assert [content(node) for node in printed.find("measurement-ref")] == [
+        content(node) for node in original.find("measurement-ref")
+    ]
+    assert "PRINT LAYOUT ERROR" not in "".join(
+        content(node) for node in printed.nodes if node["tag"] == "section"
+    )
+
+
+def test_grouped_measurement_actions_print_whole_with_full_size_side_by_side_blanks(
+    printed_sheet,
+):
+    from test_sheet_measurement_debt import data
+
+    from prechips.measurements import measurement_entry
+
+    bundle = data()
+    bundle.inventory["fixtures"] = {
+        "support": {
+            "kind": "custom",
+            "name": "Measurement support",
+            "solids": [
+                {
+                    "name": f"pad-{index}",
+                    "label": f"Support pad {index}",
+                    "shape": "box",
+                    "size_mm": [20.0, 15.0, 10.0],
+                    "at_mm": [float(index) * 25.0, 0.0, 0.0],
+                }
+                for index in range(24)
+            ],
+        }
+    }
+    sheet = _Traveler(bundle, [], {}, None)
+    sheet.measurement_registry()
+    for index in range(24):
+        sheet.measurement_marker(
+            measurement_entry("fixtures", "support", ("solids", f"pad-{index}"))
+        )
+    sheet.measurement_marker(measurement_entry("tools", "cutter", ("point_angle",)))
+    bundle.inventory["holders"]["second"] = {"kind": "collet", "name": "Second collet"}
+    for holder in ("collet", "second"):
+        sheet.measurement_marker(measurement_entry("tools", "cutter", ("projection", holder)))
+    sheet.measurement_marker(measurement_entry("machines", "mill", ("spindle", "rotation")))
+    sheet.finalize_measurements([])
+    source = sheet.job_measurement_box() + sheet.setup_status_boxes(
+        ["Retain the original setup STOP action."], [], []
+    )
+    original = Markup(source)
+    expected = {
+        node["attrs"]["data-measurement-id"]: (
+            node["attrs"]["data-measurement-label"],
+            content(node),
+        )
+        for node in original.nodes
+        if "data-measurement-id" in node["attrs"]
+    }
+    printed, details = printed_sheet(
+        '<p>Original work before measurement STOP.</p><div style="height:550px"></div>' + source,
+        r"""pageOf => ({
+          pages: Number(document.querySelector('section.page').dataset.pages),
+          rows: [...document.querySelectorAll('[data-measurement-id]')].map(row => {
+            const rect = row.getBoundingClientRect(),
+              tops = [document.querySelector('section.page').getBoundingClientRect().top,
+                ...[...document.querySelectorAll('.cont-head')]
+                  .map(head => head.getBoundingClientRect().top)],
+              blank = row.querySelector('.writing-blank'),
+              blankRect = blank.getBoundingClientRect(),
+              style = getComputedStyle(blank),
+              label = row.querySelector('.field-label').getBoundingClientRect(),
+              field = row.querySelector('.field'),
+              cell = row.cells[1].getBoundingClientRect(),
+              cellStyle = getComputedStyle(row.cells[1]),
+              left = cell.left + parseFloat(cellStyle.paddingLeft)
+                + .5 * parseFloat(cellStyle.borderLeftWidth),
+              right = cell.right - parseFloat(cellStyle.paddingRight)
+                - .5 * parseFloat(cellStyle.borderRightWidth);
+            return {
+              id: row.dataset.measurementId, marker: row.dataset.measurementLabel,
+              subject: row.closest('table').tHead.rows[0].cells[0].textContent,
+              text: row.textContent, page: pageOf(row),
+              endPage: tops.findLastIndex(top => top < rect.bottom-.01),
+              fragments: !!row.closest('[data-duplex-fragment]'),
+              width: blankRect.width - parseFloat(style.borderLeftWidth)
+                - parseFloat(style.borderRightWidth),
+              height: blankRect.height - parseFloat(style.borderTopWidth)
+                - parseFloat(style.borderBottomWidth),
+              direction: getComputedStyle(field).flexDirection,
+              unit: row.querySelector('.field-label').textContent,
+              recordFits: label.left >= left-.1 && label.right <= right+.1
+                && blankRect.left >= left-.1 && blankRect.right <= right+.1,
+              beside: label.right <= blankRect.left+.01
+                && label.top < blankRect.bottom && label.bottom > blankRect.top
+            };
+          })
+        })""",
+    )
+    assert details["pages"] > 1
+    assert len(details["rows"]) == len(expected)
+    assert {row["id"]: (row["marker"], row["text"]) for row in details["rows"]} == expected
+    assert all(row["page"] == row["endPage"] and not row["fragments"] for row in details["rows"])
+    assert all(
+        row["subject"]
+        == sheet.measurement_subject(
+            sheet.measurement_registry()[row["id"]][1], include_holder=False
+        )
+        for row in details["rows"]
+    )
+    assert all(
+        row["width"] >= 35 * 96 / 25.4 - 0.1 and row["height"] >= 10 * 96 / 25.4 - 0.1
+        for row in details["rows"]
+    )
+    assert all(row["direction"] == "row" and row["beside"] for row in details["rows"])
+    assert all(row["recordFits"] for row in details["rows"])
+    assert any(row["unit"] == "cw/ccw" for row in details["rows"])
+    text = "".join(content(node) for node in printed.nodes if node["tag"] == "p")
+    assert text.count("Record the measured values here and return this traveler for reissue") == 1
+    assert text.count("Retain the original setup STOP action.") == 1
+    assert "Record measured value here" not in text and "PRINT LAYOUT ERROR" not in text

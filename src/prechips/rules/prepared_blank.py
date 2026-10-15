@@ -29,7 +29,7 @@ from prechips.findings import Finding
 from prechips.joint_features import _lineage
 from prechips.measurements import length_fact
 from prechips.process_features import ACTIONS, label, primitive, process_of
-from prechips.rules.inspection import _capability, procedure_known
+from prechips.rules.inspection import _capability, _gauge_measurements, procedure_known
 from prechips.rules.resolution import UNKNOWN, number, record, resolve, uncertain
 
 RULE = "prepared_blank"
@@ -276,6 +276,12 @@ def _checks(bundle, prepared, bands, numbers):
         results[key] = row
         worst = max(worst, status, key=_SEVERITY.get)
     numbers["checks"] = results
+    if worst == UNKNOWN:
+        debts = {
+            entry["id"]: entry for row in results.values() for entry in row.get("measurements", [])
+        }
+        if debts:
+            numbers["measurements"] = [debts[key] for key in sorted(debts)]
     if worst == "pass":
         return "pass", ""
     failing = [f"{key}: {row['message']}" for key, row in results.items() if row["status"] == worst]
@@ -302,6 +308,10 @@ def _form(bundle, gauge_ref, method, limit, row):
         return "unknown", "the check's method is unwritten"
     if not (number(limit) and limit > 0):
         return "unknown", "the check's form limit (form_mm) is undeclared"
+    if not number(resolution) or uncertain(gauge):
+        debts = _gauge_measurements(bundle, gauge, gauge_ref, ("resolution",))
+        if debts:
+            row["measurements"] = debts
     if not number(resolution):
         return "unknown", "the gauge's resolution is unknown"
     if uncertain(gauge):

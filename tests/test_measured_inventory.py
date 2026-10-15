@@ -5,11 +5,16 @@ from datetime import date
 import pytest
 from pydantic import ValidationError
 
-from prechips.measurements import angle_fact, length_fact, nominal_angle_deg, nominal_length_mm
+from prechips.measurements import angle_fact, length_debt, length_fact, nominal_length_mm
 from prechips.model import Inventory
 from prechips.rules.resolution import length_mm, resolve
 
-MEASURED = {"by": "test machinist", "date": "2026-01-15", "instrument": "height gauge"}
+MEASURED = {
+    "status": "measured",
+    "by": "test machinist",
+    "date": "2026-01-15",
+    "instrument": "height gauge",
+}
 
 
 def inventory(values):
@@ -23,7 +28,7 @@ def measured(value, **metadata):
 @pytest.mark.parametrize(
     "metadata",
     [
-        {"by": "machinist", "date": "2026-01-15"},
+        {"status": "measured", "by": "machinist", "date": "2026-01-15"},
         {**MEASURED, "by": " "},
         {**MEASURED, "date": "unknown"},
         {**MEASURED, "date": "yesterday"},
@@ -369,6 +374,10 @@ def test_item_flags_neither_block_nor_promote_fact_local_trust(context):
     nominal = {**context, "dia_mm": 6}
     assert length_fact(nominal, "dia")["verified"] is False
     assert length_fact(nominal, "dia", require_measured=False)["verified"] is True
+    assert length_debt(nominal, "dia", "tools", "cutter", require_measured=False) is None
+    required = length_debt(nominal, "dia", "tools", "cutter", require_measured=True)
+    assert required["status"] == "nominal"
+    assert required["reason"] == length_fact(nominal, "dia")["reason"]
 
 
 def test_root_and_block_measurements_never_certify_a_bare_value():
@@ -382,6 +391,7 @@ def test_root_and_block_measurements_never_certify_a_bare_value():
         "verified": False,
         "cite": [],
         "reason": length_fact({"gauge_len_mm": 40}, "gauge_len")["reason"],
+        "measurement_status": "unknown",
     }
     assert length_fact(item, "envelope.travel.x")["verified"] is False
     assert length_fact(item, "envelope.travel.x")["value"] == 500
@@ -393,7 +403,8 @@ def test_local_verify_debt_survives_its_own_measurement(verify):
     x = length_fact(item, "envelope.travel.x", require_measured=False)
     assert (x["value"], x["verified"]) == (500, False)
     assert length_fact(item, "envelope.travel.y")["verified"] is True
-    assert length_mm(item, "envelope.travel.x") == 500
+    assert length_mm(item, "envelope.travel.x") == "unknown"
+    assert nominal_length_mm(item, "envelope.travel.x") == 500
 
 
 def test_unmeasured_local_fact_is_nominal_only_when_measurement_is_not_required():
@@ -474,7 +485,7 @@ def test_missing_values_or_explicit_units_stay_unknown(item):
 @pytest.mark.parametrize(
     "metadata",
     [
-        {"by": "tester"},
+        {"status": "measured", "by": "tester"},
         {**MEASURED, "date": "yesterday"},
     ],
 )
@@ -511,10 +522,9 @@ def test_point_angle_is_a_fact_local_degree_value():
     tool = {"verify": True, "point_angle": measured(118)}
     fact = angle_fact(tool, "point_angle")
     assert (fact["value"], fact["verified"]) == (118, True)
-    assert nominal_angle_deg(tool, "point_angle") == 118
     vendor = {"point_angle": 118}
     assert angle_fact(vendor, "point_angle")["verified"] is False
-    assert nominal_angle_deg(vendor, "point_angle") == 118
+    assert angle_fact(vendor, "point_angle", require_measured=False)["value"] == 118
     debt = {"point_angle": measured(135, verify=True)}
     assert angle_fact(debt, "point_angle")["verified"] is False
     assert angle_fact({"point_angle": "unknown"}, "point_angle")["value"] == "unknown"

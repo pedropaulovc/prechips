@@ -19,6 +19,31 @@ same bundle; only feature location may read an already-present kernel result
 
 ## `coordinates`
 
+**DRO grid consumption.** The machine's `resolution` becomes coordinate-rule
+measurement debt only when an operation authors or emits at least one coordinate
+rounded to, or printed on, that machine's DRO grid. An authored `to_z`, `z_from`
+or `z_to`, a requested feature location, a nonempty lathe drawing-station list,
+or a contour requesting cutter-coordinate targets consumes the grid even when
+unknown geometry or binding prevents computing its rows. An explicit
+`contour = "unknown"` also authors a target request; an omitted or empty contour
+does not. Empty outputs do not erase an authored target's debt. A missing or
+untrusted (including `assumed`)
+consumed grid keeps the finding unknown with `dro_grid_debt` and the named
+`machines.<id>.resolution` measurement instruction; its declared step still
+places provisional targets, otherwise `DRO_DEFAULT_STEP` does. A trusted
+consumed grid retains the same rounding and geometric judgments.
+
+Machine selection, stock-state metadata and an unlocated feature name alone
+consume no DRO coordinate. A bare `saw_cut` with no feature location, contour,
+Z target or coordinate table therefore reports
+`dro_grid = { step = "not used", decimals = "not used" }`, visibly as **no coordinate
+targets** on the traveler, and has no coordinate-rule resolution debt or
+fabricated numeric saw grid. This does not claim that the machine's grid is
+unused by stock dimensions, pictures, touch-off recipes or tip-endpoint displays;
+those consumers retain their own rounding and debt. Its coordinate finding
+remains pass when no independent geometry, frame or operation debt/error exists;
+**no coordinate targets** clears none of those other checks.
+
 A feature-local point is transformed to model coordinates as
 `model = feature_frame.origin + sum(local[j]*feature_frame.basis[j])`.
 A setup coordinate is `(model - setup.origin) dot setup.basis[axis]`.
@@ -82,9 +107,12 @@ names neither. The band is the one the sheet prints, rounded inward at its
 drawing precision. A target outside it is
 an error (`Located target band error: …`, value in mm). A distance that cannot be
 measured, a band that is not two numbers, feature units other than mm or in, or a
-provisional DRO grid — the machine's `resolution` unknown or not qualified by its
-own complete measurement, so `DRO_DEFAULT_STEP` stands in — keeps the setup
-unknown; the provisional grid still places the printed targets. A plan
+DRO grid that is not the machine's own trusted `resolution` — the fact unknown
+(so `DRO_DEFAULT_STEP` stands in) or declared but not qualified by its own
+`status = "measured"` record (its declared step still rounds the printed
+targets, never a finer fallback) — keeps the setup
+unknown with that resolution in its measurement debt; the grid still places
+the printed targets. A plan
 [`aims`](plan.md#aims) entry moves the feature's own target along that same
 direction so its band reads `value_mm`, converted to the manifest units, on every
 setup that locates it. The row keeps the unaimed point as `nominal_setup`, records
@@ -229,11 +257,116 @@ naming them. Each table is recorded under `arc_table` (its joins under
 - `chain_drill` (rough only; holes no more than `pitch_mm` apart along the
   rough path, drilled with the op's drill): every hole's full diameter must stay
   outside the line (`hole_clear_mm` ≥ 0) and neighbours must leave a web
-  (centres more than a drill diameter apart); either failure is an error. The
-  webs are broken out along the hole centres (`break_out`): every centre-to-centre
-  segment must stay outside the line (it runs inside it is an error), and the
-  file meets `stock_left_mm` = the larger of allowance + drill radius and the
-  deepest material the break-out leaves off the line along a radius.
+  (centres more than a drill diameter apart); either failure is an error.
+  Host DRO selection and kernel regeneration/actual-hole validation use one
+  shared pure finite-boundary clearance predicate. For an actual closed
+  finished loop (including a joined bottom outline or full circle), its sign
+  comes from point-in-region and its magnitude from the nearest finite
+  boundary: negative in kept material. Unordered exact lines and arcs are
+  connected by their real endpoints, with authored scrap normals determining
+  the kept side; arc sweeps are not tessellated or extended.
+  True open arcs and the current top-plus-land wall packets lack a complete
+  finished loop in the packet: no closure edge is invented. Linked taper and
+  bottom-arc facts can exist in the host model without being carried in that
+  partial top packet; fuller actual closed-boundary transport is tracked in
+  [#212](https://github.com/pedropaulovc/prechips/issues/212).
+  Their fallback uses oriented finite projections
+  and real free-end cap distances; shared concave vertices classify the actual
+  nearest-vertex sector, rather than treating a kept-side corner as a positive
+  cap. Distance ties are conservative, not a global AND of distant supporting
+  half-planes. Missing, ambiguous or unsupported region geometry is unknown,
+  never an unsigned-distance pass. With no admissible grid point, the stage is
+  unknown and its cut tables are withheld. Every actual cylinder still needs
+  web, bounds and native collision checks; the open fallback is not a proof
+  of the whole finished part.
+  The webs are broken out along the hole centres (`break_out`): every
+  centre-to-centre segment must stay outside kept material. For closed loops,
+  the same predicate checks entry against the whole finite boundary, not just
+  the join's own line; an entry is an error. The
+  file meets `stock_left_mm` = the maximum of allowance + drill radius, the
+  radial depth left by the actual printed arc centre-to-centre break-outs, and
+  the greatest distance from the retained printed join centre-to-centre
+  break-out polyline to the nearest finite finished wall (nearest-wall
+  distance, not one wall's normal, so a concave neighbour wall does not
+  over-report corner runout). Straight joins use the
+  same drill-radius + allowance offset as the arc. Each finite straight leg
+  keeps its exact join endpoints/miter, and its nominal holes divide the leg
+  into equal intervals no longer than `pitch_mm`; snapping each hole onto the
+  DRO grid can move the printed spacing off that bound. Holes are repositioning
+  checkpoints, not handwheel cutting moves, and the kernel credits an unbounded
+  chain with removing only its actual drilled cylinders: the webs between
+  them, and the stock between them and the claimed wall, stay in stock until
+  a later known removal (no drill-radius sweep between centres, no cutter
+  corridor, no +Z claim sweep), so retained webs beside a claimed wall are
+  named stock debt pointing at `stock_removal_bounds`; declaring that box on
+  the chain op is the author's certification of the actual break-out/chisel
+  footprint, not a demonstrated toolpath
+  ([rules-geometry](rules-geometry.md#in-process-stock); explicit break-out
+  phase tracked in [#213](https://github.com/pedropaulovc/prechips/issues/213)).
+  Join tables print hole numbers,
+  checkpoint P, X/Y and Z, drill size, pitch, break-out instructions and the
+  reported stock/cap or `recut_by`; a table left with a single hole prints no
+  pitch or break-out sentence (there is no neighbour to break through to).
+  Each P label names the printed DRO X/Y
+  point it stands on (matched within 1e-6 mm), never a hole index that a clip
+  or respacing could shift. Arc and join records share the worst residual of
+  their rough stage. Method, stage, full-hole-outside-the-line and requested
+  no-web errors (an authored `pitch_mm` no greater than the selected drill's
+  diameter can leave no web at any spacing) are preconditions found on the
+  authored tables before any clip, and stay errors even for holes a clip would
+  exclude; a clip's single-hole or dropped-end result never hides them.
+  The authored arc radial/full-hole invariant remains a pre-clip check in
+  addition to the shared finite-boundary predicate. It is intentionally not
+  imposed on regenerated endpoints: a physically safe finite-cap hole beyond
+  the actual sweep may lie inside the authored supporting circle.
+  A bounded chain (`stock_removal_bounds`)
+  is clipped by the kernel at drill granularity: it intersects the
+  drill-centre offset arc and join lines with the bounds eroded by the full
+  drill radius (a closed arc's fragments across its seam are one span), then
+  regenerates each retained arc or straight leg on its own with equal nominal
+  intervals along that curve, choosing the hole count so the nominal spacing
+  is no longer than `pitch_mm` and still leaves a web (centres more than a
+  drill diameter apart); that web is judged on the actual snapped DRO centres,
+  not the nominal span alone: for a retained span longer than the length
+  tolerance, the pitch-required count is always tried at its snapped
+  positions, even when it exceeds the nominal-length web bound, and any higher
+  nominally feasible count is also tried before the span is shortened (a span
+  within that tolerance, whether an isolated point or a tiny retained arc or
+  leg between two shared junctions, keeps exactly one hole, never a duplicate
+  row at the same centre); exact
+  junctions stay shared. A span whose snapped
+  placement leaves no positive web at any such count omits its clipped end
+  hole (reported as a dropped end, never as
+  a fabricated no-web error). Every actual hole then snaps onto the DRO grid
+  inside the bound and passes the same shared predicate: its centre must be
+  in scrap with finite-boundary clearance for the whole drill and allowance.
+  Closed loops use region membership even beyond an individual wall's
+  projection; genuine open packets use the finite-projection/free-end and
+  concave-shared-vertex fallback above. Bounds never waive that test.
+  The nominal-distance/offset guards remain additional placement constraints,
+  not independent unsigned side acceptance. All holes search the symmetric
+  square within three
+  grid steps on each axis and choose the nearest safe point by Euclidean
+  distance, with a deterministic coordinate tie-break. A diagonal is not
+  rejected merely for lying outside a one-step circle. Ends and junctions may
+  back off inward along the true curve; a clipped end is therefore not promised
+  within one step of the true bound crossing. A hole with no such grid
+  candidate after its full search and back-off leaves the whole clip unknown,
+  never a hole in finished material. Every actual
+  hole cylinder is judged; the printed spacing is the DRO spacing, which can
+  differ from the nominal interval. A raw swept-chord
+  intersection never becomes an extra hole. The web/break-out checks and the
+  single T6 `numbers.max_filing_stock_mm` cap enforcement run on the actual
+  regenerated residual. Unsigned nearest-wall distances intentionally remain
+  the stock/residual measurements, not scrap-side proof. Its table names
+  only genuine dropped ends and piece breaks where stock beyond is not cleared
+  or part of the chiselled chain; an intact arc/join junction continues into
+  the adjacent table. Omitted joins add no join debt while an arc
+  or other table remains; a stage the clip excludes entirely, or retained
+  pieces that no longer connect, keeps the existing clip debt.
+  When a chain error withholds cut tables, profile facts still report
+  `stock_left_mm` and `stock_cap_mm` where the residual was computed (a
+  precondition error may prevent it), for diagnosis, not permission to cut.
 - `chords` (finish; `count` straight chords): the chord ends sit on the edge
   radius that centres each chord's sagitta `c²/8R` in the feature's radial band
   (`dia` halved for a full circle, `bottom_radius` or `radius` otherwise); a
@@ -264,8 +397,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   resolution: an arc too short to keep a reading inside it is an error. The
   setup-entry stock (kernel `stock_bbox_mm`) must swing inside the table's
   `max_work`. Off-axis centres, no table, no earlier centre hole or a swing over
-  `max_work` are errors; unknown dial, centre or swing facts, or a table
-  flagged to verify, are unknown.
+  `max_work` are errors; unknown dial, centre or swing facts, a table
+  flagged to verify, or a `max_work`/`bore_dia` whose own record is not
+  trusted are unknown, the untrusted fact named in `numbers.measurements`.
 
 Every manual-arc table is cut in the plan's feature units (`mm` or `in`, else
 unknown) and records its millimetre facts (`*_mm`) in millimetres: the cutter,
@@ -282,7 +416,7 @@ faces to the file (`recut_by`), instead of the cap. The claim test does not
 compare depth: an op between them may cut the same faces from the other side.
 Rough methods on a finish stage are an error (`file_to_line` finishes them);
 finish methods cannot be clipped by `stock_removal_bounds` (unknown); methods
-other than `stairs` along straight joins are unknown. A diagonal edge on a
+other than `stairs` and `chain_drill` along straight joins are unknown. A diagonal edge on a
 `linear_table` outline is unknown: single-axis stairs along an outline are not
 computed. Rasters and outlines whose edges are all axis-parallel need no
 manual-arc method.
@@ -398,7 +532,8 @@ and `climb` when it is negative; `ccw` inverts both. Each table is reversed
 when its geometric order disagrees with the op's `direction`, so the −X join
 fragment, the bottom arc and the +X fragment chain end to start. Each record
 carries `cut_order` (the authored direction) and `spindle_rotation`. An op
-`direction` other than `conventional`/`climb`, an undeclared spindle rotation,
+`direction` other than `conventional`/`climb`, an undeclared or untrusted spindle rotation
+(listed in the finding's `numbers.measurements`),
 unknown setup points or a degenerate witness set `cut_order = "unknown"` with
 `cut_order_reason`, keep the geometric order, and make the setup's
 coordinates finding `unknown` with
@@ -440,13 +575,19 @@ all use these clipped rows and their ids; the op's removal stays its box.
 **Printed values.** The operator cuts what the DRO shows. One rule serves
 every axis: the DRO grid is the setup machine's declared inventory
 `resolution` (`resolution_mm` or `resolution_in`), else 0.001 plan units
-(`DRO_DEFAULT_STEP`), printed at the decimals of one step (`dro_grid`). Every
-arc row and join point carries `dro_xy`, the nearest grid point that, for each
-of the feature's walls (its arcs between their ends, its lands and tapers, a top
-arc's linked lands), is no nearer that wall than the exact point or the authored
-cutter-centre offset, whichever is less (a corner of its grid cell, else up to
-two steps out, else unknown); a table end and the join it meets print one
-value. Every table carries `dro_tip_z`, and each profile and operation
+(`DRO_DEFAULT_STEP`), printed at the decimals of one step (`dro_grid`). A
+declared resolution whose own record is `assumed`/`illustrative` (or omitted
+status) is still the step instructions round on, but every rule that judges a
+value on that grid (`zero_check`, `blind_depth`, `tip_endpoints`,
+`consistency`, `coordinates`) is unknown naming that resolution as debt, and
+the sheet prints the declared step with its status rather than the default
+grid. Every arc row and join point carries `dro_xy`, the nearest grid point no
+nearer each finite wall than the exact point or the authored cutter-centre
+offset, whichever is less (a corner of its grid cell, else up to two steps out,
+else unknown). For chain drilling, the nearest finite finished-wall side guard
+above also applies; unsigned distance alone cannot admit a finished-side point.
+A table end and the join it meets print one value. Every table carries
+`dro_tip_z`, and each profile and operation
 `dro_to_z`: the authored depth rounded up, never deeper (−2.07825 prints −2.078
 on the default grid). The op rows and contour table headers print the same
 value, and so does every later Z printed for that face: a start Z, a Z zero and
@@ -498,8 +639,10 @@ kernel result (`mapping` to `faces[].bbox_mm`, model-space mm), converted to
 manifest units and posed in the setup frame. A bounded op covers only the
 eligible faces: those whose posed box has both its lowest and highest setup Z
 at the op's `to_z`, within the kernel length tolerance (`LENGTH_TOLERANCE_MM`,
-1e-6 mm, in manifest units). A listed face at another Z, such as an underside
-or a step, is neither faced nor credited by that op. A feature with no eligible
+1e-6 mm, in manifest units), and whose kernel `kind` is `Plane` or not known.
+A listed face at another Z, such as an underside or a step, or a known
+non-planar face (a `Cylinder` whose box is thinner than that tolerance) is
+neither faced nor credited by that op. A feature with no eligible
 face leaves coverage unknown, with debt naming the feature (no eligible face at
 `to_z`), never whole. The kernel record carries no face orientation, so a
 downward-facing plane lying exactly at `to_z` cannot be told from the faced one
@@ -507,7 +650,9 @@ by its box. This is an accepted limitation: a facing op cuts down from above,
 so the plane it leaves at `to_z` faces +Z.
 Each eligible face is judged by its own posed box. Coverage is whole only when
 every eligible box lies inside the bounds by more than that tolerance on each
-side. A face edge within the tolerance of a bound may lie on either side of it,
+side, and the op's `stock_removal_bounds.z` is a finite ascending span containing
+`to_z` (within `SAME_Z`); a missing, malformed or non-reaching Z span leaves it
+unknown, never credited. A face edge within the tolerance of a bound may lie on either side of it,
 so it is unknown (kernel bbox boundary uncertainty), never partial. Partial is
 claimed only where it is known: an eligible box lies clear of the bounds, or the
 setup frame turns the model axes by a signed permutation (each setup axis along
@@ -621,6 +766,12 @@ supports on is an accessibility error naming the row; an unresolved check is
 run-out past the land and taper walls into scrap. The traveler prints
 "corner overshoot into scrap — OK" on that row only when the kernel proved the
 op's rows clear; a row with an error keeps its error and prints no note.
+
+For a regenerated chain table (`regeneration = "true_curve"`), row clip markers
+record provenance, not where the chain stops. The traveler names only its
+`dropped_ends` and genuine breaks between retained pieces. A retained arc/join
+junction carries the chain on into the adjacent table; it never gets a note
+excluding that next leg from the breakout.
 
 Exact message:
 
@@ -869,7 +1020,8 @@ an ear's inner face) uses its own authored edge; stock top is not its fallback.
 
 An X/Y pick-up with an `edge_finder` tool (not `from = "indicated"`) records the
 finder's procedure facts on its row as `finder`: `finder_type`, `tip_dia_mm`
-(`tip_in`/`tip_mm`, else `dia`), `radius_mm`, the finder's `finder_rpm_range`,
+(`tip_in`; a tip absent altogether reads the catalogue `dia`, a tip declared
+`"unknown"` stays unknown), `radius_mm`, the finder's `finder_rpm_range`,
 the setup machine's spindle bands `machine_rpm` (`[[lo, hi], …]`: `ranges_rpm`,
 each clipped to a stated `rpm_min`/`rpm_max`, else `[[rpm_min, rpm_max]]`) and
 `rpm`, the bands it runs at (the finder's band intersected with each spindle
@@ -1100,9 +1252,9 @@ from above: off a lathe a tool touch comes down on its face, and a zero or
 listed retouch must come `from = "+z"`. An unknown or other side may meet
 another face, so it is `unknown` and takes no credit. Each zero-check row that
 reads such a producer (`axes.z`, `tool_touches`, `derived_touches`, `retouch`)
-lists the raw STEP refs credited in `credited_faces`, absent when none, and the
-report JSON carries them. The traveler prints them beside the Z Axis Set as
-`produced plane: <refs>`.
+lists the raw STEP refs credited in `credited_faces`, absent when none. The
+report JSON retains those proof refs for validation; the operator traveler names
+the face and any required contact constraint, without raw native entity IDs.
 
 A whole credited face may carry through the traced `stock_in` lineage into
 a bonded or remounted setup. An intervening cut that can lower that face, or

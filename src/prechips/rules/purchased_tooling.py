@@ -13,7 +13,7 @@ carries the list.
 from __future__ import annotations
 
 from ..findings import Finding
-from ..measurements import nominal_limits_mm
+from ..measurements import length_debt, limits_debt, limits_fact
 from .resolution import (
     UNKNOWN,
     authored,
@@ -84,7 +84,8 @@ def _limit(item, check):
     stem = name.removesuffix("_mm").removesuffix("_in")
     if name not in item:
         return {"limits_mm": UNKNOWN}, f"limits {name} is not stated on the item"
-    pair = nominal_limits_mm(item, stem)
+    fact = limits_fact(item, stem, require_measured=False)
+    pair = fact["value"] if fact["verified"] else UNKNOWN
     if _known_pair(pair):
         return {"limits_mm": pair}, None
     single = length_mm(item, stem)
@@ -93,7 +94,7 @@ def _limit(item, check):
     return {"limits_mm": UNKNOWN}, f"limits {name} is not a known length or [lo, hi] pair"
 
 
-def _check(bundle, item, check):
+def _check(bundle, item, check, category, reference):
     """``(row, reason)`` for one receipt check: unknown unless it says what is checked,
     with a trusted gauge (or ``none``, by hand), against a known limit or criterion."""
     gauge = check.get("gauge", UNKNOWN)
@@ -112,6 +113,16 @@ def _check(bundle, item, check):
         reasons.append("how the gauge is used is unknown")
     limit, limit_reason = _limit(item, check)
     reasons += [limit_reason] if limit_reason else []
+    measurements = []
+    name = check.get("limits")
+    if limit_reason and _stated(name):
+        stem = name.removesuffix("_mm").removesuffix("_in")
+        raw = item.get(name)
+        raw = raw.get("value") if isinstance(raw, dict) else raw
+        reader = limits_debt if isinstance(raw, list) or stem.endswith("_limits") else length_debt
+        debt = reader(item, stem, category, reference)
+        if debt:
+            measurements.append(debt)
     accept = check.get("accept", "not_applicable")
     if accept != "not_applicable" and not _stated(accept):
         reasons.append("the accept criterion is unknown")
@@ -127,6 +138,8 @@ def _check(bundle, item, check):
         "status": UNKNOWN if reason else "pass",
         "reason": reason or "not_applicable",
     }
+    if measurements:
+        row["measurements"] = measurements
     return row, reason
 
 
@@ -142,10 +155,11 @@ def item_checks(bundle, category, reference, item, checks):
     identity = f"{category}.{reference}"
     reasons = [f"{identity}: {stop}" for stop in stops]
     for check in checks if isinstance(checks, list) else []:
-        row, reason = _check(bundle, item, record(check))
+        row, reason = _check(bundle, item, record(check), category, reference)
         if reason:
             reasons.append(f"{identity}: {row['check']}: {reason}")
         rows.append(row)
+    measurements = {entry["id"]: entry for row in rows for entry in row.get("measurements", [])}
     return {
         "category": category,
         "ref": reference,
@@ -154,6 +168,11 @@ def item_checks(bundle, category, reference, item, checks):
         "checks": rows,
         "stops": stops,
         "status": UNKNOWN if reasons else "pass",
+        **(
+            {"measurements": [measurements[key] for key in sorted(measurements)]}
+            if measurements
+            else {}
+        ),
     }, reasons
 
 
@@ -175,12 +194,18 @@ def evaluate(bundle):
             + "; ".join(reasons)
             + "): name an inventory gauge that reads it and the limit it accepts."
         )
+        numbers = {"items": items}
+        measurements = {
+            entry["id"]: entry for item in items for entry in item.get("measurements", [])
+        }
+        if measurements:
+            numbers["measurements"] = [measurements[key] for key in sorted(measurements)]
         result.append(
             Finding(
                 "purchased_tooling",
                 setup["id"],
                 "unknown" if reasons else "pass",
-                {"items": items},
+                numbers,
                 [CITE, *(f"inventory {row['category']}.{row['ref']}: acceptance" for row in items)],
                 sentence,
             )

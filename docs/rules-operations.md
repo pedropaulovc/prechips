@@ -166,9 +166,56 @@ wrong-facing member remains unknown. A single native plane retains its
 existing physical/native edge contradiction check and its proved physical
 standing height.
 
-## Usable carried touch land after a plunge (`zero_check`)
+## Same-setup native producer survival (`zero_check`)
 
-A bounded axial plunge that intersects a carried face does not preserve a
+A whole face producer proves a prepared plane, not that it survives until
+the next contact. A framed producer in the touching setup (one cut under the
+setup's Z zero) that has its own native plane is checked with the same
+cut-by-cut survival ledger as a carried producer, from that producer through
+the contact's exact operation boundary: `before_ops` excludes its first named
+operation, while `after_op` includes the named operation. Explicit tool
+touches, listed retouches and derived tool-change touches all require that
+proof before emitting a numeric contact or `credited_faces`. Invalid claims,
+unknown cutting actions or declared cut depths, ambiguous removal bounds and
+unresolved plunge footprints leave the contact **unknown**; provably disjoint
+cuts preserve the plane, and an overlapping bounded plunge preserves only the
+filled-rectangle touch land described below. The current producer keeps its
+exact DRO-step/formed-Z comparison; only a nonzero local keep-off diameter is
+reported, with no carried safe-down rounding, native-entry remap or
+physical-setting residual.
+
+A window-limited turning cut (a lathe turn with no `to_z`, not facing,
+pocketing, axial drilling, parting, cut-to-fit, transfer, saw or manual work,
+over a finite `z_from`/`z_to` window) cannot reach a plane when the setup's Z
+is coaxial with the plane's normal and the whole window lies on the plane's
+open, outward side within `LENGTH_TOLERANCE_MM`, because the kernel limits its
+removal to that window. The window is taken at its dialled ends (each rounded
+up on the setup's DRO grid) as well as its raw ones, whichever is worse. A
+grooving or parting blade, or a tool of unknown kind, also needs a known blade
+width: its groove runs that full width up from the dialled chuck-side end, as
+the plunge model places it. A tilted frame, a window crossing the plane, an
+unknown width or any cut outside that kind still needs the existing radial
+proof.
+
+An authored-edge contradiction cannot re-fetch the original producer to upgrade
+an invalidated contact: recovery repeats the same survival proof and is skipped
+while survival debts remain. Established contradictions keep **error**
+precedence over missing survival proof, which remains **unknown**. A plane
+whose survival is unproven may be gone, so its producer's height neither
+credits nor contradicts the reading.
+
+A Z touch whose own operation boundary does not resolve (an empty or partly
+unknown `before_ops`, or an unknown `after_op`, including the primary
+`zero.z.after_op`) is **unknown**; it is never read against the plane as it stood
+before the setup's first op.
+
+Pre-zero producers, latest-re-face area debt and authored or non-native
+fallback surfaces keep their existing behavior; closing those paths is tracked
+in [issue #227](https://github.com/pedropaulovc/prechips/issues/227).
+
+## Usable native touch land after a plunge (`zero_check`)
+
+A bounded axial plunge that intersects a current or carried face does not preserve a
 usable touch merely because its radial reach is smaller than a reported outer
 radius. A nonempty annulus can be too thin for the paper/tool contact. More
 fundamentally, the existing native `revolved` radius extrema and outward-plane
@@ -198,7 +245,11 @@ STEP face, checked analytically; neither is sampling.
   removed radial regions; its reach is the maximum of the prior reach and
   the current plunge's radius plus centre offset. The existing `_uncut`
   witness must lie outside that whole envelope, not merely outside the last
-  smaller cut. Re-facing does not erase prior unknown cut-area debt.
+  smaller cut. Re-facing does not erase prior unknown cut-area debt. That
+  envelope is about its own plane's centre: a re-face whose plane centre axis
+  differs (non-parallel normals, or origins more than `LENGTH_TOLERANCE_MM`
+  apart across the axis) leaves the earlier exclusion's extent **unknown**
+  rather than re-centring it.
 
 **Exact circular loops (#208 path).** The native job's
 [`face_topology`](rules-geometry.md#face-topology) record for the selected
@@ -281,12 +332,13 @@ Each exclusion is recorded once, when its plunge is accepted, as the circle of
 its conservative radial reach (`centre_mm`, `radius_mm`, `error_mm = 0`) in
 the frame of the setup that cut it (`frame`), and carried unchanged. At
 consumption it is re-expressed through the model point into the receiving
-frame; a later re-facing or carry cannot move, shrink or drop it. Exclusions
+frame; a later carry cannot move, shrink or drop it, nor can a re-face about
+the same centre axis. Exclusions
 from every setup in the lineage accumulate, and the current plunge joins them
-before the search. This closes the #192 concern filed as
-[#215](https://github.com/pedropaulovc/prechips/issues/215): re-facing after a
-plunge previously risked re-centring or losing the hole's own centre, and the
-own-centre exclusion carried through refacing is the fix.
+before the search. This addresses the #192 concern filed as
+[#215](https://github.com/pedropaulovc/prechips/issues/215) for same-axis
+re-facing; a re-face about another centre axis still leaves the earlier
+exclusion's extent **unknown** (the #192 gate above), never re-certified.
 
 `face_topology` whose outer or an inner loop is a `polygon` (ordered exact
 straight-sided wire, serialized for provenance) or `unsupported` (a partial
@@ -364,7 +416,7 @@ physical touch patch exists.
 ### Issue #208 acceptance status
 
 Implementation and host tests are complete for this **0.1.2 draft**.
-**0.1.1 ships #198 and #192 only.** No native runs or regeneration were performed:
+**0.1.1 ships #198, #192 and #199 only.** No native runs or regeneration were performed:
 
 - [x] Native job schema 2 emits `face_topology` for every mapped planar face
       in every setup; schema 1 jobs are refused by the engine.
@@ -373,9 +425,10 @@ Implementation and host tests are complete for this **0.1.2 draft**.
       deterministic 64-angle DRO-grid search, analytic recertification, and
       native/carried-source square corner-height budgets at 1e-6 mm.
 - [x] Exclusions retained per source frame with their own centres and
-      re-expressed at consumption, surviving re-facing
-      ([#215](https://github.com/pedropaulovc/prechips/issues/215), the #192
-      refacing concern); rectangle path, producer/lineage/normal gates, the
+      re-expressed at consumption, surviving routing and a re-face about the
+      same centre axis ([#215](https://github.com/pedropaulovc/prechips/issues/215));
+      a re-face about another centre still leaves the area unknown (#192);
+      rectangle path, producer/lineage/normal gates, the
       current-setup `face_topology` selection and the report fields above.
 - [ ] Focused actual-FreeCAD topology tests (authored annulus, thin land,
       off-centre holes, sector/slit/notch and setup transforms): **NOT RUN**.
@@ -399,9 +452,32 @@ counterbore and bore operations, and for `center_drill` on a plan
 Stock-state facing/pocketing advances only the named or explicitly covered
 same-frame entry surfaces. A known setup-frame `stock_removal_bounds` that
 contains a feature's whole X/Y footprint (its declared one, or for a bounds-free
-face each listed plane at the op's `to_z` by its own matched kernel `bbox_mm`;
-see [coordinates](rules-coordinates.md)) can advance its seeded local entry without
-requiring a redundant bounds box on the cutting op's own feature. For an operation
+`kind = "face"` each listed plane at the op's `to_z` by its own matched kernel
+`bbox_mm`; see [coordinates](rules-coordinates.md)) can advance its seeded local
+entry without requiring a redundant bounds box on the cutting op's own feature.
+A native face's incidental `at`/`dia`, axis or plane metadata is never a declared
+extent, even if it describes a smaller disc wholly inside the cut. The complete
+face list must resolve before a bounded cut selects the planes at `to_z`.
+Missing or ambiguous mappings, invalid native boxes, or unresolved units/setup frames
+leave native coverage unknown and earn no face credit; they never fall back to that
+disc. Explicit authored face `bounds` and true round non-face features retain
+declared-footprint behavior. An authored empty or whole-record unknown face `bounds`
+is debt, not permission to use a disc or native-box fallback. Malformed explicit
+bounds also remain debt when their containment cannot be established.
+Unbounded cuts of their own feature retain the existing declared-whole semantics;
+their keep-out checks use actual native boxes for bounds-free faces. Cross-feature
+unbounded native-face containment without explicit target bounds leaves its producer
+unknown, not a disc-based whole producer. This does not advance a seeded local entry:
+the unboxed entry-selection path retains its existing skip behavior when there is
+no declared footprint candidate, keeping the seed and its origin unchanged.
+Bounded cross-feature facing/pocketing producers
+are decided by native coverage even when the cutting feature has no authored
+footprint. An authored empty/unknown target face footprint is also a guarded producer
+candidate: unresolved coverage cannot silently become a skipped op and an accepted
+numeric contact edge. An explicit local operation source must still prove whole native
+coverage; partial or unknown coverage cannot supply that face. A later bounded cut whose
+complete native boxes are XY-disjoint is non-producing even at another floor, so it
+does not hide an earlier proved producer. For an operation
 with `stock_removal_bounds`, the box's Z interval must contain both the current entry
 and `to_z`. That boxed cut cannot numerically raise the entry; a higher floor outside
 the same-plane float tolerance (`SAME_Z`, 1e-9 plan units), or a box wholly above or
@@ -418,6 +494,12 @@ Profiles never move the touched top; `top_feature` restricts which facing
 operation moves that top. An omitted local `entry_z` retains the existing
 stock-state top fallback. Each record preserves entry origin, setup/op,
 point/lead, thickness, allowance and tip endpoint.
+The effective native touch must also survive until its own contact boundary.
+When that reading has an unknown physical edge or typed setting, a known local
+entry producer cannot recover numeric DRO/physical entry, exit or endpoint
+values. The local-entry no-double-shift exception applies only to a surviving
+numeric touch reading; nominal stock-state dimensions are not replacement
+touch evidence.
 
 Arithmetic in mm: stock-state top/entry coordinates and operation `depth_mm`
 are machine millimetres even when the feature manifest uses inches. Feature
@@ -530,6 +612,14 @@ be multiples of 50). A spindle's `ranges_rpm` bands (each clipped to a stated
 `rpm_min`/`rpm_max`) give those limits; an RPM in a gap between two bands
 drops to the top of the band below, never a speed the spindle cannot select,
 and any unknown band endpoint leaves the RPM unknown.
+
+For `chain_drill`, depth is its feature's before-state `entry_z` (else the
+before-state stock `top_z`) minus its authored `to_z`, converted from manifest
+units to mm. Earlier face/pocket cuts advance that stock state only on their
+normal coverage proof; a preceding chain drill never becomes the next start.
+Approach air, drill-point extensions and exit leads are not added. Missing or
+nonpositive penetration keeps a named deep-hole derate unresolved.
+
 Mill feed in mm/min is `RPM * flute_count * chip_load_mm_per_tooth`. Lathe
 feed in mm/min is `RPM * feed_mm_rev`: the op's planned `feed_mm_rev` when
 declared (the feed `turning_deflection` loads the cut with; a planned
@@ -549,7 +639,24 @@ Machinery's Handbook 27th ed. p.1132 centre-drill feeds by drill size. A mill op
 report the `feed_mm_rev` evaluated, the one the sheet prints. Verified material,
 tool and machine facts are needed.
 
-A non-lathe op that cuts a `contour` also reports its plunge feed: `plunge_mm_rev`
+For a `rough_profile` with `contour.method = "chain_drill"` and a tool whose
+kind is `drill` or a `drill_index`/`drill_set` member, the normalized cutting
+action is `drill`, not `profile`.
+It selects the drilling `[[cut]]` row (or the drill's cited chart), without
+requiring chart overrides or disguised end-mill rows. Its `feed_mm_min` is
+axial feed; the traveler labels it **axial** and prints the feed per revolution
+beside mm/min for hand feeding the quill. A drill on this `chain_drill` action
+is centre-cutting by kind: its `plunge_mm_rev` is that same drilling chip load
+times flute count, and `plunge_mm_min` equals its axial feed. End-mill
+`[[plunge]]` rows and `center_cutting` declarations do not govern this action.
+Other contour methods retain their declared centre-cutting/plunge semantics.
+
+Every ordinary drill operation also reports `feed_direction = "axial"` and
+`axial_feed_mm_rev` (chip load × flutes on a mill; the evaluated per-revolution
+feed on a lathe). Its feed cell prints `axial 52 mm/min (0.025 mm/rev)`, for
+example. An unresolved feed still prints `STOP`, never `axial STOP`.
+
+A non-lathe end-mill op that cuts a `contour` also reports its plunge feed: `plunge_mm_rev`
 from the one matching cited `[[plunge]]` row (material class, tool material, tool
 diameter; see [cutting data](cutting-data.md#plunge)) for a tool declared
 `center_cutting = true` (any other has none), `plunge_mm_min = RPM *

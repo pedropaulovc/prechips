@@ -305,14 +305,55 @@ def test_declared_pose_is_what_completes_the_scene(tmp_path, freecad_kernel):
     )
 
 
-def test_reference_rocker_arm_binds_the_labelled_export_and_models_each_setup(
+def test_reference_rocker_arm_binds_the_labelled_export_without_certifying_example_dimensions(
     tmp_path, pilot_kernel_cache
 ):
     examples = copy_examples(tmp_path)
+    inventory = examples / "inventory" / "pedro-shop.toml"
+    authored = inventory.read_text(encoding="utf-8")
+    # The shared demo legitimately exercises the measured branch. This negative
+    # control makes only the preparation cutter diameter and P1 parallel height
+    # assumed in the local copy, keeping their values and every Pedro fact intact.
+    for table, field in (
+        ('tools.endmills-lms-6784.members."3-4in-4fl"', "dia_mm"),
+        ('fixtures.parallels-lms-6745.members."1-1-4in"', "height_in"),
+    ):
+        section = re.search(
+            rf"^\[{re.escape(table)}\]\n.*?(?=^\[|\Z)",
+            authored,
+            re.MULTILINE | re.DOTALL,
+        )
+        assert section is not None, table
+        replacement, count = re.subn(
+            rf'(^{field} = \{{[^\n]*?measured = \{{ )status = "measured"',
+            r'\1status = "assumed"',
+            section[0],
+            flags=re.MULTILINE,
+        )
+        assert count == 1, (table, field)
+        authored = authored[: section.start()] + replacement + authored[section.end() :]
+    inventory.write_text(authored, encoding="utf-8")
     plan = examples / "rocker-arm" / "plan.toml"
     pilot_kernel_cache(plan)
     result, report, _ = traveler(plan, tmp_path / "ref")
-    assert result.returncode == 0, result.stderr
+    assert result.returncode == report["expected_exit"] == 4, result.stderr
+    assert not any(row["status"] == "error" for row in report["findings"])
+    preparation = finding(report, "accessibility", "P1:10")
+    assert preparation["status"] == "unknown"
+    assert {(entry["id"], entry["status"]) for entry in preparation["numbers"]["measurements"]} == {
+        ("tools.endmills-lms-6784/3-4in-4fl.dia", "assumed"),
+        ("fixtures.parallels-lms-6745/1-1-4in.height", "assumed"),
+    }
+    assert all(
+        entry["id"] in preparation["message"]
+        and entry["reason"]
+        == (
+            "This fact's measurement is assumed "
+            "(by: example value (realistic, not a shop measurement)), "
+            "not a physical shop measurement."
+        )
+        for entry in preparation["numbers"]["measurements"]
+    )
     raw = (examples / "rocker-arm" / "rocker-arm.STEP").read_bytes()
     assert (
         report["step_sha256"]
@@ -320,19 +361,23 @@ def test_reference_rocker_arm_binds_the_labelled_export_and_models_each_setup(
         == hashlib.sha256(raw).hexdigest()
     )
     assert report["inputs"]["step"]["path"] == "examples/rocker-arm/rocker-arm.STEP"
-    prep = {"P1", "P2", "P3", "P4", "P5"}
-    assert set(report["renders"]) == prep | {"S1", "S2", "S3", "S3F", "S4"}
+    # Only the initial stock has a render: the locally assumed preparation cutter
+    # cannot derive the stock handed to the remaining setups.
+    assert set(report["renders"]) == {"P1"}
+    prepared = finding(report, "prepared_blank", "stock.prepared")
+    assert prepared["status"] == "unknown"
+    assert "cutter radius is unknown" in prepared["message"]
     for _setup, render in report["renders"].items():
-        assert render["fixture"] == "modeled"
-        assert render["scene"]["debts"] == []
-        assert all(component["exact"] for component in render["scene"]["components"])
+        assert render["fixture"] != "modeled"
+        assert render["scene"]["debts"]
         image = (tmp_path / "ref" / render["path"]).read_bytes()
         assert image.startswith(b"\x89PNG\r\n\x1a\n")
         assert hashlib.sha256(image).hexdigest() == render["sha256"]
     for subject in ("S2:10", "S3:20"):
-        assert finding(report, "accessibility", subject)["status"] != "unknown"
+        assert finding(report, "accessibility", subject)["status"] == "unknown"
     coverage = finding(report, "coverage", "rocker-arm")
-    assert coverage["numbers"]["claimed_face_count"] == coverage["numbers"]["face_count"]
+    assert coverage["status"] == "unknown"
+    assert coverage["numbers"]["claimed_face_count"] == coverage["numbers"]["face_count"] == 18
     assert coverage["numbers"]["unclaimed_faces"] == []
 
 

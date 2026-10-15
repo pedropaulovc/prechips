@@ -39,6 +39,10 @@ them with `top_z` / `bottom_z`. `entry_z` permits
 a separate local entry surface. `zero.transfer` describes a pickup from another
 setup, and `tool_touches` explicitly records tool changes. Neither invents a
 measured trial-cut diameter.
+
+Setup frames, stock state and authored operation bounds supply the geometry and spans used for picture scale under [render geometry](rules-geometry.md#renders).
+The [traveler render binding](report-and-telemetry.md#kernel-renders) preserves main's accepted leader placement and all original ordinary-tolerance layout and anchor inputs; a separate bounded stream is used only for outline painting. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR. This adds no plan field and changes no authored setup coordinates, zero recipes or operation values.
+
 Every zero recipe's `edge_mm` is the authored pickup coordinate in the setup
 frame. A Z recipe with `face = "top"` uses the stock state's top; other named
 faces require their own explicit `edge_mm`, not the stock top or a value copied
@@ -925,7 +929,10 @@ exactly two `[x, y]` setup-frame centres of the parallels; together with the
 parallels row's fact-local `height`, `length` (along the jaws) and `width`
 (along the clamp axis) they place two parallel solids with tops at the stock
 seat. Nominal numbers are usable for geometry, not evidence of a measured
-shop setup. Both poses are declarations the author must measure at the bench; the
+shop setup; a plan never carries measurement records, and a shop dimension
+counts as measured only under the inventory's fact-local
+[`measured.status` contract](inventory.md#measured-envelopes-and-installed-tool-stacks-m5).
+Both poses are declarations the author must measure at the bench; the
 kernel never infers a jaw centre or a parallel position, and only a setup
 with exact jaws and, when selected, exact parallels is captioned as modeled.
 Either field may be `"unknown"` (any unknown coordinate is a render debt, not
@@ -1263,7 +1270,9 @@ and strictly increasing. It declares the material outside the finished part
 that this cutting operation clears inside that volume, leaving everything
 outside it unchanged. Its faces still need valid cutting claims from this
 setup. The box is the explicit cleared footprint, for example the envelope of
-several roughing passes; it is not capped to the claimed faces' XY bounding box
+several roughing passes or, on a `chain_drill` op, the author's certification
+of the actual drilled-and-chiselled break-out footprint; it is not capped to
+the claimed faces' XY bounding box
 dilated by the cutter radius. The cutter radius must still be known: if it is
 unknown, the bounds are `?` with a reason naming the missing cutter radius, and
 later stock stays unresolved. Removal is the box's intersection with the
@@ -1284,7 +1293,10 @@ while reach, holder-wall and shank screens see it ([`reach`](rules-geometry.md#r
 authored process/fixture volume, not a
 measured toolpath or proof that the whole toolpath is safe. Without it, any claimed wall
 whose interior still touches overstock above `to_z` (including a drafted wall)
-needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume.
+needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume,
+and an unbounded `chain_drill` op's webs are such overstock: the kernel removes
+its discrete holes only and keeps the webs in stock until a later known
+removal (see [Manual arcs](#manual-arcs)).
 
 `approach = "rotary"` mills on a horizontal dividing head: each sample of the
 claimed faces' windowed portions is turned about the head axis to top dead
@@ -1359,6 +1371,12 @@ path cut in several depth levels) it also sets the raise Z the sheet prints,
 | `sweep_bounds` | `Bounds` |
 | `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
 
+A `rough_profile` with `method = "chain_drill"` and a resolved drill-kind
+tool performs drilling, so its speed/feed lookup selects `operation = "drill"`.
+Other contour methods and end-mill chain contours retain profile data.
+The axial feed, tool-chart precedence and before-stock penetration used for
+deep-hole derating are defined in [cutting data](cutting-data.md).
+
 `keep_out` centres use `sweep_frame`, defaulting to the feature's frame.
 Positive `dia_mm` islands exclude the whole cutter: pass centres clear each
 island radius plus cutter radius. Crossing passes split into independent,
@@ -1396,15 +1414,106 @@ uses the 1898 manual arc method:
 2. **Rough outside the line**: a `rough_*` op with
    `contour = { method = "stairs", cusp_mm = … }` (single-axis stair corners on
    the DRO grid) or `{ method = "chain_drill", pitch_mm = … }` (drilled holes,
-   webs chiselled out along the hole centres), plus a nonnegative
+   webs chiselled out along the hole centres; the kernel credits the drilled
+   holes, not the chiselling, see below), plus a nonnegative
    `rough_allowance_mm` (a negative leave, here or on any op, is an error: the
    rough would cut into the finished part). Every
    stair corner, every full hole and every break-out between neighbouring holes
    must stay outside the finished line, and the stock left for the file
-   (allowance + the stair cusp measured along the wall normal, or the larger of
-   allowance + drill radius and the deepest break-out material) must not exceed
-   the shop policy `numbers.max_filing_stock_mm` unless a later rough cuts the
-   same faces again ([coordinates](rules-coordinates.md#coordinates)).
+   (allowance + the stair cusp measured along the wall normal, or the maximum
+   of allowance + drill radius, printed arc break-out radial depth and the
+   greatest nearest-finished-wall distance of the retained printed
+   straight-join break-out polyline)
+   must not exceed the shop policy `numbers.max_filing_stock_mm` unless a later
+   rough cuts the same faces again. Missing or unestablished caps remain unknown.
+   Both rough methods support straight joins. Chain holes use the same
+   drill-radius + allowance offset on each finite join leg, with exact
+   endpoints/miter and nominal equal spacing no greater than `pitch_mm` (DRO
+   grid snapping can move the printed spacing).
+   Host DRO selection and kernel regeneration/actual-hole acceptance use one
+   shared pure finite-boundary predicate for bounded and unbounded chains.
+   Actual closed finished loops (joined bottom outlines and full circles
+   included) use point-in-region plus nearest finite-boundary distance,
+   negative in kept material. Unordered exact arcs and lines connect by real
+   endpoints; authored scrap normals determine the kept side. True open arcs
+   and current partial top-plus-land wall packets have no complete finished
+   loop in the packet. The top packet omits tapers and the bottom arc even
+   when the host model has those linked facts; fuller actual closed-boundary
+   transport is tracked in
+   [#212](https://github.com/pedropaulovc/prechips/issues/212).
+   No closure is invented: the open fallback uses oriented finite projections,
+   real free-end
+   caps and shared-concave-vertex sector classification. Conservative ties
+   do not globally AND distant supporting half-planes. Missing or ambiguous
+   region geometry, inconsistent occupancy or unsupported topology remains
+   unknown, never an unsigned-distance pass. No admissible grid point leaves
+   cut tables withheld. Closed-loop break-outs test kept-region entry against
+   the whole finite boundary, not only their own join lines.
+   Unsigned wall distances intentionally still measure filing stock/residual,
+   not scrap-side acceptance; T6 enforces `numbers.max_filing_stock_mm` on
+   the actual regenerated residual. Every actual cylinder still needs web,
+   bounds and the existing 3D collision/accessibility backstop. The open
+   fallback is not full-part region proof. Internal wall normals/outward
+   signs add no user schema, policy knob or tolerance; the shared
+   `kernel/*.py` helper changes the source digest and re-keys every kernel job.
+   Method, stage, full-hole outside-the-line and requested no-web (authored `pitch_mm` no greater than
+   the drill diameter) errors are preconditions found before any clip. A bounded
+   chain is then clipped at drill granularity: the drill-centre offset arc and
+   joins are intersected with the bounds eroded by the full drill radius (a
+   closed arc's seam fragments are one span), each retained arc or leg is
+   regenerated on its own with equal nominal intervals within `pitch_mm` that
+   still leave a web judged on the actual snapped DRO centres, not the nominal
+   span alone (for a retained span longer than the length tolerance, the
+   pitch-required count is always tried at its snapped positions, even when it
+   exceeds the nominal-length web bound, and any higher nominally feasible
+   count is also tried before shortening; a span within that
+   tolerance, an isolated point or a tiny retained arc or leg between two
+   shared junctions, keeps exactly one hole, never a duplicate row; a span whose
+   snapped placement leaves no positive web at any such count omits its
+   clipped end hole as
+   a dropped end, never a fabricated no-web error), and every actual hole
+   snaps to the DRO grid inside the bound and passes that same predicate
+   with clearance for the whole drill and allowance. Bounds never waive
+   region membership for a closed loop or the finite-projection/free-end/
+   concave-shared-vertex fallback for a true open packet.
+   Nominal-distance/offset guards remain additional placement constraints,
+   not independent unsigned side acceptance. The authored radial whole-hole
+   check is intentionally preserved before clipping; a regenerated,
+   physically safe finite-cap hole beyond the actual sweep may nevertheless
+   lie inside the authored supporting circle. Every hole searches a symmetric
+   square of three
+   grid steps per axis and chooses the nearest safe point by Euclidean
+   distance with a deterministic coordinate tie-break; ends and junctions may
+   back off inward along the true curve, and a hole with no such grid
+   candidate after that full search and back-off leaves the whole clip
+   unknown, never a hole in finished material. Every actual hole cylinder is judged; a
+   swept-chord intersection never becomes an extra hole.
+   Web/break-out validation and the single cap enforcement run on that chain.
+   Its table names only dropped ends and genuine piece breaks as stops where
+   stock beyond is not cleared or part of the chiselled chain; an intact
+   arc/join junction continues into the adjacent table. Omitted joins add no
+   join debt while an arc or other table
+   remains, while a wholly excluded or disconnected stage keeps its existing
+   clip debt. Arc and join tables report the same worst-stage stock; chain
+   errors retain stock/cap profile facts where the residual was computed (a
+   precondition error may prevent it), even when cut tables are
+   withheld. Hole
+   repositioning is not a handwheel cut ([coordinates](rules-coordinates.md#coordinates)).
+   In-process stock: an unbounded chain (no `stock_removal_bounds`) removes
+   only each actual hole cylinder; the positive webs between holes, the stock
+   between the holes and the claimed wall and any rail or ear beyond them stay
+   in stock until a later op really cuts them. It gets no cutter corridor,
+   no +Z claim sweep, no lineage band and no drill-radius sweep between hole
+   centres, unlike a milling profile. Those retained webs are then overstock
+   on the claimed wall: the op is named stock debt pointing at
+   `stock_removal_bounds`, and later setups descending from it stay unknown
+   through the ordinary propagation. Declare `stock_removal_bounds` on the
+   chain op to certify the actual drilled-and-chiselled footprint, under the
+   same finite-box, setup-entry-stock and protected-material rules as any
+   bounded op; it is the author's certification, not a demonstrated toolpath.
+   Ordinary milling ops and bounded boxes are unchanged. A dedicated
+   break-out/chisel phase or schema is tracked in
+   [#213](https://github.com/pedropaulovc/prechips/issues/213); none exists yet.
 3. **File to the line**: `do = "file_to_line"` with a `guide`: hardened filing
    `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"` and the
    declared limits of every element between its rims and the bore axis

@@ -58,6 +58,15 @@ a plan centre must carry its own Table 6 geometry: pilot `dia` (D), `pilot_len`
 shorter than `pilot_len`; `flute_len` stays the cutting length reach compares.
 `chart` is a source citation, never a downloaded chart.
 
+Resolved `drill`, `drill_index` and `drill_set` tools used for
+`rough_profile` / `chain_drill` select drilling cutting data, not an end-mill
+profile row. The normal cited per-tool `chart` still takes precedence over
+the shop row; retain an authored chart when it records a deliberate lower
+feed, rather than adding one merely to work around row selection.
+Mill drilling's axial mm/rev is chip load times the resolved flute count;
+missing or nonpositive flutes leave it unresolved. See
+[cutting data](cutting-data.md) for chart requirements and axial feed operands.
+
 A post-cut touch-land certificate uses the resolved tool's actual engagement
 radius and conservative aim/DRO-grid footprint, not a diameter inferred from
 its display name. That footprint is excluded at the cut's own location; the
@@ -142,8 +151,9 @@ The machine declares `blade_speed_sfm = [min, max]`, positive ordered feet/minut
 limits. The blade declares its `material` for cutting-data selection and a
 positive `kerf_mm` or `kerf_in`, using the ordinary `MeasuredLength` form or
 trusted nominal scalar. Declaring kerf in both units is rejected, and explicit
-fact-local verification debt withholds geometry. Illustrative example
-measurements must use the examples policy's plausible/not-measured label.
+fact-local verification debt withholds geometry. An example blade's kerf
+follows the examples policy (a demonstration-fixture record or a cited
+catalogue value), never a fabricated shop measurement.
 
 Saw operations need no spindle taper, holder, shank diameter, tool OAL or
 projection. A mill/bench may host the saw operation but must also declare its
@@ -175,7 +185,9 @@ arcs is ordinary inventory:
   `graduation_deg`, `vernier_deg`, `dial_increases`, `t_slots`, `max_work`,
   `t_slot_width` and the centre bore `bore_dia` a `centre_by = "pin"` pin must
   enter (unknown leaves the pin unproven), plus `solids` (table, slots, worm
-  housing) so the setup render draws it modeled. A `rotary_table` contour or an
+  housing) so the setup render draws it modeled. `max_work` and `bore_dia`
+  are fact-local length facts: one whose record is not trusted keeps its
+  contour unknown and names that fact in the measurement checklist. A `rotary_table` contour or an
   indexed chord reads it from `hold.fixture`.
 - Templates and radius gauges are `gauges.<id>` with `kind = "radius_gauge"` or
   `"profile_gauge"` and the `range_mm` of radii they read.
@@ -190,8 +202,10 @@ arcs is ordinary inventory:
 A `tools.<id>` with `kind = "edge_finder"` that picks up a mill X or Y zero
 (`zero.x/y.tool`, not `from = "indicated"`) states `finder_type`
 (`"mechanical"`, run spinning, or `"electronic"`, run with the spindle stopped),
-its tip diameter `tip_in` / `tip_mm` (else `dia`) and, when mechanical,
-`rpm_range`, the maker's speed band, with a `cite`. The zero check
+its tip diameter `tip_in` (a plain number; else the catalogue `dia`) and, when mechanical,
+`rpm_range`, the maker's speed band, with a `cite`. A `tip_in` declared
+`"unknown"` is unknown: it never falls back to the body `dia`; only a tip
+that is absent altogether reads the catalogue diameter. The zero check
 ([rules-coordinates](rules-coordinates.md)) records these on each pick-up row
 as `finder`: the radius (half the tip Ø), and the speeds it runs at here, the
 finder's band intersected with each of the setup machine's spindle bands
@@ -275,16 +289,26 @@ Every dimension the kernel consumes is a `MeasuredLength`: a plain nominal
 number, or a `{ value, measured, verify }` record. It enters the FreeCAD job
 when it resolves to a positive length through the single-spelling `_mm` /
 `_in` lookup and its own record carries no debt — no `verify = true` or
-`verify = "unknown"`, and no incomplete `measured` record. A nominal number
-needs no `by`/`date`/`instrument`; a fact whose own record says
-`verify = true` or whose `measured` is incomplete is debt for that dimension
-only. An item's `verify`, `present` or `source` flags, a set root's or member
+`verify = "unknown"`, and no `measured` record that is incomplete or whose
+`status` is not `measured`. A nominal number
+needs no `by`/`date`/`instrument`: bare and catalogue numbers stay trusted
+wherever this page says measurement is not required. A fact whose own record says
+`verify = true`, whose `measured` is incomplete, or whose `measured.status` is
+`assumed` or `illustrative` (an omitted status is `assumed`) is debt for that
+dimension only, and an untrusted record is not shadowed by a bare alias or
+inferred fallback of the *same* physical fact (OAL − grip beside an
+illustrative pair projection, a bare sibling spelling of the same dimension):
+that fact stays debt. Unrelated fields of the same item are not
+tainted. An item's `verify`, `present` or `source` flags, a set root's or member
 container's flags and `coverage` text are identity provenance for the
 declared-input rules: they never withhold a numeric fact from the kernel, and
 nothing is inherited from them. The M5 `envelope` and `travel` screens read
 the same holder gauge/grip, tool OAL and projection facts with measurement
 required (and `headroom` the envelope limits), so an operation can be
 geometrically checked while its spindle stack is still M5 measurement debt.
+
+Resolved tool, holder and fixture dimensions and solids supply the modeled scene extents used for picture scale under [render geometry](rules-geometry.md#renders).
+[Traveler outline overlays](report-and-telemetry.md#kernel-renders) use a separate bounded stream for painting only, preserving main's accepted leaders and all original ordinary-tolerance layout and anchor inputs. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR. This adds no inventory field and changes none of those inventory facts or their measurement and verification debt.
 
 A vise enters the job solely when `jaw_height`, `jaw_width`, `jaw_depth` and
 `opening` all resolve that way; the parallels fixture needs a positive
@@ -324,8 +348,9 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   member such as a strap) may author `solids = [{name, shape, at_mm,
   size_mm}]` boxes or `{name, shape = "cylinder", at_mm, axis, dia_mm,
   length_mm}` cylinders in its own frame. Each primitive is trusted on its
-  own: a primitive whose record carries `verify = true` / `"unknown"` or an
-  incomplete `measured` is not drawn and is named as debt.
+  own: a primitive whose record carries `verify = true` / `"unknown"`, an
+  incomplete `measured` or a `measured` whose status is not `measured` is not
+  drawn and is named as debt.
 - A primitive with `void = true` (a bore, tapped or clearance hole, stud
   slot) is not drawn: it is cut from the same `solids` list's other
   primitives, or only from those it names in `cuts = ["<name>", …]`, and
@@ -365,13 +390,17 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   parallel cylinders and axis-aligned cylinders against boxes; a primitive an
   oblique void may cross is not set ("? not set: oblique hole … may cross it;
   name it in cuts") until `cuts` names it. A void that cuts only bought
-  hardware is not listed. A primitive whose own `verify`/`measured` leaves it
-  untrusted, or that an untrusted void cuts, prints "? not set: … verify before
-  making" instead of a size and position, as the setup render leaves it out.
-  A row whose primitive or hole carries an example measurement (`measured.by`
-  starting `example`) is marked `†` after its component name; the job page then
-  prints the one legend for the mark (`† example fixture dimensions (plausible,
-  not measured): confirm before making`) instead of a sentence on every table.
+  hardware is not listed. Made primitives' dimensions and positions are
+  expected make-to-drawing settings, not observations of the installed fixture;
+  unresolved authored dimensions still print "? not set". Bought or existing
+  primitives whose own physical provenance is refused retain that refusal,
+  independently of the drawing targets for holes made here. Native geometry
+  remains unresolved until its required physical inputs are established.
+  A row whose primitive or hole has a measurement record with a status other
+  than `measured` is marked `†` after its component name; attribution prose is
+  never read for that decision. The job page prints one legend:
+  `† Make-to-drawing expected settings; check the physical fixture as made
+  before use. These settings do not clear installed-measurement STOPs.`
   Per-primitive `supply` is `made` (default), `bought` (hardware: one "Bought
   hardware (not made)" line under the table, named by its `fastener` or its
   name and size; primitives with one `fastener` text that touch or overlap,
@@ -557,16 +586,37 @@ my_holder = "unknown"
 ```
 
 For a measured fact replace the unknown with
-`{ value = <actual measurement>, measured = { by = "<operator>", date = "YYYY-MM-DD", instrument = "<actual instrument>" } }`.
-`by`, `date` and `instrument` must be nonblank known strings. Do not put these
-template placeholders into operative inventory. A vendor copy instead carries
-`{ value = <nominal>, verify = true }`.
+`{ value = <actual measurement>, measured = { status = "measured", by = "<operator>", date = "YYYY-MM-DD", instrument = "<actual instrument>" } }`.
+`status` is one of `measured`, `assumed` or `illustrative`; an omitted `status`
+is `assumed`. `by`, `date` and `instrument` must be nonblank known strings. Do
+not put these template placeholders into operative inventory. A vendor copy
+instead carries `{ value = <nominal>, verify = true }`.
+
+**Migration rule.** Set `status = "measured"` only once an actual physical
+measurement of that fact exists, recording who took it, when and with what. A
+placeholder an operator authorised but nobody measured is `status = "assumed"`
+(what an omitted status already means); `illustrative` marks a value that is
+openly made up. `by` is attribution, never a status: the text in
+`by` is not read to decide trust, so a record like
+`{ by = "example (plausible, not measured)" }` without `status = "measured"`
+is assumed, and one with `status = "measured"` is trusted whatever `by`
+says. No bundle or policy opt-in bypasses this. The one explicit exception
+is the shipped worked examples: their demonstration fixtures carry
+`status = "measured"` with the marker
+`by = "example value (realistic, not a shop measurement)"` so the measured
+branch is exercised ([examples policy](../examples/README.md)); that marker
+is disclosure the engine never reads, those records are not shop
+observations, and copying them into a real shop file is exactly what this
+rule forbids.
 
 Trust is fact-local. A physical dimension an M5 rule reads (envelope limits,
 fixture bed/parallel/support heights, holder gauge and grip, tool OAL, the
 tool/holder projection, cutter diameter, drill point angle, reamer lead) counts
 as measured only when that fact's own record carries a complete
-`measured = { by, date, instrument }` and no `verify = true` or `"unknown"`. Nothing is
+`measured = { status = "measured", by, date, instrument }` and no `verify = true`
+or `"unknown"`. An `assumed` or `illustrative` record (or one with no `status`)
+never qualifies the fact: the row stays `?` and names the status and `by` of
+the record it refused. Nothing is
 inherited or inferred: `measured` on an envelope block, an item root or a
 `source` record is rejected by the schema; `source.verify`, `coverage` text,
 `present`, a date or a citation is provenance, not measurement; an explicit
@@ -577,7 +627,8 @@ and yields `?`, never a pass or a measured overrun. Clearing `verify` without
 a `measured` record is not measurement either. Kernel geometry and engagement
 read the same facts with measurement *not* required, so the readiness they
 report is nominal-geometry readiness, not the physical measurement readiness
-these screens report; both honour the fact's own `verify`/`measured` debt.
+these screens report; both honour the fact's own `verify`/`measured` debt,
+including an assumed or illustrative status.
 
 Each length stem has one authored unit key: `gauge_len_mm` or `gauge_len_in`,
 `oal_mm` or `oal_in`, `projection_mm` or `projection_in`, `bed_height_mm` or
@@ -614,10 +665,68 @@ for the separate jaw-obstruction check, never a stack layer. Parallels and
 support blocks carry their own heights. `point_angle` accepts the same
 `{ value, measured, verify }` record in degrees.
 
+The traveler's TOOLS table marks each displayed refused dimension individually,
+retaining its authored value. A fact actually consumed by a refused decision
+uses a short **?M1**-style reference to the **job-wide measurement register**;
+unconsumed catalogue information can be marked unverified without creating a
+STOP or a recording item. Trusted nominal or measured siblings stay plain;
+attribution prose does not qualify a dimension.
+The JOB section prints each physical quantity's full instruction and one
+35 × 10 mm recording blank exactly once. Canonical record and field identity,
+including the installed holder/configuration, determine reuse across setups,
+not its display name. Composite fixture records retain their canonical binding
+and have separate items for their dimensional and position leaves.
+Box solids have individual local-axis length, width and height entries;
+cylindrical solids have diameter and axial length/depth entries. Each authored
+local X/Y/Z position is recorded separately, not on a shared dimensions blank.
+Position entries identify the box's minimum corner or the cylinder's base
+centre in the fixture-local frame; they are not generic mounting measurements.
+The register's numbers and display order are ascending and deterministic.
+Source setup groups and tool numbers identify where each fact is consumed.
+Every operation's actual STOP kind remains in its setup summary. Record the
+values in the JOB register and return the traveler for reissue: measurement
+alone does not recompute the blocked decisions named on those setup pages.
+Bare M is an authored measurement variable, not necessarily a touch-off reading.
+TOOLS rows stay together in print.
+
+CLEARANCE lists only the unresolved inputs its headroom decision consumed
+(for example riser dimensions, holder gauge length, installed projection and
+machine envelope limits), with references to the same job measurement items.
+Fixture instructions follow the actual fixture kind: a riser has no vise bed,
+parallels or jaw height to measure. Make-to-drawing fixture dimensions print as
+authored targets, distinct from measuring the installed fixture after making;
+that presentation does not certify its physical dimensions or clearance.
+Authored fixture coordinates remain setup settings, not clearance certification.
+A diagnostic measurement union is not proof that every listed fact was
+consumed locally. When a setup is blocked before its entry stock can be
+derived, it remains STOPped by the true upstream stock decision, referring to
+the source setup/op and its existing JOB measurement items. It does not acquire
+irrelevant local fixture or machine recording rows. A manual bench setup with
+no unresolved consumed decision has no measurement STOP and is not included
+in the JOB's stopped-setup list merely because selected inventory is assumed.
+For an unresolved stock prerequisite without an attributable dimensional
+consumer, the true reason remains STOPped without guessing a measurement.
+Eligibility belongs to the individual decision, not to the whole operation:
+independently evaluated tool engagement, speeds/feeds, cutting direction or
+saw kerf still keep their actually consumed facts while stock is blocked.
+An eager native refusal list alone does not establish a local consumer.
+The JOB readout line names the installed DRO controller (for example EL400),
+not the machine model, and reuses one global readout-step reference. Centre
+drill instructions name the pilot and countersink body directly, without
+referring to a table absent from the traveler. Shop-made support height is
+measured as made from table to work-support contact surface.
+Drill point-length STOP references name the point angle before cutter diameter.
+A declared
+positive DRO step still rounds printed instructions even when its grid is
+labelled **not verified**; an absent step uses the disclosed provisional
+default. **No coordinate targets** describes a coordinates nonconsumer, not
+a claim that no other printed settings use the machine's grid.
+
 `prechips tools --measure [--plan PLAN ...]` lists the measurement debt behind
 the current reports: every `numbers.measurements` entry that an unresolved
 applicable finding emits for the given plans (default: the four pilot plans for
-shaft, rocker, bracket and the sole built-up cone), sorted and deduplicated by
+shaft, rocker, bracket and the sole built-up cone), including the host-only
+debts the kernel job reports for the facts it refused, sorted and deduplicated by
 scoped report id, including set-member and
 tool/holder-pair ids such as `holders.r8-collets-lms-4860/3-8in.gauge_len` and
 `tools.endmills-lms-6784/3-8in-4fl.projection.r8-collets-lms-4860/3-8in`. An
@@ -630,12 +739,18 @@ the plan path. When multiple effective inventories apply, inventory ids and
 instructions are qualified by their source path so equal item names cannot
 merge unrelated facts; plans sharing an inventory still share its measurement
 debt. Every other `tools` display still requires `--inventory` or
-`PRECHIPS_INVENTORY`. JSON emits the same entries with ids,
-instructions, units and citations: lengths use mm, point angles use degrees,
-and add/resolve instructions use identity units. Normal `tools` prints the envelope and
-marks each limit measured or unmeasured. Applicable M5 `?` sheet sentences also
-state what to measure and how; unresolved tools, holders, fixtures and supports
-are told to add or resolve an owned identity, not to measure an item the shop
+`PRECHIPS_INVENTORY`. JSON emits the same entries with ids, instructions,
+units, citations and structured category, identity and field parts, so a
+set-member name containing a decimal point is never split to infer its field.
+Lengths use mm, point angles use degrees, and add/resolve instructions use
+identity units. Instructions use the actual record kind: a centre drill's
+`dia` is its pilot diameter and its `shank` is the countersink body diameter;
+measure either diameter with a micrometer or calipers. Measure usable machine
+travel with a calibrated readout or indicator, not a steel rule.
+Normal `tools` prints the envelope and marks each limit measured or unmeasured.
+Applicable M5 `?` sheet sentences refer to the setup's measurement item;
+unresolved tools, holders, fixtures and supports are told to add or resolve an
+owned identity, not to measure an item the shop
 does not own.
 
 This evaluates the actual applicable rules and may need native in-process
@@ -646,7 +761,7 @@ unavailable physical facts remain unknown.
 
 | Record | Fields |
 |---|---|
-| `Measurement` | Required strings `by`, ISO calendar `date` (`YYYY-MM-DD`), `instrument`; none may be blank or `"unknown"` |
+| `Measurement` | `status`: `"measured"`, `"assumed"` or `"illustrative"` (default `"assumed"` when omitted); required strings `by`, ISO calendar `date` (`YYYY-MM-DD`), `instrument` for every status; none may be blank or `"unknown"`. A record missing or blanking any of them is a schema error (exit 3), and a raw reader that meets one anyway treats the fact as unknown. Only `status = "measured"` with all three qualifies a fact |
 | `LengthMeasurement` | Required `value: Number`; optional `measured: Measurement`, `verify: bool` (each may be `"unknown"`); no `cite` |
 | `MeasuredLength` / `MeasuredAngle` | `Number` or `LengthMeasurement` (mm/in, or degrees for `point_angle`) |
 | `LimitsMeasurement` | Required `value: [Number, Number]` (`[least, greatest]`); optional `measured: Measurement`, `verify: bool` (each may be `"unknown"`); no `cite` |
@@ -657,7 +772,8 @@ unavailable physical facts remain unknown.
 
 All envelope/travel fields are optional and accept `"unknown"`; their absence
 remains measurement debt. A date or a citation is provenance, not an automatic
-claim that a fact is measured. Every dimension kernel geometry consumes — tool
+claim that a fact is measured, and neither is the text of `by`: only
+`status = "measured"` is. Every dimension kernel geometry consumes — tool
 `dia` / `flute_len` / `oal`, holder `gauge_dia` / `gauge_len` / `grip`, the
 projection map, vise `jaw_height` / `jaw_width` / `jaw_depth` / `opening` and
 parallels `height` / `length` / `width` — is typed `MeasuredLength`, so a shop
@@ -869,7 +985,7 @@ on hand.
 | `range_in` | `float \| list[Number]` |
 | `range_mm` | `float \| list[Number]` |
 | `ra_range` | `list[Number]` (two items, µm Ra; roughness gauges, read by inspection finish_ra) |
-| `resolution_mm` | `MeasuredLength` (inspection trusts only the fact's own qualifiers: `verify = true`/`"unknown"` or an incomplete `measured` stays unknown, never pass or error; on a machine, its nominal value is the DRO grid every printed coordinate and depth rounds to the safe side on, else 0.001 plan units: [rules-coordinates](rules-coordinates.md)) |
+| `resolution_mm` | `MeasuredLength` (inspection trusts only the fact's own qualifiers: `verify = true`/`"unknown"`, an incomplete `measured` or a non-`measured` status stays unknown, never pass or error; on a machine, its declared value is the DRO grid every printed coordinate and depth rounds to the safe side on, else 0.001 plan units, while a declared step whose record is not `measured` leaves every rule that judges on that grid unknown with the resolution as debt: [rules-coordinates](rules-coordinates.md)) |
 | `size_in` | `str \| list[Number]` |
 | `nominal_dia_mm` | `dict[str, Number]` |
 | `nominal_dia_cite` | `dict[str, Citations]` |
@@ -917,10 +1033,13 @@ on hand.
 
 `rotation` is the spindle's cutting rotation viewed from above, looking down
 setup -Z (a right-hand cutter runs `cw`, M03). It may be bare or a labelled
-fact `{ value = "cw", measured = {by, date, instrument} }`; a labelled value
-flagged `verify = true` counts as undeclared. With an op's `direction`
+fact `{ value = "cw", measured = {status, by, date, instrument} }`; a labelled value
+flagged `verify = true`, or whose record's status is not `measured`, counts as undeclared,
+and the coordinates finding names it in the measurement checklist. With an op's `direction`
 (`conventional`/`climb`) it fixes the cutting order of contour tables
 (see [coordinates](rules-coordinates.md)); absent, that order stays unknown.
+A reamer's `lead` is read the same fact-local way; an untrusted lead keeps
+`tip_endpoints` unknown with that lead listed.
 
 A lathe spindle's turn comes from the op's tool, not from `rotation`: the turn is
 FORWARD (the top of the work turns toward the operator) for a lathe op whose tool

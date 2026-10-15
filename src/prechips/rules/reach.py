@@ -8,7 +8,13 @@ projection; holder clearance is the shank and toolpost body clear of remaining w
 """
 
 from prechips.findings import Finding
-from prechips.rules.geometry_common import TURNING, TURNING_HOLDER_KEYS, fact_reason, op_contexts
+from prechips.rules.geometry_common import (
+    TURNING,
+    TURNING_HOLDER_KEYS,
+    fact_reason,
+    op_contexts,
+    with_measurement_debts,
+)
 from prechips.rules.resolution import number, same_length
 
 # A radial gap this close to the cutter's own radius is the bore the op itself cuts.
@@ -142,5 +148,10 @@ def evaluate(bundle):
                     else "depth exceeds flute length but fits OAL with the shank and holder "
                     "clear of the retained stock",
                 )
-        rows.append(Finding("reach", subject, status, values, cite, f"{subject}: {message}."))
+        rows.append(
+            with_measurement_debts(
+                Finding("reach", subject, status, values, cite, f"{subject}: {message}."),
+                inputs["measurement_debts"],
+            )
+        )
     return rows

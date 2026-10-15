@@ -1163,6 +1163,8 @@ Source = record("Source", {**texts("vendor by url note cite"), "sku": str | int,
 
 
 class Measurement(InputModel):
+    # An omitted status never certifies a legacy record as a physical measurement.
+    status: Literal["measured", "assumed", "illustrative"] = "assumed"
     by: str
     date: str
     instrument: str

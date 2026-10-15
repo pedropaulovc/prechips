@@ -21,12 +21,13 @@ only, never a diameter or a form.
 
 from ..findings import Finding
 from ..joint_features import source_cite
-from ..measurements import length_fact
+from ..measurements import length_debt, length_fact, record_debt
 from ..model import reference_only, tolerance_requirements
 from .resolution import (
     HOLE_KINDS,
     UNKNOWN,
     drawing_precision,
+    identity,
     length_mm,
     number,
     operations,
@@ -68,7 +69,27 @@ def go_no_go_pair(op, requirement):
     return record(declared).get(requirement)
 
 
-def _go_no_go(bundle, feature, requirement, band, pair, gauge, nums):
+def _gauge_measurements(bundle, gauge, reference, fields):
+    """Debt only for the gauge facts this capability check actually used.
+
+    Raw capability lists do not accept fact records. Their existing item-level
+    verification flag names the consumed list, without extending record support.
+    """
+    category, key = identity(bundle, reference, "gauges")
+    debts = []
+    for field in fields:
+        raw = field in {"sizes", "ra_range", "range_ra"} or (
+            field == "range" and isinstance(gauge.get("range_mm"), list)
+        )
+        debt = None if raw else length_debt(gauge, field, category, key)
+        if debt is None and gauge.get("verify") in (True, UNKNOWN):
+            debt = record_debt(gauge, category, key, field)
+        if debt:
+            debts.append(debt)
+    return debts
+
+
+def _go_no_go(bundle, feature, requirement, band, pair, gauge, gauge_ref, nums):
     """``(status, message)`` of a declared GO / NO-GO pair against the band it accepts.
 
     A hole's GO size enters and its NO-GO size must not, so the gauge accepts [GO, NO-GO):
@@ -107,6 +128,9 @@ def _go_no_go(bundle, feature, requirement, band, pair, gauge, nums):
         nums["absent_sizes_mm"] = absent
         return "error", "the gauge has no GO / NO-GO size of that diameter"
     if uncertain(gauge):
+        debts = _gauge_measurements(bundle, gauge, gauge_ref, ("sizes",))
+        if debts:
+            nums["measurements"] = debts
         return "unknown", "named gauge capability needs verification"
     return "pass", "GO / NO-GO sizes lie inside the band"
 
@@ -179,11 +203,16 @@ def process_holds(bundle, setup, op):
             "has none), read by a capable gauge",
         )
     )
+    numbers = {"process_holds": rows}
+    if status == UNKNOWN:
+        debts = {entry["id"]: entry for row in rows for entry in row.get("measurements", [])}
+        if debts:
+            numbers["measurements"] = [debts[key] for key in sorted(debts)]
     return Finding(
         "inspection",
         subject,
         status,
-        {"process_holds": rows},
+        numbers,
         PROCESS_HOLD_CITE,
         f"{subject}: {message}.",
     )
@@ -210,7 +239,7 @@ def procedure_known(method):
 
 
 def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits=None):
-    """``(status, message)``: can the named gauge read ``value`` for ``requirement``.
+    """``(status, message)`` and consumed debt in ``nums`` for an unresolved capability.
 
     ``limits`` is ``(pair, band the pair must accept)``, the GO / NO-GO pair being sizes,
     ``"unknown"`` or None: a declared pair, even an unknown one, makes it a limit check,
@@ -223,6 +252,7 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
         message = "named gauge is not listed; capability unresolved"
     elif gauge:
         kind = gauge.get("kind", "unknown")
+        consumed = ()
         # Only the resolution fact's own trust lets it establish or refute capability.
         fact = length_fact(gauge, "resolution", require_measured=False)
         resolution = fact["value"] if fact["verified"] else "unknown"
@@ -232,7 +262,7 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
             span = [0, maximum] if number(maximum) else "unknown"
         nums.update(gauge_kind=kind, range_mm=span, resolution_mm=resolution)
         if pair is not None:
-            return _go_no_go(bundle, feature, requirement, accept, pair, gauge, nums)
+            return _go_no_go(bundle, feature, requirement, accept, pair, gauge, gauge_ref, nums)
         method = record(op.get("inspection_methods")).get(requirement)
         geometric = requirement in {"position_dia", "coaxiality_dia", "angularity_dia"}
         method_known = procedure_known(method)
@@ -296,6 +326,7 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
         ):
             message = "geometric gauge capability or datum inspection method unresolved"
         elif requirement == "finish_ra":
+            consumed = ("ra_range" if "ra_range" in gauge else "range_ra",)
             capability = gauge.get("ra_range", gauge.get("range_ra", "unknown"))
             nums["ra_range"] = capability
             # The Ra limits the gauge must read: a scalar maximum, or a band's nonzero ends.
@@ -321,6 +352,7 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
             else:
                 message = "roughness gauge capability unresolved"
         elif isinstance(value, list) and len(value) == 2 and all(number(v) for v in value):
+            consumed = ("range", "resolution")
             if isinstance(span, list) and all(number(v) for v in span) and number(resolution):
                 nums["band_mm"] = value[1] - value[0]
                 if span[0] > value[0] or span[1] < value[1]:
@@ -341,6 +373,7 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
             else:
                 message = "gauge range or resolution unresolved"
         elif geometric and number(value):
+            consumed = ("resolution",)
             if number(resolution) and resolution <= value and method_known:
                 status, message = (
                     "pass",
@@ -357,6 +390,10 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
                 "unknown",
                 "unverified gauge dimensions cannot establish capability",
             )
+        if status == UNKNOWN:
+            debts = _gauge_measurements(bundle, gauge, gauge_ref, consumed)
+            if debts:
+                nums["measurements"] = debts
     return status, message
 
 
@@ -500,6 +537,13 @@ def evaluate(bundle):
             if nominal_error:
                 nums.update(nominal_error)
                 status, message = "error", "exported nominal is outside the requirement band"
+            if status == UNKNOWN:
+                debts = {entry["id"]: entry for entry in nums.get("measurements", [])}
+                debts.update(
+                    (entry["id"], entry) for row in others for entry in row.get("measurements", [])
+                )
+                if debts:
+                    nums["measurements"] = [debts[key] for key in sorted(debts)]
             result.append(
                 Finding(
                     "inspection",

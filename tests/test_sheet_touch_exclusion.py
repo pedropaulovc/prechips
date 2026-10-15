@@ -6,6 +6,7 @@ A carried row (``setting_residual_mm``) prints the setting the report computed, 
 import copy
 import dataclasses
 import re
+from pathlib import Path
 
 import pytest
 from test_tool_change_touch import (
@@ -31,6 +32,7 @@ FACED = [
     op(30, "drill", "hole", "drill"),
 ]
 UNKNOWN_NOTE = "touch the face outside its cut footprint (Ø ? mm)"
+EXAMPLE_TRAVELER_GLOB = "**/expected/**/traveler.html"
 
 
 def with_rows(data, *updates):
@@ -53,6 +55,31 @@ def with_rows(data, *updates):
 
 def axis_set_lines(html):
     return [line for line in paragraphs(html) if "Axis Set Z" in line]
+
+
+def test_all_example_travelers_keep_native_face_refs_out_of_printed_text():
+    from test_validate_examples import VALIDATOR
+
+    examples = VALIDATOR["EXAMPLES"]
+    declared = {
+        (
+            examples / name / "expected"
+            if name in VALIDATOR["PARTS"]
+            else examples / Path(name).parent / "expected" / Path(name).stem
+        )
+        / "traveler.html"
+        for name in VALIDATOR["EXPECTED_EXIT"]
+    }
+    declared.update(
+        examples / "geometry" / name / expected / "traveler.html"
+        for name, _, expected, *_ in VALIDATOR["GEOMETRY_CASES"]
+    )
+    travelers = set(examples.glob(EXAMPLE_TRAVELER_GLOB))
+    assert declared <= travelers, sorted(str(path) for path in declared - travelers)
+    for path in sorted(travelers):
+        text = sheet_text(path.read_text(encoding="utf-8"))
+        assert "SETUP" in text.upper(), path
+        assert not re.search(r"#\d+/ADVANCED_FACE", text), path
 
 
 # 11.2 cutter plus a 0.185 axis shift: 2 × (5.6 + 0.185) = 11.57, and one micron past
@@ -126,26 +153,28 @@ def test_an_unknown_or_malformed_exclusion_never_prints_a_numeric_constraint(dia
     assert "unknown" not in contact and "11.57" not in contact
 
 
-def test_the_constraint_follows_the_produced_plane_with_its_raw_ref_escaped():
+def test_native_proof_refs_stay_in_the_report_not_the_operator_contact():
     hostile = "#7/ADVANCED_FACE[1]/<b>&P"
     sheet, setup = with_rows(
         bundle("mill", mill_zero(DECK), OPS),
         (("axes", "z"), {"credited_faces": [hostile], "touch_exclusion_dia_mm": 11.57}),
     )
     html = sheet.dro(setup, TOOLS)
-    assert "<b>" not in html and "&lt;b&gt;&amp;P" in html
+    assert "<b>" not in html and "&lt;b&gt;&amp;P" not in html
+    assert not re.search(r"#\d+/ADVANCED_FACE", sheet_text(html))
+    assert sheet.records[("zero_check", setup["id"])]["axes"]["z"]["credited_faces"] == [hostile]
     contact = zero_rows(html)["Z"][0]
-    assert f"produced plane: {hostile}; touch the face outside Ø11.57 mm" in contact, contact
+    assert "touch the face outside Ø11.57 mm" in contact, contact
 
 
-def test_a_derived_touch_prints_the_constraint_after_its_axis_set_and_plane():
+def test_a_derived_touch_prints_the_constraint_after_its_axis_set():
     sheet, setup = with_rows(
         bundle("mill", mill_zero(DECK), OPS),
         (("derived_touches", 0), {"credited_faces": [FACE], "touch_exclusion_dia_mm": 11.5701}),
     )
     (line,) = [line for line in paragraphs(sheet.dro(setup, TOOLS)) if "install" in line]
-    expected = f"Axis Set Z 10.050; produced plane: {FACE}; touch the face outside Ø11.571 mm."
-    assert expected in line, line
+    assert "Axis Set Z 10.050; touch the face outside Ø11.571 mm." in line, line
+    assert not re.search(r"#\d+/ADVANCED_FACE", line), line
 
 
 def test_an_explicit_tool_touch_prints_the_constraint_and_the_unconstrained_one_does_not():
@@ -171,8 +200,8 @@ def test_a_listed_retouch_prints_the_constraint_and_an_unconstrained_one_does_no
     lines = paragraphs(sheet.dro(setup, MILL_TOOLS))
     (first,) = [line for line in lines if re.search(r"\bAfter op 10\b", line)]
     (second,) = [line for line in lines if re.search(r"\bAfter op 20\b", line)]
-    expected = f"Axis Set Z 0.050; produced plane: {FACE}; touch the face outside Ø11.57 mm."
-    assert expected in first, first
+    assert "Axis Set Z 0.050; touch the face outside Ø11.57 mm." in first, first
+    assert not re.search(r"#\d+/ADVANCED_FACE", first), first
     assert "Axis Set Z 0.050." in second and "outside" not in second, second
 
 
@@ -400,7 +429,8 @@ def test_every_native_touch_contact_prints_plan_unit_xy_square_and_centred_keepo
         f"keep off Ø11.571 mm centred at DRO X {-3.75:.{digits}f}, Y {4.0:.{digits}f} {units}"
     )
     assert any(expected in line for line in lines), lines
-    assert any(f"produced plane: {FACE}" in line and expected in line for line in lines), lines
+    # Main (6175b92a) keeps credited_faces in the report but prints no raw native ID.
+    assert not any(re.search(r"#\d+/ADVANCED_FACE", line) for line in lines), lines
 
 
 @pytest.mark.parametrize("path", ["zero", "derived", "explicit", "retouch"])

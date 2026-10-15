@@ -1105,7 +1105,8 @@ def test_a_fit_the_mill_grid_moves_beyond_the_drawing_tolerance_is_unknown(toler
     # The hole it stands in is the same place: never a different, silently moved value.
     assert f"with 1 × Ø4 hole: axis at {printed} Y 0" in table.position("beam")
     if "?" in printed:
-        assert "cannot hold" in table.text and "linear_3pl" in table.text
+        assert "cannot hold" in table.text and "3-place linear tolerance" in table.text
+    assert "linear_3pl" not in table.text
 
 
 def test_separate_bought_parts_with_one_fastener_text_count_apart():
@@ -1125,7 +1126,7 @@ def test_hole_through_stacked_parts_prints_in_every_part_it_cuts():
         assert table.position(component).count("with 1 × Ø3 hole: axis at X 65, Y 0; Z 0…9") == 1
 
 
-def test_unverified_primitive_prints_no_make_numbers():
+def test_unverified_made_primitive_prints_expected_drawing_settings_not_measured_claims():
     block = {
         "name": "gauge-block",
         "shape": "box",
@@ -1134,9 +1135,11 @@ def test_unverified_primitive_prints_no_make_numbers():
         "verify": True,
     }
     table = bridge_page(block)
-    assert table.row("gauge block")["Size mm"] == "?"
-    assert "? not set: unverified; verify before making" in table.position("gauge block")
-    assert "12.5 × 7 × 3" not in table.text and "X 70" not in table.text
+    assert table.row("gauge block")["Size mm"] == "12.5 × 7 × 3"
+    assert "X 70" in table.position("gauge block")
+    assert "Make-to-drawing expected dimensions and positions" in table.text
+    assert "not physical installed measurements" in table.text
+    assert block["verify"] is True
 
 
 def test_existing_and_made_parts_of_one_size_keep_separate_rows():
@@ -1192,12 +1195,13 @@ def test_hole_without_cuts_prints_in_every_part_it_passes_through():
     table = bridge_page(lower, upper, hole)
     for component in ("lower", "upper"):
         assert table.position(component).count("with 1 × Ø3 hole: axis at X 65, Y 0; Z 0…9") == 1
-    # Unverified, the same hole withholds both parts it would cut.
+    # A planned made hole remains an expected setting; verification debt is not promoted.
     table = bridge_page(lower, upper, {**hole, "verify": True})
     for component in ("lower", "upper"):
-        assert table.row(component)["Size mm"] == "?"
-        assert "? not set: its hole pin-hole is unverified" in table.position(component)
-    assert "X 60…70" not in table.text
+        assert table.row(component)["Size mm"] != "?"
+        assert "with 1 × Ø3 hole" in table.position(component)
+    assert "Make-to-drawing expected dimensions and positions" in table.text
+    assert "not physical installed measurements" in table.text
 
 
 def test_bought_primitives_count_together_only_when_they_touch():

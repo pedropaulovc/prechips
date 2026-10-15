@@ -245,7 +245,9 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
 
     path = args.inventory or os.environ.get("PRECHIPS_INVENTORY")
     if args.measure:
-        from prechips.rules import MEASUREMENT_RULES
+        from prechips.kernel import build_job
+        from prechips.rules import RULES
+        from prechips.rules.geometry_common import lend_job
 
         plans = args.plan
         if not plans:
@@ -256,27 +258,54 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
                 examples / "pivot-bracket" / "plan.toml",
                 examples / "cone-pivot-post" / "built-up.toml",
             ]
-        scoped_findings = []
+        scoped_entries = []
         inventories = set()
         for plan in plans:
             bundle = load_bundle(plan, inventory=path)
             inventory_path = bundle.paths["inventory"]
             inventories.add(inventory_path)
-            for rule in MEASUREMENT_RULES:
-                scoped_findings.extend(
-                    (plan.as_posix(), inventory_path, finding) for finding in rule.evaluate(bundle)
-                )
-        findings = []
-        for plan_label, inventory_path, finding in scoped_findings:
-            for entry in finding.numbers.get("measurements", []):
-                label = plan_label if entry["id"].startswith("plan.") else None
-                if label is None and len(inventories) > 1:
-                    label = inventory_path.as_posix()
-                if label is not None:
-                    entry["id"] = f"{label}:{entry['id']}"
-                    entry["instruction"] = f"{label}: {entry['instruction']}"
-            findings.append(finding)
-        checklist = measurement_checklist(findings)
+            job = build_job(bundle)
+            object.__setattr__(
+                bundle,
+                "kernel",
+                {
+                    "status": "unknown",
+                    "geometry_pending": True,
+                    "reason": (
+                        "FreeCAD geometry was not requested for the host-only measurement "
+                        "checklist."
+                    ),
+                    "measurement_debts": job["measurement_debts"],
+                },
+            )
+            # Every geometry rule reuses this one prepared job: the bundle is unchanged.
+            with lend_job(bundle, job):
+                findings = [finding for rule in RULES for finding in rule.evaluate(bundle)]
+            kernel_debts = [
+                entry
+                for subjects in job["measurement_debts"].values()
+                for entries in subjects.values()
+                for entry in entries
+            ]
+            scoped_entries.extend(
+                (plan.as_posix(), inventory_path, entry)
+                for entry in measurement_checklist(findings, debts=kernel_debts)
+            )
+        entries = []
+        for plan_label, inventory_path, entry in scoped_entries:
+            label = plan_label if entry["id"].startswith("plan.") else None
+            if label is None and len(inventories) > 1:
+                label = inventory_path.as_posix()
+            entries.append(
+                {
+                    **entry,
+                    "id": f"{label}:{entry['id']}",
+                    "instruction": f"{label}: {entry['instruction']}",
+                }
+                if label is not None
+                else entry
+            )
+        checklist = measurement_checklist([], debts=entries)
         if getattr(args, "json", False):
             _json_stdout(checklist)
         else:

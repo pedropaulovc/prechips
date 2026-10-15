@@ -161,11 +161,17 @@ def test_missing_normal_keeps_observed_collision_as_certain_lower_bound(
     engine = RegionEngine(tmp_path, freecad_kernel, missing=True)
     step = region_solids["groove"]
     wall = engine.refs(step, (0, 17, 12), (60, 17, 20))
-    assert len(wall) == 1
+    opposite = engine.refs(step, (0, 23, 12), (60, 23, 20))
+    assert len(wall) == len(opposite) == 1
     op = _op("S1:10", "wall", 5.0, 15.0, 40.0)
     result = engine.run(engine.job(step, {"wall": wall}, [_setup([op], _vise(5, centre=30))]))
     detail = result["ops"]["S1:10"]
     assert detail["tool_hits"] == "unknown"
     assert detail["min_hits"]["tool"] > 0
+    # The missing own normal prevents deriving clearance, not the opposite finished wall:
+    # the D10 cutter cannot fit the 6 mm groove, and no own cut removes that wall.
+    assert opposite[0] in detail["hit_refs"]["tool"]
+    assert detail["holder_hits"] == "unknown"
+    assert detail["min_hits"]["holder"] == 0
     assert detail["reach_depth_mm"] == "unknown"
     assert wall[0] in detail["reasons"]["tool_hits"]

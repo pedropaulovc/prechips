@@ -26,7 +26,22 @@ Rev 6 design, with current delivery status. Manual arcs (D1): the manual
 mill cuts arcs only by the 1898 method (layout, single-axis stairs or a chain
 drill outside the line, bench filing to buttons or a template checked with a
 radius gauge, or chords / a rotary table); the MDI/`contouring` path and
-`arc_table` are removed.
+`arc_table` are removed. Shipped straight joins support stairs and chain drilling:
+finite drill legs retain exact endpoints and nominal equal spacing within pitch
+(DRO snapping may shift printed spacing); after method/stage/full-hole/
+requested-no-web preconditions, a bounded chain is clipped at drill granularity (offset path
+against bounds eroded by the drill radius, each retained arc/leg regenerated
+at equal nominal intervals within pitch that leave a web, too-short spans
+drop an end hole, safe-side grid snap with a wider end/junction search or
+true-curve back-off, actual cylinders judged; no swept-chord clip holes) and
+prints that stock past the bound is not cleared; omitted joins add no join
+debt while other tables remain (wholly excluded or disconnected stages keep
+clip debt); reported stock/cap uses the worst printed break-out residual (arc
+radial depth, join polyline nearest-finished-wall distance), capped once. The
+kernel credits an unbounded chain with its discrete drilled cylinders only
+(webs stay stock, named as overstock debt pointing at `stock_removal_bounds`,
+which certifies the author's break-out footprint); an explicit break-out phase
+is tracked in [#213](https://github.com/pedropaulovc/prechips/issues/213).
 Sections below retain design intent; README and docs describe the shipped
 schema/CLI/rules. Rev 1 was traveler-first but promised geometric proofs
 it could not deliver. Revs 2–3 absorbed two adversarial
@@ -197,6 +212,9 @@ Rules for the sheet:
   the tool vendor's chart when the inventory entry names one
   (`chart = "<url or doc>"`), otherwise Machinery's Handbook 31. The
   citation is one line per setup, not per cell.
+  Implemented: drill-kind `rough_profile`/`chain_drill` selects drilling
+  data, prints axial mm/min with mm/rev on all drill cards, and derives plunge from drilling chip load ×
+  flutes, without end-mill plunge data or a centre-cutting declaration.
 - **Units: coordinates in the drawing's unit, tool sizes as bought.** The
   harmonic-analyzer drawings are mm; the DRO and the tooling are inch. Both
   appear only where they meet, on the sizing line ("0.2510 in (6.375 mm)").
@@ -497,8 +515,13 @@ the sample's BS-0 carries all three, circles `verify = true`). A value copied fr
 `verify = true` and anything that depends on it is a `?` on the sheet, never
 a silent pass. The sample inventory carries the PM 6 in vise with
 shop-measured `jaw_height_in`, `jaw_width_in`, `jaw_depth_in`, `opening_in`
-and `bed_height_in` (2026-10-05; item-level `verify = true` kept as identity
-debt) and the PM-30MV envelope (`envelope.travel_in`,
+and `bed_height_in` (2026-10-05, `status = "measured"`; item-level
+`verify = true` kept as identity debt), every other supported sample
+dimension a demonstration fixture (`status = "measured"` with the exact
+marker `by = "example value (realistic, not a shop measurement)"`, exercising
+the measured branch without being a shop observation) except a few
+deliberately `status = "assumed"` records listed in `examples/README.md`, and the
+PM-30MV envelope (`envelope.travel_in`,
 `envelope.spindle_to_table_max_in`), still `verify = true`.
 
 M5's shipped inventory shape makes `machines.<id>.envelope` the only home for
@@ -506,9 +529,12 @@ the mill limits any rule reads: X/Y/Z travel and spindle-nose-to-table max/min.
 There is no top-level `spindle_to_table_max_in`/`travel_in`/`table_in` copy,
 and no table size, T-slot pitch, spindle taper or spindle-stack entries,
 because no rule consumes them. A length is one fact,
-`{ value, measured = { by, date, instrument }, verify }`, and only that fact's
-own record qualifies it: no block, item-root or source `measured`/`verify`
-inheritance, no coverage heuristics. Holders carry mounted gauge
+`{ value, measured = { status, by, date, instrument }, verify }`, and only that fact's
+own record qualifies it: `status` is `measured`, `assumed` or `illustrative`
+(omitted means `assumed`), only `measured` with complete `by`/`date`/`instrument`
+qualifies, `by` text is never read for trust, and there is no block, item-root
+or source `measured`/`verify`
+inheritance and no coverage heuristics. Holders carry mounted gauge
 (`gauge_len_mm`/`_in`, one spelling) and grip; a tool's projection is a per-pair
 map. Short and qualified keys that resolve to the same selected holder name
 the same pair; duplicate keys for that holder make the projection unknown.
@@ -1107,9 +1133,10 @@ sheet.
    without `bounds` only when every listed face resolves in the already-present
    matched kernel result and each listed plane whose posed `bbox_mm` lies at the
    op's `to_z` (within `LENGTH_TOLERANCE_MM`) is held inside them beyond that
-   tolerance; only those planes are credited (`credited_faces`, printed as
-   `produced plane:`). No plane at `to_z`, a box edge within the tolerance, a
-   non-permutation setup turn over-approximating the box, or a `contour.keep_out`
+   tolerance; only those planes are credited (`credited_faces`, retained in the
+   report JSON rather than printed on the operator card). No plane at `to_z`,
+   a box edge within the tolerance, a non-permutation setup turn over-approximating
+   the box, or a `contour.keep_out`
    island grown by the cutter radius meeting the face leaves it `?` or partial;
    a partial cut credits no producer. A named face without a whole producer
    or a traced, preserved carry has no known Z. Same-setup touches set the
@@ -1139,7 +1166,8 @@ sheet.
    The inherited rectangle/whole-face
    exposure remains separate and unfixed
    ([#217](https://github.com/pedropaulovc/prechips/issues/217)).
-   Exclusions keep their source frame and own centre through re-facing (#215).
+   Exclusions keep their source frame and own centre through same-axis re-facing
+   (#215); a re-face about another centre axis stays unknown (#192).
    Polygon, sector, slit and unsupported faces stay `?`; radius extrema and
    feature names prove nothing. The circular contact reports its square's DRO
    XY, keep-off centre and diameter, and `touch_land_height_debt_mm` (maximum
@@ -1306,6 +1334,12 @@ sheet.
    kernel yields one console `?` line and unknown geometry, not fabricated
    passes; named mapping and directional-claim errors remain errors.
 
+   **#186 rendering work / PR #198 main-leader cutover — local verification observed:** PR #198 retains tessellation accuracy only. Two explicit capture streams preserve main `425cde40c0f50e6457861c14840da07165d528dd`'s exact ordinary-tolerance samples and edge order in `nominal_outline_mm` for every viewport, layout and anchor input, while `nominal_render_outline_mm` supplies the scale-bound fine samples for outline painting only. Main's exact leader-selection algorithm and accepted endpoints are restored, including all legacy guide-view vertices and the original primary point. P1's subquadratic outline index and the no-floor, fail-closed scale-aware painting bound remain.
+   Native-only leader moves, all generic crossing-clearance filters and fallback pools, and their dashed-footprint capture are removed. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR; it is not fixed or waived by #198.
+   Earlier scale-bound regeneration, the 353-test crossing run, the last 12 px cold regeneration/cache-only pass, and their image/key totals are historical records of superseded source. They are not acceptance evidence for this cutover.
+   Parent-owned focused render tests passed (294 tests, 86.64 s); Ruff lint and format checks passed on five affected Python files. AST comparison confirms main's setup, guide, label and measurement selection methods are unchanged. One authorized private cold regeneration completed all 11 examples (708.08 s, 11 native launches and 11 private-cache writes); the following guarded cache-only validation hit all 11 keys with zero native runs/writes and unchanged cache bytes. Job payloads and executable identity are unchanged; all 11 keys move solely with the engine digest. Against main, 32 PNGs change; against the superseded 12 px output, 19 change. Reports change only render SHA/report hashes, and traveler HTML composes exactly from the corresponding PNG/hash replacements: zero finding changes or unexplained bytes.
+   Fresh randomized Claude paired review covered every tile of all 32 changed pictures: 25 equal, seven current better, zero current worse; leaders and annotations are unchanged. Minor S6 tiny dashed-circle and S9 coincident-reference observations remain in pictures preferred overall and are recorded with crops in the PR and [follow-up #224](https://github.com/pedropaulovc/prechips/issues/224). S6's closed authored circle and an exact closed-path pixel witness explain the normal 8-on/6-off gap; actual native point arrays were not retained, so their closure is not claimed as directly observed. The render-only rule in [AGENTS.md](AGENTS.md#documentation-and-scope) requires complete same-rubric baseline coverage and no introduced gating defect, with paired pictures no worse than main; baseline defects and non-gating minor observations are tracked separately. Subsequent CI/fresh review, printed-shop acceptance and independent native-polyline certification remain separate gates.
+
    **Retained-stock reach and shank clearance shipped (2026-10-06, round 4):**
    reach and holder-wall hits are measured on the stock each op meets, not the
    setup-entry block. A tool's shank past its flutes, from the inventory
@@ -1338,7 +1372,10 @@ sheet.
    that centre and refuses a buried mouth. The pivot-shaft S0 faces and
    centre-drills the plain end; the saw cut stays a stock prerequisite (the bar
    it is cut from is not declared). The catalogue includes `centre_support`;
-   current reports and frozen bundles use `rules_version = "m5-rev10"`.
+   current reports and frozen bundles use `rules_version = "m5-rev12"`
+   (`m5-rev10` plus fail-closed measurement provenance: only
+   `measured.status = "measured"` is a measurement, and every rule's
+   measurement debt reaches `tools --measure`).
 
    **Mill blank preparation shipped (2026-10-07, round-5 MillPrep):** a
    rectangular root stock's planar `end_face`s are the six blank faces a mill
@@ -1547,11 +1584,17 @@ sheet.
    matching images may stay. A refusal restores every prior output even after
    an absent deletion. Kernel discovery checks the current user's LOCALAPPDATA,
    never a developer's hard-coded home. The cache hashes only engine inputs,
-   not host-only finishing, resolved-projection OAL, wording or grip policy.
+   not host-only finishing, resolved-projection OAL, wording or grip policy;
+   a refused fact enters the key as its stable field id, never as its
+   status, attribution or reason text.
 
-   The combined catalogue is `m5-rev10`. Geometry reuses M5 fact-local length
-   lookup with nominal facts allowed: only that dimension's own verification
-   or incomplete measurement record withholds it. Item/source/container
+   The combined catalogue is `m5-rev12`. Geometry reuses M5 fact-local length
+   lookup with nominal facts allowed: only that dimension's own verification,
+   incomplete measurement record or non-`measured` status (`assumed`,
+   `illustrative` or omitted) withholds it. A dimension newly withheld by its
+   status changes that bundle's engine job, so such bundles do one cold
+   kernel run under the new catalogue; bundles whose geometry inputs are bare
+   nominals keep their cached entries. Item/source/container
    flags never taint other dimensions. Projection maps use the full selected
    holder reference; an explicitly unknown selected pair stays unknown,
    without an OAL−grip fallback. M5 physical stack/envelope readiness still
@@ -1572,7 +1615,9 @@ sheet.
    production fixture, physical operator/setup verification or approval.
 5. **M5 — measured inventory**: spindle stack, travel limits, holder gauge
    lengths; unresolved envelope checks leave `?`. **Interface implemented;
-   real shop measurements remain separate from illustrative example records.**
+   real shop measurements remain separate from the examples' demonstration
+   fixtures, and only `status = "measured"` records are read as
+   measurements.**
    `machines.<id>.envelope` is the
    single machine block (`travel` x/y/z, `spindle_to_table_max`/`min`) read by
    `headroom`, `envelope` and `travel`; the mill's top-level
@@ -1586,7 +1631,9 @@ sheet.
    missing/unverified facts as debt. Current local output freezing and example
    validation are observed as recorded in M3 above; the final full-suite and
    ten-minute CI results remain unobserved.
-   Trust is fact-local `{ value, measured = { by, date, instrument }, verify }`,
+   Trust is fact-local `{ value, measured = { status, by, date, instrument }, verify }`,
+   where only `status = "measured"` with complete metadata qualifies and `by`
+   is attribution the rules never read,
    with no block/root/source inheritance, coverage heuristics or legacy-field
    redirect; a vendor nominal is evidence, never a certificate. The vise
    stack is `bed_height + parallels/supports + physical part height + holder
@@ -1614,12 +1661,14 @@ sheet.
    mounted gauge length and grip; parallels and 1-2-3 block heights; and each
    selected tool's OAL, installed projection (or OAL/grip), cutter diameter,
    drill point angle and reamer lead as applicable. The example inventory
-   supplies illustrative records labelled `example (plausible, not measured)`;
+   supplies demonstration-fixture records marked
+   `example value (realistic, not a shop measurement)`;
    resolved example rows do not establish measured shop capability.
    Per-operation safe `approach_mm` and incomplete authored extents remain
    plan-input debt when unresolved, not shop measurements. `tools --measure`
-   lists unresolved report facts, not every illustrative value that must be
-   qualified before machining. The default policy is unchanged; shops may
+   lists unresolved report facts; a demonstration fixture resolves its rule
+   and is therefore not listed, though a real shop must still measure it
+   before machining. The default policy is unchanged; shops may
    require envelope/travel on `"*"`.
 
    **First shop measurements, recorded 2026-10-05.** Pedro Paulo Vezza Campos
@@ -1634,7 +1683,7 @@ sheet.
    is kept. The larger depth reading is conservative for collision checks;
    its individual jaw attribution remains unknown. Converted bed and jaw
    heights are 73.3044 mm and 44.9453 mm. These attributed measurements do
-   not qualify the inventory's illustrative parallels, blocks, holders,
+   not qualify the inventory's demonstration-fixture parallels, blocks, holders,
    tools or PM-30MV envelope, and do not constitute first-article acceptance.
 
 ## 9. Decisions from review

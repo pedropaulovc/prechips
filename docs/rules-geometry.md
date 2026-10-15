@@ -34,6 +34,12 @@ action/tool/holder`, the resolved tool/holder rows). `thin_wall_under_clamp`
 also cites `shop-policy.numbers.thin_wall_floor_mm`. The kernel itself reports
 measurements only; it never emits citations.
 
+Drill-kind `rough_profile` / `chain_drill` operations use drilling starting
+data without changing their geometric face claims or kernel removal contract.
+Deep-hole speed derating consumes the canonical before-stock feature entry
+(else stock top), not a previous chain endpoint; see
+[cutting data](cutting-data.md) for this depth and axial-feed contract.
+
 ## One job, one kernel, no network
 
 A run evaluates geometry at most once per bundle. The CLI builds a canonical
@@ -121,6 +127,10 @@ unchanged. A hit returns the stored facts and render bytes of the run that
 produced it. Fresh native runs are not proven bit-repeatable; see the
 [print and native acceptance limits](../examples/README.md#print-and-native-acceptance-limits).
 The cache is not part of the hashed bundle.
+Native collision fixes change that engine-source digest and require new
+geometry results under the new key. Existing cache entries remain evidence
+of their original worker source; they are never relabelled or copied to the
+new key.
 
 CI persists this local result-cache directory in a separate external cache.
 Its namespace includes runner OS/architecture, the pinned FreeCAD AppImage
@@ -351,14 +361,30 @@ entering angle 90°, sides running straight back to `head_len`; an unmeasured
 `blade_width` leaves the row `unknown`. A tool set out of its holder by less
 than its `head_len` (projection shorter than the head) leaves the holder unposed:
 every turning rule on the op is `unknown` naming the setting ("set projection_mm
-at least head_len_mm"), never a crash or an "unmeasured" head. Claimed
+at least head_len_mm"), never a crash or an "unmeasured" head. That
+invalid-setting conclusion is drawn only from trusted `projection` and
+`head_len` facts: an `assumed`/`illustrative`/omitted-status projection or
+head is unmeasured debt naming that fact, never compared and never a pass;
+unknown tool or nose extents beside trusted ones still leave the op
+`unknown`; and unrelated setup debt (parallel length/width, the DRO grid,
+optional reach facts) is not consumed by, and not attached to, this
+conclusion. Claimed
 faces must be surfaces of revolution about setup Z on the outside; other faces
 are claim errors; internal (bore) claims stay `unknown`. Samples on the
 claimed meridians (a dome's pole included; a `to_z` op's samples moved onto
 the `to_z` plane it leaves) are checked against the profile after the op —
 the held stock minus the turned removals of the setup's turning ops up to and
 including this one — plus modeled fixture obstacles, including the rotating
-envelopes of placed chuck jaws. Each pose is chosen on that profile's
+envelopes of placed chuck jaws. For a stopping cut, only the tool's part-material
+hit test uses known before-stock; its original profile still controls pose sections,
+radial reach, rest placement and holders. Positive part observations inside
+the op's derived-but-unaccepted candidate removal remain uncertain; observations
+on protected or finished material outside that volume retain their numeric
+certain minimum. A trailing (`turned`-side) follow-rest pose depends on the
+uncredited removal and remains uncertain; independently posed `uncut`-side rests,
+chuck and other fixtures retain certainty. Holder minima are unchanged. Unknown
+upstream stock retains the blanket tool-minimum cap. Each pose is chosen on that
+original profile's
 meridian section: an insert's nose is tangent at the sample; a blade's front
 edge lies on a floor sample anywhere along it that keeps the blade clear, so
 it sits inside its groove and floor spans narrower than the blade are swept by
@@ -471,8 +497,12 @@ sample's angle. Cutter and holder obstacles exclude only the sampled face's
 thin inward shell. The flute meets the stock its setup's one op-order pass
 accepts after this op, like any milling flute (see
 [In-process stock](#in-process-stock)): a rotary removal that cannot be
-derived stops that pass, so its own flute meets all of its before-op stock and
-later flutes keep only their certain finished hits. The holder obstacles retain
+derived stops that pass. Its own flute meets its known before-op stock, but
+part observations inside its own candidate removal remain uncertain. Independent
+observations outside that volume and placed fixture hits retain a numeric certain
+minimum. Later flutes keep only finished-material obstacles, with tool certainty
+unknown.
+The holder obstacles retain
 setup-entry stock; reach, holder-wall and shank screens use the stock the op
 meets (see [`reach`](#reach)).
 Chuck jaws and body turn with the work; the head body, tailstock and clamps
@@ -604,8 +634,10 @@ Numeric fields reach the kernel only when they resolve to a positive
 explicit-unit length through the M5 fact-local lookup with measurement *not*
 required: a plain nominal number, or a `{ value, measured, verify }` record
 whose own `verify` is absent/false and whose `measured`, when present, is
-complete. A fact whose own `verify` is `true`/`"unknown"` or whose `measured`
-record is incomplete is debt for that dimension only. An item-level `verify`,
+complete with `status = "measured"`. A fact whose own `verify` is
+`true`/`"unknown"`, whose `measured` record is incomplete, or whose
+`measured.status` is `assumed` or `illustrative` (omitted means `assumed`) is
+debt for that dimension only. An item-level `verify`,
 `present` or `source` flag, a set root's or member container's flags and
 `coverage` text are identity provenance for the declared-input rules; they
 never withhold a numeric fact from the kernel, and nothing is inherited from
@@ -615,7 +647,15 @@ the same holder gauge/grip, tool OAL and projection facts (and `headroom` on
 the envelope limits) separately, so an op can be geometrically checked while
 its spindle stack is still M5 measurement debt. See
 [inventory](inventory.md#kernel-geometry-facts-m4). Missing
-fields are listed in the job's reason text and the dependent rules are `?`.
+fields are listed in the job's reason text and the dependent rules are `?`;
+each refused fact is also a `numbers.measurements` entry on those findings,
+naming the field and the status of the record it refused (stock provenance
+included), so `tools --measure` sees kernel-side debt without a kernel run.
+The engine job and its cache key carry only the stable ids of the refused
+fields, never status, attribution or reason text. Applicability is decided
+before unrelated trust: a rule that does not apply to an op (a concave edge
+with no cutter radius to check, an op with no stock loaded) is
+`not_applicable` rather than debt on a fact it would never read.
 
 - Per cutting op (noncutting actions are `not_applicable`; an unknown `do` is
   `unknown`): `radius_mm` (tool `dia` / 2), `flute_len_mm`,
@@ -632,6 +672,23 @@ fields are listed in the job's reason text and the dependent rules are `?`.
   neither is an engine input (the per-feature `complete_form` hole owner below
   is). Accessibility does not require OAL when the
   selected projection is known.
+  [Engagement](rules-physics.md#engagement) uses that installed projection and
+  the tool diameter for its L/D verdict; its `tool_oal_mm` and `holder_grip_mm`
+  diagnostics read `"not used"` when an explicit pair projection is authored.
+  Those unused lengths are not read or claimed as numeric facts, and their
+  assumed, illustrative, status-less, incomplete or missing measurement records
+  cannot change this verdict or add engagement length debt. Selected tool/holder
+  verification is still required: the existing inventory identity contract treats
+  a nested `verify = true` or `"unknown"` as item verification debt, even on an
+  unused length. That leaves engagement `unknown` with the exact selected item's
+  `.verify` debt, separately from length provenance. Only the OAL-minus-grip fallback
+  consumes those two lengths and reports their numeric values or `"unknown"`,
+  with exact selected-fact debt when either is refused. A complete fact-local
+  `status = "measured"` record qualifies a consumed length; a bare explicit-unit
+  nominal retains engagement's existing nominal allowance. Unrelated holder
+  facts and unselected set members are not engagement measurement debt.
+  These diagnostic labels do not change installed projection, native admission
+  or geometry cache identity.
 - Per spot or drill op on a hole feature: `point_angle_deg`, the selected
   tool's included `point_angle`, always sent. A plain nominal or accepted
   fact passes its number; a missing, `"unknown"` or debt-carrying angle is
@@ -719,16 +776,29 @@ op's own cutter volume) is being cut, not an obstacle. A milling op claiming a
 face away from the approach is credited no removal and meets its before-op
 stock. If an earlier cut cannot be derived (unresolved claims or `to_z`, an
 underivable leave or clearing box, a split or emptied stock piece, a failed
-boolean), that op keeps its own known before-op stock and its flute meets all
-of it, never credited with the clearance that failed, but every later op's
-flute meets only finished material: its certain finished hits stay certain
-(`min_hits`) and its tool hits become unknown, naming the stopping op. This is
-a deliberate regression
-for such later ops, which on entry stock would otherwise have read clear or
-blocked from material that may already be gone. Final profile-wall overstock
-and complete-form cap debts are judged once on the setup's end stock and never
-change an earlier op's before-op stock. Turning keeps its own turned-profile
-obstacle model, unchanged and independent of this pass. Finished face indices
+boolean), that op keeps its known before-op stock and its flute meets all of
+it, never credited with the clearance that failed. A positive part observation
+inside the op's own derived-but-unaccepted candidate removal is uncertain, not
+a certain collision with stock that the cut might remove. Protected or finished
+material outside that candidate remains a certain observation. The full hit count
+may be `unknown` while `min_hits.tool` retains those independent hits; any positive
+certain minimum still makes `accessibility` an **error**, not an unknown verdict.
+Finished-face approach/orientation errors and independently placed fixture hits
+remain certain; rejected own removal cannot resolve either.
+A zero observed tool hit on that known before-stock remains a valid numeric
+zero: removal can only reduce that stock. Holder counts and minima are unchanged.
+Every later op's flute meets only finished material, less its independently
+accepted own hole cut when its claims, tool axis, radius and depth resolve
+without upstream stock. No unknown earlier removal or later cut is credited.
+Both the full tool-hit count and `min_hits.tool` stay `unknown` on unknown
+stock, naming the stopping op; positive observed counts are uncertain
+diagnostics, never numeric certain tool minima. Trusted-stock tool hits,
+genuine holder minima and finished-solid corner radii retain their certainty.
+Final profile-wall overstock and complete-form cap debts are judged once on
+the setup's end stock and never change an earlier op's before-op stock.
+Turning keeps its original turned-profile model for poses, reach, rests and
+holders; only its stopping tool's part-material test uses known before-stock.
+Finished face indices
 stay bound to the original STEP even when booleans change the stock's face
 order.
 
@@ -750,7 +820,9 @@ under [plan stock](plan.md#stock). As-is face references do not define a stock
 volume: when supplied, they must map and lie on that envelope. Unknown
 dimensions/placement, incompatible as-is faces, unresolved earlier claims,
 or an unrepresentable removal are named stock debt. Stock-dependent geometry
-for that setup is `?`, but observed finished-material collisions and known
+for that setup is `?`. Tool hits sampled against this unknown-stock branch
+cannot establish an error: their full count and `min_hits.tool` stay
+`unknown`, even when an obstacle is observed. Known holder collisions and
 finished-solid corner radii still establish errors (exit 2 takes precedence
 over required unknowns' exit 4). No stock picture is drawn.
 `stock_state` values name local received/touched surfaces; retained rails can extend beyond them, so
@@ -891,7 +963,7 @@ a contained cone apex or sphere pole) extends the column. A wider back
 countersink is therefore not reserved, and a blind hole's column stops at its
 actual cap rather than running on as an unbounded rod; pins or rods outside
 that span are not reserved hole stock.
-A profile op (`profile`, `rough_profile`, `finish_profile`) with no
+A milling profile op (`profile`, `rough_profile`, `finish_profile`) with no
 `stock_removal_bounds` clears its cutter corridor beside its vertical claimed
 walls and the sweep of the cutter-centre paths the traveler prints for it,
 never the stock past both. The walls' level sections are chained;
@@ -903,15 +975,37 @@ disc at each open path end. It stands from `to_z` (else the walls' foot) to
 above the setup-entry stock. A concave claim (for example an R800 edge) gets
 the same corridor, not its whole circle, so an unclaimed web wider than 2r, a
 clamped rail or an ear beyond it stays stock until an op that really cuts it.
-The operator really drives the printed path, corner miters (two linear moves
-past a convex corner) and run-outs included, so every point within r of each
-printed table (its displayed `dro_xy` rows as chords, from its displayed tip up)
-is credited removal too. **Rule A′** limits that path, row by row: a printed
+The operator really drives the printed milling path, corner miters (two linear
+moves past a convex corner) and run-outs included, so every point within r of
+each printed milling table (its displayed `dro_xy` rows as chords, from its
+displayed tip up) is credited removal too. A `chain_drill` table is not a
+driven path: its rows are repositioning checkpoints at which the operator
+drills one discrete cylinder each, then chisels the webs. An unbounded profile
+op whose every non-empty printed path is a `chain_drill` chain (the authoritative
+method is each path's own `method`) therefore removes only each actual hole
+cylinder, at the full drill radius from its actual tip Z: no corridor beside
+its walls, no +Z sweep of its non-vertical claims, no lineage band and no
+drill-radius sweep along the chords between hole centres. The positive webs
+between neighbouring holes, the stock between the holes and the claimed wall
+and any rail or ear beyond them stay in stock until an op that really cuts
+them, bounded or milling, in this or a later setup; the printed break-out
+instruction is not credited removal. A path with an unknown, empty or missing
+method never counts as a chain. In an op that prints both kinds, each chain
+path keeps only its holes and each milling path keeps its sweep. An explicit
+`stock_removal_bounds` on the chain op is the author's certification of the
+actual drilled-and-chiselled footprint under the same bounded-box rules
+below (finite numbers, setup-entry stock intersection, finished and
+protected-leave material never taken): the box is then its removal, as for
+any bounded op. It is not a demonstrated toolpath or measured execution. An
+explicit break-out/chisel phase or schema is tracked in
+[#213](https://github.com/pedropaulovc/prechips/issues/213), not implied here.
+**Rule A′** limits every printed table, row by row: a printed
 row is an accessibility error naming the row when its cutter meets the finished
 part or the op's rough leave (its guard), a fixture component, stock outside a
 bounded op's box, or stock a later setup bears on. A row's scrap is what it
 removes past its op's design (the corridor and claim sweeps, or a bounded op's
-box). Retained scrap may be nicked unless a later setup (one whose stock
+box; an unbounded chain op has no implicit design sweep, so all that each of
+its holes removes is scrap and is screened). Retained scrap may be nicked unless a later setup (one whose stock
 descends from this setup) contacts it: where the scrap still borders that
 setup's entry stock and lies within 0.01 mm in front of a flat face of one of
 its jaws, clamps (press, locate or support), locators, rests, parallels, risers
@@ -923,20 +1017,33 @@ extension or, with undrawn supports, the later seat; unknown never passes.
 Fixtures are never stock, so a cutter that meets them stays an accessibility
 hit. An unknown cutter radius, an ambiguous wall side, an unknown printed row or
 a corridor or run-out OCC cannot build makes the cut underivable (named stock
-debt, never a guessed removal). Non-vertical claims of a profile op still sweep
-along +Z.
+debt, never a guessed removal). Non-vertical claims of a milling profile op
+still sweep along +Z.
 Every claimed face with a horizontal normal component is checked for
 remaining overstock above `to_z`,
 including drafted walls whose +Z sweep is nonzero. Exact face contact catches
 small retained ears; nearest-contact probes inset from the face boundary
-distinguish a drafted sliver from legitimately retained neighbours.
+distinguish a drafted sliver from legitimately retained neighbours. The webs
+an unbounded `chain_drill` op leaves beside a claimed wall are such overstock:
+the op is named stock debt (`overstock still touches claimed wall(s) … above
+its to_z; its unbounded chain_drill holes certify only drilling, so the webs
+between them stay stock; declare stock_removal_bounds on the op to certify
+the actual break-out/chisel removal`), and every later setup whose
+stock descends from it stays unresolved through the ordinary unknown
+propagation above. The remedy is a later op that really clears the webs, or
+a `stock_removal_bounds` box on the chain op that certifies the actual
+break-out/chisel footprint; neither the stock nor the reported filing cap
+changes to hide the debt. This is a per-wall contact test, not a rule that
+every unbounded chain fails: a chain whose webs the same setup's later
+milling clears, or whose claimed wall no web touches, is not debt.
 A `complete_form` hole op's own claimed caps are then checked against the
 setup's final stock with the same contact test, without the `to_z` clip (see
 [accessibility](#accessibility)); a touched cap is named output-stock debt.
 An operation can declare numeric `stock_removal_bounds` (one setup-frame box)
 to clear only outside-finished material inside that volume. The box is the
 explicit cleared footprint the author declares, for example the envelope of
-several roughing passes; it is not capped to the claimed faces' XY bounding
+several roughing passes or, on a `chain_drill` op, the drilled-and-chiselled
+break-out footprint; it is not capped to the claimed faces' XY bounding
 box dilated by the cutter radius, and it is not a proof that a whole toolpath
 exists or clears. The remaining guards all hold: the cutter radius must be
 known (an unknown radius leaves the bounds `?` with a reason naming the
@@ -990,8 +1097,9 @@ planar claim's skin, or a claim on a surface neither planar nor curved analytic,
 makes the leave, and so the stock, unknown. A violation is not an
 error verdict: it is named stock debt (the stock reason names the failed
 guard), so stock-dependent results for that setup and later setups selecting
-its output stay `unknown`, never clearance. Genuine collisions with finished
-material remain independent errors. Synthetic geometry fixtures
+its output stay `unknown`, never clearance. Flute hits on that unknown stock
+also stay uncertain; trusted-stock tool collisions, genuine holder collisions
+and known finished-solid corner-radius violations remain errors. Synthetic geometry fixtures
 author these preparation volumes and numeric supply allowances; their target
 setup checks the derived material. Preparation tool/fixture debt stays visible,
 and the fixture policy explicitly requires the target, not fabricated roughing
@@ -1096,9 +1204,16 @@ unresolved named parallels remain debt, as do nonpositive/unverified named heigh
 
 Needs the five tool/holder dimensions (radius, flute length, projection,
 holder radius, holder gauge length) and a vise without input debt for a pass.
-Within the supported milling domain, missing inputs normally yield `unknown`,
-but positive observed minimum tool or holder hits still error despite unknown
-stock, fixture or dimensions. Invalid face claims remain errors first; an
+Within the supported milling domain, missing inputs normally yield `unknown`.
+Positive observed minimum hits still error despite unresolved fixture or
+dimensions when those minima are certain. Unknown stock cannot produce a
+numeric certain tool minimum: both `tool_hits` and `min_hits.tool` remain
+`unknown`; independently known holder minima are unchanged. On the stopping
+op, positive part hits may be its uncredited own removal. Independent approach
+orientation errors, placed fixtures, chuck and uncut-side rests retain numeric
+tool minima and error. Tool hits on turned-side rests whose pose depends on the
+rejected own removal are uncertain; holder minima are unchanged.
+Trusted-stock tool collisions still error. Invalid face claims remain errors first; an
 invalid clearing removal is named stock debt, not an error.
 On the claimed face set the kernel samples a cell-centred
 5×5 UV grid per face plus 2–12 points along every boundary edge and gives
@@ -1110,7 +1225,32 @@ except as the rough leave below moves it.
 **Printed checkpoints (rule A′).** For an op whose coordinates tables print
 cutter-centre rows ([rules-coordinates](rules-coordinates.md)), the kernel
 stands the op's cutter cylinder (radius less 0.001 mm) at every printed row's
-displayed setup XY from its displayed tip up above the setup-entry stock.
+displayed setup XY from its displayed tip up above the setup-entry stock; a
+`chain_drill` row stands its drill cylinder at its full radius from its
+actual tip Z, since each hole is a real drilled cylinder, not a lifted sweep.
+Host DRO selection and kernel regeneration/actual-hole acceptance share one
+pure finite-boundary clearance predicate for all chain arc and join holes,
+bounded or unbounded. Actual closed finished loops, including joined bottom
+outlines and full circles, use point-in-region plus nearest finite-boundary
+distance, signed negative in kept material. Unordered exact lines and finite
+arcs are connected by real endpoints and interpreted using authored scrap
+normals; neither tessellation nor invented closure supplies missing geometry.
+True open arcs and the current partial top-plus-land wall packets use oriented
+finite projections. The top packet does not carry the tapers and bottom arc,
+even when those linked facts exist in the host model; fuller actual
+closed-boundary transport is tracked in
+[#212](https://github.com/pedropaulovc/prechips/issues/212), not supplied by
+inventing closure. The open fallback uses
+real free-end caps and shared-concave-vertex sector classification instead:
+a kept-side shared corner is not an unsigned cap pass. Ties are conservative,
+not a global AND of distant supporting half-planes. Missing, ambiguous,
+inconsistent or unsupported region geometry is unknown; no admissible grid
+point leaves cut tables withheld. Closed-loop break-out centre segments are
+checked for kept-region entry against the whole finite boundary, not merely
+their own join lines. The open fallback is not full-part region proof.
+This declared profile guard does not certify the whole STEP or replace the
+existing 3D cylinder/accessibility backstop, bounds, rough-leave, fixture and
+later-setup collision checks below.
 A bounded op's tables arrive whole and are clipped first: the kernel sweeps
 that cylinder along each printed path and ends it where its common volume with
 the op's before-op stock outside its `stock_removal_bounds` box, less the
@@ -1124,10 +1264,77 @@ seam are one); one with no legal part has none. Facts: `checkpoint_clips`
 `rows`, `pieces` of `row` indices and clip points `after` a row at fraction `t`
 with `exact_xy` and `dro_xy` in plan units, `dropped_rows`, `clip_points`), or
 its `reason` when the clip is unknown: the frame, cutter radius, DRO grid,
-before-op stock or a boolean is unresolved, and then no row remains. The kept
+before-op stock or a boolean is unresolved, and then no row remains.
+A bounded `chain_drill` path is not swept: the kernel intersects its true
+drill-centre offset curves (`chain_geometry`: the arc and finite join lines,
+their walls, pitch and offset in the setup frame) with the bounds box eroded
+by the full drill radius, to `PLANE_TOL`. A closed arc's retained fragments
+across its seam are one span; an exact tangent contact keeps its one real
+hole. Each retained arc or straight-leg span is regenerated on its own with
+equal nominal intervals along that curve (not one uniform respacing across a
+miter): the hole count is chosen so the nominal spacing is no longer than the
+pitch and still leaves a web (centres more than a drill diameter apart). That
+web is judged on the actual snapped DRO centres, not on the nominal span
+alone: for a retained span longer than the length tolerance, the
+pitch-required count is always tried at its snapped positions, even when it
+exceeds the nominal-length web bound, and any higher nominally feasible count
+is also tried before the span is shortened; a span within that tolerance (an
+isolated point such as an exact tangent contact, or a tiny retained arc or leg
+between two shared junctions) keeps exactly one real hole, never a duplicate
+row at the same centre.
+Exact junctions between legs are kept and shared across tables. A span whose
+snapped placement leaves no positive web at any such count omits its clipped
+end hole (a junction's shared point stays unless the short tail is the chain's
+own end) and records that in
+`dropped_ends`; clipping alone does not fabricate a no-web error. Every actual
+hole snaps onto the DRO grid inside the eroded box and passes the shared
+finite-boundary predicate with clearance for the whole drill and allowance.
+Closed loops require scrap-region membership, including beyond a particular
+wall's finite projection; true open packets use the finite-projection,
+free-end-cap and shared-concave-vertex fallback above. Bounds never waive
+this test. Nominal-distance/offset guards remain additional placement
+constraints, not separate unsigned side acceptance. The authored radial
+whole-hole precondition is intentionally preserved before clipping, but is
+not imposed on regenerated finite-cap holes beyond the actual sweep: such
+a hole may lie inside the authored supporting circle when physically safe.
+Unsigned finite-wall distances still measure stock/residual and collision
+or nearest-search geometry, not kept-region membership. The T6
+`numbers.max_filing_stock_mm` cap is enforced on the actual regenerated
+residual. Every
+hole searches the symmetric square within three grid steps on each axis;
+the nearest safe point wins by Euclidean distance with a deterministic
+coordinate tie-break. A diagonal is not rejected by a one-step circular
+cutoff. Ends and junctions may back off inward along the true curve until a
+safe grid point exists; a junction's shared point is one fixed DRO point
+across its tables. A backed-off end hole is therefore not promised within one
+step of the true bound intersection (the shipped rocker trial happens to keep
+its ends within one step; that is evidence, not the guarantee). A hole with no
+such grid candidate after its full search and back-off is never placed in
+finished material; it leaves the clip unknown, as below. A fractional
+swept-chord intersection never becomes a hole. The chain's `checkpoint_clips`
+entry carries `regeneration = "true_curve"`, `pieces` of `generated` points
+(`exact_xy`, the nominal point on the true offset curve the hole was generated
+at, after any back-off; `dro_xy`, the actual centre; `model_xy` in the feature
+plane; an arc hole's `angle_deg`, continuous across a closed arc's seam; and `overshoot` at an exact miter),
+`dropped_ends` (whether the chain's first or last nominal end was lost to the
+clip or to a short tail), the authored `dropped_rows`, and empty
+`clip_points`; `clipped_at` records regeneration against the true offset curve
+at the eroded bounds, not a separate end stop at every marked row, and
+`precision_mm` is `PLANE_TOL`. Unknown or disconnected chain geometry, a
+box too small for one full drill, any retained interval with no safe grid
+point after its full search and back-off (an end or junction included), or
+no surviving centre leaves the entire
+clip unknown, even when another piece survives: never a partial table.
+Deliberately shortening a free end to preserve a positive web remains allowed.
+Internal `chain_geometry.walls` carry line scrap normals and arc outward
+signs for this shared predicate, not new user schema or policy. The pure
+`kernel/chain_boundary.py` helper participates in the `kernel/*.py` engine
+source digest, so adding or changing it re-keys every kernel job, not just
+chain jobs.
+The kept
 rows, renamed per piece with the coordinates row-id formats, are the only rows
 the row check and the setup picture's waypoints use; a bounded op's removal
-stays its box, never a printed run-out. Each
+stays its box, and an unbounded chain's its discrete holes, never a printed run-out. Each
 row is an error naming it when that cylinder meets the finished part, the op's
 rough leave (its guard less the finished part, inside what the row removes),
 a fixture component, or, for a bounded op, before-op stock outside its
@@ -1353,8 +1560,18 @@ For drill, spot, ream, bore, tap and counterbore operations, the flute stock
 obstacles exclude only the op's own actual cutter volume, to its declared
 depth or explicit through extent. Hole centres and axes derive
 from geometry-matched concave cylindrical faces aligned to setup Z, not a
-guessed face centre. Unrelated finished material remains an obstacle, and
-this exclusion does not clear holder obstacles: the holder cylinder is
+guessed face centre. An independently accepted own hole cut is excluded even
+when upstream stock is unknown: reamer flutes inside the very bore they cut
+are cutting material, including their accepted own-bore wall allowance out
+to the operation radius. This does not certify a diameter or stock lineage.
+The same accepted-cut claim/depth gates and geometry-located cutter are used;
+an unknown or invalid own cut receives no exclusion, no default envelope,
+and no other operation's cut. Unrelated finished material remains an obstacle,
+but tool hits on unknown stock remain uncertain rather than certain errors.
+Own-cut subtraction supports geometry diagnostics and the witness-mutation
+keeper; the blanket unknown-stock minimum cap means it is not itself a
+verdict-level guarantee.
+This exclusion does not clear holder obstacles: the holder cylinder is
 unchanged and meets the full actual setup-entry stock. Missing depth or entry
 facts and explicitly unknown through facts remain debt; an omitted `thru`
 uses the existing blind-hole default, not an assumption of through
@@ -1488,7 +1705,11 @@ above changes the prescribed pose, not the obstacle solid. There is no pose
 search, and unresolved pose or exclusion facts remain debt rather than clearance.
 Numbers: `sample_count`, `tool_hits`, `holder_hits`, the five inputs, and
 `certain_tool_hits` / `certain_holder_hits` when observed hits are definite
-despite unresolved stock, inputs, poses or undeclared jaw overhang.
+despite unresolved inputs, poses or undeclared jaw overhang. Unknown stock
+leaves `certain_tool_hits` unknown rather than a certain collision; holder
+minima retain their entry-material evidence. A stopping op's known before-stock
+can establish a zero upper hit bound and independent fixture hits, but not
+certainty for its unresolved own part-material removal.
 
 - `{subject}: selected cutter or holder is certainly occluded by part/fixture material.` (error: any hit; also raised from positive `certain_*_hits` while aggregate counts or other inputs are unknown)
 - `{subject}: sampled claimed faces clear the selected cutter and holder cylinders.` (pass)
@@ -1637,7 +1858,12 @@ corner is checked when the op claims both walls; legal-centre floor poses do not
 expand this rule's claimed-face scope.
 A concave cylinder with an off-axis axis, an oblique concave edge, or any
 other concave curved claimed surface cannot be reduced to one radius and
-makes the row `unknown` with that face/edge named. Numbers:
+makes the row `unknown` with that face/edge named. A refused preparation
+radius (an untrusted cutter or stock-prep fact) does not erase what the
+kernel did compute: valid corner claims it already judged keep their result,
+an op with no concave corner at all stays `not_applicable` rather than
+becoming debt on a fact it never needed, and only the stock and hits that
+depend on the refused fact are `unknown`, naming it. Numbers:
 `corner_radii_mm` (sorted), `tool_radius_mm`, `minimum_corner_radius_mm`,
 `cad_sharp_corners` and `corner_radius_max_design_mm`.
 These are finished-solid facts, independent of unknown in-process stock;
@@ -1744,7 +1970,11 @@ of its uncovered faces have mapped turning finish claims. A genuinely unclaimed
 face still errors, and a complete set of supported milling finish claims still
 passes even when other lathe operations exist. Invalid/missing face mappings
 retain their error/unknown precedence, and an unresolved rotary finishing
-union is `unknown` ahead of `unsupported` and errors.
+union is `unknown` ahead of `unsupported` and errors. Measurement debt on a
+finishing claim is bounded to the faces that claim leaves unresolved: a
+feature whose other faces are covered by trusted claims keeps that coverage,
+while a reference the kernel cannot bound at all (an unmapped or unbounded
+face set) remains a global `unknown`.
 
 Rotary finishing claims credit a face only through
 `rotary_coverage.finish`, the union of the finishing rotary ops' window
@@ -1972,6 +2202,50 @@ its point keys would sit closer than their badges need (a jaw-end dome), it is
 enlarged until they stand apart, as in the shaft's S2 and S3. Contour
 sketches show both sides and share `P` waypoint keys with the coordinate
 tables. Custom plates show pads, locators and authored clamp-action order.
+For every profile operation with a positive XY span, the separate paint-only
+finished-outline stream requests model-space deflection at most `0.5 / S` mm. Here
+`S = min(4W / max(sx, e), H / max(sy, e/4))`, `W = 1464` px is the full-width
+plot, `H = 1792` px bounds its print band, and `e = 1e-9` mm is the renderer's
+numerical span denominator. This covers the largest possible sketch scale,
+including fourfold Y exaggeration: even when `0 < sy < e`, the stretched scale
+is bounded by both `4H/e` and `H/sy`. Across operations the largest `S` supplies
+the bound. There is no fixed physical deflection floor or small-positive-span
+exception; only coincident points (or no finite points) supply no sketch bound.
+An unrepresentable span from finite coordinates is refused, not treated as
+coincident. The guide-axis detail bound still limits the request to `0.5 / 324`
+mm, including when no profile sketch supplies a bound. The native adapter sends
+the smaller of these bounds and its ordinary rendering tolerance directly to
+`edge.discretize(Deflection=...)` for the fine painting stream; it never retries
+with a coarser tolerance.
+A native discretization exception propagates out of setup rendering to
+`run_job`, which returns `status: "error"` and its reason, without a PNG or a
+successful cache entry. These are bounds on the requested deflection, not an
+independent geometric certification of the vendor's returned polyline. Extremely
+small spans can demand precision the native kernel cannot support; that native
+acceptance remains separate from the mathematical scale bound.
+The render spec captures two explicit streams from the same finished-face edges,
+in the same insertion order. `nominal_outline_mm` keeps main's exact
+`Deflection=tolerance` samples and remains the sole nominal input to viewport
+fitting, bounds, layout, badges and leader selection. `nominal_render_outline_mm`
+uses `min(tolerance, _nominal_outline_deflection(sketch, waypoints))` and is used
+only to paint the outline in setup/isometric/section views, guide-axis details
+and profile plots. A spec with nominal geometry must provide the fine field;
+missing fine data is an error, never a fallback to legacy drawing data. A spec
+without nominal geometry remains legitimate.
+In each painted plane, duplicate and collinear-overlapping fine chords are split
+and de-duplicated before dashing, preserving phase along the unique contour.
+The spatial index retains the deterministic topology without an all-vertex
+quadratic scan.
+Main's accepted leader placement is unchanged: the original primary nominal
+point assigns its lane, and all original ordinary-tolerance vertices remain
+the finished-outline leader choices under the exact main selection algorithm.
+This includes the guide view's original projected vertices and primary point,
+even when they lie outside its viewport; no native-only selector, crossing
+filter, interior fallback or new landing debt is introduced. Fine chord geometry
+and dash phase may differ, but fine samples never feed layout or anchors.
+PR #198 retains tessellation accuracy only.
+[#211](https://github.com/pedropaulovc/prechips/issues/211) remains open for a
+dedicated future leader PR; this change neither fixes that issue nor grants a waiver.
 Table/vise-body/headstock/tailstock context outlines are marked schematic;
 they never add fabricated solids or authorize a cut. Inventory stop solids
 require `hold.stop_fixture` and a numeric `hold.stop_pose`.

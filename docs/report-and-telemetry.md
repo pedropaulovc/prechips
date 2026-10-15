@@ -8,7 +8,11 @@ and, only when the kernel returned a setup render, `renders`.
 Findings sort lexicographically by `(rule, subject)` and contain `rule`,
 `subject`, `status`, `numbers`, `cite`, `message` (not `sentence` or a separate
 severity). No clock timestamp enters the report.
-The current catalogue is `rules_version = "m5-rev10"`: the M5 review cutover
+The current catalogue is `rules_version = "m5-rev12"`: fail-closed measurement
+provenance (a fact is measured only by its own `measured.status = "measured"`
+with complete `by`/`date`/`instrument`; `assumed`, `illustrative` or an omitted
+status is debt, and `by` text is never read for trust) on top of the `m5-rev10`
+M5 review cutover
 (bed-height vise stack, per-pair tool projection, approach/floor-aware envelope,
 spindle-nose Z travel, unpadded hole centres, one `envelope` machine block,
 fact-local trust, no `holder_stack` rule), dividing-head/child-centre fixes,
@@ -17,10 +21,11 @@ renders, and the examples-complete rules (identity-keyed tool selection, shop-ma
 make operations, face aims, whole-tool clearance with guide stops and op-named
 picture cuts, one-fact consistency across tables and pictures). Changing the
 operative catalogue changes the bound report and invalidates prior approvals;
-reports from earlier catalogues, including `m5-rev9`, must be regenerated and
+reports from earlier catalogues, including `m5-rev10` and `m5-rev11`, must be regenerated and
 reapproved.
 A finding's `numbers.measurements` lists the exact fact ids (set member or
-tool/holder pair included) whose measurement would resolve it; `tools --measure`
+tool/holder pair included) whose measurement would resolve it, together with
+structured category, identity and canonical field parts. `tools --measure`
 is the sorted, deduplicated union of those lists over the current plans.
 
 Canonical bytes are UTF-8 JSON, sorted keys, two-space indentation,
@@ -119,6 +124,46 @@ reliefs without hiding the full stock length in the main view. Mill/custom
 views overlay a dashed **nominal part outline**, including behind arriving
 stock, solely to locate the drawing relative to pads, pins and coordinate keys.
 That outline is never a claim that the supply already has the finished shape.
+For every positive-span profile sketch, the paint-only finished-outline stream
+requests at most `0.5 / S` mm at the conservative maximum render scale `S`, including the
+plot's `1e-9` mm numerical denominator and maximum fourfold Y exaggeration.
+There is no physical deflection floor or tiny-positive-span exemption; only
+coincident points (or no finite points) lack a sketch bound. An unrepresentable
+span is refused. The request also retains the `0.5 / 324` mm guide-axis detail
+bound when no sketch supplies one. See the
+[rendering scale contract](rules-geometry.md#renders) for the formula.
+The native adapter captures `nominal_outline_mm` first with main's exact ordinary
+`Deflection=tolerance` samples and edge order, then captures
+`nominal_render_outline_mm` with the bounded `Deflection`, with no coarser retry.
+A native precision exception escapes setup rendering and becomes
+`run_job`'s `status: "error"` with its reason, not a PNG or successful cache entry.
+The mathematical request bound does not independently certify the vendor's
+returned polyline; native support for very fine tolerances is separate.
+Projected outline coincidences retain 0.01-pixel quantization and the canonical
+minimum floating coordinate in each cell. One two-dimensional, one-pixel-bin
+index contains every cell, including collapsed source edges. Each chord queries
+only its intersected strip, conservatively padded by one quantized cell, then
+uses the exact existing along/cross-product test before sorting cuts and walking
+paths. Index construction is O(V); candidate discovery costs the number of strip
+bins visited plus their stored cells, not all vertices in an X range or a
+diagonal's bounding rectangle. Cut and path ordering remain deterministic.
+The two streams have distinct consumers. `nominal_outline_mm` alone supplies
+nominal viewport fitting, bounds, layout, badges and every leader choice.
+`nominal_render_outline_mm` supplies only outline painting in setup/isometric/
+section views, guide-axis details and profile plots. A spec with nominal geometry
+requires the explicit fine field; a missing field is an error rather than a silent
+legacy painting fallback. Absence of nominal geometry remains legitimate.
+Finished-outline callouts preserve main's accepted placement and exact selection
+algorithm: the original primary point assigns the lane, and every original
+ordinary-tolerance vertex remains eligible. The guide view likewise retains main's
+original projected primary point and all legacy vertices, including offscreen
+inputs; painting alone is clipped to its panel. No native-only anchor selection,
+foreign-dash crossing filter, fallback pool or new landing debt is retained.
+Fine geometry and dash phase may change without changing leader endpoints or layout.
+Guide-rim callouts also keep their existing placement.
+PR #198 retains tessellation accuracy only;
+[#211](https://github.com/pedropaulovc/prechips/issues/211) remains open for a
+dedicated future leader PR, not a fix or waiver in this change.
 Selected cutters use the traveler's short human tool names. A separate feed
 arrow, when the plan declares its direction, is a direction symbol, not a path.
 An unresolved saw cut plane produces a plain STOP annotation and retains its
@@ -306,10 +351,13 @@ different plan or drawing (both: the first part made is the first article), or
 one recorded for this plan while it still has open items, which approval cannot
 waive — and each `Before S1:` stock prerequisite, such as `obtain the stock —
 not on hand`), the drawing material and finish, a one-line speeds/feeds source,
-the legend `† example fixture dimensions (plausible, not measured): confirm
-before making` when a SHOP-MADE FIXTURE row carries the mark, the DRO manual
+the legend `† Make-to-drawing expected settings; check the physical fixture as
+made before use. These settings do not clear installed-measurement STOPs.` when
+a SHOP-MADE FIXTURE row carries the mark (a dimension or primitive whose own
+measurement record's status is not `measured`), the DRO manual
 named once, the `DRO resolution:` of each routed machine (its inventory
-`resolution`, or the default grid said as such; a lathe adds whether X reads
+`resolution`, linked to its setup measurement item when not verified,
+or the default grid said as such; a lathe adds whether X reads
 diameter or radius), **STOCK AND ROUTE** (stock size at the DRO resolution of
 the setup that receives that stock, supply notes and a setup → machine → holding
 table, machines by display name: an inventory `name`, a maker's model number,
@@ -483,11 +531,46 @@ remains pending. Intermediate CLI/PDF observations are recorded in
 
 Setup overview/operations section, in this order:
 
-1. Title and status boxes. *STOP — do not run until resolved* lists one plain
-   line per real problem with the ops it applies to (`Op 20 — tool or holder
-   hits the part or the holding`); repeats are collapsed. *Not verified by the
-   planner — confirm at the machine* names the unproved topics with their ops.
-   Errors never print as `?`; unknowns never read as passes.
+1. Title and status boxes. *STOP — do not run until resolved* includes the
+   union of every STOP kind carried by the setup's operations, with the affected
+   ops and clearing action; measurement-backed speed/feed, contour and depth
+   stops are not replaced or hidden by their measurement references.
+   Only untrusted facts actually consumed by a refused decision enter the
+   **job-wide measurement register**, printed once in the JOB section. A
+   selected inventory item or a prerequisite finding's diagnostic measurement
+   union is not local consumption evidence. Prerequisite-only UNKNOWN setups
+   stay STOPped by the true upstream cause, naming the source setup/op and its
+   JOB measurement refs, without unrelated local Record rows. A bench setup
+   with no unresolved consumed decision has no measurement STOP and is absent
+   from the JOB's stopped-setup list.
+   Canonical record/field identity plus physical subfield and installed
+   holder/configuration define one physical quantity. All setups reuse its
+   global `?M1` marker; numbering and display order are deterministic and
+   ascending. The full instruction, instrument and 35 × 10 mm blank appear
+   once per physical quantity, with source setup groups and tool numbers in
+   shop language. Composite fixture solids have individual dimensional and
+   position rows, each bound to the original canonical record and each with
+   its own blank; measuring them does not promote the original fact's trust.
+   Box length/width/height and cylinder diameter/axial length or depth follow
+   the actual shape; local X/Y/Z placement quantities each have their own row.
+   Position rows name the minimum corner for boxes and base centre for
+   cylinders, relative to the fixture-local origin.
+   TOOLS, operations and CLEARANCE use only short refs. The JOB readout line
+   names the readout controller and its single global step ref. Bare M means
+   the authored measurement variable, not necessarily a touch-off reading.
+   TOOLS rows and individual recording rows stay whole. Continuation context
+   retains the input name; direction units break at the slash in `cw/ccw`,
+   never inside either abbreviation, without shrinking the blank. Record the
+   measured values and return the traveler for reissue:
+   measurement alone does not clear the actual STOP decisions named on setup
+   pages. Reissue wording refers to those decisions, not irrelevant generic
+   speeds/depths/contours. Every operation STOP kind stays in the summary.
+   An operation's independent engagement, speed/feed, cut-order or saw-kerf
+   decision retains its consumed facts even when a different stock-dependent
+   decision is blocked. Eager native refusal lists alone are not consumption.
+   Planner-unresolved topics remain named with their ops. Errors never print
+   as `?`; unknowns never read as passes. Report finding statuses, full payloads
+   and cache identities are unchanged by this renderer projection.
    Pre-clamping acquisition requires explicit `measure_before_hold = true`
    and an authored `measure`. The original HOLD step gets a 35 × 10 mm clear
    writing field and the zero row refers back to it; there is no separate
@@ -570,10 +653,14 @@ Setup overview/operations section, in this order:
    cut opposite face stands at that bound.
 6. **OPERATIONS**: full-width groups naming the op and action with depth of
    cut, feature, `T#` tool, rpm, feed, Z target and cut direction, followed by
-   associated inspection records. A lathe table with any op measured in the
+   associated inspection records, without an empty placeholder row when there
+   is no inspection. Actual checks, messages and recording fields remain.
+   A lathe table with any op measured in the
    chuck adds to its heading `measure only with the spindle stopped and the
-   tool withdrawn`. Lathe feed prints as `mm/rev` with resulting `mm/min` in
-   brackets; mill and saw feeds print in `mm/min`. Crash-relevant numbers (jaw
+   tool withdrawn`. Turning feed prints as `mm/rev` with resulting `mm/min` in
+   brackets; drill feeds print `axial` mm/min with mm/rev for hand feeding,
+   while other mill and saw feeds print in `mm/min`. Unknown feed cells start
+   with `STOP`. Crash-relevant numbers (jaw
    front within 3 mm of a tool's nearest approach, dead centre at the work end,
    tool tip within 3 mm of the jaw top, holding within 3 mm of an op's tool sweep
    or of what a file takes off) and per-op STOP or CAUTION findings stay with
@@ -631,9 +718,10 @@ Attached picture, clearance, feature-map and inspection-note section:
    or an unproven holder wall clearance is a check-at-the-machine action; a jaw
    clearance within 3 mm asks for a hand-fed approach, holding within 3 mm of a
    cutter `hand feed past the …`, of a file `keep the file clear of the …`. Ops
-   with the same tool, obstacle, clearance and action share a row. The existing
-   clearance action sentence occupies a full-width associated row, making the
-   complete action visible without changing its wording.
+   with the same tool, obstacle, clearance and action share a row. An identical
+   nonempty action for every row prints once immediately above the table,
+   explicitly scoped to every clearance row. Otherwise each complete action
+   occupies its full-width associated row without changing its wording.
 3. **FEATURE MAP**. Lathe: each surface the setup cuts (one it only inspects,
    such as an as-supplied diameter, has no size to turn to and is left off):
    feature, the drawing's Ø limits (`—` for a process
@@ -734,6 +822,24 @@ places: elapsed time uses a monotonic clock, while CPU time uses the FreeCAD
 process CPU clock, not host CPU or machine-wide utilization. Setup totals include
 their phases and operations; do not add those nested measurements to the totals.
 Batch measurements include orchestration and are not a sum of job measurements.
+
+The host's geometry result also carries `measurement_debts =
+{ setups: { <setup id>: [entries] }, ops: { "<setup>:<op>": [entries] } }`:
+the facts the job builder refused for that setup or op, each a
+`numbers.measurements` entry (`id`, `instruction`, `units`, `cite`) plus the
+record's current `status` and `reason`. A whole authored solid is identified
+as `fixtures.<selected inventory member>.solids.<name>`, the item that
+declares it, not the clamp the picture draws it under. It is host-only,
+rebuilt on every
+call (cache hit, fresh run or unavailable kernel alike) and never written to
+the native cache; the native job and cache key see refused inputs only as a
+sorted list of stable field ids, never attribution or reason text, and
+host-only comparisons (OAL under an explicit projection, vise opening) are
+not native inputs at all. Geometry findings that
+depend on a refused fact (`fixture_interference`, thin-wall and `vise`
+included, even when the setup context itself succeeded) attach those entries
+to their `unknown` result, naming the exact ids, current status and reason,
+upstream stock lineage included.
 
 The host exports `kernel.setup` spans with `setup_id`, and nested `kernel.op`
 spans with both `setup_id` and `subject`. Freshly executed work carries measured

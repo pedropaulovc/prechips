@@ -1,8 +1,9 @@
 """A flute meets the stock this setup's earlier derived cuts leave, never a later cut's.
 
 Holders keep the setup-entry stock. The op whose cut stops the stock builder meets all of
-its before-op stock. Once an earlier cut cannot be derived, a later flute keeps only its
-certain finished-material hits and its tool hits stay unknown. Final profile-wall debts
+its before-op stock, but positive part hits may be its unresolved own removal; independent
+fixture hits remain certain. Once an earlier cut cannot be derived, a later flute keeps only its
+finished-material observations and its tool hits stay unknown. Final profile-wall debts are
 judged after all cuts never change an op's before-op stock.
 FreeCAD-backed tests run ``src/prechips/kernel/freecad_job.py`` under ``freecadcmd`` and
 skip without it.
@@ -132,12 +133,18 @@ def test_underivable_earlier_cut_leaves_later_flute_unknown_with_its_finished_hi
     reason = stopped["reasons"]["tool_hits"]
     assert "the stock before this op is unknown" in reason and "S1:10" in reason, reason
     assert "lie outside its stock_removal_bounds" in reason
-    # Certain finished-material hits stay certain; the holder keeps the entry stock.
-    assert stopped["min_hits"]["tool"] == finish["tool_hits"]
+    # Finished-material observations do not certify a flute collision under unknown stock.
+    assert stopped["min_hits"]["tool"] == "unknown"
     assert stopped["holder_hits"] == finish["holder_hits"]
-    # The op whose cut stops the builder keeps the known stock before it.
+    # The stopping rough's cutter stands at the west wall, outside its rejected EAST
+    # box. Those before-stock hits cannot be its own removal and remain certain.
     rough = unknown["ops"]["S1:10"]
-    assert isinstance(rough["tool_hits"], int) and rough["tool_hits"] > 0, rough
+    assert rough["tool_hits"] == rough["min_hits"]["tool"] > 0, rough
+    assert rough["obstacles"]["tool"] == ["part"], rough
+    assert "its own cut stopped the stock builder" not in rough.get("reasons", {}).get(
+        "tool_hits", ""
+    )
+    assert rough["min_hits"]["holder"] == rough["holder_hits"]
     assert "S1:10" in unknown["setups"]["S2"]["stock_reason"]
 
 
@@ -154,4 +161,6 @@ def test_a_cut_that_stops_the_builder_frees_none_of_its_own_flute(engine, solids
     assert "S1:10: removing its claimed clearance splits an input stock piece" in reason, reason
     # Its flute, standing within the box, meets the whole strip the rejected cut left.
     op = result["ops"]["S1:10"]
-    assert op["tool_hits"] > 0 and op["obstacles"]["tool"] == ["part"], op
+    assert op["tool_hits"] == op["min_hits"]["tool"] == "unknown", op
+    assert op["obstacles"]["tool"] == ["part"], op
+    assert op["min_hits"]["holder"] == op["holder_hits"]

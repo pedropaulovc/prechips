@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
+from test_envelope_m5 import measured
 
 from prechips.rules.zero_recipe import evaluate
 
@@ -42,9 +43,9 @@ def lathe(radius_mode=False, x=None, touches=None, inventory=None):
             },
             "setups": [{"id": "S1", "machine": "lathe", "frame": "L", "zero": zero, "ops": []}],
         },
-        features={"frames": {"L": {"binding": "nominal"}}, "features": {}},
+        features={"units": "mm", "frames": {"L": {"binding": "nominal"}}, "features": {}},
         inventory={
-            "machines": {"lathe": {"kind": "lathe"}},
+            "machines": {"lathe": {"kind": "lathe", "resolution_mm": measured(0.001)}},
             "tools": {"turner": {"kind": "insert_holder"}, "parter": {"kind": "parting_blade"}},
             "gauges": {"mic": {"kind": "micrometer"}, **(inventory or {})},
         },

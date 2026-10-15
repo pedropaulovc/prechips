@@ -4,10 +4,12 @@ Only explicit setup-frame values and geometry-matched feature identities cross
 this boundary. Display annotations never certify a holding or a toolpath.
 """
 
+import math
+
 from prechips.clamp_labels import clamp_labels
 from prechips.rules.coordinates import dro_grid, row_id
 from prechips.rules.geometry_common import cutting_action
-from prechips.rules.resolution import number, op_feature, record, resolve
+from prechips.rules.resolution import LENGTH_TOLERANCE_MM, number, op_feature, record, resolve
 from prechips.sheet import tool_label
 
 
@@ -24,12 +26,14 @@ def _directed(table):
 def contour_annotations(numbers, scale, setup_id):
     """Paths and sparse, shared table keys: arc ends/apex and exact line corners.
 
-    Arc and line tables draw the values the DRO prints (``dro_xy``); each of their keys
-    lists the ``rows`` (:func:`row_id`) it labels, which is how the sheet finds it. A
-    stair-stepped line (``stair_cusp_mm``) is keyed at its ends and miters, not at every
+    Arc and line tables draw the values the DRO prints (``dro_xy``); each key's mm
+    geometry binds it to a printed row. Its ``rows`` (:func:`row_id`) references are
+    provenance, not index-only matches after clipping. A stair-stepped line
+    (``stair_cusp_mm``) is keyed at its ends and miters, not at every
     single-axis step. A bounded op's tables (``kernel_clip``) are not drawn here: the
     kernel draws its clip of them (``FreeCAD job _clipped_sketch``), never the whole
     unclipped path.
+    A singleton table retains its real waypoint but draws no connecting path.
     A path is ``directed`` (drawn with travel arrows) only when coordinates established
     its cutting order; otherwise its point order is geometric, not a travel claim.
     """
@@ -37,14 +41,13 @@ def contour_annotations(numbers, scale, setup_id):
 
     def add_path(op, points, candidates, directed, ids=None, raster=None):
         points = [_xy(value, scale) for value in points]
-        if any(point is None for point in points):
-            return
-        if len(points) < 2:
+        if not points or any(point is None for point in points):
             return
         op = str(op)
-        paths.append({"op": op, "xy": points, "directed": directed})
-        if raster is not None:
-            paths[-1]["raster"] = raster
+        if len(points) >= 2:
+            paths.append({"op": op, "xy": points, "directed": directed})
+            if raster is not None:
+                paths[-1]["raster"] = raster
         for index in candidates:
             point = points[index]
             rows = [] if ids is None else [ids[index]]
@@ -52,8 +55,7 @@ def contour_annotations(numbers, scale, setup_id):
                 (
                     w
                     for w in waypoints
-                    if w["op"] == op
-                    and sum((a - b) ** 2 for a, b in zip(w["xy"], point, strict=False)) < 1e-8
+                    if w["op"] == op and math.dist(w["xy"], point) <= LENGTH_TOLERANCE_MM
                 ),
                 None,
             )
@@ -63,9 +65,12 @@ def contour_annotations(numbers, scale, setup_id):
             elif rows:
                 match.setdefault("rows", []).extend(rows)
 
-    arc_ops = set()
+    table_ops = {
+        str(table.get("op"))
+        for kind in ("arc_table", "line_table")
+        for table in numbers.get(kind, [])
+    }
     for arc in numbers.get("arc_table", []):
-        arc_ops.add(arc.get("op"))
         rows = arc.get("rows", [])
         if not rows or arc.get("kernel_clip") is True:
             continue
@@ -95,7 +100,7 @@ def contour_annotations(numbers, scale, setup_id):
             [row_id(subject, "line_table", line, i) for i in range(len(points))],
         )
     for profile in numbers.get("profiles", []):
-        if profile.get("op") in arc_ops:
+        if str(profile.get("op")) in table_ops:
             continue
         points = profile.get("cutter_centre", [])
         if not isinstance(points, list) or not points:

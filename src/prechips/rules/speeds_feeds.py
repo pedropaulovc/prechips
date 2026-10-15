@@ -12,8 +12,9 @@ revolution. A mill op has no feed override.
 A cited ``[[deep_hole]]`` row derates the sfm of its ``operation`` (row or
 chart) by ``sfm_factor`` before the RPM is derived, once the hole's depth is
 more than ``depth_over_dia`` diameters; the deepest such threshold governs. The
-depth is the material the full diameter cuts: a through hole's local thickness,
-a blind hole's planned depth, never the point or exit lead.
+depth is a through hole's local thickness or a blind hole's planned depth.
+Chain drilling uses its before-state entry-to-``to_z`` penetration; no air
+approach, point extension or exit lead is added.
 
 A saw cut (``saw_cut``/``cut_off``) has no spindle: its one canonical
 ``operation = "saw_cut"`` row supplies blade linear speed (``sfm``) and descent
@@ -21,12 +22,11 @@ feed (``feed_mm_min``) directly. There is no diameter band, tool chart or
 override; the sourced speed is clamped to the machine's inclusive
 ``blade_speed_sfm`` range and no RPM is derived.
 
-A mill op with a ``contour`` path also carries its plunge feed: the end mill fed
-straight down its own axis, ``RPM x feed_mm_rev`` of the one cited ``[[plunge]]`` row
-for its material class, tool material and tool diameter, and only for a tool declared
-``center_cutting = true``. It does not change this finding's status; the coordinates
-rule decides which ops plunge into the stock and leaves those without a known plunge
-feed unknown.
+A mill op with a ``contour`` path also carries its plunge feed. A drill doing
+``chain_drill`` is centre-cutting by kind and uses its cited drilling chip load
+times flute count, never an end-mill ``[[plunge]]`` row. Other contour methods
+require an explicit ``center_cutting = true`` and one cited ``[[plunge]]`` row.
+Neither changes this finding's status; coordinates decides which paths plunge.
 """
 
 from __future__ import annotations
@@ -34,6 +34,7 @@ from __future__ import annotations
 import math
 
 from ..findings import Finding
+from ..measurements import length_debt
 from . import tip_endpoints
 from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
@@ -46,6 +47,7 @@ from .resolution import (
     number,
     resolve,
     rough_leave,
+    select,
     uncertain,
 )
 from .tip_endpoints import mapping, records
@@ -62,7 +64,17 @@ def nearest50(rpm, minimum, maximum):
     return max(minimum, min(maximum, round(rpm / 50) * 50))
 
 
-def _operation(action):
+DRILL_KINDS = frozenset({"drill", "drill_index", "drill_set"})
+
+
+def _operation(op, tool):
+    action = op["do"]
+    if (
+        action == "rough_profile"
+        and mapping(op.get("contour")).get("method") == "chain_drill"
+        and tool.get("kind") in DRILL_KINDS
+    ):
+        return "drill"
     if action in {"rough_face", "finish_face"}:
         return "face"
     if action in {"rough_profile", "finish_profile", "rough_pocket", "finish_pocket", "pocket"}:
@@ -154,15 +166,28 @@ def _positive(value):
 
 
 def _hole_depths(bundle):
-    """Material depth each hole op's full diameter cuts, keyed ``(setup, op)``: a through
-    hole's local thickness, a blind hole's planned depth; the point and exit lead are
-    not hole depth."""
+    """Cutting depth keyed ``(setup, op)``: ordinary holes exclude point/exit lead;
+    chain drilling uses the before-state feature entry (else top) minus ``to_z``.
+    Profile ops do not lower that start for the next chain drill."""
     depths = {}
     for finding in tip_endpoints.evaluate(bundle):
         for row in records(finding.numbers.get("endpoints")):
             through = row.get("exit_face", "not_applicable") != "not_applicable"
             depth = row.get("local_thickness" if through else "depth_mm", UNKNOWN)
             depths[(row["setup"], row["op"])] = depth if _positive(depth) else UNKNOWN
+    for setup in bundle.plan["setups"]:
+        for op, before, _ in tip_endpoints.stock_states(bundle, setup):
+            tool = resolve(bundle, "tools", op.get("tool")) or {}
+            if (
+                op.get("do") != "rough_profile"
+                or mapping(op.get("contour")).get("method") != "chain_drill"
+                or tool.get("kind") not in DRILL_KINDS
+            ):
+                continue
+            start = before["entry_z"].get(op.get("feature"), before["top_z"])
+            end = op.get("to_z", UNKNOWN)
+            depth = manifest_mm(bundle, start - end) if number(start) and number(end) else UNKNOWN
+            depths[(setup["id"], op["op"])] = depth if _positive(depth) else UNKNOWN
     return depths
 
 
@@ -206,13 +231,65 @@ def stock_material_class(bundle):
     return found.get("material_class", UNKNOWN) if isinstance(found, dict) else found
 
 
-def plunge_row(bundle, op):
-    """``(feed_mm_rev, cite, why)`` of the one cited ``[[plunge]]`` row matching the stock's
-    material class, the op tool's material and its diameter (mm, inclusive range); the feed
-    is unknown, with why, when no row, several rows or an uncited, unverified or
-    non-positive row matches, and whatever the rows say for a tool not declared
-    ``center_cutting = true``: only a centre-cutting end mill can be fed down its axis."""
+def _starting_data(bundle, op, tool, diameter):
+    """The same cited starting row/chart supplies speed, tooth feed and axial feed."""
+    chart = tool.get("chart", UNKNOWN)
+    if _cited(chart):
+        return (
+            tool.get("sfm", UNKNOWN),
+            tool.get("chip_load_mm_per_tooth", UNKNOWN),
+            tool.get("feed_mm_rev", UNKNOWN),
+            chart,
+            False,
+        )
+    key = (stock_material_class(bundle), tool.get("material", UNKNOWN), _operation(op, tool))
+    matching = []
+    range_unknown = False
+    for row in records(mapping(bundle.cutting_data).get("cut")):
+        if (row.get("material_class"), row.get("tool_material"), row.get("operation")) != key:
+            continue
+        band = row.get("diameter_range", UNKNOWN)
+        if not isinstance(band, list) or len(band) != 2 or not all(number(v) for v in band):
+            range_unknown = True
+            continue
+        if number(diameter) and band[0] <= diameter <= band[1]:
+            matching.append(row)
+    if len(matching) == 1 and _cited(matching[0].get("cite")):
+        row = matching[0]
+        return (
+            row.get("sfm", UNKNOWN),
+            row.get("chip_load_mm_per_tooth", UNKNOWN),
+            row.get("feed_mm_rev", UNKNOWN),
+            row["cite"],
+            range_unknown or uncertain(row),
+        )
+    return UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, range_unknown
+
+
+def plunge_row(bundle, op, *, measurements=None):
+    """``(feed_mm_rev, cite, why)`` for axial entry: a drill's cited drilling tooth
+    feed times flutes, or a declared centre-cutting end mill's unique cited plunge
+    row. Missing, ambiguous, unverified or non-positive data stays unknown.
+    ``measurements``, when supplied, receives only refused facts this lookup consumes."""
     tool = resolve(bundle, "tools", op.get("tool")) or {}
+    category, identity, _ = select(bundle, op.get("tool"), "tools")
+    debt = length_debt(tool, "dia", category, identity) if tool else None
+    drilling = tool.get("kind") in DRILL_KINDS and _operation(op, tool) == "drill"
+    # A drill's own cited chart never reads the diameter; a cutting-data row is chosen by it.
+    if drilling:
+        consumes = not _cited(tool.get("chart", UNKNOWN))
+    else:
+        consumes = tool.get("center_cutting") is True
+    if not consumes:
+        debt = None
+    elif debt is not None and measurements is not None:
+        measurements.append(debt)
+    if drilling:
+        _, chip, _, cite, row_debt = _starting_data(bundle, op, tool, length_mm(tool, "dia"))
+        flutes = tool.get("flutes", UNKNOWN)
+        if row_debt or uncertain(tool) or not _positive(chip) or not _positive(flutes):
+            return UNKNOWN, UNKNOWN, "the drilling row/chart or tool tooth feed is unresolved"
+        return chip * flutes, cite, None
     centre = tool.get("center_cutting")
     if centre is False:
         return UNKNOWN, UNKNOWN, "the tool is not centre-cutting, so it cannot be fed down"
@@ -221,7 +298,10 @@ def plunge_row(bundle, op):
     diameter = length_mm(tool, "dia")
     key = (stock_material_class(bundle), tool.get("material", UNKNOWN))
     if UNKNOWN in key or not number(diameter):
-        return UNKNOWN, UNKNOWN, "the material class, tool material or tool diameter is unknown"
+        why = "the material class, tool material or tool diameter is unknown"
+        if debt is not None:
+            why += f": {debt['id']} ({debt['status']}): {debt['reason'].rstrip('.')}"
+        return UNKNOWN, UNKNOWN, why
     matching = []
     for row in records(mapping(bundle.cutting_data).get("plunge")):
         band = row.get("diameter_range", UNKNOWN)
@@ -354,44 +434,9 @@ def evaluate(bundle):
                 continue
             tool = resolve(bundle, "tools", op.get("tool")) or {}
             diameter = _diameter(bundle, setup, op, tool, lathe)
-            action = _operation(op["do"])
+            action = _operation(op, tool)
             tool_material = tool.get("material", UNKNOWN)
-            sfm = chip = per_rev = UNKNOWN
-            source = UNKNOWN
-            range_unknown = False
-            chart = tool.get("chart", UNKNOWN)
-            if _cited(chart):
-                source = chart
-                sfm, chip = tool.get("sfm", UNKNOWN), tool.get("chip_load_mm_per_tooth", UNKNOWN)
-                per_rev = tool.get("feed_mm_rev", UNKNOWN)
-            else:
-                matching = []
-                for row in records(cutting.get("cut")):
-                    if (
-                        row.get("material_class"),
-                        row.get("tool_material"),
-                        row.get("operation"),
-                    ) != (material_class, tool_material, action):
-                        continue
-                    band = row.get("diameter_range", UNKNOWN)
-                    if (
-                        not isinstance(band, list)
-                        or len(band) != 2
-                        or not all(number(v) for v in band)
-                    ):
-                        range_unknown = True
-                        continue
-                    if number(diameter) and band[0] <= diameter <= band[1]:
-                        matching.append(row)
-                if len(matching) == 1 and _cited(matching[0].get("cite")):
-                    selected = matching[0]
-                    source = selected["cite"]
-                    sfm, chip, per_rev = (
-                        selected.get("sfm", UNKNOWN),
-                        selected.get("chip_load_mm_per_tooth", UNKNOWN),
-                        selected.get("feed_mm_rev", UNKNOWN),
-                    )
-                    range_unknown |= uncertain(selected)
+            sfm, chip, per_rev, source, range_unknown = _starting_data(bundle, op, tool, diameter)
             planned = lathe and "feed_mm_rev" in op
             if planned:
                 # One feed: the op's planned feed per rev, the one turning_deflection
@@ -438,6 +483,15 @@ def evaluate(bundle):
                 "cutting_data_row": source,
                 "rpm_range_verify": uncertain(machine),
             }
+            if action == "drill" and tool.get("kind") in DRILL_KINDS:
+                numbers["feed_direction"] = "axial"
+                numbers["axial_feed_mm_rev"] = (
+                    per_rev
+                    if lathe
+                    else flutes * chip
+                    if _positive(flutes) and _positive(chip)
+                    else UNKNOWN
+                )
             plunge_cite = UNKNOWN
             if not lathe and isinstance(op.get("contour"), dict):
                 plunge, plunge_cite, why = plunge_row(bundle, op)
@@ -456,6 +510,11 @@ def evaluate(bundle):
                 or range_unknown
                 or deep_unknown
             )
+            if unknown and tool and (not lathe or op.get("do") in _AXIAL_LATHE_ACTIONS):
+                category, identity, _ = select(bundle, op.get("tool"), "tools")
+                debt = length_debt(tool, "dia", category, identity)
+                if debt is not None:
+                    numbers["measurements"] = [debt]
             cite = [
                 "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 "
                 "ties-to-even then clamp",
@@ -478,7 +537,11 @@ def evaluate(bundle):
                 )
                 cite.extend(deep_source if isinstance(deep_source, list) else [deep_source])
             if _cited(plunge_cite):
-                cite.append("cutting-data plunge: plunge feed = RPM x feed_mm_rev")
+                cite.append(
+                    "drilling plunge feed = RPM x flutes x chip_load_mm_per_tooth"
+                    if tool.get("kind") in DRILL_KINDS and action == "drill"
+                    else "cutting-data plunge: plunge feed = RPM x feed_mm_rev"
+                )
                 cite.extend(plunge_cite if isinstance(plunge_cite, list) else [plunge_cite])
             sentence = (
                 (

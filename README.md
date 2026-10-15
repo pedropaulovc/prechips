@@ -16,6 +16,9 @@ measurement checklist. It checks declared facts and sampled B-rep measurements,
 not a CAM simulation or a CAD model's machinability, and does not generate
 toolpaths.
 
+Setup and profile pictures follow the [render geometry contract](docs/rules-geometry.md#renders): a separate paint-only finished-outline stream uses scale-aware deflection requested within 0.5 px at the maximum fourfold Y stretch, without a fixed 0.001 mm floor; coincident-only profiles have no profile-derived bound and guide views retain their bounded scale. The fine discretization has no coarser retry; an exception fails the job with error status. This bounds the request, not an independently certified vendor polyline.
+[Traveler render binding](docs/report-and-telemetry.md#kernel-renders) preserves main's accepted leader placement: the original ordinary-tolerance outline samples, in their original edge order, remain every layout, viewport and anchor input. Fine samples affect only outline painting. PR #198 retains tessellation accuracy only; [#211](https://github.com/pedropaulovc/prechips/issues/211) remains open for a dedicated future leader PR. This changes no authored coordinates, cutting values, inventory facts or policy verdicts.
+
 The reference bundles include consumer-exported geometry. With `approach = "rotary"`,
 M4 evaluates horizontal dividing-head samples presented at top dead centre to a vertical
 cutter, with window-bounded radial and wall-tangent cutter-column removal
@@ -32,22 +35,21 @@ remain unobserved. Exported CAD inputs and artifact validation do not establish
 those acceptances. See [PLAN.md](PLAN.md) for the current contract and remaining
 acceptance work.
 
-The built-up cone's truthful #192 interim evaluation is exit **4**. This
-draft retains the inherited, unregenerated exit-0 golden; it is not evidence
-for the new engine. Main's feature-name-only retouch bypass ignored overlapping holes
+The built-up cone now truthfully stops with exit **4**: main's feature-name-only
+retouch bypass ignored overlapping holes
 ([`b7c7d295`](https://github.com/pedropaulovc/prechips/commit/b7c7d295f8ec2d1c5be4377184bd0c013df958af),
 [`f530cce4`](https://github.com/pedropaulovc/prechips/commit/f530cce40ae90ea44105a72010e962f168cb4dee),
 [`d837c883`](https://github.com/pedropaulovc/prechips/commit/d837c88363788c08c42b45fb69d532a2b940732f)).
 The [offline STEP/native-cache provenance summary](examples/README.md#expected-consumer-cli-exits)
 shows ample real land: at least 2.4596 mm (about 2.46 mm), versus the 0.5 mm
-policy. [#208](https://github.com/pedropaulovc/prechips/issues/208) now supplies
+policy. Release 0.1.1 includes #198, #192 and #199 with that documented interim
+exit 4. [#208](https://github.com/pedropaulovc/prechips/issues/208) now supplies
 the missing proof: native job schema 2 exports each face's exact outer and
 inner wires, and the host certifies a 0.5 mm square on complete circles only,
 with native and carried-source normal corner-height bounds each at most 1e-6 mm
 ([usable land](docs/rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check)).
 That rule is expected to restore the exactly parallel cone to exit 0 under the
-height guard, but #208 is deferred to **0.1.2**, alongside #199;
-**0.1.1 ships #198 and #192 only**.
+height guard, but exit-0 restoration by #208 is deferred to release **0.1.2**.
 Native acceptance is **PENDING** and no native run was made for this draft.
 Cold regeneration needs a later explicit GO; see the
 [#208 acceptance status](docs/rules-operations.md#issue-208-acceptance-status).
@@ -181,9 +183,14 @@ package version. `--json` and `--verbose` default off.
   deduplicated by exact report id, set members and tool/holder pairs included,
   each with what to measure, instrument, units and citation. It is not an
   inventory-wide field walk: nothing no rule reads is listed, and it adds no
-  tool purchases or unlisted set members. It evaluates only the host-side
-  measurement rules (headroom, envelope and travel) and never launches FreeCAD;
-  referenced inputs and STEP hashes are still validated.
+  tool purchases or unlisted set members. It evaluates every rule on the host
+  (no FreeCAD discovery, execution or cache: the run starts from a truthful
+  `geometry was not requested` unknown kernel result) and adds the facts the
+  kernel job builder refuses, so there is no partial list of
+  "measurement rules". The contract is completeness:
+  measuring every listed fact clears every recorded-provenance `?` of those
+  plans; a provenance `?` the list does not name is a checklist bug.
+  Referenced inputs and STEP hashes are still validated.
   `--plan` is only valid with `--measure`.
 - **compare** writes `compare.json` and a side-by-side table (JSON with `--json`):
   candidate identity, part, setup count, required fixtures, waste ratio, findings
@@ -275,8 +282,9 @@ Radius extrema, a feature name or a polygon/unsupported wire prove no usable
 circular land.
 An oblique plane without exact native source-plane or bound datum evidence
 stays `?`, never an assumed Z.
-Each touch row lists the credited STEP refs as `credited_faces`, which the traveler prints
-as `produced plane: …` ([coordinates](docs/rules-coordinates.md)).
+Each touch row retains the credited STEP refs as `credited_faces` in the report JSON
+for validation, not on the operator card; the traveler names the face and any
+required contact constraint ([coordinates](docs/rules-coordinates.md)).
 
 The literal `"unknown"` never means zero, absence, approval or a pass. A
 `verify = true` inventory entry is verification debt, not certified geometry:
@@ -294,16 +302,23 @@ built-in required-rule set.
 
 M5 machine envelope limits, fixture bed height, holder gauge/grip, tool OAL
 and tool/holder projection need a fact-local
-`measured = { by, date, instrument }`; clearing `verify` alone is not
-measurement, and nothing is inherited from a block, item root or source. The
+`measured = { status = "measured", by, date, instrument }`; `status` is
+`measured`, `assumed` or `illustrative` (omitted means `assumed`), only
+`measured` with complete `by`/`date`/`instrument` qualifies a fact, the text
+of `by` is attribution the rules never read for trust, clearing `verify`
+alone is not measurement, and nothing is inherited from a block, item root or
+source. The
 mill's limits live only in `machines.PM-30MV.envelope` (travel X/Y/Z,
 spindle-to-table max/min), read by `headroom`, `envelope` and `travel` alike;
 the vendor nominals remain unchanged and `verify = true`. The example PM 6 in
 vise has a fact-local measured table-to-bed height of 2.886 in without the
 swivel base; its other measurements and provenance are in the
 [example guide](examples/README.md#files-and-expected-exits). Other example
-dimensions may be labelled plausible, not measured, and do not establish real
-shop capability. A tool's projection is a per-holder map
+dimensions are demonstration fixtures: realistic values whose
+`status = "measured"` record carries the exact marker
+`by = "example value (realistic, not a shop measurement)"`, so they exercise
+the measured branch without establishing real shop capability; a few are
+deliberately `status = "assumed"` and stay `?`. A tool's projection is a per-holder map
 (`tools.<tool>.projection_mm.<full holder ref>`), never a holder-wide or
 tool-wide number; when the selected pair has an entry that entry alone
 decides, so an `"unknown"` entry never falls back to OAL − grip, and only an
@@ -333,8 +348,32 @@ tables, with the rough allowance added to the cutter radius.
 The PM-30MV is a manual mill: arcs follow the 1898 manual method
 ([plan Manual arcs](docs/plan.md#manual-arcs)). A `scribe` op lays out the
 centre, radius and ends; a rough op steps single-axis `stairs` or drills a
-`chain_drill` outside the line, every corner and full hole proven outside it and
-the leftover held to the shop policy's cited `max_filing_stock_mm`; a
+`chain_drill` outside the line, including straight joins: each finite drill leg
+keeps exact endpoints and nominal holes at equal intervals no greater than the
+pitch (DRO-grid snapping can move the printed spacing). Method, stage,
+full-hole-outside-the-line and requested-pitch-leaves-no-web errors are found
+before clipping; a bounded chain
+is then clipped at drill granularity (offset path intersected with the bounds
+eroded by the drill radius, each retained arc or leg regenerated with equal
+nominal intervals within pitch that still leave a web, a too-short span
+dropping its end hole rather than failing, every hole snapped to a safe grid
+point: every hole searches a symmetric square of three grid steps per axis,
+choosing the nearest safe point by Euclidean distance; ends and junctions
+may back off inward along the true curve; every actual hole cylinder
+judged; swept-chord clip points never become holes), every retained web and
+break-out is proven outside the line, the table names only true dropped ends
+and piece breaks where stock beyond is not cleared, omitted joins add no join
+debt while other tables remain (a
+wholly excluded or disconnected stage keeps its clip debt), and the worst
+residual (arc radial depth, and the join break-out polyline's greatest
+distance to the nearest finished wall) is held once to the shop policy's cited
+`max_filing_stock_mm`. The kernel credits an unbounded chain with its actual
+drilled cylinders only: the webs stay in stock until a later known removal
+(no sweep between centres, no corridor or +Z claim sweep), retained webs on a
+claimed wall are named stock debt pointing at `stock_removal_bounds`, and
+declaring that box on the chain op is the author's certification of the
+actual break-out footprint, not a demonstrated toolpath (explicit break-out
+phase: [#213](https://github.com/pedropaulovc/prechips/issues/213)); a
 `file_to_line` op at the bench files to hardened buttons pinned through the
 arc's bore (or a template) and checks R with a radius gauge whose range covers
 it. `chords` (sagitta proven inside the band, ends on the DRO grid) and a
@@ -406,7 +445,9 @@ tool `dia` / `flute_len` / `oal`, the holder `gauge_dia` / `gauge_len` /
 `grip` and the tool/holder projection are read as M5 fact-local length
 facts with measurement not required: a plain nominal number is accepted
 geometry without `by`/`date`/`instrument`, a fact whose own record carries
-`verify = true` or an incomplete `measured` is debt for that dimension only,
+`verify = true`, an incomplete `measured` or a `measured` whose `status` is
+not `measured` (`assumed`, `illustrative` or omitted) is debt for that
+dimension only,
 and an item-level `verify` / `present` / `source` flag never withholds that
 item's numbers from the kernel. The M5 `envelope` / `travel` screens
 separately require complete shop measurements of the same holder gauge/grip,
@@ -500,6 +541,10 @@ only on that proof). Contour tables
 repeat their op, tool and Z on a continued page and never wrap a coordinate; a Z
 every row shares prints only there, never as a column, and the point rows are
 numbered on through the op's tables.
+A drill roughing a profile by `chain_drill` uses drilling cutting data and
+prints axial mm/min and mm/rev; its plunge feed is the same drilling feed, not an
+end-mill `[[plunge]]` recommendation.
+Ordinary drill operation cards also print axial mm/min and mm/rev.
 The mill CLEARANCE section prints a short stack/travel verdict and a per-op table
 of the closest obstacle (headroom, jaw tops, holder face above the stock beside
 the tool, a reach finding's declared clearances, or the holding solid the kernel
@@ -724,7 +769,8 @@ is never credited with a later op's removal. Missing surface normals or
 unresolved pose facts never become clearance or reach passes.
 Facing uses a planar outer-wire sweep to clear raw caps over hole mouths
 while preserving finished islands. `stock_removal_bounds` is an authored
-cleared footprint (possibly several passes), not capped to the claims' XY
+cleared footprint (possibly several passes, or a chain drill's certified
+break-out), not capped to the claims' XY
 bounding box plus cutter radius and not a toolpath proof; known radius,
 finite bounds, stock intersection, finished protection, exact claim/piece
 contact, future hole columns and no split of an original solid still apply.

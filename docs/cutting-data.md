@@ -17,10 +17,27 @@ else from the same cited row or tool chart, under the
 same citation and verify rules as the chip load. Numbers are starting points,
 not cut-force or stability limits.
 
+A `rough_profile` whose contour method is `chain_drill` and whose tool kind
+is `drill` (including `drill_index`/`drill_set` members) selects
+`operation = "drill"`, not an end-mill `profile` row.
+The drilling chip load times flutes is its axial feed per revolution, also
+used for plunge; `[[plunge]]` is exclusively end-mill data. A tool chart
+still has precedence but is not needed to work around chain-drill lookup.
+Keep a cited per-tool chart when it records a deliberate drilling feed
+choice: removing it selects the shop row's feed, which may be higher.
+Drill feed cells show both axial mm/min and mm/rev for a hand-fed quill;
+the latter is the same chip load times flute count, not another recommendation.
+Chain drills also consume matching `[[deep_hole]]` rows: depth is the
+before-state feature entry (else stock top) minus `to_z` in manifest units,
+converted to mm, not the previous chain op's endpoint or its approach lift.
+
 The operation ledger keeps the cited speed/feed recommendation beside its
 action in authored order. Marking that operation performed does not accept the
 recommendation or verify actual cutting conditions. The paper layout adds no
 cutting-data field and does not replace unknown recommendations with numbers.
+
+Cutting-data rows supply recommendations, not picture geometry or scale; those come from the setup, manifest and inventory under [render geometry](rules-geometry.md#renders).
+[Traveler outline overlays](report-and-telemetry.md#kernel-renders) use a separate bounded stream for painting only, preserving main's accepted leaders and all original ordinary-tolerance layout and anchor inputs. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR. This adds no cutting-data field and changes no cited cutting values, RPM or feed recommendations.
 
 Speed/feed suggestions also prove neither physical material at a post-cut
 touch location nor the tool geometry used to exclude a cut's footprint. A cited
@@ -62,7 +79,10 @@ needed. `K_c` is N/mm² and `E` is GPa (converted explicitly to N/mm²); authore
 radial DOC and feed/revolution supply the force inputs. The shipped example
 rows are illustrative example values, labelled `example (plausible, not
 measured)` and checked against the cited published ranges; they are not shop
-measurements. Missing sources, values, geometry or material verification remain
+measurements, and a cutting-data cite is never read as one (only an inventory
+fact's own [`measured.status`](inventory.md#measured-envelopes-and-installed-tool-stacks-m5)
+is). Cutting-data rows carry no `status` field: their trust is the existing
+cite/verify contract on this page, unchanged. Missing sources, values, geometry or material verification remain
 unresolved, not zero deflection. Adding a numerical row requires real source
 evidence.
 

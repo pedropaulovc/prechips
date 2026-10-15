@@ -161,6 +161,30 @@ def finding(rule, bundle, subject=None):
 
 
 def test_missing_kernel_cannot_be_waived_and_does_not_spawn(bundle, monkeypatch):
+    # Isolate missing-kernel behavior from the factory's optional tool/fixture facts.
+    for category, identity, field, value in (
+        ("tools", "em", "shank_mm", 6.0),
+        ("fixtures", "parallels", "length_mm", 50.0),
+        ("fixtures", "parallels", "width_mm", 6.0),
+    ):
+        bundle.inventory[category][identity][field] = {
+            "value": value,
+            "measured": {
+                "status": "measured",
+                "by": "test",
+                "date": "2026-10-12",
+                "instrument": "synthetic calipers",
+            },
+        }
+    bundle.inventory["machines"]["mill"]["resolution_mm"] = {
+        "value": 0.005,
+        "measured": {
+            "status": "measured",
+            "by": "test",
+            "date": "2026-10-12",
+            "instrument": "synthetic installed readout",
+        },
+    }
     object.__setattr__(bundle, "kernel", None)
     monkeypatch.setenv("FREECAD_CMD", str(bundle.root / "not-installed.exe"))
     monkeypatch.setattr(
@@ -213,7 +237,7 @@ def test_unknown_feature_refs_never_use_stale_numeric_facts(bundle, rule):
     [
         {"verify": True},
         {"verify": "unknown"},
-        {"measured": {"by": "test", "date": "2026-10-03"}},
+        {"measured": {"status": "measured", "by": "test", "date": "2026-10-03"}},
     ],
 )
 def test_fixture_fact_debt_never_certifies_nominal_dimensions(bundle, rule, debt):
@@ -301,7 +325,7 @@ def test_measured_shank_and_centre_drill_seat_cone_set_where_the_shank_begins(bu
     tool = bundle.inventory["tools"]["em"]
     tool["shank_mm"] = {
         "value": 5.0,
-        "measured": {"by": "t", "date": "2026-10-05", "instrument": "m"},
+        "measured": {"status": "measured", "by": "t", "date": "2026-10-05", "instrument": "m"},
     }
     inputs = kernel.build_job(bundle)["setups"][0]["ops"][0]
     assert inputs["shank_radius_mm"] == 2.5 and inputs["shank_from_mm"] == 10.0
@@ -386,6 +410,45 @@ def test_finish_coverage_accepts_overlapping_claim_from_another_feature(bundle):
     bundle.kernel["features"]["finish_face"] = [1]
     rows = finish_coverage.evaluate(bundle)
     assert {row.subject: row.status for row in rows} == {"pocket": "pass", "finish_face": "pass"}
+
+
+@pytest.mark.parametrize(
+    "unresolved,pocket_status",
+    [
+        # A hand finisher whose stock-chain facts are unknown names only face #2.
+        ({"do": "file_to_line", "feature": "finish_face"}, "pass"),
+        # An unknown action on a feature still bounds the faces it could finish.
+        ({"do": "unknown", "feature": "finish_face"}, "pass"),
+        # Unknown face refs bound nothing: every finish row stays conservatively unknown.
+        ({"do": "file_to_line", "feature": "finish_face", "faces": "unknown"}, "unknown"),
+    ],
+    ids=["unresolved-hand-finish", "unknown-action", "unbounded-refs"],
+)
+def test_finish_coverage_debt_is_scoped_to_the_unresolved_claims_faces(
+    bundle, unresolved, pocket_status
+):
+    bundle.features["features"]["finish_face"] = {
+        "kind": "face",
+        "faces": ["#2"],
+        "finish_ra": 1.6,
+        "requirements": ["finish_ra"],
+    }
+    bundle.kernel["features"]["finish_face"] = [2]
+    before = finding(finish_coverage, bundle, "pocket")
+    assert before.status == "pass"
+    bundle.plan["setups"][0]["ops"].append({"op": 20, **unresolved})
+    bundle.kernel["ops"]["S1:20"] = {
+        "approach": "hand",
+        "claimed_indices": "unknown",
+        "claim_errors": [],
+        "reasons": {"claimed_indices": "stock deeper than max_filing_stock_mm"},
+    }
+    rows = {row.subject: row for row in finish_coverage.evaluate(bundle)}
+    assert rows["finish_face"].status == "unknown"
+    assert "finishing operation claims are unresolved" in rows["finish_face"].sentence
+    assert rows["pocket"].status == pocket_status
+    if pocket_status == "pass":
+        assert rows["pocket"] == before
 
 
 @pytest.mark.parametrize(
@@ -986,6 +1049,9 @@ def test_certain_accessibility_hit_fails_even_when_other_extent_is_unresolved(
 @pytest.mark.parametrize("kind", ["tool", "holder"])
 @pytest.mark.parametrize("hits,status", [(0, "unknown"), (4, "error")])
 def test_certain_hits_survive_unknown_context(bundle, debt, kind, hits, status):
+    if (debt, kind, hits) == ("stock", "tool", 4):
+        # Unknown stock cannot produce a certain tool minimum.
+        hits, status = "unknown", "unknown"
     detail = bundle.kernel["ops"]["S1:10"]
     detail.update(tool_hits="unknown", holder_hits="unknown", min_hits={kind: hits})
     if debt == "stock":
@@ -996,7 +1062,9 @@ def test_certain_hits_survive_unknown_context(bundle, debt, kind, hits, status):
         bundle.inventory["tools"]["em"]["flute_len_mm"] = "unknown"
     row = finding(accessibility, bundle)
     assert row.status == status
-    if hits:
+    if hits == "unknown":
+        assert "certain_tool_hits" not in row.numbers
+    elif hits:
         assert row.numbers["certain_" + kind + "_hits"] == hits
         assert exit_code([row], {"required": {}}, bundle) == 2
 
@@ -1102,7 +1170,7 @@ def test_unrelated_item_source_and_member_debt_do_not_taint_lengths(bundle, memb
     [
         "unknown",
         {"value": 25.0, "verify": True},
-        {"value": 25.0, "measured": {"by": "test", "date": "2026-10-03"}},
+        {"value": 25.0, "measured": {"status": "measured", "by": "test", "date": "2026-10-03"}},
     ],
 )
 def test_selected_projection_debt_never_falls_back_to_known_oal_and_grip(bundle, projection):
@@ -1132,7 +1200,12 @@ def test_geometry_accepts_measured_dimensions_without_inherited_debt(
     for field in fields:
         item[field] = {
             "value": item[field],
-            "measured": {"by": "test", "date": "2026-10-03", "instrument": "synthetic calipers"},
+            "measured": {
+                "status": "measured",
+                "by": "test",
+                "date": "2026-10-03",
+                "instrument": "synthetic calipers",
+            },
         }
     parsed = Inventory.model_validate(deepcopy(bundle.inventory)).model_dump(exclude_unset=True)
     object.__setattr__(bundle, "inventory", parsed)
@@ -1254,7 +1327,7 @@ def test_actual_selected_projection_precedence_and_fact_local_trust(
     for projection in (
         "unknown",
         {"value": 75.0, "verify": True},
-        {"value": 75.0, "measured": {"by": "test", "date": "2026-10-03"}},
+        {"value": 75.0, "measured": {"status": "measured", "by": "test", "date": "2026-10-03"}},
     ):
         candidate = deepcopy(known)
         candidate.inventory["tools"]["cutters"]["members"]["long"]["projection_mm"] = {

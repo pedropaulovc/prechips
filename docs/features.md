@@ -28,6 +28,17 @@ It is not a general fit-system basic-size field: displaced g6/p6 zones can
 exclude the reference basic size, and interpreting those fit semantics is not
 implemented. Do not conflate a fit's reference geometry with its acceptance
 target.
+
+Manifest units, frames and bound STEP geometry supply the finished-outline coordinates and projected spans used for picture scale under [render geometry](rules-geometry.md#renders).
+[Traveler outline overlays](report-and-telemetry.md#kernel-renders) use a separate bounded stream for painting only, preserving main's accepted leaders and all original ordinary-tolerance layout and anchor inputs. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR. This adds no manifest field and changes no authored feature coordinates, nominal dimensions, tolerance bands or requirement identities.
+
+Chain drilling does not require an invented hole feature or a new manifest field.
+For a drill-kind `rough_profile` / `chain_drill` operation, deep-hole speed
+derating uses the canonical before-stock state's entry for the named feature
+(else its stock top), minus the plan's `to_z`, converted from manifest units
+to mm. An earlier chain operation's endpoint is not the next entry surface.
+See [cutting data](cutting-data.md) for row selection and unresolved-depth behavior.
+
 `separation` is a supported dimension/tolerance field: for example,
 `requirements = ["separation"]` with `separation = [9.9, 10.1]` declares a band
 that needs its own `checks.separation` inspection gauge. Supplying
@@ -88,7 +99,10 @@ keeps a hand-authored `features.toml` on the consumer v39 STEP
 (`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`).
 There is no dimensioned bracket drawing, so its acceptance bands are
 illustrative example design intent, not measured or imported drawing limits.
-Exported face sets do not establish operation coverage, measured setup binding
+Exported face sets, CAD source metadata and citations do not establish
+operation coverage, measured setup binding, a physical shop measurement (that
+is only an inventory fact's own
+[`measured.status = "measured"`](inventory.md#measured-envelopes-and-installed-tool-stacks-m5))
 or machining approval.
 `cite`, `cite_root`, and per-dimension citations identify evidence and
 are not file assets fetched or opened during the check. Python citations use

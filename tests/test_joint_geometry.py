@@ -756,6 +756,23 @@ def test_partial_spot_profile_does_not_claim_full_through_cylinder(engine, joint
     assert "assembly_error" in facts["setups"]["join"]
 
 
+def test_stopping_joint_axial_cut_withholds_part_certainty_not_holder_minima(engine, joint_solids):
+    trusted = _joint_job(engine, joint_solids["joined"])
+    stopped = _joint_job(engine, joint_solids["joined"])
+    stopped["setups"][0]["ops"][0]["to_z"] = "unknown"
+    control, blocked = engine.run({"jobs": [trusted, stopped]})["results"]
+    known = control["ops"]["socket-cut:10"]
+    detail = blocked["ops"]["socket-cut:10"]
+    assert known["min_hits"]["tool"] == 0
+    assert detail["tool_hits"] == detail["min_hits"]["tool"] == "unknown"
+    assert detail["min_hits"]["holder"] == known["min_hits"]["holder"]
+    assert detail["corner_radii_mm"] == known["corner_radii_mm"] == []
+    assert detail["claimed_indices"] == known["claimed_indices"]
+    assert "its own cut stopped the stock builder" in detail["reasons"]["tool_hits"]
+    assert "before-op stock is known" in detail["reasons"]["tool_hits"]
+    assert "to_z is unknown" in detail["reasons"]["tool_hits"]
+
+
 @pytest.mark.parametrize("action", ["tap", "counterbore"])
 def test_unsupported_joint_profiles_withhold_cut_and_join_geometry(engine, joint_solids, action):
     job = _joint_job(engine, joint_solids["joined"])
@@ -806,7 +823,7 @@ def test_unknown_boss_stock_does_not_report_other_component_as_certain_obstacle(
     }
     job["setups"].insert(2, probe)
     detail = engine.run(job)["ops"]["probe:10"]
-    assert detail["min_hits"] == {"tool": 0, "holder": 0}
+    assert detail["min_hits"] == {"tool": "unknown", "holder": 0}
     assert detail["tool_hits"] == "unknown"
     assert detail["holder_hits"] == "unknown"
 

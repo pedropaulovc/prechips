@@ -39,7 +39,12 @@ bored.cut(Part.makeCylinder(3, 3, V(32, 10, 8))).exportStep(out + "/relieved.ste
 bored.cut(Part.makeCylinder(3, 12, V(32, 10, -1))).exportStep(out + "/cross-relieved.step")
 """
 
-MEASURED = {"by": "test", "date": "2026-10-05", "instrument": "test fixture author"}
+MEASURED = {
+    "status": "measured",
+    "by": "test",
+    "date": "2026-10-05",
+    "instrument": "test fixture author",
+}
 
 
 @pytest.fixture(scope="module")
@@ -910,13 +915,37 @@ def test_unverified_solids_and_undeclared_supports_become_gaps():
     plate = {
         "kind": "angle_plate",
         "solids": [
-            {**_box("upright", [0, 0, 0], [10, 10, 10]), "verify": True},
+            {
+                **_box("upright", [0, 0, 0], [10, 10, 10]),
+                "verify": True,
+                "cite": ["synthetic fixture: upright verification control"],
+            },
             {**_box("base", [0, 0, 0], [10, 10, 10]), "measured": MEASURED},
         ],
     }
     hold = _hold({"angle": plate}, {"fixture": "angle", "pose": {"origin_mm": [0, 0, 0], **UP}})
     assert [solid["name"] for solid in hold["solids"]] == ["angle:base"]
-    assert hold["gaps"] == ["angle solid upright: This fact explicitly requires verification."]
+    # Gaps carry canonical fact IDs; the structured debt retains the human diagnosis.
+    assert hold["gaps"] == ["fixtures.angle.solids.upright"]
+    assert hold["measurement_debts"] == [
+        {
+            "id": "fixtures.angle.solids.upright",
+            "category": "fixtures",
+            "identity": "angle",
+            "field": ["solids", "upright"],
+            "instruction": (
+                "measure: angle fixture solid upright length, width and height, and position "
+                "from its mounting datum, calipers and height gauge, mm"
+            ),
+            "units": "mm",
+            "status": "unmeasured",
+            "reason": "This fact explicitly requires verification.",
+            "cite": [
+                "inventory.fixtures.angle.solids.upright",
+                "synthetic fixture: upright verification control",
+            ],
+        }
+    ]
     centre = {"kind": "dead_centre", "dia_mm": 20.0, "length_mm": 40.0, "point_angle": 60.0}
     supported = _hold(
         {"chuck": _CHUCK_ITEM, "centre": centre},

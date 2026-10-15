@@ -39,6 +39,16 @@ not a rule `pass`, inspection acceptance, clearance to proceed, readiness or
 approval, and adds no policy selector or status. Handwritten marks cannot clear
 STOP/unknown findings or change the report's gate.
 
+Policy selectors and thresholds govern findings and the report gate, not picture geometry or scale, whose contract is in [render geometry](rules-geometry.md#renders).
+[Traveler outline overlays](report-and-telemetry.md#kernel-renders) use a separate bounded stream for painting only, preserving main's accepted leaders and all original ordinary-tolerance layout and anchor inputs. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR. This adds no policy field, waiver or verdict and cannot turn unknown or unsupported geometry into approval.
+
+Drill-kind `rough_profile` / `chain_drill` operations retain their existing
+`setup:op` finding subjects while `speeds_feeds` selects drilling data and
+reports axial feed. No policy selector or waiver is added: missing, ambiguous
+or uncited drilling data remains unresolved and blocks when required, just
+like other cutting starts. See [cutting data](cutting-data.md) for tool-chart
+precedence and deep-hole derating.
+
 Post-cut touch-land certificates fail closed to unknown when current-setup
 native facts are missing, circular loops fail the strict nesting/disjointness
 or native-area checks, stock geometry is unsupported or misaligned, or no
@@ -63,7 +73,8 @@ M5 does not change this default. To require measured mill feasibility, add
 `envelope = "*"` and `travel = "*"` to the shop's `[required]` table alongside
 its existing requirements. There is no `holder_stack` rule to require: a
 selected holder's unmeasured gauge keeps `envelope` and `travel` at `?`
-where that gauge is consumed. Missing or vendor-only values produce `?` and
+where that gauge is consumed. Missing, vendor-only, `assumed` or
+`illustrative` values produce `?` and
 exit 4 when required; a measured envelope/travel violation always produces
 exit 2. Mill-only envelope/travel rows are `not_applicable` on a lathe.
 See [measured setup screens](rules-setup.md#m5-measured-inventory-screens) and

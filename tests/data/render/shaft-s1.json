@@ -301,6 +301,7 @@
   "Brown/purple: holding. Green: selected tool and approach."
  ],
  "nominal_outline_mm": [],
+ "nominal_render_outline_mm": [],
  "notes": [
   "Jaw-end profile is a window; this setup's cuts continue to Z 166.0 (main view)."
  ],
