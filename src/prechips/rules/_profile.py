@@ -5,8 +5,8 @@ surface inside a zone ``t`` wide about the true profile the BASIC dimensions loc
 that frame, ``U`` of it on the side where material is added (``t / 2`` when unstated).
 The band it gives a governed BASIC requirement is pointwise: a length read along the
 surface normal from the DRF-located BASIC origin (a radius about its BASIC centre, a
-height at a point of the surface), never a fitted size. Docs: docs/features.md "Surface
-profiles".
+height at a point of the surface; a diameter spans two such radii), never a fitted size.
+Docs: docs/features.md "Surface profiles".
 """
 
 import math
@@ -15,6 +15,9 @@ from prechips import trig
 from prechips.model import profile_target
 
 from .resolution import UNKNOWN, number, record
+
+# BASIC diameters: the surface moves radially on both sides, so each offset counts twice.
+DIAMETERS = frozenset({"dia", "nominal_dia"})
 
 
 def governing(bundle, name, requirement):
@@ -44,7 +47,7 @@ def requirement_band(bundle, name, requirement):
         return None, f"the drawing states no band for {name} {requirement}"
     bands = []
     for owner, entry in profiles:
-        band, reason = _zone_band(bundle, owner, entry, feature, value)
+        band, reason = _zone_band(bundle, owner, entry, feature, value, requirement)
         if band is None:
             return None, f"{owner} surface profile: {reason}"
         bands.append(band)
@@ -52,9 +55,9 @@ def requirement_band(bundle, name, requirement):
     return [max(lo for lo, _ in bands), min(hi for _, hi in bands)], f"surface profile {owners}"
 
 
-def _zone_band(bundle, owner, entry, feature, nominal):
+def _zone_band(bundle, owner, entry, feature, nominal, requirement):
     """``(band, reason)`` one profile of feature ``owner`` gives the BASIC ``nominal`` of
-    a requirement of ``feature`` it governs with ``entry``."""
+    ``requirement`` of ``feature``, which it governs with ``entry``."""
     profile = record(record(bundle.features.get("features")).get(owner))
     zone = profile.get("surface_profile", UNKNOWN)
     datums = profile.get("surface_profile_datums", UNKNOWN)
@@ -84,7 +87,7 @@ def _zone_band(bundle, owner, entry, feature, nominal):
     sense, obliquity = (
         (entry["sense"], entry["obliquity_deg"]) if isinstance(entry, dict) else (entry, 0.0)
     )
-    scale = 1.0 / trig.cos(math.radians(obliquity))
+    scale = (2.0 if requirement in DIAMETERS else 1.0) / trig.cos(math.radians(obliquity))
     added, removed = disposition * scale, (zone - disposition) * scale
     if sense == "increases":
         return [nominal - removed, nominal + added], None

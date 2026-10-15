@@ -194,9 +194,9 @@ their profile zones tolerance, so without these fields they had no band.
 
 | Field | Meaning |
 |---|---|
-| `surface_profile` | Total zone width `t` > 0 (manifest units) or `"unknown"`. List `"surface_profile"` in `requirements`; it is inspected as a zone [0, t] like `position_dia`. |
+| `surface_profile` | Total zone width `t` > 0 (manifest units) or `"unknown"`. The feature must list `"surface_profile"` in a known `requirements` list (else bad input); it is inspected as a zone [0, t] like `position_dia`. |
 | `surface_profile_u` | Optional `U`, the part of `t` on the side where material is added, 0 <= U <= t, or `"unknown"`. Omitted: equal-bilateral, U = t/2. |
-| `surface_profile_datums` | Datum reference frame in precedence order, e.g. `["A", "B", "C"]`. |
+| `surface_profile_datums` | Datum reference frame in precedence order, e.g. `["A", "B", "C"]`; `[]` is a form-only profile. Omitted or `"unknown"`, the zone's inspection and every band it derives stay unknown. |
 | `surface_profile_governs` | Table of the BASIC scalar requirements the zone governs: a bare key (`"radius"`) is this feature's requirement, `"feature:requirement"` (`"tip_land_pos_x:station"`) another feature's. |
 
 A `surface_profile_governs` entry says how the governed BASIC value `n` reads in the zone:
@@ -206,7 +206,10 @@ A `surface_profile_governs` entry says how the governed BASIC value `n` reads in
   normal is the reading direction) grows or shrinks when material is added at
   the surface. `"increases"` gives [n - (t - U), n + U]; `"decreases"` gives
   [n - U, n + (t - U)]. A concave edge's radius decreases with added material, a
-  convex boss's radius increases.
+  convex boss's radius increases. A governed BASIC diameter (`dia`,
+  `nominal_dia`) spans two radial readings, so each offset counts twice: a boss
+  `dia` D with t = U = 0.2 `"increases"` to [D, D + 0.4]; a bore's diameter
+  `"decreases"`.
 - `{ sense = "increases" | "decreases", obliquity_deg = θ }`, 0 <= θ < 90: the same
   BASIC length read at θ to a planar governed surface's normal at a fixed
   transverse station (the rocker tip land's X station, 10.46° off the land
@@ -236,7 +239,8 @@ entry is unknown, when the DRF is empty (a datumless profile controls form only,
 never a size, location or orientation), when a `tilt_across` band's lower limit
 is unknown, or when one of several governing profiles is unresolved. Bad input
 (exit 3): `surface_profile_u`, `surface_profile_datums` or
-`surface_profile_governs` without `surface_profile`; t <= 0; U outside [0, t];
+`surface_profile_governs` without `surface_profile`; a zone its feature's
+`requirements` does not list (or an omitted/unknown list); t <= 0; U outside [0, t];
 a governed key naming a missing feature, or a requirement not listed in that
 feature's `requirements`, or one whose value is not a BASIC scalar (a band, an
 `"unknown"` or a flag); a sense entry on an angle (`*_deg`) requirement or a

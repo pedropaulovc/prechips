@@ -256,7 +256,12 @@ harmonic-analyzer #1544) is two things to this rule. The zone itself,
 geometric kind (`cmm`, `dial_indicator`, `dial_test_indicator`, `height_gauge`),
 a declared `inspection_methods.surface_profile` procedure, and a gauge resolution
 no coarser than t; a missing check is an error, a missing or `"unknown"` method
-unknown, a caliper an error. Each BASIC scalar it governs
+unknown, a caliper an error. It passes only in a declared frame: an omitted or
+`"unknown"` `surface_profile_datums`, or one with an unknown datum, leaves it
+unknown even with a capable gauge and method; an explicit `[]` (form only) or a
+known datum list may pass. Evidence adds `surface_profile_datums`. A feature
+declaring a zone must list `surface_profile` in its requirements (bad input
+otherwise), so a zone never goes uninspected. Each BASIC scalar it governs
 (`surface_profile_governs`) is read against the band the zone derives for it
 instead of its bare BASIC value: `limits` is that band and the gauge must span
 it and resolve its width, as for any drawn band, and evidence adds
@@ -267,7 +272,8 @@ bound) leaves `limits = "unknown"` and the finding unknown. A process hold on a
 governed requirement must lie inside the same derived band.
 
 `datum_consistency` relates each `surface_profile_datums` datum at the zone t,
-the same tolerance convention as a scalar angularity zone; a profile with no
+the same tolerance convention as a scalar angularity zone, converted to mm
+(`units = "in"`: × 25.4) before it meets `refixture_budget_mm`; a profile with no
 datums (form only) relates none, and an omitted list with a zone is unresolved.
 A `height_from` on a feature whose BASIC height a profile governs takes the
-derived band's width.
+derived band's width, likewise in mm.

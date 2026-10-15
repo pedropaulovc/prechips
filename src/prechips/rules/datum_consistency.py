@@ -80,6 +80,8 @@ def evaluate(bundle):
         verified = verified.get("refixture_budget_mm", False)
     if verified:
         budget = "unknown"
+    # Profile zones and the bands they derive are in manifest units; the budget is mm.
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     findings = []
     for name, feature in features.items():
         position_datums = feature.get("position_datums", [])
@@ -111,10 +113,9 @@ def evaluate(bundle):
                 (datum, datum_map.get(datum), tolerance) for datum in angularity_datums
             )
         if isinstance(profile_datums, list):
-            relationships.extend(
-                (datum, datum_map.get(datum), feature.get("surface_profile", "unknown"))
-                for datum in profile_datums
-            )
+            zone = feature.get("surface_profile", "unknown")
+            zone_mm = zone * scale if _number(zone) and scale else "unknown"
+            relationships.extend((datum, datum_map.get(datum), zone_mm) for datum in profile_datums)
         if "coaxial_to" in feature:
             relationships.append(
                 (
@@ -130,8 +131,10 @@ def evaluate(bundle):
                 (k for k in ("height_above_pivot", "height", "separation") if k in feature),
                 None,
             )
-            band = requirement_band(bundle, name, key)[0] if key else None
+            band, reason = requirement_band(bundle, name, key) if key else (None, None)
             tolerance = band[1] - band[0] if band else "unknown"
+            if band and reason != "drawing band":
+                tolerance = tolerance * scale if scale else "unknown"
             relationships.append((feature["height_from"], feature["height_from"], tolerance))
         numbers = {
             "position_datums": position_datums,

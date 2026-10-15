@@ -7,6 +7,7 @@ band, and a BASIC angle of a planar face tilts at most ``asin(t / l_min)``. Anyt
 zone cannot locate stays unknown, never a pass.
 """
 
+import json
 import math
 
 import pytest
@@ -42,7 +43,9 @@ TIP_LAND = (
 )
 
 
-def profile(governs, *, zone="0.5", u="0.5", datums='["A", "B", "C"]', requirements="[]"):
+def profile(
+    governs, *, zone="0.5", u="0.5", datums='["A", "B", "C"]', requirements='["surface_profile"]'
+):
     """A feature carrying only a profile zone that governs other features' requirements."""
     text = f'kind = "profile"\nrequirements = {requirements}\nsurface_profile = {zone}\n'
     if u is not None:
@@ -149,6 +152,28 @@ def test_convex_arc_radius_grows_with_added_material(tmp_path):
     )
     derived, _ = band(tmp_path, {"boss": boss}, "boss", "radius")
     assert derived == pytest.approx([49.85, 50.05])
+
+
+@pytest.mark.parametrize(
+    ("sense", "u", "expected"),
+    [
+        # A boss (convex): added material grows the diameter by twice the radial offset.
+        ("increases", "0.2", [20.0, 20.4]),
+        ("increases", "0.0", [19.6, 20.0]),
+        ("increases", "0.1", [19.8, 20.2]),
+        # A bore (concave): added material shrinks the diameter.
+        ("decreases", "0.2", [19.6, 20.0]),
+        ("decreases", "0.0", [20.0, 20.4]),
+    ],
+)
+def test_a_governed_basic_diameter_moves_on_both_sides(tmp_path, sense, u, expected):
+    cylinder = (
+        'kind = "boss"\nrequirements = ["dia", "surface_profile"]\ndia = 20.0\n'
+        f'surface_profile = 0.2\nsurface_profile_u = {u}\nsurface_profile_datums = ["A"]\n'
+        f'surface_profile_governs = {{ dia = "{sense}" }}\n'
+    )
+    derived, _ = band(tmp_path, {"cylinder": cylinder}, "cylinder", "dia")
+    assert derived == pytest.approx(expected)
 
 
 def test_an_omitted_disposition_is_equal_bilateral(tmp_path):
@@ -311,6 +336,14 @@ def test_an_ungoverned_basic_scalar_has_no_band(tmp_path):
             },
             r"tilt_across must be a positive face extent",
         ),
+        (
+            {"top_edge": TOP_EDGE.replace('"radius", "surface_profile"', '"radius"')},
+            r"top_edge: a surface_profile zone must be listed in its requirements",
+        ),
+        (
+            {"top_edge": TOP_EDGE.replace(TOP_EDGE.splitlines()[1], 'requirements = "unknown"')},
+            r"top_edge: a surface_profile zone must be listed in its requirements",
+        ),
     ],
     ids=[
         "unlisted",
@@ -325,6 +358,8 @@ def test_an_ungoverned_basic_scalar_has_no_band(tmp_path):
         "tilt-on-length",
         "tilt-across-scalar",
         "tilt-across-zero",
+        "unlisted-zone",
+        "unknown-requirements",
     ],
 )
 def test_a_malformed_profile_is_bad_input(tmp_path, features, match):
@@ -402,6 +437,31 @@ def test_the_profile_zone_is_inspected_like_a_position_zone(tmp_path, gauge, met
         assert row.numbers["inspection_method"] == (method.strip('"') if method else "unknown")
 
 
+@pytest.mark.parametrize(
+    ("datums", "status"),
+    [
+        (None, "unknown"),
+        ('"unknown"', "unknown"),
+        ('["A", "unknown"]', "unknown"),
+        ("[]", "pass"),
+        ('["A"]', "pass"),
+    ],
+    ids=["omitted", "unknown", "unknown-datum", "form-only", "known"],
+)
+def test_the_profile_zone_passes_only_in_a_declared_datum_frame(tmp_path, datums, status):
+    drf = 'surface_profile_datums = ["A", "B", "C"]\n'
+    top_edge = TOP_EDGE.replace(
+        drf, "" if datums is None else f"surface_profile_datums = {datums}\n"
+    )
+    path = write_bundle(
+        tmp_path, {"top_edge": top_edge}, requirement="surface_profile", gauge="cmm"
+    )
+    row = inspection_finding(load_bundle(path), "top_edge:surface_profile")
+    assert row.status == status, row.sentence
+    expected = "unknown" if datums is None else json.loads(datums)
+    assert row.numbers["surface_profile_datums"] == expected
+
+
 # The concave R30 dish of the manual-arc tests, its radius BASIC under a U0.5 profile.
 DISH_BASIC = (
     "kind = 'profile'\nrequirements = ['radius', 'surface_profile']\nradius = 30.0\n"
@@ -425,6 +485,18 @@ def test_file_to_line_on_an_ungoverned_basic_radius_keeps_its_band_debt(tmp_path
     assert "drawing radius band is unknown" in " ".join(row.numbers["debts"])
 
 
+def test_file_to_line_halves_a_governed_basic_diameter_band(tmp_path):
+    boss = (
+        "kind = 'boss'\nrequirements = ['dia', 'surface_profile']\nat = [20.0, 10.0, 0.0]\n"
+        "dia = 20.0\nsurface_profile = 0.2\nsurface_profile_u = 0.2\n"
+        "surface_profile_datums = ['A']\nsurface_profile_governs = { dia = 'increases' }\n"
+        "[datums.A]\nfeature = 'bore'\n"
+    )
+    row = manual_row(scratch(tmp_path, TEMPLATE_FILING, target=boss), 30)
+    # Ø[20.0, 20.4] from a U0.2 zone: the rim lies 0 to 0.2 outside R10.
+    assert row.numbers["radius_band_mm"] == pytest.approx([10.0, 10.2])
+
+
 def datum_finding(loaded, name="top_edge"):
     return next(row for row in datum_consistency.evaluate(loaded) if row.subject == name)
 
@@ -439,6 +511,27 @@ def test_datum_consistency_relates_the_profile_datums_and_its_height_band(tmp_pa
     assert [item["tolerance_mm"] for item in relationships] == pytest.approx([0.5] * 4)
     assert row.numbers["surface_profile_datums"] == ["A", "B", "C"]
     assert row.status == status
+
+
+def test_datum_consistency_reads_an_inch_profile_zone_in_millimetres(tmp_path):
+    top_edge = (
+        TOP_EDGE.replace("surface_profile = 0.5", "surface_profile = 0.02").replace(
+            "surface_profile_u = 0.5", "surface_profile_u = 0.02"
+        )
+        + 'height_from = "base"\n'
+    )
+    path = write_bundle(tmp_path, {"top_edge": top_edge}, budget="0.10")
+    manifest = tmp_path / "features.toml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8").replace('units = "mm"', 'units = "in"'),
+        encoding="utf-8",
+    )
+    row = datum_finding(load_bundle(path))
+    # 0.02 in = 0.508 mm, above the 0.10 mm budget: the zone and its [8.0, 8.02] in height
+    # band both read 0.508 mm.
+    tolerances = [item["tolerance_mm"] for item in row.numbers["relationships"]]
+    assert tolerances == pytest.approx([0.508] * 4)
+    assert row.status == "pass", row.sentence
 
 
 @pytest.mark.parametrize(

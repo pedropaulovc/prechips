@@ -336,8 +336,9 @@ every op that owns it by complete explicit-face ownership (see
 finish profile whose end joins cut an exported tip land. Relationships include
 position, angularity and surface-profile datums, coaxial feature and
 height-from feature. A surface profile relates each `surface_profile_datums`
-datum at its zone t (a profile with no datums controls form only and relates
-none; a zone with its datums omitted is unknown); evidence adds
+datum at its zone t in mm (manifest `units = "in"` × 25.4; unknown units leave
+it unknown); a profile with no datums controls form only and relates none, and
+a zone with its datums omitted is unknown. Evidence adds
 `surface_profile_datums` for a feature with a zone.
 Reamed/bored/tapped datum finishing cuts replace pilots, including across that
 merged label/owner set; rough, manual (`inspect`, `deburr`, `coating`, `release`,
@@ -353,7 +354,8 @@ unknown/unverified budget or unresolved cuts are unknown. Height-band tolerance
 is high minus low of the band measured from `height_from`: the first of
 `height_above_pivot`, `height` or `separation` the feature declares (none =
 unknown); a BASIC one a surface profile governs takes the band the zone derives
-([features](features.md#surface-profiles)), unknown when that is unresolved.
+([features](features.md#surface-profiles)), converted to mm like the zone,
+unknown when that is unresolved.
 Policy citation travels with a known budget.
 
 Exact templates:

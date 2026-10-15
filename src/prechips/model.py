@@ -1197,13 +1197,20 @@ class Features(InputModel):
 
     @model_validator(mode="after")
     def surface_profiles(self) -> Features:
-        """A profile zone 0 < t, 0 <= U <= t, and the BASIC scalars it governs."""
+        """A profile zone 0 < t, 0 <= U <= t, listed in its feature's requirements, and the
+        BASIC scalars it governs."""
         for name, feature in self.features.items():
             given = feature.model_fields_set
             if "surface_profile" not in given:
                 if dependants := sorted(given & PROFILE_FIELDS):
                     raise ValueError(f"{name}: {', '.join(dependants)} need a surface_profile zone")
                 continue
+            listed = feature.requirements
+            if not isinstance(listed, list) or "surface_profile" not in listed:
+                # Unlisted, the zone gets no inspection row while its derived bands pass.
+                raise ValueError(
+                    f"{name}: a surface_profile zone must be listed in its requirements"
+                )
             zone, disposition = feature.surface_profile, feature.surface_profile_u
             if zone != UNKNOWN and zone <= 0:
                 raise ValueError(f"{name}: surface_profile zone must be positive")

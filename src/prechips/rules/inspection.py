@@ -293,10 +293,18 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
                 for datum in angularity_datums
             )
         )
+        # A profile's frame may be empty (form only) but must be declared and known.
+        profile_datums = feature.get("surface_profile_datums", "unknown")
+        profile_frame_known = isinstance(profile_datums, list) and all(
+            isinstance(datum, str) and bool(datum.strip()) and datum != "unknown"
+            for datum in profile_datums
+        )
         if geometric:
             nums["inspection_method"] = method or "unknown"
         if requirement == "angularity_dia":
             nums["angularity_datums"] = angularity_datums
+        if requirement == "surface_profile":
+            nums["surface_profile_datums"] = profile_datums
         complex_shape = requirement in {
             "radius",
             "bottom_radius",
@@ -340,7 +348,9 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
         elif value == "unknown" or bundle.features.get("units") != "mm":
             message = "requirement limits or units are unresolved"
         elif geometric and (
-            not method_known or (requirement == "angularity_dia" and not angularity_geometry_known)
+            not method_known
+            or (requirement == "angularity_dia" and not angularity_geometry_known)
+            or (requirement == "surface_profile" and not profile_frame_known)
         ):
             message = "geometric gauge capability or datum inspection method unresolved"
         elif requirement == "finish_ra":
