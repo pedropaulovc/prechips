@@ -1695,7 +1695,9 @@ counts the samples whose shank cylinder meets the stock the op leaves: the
 shank trails the flutes through the op's own cut (down its bore, or pass by
 pass down a milled wall), so the finished bore or wall counts and the op's own
 allowance does not. An unknown shank diameter or start leaves `shank_hits`
-unknown.
+unknown. Reach draws the recorded shank as given; whether that shank fits its
+collet (the ISO 286 h6 band below a single nominal capacity) is
+[`tool_resolves`](rules-tools.md#tool_resolves)'s check, not reach's.
 
 On a hole op's own axis the kernel also reports four clearances, each the
 least over its axes, measured within the holder radius:

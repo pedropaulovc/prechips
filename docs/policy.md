@@ -57,6 +57,11 @@ Selection is `--policy`, then a known `[paths].policy`, then
 `PRECHIPS_POLICY`, before that no-file fallback. A plan-declared `"unknown"`
 does not hide an environment-supplied shop policy.
 
+No policy field selects the collet shank class. `tool_resolves` always accepts
+a tool shank in a single nominal collet capacity on the ISO 286 h6 band
+(ISO 286-1:2010 Table 1 IT6, [`tool_resolves`](rules-tools.md#tool_resolves));
+policy cannot widen it to h7 or explicit limits.
+
 M5 does not change this default. To require measured mill feasibility, add
 `envelope = "*"` and `travel = "*"` to the shop's `[required]` table alongside
 its existing requirements. There is no `holder_stack` rule to require: a

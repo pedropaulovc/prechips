@@ -1136,7 +1136,7 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `feature` | `str`; an `inspect` op may name a list of two or more distinct features |
 | `faces` | `list[str]` |
 | `tool` | `str` |
-| `holder` | `str` |
+| `holder` | `str` (the tool's `shank` must fit it; a single nominal collet capacity accepts the ISO 286 h6 band below it, [`tool_resolves`](rules-tools.md#tool_resolves)) |
 | `direction` | `str` |
 | `note` | `str` |
 | `layout` | `str` (`scribe` only: `dividers`, `trammel` or `template`) |

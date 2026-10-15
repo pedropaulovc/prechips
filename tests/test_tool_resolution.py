@@ -71,6 +71,94 @@ def test_inch_shank_in_mm_collet_compares_physical_size(tmp_path, shank, status,
     assert finding.numbers["holder_capacity_mm"] == 9.525
 
 
+def assembly(tmp_path, shank, capacity_mm):
+    """The ``S1:10`` assembly finding for one tool shank fact in one nominal collet."""
+    bundle = Bundle(
+        features={},
+        plan={
+            "setups": [
+                {
+                    "id": "S1",
+                    "machine": "mill",
+                    "ops": [{"op": 10, "do": "face", "tool": "endmill", "holder": "collet"}],
+                }
+            ]
+        },
+        inventory={
+            "machines": {"mill": {"kind": "mill", "spindle": {"taper": "R8"}, "verify": False}},
+            "tools": {"endmill": {"kind": "endmill", **shank, "verify": False}},
+            "holders": {
+                "collet": {
+                    "kind": "collet",
+                    "taper": "R8",
+                    "capacity_mm": capacity_mm,
+                    "verify": False,
+                }
+            },
+        },
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=tmp_path,
+    )
+    return next(row for row in tool_resolves.evaluate(bundle) if row.subject == "S1:10")
+
+
+@pytest.mark.parametrize(
+    "shank,capacity_mm,status,band",
+    [
+        # 3/8 in: IT6 for above 6 up to and including 10 mm is 9 µm (ISO 286-1 Table 1).
+        ({"shank_in": 0.3748}, 9.525, "pass", [9.516, 9.525]),
+        ({"shank_in": 0.3752}, 9.525, "error", [9.516, 9.525]),
+        ({"shank_in": 0.3745}, 9.525, "error", [9.516, 9.525]),
+        ({"shank_mm": 9.995}, 10.0, "pass", [9.991, 10.0]),
+        ({"shank_mm": 9.99}, 10.0, "error", [9.991, 10.0]),
+        # Above 10 up to and including 18 mm: 11 µm; the lower limit itself fits.
+        ({"shank_mm": 11.989}, 12.0, "pass", [11.989, 12.0]),
+        ({"shank_mm": 11.988}, 12.0, "error", [11.989, 12.0]),
+    ],
+)
+def test_nominal_collet_accepts_an_iso_286_h6_shank_band(
+    tmp_path, shank, capacity_mm, status, band
+):
+    finding = assembly(tmp_path, shank, capacity_mm)
+    assert finding.status == status
+    assert finding.numbers["shank_fit"] == "ISO 286 h6"
+    assert finding.numbers["shank_band_mm"] == pytest.approx(band)
+    assert "ISO 286-1:2010 Table 1 IT6" in finding.cite
+    if status == "error":
+        assert finding.sentence == "S1:10: tool shank does not match selected collet."
+    else:
+        assert finding.sentence == "S1:10: holder interface and shank fit."
+
+
+def test_nominal_shank_finding_is_unchanged_by_the_band(tmp_path):
+    finding = assembly(tmp_path, {"shank_in": "3/8"}, 9.525)
+    assert (finding.status, finding.sentence) == ("pass", "S1:10: holder interface and shank fit.")
+    assert finding.numbers == {
+        "tool": "endmill",
+        "holder": "collet",
+        "machine": "mill",
+        "machine_standard": "R8",
+        "holder_standard": "R8",
+        "shank_mm": pytest.approx(9.525),
+        "holder_capacity_mm": 9.525,
+    }
+    assert finding.cite == ["inventory spindle/holder/shank fields", "PLAN.md §4.1"]
+
+
+@pytest.mark.parametrize("shank_mm,status", [(599.99, "unknown"), (600.01, "error")])
+def test_nominal_collet_beyond_iso_286_table_never_passes_an_undersize_shank(
+    tmp_path, shank_mm, status
+):
+    finding = assembly(tmp_path, {"shank_mm": shank_mm}, 600.0)
+    assert finding.status == status
+    assert finding.numbers["shank_band_mm"] == "unknown"
+    if status == "unknown":
+        assert "no IT6 above 500 mm" in finding.sentence
+
+
 def test_mismatched_inch_shank_reaches_cli_report_and_stop(tmp_path):
     inventory = INVENTORY.replace(
         "shank_mm = 10.0\nflutes = 4", 'shank_in = "13/32"\nflutes = 4', 1
