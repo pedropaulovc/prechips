@@ -5,7 +5,7 @@
 Subjects are `feature:requirement` for every requirements-listed two-element
 numeric-or-unknown `[low, high]` band, even outside the named tolerance set, plus
 each declared requirement in the recognized scalar/unknown tolerance set:
-`dia`, `position_dia`, `finish_ra`, `depth`, `length`, `width`, `height`,
+`dia`, `nominal_dia`, `position_dia`, `finish_ra`, `depth`, `length`, `width`, `height`,
 `thickness`, `separation`, `coaxiality_dia`, `angularity_dia`, `surface_profile`,
 `height_above_pivot`, `radius`, `station`, `arc_len`, `bottom_radius`,
 `bottom_arc_len`, `tip_land`, `land_angle_deg`, `groove_width`, `groove_depth`.
@@ -59,12 +59,27 @@ comparator or profilometer; position/coaxiality/angularity needs CMM, indicator 
 gauge. Both scalar and banded geometric requirements additionally need a known,
 nonempty declared datum inspection method; bands also use range/resolution checks.
 Complex shape controls need CMM/profile/radius/angle gauges. Other dimensions use the capable dimensional
-gauge kinds. An external micrometer does not measure a hole bore. Type
+gauge kinds. An external micrometer does not measure a hole bore (`dia` or `nominal_dia`). Type
 incompatibility is an error even if catalog dimensions are unverified.
 
 For a `[low, high]` mm band, gauge range must cover both ends and resolution must
 not exceed `high-low`. A scalar geometric tolerance needs resolution
 at most the tolerance and a known declared method. Non-mm/unknown limits stay unknown.
+An angle band (`*_deg`, degrees) never meets a gauge's millimetre range and
+resolution, and no gauge declares an angular capability: it is `unknown` (`no
+angular gauge capability`) unless it is read across a face. A drawn band whose
+feature declares the face extent l in `tilt_across`
+([features](features.md#angle-bands-read-across-a-face)) is the deviation read end
+to end across l about its mid angle m: a linear zone w = l·(sin(hi − m) − sin(lo −
+m)), judged like every zone on resolution alone (`gauge resolves the tilt's linear
+zone across its face`, else `gauge resolution exceeds the requirement band`). The
+gauge's range is not compared, since an end-to-end deviation reading has no size to
+span. Evidence keeps the degree `limits` and adds `tilt_across_length` (l) and
+`band_mm` (w). A process hold on that angle is read the same way, about the drawn
+band's m. A BASIC angle a surface profile bounds by `tilt_across` is read likewise
+([Surface profiles](#surface-profiles)). An unknown length leaves
+`tilt_across_length = "unknown"` with `tilt_across_reason`, and no angular gauge
+capability.
 Unverified gauge range/resolution cannot prove a dimensional error or pass.
 Roughness capability is unresolved without explicit range evidence. A gauge of a
 roughness kind (e.g. `roughness_comparator`) declares it with the inventory field
@@ -109,6 +124,9 @@ Sentence templates:
   - `gauge range or resolution unresolved`
   - `gauge resolution and declared geometric inspection method cover requirement`
   - `geometric gauge capability or datum inspection method unresolved`
+  - `no angular gauge capability`
+  - `gauge resolves the tilt's linear zone across its face`
+  - `gauge resolution unresolved`
   - `inspection capability for requirement unresolved`
   - `named gauge capability needs verification`
   - `unverified gauge dimensions cannot establish capability`
@@ -270,6 +288,15 @@ pointwise from the DRF-located BASIC origin, not a fitted size. An unresolved
 derivation (unknown t, U, DRF or entry, an empty DRF, a tilt the zone cannot
 bound) leaves `limits = "unknown"` and the finding unknown. A process hold on a
 governed requirement must lie inside the same derived band.
+
+A BASIC angle a profile governs by `tilt_across` derives a band in degrees, n ±
+asin(t / l), which is the zone read end to end across the face extent l. It is read
+as the linear zone a drawn angle band read across a face is, about n: w = l·(sin(hi −
+n) − sin(lo − n)), the exact inverse (2t for one zone t), judged on resolution
+alone. A process hold on such an angle is read about the same n and l. When the
+governing profiles tilt it across different lengths no single reading reads them
+all: `tilt_across_length = "unknown"` with `tilt_across_reason`, and the band has
+`no angular gauge capability`.
 
 `datum_consistency` relates each `surface_profile_datums` datum at the zone t,
 the same tolerance convention as a scalar angularity zone, converted to mm

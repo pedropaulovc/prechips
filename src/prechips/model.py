@@ -15,11 +15,21 @@ type Number = float | Unknown
 type Vector = list[Number] | Unknown
 type Citations = str | list[str]
 TOLERANCE_REQUIREMENTS = frozenset(
-    "dia position_dia angularity_dia finish_ra depth length width height radius thickness "
-    "coaxiality_dia surface_profile "
+    "dia nominal_dia position_dia angularity_dia finish_ra depth length width height radius "
+    "thickness coaxiality_dia surface_profile "
     "height_above_pivot arc_len bottom_radius bottom_arc_len tip_land land_angle_deg station "
     "groove_width groove_depth separation".split()
 )
+# The BASIC dimensions a surface profile may govern: every recognised requirement the
+# inspection rule reads as a dimension, never a zone (a position, coaxiality, angularity,
+# roughness or the profile itself), whose scalar is already a zone width or a maximum.
+PROFILE_GOVERNABLE = TOLERANCE_REQUIREMENTS - {
+    "position_dia",
+    "coaxiality_dia",
+    "angularity_dia",
+    "finish_ra",
+    "surface_profile",
+}
 
 
 def tolerance_requirements(feature: dict[str, Any]) -> list[str]:
@@ -1121,6 +1131,7 @@ Feature = record(
         "angularity_datums": list[str],
         "surface_profile_datums": list[str],
         "surface_profile_governs": dict[str, ProfileEntry],
+        "tilt_across": dict[str, str | float],
         "surface_profile": float,
         "surface_profile_u": float,
         "thru": bool,
@@ -1222,6 +1233,25 @@ class Features(InputModel):
                 _governed(self.features, name, key, entry)
         return self
 
+    @model_validator(mode="after")
+    def drawn_angle_lengths(self) -> Features:
+        """A drawn angle band read across a face (``tilt_across``) is a listed ``_deg`` band
+        of its feature, and the face extent a listed length band or a positive number."""
+        for name, feature in self.features.items():
+            across = feature.tilt_across
+            listed = feature.requirements if isinstance(feature.requirements, list) else []
+            for requirement, extent in across.items() if isinstance(across, dict) else ():
+                where = f"{name}: tilt_across {requirement}"
+                if requirement not in listed or not requirement.endswith("_deg"):
+                    raise ValueError(f"{where} is not a listed angle (_deg) requirement")
+                if not isinstance(getattr(feature, requirement), list):
+                    raise ValueError(
+                        f"{where}: only a drawn angle band reads across a face; a BASIC "
+                        "angle's tilt is its surface profile's"
+                    )
+                _face_extent(where, name, feature, listed, extent)
+        return self
+
 
 def _governed(features: dict[str, Any], owner: str, key: str, entry: ProfileEntry) -> None:
     """A ``surface_profile_governs`` entry names a listed BASIC scalar its form can read."""
@@ -1233,6 +1263,12 @@ def _governed(features: dict[str, Any], owner: str, key: str, entry: ProfileEntr
     listed = feature.requirements if isinstance(feature.requirements, list) else []
     if requirement in (UNKNOWN, "surface_profile") or requirement not in listed:
         raise ValueError(f"{where}: {requirement} is not a listed requirement of {name}")
+    if requirement not in PROFILE_GOVERNABLE:
+        # Inspection selects only recognised requirements (``tolerance_requirements``): a
+        # band derived for anything else would never be read.
+        raise ValueError(
+            f"{where}: {requirement} is not a BASIC dimension the inspection rule reads"
+        )
     value = getattr(feature, requirement)
     if not isinstance(value, (int, float)) or isinstance(value, bool):
         raise ValueError(
@@ -1240,21 +1276,23 @@ def _governed(features: dict[str, Any], owner: str, key: str, entry: ProfileEntr
         )
     angle = requirement.endswith("_deg")
     if isinstance(entry, ProfileTilt):
-        across = entry.tilt_across
         if not angle:
             raise ValueError(f"{where}: tilt_across bounds only an angle (a _deg requirement)")
-        if isinstance(across, str):
-            length = across in listed and not across.endswith("_deg")
-            if not length or not isinstance(getattr(feature, across), list):
-                raise ValueError(
-                    f"{where}: tilt_across {across} is not a listed length band of {name}"
-                )
-        elif across <= 0:
-            raise ValueError(f"{where}: tilt_across must be a positive face extent")
+        _face_extent(where, name, feature, listed, entry.tilt_across)
     elif angle and entry != UNKNOWN:
         raise ValueError(f"{where}: {requirement} is an angle: only tilt_across bounds it")
     if isinstance(entry, ProfileReading) and not 0 <= entry.obliquity_deg < 90:
         raise ValueError(f"{where}: obliquity_deg must lie in [0, 90)")
+
+
+def _face_extent(where: str, name: str, feature: Any, listed: list, across: str | float) -> None:
+    """A ``tilt_across`` face extent: a listed length band of feature ``name``, or > 0."""
+    if isinstance(across, str):
+        length = across in listed and not across.endswith("_deg")
+        if not length or not isinstance(getattr(feature, across), list):
+            raise ValueError(f"{where}: tilt_across {across} is not a listed length band of {name}")
+    elif across <= 0:
+        raise ValueError(f"{where}: tilt_across must be a positive face extent")
 
 
 Source = record("Source", {**texts("vendor by url note cite"), "sku": str | int, "verify": bool})

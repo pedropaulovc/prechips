@@ -197,7 +197,7 @@ their profile zones tolerance, so without these fields they had no band.
 | `surface_profile` | Total zone width `t` > 0 (manifest units) or `"unknown"`. The feature must list `"surface_profile"` in a known `requirements` list (else bad input); it is inspected as a zone [0, t] like `position_dia`. |
 | `surface_profile_u` | Optional `U`, the part of `t` on the side where material is added, 0 <= U <= t, or `"unknown"`. Omitted: equal-bilateral, U = t/2. |
 | `surface_profile_datums` | Datum reference frame in precedence order, e.g. `["A", "B", "C"]`; `[]` is a form-only profile. Omitted or `"unknown"`, the zone's inspection and every band it derives stay unknown. |
-| `surface_profile_governs` | Table of the BASIC scalar requirements the zone governs: a bare key (`"radius"`) is this feature's requirement, `"feature:requirement"` (`"tip_land_pos_x:station"`) another feature's. |
+| `surface_profile_governs` | Table of the BASIC scalar requirements the zone governs: a bare key (`"radius"`) is this feature's requirement, `"feature:requirement"` (`"tip_land_pos_x:station"`) another feature's. Keys match exactly (no wildcards). A governed requirement must be one the inspection rule reads as a dimension: a recognised tolerance requirement ([inspection](rules-inspection.md#inspection), `nominal_dia` included) other than a zone (`position_dia`, `coaxiality_dia`, `angularity_dia`, `finish_ra`). |
 
 A `surface_profile_governs` entry says how the governed BASIC value `n` reads in the zone:
 
@@ -218,7 +218,9 @@ A `surface_profile_governs` entry says how the governed BASIC value `n` reads in
   `{ tilt_across = <least face extent, manifest units> }`: a BASIC angle (degrees)
   of a planar governed face. The band is n ± asin(t / l_min) in degrees, l_min
   being the named band's lower limit or the number; it does not depend on U.
-  When t >= l_min the zone bounds no tilt: unknown.
+  When t >= l_min the zone bounds no tilt: unknown. Inspection reads the band as
+  the linear zone it is, end to end across l_min (2t wide for one zone), never as
+  degrees against a millimetre gauge ([inspection](rules-inspection.md#surface-profiles)).
 - `"unknown"`: the governed requirement stays unknown.
 
 The band is **pointwise**: every point of the surface lies in the zone about its
@@ -243,9 +245,12 @@ is unknown, or when one of several governing profiles is unresolved. Bad input
 `requirements` does not list (or an omitted/unknown list); t <= 0; U outside [0, t];
 a governed key naming a missing feature, or a requirement not listed in that
 feature's `requirements`, or one whose value is not a BASIC scalar (a band, an
-`"unknown"` or a flag); a sense entry on an angle (`*_deg`) requirement or a
-`tilt_across` on a length; a `tilt_across` naming anything but a listed length
-band of the governed feature, or a number <= 0; `obliquity_deg` outside [0, 90).
+`"unknown"` or a flag), or one the inspection rule does not read as a dimension (a
+zone such as `position_dia`, or a field outside the recognised set such as
+`dome_height`, whose derived band no check would read); a sense entry on an angle
+(`*_deg`) requirement or a `tilt_across` on a length; a `tilt_across` naming anything
+but a listed length band of the governed feature, or a number <= 0; `obliquity_deg`
+outside [0, 90).
 
 ```toml
 ["features"."top_edge"]
@@ -268,6 +273,38 @@ band of the governed feature, or a number <= 0; `obliquity_deg` outside [0, 90).
 A tip-land angle the outer zone governs would add
 `"tip_land_pos_x:land_angle_deg" = { "tilt_across" = "tip_land" }`: tip_land's
 least limit 5.08 gives 10.46 ± 5.65°.
+
+## Angle bands read across a face
+
+No gauge reads degrees: an inventory gauge declares millimetre range and
+resolution only, so a drawn angle band (`*_deg`, `[lo, hi]` degrees) has no
+inspection capability on its own ([inspection](rules-inspection.md#inspection)).
+A planar face's angle is read instead as the deviation end to end across the
+face, and the optional feature field `tilt_across` declares that length per
+angle requirement:
+
+| Field | Meaning |
+|---|---|
+| `tilt_across` | Table keyed by a listed drawn angle band of this feature (`"land_angle_deg"`). The value is the face extent the angle is read across: a listed length band of the same feature (its lower limit, the least extent) or a number > 0 (manifest units). |
+
+Inspection reads `[lo, hi]` about its mid angle `m` as a linear zone
+w = l·(sin(hi − m) − sin(lo − m)) = 2l·sin((hi − lo)/2), the chord between the
+band's two extreme faces, with the same reading a profile's `tilt_across` gets.
+A band with an unknown end, or a named length whose lower limit is unknown,
+stays unknown. The band itself is unchanged; `tilt_across` adds no tolerance.
+Bad input (exit 3): a key that is not a listed `*_deg` requirement of the
+feature, or one whose value is a BASIC scalar rather than a drawn band (a BASIC
+angle reads its tilt through its surface profile's `tilt_across`); a value
+naming anything but a listed length band of the feature, or a number <= 0.
+
+```toml
+["features"."tip_land_pos_x"]
+"requirements" = ["tip_land", "land_angle_deg"]
+"tip_land" = [5.08, 6.1]
+"land_angle_deg" = [89.0, 91.0]
+"tilt_across" = { "land_angle_deg" = "tip_land" }
+# inspected: 2 · 5.08 · sin 1° = 0.177 mm wide
+```
 
 ## Root fields
 
@@ -383,6 +420,7 @@ least limit 5.08 gives 10.46 ± 5.65°.
 | `angularity_datums` | `list[str]` |
 | `surface_profile_datums` | `list[str]` |
 | `surface_profile_governs` | `dict[str, ProfileEntry]` (`"increases"`, `"decreases"`, `"unknown"`, `{ sense, obliquity_deg }` or `{ tilt_across }`; see [Surface profiles](#surface-profiles)) |
+| `tilt_across` | `dict[str, str \| float]` (drawn angle band → face extent it is read across; see [Angle bands read across a face](#angle-bands-read-across-a-face)) |
 | `surface_profile` | `float` (> 0) |
 | `surface_profile_u` | `float` (0 <= U <= `surface_profile`) |
 | `thru` | `bool` |

@@ -9,6 +9,7 @@ zone cannot locate stays unknown, never a pass.
 
 import json
 import math
+from pathlib import Path
 
 import pytest
 from test_cli import run_cli
@@ -17,6 +18,7 @@ from test_manual_arc import TEMPLATE_FILING, manual_row, scratch
 from prechips.inputs import BadInput, load_bundle
 from prechips.rules import datum_consistency, inspection
 
+ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
 METHOD = '"Probe the edge on the CMM in datum frame A|B|C"'
 TOP_EDGE = (
     'kind = "profile"\n'
@@ -344,6 +346,22 @@ def test_an_ungoverned_basic_scalar_has_no_band(tmp_path):
             {"top_edge": TOP_EDGE.replace(TOP_EDGE.splitlines()[1], 'requirements = "unknown"')},
             r"top_edge: a surface_profile zone must be listed in its requirements",
         ),
+        (
+            {
+                "dome": 'kind = "boss"\nrequirements = ["dome_height", "surface_profile"]\n'
+                'dome_height = 3.0\nsurface_profile = 0.5\nsurface_profile_datums = ["A"]\n'
+                'surface_profile_governs = { dome_height = "increases" }\n'
+            },
+            r"dome_height is not a BASIC dimension the inspection rule reads",
+        ),
+        (
+            {
+                "bore": 'kind = "hole"\nrequirements = ["position_dia", "surface_profile"]\n'
+                'position_dia = 0.2\nsurface_profile = 0.5\nsurface_profile_datums = ["A"]\n'
+                'surface_profile_governs = { position_dia = "decreases" }\n'
+            },
+            r"position_dia is not a BASIC dimension the inspection rule reads",
+        ),
     ],
     ids=[
         "unlisted",
@@ -360,6 +378,8 @@ def test_an_ungoverned_basic_scalar_has_no_band(tmp_path):
         "tilt-across-zero",
         "unlisted-zone",
         "unknown-requirements",
+        "uninspected-target",
+        "zone-target",
     ],
 )
 def test_a_malformed_profile_is_bad_input(tmp_path, features, match):
@@ -415,6 +435,200 @@ def test_a_process_hold_on_a_governed_radius_lies_inside_its_derived_band(tmp_pa
     ).numbers["process_holds"]
     assert row["drawing_band"] == pytest.approx([799.5, 800.0])
     assert row["inside_drawing_band"] is True
+
+
+@pytest.mark.parametrize(
+    ("kind", "sense", "gauge", "limits", "status"),
+    [
+        ("boss", "increases", "caliper", [20.0, 20.4], "pass"),
+        # An external micrometer never measures a bore, whichever diameter names it.
+        ("hole", "decreases", "micrometer", [19.6, 20.0], "error"),
+    ],
+)
+def test_inspection_reads_a_governed_nominal_diameter_against_its_derived_band(
+    tmp_path, kind, sense, gauge, limits, status
+):
+    cylinder = (
+        f'kind = "{kind}"\nrequirements = ["nominal_dia", "surface_profile"]\n'
+        "nominal_dia = 20.0\nsurface_profile = 0.2\nsurface_profile_u = 0.2\n"
+        'surface_profile_datums = ["A"]\n'
+        f'surface_profile_governs = {{ nominal_dia = "{sense}" }}\n'
+    )
+    loaded = bundle(
+        tmp_path, {"cylinder": cylinder}, subject="cylinder", requirement="nominal_dia", gauge=gauge
+    )
+    row = inspection_finding(loaded, "cylinder:nominal_dia")
+    assert row.numbers["limits"] == pytest.approx(limits)
+    assert row.status == status, row.sentence
+
+
+TILT = '{ "tip:land_angle_deg" = { tilt_across = "tip_land" } }'
+
+
+@pytest.mark.parametrize(
+    ("zone", "band_mm", "status", "message"),
+    [
+        # t 0.5 across the 5.08 least land: 10.46 ± 5.65°, read end to end as 2t = 1.0 mm.
+        ("0.5", 1.0, "pass", "gauge resolves the tilt's linear zone across its face"),
+        # t 0.004: ± 0.045°. Read as millimetres, that 0.09 band passes the 0.01 gauge; the
+        # linear zone it is, 2t = 0.008 mm, is finer than the gauge resolves.
+        ("0.004", 0.008, "error", "gauge resolution exceeds the requirement band"),
+    ],
+)
+def test_a_tilt_across_angle_is_inspected_as_the_linear_zone_across_its_length(
+    tmp_path, zone, band_mm, status, message
+):
+    features = {"tip": TIP_LAND, "zone": profile(TILT, zone=zone, u=None)}
+    loaded = bundle(tmp_path, features, subject="tip", requirement="land_angle_deg")
+    row = inspection_finding(loaded, "tip:land_angle_deg")
+    tilt = math.degrees(math.asin(float(zone) / 5.08))
+    assert row.numbers["limits"] == pytest.approx([10.46 - tilt, 10.46 + tilt])
+    assert row.numbers["tilt_across_length"] == 5.08
+    assert row.numbers["band_mm"] == pytest.approx(band_mm)
+    assert (row.status, row.sentence) == (status, f"tip land_angle_deg: {message}.")
+
+
+def test_the_tilts_linear_zone_is_judged_on_resolution_never_on_the_gauge_span(tmp_path):
+    # harmonic-analyzer's outline template is cut to radii 8-817: it spans no size near the
+    # 0-1.0 mm deviation, which it still reads end to end against its edge.
+    features = {"tip": TIP_LAND, "zone": profile(TILT)}
+    path = write_bundle(tmp_path, features, subject="tip", requirement="land_angle_deg")
+    inventory = tmp_path / "inventory.toml"
+    text = inventory.read_text(encoding="utf-8")
+    assert "range_mm = [0.0, 1000.0]" in text
+    inventory.write_text(text.replace("[0.0, 1000.0]", "[8.0, 817.0]"), encoding="utf-8")
+    row = inspection_finding(load_bundle(path), "tip:land_angle_deg")
+    assert row.numbers["range_mm"] == [8.0, 817.0]
+    assert row.numbers["band_mm"] == pytest.approx(1.0)
+    assert row.status == "pass", row.sentence
+
+
+def test_a_process_hold_on_a_tilt_across_angle_reads_its_linear_zone(tmp_path):
+    hold = (
+        'process_holds = [{ feature = "tip", requirement = "land_angle_deg", '
+        'band = [10.0, 11.0], gauge = "gauge", reason = "land square fit" }]\n'
+    )
+    loaded = bundle(
+        tmp_path,
+        {"tip": TIP_LAND, "zone": profile(TILT)},
+        subject="tip",
+        requirement="land_angle_deg",
+        holds=hold,
+    )
+    (row,) = inspection.process_holds(
+        loaded, loaded.plan["setups"][1], loaded.plan["setups"][1]["ops"][0]
+    ).numbers["process_holds"]
+    across = 5.08 * (math.sin(math.radians(11.0 - 10.46)) - math.sin(math.radians(10.0 - 10.46)))
+    assert row["inside_drawing_band"] is True
+    assert row["tilt_across_length"] == 5.08
+    assert row["band_mm"] == pytest.approx(across)
+    assert row["gauge_status"] == "pass", row["gauge_message"]
+
+
+def test_an_angle_band_with_no_tilt_length_has_no_angular_gauge_capability(tmp_path):
+    tip = TIP_LAND.replace("land_angle_deg = 10.46", "land_angle_deg = [89.0, 91.0]")
+    loaded = bundle(tmp_path, {"tip": tip}, subject="tip", requirement="land_angle_deg")
+    row = inspection_finding(loaded, "tip:land_angle_deg")
+    assert row.status == "unknown"
+    assert row.sentence == "tip land_angle_deg: no angular gauge capability."
+    assert "band_mm" not in row.numbers
+
+
+def test_profiles_tilting_one_angle_across_different_lengths_leave_it_unknown(tmp_path):
+    crown = profile('{ "tip:land_angle_deg" = { tilt_across = 6.0 } }', zone="0.6")
+    features = {"tip": TIP_LAND, "zone": profile(TILT), "crown": crown}
+    loaded = bundle(tmp_path, features, subject="tip", requirement="land_angle_deg")
+    row = inspection_finding(loaded, "tip:land_angle_deg")
+    assert row.status == "unknown"
+    assert row.sentence == "tip land_angle_deg: no angular gauge capability."
+    assert row.numbers["tilt_across_length"] == "unknown"
+    assert "different lengths" in row.numbers["tilt_across_reason"]
+
+
+def drawn_tip(across, band="[89.0, 91.0]"):
+    """The tip land with its angle drawn as ``band``, read across ``across``."""
+    tip = TIP_LAND.replace("land_angle_deg = 10.46", f"land_angle_deg = {band}")
+    return tip + f"tilt_across = {{ land_angle_deg = {across} }}\n"
+
+
+@pytest.mark.parametrize("across", ['"tip_land"', "5.08"])
+@pytest.mark.parametrize(
+    ("drawn", "half", "status"),
+    [
+        # 90 ± 1° across the 5.08 least land, about its mid angle: 2 · 5.08 · sin 1° = 0.18.
+        ("[89.0, 91.0]", 1.0, "pass"),
+        # 90 ± 0.05°: a 0.1 band were degrees millimetres, which the 0.01 gauge resolves; the
+        # linear zone it is, 2 · 5.08 · sin 0.05° = 0.0089, is finer than the gauge reads.
+        ("[89.95, 90.05]", 0.05, "error"),
+    ],
+)
+def test_a_drawn_angle_band_read_across_its_face_is_judged_as_its_linear_zone(
+    tmp_path, across, drawn, half, status
+):
+    tip = drawn_tip(across, drawn)
+    loaded = bundle(tmp_path, {"tip": tip}, subject="tip", requirement="land_angle_deg")
+    row = inspection_finding(loaded, "tip:land_angle_deg")
+    assert row.numbers["limits"] == json.loads(drawn)
+    assert row.numbers["tilt_across_length"] == 5.08
+    assert row.numbers["band_mm"] == pytest.approx(2 * 5.08 * math.sin(math.radians(half)))
+    assert row.status == status, row.sentence
+
+
+def test_a_process_hold_on_a_drawn_angle_band_reads_its_linear_zone(tmp_path):
+    hold = (
+        'process_holds = [{ feature = "tip", requirement = "land_angle_deg", '
+        'band = [89.5, 90.5], gauge = "gauge", reason = "land square fit" }]\n'
+    )
+    loaded = bundle(
+        tmp_path,
+        {"tip": drawn_tip('"tip_land"')},
+        subject="tip",
+        requirement="land_angle_deg",
+        holds=hold,
+    )
+    (row,) = inspection.process_holds(
+        loaded, loaded.plan["setups"][1], loaded.plan["setups"][1]["ops"][0]
+    ).numbers["process_holds"]
+    assert row["inside_drawing_band"] is True
+    assert row["tilt_across_length"] == 5.08
+    assert row["band_mm"] == pytest.approx(2 * 5.08 * math.sin(math.radians(0.5)))
+    assert row["gauge_status"] == "pass", row["gauge_message"]
+
+
+@pytest.mark.parametrize("land", ["tip_land_pos_x", "tip_land_neg_x"])
+def test_the_rocker_tip_land_angle_reads_as_its_linear_zone_across_the_land(land):
+    row = inspection_finding(load_bundle(ROCKER), f"{land}:land_angle_deg")
+    # The drawn 90 ± 1° across the 5.08 least land: 2 · 5.08 · sin 1° = 0.177 mm, which the
+    # rocker profile template's 0.05 resolution reads.
+    assert row.numbers["limits"] == [89.0, 91.0]
+    assert row.numbers["tilt_across_length"] == 5.08
+    assert row.numbers["band_mm"] == pytest.approx(2 * 5.08 * math.sin(math.radians(1.0)))
+    assert row.status == "pass", row.sentence
+
+
+@pytest.mark.parametrize(
+    ("tip", "match"),
+    [
+        (
+            drawn_tip('"tip_land"').replace('"land_angle_deg", ', ""),
+            r"tip: tilt_across land_angle_deg is not a listed angle \(_deg\) requirement",
+        ),
+        (
+            TIP_LAND + "tilt_across = { tip_land = 5.08 }\n",
+            r"tip: tilt_across tip_land is not a listed angle \(_deg\) requirement",
+        ),
+        (
+            TIP_LAND + 'tilt_across = { land_angle_deg = "tip_land" }\n',
+            r"tip: tilt_across land_angle_deg: only a drawn angle band reads across a face",
+        ),
+        (drawn_tip('"station"'), r"tilt_across station is not a listed length band of tip"),
+        (drawn_tip("0.0"), r"tip: tilt_across land_angle_deg: tilt_across must be a positive"),
+    ],
+    ids=["unlisted-angle", "length", "basic-angle", "non-band-length", "zero-length"],
+)
+def test_a_malformed_drawn_angle_length_is_bad_input(tmp_path, tip, match):
+    with pytest.raises(BadInput, match=match):
+        bundle(tmp_path, {"tip": tip})
 
 
 @pytest.mark.parametrize(

@@ -21,13 +21,27 @@ only, never a diameter or a form.
 A BASIC scalar a surface profile governs (``surface_profile_governs``) reads against the
 band the zone derives for it (:func:`._profile.requirement_band`), in checks and holds
 alike; the zone ``surface_profile`` itself is a geometric zone [0, t] like a position.
+
+No gauge declares an angular capability, so an angle band (``*_deg``) is never read
+against a gauge's millimetre range and resolution: unknown. An angle band read across a
+face is the exception: a BASIC angle a profile bounds by ``tilt_across``, or a drawn band
+whose feature declares ``tilt_across``. It is the deviation read end to end across that
+length, so it is judged as the linear zone it is (:func:`._profile.tilt_reading`), on
+resolution alone like a zone.
 """
 
 from ..findings import Finding
 from ..joint_features import source_cite
 from ..measurements import length_debt, length_fact, record_debt
 from ..model import reference_only, tolerance_requirements
-from ._profile import governing, requirement_band
+from ._profile import (
+    DIAMETERS,
+    governing,
+    least_extent,
+    requirement_band,
+    tilt_length,
+    tilt_reading,
+)
 from .resolution import (
     HOLE_KINDS,
     UNKNOWN,
@@ -174,6 +188,7 @@ def process_holds(bundle, setup, op):
         requirement = hold["requirement"]
         if inside == "not_applicable":
             requirement = requirement.removesuffix("_ref")
+        tilt = _tilt(bundle, hold["feature"], requirement, feature, row)
         capability, reading = _capability(
             bundle,
             feature,
@@ -183,6 +198,7 @@ def process_holds(bundle, setup, op):
             op,
             row,
             limits=(hold.get("go_no_go"), hold["band"]),
+            tilt=tilt,
         )
         row.update(gauge_status=capability, gauge_message=reading)
         rows.append(row)
@@ -236,6 +252,30 @@ def _limits(bundle, name, requirement, feature):
     return band or UNKNOWN, reason
 
 
+def _tilt(bundle, name, requirement, feature, nums):
+    """``(nominal angle, length)``: an angle ``requirement`` read as the linear zone across
+    a face length, else None. A BASIC angle a surface profile bounds by ``tilt_across`` reads
+    about its BASIC value; a drawn band its feature reads ``tilt_across`` a face reads about
+    its mid angle, where a template reads both limits alike. The length, or why there is
+    none, goes in ``nums``."""
+    if not requirement.endswith("_deg"):
+        return None
+    if governing(bundle, name, requirement):
+        nominal = feature[requirement]
+        length, reason = tilt_length(bundle, name, requirement)
+    elif requirement in record(feature.get("tilt_across")):
+        drawn = feature[requirement]
+        nominal = sum(drawn) / 2 if all(number(v) for v in drawn) else None
+        length, reason = least_extent(feature["tilt_across"][requirement], feature)
+    else:
+        return None
+    nums["tilt_across_length"] = UNKNOWN if length is None else length
+    if length is None:
+        nums["tilt_across_reason"] = reason
+        return None
+    return None if nominal is None else (nominal, length)
+
+
 def _nominal_band_error(feature, requirement):
     limits = feature.get(requirement)
     if not (isinstance(limits, list) and len(limits) == 2 and all(number(v) for v in limits)):
@@ -256,12 +296,15 @@ def procedure_known(method):
     )
 
 
-def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits=None):
+def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits=None, tilt=None):
     """``(status, message)`` and consumed debt in ``nums`` for an unresolved capability.
 
     ``limits`` is ``(pair, band the pair must accept)``, the GO / NO-GO pair being sizes,
     ``"unknown"`` or None: a declared pair, even an unknown one, makes it a limit check,
-    judged by :func:`_go_no_go` instead of span and resolution."""
+    judged by :func:`_go_no_go` instead of span and resolution. ``tilt`` is ``(nominal
+    angle, face length)`` when an angle band is read across that face (:func:`_tilt`): the
+    band is then judged as its linear zone, on resolution alone; any other angle band has
+    no gauge path."""
     pair, accept = limits or (None, None)
     status, message = "unknown", "explicit inspection method is unknown"
     gauge = resolve(bundle, "gauges", gauge_ref)
@@ -281,6 +324,16 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
         nums.update(gauge_kind=kind, range_mm=span, resolution_mm=resolution)
         if pair is not None:
             return _go_no_go(bundle, feature, requirement, accept, pair, gauge, gauge_ref, nums)
+        angular = (
+            requirement.endswith("_deg")
+            and isinstance(value, list)
+            and len(value) == 2
+            and all(number(v) for v in value)
+        )
+        # An angle band read across a face is the deviation end to end over that length: a
+        # linear zone of that width, never degrees against a millimetre gauge.
+        linear = tilt_reading(value, *tilt) if angular and tilt is not None else None
+        angular = angular and linear is None
         method = record(op.get("inspection_methods")).get(requirement)
         geometric = requirement in GEOMETRIC
         method_known = procedure_known(method)
@@ -337,7 +390,7 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
         )
         if (
             feature["kind"] in {"hole", "thread", "threaded_hole"}
-            and requirement == "dia"
+            and requirement in DIAMETERS
             and kind in {"micrometer", "micrometer_set"}
         ):
             capable = False
@@ -379,6 +432,20 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
                 )
             else:
                 message = "roughness gauge capability unresolved"
+        elif angular:
+            # Gauges declare millimetre range and resolution only: degrees never meet them.
+            message = "no angular gauge capability"
+        elif linear is not None:
+            # Like every zone, judged on resolution alone: an end-to-end deviation reading
+            # has no size for the gauge's range to span.
+            consumed = ("resolution",)
+            nums["band_mm"] = linear
+            if not number(resolution):
+                message = "gauge resolution unresolved"
+            elif resolution > linear:
+                status, message = "error", "gauge resolution exceeds the requirement band"
+            else:
+                status, message = "pass", "gauge resolves the tilt's linear zone across its face"
         elif isinstance(value, list) and len(value) == 2 and all(number(v) for v in value):
             consumed = ("range", "resolution")
             if isinstance(span, list) and all(number(v) for v in span) and number(resolution):
@@ -411,7 +478,7 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
                 message = "geometric gauge capability or datum inspection method unresolved"
         else:
             message = "inspection capability for requirement unresolved"
-        if uncertain(gauge) and status != "error":
+        if uncertain(gauge) and status != "error" and not angular:
             status, message = "unknown", "named gauge capability needs verification"
         elif uncertain(gauge) and status == "error" and capable:
             status, message = (
@@ -520,6 +587,7 @@ def evaluate(bundle):
             nums = {"requirement": requirement, "limits": value, "gauge": "unknown"}
             if profile_band is not None:
                 nums["profile_band"] = profile_band
+            tilt = _tilt(bundle, name, requirement, feature, nums)
             # A limit check accepts the band as the traveler prints it (rounded inward).
             accept = printed_band(value, drawing_precision(bundle, name, requirement))
             accept = accept or _drawing_band(requirement, value)
@@ -540,7 +608,7 @@ def evaluate(bundle):
                 nums.update(gauge=gauge_ref, op=f"{setup['id']}:{op['op']}")
                 pair = go_no_go_pair(op, requirement)
                 status, message = _capability(
-                    bundle, feature, requirement, value, gauge_ref, op, nums, (pair, accept)
+                    bundle, feature, requirement, value, gauge_ref, op, nums, (pair, accept), tilt
                 )
             # Every other op's GO / NO-GO pair for this requirement also prints the drawing
             # band, so it must accept only that band too.
@@ -555,7 +623,15 @@ def evaluate(bundle):
                     "gauge": other["checks"][requirement],
                 }
                 row["status"], row["message"] = _capability(
-                    bundle, feature, requirement, value, row["gauge"], other, row, (pair, accept)
+                    bundle,
+                    feature,
+                    requirement,
+                    value,
+                    row["gauge"],
+                    other,
+                    row,
+                    (pair, accept),
+                    tilt,
                 )
                 others.append(row)
             if others:

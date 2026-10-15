@@ -55,6 +55,45 @@ def requirement_band(bundle, name, requirement):
     return [max(lo for lo, _ in bands), min(hi for _, hi in bands)], f"surface profile {owners}"
 
 
+def tilt_length(bundle, name, requirement):
+    """``(length, reason)``: the least face extent ``l`` across which every surface profile
+    governing angle ``requirement`` of feature ``name`` bounds its tilt (``tilt_across``),
+    or ``None`` and why there is none: the angle is not tilt-governed, an extent is
+    unknown, or the profiles tilt it across different lengths (no one reading reads both)."""
+    feature = record(bundle.feature_definitions.get(name))
+    lengths = set()
+    for owner, entry in governing(bundle, name, requirement):
+        if not (isinstance(entry, dict) and "tilt_across" in entry):
+            return None, f"the {owner} surface profile bounds no tilt across a length"
+        least, reason = least_extent(entry["tilt_across"], feature)
+        if least is None:
+            return None, f"{owner} surface profile: {reason}"
+        lengths.add(least)
+    if not lengths:
+        return None, "no surface profile bounds its tilt across a length"
+    if len(lengths) > 1:
+        return None, "its surface profiles tilt it across different lengths"
+    return lengths.pop(), None
+
+
+def tilt_reading(band, nominal, length):
+    """The width ``w`` (manifest units) of the linear zone an angle band ``[lo, hi]``
+    (degrees) about the ``nominal`` angle reads as across face extent ``length``: the
+    end-to-end deviation ``length * sin(a - nominal)`` spans ``hi`` to ``lo``. It is the
+    exact inverse of the ``asin(t / l)`` tilt, so one zone ``t`` reads ``2t`` wide."""
+    low, high = (length * trig.sin(math.radians(angle - nominal)) for angle in band)
+    return high - low
+
+
+def least_extent(across, feature):
+    """``(l_min, reason)``: a ``tilt_across`` number, else the named band's lower limit."""
+    extent = across if number(across) else feature.get(across)
+    limits = [extent] if number(extent) else extent if isinstance(extent, list) else []
+    if not limits or not all(number(v) for v in limits):
+        return None, f"the least limit of {across} is unknown"
+    return min(limits), None
+
+
 def _zone_band(bundle, owner, entry, feature, nominal, requirement):
     """``(band, reason)`` one profile of feature ``owner`` gives the BASIC ``nominal`` of
     ``requirement`` of ``feature``, which it governs with ``entry``."""
@@ -70,12 +109,9 @@ def _zone_band(bundle, owner, entry, feature, nominal, requirement):
     if entry == UNKNOWN:
         return None, "how the requirement reads in the zone is unknown"
     if isinstance(entry, dict) and "tilt_across" in entry:
-        across = entry["tilt_across"]
-        extent = across if number(across) else feature.get(across)
-        limits = [extent] if number(extent) else extent if isinstance(extent, list) else []
-        if not limits or not all(number(v) for v in limits):
-            return None, f"the least limit of {across} is unknown"
-        least = min(limits)
+        least, reason = least_extent(entry["tilt_across"], feature)
+        if least is None:
+            return None, reason
         if zone >= least:
             return None, f"t {zone} is not less than the {least} face extent, so no tilt is bounded"
         # asin(t / l) as atan2 of the legs: trig's platform-stable arc tangent.
