@@ -1190,7 +1190,9 @@ for each face, the later ops it is `carried_to`. If no later op claims the face,
 the finding is an error: no op makes that part of it. An earlier claim never
 discharges it. If a later finishing op names the face, or has unknown refs, and
 its claim is unknown, the debt stays unknown. Certain hits at the reached
-samples still fail the op.
+samples still fail the op. The debt is judged even when a missing tool or
+holder dimension, or other unresolved context, leaves the op's own hits
+unknown: with no later claim of the face it is still an error.
 
 **Printed checkpoints (rule A′).** For an op whose coordinates tables print
 cutter-centre rows ([rules-coordinates](rules-coordinates.md)), the kernel

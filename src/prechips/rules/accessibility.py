@@ -204,28 +204,35 @@ def evaluate(bundle):
         # kernel that never posed the tool reports none: that is unknown, never absent.
         keys = ("tool_z_mm", "nose_z_mm")
         extent = {key: detail.get(key, "unknown") for key in keys} if turned else {}
+        # A bounded op's carried debt needs only the kernel's unreached samples and the
+        # later ops' claims, never the dimensions or context that left this op blocked.
+        carried = _carried(bundle, facts, op, detail.get("bounds_unreached"))
         if blocked:
             occluded = any(number(value) and value > 0 for value in certain.values())
-            if blocked.status == "unknown" and (occluded or checkpoint_hit):
-                message = (
-                    "selected cutter or holder is certainly occluded by part/fixture material"
-                    if occluded
-                    else checkpoint_hit
-                )
-                if occluded and checkpoint_hit:
-                    message += "; " + checkpoint_hit
+            uncovered = carried is not None and carried[1] == "error"
+            unreached = {} if carried is None else {"bounds_unreached": carried[0]}
+            if blocked.status == "unknown" and (occluded or uncovered or checkpoint_hit):
+                causes = []
+                if occluded:
+                    causes.append(
+                        "selected cutter or holder is certainly occluded by part/fixture material"
+                    )
+                if uncovered:
+                    causes.append(carried[2])
+                if checkpoint_hit:
+                    causes.append(checkpoint_hit)
                 rows.append(
                     Finding(
                         "accessibility",
                         blocked.subject,
                         "error",
-                        {**certain, **checkpoints, **extent},
+                        {**certain, **unreached, **checkpoints, **extent},
                         cite,
-                        f"{blocked.subject}: {message}.",
+                        f"{blocked.subject}: {'; '.join(causes)}.",
                     )
                 )
             else:
-                rows.append(replace(blocked, numbers={**blocked.numbers, **extent}))
+                rows.append(replace(blocked, numbers={**blocked.numbers, **unreached, **extent}))
             continue
         subject = f"{setup['id']}:{op['op']}"
         values = {
@@ -267,7 +274,6 @@ def evaluate(bundle):
                 "error",
                 "selected cutter or holder is certainly occluded by part/fixture material",
             )
-        carried = _carried(bundle, facts, op, detail.get("bounds_unreached"))
         if carried is not None:
             values["bounds_unreached"], verdict, why = carried
             if verdict == "error":

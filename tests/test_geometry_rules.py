@@ -1110,6 +1110,24 @@ def test_carried_debt_never_hides_a_certain_hit_inside_the_box(bundle):
     assert row.numbers["bounds_unreached"]["carried_to"] == {"#1": ["S1:20"]}
 
 
+@pytest.mark.parametrize("later", [False, True])
+def test_carried_debt_is_judged_even_when_a_tool_dimension_is_unknown(bundle, later):
+    # An unknown flute length leaves the op's hits unknown, but never whether a later op
+    # makes the face its box keeps its cutter from: with none, no op makes that part.
+    bundle.inventory["tools"]["em"]["flute_len_mm"] = "unknown"
+    if later:
+        row = _bounded(bundle, "S1:10", [1])
+    else:
+        bundle.kernel["ops"]["S1:10"]["bounds_unreached"] = deepcopy(UNREACHED)
+        row = finding(accessibility, bundle)
+    assert row.status == ("unknown" if later else "error")
+    carried = {"#1": ["S1:20"]} if later else {}
+    assert row.numbers["bounds_unreached"]["carried_to"] == carried
+    if not later:
+        assert "no later op claims #1" in row.sentence
+        assert exit_code([row], {"required": {}}, bundle) == 2
+
+
 @pytest.mark.parametrize("rule", [accessibility, internal_corner_radius])
 @pytest.mark.parametrize("context", ["invalid", "away"])
 def test_context_errors_take_precedence_over_finished_facts(bundle, rule, context):
