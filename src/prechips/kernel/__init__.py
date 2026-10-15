@@ -212,7 +212,10 @@ def _shank_from(tool, values):
         return UNKNOWN
     if not (number(cutter) and number(shank)) or shank <= cutter:
         return flute
-    seat = _accepted_angle(tool, "angle_deg")
+    # An absent or unverified seat angle keeps the flute end: it never blocks the
+    # placement, so it is not measurement debt here (only a verified value is read).
+    fact = angle_fact(tool, "angle_deg", require_measured=False)
+    seat = fact["value"] if fact["verified"] else UNKNOWN
     if not number(seat):
         return flute
     if not 0 < seat < 180:
@@ -261,12 +264,16 @@ def _turning_values(bundle, op):
     # A tool set out shorter than its head (holder on the head) is measured, not missing:
     # both stay in the job, which leaves the holder unposed, and the rules say why
     # (geometry_common.op_contexts).
-    # Reach rule: the radial depth the cutting edge itself spans, else the declared reach.
-    reach = _accepted_length(tool, "reach")
+    # Reach rule: the declared reach, else the radial depth the cutting edge itself spans.
+    # A reach is debt only when that edge fallback cannot stand in for it.
+    fact = length_fact(tool, "reach", require_measured=False)
+    reach = fact["value"] if fact["verified"] else UNKNOWN
     if number(reach) and reach > 0:
         values["flute_len_mm"] = reach
     elif "edge_len_mm" not in missing and "entering_angle_deg" not in missing:
         values["flute_len_mm"] = values["edge_len_mm"] * math.sin(math.radians(entering))
+    else:
+        _length_debt(tool, "reach", False)
     if "projection_mm" not in missing:
         # Nose to toolpost body: the deepest the holder can stay clear of a wall.
         values["oal_mm"] = values["projection_mm"]

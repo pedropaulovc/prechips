@@ -384,6 +384,41 @@ def test_unprewarmed_measurement_rules_keep_derived_geometry_unknown_and_fact_de
     assert not any("stock_bbox" in identity or "stock_entry" in identity for identity in by_id)
 
 
+def test_measure_checklist_prepares_each_plans_kernel_job_once(tmp_path, monkeypatch, capsys):
+    from contextlib import nullcontext
+
+    from prechips import cli
+    from prechips.rules import coordinates, geometry_common
+
+    monkeypatch.setenv("FREECAD_CMD", str(tmp_path / "nonexistent-freecadcmd"))
+    monkeypatch.setenv("PRECHIPS_KERNEL_CACHE", str(tmp_path / "fresh-kernel-cache"))
+    prepared = []
+    evaluate = coordinates.evaluate
+
+    def counted(bundle, *, pre_kernel=False):
+        if pre_kernel:  # only build_job asks for the kernel request
+            prepared.append(bundle)
+        return evaluate(bundle, pre_kernel=pre_kernel)
+
+    monkeypatch.setattr(coordinates, "evaluate", counted)
+    args = [
+        "tools",
+        "--measure",
+        "--json",
+        "--plan",
+        str(ROOT / "examples/pivot-bracket/plan.toml"),
+    ]
+    assert cli.main(args) == 0
+    lent = json.loads(capsys.readouterr().out)
+    assert len(prepared) == 1
+    # Rebuilding per rule (no lending) is the same checklist, only slower.
+    monkeypatch.setattr(geometry_common, "lend_job", lambda bundle, job: nullcontext())
+    prepared.clear()
+    assert cli.main(args) == 0
+    assert json.loads(capsys.readouterr().out) == lent
+    assert len(prepared) > 1
+
+
 def test_default_examples_checklist_shares_one_inventory_debt_across_default_plans(tmp_path):
     inventory = tmp_path / "inventory.toml"
     inventory.write_bytes((ROOT / "examples" / "inventory" / "pedro-shop.toml").read_bytes())

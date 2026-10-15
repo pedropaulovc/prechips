@@ -158,6 +158,50 @@ def test_turning_input_debts_include_insert_blade_head_shank_and_holder(tmp_path
     assert entries["tools.em.entering_angle_deg"]["units"] == "degrees"
 
 
+@pytest.mark.parametrize("edge", [True, False], ids=["edge-fallback", "no-fallback"])
+def test_turning_reach_is_debt_only_when_the_edge_fallback_cannot_stand_in(tmp_path, edge):
+    data = prepared_bundle(tmp_path)
+    data.inventory["machines"]["mill"]["kind"] = "lathe"
+    tool = data.inventory["tools"]["em"]
+    tool.update(
+        kind="parting_blade",
+        hand="right",
+        nose_radius_mm=0.4,
+        head_len_mm=15,
+        shank_width_mm=10,
+        functional_width_mm=10,
+        blade_width_mm=3,
+        insert_angle_deg=80,
+        entering_angle_deg=90,
+        projection_mm={"holder": 24},
+    )
+    if edge:
+        tool["edge_len_mm"] = 8
+    data.inventory["holders"]["holder"].update(body_width_mm=20, body_depth_mm=15)
+    entries = debt_map(op_inputs(data)["measurement_debts"])
+    # The edge spans the reach (8 * sin 90) without one; only its absence leaves reach owed.
+    assert ("tools.em.reach" in entries) is not edge
+    assert ("tools.em.edge_len" in entries) is not edge
+
+
+@pytest.mark.parametrize(
+    ("angle", "shank_from"),
+    [(None, 10.0), (fact(90, "assumed"), 10.0), (fact(90), 11.0)],
+    ids=["absent", "assumed", "measured"],
+)
+def test_a_seat_angle_is_read_when_verified_but_never_owed(tmp_path, angle, shank_from):
+    data = prepared_bundle(tmp_path)
+    tool = data.inventory["tools"]["em"]
+    tool["shank_mm"] = 8.0
+    if angle is not None:
+        tool["angle_deg"] = angle
+    inputs = op_inputs(data)
+    # Without a verified seat cone the full shank starts at the flute end (a larger,
+    # conservative body), so the angle never blocks placement and is never debt.
+    assert "tools.em.angle_deg" not in debt_map(inputs["measurement_debts"])
+    assert inputs["shank_from_mm"] == pytest.approx(shank_from)
+
+
 @pytest.mark.parametrize("owner,field", [("tools", "oal_mm"), ("fixtures", "opening_mm")])
 def test_host_only_refusal_does_not_rekey_native_geometry(tmp_path, owner, field):
     data = prepared_bundle(tmp_path)

@@ -677,12 +677,12 @@ def test_invalid_turning_setting_does_not_acquire_unconsumed_context_debts(tmp_p
     data.inventory["tools"]["turn"]["reach_mm"] = fact(5.0, case)
     setup = data.plan["setups"][0]
     job = kernel.build_job(data)
-    # Fixture/reach preparation retains real consumer debt; this op authors no DRO target.
+    # Fixture preparation retains real consumer debt; this op authors no DRO target, and the
+    # verified edge (6 * sin 85) stands in for the unverified reach, so reach is not owed.
     entries = kernel_measurement_debts(job, setup, setup["ops"][0], fixture=True)
     assert {entry["id"] for entry in entries} == {
         "fixtures.parallels.length",
         "fixtures.parallels.width",
-        "tools.turn.reach",
     }
     [row] = accessibility.evaluate(data)
     assert row.status == "unknown"

@@ -247,6 +247,7 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
     if args.measure:
         from prechips.kernel import build_job
         from prechips.rules import RULES
+        from prechips.rules.geometry_common import lend_job
 
         plans = args.plan
         if not plans:
@@ -277,7 +278,9 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
                     "measurement_debts": job["measurement_debts"],
                 },
             )
-            findings = [finding for rule in RULES for finding in rule.evaluate(bundle)]
+            # Every geometry rule reuses this one prepared job: the bundle is unchanged.
+            with lend_job(bundle, job):
+                findings = [finding for rule in RULES for finding in rule.evaluate(bundle)]
             kernel_debts = [
                 entry
                 for subjects in job["measurement_debts"].values()

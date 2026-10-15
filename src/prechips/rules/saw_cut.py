@@ -4,6 +4,7 @@ from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact
 from prechips.rules.geometry_common import (
     kernel_measurement_debts,
+    prepared_job,
     unavailable,
     with_measurement_debts,
 )
@@ -30,7 +31,7 @@ _FACTS = (
 
 
 def evaluate(bundle):
-    from prechips.kernel import build_job, run_geometry
+    from prechips.kernel import run_geometry
 
     cuts = [(setup, op) for setup, op in operations(bundle) if op.get("do") in SAW_OPS]
     if not cuts:
@@ -84,7 +85,7 @@ def evaluate(bundle):
         elif blocked is not None:
             if blocked.status == UNKNOWN and facts.get("measurement_debts"):
                 if job is None:
-                    job = build_job(bundle)
+                    job = prepared_job(bundle)
                 debts.extend(kernel_measurement_debts(job, setup, op, stock=True))
             findings.append(with_measurement_debts(blocked, debts))
             continue
@@ -104,7 +105,7 @@ def evaluate(bundle):
         finding = Finding("saw_cut", subject, status, numbers, cite, f"{subject}: {message}.")
         if status == UNKNOWN and facts.get("measurement_debts") and detail.get("stock_reason"):
             if job is None:
-                job = build_job(bundle)
+                job = prepared_job(bundle)
             debts.extend(kernel_measurement_debts(job, setup, op, stock=True))
         findings.append(with_measurement_debts(finding, debts))
     return findings

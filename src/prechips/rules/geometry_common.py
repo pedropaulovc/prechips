@@ -1,5 +1,8 @@
 """Shared geometry debt/provenance boundaries; no host-side geometric guesses."""
 
+from contextlib import contextmanager
+from contextvars import ContextVar
+from copy import deepcopy
 from dataclasses import replace
 
 from prechips.findings import Finding
@@ -435,12 +438,37 @@ def with_measurement_debts(finding, entries):
     )
 
 
+# A host-only caller that already prepared one bundle's kernel job lends it to the rules
+# it then evaluates on that same, unchanged bundle (``tools --measure``).
+_LENT_JOB = ContextVar("lent_kernel_job", default=None)
+
+
+@contextmanager
+def lend_job(bundle, job):
+    """Within the block, :func:`prepared_job` of ``bundle`` is a copy of ``job``."""
+    token = _LENT_JOB.set((bundle, job))
+    try:
+        yield
+    finally:
+        _LENT_JOB.reset(token)
+
+
+def prepared_job(bundle):
+    """``bundle``'s kernel job: a lent one (:func:`lend_job`), else freshly built."""
+    from prechips.kernel import build_job
+
+    lent = _LENT_JOB.get()
+    if lent is not None and lent[0] is bundle:
+        return deepcopy(lent[1])
+    return build_job(bundle)
+
+
 def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=None):
     """Per-op context; ``turning`` names the required inputs of turning-model ops."""
-    from prechips.kernel import build_job, run_geometry
+    from prechips.kernel import run_geometry
 
     facts = run_geometry(bundle)
-    job = build_job(bundle)
+    job = prepared_job(bundle)
     jobs = {op["subject"]: op for setup in job["setups"] for op in setup["ops"]}
     holds = {setup["id"]: setup["hold"] for setup in job["setups"]}
     frames = {setup["id"]: setup["frame"] for setup in job["setups"]}
@@ -668,10 +696,10 @@ def _clamped_head(inputs):
 
 
 def setup_contexts(bundle, rule):
-    from prechips.kernel import build_job, run_geometry
+    from prechips.kernel import run_geometry
 
     facts = run_geometry(bundle)
-    job = build_job(bundle)
+    job = prepared_job(bundle)
     holds = {s["id"]: s["hold"] for s in job["setups"]}
     frames = {s["id"]: s["frame"] for s in job["setups"]}
     for setup in bundle.plan["setups"]:
