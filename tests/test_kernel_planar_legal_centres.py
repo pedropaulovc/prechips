@@ -828,23 +828,52 @@ def test_public_facing_removes_crossing_core_but_never_credits_later_drilling_or
 ):
     wide = {"x": [0.0, 60.0], "y": [0.0, 40.0], "z": [10.0, 20.0]}
     step = solids["cross-core"]
-    face, mill, narrow, holder = engine.run(
+    face, mill, narrow, edge, holder = engine.run(
         {
             "jobs": [
                 _core_job(engine, step, "face", wide),
                 _core_job(engine, step, "mill", wide),
                 _core_job(engine, step, "face", {**wide, "x": [0.0, 25.0]}),
+                _core_job(engine, step, "face", {**wide, "x": [0.0, 58.0]}),
                 _core_job(engine, step, "face", wide, projection=4),
             ]
         }
     )["results"]
     faced = face["ops"]["S1:10"]
     assert faced["tool_hits"] == 0, faced
+    # The wide box holds every R3 pose on the z10 floor: nothing is carried (#236).
+    assert "bounds_unreached" not in faced, faced
     # S2 receives the entire below-z10 plate, including the still-undrilled core.
     assert face["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(24000, rel=0, abs=1e-4)
-    for result in (mill, narrow):
+    # The mill removes nothing, and S2's later bore is never credited to it: its flute meets
+    # the core above z10, inside its own box, so these hits stay hits and none is carried.
+    milled = mill["ops"]["S1:10"]
+    assert isinstance(milled["tool_hits"], int) and milled["tool_hits"] > 0, milled
+    assert "bounds_unreached" not in milled, milled
+    # A box ending at x25 (or x58) leaves the raw above z10 beyond it. The facing's R3
+    # cutter cannot stand on a floor sample whose axis lies past x22 (x55) without meeting
+    # that raw, so those samples are carried (#236), never hits on stock it may not remove.
+    # West of the line its own facing has cleared everything above z10: no hit remains.
+    # The floor's 90 samples: GRID 5 cell centres at x 6, 18, 30, 42, 54 by y 4..36, less
+    # (30, 20) in the core's opening; then, at the R3 spacing, 12 on each long edge at
+    # x 2.5..57.5, 12 on each short edge, 7 on each opening side at x 20 + 20(k + 0.5)/7,
+    # and 2 on each opening end.
+    east = {
+        # Past x22: grid x30 (4), x42 and x54 (5 each); x22.5..57.5 on each long edge (8);
+        # the x60 edge (12); x24.3..38.6 on each opening side (6); the x40 opening end (2).
+        "x25": 4 + 5 + 5 + 2 * 8 + 12 + 2 * 6 + 2,
+        # Past x55: x57.5 on each long edge and the x60 edge.
+        "x58": 2 * 1 + 12,
+    }
+    assert faced["sample_count"] == 24 + 4 * 12 + 2 * 7 + 2 * 2, faced
+    for name, result in (("x25", narrow), ("x58", edge)):
         detail = result["ops"]["S1:10"]
-        assert isinstance(detail["tool_hits"], int) and detail["tool_hits"] > 0, detail
+        unreached = detail["bounds_unreached"]
+        assert unreached["indices"] == detail["claimed_indices"] == faced["claimed_indices"]
+        assert unreached["sample_count"] == east[name], (name, detail)
+        assert unreached["sample_count"] + detail["sample_count"] == faced["sample_count"]
+        assert detail["tool_hits"] == 0, detail
     held = holder["ops"]["S1:10"]
     assert held["tool_hits"] == 0 and held["holder_hits"] > 0, held
     assert "part" in held["obstacles"]["holder"], held
+    assert "bounds_unreached" not in held, held

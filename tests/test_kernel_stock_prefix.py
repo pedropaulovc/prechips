@@ -136,11 +136,25 @@ def test_underivable_earlier_cut_leaves_later_flute_unknown_with_its_finished_hi
     # Finished-material observations do not certify a flute collision under unknown stock.
     assert stopped["min_hits"]["tool"] == "unknown"
     assert stopped["holder_hits"] == finish["holder_hits"]
-    # The stopping rough's cutter stands at the west wall, outside its rejected EAST
-    # box. Those before-stock hits cannot be its own removal and remain certain.
+    # The stopping rough's rejected EAST box holds none of the x5 west wall it claims. Its
+    # R3 cutter, axis x2, stands in the raw x0..5 strip there, stock it may not remove: it
+    # never stands so (#236), and every wall sample whose cutter meets the strip is carried.
+    # Only the top edge's cutters, standing above the blank's z20 top, meet nothing and are
+    # judged. Those zero hits stay certain: its own stopped cut never makes them unknown.
+    # The WEST box holds every pose, so the same claim's samples there are all judged.
+    # The west wall, y 5..45 by z 0..20 less the lip's y 20..30 by z 16..20, has 68: GRID 5
+    # cell centres less the one at (y25, z18) where the lip joins (24); at the R3 spacing 12 on
+    # its 40 mm foot, 7 on each 20 mm end, 5 on each 15 mm top edge beside the lip, and
+    # 2 + 4 + 2 around the lip. Only the 2 * 5 on the top edges are judged.
+    cleared = known["ops"]["S1:10"]
+    assert "bounds_unreached" not in cleared, cleared
+    assert cleared["sample_count"] == 24 + 12 + 2 * 7 + 2 * 5 + 2 + 4 + 2, cleared
     rough = unknown["ops"]["S1:10"]
-    assert rough["tool_hits"] == rough["min_hits"]["tool"] > 0, rough
-    assert rough["obstacles"]["tool"] == ["part"], rough
+    assert rough["bounds_unreached"]["indices"] == rough["claimed_indices"], rough
+    assert rough["sample_count"] == 2 * 5, rough
+    assert rough["bounds_unreached"]["sample_count"] == cleared["sample_count"] - 2 * 5
+    assert rough["tool_hits"] == rough["min_hits"]["tool"] == 0, rough
+    assert rough["obstacles"]["tool"] == [], rough
     assert "its own cut stopped the stock builder" not in rough.get("reasons", {}).get(
         "tool_hits", ""
     )
