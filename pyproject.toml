@@ -1,6 +1,6 @@
 [project]
 name = "prechips"
-version = "0.1"
+version = "0.1.1"
 description = "Checks before chips: deterministic validation of machining process plans against part geometry and a shop inventory."
 readme = "README.md"
 license = "MIT"

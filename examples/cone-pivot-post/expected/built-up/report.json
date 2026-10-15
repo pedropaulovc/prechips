@@ -26312,7 +26312,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "94b266ab39b15f5f5c3c9c745edf6a56f5862a6b06bcfcee0fcd25af5ef9c602",
+  "hash": "061547d290ba70bda6d872e3bce61e60e6d30011cf24de32bf6a0a1a73c062cf",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26391,7 +26391,7 @@
       "sha256": "5719f3f9ec779ae255f9c880a59c5eba338526576279b4f94a8c22e675e4aa1b"
     }
   },
-  "prechips_version": "0.1",
+  "prechips_version": "0.1.1",
   "renders": {
     "S1": {
       "fixture": "modeled",
