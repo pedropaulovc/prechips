@@ -42,11 +42,22 @@ retouch bypass ignored overlapping holes
 [`d837c883`](https://github.com/pedropaulovc/prechips/commit/d837c88363788c08c42b45fb69d532a2b940732f)).
 The [offline STEP/native-cache provenance summary](examples/README.md#expected-consumer-cli-exits)
 shows ample real land: at least 2.4596 mm (about 2.46 mm), versus the 0.5 mm
-policy. Missing circular-topology proof, not physical land, keeps S8/S9's
-post-plunge retouches unknown pending [#208](https://github.com/pedropaulovc/prechips/issues/208).
-Release 0.1.1 includes #198, #192 and #199 with that documented interim exit 4.
-Exit-0 restoration by #208 is deferred to release 0.1.2;
-the authored plan and its requirements are unchanged.
+policy. Release 0.1.1 includes #198, #192 and #199 with that documented interim
+exit 4. [#208](https://github.com/pedropaulovc/prechips/issues/208) now supplies
+the missing proof: native job schema 2 exports each face's exact outer and
+inner wires, and the host certifies a 0.5 mm square on complete circles only,
+with native and carried-source normal corner-height bounds each at most 1e-6 mm
+([usable land](docs/rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check)).
+A cold private native regeneration at the 0.1.1 merge (`9805c105`) observed it
+certify both S8/S9 lands (zero_check S8/S9 pass); the cone still exits **4**
+because #199 holds its blind-depth, envelope and travel endpoints on the two
+assumed reamer lead lengths (M1/M2) until they are measured (0.1.2), and S1's
+foot-seat touch stays unknown as on main. See the
+[#208 acceptance status](docs/rules-operations.md#issue-208-acceptance-status).
+The authored plan and its requirements are unchanged.
+The inherited rectangle/whole-face height exposure is not fixed by this
+native-square guard; it remains separate in
+[#217](https://github.com/pedropaulovc/prechips/issues/217).
 
 See the example guide's [print and native acceptance limits](examples/README.md#print-and-native-acceptance-limits).
 
@@ -262,10 +273,14 @@ the DRO grid; an authored edge the DRO reads on another step is `✗`. A whole
 face can carry through a traced stock lineage into a remounted setup:
 its transformed height sets the nearest enterable Axis Set, with the setting
 residual reported. A height-changing or unknown cut breaks that credit.
-An overlapping axial plunge preserves it only when the existing native
-`Plane`/`fills_bbox` rectangle retains a 0.5 mm square outside the cumulative
-bounded footprint; the card then requires touching outside the computed
-diameter. Radius extrema alone prove no usable circular land, pending #208.
+An overlapping axial plunge preserves it only when an exact native witness
+retains a 0.5 mm square outside the cumulative bounded footprint: the existing
+`Plane`/`fills_bbox` rectangle, or the setup's native `face_topology` circles
+(outer and every inner, reproducing the face's area) with each original hole
+and each exclusion deducted about its own centre; the card then requires
+touching at the proved square's DRO XY and outside the computed diameter.
+Radius extrema, a feature name or a polygon/unsupported wire prove no usable
+circular land.
 An oblique plane without exact native source-plane or bound datum evidence
 stays `?`, never an assumed Z.
 Each touch row retains the credited STEP refs as `credited_faces` in the report JSON

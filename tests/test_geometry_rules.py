@@ -857,6 +857,33 @@ def cache_candidate(bundle, monkeypatch, tmp_path):
     return bundle, result
 
 
+def test_topology_schema_two_cannot_reuse_a_version_one_geometry_cache(
+    cache_candidate, monkeypatch, tmp_path
+):
+    candidate, result = cache_candidate
+    build_job = kernel.build_job
+    calls = []
+
+    def old_job(bundle):
+        job = build_job(bundle)
+        job["version"] = 1
+        return job
+
+    def execute(executable, batch):
+        calls.append(deepcopy(batch))
+        return {"results": [deepcopy(result)]}
+
+    monkeypatch.setattr(kernel, "build_job", old_job)
+    monkeypatch.setattr(kernel, "_execute", execute)
+    assert kernel.run_geometry(candidate)["status"] == "ok"
+    assert calls[0]["jobs"][0]["version"] == 1
+    object.__setattr__(candidate, "kernel", None)
+    monkeypatch.setattr(kernel, "build_job", build_job)
+    assert kernel.run_geometry(candidate)["status"] == "ok"
+    assert len(calls) == 2 and calls[1]["jobs"][0]["version"] == 2
+    assert len(list((tmp_path / "cache").glob("*.json"))) == 2
+
+
 @pytest.mark.parametrize("status", ["unknown", "error"])
 def test_unsuccessful_geometry_is_not_reused_from_persistent_cache(
     cache_candidate, monkeypatch, tmp_path, status

@@ -6,6 +6,7 @@ import json
 import math
 import runpy
 import tomllib
+from contextlib import nullcontext
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -36,6 +37,7 @@ from test_tool_change_touch import (
     measured_native_retouch_bundle,
 )
 
+from prechips.cli import _evaluate as evaluate_checks
 from prechips.findings import Finding
 from prechips.inputs import load_bundle
 from prechips.kernel import run_geometry
@@ -2536,6 +2538,8 @@ def test_zero_oracle_uses_its_own_carried_physical_height_and_typed_setting(case
     elif case == "native-source-plane":
         data = carried_rectangular_source_plane_bundle()
     elif case in {"through-drill", "lateral-sweep"}:
+        # Own-centred cuts leave land, but the printed 0.585 mm circumbox
+        # leaves less than 0.5 mm at every edge of this 2 mm face.
         data = carry_with_through_drill(aim_shift=0.185)
     elif case in {"bbox-mill", "flipped-bbox-mill", "supplied-no-normal"}:
         data = carried_bbox_mill_bundle(
@@ -2634,13 +2638,20 @@ def test_zero_oracle_uses_its_own_carried_physical_height_and_typed_setting(case
         complete = zero_recipe.evaluate(data)[-1].to_dict()
         with pytest.raises(ValueError):
             VALIDATOR["check_zero"](setup, complete, entries, own)
-    if case in {"through-drill", "explicit-touch", "listed-retouch"}:
+    if case == "through-drill":
+        row = finding["numbers"]["derived_touches"][-1]
+        assert row["z_axis_set"] == "unknown"
+        assert "touch_exclusion_dia_mm" not in row
+        for patch in ({"z_axis_set": 0.0}, {"touch_exclusion_dia_mm": 1.17}):
+            forged = copy.deepcopy(finding)
+            forged["numbers"]["derived_touches"][-1].update(patch)
+            with pytest.raises(ValueError):
+                VALIDATOR["check_zero"](setup, forged, entries, own)
+    if case in {"explicit-touch", "listed-retouch"}:
         row = (
             finding["numbers"]["tool_touches"][0]
             if case == "explicit-touch"
             else finding["numbers"]["retouch"][0]
-            if case == "listed-retouch"
-            else finding["numbers"]["derived_touches"][-1]
         )
         assert row["z_axis_set" if case != "listed-retouch" else "axis_set"] == "unknown"
         assert "touch_exclusion_dia_mm" not in row
@@ -2681,13 +2692,28 @@ def test_endpoint_zero_oracle_keeps_only_the_primary_contact_without_native_full
 
     # The oracle cannot agree with a checker that invents usable rectangular land.
     def forged_land(bundle, setup, target, plane, footprint, previous, excluded):
-        excluded.append(max(previous, footprint[1]))
+        frame = VALIDATOR["setup_frame"](setup, bundle.plan, bundle.features)
+        scale = coordinates.UNIT_MM[bundle.features["units"]]
+        excluded.append(
+            {
+                "frame": frame,
+                "centre_mm": [v * scale for v in footprint[0]],
+                "radius_mm": footprint[1],
+                "error_mm": 0.0,
+            }
+        )
         return True
 
     monkeypatch.setattr(zero_recipe, "_rectangular_spares_plunge", forged_land)
+    # The final contact must also be forged now that it re-certifies carried cuts.
+    monkeypatch.setattr(zero_recipe, "_rectangular_touch_land", lambda *args: True)
+    monkeypatch.setattr(
+        zero_recipe, "_rectangle", lambda *args: ([[-100.0, 100.0], [-100.0, 100.0]], 0.5)
+    )
     forged = zero_recipe.evaluate(data)[-1].to_dict()
+    monkeypatch.undo()
     assert forged["numbers"]["derived_touches"][0]["z_axis_set"] == 21.01
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="derived_touches"):
         VALIDATOR["check_zero"](setup, forged, entries, own)
 
 
@@ -2732,9 +2758,10 @@ def test_carried_touch_oracle_requires_the_native_rectangular_square_witness(
             "bbox_mm": [-radius, -radius, 0.0, radius, radius, 0.0],
         }
     }
-    assert (
-        VALIDATOR["rectangular_touch_land"](own, setup, plane, [0.0, 0.0, 0.0], reach) is expected
-    )
+    exclusions = [
+        {"frame": identity, "centre_mm": [0.0, 0.0, 0.0], "radius_mm": reach, "error_mm": 0.0}
+    ]
+    assert VALIDATOR["rectangular_touch_land"](own, setup, plane, exclusions) is expected
 
 
 def test_carried_touch_oracle_does_not_substitute_radial_extrema_for_shape_or_ignore_prior_cuts():
@@ -2755,14 +2782,143 @@ def test_carried_touch_oracle_does_not_substitute_radial_extrema_for_shape_or_ig
         },
     }
     witness = VALIDATOR["rectangular_touch_land"]
-    assert not witness(own, setup, plane, [0.0, 0.0, 0.0], 0.1)
+    cut = {
+        "frame": copy.deepcopy(identity),
+        "centre_mm": [0.0, 0.0, 0.0],
+        "radius_mm": 0.1,
+        "error_mm": 0.0,
+    }
+    assert not witness(own, setup, plane, [cut])
     plane["touch_face"]["fills_bbox"] = True
-    assert witness(own, setup, plane, [0.0, 0.0, 0.0], 0.1)
-    assert not witness(own, setup, plane, [0.0, 0.0, 0.0], 0.6)
+    assert witness(own, setup, plane, [cut])
+    cut["radius_mm"] = 0.6
+    assert not witness(own, setup, plane, [cut])
     # A model rectangle oblique to the setup axes does not fill its posed AABB.
     root = math.sqrt(0.5)
     identity.update(x=[root, root, 0.0], y=[-root, root, 0.0])
-    assert not witness(own, setup, plane, [0.0, 0.0, 0.0], 0.1)
+    cut["radius_mm"] = 0.1
+    assert not witness(own, setup, plane, [cut])
+
+
+def test_rectangular_touch_oracle_keeps_all_original_cut_frames_and_centres():
+    identity = {
+        "origin": [0.0, 0.0, 0.0],
+        "x": [1.0, 0.0, 0.0],
+        "y": [0.0, 1.0, 0.0],
+        "z": [0.0, 0.0, 1.0],
+    }
+    own = SimpleNamespace(plan={}, features={"units": "mm", "frames": {"F": identity}})
+    setup = {"id": "R", "frame": "F"}
+    plane = {
+        "frame": identity,
+        "formed": 0.0,
+        "touch_face": {
+            "kind": "Plane",
+            "fills_bbox": True,
+            "bbox_mm": [-1.0, -1.0, 0.0, 1.0, 1.0, 0.0],
+        },
+    }
+    exclusions = [
+        {
+            "frame": {**identity, "origin": [offset, 0.0, 0.0]},
+            "centre_mm": [0.0, 0.0, 0.0],
+            "radius_mm": 0.65,
+            "error_mm": 0.0,
+        }
+        for offset in (-0.75, 0.75)
+    ]
+    original = copy.deepcopy(exclusions)
+    located = VALIDATOR["reframed_exclusions"](own, setup, exclusions, plane)
+    assert [cut["centre_mm"][:2] for cut in located] == [[-0.75, 0.0], [0.75, 0.0]]
+    witness = VALIDATOR["rectangular_touch_land"]
+    # Each cut alone leaves the opposite side usable. Together only a 0.2 mm
+    # central strip and 0.35 mm top/bottom strips remain outside their squares.
+    assert all(witness(own, setup, plane, [cut]) for cut in exclusions)
+    assert not witness(own, setup, plane, exclusions)
+    # A shifted reface must not recenter either original cut on its new axis.
+    plane["frame"] = {**identity, "origin": [10.0, 0.0, 0.0]}
+    assert all(witness(own, setup, plane, [cut]) for cut in exclusions)
+    assert not witness(own, setup, plane, exclusions)
+    assert exclusions == original
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize(
+    ("centre_xy", "cut_xy", "expected"),
+    [
+        ((2.0, 0.0), (-2.5, -2.5), False),
+        ((0.0, 0.0), (-2.5, -2.5), False),
+        ((2.0, 0.0), (2.0, 0.0), False),
+        ((0.0, 0.0), (0.0, 0.0), True),
+        ((5e-7, 0.0), (5e-7, 0.0), True),
+        ((1.5e-6, 0.0), (1.5e-6, 0.0), False),
+        ((8e-7, 8e-7), (8e-7, 8e-7), False),
+    ],
+    ids=[
+        "offset-centre-with-covering-circumbox",
+        "zero-centre-with-covering-circumbox",
+        "offset-centre-with-usable-envelope-land",
+        "zero-centre-with-usable-envelope-land",
+        "centre-within-physical-tolerance",
+        "centre-outside-physical-tolerance",
+        "centre-outside-euclidean-tolerance",
+    ],
+)
+def test_carried_rectangle_oracle_separates_physical_land_from_the_printed_receipt(
+    units, centre_xy, cut_xy, expected
+):
+    scale = coordinates.UNIT_MM[units]
+    identity = {
+        "origin": [0.0, 0.0, 0.0],
+        "x": [1.0, 0.0, 0.0],
+        "y": [0.0, 1.0, 0.0],
+        "z": [0.0, 0.0, 1.0],
+    }
+    own = SimpleNamespace(
+        plan={},
+        features={"units": units, "frames": {"F": identity}},
+        kernel={"status": "ok", "setups": {}},
+    )
+    setup = {"id": "R", "frame": "F"}
+    plane = {
+        "frame": {**identity, "origin": [centre_xy[0] / scale, centre_xy[1] / scale, 0.0]},
+        "formed": 0.0,
+        "z_mm": 0.0,
+        "normal_z": 1,
+        "ref": "#1/RECTANGLE",
+        "index": 0,
+        "touch_face": {
+            "kind": "Plane",
+            "fills_bbox": True,
+            "bbox_mm": [-3.0, -3.0, 0.0, 3.0, 3.0, 0.0],
+        },
+    }
+    cut = {
+        "frame": copy.deepcopy(identity),
+        "centre_mm": [*cut_xy, 0.0],
+        "radius_mm": 0.5,
+        "error_mm": 0.0,
+    }
+    original = copy.deepcopy(cut)
+    entries = VALIDATOR["Entries"]({"machines": {}, "tools": {}})
+    assert VALIDATOR["rectangular_touch_land"](own, setup, plane, [cut])
+    reach = math.dist(centre_xy, cut_xy) + 0.5
+    physical = VALIDATOR["carried_touch_land"](own, entries, setup, plane, [cut])
+    assert physical == {"touch_exclusion_dia_mm": pytest.approx(2 * reach)}
+    receipt = VALIDATOR["carried_touch_land"](own, entries, setup, plane, [cut], receipt=True)
+    assert (receipt is not None) is expected
+    if expected:
+        # Tolerance admits C, not an underbound: the radius is about DRO0.
+        printed_reach = math.hypot(*cut_xy) + 0.5
+        assert receipt == {
+            "touch_exclusion_dia_mm": pytest.approx(2 * printed_reach, rel=0, abs=1e-12)
+        }
+    if cut_xy == (-2.5, -2.5):
+        # [2, 2.5]^2 is a real half-mm square beyond the cut's own box.
+        # Yet the DRO0-centred enclosing box covers all of [-3, 3]^2.
+        assert all(2.0 > cut["centre_mm"][i] + cut["radius_mm"] for i in (0, 1))
+        assert math.hypot(*cut_xy) + 0.5 > 3.0
+    assert cut == original
 
 
 def half_step_source_plane(depth=0.25, shift=0.0):
@@ -2909,7 +3065,8 @@ def test_native_survival_oracle_scans_every_producer_to_contact_cut(route, cut, 
     else:
         assert plane["ref"] == face["faces"][0]
         assert plane["physical"] == pytest.approx(21.01)
-        assert plane["excluded_mm"] == (0.0 if cut in {"none", "disjoint"} else pytest.approx(0.4))
+        exclusion = plane["constraint"]["touch_exclusion_dia_mm"]
+        assert exclusion == (0.0 if cut in {"none", "disjoint"} else pytest.approx(0.8))
         assert plane["current"] is (route == "current")
 
 
@@ -3214,9 +3371,9 @@ def test_oracle_turning_window_on_the_open_side_spares_the_plane(normal, window,
     at_plane, far = window
     cut = {"op": 20, "do": "finish_turn", "feature": "spigot", "tool": "turner"}
     cut.update(z_from=far, z_to=at_plane)
-    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) == 0.0
+    assert VALIDATOR["plane_cut_exclusion"](own, entries, source, cut, plane, []) == []
     crossing = {**cut, "z_to": at_plane - 2 * LENGTH_TOLERANCE_MM * normal}
-    assert VALIDATOR["plane_cut_reach"](own, entries, source, crossing, plane, 0.0) is None
+    assert VALIDATOR["plane_cut_exclusion"](own, entries, source, crossing, plane, []) is None
 
 
 @pytest.mark.parametrize("excluded", ["to_z", "part_off"])
@@ -3229,7 +3386,7 @@ def test_oracle_cut_outside_window_limited_turning_still_invalidates(excluded, m
         cut["to_z"] = 0.0
     else:
         cut["do"] = "part_off"
-    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) is None
+    assert VALIDATOR["plane_cut_exclusion"](own, entries, source, cut, plane, []) is None
 
 
 def test_oracle_turning_window_spares_no_plane_tilted_off_its_axis(monkeypatch):
@@ -3239,9 +3396,9 @@ def test_oracle_turning_window_spares_no_plane_tilted_off_its_axis(monkeypatch):
     forbid_native_survival_helpers(monkeypatch)
     cut = {"op": 20, "do": "finish_turn", "feature": "spigot", "tool": "turner"}
     cut.update(z_from=20.0, z_to=0.0)
-    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) == 0.0
+    assert VALIDATOR["plane_cut_exclusion"](own, entries, source, cut, plane, []) == []
     leaning = {**plane, "frame": tilted(plane["frame"])}
-    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, leaning, 0.0) is None
+    assert VALIDATOR["plane_cut_exclusion"](own, entries, source, cut, leaning, []) is None
 
 
 @pytest.mark.parametrize(
@@ -3256,8 +3413,8 @@ def test_oracle_blade_groove_spares_the_plane_only_over_its_whole_known_width(
     forbid_native_survival_helpers(monkeypatch)
     cut = {"op": 20, "do": "groove", "feature": "spigot", "tool": tool}
     cut.update(z_from=-73.0, z_to=-72.5)
-    reach = VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0)
-    assert reach == 0.0 if spared else reach is None
+    reach = VALIDATOR["plane_cut_exclusion"](own, entries, source, cut, plane, [])
+    assert reach == [] if spared else reach is None
 
 
 def test_oracle_turning_window_spares_the_plane_only_at_its_dialled_ends(monkeypatch):
@@ -3265,10 +3422,10 @@ def test_oracle_turning_window_spares_the_plane_only_at_its_dialled_ends(monkeyp
     forbid_native_survival_helpers(monkeypatch)
     cut = {"op": 20, "do": "finish_turn", "feature": "spigot", "tool": "turner"}
     cut.update(z_from=-80.0, z_to=-72.5)
-    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) == 0.0
-    oracle = VALIDATOR["plane_cut_reach"].__globals__
+    assert VALIDATOR["plane_cut_exclusion"](own, entries, source, cut, plane, []) == []
+    oracle = VALIDATOR["plane_cut_exclusion"].__globals__
     monkeypatch.setitem(oracle, "dro_grid", lambda *args: (5.0, 0))
-    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) is None
+    assert VALIDATOR["plane_cut_exclusion"](own, entries, source, cut, plane, []) is None
 
 
 def test_oracle_blade_groove_grows_its_width_from_the_dialled_chuck_side_end(monkeypatch):
@@ -3276,12 +3433,12 @@ def test_oracle_blade_groove_grows_its_width_from_the_dialled_chuck_side_end(mon
     forbid_native_survival_helpers(monkeypatch)
     cut = {"op": 20, "do": "groove", "feature": "spigot", "tool": "blade-witness"}
     cut.update(z_from=-73.003, z_to=-72.5)
-    oracle = VALIDATOR["plane_cut_reach"].__globals__
+    oracle = VALIDATOR["plane_cut_exclusion"].__globals__
     # On a 0.001 grid the wall stops at -72.001; dialled to -73.000 on 0.005, -71.998.
     monkeypatch.setitem(oracle, "dro_grid", lambda *args: (0.001, 3))
-    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) == 0.0
+    assert VALIDATOR["plane_cut_exclusion"](own, entries, source, cut, plane, []) == []
     monkeypatch.setitem(oracle, "dro_grid", lambda *args: (0.005, 3))
-    assert VALIDATOR["plane_cut_reach"](own, entries, source, cut, plane, 0.0) is None
+    assert VALIDATOR["plane_cut_exclusion"](own, entries, source, cut, plane, []) is None
 
 
 @pytest.mark.parametrize("shift", [0.0, 0.5], ids=["same-centre", "shifted-centre"])
@@ -3313,6 +3470,803 @@ def test_oracle_exclusion_centre_axis_is_its_own_frame_comparison():
     assert not shares(own, plane, moved(2.0, 0.0))  # across it: another centre
     assert not shares(own, plane, tilted(frame))
     assert not shares(own, None, frame)
+
+
+@pytest.mark.parametrize(
+    ("face_half", "verdict"), [(1.0, "unknown"), (3.0, "pass")], ids=["2mm-face", "6mm-face"]
+)
+def test_zero_oracle_independently_requires_the_shifted_drill_printed_envelope(
+    monkeypatch, face_half, verdict
+):
+    from prechips.rules import touch_land
+
+    data = carry_with_through_drill(aim_shift=0.185)
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    name = receiver["zero"]["z"]["face"]
+    ref = data.feature_definitions[name]["faces"][0]
+    # The original two-ref fixture follows the existing production face-checker
+    # fallback. Select its one prepared plane here to exercise the independent
+    # carried-source oracle rather than claim that fallback is independent.
+    data.feature_definitions[name]["faces"] = [ref]
+    data.kernel["features"][name] = [0]
+    face = data.kernel["faces"][0]
+    face["bbox_mm"] = [
+        -face_half,
+        -face_half,
+        face["bbox_mm"][2],
+        face_half,
+        face_half,
+        face["bbox_mm"][5],
+    ]
+    face["area_mm2"] = (2 * face_half) ** 2
+    outer_radius = math.hypot(face_half, face_half)
+    data.kernel["setups"][source["id"]]["revolved"][name].update(
+        z_mm=[0.0, 0.0],
+        end_faces=[{"z_mm": 0.0, "normal_z": 1}],
+        radii_mm=[0.0, outer_radius],
+        end_radii_mm=[outer_radius, outer_radius],
+    )
+    setup, entries, own = zero_oracle(data)
+    source_frame = VALIDATOR["setup_frame"](source, data.plan, data.features)
+    receiver_frame = VALIDATOR["setup_frame"](setup, data.plan, data.features)
+    plane = {
+        **VALIDATOR["carried_plane_cut"](own, entries, source, source["ops"][0], name, 0),
+        "frame": source_frame,
+        "ref": ref,
+        "index": 0,
+    }
+    square = [[0.475, 0.975], [0.475, 0.975]]
+    for low, high in square:
+        assert high - low == pytest.approx(0.5)
+        assert -face_half + 2.5e-6 < low < high < face_half - 2.5e-6
+    cuts = []
+    for op, radius in zip(setup["ops"], (0.15, 0.4, 0.45), strict=True):
+        point, actual = VALIDATOR["plunge_footprint"](own, entries, setup, op)
+        assert point[:2] == pytest.approx([0.0, -0.185])
+        assert actual == pytest.approx(radius)
+        assert any(
+            square[i][0] > point[i] + radius or square[i][1] < point[i] - radius for i in (0, 1)
+        )
+        cuts.append(
+            {"frame": receiver_frame, "centre_mm": point, "radius_mm": radius, "error_mm": 0.0}
+        )
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    assert finding["status"] == verdict
+    row = finding["numbers"]["derived_touches"][-1]
+    if verdict == "pass":
+        assert row["z_axis_set"] == 0.0
+        assert row["touch_exclusion_dia_mm"] == pytest.approx(1.17)
+    else:
+        assert row["z_axis_set"] == "unknown"
+        assert "touch_exclusion_dia_mm" not in row
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+    for patch in (
+        {"z_axis_set": 0.0 if verdict == "unknown" else "unknown"},
+        {"touch_exclusion_dia_mm": 1.18},
+    ):
+        forged = copy.deepcopy(finding)
+        forged["numbers"]["derived_touches"][-1].update(patch)
+        with pytest.raises(ValueError):
+            VALIDATOR["check_zero"](setup, forged, entries, own)
+
+    def forbidden_certificate(*args, **kwargs):
+        raise AssertionError("the independent oracle must not call a production certificate")
+
+    monkeypatch.setattr(zero_recipe, "_rectangular_touch_land", forbidden_certificate)
+    monkeypatch.setattr(zero_recipe, "_rectangular_spares_plunge", forbidden_certificate)
+    monkeypatch.setattr(touch_land, "certify", forbidden_certificate)
+    for done, diameter in ((2, 1.17), (3, 1.27)):
+        # Actual own-centred cut boxes leave the same physical square on both faces.
+        assert VALIDATOR["rectangular_touch_land"](own, setup, plane, cuts[:done])
+        physical = VALIDATOR["carried_touch_land"](own, entries, setup, plane, cuts[:done])
+        assert physical["touch_exclusion_dia_mm"] == pytest.approx(diameter)
+        carried = VALIDATOR["carried_source_plane"](own, entries, setup, name, done)
+        if verdict == "unknown":
+            # Every margin outside the centred circumbox is narrower than 0.5 mm.
+            assert face_half - diameter / 2 - 2.5e-6 < 0.5
+            assert "unknown" in carried
+        else:
+            # The 6 mm face also leaves [2.475, 2.975]^2 outside the whole box.
+            assert 2.475 > diameter / 2
+            assert 2.975 < face_half - 2.5e-6
+            assert carried["physical"] == carried["native"] == 0.0
+            assert carried["constraint"] == {"touch_exclusion_dia_mm": pytest.approx(diameter)}
+
+
+def circle_oracle_bundle(*, outer_centre=(0.25, -0.35), holes=((0.6, 0.2, 0.35),)):
+    """A real stock producer/route with exact circular facts, not a topology-only credit."""
+    data = half_step_source_plane()
+    add_oracle_circle_topology(data, outer_centre=outer_centre, holes=holes)
+    return data
+
+
+def add_oracle_circle_topology(data, *, outer_centre=(0.0, 0.0), holes=(), radius=3.0):
+    """Native loop facts in every setup's own rigid frame; all lengths below are mm."""
+    receiver = data.plan["setups"][-1]
+    name = receiver["zero"]["z"]["face"]
+    ref = data.feature_definitions[name]["faces"][0]
+    index = data.kernel["mapping"][ref]
+    face = next(row for row in data.kernel["faces"] if row["index"] == index)
+    z = face["bbox_mm"][2]
+    outer_point = [*outer_centre, z]
+    area_factor = radius**2 - sum(r**2 for _, _, r in holes)
+    area = math.pi * area_factor
+    centroid = [
+        (radius**2 * outer_centre[i] - sum(r**2 * hole[i] for *hole, r in holes)) / area_factor
+        for i in (0, 1)
+    ] + [z]
+    face.update(
+        fills_bbox=False,
+        area_mm2=area,
+        bbox_mm=[
+            outer_centre[0] - radius,
+            outer_centre[1] - radius,
+            z,
+            outer_centre[0] + radius,
+            outer_centre[1] + radius,
+            z,
+        ],
+    )
+    source = data.plan["setups"][1]
+    source_frame = VALIDATOR["setup_frame"](source, data.plan, data.features)
+    # The native plane's outward model normal is the producer's +Z.
+    model_normal = source_frame["z"]
+    # The refacing fixture intentionally aliases its source facts; each setup
+    # needs genuinely independent coordinates for these synthetic native loops.
+    data.kernel["setups"] = {
+        sid: copy.deepcopy(facts) for sid, facts in data.kernel["setups"].items()
+    }
+    for setup in data.plan["setups"]:
+        frame = VALIDATOR["setup_frame"](setup, data.plan, data.features)
+        normal = [VALIDATOR["dot"](model_normal, frame[axis]) for axis in ("x", "y", "z")]
+
+        def native_circle(point, r, frame=frame, normal=normal):
+            return {
+                "kind": "circle",
+                "centre_mm": VALIDATOR["frame_point"](point, frame),
+                "normal": normal,
+                "radius_mm": r,
+                "error_mm": 1e-7,
+            }
+
+        outer = native_circle(outer_point, radius)
+        fact = data.kernel["setups"].setdefault(setup["id"], {})
+        fact["face_topology"] = {
+            ref: {
+                "ref": ref,
+                "index": index,
+                "kind": "Plane",
+                "normal": normal,
+                "z_mm": outer["centre_mm"][2],
+                "area_mm2": area,
+                "centre_mm": VALIDATOR["frame_point"](centroid, frame),
+                "outer": outer,
+                "inner": [native_circle([x, y, z], r) for x, y, r in holes],
+                "error_mm": 1e-7,
+            }
+        }
+        native = fact.get("revolved", {}).get(name)
+        if native is not None:
+            centre = outer["centre_mm"]
+            envelope = radius + math.hypot(*centre[:2])
+            native.update(radii_mm=[0.0, envelope], end_radii_mm=[envelope, envelope])
+
+
+def assert_oracle_circle_square(topology, xy, cuts=()):
+    """Analytic acceptance of the entire square, not just its centre or sampled points."""
+    outer = topology["outer"]
+    half = 0.25
+    outside = outer["radius_mm"] - outer["error_mm"] - topology["error_mm"] - LENGTH_TOLERANCE_MM
+    assert all(
+        math.hypot(xy[0] + dx - outer["centre_mm"][0], xy[1] + dy - outer["centre_mm"][1])
+        <= outside
+        for dx in (-half, half)
+        for dy in (-half, half)
+    )
+    for hole in [*topology["inner"], *cuts]:
+        distance = math.hypot(*(max(abs(xy[i] - hole["centre_mm"][i]) - half, 0) for i in (0, 1)))
+        debt = hole["error_mm"] + (topology["error_mm"] if hole in topology["inner"] else 0)
+        assert distance >= hole["radius_mm"] + debt + LENGTH_TOLERANCE_MM
+
+
+def test_zero_oracle_accepts_native_circular_material_only_with_a_stock_carried_square():
+    data = circle_oracle_bundle()
+    setup, entries, own = zero_oracle(data)
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    assert finding["status"] == "pass", finding
+    primary = finding["numbers"]["axes"]["z"]
+    assert not any(field.startswith("touch_land_") for field in primary)
+    assert "touch_keep_off_dro_xy" not in primary
+    (touch,) = finding["numbers"]["derived_touches"]
+    assert touch["touch_land_candidate"] == 0
+    assert touch["touch_land_width_mm"] == 0.5
+    assert touch["touch_land_units"] == "mm"
+    assert touch["touch_land_dro_decimals"] == 3
+    assert touch["touch_land_search"] == VALIDATOR["CARRY_CIRCLE_SEARCH"]
+    assert touch["touch_land_height_debt_mm"] == 0.0
+    ref = data.feature_definitions[setup["zero"]["z"]["face"]]["faces"][0]
+    assert touch["touch_land_ref"] == ref
+    topology = own.kernel["setups"][setup["id"]]["face_topology"][ref]
+    assert touch["touch_keep_off_dro_xy"] == topology["outer"]["centre_mm"][:2]
+    footprint = VALIDATOR["plunge_footprint"](own, entries, setup, setup["ops"][0])
+    cut = {"centre_mm": footprint[0], "radius_mm": footprint[1], "error_mm": 0.0}
+    assert_oracle_circle_square(topology, touch["touch_land_dro_xy"], [cut])
+    for value in touch["touch_land_dro_xy"]:
+        assert value == pytest.approx(round(value / 0.005) * 0.005, abs=1e-12)
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+
+
+def test_zero_oracle_expands_keepoff_for_the_actual_printed_grid_centre():
+    data = circle_oracle_bundle(outer_centre=(0.2517, -0.3483))
+    setup, entries, own = zero_oracle(data)
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    assert finding["status"] == "pass", finding
+    row = finding["numbers"]["derived_touches"][0]
+    ref = data.feature_definitions[setup["zero"]["z"]["face"]]["faces"][0]
+    topology = own.kernel["setups"][setup["id"]]["face_topology"][ref]
+    native_xy = topology["outer"]["centre_mm"][:2]
+    assert row["touch_keep_off_dro_xy"] == [0.35, 0.25]
+    assert native_xy != row["touch_keep_off_dro_xy"]
+    native_hole = topology["inner"][0]
+    keepoff = math.dist(native_hole["centre_mm"][:2], native_xy) + native_hole["radius_mm"]
+    keepoff += native_hole["error_mm"] + topology["error_mm"]
+    printing_debt = math.dist(native_xy, row["touch_keep_off_dro_xy"])
+    assert row["touch_exclusion_dia_mm"] == pytest.approx(2 * (keepoff + printing_debt))
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+    row["touch_exclusion_dia_mm"] = 2 * keepoff
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, finding, entries, own)
+
+
+def test_zero_oracle_rejects_inward_native_keepoff_rounding_at_a_print_boundary():
+    data = circle_oracle_bundle(outer_centre=(0.0, 0.0), holes=((0.0, 0.0, 0.9999998001),))
+    setup, entries, own = zero_oracle(data)
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    assert finding["status"] == "pass"
+    row = finding["numbers"]["derived_touches"][0]
+    assert row["touch_keep_off_dro_xy"] == [0.0, 0.0]
+    # Native loop and face debts total 2e-7 mm: the proved diameter is just
+    # above 2 mm, so outward three-decimal printing must reach 2.001, not 2.000.
+    diameter = row["touch_exclusion_dia_mm"]
+    assert 2.0 < diameter < 2.0000000005
+    assert round(diameter, 9) == 2.0
+    assert math.ceil(diameter * 1000) / 1000 == 2.001
+    carried = VALIDATOR["carried_source_plane"](own, entries, setup, setup["zero"]["z"]["face"], 1)
+    assert carried["constraint"]["touch_exclusion_dia_mm"] > 2.0
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+    # Independent rigid transforms may differ by an ULP in either direction.
+    # Both values still instruct the same conservative 2.001 mm diameter.
+    expected = {**row, "touch_exclusion_dia_mm": math.nextafter(diameter, math.inf)}
+    reported = {**row, "touch_exclusion_dia_mm": math.nextafter(diameter, -math.inf)}
+    assert math.ceil(expected["touch_exclusion_dia_mm"] * 1000) == 2001
+    assert math.ceil(reported["touch_exclusion_dia_mm"] * 1000) == 2001
+    assert VALIDATOR["same_evidence"](reported, expected)
+    one_ulp_finding = copy.deepcopy(finding)
+    one_ulp_finding["numbers"]["derived_touches"][0].update(reported)
+    VALIDATOR["check_zero"](setup, one_ulp_finding, entries, own)
+    row["touch_exclusion_dia_mm"] = round(diameter, 9)
+    with pytest.raises(ValueError, match="derived_touches"):
+        VALIDATOR["check_zero"](setup, finding, entries, own)
+
+
+def test_independent_circular_search_skips_grid_candidates_that_fail_square_clearance():
+    outer = {
+        "kind": "circle",
+        "centre_mm": [0.024, 0.0, 0.0],
+        "normal": [0.0, 0.0, 1.0],
+        "radius_mm": 10.0,
+        "error_mm": 1e-7,
+    }
+    hole = {**outer, "centre_mm": [9.304, 0.0, 0.0], "radius_mm": 0.2}
+    topology = {
+        "kind": "Plane",
+        "normal": [0.0, 0.0, 1.0],
+        "z_mm": 0.0,
+        "area_mm2": math.pi * (100.0 - 0.04),
+        "error_mm": 1e-7,
+        "outer": outer,
+        "inner": [hole],
+    }
+    witness = VALIDATOR["circular_touch_land"](topology, [], (0.05, 2))
+    assert witness is not None
+    # +X rounds into the hole; candidate 1 rounds slightly inward and is the
+    # first entire square that survives both analytic inequalities.
+    assert witness["candidate"] == 1
+    assert witness["centre_mm"] == [9.7, 0.95, 0.0]
+    assert_oracle_circle_square(topology, witness["centre_mm"][:2])
+
+
+def oracle_height_topology(radius=3.0, tilt_deg=0.0):
+    """Use the existing native-circle fixture, with a controlled current-plane tilt."""
+    data = circle_oracle_bundle(outer_centre=(0.0, 0.0), holes=())
+    add_oracle_circle_topology(data, radius=radius)
+    setup = data.plan["setups"][-1]
+    ref = data.feature_definitions[setup["zero"]["z"]["face"]]["faces"][0]
+    topology = copy.deepcopy(data.kernel["setups"][setup["id"]]["face_topology"][ref])
+    angle = math.radians(tilt_deg)
+    topology["normal"] = [math.sin(angle), 0.0, math.cos(angle)]
+    topology["outer"]["normal"] = list(topology["normal"])
+    return topology
+
+
+@pytest.mark.parametrize(
+    ("radius", "tilt_deg", "expected"),
+    [(3.0, 0.5e-6, True), (1000.0, 0.5e-6, False), (1000.0, 0.0, True)],
+    ids=["tiny-tilt-small-disk", "tiny-tilt-wide-disk", "parallel-wide-disk"],
+)
+def test_independent_circular_height_pays_native_square_corner_tilt(radius, tilt_deg, expected):
+    topology = oracle_height_topology(radius, tilt_deg)
+    witness = VALIDATOR["circular_touch_land"](topology, [], (0.005, 3))
+    assert (witness is not None) is expected
+    if expected:
+        assert witness["candidate"] == 0
+        xy, centre = witness["centre_mm"], topology["centre_mm"]
+        reach = max(
+            math.hypot(xy[0] + dx - centre[0], xy[1] + dy - centre[1])
+            for dx in (-0.25, 0.25)
+            for dy in (-0.25, 0.25)
+        )
+        expected_debt = reach * math.tan(math.radians(tilt_deg))
+        assert witness["height_debt_mm"] == pytest.approx(expected_debt, rel=1e-12, abs=1e-15)
+        assert 0 <= witness["height_debt_mm"] <= 1e-6
+        assert_oracle_circle_square(topology, xy[:2])
+
+
+@pytest.mark.parametrize("damage", ["missing", "malformed", "nonfinite"])
+def test_independent_circular_height_requires_native_com_for_tilt(damage):
+    topology = oracle_height_topology(tilt_deg=0.5e-6)
+    if damage == "missing":
+        del topology["centre_mm"]
+    elif damage == "malformed":
+        topology["centre_mm"] = [0.0, 0.0]
+    else:
+        topology["centre_mm"][2] = math.nan
+    assert VALIDATOR["circular_touch_land"](topology, [], (0.005, 3)) is None
+
+
+def test_independent_circular_parallel_height_can_omit_native_com():
+    topology = oracle_height_topology(radius=1000.0)
+    del topology["centre_mm"]
+    witness = VALIDATOR["circular_touch_land"](topology, [], (0.005, 3))
+    assert witness is not None
+    assert witness["height_debt_mm"] == 0.0
+
+
+def test_independent_circular_parallel_height_rejects_malformed_com():
+    topology = oracle_height_topology()
+    topology["centre_mm"] = [0.0, 0.0]
+    assert VALIDATOR["circular_touch_land"](topology, [], (0.005, 3)) is None
+
+
+@pytest.mark.parametrize(
+    ("reference_error", "com_error", "expected"),
+    [(0.4e-6, 0.4e-6, True), (0.6e-6, 0.6e-6, False), (math.inf, 0.0, False)],
+)
+def test_independent_circular_height_adds_native_reference_and_com_errors(
+    reference_error, com_error, expected
+):
+    topology = oracle_height_topology()
+    topology["centre_mm"][2] += com_error
+    reference = topology["z_mm"] - reference_error
+    witness = VALIDATOR["circular_touch_land"](topology, [], (0.005, 3), reference_z_mm=reference)
+    assert (witness is not None) is expected
+    if expected:
+        assert witness["height_debt_mm"] == pytest.approx(
+            abs(topology["z_mm"] - reference) + abs(topology["centre_mm"][2] - topology["z_mm"]),
+            rel=1e-12,
+            abs=1e-15,
+        )
+
+
+def test_independent_circular_search_skips_candidates_that_exceed_height_budget():
+    topology = oracle_height_topology(radius=200.0)
+    angle = math.radians(0.5e-6)
+    source = {
+        "centre_mm": [-20.0, 0.0, topology["z_mm"]],
+        "normal": [math.sin(angle), 0.0, math.cos(angle)],
+    }
+    flat = VALIDATOR["circular_touch_land"](topology, [], (0.005, 3))
+    witness = VALIDATOR["circular_touch_land"](topology, [], (0.005, 3), touch_plane=source)
+    assert flat["candidate"] == 0
+    assert witness is not None
+    assert witness["candidate"] == 9
+    rejected = max(
+        math.hypot(flat["centre_mm"][0] + dx + 20.0, flat["centre_mm"][1] + dy)
+        for dx in (-0.25, 0.25)
+        for dy in (-0.25, 0.25)
+    ) * math.tan(angle)
+    assert rejected > 1e-6
+    assert 0 < witness["height_debt_mm"] <= 1e-6
+    assert_oracle_circle_square(topology, witness["centre_mm"][:2])
+
+
+def test_independent_circular_height_receipt_is_maximum_of_separate_plane_budgets():
+    topology = oracle_height_topology()
+    topology["centre_mm"][2] += 0.75e-6
+    angle = math.radians(0.5e-6)
+    source = {
+        "centre_mm": [100.0, 0.0, topology["z_mm"] + 0.0047],
+        "normal": [math.sin(angle), 0.0, math.cos(angle)],
+    }
+    witness = VALIDATOR["circular_touch_land"](topology, [], (0.005, 3), touch_plane=source)
+    assert witness is not None
+    assert witness["candidate"] == 0
+    native_debt = abs(topology["centre_mm"][2] - topology["z_mm"])
+    xy = witness["centre_mm"]
+    source_debt = max(
+        math.hypot(xy[0] + dx - 100.0, xy[1] + dy) for dx in (-0.25, 0.25) for dy in (-0.25, 0.25)
+    ) * math.tan(angle)
+    assert native_debt <= 1e-6
+    assert source_debt <= 1e-6
+    assert native_debt + source_debt > 1e-6
+    assert witness["height_debt_mm"] == pytest.approx(max(native_debt, source_debt), abs=1e-15)
+
+
+@pytest.mark.parametrize(
+    ("tilt_deg", "reference_error", "expected"),
+    [
+        (0.5e-6, 0.05e-6, True),
+        (0.5e-6, 0.25e-6, False),
+        (0.5e-6, -0.25e-6, False),
+        (0.0, 0.75e-6, True),
+        (0.0, 1.1e-6, False),
+    ],
+    ids=["combined-within-budget", "combined-over-budget", "negative-offset", "parallel", "z-only"],
+)
+def test_independent_circular_height_source_reference_and_tilt_share_one_budget(
+    tilt_deg, reference_error, expected
+):
+    topology = oracle_height_topology()
+    angle = math.radians(tilt_deg)
+    source_z = topology["z_mm"] + 0.0047
+    source = {
+        "centre_mm": [100.0, 0.0, source_z],
+        "normal": [math.sin(angle), 0.0, math.cos(angle)],
+        "reference_z_mm": source_z + reference_error,
+    }
+    witness = VALIDATOR["circular_touch_land"](topology, [], (0.005, 3), touch_plane=source)
+    assert (witness is not None) is expected
+    if expected:
+        assert witness["candidate"] == 0
+        xy = witness["centre_mm"]
+        tilt_debt = max(
+            math.hypot(xy[0] + dx - 100.0, xy[1] + dy)
+            for dx in (-0.25, 0.25)
+            for dy in (-0.25, 0.25)
+        ) * math.tan(angle)
+        z_debt = abs(source_z - source["reference_z_mm"])
+        assert witness["height_debt_mm"] == pytest.approx(z_debt + tilt_debt, abs=1e-15)
+        assert witness["height_debt_mm"] <= 1e-6
+
+
+@pytest.mark.parametrize("reference", [None, math.nan, math.inf, -math.inf, "unknown", False])
+def test_independent_circular_height_rejects_invalid_explicit_source_reference(reference):
+    topology = oracle_height_topology()
+    source = {
+        "centre_mm": [0.0, 0.0, topology["z_mm"]],
+        "normal": [0.0, 0.0, 1.0],
+        "reference_z_mm": reference,
+    }
+    assert VALIDATOR["circular_touch_land"](topology, [], (0.005, 3), touch_plane=source) is None
+
+
+def test_independent_circular_height_anchors_native_tilt_at_face_com_not_loop_centre():
+    data = circle_oracle_bundle()
+    setup = data.plan["setups"][-1]
+    ref = data.feature_definitions[setup["zero"]["z"]["face"]]["faces"][0]
+    topology = data.kernel["setups"][setup["id"]]["face_topology"][ref]
+    angle = math.radians(0.5e-6)
+    normal = [math.sin(angle), 0.0, math.cos(angle)]
+    topology["normal"] = normal
+    for loop in [topology["outer"], *topology["inner"]]:
+        loop["normal"] = list(normal)
+    witness = VALIDATOR["circular_touch_land"](topology, [], (0.005, 3))
+    assert witness is not None
+    xy, com = witness["centre_mm"], topology["centre_mm"]
+    loop_centre = topology["outer"]["centre_mm"]
+    assert com[:2] != loop_centre[:2]
+    reach = max(
+        math.hypot(xy[0] + dx - com[0], xy[1] + dy - com[1])
+        for dx in (-0.25, 0.25)
+        for dy in (-0.25, 0.25)
+    )
+    assert witness["height_debt_mm"] == pytest.approx(reach * math.tan(angle), abs=1e-15)
+
+
+def test_zero_oracle_rejects_a_missing_circular_height_receipt():
+    data = circle_oracle_bundle()
+    setup, entries, own = zero_oracle(data)
+    honest = zero_recipe.evaluate(data)[-1].to_dict()
+    VALIDATOR["check_zero"](setup, copy.deepcopy(honest), entries, own)
+    del honest["numbers"]["derived_touches"][0]["touch_land_height_debt_mm"]
+    with pytest.raises(ValueError, match="native touch-land contact fields"):
+        VALIDATOR["check_zero"](setup, honest, entries, own)
+
+
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize(
+    ("radius", "tilt_deg", "formed_mm", "expected"),
+    [
+        (3.0, 0.5e-6, 0.0, True),
+        (1000.0, 0.5e-6, 0.0, False),
+        (1000.0, 0.0, 0.0047, True),
+        (3.0, 0.5e-6, 1e12, True),
+    ],
+    ids=["source-tilt-small-disk", "source-tilt-wide-disk", "parallel-control", "as-cut-axis"],
+)
+def test_carried_circular_height_uses_source_tilt_about_as_cut_axis_only(
+    units, radius, tilt_deg, formed_mm, expected
+):
+    scale = coordinates.UNIT_MM[units]
+    topology = oracle_height_topology(radius=radius)
+    z = topology["z_mm"]
+    angle = math.radians(tilt_deg)
+    identity = {
+        "origin": [0.0, 0.0, 0.0],
+        "x": [1.0, 0.0, 0.0],
+        "y": [0.0, 1.0, 0.0],
+        "z": [0.0, 0.0, 1.0],
+    }
+    source = {
+        **identity,
+        "origin": [-formed_mm / scale * math.sin(angle), 0.0, z / scale],
+        "x": [math.cos(angle), 0.0, -math.sin(angle)],
+        "z": [math.sin(angle), 0.0, math.cos(angle)],
+    }
+    own = SimpleNamespace(
+        plan={},
+        features={"units": units, "frames": {"R": identity}},
+        kernel={"status": "ok", "setups": {"R": {"face_topology": {topology["ref"]: topology}}}},
+    )
+    setup = {"id": "R", "frame": "R"}
+    plane = {
+        "frame": source,
+        "formed": formed_mm / scale,
+        "z_mm": 0.0,
+        "normal_z": 1,
+        "ref": topology["ref"],
+        "index": topology["index"],
+        "touch_face": {"kind": "Plane", "fills_bbox": False},
+    }
+    cuts = [{"frame": identity, "centre_mm": [0.0, 0.0, z], "radius_mm": 0.4, "error_mm": 0.0}]
+    entries = VALIDATOR["Entries"]({"machines": {}, "tools": {}})
+    original = copy.deepcopy((topology, plane, cuts))
+    assert topology["normal"] == [0.0, 0.0, 1.0]
+    receipt = VALIDATOR["carried_touch_land"](own, entries, setup, plane, cuts, receipt=True)
+    assert (receipt is not None) is expected
+    if expected:
+        xy = [value * scale for value in receipt["touch_land_dro_xy"]]
+        # The as-cut source-axis point has XY0 after the rigid transform. Its
+        # actual Z can legitimately differ from the nominal/native plane's Z.
+        reach = max(
+            math.hypot(xy[0] + dx, xy[1] + dy) for dx in (-0.25, 0.25) for dy in (-0.25, 0.25)
+        )
+        source_debt = reach * math.tan(angle)
+        native_debt = abs(z - source["origin"][2] * scale)
+        assert receipt["touch_land_height_debt_mm"] == pytest.approx(
+            max(native_debt, source_debt), rel=1e-12, abs=1e-15
+        )
+        assert_oracle_circle_square(topology, xy, cuts)
+        if formed_mm == 1e12:
+            # Magnify the offset so a nominal-axis anchor would refuse this
+            # small disk; charging the actual Z offset would also refuse it.
+            nominal_x = source["origin"][0] * scale
+            assert abs(xy[0] - nominal_x) * math.tan(angle) > 1e-6
+            assert formed_mm * math.cos(angle) > 1e-6
+    assert (topology, plane, cuts) == original
+
+
+def test_zero_oracle_pays_tilted_column_debt_at_the_actual_carried_plane_height():
+    identity = {
+        "origin": [0.0, 0.0, 0.0],
+        "x": [1.0, 0.0, 0.0],
+        "y": [0.0, 1.0, 0.0],
+        "z": [0.0, 0.0, 1.0],
+    }
+    angle = math.radians(0.5e-6)
+    source = {
+        **identity,
+        "x": [math.cos(angle), 0.0, -math.sin(angle)],
+        "z": [math.sin(angle), 0.0, math.cos(angle)],
+    }
+    own = SimpleNamespace(plan={}, features={"units": "mm", "frames": {"receiving": identity}})
+    setup = {"id": "R", "frame": "receiving"}
+    cuts = [{"frame": source, "centre_mm": [0.0, 0.0, -1000.0], "radius_mm": 0.4, "error_mm": 0.0}]
+    assert VALIDATOR["reframed_exclusions"](own, setup, cuts) is None
+    plane = {"frame": identity, "formed": 0.0}
+    (posed,) = VALIDATOR["reframed_exclusions"](own, setup, cuts, plane)
+    assert posed["centre_mm"][0] == pytest.approx(-1000.0 * math.sin(angle))
+    assert posed["error_mm"] == pytest.approx(1000.0 * math.sin(angle), abs=1e-12)
+    assert posed["error_mm"] > LENGTH_TOLERANCE_MM
+    assert cuts[0]["centre_mm"] == [0.0, 0.0, -1000.0]
+    assert cuts[0]["error_mm"] == 0.0
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("touch_land_dro_xy", [0.0, 0.0]),
+        ("touch_keep_off_dro_xy", [0.0, 0.0]),
+        ("touch_land_candidate", 1),
+        ("touch_land_candidate", 0.0),
+        ("touch_land_candidate", False),
+        ("touch_exclusion_dia_mm", 0.1),
+        ("touch_land_width_mm", 0.25),
+        ("touch_land_units", "in"),
+        ("touch_land_dro_decimals", 2),
+        ("touch_land_dro_decimals", 3.0),
+        ("touch_land_search", "sampled point"),
+        ("touch_land_ref", "#FORGED"),
+        ("touch_land_ref", 0),
+        ("touch_land_area_mm2", 100.0),
+        ("touch_land_height_debt_mm", 0.5e-6),
+        ("touch_land_height_debt_mm", -1e-12),
+        ("touch_land_height_debt_mm", 1.1e-6),
+        ("touch_land_height_debt_mm", math.nan),
+        ("touch_land_height_debt_mm", math.inf),
+    ],
+)
+def test_zero_oracle_rejects_each_forged_circular_contact_constraint(field, value):
+    data = circle_oracle_bundle()
+    setup, entries, own = zero_oracle(data)
+    honest = zero_recipe.evaluate(data)[-1].to_dict()
+    VALIDATOR["check_zero"](setup, copy.deepcopy(honest), entries, own)
+    forged = copy.deepcopy(honest)
+    forged["numbers"]["derived_touches"][0][field] = value
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, forged, entries, own)
+
+
+@pytest.mark.parametrize(
+    "damage",
+    [
+        "missing",
+        "wrong-ref",
+        "wrong-index",
+        "boolean-index",
+        "wrong-height",
+        "normal-down",
+        "unsupported-outer",
+        "unsupported-inner",
+        "wrong-area",
+        "hole-outside",
+        "holes-overlap",
+        "nonfinite-loop",
+        "negative-error",
+        "overflow-radius",
+        "overflow-debt",
+    ],
+)
+def test_zero_oracle_keeps_missing_or_mismatched_native_circular_facts_unknown(damage):
+    data = circle_oracle_bundle()
+    setup = data.plan["setups"][-1]
+    ref = data.feature_definitions[setup["zero"]["z"]["face"]]["faces"][0]
+    facts = data.kernel["setups"][setup["id"]]["face_topology"]
+    topology = facts[ref]
+    if damage == "missing":
+        del facts[ref]
+    elif damage == "wrong-ref":
+        topology["ref"] = "#WRONG"
+    elif damage == "wrong-index":
+        topology["index"] += 1
+    elif damage == "boolean-index":
+        topology["index"] = False
+    elif damage == "wrong-height":
+        topology["z_mm"] += 0.1
+    elif damage == "normal-down":
+        topology["normal"] = [0.0, 0.0, -1.0]
+    elif damage == "unsupported-outer":
+        topology["outer"]["kind"] = "polygon"
+    elif damage == "unsupported-inner":
+        topology["inner"][0]["kind"] = "UNKNOWN"
+    elif damage == "wrong-area":
+        topology["area_mm2"] += 1.0
+    elif damage == "hole-outside":
+        topology["inner"][0]["centre_mm"][0] += 10.0
+    elif damage == "holes-overlap":
+        topology["inner"].append(copy.deepcopy(topology["inner"][0]))
+    elif damage == "nonfinite-loop":
+        topology["outer"]["radius_mm"] = math.nan
+    elif damage == "overflow-radius":
+        topology["outer"]["radius_mm"] = 1e308
+    elif damage == "overflow-debt":
+        topology["error_mm"] = 1e308
+    else:
+        topology["inner"][0]["error_mm"] = -1.0
+    setup, entries, own = zero_oracle(data)
+    carried = VALIDATOR["carried_source_plane"](own, entries, setup, setup["zero"]["z"]["face"], 1)
+    assert "unknown" in carried
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    assert finding["status"] == "unknown", finding
+    assert finding["numbers"]["axes"]["z"]["axis_set"] == 21.005
+    assert finding["numbers"]["derived_touches"][0]["z_axis_set"] == "unknown"
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+
+
+def test_zero_oracle_does_not_borrow_a_production_circular_certificate_or_forged_native_area(
+    monkeypatch,
+):
+    from prechips.rules import touch_land
+
+    data = circle_oracle_bundle()
+    setup = data.plan["setups"][-1]
+    ref = data.feature_definitions[setup["zero"]["z"]["face"]]["faces"][0]
+    facts = data.kernel["setups"][setup["id"]]["face_topology"]
+    topology = facts[ref]
+    original = touch_land.certify
+    # Lie in the production acceptance rather than in a report operand. The oracle
+    # reconstructs area independently from its own original native run.
+    honest_topology = copy.deepcopy(topology)
+    topology["area_mm2"] += 1.0
+
+    def forged_area(native, cuts, **kwargs):
+        return original(honest_topology, cuts, **kwargs)
+
+    monkeypatch.setattr(touch_land, "certify", forged_area)
+    forged = zero_recipe.evaluate(data)[-1].to_dict()
+    assert forged["status"] == "pass", forged
+    setup, entries, own = zero_oracle(data)
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, forged, entries, own)
+
+
+@pytest.mark.parametrize("debt", ["stock", "output", "component-route", "producer", "normal"])
+def test_zero_oracle_native_circle_facts_do_not_supply_missing_stock_lineage(debt):
+    data = circle_oracle_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    if debt == "stock":
+        data.kernel["setups"][receiver["id"]]["stock_reason"] = (
+            "Synthetic unresolved incoming stock"
+        )
+    elif debt == "output":
+        data.kernel["setups"][source["id"]]["stock_out_reason"] = (
+            "Synthetic unresolved outgoing stock"
+        )
+    elif debt == "component-route":
+        receiver["stock_in"] = data.plan["setups"][0]["id"]
+    elif debt == "producer":
+        source["ops"] = []
+    else:
+        name = receiver["zero"]["z"]["face"]
+        data.kernel["setups"][source["id"]]["revolved"][name]["end_faces"][0]["normal_z"] = -1
+    setup, entries, own = zero_oracle(data)
+    carried = VALIDATOR["carried_source_plane"](own, entries, setup, setup["zero"]["z"]["face"], 1)
+    assert carried is None or "unknown" in carried
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    assert finding["status"] == "unknown", finding
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+
+
+def test_zero_oracle_keeps_an_offset_plunge_unknown_through_a_shifted_reface():
+    data = carry_with_refaced_hole(later_setup=True)
+    source, finishing = data.plan["setups"][1:3]
+    frame = data.features["frames"][source["frame"]]
+    hole_model = VALIDATOR["model_point"]([0.75, 0.0, 0.0], frame)
+    data.feature_definitions["hole"]["at"] = hole_model
+    shifted = {**copy.deepcopy(frame), "origin": [frame["origin"][0] + 0.5, *frame["origin"][1:]]}
+    data.features["frames"]["refaced"] = shifted
+    finishing["frame"] = "refaced"
+    add_oracle_circle_topology(data)
+    setup, entries, own = zero_oracle(data)
+    # The earlier exclusion still re-expresses about its own centre: the refaced axis
+    # is 0.5 mm from the original, the hole 0.75 mm from the original circle centre.
+    footprint = VALIDATOR["plunge_footprint"](own, entries, source, source["ops"][1])
+    original_cut = {
+        "frame": frame,
+        "centre_mm": footprint[0],
+        "radius_mm": footprint[1],
+        "error_mm": 0.0,
+    }
+    (posed,) = VALIDATOR["reframed_exclusions"](own, setup, [original_cut])
+    assert posed["centre_mm"][:2] == pytest.approx([0.0, -0.75])
+    # #192 stays fail-closed: a re-face about another centre axis leaves the earlier
+    # exclusion's extent unproven, so neither the checker nor the oracle credits it.
+    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    assert finding["status"] == "unknown", finding
+    assert "touch_exclusion_dia_mm" not in finding["numbers"]["axes"]["z"]
+    VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
+    with pytest.raises(ValueError):
+        VALIDATOR["check_zero"](setup, {**finding, "status": "pass"}, entries, own)
 
 
 @pytest.mark.parametrize(
@@ -3985,17 +4939,47 @@ def test_zero_readiness_radius_and_lathe_come_from_the_inventory(
 
 
 def coverage_case():
-    """The built-up cone's plan, manifest and report findings keyed by rule and subject,
-    and the validator's coverage check on its own inventory read and native bundle load."""
-    plan, features, inventory, _, report = cone_inputs()
-    entries = VALIDATOR["Entries"](inventory)
-    checked = VALIDATOR["checker_findings"](ROOT / "examples" / "cone-pivot-post" / "built-up.toml")
+    """Source-consistent findings for an isolated, deliberately non-native policy test."""
+    bundle = replace(
+        load_bundle(ROOT / "examples" / "cone-pivot-post" / "built-up.toml"),
+        kernel={
+            "status": "unknown",
+            "kernel_unavailable": True,
+            "reason": "Policy-coverage fixture does not execute native geometry.",
+        },
+    )
+    entries = VALIDATOR["Entries"](bundle.inventory)
+
+    @functools.cache
+    def checked(rule):
+        return {row.subject: json.loads(json.dumps(row.to_dict())) for row in rule.evaluate(bundle)}
 
     def check(policy, plan, features, findings):
         VALIDATOR["check_required_coverage"](policy, plan, features, findings, entries, checked)
 
-    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
-    return plan, features, findings, check
+    # Frozen native reports can legitimately differ from current host findings.
+    # This fixture tests policy coverage, not native/golden parity; every baseline
+    # row is real current-source evidence, and all coverage validation stays enabled.
+    # The CLI adds bundle_binding outside RULES; use its actual full evaluation
+    # rather than silently omitting that independently required input subject.
+    tracing = SimpleNamespace(
+        span=lambda *args, **kwargs: nullcontext(),
+        finding=lambda finding: None,
+    )
+    findings = {
+        (row.rule, row.subject): json.loads(json.dumps(row.to_dict()))
+        for row in evaluate_checks(bundle, tracing)
+    }
+    return bundle.plan, bundle.features, findings, check
+
+
+def test_policy_coverage_fixture_includes_real_input_binding_and_a_valid_baseline():
+    plan, features, findings, check = coverage_case()
+    binding = findings["bundle_binding", "inputs"]
+    assert binding["status"] == "pass"
+    assert binding["numbers"]["step_sha256"]
+    assert binding["numbers"]["inputs"]
+    check({"required": {}}, plan, features, findings)
 
 
 def coverage_row(rule, subject, selector, status="unknown"):
@@ -4048,6 +5032,24 @@ def test_required_coverage_row_carries_the_policys_selector(freecad_kernel):
     with pytest.raises(ValueError):
         row = coverage_row(*key, "forged")
         check(policy, plan, features, {**findings, key: row})
+
+
+def test_required_coverage_still_rejects_dropped_or_forged_source_consistency_rows():
+    plan, features, findings, check = coverage_case()
+    policy = {"required": {}}
+    key = ("consistency", "S4")
+    row = findings[key]
+    # No native geometry is claimed by this policy-only fixture. Its live rule
+    # evidence is unknown, unlike the frozen native report's passing S4 row.
+    assert row["status"] == "unknown"
+    assert row["numbers"]["unchecked"]
+    check(policy, plan, features, findings)
+    with pytest.raises(ValueError, match="missing findings"):
+        check(policy, plan, features, {k: value for k, value in findings.items() if k != key})
+    for field, value in (("status", "pass"), ("numbers", {})):
+        forged = {**row, field: value}
+        with pytest.raises(ValueError, match="consistency:S4: not the checker's own row"):
+            check(policy, plan, features, {**findings, key: forged})
 
 
 def test_rules_only_the_checker_models_are_its_own_rows_on_the_validators_inputs(

@@ -222,9 +222,13 @@ fundamentally, the existing native `revolved` radius extrema and outward-plane
 normal do not prove circular or annular topology: horizontal noncircular
 patches can have the same facts. Sampled datum outlines and a model AABB are
 not substitutes for that proof, nor do they rule out the face's original hole.
+A feature's name, its radius alone or the drilled hole's own name never stand
+in for the face's wires.
 
-The supported overlapping-plunge preservation path is the existing exact
-rectangular witness:
+Two witnesses are supported. Each is an exact native fact of the one selected
+STEP face, checked analytically; neither is sampling.
+
+**Filled rectangle (existing path, unchanged).**
 
 - The selected native face is a single `Plane` with `fills_bbox = true`.
   This native fact requires a filled, one-wire, straight-sided rectangle;
@@ -247,21 +251,195 @@ rectangular witness:
   apart across the axis) leaves the earlier exclusion's extent **unknown**
   rather than re-centring it.
 
-A missing filled-rectangle witness or no remaining 0.5-mm square leaves the
-subsequent contact **unknown**, with the setup/op and named contact face in
-the usable-land debt. Even an ample reported radius on a round or holed face
-remains unknown after an overlapping plunge. Exact native circle/annulus
-topology and original-inner-hole evidence are tracked in
-[issue #208](https://github.com/pedropaulovc/prechips/issues/208); this rule
-does not invent those facts or add a native schema field.
+**Exact circular loops (#208 path).** The native job's
+[`face_topology`](rules-geometry.md#face-topology) record for the selected
+face, read from the **current** (receiving) setup's own facts, never from a
+source setup as a fallback, is a `Plane` whose `outer` wire and every `inner`
+wire are complete native `circle` loops. The host certifies only that shape:
 
-The initial contact before the plunge remains eligible when its plane,
-presence, outward normal, lineage and touch side are proved. Proven disjoint
-cuts retain the existing preservation path. Supported rectangular contacts
-still report their cumulative exclusion diameter, and the traveler keeps its
-outward-rounded exclusion note; unsupported contacts print no credited face
-or numeric Axis Set. This is a checker limitation/stop, not a claim that no
+- The record's `normal` and every loop's `normal` are unit vectors along the
+  setup Z axis (X/Y components within 1e-7) and parallel to each other; each
+  loop's centre lies at the record's `z_mm` within its own `error_mm` plus the
+  record's `error_mm` plus `LENGTH_TOLERANCE_MM`. A loop at another height or
+  tilt is not that face. The outward +Z sign is still the existing contact
+  gate, not this certificate's.
+- Every inner circle lies strictly inside the outer circle and strictly
+  disjoint from every other inner circle, counting each loop's own
+  `error_mm` plus the record's `error_mm` as debt against it.
+- The circles must explain the native area: π(R² − Σr²) agrees with the
+  record's `area_mm2` within 1e-6 absolute and relative plus the perimeter
+  debt those errors can carry (2π·Σ(radius·error) + π·Σerror²). A loop set
+  that does not reproduce the area is not the whole boundary and certifies
+  nothing.
+- Every original inner hole and every exclusion is deducted as its own
+  forbidden circle about its **own** centre; neither is recentred on the
+  face's axis or merged into one envelope. An exclusion is a column: its
+  recorded Z is not a contact-height claim, and the whole cut keeps the
+  witness away.
+- A conservative ring is then known: outside the furthest forbidden circle
+  (its centre distance plus radius plus error) and inside the outer circle
+  less its error, each pulled in by `LENGTH_TOLERANCE_MM`. An empty ring is
+  no credit.
+- The witness search is deterministic: 64 candidate centres at increasing
+  angles starting at +X, on the ring's mid-radius about the outer centre. With
+  the receiving setup's DRO grid known, each candidate is first moved to its
+  nearest grid point and that moved square is what is certified, never a
+  square credited before rounding. The first candidate whose whole 0.5 mm
+  square passes both the material and height budgets is the witness: it lies
+  inside the outer circle and clear of every forbidden circle by exact
+  circle-to-square distance, and meets the corner-height bounds below. Search
+  failure is unknown, not proof that no material remains.
+
+The native certificate is
+`certify(topology, exclusions, *, grid_mm=None, reference_z_mm=None, touch_plane=None)`.
+For each candidate's four corners, let `d_native` be the maximum XY distance
+from the native face COM (`topology.centre_mm`), and let
+`s_native = hypot(normal.x, normal.y) / abs(normal.z)`. The native height debt
+in millimetres is
+`abs(topology.z_mm - reference_z_mm) + abs(centre_mm.z - topology.z_mm) + d_native * s_native`;
+`reference_z_mm` defaults to `topology.z_mm`. Thus accepting a small angular
+deviation alone never credits a square whose corner-height bound exceeds the
+**1e-6 mm length tolerance**. An exactly parallel plane with missing COM
+can safely contribute zero COM/variation debt; a tilted plane with missing or
+malformed COM is **unknown**.
+
+When a carried source plane is supplied as `touch_plane`, its `centre_mm`
+is the transformed **AS-CUT source-axis point** in receiving-frame millimetres,
+and its `normal` is the source normal transformed into the receiving axes.
+Its independent source debt is
+`abs(centre_mm.z - touch_plane.reference_z_mm) + d_source * hypot(normal.x, normal.y) / abs(normal.z)`,
+where `d_source` is the maximum XY distance of all four square corners from
+that source centre. The internal optional `touch_plane.reference_z_mm`
+defaults to the physical source centre's Z for a single-reference contact or
+earlier survival check. Final production certification supplies the standing
+height used for the printed contact; on a multi-reference group this is the
+maximum group standing height. Thus a chosen source face below that height
+must pay the difference **plus** its corner tangent variation.
+This internal value is neither an authored input nor a serialized native
+topology field. The legitimate overall physical AS-CUT versus native nominal
+Z residual is still **not** penalized. Both debts must be finite and independently
+at most 1e-6 mm; the witness's `height_debt_mm` is their maximum. The same
+height and material budgets apply to the square after DRO snapping.
+
+This guard is limited to the native-circle square certificate. The inherited
+rectangle/whole-face height exposure is **not fixed** or given a broader proof
+here; it is tracked separately in
+[#217](https://github.com/pedropaulovc/prechips/issues/217).
+For example, `d * tan(theta)` at 500 mm and 0.5e-6 degrees is about
+4.3633e-6 mm, exceeding the length tolerance despite the small angle.
+
+Each exclusion is recorded once, when its plunge is accepted, as the circle of
+its conservative radial reach (`centre_mm`, `radius_mm`, `error_mm = 0`) in
+the frame of the setup that cut it (`frame`), and carried unchanged. At
+consumption it is re-expressed through the model point into the receiving
+frame; a later carry cannot move, shrink or drop it, nor can a re-face about
+the same centre axis. Exclusions
+from every setup in the lineage accumulate, and the current plunge joins them
+before the search. This addresses the #192 concern filed as
+[#215](https://github.com/pedropaulovc/prechips/issues/215) for same-axis
+re-facing; a re-face about another centre axis still leaves the earlier
+exclusion's extent **unknown** (the #192 gate above), never re-certified.
+
+`face_topology` whose outer or an inner loop is a `polygon` (ordered exact
+straight-sided wire, serialized for provenance) or `unsupported` (a partial
+arc, a slit, mixed arcs and lines, or an unmapped face, with its `reason`) is
+**unknown** for this rule: the host borrows no circular envelope from a
+polygon, and the rectangle path still needs its own `fills_bbox` fact. A
+missing, malformed, non-finite or non-coplanar record, a non-positive area, a
+negative error, a malformed exclusion or an invalid DRO grid fails closed the
+same way.
+
+Neither witness replaces the existing gates. The contact face still needs its
+named stock producer or supply, traced component lineage, rigid finite
+orthonormal frames, the outward +Z normal, bounded cut area and the
+above-touch proofs. Topology certifies the shape of a face already proved to
+be there; it never proves presence.
+
+When the selected contact is a multi-plane group
+([carried multi-plane selection](#carried-multi-plane-touch-selection-zero_check)),
+the circular witness is per face: the certificate runs on each coplanar
+member's own `face_topology` in the group's order, and the first face that
+certifies is the chosen contact. Only that face's original holes and the
+exclusions that intersect it are deducted; a cut proved disjoint from the
+chosen face, on another member, cannot reach its square and is not folded
+in. The printed keep-off circle is scoped to that chosen face alone, never a
+maximum over the group's differently centred circles. Height and lineage
+proof for the selected group still cover every member reference.
+
+A credited contact that has any exclusion reports, on its `zero_check`
+constraint:
+
+- `touch_land_ref`: the exact STEP reference of the chosen contact face whose
+  topology certified the square (a single-face contact names itself).
+- `touch_exclusion_dia_mm`: the diameter in physical mm of the circle about
+  the chosen face's outer centre enclosing every exclusion deducted on it (the
+  largest centre distance plus radius plus error, doubled). Native witness
+  receipts retain this computed bound without preliminary rounding; the
+  traveler prints `keep off Ø… mm` rounded outward to 0.001 mm. The legacy
+  filled-rectangle contact retains its existing `touch the face outside Ø… mm`
+  wording and numeric receipt shape.
+- `touch_land_dro_xy`: the certified square's centre `[x, y]` in plan units as
+  the operator's receiving-setup DRO prints it, with `touch_land_units` and
+  `touch_land_dro_decimals` stating that grid, `touch_land_width_mm = 0.5`,
+  `touch_land_candidate` (the 0-based angle index that passed) and
+  `touch_land_search` (the search description) for provenance.
+- `touch_land_height_debt_mm`: the maximum certified native/source
+  corner-height bound in millimetres, alongside the candidate/search receipt;
+  this is not the overall physical AS-CUT versus native nominal Z residual.
+- `touch_keep_off_dro_xy`: the outer circle's centre `[x, y]` rounded to the
+  same operator DRO grid; `touch_exclusion_dia_mm` is centred there and is
+  grown by that centre's X/Y rounding debt, so the raw centre is never printed
+  without the debt the rounding adds.
+
+The traveler prints the proved 0.5 mm square's touch XY and the keep-off
+diameter centred at `touch_keep_off_dro_xy`, so the operator sets the tool
+over a stated point and stays outside a stated circle.
+
+The legacy filled-rectangle witness remains conservative: a 0.5 mm square
+must also fit outside the whole box enclosing its printed keep-off circle.
+Its source-plane axis must project to the receiving DRO X0 Y0 within the
+length tolerance, since that older instruction prints no separate centre.
+The radius is measured about that receiving zero from each independently
+located cut. Real land between individual cut boxes alone is not sufficient
+for this legacy receipt. A native-circle witness instead certifies the stated
+square analytically and prints its own DRO centre, including an offset one.
+
+An uncut contact gains none of these fields. A missing witness, or no
+remaining 0.5-mm square, leaves the subsequent contact **unknown**, with the
+setup/op and named contact face in the usable-land debt; the initial contact
+before the plunge remains eligible when its plane, presence, outward normal,
+lineage and touch side are proved, and proven disjoint cuts retain the
+existing preservation path. Unsupported contacts print no credited face or
+numeric Axis Set. This is a checker limitation/stop, not a claim that no
 physical touch patch exists.
+
+### Issue #208 acceptance status
+
+Implementation and host tests are complete for this **0.1.2 draft**.
+**0.1.1 ships #198, #192 and #199 only.**
+
+- [x] Native job schema 2 emits `face_topology` for every mapped planar face
+      in every setup; schema 1 jobs are refused by the engine.
+- [x] Host certificate (`rules/touch_land.py`): circles only, area
+      reconciliation with tolerance debt, own-centre holes and exclusions,
+      deterministic 64-angle DRO-grid search, analytic recertification, and
+      native/carried-source square corner-height budgets at 1e-6 mm.
+- [x] Exclusions retained per source frame with their own centres and
+      re-expressed at consumption, surviving routing and a re-face about the
+      same centre axis ([#215](https://github.com/pedropaulovc/prechips/issues/215));
+      a re-face about another centre still leaves the area unknown (#192);
+      rectangle path, producer/lineage/normal gates, the
+      current-setup `face_topology` selection and the report fields above.
+- [ ] Focused actual-FreeCAD topology tests (authored annulus, thin land,
+      off-centre holes, sector/slit/notch and setup transforms): **NOT RUN**.
+- [x] Cold private regeneration of every example on native FreeCAD 1.1 with the
+      new schema and engine digest, at merge `9805c105`: 10 of 11 outputs
+      byte-identical to 0.1.1; the cone changed only report/traveler.
+- [x] Cone S8/S9 land certified natively: zero_check S8/S9 unknown → pass
+      (height debt at most 1.04e-7 mm). The cone still exits **4**, the authored
+      target, on the two assumed reamer lead lengths (#199) and S1's
+      foot-seat touch; exit 0 needs those lead facts measured (0.1.2).
+- [ ] CI with the regenerated native result cache green: see the PR's exact-head run.
 
 ## `blind_depth` (tip endpoints)
 

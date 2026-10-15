@@ -49,6 +49,18 @@ or uncited drilling data remains unresolved and blocks when required, just
 like other cutting starts. See [cutting data](cutting-data.md) for tool-chart
 precedence and deep-hole derating.
 
+Post-cut touch-land certificates fail closed to unknown when current-setup
+native facts are missing, circular loops fail the strict nesting/disjointness
+or native-area checks, stock geometry is unsupported or misaligned, or no
+0.5 mm square can be certified on the receiving DRO grid outside all relevant
+holes and cut exclusions. The 0.5 mm land is an implemented proof threshold,
+not a shop-policy override or a new `numbers` key; selecting a rule never
+supplies missing geometry or converts its unknown finding into a pass.
+Existing required-rule gate semantics remain authoritative. See
+[usable touch land](rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check),
+[native topology](rules-geometry.md#face-topology) and
+[DRO contact checks](rules-coordinates.md#zero_check).
+
 When no policy path is supplied, the loader requires `tool_resolves`, `sizing`,
 `op_chain`, `blind_depth`, `inspection`, `coordinates`, and `zero_check` on `"*"`.
 The fallback is not an extra file and therefore has no file digest in inputs.

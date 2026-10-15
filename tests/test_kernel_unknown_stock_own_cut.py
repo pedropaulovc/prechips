@@ -79,7 +79,7 @@ for name, shape in shapes.items():
     path = Path(target).with_name(name + ".step")
     shape.exportStep(str(path))
     base = {
-        "version": 1,
+        "version": 2,
         "step_path": str(path),
         "step_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
         "stock": {"shape": "part"},

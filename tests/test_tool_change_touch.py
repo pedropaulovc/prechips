@@ -441,6 +441,307 @@ def carried_rectangular_stock_bundle(*, journal=False):
     return data
 
 
+def carried_annular_stock_bundle(*, inner=4.0):
+    """An owned prepared face with complete native topology in the receiving frame."""
+    from test_touch_land_topology import annulus
+
+    data = carried_stock_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    source["ops"] = source["ops"][:1]
+    fact = data.kernel["setups"][source["id"]]["revolved"]["crank_boss_faces"]
+    fact.update(radii_mm=[inner, 10.0], end_radii_mm=[10.0, 10.0])
+    face = data.kernel["faces"][0]
+    height = face["bbox_mm"][2]
+    face.update(
+        bbox_mm=[-10.0, -10.0, height, 10.0, 10.0, height],
+        area_mm2=math.pi * (100.0 - inner * inner),
+        fills_bbox=False,
+    )
+    topology = annulus()
+    topology.update(ref="#1/NORTH", index=0, z_mm=0.0, area_mm2=face["area_mm2"])
+    topology["outer"]["centre_mm"] = [0.0, 0.0, 0.0]
+    topology["inner"][0].update(radius_mm=inner, centre_mm=[0.0, 0.0, 0.0])
+    data.kernel["setups"][receiver["id"]] = {"face_topology": {"#1/NORTH": topology}}
+    # A listed retouch picks up the tracked stock top, not the named primary
+    # zero by implication. This fixture means that prepared top to be known.
+    receiver["stock_state"] = {"top_z": 0.0, "top_feature": receiver["zero"]["z"]["face"]}
+    receiver["zero"]["z"]["tool"] = "drill"
+    receiver["zero"]["z"]["retouch_after"] = [10]
+    # The listed after-10 retouch serves the reamer; returning to the drill at
+    # op 30 exercises a separate, automatically derived retouch.
+    receiver["ops"] = [
+        op(10, "drill", "hole", "drill"),
+        op(20, "ream", "hole", "reamer"),
+        op(30, "drill", "hole", "drill"),
+    ]
+    data.kernel["ops"][f"{receiver['id']}:30"] = {"claimed_indices": [3]}
+    data.inventory["tools"]["reamer"] = {"kind": "reamer", "dia_mm": 0.9}
+    return data
+
+
+def test_native_source_square_is_bound_to_the_final_printed_group_height():
+    from prechips.rules.zero_recipe import _native_touch_land, setup_frame
+
+    data = carried_annular_stock_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    theta = math.radians(0.5e-6)
+    source_frame = data.features["frames"][source["frame"]]
+    source_frame.update(
+        y=[0.0, -math.cos(theta), math.sin(theta)],
+        z=[0.0, -math.sin(theta), -math.cos(theta)],
+    )
+    plane = {
+        "frame": source_frame,
+        "z_mm": 0.0,
+        "formed_z_mm": 0.0,
+        "normal_z": 1,
+    }
+    target = {"faces": ["#1/NORTH"]}
+    cuts = [
+        {
+            "frame": setup_frame(data, receiver),
+            "centre_mm": [0.0, 0.0, 0.0],
+            "radius_mm": 0.4,
+            "error_mm": 0.0,
+        }
+    ]
+    witness = _native_touch_land(data, receiver, target, plane, cuts, reference_height_mm=0.5e-6)
+    assert witness is not None and 0.5e-6 < witness["height_debt_mm"] < 1e-6
+    assert (
+        _native_touch_land(data, receiver, target, plane, cuts, reference_height_mm=0.99e-6) is None
+    )
+    assert _native_touch_land(data, receiver, target, plane, cuts) is not None
+
+
+def test_native_annulus_credits_both_carried_listed_and_derived_retouches():
+    data = carried_annular_stock_bundle()
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    assert finding.numbers["axes"]["z"]["axis_set"] == 0.0
+    [listed] = finding.numbers["retouch"]
+    [derived] = finding.numbers["derived_touches"]
+    assert listed["op"] == 10 and listed["next_op"] == 20
+    assert derived["before_ops"] == [30] and derived["tool"] == "drill"
+    for row in [*finding.numbers["retouch"], *finding.numbers["derived_touches"]]:
+        assert row["credited_faces"] == ["#1/NORTH"]
+        assert row["touch_land_ref"] == "#1/NORTH"
+        assert row["touch_land_width_mm"] == 0.5
+        assert row["touch_land_units"] == "mm"
+        assert len(row["touch_land_dro_xy"]) == len(row["touch_keep_off_dro_xy"]) == 2
+        assert row["touch_keep_off_dro_xy"] == [0.0, 0.0]
+        assert row["touch_exclusion_dia_mm"] == pytest.approx(8.0000004)
+    assert finding.numbers["retouch"] and finding.numbers["derived_touches"]
+
+
+def test_native_keep_off_diameter_is_not_shrunk_before_outward_printing():
+    from prechips.sheet import _touch_outside
+
+    data = carried_annular_stock_bundle(inner=4.0 - 2e-7 + 1e-10)
+    finding = evaluate(data)[-1]
+    assert finding.status == "pass", finding.sentence
+    [row] = finding.numbers["retouch"]
+    # The native circle and face each contribute 1e-7 mm of error. Rounding
+    # the bound to nine places would erase this positive keep-off debt.
+    assert 8.0 < row["touch_exclusion_dia_mm"] < 8.000000001
+    assert round(row["touch_exclusion_dia_mm"], 9) == 8.0
+    assert "keep off Ø8.001 mm" in _touch_outside(row)
+
+
+@pytest.mark.parametrize(
+    "debt", ["missing", "area", "wrong-ref", "mapping", "stock-lineage", "micron-ring"]
+)
+def test_native_annulus_credit_requires_complete_owned_consistent_topology(debt):
+    data = carried_annular_stock_bundle(inner=9.999 if debt == "micron-ring" else 4.0)
+    receiver = data.plan["setups"][-1]
+    facts = data.kernel["setups"][receiver["id"]]["face_topology"]
+    if debt == "missing":
+        facts.clear()
+    elif debt == "area":
+        facts["#1/NORTH"]["area_mm2"] = math.pi * 100
+    elif debt == "wrong-ref":
+        facts["#1/NORTH"]["ref"] = "#2/SOUTH"
+    elif debt == "mapping":
+        facts["#1/NORTH"]["index"] = 1
+    elif debt == "stock-lineage":
+        receiver["stock_in"] = "stock.body"
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown", finding.sentence
+    for row in [*finding.numbers["retouch"], *finding.numbers["derived_touches"]]:
+        assert "credited_faces" not in row
+        assert "touch_land_dro_xy" not in row
+
+
+@pytest.mark.parametrize("missing_producer", [False, True], ids=["both-produced", "far-unproduced"])
+def test_two_coplanar_annuli_cannot_mix_contact_rows_without_each_native_producer(missing_producer):
+    import copy
+
+    data = carried_annular_stock_bundle()
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    # This row intentionally has no known stock top. Its listed retouch must
+    # remain unknown without preventing a later touch on a separately proved face.
+    receiver["stock_state"] = {}
+    feature = receiver["zero"]["z"]["face"]
+    near, far = "#1/NORTH", "#5/FAR_FACE"
+    height = data.kernel["faces"][0]["bbox_mm"][2]
+    data.feature_definitions[feature]["faces"] = [near, far]
+    data.kernel["features"][feature] = [0, 4]
+    data.kernel["mapping"][far] = 4
+    data.kernel["faces"].append(
+        {
+            "index": 4,
+            "kind": "Plane",
+            "bbox_mm": [-10.0, -60.0, height, 10.0, -40.0, height],
+            "area_mm2": math.pi * (100.0 - 36.0),
+            "fills_bbox": False,
+        }
+    )
+    producer = source["ops"][0]
+    producer["faces"] = [near] if missing_producer else [near, far]
+    data.kernel["ops"][f"{source['id']}:10"]["claimed_indices"] = (
+        [0] if missing_producer else [0, 4]
+    )
+    data.kernel["setups"][source["id"]]["revolved"][feature].update(
+        z_mm=[0.0, 0.0],
+        end_radii_mm=[10.0, 10.0],
+        end_faces=[{"z_mm": 0.0, "normal_z": 1}, {"z_mm": 0.0, "normal_z": 1}],
+    )
+    facts = data.kernel["setups"][receiver["id"]]["face_topology"]
+    far_topology = copy.deepcopy(facts[near])
+    far_topology.update(ref=far, index=4, area_mm2=math.pi * (100.0 - 36.0))
+    far_topology["outer"]["centre_mm"] = [50.0, 0.0, 0.0]
+    far_topology["inner"][0].update(centre_mm=[50.0, 0.0, 0.0], radius_mm=6.0)
+    facts[far] = far_topology
+    data.feature_definitions["far_hole"] = {
+        **data.feature_definitions["hole"],
+        "faces": ["#6/FAR_HOLE"],
+        "at": [0.0, -50.0, height],
+    }
+    data.kernel["mapping"]["#6/FAR_HOLE"] = 5
+    data.kernel["features"]["far_hole"] = [5]
+    data.kernel["faces"].append(
+        {
+            "index": 5,
+            "kind": "Cylinder",
+            "bbox_mm": [-3.0, -53.0, height, 3.0, -47.0, height + 72],
+        }
+    )
+    data.inventory["tools"]["far_drill"] = {"kind": "drill", "dia_mm": 6.0, "point_angle": 118}
+    receiver["ops"] = [
+        op(10, "drill", "hole", "drill"),
+        op(20, "drill", "far_hole", "far_drill"),
+        op(30, "ream", "hole", "reamer"),
+    ]
+    data.kernel["ops"][f"{receiver['id']}:20"] = {"approach": "axial", "claimed_indices": [5]}
+    data.kernel["ops"][f"{receiver['id']}:30"] = {"approach": "axial", "claimed_indices": [3]}
+    # Duplicate aggregate end facts cannot bind one circle. When both refs are
+    # claimed, however, their individual flat source boxes and faced_side prove
+    # both producers. Removing the far claim must not let it borrow the near one.
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown", finding.sentence
+    [listed] = finding.numbers["retouch"]
+    assert listed["axis_set"] == "unknown"
+    assert "credited_faces" not in listed
+    assert "touch_land_ref" not in listed and "touch_land_dro_xy" not in listed
+    axis = finding.numbers["axes"]["z"]
+    [derived] = finding.numbers["derived_touches"]
+    assert derived["before_ops"] == [30]
+    if missing_producer:
+        for row, field in [(axis, "axis_set"), (derived, "z_axis_set")]:
+            assert row[field] == "unknown"
+            assert "credited_faces" not in row
+            assert "touch_land_ref" not in row and "touch_land_dro_xy" not in row
+    else:
+        assert axis["axis_set"] == derived["z_axis_set"] == 0.0
+        assert axis["credited_faces"] == derived["credited_faces"] == [near, far]
+        # The derived contact uses the near annulus's own 4-mm hole and centre,
+        # never the far annulus's 6-mm hole, [50, 0] centre or 12-mm keep-off.
+        assert derived["touch_land_ref"] == near
+        assert derived["touch_land_dro_xy"] == [7.0, 0.0]
+        assert derived["touch_keep_off_dro_xy"] == [0.0, 0.0]
+        assert derived["touch_land_width_mm"] == 0.5
+        assert derived["touch_exclusion_dia_mm"] == pytest.approx(8.0000004)
+
+
+@pytest.mark.parametrize("later_setup", [False, True])
+def test_refacing_keeps_each_exclusions_original_centre_and_frame(later_setup, monkeypatch):
+    from prechips.rules import zero_recipe
+
+    data = carry_with_refaced_hole(later_setup=later_setup)
+    source, receiver = data.plan["setups"][1], data.plan["setups"][-1]
+    frame = data.features["frames"][source["frame"]]
+    # The first cut is offcentre in the source frame. A whole re-face must not
+    # recenter that earlier column in the receiver's differently oriented frame.
+    data.feature_definitions["hole"]["at"] = [
+        frame["origin"][i] + 0.5 * frame["x"][i] for i in range(3)
+    ]
+    seen = []
+    original = zero_recipe._exclusions_in_frame
+
+    def capture(bundle_data, setup, exclusions, plane=None):
+        located = original(bundle_data, setup, exclusions, plane)
+        if setup["id"] == receiver["id"] and located and len(exclusions) >= 2:
+            seen.append((exclusions, located))
+        return located
+
+    monkeypatch.setattr(zero_recipe, "_exclusions_in_frame", capture)
+    finding = evaluate(data)[-1]
+    # The cut records remain physically located, but the enclosing radius-.9
+    # legacy circle box leaves no .5-mm square on this 2-mm receiving face.
+    assert finding.status == "unknown", finding.sentence
+    assert finding.numbers["axes"]["z"]["axis_set"] == "unknown"
+    assert "credited_faces" not in finding.numbers["axes"]["z"]
+    assert seen
+    from prechips.rules.coordinates import frame_point, model_point
+
+    exclusions, located = seen[-1]
+    assert len(exclusions) == len(located)
+    for cut, transformed in zip(exclusions, located, strict=True):
+        expected = frame_point(
+            model_point(cut["centre_mm"], cut["frame"]),
+            data.features["frames"][receiver["frame"]],
+        )
+        assert transformed["centre_mm"] == pytest.approx(expected)
+        assert transformed["radius_mm"] == cut["radius_mm"]
+    prior = [cut for cut in exclusions if cut["frame"] == frame]
+    assert prior and prior[0]["centre_mm"][:2] == pytest.approx([0.5, 0.0])
+    assert any(cut["frame"] != frame for cut in exclusions)
+
+
+@pytest.mark.parametrize("tilt_deg", [0.0, 0.5e-6])
+def test_carried_cut_column_pays_long_height_axis_tilt_without_recentering(tilt_deg):
+    from prechips.rules.coordinates import frame_point, model_point
+    from prechips.rules.zero_recipe import _exclusions_in_frame
+
+    data = carried_rectangular_stock_bundle()
+    receiver = data.plan["setups"][-1]
+    receiver["frame"] = "model"
+    identity = data.features["frames"]["model"]
+    angle = math.radians(tilt_deg)
+    c, s = math.cos(angle), math.sin(angle)
+    source_frame = {
+        "origin": [0.0, 0.0, 0.0],
+        "x": [c, 0.0, -s],
+        "y": [0.0, 1.0, 0.0],
+        "z": [s, 0.0, c],
+        "binding": "nominal",
+    }
+    centre = [0.0, 0.0, -1000.0]
+    cut = {"frame": source_frame, "centre_mm": centre, "radius_mm": 0.4, "error_mm": 0.0}
+    plane = {"frame": identity, "z_mm": 0.0, "normal_z": 1}
+    [located] = _exclusions_in_frame(data, receiver, [cut], plane)
+    expected = frame_point(model_point(centre, source_frame), identity)
+    assert located["centre_mm"] == pytest.approx(expected)
+    assert cut["centre_mm"] == [0.0, 0.0, -1000.0]
+    assert located["radius_mm"] == 0.4
+    if tilt_deg:
+        assert located["error_mm"] >= 1000.0 * math.tan(angle)
+        assert _exclusions_in_frame(data, receiver, [cut], None) is None
+    else:
+        assert located["error_mm"] == 0.0
+        [without_plane] = _exclusions_in_frame(data, receiver, [cut], None)
+        assert without_plane["error_mm"] == 0.0
+
+
 def carried_two_level_bundle(
     *, units="mm", prepared="lower", lower_mm=0.0, upper_mm=10.0, source_grid_mm=0.005
 ):
@@ -620,6 +921,7 @@ def carried_rectangular_source_plane_bundle(*, nominal=21.0055, source_grid=0.01
 
 
 def carry_with_through_drill(*, aim_shift=0.0):
+    """Filled 2x2-mm face; each actual cutting column is at CH [0, -aim_shift]."""
     data = carried_rectangular_stock_bundle()
     receiver = data.plan["setups"][-1]
     receiver["ops"].append(op(30, "ream", "hole", "reamer"))
@@ -639,7 +941,7 @@ def carry_with_through_drill(*, aim_shift=0.0):
             "hole": {
                 "requirement": "separation",
                 "value_mm": 1.0 + aim_shift,
-                "reason": "Synthetic located drill aim exercises its physical radial envelope",
+                "reason": "Synthetic located drill aim exercises its own-centred cutting footprint",
             }
         }
     return data
@@ -1550,21 +1852,148 @@ def test_source_native_plane_evidence_cannot_be_missing_misbound_flipped_or_wron
 def test_axial_plunges_leave_a_proven_plane_with_a_cumulative_touch_exclusion(aim_shift):
     data = carry_with_through_drill(aim_shift=aim_shift)
     finding = evaluate(data)[-1]
+    # The actual offset drill leaves [.475,.975]^2 untouched. The legacy
+    # rectangle receipt still needs .5-mm land outside its enclosing circle
+    # box, which the .185-mm shift expands to radius .585 on this 2-mm face.
     assert finding.status == ("unknown" if aim_shift else "pass"), finding.sentence
     before = {row["before_ops"][0]: row for row in finding.numbers["derived_touches"]}
     assert before[20]["touch_exclusion_dia_mm"] == pytest.approx(0.3 + 2 * aim_shift)
     assert before[20]["credited_faces"] == ["#1/NORTH"]
-    if aim_shift:
-        from prechips.rules.zero_recipe import _axial_cut_footprint
+    from prechips.rules.zero_recipe import _axial_cut_footprint
 
-        receiver = data.plan["setups"][-1]
-        point, radius = _axial_cut_footprint(data, receiver, receiver["ops"][1])
-        assert 2 * (radius + math.hypot(*point[:2])) == pytest.approx(1.17)
-        assert before[30]["z_axis_set"] == "unknown" and "credited_faces" not in before[30]
-        assert "no proven usable touch land" in finding.sentence
+    receiver = data.plan["setups"][-1]
+    point, radius = _axial_cut_footprint(data, receiver, receiver["ops"][1])
+    assert point[:2] == pytest.approx([0.0, -aim_shift])
+    assert radius == pytest.approx(0.4)
+    # Preserve each physical column's centre even when its conservative
+    # origin-centred printed circle box cannot certify a rectangle receipt.
+    assert 2 * (radius + math.hypot(*point[:2])) == pytest.approx(0.8 + 2 * aim_shift)
+    touch = before[30]
+    if aim_shift:
+        assert touch["z_axis_set"] == "unknown"
+        assert "credited_faces" not in touch
+        assert "touch_land_ref" not in touch and "touch_land_dro_xy" not in touch
     else:
-        assert before[30]["touch_exclusion_dia_mm"] == pytest.approx(0.8)
-        assert before[30]["credited_faces"] == ["#1/NORTH"]
+        assert touch["touch_exclusion_dia_mm"] == pytest.approx(0.8)
+        assert touch["z_axis_set"] == 0.0
+        assert touch["credited_faces"] == ["#1/NORTH"]
+
+
+@pytest.mark.parametrize(
+    ("width", "status"),
+    [(2.0, "pass"), (0.49, "unknown")],
+    ids=["centred-printed-circle-box-land", "face-too-thin-for-square"],
+)
+def test_a_filled_rectangle_requires_a_half_mm_square_outside_the_printed_circle_box(width, status):
+    data = carry_with_through_drill()
+    face = data.kernel["faces"][0]
+    half = width / 2
+    face["bbox_mm"][:2] = [-half, -half]
+    face["bbox_mm"][3:5] = [half, half]
+    face["area_mm2"] = width * width
+    # These are still filled native rectangles, not circular topology inferred
+    # from a box. The centred radius-.4 box leaves [.475,.975]^2 on the 2-mm
+    # face; a .49-mm face cannot contain any .5-mm square, even without cuts.
+    finding = evaluate(data)[-1]
+    assert finding.status == status, finding.sentence
+    assert finding.numbers["axes"]["z"]["axis_set"] == 0.0
+    before = {row["before_ops"][0]: row for row in finding.numbers["derived_touches"]}
+    touch = before[30]
+    if status == "pass":
+        assert touch["z_axis_set"] == 0.0
+        assert touch["credited_faces"] == ["#1/NORTH"]
+        assert touch["touch_exclusion_dia_mm"] == pytest.approx(0.8)
+    else:
+        assert touch["z_axis_set"] == "unknown"
+        assert "credited_faces" not in touch
+        assert "touch_land_ref" not in touch and "touch_land_dro_xy" not in touch
+
+
+@pytest.mark.parametrize(
+    "plane_centre_x",
+    [2.0, 0.0],
+    ids=["refaced-origin-offset-from-dro-zero", "zero-origin-envelope-box-covers-face"],
+)
+def test_refaced_rectangle_legacy_touch_cannot_borrow_individual_cut_land(plane_centre_x):
+    from prechips.rules import zero_recipe
+    from prechips.rules.coordinates import frame_point, model_point
+
+    data = carry_with_refaced_hole(later_setup=True)
+    source, finishing, receiver = (
+        data.plan["setups"][1],
+        data.plan["setups"][2],
+        data.plan["setups"][-1],
+    )
+    face = receiver["zero"]["z"]["face"]
+    source_frame = data.features["frames"][source["frame"]]
+    data.features["frames"]["refaced"] = {
+        **source_frame,
+        "origin": [0.0, -plane_centre_x, source_frame["origin"][2]],
+    }
+    finishing["frame"] = "refaced"
+    height = source_frame["origin"][2]
+    data.kernel["faces"][0].update(
+        bbox_mm=[-3.0, -3.0, height, 3.0, 3.0, height], fills_bbox=True, area_mm2=36.0
+    )
+    source_fact = data.kernel["setups"][source["id"]]["revolved"][face]
+    source_fact.update(
+        radii_mm=[0.0, math.sqrt(18.0)], end_radii_mm=[math.sqrt(18.0), math.sqrt(18.0)]
+    )
+    refaced_radius = math.hypot(3.0, 3.0 + plane_centre_x)
+    data.kernel["setups"][finishing["id"]] = {
+        "revolved": {
+            face: {
+                **source_fact,
+                "radii_mm": [0.0, refaced_radius],
+                "end_radii_mm": [refaced_radius, refaced_radius],
+            }
+        }
+    }
+    receiving_frame = data.features["frames"][receiver["frame"]]
+    data.feature_definitions["hole"]["at"] = model_point(
+        [-2.5, -2.5, receiver["zero"]["z"]["edge_mm"]], receiving_frame
+    )
+    data.inventory["tools"]["drill"]["dia_mm"] = 1.0
+    data.kernel["faces"][3]["bbox_mm"] = [2.0, 2.0, height, 3.0, 3.0, height + 72.0]
+
+    # Both whole producers and the intervening plunge use the fixture's real
+    # native ownership/stock route. No mocked eligibility or circular topology
+    # supplies a printable centre for this filled rectangle.
+    assert zero_recipe._native_surface_planes(data, finishing, face, 0.0) == ["#1/NORTH"]
+    plane = zero_recipe._native_plane_geometry(data, finishing, face, ["#1/NORTH"])
+    assert plane is not None
+    centre = frame_point(model_point([0.0, 0.0, plane["z_mm"]], plane["frame"]), receiving_frame)
+    assert centre == pytest.approx([plane_centre_x, 0.0, 21.0])
+    footprint = zero_recipe._axial_cut_footprint(data, source, source["ops"][1])
+    assert footprint is not None
+    cut = zero_recipe._plunge_exclusion(data, source, footprint)
+    [located] = zero_recipe._exclusions_in_frame(data, receiver, [cut], plane)
+    assert located["centre_mm"][:2] == pytest.approx([-2.5, -2.5])
+    assert located["radius_mm"] == pytest.approx(0.5)
+    target = data.feature_definitions[face]
+    assert zero_recipe._rectangular_touch_land(data, receiver, target, plane, [cut])
+    held = zero_recipe._rectangle(data, receiver, target)
+    assert held is not None
+    envelope = (
+        math.hypot(*(located["centre_mm"][i] - centre[i] for i in (0, 1)))
+        + located["radius_mm"]
+        + located["error_mm"]
+    )
+    printed_box = [[centre[i] - envelope, centre[i] + envelope] for i in (0, 1)]
+    assert not zero_recipe._uncut(*held, [printed_box])
+
+    # A .5-mm individual-cut square exists, but neither the shifted unprinted
+    # centre nor a whole envelope box covering the face is a legacy witness.
+    finding = evaluate(data)[-1]
+    assert finding.status == "unknown", finding.sentence
+    for row, axis in [
+        (finding.numbers["axes"]["z"], "axis_set"),
+        (finding.numbers["derived_touches"][0], "z_axis_set"),
+    ]:
+        assert row[axis] == "unknown"
+        assert "credited_faces" not in row
+        assert "touch_land_ref" not in row and "touch_land_dro_xy" not in row
+        assert "touch_keep_off_dro_xy" not in row
 
 
 @pytest.mark.parametrize(
@@ -1672,6 +2101,7 @@ def test_resolved_combined_drill_member_bounds_its_engaged_mouth_and_aim_shift(
     depth, diameter, aim_shift
 ):
     from prechips.rules.resolution import resolve
+    from prechips.rules.zero_recipe import _axial_cut_footprint
 
     data = carry_with_through_drill(aim_shift=aim_shift)
     receiver = data.plan["setups"][-1]
@@ -1682,9 +2112,22 @@ def test_resolved_combined_drill_member_bounds_its_engaged_mouth_and_aim_shift(
     assert tool["kind"] == "center_drill_set"
     assert tool["pilot_len_mm"] == 0.2
     finding = evaluate(data)[-1]
+    # Mouth depth changes the radius, never the independently aimed centre.
+    # The following drill's printed envelope, not its individual column,
+    # determines whether the final legacy rectangle receipt can be credited.
     assert finding.status == ("unknown" if aim_shift else "pass"), finding.sentence
     touch = finding.numbers["derived_touches"][0]
     assert touch["touch_exclusion_dia_mm"] == pytest.approx(diameter + 2 * aim_shift)
+    point, radius = _axial_cut_footprint(data, receiver, spot)
+    assert point[:2] == pytest.approx([0.0, -aim_shift])
+    assert 2 * radius == pytest.approx(diameter)
+    final_touch = finding.numbers["derived_touches"][-1]
+    assert final_touch["z_axis_set"] == ("unknown" if aim_shift else 0.0)
+    if aim_shift:
+        assert "credited_faces" not in final_touch
+        assert "touch_land_ref" not in final_touch and "touch_land_dro_xy" not in final_touch
+    else:
+        assert final_touch["credited_faces"] == ["#1/NORTH"]
 
 
 @pytest.mark.parametrize("depth", [0.25, 0.8], ids=["countersink-mouth", "body-radius-cap"])
@@ -1693,12 +2136,16 @@ def test_combined_drill_footprint_and_blind_depth_use_the_same_explicit_spot_dep
     depth, aim_shift
 ):
     from prechips.rules.tip_endpoints import evaluate as evaluate_depth
+    from prechips.rules.zero_recipe import _axial_cut_footprint
 
     data = carry_with_through_drill(aim_shift=aim_shift)
     receiver = data.plan["setups"][-1]
     receiver["ops"][0]["depth_mm"] = depth
     data.feature_definitions["hole"]["depth"] = [0.2, 1.0]
     finding = evaluate(data)[-1]
+    # Blind depth and contact use the same explicit mouth depth at its own
+    # aimed centre. That physical land does not discharge the final legacy
+    # receipt's .5-mm square outside the enclosing printed circle box.
     assert finding.status == ("unknown" if aim_shift else "pass"), finding.sentence
     endpoint_finding = next(row for row in evaluate_depth(data) if row.subject == "hole")
     spot_endpoint = next(
@@ -1710,6 +2157,16 @@ def test_combined_drill_footprint_and_blind_depth_use_the_same_explicit_spot_dep
     touch = finding.numbers["derived_touches"][0]
     diameter = min(0.4, 0.3 + 2 * (spot_endpoint["depth_mm"] - 0.2) * math.tan(math.radians(30)))
     assert touch["touch_exclusion_dia_mm"] == pytest.approx(diameter + 2 * aim_shift)
+    point, radius = _axial_cut_footprint(data, receiver, receiver["ops"][0])
+    assert point[:2] == pytest.approx([0.0, -aim_shift])
+    assert 2 * radius == pytest.approx(diameter)
+    final_touch = finding.numbers["derived_touches"][-1]
+    assert final_touch["z_axis_set"] == ("unknown" if aim_shift else 0.0)
+    if aim_shift:
+        assert "credited_faces" not in final_touch
+        assert "touch_land_ref" not in final_touch and "touch_land_dro_xy" not in final_touch
+    else:
+        assert final_touch["credited_faces"] == ["#1/NORTH"]
 
 
 @pytest.mark.parametrize("debt", ["absent", "unknown", "unverified", "unknown-upper-band", "known"])
@@ -1919,6 +2376,8 @@ def test_every_carried_touch_route_retains_the_same_bounded_exclusion(route):
         receiver["stock_state"] = {"top_z": 0.0, "top_feature": face}
         receiver["zero"]["z"].update(face="top", retouch_after=[20])
     finding = evaluate(data)[-1]
+    # Both legacy routes need land outside the whole origin-centred printed
+    # radius-.585 circle box, not merely outside the individual cutting columns.
     assert finding.status == "unknown", finding.sentence
     row = (
         finding.numbers["tool_touches"][0]
@@ -1927,7 +2386,13 @@ def test_every_carried_touch_route_retains_the_same_bounded_exclusion(route):
     )
     assert row["z_axis_set" if route == "explicit-touch" else "axis_set"] == "unknown"
     assert "credited_faces" not in row
-    assert "no proven usable touch land" in finding.sentence
+    assert "touch_land_ref" not in row and "touch_land_dro_xy" not in row
+    from prechips.rules.zero_recipe import _axial_cut_footprint
+
+    point, radius = _axial_cut_footprint(data, receiver, receiver["ops"][1])
+    assert point[:2] == pytest.approx([0.0, -0.185])
+    assert radius == pytest.approx(0.4)
+    assert 2 * (radius + math.hypot(*point[:2])) == pytest.approx(1.17)
 
 
 def test_a_supplied_native_face_with_known_outward_normal_cannot_borrow_an_upward_bbox():

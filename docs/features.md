@@ -79,6 +79,17 @@ the cutting op's `to_z` are covered and credited (see
 malformed, take precedence. The schema is unchanged.
 See [geometry rules](rules-geometry.md#face-identity).
 
+For post-cut touch-land proofs, the current setup's native topology identifies
+that exact face reference and its imported face index, with an outer wire and
+every inner wire. Only complete native circles whose strict nesting/disjointness
+and net area agree with the native face area earn circular land credit; names,
+radius extrema and sampled outlines cannot supply it. Straight-sided polygon
+wires may be serialized as evidence but earn no circular credit, and unexplained
+loops remain unknown. These are kernel output facts, not new manifest fields or
+authorable topology hints. See [native topology](rules-geometry.md#face-topology),
+[usable touch land](rules-operations.md#usable-carried-touch-land-after-a-plunge-zero_check)
+and [DRO contact checks](rules-coordinates.md#zero_check).
+
 `step_sha256` is `"unknown"` or a lowercase 64-hex SHA-256. A known digest
 requires actual referenced STEP bytes in the bundle and must match their hash;
 the digest alone is not accepted. Only a bundle with matching bytes reaches the

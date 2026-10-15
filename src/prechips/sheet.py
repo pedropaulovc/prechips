@@ -80,7 +80,7 @@ from .rules.tip_endpoints import (
     transfer,
 )
 from .rules.zero_recipe import DIRECTIONS as _SIGNS
-from .rules.zero_recipe import FACE_Z_TOL_MM
+from .rules.zero_recipe import FACE_Z_TOL_MM, TOUCH_LAND_MM
 
 _CSS = (
     files("prechips").joinpath("tokens.css").read_text(encoding="utf-8")
@@ -2217,6 +2217,38 @@ def _touch_outside(row):
     bounded axial plunge: nothing to keep off), is no exclusion and prints nothing; a
     field that is present but not a non-negative length prints the constraint with its
     Ø unknown, never as a number."""
+    if isinstance(row, dict) and any(
+        key.startswith("touch_land_") or key == "touch_keep_off_dro_xy" for key in row
+    ):
+        point, centre = row.get("touch_land_dro_xy"), row.get("touch_keep_off_dro_xy")
+        decimals, units = row.get("touch_land_dro_decimals"), row.get("touch_land_units")
+        width, dia = row.get("touch_land_width_mm"), row.get("touch_exclusion_dia_mm")
+        reference = row.get("touch_land_ref")
+        if not (
+            isinstance(point, list)
+            and isinstance(reference, str)
+            and bool(reference.strip())
+            and reference != "unknown"
+            and isinstance(centre, list)
+            and len(point) == len(centre) == 2
+            and all(_known(v) for v in [*point, *centre])
+            and isinstance(decimals, int)
+            and not isinstance(decimals, bool)
+            and 0 <= decimals <= 9
+            and units in {"mm", "in"}
+            and _known(width)
+            and width == TOUCH_LAND_MM
+            and _known(dia)
+            and dia >= 0
+        ):
+            return "touch location and cut footprint ?; usable land is unconfirmed"
+        x, y = (_number(v, decimals) for v in point)
+        cx, cy = (_number(v, decimals) for v in centre)
+        return (
+            f"touch at DRO X {x}, Y {y} {units} "
+            f"on the proved {_number(width)} mm square on this face; "
+            f"keep off Ø{_outward_mm(dia)} mm centred at DRO X {cx}, Y {cy} {units}"
+        )
     if not isinstance(row, dict) or "touch_exclusion_dia_mm" not in row:
         return None
     dia = row["touch_exclusion_dia_mm"]

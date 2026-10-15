@@ -1,11 +1,12 @@
 """Headless FreeCAD geometry engine for prechips M4 (stdlib + FreeCAD/Part only).
 
 Run as ``freecadcmd.exe freecad_job.py -- INPUT_JSON OUTPUT_JSON``.  The input is
-one version-1 job, or ``{"jobs": [job, ...]}`` answered by ``{"results": [...]}``
-in the same order; both go through :func:`run_job`.  Output is canonical JSON
-(sorted keys, floats rounded to 1e-6 mm) and nothing is printed.  Every number is
-measured on the imported B-rep in this run; a fact that cannot be measured is
-``"unknown"`` with its reason under ``reasons``, never a default.  Booleans known
+one version-2 job, or ``{"jobs": [job, ...]}`` answered by ``{"results": [...]}``
+in the same order; both go through :func:`run_job`. Output is canonical JSON
+(sorted keys, ordinary measurements rounded to 1e-6 mm) and nothing is printed.
+Setup ``face_topology`` retains full numeric precision and explicit native/float
+error bounds. Every number is measured on the imported B-rep in this run; a fact
+that cannot be measured is ``"unknown"`` with its reason, never a default. Booleans known
 ahead of the loop needing them may run in this run's worker processes on exact copies
 of their shapes (``boolean_pool.py``, ``PRECHIPS_KERNEL_WORKERS``); facts are the same.
 
@@ -1178,6 +1179,205 @@ def _common_normal(faces):
             return None
         normal = here
     return normal
+
+
+def _topology_error(shape, values):
+    """Native maximum edge/vertex tolerance plus conservative floating-point debt, in mm."""
+    tolerance = float(shape.getTolerance(1))
+    if not (_trustworthy((tolerance, *values)) and tolerance >= 0):
+        raise ValueError("native topology tolerance or coordinates are not trustworthy")
+    return max(PLANE_TOL, tolerance) + 64 * math.fsum(math.ulp(value) for value in values)
+
+
+def _wire_topology(wire):
+    """One complete native boundary: a full circle, an ordered straight polygon, or debt.
+
+    No sampled radius, area, tessellation or Boolean certifies a circle. The native
+    traversal must visit every edge once, close through its actual vertices, and, for
+    circular edges, wind consistently through exactly one full turn.
+    """
+    try:
+        if not wire.isClosed() or not wire.isValid():
+            raise ValueError("wire is not closed valid native topology")
+        edges, ordered = list(wire.Edges), list(wire.OrderedEdges)
+        if not edges or len(ordered) != len(edges):
+            raise ValueError("native wire traversal does not cover every edge once")
+        slots = []
+        for edge in ordered:
+            matches = [i for i, other in enumerate(edges) if edge.isSame(other)]
+            if len(matches) != 1 or matches[0] in slots:
+                raise ValueError("native wire traversal repeats or omits an edge")
+            slots.append(matches[0])
+        vertices = list(wire.OrderedVertexes)
+        if len(vertices) == len(ordered) + 1 and vertices[0].isSame(vertices[-1]):
+            vertices.pop()
+        if len(vertices) != len(ordered):
+            raise ValueError("native wire traversal has unresolved vertex order")
+        points = [tuple(vertex.Point) for vertex in vertices]
+        values = [value for point in points for value in point]
+        endpoint_debt, directions, spans, lengths = 0.0, [], [], []
+        curves = []
+        for i, edge in enumerate(ordered):
+            following = (i + 1) % len(vertices)
+            ends = list(edge.Vertexes)
+            if not (
+                1 <= len(ends) <= 2
+                and all(
+                    any(vertex.isSame(end) for end in ends)
+                    for vertex in (vertices[i], vertices[following])
+                )
+            ):
+                raise ValueError("native edge does not join its ordered wire vertices")
+            orientation = edge.Orientation
+            if orientation not in {"Forward", "Reversed"}:
+                raise ValueError("native boundary edge has no traversal direction")
+            first, last, length = (
+                float(edge.FirstParameter),
+                float(edge.LastParameter),
+                float(edge.Length),
+            )
+            if not (_trustworthy((first, last, length)) and last > first and length > 0):
+                raise ValueError("native edge has invalid trim parameters or length")
+            start, end = edge.valueAt(first), edge.valueAt(last)
+            if orientation == "Reversed":
+                start, end = end, start
+            values.extend((*tuple(start), *tuple(end)))
+            endpoint_debt = max(
+                endpoint_debt,
+                (start - vertices[i].Point).Length,
+                (end - vertices[following].Point).Length,
+            )
+            curves.append(edge.Curve)
+            directions.append(1 if orientation == "Forward" else -1)
+            spans.append(last - first)
+            lengths.append(length)
+        error = _topology_error(wire, values)
+        if not math.isfinite(endpoint_debt) or endpoint_debt > error:
+            raise ValueError("native edge endpoints exceed the wire's tolerance")
+        error += endpoint_debt
+        if all(isinstance(curve, (Part.Line, Part.LineSegment)) for curve in curves):
+            if len(points) < 3:
+                raise ValueError("straight boundary has fewer than three vertices")
+            # Every edge is exactly linear. Moving its two ends to their native vertex
+            # points moves the whole segment by at most endpoint_debt; no chord error.
+            return {
+                "kind": "polygon",
+                "points_mm": [list(point) for point in points],
+                "error_mm": error,
+            }
+        if not all(isinstance(curve, Part.Circle) for curve in curves):
+            kinds = ", ".join(sorted({type(curve).__name__ for curve in curves}))
+            raise ValueError(f"unsupported or mixed native boundary curves: {kinds}")
+        centre, normal, radius = curves[0].Center, curves[0].Axis, float(curves[0].Radius)
+        if not (
+            _trustworthy((*tuple(centre), *tuple(normal), radius))
+            and radius > 0
+            and normal.Length > 0
+        ):
+            raise ValueError("native circle has invalid centre, normal or radius")
+        normal = normal * (1 / normal.Length)
+        circle_values = [*tuple(centre), *tuple(normal), radius]
+        deviation, winding, trim_debt = 0.0, None, 0.0
+        for curve, direction, span, length in zip(curves, directions, spans, lengths, strict=True):
+            here, axis, size = curve.Center, curve.Axis, float(curve.Radius)
+            if not (
+                _trustworthy((*tuple(here), *tuple(axis), size)) and size > 0 and axis.Length > 0
+            ):
+                raise ValueError("native circular edge has invalid geometry")
+            axis = axis * (1 / axis.Length)
+            sign = 1 if axis.dot(normal) >= 0 else -1
+            alignment = (axis * sign - normal).Length * max(radius, size)
+            offset, radial = (here - centre).Length, abs(size - radius)
+            if max(offset, radial, alignment) > error:
+                raise ValueError("circular edges do not share one centre, normal and radius")
+            deviation = max(deviation, offset + radial + alignment)
+            turn = direction * sign
+            if winding is not None and turn != winding:
+                raise ValueError("circular edges reverse winding instead of enclosing a circle")
+            winding = turn
+            debt = abs(length - size * span)
+            if span > math.tau + error / size or debt > error:
+                raise ValueError("native circular edge length does not match its trimmed arc")
+            trim_debt += debt
+            circle_values.extend((*tuple(here), *tuple(axis), size, size * span, length))
+        error = max(error, _topology_error(wire, circle_values))
+        turn_debt = radius * abs(math.fsum(spans) - math.tau)
+        length_debt = abs(math.fsum(lengths) - math.tau * radius)
+        if max(turn_debt, length_debt) > len(curves) * (error + deviation):
+            raise ValueError("native circular wire does not cover a complete 2pi turn")
+        # Tolerance-sized joins and circle-description differences can leave tiny gaps
+        # in the ideal circle; retain their debt rather than rounding it away.
+        error = (len(curves) + 1) * (error + deviation) + trim_debt + turn_debt + length_debt
+        if not math.isfinite(error):
+            raise ValueError("native circle error bound is not finite")
+        return {
+            "kind": "circle",
+            "centre_mm": list(centre),
+            "normal": list(normal),
+            "radius_mm": radius,
+            "error_mm": error,
+        }
+    except MemoryError:
+        raise
+    except Exception as exc:
+        return {"kind": "unsupported", "reason": f"native wire topology is unresolved: {exc}"}
+
+
+def _face_topology(face, ref, index):
+    """Planar target geometry in the supplied face's frame; never a stock/ownership claim."""
+    identity = {"ref": ref, "index": index, "kind": "Plane"}
+    try:
+        if not isinstance(face.Surface, Part.Plane) or not face.isValid():
+            raise ValueError("face is not a valid native plane")
+        centre = face.CenterOfMass
+        normal = _normal_at(face, centre)
+        area = float(face.Area)
+        if not (
+            _trustworthy((*tuple(centre), *tuple(normal), area)) and area > 0 and normal.Length > 0
+        ):
+            raise ValueError("native plane centre, normal or area is invalid")
+        normal = normal * (1 / normal.Length)
+        error = _topology_error(face, (*tuple(centre), *tuple(normal)))
+        wires = list(face.Wires)
+        outer = face.OuterWire
+        matches = [i for i, wire in enumerate(wires) if wire.isSame(outer)]
+        if len(matches) != 1:
+            raise ValueError("native OuterWire does not identify exactly one of the face's wires")
+        loops = [_wire_topology(wire) for wire in wires]
+        for i, loop in enumerate(loops):
+            if loop["kind"] == "circle":
+                at, axis, radius = V(*loop["centre_mm"]), V(*loop["normal"]), loop["radius_mm"]
+                plane_debt = abs((at - centre).dot(normal)) + radius * min(
+                    (axis - normal).Length, (axis + normal).Length
+                )
+            elif loop["kind"] == "polygon":
+                plane_debt = max(
+                    abs((V(*point) - centre).dot(normal)) for point in loop["points_mm"]
+                )
+            else:
+                continue
+            if not math.isfinite(plane_debt) or plane_debt > error + loop["error_mm"]:
+                loops[i] = {
+                    "kind": "unsupported",
+                    "reason": "native wire does not lie in its face's plane",
+                }
+                continue
+            loop["error_mm"] += plane_debt
+            error = max(error, loop["error_mm"])
+        return {
+            **identity,
+            "centre_mm": list(centre),
+            "normal": list(normal),
+            "z_mm": float(centre.z),
+            "area_mm2": area,
+            "outer": loops[matches[0]],
+            "inner": [loop for i, loop in enumerate(loops) if i != matches[0]],
+            "error_mm": error,
+        }
+    except MemoryError:
+        raise
+    except Exception as exc:
+        return {**identity, "reason": f"native planar face topology is unresolved: {exc}"}
 
 
 # --------------------------------------------------------------------------- faced aims
@@ -3464,8 +3664,8 @@ def run(payload):
 
 class _Job:
     def __init__(self, job, timing=None):
-        if not isinstance(job, dict) or job.get("version") != 1:
-            raise ValueError("input is not a version-1 prechips geometry job")
+        if not isinstance(job, dict) or job.get("version") != 2:
+            raise ValueError("input is not a version-2 prechips geometry job")
         self.job = job
         self.timing = timing
         if timing is not None:
@@ -4521,6 +4721,7 @@ class _Setup:
                     ops[self._subject(op)] = self._op_unknown(op, frame_reason)
                     self._checkpoint_facts(op, ops[self._subject(op)], frame_reason)
             return facts, ops
+        facts["face_topology"] = self._face_topology()
         if self.stock_reason is None:
             self._use(self._placed(self.held))
             self.box = _bbox(self.part)
@@ -4621,6 +4822,41 @@ class _Setup:
         elif unknown:
             facts["reason"] = unknown[0]
         return facts, ops
+
+    def _face_topology(self):
+        """Every mapped imported plane, after faced aims and this setup's rigid transform."""
+        result = {}
+        if self.matrix is None or self.finished is None:
+            return result
+        actual = self.finished.Faces
+        imported = len(self.owner.solid.Faces)
+        if len(actual) != imported:
+            return result
+        for ref, index in sorted(self.owner.mapping.items()):
+            if not (
+                isinstance(ref, str)
+                and isinstance(index, int)
+                and not isinstance(index, bool)
+                and 0 <= index < imported
+                and index < len(self.faces)
+                and self.faces[index].isSame(actual[index])
+            ):
+                continue
+            face = self.faces[index]
+            try:
+                planar = isinstance(face.Surface, Part.Plane)
+            except MemoryError:
+                raise
+            except Exception as exc:
+                result[ref] = {
+                    "ref": ref,
+                    "index": index,
+                    "reason": f"native face surface is unresolved: {exc}",
+                }
+            else:
+                if planar:
+                    result[ref] = _face_topology(face, ref, index)
+        return result
 
     def _stock_faces(self):
         """stock_faces_mm: each named feature's horizontal finished faces as held, by outward

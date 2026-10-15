@@ -1481,7 +1481,7 @@ def build_job(bundle):
         setups[-1]["measurement_debts"] = [debts[key] for key in sorted(debts)]
     aimed = faced_aims(bundle)
     return {
-        "version": 1,
+        "version": 2,
         "step_path": str(Path(bundle.paths["step"]).resolve())
         if "step" in bundle.paths
         else UNKNOWN,
