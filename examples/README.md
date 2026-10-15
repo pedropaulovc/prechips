@@ -215,10 +215,10 @@ well above the 0.5 mm touch-land policy. Current exported radius extrema do
 not certify that topology. S8/S9 initial contacts remain proved; the drill
 and reamer retouches and their dependent tip/breakthrough readings remain
 unknown until [#208](https://github.com/pedropaulovc/prechips/issues/208) supplies
-native face-loop topology and certified land credit. Release 0.1.1 ships
-#198, #192 and #199 with this documented interim exit 4; exit-0 restoration
-by #208 and measured values for the two assumed lead facts is deferred to
-release 0.1.2. No plan input is relaxed.
+native face-loop topology and certified land credit. Releases 0.1.1 and
+0.1.2 ship this documented interim exit 4; exit-0 restoration by #208 and
+measured values for the two assumed lead facts are deferred to a later
+release. No plan input is relaxed.
 
 ### Rocker-arm supported route
 
