@@ -374,8 +374,10 @@ def test_a_rough_then_finish_sweep_touches_off_once_and_returns_to_the_touch(tmp
     assert row.status == "pass", row.sentence
     assert printed.count("Spindle stopped: bring a flute") == 1
     rough, finish = printed.split("Finish sweep:")
-    assert "Rough sweep: unlock Y only, move to Y 0.300" in rough
-    assert "return it to Y 0 (the touch)" in finish
+    assert "Rough sweep: unlock Y only, move it +0.300 from the touch reading" in rough
+    assert "return it to the touch reading" in finish
+    # The touch is written down, never zeroed: the setup's DRO zero stays for its other ops.
+    assert "set DRO" not in printed and "reading at the touch here" in printed
     # Each stage keeps X and Y locked while the arm sweeps.
     assert rough.count("With X and Y locked") == 1 and finish.count("With X and Y locked") == 1
 

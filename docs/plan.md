@@ -1672,7 +1672,8 @@ uses the 1898 manual arc method:
    with a `measure:` instruction for each physical fact. The traveler prints no
    DRO table for it: it prints the guide's set-up (the setting bar seated on the
    pin, or the rollers' angles and the rail's carried form error and runout), the
-   touch-off (spindle stopped, feeding one axis), the X/Y lock and DRO zero, a
+   touch-off (spindle stopped, feeding one axis), the X/Y lock and a blank for the
+   DRO reading at the touch (the setup's zero is never reset), a
    rough stage's one-axis back-off (a finish after it returns to the touch), the
    worst-case cut radius against the band, then the sweep: its direction viewed
    from above, its angle and the cutter's run past each end. A cut radius or sweep

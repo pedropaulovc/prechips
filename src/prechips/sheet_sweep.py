@@ -43,7 +43,7 @@ def steps(arc, operative, start, stop, after_rough=False):
         )
     if after_rough and arc.get("stage") == "finish":
         result.append(
-            f"Finish sweep: unlock {letter} only, return it to {letter} 0 (the touch) and lock "
+            f"Finish sweep: unlock {letter} only, return it to the touch reading and lock "
             f"{letter} again."
         )
         return [*result, *_cut_and_sweep(arc, sweep, o, holder, start, stop)]
@@ -80,14 +80,15 @@ def steps(arc, operative, start, stop, after_rough=False):
     result.append(
         f"Spindle stopped: bring a flute of the cutter itself to touch {master}, feeding "
         f"{_text(feed)} only, on the cutter's radial line along {letter}. Lock X and Y there "
-        f"and set DRO {letter} 0."
+        f"and write the DRO {letter} reading at the touch here: ________ ."
         + (" Raise Z only and remove the setting bar." if kind == "setting_bar" else "")
     )
     back = sweep.get("back_off_dro")
     if _known(back):
         result.append(
-            f"Rough sweep: unlock {letter} only, move to {letter} {o(back)} (the cutter "
-            f"{_number(sweep.get('back_off_mm'))} mm off the line) and lock {letter} again."
+            f"Rough sweep: unlock {letter} only, move it {'+' if back > 0 else ''}{o(back)} "
+            f"from the touch reading (the cutter {_number(sweep.get('back_off_mm'))} mm off "
+            f"the line) and lock {letter} again."
         )
     return [*result, *_cut_and_sweep(arc, sweep, o, holder, start, stop)]
 

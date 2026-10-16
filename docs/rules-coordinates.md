@@ -415,7 +415,8 @@ naming them. Each table is recorded under `arc_table` (its joins under
   never enters the cut radius. The worst-case cut (`cut_radius_mm`) is the master's
   measured `radius_limits` (`master_radius_mm`), moved off the line by a rough
   stage's back-off (`back_off_mm`: the allowance rounded off the line onto the DRO
-  grid, printed as `back_off_dro` on the touch axis from a zero set at the touch),
+  grid, `back_off_dro` the signed move on the touch axis from the DRO reading the
+  operator writes down at the touch; the setup's DRO zero is never reset),
   widened by `centre_error_mm`: the swing arm's measured `pivot_play` (doubled
   for a master arc on the arm, which moves with the beam at the touch-off too), or
   `2 × roller_gain × (rail_form_error + roller_runout / 2)` with
