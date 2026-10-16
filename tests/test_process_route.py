@@ -14,7 +14,7 @@ from test_sheet_ops import Markup, content
 
 from prechips.inputs import BadInput, load_bundle
 from prechips.rules import RULES
-from prechips.sheet import _Traveler
+from prechips.sheet import _Traveler, render_traveler
 
 HEADER = re.compile(r"\[\[?([A-Za-z_][\w.\-]*)\]\]?\s*(#.*)?\n?")
 
@@ -102,17 +102,12 @@ def operation(html, setup, op):
 
 
 def op_markup(plan, setup, op):
-    """One operation's traveler rows, assembled in process on a synthetic kernel: the
-    sheet's own tool table and op rows, without a CLI run of the whole traveler."""
+    """One operation as the whole rendered traveler prints it on its setup's pages: the
+    document rendered in process on a synthetic kernel with the inspection findings,
+    not a CLI subprocess running every rule."""
     bundle = synthetic_kernel(load_bundle(plan))
-    findings = evaluate("inspection", bundle)
-    (authored,) = [item for item in bundle.plan["setups"] if item["id"] == setup]
-    sheet = _Traveler(bundle, list(findings.values()), {}, None)
-    numbers, _, _ = sheet.tool_table(authored)
-    rows, _, _, _ = sheet.operations(authored, numbers, {"notes": 2})
-    markup = Markup(rows)
-    (node,) = [node for node in markup.find("operation") if node["attrs"]["data-op"] == str(op)]
-    return markup, node
+    findings = list(evaluate("inspection", bundle).values())
+    return operation(render_traveler(bundle, findings, {}, None), setup, op)
 
 
 def inspection_record(markup, operation, features, requirement):
