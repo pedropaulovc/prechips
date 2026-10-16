@@ -228,7 +228,7 @@ def test_an_inspection_sketch_is_written_bound_and_printed_on_its_worksheet(
     sketch = _png((90, 110, 70), width=1600, height=1024)
     scene = _inspection_scene()
 
-    def render_bundles(bundles):
+    def render_bundles(bundles, jobs=None):
         for index, bundle in enumerate(bundles):
             facts = {
                 "render_png_base64": base64.b64encode(_png((80, 100, 120))).decode("ascii"),
@@ -405,7 +405,7 @@ def test_check_after_traveler_removes_stale_assets_and_binds_current_render(
     monkeypatch.setenv("OTEL_SDK_DISABLED", "true")
     current_png = _png((80, 100, 120))
 
-    def render_bundles(bundles):
+    def render_bundles(bundles, jobs=None):
         for index, bundle in enumerate(bundles):
             rendered_kernel = {
                 "status": "ok",
@@ -478,7 +478,7 @@ def test_invalid_inspection_output_is_exit_three_before_any_transaction_write(
         facts["inspection_scenes"]["999:dia"] = facts["inspection_scenes"].pop(key)
     native = deepcopy(bundle.kernel)
     monkeypatch.setattr(cli, "load_bundle", lambda *args: bundle)
-    monkeypatch.setattr(kernel, "run_geometries", lambda bundles: [bundle.kernel])
+    monkeypatch.setattr(kernel, "run_geometries", lambda bundles, jobs=None: [bundle.kernel])
     out = tmp_path / "out"
     out.mkdir()
     names = (
@@ -513,7 +513,7 @@ def test_declared_inspection_asset_collision_is_refused_before_kernel_execution(
     bundle.paths["step"] = image
     monkeypatch.setattr(cli, "load_bundle", lambda *args: bundle)
 
-    def never_run(bundles):
+    def never_run(bundles, jobs=None):
         pytest.fail("The kernel ran before inspection output/input collision preflight.")
 
     monkeypatch.setattr(kernel, "run_geometries", never_run)
