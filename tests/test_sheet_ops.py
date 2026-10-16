@@ -1275,11 +1275,11 @@ def test_plans_author_inspection_procedures_as_strings_or_step_lists():
 PAINT_NOTE = "Mask the bores; brush RAL 6005 to 50-75 um dry film."
 
 
-def _bench_sheet(ops):
+def _bench_sheet(ops, **setup):
     from prechips.inputs import Bundle
 
     data = Bundle(
-        plan={"setups": [{"id": "S12", "machine": "bench", "ops": ops}]},
+        plan={"setups": [{"id": "S12", "machine": "bench", "ops": ops, **setup}]},
         inventory={
             "machines": {"bench": {"kind": "bench"}},
             "consumables": {"ral-6005": {"name": "RAL 6005 alkyd"}},
@@ -1455,6 +1455,18 @@ def test_an_unknown_compound_product_prints_unknown_and_stops_the_join():
     setup = {"id": "S6", "joint": joint, "ops": [{"op": 20, "do": "fit"}]}
     assert "with compound ? UNKNOWN (not declared)" in sheet.joint_text(setup)
     assert sheet.joint_debt(setup).startswith("STOP: joint facts unknown — compound product.")
+
+
+@pytest.mark.parametrize("joint", [JOINT, PRESS_JOINT])
+def test_the_op_that_bonds_names_its_compound_as_its_consumable(joint):
+    ops = [
+        {"op": 10, "do": "inspect", "feature": "body"},
+        {"op": 20, "do": "fit", "feature": "body"},
+        {"op": 30, "do": "fit", "feature": "body"},
+    ]
+    markup = Markup(_bench_sheet(ops, joint=joint))
+    cells = [content(markup.find("op-consumable", row)[0]) for row in markup.find("operation")]
+    assert [cell.endswith("Loctite 638") for cell in cells] == [False, True, False]
 
 
 def test_each_lathe_op_that_turns_the_spindle_names_which_way_from_its_tool_hand():

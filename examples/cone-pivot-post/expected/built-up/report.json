@@ -2897,7 +2897,7 @@
           },
           "plan": {
             "path": "examples/cone-pivot-post/built-up.toml",
-            "sha256": "8b9e3d94ca539d5a6d979edcdbc72fb5284173a22235d4ab05263e8863119ae3"
+            "sha256": "78d09b907bc31d0ab2edbed7b2ead283146455d807b00030bf8cd322fbef954e"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -12047,7 +12047,7 @@
         ],
         "method": "slip",
         "missing": [],
-        "product": "AUTHOR'S CHOICE: Loctite 638-class retaining compound",
+        "product": "AUTHOR'S CHOICE: Loctite 638 retaining compound",
         "socket": "plan.joint_features.cone_socket",
         "spigot": "plan.joint_features.cone_spigot",
         "surface_prep": "AUTHOR'S CHOICE: solvent-degreased and dry, op 10.",
@@ -12082,7 +12082,7 @@
         ],
         "method": "slip",
         "missing": [],
-        "product": "AUTHOR'S CHOICE: Loctite 638-class retaining compound",
+        "product": "AUTHOR'S CHOICE: Loctite 638 retaining compound",
         "socket": "plan.joint_features.crank_socket",
         "spigot": "plan.joint_features.crank_spigot",
         "surface_prep": "AUTHOR'S CHOICE: solvent-degreased and dry, op 10.",
@@ -26314,7 +26314,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "62e45ed59ea3394422ae4bb2f0dfab86413f4ca09ed92d35b2642e3d6df5432f",
+  "hash": "e88f1cdc6a6162e54e00be3b8c11a65fa8158314004f16f64f706a45e2b01682",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26330,7 +26330,7 @@
     },
     "plan": {
       "path": "examples/cone-pivot-post/built-up.toml",
-      "sha256": "8b9e3d94ca539d5a6d979edcdbc72fb5284173a22235d4ab05263e8863119ae3"
+      "sha256": "78d09b907bc31d0ab2edbed7b2ead283146455d807b00030bf8cd322fbef954e"
     },
     "render:S1": {
       "path": "setup-S1.png",

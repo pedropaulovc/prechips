@@ -2191,6 +2191,14 @@ def _field(finding, name, default=None):
 _JOINED_BY = {"silver_braze": "silver braze", "slip": "slip fit", "press": "press fit"}
 
 
+def _bonding_op(setup, op):
+    """Whether ``op`` is the first ``fit`` op of a compound joint setup: the op that applies
+    the compound, so its consumable cell names it and its note carries prep and cure."""
+    joint = _mapping(setup.get("joint"))
+    fits = [o for o in setup.get("ops", []) if o.get("do") == "fit"]
+    return bool(_mapping(joint.get("compound"))) and bool(fits) and fits[0] is op
+
+
 def _compound_lead(joint, fitted):
     """Opens a compound joint's "... not disturb until cured" sentence."""
     if joint["method"] == "press":
@@ -3028,11 +3036,9 @@ class _Traveler:
     def compound_note(self, setup, op):
         """The first ``fit`` op of a compound joint setup carries the joint's surface prep
         and undisturbed cure (the arrival line then leaves them out)."""
-        joint = _mapping(setup.get("joint"))
-        fits = [o for o in setup.get("ops", []) if o.get("do") == "fit"]
-        if not joint or not _mapping(joint.get("compound")) or not fits or fits[0] is not op:
+        if not _bonding_op(setup, op):
             return None
-        return self.compound_text(setup, joint, fitted=True)
+        return self.compound_text(setup, setup["joint"], fitted=True)
 
     def joint_debt(self, setup):
         """The joint's own declared facts left unknown: the join is withheld, never assumed."""
@@ -8157,6 +8163,8 @@ class _Traveler:
             reference = op.get("tool")
             if op.get("do") == "coating":
                 tool = self.coating(op)
+            elif manual and reference is None and _bonding_op(setup, op):
+                tool = self.compound_product(setup, setup["joint"]["compound"])
             elif manual and reference is None:
                 tool = "—"
             elif reference in (None, "unknown"):

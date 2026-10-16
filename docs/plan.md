@@ -748,7 +748,8 @@ refusals remain errors even when prep or cure is unknown; a later invalid join
 does not invalidate an earlier independent, valid assembly.
 The traveler prints the prep, cure time and **do not disturb until cured** before
 later machining, once: on the setup's first `fit` op (the op that bonds), else in
-its "Starts from" line. A press fit with a compound prints **press in with the
+its "Starts from" line; that `fit` op's material / consumable cell names the
+compound's product. A press fit with a compound prints **press in with the
 compound on the interface, then do not disturb until cured**. The process does
 not model cure kinetics or certify a product: cite the author's source/choice for
 the declared band and cure conditions. A joint without a compound prints no prep
