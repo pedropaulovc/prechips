@@ -289,7 +289,8 @@ def _rough(bundle, op, name):
             continue
         if other.get("feature") != name:
             continue
-        if other.get("do") in HAND_FINISH:
+        if other.get("do") in HAND_FINISH and sid in lineage:
+            # Only a file on this workpiece takes the stock earlier roughs left.
             found = []
         method = record(other.get("contour")).get("method")
         if method in ROUGH_METHODS and _recut_by(bundle, other) is None:

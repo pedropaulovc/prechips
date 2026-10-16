@@ -322,6 +322,12 @@ def test_a_saw_to_the_scribed_line_roughs_the_arc_for_the_file():
     filed = branch["setups"][1]["ops"].pop()
     branch["setups"].append({"id": "S3", "stock_in": "stock", "ops": [filed]})
     assert _rough(SimpleNamespace(plan=branch), filed, "arc") is None
+    # A file on another workpiece in between does not take this saw's stock.
+    between = deepcopy(data)
+    filed = between["setups"][1]["ops"].pop()
+    between["setups"].append({"id": "S3", "stock_in": "stock", "ops": [dict(filed)]})
+    between["setups"].append({"id": "S4", "stock_in": "S2", "ops": [filed]})
+    assert _rough(SimpleNamespace(plan=between), filed, "arc") == "S2 op 20"
 
 
 # ------------------------------------------------------------------------ the hand-saw card
