@@ -196,8 +196,8 @@ their profile zones tolerance, so without these fields they had no band.
 |---|---|
 | `surface_profile` | Total zone width `t` > 0 (manifest units) or `"unknown"`. The feature must list `"surface_profile"` in a known `requirements` list (else bad input); it is inspected as a zone [0, t] like `position_dia`. |
 | `surface_profile_u` | Optional `U`, the part of `t` on the side where material is added, 0 <= U <= t, or `"unknown"`. Omitted: equal-bilateral, U = t/2. |
-| `surface_profile_datums` | Datum reference frame in precedence order, e.g. `["A", "B", "C"]`; `[]` is a form-only profile. Each label but `"unknown"` must be declared, as a [`datums`](#datum) table label or a feature's `datum` (bad input otherwise, unless the `datums` table itself is `"unknown"`). A label resolves through that declaration, a feature's own `datum` first, to a manifest feature. Omitted or `"unknown"`, or with a label that resolves to none (a `"unknown"` datum or datum feature, an omitted `feature`, a name the manifest lacks, an `"unknown"` table), the zone's inspection and every band it derives stay unknown. |
-| `surface_profile_governs` | Table of the BASIC scalar requirements the zone governs: a bare key (`"radius"`) is this feature's requirement, `"feature:requirement"` (`"tip_land_pos_x:station"`) another feature's. Keys match exactly (no wildcards). A governed requirement must be one the inspection rule reads as a dimension: a recognised tolerance requirement ([inspection](rules-inspection.md#inspection), `nominal_dia` included) other than a zone (`position_dia`, `coaxiality_dia`, `angularity_dia`, `finish_ra`). |
+| `surface_profile_datums` | Datum reference frame in precedence order, e.g. `["A", "B", "C"]`; `[]` is a form-only profile. Each label but `"unknown"` must be declared, as a [`datums`](#datum) table label or a feature's `datum` (bad input otherwise, unless the `datums` table itself is `"unknown"`), named once, and never resolve to the profiled feature itself (bad input). A label resolves through that declaration, a feature's own `datum` first, to a manifest feature. Omitted or `"unknown"`, or with a label that resolves to none (a `"unknown"` datum or datum feature, an omitted `feature`, a name the manifest lacks, an `"unknown"` table), the zone's inspection and every band it derives stay unknown. |
+| `surface_profile_governs` | Table of the BASIC scalar requirements the zone governs: a bare key (`"radius"`) is this feature's requirement, `"feature:requirement"` (`"tip_land_pos_x:station"`) another feature's. Keys match exactly (no wildcards), and one profile governs a requirement once: a bare key and its qualified form (`"radius"`, `"top_edge:radius"` on `top_edge`) name the same requirement. A governed requirement must be one the inspection rule reads as a dimension: a recognised tolerance requirement ([inspection](rules-inspection.md#inspection), `nominal_dia` included) other than a zone (`position_dia`, `coaxiality_dia`, `angularity_dia`, `finish_ra`). |
 
 A `surface_profile_governs` entry says how the governed BASIC value `n` reads in the zone:
 
@@ -213,7 +213,9 @@ A `surface_profile_governs` entry says how the governed BASIC value `n` reads in
 - `{ sense = "increases" | "decreases", obliquity_deg = θ }`, 0 <= θ < 90: the same
   BASIC length read at θ to a planar governed surface's normal at a fixed
   transverse station (the rocker tip land's X station, 10.46° off the land
-  normal). Each offset is divided by cos θ.
+  normal). Each offset is divided by cos θ. A length read along the normal
+  through a centre (`radius`, `bottom_radius`, `dia`, `nominal_dia`) has no
+  oblique reading: θ must be 0 for it.
 - `{ tilt_across = "<banded length requirement of the governed feature>" }` or
   `{ tilt_across = <least face extent, manifest units> }`: a BASIC angle (degrees)
   of a planar governed face. A named extent is a listed band of a recognised length
@@ -260,8 +262,11 @@ but a listed length band of the governed feature (a `finish_ra` or `position_dia
 band is none), a named band that is not two limits `[lo, hi]` with lo <= hi when
 both are known (`[5.08]`, `[1, 2, 3]`, `[6.1, 5.08]`; an `"unknown"` limit is legal
 and leaves the tilt unknown), or a number <= 0; `obliquity_deg`
-outside [0, 90); a `surface_profile_datums` label that is not declared while the
-`datums` table is known.
+outside [0, 90), or nonzero on `radius`, `bottom_radius`, `dia` or `nominal_dia`;
+one profile governing a requirement twice (a bare and a qualified key for the same
+target); a `surface_profile_datums` label that is not declared while the
+`datums` table is known, one named twice (`["A", "A"]`), or one that resolves to
+the profiled feature itself (its own `datum`, or a `datums` entry naming it).
 
 ```toml
 ["features"."top_edge"]

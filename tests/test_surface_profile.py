@@ -921,3 +921,110 @@ def test_datum_consistency_of_an_unresolved_profile_is_unknown(tmp_path, old, ne
 def test_a_form_only_profile_relates_no_datum(tmp_path):
     top_edge = TOP_EDGE.replace('["A", "B", "C"]', "[]")
     assert datum_finding(bundle(tmp_path, {"top_edge": top_edge})).status == "not_applicable"
+
+
+# One profile naming its own requirement twice, as a bare and a qualified key (Audit238).
+@pytest.mark.parametrize("again", ['"increases"', '"decreases"'], ids=["contradictory", "same"])
+def test_a_profile_governing_one_target_twice_is_bad_input(tmp_path, again):
+    top_edge = TOP_EDGE.replace("surface_profile_u = 0.5", "surface_profile_u = 0.4").replace(
+        'surface_profile_governs = { radius = "decreases", height_above_pivot = "increases" }',
+        f'surface_profile_governs = {{ radius = "decreases", "top_edge:radius" = {again} }}',
+    )
+    with pytest.raises(BadInput, match=r"radius and top_edge:radius both govern top_edge radius"):
+        bundle(tmp_path, {"top_edge": top_edge})
+
+
+def cylinder(requirement, entry):
+    """A BASIC Ø20 boss whose own profile governs ``requirement`` with ``entry``."""
+    return (
+        f'kind = "boss"\nrequirements = ["{requirement}", "surface_profile"]\n'
+        f"{requirement} = 20.0\nsurface_profile = 0.2\nsurface_profile_u = 0.2\n"
+        'surface_profile_datums = ["A"]\n'
+        f"surface_profile_governs = {{ {requirement} = {entry} }}\n"
+    )
+
+
+OBLIQUE = '{ sense = "increases", obliquity_deg = 75.0 }'
+
+
+# A length read along the normal through a centre has no oblique reading (Audit238).
+@pytest.mark.parametrize(
+    ("features", "requirement"),
+    [
+        (
+            {
+                "top_edge": TOP_EDGE.replace(
+                    'radius = "decreases"', 'radius = { sense = "decreases", obliquity_deg = 60.0 }'
+                )
+            },
+            "radius",
+        ),
+        (
+            {
+                "top_edge": TOP_EDGE.replace(
+                    'radius = "decreases"', 'radius = { sense = "decreases", obliquity_deg = 89.9 }'
+                )
+            },
+            "radius",
+        ),
+        (
+            {"outer": PROFILE_OUTER.replace('"increases"', OBLIQUE)},
+            "bottom_radius",
+        ),
+        ({"cyl": cylinder("dia", OBLIQUE)}, "dia"),
+        ({"cyl": cylinder("nominal_dia", OBLIQUE)}, "nominal_dia"),
+    ],
+    ids=["radius-60", "radius-89.9", "bottom_radius", "dia", "nominal_dia"],
+)
+def test_an_oblique_reading_of_a_centred_length_is_bad_input(tmp_path, features, requirement):
+    with pytest.raises(BadInput, match=rf"{requirement} is read along the normal through"):
+        bundle(tmp_path, features)
+
+
+def test_a_centred_length_read_at_zero_obliquity_reads_normally(tmp_path):
+    top_edge = TOP_EDGE.replace(
+        'radius = "decreases"', 'radius = { sense = "decreases", obliquity_deg = 0.0 }'
+    )
+    assert band(tmp_path, {"top_edge": top_edge}, "top_edge", "radius")[0] == pytest.approx(
+        [799.5, 800.0]
+    )
+
+
+# A frame naming the profiled feature itself, by its own datum or the datums table (Audit238).
+@pytest.mark.parametrize(
+    "edits",
+    [
+        [
+            (
+                'surface_profile_datums = ["A", "B", "C"]\n',
+                'surface_profile_datums = ["P"]\ndatum = "P"\n',
+            )
+        ],
+        [('[datums.A]\nfeature = "base"\n', '[datums.A]\nfeature = "top_edge"\n')],
+        [
+            (
+                'surface_profile_datums = ["A", "B", "C"]\n',
+                'surface_profile_datums = ["A", "B", "C"]\ndatum = "A"\n',
+            )
+        ],
+    ],
+    ids=["own-datum", "table", "own-datum-over-table"],
+)
+def test_a_profile_referenced_to_its_own_feature_is_bad_input(tmp_path, edits):
+    path = rewrite_manifest(write_bundle(tmp_path, {"top_edge": TOP_EDGE}), edits)
+    with pytest.raises(BadInput, match=r"top_edge: surface_profile_datums \w is top_edge's own"):
+        load_bundle(path)
+
+
+@pytest.mark.parametrize("datums", ['["A", "A", "A"]', '["A", "B", "A"]'])
+def test_a_datum_named_twice_in_a_profile_frame_is_bad_input(tmp_path, datums):
+    top_edge = TOP_EDGE.replace('["A", "B", "C"]', datums)
+    with pytest.raises(BadInput, match=r"top_edge: surface_profile_datums A is named twice"):
+        bundle(tmp_path, {"top_edge": top_edge})
+
+
+def test_unknown_labels_in_a_profile_frame_are_not_duplicates(tmp_path):
+    top_edge = TOP_EDGE.replace('["A", "B", "C"]', '["A", "unknown", "unknown"]')
+    derived, why = band(tmp_path, {"top_edge": top_edge}, "top_edge", "radius")
+    assert derived is None
+    assert "the datum reference frame is unknown" in why

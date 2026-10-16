@@ -33,6 +33,10 @@ PROFILE_GOVERNABLE = TOLERANCE_REQUIREMENTS - {
 # The face extents a tilt is read across (``tilt_across``): every recognised linear dimension
 # in manifest length units, never an angle, a roughness or a geometric zone.
 LENGTH_REQUIREMENTS = frozenset(r for r in PROFILE_GOVERNABLE if not r.endswith("_deg"))
+# The BASIC lengths read along the surface normal through a centre: a radius about it, a
+# diameter across it. The normal is the reading direction at every point, so a profile
+# entry never reads them at an obliquity (``obliquity_deg`` is for planar readings).
+CENTRED = frozenset({"radius", "bottom_radius", "dia", "nominal_dia"})
 
 
 def tolerance_requirements(feature: dict[str, Any]) -> list[str]:
@@ -1212,13 +1216,28 @@ class Features(InputModel):
     @model_validator(mode="after")
     def surface_profiles(self) -> Features:
         """A profile zone 0 < t, 0 <= U <= t, listed in its feature's requirements, the datum
-        labels of its frame declared, and the BASIC scalars it governs."""
+        labels of its frame declared, named once and never the profiled feature itself, and
+        the BASIC scalars it governs, each once."""
         # The labels a frame may name: the datums table's and the features' own ``datum``. An
         # unknown datums table denies none; its labels resolve, or not, when rules run.
         declared = (
             None
             if self.datums == UNKNOWN
             else {*self.datums, *(feature.datum for feature in self.features.values())}
+        )
+        # The feature each label names, a feature's own ``datum`` first, as the rules
+        # resolve it (``rules._profile.datum_features``).
+        datum_feature = {
+            label: datum.feature
+            for label, datum in (self.datums.items() if isinstance(self.datums, dict) else ())
+            if datum != UNKNOWN
+        }
+        datum_feature.update(
+            {
+                feature.datum: name
+                for name, feature in self.features.items()
+                if isinstance(feature.datum, str) and feature.datum != UNKNOWN
+            }
         )
         for name, feature in self.features.items():
             given = feature.model_fields_set
@@ -1239,15 +1258,36 @@ class Features(InputModel):
             if disposition != UNKNOWN and not 0 <= disposition <= most:
                 raise ValueError(f"{name}: surface_profile_u must lie in [0, surface_profile]")
             labels = feature.surface_profile_datums
-            for label in labels if isinstance(labels, list) and declared is not None else ():
-                if label != UNKNOWN and label not in declared:
+            named = (
+                [label for label in labels if label != UNKNOWN] if isinstance(labels, list) else []
+            )
+            for index, label in enumerate(named):
+                if declared is not None and label not in declared:
                     raise ValueError(
                         f"{name}: surface_profile_datums {label} is not a declared datum (a "
                         "datums table label or a feature's datum)"
                     )
+                if datum_feature.get(label) == name:
+                    raise ValueError(
+                        f"{name}: surface_profile_datums {label} is {name}'s own datum: a "
+                        "profile is never referenced to the feature it controls"
+                    )
+                if label in named[:index]:
+                    raise ValueError(
+                        f"{name}: surface_profile_datums {label} is named twice: a frame names "
+                        "each datum once"
+                    )
             governs = feature.surface_profile_governs
+            targets: dict[tuple[str, str], str] = {}
             for key, entry in governs.items() if isinstance(governs, dict) else ():
                 _governed(self.features, name, key, entry)
+                target = profile_target(name, key)
+                if target in targets:
+                    raise ValueError(
+                        f"{name}: surface_profile_governs {targets[target]} and {key} both "
+                        f"govern {' '.join(target)}: a profile governs a requirement once"
+                    )
+                targets[target] = key
         return self
 
     @model_validator(mode="after")
@@ -1303,6 +1343,11 @@ def _governed(features: dict[str, Any], owner: str, key: str, entry: ProfileEntr
         raise ValueError(f"{where}: {requirement} is an angle: only tilt_across bounds it")
     if isinstance(entry, ProfileReading) and not 0 <= entry.obliquity_deg < 90:
         raise ValueError(f"{where}: obliquity_deg must lie in [0, 90)")
+    if isinstance(entry, ProfileReading) and entry.obliquity_deg and requirement in CENTRED:
+        raise ValueError(
+            f"{where}: {requirement} is read along the normal through its centre, never "
+            "obliquely: obliquity_deg must be 0"
+        )
 
 
 def _face_extent(where: str, name: str, feature: Any, listed: list, across: str | float) -> None:
