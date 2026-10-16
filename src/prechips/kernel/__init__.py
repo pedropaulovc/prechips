@@ -25,6 +25,7 @@ from prechips.measurements import (
     record_debt,
     record_trusted,
 )
+from prechips.model import PROFILED_BLANK
 from prechips.rules._envelope import selected_item, tool_projection
 from prechips.rules.geometry_common import (
     TURNING_BLADE_KEYS,
@@ -1518,13 +1519,38 @@ def stock_inputs(bundle):
     components = stock.get("components", UNKNOWN)
     if isinstance(components, list) and components:
         return {
-            "components": {component["id"]: _stock_envelope(component) for component in components}
+            "components": {
+                component["id"]: _stock_envelope(bundle, component, f"stock.{component['id']}")
+                for component in components
+            }
         }
-    return _stock_envelope(stock)
+    return _stock_envelope(bundle, stock, "stock")
 
 
-def _stock_envelope(stock):
-    """One box/round supply's explicit dimensions and placement, never a STEP substitute."""
+def _profiled_envelope(bundle, stock, name):
+    """A profiled blank's own STEP solid, authored in model coordinates and bound by its
+    declared digest; its vendor tolerance is host-only (rule ``blank_credit``)."""
+    path = bundle.paths.get(f"{name}.blank")
+    digest = record(stock.get("blank")).get("step_sha256", UNKNOWN)
+    missing = [
+        field
+        for field, value in (("blank.step", path), ("blank.step_sha256", digest))
+        if value in (None, UNKNOWN)
+    ]
+    if missing:
+        return {
+            "reason": "profiled blank "
+            + ", ".join(missing)
+            + " undeclared; in-process stock cannot be derived"
+        }
+    return {"shape": "profiled", "step_path": str(Path(path).resolve()), "step_sha256": digest}
+
+
+def _stock_envelope(bundle, stock, name):
+    """One box/round supply's explicit dimensions and placement, never a STEP substitute;
+    a profiled blank is its own cited STEP."""
+    if "blank" in stock or stock.get("form") == PROFILED_BLANK:
+        return _profiled_envelope(bundle, stock, name)
     section, dia = stock.get("section_mm", UNKNOWN), stock.get("dia_mm", UNKNOWN)
     if section != UNKNOWN and dia != UNKNOWN:
         return {"reason": "stock declares both section_mm and dia_mm; its envelope is ambiguous"}
@@ -1729,6 +1755,59 @@ def engine_job(job):
             for setup in job["setups"]
         ],
     }
+
+
+def _blank_supplies(stock):
+    """``(supply, spec)`` for each profiled blank the job's stock declares."""
+    if not isinstance(stock, dict):
+        return []
+    components = stock.get("components")
+    pieces = (
+        [(f"stock.{name}", spec) for name, spec in components.items()]
+        if isinstance(components, dict)
+        else [("stock", stock)]
+    )
+    return [
+        (name, spec)
+        for name, spec in pieces
+        if isinstance(spec, dict) and spec.get("shape") == "profiled"
+    ]
+
+
+def _blank_mismatch(job):
+    """Why a profiled blank's STEP bytes are not the ones its declared digest names."""
+    for name, spec in _blank_supplies(job["stock"]):
+        try:
+            actual = hashlib.sha256(Path(spec["step_path"]).read_bytes()).hexdigest()
+        except OSError:
+            return f"Profiled blank {name} STEP bytes became unavailable before geometry."
+        if actual != spec["step_sha256"]:
+            return (
+                f"Profiled blank {name} STEP bytes do not match its step_sha256; the supplied "
+                "stock is unverified."
+            )
+    return None
+
+
+def _cache_recipe(job):
+    """The job as the cache keys it: content digests, never absolute file paths."""
+
+    def bare(spec):
+        if isinstance(spec, dict) and spec.get("shape") == "profiled":
+            return {key: value for key, value in spec.items() if key != "step_path"}
+        return spec
+
+    recipe = {name: value for name, value in job.items() if name != "step_path"}
+    stock = recipe["stock"]
+    components = stock.get("components") if isinstance(stock, dict) else None
+    if isinstance(components, dict):
+        recipe["stock"] = {
+            **stock,
+            "components": {name: bare(spec) for name, spec in components.items()},
+        }
+        return recipe
+    recipe["stock"] = bare(stock)
+    return recipe
 
 
 def _engine_digest():
@@ -1993,9 +2072,18 @@ def run_geometries(bundles):
                             },
                         )
                         continue
-                    normalized = {name: value for name, value in job.items() if name != "step_path"}
+                    # The key carries each blank's declared digest, so its bytes must
+                    # still be the ones that digest names.
+                    mismatch = _blank_mismatch(job)
+                    if mismatch is not None:
+                        object.__setattr__(
+                            bundle, "kernel", {"status": "unknown", "reason": mismatch}
+                        )
+                        continue
                     key = hashlib.sha256(
-                        _json({"job": normalized, "engine": engine, "kernel": identity}).encode()
+                        _json(
+                            {"job": _cache_recipe(job), "engine": engine, "kernel": identity}
+                        ).encode()
                     ).hexdigest()
                     path = _cache_path(key)
                     cached = _read_cache(path)

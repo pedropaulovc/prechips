@@ -2140,9 +2140,50 @@ def _stock_vector(stock, key, unit):
     return vector
 
 
+def _blank(stock):
+    """A profiled blank's supplied solid: its own STEP, already in model mm, bound by the
+    declared digest and accepted only as exactly one closed, valid solid."""
+    path, digest = stock.get("step_path"), stock.get("step_sha256")
+    if not isinstance(path, str) or not isinstance(digest, str):
+        raise ValueError("profiled blank STEP path or SHA-256 is not declared")
+    try:
+        with open(path, "rb") as handle:
+            actual = hashlib.sha256(handle.read()).hexdigest()
+    except OSError as exc:
+        raise ValueError(f"profiled blank STEP is unreadable: {exc}") from None
+    if actual != digest.lower():
+        raise ValueError(
+            f"profiled blank STEP SHA-256 mismatch: declares {digest}, file has {actual}"
+        )
+    shape = Part.Shape()
+    shape.read(path)
+    solids = shape.Solids
+    if len(solids) != 1:
+        raise ValueError(f"profiled blank STEP yields {len(solids)} solids, not one")
+    solid = solids[0]
+    if len(shape.Faces) != len(solid.Faces):
+        raise ValueError("profiled blank STEP holds faces outside its single solid")
+    closed = all(shell.isClosed() for shell in solid.Shells)
+    if not closed or not solid.isValid() or not solid.Volume > STOCK_MM3:
+        raise ValueError("profiled blank STEP is not one closed, valid, positive-volume solid")
+    return solid
+
+
+def _profiled(stock):
+    """Whether the job's supply, or any of its components, is a profiled blank."""
+    if not isinstance(stock, dict):
+        return False
+    components = stock.get("components")
+    pieces = components.values() if isinstance(components, dict) else [stock]
+    return any(isinstance(spec, dict) and spec.get("shape") == "profiled" for spec in pieces)
+
+
 def _envelope(stock):
-    """The authored supplied-stock solid in model mm: a placed box or round bar."""
+    """The authored supplied-stock solid in model mm: a placed box or round bar, or a
+    profiled blank's own STEP."""
     shape = stock.get("shape")
+    if shape == "profiled":
+        return _blank(stock)
     length = _positive(stock, "length_mm")
     if length is None:
         raise ValueError("stock length_mm is not a positive number")
@@ -2154,7 +2195,7 @@ def _envelope(stock):
             raise ValueError("stock dia_mm is not a positive number")
         return Part.makeCylinder(dia / 2, length, origin, axis)
     if shape != "box":
-        raise ValueError(f"stock shape {shape!r} is neither box nor round")
+        raise ValueError(f"stock shape {shape!r} is neither box, round nor profiled")
     section = stock.get("section_mm")
     if not (
         isinstance(section, list)
@@ -3560,8 +3601,11 @@ class _Job:
         setups = job.get("setups", [])
         if not isinstance(setups, list):
             raise ValueError("job setups is not a list")
+        self.as_is_contact = {}
         supplies, (stock, reason) = self._supplies()
         self.raw_supplies = supplies
+        if self.as_is_contact:
+            result["as_is_contact"] = dict(sorted(self.as_is_contact.items()))
         self.states = {
             ref: {
                 "components": {ref.removeprefix("stock.")},
@@ -3797,7 +3841,8 @@ class _Job:
             refs = self.job.get("as_is_faces")
             if isinstance(refs, list) and refs:
                 if reason is None:
-                    joined, reason = self._as_is(joined)
+                    pieces = {name: solid for name, (solid, _) in supplies.items()}
+                    joined, reason = self._as_is(joined, pieces)
                 if reason is not None:
                     return {name: (None, reason) for name in supplies}, (None, reason)
             return supplies, (joined, reason)
@@ -3826,10 +3871,14 @@ class _Job:
                         f"the finished part extends {_r(outside)} mm^3 outside the authored stock "
                         "envelope; in-process stock cannot be derived"
                     )
-        return self._as_is(solid) if complete else (solid, None)
+        return self._as_is(solid, {"stock": solid}) if complete else (solid, None)
 
-    def _as_is(self, solid):
-        """As-stock surfaces belong to the full supply envelope, including joined components."""
+    def _as_is(self, solid, pieces):
+        """As-stock surfaces belong to the full supply envelope, including joined components.
+
+        With a profiled blank among the supplies each listed face is measured instead
+        (:meth:`_as_is_contact`): a face off every supply stays uncredited, never voiding
+        the stock."""
         refs = self.job.get("as_is_faces")
         if isinstance(refs, list):
             unmapped = sorted(
@@ -3840,6 +3889,9 @@ class _Job:
                     "as-is face reference(s) unmapped, so their supplied-stock surfaces cannot "
                     "be checked: " + ", ".join(unmapped)
                 )
+            if _profiled(self.job.get("stock")):
+                self.as_is_contact = {ref: self._as_is_contact(ref, pieces) for ref in refs}
+                return solid, None
             shell = Part.makeCompound(solid.Shells)
             off = []
             for ref in refs:
@@ -3854,6 +3906,24 @@ class _Job:
                     "stock is not that envelope: " + ", ".join(sorted(set(off)))
                 )
         return solid, None
+
+    def _as_is_contact(self, ref, pieces):
+        """Whether one as-is face lies on a raw supply's boundary within STOCK_TOL: every
+        face sample's distance to each supply's shell, ``max_gap_mm`` on the nearest one.
+        ``supplies`` names each supply carrying the whole face; none is ``off_supply``."""
+        samples, _ = _face_samples(self.solid.Faces[self.mapping[ref]], 1.0)
+        if not samples:
+            return {"contact": UNKNOWN, "reason": "the face yields no samples"}
+        gaps = {}
+        for name, piece in sorted(pieces.items()):
+            shell = Part.makeCompound(piece.Shells)
+            gaps[name] = max(shell.distToShape(Part.Vertex(point))[0] for point, _ in samples)
+        carriers = [name for name, gap in gaps.items() if gap <= STOCK_TOL]
+        return {
+            "contact": "on_supply" if carriers else "off_supply",
+            "supplies": carriers,
+            "max_gap_mm": _r(min(gaps.values())),
+        }
 
     @staticmethod
     def _joined(refs, sources):
