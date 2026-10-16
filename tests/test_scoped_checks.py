@@ -6,6 +6,7 @@ entries keep applying to every listed feature that exports them.
 """
 
 import json
+from dataclasses import replace
 
 import pytest
 from test_cli import SYNTHETIC_KERNEL, copy_examples, traveler
@@ -97,8 +98,11 @@ def test_a_scoped_go_no_go_pair_outside_its_band_is_that_features_error(tmp_path
 def test_a_station_beside_a_prepared_blank_reads_no_end_face_from_its_feature_list(tmp_path):
     # The rocker squares a prepared blank: its end-face search once hashed the op's list.
     plan, _ = station(tmp_path, 'checks = { length = "micrometers/0-1in" }')
-    (row,) = evaluate("prepared_blank", load_bundle(plan)).values()
-    assert row.status in {"pass", "unknown", "error"}
+    # A synthetic kernel with no handed-on stock: the rule reads its route, cuts nothing.
+    data = replace(load_bundle(plan), kernel={"status": "ok", "setups": {}})
+    (row,) = evaluate("prepared_blank", data).values()
+    assert row.numbers["made_by"]  # the end faces the prep setups cut, found past the list
+    assert row.status == "unknown" and "reports no stock" in row.sentence
 
 
 def test_a_scoped_gauge_missing_from_the_inventory_is_still_a_named_item(tmp_path):
