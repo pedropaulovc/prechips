@@ -607,7 +607,8 @@ component's as `stock.<id>.blank`). An unknown `step` or `step_sha256` leaves
 the supply's geometry as named stock debt. The kernel imports the blank as the
 supplied solid and accepts exactly one closed, valid solid that contains the
 finished part; cuts, contact and volume then proceed as for a box or bar.
-The tolerance is a cited vendor value, never a measurement: it applies to every
+The tolerance is a cited vendor value, never a measurement (without a usable
+`cite` it is unknown and credits nothing): it applies to every
 face the plan credits from the blank, the sheet faces included, so declare the
 larger of the vendor's cut tolerance and the plate's thickness tolerance when
 the broad faces are credited. Inventory `stock` cannot hold a profiled blank.

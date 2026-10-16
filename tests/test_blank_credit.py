@@ -448,9 +448,19 @@ def test_faces_the_plan_does_not_credit_are_unclaimed_not_withheld():
     assert set(_statuses(bundle).values()) == {"pass"}
 
 
-def test_an_unknown_vendor_tolerance_is_debt_never_credit():
+@pytest.mark.parametrize(
+    "edit",
+    [
+        {"profile_tolerance_mm": "unknown"},
+        # A number nobody cites is no vendor fact.
+        {"cite": "unknown"},
+        {"cite": []},
+        {"cite": ["  ", "unknown"]},
+    ],
+)
+def test_an_unknown_or_uncited_vendor_tolerance_is_debt_never_credit(edit):
     bundle = _credit_bundle(_on(*FACES))
-    bundle.plan["stock"]["blank"]["profile_tolerance_mm"] = "unknown"
+    bundle.plan["stock"]["blank"].update(edit)
     assert set(_statuses(bundle).values()) == {"unknown"}
     [row] = coverage.evaluate(bundle)
     assert str(row.status) == "unknown"

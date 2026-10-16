@@ -64,6 +64,13 @@ def profiled_supplies(bundle):
     }
 
 
+def cited_tolerance(blank):
+    """The vendor's declared ± tolerance, established only by a usable ``cite``: an
+    uncited number is no vendor fact and stays unknown."""
+    tolerance = record(blank).get("profile_tolerance_mm", UNKNOWN)
+    return tolerance if _citations(record(blank).get("cite")) else UNKNOWN
+
+
 def nominal(feature, requirement):
     """The exported nominal of a requirement band, read as inspection reads it."""
     for field in (f"{requirement}_nominal", f"nominal_{requirement}"):
@@ -121,7 +128,10 @@ def band_verdict(bundle, name, requirement, tolerance_mm):
     feature = record(record(bundle.features.get("features")).get(name))
     units = bundle.features.get("units", UNKNOWN)
     if not number(tolerance_mm) or tolerance_mm <= 0:
-        return UNKNOWN, {"requirement": requirement, "reason": "vendor tolerance is unknown"}
+        return UNKNOWN, {
+            "requirement": requirement,
+            "reason": "vendor tolerance is unknown or uncited",
+        }
     if units not in _SCALE:
         return UNKNOWN, {"requirement": requirement, "reason": f"manifest units {units!r}"}
     if requirement == UNKNOWN:
@@ -239,9 +249,7 @@ def credit(bundle, facts):
     if not supplies or not isinstance(refs, list):
         return {}
     owners, unresolved = _owners(bundle, facts)
-    tolerances = {
-        name: record(blank).get("profile_tolerance_mm", UNKNOWN) for name, blank in supplies.items()
-    }
+    tolerances = {name: cited_tolerance(blank) for name, blank in supplies.items()}
     rows = {}
     for ref in refs:
         if ref == UNKNOWN or ref not in record(facts.get("mapping")):
@@ -330,7 +338,7 @@ def _undecided(row):
         for check in row.get("requirements", ())
         if check["verdict"] == UNKNOWN
     ]
-    return "; ".join(reasons) or "the vendor tolerance is unknown"
+    return "; ".join(reasons) or "the vendor tolerance is unknown or uncited"
 
 
 def evaluate(bundle):

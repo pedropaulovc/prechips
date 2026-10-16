@@ -1962,7 +1962,9 @@ A face is credited when both checks hold:
    supplied as cut. `max_gap_mm` shows how far off it lies.
 2. **Within its bands.** Every exported requirement of every owning feature
    holds the vendor's ± t (`profile_tolerance_mm`, in the manifest's units)
-   about the nominal the blank carries. The tolerance is read as vendors post
+   about the nominal the blank carries. The tolerance counts only with a usable
+   `blank.cite`: an uncited number is no vendor fact, so every credit it would
+   decide stays `unknown`. The tolerance is read as vendors post
    it: any cut dimension along X or Y lands within ± t of its nominal.
    - A two-limit length band `[low, high]` with an exported nominal
      (`<requirement>_nominal` or `nominal_<requirement>`, as inspection reads
