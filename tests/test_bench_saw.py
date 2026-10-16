@@ -304,14 +304,28 @@ def test_every_consumer_reads_the_one_saw_identity(tool, machine, scribed_cut, k
     ],
     ids=["scribed-only", "straight", "both"],
 )
-def test_the_tool_listing_reads_the_saw_identity_too(ops, identity):
+@pytest.mark.parametrize("spelling", ["hacksaw", "tools.hacksaw"])
+def test_the_tool_listing_reads_the_saw_identity_too(ops, identity, spelling):
     """The selected-identity row is one more consumer: kerf debt only a scribed cut leaves
     unread is no listing debt; a straight cut that reads it keeps the whole item's."""
+    ops = [{**op, "tool": spelling} for op in ops]
     bundle = saw_bundle(op=ops[0])
     bundle.plan["setups"][0]["ops"] = ops
     bundle.inventory["tools"]["hacksaw"].update(KERF_DEBT)
     rows = {row.subject: row.status for row in tool_resolves.evaluate(bundle)}
     assert rows["hacksaw"] == identity
+
+
+@pytest.mark.parametrize(
+    "hacksaw",
+    ["unknown", {"kind": "unknown", "verify": True}, {"kind": "hand_saw", "verify": True}],
+    ids=["declared-unknown", "kind-unknown", "flagged"],
+)
+def test_an_unresolved_scribed_only_saw_listing_stays_debt(hacksaw):
+    bundle = saw_bundle(op=scribed())
+    bundle.inventory["tools"]["hacksaw"] = hacksaw
+    rows = {row.subject: row.status for row in tool_resolves.evaluate(bundle)}
+    assert rows["hacksaw"] == "unknown"
 
 
 def test_a_scribed_cut_that_keeps_its_allowance_passes_without_a_kerf():

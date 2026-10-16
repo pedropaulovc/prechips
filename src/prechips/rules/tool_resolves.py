@@ -217,17 +217,19 @@ def evaluate(bundle):
             bare = select(bundle, ref)[0] in (None, category)
             selected.setdefault(ref if bare else f"{category}.{ref}", (category, ref))
     # A tool only scribed-line saw cuts select is judged as they judge it (saw_tool): its
-    # unread kerf debt is no identity debt; any other use reads the whole item.
+    # unread kerf debt is no identity debt; any other use reads the whole item. Uses are
+    # keyed by the item, however each op spells it.
     uses = {}
     for _, op in operations(bundle):
         if op.get("tool") is not None:
-            uses.setdefault(op["tool"], []).append(op)
+            uses.setdefault(identity(bundle, op["tool"], "tools"), []).append(op)
     for subject, (category, ref) in sorted(selected.items()):
         item = resolve(bundle, category, ref)
-        scribed = [op for op in uses.get(ref, []) if op.get("do") in SAW_OPS and "follows" in op]
+        users = uses.get((category, ref), [])
+        scribed = [op for op in users if op.get("do") in SAW_OPS and "follows" in op]
         doubtful = (
-            saw_tool(bundle, scribed[0]) == "unverified"
-            if category == "tools" and scribed and len(scribed) == len(uses[ref])
+            saw_tool(bundle, scribed[0]) in ("unknown", "unverified")
+            if scribed and len(scribed) == len(users)
             else uncertain(item)
         )
         status = "error" if item is None else "unknown" if doubtful else "pass"
