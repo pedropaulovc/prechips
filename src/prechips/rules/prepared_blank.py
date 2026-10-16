@@ -268,7 +268,7 @@ def _checks(bundle, prepared, bands, numbers):
         elif key in bands:
             row["limits_mm"] = [round(v, 6) for v in bands[key]]
             status, message = _capability(
-                bundle, {"kind": "prepared_blank"}, key, bands[key], gauge_ref, {}, row
+                bundle, {"kind": "prepared_blank"}, key, bands[key], gauge_ref, None, row
             )
         else:
             status, message = _form(bundle, gauge_ref, methods.get(key), limits.get(key), row)

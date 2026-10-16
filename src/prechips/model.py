@@ -573,13 +573,16 @@ Operation = record(
         "to_z_cite": Citations,
         "note_cite": Citations,
         "faces": Annotated[list[str], Field(min_length=1)],
-        "checks": dict[str, str],
+        # Requirement -> gauge. A multi-feature inspect op may scope entries to one of its
+        # listed features instead: feature -> {requirement -> gauge}.
+        "checks": dict[str, str | dict[str, str]],
         # Requirement -> the GO / NO-GO sizes its `checks` gauge uses (a limit check), or
-        # "unknown" when the pair is undecided.
-        "go_no_go": dict[str, GoNoGo | Unknown],
+        # "unknown" when the pair is undecided; scoped per listed feature like `checks`.
+        "go_no_go": dict[str, GoNoGo | Unknown | dict[str, GoNoGo | Unknown]],
         "missing_requirements": dict[str, str],
-        "inspection_methods": dict[str, Procedure],
-        # Requirement -> the labelled sketches its inspection method's worksheet prints.
+        # Requirement -> procedure; scoped per listed feature like `checks`.
+        "inspection_methods": dict[str, Procedure | dict[str, Procedure]],
+        # Requirement -> the labelled sketches its flat inspection method's worksheet prints.
         "inspection_views": dict[str, Annotated[list[InspectionView], Field(min_length=1)]],
         "to_z_band": Vector,
         "contour": Contour,
@@ -881,16 +884,20 @@ class Plan(InputModel):
                 if isinstance(op.inspection_views, dict):
                     if op.do != "inspect":
                         raise ValueError(f"{where}: only an inspect op declares inspection views.")
-                    methods = op.inspection_methods
+                    # Views are keyed by requirement alone: they illustrate a flat method.
+                    methods = (
+                        op.inspection_methods if isinstance(op.inspection_methods, dict) else {}
+                    )
                     unmatched = [
                         requirement
                         for requirement in op.inspection_views
-                        if not isinstance(methods, dict) or requirement not in methods
+                        if requirement not in methods or isinstance(methods[requirement], dict)
                     ]
                     if unmatched:
                         raise ValueError(
                             f"{where}: inspection views for {', '.join(unmatched)} illustrate "
-                            "no stated inspection method."
+                            "no stated inspection method (views are keyed by requirement "
+                            "alone, so they illustrate a flat inspection_methods entry)."
                         )
         return self
 

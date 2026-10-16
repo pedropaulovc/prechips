@@ -57,6 +57,8 @@ from prechips.rules.resolution import (
     make_ops,
     make_tool,
     named_item,
+    op_entries,
+    op_entry,
     op_features,
     rough_leave,
     same_length,
@@ -392,7 +394,9 @@ def selected_refs(plan: dict):
                 elif key == "clamp" and isinstance(child, str) and CLAMP_IDENTITY.fullmatch(child):
                     yield child
                 elif key in {"checks", "missing_requirements"} and isinstance(child, dict):
-                    yield from (v for v in child.values() if v != "unknown")
+                    # A multi-feature op's checks may scope a gauge table to one feature.
+                    gauges = (v.values() if isinstance(v, dict) else [v] for v in child.values())
+                    yield from (g for scope in gauges for g in scope if g != "unknown")
                 elif key not in {"ref", "item"}:
                     yield from walk(child)
         elif isinstance(value, list):
@@ -1114,7 +1118,7 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
                 op
                 for setup in plan["setups"]
                 for op in setup["ops"]
-                if name in op_features(op) and requirement in op.get("checks", {})
+                if name in op_features(op) and op_entry(op, "checks", name, requirement) is not None
             ]
             require(
                 finishing or findings["inspection", subject]["status"] == "error",
@@ -1191,15 +1195,17 @@ def check_inspection_declarations(plan: dict, features: dict, findings: dict) ->
                 continue  # a stock cut-off names no feature and exports no requirement
             # A multi-feature inspect op checks a requirement any named feature exports.
             names = op_features(op)
-            exported = set()
+            owned = {}
             for name in names:
                 requirements = definitions[name].get("requirements", "unknown")
-                exported |= set(requirements) if isinstance(requirements, list) else set()
+                owned[name] = set(requirements) if isinstance(requirements, list) else set()
+            exported = set().union(*owned.values())
             label = "/".join(names)
-            for requirement in op.get("checks", {}):
+            # A feature-scoped check is one its own feature exports.
+            for scope, requirement, _ in op_entries(op, "checks"):
                 require(
-                    requirement in exported,
-                    f"{setup['id']}:{op['op']}: {label} has no requirement {requirement}",
+                    requirement in (exported if scope is None else owned[scope]),
+                    f"{setup['id']}:{op['op']}: {scope or label} has no requirement {requirement}",
                 )
             for requirement in op.get("missing_requirements", {}):
                 require(

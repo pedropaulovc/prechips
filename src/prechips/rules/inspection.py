@@ -9,6 +9,10 @@ reference-only dimension (``<name>_ref``, a CUT TO FIT span) has no drawing band
 ``not_applicable``, its cited ``measure`` being the only limit. Each hold is read with its
 own gauge, graded like a drawing check against the hold band.
 
+An op's ``checks``, ``go_no_go`` and ``inspection_methods`` are read per feature through
+:func:`.resolution.op_entry`: a multi-feature inspect op's entry scoped to the feature,
+else its flat requirement entry, so each listed feature is judged with its own gauge.
+
 A ``go_no_go`` pair (an op's, per requirement, or a hold's) is a limit check: the GO size
 must pass the work and the NO-GO size must not, so both must lie inside the band they
 accept, the drawing check's band as printed, a hold's own band. Otherwise the gauge
@@ -50,6 +54,7 @@ from .resolution import (
     identity,
     length_mm,
     number,
+    op_entry,
     operations,
     printed_band,
     record,
@@ -83,14 +88,16 @@ def _drawing_band(requirement, value):
     return None
 
 
-def go_no_go_pair(op, requirement):
-    """The GO / NO-GO pair ``op`` declares for ``requirement``: its sizes, ``"unknown"``
-    when declared unknown (the whole ``go_no_go`` or that requirement's entry) for a
-    requirement the op checks, or None for no limit check."""
-    declared = op.get("go_no_go")
-    if declared == UNKNOWN:
-        return UNKNOWN if requirement in record(op.get("checks")) else None
-    return record(declared).get(requirement)
+def go_no_go_pair(op, feature, requirement):
+    """The GO / NO-GO pair ``op`` declares for ``feature``'s ``requirement`` (its scoped
+    entry, else the flat one): its sizes, ``"unknown"`` when declared unknown (the whole
+    ``go_no_go`` or that entry), or None for no limit check. Only a requirement the op
+    checks on that feature has one."""
+    if op_entry(op, "checks", feature, requirement) is None:
+        return None
+    if op.get("go_no_go") == UNKNOWN:
+        return UNKNOWN
+    return op_entry(op, "go_no_go", feature, requirement)
 
 
 def _gauge_measurements(bundle, gauge, reference, fields):
@@ -196,7 +203,7 @@ def process_holds(bundle, setup, op):
             requirement,
             hold["band"],
             hold["gauge"],
-            op,
+            op_entry(op, "inspection_methods", hold["feature"], requirement),
             row,
             limits=(hold.get("go_no_go"), hold["band"]),
             tilt=tilt,
@@ -297,8 +304,12 @@ def procedure_known(method):
     )
 
 
-def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits=None, tilt=None):
+def _capability(
+    bundle, feature, requirement, value, gauge_ref, method, nums, limits=None, tilt=None
+):
     """``(status, message)`` and consumed debt in ``nums`` for an unresolved capability.
+
+    ``method`` is the op's authored inspection procedure for this check, or None.
 
     ``limits`` is ``(pair, band the pair must accept)``, the GO / NO-GO pair being sizes,
     ``"unknown"`` or None: a declared pair, even an unknown one, makes it a limit check,
@@ -335,7 +346,6 @@ def _capability(bundle, feature, requirement, value, gauge_ref, op, nums, limits
         # linear zone of that width, never degrees against a millimetre gauge.
         linear = tilt_reading(value, *tilt) if angular and tilt is not None else None
         angular = angular and linear is None
-        method = record(op.get("inspection_methods")).get(requirement)
         geometric = requirement in GEOMETRIC
         method_known = procedure_known(method)
         angularity_datums = feature.get("angularity_datums", "unknown")
@@ -508,6 +518,7 @@ def evaluate(bundle):
         for setup, op in route:
             for requirement, gauge in record(op.get("missing_requirements")).items():
                 missing_checks = True
+                method = op_entry(op, "inspection_methods", name, requirement)
                 result.append(
                     Finding(
                         "inspection",
@@ -519,9 +530,7 @@ def evaluate(bundle):
                             "limits": "unknown",
                             "gauge": gauge,
                             "op": f"{setup['id']}:{op['op']}",
-                            "inspection_method": record(op.get("inspection_methods")).get(
-                                requirement, "unknown"
-                            ),
+                            "inspection_method": UNKNOWN if method is None else method,
                         },
                         cite,
                         f"{name} {requirement}: requirement is absent from the exported "
@@ -576,14 +585,12 @@ def evaluate(bundle):
                     )
                 )
                 continue
-            checks = [(s, o) for s, o in finishing if requirement in record(o.get("checks"))]
             cutters = [i for i, (_, o) in enumerate(finishing) if o["do"] != "inspect"]
-            if cutters:
-                checks = [
-                    (s, o)
-                    for s, o in finishing[cutters[-1] :]
-                    if requirement in record(o.get("checks"))
-                ]
+            checks = [
+                (s, o)
+                for s, o in finishing[cutters[-1] if cutters else 0 :]
+                if op_entry(o, "checks", name, requirement) is not None
+            ]
             value, profile_band = _limits(bundle, name, requirement, feature)
             nums = {"requirement": requirement, "limits": value, "gauge": "unknown"}
             if profile_band is not None:
@@ -605,23 +612,25 @@ def evaluate(bundle):
                     message = "no requirement-keyed inspection check"
             else:
                 setup, op = checks[-1]
-                gauge_ref = op["checks"][requirement]
+                gauge_ref = op_entry(op, "checks", name, requirement)
                 nums.update(gauge=gauge_ref, op=f"{setup['id']}:{op['op']}")
-                pair = go_no_go_pair(op, requirement)
+                pair = go_no_go_pair(op, name, requirement)
+                method = op_entry(op, "inspection_methods", name, requirement)
+                limits = (pair, accept)
                 status, message = _capability(
-                    bundle, feature, requirement, value, gauge_ref, op, nums, (pair, accept), tilt
+                    bundle, feature, requirement, value, gauge_ref, method, nums, limits, tilt
                 )
             # Every other op's GO / NO-GO pair for this requirement also prints the drawing
             # band, so it must accept only that band too.
             final = checks[-1][1] if checks else None
             others = []
             for other_setup, other in route:
-                pair = go_no_go_pair(other, requirement)
+                pair = go_no_go_pair(other, name, requirement)
                 if pair is None or other is final:
                     continue
                 row = {
                     "op": f"{other_setup['id']}:{other['op']}",
-                    "gauge": other["checks"][requirement],
+                    "gauge": op_entry(other, "checks", name, requirement),
                 }
                 row["status"], row["message"] = _capability(
                     bundle,
@@ -629,7 +638,7 @@ def evaluate(bundle):
                     requirement,
                     value,
                     row["gauge"],
-                    other,
+                    op_entry(other, "inspection_methods", name, requirement),
                     row,
                     (pair, accept),
                     tilt,
