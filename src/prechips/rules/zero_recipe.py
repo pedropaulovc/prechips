@@ -2563,6 +2563,13 @@ def evaluate(bundle):
             recipe = zero.get(axis)
             if not isinstance(recipe, dict):
                 if axis in ("x", "y") and swept:
+                    # No edge pickup, but the sweep's touch feed and rough back-off still
+                    # move this axis by its DRO sign: a reversed or undeclared direction
+                    # is the same error or debt it is under a pickup.
+                    direction = mapping(dro.get("direction")).get(axis, UNKNOWN)
+                    positive, negative = DIRECTIONS[axis]
+                    bad |= direction in negative
+                    unknown |= direction not in positive and direction not in negative
                     continue
                 if axis != "y" or not lathe:
                     unknown = True

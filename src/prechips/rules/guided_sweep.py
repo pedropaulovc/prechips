@@ -464,10 +464,15 @@ def _landmarks(arc, record_, sweep, axis, found, scale):
                 [centre[i] + wall / cutter * (r["setup_xy"][i] - centre[i]) for i in range(2)]
                 for r in found_rows
             ]
+            # The cutter's centre where its edge reaches each arc end: the stops' landmark,
+            # on the cutter's own path (the arc's end lies a cutter radius off it).
+            centres = [list(r["setup_xy"]) for r in found_rows]
             first = rows[0]["angle_deg"]
             if abs(first - ends[1]) < abs(first - ends[0]):
                 points.reverse()
+                centres.reverse()
             record_["ends_setup_xy"] = points
+            record_["ends_cutter_setup_xy"] = centres
     rollers, radius = sweep.get("rollers_deg"), (found or {}).get("rail_radius")
     if record_.get("guide") != "rail" or axis not in TOUCH_AXES:
         return

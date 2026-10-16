@@ -393,8 +393,12 @@ def test_the_traveler_prints_the_touch_off_and_the_sweep_not_a_dro_table(tmp_pat
     lift = "remove the setting bar" if guide == "pivot" else "lift R800 master arc off its pins"
     assert lift in printed and "nothing of it may stay in the sweep's path" in printed
     assert "Set the sweep's stops" in printed and "clamp a stop block" in printed
-    assert "from that end outward, away from the arc, along the arc's line" in printed
-    assert "beyond the arc's ends on purpose" in printed
+    # The stop landmark is on the cutter's path: its edge at the arc's end, its centre a
+    # cutter radius off the arc (R797 on this concave R800), then the overrun along it.
+    assert "cutter's edge reaches the arc's end at X" in printed
+    assert "(its centre at X" in printed
+    assert "measured with a steel rule along the cutter's path, outward" in printed
+    assert "of cutter travel beyond the arc's ends on purpose" in printed
     assert "must pass clear of every clamp" in printed
     assert "start the spindle clockwise" in printed
     if guide == "rail":
@@ -415,6 +419,11 @@ def test_the_sweep_names_its_stops_at_the_arc_ends_and_the_rollers_from_the_spin
     assert math.dist(first, table["rows"][0]["setup_xy"]) < math.dist(
         last, table["rows"][0]["setup_xy"]
     )
+    # Each stop's landmark is the cutter's centre on that end's radial line, on its own
+    # R797 path: the arc's end a cutter radius beyond it.
+    for wall, cutter in zip(sweep["ends_setup_xy"], sweep["ends_cutter_setup_xy"], strict=True):
+        assert math.dist(cutter, centre) == pytest.approx(797.0)
+        assert math.dist(cutter, wall) == pytest.approx(3.0)
     # Rollers at ±15° bear on the R850 rail 850 sin 15° either side of the spindle along X
     # and 850 cos 15° - 797 beyond it along -Y (the cutter's radial side).
     contacts = sorted(sweep["roller_contacts_mm"])
@@ -537,6 +546,30 @@ def test_a_sweep_only_setup_picks_up_no_xy_zero(tmp_path, mixed):
     html = _Traveler(bundle, [row], {}, None).dro(bundle.plan["setups"][0], tools)
     printed = " ".join(unescape(re.sub(r"<[^>]+>", "", html)).split())
     assert "X and Y: no edge pickup. The guided sweep (op 20) sets them" in printed
+
+
+@pytest.mark.parametrize(
+    ("direction", "status"),
+    [("away", "pass"), ("toward", "error"), ("unknown", "unknown")],
+    ids=["positive", "reversed", "undeclared"],
+)
+def test_a_sweep_only_setup_still_checks_the_dro_sign_its_back_off_moves(
+    tmp_path, direction, status
+):
+    # Without an edge pickup the touch feed and rough back-off still move Y by its DRO
+    # sign: a reversed axis is the same error, an undeclared one the same debt.
+    from prechips.rules import zero_recipe
+
+    plan = guided_plan(tmp_path, allowance=0.3)
+    text = plan.read_text(encoding="utf-8")
+    dro = (
+        "[dro]\ncontroller = 'el400'\nmode = 'abs'\nradius_mode = false\n"
+        "[dro.direction]\nx = 'right'\nz = 'up'\n"
+        + (f"y = '{direction}'\n" if direction != "unknown" else "")
+    )
+    plan.write_text(text.replace("[[setups]]", dro + "[[setups]]", 1) + ZERO_Z, encoding="utf-8")
+    (row,) = [r for r in zero_recipe.evaluate(load_bundle(plan)) if r.subject == "S1"]
+    assert row.status == status, row.sentence
 
 
 # The kernel, on authored plates under the rocker's concave R800 top edge about (0, 816)

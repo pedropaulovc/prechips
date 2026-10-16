@@ -152,28 +152,36 @@ def _stops(sweep, o, holder, move, start, stop):
             "once and clamp a stop block on the table against it at each end of the sweep." + dry
         )
     keys = [f" ({key})" if key else "" for key in (start, stop)]
-    # Places on the work, not DRO targets: X and Y stay locked, so they print to 0.1.
-    first, last = (f"X {_number(_round(x, 1))} Y {_number(_round(y, 1))}" for x, y in ends)
+
+    def at(point):
+        # Places on the work, not DRO targets: X and Y stay locked, so they print to 0.1.
+        return f"X {_number(_round(point[0], 1))} Y {_number(_round(point[1], 1))}"
+
+    centres = sweep.get("ends_cutter_setup_xy")
+    centres = centres if isinstance(centres, list) and all(map(_pair, centres)) else None
+    # The landmark is on the cutter's own path: its edge reaches the arc's end when its
+    # centre stands on the end's radial line, a cutter radius off the arc.
+    place = [
+        f"edge reaches the arc's end at {at(end)}"
+        + (f" (its centre at {at(centre)})" if centre else "")
+        for end, centre in zip(ends, centres or [None, None], strict=True)
+    ]
     if _known(overrun) and overrun > 0:
         far = _number(_round(overrun, 1))
-        place = [
-            f"stands {far} mm beyond the arc's end at {end}, measured with a steel rule from "
-            "that end outward, away from the arc, along the arc's line"
-            for end in (first, last)
-        ]
+        on = (
+            f", then on {far} mm more, measured with a steel rule along the cutter's path, "
+            "outward, away from the arc"
+        )
         why = (
-            f" The stops lie {far} mm beyond the arc's ends on purpose, so the cutter enters "
-            "and leaves clear of the arc."
+            f" The stops lie {far} mm of cutter travel beyond the arc's ends on purpose, so the "
+            "cutter enters and leaves clear of the arc."
         )
     else:
-        place = [f"stands over the arc's end at {end}" for end in (first, last)]
-        why = ""
+        on, why = "", ""
     return (
         f"Set the sweep's stops, spindle stopped and Z raised: {move} the {holder} until the "
-        f"cutter's centre{keys[0]} {place[0]}, and clamp a stop block on the table against the "
-        f"{holder}. Do the same at the other end: the cutter's centre{keys[1]} {place[1]}."
-        + why
-        + dry
+        f"cutter's {place[0]}{on}{keys[0]}, and clamp a stop block on the table against the "
+        f"{holder}. Do the same at the other end: the cutter's {place[1]}{on}{keys[1]}." + why + dry
     )
 
 
