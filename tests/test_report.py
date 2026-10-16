@@ -3,15 +3,17 @@
 import base64
 import hashlib
 import re
-import tomllib
 from copy import deepcopy
 
 import pytest
-from test_cli import SYNTHETIC_KERNEL, copy_examples, traveler
+from test_cli import SYNTHETIC_KERNEL, copy_examples, synthetic_kernel, traveler
 from test_kernel_outputs import _inspection_bundle, _png, _setup_scene
+from test_process_route import evaluate
 from test_sheet_ops import Markup, content
 
+from prechips.inputs import load_bundle
 from prechips.report import build_report, canonical_bytes, render_assets, report_hash
+from prechips.sheet import _Traveler
 
 
 def test_canonical_report_unicode_sorted_keys_float_and_final_lf():
@@ -53,23 +55,20 @@ def test_traveler_preserves_authored_slash_instructions(tmp_path):
         encoding="utf-8",
     )
 
-    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-
-    markup = Markup(html)
-    setup = tomllib.loads(plan.read_text(encoding="utf-8"))["setups"][0]
-    setup_id = setup["id"]
+    # The op note prints only in the setup's op assembly; build it in process on a
+    # synthetic kernel rather than run the whole rocker traveler through the CLI.
+    bundle = synthetic_kernel(load_bundle(plan))
+    setup = bundle.plan["setups"][0]
     operation_id = str(setup["ops"][0]["op"])
-    pages = [
-        page
-        for page in markup.find("page")
-        if page["attrs"]["data-sheet"].startswith(f"SETUP {setup_id} sheet ")
-    ]
+    sheet = _Traveler(bundle, list(evaluate("inspection", bundle).values()), {}, None)
+    numbers, _, _ = sheet.tool_table(setup)
+    rows, notes_html, worksheets, _ = sheet.operations(setup, numbers, {"notes": 2})
+    html = "".join([rows, notes_html, *(body for _, body in worksheets)])
+    markup = Markup(html)
     operations = [
-        node
-        for page in pages
-        for node in markup.find("operation", page)
-        if node["attrs"]["data-op"] == operation_id
+        node for node in markup.find("operation") if node["attrs"]["data-op"] == operation_id
     ]
+    assert len(operations) == 1
     notes = [node for operation in operations for node in markup.find("op-note", operation)]
     assert [content(node) for node in notes] == [instruction]
     instruction_blocks = [

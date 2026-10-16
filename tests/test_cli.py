@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 from contextlib import nullcontext
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -20,21 +21,32 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # Host-only assertions need explicit geometry facts, not a real FreeCAD process.
 # These boxes are synthetic envelopes, never production machining evidence.
-SYNTHETIC_KERNEL = """
+SYNTHETIC_BOXES = {
+    "pivot-shaft": [-5, -5, -175, 5, 5, 5],
+    "pivot-bracket": [-9, -1, -4, 9, 33.2, 22.2],
+    "rocker-arm": [-170, -20, -8, 170, 45, 8],
+}
+
+
+def synthetic_kernel(bundle):
+    """``bundle`` with the synthetic kernel result SYNTHETIC_KERNEL gives the CLI."""
+    bbox = SYNTHETIC_BOXES.get(bundle.paths["plan"].parent.name, [-10, -10, -10, 10, 10, 100])
+    kernel = {"status": "ok", "bbox_mm": bbox, "ops": {}, "setups": {}, "mapping": {}}
+    return replace(bundle, kernel=kernel)
+
+
+# The CLI subprocess gets the same synthetic kernel; it cannot import the test modules.
+SYNTHETIC_KERNEL = f"""
 from dataclasses import replace
 import prechips.cli as cli
 _load_bundle = cli.load_bundle
 def _synthetic_bundle(*args, **kwargs):
     bundle = _load_bundle(*args, **kwargs)
-    boxes = {
-        "pivot-shaft": [-5, -5, -175, 5, 5, 5],
-        "pivot-bracket": [-9, -1, -4, 9, 33.2, 22.2],
-        "rocker-arm": [-170, -20, -8, 170, 45, 8],
-    }
+    boxes = {SYNTHETIC_BOXES!r}
     bbox = boxes.get(bundle.paths["plan"].parent.name, [-10, -10, -10, 10, 10, 100])
-    return replace(bundle, kernel={
-        "status": "ok", "bbox_mm": bbox, "ops": {}, "setups": {}, "mapping": {},
-    })
+    return replace(bundle, kernel={{
+        "status": "ok", "bbox_mm": bbox, "ops": {{}}, "setups": {{}}, "mapping": {{}},
+    }})
 cli.load_bundle = _synthetic_bundle
 """
 

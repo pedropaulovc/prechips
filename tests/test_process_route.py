@@ -9,7 +9,7 @@ import re
 import tomllib
 
 import pytest
-from test_cli import SYNTHETIC_KERNEL, copy_examples, traveler
+from test_cli import SYNTHETIC_KERNEL, copy_examples, synthetic_kernel, traveler
 from test_sheet_ops import Markup, content
 
 from prechips.inputs import BadInput, load_bundle
@@ -98,6 +98,20 @@ def operation(html, setup, op):
         for node in markup.find("operation", page)
         if node["attrs"]["data-op"] == str(op)
     ]
+    return markup, node
+
+
+def op_markup(plan, setup, op):
+    """One operation's traveler rows, assembled in process on a synthetic kernel: the
+    sheet's own tool table and op rows, without a CLI run of the whole traveler."""
+    bundle = synthetic_kernel(load_bundle(plan))
+    findings = evaluate("inspection", bundle)
+    (authored,) = [item for item in bundle.plan["setups"] if item["id"] == setup]
+    sheet = _Traveler(bundle, list(findings.values()), {}, None)
+    numbers, _, _ = sheet.tool_table(authored)
+    rows, _, _, _ = sheet.operations(authored, numbers, {"notes": 2})
+    markup = Markup(rows)
+    (node,) = [node for node in markup.find("operation") if node["attrs"]["data-op"] == str(op)]
     return markup, node
 
 
@@ -739,8 +753,7 @@ def test_the_traveler_prints_which_pin_enters_and_which_does_not(tmp_path):
         ),
     )
     rewrite(plan, ("op", sid, op), "go_no_go", "{ dia = { go = 2.0, no_go = 2.09 } }")
-    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    markup, node = operation(html, sid, op)
+    markup, node = op_markup(plan, sid, op)
     record = inspection_record(markup, node, ["rod_hole"], "dia")
     requirement = content(markup.find("inspection-requirement", record)[0])
     assert "Ø 2.00–2.09" in requirement
