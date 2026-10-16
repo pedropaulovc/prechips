@@ -142,11 +142,17 @@ def _write_outputs(
 
 
 def _evaluate(bundle: Bundle, tracing: telemetry.Telemetry):
+    from prechips.kernel import build_job
     from prechips.rules import RULES, required_coverage
+    from prechips.rules.geometry_common import lend_job
 
+    # Every geometry rule reads this bundle's kernel job (prepared_job); the bundle does
+    # not change during the pass, so build it once and lend each rule a copy.
+    with tracing.span("kernel.build_job"):
+        job = build_job(bundle)
     findings = []
     for rule in RULES:
-        with tracing.span(f"rule.{rule.name}.evaluate"):
+        with tracing.span(f"rule.{rule.name}.evaluate"), lend_job(bundle, job):
             rows = rule.evaluate(bundle)
         for finding in rows:
             with tracing.span(
