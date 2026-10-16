@@ -393,6 +393,8 @@ def test_the_traveler_prints_the_touch_off_and_the_sweep_not_a_dro_table(tmp_pat
     lift = "remove the setting bar" if guide == "pivot" else "lift R800 master arc off its pins"
     assert lift in printed and "nothing of it may stay in the sweep's path" in printed
     assert "Set the sweep's stops" in printed and "clamp a stop block" in printed
+    assert "measuring outward, away from the arc" in printed
+    assert "beyond its end of the arc on purpose" in printed
     assert "start the spindle clockwise" in printed
     if guide == "rail":
         # The form error is carried in the rule's cut radius, not narrated to the operator.

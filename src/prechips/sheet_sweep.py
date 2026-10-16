@@ -144,20 +144,29 @@ def _stops(sweep, o, holder, move, start, stop):
             f"Set the sweep's stops: with Z raised, {move} the {holder} round once and clamp a "
             "stop block on the table against it at each end of the sweep."
         )
+    beyond = _known(overrun) and overrun > 0
     over = (
         f"the {_number(_round(overrun, 1))} mm mark of a steel rule laid along the arc from "
         "its end at"
-        if _known(overrun) and overrun > 0
+        if beyond
         else "the arc's end at"
     )
     keys = [f" ({key})" if key else "" for key in (start, stop)]
     # Places on the work, not DRO targets: X and Y stay locked, so they print to 0.1.
     first, last = (f"X {_number(_round(x, 1))} Y {_number(_round(y, 1))}" for x, y in ends)
+    outward = (
+        f", measuring outward, away from the arc: each stop lies "
+        f"{_number(_round(overrun, 1))} mm beyond its end of the arc on purpose, so the "
+        "cutter enters and leaves clear of it"
+        + (f" (the picture's {start} and {stop})" if start and stop else "")
+        if beyond
+        else ""
+    )
     return (
         f"Set the sweep's stops with Z raised: {move} the {holder} until the cutter's "
         f"centre{keys[0]} is over {over} {first}, and clamp a stop block on the table against "
         f"the {holder}; do the same past the other end: the cutter's centre{keys[1]} over "
-        f"{over} {last}."
+        f"{over} {last}{outward}."
     )
 
 
