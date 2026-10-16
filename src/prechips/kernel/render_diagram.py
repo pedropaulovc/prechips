@@ -1197,10 +1197,26 @@ class _Diagram:
         framed = []
         for component in self.components:
             box = component.get("box_mm")
-            if box is None or _role(component) == "guide":
-                # A guided sweep's table-side rollers stand off the work by design: the
-                # view widens to show where they are, since the operator sets them (#255).
+            if box is None:
                 framed.append(component)
+                continue
+            if _role(component) == "guide":
+                # A guided sweep's table-side rollers stand off the work by design: the
+                # view widens to show where they are, since the operator sets them (#255),
+                # but only within one stock size of it; farther ones would shrink the work
+                # unreadably, so a note says where they stand instead.
+                near = all(
+                    box[i] >= self.stock[i] - size and box[i + 3] <= self.stock[i + 3] + size
+                    for i in range(2)
+                )
+                if near:
+                    framed.append(component)
+                else:
+                    self.render_debts.append(
+                        f"NOT SHOWN: {_plain(component.get('label') or component['name'])} "
+                        f"stand off the picture, setup X {box[0]:.1f} to {box[3]:.1f}, "
+                        f"Y {box[1]:.1f} to {box[4]:.1f}."
+                    )
                 continue
             pressing = _role(component) in ("fixed_jaw", "moving_jaw") and any(
                 touches(box, other) for other in touching

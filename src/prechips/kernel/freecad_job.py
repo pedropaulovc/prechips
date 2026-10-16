@@ -3454,7 +3454,8 @@ def _guide_solids(setup, debts):
     setup XY ``at_mm``, ``dia_mm``, ``z_mm`` table to top), as setup-frame cylinders
     (#255). They are fixed to the table while the work turns, so they are drawn only:
     never fixture components, so no hit test, clash, contact or clearance reads them and
-    ``fixture_ready`` stays as it was. A malformed roller is a scene debt, not drawn."""
+    ``fixture_ready`` stays as it was. A malformed roller is a picture debt (``debts``, the
+    render debts), not drawn."""
     drawn = []
     rollers = ((setup.get("render") or {}).get("guides") or {}).get("rollers") or []
     for roller in rollers:
@@ -8469,7 +8470,9 @@ class _Setup:
         solids += [(rest[0], jaw, _COLOURS["rest"]) for rest in rests for jaw in rest[1]]
         # A guided sweep's rollers are fixed to the table while the work turns: drawn at
         # the setup's (mid-sweep) pose for the operator, never a holding solid (#255).
-        guides = _guide_solids(self.setup, debts)
+        # A malformed roller is a picture debt, never a holding one: it must not turn
+        # fixture_rendered or the holding clearances unknown.
+        guides = _guide_solids(self.setup, render_debts)
         solids += [(name, shape, _COLOURS["guide"]) for name, shape in guides]
         for name, shape, colour in solids + possible:
             mesh(shape, colour, tag=name)

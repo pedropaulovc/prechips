@@ -1170,11 +1170,13 @@ def guide_scene(bundle, setup, numbers, scale):
         middle_mm = [v * scale for v in middle]
         heading = math.atan2(middle_mm[1] - centre_mm[1], middle_mm[0] - centre_mm[0])
         if sweep.get("guide") == "pivot":
-            reach = math.dist(centre_mm, middle_mm)
+            # Setup coordinates print as the traveler prints them: plan units, DRO decimals.
+            decimals, units = dro_grid(bundle, setup)[1], bundle.features.get("units", "")
+            reach = math.dist(centre, middle)
             notes.append(
                 f"PIVOT POST (op {op}, off the picture): at the arc centre, setup X "
-                f"{centre_mm[0]:.1f} Y {centre_mm[1]:.1f}, {reach:.1f} mm from the cutter at "
-                "the arc's middle."
+                f"{centre[0]:.{decimals}f} Y {centre[1]:.{decimals}f}, {reach:.{decimals}f} "
+                f"{units} from the cutter at the arc's middle."
             )
             continue
         if sweep.get("guide") != "rail":

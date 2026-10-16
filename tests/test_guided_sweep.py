@@ -659,13 +659,24 @@ def test_the_isometric_view_frames_and_labels_rollers_standing_off_the_work():
     diagram = _Diagram([], spec)
     names = {component["name"] for component in diagram.components}
     assert "guide rollers" in names and "far block" not in names
+    # Rollers many stock sizes off the work would shrink it unreadably: a note instead.
+    distant = dict(far("guide rollers", "guide"), label="GUIDE ROLLERS (TABLE)")
+    distant["box_mm"] = [800.0, -50.0, -40.0, 820.0, -30.0, -10.0]
+    distant["center_mm"] = [810.0, -40.0, -25.0]
+    diagram = _Diagram([], dict(spec, components=[distant]))
+    assert "guide rollers" not in {component["name"] for component in diagram.components}
+    assert any(
+        debt.startswith("NOT SHOWN: GUIDE ROLLERS (TABLE) stand off the picture")
+        for debt in diagram.render_debts
+    )
 
 
 def test_the_pivot_post_is_a_note_not_a_solid_800_mm_off_the_part(tmp_path):
     _, annotation = guide_annotation(tmp_path, "pivot")
     assert "guides" not in annotation
     (note,) = [n for n in annotation["notes"] if n.startswith("PIVOT POST")]
-    assert "at the arc centre, setup X 15.0 Y 808.0, 797.0 mm from the cutter" in note
+    # At the setup's DRO decimals (0.001 here), as the traveler prints setup coordinates.
+    assert "at the arc centre, setup X 15.000 Y 808.000, 797.000 mm from the cutter" in note
 
 
 def test_the_kernel_job_carries_the_swept_rows_as_checkpoints(tmp_path):
@@ -1916,13 +1927,16 @@ def test_guide_rollers_are_drawn_but_never_hit_tested(tmp_path, freecad_kernel, 
     # the picture draws it, but it is no holding solid, so no row, clash, clearance or
     # fixture readiness reads it. The same job without it gives the same verdicts.
     roller = {"name": "guide roller T", "at_mm": [0.0, 20.0], "dia_mm": 10.0, "z_mm": [-5.0, 9.0]}
-    render = {"guides": {"rollers": [roller]}}
+    # A malformed roller is a picture debt only, never a holding debt.
+    broken = {"name": "guide roller X", "at_mm": [0.0], "dia_mm": 10.0, "z_mm": [-5.0, 9.0]}
+    render = {"guides": {"rollers": [roller, broken]}}
     _, plain = sweep_run(tmp_path / "plain", freecad_kernel, plates["open"], 25.0)
     _, drawn = sweep_run(tmp_path / "drawn", freecad_kernel, plates["open"], 25.0, render)
     scene = drawn["setups"]["S1"]["render_scene"]
     rollers = [c for c in scene["components"] if c["name"] == "guide roller T"]
     assert rollers and rollers[0]["role"] == "guide_roller"
-    assert "guide roller T" not in scene["debts"]
+    assert not any("guide roller" in debt for debt in scene["debts"])
+    assert any(debt.startswith("guide roller X not drawn") for debt in scene["render_debts"])
     facts, before = drawn["ops"]["S1:20"], plain["ops"]["S1:20"]
     assert facts["checkpoint_errors"] == before["checkpoint_errors"] == []
     assert facts["checkpoint_hits"] == before["checkpoint_hits"]
