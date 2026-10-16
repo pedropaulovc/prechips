@@ -260,8 +260,7 @@ def evaluate(bundle):
                     )
                     missing.append(
                         f"Measure {label} full feature.bounds x/y/z or point-operation feature.at "
-                        "in its declared frame with calipers, a height gauge or CMM, in mm"
-                        + broad
+                        "in its declared frame with calipers, a height gauge or CMM, in mm" + broad
                     )
                     authoring_entry(
                         debts,
