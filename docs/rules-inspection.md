@@ -5,10 +5,11 @@
 Subjects are `feature:requirement` for every requirements-listed two-element
 numeric-or-unknown `[low, high]` band, even outside the named tolerance set, plus
 each declared requirement in the recognized scalar/unknown tolerance set:
-`dia`, `position_dia`, `finish_ra`, `depth`, `length`, `width`, `height`,
-`thickness`, `separation`, `coaxiality_dia`, `angularity_dia`, `height_above_pivot`, `radius`,
-`station`, `arc_len`, `bottom_radius`, `bottom_arc_len`, `tip_land`,
-`land_angle_deg`, `groove_width`, `groove_depth`. This shared model selection also
+`dia`, `nominal_dia`, `position_dia`, `finish_ra`, `depth`, `length`, `width`, `height`,
+`thickness`, `separation`, `coaxiality_dia`, `angularity_dia`, `surface_profile`,
+`height_above_pivot`, `radius`, `station`, `arc_len`, `bottom_radius`,
+`bottom_arc_len`, `tip_land`, `land_angle_deg`, `groove_width`, `groove_depth`.
+This shared model selection also
 drives policy `toleranced_features`; unknown generic dimensions cannot evade it.
 An omitted or wholly unknown requirements list, or an unknown list element,
 creates `feature:unknown` with unknown status and remains selected by policy
@@ -58,12 +59,27 @@ comparator or profilometer; position/coaxiality/angularity needs CMM, indicator 
 gauge. Both scalar and banded geometric requirements additionally need a known,
 nonempty declared datum inspection method; bands also use range/resolution checks.
 Complex shape controls need CMM/profile/radius/angle gauges. Other dimensions use the capable dimensional
-gauge kinds. An external micrometer does not measure a hole bore. Type
+gauge kinds. An external micrometer does not measure a hole bore (`dia` or `nominal_dia`). Type
 incompatibility is an error even if catalog dimensions are unverified.
 
 For a `[low, high]` mm band, gauge range must cover both ends and resolution must
 not exceed `high-low`. A scalar geometric tolerance needs resolution
 at most the tolerance and a known declared method. Non-mm/unknown limits stay unknown.
+An angle band (`*_deg`, degrees) never meets a gauge's millimetre range and
+resolution, and no gauge declares an angular capability: it is `unknown` (`no
+angular gauge capability`) unless it is read across a face. A drawn band whose
+feature declares the face extent l in `tilt_across`
+([features](features.md#angle-bands-read-across-a-face)) is the deviation read end
+to end across l about its mid angle m: a linear zone w = l·(sin(hi − m) − sin(lo −
+m)), judged like every zone on resolution alone (`gauge resolves the tilt's linear
+zone across its face`, else `gauge resolution exceeds the requirement band`). The
+gauge's range is not compared, since an end-to-end deviation reading has no size to
+span. Evidence keeps the degree `limits` and adds `tilt_across_length` (l) and
+`band_mm` (w). A process hold on that angle is read the same way, about the drawn
+band's m. A BASIC angle a surface profile bounds by `tilt_across` is read likewise
+([Surface profiles](#surface-profiles)). An unknown length leaves
+`tilt_across_length = "unknown"` with `tilt_across_reason`, and no angular gauge
+capability.
 Unverified gauge range/resolution cannot prove a dimensional error or pass.
 Roughness capability is unresolved without explicit range evidence. A gauge of a
 roughness kind (e.g. `roughness_comparator`) declares it with the inventory field
@@ -108,6 +124,9 @@ Sentence templates:
   - `gauge range or resolution unresolved`
   - `gauge resolution and declared geometric inspection method cover requirement`
   - `geometric gauge capability or datum inspection method unresolved`
+  - `no angular gauge capability`
+  - `gauge resolves the tilt's linear zone across its face`
+  - `gauge resolution unresolved`
   - `inspection capability for requirement unresolved`
   - `named gauge capability needs verification`
   - `unverified gauge dimensions cannot establish capability`
@@ -173,7 +192,9 @@ span/resolution test. Its row is flagged `?` and prints `GO / NO-GO sizes not se
 An op's `process_holds` adds one `{setup}:{op}` inspection subject. Each hold's
 `band` must lie inside its drawing requirement band, limits included. Only a
 scalar zone or maximum (`position_dia`, `coaxiality_dia`, `angularity_dia`,
-`finish_ra`) `v` reads as [0, v]; any other scalar is a nominal with no band, so
+`surface_profile`, `finish_ra`) `v` reads as [0, v]; a BASIC scalar a surface
+profile governs reads as its derived band ([Surface profiles](#surface-profiles));
+any other scalar is a nominal with no band, so
 the hold is `unknown`. Each hold's gauge is graded like a drawing check, against
 the hold band: it must be able to measure the requirement, span the band and
 resolve its width. A hold's own `go_no_go = { go, no_go }` makes that a limit
@@ -243,3 +264,44 @@ share the setup, have a valid transfer from after its finishing cut, or fit the
 budget. Unknown referenced geometry or an unknown cross-setup tolerance/budget
 remains unresolved. Position and coaxiality keep their existing datum-budget
 semantics.
+
+## Surface profiles
+
+A drawing SURFACE PROFILE ([features](features.md#surface-profiles),
+harmonic-analyzer #1544) is two things to this rule. The zone itself,
+`feature:surface_profile`, is a geometric zone [0, t] inspected like
+`position_dia`: it needs a requirement-keyed `checks.surface_profile` gauge of a
+geometric kind (`cmm`, `dial_indicator`, `dial_test_indicator`, `height_gauge`),
+a declared `inspection_methods.surface_profile` procedure, and a gauge resolution
+no coarser than t; a missing check is an error, a missing or `"unknown"` method
+unknown, a caliper an error. It passes only in a declared frame: an omitted or
+`"unknown"` `surface_profile_datums`, or one with a datum that resolves to no
+manifest feature through the `datums` table or a feature's `datum`, leaves it
+unknown even with a capable gauge and method; an explicit `[]` (form only) or a
+resolved datum list may pass. Evidence adds `surface_profile_datums`. A feature
+declaring a zone must list `surface_profile` in its requirements (bad input
+otherwise), so a zone never goes uninspected. Each BASIC scalar it governs
+(`surface_profile_governs`) is read against the band the zone derives for it
+instead of its bare BASIC value: `limits` is that band and the gauge must span
+it and resolve its width, as for any drawn band, and evidence adds
+`profile_band` (the governing profiles, or why the band is unknown). The band is
+pointwise from the DRF-located BASIC origin, not a fitted size. An unresolved
+derivation (unknown t, U, DRF or entry, an unresolved DRF datum, an empty DRF, a tilt the zone cannot
+bound) leaves `limits = "unknown"` and the finding unknown. A process hold on a
+governed requirement must lie inside the same derived band.
+
+A BASIC angle a profile governs by `tilt_across` derives a band in degrees, n ±
+asin(t / l), which is the zone read end to end across the face extent l. It is read
+as the linear zone a drawn angle band read across a face is, about n: w = l·(sin(hi −
+n) − sin(lo − n)), the exact inverse (2t for one zone t), judged on resolution
+alone. A process hold on such an angle is read about the same n and l. When the
+governing profiles tilt it across different lengths no single reading reads them
+all: `tilt_across_length = "unknown"` with `tilt_across_reason`, and the band has
+`no angular gauge capability`.
+
+`datum_consistency` relates each `surface_profile_datums` datum at the zone t,
+the same tolerance convention as a scalar angularity zone, converted to mm
+(`units = "in"`: × 25.4) before it meets `refixture_budget_mm`; a profile with no
+datums (form only) relates none, and an omitted list with a zone is unresolved.
+A `height_from` on a feature whose BASIC height a profile governs takes the
+derived band's width, likewise in mm.
