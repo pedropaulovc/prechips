@@ -566,11 +566,12 @@ def _no_go(op):
             pair = op_entry(op, "go_no_go", name, req)
             if isinstance(pair, dict) and "no_go" in pair:
                 pairs.setdefault((req, pair["no_go"]), []).append(name)
+    # A hold's pair counts unless the op's own pair already gauges that feature's requirement.
     for hold in op.get("process_holds") or []:
         pair = record(record(hold).get("go_no_go"))
-        req = hold.get("requirement")
-        if "no_go" in pair and all(other != req for other, _ in pairs):
-            pairs[(req, pair["no_go"])] = [hold.get("feature")]
+        name, req = hold.get("feature"), hold.get("requirement")
+        if "no_go" in pair and not isinstance(op_entry(op, "go_no_go", name, req), dict):
+            pairs.setdefault((req, pair["no_go"]), []).append(name)
     sources = list(
         dict.fromkeys(
             (key, t)

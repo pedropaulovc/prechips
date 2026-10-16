@@ -7,7 +7,15 @@ import re
 from datetime import date
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, create_model, model_serializer, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    create_model,
+    model_serializer,
+    model_validator,
+)
 
 type Unknown = Literal["unknown"]
 UNKNOWN: Unknown = "unknown"
@@ -396,6 +404,18 @@ class GoNoGo(InputModel):
         return self
 
 
+def _requirement_pairs(value: dict) -> dict:
+    """A feature's scoped table keys requirements: a malformed pair (``go`` / ``no_go``
+    keys) must fail as a pair, never pass as a table of requirement entries."""
+    if {"go", "no_go"} & set(value):
+        raise ValueError("A GO / NO-GO pair needs two positive sizes, go and no_go.")
+    return value
+
+
+# One listed feature's GO / NO-GO pairs, requirement -> pair.
+type ScopedGoNoGo = Annotated[dict[str, GoNoGo | Unknown], AfterValidator(_requirement_pairs)]
+
+
 class ProcessHold(InputModel):
     """A shop limit inside one drawing requirement band, held for a stated process reason
     (a downstream fit, a clocking stop): printed as a process hold, never a drawing limit.
@@ -578,7 +598,7 @@ Operation = record(
         "checks": dict[str, str | dict[str, str]],
         # Requirement -> the GO / NO-GO sizes its `checks` gauge uses (a limit check), or
         # "unknown" when the pair is undecided; scoped per listed feature like `checks`.
-        "go_no_go": dict[str, GoNoGo | Unknown | dict[str, GoNoGo | Unknown]],
+        "go_no_go": dict[str, GoNoGo | Unknown | ScopedGoNoGo],
         "missing_requirements": dict[str, str],
         # Requirement -> procedure; scoped per listed feature like `checks`.
         "inspection_methods": dict[str, Procedure | dict[str, Procedure]],

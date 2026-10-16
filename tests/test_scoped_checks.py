@@ -200,6 +200,45 @@ def test_scoped_tables_reject_what_no_feature_can_read(tmp_path, lines, match):
         load_bundle(plan)
 
 
+@pytest.mark.parametrize(
+    "pair",
+    [
+        '{ go = "unknown", no_go = "unknown" }',  # unknown sizes are not a table of entries
+        '{ go = "unknown" }',  # a pair missing its NO-GO size
+    ],
+)
+def test_a_malformed_flat_pair_never_passes_as_a_scoped_table(tmp_path, pair):
+    plan, _ = station(tmp_path, ISSUE_CHECKS, f"go_no_go = {{ length = {pair} }}")
+    with pytest.raises(BadInput, match="GO / NO-GO pair needs two positive sizes"):
+        load_bundle(plan)
+
+
+def test_a_process_hold_pair_on_another_feature_keeps_its_own_method_check():
+    op = {
+        "op": 34,
+        "do": "inspect",
+        "feature": ["rod_hole", "pivot_bore"],
+        "checks": {"rod_hole": {"dia": "plugs"}, "pivot_bore": {"dia": "pins"}},
+        "go_no_go": {"pivot_bore": {"dia": {"go": 6.5, "no_go": 6.53}}},
+        "inspection_methods": {
+            "rod_hole": {"dia": "Push the NO-GO plug through the strap."},
+            "pivot_bore": {"dia": "The GO pin enters; the NO-GO pin does not."},
+        },
+        "process_holds": [
+            {
+                "feature": "rod_hole",
+                "requirement": "dia",
+                "band": [2.0, 2.01],
+                "gauge": "plugs",
+                "reason": "Pin fit for the next setup.",
+                "go_no_go": {"go": 2.0, "no_go": 2.01},
+            }
+        ],
+    }
+    found = consistency_errors(consistency_bundle([{"ops": [op]}]))["S1:34"]
+    assert "passes the NO-GO plug through" in found and "NO-GO 2.01" in found
+
+
 def test_a_single_feature_op_keys_its_checks_by_requirement_alone(tmp_path):
     plan, _ = station(
         tmp_path, 'checks = { pivot_bore = { dia = "pin-gauges" } }', features="pivot_bore"
