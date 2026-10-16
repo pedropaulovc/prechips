@@ -3890,7 +3890,7 @@ class _Job:
                     "be checked: " + ", ".join(unmapped)
                 )
             if _profiled(self.job.get("stock")):
-                self.as_is_contact = {ref: self._as_is_contact(ref, pieces) for ref in refs}
+                self.as_is_contact = {ref: self._as_is_contact(ref, solid, pieces) for ref in refs}
                 return solid, None
             shell = Part.makeCompound(solid.Shells)
             off = []
@@ -3907,23 +3907,26 @@ class _Job:
                 )
         return solid, None
 
-    def _as_is_contact(self, ref, pieces):
-        """Whether one as-is face lies on a raw supply's boundary within STOCK_TOL: every
-        face sample's distance to each supply's shell, ``max_gap_mm`` on the nearest one.
-        ``supplies`` names each supply carrying the whole face; none is ``off_supply``."""
+    def _as_is_contact(self, ref, solid, pieces):
+        """Whether one as-is face lies on the joined raw supply's boundary within
+        STOCK_TOL (``max_gap_mm``: its farthest sample's distance), so a face spanning
+        adjacent components counts. ``supplies`` names every raw supply whose boundary
+        carries one of its samples: each one's cut answers for the face."""
         samples, _ = _face_samples(self.solid.Faces[self.mapping[ref]], 1.0)
         if not samples:
             return {"contact": UNKNOWN, "reason": "the face yields no samples"}
-        gaps = {}
-        for name, piece in sorted(pieces.items()):
-            shell = Part.makeCompound(piece.Shells)
-            gaps[name] = max(shell.distToShape(Part.Vertex(point))[0] for point, _ in samples)
-        carriers = [name for name, gap in gaps.items() if gap <= STOCK_TOL]
-        return {
-            "contact": "on_supply" if carriers else "off_supply",
-            "supplies": carriers,
-            "max_gap_mm": _r(min(gaps.values())),
-        }
+        points = [Part.Vertex(point) for point, _ in samples]
+        joined = Part.makeCompound(solid.Shells)
+        gap = max(joined.distToShape(point)[0] for point in points)
+        if gap > STOCK_TOL:
+            return {"contact": "off_supply", "supplies": [], "max_gap_mm": _r(gap)}
+        shells = {name: Part.makeCompound(piece.Shells) for name, piece in pieces.items()}
+        carriers = sorted(
+            name
+            for name, shell in shells.items()
+            if any(shell.distToShape(point)[0] <= STOCK_TOL for point in points)
+        )
+        return {"contact": "on_supply", "supplies": carriers, "max_gap_mm": _r(gap)}
 
     @staticmethod
     def _joined(refs, sources):

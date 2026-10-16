@@ -7,6 +7,7 @@ strap (its corner chamfered) and its laser-cut blank (that corner left square).
 import hashlib
 import math
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -606,6 +607,56 @@ def test_a_component_blank_and_a_bar_component_are_measured_face_by_face(engine)
     contact = result["as_is_contact"]
     assert contact[CHAMFER]["contact"] == "off_supply"
     assert contact[TOP] == {"contact": "on_supply", "max_gap_mm": 0.0, "supplies": ["stock.strap"]}
+
+
+_HALVES = r"""
+import sys
+import Part
+from FreeCAD import Vector as V
+out = sys.argv[sys.argv.index("--") + 1]
+Part.makeBox(60, 40, 20).exportStep(out + "/block.step")
+Part.makeBox(30, 40, 20, V(30, 0, 0)).exportStep(out + "/half.step")
+"""
+
+
+@pytest.fixture(scope="module")
+def halves(tmp_path_factory, freecad_kernel):
+    """A 60 x 40 x 20 block and its +X half (x 30..60) as STEP files."""
+    directory = tmp_path_factory.mktemp("blank-halves")
+    script = directory / "author.py"
+    script.write_text(_HALVES, encoding="utf-8")
+    subprocess.run(
+        [freecad_kernel, str(script), "--", str(directory)],
+        capture_output=True,
+        timeout=300,
+        check=False,
+    )
+    paths = {path.stem: path for path in directory.glob("*.step")}
+    assert set(paths) == {"block", "half"}
+    return paths
+
+
+def test_a_face_spanning_adjacent_components_lies_on_the_joined_supply(engine, halves):
+    # The block's top runs over a bar half (x 0..30) and a profiled half (x 30..60): on
+    # neither alone, on their union, answering to both.
+    bar = {
+        "shape": "box",
+        "origin_mm": [0.0, 0.0, 0.0],
+        "axis": [1.0, 0.0, 0.0],
+        "section_axis": [0.0, 1.0, 0.0],
+        "length_mm": 30.0,
+        "section_mm": [40.0, 20.0],
+    }
+    half = halves["half"]
+    digest = hashlib.sha256(half.read_bytes()).hexdigest()
+    stock = {"components": {"bar": bar, "profiled": _profiled(half, digest)}}
+    [top] = engine.refs(halves["block"], (0, 0, 20), (60, 40, 20))
+    result = engine.run(engine.job(halves["block"], as_is=[top], stock=stock))
+    assert result["as_is_contact"][top] == {
+        "contact": "on_supply",
+        "max_gap_mm": 0.0,
+        "supplies": ["stock.bar", "stock.profiled"],
+    }
 
 
 def test_the_profiled_example_needs_no_outline_ops_but_machines_the_tight_ends(freecad_kernel):

@@ -771,10 +771,11 @@ own STEP: the kernel verifies its digest, imports it in model coordinates and
 accepts exactly one closed, valid, positive-volume solid as the supply. As-is
 face references do not define a stock volume: when supplied, they must map and
 lie on that envelope. With a profiled blank among the supplies the kernel
-instead measures each as-is face against every raw supply's boundary
-(`as_is_contact`: `on_supply` with the `supplies` carrying the whole face, else
-`off_supply`, and `max_gap_mm` to the nearest supply, within `STOCK_TOL` = 1e-3
-mm); a face off every supply is left uncredited by
+instead measures each as-is face against the joined raw supply's boundary
+(`as_is_contact`: `on_supply` within `STOCK_TOL` = 1e-3 mm, else `off_supply`;
+`max_gap_mm`, its farthest sample's distance; and `supplies`, every raw supply
+whose boundary carries one of its samples, so a face spanning adjacent
+components counts and answers to each of them); a face off the supply is left uncredited by
 [`blank_credit`](#blank_credit) instead of voiding the stock, including a face
 meant for a bar component of a mixed built-up supply. Unknown
 dimensions/placement, incompatible as-is faces, unresolved earlier claims,

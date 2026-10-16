@@ -40,7 +40,7 @@ frame = "A"
 coolant = "none"
 deburr_mm = 0.0
 stock_in = "stock"
-note = "Strap flat; the end mill side takes the 0.5 mm end allowance off both square ends to the 60 +/-0.1 length, then cuts the corner chamfer the blank leaves square. Holding remains measurement debt."
+note = "Strap flat; check each square end has stock past the finished 60 +/-0.1 length (the blank carries about 0.5 mm nominal allowance per end), cut both ends to the finished length, then cut the corner chamfer the blank leaves square. Holding remains measurement debt."
 
 hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
 stock_state = { top_z = "unknown", bottom_z = "unknown" }
