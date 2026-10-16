@@ -300,13 +300,12 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     subject = f"{setup['id']}:{op['op']}"
     if op.get("do") in {"saw_cut", "cut_off"}:
         units = bundle.features.get("units", UNKNOWN)
-        # A hand saw cuts only at a bench or manual station, and its straight cut reports
-        # the kept piece's length; one still to verify cannot route stock at all. Any other
-        # tool keeps the powered-saw machine kinds.
-        saw_tool = {}
-        if record(resolve(bundle, "tools", op.get("tool"))).get("kind") == "hand_saw":
-            verified = not saw_tool_unverified(bundle, op)
-            saw_tool = {"saw_tool": "hand_saw" if verified else "unverified_hand_saw"}
+        # The saw's tool decides its stations: a bandsaw blade on a mill, bench or bandsaw,
+        # a hand saw at a bench or manual station (its straight cut reports the kept piece's
+        # length). A missing, unverified or non-saw tool cannot route stock at all.
+        kind = record(resolve(bundle, "tools", op.get("tool"))).get("kind")
+        known = kind in ("bandsaw", "hand_saw") and not saw_tool_unverified(bundle, op)
+        saw_tool = {"saw_tool": kind if known else "unresolved"}
         if "follows" in op:
             # The scribed line's cut takes only its declared region (unknown extent is
             # plan-input debt); the blade's kerf locates nothing, so no kerf is consumed.
