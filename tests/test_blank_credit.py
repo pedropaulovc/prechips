@@ -99,6 +99,11 @@ def test_a_profiled_blank_is_a_root_stock_or_a_component():
             },
             "each profiled blank is a component's",
         ),
+        # The form alone makes the root profiled: it cannot also be built up.
+        (
+            {"form": "profiled_blank", "components": [{"id": "a", "form": "round_bar"}]},
+            "each profiled blank is a component's",
+        ),
         (
             {
                 "components": [
@@ -585,6 +590,15 @@ def test_the_stock_line_prints_only_a_cited_vendor_tolerance(edit, printed):
     assert "strap-blank.STEP" not in line
 
 
+def test_a_profiled_component_prints_its_own_blank_size():
+    bundle = load_bundle(FIXTURE / "plan.toml")
+    box = {"stock.strap": [0.0, 0.0, 0.0, 60.0, 17.838, 2.5]}
+    object.__setattr__(bundle, "kernel", {"status": "ok", "blank_bbox_mm": box})
+    component = {"id": "strap", "form": "profiled_blank", "blank": BLANK_RECORD}
+    line = _Traveler(bundle, [], {}, None).stock_line(component, "stock.strap")
+    assert "60.000 × 17.838 × 2.500 overall, bought already cut to outline" in line
+
+
 def test_an_unknown_blank_record_prints_its_debt():
     bundle = load_bundle(FIXTURE / "plan.toml")
     bundle.plan["stock"]["blank"] = "unknown"
@@ -613,6 +627,10 @@ def test_the_blank_step_is_the_supplied_solid_and_each_as_is_face_is_measured(en
     assert result["status"] == "ok", result
     # The laser-cut blank, not a box: the finished strap plus the 4 x 4 x 2.5 corner.
     assert result["stock"]["volume_mm3"] == pytest.approx(2388.199527, abs=1e-5)
+    # Its own box, the traveler's receiving size: 60 long, the R80 crown 17.838 high.
+    assert result["blank_bbox_mm"]["stock"] == pytest.approx(
+        [0.0, 0.0, 0.0, 60.0, 17.838015, 2.5], abs=1e-5
+    )
     contact = result["as_is_contact"]
     assert contact[CHAMFER]["contact"] == "off_supply"
     # Sampled, so at most the 2 mm its mid-line stands from the blank's x = 60 end and
@@ -648,6 +666,8 @@ def test_a_component_blank_and_a_bar_component_are_measured_face_by_face(engine)
     result = engine.run(engine.job(PLATE, as_is=FACES, stock=stock))
     # A face off every supply stays uncredited instead of voiding the mixed supply.
     assert "reason" not in result["stock"], result["stock"]
+    # Only the profiled component reports a blank box; the bar is sized by its section.
+    assert list(result["blank_bbox_mm"]) == ["stock.strap"]
     contact = result["as_is_contact"]
     assert contact[CHAMFER]["contact"] == "off_supply"
     assert contact[TOP] == {"contact": "on_supply", "max_gap_mm": 0.0, "supplies": ["stock.strap"]}

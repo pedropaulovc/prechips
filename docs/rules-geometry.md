@@ -768,7 +768,9 @@ operation reinstates the normal machine screens.
 The supply needs the positive dimensions and model-frame placement described
 under [plan stock](plan.md#stock), or a [profiled blank](plan.md#profiled-blank)'s
 own STEP: the kernel verifies its digest, imports it in model coordinates and
-accepts exactly one closed, valid, positive-volume solid as the supply. As-is
+accepts exactly one closed, valid, positive-volume solid as the supply, and
+reports each such blank's own box (`blank_bbox_mm`, keyed `stock` or
+`stock.<id>`), the size the traveler prints for receiving it. As-is
 face references do not define a stock volume: when supplied, they must map and
 lie on that envelope. With a profiled blank among the supplies the kernel
 instead measures each as-is face against the joined raw supply's boundary

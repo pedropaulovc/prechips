@@ -2170,6 +2170,15 @@ def _blank(stock):
     return solid
 
 
+def _profiled_supply(stock, name):
+    """Whether supply ``name`` (``stock`` or ``stock.<id>``) is a profiled blank."""
+    if not isinstance(stock, dict):
+        return False
+    components = stock.get("components")
+    spec = components.get(name.removeprefix("stock.")) if isinstance(components, dict) else stock
+    return isinstance(spec, dict) and spec.get("shape") == "profiled"
+
+
 def _profiled(stock):
     """Whether the job's supply, or any of its components, is a profiled blank."""
     if not isinstance(stock, dict):
@@ -3607,6 +3616,14 @@ class _Job:
         self.raw_supplies = supplies
         if self.as_is_contact:
             result["as_is_contact"] = dict(sorted(self.as_is_contact.items()))
+        # Each profiled blank's own box: the traveler's receiving size for a bought blank.
+        blanks = {
+            name: [_r(v) for v in _bbox(solid)]
+            for name, (solid, why) in supplies.items()
+            if why is None and solid is not None and _profiled_supply(job.get("stock"), name)
+        }
+        if blanks:
+            result["blank_bbox_mm"] = dict(sorted(blanks.items()))
         self.states = {
             ref: {
                 "components": {ref.removeprefix("stock.")},

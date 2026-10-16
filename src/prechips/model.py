@@ -971,7 +971,8 @@ class Plan(InputModel):
             return self
         components = self.stock.components if isinstance(self.stock.components, list) else []
         errors = profiled_blank_errors(self.stock, "stock")
-        if components and "blank" in self.stock.model_fields_set:
+        profiled_root = "blank" in self.stock.model_fields_set or self.stock.form == PROFILED_BLANK
+        if components and profiled_root:
             errors.append("stock declares components, so each profiled blank is a component's")
         for component in components:
             errors.extend(profiled_blank_errors(component, f"stock.components.{component.id}"))

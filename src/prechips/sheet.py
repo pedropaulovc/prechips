@@ -9425,15 +9425,15 @@ class _Traveler:
         label = _STOCK_FORMS.get(form, _text(form) if form else "stock")
         if "blank" in stock or form == PROFILED_BLANK:
             # A bought profiled blank is sized by its cut file, not by bar dimensions: the
-            # receiving check is the kernel's box of that solid (root supply only). The
-            # file itself is bound in the report, never printed for the bench; an unknown
-            # blank or an uncited tolerance prints as debt, never as a vendor fact.
+            # receiving check is the kernel's box of that blank's own solid. The file
+            # itself is bound in the report, never printed for the bench; an unknown blank
+            # or an uncited tolerance prints as debt, never as a vendor fact.
             blank = _mapping(stock.get("blank"))
             tolerance, step = cited_tolerance(blank), blank.get("step")
-            box = _mapping(_mapping(self.bundle.kernel).get("stock")).get("bbox_mm")
+            box = _mapping(_mapping(self.bundle.kernel).get("blank_bbox_mm")).get(ref)
             dims = (
                 " × ".join(o(box[i + 3] - box[i]) for i in range(3)) + " overall, "
-                if ref == "stock" and isinstance(box, list) and len(box) == 6
+                if isinstance(box, list) and len(box) == 6
                 else ""
             )
             dims += (
