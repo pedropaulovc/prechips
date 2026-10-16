@@ -20,6 +20,7 @@ from prechips.model import (
     Inventory,
     Plan,
     Policy,
+    profiled,
     reference_only,
 )
 
@@ -94,10 +95,10 @@ def _prepared_blank(plan: dict, ids: list[str]) -> None:
     receiver = prepared.get("setup", "unknown") if isinstance(prepared, dict) else "unknown"
     if receiver != "unknown" and receiver not in ids:
         raise BadInput(f"stock.prepared.setup {receiver!r} is not a plan setup.")
-    if stock.get("components") or "dia_mm" in stock:
+    if stock.get("components") or "dia_mm" in stock or profiled(stock):
         raise BadInput(
-            "stock.prepared squares one rectangular root stock; a round or built-up "
-            "stock has no box to trim."
+            "stock.prepared squares one rectangular root stock; a round, built-up or "
+            "profiled stock has no box to trim."
         )
 
 
@@ -173,6 +174,42 @@ def _inspection_tables(where: str, op: dict, names: list[str], definitions: dict
                     f"{where} go_no_go.{requirement} names no checks gauge; a GO / NO-GO pair "
                     "needs its checks entry."
                 )
+
+
+def blank_supplies(plan: dict) -> dict[str, dict]:
+    """Each declared profiled blank keyed by its input kind: ``stock.blank`` for the root
+    stock, ``stock.<id>.blank`` for a component."""
+    stock = plan.get("stock") if isinstance(plan.get("stock"), dict) else {}
+    components = stock.get("components")
+    pieces = [("stock", stock)] + [
+        (f"stock.{component['id']}", component)
+        for component in (components if isinstance(components, list) else ())
+    ]
+    return {
+        f"{name}.blank": piece["blank"]
+        for name, piece in pieces
+        if isinstance(piece.get("blank"), dict)
+    }
+
+
+def _blank_assets(plan, base, root, paths, hashes):
+    """Read and hash every profiled blank STEP; a known digest must match its bytes."""
+    for kind, blank in blank_supplies(plan).items():
+        value = blank.get("step", "unknown")
+        if value == "unknown":
+            continue
+        path = _resolve(value, base)
+        if not path.is_relative_to(root):
+            raise BadInput(f"{kind}.step escapes the input bundle.")
+        try:
+            with _span(kind, path):
+                raw = path.read_bytes()
+        except OSError as exc:
+            raise BadInput(f"Cannot read {kind}.step asset: {exc}") from exc
+        digest = hashlib.sha256(raw).hexdigest()
+        if blank.get("step_sha256", "unknown") not in {"unknown", digest}:
+            raise BadInput(f"The {kind} STEP bytes do not match its step_sha256.")
+        paths[kind], hashes[kind] = path, digest
 
 
 def _load(path: Path, model: type[InputModel], kind: str) -> tuple[dict, str]:
@@ -416,6 +453,7 @@ def load_bundle(
                 if features.get("step_sha256", "unknown") not in {"unknown", digest}:
                     raise BadInput("The STEP bytes do not match the manifest digest.")
                 paths[field], hashes[field] = path, digest
+    _blank_assets(plan, plan_path.parent, root, paths, hashes)
     step_digest = features.get("step_sha256", "unknown")
     if step_digest != "unknown":
         if len(step_digest) != 64 or any(char not in "0123456789abcdef" for char in step_digest):

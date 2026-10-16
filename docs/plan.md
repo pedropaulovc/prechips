@@ -493,13 +493,14 @@ hold's `centre_hole` names the process centre its dead or live centre rides in
 | `as_is_faces` | `list[str]` |
 | `components` | `list[StockComponent]` |
 | `prepared` | `PreparedBlank` ([Prepared blank](#prepared-blank)) |
+| `blank` | `ProfiledBlank` ([Profiled blank](#profiled-blank)) |
 | `cite` | `Citations` |
 
 For a built-up stock candidate, `components` lists the separately authored
 blanks. Each `StockComponent` requires a known, nonempty, unique `id`;
 references match the exact id, with no ASCII character whitelist. It accepts `form`,
-`dia_mm`, `length_mm`, `section_mm`, `origin_mm`, `axis`, `section_axis`, `note`,
-and `cite` with the same types and model-frame pose semantics as root stock.
+`dia_mm`, `length_mm`, `section_mm`, `origin_mm`, `axis`, `section_axis`, `blank`,
+`note`, and `cite` with the same types and model-frame pose semantics as root stock.
 A round blank uses diameter and length; a rectangular blank uses two section
 dimensions and length. These are authored purchase/process choices, not
 confirmed on-hand inventory. Missing dimensions or citations keep comparison
@@ -528,7 +529,9 @@ Incompatible as-is surfaces also keep stock-dependent geometry `?` with a reason
 
 `as_is_faces` lists STEP face references (same forms as a feature's `faces`)
 that stay as supplied stock; the M4 `coverage` rule unites them with the faces
-claimed by cutting operations. An omitted list is unknown, not empty.
+claimed by cutting operations. An omitted list is unknown, not empty. On a
+[profiled blank](#profiled-blank) each listed face is credited only when it is
+supplied as cut within its drawing bands.
 
 Root `construction` declares the candidate route, independently of the
 drawing-side manifest permission. `built_up` is refused unless
@@ -561,11 +564,64 @@ which: rule `prepared_blank` stays unknown.
 `PreparedChecks` names an inventory gauge for `length`, `section_0`,
 `section_1`, `flat`, `square` and `parallel`; `PreparedMethods` gives the written
 `flat`, `square` and `parallel` procedures and `PreparedForm` their limits. An
-unknown `setup` is `BadInput`, as is a prepared blank on round or built-up stock
-(there is no box to trim). Rule `prepared_blank`
+unknown `setup` is `BadInput`, as is a prepared blank on round, built-up or
+profiled stock (there is no box to trim). Rule `prepared_blank`
 ([rules-setup](rules-setup.md#prepared_blank)) checks the size, the stock the
 kernel cut and the checks; the receiving setup's sheet prints them as **CHECK THE
 BLANK**, each form row with its limit and method.
+
+### Profiled blank
+
+A blank bought already profiled (laser-, waterjet- or plasma-cut from plate, for
+example from SendCutSend or OSH Cut) is `form = "profiled_blank"` with a `blank`
+table, on the root stock or on one `stock.components` entry:
+
+| Field | Type (also accepts `"unknown"`) |
+|---|---|
+| `step` | `str`: the blank's STEP, relative to the plan's directory and inside the bundle |
+| `step_sha256` | `str`: lowercase SHA-256 of those bytes |
+| `profile_tolerance_mm` | `float`: the vendor's declared ± cut tolerance, positive |
+| `cite` | `Citations`: the vendor's published tolerance |
+
+```toml
+[stock]
+form = "profiled_blank"
+as_is_faces = ["#119/ADVANCED_FACE[4]/", "#17/ADVANCED_FACE[1]/"]
+
+[stock.blank]
+step = "strap-blank.STEP"
+step_sha256 = "ae8923c2…"
+profile_tolerance_mm = 0.127 # the vendor's posted ±0.005 in
+cite = "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/"
+```
+
+The blank STEP is authored in the **part model's coordinates**: the solid the
+vendor cuts, placed where the finished part sits inside it. It is the supply's
+whole envelope, so a profiled blank declares no `section_mm`, `dia_mm`,
+`length_mm`, `origin_mm`, `axis` or `section_axis`. Any of them, a `blank` under
+another `form`, or a root `blank` beside `components` is bad input (exit 3), and
+so is a prepared blank on it. The loader reads and hashes the STEP like the
+part's: bytes that do not match a known `step_sha256`, or a path outside the
+bundle, are bad input; the report binds it as input `stock.blank` (a
+component's as `stock.<id>.blank`). An unknown `step` or `step_sha256` leaves
+the supply's geometry as named stock debt. The kernel imports the blank as the
+supplied solid and accepts exactly one closed, valid solid that contains the
+finished part; cuts, contact and volume then proceed as for a box or bar.
+The tolerance is a cited vendor value, never a measurement (without a usable
+`cite` it is unknown and credits nothing): it applies to every
+face the plan credits from the blank, the sheet faces included, so declare the
+larger of the vendor's cut tolerance and the plate's thickness tolerance when
+the broad faces are credited. Inventory `stock` cannot hold a profiled blank.
+
+`as_is_faces` still lists the faces the plan leaves as supplied. Each one is
+credited only when the kernel finds it on the blank's boundary and every
+drawing band of its features holds the vendor tolerance about its nominal
+(rule [`blank_credit`](rules-geometry.md#blank_credit)); a face failing either
+check stays uncovered and needs a cutting op, from a blank that leaves
+machining allowance on it (an op cannot restore an undersize face). The
+traveler prints the stock as a profiled blank of the kernel's overall size,
+bought already cut to outline, with the vendor tolerance; the cut file itself is
+bound in the report, not printed for the bench.
 
 ## Dro
 

@@ -221,7 +221,7 @@ def test_each_form_check_needs_a_limit_its_gauge_resolves(tmp_path, resolution_i
 def test_round_stock_cannot_declare_a_squared_blank(tmp_path):
     plan = bracket(tmp_path)
     set_key(plan, "stock", "dia_mm", "25.4")
-    with pytest.raises(BadInput, match="round or built-up"):
+    with pytest.raises(BadInput, match="round, built-up or profiled stock has no box to trim"):
         load_bundle(plan)
 
 

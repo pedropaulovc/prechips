@@ -21,9 +21,10 @@ from . import trig
 from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .measurements import angle_fact, length_debt, length_fact, measurement_entry, record_trusted
-from .model import TOLERANCE_REQUIREMENTS, reference_only, tolerance_requirements
+from .model import TOLERANCE_REQUIREMENTS, profiled, reference_only, tolerance_requirements
 from .rules._bench import manual_bench
 from .rules._envelope import measurement_item
+from .rules.blank_credit import cited_tolerance
 from .rules.coordinates import (
     CENTRE_OPS,
     OVERSHOOT_NOTE,
@@ -1920,6 +1921,7 @@ _STOCK_FORMS = {
     "flat_bar": "flat bar",
     "rectangular_blank": "rectangular blank",
     "prepared_blank": "prepared blank",
+    "profiled_blank": "profiled blank",
 }
 # Stock / stock-state keys that place solids for the kernel; not bench instructions.
 _PLACEMENT_KEYS = {"origin_mm", "axis", "section_axis", "as_is_faces", "id", "components"}
@@ -9421,6 +9423,29 @@ class _Traveler:
         elif stock.get("length_mm") == "unknown":
             dims += " × ? length not set"
         label = _STOCK_FORMS.get(form, _text(form) if form else "stock")
+        if profiled(stock):
+            # A bought profiled blank is sized by its cut file, not by bar dimensions: the
+            # receiving check is the kernel's box of that blank's own solid. The file
+            # itself is bound in the report, never printed for the bench; an unknown blank
+            # or an uncited tolerance prints as debt, never as a vendor fact.
+            blank = _mapping(stock.get("blank"))
+            tolerance, step = cited_tolerance(blank), blank.get("step")
+            box = _mapping(_mapping(self.bundle.kernel).get("blank_bbox_mm")).get(ref)
+            dims = (
+                " × ".join(o(box[i + 3] - box[i]) for i in range(3)) + " overall, "
+                if isinstance(box, list) and len(box) == 6
+                else ""
+            )
+            dims += (
+                "bought already cut to outline"
+                if isinstance(step, str) and step != "unknown"
+                else "bought already cut to outline, ? cut file not set"
+            )
+            dims += (
+                f", vendor cut tolerance ±{tolerance:g} mm"
+                if _known(tolerance)
+                else ", ? vendor cut tolerance not set or not cited"
+            )
         parts.append(f"{label} {dims}".strip())
         # The material itself is printed once, in the job header's material line.
         if stock.get("material") == "unknown":
@@ -9432,7 +9457,15 @@ class _Traveler:
                 self.metadata(key)
                 or key in _PLACEMENT_KEYS
                 or key
-                in {"form", "material", "dia_mm", "section_mm", "length_mm", "drawing_material"}
+                in {
+                    "form",
+                    "material",
+                    "dia_mm",
+                    "section_mm",
+                    "length_mm",
+                    "drawing_material",
+                    "blank",
+                }
                 or value in ("unknown", "not_applicable")
             ):
                 continue

@@ -616,6 +616,13 @@ When all component envelopes are known, their union must contain the finished
 STEP; otherwise all component references carry geometry debt.
 A nonempty root `as_is_faces` declaration needs the full joined supply exterior
 and every component envelope known, so it can withhold otherwise-known branches.
+A blank bought already laser-, waterjet- or plasma-cut is a
+[profiled blank](docs/plan.md#profiled-blank): `form = "profiled_blank"` with a
+`blank` table naming its cited, digest-bound STEP (in part-model coordinates)
+and the vendor's ± cut tolerance, on the root stock or a component. The kernel
+uses that solid as the supply; [`blank_credit`](docs/rules-geometry.md#blank_credit)
+credits an as-is face only when it lies on the blank and its drawing bands hold
+the tolerance, so out-of-band faces still need ops.
 Empty or omitted declarations add no cross-component dependency. Removal
 fragmentation is checked per input solid; deleting one piece cannot mask
 splitting another.

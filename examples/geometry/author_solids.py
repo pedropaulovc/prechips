@@ -34,12 +34,21 @@ POCKET_BLOCK = dict(block=(70.0, 50.0, 60.0), pocket=(40.0, 24.0), depth=45.0, c
 SLOT_BLOCK = dict(block=(60.0, 40.0, 20.0), pocket=(30.0, 12.0), depth=6.0)
 STEP_BLOCK = dict(block=(60.0, 40.0, 20.0), step_from_x=30.0, step_depth=10.0)
 FIXTURE_PUCK = dict(radius=15.0, height=20.0)
+# A 2.5 mm strap 60 long: square ends 12 high under an R80 top arc (crown 17.838), with
+# a 4 x 4 chamfer the finished plate has and its profiled blanks do not; the machined-ends
+# blank also leaves 0.5 mm on each square end.
+STRAP = dict(
+    length=60.0, end_height=12.0, arc_r=80.0, thickness=2.5, chamfer=4.0, end_allowance=0.5
+)
 
 SOLIDS = {
     "pocket-reach/pocket-block.STEP": "pocket_block",
     "sharp-corner/slot-block.STEP": "slot_block",
     "unclaimed-face/step-block.STEP": "step_block",
     "fixture-holds/fixture-puck.STEP": "fixture_puck",
+    "profiled-blank/strap-plate.STEP": "strap_plate",
+    "profiled-blank/strap-blank.STEP": "strap_blank",
+    "profiled-blank/strap-blank-ends.STEP": "strap_blank_ends",
 }
 
 
@@ -92,6 +101,48 @@ def fixture_puck():
     import Part
 
     return Part.makeCylinder(FIXTURE_PUCK["radius"], FIXTURE_PUCK["height"])
+
+
+def _strap(chamfer, allowance=0.0):
+    """The strap outline in XY from the origin, extruded up Z by its thickness: the
+    bottom edge on y = 0, square ends at x = 0 and x = length, the R80 arc between the
+    ends' tops; ``chamfer`` > 0 cuts the (length, 0) corner at 45 degrees and
+    ``allowance`` moves both square ends outward along X, the arc continued to them."""
+    import FreeCAD
+    import Part
+
+    V = FreeCAD.Vector
+    length, height = STRAP["length"], STRAP["end_height"]
+    radius, thickness = STRAP["arc_r"], STRAP["thickness"]
+    centre_y = height - (radius**2 - (length / 2) ** 2) ** 0.5
+    crown = centre_y + radius
+    left, right = -allowance, length + allowance
+    # The square ends' tops on the same R80 circle, however far out the ends stand.
+    top = centre_y + (radius**2 - (length / 2 + allowance) ** 2) ** 0.5 if allowance else height
+    arc = Part.Arc(V(right, top, 0), V(length / 2, crown, 0), V(left, top, 0))
+    corner = [V(right - chamfer, 0, 0), V(right, chamfer, 0)] if chamfer else [V(right, 0, 0)]
+    points = [V(left, 0, 0), *corner, V(right, top, 0)]
+    edges = [Part.makeLine(a, b) for a, b in zip(points, points[1:], strict=False)]
+    edges += [arc.toShape(), Part.makeLine(V(left, top, 0), V(left, 0, 0))]
+    face = Part.Face(Part.Wire(edges))
+    return face.extrude(V(0, 0, thickness))
+
+
+def strap_plate():
+    """The finished 2.5 mm strap: R80 top arc, square ends, 4 x 4 corner chamfer."""
+    return _strap(STRAP["chamfer"])
+
+
+def strap_blank():
+    """The strap's profiled blank as bought laser-cut: the same outline with the corner
+    left square, in the plate's own model coordinates."""
+    return _strap(0.0)
+
+
+def strap_blank_ends():
+    """The blank for a route that machines the square ends: ``strap_blank`` with 0.5 mm
+    of end allowance on each end (61 mm long), the R80 arc continued to them."""
+    return _strap(0.0, STRAP["end_allowance"])
 
 
 def build(names=()):

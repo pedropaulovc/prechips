@@ -9,6 +9,7 @@ from prechips.findings import Finding, Status
 from prechips.inputs import Bundle
 from prechips.rules import (
     accessibility,
+    blank_credit,
     centre_support,
     consistency,
     construction,
@@ -90,6 +91,7 @@ GEOMETRY_RULES = [
     Rule("reach", reach.evaluate),
     Rule("internal_corner_radius", internal_corner_radius.evaluate),
     Rule("coverage", coverage.evaluate),
+    Rule("blank_credit", blank_credit.evaluate),
     Rule("finish_coverage", finish_coverage.evaluate),
     Rule("vise", vise.evaluate),
     Rule("thin_wall_under_clamp", thin_wall_under_clamp.evaluate),

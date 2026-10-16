@@ -133,6 +133,54 @@ Dro = record(
 )
 
 
+# A blank bought already profiled (laser-, waterjet- or plasma-cut): the supplied solid is
+# the bundle-relative ``step``, authored in the part model's coordinates and bound by its
+# ``step_sha256``; ``profile_tolerance_mm`` is the vendor's declared ± cut tolerance (a
+# cited vendor value, never a measurement). See docs/plan.md "Profiled blank".
+PROFILED_BLANK = "profiled_blank"
+ProfiledBlank = record(
+    "ProfiledBlank",
+    {**texts("step step_sha256"), **numbers("profile_tolerance_mm"), "cite": Citations},
+)
+# The fields that size or place a box or round bar; a profiled blank's STEP does both.
+BAR_ENVELOPE = ("section_mm", "dia_mm", "length_mm", "origin_mm", "axis", "section_axis")
+
+
+def profiled(piece: Any) -> bool:
+    """Whether a loaded stock or component table is a profiled blank: its form or an
+    authored ``blank`` table (known or ``"unknown"``) says so. Every reader uses this one
+    test, so a form-only blank is never mistaken for bar stock."""
+    return isinstance(piece, dict) and ("blank" in piece or piece.get("form") == PROFILED_BLANK)
+
+
+def profiled_blank_errors(stock: Any, where: str) -> list[str]:
+    """Contradictions in one root stock or component that declares a profiled blank."""
+    fields = getattr(stock, "model_fields_set", set())
+    if "blank" not in fields and getattr(stock, "form", UNKNOWN) != PROFILED_BLANK:
+        return []
+    errors = []
+    if "blank" in fields and stock.form != PROFILED_BLANK:
+        errors.append(f"{where} declares a blank, so its form is {PROFILED_BLANK!r}")
+    bar = [name for name in BAR_ENVELOPE if name in fields]
+    if bar:
+        errors.append(
+            f"{where} is a profiled blank: its STEP is the envelope in model coordinates, "
+            f"so it declares no {', '.join(bar)}"
+        )
+    blank = stock.blank if isinstance(stock.blank, InputModel) else None
+    if blank is None:
+        return errors
+    if blank.step != UNKNOWN and not blank.step.strip():
+        errors.append(f"{where}.blank.step names no file")
+    digest = blank.step_sha256
+    if digest != UNKNOWN and not re.fullmatch(r"[0-9a-f]{64}", digest):
+        errors.append(f"{where}.blank.step_sha256 is not a lowercase SHA-256")
+    tolerance = blank.profile_tolerance_mm
+    if tolerance != UNKNOWN and tolerance <= 0:
+        errors.append(f"{where}.blank.profile_tolerance_mm must be positive")
+    return errors
+
+
 class StockComponent(InputModel):
     id: Annotated[str, Field(min_length=1)]
     form: str | Unknown = UNKNOWN
@@ -143,6 +191,7 @@ class StockComponent(InputModel):
     origin_mm: Vector = UNKNOWN
     axis: Vector = UNKNOWN
     section_axis: Vector = UNKNOWN
+    blank: ProfiledBlank | Unknown = UNKNOWN
     cite: Citations = UNKNOWN
 
     @model_validator(mode="after")
@@ -193,6 +242,7 @@ Stock = record(
         "as_is_faces": list[str],
         "components": list[StockComponent],
         "prepared": PreparedBlank,
+        "blank": ProfiledBlank,
         "cite": Citations,
     },
 )
@@ -919,6 +969,22 @@ class Plan(InputModel):
                             "no stated inspection method (views are keyed by requirement "
                             "alone, so they illustrate a flat inspection_methods entry)."
                         )
+        return self
+
+    @model_validator(mode="after")
+    def profiled_blanks(self) -> Plan:
+        """A profiled blank is one supply's whole envelope: never beside bar dimensions."""
+        if not isinstance(self.stock, Stock):
+            return self
+        components = self.stock.components if isinstance(self.stock.components, list) else []
+        errors = profiled_blank_errors(self.stock, "stock")
+        profiled_root = "blank" in self.stock.model_fields_set or self.stock.form == PROFILED_BLANK
+        if components and profiled_root:
+            errors.append("stock declares components, so each profiled blank is a component's")
+        for component in components:
+            errors.extend(profiled_blank_errors(component, f"stock.components.{component.id}"))
+        if errors:
+            raise ValueError("; ".join(errors) + ".")
         return self
 
     @model_validator(mode="after")
@@ -2037,6 +2103,21 @@ class Inventory(InputModel):
     services: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     consumables: dict[str, Consumable | Unknown] | Unknown = UNKNOWN
     stock: list[Stock] | Unknown = UNKNOWN
+
+    @model_validator(mode="after")
+    def bar_stock(self) -> Inventory:
+        """A profiled blank is one part's supply, bound to a STEP in that part's bundle."""
+        for index, stock in enumerate(self.stock if isinstance(self.stock, list) else ()):
+            pieces = [stock, *(stock.components if isinstance(stock.components, list) else ())]
+            if any(
+                "blank" in piece.model_fields_set or piece.form == PROFILED_BLANK
+                for piece in pieces
+            ):
+                raise ValueError(
+                    f"inventory stock[{index}] is a profiled blank; declare it as the plan's "
+                    "stock, where its STEP is read and hashed."
+                )
+        return self
 
     @model_validator(mode="before")
     @classmethod

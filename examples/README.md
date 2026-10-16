@@ -525,8 +525,10 @@ uses the STEP global XY bbox and retains only its authored 1 mm Z allowances.
 | `pocket-reach/plan.toml` / `long-reach.toml` | synthetic `pocket-block.STEP` | `reach`: 45 mm floor against a 19 mm flute fails; the 100 mm OAL candidate passes with the holder clear |
 | `sharp-corner/plan.toml` | synthetic `slot-block.STEP` | `internal_corner_radius`: sharp vertical pocket corners against a 1/4 in cutter |
 | `unclaimed-face/plan.toml` | synthetic `step-block.STEP` | `coverage`: one face cut by no op and not declared as-stock |
+| `profiled-blank/plan.toml` / `machined-ends.toml` | synthetic `strap-plate.STEP` and its profiled blank `strap-blank.STEP` | `blank_credit`: the arc, edge and broad faces are supplied as cut; the 60 ±0.1 ends cannot hold the vendor's ±0.127 mm and need an op |
 
-The five installed-kernel candidate exits are **2 / 2 / 0 / 2 / 2**.
+The first five installed-kernel candidate exits are **2 / 2 / 0 / 2 / 2**; the
+profiled-blank pair exits **2 / 0**.
 Block targets are S2; the rocker uses opposed preparation before its S3
 upright target. Each known entry-stock render is bound to its own
 `setup-S<n>.png`; preparation pictures show the raw/intermediate stock,

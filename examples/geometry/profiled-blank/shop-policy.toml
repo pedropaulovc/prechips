@@ -1,0 +1,25 @@
+# Profiled-blank fixture policy: the part-wide face credit is under test. coverage and
+# finish_coverage stay part- and feature-wide; blank_credit must report each credited
+# feature. S1's unknown holding remains displayed debt outside this scope. Any actual
+# error anywhere still fails; these selectors waive no errors.
+revision = 6
+
+[required]
+coverage = "*"
+finish_coverage = "*"
+blank_credit = "*"
+
+[numbers]
+refixture_budget_mm = "unknown"
+thin_wall_floor_mm = "unknown"
+stickout_ld_max = "unknown"
+
+[numbers_cite]
+refixture_budget_mm = "unknown"
+thin_wall_floor_mm = "unknown"
+stickout_ld_max = "unknown"
+
+[numbers_verify]
+refixture_budget_mm = true
+thin_wall_floor_mm = true
+stickout_ld_max = true
