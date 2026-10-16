@@ -72,6 +72,7 @@ def test_a_saw_declares_a_plane_or_the_scribed_line_it_follows(op):
         (scribed(follows="S2:5"), True, "names no earlier scribe op"),
         (scribed(follows="S1"), True, "names no earlier scribe op"),
         (scribed(allowance_mm=0.0), True, "must be positive"),
+        (scribed(allowance_mm=0), True, "must be positive"),
         (scribed(allowance_mm=-0.5), True, "must be positive"),
         ({"op": 20, "do": "file_to_line", "feature": "arc", "allowance_mm": 0.5}, True, "only"),
         ({"op": 20, "do": "deburr", "follows": "S1:10"}, True, "only a saw cut"),

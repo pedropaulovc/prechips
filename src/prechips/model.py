@@ -673,6 +673,7 @@ Operation = record(
     },
     indexed=("do",),
 )
+# The schema cannot import the rules package: rules.resolution.SAW_OPS names the same actions.
 SAW_ACTIONS = frozenset({"saw_cut", "cut_off"})
 type KnownBand = Annotated[list[float], Field(min_length=2, max_length=2)]
 
@@ -1029,7 +1030,7 @@ class Plan(InputModel):
                         f"{where}: follows {op.follows!r} names no earlier scribe op "
                         '("<setup>:<op>").'
                     )
-                if isinstance(op.allowance_mm, float) and op.allowance_mm <= 0:
+                if op.allowance_mm != UNKNOWN and op.allowance_mm <= 0:
                     raise ValueError(
                         f"{where}: allowance_mm, the stock left outside the line for the file, "
                         "must be positive."
