@@ -3,15 +3,17 @@
 import base64
 import hashlib
 import re
-import tomllib
 from copy import deepcopy
 
 import pytest
-from test_cli import SYNTHETIC_KERNEL, copy_examples, traveler
+from test_cli import SYNTHETIC_KERNEL, copy_examples, synthetic_kernel, traveler
 from test_kernel_outputs import _inspection_bundle, _png, _setup_scene
+from test_process_route import evaluate
 from test_sheet_ops import Markup, content
 
+from prechips.inputs import load_bundle
 from prechips.report import build_report, canonical_bytes, render_assets, report_hash
+from prechips.sheet import render_traveler
 
 
 def test_canonical_report_unicode_sorted_keys_float_and_final_lf():
@@ -53,10 +55,14 @@ def test_traveler_preserves_authored_slash_instructions(tmp_path):
         encoding="utf-8",
     )
 
-    _, _, html = traveler(plan, tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    # The whole traveler document, rendered in process on a synthetic kernel: the CLI
+    # subprocess's full rule pass is not what this test is about.
+    bundle = synthetic_kernel(load_bundle(plan))
+    findings = list(evaluate("inspection", bundle).values())
+    html = render_traveler(bundle, findings, {}, None)
 
     markup = Markup(html)
-    setup = tomllib.loads(plan.read_text(encoding="utf-8"))["setups"][0]
+    setup = bundle.plan["setups"][0]
     setup_id = setup["id"]
     operation_id = str(setup["ops"][0]["op"])
     pages = [
