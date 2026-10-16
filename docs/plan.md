@@ -1706,8 +1706,7 @@ the following `file_to_line` checks the stock it actually meets against the
 shop's `max_filing_stock_mm`, and counts this saw as the rough it finishes.
 
 A setup on a `bench`/`manual` machine whose saws all use a verified `hand_saw`
-tool (kerf debt aside for a cut that follows a line, which reads no kerf), with
-otherwise only bench actions (`fit`, `inspect`, `deburr`, `coating`, `scribe`,
+tool, with otherwise only bench actions (`fit`, `inspect`, `deburr`, `coating`, `scribe`,
 `file_to_line`), is manual bench work: its DRO, zero and headroom screens are
 `not_applicable` and `speeds_feeds` gives the hand saw no blade speed or feed. A
 powered or unresolved blade on a bench machine waives nothing. The traveler

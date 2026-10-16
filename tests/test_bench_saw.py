@@ -249,7 +249,7 @@ IDENTITY_CASES = [
     ({"kind": "hand_saw"}, "mill", True, "hand_saw", "wrong_station"),
     ({"kind": "hand_saw", "verify": True}, "bench", True, "unverified", "unknown"),
     ({"kind": "hand_saw", "source": {"verify": True}}, "bench", True, "unverified", "unknown"),
-    ({"kind": "hand_saw", **KERF_DEBT}, "bench", True, "hand_saw", "fits"),
+    ({"kind": "hand_saw", **KERF_DEBT}, "bench", True, "unverified", "unknown"),
     ({"kind": "hand_saw", **KERF_DEBT}, "bench", False, "unverified", "unknown"),
     ({"kind": "bandsaw"}, "bench", False, "bandsaw", "fits"),
     ({"kind": "bandsaw"}, "manual", True, "bandsaw", "wrong_station"),
@@ -296,36 +296,30 @@ def test_every_consumer_reads_the_one_saw_identity(tool, machine, scribed_cut, k
 
 
 @pytest.mark.parametrize(
-    "ops, identity",
-    [
-        ([scribed()], "pass"),
-        ([saw(cut_plane=dict(PLANE))], "unknown"),
-        ([scribed(), {**saw(cut_plane=dict(PLANE)), "op": 30}], "unknown"),
-    ],
-    ids=["scribed-only", "straight", "both"],
-)
-@pytest.mark.parametrize("spelling", ["hacksaw", "tools.hacksaw"])
-def test_the_tool_listing_reads_the_saw_identity_too(ops, identity, spelling):
-    """The selected-identity row is one more consumer: kerf debt only a scribed cut leaves
-    unread is no listing debt; a straight cut that reads it keeps the whole item's."""
-    ops = [{**op, "tool": spelling} for op in ops]
-    bundle = saw_bundle(op=ops[0])
-    bundle.plan["setups"][0]["ops"] = ops
-    bundle.inventory["tools"]["hacksaw"].update(KERF_DEBT)
-    rows = {row.subject: row.status for row in tool_resolves.evaluate(bundle)}
-    assert rows["hacksaw"] == identity
-
-
-@pytest.mark.parametrize(
     "hacksaw",
-    ["unknown", {"kind": "unknown", "verify": True}, {"kind": "hand_saw", "verify": True}],
-    ids=["declared-unknown", "kind-unknown", "flagged"],
+    [
+        "unknown",
+        {"kind": "unknown", "verify": True},
+        {"kind": "hand_saw", "verify": True},
+        {"kind": "hand_saw", "included": "unknown"},
+        {"kind": "hand_saw", **KERF_DEBT},
+    ],
+    ids=["declared-unknown", "kind-unknown", "flagged", "normalized", "kerf"],
 )
-def test_an_unresolved_scribed_only_saw_listing_stays_debt(hacksaw):
-    bundle = saw_bundle(op=scribed())
+@pytest.mark.parametrize("op", [scribed(), saw(cut_plane=dict(PLANE))], ids=["scribed", "plane"])
+def test_any_saw_identity_debt_is_debt_for_every_consumer(hacksaw, op):
+    """An item's verification debt, a kerf's included, is its identity's: the listing row,
+    the assembly, the saw rule and the kernel verdict all stay unresolved, whatever shape
+    the cut has."""
+    from prechips.kernel import op_inputs
+
+    native = {"S2:20": {**NATIVE, "kerf_mm": 1.0, "retained_boundary_mm": 87.0}}
+    bundle = saw_bundle(op=op, kernel={"status": "ok", "ops": native})
     bundle.inventory["tools"]["hacksaw"] = hacksaw
     rows = {row.subject: row.status for row in tool_resolves.evaluate(bundle)}
-    assert rows["hacksaw"] == "unknown"
+    assert rows["hacksaw"] == rows["S2:20"] == "unknown"
+    assert saw_cut.evaluate(bundle)[0].status == "unknown"
+    assert op_inputs(bundle, bundle.plan["setups"][0], op)["saw_tool"] == "unresolved"
 
 
 def test_a_scribed_cut_that_keeps_its_allowance_passes_without_a_kerf():
@@ -336,33 +330,6 @@ def test_a_scribed_cut_that_keeps_its_allowance_passes_without_a_kerf():
     assert finding.numbers["follows"] == "S1:10"
     assert finding.numbers["retained_to_target_mm"] == 0.5
     assert "cut_plane" not in finding.numbers
-
-
-def test_kerf_debt_a_scribed_cut_never_reads_does_not_block_it():
-    bundle = scribed_bundle()
-    bundle.inventory["tools"]["hacksaw"].update(
-        verify=False, kerf_mm={"value": "unknown", "verify": True}
-    )
-    assert saw_cut.evaluate(bundle)[0].status == "pass"
-    row = next(row for row in tool_resolves.evaluate(bundle) if row.subject == "S2:20")
-    assert row.status == "pass"
-    # The same holds for a kit member's own kerf debt; other member debt still counts.
-    kit = scribed_bundle(tool="hacksaws/fine")
-    kit.kernel["ops"]["S2:20"] = dict(NATIVE)
-    kit.inventory["tools"] = {
-        "hacksaws": {
-            "kind": "hand_saw",
-            "verify": False,
-            "members": {"fine": {"kerf_mm": {"value": "unknown", "verify": True}}},
-        }
-    }
-    assert saw_cut.evaluate(kit)[0].status == "pass"
-    kit.inventory["tools"]["hacksaws"]["members"]["fine"]["verify"] = True
-    assert saw_cut.evaluate(kit)[0].status == "unknown"
-    # A straight cut reads that kerf: the same debt keeps it unknown.
-    straight = saw_bundle()
-    straight.inventory["tools"]["hacksaw"]["kerf_mm"] = {"value": "unknown", "verify": True}
-    assert saw_cut.evaluate(straight)[0].status == "unknown"
 
 
 @pytest.mark.parametrize(

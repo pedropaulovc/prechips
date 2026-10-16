@@ -30,7 +30,6 @@ from .resolution import (
     resolve,
     same_length,
     saw_station,
-    saw_tool,
     select,
     setup_items,
     shop_made_item,
@@ -216,28 +215,14 @@ def evaluate(bundle):
         for category, ref, _ in setup_items(bundle, setup):
             bare = select(bundle, ref)[0] in (None, category)
             selected.setdefault(ref if bare else f"{category}.{ref}", (category, ref))
-    # A tool only scribed-line saw cuts select is judged as they judge it (saw_tool): its
-    # unread kerf debt is no identity debt; any other use reads the whole item. Uses are
-    # keyed by the item, however each op spells it.
-    uses = {}
-    for _, op in operations(bundle):
-        if op.get("tool") is not None:
-            uses.setdefault(identity(bundle, op["tool"], "tools"), []).append(op)
     for subject, (category, ref) in sorted(selected.items()):
         item = resolve(bundle, category, ref)
-        users = uses.get((category, ref), [])
-        scribed = [op for op in users if op.get("do") in SAW_OPS and "follows" in op]
-        doubtful = (
-            saw_tool(bundle, scribed[0]) in ("unknown", "unverified")
-            if scribed and len(scribed) == len(users)
-            else uncertain(item)
-        )
-        status = "error" if item is None else "unknown" if doubtful else "pass"
+        status = "error" if item is None else "unknown" if uncertain(item) else "pass"
         numbers = {
             "reference": ref,
             "category": category,
             "present": item is not None,
-            "verified": item is not None and not doubtful,
+            "verified": item is not None and not uncertain(item),
         }
         diameter_reason = None
         if item:
@@ -266,7 +251,7 @@ def evaluate(bundle):
                     "not listed in the inventory."
                     if item is None
                     else "listed; presence or catalogue identity needs verification."
-                    if doubtful
+                    if uncertain(item)
                     else (
                         "listed identity resolves, but its diameter is unverified: "
                         f"{diameter_reason}"

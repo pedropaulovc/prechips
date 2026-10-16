@@ -924,30 +924,17 @@ def coating_process(bundle_or_inventory, reference):
     return "services", {"kind": UNKNOWN, "verify": True} if item == UNKNOWN else item
 
 
-def _saw_identity_unverified(bundle, op, category, reference, item):
-    """Whether the selected saw's identity carries verification debt. A cut that follows a
-    scribed line reads no kerf, so kerf debt alone (the item's or a kit member's) is not
-    debt for it; every other parent or member debt is."""
-    if "follows" not in op:
-        return uncertain(item)
-    root, _, member = str(reference).partition("/")
-    entry = record(record(record(bundle.inventory).get(category)).get(root))
-    entries = [entry, record(record(entry.get("members")).get(member))] if member else [entry]
-    unread = {"kerf", "kerf_mm", "kerf_in", "members"}
-    return any(uncertain({k: v for k, v in e.items() if k not in unread}) for e in entries)
-
-
 def saw_tool(bundle, op):
     """The one classification of a saw op's selected tool every consumer reads (bench
     waiver, speeds, assembly, saw rule, kernel routing): ``"bandsaw"`` or ``"hand_saw"``
     for a resolved, verified saw of that kind; ``"unknown"`` for a missing, unlisted or
-    kind-less tool; ``"unverified"`` for one with identity debt; ``"not_a_saw"`` for a
-    verified tool of another kind."""
-    category, reference, _ = select(bundle, op.get("tool"), "tools")
+    kind-less tool; ``"unverified"`` for one with any verification debt (an item's debt,
+    a kerf's included, is its identity's, as its inventory listing reads it);
+    ``"not_a_saw"`` for a verified tool of another kind."""
     item = resolve(bundle, "tools", op.get("tool"))
     if not isinstance(item, dict) or item.get("kind", UNKNOWN) == UNKNOWN:
         return "unknown"
-    if _saw_identity_unverified(bundle, op, category, reference, item):
+    if uncertain(item):
         return "unverified"
     return item["kind"] if item["kind"] in SAW_MACHINES else "not_a_saw"
 
