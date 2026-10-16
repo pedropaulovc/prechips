@@ -113,6 +113,15 @@ def _inspection_tables(where: str, op: dict, names: list[str], definitions: dict
     every = set().union(*exported.values())
     for table in INSPECTION_TABLES:
         for key, value in (op.get(table) if isinstance(op.get(table), dict) else {}).items():
+            # A table of entries, never a flat value (a GO / NO-GO pair is a table too).
+            scoping = isinstance(value, dict) and not (
+                table == "go_no_go" and {"go", "no_go"} & set(value)
+            )
+            if key not in names and scoping:
+                raise BadInput(
+                    f"{where} {table}.{key} scopes entries to a feature the op does not list; "
+                    f"scope them to one of {', '.join(names)}."
+                )
             if key not in names:
                 continue
             if key in every:
@@ -125,9 +134,7 @@ def _inspection_tables(where: str, op: dict, names: list[str], definitions: dict
                     f"{where} {table}.{key} scopes entries to the op's only feature; a "
                     f"single-feature op keys {table} by requirement alone."
                 )
-            if not isinstance(value, dict) or (
-                table == "go_no_go" and {"go", "no_go"} & set(value)
-            ):
+            if not scoping:
                 raise BadInput(
                     f"{where} {table}.{key} names a listed feature: scope its entries as "
                     f"{table}.{key}.<requirement>."

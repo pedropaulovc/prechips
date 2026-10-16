@@ -580,7 +580,11 @@ distinct from requirement-associated records: one full-width white freeform
 readings/observations area below each real requirement, at least 20 mm clear
 interior depth excluding labels, padding and borders. Known owners, limits,
 gauges, units and method references stay associated; feature/location can be
-identified when needed without inferred reading counts or statistics.
+identified when needed without inferred reading counts or statistics. A
+multi-feature `inspect` op prints as one station card; its `checks`,
+`go_no_go` and `inspection_methods` may be scoped per listed feature
+([plan](docs/plan.md#operation)), and each feature's row then names its own
+gauge, GO / NO-GO pair and method.
 Specifically named procedure blanks remain separate, with a 35 × 10 mm clear
 interior floor. Pre-clamping M acquisition occurs only for explicit
 `measure_before_hold = true` with an authored `measure`; pen room stays in its

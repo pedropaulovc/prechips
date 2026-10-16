@@ -36,7 +36,12 @@ exported `requirements` list, including when the list is wholly unknown. A name
 exported on another feature does not establish ownership. An `inspect` op naming
 a feature list may check a requirement any named feature exports; it is the
 check op for each named feature that exports it, so one reading of a limit the
-drawing gives two features covers both `feature:requirement` subjects. To retain
+drawing gives two features covers both `feature:requirement` subjects. Such an op
+may instead scope `checks`, `go_no_go` and `inspection_methods` entries to one
+listed feature (`checks = { pivot_bore = { dia = "pin-gauges" }, hub_od = { dia =
+"micrometers/0-1in" } }`, [plan](plan.md#operation)): each feature is then judged
+with its own scoped gauge, pair and method, else the flat one, and a feature the op
+gives no gauge for that requirement is not checked there. To retain
 an authored inspection for a requirement absent from the export, declare a separate inspect
 operation with `missing_requirements = { length = "calipers" }` and its
 `inspection_methods.length` procedure. A name already exported on the selected
@@ -165,7 +170,9 @@ whole changes no inspection method, evidence, unknown or acceptance decision.
 
 An op's `go_no_go = { <requirement> = { go = <mm>, no_go = <mm> } }` states the two
 sizes its `checks[<requirement>]` gauge uses; every key needs its `checks` entry
-(otherwise bad input). A pair is a limit check: the GO size must pass the work and
+(otherwise bad input). On a multi-feature inspect op a pair may be scoped,
+`go_no_go = { <feature> = { <requirement> = { go, no_go } } }`: it gauges that feature
+alone, with that feature's `checks` gauge, and the other features keep theirs. A pair is a limit check: the GO size must pass the work and
 the NO-GO size must not, so the gauge accepts the sizes between them. For a hole
 (`hole`, `counterbore`, `thread`, `threaded_hole`) the gauge must be a pin, pin set or plug and
 GO >= low limit, NO-GO <= high limit, GO < NO-GO. A boss or shaft is the mirror: a

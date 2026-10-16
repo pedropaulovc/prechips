@@ -30,7 +30,7 @@ from prechips.joint_features import _lineage
 from prechips.measurements import length_fact
 from prechips.process_features import ACTIONS, label, primitive, process_of
 from prechips.rules.inspection import _capability, _gauge_measurements, procedure_known
-from prechips.rules.resolution import UNKNOWN, number, record, resolve, uncertain
+from prechips.rules.resolution import UNKNOWN, number, op_feature, record, resolve, uncertain
 
 RULE = "prepared_blank"
 SUBJECT = "stock.prepared"
@@ -88,7 +88,8 @@ def _faces(bundle, receiver):
     made, later = [], []
     for setup in bundle.plan["setups"]:
         for op in setup["ops"]:
-            name = op.get("feature")
+            # An inspect op's feature list never cuts an end face.
+            name = op_feature(op)
             process = process_of(bundle.feature_definitions.get(name)) if name else None
             if not process or process["kind"] != "end_face":
                 continue
