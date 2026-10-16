@@ -29,6 +29,7 @@ from .resolution import (
     record,
     resolve,
     same_length,
+    saw_tool_unverified,
     select,
     setup_items,
     shop_made_item,
@@ -70,7 +71,7 @@ def _h6_band(nominal):
     return UNKNOWN
 
 
-def _saw_assembly(subject, op, tool, machine, machine_ref):
+def _saw_assembly(bundle, subject, op, tool, machine, machine_ref):
     nums = {
         "tool": op.get("tool", UNKNOWN),
         "holder": "not_applicable",
@@ -99,7 +100,7 @@ def _saw_assembly(subject, op, tool, machine, machine_ref):
                 f"not a {nums['machine_kind']}"
             )
         # Unverified identities cannot establish either a fit or a mismatch.
-        if uncertain(tool) or uncertain(machine):
+        if saw_tool_unverified(bundle, op) or uncertain(machine):
             unknown = True
             problems = []
     status = "error" if problems else "unknown" if unknown else "pass"
@@ -311,6 +312,7 @@ def evaluate(bundle):
         if op["do"] in SAW_OPS:
             findings.append(
                 _saw_assembly(
+                    bundle,
                     subject,
                     op,
                     resolve(bundle, "tools", op.get("tool")),

@@ -206,6 +206,20 @@ def test_a_scribed_cut_that_keeps_its_allowance_passes_without_a_kerf():
     assert "cut_plane" not in finding.numbers
 
 
+def test_kerf_debt_a_scribed_cut_never_reads_does_not_block_it():
+    bundle = scribed_bundle()
+    bundle.inventory["tools"]["hacksaw"].update(
+        verify=False, kerf_mm={"value": "unknown", "verify": True}
+    )
+    assert saw_cut.evaluate(bundle)[0].status == "pass"
+    row = next(row for row in tool_resolves.evaluate(bundle) if row.subject == "S2:20")
+    assert row.status == "pass"
+    # A straight cut reads that kerf: the same debt keeps it unknown.
+    straight = saw_bundle()
+    straight.inventory["tools"]["hacksaw"]["kerf_mm"] = {"value": "unknown", "verify": True}
+    assert saw_cut.evaluate(straight)[0].status == "unknown"
+
+
 @pytest.mark.parametrize(
     "change, words",
     [

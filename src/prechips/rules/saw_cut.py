@@ -21,6 +21,7 @@ from prechips.rules.resolution import (
     operations,
     record,
     resolve,
+    saw_tool_unverified,
     select,
     uncertain,
 )
@@ -106,7 +107,7 @@ def evaluate(bundle):
             invalid.append("blade kerf must be positive")
         if not machine or machine.get("kind", UNKNOWN) == UNKNOWN or uncertain(machine):
             missing.append("resolved, verified saw machine")
-        if not blade or blade.get("kind", UNKNOWN) == UNKNOWN or uncertain(blade):
+        if not blade or blade.get("kind", UNKNOWN) == UNKNOWN or saw_tool_unverified(bundle, op):
             hand = blade.get("kind") == "hand_saw"
             missing.append(f"resolved, verified {'hand saw' if hand else 'bandsaw blade'}")
         if not scribed and (not kerf["verified"] or not number(kerf["value"])):

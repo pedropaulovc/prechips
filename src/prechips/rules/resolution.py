@@ -924,6 +924,16 @@ def coating_process(bundle_or_inventory, reference):
     return "services", {"kind": UNKNOWN, "verify": True} if item == UNKNOWN else item
 
 
+def saw_tool_unverified(bundle, op):
+    """Whether a saw op's selected tool is unverified. A cut that follows a scribed line
+    reads no kerf, so verification debt on the tool's kerf alone does not make it so."""
+    category, reference, item = select(bundle, op.get("tool"), "tools")
+    if "follows" not in op or not isinstance(item, dict) or "/" in str(reference):
+        return uncertain(item)
+    entry = record(record(record(bundle.inventory).get(category)).get(reference))
+    return uncertain({k: v for k, v in entry.items() if k not in {"kerf", "kerf_mm", "kerf_in"}})
+
+
 def saw_setup(setup):
     """A dedicated saw setup: at least one saw op and every non-manual op is a saw op.
 
