@@ -545,8 +545,15 @@ def evaluate(bundle):
             ):
                 errors.append(f"part/fixture envelope exceeds {axis.upper()} travel")
         numbers["travel_checks"] = travels
-        status = "error" if errors else "unknown" if unknown else "pass"
-        if status == "unknown":
+        # A guided sweep moves its fixture under the spindle: the stack and clearance
+        # judged at the setup pose do not cover every pose, so it is never a pass (#255).
+        from .guided_sweep import unmodelled
+
+        swept = unmodelled(bundle, setup, "headroom")
+        if swept:
+            numbers["guided_sweep_debts"] = swept
+        status = "error" if errors else "unknown" if unknown or swept else "pass"
+        if unknown and not errors:
             debts.update(consumed)
         numbers["measurements"] = [debts[key] for key in sorted(debts)]
         sentence = (
@@ -554,9 +561,16 @@ def evaluate(bundle):
             + (
                 "; ".join(errors)
                 if errors
-                else "headroom, travel or jaw-path geometry remains unmeasured or unresolved"
-                + "".join(f"; {conflict}" for conflict in conflicts)
-                if unknown
+                else "; ".join(
+                    (
+                        ["headroom, travel or jaw-path geometry remains unmeasured or unresolved"]
+                        if unknown
+                        else []
+                    )
+                    + conflicts
+                    + swept
+                )
+                if unknown or swept
                 else "measured spindle stack and part/fixture travels fit"
             )
             + "."

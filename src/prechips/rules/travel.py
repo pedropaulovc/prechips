@@ -349,6 +349,11 @@ def evaluate(bundle):
                     f"declared {axis.upper()} operation span {bound}{minimum_required:g} mm "
                     f"exceeds measured travel {travel['value']:g} mm by {-lower_margin:g} mm"
                 )
+        # A guided sweep's fixture moves while the table stays put: its swept footprint is
+        # not modelled, so the setup is never a travel pass (#255).
+        from .guided_sweep import unmodelled
+
+        swept = unmodelled(bundle, setup, "travel")
         if not operations:
             status, sentence = (
                 "not_applicable",
@@ -366,6 +371,10 @@ def evaluate(bundle):
                 debts,
                 list(dict.fromkeys(missing)),
             )
+            if swept:
+                sentence = sentence.rstrip(".") + "; " + "; ".join(swept) + "."
+        elif swept:
+            status, sentence = "unknown", f"{setup['id']}: " + "; ".join(swept) + "."
         else:
             status = "pass"
             sentence = (
@@ -381,6 +390,7 @@ def evaluate(bundle):
                     "travel_checks": checks,
                     "operations": operations,
                     "measurements": [debts[key] for key in sorted(debts)],
+                    **({"guided_sweep_debts": swept} if swept else {}),
                 },
                 list(dict.fromkeys(cite)),
                 sentence,

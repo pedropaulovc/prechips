@@ -202,6 +202,18 @@ envelope is computed. Inch inventory lengths convert explicitly by 25.4.
 Unverified dimensions cannot establish a verified stack/travel pass or measured
 clearance violation.
 
+A `guided_sweep` op ([#255](https://github.com/pedropaulovc/prechips/issues/255))
+moves its fixture under a still table, and neither `headroom` nor `travel` models
+that motion, so a setup with one is never a pass for either. `headroom` judges the
+stack and the fixture's clearance with the fixture at its setup pose only and owes
+the check that the dry pass from stop to stop clears the spindle nose, holder and
+column at every pose. `travel` owes the check that the swept footprint (a swing
+arm's pivot post at the arc centre, on the table or a table extension, or a sled's
+rollers in the T-slots, through the whole sweep) clears the column, the table ends
+and the way covers. Each finding names these in `guided_sweep_debts` and in its
+sentence, `op {n} guided sweep: … check: …`, and stays `?` (an established error
+still wins). Follow-ups: [#272](https://github.com/pedropaulovc/prechips/issues/272).
+
 For a lathe, `headroom` instead compares stock OD and chuck `body_dia` with
 `envelope.swing_over_bed`, stock OD with `envelope.swing_over_cross_slide`,
 and `hold.stickout_mm + body_length` with `envelope.between_centres`.

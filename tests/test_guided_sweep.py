@@ -482,6 +482,38 @@ ZERO_Z = (
 )
 
 
+@pytest.mark.parametrize("guide", ["pivot", "rail"])
+def test_travel_and_headroom_owe_a_check_for_the_moving_fixture(tmp_path, guide):
+    # Neither rule models the fixture moving under a still table: the swept footprint
+    # (pivot post or rollers, the swing past the column and table ends) and the stack at
+    # every pose are checks the operator owes, so neither finding is ever a pass.
+    from prechips.rules import headroom, travel
+
+    bundle = load_bundle(guided_plan(tmp_path, guide))
+    for rule, phrase in (
+        (travel, "the swept footprint of"),
+        (headroom, "judged with"),
+    ):
+        (row,) = [r for r in rule.evaluate(bundle) if r.subject == "S1"]
+        assert row.status in ("unknown", "error"), row.sentence
+        (debt,) = row.numbers["guided_sweep_debts"]
+        assert debt.startswith("op 20 guided sweep:") and phrase in debt and "check:" in debt
+        assert debt in row.sentence
+    (row,) = [r for r in travel.evaluate(bundle) if r.subject == "S1"]
+    post = "the pivot post at the arc centre" if guide == "pivot" else "the rollers in the T-slots"
+    assert post in row.numbers["guided_sweep_debts"][0]
+
+
+def test_a_setup_without_a_guided_sweep_owes_no_sweep_check(tmp_path):
+    from prechips.rules import headroom, travel
+
+    plan = scratch(tmp_path, op(20, "finish_profile", "{ method = 'chords', count = 24 }"))
+    bundle = load_bundle(plan)
+    for rule in (travel, headroom):
+        (row,) = [r for r in rule.evaluate(bundle) if r.subject == "S1"]
+        assert "guided_sweep_debts" not in row.numbers
+
+
 @pytest.mark.parametrize("mixed", [False, True], ids=["sweep-only", "with-a-drill"])
 def test_a_sweep_only_setup_picks_up_no_xy_zero(tmp_path, mixed):
     # Its X and Y come from the touch-off on the master and stay locked: the zero recipe

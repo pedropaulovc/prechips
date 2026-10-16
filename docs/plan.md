@@ -1687,7 +1687,10 @@ uses the 1898 manual arc method:
    direction viewed from above, its angle and cutter travel, and the time it takes
    at the op's starting feed; each sweep ends with Z raised clear of the work and the
    fixture, the op's last also stopping the spindle before anyone reaches in. The
-   worst-case cut radius stays in the report. Any
+   worst-case cut radius stays in the report. `travel` and `headroom` do not model
+   the moving fixture (its swept footprint, the stack at every pose), so a setup with
+   a guided sweep is never a pass for either: each owes a `check:` debt
+   ([rules-setup](rules-setup.md#headroom), [#272](https://github.com/pedropaulovc/prechips/issues/272)). Any
    unproven guide, cut radius, axis, direction, angle, rollers or rail ends prints
    only a STOP naming them.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.

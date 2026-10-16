@@ -60,6 +60,45 @@ def touch_set(setup):
     return swept
 
 
+def unmodelled(bundle, setup, rule):
+    """The ``check:`` debts ``rule`` (``"travel"`` or ``"headroom"``) owes for each guided
+    sweep op in ``setup``: what neither models while the fixture moves, so the finding is
+    unknown, never a pass. ``travel``: the fixture's swept footprint (a swing arm's pivot
+    post, possibly on a table extension, or a sled pushed along its rollers) against the
+    table, column and way covers. ``headroom``: the spindle stack and fixture clearance,
+    judged at the setup pose only, at every pose of the sweep."""
+    debts = []
+    for op in setup.get("ops") or []:
+        op = record(op)
+        contour = record(op.get("contour"))
+        if contour.get("method") != METHOD:
+            continue
+        sweep = record(contour.get("sweep"))
+        fixture = sweep.get("fixture", UNKNOWN)
+        angle = sweep.get("sweep_deg", UNKNOWN)
+        turn = f"{angle:g}°" if number(angle) else "its whole sweep"
+        if rule == "travel":
+            what = (
+                "the pivot post at the arc centre, on the table or a table extension, and the "
+                "arm swung"
+                if sweep.get("guide") == "pivot"
+                else "the rollers in the T-slots and the sled pushed"
+            )
+            debts.append(
+                f"op {op.get('op', UNKNOWN)} guided sweep: the swept footprint of {fixture} is "
+                f"not modelled; check: with Z raised and the spindle stopped, {what} through "
+                f"{turn} clear the column, the table ends and the way covers"
+            )
+        else:
+            debts.append(
+                f"op {op.get('op', UNKNOWN)} guided sweep: the spindle stack and fixture "
+                f"clearance are judged with {fixture} at its setup pose only; check: the dry "
+                f"pass from stop to stop ({turn}) clears the spindle nose, holder and column "
+                "at every pose"
+            )
+    return debts
+
+
 def swept_angles(start, end, step, sweep, full):
     """A guided sweep's cutter-centre sample angles (feature angle convention, see
     ``coordinates._arc``): the arc's own samples (:func:`coordinates._samples`, exact ends
