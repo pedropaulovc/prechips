@@ -19,6 +19,7 @@ from prechips import kernel
 from prechips.inputs import BadInput, Bundle, load_bundle
 from prechips.model import Inventory, Plan
 from prechips.rules import blank_credit, coverage
+from prechips.sheet import _Traveler
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "examples" / "geometry" / "profiled-blank"
@@ -560,6 +561,39 @@ def test_a_bar_component_face_keeps_its_bar_credit():
     rows = blank_credit.credit(bundle, facts)
     assert rows[TOP]["verdict"] == rows[CHAMFER]["verdict"] == "credited"
     assert rows[TOP]["owners"] == ["strap_faces"] and "owners" not in rows[CHAMFER]
+
+
+# --------------------------------------------------------------------------- traveler
+
+
+@pytest.mark.parametrize(
+    ("edit", "printed"),
+    [
+        ({}, "vendor cut tolerance ±0.127 mm"),
+        # An uncited number is no vendor fact on the bench either.
+        ({"cite": "unknown"}, "? vendor cut tolerance not set or not cited"),
+        ({"profile_tolerance_mm": "unknown"}, "? vendor cut tolerance not set or not cited"),
+    ],
+)
+def test_the_stock_line_prints_only_a_cited_vendor_tolerance(edit, printed):
+    bundle = load_bundle(FIXTURE / "plan.toml")
+    bundle.plan["stock"]["blank"].update(edit)
+    object.__setattr__(bundle, "kernel", {"status": "ok"})
+    line = _Traveler(bundle, [], {}, None).stock_line(bundle.plan["stock"])
+    assert line.startswith("profiled blank bought already cut to outline")
+    assert printed in line
+    assert "strap-blank.STEP" not in line
+
+
+def test_an_unknown_blank_record_prints_its_debt():
+    bundle = load_bundle(FIXTURE / "plan.toml")
+    bundle.plan["stock"]["blank"] = "unknown"
+    object.__setattr__(bundle, "kernel", {"status": "ok"})
+    line = _Traveler(bundle, [], {}, None).stock_line(bundle.plan["stock"])
+    assert line.startswith(
+        "profiled blank bought already cut to outline, ? cut file not set, "
+        "? vendor cut tolerance not set or not cited"
+    )
 
 
 # --------------------------------------------------------------------------- FreeCAD

@@ -21,9 +21,10 @@ from . import trig
 from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .measurements import angle_fact, length_debt, length_fact, measurement_entry, record_trusted
-from .model import TOLERANCE_REQUIREMENTS, reference_only, tolerance_requirements
+from .model import PROFILED_BLANK, TOLERANCE_REQUIREMENTS, reference_only, tolerance_requirements
 from .rules._bench import manual_bench
 from .rules._envelope import measurement_item
+from .rules.blank_credit import cited_tolerance
 from .rules.coordinates import (
     CENTRE_OPS,
     OVERSHOOT_NOTE,
@@ -9422,12 +9423,13 @@ class _Traveler:
         elif stock.get("length_mm") == "unknown":
             dims += " × ? length not set"
         label = _STOCK_FORMS.get(form, _text(form) if form else "stock")
-        blank = _mapping(stock.get("blank"))
-        if blank:
+        if "blank" in stock or form == PROFILED_BLANK:
             # A bought profiled blank is sized by its cut file, not by bar dimensions: the
             # receiving check is the kernel's box of that solid (root supply only). The
-            # file itself is bound in the report, never printed for the bench.
-            tolerance, step = blank.get("profile_tolerance_mm"), blank.get("step")
+            # file itself is bound in the report, never printed for the bench; an unknown
+            # blank or an uncited tolerance prints as debt, never as a vendor fact.
+            blank = _mapping(stock.get("blank"))
+            tolerance, step = cited_tolerance(blank), blank.get("step")
             box = _mapping(_mapping(self.bundle.kernel).get("stock")).get("bbox_mm")
             dims = (
                 " × ".join(o(box[i + 3] - box[i]) for i in range(3)) + " overall, "
@@ -9442,7 +9444,7 @@ class _Traveler:
             dims += (
                 f", vendor cut tolerance ±{tolerance:g} mm"
                 if _known(tolerance)
-                else ", ? vendor cut tolerance not set"
+                else ", ? vendor cut tolerance not set or not cited"
             )
         parts.append(f"{label} {dims}".strip())
         # The material itself is printed once, in the job header's material line.
