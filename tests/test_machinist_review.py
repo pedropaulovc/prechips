@@ -244,3 +244,18 @@ def test_claude_may_read_the_handbook_but_must_still_read_every_sheet(tmp_path: 
     skipped = [_read(str(sheets[0])), handbook_read]
     assert not mr.inspection_proven(skipped, images=sheets, references=refs)
     assert mr.inspection_proven([*skipped, _read("sheet-2.png")], images=sheets, references=refs)
+
+
+REPORT_SHA = "cd" * 32
+
+
+def test_traveler_meta_names_the_package_from_the_document_title_only(tmp_path: Path) -> None:
+    html = tmp_path / "traveler.html"
+    html.write_text(
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        f'<meta name="prechips-report" content="{REPORT_SHA}">'
+        "<title>part-x traveler</title></head><body>"
+        "<svg><title>Setup S1 panel</title></svg></body></html>",
+        encoding="utf-8",
+    )
+    assert mr.traveler_meta(html) == ("part-x", REPORT_SHA)
