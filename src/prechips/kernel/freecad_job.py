@@ -261,8 +261,12 @@ ROTARY = "rotary"
 # max_filing_stock_mm off its claimed faces (:meth:`_Setup._hand_removal`).
 HAND = "hand"
 SAW_ACTIONS = {"saw_cut", "cut_off"}
-# A powered blade cuts on a mill, bench or bandsaw; a hand saw at a bench or manual station.
-SAW_MACHINE_KINDS = ("mill", "bench", "bandsaw", "manual")
+# Saw tool kind -> the machine kinds it cuts on: a powered blade (or an unresolved tool) on
+# a mill, bench or bandsaw; a hand saw at a bench or manual station.
+SAW_MACHINE_KINDS = {
+    "bandsaw": ("mill", "bench", "bandsaw"),
+    "hand_saw": ("bench", "manual"),
+}
 # Facing-type turning actions sweep their claims along +Z (toward the free end).
 AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
 # Fixture roles that turn with a dividing head's spindle; the head body, tailstock and
@@ -5611,12 +5615,17 @@ class _Setup:
         "stock_volume_after_mm3",
     )
 
-    def _saw_machine(self, facts, missing):
+    def _saw_machine(self, op, facts, missing):
         machine = self.setup.get("machine_kind")
+        tool = op.get("saw_tool", "bandsaw")
         if machine in (None, UNKNOWN):
             missing.append("saw machine kind is unknown")
-        elif machine not in SAW_MACHINE_KINDS:
-            facts["saw_error"] = f"saw action is unsupported on machine kind {machine!r}"
+        elif machine not in SAW_MACHINE_KINDS.get(tool, SAW_MACHINE_KINDS["bandsaw"]):
+            facts["saw_error"] = (
+                f"saw action is unsupported on machine kind {machine!r}"
+                if tool == "bandsaw"
+                else f"a {tool} does not cut on machine kind {machine!r}"
+            )
 
     @staticmethod
     def _saw_debts(facts, missing):
@@ -5654,7 +5663,7 @@ class _Setup:
             facts["stock_removal_bounds"] = {
                 axis: [_r(span[i]), _r(span[i + 3])] for i, axis in enumerate("xyz")
             }
-        self._saw_machine(facts, missing)
+        self._saw_machine(op, facts, missing)
         if stock_reason is not None:
             missing.append(str(stock_reason))
         return self._saw_debts(facts, missing)
@@ -5700,7 +5709,7 @@ class _Setup:
             if _number(kerf) and kerf > 0:
                 sign = -1 if plane["keep"] == "below" else 1
                 facts["retained_boundary_mm"] = _r(plane["value"] + sign * kerf / 2)
-        self._saw_machine(facts, missing)
+        self._saw_machine(op, facts, missing)
         if stock_reason is not None:
             missing.append(str(stock_reason))
         return self._saw_debts(facts, missing)

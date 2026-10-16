@@ -299,6 +299,10 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     subject = f"{setup['id']}:{op['op']}"
     if op.get("do") in {"saw_cut", "cut_off"}:
         units = bundle.features.get("units", UNKNOWN)
+        # A hand saw cuts only at a bench or manual station, and its straight cut reports
+        # the kept piece's length; any other tool keeps the powered-saw machine kinds.
+        hand = record(resolve(bundle, "tools", op.get("tool"))).get("kind") == "hand_saw"
+        saw_tool = {"saw_tool": "hand_saw"} if hand else {}
         if "follows" in op:
             # The scribed line's cut takes only its declared region (unknown extent is
             # plan-input debt); the blade's kerf locates nothing, so no kerf is consumed.
@@ -315,17 +319,16 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
                 }
                 if bounds == UNKNOWN
                 else removal_bounds(bounds, units),
+                **saw_tool,
             }
         tool = measurement_item(bundle, "tools", op.get("tool"))
-        result = {
+        return {
             "subject": subject,
             "do": op["do"],
             "kerf_mm": _accepted_length(tool, "kerf"),
             "cut_plane": saw_plane(op.get("cut_plane"), units),
+            **saw_tool,
         }
-        if record(tool).get("kind") == "hand_saw":
-            result["saw_tool"] = "hand_saw"
-        return result
     if op.get("do") in HAND_FINISH:
         return _hand_inputs(bundle, setup, op, subject, finishing)
     model = approach(bundle, setup, op)

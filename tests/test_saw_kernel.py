@@ -487,6 +487,23 @@ def test_straight_hand_saw_on_a_manual_station_removes_its_kerf_and_offcut(saw_e
     assert result["setups"]["S2"]["stock_bbox_mm"] == [0, 0, 0, 10, 8, 10]
 
 
+@pytest.mark.parametrize(
+    "op, machine",
+    [
+        ({**_saw(), "saw_tool": "hand_saw"}, "mill"),
+        ({**_saw(), "saw_tool": "hand_saw"}, "bandsaw"),
+        (_saw(), "manual"),
+        ({**_scribed(_beyond(8.5)), "saw_tool": "hand_saw"}, "mill"),
+    ],
+    ids=["hand-on-mill", "hand-on-bandsaw", "blade-on-manual", "scribed-hand-on-mill"],
+)
+def test_a_saw_tool_on_the_wrong_station_routes_no_stock(saw_engine, saw_target, op, machine):
+    result = _run(saw_engine, saw_target, op, machine=machine)
+    detail = result["ops"]["S1:10"]
+    assert machine in detail["saw_error"], detail
+    assert "stock_bbox_mm" not in result["setups"]["S2"]
+
+
 def test_scribed_saw_removes_only_its_declared_region(saw_engine, saw_target):
     result = _run(saw_engine, saw_target, _scribed(_beyond(8.5)), machine="bench")
     detail = result["ops"]["S1:10"]
@@ -586,6 +603,7 @@ def test_host_job_carries_the_scribed_shape_and_keys_the_cache_on_it(tmp_path, s
         "follows": "S1:5",
         "allowance_mm": 0.5,
         "stock_removal_bounds": _beyond(8.5),
+        "saw_tool": "hand_saw",
         "refused_fields": [],
     }
     wider = _scribed_host_bundle(tmp_path, saw_target, allowance_mm=0.8)
