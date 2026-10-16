@@ -4023,16 +4023,18 @@ class _Job:
             if not isinstance(process, str) or not process.strip() or process.strip() == UNKNOWN:
                 raise ValueError("joint process must be known nonempty text")
             debts = []
-            if joint.get("method") == "retaining_compound":
-                for field in ("cure_time_min", "surface_prep"):
-                    value = joint.get(field)
-                    if value == UNKNOWN:
-                        debts.append(f"retaining compound {field} is unknown")
-                    elif field == "cure_time_min":
-                        if not _number(value) or value <= 0:
-                            raise ValueError("retaining compound cure_time_min must be positive")
-                    elif not isinstance(value, str) or not value.strip():
-                        raise ValueError(f"retaining compound {field} must be nonempty text")
+            compound = joint.get("compound")
+            if compound is not None and not isinstance(compound, dict):
+                raise ValueError("joint compound must be a product, cure and prep record")
+            for field in ("product", "cure_time_min", "surface_prep") if compound else ():
+                value = compound.get(field)
+                if value == UNKNOWN:
+                    debts.append(f"joint compound {field} is unknown")
+                elif field == "cure_time_min":
+                    if not _number(value) or value <= 0:
+                        raise ValueError("joint compound cure_time_min must be positive")
+                elif not isinstance(value, str) or not value.strip():
+                    raise ValueError(f"joint compound {field} must be nonempty text")
             if joint.get("process_reason"):
                 debts.append(str(joint["process_reason"]))
             if joint.get("reason"):
@@ -4333,10 +4335,15 @@ class _Job:
             or guaranteed[1] > band[1] + 1e-9
         ):
             raise ValueError("socket/spigot fit fails at a worst-case diameter extreme")
-        if (fit == "interference" and joint.get("method") != "press") or (
-            fit == "clearance" and joint.get("method") not in {"silver_braze", "retaining_compound"}
+        method = joint.get("method")
+        if (fit == "interference" and method != "press") or (
+            fit == "clearance" and method not in {"silver_braze", "slip"}
         ):
             raise ValueError("joint method does not match its declared fit")
+        if method == "slip" and joint.get("compound") is None:
+            raise ValueError("a slip joint needs a compound to bond it")
+        if method == "silver_braze" and joint.get("compound") is not None:
+            raise ValueError("a silver_braze joint takes no compound")
         engagement = _joint_engagement(socket_spec, spigot_spec)
         allowed_overlap = Part.Shape()
         if fit == "interference":

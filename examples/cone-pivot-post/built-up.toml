@@ -863,10 +863,9 @@ socket = "cone_socket"
 spigot = "cone_spigot"
 fit = "clearance"
 clearance_mm = [0.044, 0.076]
-method = "retaining_compound"
-process = "AUTHOR'S CHOICE: Loctite 638 retaining compound, applied in op 20"
-cure_time_min = 1440
-surface_prep = "AUTHOR'S CHOICE: solvent-degreased and dry, op 10."
+method = "slip"
+process = "AUTHOR'S CHOICE: applied to both mating surfaces in op 20"
+compound = { product = "AUTHOR'S CHOICE: Loctite 638-class retaining compound", cure_time_min = 1440, surface_prep = "AUTHOR'S CHOICE: solvent-degreased and dry, op 10." }
 cite = ["AUTHOR'S CHOICE: example retaining-compound process (Loctite 638 class), clearance band and 24 h room-temperature cure; not a product datasheet claim", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355"]
 [setups.hold]
 fixture = "cone-bond-cradle"
@@ -920,10 +919,9 @@ socket = "crank_socket"
 spigot = "crank_spigot"
 fit = "clearance"
 clearance_mm = [0.064, 0.096]
-method = "retaining_compound"
-process = "AUTHOR'S CHOICE: Loctite 638 retaining compound, applied in op 20"
-cure_time_min = 1440
-surface_prep = "AUTHOR'S CHOICE: solvent-degreased and dry, op 10."
+method = "slip"
+process = "AUTHOR'S CHOICE: applied to both mating surfaces in op 20"
+compound = { product = "AUTHOR'S CHOICE: Loctite 638-class retaining compound", cure_time_min = 1440, surface_prep = "AUTHOR'S CHOICE: solvent-degreased and dry, op 10." }
 cite = ["AUTHOR'S CHOICE: example retaining-compound process (Loctite 638 class), clearance band and 24 h room-temperature cure; not a product datasheet claim", "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:349-355"]
 [setups.hold]
 fixture = "cone-bond-cradle"

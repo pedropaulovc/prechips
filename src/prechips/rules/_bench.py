@@ -5,7 +5,7 @@ A setup is manual bench work only when its machine is declared ``kind = "bench"`
 ``"manual"``, it has at least one operation, and every operation is ``fit``, ``inspect``,
 ``deburr``, ``coating``, ``scribe`` or ``file_to_line``, or a ``saw_cut``/``cut_off`` whose
 selected tool resolves to a verified ``hand_saw``; the joint a ``fit`` makes (silver braze,
-retaining compound, press or weld) is its declared ``joint.method``. Layout and filing to a line are
+slip fit, press fit or weld) is its declared ``joint.method``. Layout and filing to a line are
 checked by the ``manual_arc`` rule, a hand-saw cut by ``saw_cut``. Any other or unknown
 action, or a saw whose tool is a powered blade or unresolved, keeps every machine screen in
 force: the bench kind alone waives nothing.

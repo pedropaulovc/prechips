@@ -816,13 +816,40 @@ class JointInterface(InputModel):
 
 
 _FIT_METHODS = {
-    "clearance": {"silver_braze", "retaining_compound"},
+    "clearance": {"silver_braze", "slip"},
     "interference": {"press"},
 }
+_COMPOUND_FORM = (
+    'method = "slip" (clearance) or "press" (interference) with '
+    "compound = { product, cure_time_min, surface_prep }"
+)
+
+
+class JointCompound(InputModel):
+    """A retaining compound on a cylindrical joint's interface; the joint's cite covers
+    its data sheet. Unknown prep or cure is debt that withholds the join."""
+
+    product: str
+    cure_time_min: float | Unknown
+    surface_prep: str
+
+    @model_validator(mode="after")
+    def declared_compound(self) -> JointCompound:
+        if self.product != UNKNOWN:
+            _known_text(self.product, "A joint compound product")
+        if self.cure_time_min != UNKNOWN and self.cure_time_min <= 0:
+            raise ValueError("A joint compound cure_time_min must be positive.")
+        if self.surface_prep != UNKNOWN:
+            _known_text(self.surface_prep, "A joint compound surface_prep")
+        return self
 
 
 class CylindricalJoint(InputModel):
-    """Socket/spigot join of exactly two branches; fit bands are diametral mm."""
+    """Socket/spigot join of exactly two branches; fit bands are diametral mm.
+
+    ``method`` is the assembly action; a retaining ``compound`` on the interface bonds a
+    slip fit and may back up a press fit.
+    """
 
     kind: Literal["cylindrical"]
     socket: str
@@ -830,11 +857,27 @@ class CylindricalJoint(InputModel):
     fit: Literal["clearance", "interference"]
     clearance_mm: KnownBand | Unknown | None = None
     interference_mm: KnownBand | Unknown | None = None
-    method: Literal["silver_braze", "retaining_compound", "press"]
+    method: Literal["silver_braze", "slip", "press"]
     process: str
-    cure_time_min: float | Unknown | None = None
-    surface_prep: str | None = None
+    compound: JointCompound | None = None
     cite: Citations
+
+    @model_validator(mode="before")
+    @classmethod
+    def current_compound_form(cls, values: Any) -> Any:
+        if not isinstance(values, dict):
+            return values
+        if values.get("method") == "retaining_compound":
+            raise ValueError(
+                f'A joint method is no longer "retaining_compound": write {_COMPOUND_FORM}.'
+            )
+        legacy = sorted(key for key in ("cure_time_min", "surface_prep") if key in values)
+        if legacy:
+            raise ValueError(
+                f"A joint's {', '.join(legacy)} belong in its compound block: write "
+                f"{_COMPOUND_FORM}."
+            )
+        return values
 
     @model_validator(mode="after")
     def declared_fit(self) -> CylindricalJoint:
@@ -843,6 +886,13 @@ class CylindricalJoint(InputModel):
             raise ValueError("A joint must cite its fit and process source.")
         if self.method not in _FIT_METHODS[self.fit]:
             raise ValueError(f"A {self.fit} joint cannot be made by {self.method}.")
+        if self.method == "silver_braze" and self.compound is not None:
+            raise ValueError("A silver_braze joint takes no compound: the braze is the bond.")
+        if self.method == "slip" and self.compound is None:
+            raise ValueError(
+                "A slip joint must declare compound = { product, cure_time_min, surface_prep }: "
+                "a slip fit with nothing bonding it is not a joint."
+            )
         band, other = (
             (self.clearance_mm, self.interference_mm)
             if self.fit == "clearance"
@@ -853,17 +903,6 @@ class CylindricalJoint(InputModel):
                 f"A {self.fit} joint must declare {self.fit}_mm and no other fit band."
             )
         _ordered(band, f"{self.fit}_mm", floor=0.0, inclusive=self.fit == "clearance")
-        if self.method == "retaining_compound":
-            if self.cure_time_min is None or self.surface_prep is None:
-                raise ValueError(
-                    "A retaining_compound joint must declare cure_time_min and surface_prep."
-                )
-            if self.cure_time_min != UNKNOWN and self.cure_time_min <= 0:
-                raise ValueError("A retaining_compound cure_time_min must be positive.")
-            if self.surface_prep != UNKNOWN:
-                _known_text(self.surface_prep, "A retaining_compound surface_prep")
-        elif self.cure_time_min is not None or self.surface_prep is not None:
-            raise ValueError("Cure time and surface prep are retaining_compound process facts.")
         return self
 
 
