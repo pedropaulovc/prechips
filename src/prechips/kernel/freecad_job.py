@@ -3911,8 +3911,10 @@ class _Job:
         """Whether one as-is face lies on the joined raw supply's boundary within
         STOCK_TOL (``max_gap_mm``: its farthest sample's distance), so a face spanning
         adjacent components counts. ``supplies`` names every raw supply whose boundary
-        carries one of its samples: each one's cut answers for the face."""
-        samples, _ = _face_samples(self.solid.Faces[self.mapping[ref]], 1.0)
+        carries one of its interior samples: each one's cut answers for the face, while
+        a neighbour meeting it only along an edge does not."""
+        face = self.solid.Faces[self.mapping[ref]]
+        samples, _ = _face_samples(face, 1.0)
         if not samples:
             return {"contact": UNKNOWN, "reason": "the face yields no samples"}
         points = [Part.Vertex(point) for point, _ in samples]
@@ -3920,11 +3922,13 @@ class _Job:
         gap = max(joined.distToShape(point)[0] for point in points)
         if gap > STOCK_TOL:
             return {"contact": "off_supply", "supplies": [], "max_gap_mm": _r(gap)}
+        interior, _ = _face_samples(face, 1.0, interior_only=True)
+        inner = [Part.Vertex(point) for point, _ in interior] or points
         shells = {name: Part.makeCompound(piece.Shells) for name, piece in pieces.items()}
         carriers = sorted(
             name
             for name, shell in shells.items()
-            if any(shell.distToShape(point)[0] <= STOCK_TOL for point in points)
+            if any(shell.distToShape(point)[0] <= STOCK_TOL for point in inner)
         )
         return {"contact": "on_supply", "supplies": carriers, "max_gap_mm": _r(gap)}
 

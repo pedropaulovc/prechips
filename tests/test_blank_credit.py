@@ -616,6 +616,10 @@ from FreeCAD import Vector as V
 out = sys.argv[sys.argv.index("--") + 1]
 Part.makeBox(60, 40, 20).exportStep(out + "/block.step")
 Part.makeBox(30, 40, 20, V(30, 0, 0)).exportStep(out + "/half.step")
+# The block with its -X half stepped down to z = 10.
+Part.makeBox(60, 40, 20).cut(Part.makeBox(31, 42, 11, V(-1, -1, 10))).exportStep(
+    out + "/step.step"
+)
 """
 
 
@@ -632,30 +636,48 @@ def halves(tmp_path_factory, freecad_kernel):
         check=False,
     )
     paths = {path.stem: path for path in directory.glob("*.step")}
-    assert set(paths) == {"block", "half"}
+    assert set(paths) == {"block", "half", "step"}
     return paths
 
 
-def test_a_face_spanning_adjacent_components_lies_on_the_joined_supply(engine, halves):
-    # The block's top runs over a bar half (x 0..30) and a profiled half (x 30..60): on
-    # neither alone, on their union, answering to both.
+def _halves_stock(halves, height):
+    """A bar half (x 0..30, ``height`` tall) beside the profiled +X half (x 30..60)."""
     bar = {
         "shape": "box",
         "origin_mm": [0.0, 0.0, 0.0],
         "axis": [1.0, 0.0, 0.0],
         "section_axis": [0.0, 1.0, 0.0],
         "length_mm": 30.0,
-        "section_mm": [40.0, 20.0],
+        "section_mm": [40.0, height],
     }
     half = halves["half"]
     digest = hashlib.sha256(half.read_bytes()).hexdigest()
-    stock = {"components": {"bar": bar, "profiled": _profiled(half, digest)}}
+    return {"components": {"bar": bar, "profiled": _profiled(half, digest)}}
+
+
+def test_a_face_spanning_adjacent_components_lies_on_the_joined_supply(engine, halves):
+    # The block's top runs over both halves: on neither alone, on their union, answering
+    # to both cuts.
     [top] = engine.refs(halves["block"], (0, 0, 20), (60, 40, 20))
+    stock = _halves_stock(halves, 20.0)
     result = engine.run(engine.job(halves["block"], as_is=[top], stock=stock))
     assert result["as_is_contact"][top] == {
         "contact": "on_supply",
         "max_gap_mm": 0.0,
         "supplies": ["stock.bar", "stock.profiled"],
+    }
+
+
+def test_a_neighbour_meeting_a_face_only_along_its_edge_does_not_carry_it(engine, halves):
+    # The stepped block's z = 10 land is the 10 mm bar's top; the profiled half only
+    # meets it along x = 30, so the land answers to the bar alone.
+    [land] = engine.refs(halves["step"], (0, 0, 10), (30, 40, 10))
+    stock = _halves_stock(halves, 10.0)
+    result = engine.run(engine.job(halves["step"], as_is=[land], stock=stock))
+    assert result["as_is_contact"][land] == {
+        "contact": "on_supply",
+        "max_gap_mm": 0.0,
+        "supplies": ["stock.bar"],
     }
 
 
