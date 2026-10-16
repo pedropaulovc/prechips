@@ -75,6 +75,7 @@ keeps its finding unknown.
 | `cone-pivot-post/features.toml` | `material.finish` | `"...; 50-75 um DFT; MASK MACHINED FACES; OIL BARE FACES ISO VG 32"` → `"...; 50-75 um DFT; built-up variant: paint RAL 6005 on non-functional turned ODs; mask bores, faces and joint surfaces; OIL BARE FACES ISO VG 32"` | binding author decision: the built-up post is turned all over, so masking every machined face would leave nothing to paint; `built-up.toml` S12 paints the body, shoulder, head and projecting crank-sleeve ODs and masks the bores, faces and joint surfaces by name ([HA #1215 comment](https://github.com/pedropaulovc/harmonic-analyzer/issues/1215#issuecomment-6030603028)) |
 | `rocker-arm/features.toml` | `features.tip_land_pos_x.land_angle_deg`, `features.tip_land_neg_x.land_angle_deg` | `"unknown"` → `[89.0, 91.0]` | nominal 90° with the title-block angular ±1° (`title_block.yaml angular.value_deg`); export left the limit unknown |
 | `rocker-arm/features.toml` | `precision.land_angle_deg` (both lands) | `"unknown"` → `0` | matches the ±1° whole-degree display |
+| `rocker-arm/features.toml` | `features.tip_land_pos_x.tilt_across`, `features.tip_land_neg_x.tilt_across` | absent → `{ "land_angle_deg" = "tip_land" }` | no gauge reads degrees, so the ±1° land angle is read across the land: its least width, the exported `tip_land` 5.08 already in the manifest. Inspection judges the band as its linear zone, 2 · 5.08 · sin 1° = 0.177 mm, against the profile template's resolution. No band is added or changed |
 | `rocker-arm/features.toml` | `material.thickness` | `"unknown"` → `2.5` | drawing manufacturing note 2 states `STRAP 2.50 THICK`; this is the nominal strap, not the integral hub length or supplied blank thickness |
 | `rocker-arm/plan.toml` | `drawing.revision` | `"unknown"` → `"v40"` | bind the authored illustrative plan to the source manifest's `drawing.revision`; this does not release or approve the plan |
 | `pivot-bracket/features.toml` | all feature bands, general tolerances and precision | no dimensioned drawing → hand-authored plausible example limits | v39 STEP defines nominal geometry only; every feature cites `example (plausible, no dimensioned drawing)` |
@@ -214,10 +215,10 @@ well above the 0.5 mm touch-land policy. Current exported radius extrema do
 not certify that topology. S8/S9 initial contacts remain proved; the drill
 and reamer retouches and their dependent tip/breakthrough readings remain
 unknown until [#208](https://github.com/pedropaulovc/prechips/issues/208) supplies
-native face-loop topology and certified land credit. Release 0.1.1 ships
-#198, #192 and #199 with this documented interim exit 4; exit-0 restoration
-by #208 and measured values for the two assumed lead facts is deferred to
-release 0.1.2. No plan input is relaxed.
+native face-loop topology and certified land credit. Releases 0.1.1 and
+0.1.2 ship this documented interim exit 4; exit-0 restoration by #208 and
+measured values for the two assumed lead facts are deferred to a later
+release. No plan input is relaxed.
 
 ### Rocker-arm supported route
 

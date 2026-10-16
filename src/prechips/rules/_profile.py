@@ -1,0 +1,166 @@
+"""Surface-profile zones give the BASIC dimensions they govern a band (HA#1544).
+
+An ASME Y14.5 SURFACE PROFILE ``t`` to a datum reference frame holds every point of its
+surface inside a zone ``t`` wide about the true profile the BASIC dimensions locate from
+that frame, ``U`` of it on the side where material is added (``t / 2`` when unstated).
+The band it gives a governed BASIC requirement is pointwise: a length read along the
+surface normal from the DRF-located BASIC origin (a radius about its BASIC centre, a
+height at a point of the surface; a diameter spans two such radii), never a fitted size.
+Docs: docs/features.md "Surface profiles".
+"""
+
+import math
+
+from prechips import trig
+from prechips.model import profile_target
+
+from .resolution import UNKNOWN, number, record
+
+# BASIC diameters: the surface moves radially on both sides, so each offset counts twice.
+DIAMETERS = frozenset({"dia", "nominal_dia"})
+
+
+def governing(bundle, name, requirement):
+    """``[(owner, entry)]``: each manifest surface profile governing ``requirement`` of
+    feature ``name``, with its ``surface_profile_governs`` entry."""
+    return [
+        (owner, entry)
+        for owner, feature in record(bundle.features.get("features")).items()
+        for key, entry in record(feature.get("surface_profile_governs")).items()
+        if profile_target(owner, key) == (name, requirement)
+    ]
+
+
+def datum_features(bundle):
+    """``{label: feature}`` the manifest declares: its ``datums`` table, a feature's own
+    ``datum`` label taking precedence. A value may be ``"unknown"`` or name no feature."""
+    features = record(bundle.features.get("features"))
+    labels = {
+        label: record(datum).get("feature")
+        for label, datum in record(bundle.features.get("datums")).items()
+    }
+    labels.update(
+        {
+            feature["datum"]: name
+            for name, feature in features.items()
+            if isinstance(feature.get("datum"), str) and feature["datum"] != UNKNOWN
+        }
+    )
+    return labels
+
+
+def frame_unresolved(bundle, datums):
+    """Why a surface profile's datum reference frame ``datums`` is unknown, else None. Every
+    label must resolve through :func:`datum_features` to a manifest feature; an empty frame
+    (form only) resolves."""
+    if not isinstance(datums, list):
+        return "the datum reference frame is unknown"
+    declared = datum_features(bundle)
+    features = record(bundle.features.get("features"))
+    for label in datums:
+        feature = declared.get(label)
+        if label == UNKNOWN or not isinstance(feature, str) or feature not in features:
+            return f"the datum reference frame is unknown: datum {label} names no manifest feature"
+    return None
+
+
+def requirement_band(bundle, name, requirement):
+    """``(band, reason)``: the acceptance band ``[lo, hi]`` (manifest units, or degrees) of
+    ``requirement`` of feature ``name``, or ``None`` and why it is unknown.
+
+    A drawing band is returned as drawn. A BASIC scalar governed by surface profiles takes
+    the intersection of their bands; each band contains the BASIC value, so the
+    intersection is never empty. One unresolved profile leaves the requirement unknown."""
+    feature = record(bundle.feature_definitions.get(name))
+    value = feature.get(requirement, UNKNOWN)
+    if isinstance(value, list) and len(value) == 2 and all(number(v) for v in value):
+        return list(value), "drawing band"
+    profiles = governing(bundle, name, requirement)
+    if not profiles:
+        return None, f"the drawing states no band for {name} {requirement}"
+    bands = []
+    for owner, entry in profiles:
+        band, reason = _zone_band(bundle, owner, entry, feature, value, requirement)
+        if band is None:
+            return None, f"{owner} surface profile: {reason}"
+        bands.append(band)
+    owners = ", ".join(owner for owner, _ in profiles)
+    return [max(lo for lo, _ in bands), min(hi for _, hi in bands)], f"surface profile {owners}"
+
+
+def tilt_length(bundle, name, requirement):
+    """``(length, reason)``: the least face extent ``l`` across which every surface profile
+    governing angle ``requirement`` of feature ``name`` bounds its tilt (``tilt_across``),
+    or ``None`` and why there is none: the angle is not tilt-governed, an extent is
+    unknown, or the profiles tilt it across different lengths (no one reading reads both)."""
+    feature = record(bundle.feature_definitions.get(name))
+    lengths = set()
+    for owner, entry in governing(bundle, name, requirement):
+        if not (isinstance(entry, dict) and "tilt_across" in entry):
+            return None, f"the {owner} surface profile bounds no tilt across a length"
+        least, reason = least_extent(entry["tilt_across"], feature)
+        if least is None:
+            return None, f"{owner} surface profile: {reason}"
+        lengths.add(least)
+    if not lengths:
+        return None, "no surface profile bounds its tilt across a length"
+    if len(lengths) > 1:
+        return None, "its surface profiles tilt it across different lengths"
+    return lengths.pop(), None
+
+
+def tilt_reading(band, nominal, length):
+    """The width ``w`` (manifest units) of the linear zone an angle band ``[lo, hi]``
+    (degrees) about the ``nominal`` angle reads as across face extent ``length``: the
+    end-to-end deviation ``length * sin(a - nominal)`` spans ``hi`` to ``lo``. It is the
+    exact inverse of the ``asin(t / l)`` tilt, so one zone ``t`` reads ``2t`` wide."""
+    low, high = (length * trig.sin(math.radians(angle - nominal)) for angle in band)
+    return high - low
+
+
+def least_extent(across, feature):
+    """``(l_min, reason)``: a ``tilt_across`` number, else the named band's lower limit,
+    which must be a known positive length."""
+    extent = across if number(across) else feature.get(across)
+    limits = [extent] if number(extent) else extent if isinstance(extent, list) else []
+    if not limits or not all(number(v) for v in limits):
+        return None, f"the least limit of {across} is unknown"
+    if min(limits) <= 0:
+        return None, f"the least limit of {across} is no positive face extent"
+    return min(limits), None
+
+
+def _zone_band(bundle, owner, entry, feature, nominal, requirement):
+    """``(band, reason)`` one profile of feature ``owner`` gives the BASIC ``nominal`` of
+    ``requirement`` of ``feature``, which it governs with ``entry``."""
+    profile = record(record(bundle.features.get("features")).get(owner))
+    zone = profile.get("surface_profile", UNKNOWN)
+    datums = profile.get("surface_profile_datums", UNKNOWN)
+    if not number(zone):
+        return None, "the zone t is unknown"
+    if unresolved := frame_unresolved(bundle, datums):
+        return None, unresolved
+    if not datums:
+        return None, "with no datums it controls form only, never a size, location or angle"
+    if entry == UNKNOWN:
+        return None, "how the requirement reads in the zone is unknown"
+    if isinstance(entry, dict) and "tilt_across" in entry:
+        least, reason = least_extent(entry["tilt_across"], feature)
+        if least is None:
+            return None, reason
+        if zone >= least:
+            return None, f"t {zone} is not less than the {least} face extent, so no tilt is bounded"
+        # asin(t / l) as atan2 of the legs: trig's platform-stable arc tangent.
+        tilt = math.degrees(trig.atan2(zone, math.sqrt(least * least - zone * zone)))
+        return [nominal - tilt, nominal + tilt], None
+    disposition = profile.get("surface_profile_u", zone / 2)
+    if not number(disposition):
+        return None, "the disposition U is unknown"
+    sense, obliquity = (
+        (entry["sense"], entry["obliquity_deg"]) if isinstance(entry, dict) else (entry, 0.0)
+    )
+    scale = (2.0 if requirement in DIAMETERS else 1.0) / trig.cos(math.radians(obliquity))
+    added, removed = disposition * scale, (zone - disposition) * scale
+    if sense == "increases":
+        return [nominal - removed, nominal + added], None
+    return [nominal - added, nominal + removed], None

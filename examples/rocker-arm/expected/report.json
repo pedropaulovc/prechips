@@ -2226,7 +2226,7 @@
           },
           "features": {
             "path": "examples/rocker-arm/features.toml",
-            "sha256": "cec6e3ae5b6f5c81129fa4878a7808a80e2899e7d3e24b414601853d16b6f83d"
+            "sha256": "e22e19986498ed105246403dc273dfbe19dffcac317677805211f5cdc2f94a14"
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
@@ -49063,9 +49063,9 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "tip_land_neg_x land_angle_deg: gauge spans the band at sufficient resolution.",
+      "message": "tip_land_neg_x land_angle_deg: gauge resolves the tilt's linear zone across its face.",
       "numbers": {
-        "band_mm": 2.0,
+        "band_mm": 0.17731644940280047,
         "gauge": "rocker-profile-template",
         "gauge_kind": "profile_gauge",
         "limits": [
@@ -49078,7 +49078,8 @@
           900.0
         ],
         "requirement": "land_angle_deg",
-        "resolution_mm": 0.05
+        "resolution_mm": 0.05,
+        "tilt_across_length": 5.08
       },
       "rule": "inspection",
       "status": "pass",
@@ -49117,9 +49118,9 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "tip_land_pos_x land_angle_deg: gauge spans the band at sufficient resolution.",
+      "message": "tip_land_pos_x land_angle_deg: gauge resolves the tilt's linear zone across its face.",
       "numbers": {
-        "band_mm": 2.0,
+        "band_mm": 0.17731644940280047,
         "gauge": "rocker-profile-template",
         "gauge_kind": "profile_gauge",
         "limits": [
@@ -49132,7 +49133,8 @@
           900.0
         ],
         "requirement": "land_angle_deg",
-        "resolution_mm": 0.05
+        "resolution_mm": 0.05,
+        "tilt_across_length": 5.08
       },
       "rule": "inspection",
       "status": "pass",
@@ -64348,7 +64350,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "eb23afeeb159b23667f241ebe752f184091a907864b94e61896f11417104020a",
+  "hash": "c95d05773fa2993026cf4e9f56e4c6b1f7fdf38c1cafc92997b304e9d4174d85",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -64356,7 +64358,7 @@
     },
     "features": {
       "path": "examples/rocker-arm/features.toml",
-      "sha256": "cec6e3ae5b6f5c81129fa4878a7808a80e2899e7d3e24b414601853d16b6f83d"
+      "sha256": "e22e19986498ed105246403dc273dfbe19dffcac317677805211f5cdc2f94a14"
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
@@ -64419,7 +64421,7 @@
       "sha256": "e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e"
     }
   },
-  "prechips_version": "0.1.1",
+  "prechips_version": "0.1.2",
   "renders": {
     "P1": {
       "fixture": "modeled",

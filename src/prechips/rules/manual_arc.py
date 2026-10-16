@@ -8,19 +8,20 @@ shop's ``max_filing_stock_mm``) down to a guide and checks the arc with a radius
 whose range covers it. The guide is either filing buttons, a fixtures kit in the
 setup's hold pinned through a bore on the arc's axis (the hardened button rim is the
 line, its radius proven worst case over every element's declared limits), or a template
-whose radius covers the arc, filed to the line an earlier scribe op laid out with it. A
-guide that cannot hold the band is an error; missing kit, limits, layout or rough op is
-unknown.
+whose radius covers the arc, filed to the line an earlier scribe op laid out with it. The
+band is the drawing's, or for a BASIC radius the band its surface profile derives
+(:func:`prechips.rules._profile.requirement_band`). A guide that cannot hold the band is
+an error; missing kit, limits, layout or rough op is unknown.
 """
 
 from __future__ import annotations
 
 from prechips.findings import Finding
 from prechips.measurements import length_debt, limits_debt, limits_fact, record_debt
+from prechips.rules._profile import requirement_band
 from prechips.rules.coordinates import (
     _CENTRE_FORMS,
     ROUGH_METHODS,
-    _band_radius,
     _recut_by,
     arc_layout,
     filing_cap,
@@ -313,8 +314,11 @@ def evaluate(bundle):
             if layout is None or scale is None:
                 debts.append(f"{name}'s centre, radius or ends in setup {sid} are unknown")
                 layout = {}
-            band = _band_radius(feature, _band_key(feature, layout)) if layout else None
-            band = [v * scale for v in band] if band and scale else None
+            # The drawing's radial band, a surface profile's derived band for a BASIC radius.
+            key = _band_key(feature, layout) if layout else None
+            band = requirement_band(bundle, name, key)[0] if key else None
+            halve = 2.0 if key == "dia" else 1.0
+            band = sorted(v / halve * scale for v in band) if band and scale else None
             radius = layout.get("radius_mm", UNKNOWN)
             radius = radius * scale if number(radius) and scale else UNKNOWN
             numbers.update(

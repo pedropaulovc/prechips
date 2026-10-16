@@ -63,7 +63,8 @@ components defer the basis check rather than substituting an identity.
 Frames give `origin` and basis `x/y/z`; `binding = "unknown"` preserves nominal
 geometry without certifying a measured setup. Frame names are not drawing datum
 names. Drawing datums map to actual features/surfaces through `datums`,
-`datum`, `position_datums`, `coaxial_to` and `height_from`. `faces` is the
+`datum`, `position_datums`, `surface_profile_datums`, `coaxial_to` and
+`height_from`. `faces` is the
 feature's STEP face set: a list of face references that the M4 kernel maps to
 faces of the imported solid by each referenced `ADVANCED_FACE`'s own geometry
 (surface kind, area, bounding box), never by assuming the importer preserves
@@ -182,6 +183,148 @@ Other optional fields retain their applicability semantics in the rules.
 Root fields marked required must be present. A model accepting a value is not proof
 of geometric validity; rules perform the applicable checks.
 
+## Surface profiles
+
+A drawing SURFACE PROFILE `t` (ASME Y14.5 profile of a surface, optionally
+`U` unequal disposition, to a datum reference frame) is a set of fields on the
+feature whose faces its leader names, like `position_dia`/`position_datums`.
+harmonic-analyzer #1544 is the motivation: the rocker's curved edges carry
+BASIC `radius 800`, `height_above_pivot 8.0` and `bottom_radius 816` that only
+their profile zones tolerance, so without these fields they had no band.
+
+| Field | Meaning |
+|---|---|
+| `surface_profile` | Total zone width `t` > 0 (manifest units) or `"unknown"`. The feature must list `"surface_profile"` in a known `requirements` list (else bad input); it is inspected as a zone [0, t] like `position_dia`. |
+| `surface_profile_u` | Optional `U`, the part of `t` on the side where material is added, 0 <= U <= t, or `"unknown"`. Omitted: equal-bilateral, U = t/2. |
+| `surface_profile_datums` | Datum reference frame in precedence order, e.g. `["A", "B", "C"]`; `[]` is a form-only profile. Each label but `"unknown"` must be declared, as a [`datums`](#datum) table label or a feature's `datum` (bad input otherwise, unless the `datums` table itself is `"unknown"`), named once, and never resolve to the profiled feature itself (bad input). A label resolves through that declaration, a feature's own `datum` first, to a manifest feature. Omitted or `"unknown"`, or with a label that resolves to none (a `"unknown"` datum or datum feature, an omitted `feature`, a name the manifest lacks, an `"unknown"` table), the zone's inspection and every band it derives stay unknown. |
+| `surface_profile_governs` | Table of the BASIC scalar requirements the zone governs: a bare key (`"radius"`) is this feature's requirement, `"feature:requirement"` (`"tip_land_pos_x:station"`) another feature's. Keys match exactly (no wildcards), and one profile governs a requirement once: a bare key and its qualified form (`"radius"`, `"top_edge:radius"` on `top_edge`) name the same requirement. A governed requirement must be one the inspection rule reads as a dimension: a recognised tolerance requirement ([inspection](rules-inspection.md#inspection), `nominal_dia` included) other than a zone (`position_dia`, `coaxiality_dia`, `angularity_dia`, `finish_ra`). |
+
+A `surface_profile_governs` entry says how the governed BASIC value `n` reads in the zone:
+
+- `"increases"` / `"decreases"`: a BASIC length read along the governed surface's
+  normal (a radius about a BASIC centre, a height or station where the surface
+  normal is the reading direction) grows or shrinks when material is added at
+  the surface. `"increases"` gives [n - (t - U), n + U]; `"decreases"` gives
+  [n - U, n + (t - U)]. A concave edge's radius decreases with added material, a
+  convex boss's radius increases. A governed BASIC diameter (`dia`,
+  `nominal_dia`) spans two radial readings, so each offset counts twice: a boss
+  `dia` D with t = U = 0.2 `"increases"` to [D, D + 0.4]; a bore's diameter
+  `"decreases"`.
+- `{ sense = "increases" | "decreases", obliquity_deg = θ }`, 0 <= θ < 90: the same
+  BASIC length read at θ to a planar governed surface's normal at a fixed
+  transverse station (the rocker tip land's X station, 10.46° off the land
+  normal). Each offset is divided by cos θ. A length read along the normal
+  through a centre (`radius`, `bottom_radius`, `dia`, `nominal_dia`) has no
+  oblique reading: θ must be 0 for it.
+- `{ tilt_across = "<banded length requirement of the governed feature>" }` or
+  `{ tilt_across = <least face extent, manifest units> }`: a BASIC angle (degrees)
+  of a planar governed face. A named extent is a listed band of a recognised length
+  dimension, in manifest length units: `dia`, `nominal_dia`, `depth`, `length`,
+  `width`, `height`, `radius`, `thickness`, `height_above_pivot`, `arc_len`,
+  `bottom_radius`, `bottom_arc_len`, `tip_land`, `station`, `groove_width`,
+  `groove_depth` or `separation`; never an angle, a roughness (`finish_ra`) or a
+  zone (`position_dia`, `coaxiality_dia`, `angularity_dia`). The band is
+  n ± asin(t / l_min) in degrees, l_min being the named band's lower limit or the
+  number; it does not depend on U.
+  When t >= l_min the zone bounds no tilt: unknown. Inspection reads the band as
+  the linear zone it is, end to end across l_min (2t wide for one zone), never as
+  degrees against a millimetre gauge ([inspection](rules-inspection.md#surface-profiles)).
+- `"unknown"`: the governed requirement stays unknown.
+
+The band is **pointwise**: every point of the surface lies in the zone about its
+BASIC true profile, located from the DRF, so the reading is taken from the
+DRF-located BASIC origin (centre, pivot, station). It is not a fitted-size
+tolerance: a best-fit radius of the filed edge is not what it bounds. A
+requirement governed by several profiles takes the intersection of their
+bands; every band contains `n`, so the intersection is never empty. The
+derived band is computed where it is read (`rules/_profile.py`
+`requirement_band`); the manifest and every normalised view keep the BASIC
+scalar as exported. The inspection rule (checks and process holds), manual-arc
+`scribe`/`file_to_line` and datum consistency read it; other band readers,
+such as coordinates arc tables, aims and the traveler's printed limits, still
+read the exported BASIC value.
+
+The requirement stays unknown, with the reason, when `t`, `U`, the DRF or the
+entry is unknown, when a DRF datum resolves to no manifest feature, when the DRF
+is empty (a datumless profile controls form only, never a size, location or
+orientation), when a `tilt_across` band's lower limit is unknown or not
+positive, or when one of several governing profiles is unresolved. Bad input
+(exit 3): `surface_profile_u`, `surface_profile_datums` or
+`surface_profile_governs` without `surface_profile`; a zone its feature's
+`requirements` does not list (or an omitted/unknown list); t <= 0; U outside [0, t];
+a governed key naming a missing feature, or a requirement not listed in that
+feature's `requirements`, or one whose value is not a BASIC scalar (a band, an
+`"unknown"` or a flag), or one the inspection rule does not read as a dimension (a
+zone such as `position_dia`, or a field outside the recognised set such as
+`dome_height`, whose derived band no check would read); a sense entry on an angle
+(`*_deg`) requirement or a `tilt_across` on a length; a `tilt_across` naming anything
+but a listed length band of the governed feature (a `finish_ra` or `position_dia`
+band is none), a named band that is not two limits `[lo, hi]` with lo <= hi when
+both are known (`[5.08]`, `[1, 2, 3]`, `[6.1, 5.08]`; an `"unknown"` limit is legal
+and leaves the tilt unknown), or a number <= 0; `obliquity_deg`
+outside [0, 90), or nonzero on `radius`, `bottom_radius`, `dia` or `nominal_dia`;
+one profile governing a requirement twice (a bare and a qualified key for the same
+target); a `surface_profile_datums` label that is not declared while the
+`datums` table is known, one named twice (`["A", "A"]`), or one that resolves to
+the profiled feature itself (its own `datum`, or a `datums` entry naming it).
+
+```toml
+["features"."top_edge"]
+"requirements" = ["height_above_pivot", "radius", "surface_profile"]
+"surface_profile" = 0.5
+"surface_profile_u" = 0.5
+"surface_profile_datums" = ["A", "B", "C"]
+"surface_profile_governs" = { "radius" = "decreases", "height_above_pivot" = "increases" }
+# derived: radius [799.5, 800.0], height_above_pivot [8.0, 8.5]
+
+["features"."profile_outer"]
+"requirements" = ["bottom_radius", "mirror_symmetric", "surface_profile"]
+"surface_profile" = 0.5
+"surface_profile_u" = 0.0
+"surface_profile_datums" = ["A", "B", "C"]
+"surface_profile_governs" = { "bottom_radius" = "increases" }
+# derived: bottom_radius [815.5, 816.0]
+```
+
+A tip-land angle the outer zone governs would add
+`"tip_land_pos_x:land_angle_deg" = { "tilt_across" = "tip_land" }`: tip_land's
+least limit 5.08 gives 10.46 ± 5.65°.
+
+## Angle bands read across a face
+
+No gauge reads degrees: an inventory gauge declares millimetre range and
+resolution only, so a drawn angle band (`*_deg`, `[lo, hi]` degrees) has no
+inspection capability on its own ([inspection](rules-inspection.md#inspection)).
+A planar face's angle is read instead as the deviation end to end across the
+face, and the optional feature field `tilt_across` declares that length per
+angle requirement:
+
+| Field | Meaning |
+|---|---|
+| `tilt_across` | Table keyed by a listed drawn angle band of this feature (`"land_angle_deg"`). The value is the face extent the angle is read across: a listed band of a recognised length dimension of the same feature (the set [above](#surface-profiles); its lower limit, the least extent) or a number > 0 (manifest units). |
+
+Inspection reads `[lo, hi]` about its mid angle `m` as a linear zone
+w = l·(sin(hi − m) − sin(lo − m)) = 2l·sin((hi − lo)/2), the chord between the
+band's two extreme faces, with the same reading a profile's `tilt_across` gets.
+A band with an unknown end, or a named length whose lower limit is unknown or not positive,
+stays unknown. The band itself is unchanged; `tilt_across` adds no tolerance.
+Bad input (exit 3): a key that is not a listed `*_deg` requirement of the
+feature, or one whose value is a BASIC scalar rather than a drawn band (a BASIC
+angle reads its tilt through its surface profile's `tilt_across`); a drawn angle
+band or a named length band that is not two limits `[lo, hi]` with lo <= hi when
+both are known (an `"unknown"` limit is legal and leaves the reading unknown); a
+value naming anything but a listed length band of the feature (a `finish_ra` or
+zone band is none), or a number <= 0.
+
+```toml
+["features"."tip_land_pos_x"]
+"requirements" = ["tip_land", "land_angle_deg"]
+"tip_land" = [5.08, 6.1]
+"land_angle_deg" = [89.0, 91.0]
+"tilt_across" = { "land_angle_deg" = "tip_land" }
+# inspected: 2 · 5.08 · sin 1° = 0.177 mm wide
+```
+
 ## Root fields
 
 | Field | Type | Presence |
@@ -294,6 +437,11 @@ of geometric validity; rules perform the applicable checks.
 | `precision` | `dict[str, int \| Unknown]` |
 | `position_datums` | `list[str]` |
 | `angularity_datums` | `list[str]` |
+| `surface_profile_datums` | `list[str]` |
+| `surface_profile_governs` | `dict[str, ProfileEntry]` (`"increases"`, `"decreases"`, `"unknown"`, `{ sense, obliquity_deg }` or `{ tilt_across }`; see [Surface profiles](#surface-profiles)) |
+| `tilt_across` | `dict[str, str \| float]` (drawn angle band → face extent it is read across; see [Angle bands read across a face](#angle-bands-read-across-a-face)) |
+| `surface_profile` | `float` (> 0) |
+| `surface_profile_u` | `float` (0 <= U <= `surface_profile`) |
 | `thru` | `bool` |
 | `mirror_symmetric` | `bool` |
 | `at` | `Vector` |

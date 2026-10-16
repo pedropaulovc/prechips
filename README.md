@@ -45,7 +45,8 @@ shows ample real land: at least 2.4596 mm (about 2.46 mm), versus the 0.5 mm
 policy. Missing circular-topology proof, not physical land, keeps S8/S9's
 post-plunge retouches unknown pending [#208](https://github.com/pedropaulovc/prechips/issues/208).
 Release 0.1.1 includes #198, #192 and #199 with that documented interim exit 4.
-Exit-0 restoration by #208 is deferred to release 0.1.2;
+Release 0.1.2 adds #235, #236 and surface-profile zones and keeps that exit 4:
+exit-0 restoration by #208 is deferred to a later release;
 the authored plan and its requirements are unchanged.
 
 See the example guide's [print and native acceptance limits](examples/README.md#print-and-native-acceptance-limits).
@@ -232,6 +233,21 @@ warn once and disable exporters without changing the report or checker exit.
   [physics proxies](docs/rules-physics.md), [comparison](docs/rules-comparison.md),
   [geometry and workholding on the kernel](docs/rules-geometry.md).
 - [Reports, approval, renders and telemetry](docs/report-and-telemetry.md).
+
+A drawing SURFACE PROFILE is a `surface_profile` zone with its datum reference
+frame and the BASIC requirements it governs
+([features](docs/features.md#surface-profiles)). Inspection, process holds,
+manual-arc layout/filing and datum consistency read each governed BASIC value
+against the band the zone derives pointwise from the DRF-located BASIC origin,
+not a fitted size; an unknown zone, disposition, frame or reading stays `?`
+(harmonic-analyzer #1544: the rocker's R800, 8.0 above pivot and R816).
+
+No gauge declares an angular capability, so an angle band (`*_deg`) is inspected
+only when it is read across a face: a drawn band whose feature names the face
+extent in `tilt_across` ([features](docs/features.md#angle-bands-read-across-a-face)),
+or a BASIC angle a surface profile bounds by `tilt_across`. Inspection judges it as
+the linear zone it reads across that length, on gauge resolution alone; any other
+angle band is `?` (no angular gauge capability).
 
 Native [saw cut-off](docs/plan.md#saw-cut-off) supports `saw_cut` / `cut_off` on
 mill, bench and bandsaw setups: an explicit blade-centre plane plus inventory
@@ -769,6 +785,9 @@ break-out), not capped to the claims' XY
 bounding box plus cutter radius and not a toolpath proof; known radius,
 finite bounds, stock intersection, finished protection, exact claim/piece
 contact, future hole columns and no split of an original solid still apply.
+Accessibility judges a bounded op only where its cutter stands without meeting
+stock outside the box; the rest of each claimed face is carried to a later op
+that claims it, or errors without one (#236).
 Before a claimed planar wall it leaves a flat skin of its leave across the
 face's width and, past each end of a vertical wall's skin where stock stands
 behind its plane, the cusp of that step: what no disc of its own cutter radius

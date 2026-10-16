@@ -4,7 +4,8 @@ A rough leave's guard rounds the arc wall's edges with arc-join tori and corner 
 that are exact offsets of the wall's own edges; measuring a cleared piece against that
 wall must not fail the whole job. Two overlapping boxes from one wall, as the rocker's
 S1:40 and S1:50 declare, must both clear even though the first cuts the second's far
-band off from the wall.
+band off from the wall. A box that stops short of its claimed face's ends, as the rocker's
+S3:30 chain does on its top edge, is judged only where its cutter may stand (#236).
 """
 
 import math
@@ -60,6 +61,39 @@ ISLAND_BLANK = {
     "section_mm": [60.0, 20.0],
 }
 
+# The rocker's concave top edge (prechips#236): R800 about (0, 816) from X-145.24 to
+# X+145.24, walled at each end by the rise to its tips, on a 5 mm strap down to Y 0.
+_TOP_EDGE = r"""
+import math
+import sys
+import FreeCAD, Part
+V = FreeCAD.Vector
+out = sys.argv[sys.argv.index("--") + 1]
+end = 816 - math.sqrt(800**2 - 145.24**2)
+wire = Part.Wire([
+    Part.LineSegment(V(-155, 0, 0), V(155, 0, 0)).toShape(),
+    Part.LineSegment(V(155, 0, 0), V(155, 40, 0)).toShape(),
+    Part.LineSegment(V(155, 40, 0), V(145.24, 40, 0)).toShape(),
+    Part.LineSegment(V(145.24, 40, 0), V(145.24, end, 0)).toShape(),
+    Part.Arc(V(145.24, end, 0), V(0, 16, 0), V(-145.24, end, 0)).toShape(),
+    Part.LineSegment(V(-145.24, end, 0), V(-145.24, 40, 0)).toShape(),
+    Part.LineSegment(V(-145.24, 40, 0), V(-155, 40, 0)).toShape(),
+    Part.LineSegment(V(-155, 40, 0), V(-155, 0, 0)).toShape(),
+])
+plate = Part.Face(wire).extrude(V(0, 0, 5))
+assert plate.isValid() and len(plate.Solids) == 1
+plate.exportStep(out + "/top-edge.step")
+"""
+TOP_EDGE_BLANK = {
+    "shape": "box",
+    "origin_mm": [-160.0, -5.0, 0.0],
+    "axis": [1.0, 0.0, 0.0],
+    "section_axis": [0.0, 1.0, 0.0],
+    "length_mm": 320.0,
+    "section_mm": [50.0, 8.0],
+}
+DRILL_29 = 1.7255  # the S3:30 chain's #29 drill radius, mm
+
 
 def _author(directory, source, name, executable):
     script = directory / "author.py"
@@ -85,6 +119,12 @@ def arc(tmp_path_factory, freecad_kernel):
 def island(tmp_path_factory, freecad_kernel):
     directory = tmp_path_factory.mktemp("island-solid")
     return _author(directory, _ISLAND, "island.step", freecad_kernel)
+
+
+@pytest.fixture(scope="module")
+def top_edge(tmp_path_factory, freecad_kernel):
+    directory = tmp_path_factory.mktemp("top-edge-solid")
+    return _author(directory, _TOP_EDGE, "top-edge.step", freecad_kernel)
 
 
 def test_rough_clearing_box_around_a_convex_arc_wall_leaves_only_its_rounded_leave(
@@ -146,3 +186,48 @@ def test_later_clearing_box_beyond_an_earlier_one_borders_its_claim_at_setup_ent
     assert second["stock_volume_mm3"] == pytest.approx(
         70 * 60 * 20 - 20 * (66 * 6 + 30 * 5 - kept), abs=0.01
     )
+
+
+def test_bounded_profile_is_judged_only_where_its_box_lets_its_cutter_stand(
+    tmp_path, freecad_kernel, top_edge
+):
+    engine = Engine(tmp_path, freecad_kernel)
+    edge = engine.refs(top_edge, (-145.25, 15.9, 0), (145.25, 29.4, THICK), kind="Cylinder")
+    assert len(edge) == 1
+
+    def facts(x):
+        rough = {
+            **_op("S1:10", "edge", DRILL_29, 25.0, 30.0),
+            "do": "rough_profile",
+            "rough_allowance_mm": 0.25,
+            "stock_removal_bounds": {"x": x, "y": [10.0, 46.0], "z": [0.0, 8.0]},
+        }
+        setups = [_setup([rough], _vise(5.0, centre=0.0))]
+        job = engine.job(top_edge, {"edge": edge}, setups, stock=TOP_EDGE_BLANK)
+        result = engine.run(job)
+        assert result["status"] == "ok", result.get("reason")
+        return result["mapping"][edge[0]], result["ops"]["S1:10"]
+
+    # A box over the whole edge lets the cutter reach its ends, where it certainly meets
+    # the walls rising to the tips: real collisions inside a box stay hits.
+    index, whole = facts([-170.0, 170.0])
+    assert "bounds_unreached" not in whole
+    assert whole["tool_hits"] > 0 and whole["min_hits"]["tool"] > 0, whole
+    # The chain's box stops at X+-135.8: posed near either wall its drill would cut the stock
+    # standing past X+-135.8, which only a later op removes, so those samples are carried.
+    _, chain = facts([-135.8, 135.8])
+    assert chain["tool_hits"] == 0 and chain["min_hits"]["tool"] == 0, chain
+    unreached = chain["bounds_unreached"]
+    assert unreached["indices"] == [index]
+    assert 0 < unreached["sample_count"] < whole["sample_count"]
+    assert chain["sample_count"] + unreached["sample_count"] == whole["sample_count"]
+    # A box ending just past the edge's ends, X+-145.74, within the drill's radius of them:
+    # the plate is 5 mm thick in an 8 mm blank, so the 3 mm of raw above the tips past
+    # X+-145.74 is stock outside the box. The drill posed at either end would cut it, so
+    # those samples are carried too, never judged: the box bounds the stock, not air.
+    _, snug = facts([-145.74, 145.74])
+    beyond = snug["bounds_unreached"]
+    assert beyond["indices"] == [index]
+    # Stock past X+-145.74 is past X+-135.8 too: the chain carries every one of them.
+    assert 0 < beyond["sample_count"] <= unreached["sample_count"]
+    assert snug["sample_count"] + beyond["sample_count"] == whole["sample_count"]
