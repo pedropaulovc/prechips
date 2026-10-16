@@ -1253,7 +1253,8 @@ class Features(InputModel):
     @model_validator(mode="after")
     def drawn_angle_lengths(self) -> Features:
         """A drawn angle band read across a face (``tilt_across``) is a listed ``_deg`` band
-        of its feature, and the face extent a listed length band or a positive number."""
+        of its feature, a two-limit band (:func:`_two_limits`), and the face extent a listed
+        length band or a positive number."""
         for name, feature in self.features.items():
             across = feature.tilt_across
             listed = feature.requirements if isinstance(feature.requirements, list) else []
@@ -1261,11 +1262,13 @@ class Features(InputModel):
                 where = f"{name}: tilt_across {requirement}"
                 if requirement not in listed or not requirement.endswith("_deg"):
                     raise ValueError(f"{where} is not a listed angle (_deg) requirement")
-                if not isinstance(getattr(feature, requirement), list):
+                band = getattr(feature, requirement)
+                if not isinstance(band, list):
                     raise ValueError(
                         f"{where}: only a drawn angle band reads across a face; a BASIC "
                         "angle's tilt is its surface profile's"
                     )
+                _two_limits(where, requirement, band)
                 _face_extent(where, name, feature, listed, extent)
         return self
 
@@ -1303,14 +1306,26 @@ def _governed(features: dict[str, Any], owner: str, key: str, entry: ProfileEntr
 
 
 def _face_extent(where: str, name: str, feature: Any, listed: list, across: str | float) -> None:
-    """A ``tilt_across`` face extent: a listed band of a recognised length dimension
-    (``LENGTH_REQUIREMENTS``) of feature ``name``, or a number > 0."""
+    """A ``tilt_across`` face extent: a listed two-limit band (:func:`_two_limits`) of a
+    recognised length dimension (``LENGTH_REQUIREMENTS``) of feature ``name``, or a number
+    > 0."""
     if isinstance(across, str):
         length = across in listed and across in LENGTH_REQUIREMENTS
-        if not length or not isinstance(getattr(feature, across), list):
+        band = getattr(feature, across) if length else None
+        if not isinstance(band, list):
             raise ValueError(f"{where}: tilt_across {across} is not a listed length band of {name}")
+        _two_limits(where, across, band)
     elif across <= 0:
         raise ValueError(f"{where}: tilt_across must be a positive face extent")
+
+
+def _two_limits(where: str, requirement: str, band: list) -> None:
+    """A band a tilt is read across is ``[lo, hi]``: exactly two limits, ``lo <= hi`` when
+    both are known. An ``"unknown"`` limit is legal and leaves the reading unknown."""
+    if len(band) != 2:
+        raise ValueError(f"{where}: {requirement} must be a band of two limits [lo, hi]")
+    if UNKNOWN not in band and band[0] > band[1]:
+        raise ValueError(f"{where}: {requirement} must be an ordered band [lo, hi], lo <= hi")
 
 
 Source = record("Source", {**texts("vendor by url note cite"), "sku": str | int, "verify": bool})

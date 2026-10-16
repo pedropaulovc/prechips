@@ -257,7 +257,9 @@ zone such as `position_dia`, or a field outside the recognised set such as
 `dome_height`, whose derived band no check would read); a sense entry on an angle
 (`*_deg`) requirement or a `tilt_across` on a length; a `tilt_across` naming anything
 but a listed length band of the governed feature (a `finish_ra` or `position_dia`
-band is none), or a number <= 0; `obliquity_deg`
+band is none), a named band that is not two limits `[lo, hi]` with lo <= hi when
+both are known (`[5.08]`, `[1, 2, 3]`, `[6.1, 5.08]`; an `"unknown"` limit is legal
+and leaves the tilt unknown), or a number <= 0; `obliquity_deg`
 outside [0, 90); a `surface_profile_datums` label that is not declared while the
 `datums` table is known.
 
@@ -303,9 +305,11 @@ A band with an unknown end, or a named length whose lower limit is unknown or no
 stays unknown. The band itself is unchanged; `tilt_across` adds no tolerance.
 Bad input (exit 3): a key that is not a listed `*_deg` requirement of the
 feature, or one whose value is a BASIC scalar rather than a drawn band (a BASIC
-angle reads its tilt through its surface profile's `tilt_across`); a value
-naming anything but a listed length band of the feature (a `finish_ra` or zone
-band is none), or a number <= 0.
+angle reads its tilt through its surface profile's `tilt_across`); a drawn angle
+band or a named length band that is not two limits `[lo, hi]` with lo <= hi when
+both are known (an `"unknown"` limit is legal and leaves the reading unknown); a
+value naming anything but a listed length band of the feature (a `finish_ra` or
+zone band is none), or a number <= 0.
 
 ```toml
 ["features"."tip_land_pos_x"]

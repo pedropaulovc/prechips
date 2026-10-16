@@ -668,6 +668,64 @@ def test_a_tilt_read_across_a_listed_band_that_is_no_length_is_bad_input(tmp_pat
         bundle(tmp_path, features)
 
 
+# Named extents that are no two-limit band: one limit, three, reversed, a non-finite or a
+# non-numeric limit.
+MALFORMED_BANDS = [
+    "[5.08]",
+    "[1.0, 2.0, 3.0]",
+    "[6.1, 5.08]",
+    "[nan, 1.0]",
+    "[1.0, inf]",
+    '["wide", 6.1]',
+]
+# The same shapes as drawn angle bands.
+MALFORMED_ANGLES = [
+    "[89.0]",
+    "[89.0, 90.0, 91.0]",
+    "[91.0, 89.0]",
+    "[nan, 91.0]",
+    "[89.0, inf]",
+    '["square", 91.0]',
+]
+
+
+@pytest.mark.parametrize("land", MALFORMED_BANDS)
+@pytest.mark.parametrize("form", ["profile", "drawn"])
+def test_a_tilt_read_across_a_malformed_extent_band_is_bad_input(tmp_path, form, land):
+    if form == "profile":
+        governs = '{ "tip:land_angle_deg" = { tilt_across = "tip_land" } }'
+        features = {"tip": TIP_LAND, "zone": profile(governs)}
+    else:
+        features = {"tip": drawn_tip('"tip_land"')}
+    features["tip"] = features["tip"].replace("tip_land = [5.08, 6.1]", f"tip_land = {land}")
+    with pytest.raises(BadInput, match="tip_land"):
+        bundle(tmp_path, features)
+
+
+@pytest.mark.parametrize("drawn", MALFORMED_ANGLES)
+def test_a_malformed_drawn_angle_band_read_across_a_face_is_bad_input(tmp_path, drawn):
+    with pytest.raises(BadInput, match="land_angle_deg"):
+        bundle(tmp_path, {"tip": drawn_tip('"tip_land"', drawn)})
+
+
+def test_a_drawn_angle_band_with_an_unknown_limit_loads_and_stays_unknown(tmp_path):
+    tip = drawn_tip('"tip_land"', '["unknown", 91.0]')
+    loaded = bundle(tmp_path, {"tip": tip}, subject="tip", requirement="land_angle_deg")
+    assert inspection_finding(loaded, "tip:land_angle_deg").status == "unknown"
+
+
+@pytest.mark.parametrize("form", ["profile", "drawn"])
+def test_a_tilt_extent_band_with_an_unknown_limit_loads_and_stays_unknown(tmp_path, form):
+    tip = TIP_LAND if form == "profile" else drawn_tip('"tip_land"')
+    tip = tip.replace("tip_land = [5.08, 6.1]", 'tip_land = [5.08, "unknown"]')
+    governs = '{ "tip:land_angle_deg" = { tilt_across = "tip_land" } }'
+    features = {"tip": tip, "zone": profile(governs)} if form == "profile" else {"tip": tip}
+    loaded = bundle(tmp_path, features, subject="tip", requirement="land_angle_deg")
+    row = inspection_finding(loaded, "tip:land_angle_deg")
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["tilt_across_length"] == "unknown"
+
+
 @pytest.mark.parametrize(
     ("gauge", "method", "status"),
     [
