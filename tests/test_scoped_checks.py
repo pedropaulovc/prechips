@@ -12,12 +12,11 @@ import pytest
 from test_cli import copy_examples
 from test_consistency import bundle as consistency_bundle
 from test_consistency import errors as consistency_errors
-from test_process_route import append_op, evaluate, inspection_record
-from test_sheet_ops import Markup, content, ledger
+from test_process_route import append_op, evaluate, inspection_record, op_markup
+from test_sheet_ops import content, ledger
 
 from prechips.inputs import BadInput, load_bundle
 from prechips.rules import tool_resolves
-from prechips.sheet import _Traveler
 
 STATION = ["pivot_bore", "hub_od", "hub_faces"]
 # The issue's station: the bore on pins, the hub OD and the hub faces on a micrometer.
@@ -362,15 +361,7 @@ def test_the_traveler_prints_one_station_card_for_the_issue_table(tmp_path):
     plan, subject = station(tmp_path, ISSUE_CHECKS)
     sid, op = subject.split(":")
     # The traveler's own op assembly, in process, on a synthetic kernel: no native job.
-    kernel = {"status": "ok", "bbox_mm": [-170, -20, -8, 170, 45, 8], "ops": {}, "setups": {}}
-    data = replace(load_bundle(plan), kernel={**kernel, "mapping": {}})
-    findings = evaluate("inspection", data)
-    setup = next(setup for setup in data.plan["setups"] if setup["id"] == sid)
-    sheet = _Traveler(data, list(findings.values()), {}, None)
-    numbers, _, _ = sheet.tool_table(setup)
-    html, _, _, _ = sheet.operations(setup, numbers, {"notes": 2})
-    markup = Markup(html)
-    (node,) = [node for node in markup.find("operation") if node["attrs"]["data-op"] == op]
+    markup, node = op_markup(plan, sid, op)
     feature = content(markup.find("op-feature", node)[0])
     assert all(name.replace("_", " ") in feature for name in STATION)
     bore = content(inspection_record(markup, node, ["pivot_bore"], "dia"))
