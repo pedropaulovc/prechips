@@ -44,6 +44,22 @@ _GUIDE_FACTS = {
 }
 
 
+def touch_set(setup):
+    """The ops of ``setup`` when every spindle op in it (one with a ``tool``) is a guided
+    sweep, else []: such a setup's X and Y are set by each sweep's touch-off against its
+    master and stay locked, so its zero picks up no X/Y edge. Manual ops (deburr,
+    inspect, scribe) carry no tool and do not count."""
+    swept = []
+    for op in setup.get("ops") or []:
+        op = record(op)
+        if "tool" not in op:
+            continue
+        if record(op.get("contour")).get("method") != METHOD:
+            return []
+        swept.append(op.get("op"))
+    return swept
+
+
 def swept_angles(start, end, step, sweep, full):
     """A guided sweep's cutter-centre sample angles (feature angle convention, see
     ``coordinates._arc``): the arc's own samples (:func:`coordinates._samples`, exact ends

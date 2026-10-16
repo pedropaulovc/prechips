@@ -6315,6 +6315,18 @@ class _Traveler:
         transfer = _mapping(authored.get("transfer"))
         if transfer:
             pieces.append(_p(self.transfer_line(setup, transfer) + ".", "zero-transfer"))
+        touch_set = _mapping(numbers.get("touch_set"))
+        if touch_set.get("axes"):
+            # A guided-sweep setup (#255): the touch-off on the master sets X and Y.
+            named = " and ".join(str(axis).upper() for axis in touch_set["axes"])
+            ops = ", ".join(f"op {op}" for op in touch_set.get("ops", []))
+            pieces.append(
+                _p(
+                    f"{named}: no edge pickup. The guided sweep ({ops}) sets them by touching "
+                    "the cutter to its master, then locks them for the whole sweep; see its "
+                    "contour sheet."
+                )
+            )
         axes = numbers.get("axes", {})
         # Each toolpost tool is set on centre (a blade also squared) before its first
         # touch-off in the setup: the zero's tools before the zero, the rest before theirs.

@@ -1118,6 +1118,9 @@ pass sequence.
 | `transfer` | `Transfer` |
 | `tool_touches` | `list[ToolTouch]` |
 
+A setup whose every spindle op is a `guided_sweep` omits `x` and `y`: the sweep's
+touch-off against its master sets them ([zero_check](rules-coordinates.md#zero_check)).
+
 ## AxisZero
 
 | Field | Type (also accepts `"unknown"`) |

@@ -2554,9 +2554,16 @@ def evaluate(bundle):
             or dro.get("mode", UNKNOWN) == UNKNOWN
         )
         bad = dro.get("mode", UNKNOWN) not in {"abs", UNKNOWN}
+        # A setup whose every spindle op is a guided sweep sets X and Y by touching the
+        # cutter to its master and locks them: it picks up no X/Y zero (#255).
+        from .guided_sweep import touch_set
+
+        swept = [] if lathe else touch_set(setup)
         for axis in ("x", "y", "z"):
             recipe = zero.get(axis)
             if not isinstance(recipe, dict):
+                if axis in ("x", "y") and swept:
+                    continue
                 if axis != "y" or not lathe:
                     unknown = True
                 continue
@@ -2834,6 +2841,9 @@ def evaluate(bundle):
             "derived_touches": derived,
             "missing_touches": missing,
         }
+        touched = [axis for axis in ("x", "y") if swept and not isinstance(zero.get(axis), dict)]
+        if touched:
+            numbers["touch_set"] = {"axes": touched, "ops": swept}
         grid_debt = dro_grid_debt(bundle, setup) if face_unknowns else None
         if grid_debt:
             numbers["dro_grid_debt"] = grid_debt

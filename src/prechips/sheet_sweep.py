@@ -24,6 +24,27 @@ def _pair(value):
 _TURN = {"cw": "clockwise", "ccw": "counterclockwise"}
 
 
+def _unresolved(sweep):
+    """What the coordinates rule left unproven for a printable sweep, in the operator's
+    words; empty when every fact the recipe prints is established."""
+    missing = []
+    if sweep.get("guide") not in ("pivot", "rail"):
+        missing.append("guide unknown")
+    if not _pair(sweep.get("cut_radius_mm")):
+        missing.append("cut radius unproven")
+    if sweep.get("touch_axis") not in ("+X", "-X", "+Y", "-Y"):
+        missing.append("touch axis unknown")
+    if sweep.get("rotation") not in ("clockwise", "counterclockwise"):
+        missing.append("sweep direction unknown")
+    if not (_known(sweep.get("sweep_deg")) and _known(sweep.get("path_mm"))):
+        missing.append("sweep angle unknown")
+    if sweep.get("guide") == "rail" and not (
+        _pair(sweep.get("rollers_deg")) and _pair(sweep.get("rail_deg"))
+    ):
+        missing.append("rollers or rail ends unknown")
+    return missing
+
+
 def steps(arc, operative, start, stop, after_rough=False, feed=None):
     """The recipe's numbered steps for one guided-sweep table ``arc`` (its ``guided`` record
     and stage); ``operative`` prints a machine target at DRO resolution, ``start`` and
@@ -43,11 +64,11 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None):
     holder = {"pivot": "arm", "rail": "sled"}.get(guide, "fixture")
     move = {"pivot": "swing", "rail": "push"}.get(guide, "move")
     result = []
-    cut = sweep.get("cut_radius_mm")
-    if not _pair(cut) or sweep.get("rotation") not in ("clockwise", "counterclockwise"):
-        result.append(
-            "STOP: guided sweep not established (cut radius or sweep unknown) — do not run."
-        )
+    missing = _unresolved(sweep)
+    if missing:
+        # Nothing actionable prints under an unproven sweep: a guide, touch or stop printed
+        # beside a STOP would still be run.
+        return [f"STOP: guided sweep not established ({', '.join(missing)}) — do not run."]
     if after_rough and arc.get("stage") == "finish":
         result.append(
             f"Finish sweep: unlock {letter} only, return it to the touch reading and lock "
@@ -68,13 +89,9 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None):
             )
         else:
             result.append(f"Swing the arm until {master}, pinned on it, is under the cutter.")
-    elif guide == "rail":
+    else:
         rollers = sweep.get("rollers_deg")
-        where = (
-            f"at {_number(rollers[0])}° and {_number(rollers[1])}°"
-            if _pair(rollers)
-            else "at ? and ?"
-        )
+        where = f"at {_number(rollers[0])}° and {_number(rollers[1])}°"
         result.append(
             f"{fixture}: the work rides the sled, its R {_number(sweep.get('rail_radius_mm'))} "
             f"mm rail pushed against two rollers fixed in the T-slots {where} about the arc "
@@ -93,8 +110,6 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None):
                 f"so each bears on the rail about {places} mm from the spindle axis."
             )
         result.append(f"Push the sled until {master}, pinned on it, is under the cutter.")
-    else:
-        result.append("STOP: sweep guide not established — do not run.")
     result.append(
         f"Spindle stopped: bring a flute of the cutter itself to touch {master}, feeding "
         f"{_text(approach)} only. {other} needs no setting: every point of the master's touch "

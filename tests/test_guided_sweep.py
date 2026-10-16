@@ -437,10 +437,46 @@ def test_a_rough_then_finish_sweep_touches_off_once_and_returns_to_the_touch(tmp
     assert rough.count("With X and Y locked") == 1 and finish.count("With X and Y locked") == 1
 
 
-def test_a_sweep_whose_cut_is_unproven_prints_a_stop(tmp_path):
-    row, printed = traveler_text(tmp_path, "rail", rollers_deg=None)
+@pytest.mark.parametrize("missing", ["rollers_deg", "rail_deg"])
+def test_a_sweep_whose_guide_is_unproven_prints_only_a_stop(tmp_path, missing):
+    # Unknown rail ends leave the cut radius computable but the sweep unproven: nothing
+    # actionable (touch, lock, stops, sweep) prints beside the STOP.
+    row, printed = traveler_text(tmp_path, "rail", **{missing: None})
     assert row.status == "unknown"
-    assert "STOP" in printed
+    assert "STOP: guided sweep not established (" in printed
+    assert "rollers or rail ends unknown) — do not run." in printed
+    assert "Lock X and Y" not in printed and "stop block" not in printed
+
+
+ZERO_Z = (
+    "[setups.zero.z]\nface = 'top'\nmethod = 'paper'\npaper_mm = 0.05\ntool = 'cutter'\n"
+    "check_jog_mm = 10.0\nretouch_after = []\n"
+)
+
+
+@pytest.mark.parametrize("mixed", [False, True], ids=["sweep-only", "with-a-drill"])
+def test_a_sweep_only_setup_picks_up_no_xy_zero(tmp_path, mixed):
+    # Its X and Y come from the touch-off on the master and stay locked: the zero recipe
+    # needs only Z, and the DRO ZERO sheet says why. Any other spindle op still needs X/Y.
+    from prechips.rules import zero_recipe
+
+    plan = guided_plan(tmp_path)
+    if mixed:
+        drill = op(30, "drill", feature="bore", tool="bore-drill")
+        text = plan.read_text(encoding="utf-8")
+        plan.write_text(text + drill, encoding="utf-8")
+    plan.write_text(plan.read_text(encoding="utf-8") + ZERO_Z, encoding="utf-8")
+    bundle = load_bundle(plan)
+    (row,) = [r for r in zero_recipe.evaluate(bundle) if r.subject == "S1"]
+    assert set(row.numbers["axes"]) == {"z"}
+    if mixed:
+        assert "touch_set" not in row.numbers
+        return
+    assert row.numbers["touch_set"] == {"axes": ["x", "y"], "ops": [20]}
+    tools = {("tools", "cutter"): "6 mm endmill"}
+    html = _Traveler(bundle, [row], {}, None).dro(bundle.plan["setups"][0], tools)
+    printed = " ".join(unescape(re.sub(r"<[^>]+>", "", html)).split())
+    assert "X and Y: no edge pickup. The guided sweep (op 20) sets them" in printed
 
 
 # The kernel, on authored plates under the rocker's concave R800 top edge about (0, 816)
