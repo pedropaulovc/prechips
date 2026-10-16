@@ -207,7 +207,7 @@ def _face(bundle, facts, ref, owners, tolerances):
     if row["contact"] == "off_supply":
         return {**row, "owners": names, "verdict": OFF_BLANK}
     if row["contact"] != "on_supply":
-        reason = "the kernel measured no blank contact"
+        reason = contact.get("reason", "the kernel measured no blank contact")
         return {**row, "owners": names, "verdict": UNKNOWN, "reason": reason}
     profiled = [tolerances[name] for name in contact.get("supplies", ()) if name in tolerances]
     if not profiled:

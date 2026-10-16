@@ -222,6 +222,7 @@ CLIP_CONTACT = "first contact with stock outside stock_removal_bounds"
 STOCK_MM3 = 1e-3  # mm^3: finished material outside the envelope, or a detached stock piece
 TUBE_REL = 1e-3  # pipe volume vs pi r^2 L: a lineage-skin edge tube must be whole
 CONTACT_MM2 = 1e-6  # face/jaw common area that counts as a face inside a jaw
+SUPPLY_MM2 = 1e-6  # as-is face/raw supply common area that makes the supply carry the face
 REACH_BAND = 0.05  # mm beyond the cutter radius in which walls set reach depth
 # Axial ops' radial flute/seat/shank clearance and holder-face clearance (:meth:`_clearances`).
 CLEARANCE_KEYS = ("body_clear_mm", "seat_clear_mm", "shank_clear_mm", "holder_clear_mm")
@@ -3910,26 +3911,27 @@ class _Job:
     def _as_is_contact(self, ref, solid, pieces):
         """Whether one as-is face lies on the joined raw supply's boundary within
         STOCK_TOL (``max_gap_mm``: its farthest sample's distance), so a face spanning
-        adjacent components counts. ``supplies`` names every raw supply whose boundary
-        carries one of its interior samples: each one's cut answers for the face, while
-        a neighbour meeting it only along an edge does not."""
+        adjacent components counts. ``supplies`` names every raw supply sharing a
+        positive area of the face (the exact face/solid common, SUPPLY_MM2): each one's
+        cut answers for the face however narrow its share, while a neighbour meeting it
+        only along an edge does not. A failed common leaves the contact unknown."""
         face = self.solid.Faces[self.mapping[ref]]
         samples, _ = _face_samples(face, 1.0)
         if not samples:
             return {"contact": UNKNOWN, "reason": "the face yields no samples"}
-        points = [Part.Vertex(point) for point, _ in samples]
         joined = Part.makeCompound(solid.Shells)
-        gap = max(joined.distToShape(point)[0] for point in points)
+        gap = max(joined.distToShape(Part.Vertex(point))[0] for point, _ in samples)
         if gap > STOCK_TOL:
             return {"contact": "off_supply", "supplies": [], "max_gap_mm": _r(gap)}
-        interior, _ = _face_samples(face, 1.0, interior_only=True)
-        inner = [Part.Vertex(point) for point, _ in interior] or points
-        shells = {name: Part.makeCompound(piece.Shells) for name, piece in pieces.items()}
-        carriers = sorted(
-            name
-            for name, shell in shells.items()
-            if any(shell.distToShape(point)[0] <= STOCK_TOL for point in inner)
-        )
+        try:
+            shares = {name: face.common(piece).Area for name, piece in pieces.items()}
+        except Exception as exc:
+            reason = f"the face's share of each raw supply is unresolved ({exc})"
+            return {"contact": UNKNOWN, "max_gap_mm": _r(gap), "reason": reason}
+        carriers = sorted(name for name, area in shares.items() if area > SUPPLY_MM2)
+        if not carriers:
+            reason = "the face lies on the supply but shares no area with any raw supply"
+            return {"contact": UNKNOWN, "max_gap_mm": _r(gap), "reason": reason}
         return {"contact": "on_supply", "supplies": carriers, "max_gap_mm": _r(gap)}
 
     @staticmethod

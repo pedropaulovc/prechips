@@ -616,6 +616,7 @@ from FreeCAD import Vector as V
 out = sys.argv[sys.argv.index("--") + 1]
 Part.makeBox(60, 40, 20).exportStep(out + "/block.step")
 Part.makeBox(30, 40, 20, V(30, 0, 0)).exportStep(out + "/half.step")
+Part.makeBox(1, 40, 20, V(59, 0, 0)).exportStep(out + "/sliver.step")
 # The block with its -X half stepped down to z = 10.
 Part.makeBox(60, 40, 20).cut(Part.makeBox(31, 42, 11, V(-1, -1, 10))).exportStep(
     out + "/step.step"
@@ -636,23 +637,24 @@ def halves(tmp_path_factory, freecad_kernel):
         check=False,
     )
     paths = {path.stem: path for path in directory.glob("*.step")}
-    assert set(paths) == {"block", "half", "step"}
+    assert set(paths) == {"block", "half", "sliver", "step"}
     return paths
 
 
-def _halves_stock(halves, height):
-    """A bar half (x 0..30, ``height`` tall) beside the profiled +X half (x 30..60)."""
+def _halves_stock(halves, height, length=30.0, profiled="half"):
+    """A bar (x 0..``length``, ``height`` tall) beside a profiled piece filling the
+    block's +X end: the half (x 30..60) or the 1 mm sliver (x 59..60)."""
     bar = {
         "shape": "box",
         "origin_mm": [0.0, 0.0, 0.0],
         "axis": [1.0, 0.0, 0.0],
         "section_axis": [0.0, 1.0, 0.0],
-        "length_mm": 30.0,
+        "length_mm": length,
         "section_mm": [40.0, height],
     }
-    half = halves["half"]
-    digest = hashlib.sha256(half.read_bytes()).hexdigest()
-    return {"components": {"bar": bar, "profiled": _profiled(half, digest)}}
+    piece = halves[profiled]
+    digest = hashlib.sha256(piece.read_bytes()).hexdigest()
+    return {"components": {"bar": bar, "profiled": _profiled(piece, digest)}}
 
 
 def test_a_face_spanning_adjacent_components_lies_on_the_joined_supply(engine, halves):
@@ -666,6 +668,15 @@ def test_a_face_spanning_adjacent_components_lies_on_the_joined_supply(engine, h
         "max_gap_mm": 0.0,
         "supplies": ["stock.bar", "stock.profiled"],
     }
+
+
+def test_a_narrow_profiled_share_of_a_face_still_carries_it(engine, halves):
+    # A 1 mm profiled sliver under the block's top beside a 59 mm bar: its 40 mm^2 share
+    # is exact area, never missed between samples, so its cut answers for the top too.
+    [top] = engine.refs(halves["block"], (0, 0, 20), (60, 40, 20))
+    stock = _halves_stock(halves, 20.0, length=59.0, profiled="sliver")
+    result = engine.run(engine.job(halves["block"], as_is=[top], stock=stock))
+    assert result["as_is_contact"][top]["supplies"] == ["stock.bar", "stock.profiled"]
 
 
 def test_a_neighbour_meeting_a_face_only_along_its_edge_does_not_carry_it(engine, halves):

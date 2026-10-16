@@ -774,8 +774,10 @@ lie on that envelope. With a profiled blank among the supplies the kernel
 instead measures each as-is face against the joined raw supply's boundary
 (`as_is_contact`: `on_supply` within `STOCK_TOL` = 1e-3 mm, else `off_supply`;
 `max_gap_mm`, its farthest sample's distance; and `supplies`, every raw supply
-whose boundary carries one of its samples, so a face spanning adjacent
-components counts and answers to each of them); a face off the supply is left uncredited by
+sharing a positive area of the face, from the exact face/solid common above
+1e-6 mm², so a face spanning adjacent components counts and answers to each of
+them however narrow its share, while a neighbour meeting it only along an edge
+does not; a failed common leaves the contact `unknown`); a face off the supply is left uncredited by
 [`blank_credit`](#blank_credit) instead of voiding the stock, including a face
 meant for a bar component of a mixed built-up supply. Unknown
 dimensions/placement, incompatible as-is faces, unresolved earlier claims,
