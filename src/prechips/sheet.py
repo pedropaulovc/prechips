@@ -22,7 +22,7 @@ from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .measurements import angle_fact, length_debt, length_fact, measurement_entry, record_trusted
 from .model import TOLERANCE_REQUIREMENTS, profiled, reference_only, tolerance_requirements
-from .rules._bench import manual_bench
+from .rules._bench import hand_saw, manual_bench
 from .rules._envelope import measurement_item
 from .rules.blank_credit import cited_tolerance
 from .rules.coordinates import (
@@ -7893,8 +7893,8 @@ class _Traveler:
         numbers = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
         if op.get("do") in MANUAL:
             return "—", "—", False
-        if op.get("do") in SAW_OPS and manual_bench(self.bundle, setup) is not None:
-            # A hand saw at the bench: no blade speed or machine feed applies.
+        if hand_saw(self.bundle, op):
+            # A hand saw: no blade speed or machine feed applies.
             return "—", "—", False
         if op.get("do") in SAW_OPS:
             speed = numbers.get("blade_speed_sfm")

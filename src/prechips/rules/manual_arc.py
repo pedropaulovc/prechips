@@ -258,16 +258,33 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
     return record_
 
 
+def _lineage(bundle, op):
+    """The ids of ``op``'s setup and every setup its ``stock_in`` routing descends from
+    (omitted routing descends from none)."""
+    upstream = {}
+    for setup in bundle.plan["setups"]:
+        refs = setup.get("stock_in", [])
+        lineage = {setup.get("id")}
+        for ref in refs if isinstance(refs, list) else [refs]:
+            lineage |= upstream.get(ref, set())
+        upstream[setup.get("id")] = lineage
+        if any(other is op for other in setup.get("ops", [])):
+            return lineage
+    return set()
+
+
 def _rough(bundle, op, name):
     """The stairs, chain-drill or scribed-line saw roughs of ``name`` before ``op`` that
     leave their stock to this file (no later rough recuts them): "S1 op 30 and S2 op 28",
-    else None. A saw roughs ``name`` when it ``follows`` a scribe op laying out its line."""
+    else None. A saw roughs ``name`` when it ``follows`` a scribe op laying out its line,
+    on the filing's own workpiece (a setup its ``stock_in`` routing descends from)."""
     found = []
     lines = set()
+    lineage = _lineage(bundle, op)
     for sid, other in _earlier(bundle, op):
         if other.get("do") == "scribe" and other.get("feature") == name:
             lines.add(f"{sid}:{other.get('op', UNKNOWN)}")
-        if other.get("do") in SAW_OPS and other.get("follows") in lines:
+        if other.get("do") in SAW_OPS and other.get("follows") in lines and sid in lineage:
             found.append(f"{sid} op {other.get('op', UNKNOWN)}")
             continue
         if other.get("feature") != name:

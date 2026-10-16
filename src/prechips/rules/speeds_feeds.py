@@ -20,9 +20,9 @@ A saw cut (``saw_cut``/``cut_off``) has no spindle: its one canonical
 ``operation = "saw_cut"`` row supplies blade linear speed (``sfm``) and descent
 feed (``feed_mm_min``) directly. There is no diameter band, tool chart or
 override; the sourced speed is clamped to the machine's inclusive
-``blade_speed_sfm`` range and no RPM is derived. A hand-saw cut in a manual bench setup
-(:func:`prechips.rules._bench.manual_bench`) has no blade speed or feed at all:
-``not_applicable``, like the bench's other manual steps.
+``blade_speed_sfm`` range and no RPM is derived. A cut made with a verified hand saw
+(:func:`prechips.rules._bench.hand_saw`) has no blade speed or feed at all:
+``not_applicable``, judged per operation, whatever else its setup runs.
 
 A mill op with a ``contour`` path also carries its plunge feed. A drill doing
 ``chain_drill`` is centre-cutting by kind and uses its cited drilling chip load
@@ -38,7 +38,7 @@ import math
 from ..findings import Finding
 from ..measurements import length_debt
 from . import tip_endpoints
-from ._bench import manual_bench
+from ._bench import hand_saw
 from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
     MANUAL,
@@ -415,7 +415,6 @@ def evaluate(bundle):
         lathe = machine.get("kind") == "lathe"
         bands = spindle_ranges(machine)
         low, high = spindle_bounds(machine)
-        bench = manual_bench(bundle, setup)
         for op in setup["ops"]:
             subject = f"{setup['id']}:{op['op']}"
             if op["do"] in MANUAL:
@@ -430,7 +429,7 @@ def evaluate(bundle):
                     )
                 )
                 continue
-            if op["do"] in SAW_OPS and bench is not None:
+            if hand_saw(bundle, op):
                 result.append(
                     Finding(
                         "speeds_feeds",
@@ -440,9 +439,8 @@ def evaluate(bundle):
                         [
                             "PLAN.md §4.1 speeds/feeds",
                             f"inventory.tools.{op['tool']}: kind hand_saw",
-                            f"inventory.machines.{bench['machine']}: kind {bench['machine_kind']}",
                         ],
-                        "A hand saw on the bench has no blade speed or machine feed.",
+                        "A hand saw has no blade speed or machine feed.",
                     )
                 )
                 continue

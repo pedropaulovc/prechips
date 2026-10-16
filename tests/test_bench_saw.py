@@ -186,6 +186,16 @@ def test_a_bench_hand_saw_has_no_blade_speed_screen(machine):
     assert "blade_speed_sfm" not in row.numbers
 
 
+def test_a_hand_saw_beside_a_powered_cut_still_has_no_blade_speed():
+    bundle = saw_bundle()
+    bundle.inventory["tools"]["blade"] = {"kind": "bandsaw", "kerf_mm": 1.5}
+    bundle.plan["setups"][0]["ops"].append(
+        {"op": 30, "do": "cut_off", "tool": "blade", "cut_plane": dict(PLANE)}
+    )
+    rows = {row.subject: row.status for row in speeds_feeds.evaluate(bundle)}
+    assert rows == {"S2:20": "not_applicable", "S2:30": "unknown"}
+
+
 @pytest.mark.parametrize("machine, tool", [("bench", "bandsaw"), ("bandsaw", "bandsaw")])
 def test_a_powered_saw_keeps_its_blade_speed_screen(machine, tool):
     row = speeds_feeds.evaluate(saw_bundle(machine, tool))[0]
@@ -307,6 +317,11 @@ def test_a_saw_to_the_scribed_line_roughs_the_arc_for_the_file():
     other = deepcopy(data)
     other["setups"][0]["ops"][0]["feature"] = "other_arc"
     assert _rough(SimpleNamespace(plan=other), other["setups"][1]["ops"][1], "arc") is None
+    # A file on another workpiece is not roughed by this saw.
+    branch = deepcopy(data)
+    filed = branch["setups"][1]["ops"].pop()
+    branch["setups"].append({"id": "S3", "stock_in": "stock", "ops": [filed]})
+    assert _rough(SimpleNamespace(plan=branch), filed, "arc") is None
 
 
 # ------------------------------------------------------------------------ the hand-saw card
