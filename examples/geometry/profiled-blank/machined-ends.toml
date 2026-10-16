@@ -1,7 +1,9 @@
-# profiled-blank, passing counterpart (#248 blank_credit). The same laser-cut blank and
-# chamfer op as plan.toml; the 60 +/-0.1 square ends are no longer credited as cut but
-# finished by S1 op 10. Only the broad faces, R80 arc and bottom edge stay as supplied,
-# each on the blank and within the vendor's +/-0.127 mm. All dimensions are synthetic.
+# profiled-blank, passing counterpart (#248 blank_credit). The blank is ordered with 0.5 mm
+# of machining allowance on each square end (strap-blank-ends.STEP, 61 mm long): a blank
+# cut to the finished 60 could already be 59.873, under the 59.9 limit no op can restore.
+# S1 op 10 finishes both ends, op 20 the chamfer. Only the broad faces, R80 arc and bottom
+# edge stay as supplied, each on the blank and within the vendor's +/-0.127 mm. All
+# dimensions are synthetic.
 part = "strap-plate"
 features = "features.toml"
 construction = "one_piece"
@@ -14,7 +16,7 @@ cutting_data = "../../cutting-data.toml"
 [stock]
 form = "profiled_blank"
 form_verify = false
-note = "Bought laser-cut 2.5 mm plate, cut to the strap outline with the chamfer corner left square; the square ends and the chamfer are machined here."
+note = "Bought laser-cut 2.5 mm plate, cut to the strap outline 61 mm long (0.5 mm machining allowance on each square end) with the chamfer corner left square; the ends and the chamfer are machined here."
 as_is_faces = [
   "#187/ADVANCED_FACE[7]/",
   "#174/ADVANCED_FACE[6]/",
@@ -23,12 +25,12 @@ as_is_faces = [
 ]
 
 [stock.blank]
-step = "strap-blank.STEP"
-step_sha256 = "ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921"
+step = "strap-blank-ends.STEP"
+step_sha256 = "372a9587b44f418211aa994e9653baed07506d4f390713916b82148397f5baf3"
 profile_tolerance_mm = 0.127 # SendCutSend's posted +/-0.005 in cut tolerance (vendor value, not a measurement)
 cite = [
   "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
-  "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)",
+  "examples/geometry/author_solids.py: strap_blank_ends (synthetic blank outline, 0.5 mm end allowance)",
 ]
 
 [[setups]]
@@ -38,7 +40,7 @@ frame = "A"
 coolant = "none"
 deburr_mm = 0.0
 stock_in = "stock"
-note = "Strap flat; the end mill's side skims both square ends to the 60 +/-0.1 length, then cuts the corner chamfer the blank leaves square. Holding remains measurement debt."
+note = "Strap flat; the end mill side takes the 0.5 mm end allowance off both square ends to the 60 +/-0.1 length, then cuts the corner chamfer the blank leaves square. Holding remains measurement debt."
 
 hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
 stock_state = { top_z = "unknown", bottom_z = "unknown" }

@@ -27,7 +27,12 @@ from __future__ import annotations
 import math
 
 from prechips.findings import Finding
-from prechips.model import LENGTH_REQUIREMENTS, PROFILED_BLANK, tolerance_requirements
+from prechips.model import (
+    LENGTH_REQUIREMENTS,
+    PROFILED_BLANK,
+    reference_only,
+    tolerance_requirements,
+)
 from prechips.rules._profile import requirement_band
 from prechips.rules.geometry_common import provenance, unavailable
 from prechips.rules.resolution import _citations, number, record
@@ -68,7 +73,7 @@ def nominal(feature, requirement):
 
 
 def _position(width, t):
-    numbers = {"requirement": "position_dia", "zone": width}
+    numbers = {"requirement": "position_dia", "zone": width, "tolerance": round(t, 6)}
     if not number(width) or width <= 0:
         return UNKNOWN, {**numbers, "reason": "position_dia has no positive zone width"}
     needed = 2 * math.sqrt(2) * t
@@ -79,7 +84,7 @@ def _position(width, t):
 def _profile_zone(feature, t):
     """The face's own profile zone: t√2 must fit on each side of the true profile."""
     width = feature.get("surface_profile", UNKNOWN)
-    numbers = {"requirement": "surface_profile", "zone": width}
+    numbers = {"requirement": "surface_profile", "zone": width, "tolerance": round(t, 6)}
     if not number(width) or width <= 0:
         return UNKNOWN, {**numbers, "reason": "surface_profile has no positive zone width"}
     added = feature.get("surface_profile_u", width / 2)
@@ -145,6 +150,36 @@ def band_verdict(bundle, name, requirement, tolerance_mm):
     return _band(requirement, band, value, t)
 
 
+def _listed(bundle, name):
+    """Every requirement feature ``name`` lists, its unknown identities kept; a reference
+    dimension (``<name>_ref``) states no limit and is skipped."""
+    feature = record(record(bundle.features.get("features")).get(name))
+    listed = feature.get("requirements", UNKNOWN)
+    if not isinstance(listed, list):
+        return tolerance_requirements(feature)
+    return [requirement for requirement in listed if not reference_only(feature, requirement)]
+
+
+def _requirement_verdict(bundle, name, requirement, tolerance):
+    """A listed requirement's verdict: a band or zone through :func:`band_verdict`; a
+    through hole or a location its own position zone governs needs nothing more; any
+    other listed fact (a process, a symmetry, an unknown value) the vendor's length
+    tolerance does not establish, so it stays unknown."""
+    feature = record(record(bundle.features.get("features")).get(name))
+    if requirement == UNKNOWN or requirement in tolerance_requirements(feature):
+        return band_verdict(bundle, name, requirement, tolerance)
+    if requirement == "thru" and feature.get("thru") is True:
+        return HOLDS, {"requirement": requirement}
+    if requirement == "at" and "position_dia" in feature.get("requirements", ()):
+        return HOLDS, {"requirement": requirement, "governed_by": "position_dia"}
+    value = feature.get(requirement, UNKNOWN)
+    return UNKNOWN, {
+        "requirement": requirement,
+        "value": value,
+        "reason": "the vendor's cut tolerance does not establish it",
+    }
+
+
 def _owners(bundle, facts):
     """``{face index: [feature]}`` over exported features, or the features whose faces are
     unresolved (an unresolved face list cannot establish that it owns no as-is face)."""
@@ -177,12 +212,11 @@ def _face(bundle, facts, ref, owners, tolerances):
         return {**row, "verdict": CREDITED}
     # Two profiled carriers (a face on a joint line) answer to the looser vendor tolerance.
     tolerance = max(profiled, key=lambda value: value if number(value) else math.inf)
-    features = record(bundle.features.get("features"))
     checks = [
         {"feature": name, **numbers, "verdict": verdict}
         for name in names
-        for requirement in tolerance_requirements(record(features.get(name)))
-        for verdict, numbers in [band_verdict(bundle, name, requirement, tolerance)]
+        for requirement in _listed(bundle, name)
+        for verdict, numbers in [_requirement_verdict(bundle, name, requirement, tolerance)]
     ]
     row.update(owners=names, profile_tolerance_mm=tolerance, requirements=checks)
     verdicts = {check["verdict"] for check in checks}
@@ -225,7 +259,7 @@ def _text(row):
         )
     if row["verdict"] == BAND:
         failed = [check for check in row["requirements"] if check["verdict"] == EXCEEDS]
-        return "is out of band as cut: " + "; ".join(map(_exceeds, failed))
+        return "is not held by the cut: " + "; ".join(map(_exceeds, failed))
     if row["verdict"] == UNKNOWN:
         return f"has undecided credit ({_undecided(row)})"
     return "is supplied as cut"
@@ -256,26 +290,30 @@ def _exceeds(check):
         )
         return (
             f"{name} surface_profile {check['zone']:g} (U {check['disposition']:g}) leaves "
-            f"{margin + needed:g} on its material-{side} side, less than the {needed:g} "
-            "the cut needs"
+            f"{margin + needed:g} on its material-{side} side, less than the {needed:g} a "
+            f"±{t:g} cut may move the face"
         )
     if "zone" in check:
         return (
             f"{name} {requirement} zone {check['zone']:g} is narrower than the "
-            f"{check['needed_zone']:g} the cut needs"
+            f"{check['needed_zone']:g} a ±{t:g} cut needs"
         )
     low, high = check["band"]
     if "nominal" not in check:
         return (
-            f"{name} {requirement} band {low:g}-{high:g} is narrower than the vendor's "
-            f"±{t:g} spread"
+            f"{name} {requirement} band {low:g}-{high:g} is narrower than the "
+            f"{2 * t:g} a ±{t:g} cut may spread"
         )
-    side, margin = min(
-        (("below", check["low_margin"]), ("above", check["high_margin"])), key=lambda m: m[1]
+    middle = check["nominal"]
+    outside = " and ".join(
+        f"{-margin:g} {side}"
+        for side, margin in (("below", check["low_margin"]), ("above", check["high_margin"]))
+        if margin < -_EPS
     )
+    # The supply range the vendor's tolerance permits, never a claim about one blank.
     return (
-        f"{name} {requirement} {check['nominal']:g} ±{t:g} exits its band {low:g}-{high:g} "
-        f"by {-margin:g} {side}"
+        f"{name} {requirement}, cut to {middle:g} ±{t:g}, may measure "
+        f"{middle - t:g}-{middle + t:g}, outside its {low:g}-{high:g} band by {outside}"
     )
 
 
@@ -331,6 +369,9 @@ def evaluate(bundle):
         values = {"faces": faces}
         sentence = _sentence(owner, faces) + "."
         if status == "error":
-            sentence += " Not credited as supplied: each face refused here needs a cutting op."
+            sentence += (
+                " Not credited as supplied: cut each refused face with an op, from a blank "
+                "that leaves machining allowance on it."
+            )
         findings.append(Finding(RULE, owner, status, values, cite, sentence))
     return findings

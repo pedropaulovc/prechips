@@ -9424,10 +9424,17 @@ class _Traveler:
         label = _STOCK_FORMS.get(form, _text(form) if form else "stock")
         blank = _mapping(stock.get("blank"))
         if blank:
-            # A bought profiled blank is sized by its cut file, not by bar dimensions.
+            # A bought profiled blank is sized by its cut file, not by bar dimensions: the
+            # receiving check is the kernel's box of that solid (root supply only).
             tolerance, step = blank.get("profile_tolerance_mm"), blank.get("step")
+            box = _mapping(_mapping(self.bundle.kernel).get("stock")).get("bbox_mm")
             dims = (
-                f"bought cut to the outline in {step}"
+                " × ".join(o(box[i + 3] - box[i]) for i in range(3)) + " overall, "
+                if ref == "stock" and isinstance(box, list) and len(box) == 6
+                else ""
+            )
+            dims += (
+                f"bought cut to the outline of cut file {step}"
                 if isinstance(step, str) and step != "unknown"
                 else "bought cut to an outline, ? cut file not set"
             )

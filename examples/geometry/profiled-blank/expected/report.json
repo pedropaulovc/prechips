@@ -105,7 +105,7 @@
         "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
         "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)"
       ],
-      "message": "end_faces: each of its 2 faces is out of band as cut: end_faces length 60 ±0.127 exits its band 59.9-60.1 by 0.027 below. Not credited as supplied: each face refused here needs a cutting op.",
+      "message": "end_faces: each of its 2 faces is not held by the cut: end_faces length, cut to 60 ±0.127, may measure 59.873-60.127, outside its 59.9-60.1 band by 0.027 below and 0.027 above. Not credited as supplied: cut each refused face with an op, from a blank that leaves machining allowance on it.",
       "numbers": {
         "faces": [
           {
@@ -552,7 +552,7 @@
         "plan.stock.as_is_faces; union of each cutting op's direction-valid face claims",
         "blank_credit: profiled-blank as-is faces on the blank and within bands"
       ],
-      "message": "strap-plate: faces have no cutting op or as-stock claim: #88/ADVANCED_FACE[3]/, #152/ADVANCED_FACE[5]/; the profiled blank's as-is credit is withheld (blank_credit) from #152/ADVANCED_FACE[5]/, #88/ADVANCED_FACE[3]/.",
+      "message": "strap-plate: faces have no cutting op or as-stock claim: #88/ADVANCED_FACE[3]/, #152/ADVANCED_FACE[5]/.",
       "numbers": {
         "as_is_withheld": [
           "#152/ADVANCED_FACE[5]/",
@@ -2020,7 +2020,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "980865dd216aac5594ccf8bf92fe2a847a4b4ba6ce4e9ceaf22126115ffe2170",
+  "hash": "78c5c19b6bde5743e39abc3ab9283e995ef172d9d6721400fc76ddca0722ca55",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -91,9 +91,9 @@
         "PLAN.md §4.2 blank_credit",
         "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
         "plan.stock.as_is_faces; kernel as_is_contact (STOCK_TOL 1e-3 mm)",
-        "stock.blank: strap-blank.STEP SHA-256 ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921, ±0.127 mm",
+        "stock.blank: strap-blank-ends.STEP SHA-256 372a9587b44f418211aa994e9653baed07506d4f390713916b82148397f5baf3, ±0.127 mm",
         "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
-        "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)"
+        "examples/geometry/author_solids.py: strap_blank_ends (synthetic blank outline, 0.5 mm end allowance)"
       ],
       "message": "bottom_edge: its face is supplied as cut.",
       "numbers": {
@@ -137,9 +137,9 @@
         "PLAN.md §4.2 blank_credit",
         "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
         "plan.stock.as_is_faces; kernel as_is_contact (STOCK_TOL 1e-3 mm)",
-        "stock.blank: strap-blank.STEP SHA-256 ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921, ±0.127 mm",
+        "stock.blank: strap-blank-ends.STEP SHA-256 372a9587b44f418211aa994e9653baed07506d4f390713916b82148397f5baf3, ±0.127 mm",
         "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
-        "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)"
+        "examples/geometry/author_solids.py: strap_blank_ends (synthetic blank outline, 0.5 mm end allowance)"
       ],
       "message": "strap_faces: each of its 2 faces is supplied as cut.",
       "numbers": {
@@ -211,9 +211,9 @@
         "PLAN.md §4.2 blank_credit",
         "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
         "plan.stock.as_is_faces; kernel as_is_contact (STOCK_TOL 1e-3 mm)",
-        "stock.blank: strap-blank.STEP SHA-256 ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921, ±0.127 mm",
+        "stock.blank: strap-blank-ends.STEP SHA-256 372a9587b44f418211aa994e9653baed07506d4f390713916b82148397f5baf3, ±0.127 mm",
         "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
-        "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)"
+        "examples/geometry/author_solids.py: strap_blank_ends (synthetic blank outline, 0.5 mm end allowance)"
       ],
       "message": "top_arc: its face is supplied as cut.",
       "numbers": {
@@ -353,7 +353,7 @@
           },
           "plan": {
             "path": "examples/geometry/profiled-blank/machined-ends.toml",
-            "sha256": "b43e831fce90abc532b1c40c85420b356263b06142e159ed4c9bcccd12ca8444"
+            "sha256": "20ed0d6c59c35ba536a13e32be2a53d867b30cb3c5895a18e06c73b5cb617a2c"
           },
           "shop_policy": {
             "path": "examples/geometry/profiled-blank/shop-policy.toml",
@@ -364,8 +364,8 @@
             "sha256": "b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84"
           },
           "stock.blank": {
-            "path": "examples/geometry/profiled-blank/strap-blank.STEP",
-            "sha256": "ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921"
+            "path": "examples/geometry/profiled-blank/strap-blank-ends.STEP",
+            "sha256": "372a9587b44f418211aa994e9653baed07506d4f390713916b82148397f5baf3"
           }
         },
         "step_sha256": "b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84"
@@ -1078,14 +1078,14 @@
         "stock_bottom_z": "unknown",
         "stock_entry_basis": "kernel setup-entry stock",
         "stock_entry_bbox_mm": [
+          -0.5,
           0.0,
           0.0,
-          0.0,
-          60.0,
+          60.5,
           17.838015,
           2.5
         ],
-        "stock_extent_x_mm": 60.0,
+        "stock_extent_x_mm": 61.0,
         "stock_extent_y_mm": 17.838015,
         "stock_height_mm": "unknown",
         "stock_top_above_jaws_mm": "not_applicable",
@@ -1096,7 +1096,7 @@
         "travel_checks": {
           "x": {
             "fixture_mm": "unknown",
-            "part_mm": 60.0,
+            "part_mm": 61.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
@@ -2227,7 +2227,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "cfb696bb4452bbe39592c7652401783ab21c9cc1f3804f69638fe2ec21a51548",
+  "hash": "886c43c2f58e674bbb294e01096911cc869903ad77a04ca06861ea631ef6cf30",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2243,11 +2243,11 @@
     },
     "plan": {
       "path": "examples/geometry/profiled-blank/machined-ends.toml",
-      "sha256": "b43e831fce90abc532b1c40c85420b356263b06142e159ed4c9bcccd12ca8444"
+      "sha256": "20ed0d6c59c35ba536a13e32be2a53d867b30cb3c5895a18e06c73b5cb617a2c"
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "1178ca724fe87f0318dbf1d18e38acefd0b39787a4236a59da5307fc41a28bfa"
+      "sha256": "1d00d5781839194d278996b21acc281efb68255922c2412da452d2cddf298329"
     },
     "shop_policy": {
       "path": "examples/geometry/profiled-blank/shop-policy.toml",
@@ -2258,8 +2258,8 @@
       "sha256": "b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84"
     },
     "stock.blank": {
-      "path": "examples/geometry/profiled-blank/strap-blank.STEP",
-      "sha256": "ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921"
+      "path": "examples/geometry/profiled-blank/strap-blank-ends.STEP",
+      "sha256": "372a9587b44f418211aa994e9653baed07506d4f390713916b82148397f5baf3"
     }
   },
   "prechips_version": "0.1.2",
@@ -2317,7 +2317,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "1178ca724fe87f0318dbf1d18e38acefd0b39787a4236a59da5307fc41a28bfa"
+      "sha256": "1d00d5781839194d278996b21acc281efb68255922c2412da452d2cddf298329"
     }
   },
   "rules_version": "m5-rev12",

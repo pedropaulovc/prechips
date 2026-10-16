@@ -423,12 +423,17 @@ def test_only_faces_on_the_blank_and_within_their_bands_are_credited():
     [chamfer] = [row for row in blank_credit.evaluate(bundle) if row.subject == "corner_chamfer"]
     assert "lies 1.25 mm off the supplied blank" in chamfer.sentence
     [ends] = [row for row in blank_credit.evaluate(bundle) if row.subject == "end_faces"]
-    assert "length 60 ±0.127 exits its band 59.9-60.1 by 0.027 below" in ends.sentence
+    # The supply range the tolerance permits, both excursions, and a remedy no undersize
+    # blank defeats: machining allowance, then an op.
+    assert (
+        "end_faces length, cut to 60 ±0.127, may measure 59.873-60.127, outside its "
+        "59.9-60.1 band by 0.027 below and 0.027 above"
+    ) in ends.sentence
+    assert "from a blank that leaves machining allowance on it" in ends.sentence
     [row] = coverage.evaluate(bundle)
     assert str(row.status) == "error"
     assert set(row.numbers["unclaimed_faces"]) == {CHAMFER, RIGHT_END, LEFT_END}
     assert set(row.numbers["as_is_withheld"]) == {CHAMFER, RIGHT_END, LEFT_END}
-    assert "as-is credit is withheld (blank_credit)" in row.sentence
 
 
 def test_faces_the_plan_does_not_credit_are_unclaimed_not_withheld():
@@ -448,6 +453,34 @@ def test_an_unknown_vendor_tolerance_is_debt_never_credit():
     assert set(_statuses(bundle).values()) == {"unknown"}
     [row] = coverage.evaluate(bundle)
     assert str(row.status) == "unknown"
+
+
+@pytest.mark.parametrize(
+    ("fields", "verdict"),
+    [
+        # A listed value the schema leaves unknown is unresolved, never an absent check.
+        ({"requirements": ["dome_height"], "dome_height": "unknown"}, "unknown"),
+        ({"requirements": ["radius"], "radius": "unknown"}, "unknown"),
+        ({"requirements": ["process"], "process": "ream"}, "unknown"),
+        ({"requirements": ["mirror_symmetric"], "mirror_symmetric": True}, "unknown"),
+        # A through profile and a location its own position zone governs add nothing.
+        ({"requirements": ["thru"], "thru": True}, "credited"),
+        (
+            {"requirements": ["at", "position_dia"], "at": [1.0, 2.0, 0.0], "position_dia": 0.4},
+            "credited",
+        ),
+        # A reference dimension states no limit to hold.
+        ({"requirements": ["depth_ref"], "depth_ref": 16.0}, "credited"),
+    ],
+)
+def test_every_listed_requirement_is_judged_or_left_unresolved(fields, verdict):
+    bundle = _credit_bundle(_on(*FACES))
+    bundle.features["features"]["strap_faces"] = {
+        "faces": [TOP, BOTTOM],
+        "requirements": [],
+        **fields,
+    }
+    assert blank_credit.credit(bundle, bundle.kernel)[TOP]["verdict"] == verdict
 
 
 def test_a_profiled_form_with_an_unknown_blank_is_debt_never_bar_credit():

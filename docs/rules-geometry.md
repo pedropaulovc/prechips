@@ -1930,8 +1930,8 @@ not an absence-of-operation diagnosis.
 With a [profiled blank](plan.md#profiled-blank), an `as_is_faces` face is
 credited only when [`blank_credit`](#blank_credit) credits it. A face it
 refuses (off the blank, or a band the vendor tolerance cannot hold) is listed
-in `as_is_withheld` and stays unclaimed unless an op claims it; the error adds
-`the profiled blank's as-is credit is withheld (blank_credit) from …`. An
+in `as_is_withheld` and stays unclaimed unless an op claims it (the
+`blank_credit` row prints why). An
 undecided credit is `unknown`, never a credit. The cite list then adds
 `blank_credit: profiled-blank as-is faces on the blank and within bands`.
 
@@ -1984,6 +1984,11 @@ A face is credited when both checks hold:
    - An angle (`*_deg`), `finish_ra`, `coaxiality_dia`, `angularity_dia`, an
      unrecognised band name, a band with an unknown limit and a scalar with no
      limits stay `unknown`: a length tolerance does not bound them.
+   - Every other listed requirement is judged too, never dropped: a `process`,
+     `mirror_symmetric` or any value the manifest leaves `"unknown"` is not
+     established by a cut tolerance and stays `unknown`; `thru` and an `at` its
+     own `position_dia` governs add nothing; a `<name>_ref` reference dimension
+     states no limit.
    - A known-empty `requirements` list has nothing to hold; an unknown list or
      identity stays `unknown`.
 
@@ -1995,8 +2000,12 @@ Each distinct verdict is stated once: for the whole feature (`its face …`,
 references it applies to.
 
 - `<feature>: its face is supplied as cut.` (pass)
-- `… lies <gap> mm off the supplied blank: it is buried in stock, not supplied as cut. Not credited as supplied: each face refused here needs a cutting op.` (error, check 1)
-- `… is out of band as cut: <feature> <requirement> <nominal> ±<t> exits its band <low>-<high> by <m> below|above` (or `… band <low>-<high> is narrower than the vendor's ±<t> spread`, `… zone <w> is narrower than the <w'> the cut needs`), then the same `Not credited` sentence (error, check 2)
+- `… lies <gap> mm off the supplied blank: it is buried in stock, not supplied as cut. Not credited as supplied: cut each refused face with an op, from a blank that leaves machining allowance on it.` (error, check 1)
+- `… is not held by the cut: <feature> <requirement>, cut to <nominal> ±<t>, may measure <lo>-<hi>, outside its <low>-<high> band by <m> below[ and <m> above]` (the supply range the tolerance permits, never a claim about one blank; or `… band <low>-<high> is narrower than the <2t> a ±<t> cut may spread`, `… zone <w> is narrower than the <w'> a ±<t> cut needs`, `… surface_profile <w> (U <u>) leaves <room> on its material-added|removed side …`), then the same `Not credited` sentence (error, check 2)
+
+An op cannot restore an undersize face: a face refused here needs machining
+allowance on the blank (which then buries it, failing check 1 by design) and an
+op that cuts it.
 - `… has undecided credit (<reason>).` (unknown: an unknown vendor tolerance, no measured contact, a requirement the tolerance cannot bound, a band without its nominal, or an exported feature whose faces are unresolved and so might own the face)
 
 A face failing either check is not credited: [`coverage`](#coverage) leaves it

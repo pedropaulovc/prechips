@@ -86,7 +86,8 @@ def evaluate(bundle):
             (rotary if approach(bundle, setup, op) == ROTARY else claimed).update(indices)
     refs = record(bundle.plan.get("stock")).get("as_is_faces", "unknown")
     mapping, invalid = record(facts.get("mapping")), record(facts.get("mapping_errors"))
-    # A profiled blank's as-is face counts only once supplied as cut within its bands.
+    # A profiled blank's as-is face counts only once supplied as cut within its bands; a
+    # refused one is listed in ``as_is_withheld`` (blank_credit's row prints why).
     credits = blank_credit.credit(bundle, facts)
     withheld = []
     if credits:
@@ -171,12 +172,6 @@ def evaluate(bundle):
                 if face["index"] in unclaimed
             ]
             problems.append("faces have no cutting op or as-stock claim: " + ", ".join(names))
-            refused = [ref for ref in withheld if mapping[ref] in unclaimed]
-            if refused:
-                problems.append(
-                    "the profiled blank's as-is credit is withheld (blank_credit) from "
-                    + ", ".join(refused)
-                )
         if gaps:
             problems.append(
                 "rotary windows leave part of a claimed face uncut: "
