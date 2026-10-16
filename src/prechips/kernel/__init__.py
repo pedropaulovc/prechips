@@ -1995,15 +1995,22 @@ def _export_timing(active, result, source):
                     pass
 
 
-def run_geometries(bundles):
-    """Prewarm all candidates in one FreeCAD batch, reusing per-job content caches."""
+def run_geometries(bundles, jobs=None):
+    """Prewarm all candidates in one FreeCAD batch, reusing per-job content caches.
+
+    ``jobs``, when given, are the bundles' :func:`build_job` results in order, already
+    built by the caller; otherwise each pending bundle's job is built here."""
     from prechips import telemetry
 
     bundles = list(bundles)
     pending = [bundle for bundle in bundles if getattr(bundle, "kernel", None) is None]
     if not pending:
         return [bundle.kernel for bundle in bundles]
-    prepared = {id(bundle): build_job(bundle) for bundle in pending}
+    built = {} if jobs is None else dict(zip(map(id, bundles), jobs, strict=True))
+    prepared = {
+        id(bundle): built[id(bundle)] if id(bundle) in built else build_job(bundle)
+        for bundle in pending
+    }
     active = telemetry.current()
     with (
         active.span("kernel.geometry", candidates=len(pending)) if active else nullcontext()
