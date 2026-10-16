@@ -986,9 +986,12 @@ the rows as chords, a cutter cylinder at every row). Its rows span the whole
 declared sweep, so the cutter's run past each arc end is judged too: a run into
 finished material (a tip wall rising at a concave end) is a rule A′ hit the
 coordinates rule cannot see. The carrier's own `solids` (posed by `hold.pose`)
-move with the work and are checked in the same frame; the pivot post or the
-rollers fixed to the table move relative to the work and are not drawn. No
-`freecad_job.py` code knows the method.
+move with the work and are checked in the same frame. The pivot post or the
+rollers fixed to the table move relative to the work, so they are never
+fixture components: an arc sled's rollers are drawn render-only at the setup's
+mid-sweep pose (see [Renders](#renders)), and no checkpoint, clash, contact or
+clearance reads them. No removal or hit code in `freecad_job.py` knows the
+method.
 **Rule A′** limits every printed table, row by row: a printed
 row is an accessibility error naming the row when its cutter meets the finished
 part or the op's rough leave (its guard), a fixture component, stock outside a
@@ -2314,6 +2317,21 @@ are cut and their contacts show (`render_scene.section`: `axis`, `at_mm`). The e
 own orthographic z-buffer rasterizer, bundled bitmap font and PNG encoder
 use no installed fonts, timestamps or machine-specific metadata. Fresh runs
 and cache hits give identical bytes.
+
+A guided sweep's table-side guide elements
+([#255](https://github.com/pedropaulovc/prechips/issues/255)) are drawn for the
+operator, not modelled as holding. The host sends an arc sled's rollers in the
+setup's render annotation (`guides.rollers`: setup XY axis `at_mm`, `dia_mm` and
+`z_mm` from the table to the roller top), each at the rail radius plus or minus its
+radius (`rail_side`) about the arc centre, at its `rollers_deg` from the cutter's
+radial line, the table at the stock bottom less the fixture's `bed_height`. The
+kernel draws them as cylinders in the guide colour with one `GUIDE ROLLERS
+(TABLE)` callout and lists them in `render_scene.components` with role
+`guide_roller`; they never join the fixture components, so no checkpoint, clash,
+contact, clearance or `fixture_rendered` verdict reads them. A roller fact that is
+missing or not measured leaves the rollers undrawn with a `NOT SHOWN` note naming
+its `measure:` instruction. A swing arm's pivot post stands at the arc centre, far
+off the part, so a note names where it stands instead of drawing it.
 
 Blue-grey is material retained after the setup; amber hatch is the Boolean
 difference between actual entry and derived exit stock. When exit stock is

@@ -1132,3 +1132,89 @@ def _rotation(arc, label, debts, record_, scale):
     thetas = [math.degrees(trig.atan2(p[1] - centre[1], p[0] - centre[0])) for p in points]
     travel = sum((b - a + 180.0) % 360.0 - 180.0 for a, b in itertools.pairwise(thetas))
     record_["rotation"] = "clockwise" if travel > 0 else "counterclockwise"
+
+
+# The guide-element facts the setup picture draws a rail's rollers from: (field, words).
+_ROLLER_FACTS = (("roller_dia", "roller diameter"), ("roller_height", "roller height"))
+
+
+def guide_scene(bundle, setup, numbers, scale):
+    """(``{"rollers": [...]}`` or None, picture notes) for ``setup``'s guided sweeps, from
+    its coordinates ``numbers``; ``scale`` is mm per plan unit.
+
+    The rollers and the pivot post are fixed to the table while the work turns, so they
+    are drawn at the sweep's middle pose (the setup frame) for the operator to see where
+    they stand, never hit-tested: the kernel draws each roller as a render-only cylinder
+    (``at_mm`` its axis in setup XY, ``dia_mm``, ``z_mm`` from the table to its top). A
+    rail roller stands at the rail radius plus (``rail_side = "outer"``) or minus its own
+    radius from the arc centre, at its ``rollers_deg`` from the cutter's radial line; the
+    table is the work-support face (stock bottom) less the fixture's ``bed_height``. A
+    pivot post 800 mm off the part would shrink it to a speck, so it is a note giving
+    where it stands. A roller fact that is missing or unmeasured leaves the rollers
+    undrawn, named in a note with its ``measure:`` instruction."""
+    from ..measurements import measurement_entry
+
+    rollers, notes, seen = [], [], set()
+    bottom = record(setup.get("stock_state")).get("bottom_z")
+    for arc in numbers.get("arc_table") or []:
+        sweep = arc.get("guided")
+        op = arc.get("op")
+        if not isinstance(sweep, dict) or op in seen:
+            continue
+        seen.add(op)
+        centre, middle = arc.get("centre_setup_xy"), arc.get("arc_mid_setup_xy")
+        if not (_pair(centre) and _pair(middle)):
+            notes.append(f"NOT SHOWN: op {op}'s guide (its arc centre is unknown).")
+            continue
+        centre_mm = [v * scale for v in centre]
+        middle_mm = [v * scale for v in middle]
+        heading = math.atan2(middle_mm[1] - centre_mm[1], middle_mm[0] - centre_mm[0])
+        if sweep.get("guide") == "pivot":
+            reach = math.dist(centre_mm, middle_mm)
+            notes.append(
+                f"PIVOT POST (op {op}, off the picture): at the arc centre, setup X "
+                f"{centre_mm[0]:.1f} Y {centre_mm[1]:.1f}, {reach:.1f} mm from the cutter at "
+                "the arc's middle."
+            )
+            continue
+        if sweep.get("guide") != "rail":
+            continue
+        reference = sweep.get("fixture")
+        item = resolve(bundle, "fixtures", reference) if isinstance(reference, str) else None
+        item = item if isinstance(item, dict) else {}
+        category, key = identity(bundle, reference, "fixtures")
+        values, missing = {}, []
+        for field, _ in _ROLLER_FACTS:
+            fact = length_fact(item, field, require_measured=True)
+            if fact["verified"] and number(fact["value"]) and fact["value"] > 0:
+                values[field] = fact["value"]
+            else:
+                missing.append(measurement_entry(category, key, field, item=item)["instruction"])
+        bed = length_fact(item, "bed_height", require_measured=True)
+        if not (bed["verified"] and number(bed["value"])):
+            missing.append(measurement_entry(category, key, "bed_height", item=item)["instruction"])
+        side = item.get("rail_side")
+        if side not in ("outer", "inner"):
+            missing.append(f"declare {key}'s rail_side (outer or inner)")
+        rail, angles = sweep.get("rail_radius_mm"), sweep.get("rollers_deg")
+        if not (number(rail) and _pair(angles) and number(bottom)):
+            missing.append("its rail radius, rollers' angles or the stock bottom are unknown")
+        if missing:
+            notes.append(f"NOT SHOWN: op {op}'s guide rollers — " + "; ".join(missing) + ".")
+            continue
+        radius = rail + (1 if side == "outer" else -1) * values["roller_dia"] / 2
+        table = bottom * scale - bed["value"]
+        for index, angle in enumerate(angles, start=1):
+            theta = heading + math.radians(angle)
+            rollers.append(
+                {
+                    "name": f"guide roller {index} (op {op})",
+                    "at_mm": [
+                        centre_mm[0] + radius * trig.cos(theta),
+                        centre_mm[1] + radius * trig.sin(theta),
+                    ],
+                    "dia_mm": values["roller_dia"],
+                    "z_mm": [table, table + values["roller_height"]],
+                }
+            )
+    return ({"rollers": rollers} if rollers else None), notes

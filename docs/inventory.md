@@ -219,13 +219,19 @@ arcs is ordinary inventory:
   `roller_runout` must carry their own complete `measured` record
   (`status = "measured"`): a bare, assumed or `verify = true` value, or none, is
   debt with a `measure:` instruction, never a perfect guide. `solids` and a
-  `hold.pose` draw it like any shop-made fixture; the table-side pivot post and
-  rollers move relative to the work and are not drawn. An arc sled declares
+  `hold.pose` draw it like any shop-made fixture. An arc sled declares
   `rail_side` (`"outer"`: the rollers bear on the rail from outside the arc;
   `"inner"`: from the centre's side), and for inside rollers a measured
   `roller_dia`: the rail's bound turns on how far the rollers' centres orbit (at
   least the rail radius outside it, the rail radius less half the roller diameter
-  inside it), so an undeclared side or an unmeasured inside roller is debt.
+  inside it), so an undeclared side or an unmeasured inside roller is debt. For
+  the setup picture it also declares `roller_dia` and `roller_height` (the
+  rollers' top above the table), each with its own `measured` record, and its
+  `bed_height`; the rollers are then drawn render-only (see
+  [rules-geometry](rules-geometry.md#renders)), else a picture note names each
+  missing fact with its `measure:` instruction. A swing arm's pivot post stands
+  at the arc centre, far off the part: the picture names where it stands in a
+  note instead of drawing it.
 - A guided sweep's master is a `gauges.<id>` with `kind = "setting_bar"` (seated
   on the swing arm's pivot pin; pivot guides only) or `kind = "master_arc"` (a
   template edge pinned on the arm or sled), with `radius_limits` (`_mm` or `_in`),
@@ -1055,6 +1061,7 @@ plan's stock.
 | `rail_side` | `"outer"` / `"inner"` (`arc_sled`: the rollers bear on the rail from outside the arc, or from the arc centre's side) |
 | `roller_dia_mm` / `roller_dia_in` | `MeasuredLength` (`arc_sled`: the guide rollers' OD; measured, needed for rollers inside the rail) |
 | `radius_limits_mm` / `radius_limits_in` | `MeasuredLimits` (`setting_bar` / `master_arc`: the radius the touch face sets about the guide's centre; measured) |
+| `roller_height_mm` / `roller_height_in` | `MeasuredLength` (`arc_sled`: the guide rollers' top above the table, for the setup picture; measured) |
 | `leadscrew` | `LeadScrew` |
 | `capacity_in` | `float \| list[Number] \| Capacity` |
 | `tailstock` | `Tailstock` |

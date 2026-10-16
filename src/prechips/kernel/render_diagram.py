@@ -1197,7 +1197,9 @@ class _Diagram:
         framed = []
         for component in self.components:
             box = component.get("box_mm")
-            if box is None:
+            if box is None or _role(component) == "guide":
+                # A guided sweep's table-side rollers stand off the work by design: the
+                # view widens to show where they are, since the operator sets them (#255).
                 framed.append(component)
                 continue
             pressing = _role(component) in ("fixed_jaw", "moving_jaw") and any(

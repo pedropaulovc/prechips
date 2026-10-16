@@ -586,6 +586,88 @@ def test_a_negative_leave_prints_no_sweep(tmp_path):
     assert not arcs(row, 20)
 
 
+ROLLERS = (
+    f"roller_dia_mm = {{ value = 22.0, {MEASURED} }}\n"
+    f"roller_height_mm = {{ value = 12.0, {MEASURED} }}\n"
+    f"bed_height_mm = {{ value = 30.0, {MEASURED} }}\nrail_side = 'outer'\n"
+)
+
+
+def guide_annotation(tmp_path, guide="rail", rollers=ROLLERS):
+    from prechips.kernel.render_inputs import setup_annotations
+
+    plan = guided_plan(tmp_path, guide)
+    inventory = plan.with_name("inventory.toml")
+    change(inventory, "rail_radius_mm = 850.0\n", "rail_radius_mm = 850.0\n" + rollers)
+    bundle = load_bundle(plan)
+    (row,) = [r for r in coordinates.evaluate(bundle, pre_kernel=True) if r.subject == "S1"]
+    return row, setup_annotations(bundle, bundle.plan["setups"][0], row.numbers)
+
+
+def test_the_picture_draws_a_rails_rollers_where_they_bear_on_it(tmp_path):
+    # Rollers at ±15° about the arc centre from the cutter's radial line (-Y), on the R850
+    # rail from outside: their axes at R861 about the centre, on the table (stock bottom
+    # Z -10 less the 30 bed height) up to their 12 height.
+    row, annotation = guide_annotation(tmp_path)
+    table, _ = recipe(row)
+    centre = table["centre_setup_xy"]
+    rollers = annotation["guides"]["rollers"]
+    assert len(rollers) == 2
+    for roller, angle in zip(rollers, (-15.0, 15.0), strict=True):
+        theta = math.radians(-90.0 + angle)
+        expected = [centre[0] + 861.0 * math.cos(theta), centre[1] + 861.0 * math.sin(theta)]
+        assert roller["at_mm"] == pytest.approx(expected)
+        assert roller["dia_mm"] == 22.0 and roller["z_mm"] == pytest.approx([-40.0, -28.0])
+
+
+@pytest.mark.parametrize(
+    ("rollers", "named"),
+    [
+        (
+            ROLLERS.replace(
+                f"roller_dia_mm = {{ value = 22.0, {MEASURED} }}", "roller_dia_mm = 22.0"
+            ),
+            "measure: sled guide roller outside diameter",
+        ),
+        (ROLLERS.replace("rail_side = 'outer'\n", ""), "declare sled's rail_side"),
+    ],
+    ids=["unmeasured-diameter", "no-rail-side"],
+)
+def test_rollers_the_picture_cannot_place_are_a_note_with_their_measure(tmp_path, rollers, named):
+    _, annotation = guide_annotation(tmp_path, rollers=rollers)
+    assert "guides" not in annotation
+    (note,) = [n for n in annotation["notes"] if "guide rollers" in n]
+    assert note.startswith("NOT SHOWN: op 20's guide rollers") and named in note
+
+
+def test_the_isometric_view_frames_and_labels_rollers_standing_off_the_work():
+    # Holding that does not touch the work is cropped out of an isometric frame, but the
+    # rollers stand off the work by design: they stay framed and get their callout.
+    from prechips.kernel.render_diagram import _Diagram
+
+    def far(name, role):
+        box = [80.0, -50.0, -40.0, 100.0, -30.0, -10.0]
+        centre = [(box[i] + box[i + 3]) / 2 for i in range(3)]
+        return {"name": name, "role": role, "box_mm": box, "center_mm": centre}
+
+    spec = {
+        "setup_id": "S1",
+        "view": "isometric",
+        "stock_box": [-60.0, 0.0, -5.0, 60.0, 18.75, 0.0],
+        "components": [far("guide rollers", "guide"), far("far block", "fixture")],
+    }
+    diagram = _Diagram([], spec)
+    names = {component["name"] for component in diagram.components}
+    assert "guide rollers" in names and "far block" not in names
+
+
+def test_the_pivot_post_is_a_note_not_a_solid_800_mm_off_the_part(tmp_path):
+    _, annotation = guide_annotation(tmp_path, "pivot")
+    assert "guides" not in annotation
+    (note,) = [n for n in annotation["notes"] if n.startswith("PIVOT POST")]
+    assert "at the arc centre, setup X 15.0 Y 808.0, 797.0 mm from the cutter" in note
+
+
 def test_the_kernel_job_carries_the_swept_rows_as_checkpoints(tmp_path):
     # The kernel sweeps the cutter along the rows (in the work's frame, the fixture's
     # swing) and stands it at each: the arc ends and the run past them are judged too.
@@ -1784,7 +1866,7 @@ def swept_checkpoints(tmp_path, sweep_deg):
     return table, table_checkpoints("S1:20", row.numbers, 20, "mm")
 
 
-def sweep_run(tmp_path, freecad_kernel, step, sweep_deg):
+def sweep_run(tmp_path, freecad_kernel, step, sweep_deg, render=None):
     table, checkpoints = swept_checkpoints(tmp_path / "plan", sweep_deg)
     engine = Engine(tmp_path, freecad_kernel)
     edge = engine.refs(step, (-145.25, 15.9, 0), (145.25, 29.4, 5.0), kind="Cylinder")
@@ -1796,7 +1878,10 @@ def sweep_run(tmp_path, freecad_kernel, step, sweep_deg):
         "checkpoints": checkpoints,
     }
     hold = _vise(5.0, centre=0.0)
-    setups = [_setup([finish], hold, setup_id="S1"), _setup([], hold, setup_id="S2")]
+    first = _setup([finish], hold, setup_id="S1")
+    if render is not None:
+        first["render"] = render
+    setups = [first, _setup([], hold, setup_id="S2")]
     result = engine.run(engine.job(step, {"edge": edge}, setups, stock=PLATE_BLANK))
     assert result["status"] == "ok", result.get("reason")
     return table, result
@@ -1824,3 +1909,25 @@ def test_the_kernel_finds_a_sweep_that_runs_into_finished_material(
     _, result = sweep_run(tmp_path, freecad_kernel, plates["walled"], 25.0)
     errors = result["ops"]["S1:20"]["checkpoint_errors"]
     assert errors and {error["obstacle"] for error in errors} == {"finished part"}, errors
+
+
+def test_guide_rollers_are_drawn_but_never_hit_tested(tmp_path, freecad_kernel, plates):
+    # A roller placed right through the stock and the cutter's rows at the arc's middle:
+    # the picture draws it, but it is no holding solid, so no row, clash, clearance or
+    # fixture readiness reads it. The same job without it gives the same verdicts.
+    roller = {"name": "guide roller T", "at_mm": [0.0, 20.0], "dia_mm": 10.0, "z_mm": [-5.0, 9.0]}
+    render = {"guides": {"rollers": [roller]}}
+    _, plain = sweep_run(tmp_path / "plain", freecad_kernel, plates["open"], 25.0)
+    _, drawn = sweep_run(tmp_path / "drawn", freecad_kernel, plates["open"], 25.0, render)
+    scene = drawn["setups"]["S1"]["render_scene"]
+    rollers = [c for c in scene["components"] if c["name"] == "guide roller T"]
+    assert rollers and rollers[0]["role"] == "guide_roller"
+    assert "guide roller T" not in scene["debts"]
+    facts, before = drawn["ops"]["S1:20"], plain["ops"]["S1:20"]
+    assert facts["checkpoint_errors"] == before["checkpoint_errors"] == []
+    assert facts["checkpoint_hits"] == before["checkpoint_hits"]
+    setup, unchanged = drawn["setups"]["S1"], plain["setups"]["S1"]
+    for key in ("fixture_rendered", "fixture_clashes"):
+        assert key in setup and setup[key] == unchanged[key], key
+    assert not any("guide roller" in str(clash) for clash in setup.get("fixture_clashes", []))
+    assert scene["cut_clearances"] == plain["setups"]["S1"]["render_scene"]["cut_clearances"]
