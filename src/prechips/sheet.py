@@ -8960,9 +8960,15 @@ class _Traveler:
                     t.get("op") == arc.get("op") and t.get("stage") == "rough"
                     for t in numbers.get("arc_table", [])
                 )
+                finish_follows = arc.get("stage") == "rough" and any(
+                    t.get("op") == arc.get("op") and t.get("stage") == "finish"
+                    for t in numbers.get("arc_table", [])
+                )
                 ends = (labels[0], labels[-1]) if labels else ("", "")
                 feed = self.records.get(("speeds_feeds", subject), {}).get("feed_mm_min")
-                description = sweep_steps(arc, o, *ends, after_rough=rough, feed=feed)
+                description = sweep_steps(
+                    arc, o, *ends, after_rough=rough, feed=feed, final=not finish_follows
+                )
                 # A finish after the op's rough sweep continues the rough's numbered steps.
                 previous = entry.get("sweep_steps")
                 if rough and arc.get("stage") == "finish" and previous is not None:

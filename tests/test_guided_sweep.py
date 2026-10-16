@@ -449,13 +449,17 @@ def test_a_rough_then_finish_sweep_touches_off_once_and_returns_to_the_touch(tmp
     row, printed = traveler_text(tmp_path, allowance=0.3)
     assert row.status == "pass", row.sentence
     assert printed.count("Spindle stopped: bring a flute") == 1
-    rough, finish = printed.split("Finish sweep:")
+    rough, finish = printed.split("Finish sweep, Z still raised clear:")
     assert "Rough sweep: unlock Y only, move it +0.300 from the touch reading" in rough
     assert "return it to the touch reading" in finish
     # The touch is written down, never zeroed: the setup's DRO zero stays for its other ops.
     assert "set DRO" not in printed and "reading at the touch here" in printed
-    # Each stage keeps X and Y locked while the arm sweeps.
+    # Each stage keeps X and Y locked while the arm sweeps, and ends withdrawn: Z is raised
+    # before Y moves for the finish, and only the last sweep stops the spindle.
     assert rough.count("With X and Y locked") == 1 and finish.count("With X and Y locked") == 1
+    assert rough.rstrip().endswith("raise Z until the cutter clears the work and the arm.")
+    assert "stop the spindle" not in rough
+    assert finish.rstrip().endswith("then stop the spindle and wait for it to stop.")
 
 
 @pytest.mark.parametrize("missing", ["rollers_deg", "rail_deg"])

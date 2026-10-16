@@ -45,12 +45,13 @@ def _unresolved(sweep):
     return missing
 
 
-def steps(arc, operative, start, stop, after_rough=False, feed=None):
+def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True):
     """The recipe's numbered steps for one guided-sweep table ``arc`` (its ``guided`` record
     and stage); ``operative`` prints a machine target at DRO resolution, ``start`` and
     ``stop`` are the picture keys of its first and last cutter rows (may be empty) and
     ``feed`` the op's starting feed, mm/min. A finish ``after_rough`` (the same op's rough
-    sweep printed first) only returns to the touch and sweeps between the same stops."""
+    sweep printed first) only returns to the touch and sweeps between the same stops. Only
+    the op's ``final`` sweep stops the spindle at its end."""
     from prechips.sheet import _number, _text
 
     sweep = arc.get("guided") if isinstance(arc.get("guided"), dict) else {}
@@ -71,10 +72,12 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None):
         return [f"STOP: guided sweep not established ({', '.join(missing)}) — do not run."]
     if after_rough and arc.get("stage") == "finish":
         result.append(
-            f"Finish sweep: raise Z until the cutter clears the work and the {holder}; then "
-            f"unlock {letter} only, return it to the touch reading and lock {letter} again."
+            f"Finish sweep, Z still raised clear: unlock {letter} only, return it to the touch "
+            f"reading and lock {letter} again."
         )
-        result.append(_sweep(arc, sweep, o, holder, move, start, stop, feed, stops=False))
+        result.append(
+            _sweep(arc, sweep, o, holder, move, start, stop, feed, stops=False, final=final)
+        )
         return result
     if guide == "pivot":
         result.append(
@@ -126,7 +129,7 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None):
             f"centre; if it moves the other way, STOP: {letter} reads reversed."
         )
     result.append(_stops(sweep, o, holder, move, start, stop))
-    result.append(_sweep(arc, sweep, o, holder, move, start, stop, feed, stops=True))
+    result.append(_sweep(arc, sweep, o, holder, move, start, stop, feed, stops=True, final=final))
     return result
 
 
@@ -158,8 +161,9 @@ def _stops(sweep, o, holder, move, start, stop):
     )
 
 
-def _sweep(arc, sweep, o, holder, move, start, stop, feed, stops):
-    """Start the spindle, set Z and sweep the fixture from stop to stop."""
+def _sweep(arc, sweep, o, holder, move, start, stop, feed, stops, final):
+    """Start the spindle, set Z, sweep the fixture from stop to stop and withdraw; the
+    ``final`` sweep of the op also stops the spindle."""
     from prechips.sheet import _number, _text
 
     pressed = (
@@ -176,6 +180,11 @@ def _sweep(arc, sweep, o, holder, move, start, stop, feed, stops):
     turning = f" {turn}" if turn else ""
     first = f" ({start})" if start else ""
     last = f" ({stop})" if stop else ""
+    # Every sweep ends withdrawn; the op's last also stops the spindle before anyone
+    # reaches in to unclamp or measure.
+    end = f" At that stop, raise Z until the cutter clears the work and the {holder}" + (
+        ", then stop the spindle and wait for it to stop." if final else "."
+    )
     lead = (
         f"{move.capitalize()} the {holder} against the first stop{first}, start the "
         f"spindle{turning}"
@@ -188,5 +197,5 @@ def _sweep(arc, sweep, o, holder, move, start, stop, feed, stops):
         f"{lead} and set Z {o(arc.get('dro_tip_z'))}. With X and Y locked, move only the "
         f"{holder}: {move} it {_text(sweep.get('rotation'))} (viewed from above) to the other "
         f"stop{last}, {_number(sweep.get('sweep_deg'))}°, "
-        f"{_number(_round(path, 1))} mm of cutter travel along the work{pressed}{pace}."
+        f"{_number(_round(path, 1))} mm of cutter travel along the work{pressed}{pace}.{end}"
     )

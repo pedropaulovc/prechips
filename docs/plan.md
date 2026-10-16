@@ -1685,7 +1685,9 @@ uses the 1898 manual arc method:
    block at each end of the sweep (the cutter's centre over the overrun's mark on a
    steel rule laid along the arc from its end), then the sweep: spindle started, its
    direction viewed from above, its angle and cutter travel, and the time it takes
-   at the op's starting feed. The worst-case cut radius stays in the report. Any
+   at the op's starting feed; each sweep ends with Z raised clear of the work and the
+   fixture, the op's last also stopping the spindle before anyone reaches in. The
+   worst-case cut radius stays in the report. Any
    unproven guide, cut radius, axis, direction, angle, rollers or rail ends prints
    only a STOP naming them.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
