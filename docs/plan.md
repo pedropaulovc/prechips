@@ -1226,7 +1226,9 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `stock_removal_bounds` | `Bounds` |
 | `approach` | `"rotary"` |
 | `angle_window_deg` | `[Number, Number]` |
-| `cut_plane` | `SawPlane` (saw cut-off only) |
+| `cut_plane` | `SawPlane` (a straight saw cut only) |
+| `follows` | `str`: `"<setup>:<op>"` of an earlier `scribe` op (a saw that follows its line only) |
+| `allowance_mm` | `Number` > 0: stock a saw that `follows` a line leaves outside it for the file |
 
 An `inspect` op may name several features (`feature = ["a", "b"]`): one
 drawing limit split across them, or one inspection station reading several. A
@@ -1509,6 +1511,11 @@ uses the 1898 manual arc method:
    when the host model has those linked facts; fuller actual closed-boundary
    transport is tracked in
    [#212](https://github.com/pedropaulovc/prechips/issues/212).
+   A gentle arc may instead be hand-sawn outside the line on the bench: a saw
+   op that `follows` the scribe op, with its `allowance_mm` and declared
+   `stock_removal_bounds`
+   ([hand saw](#hand-saw-on-the-bench-straight-or-to-a-scribed-line)), counts
+   as the rough the file finishes.
    No closure is invented: the open fallback uses oriented finite projections,
    real free-end
    caps and shared-concave-vertex sector classification. Conservative ties
@@ -1625,8 +1632,10 @@ The former `method = "arc_table"` is an error.
 ## Saw cut-off
 
 `do = "saw_cut"` and `do = "cut_off"` remove a sacrificial end/slab with a
-`tools.<blade>` whose `kind = "bandsaw"`. The setup machine may be a `mill`,
-`bench` or `bandsaw`; a lathe uses its separate `part_off` action, not this model.
+`tools.<blade>` whose `kind = "bandsaw"` or a hand saw (`kind = "hand_saw"`, a
+hacksaw). A bandsaw blade runs on a `mill`, `bench` or `bandsaw` machine; a hand
+saw only on a `bench` or `manual` one. A lathe uses its separate `part_off`
+action, not this model.
 The operation requires no spindle holder, direction or finished-face claim.
 If a feature is authored it must resolve normally; checks cannot be attached to
 an omitted feature.
@@ -1660,4 +1669,46 @@ sfm and descent feed in mm/min. These starting numbers come only from the cited
 [`saw_cut` cutting-data row](cutting-data.md), never op-level RPM/feed overrides.
 Blade-centre settings, retained edges and sourced blade speed/feed keep their
 own numeric digits; a coarse drawing print class does not round machine settings.
+
+### Hand saw on the bench, straight or to a scribed line
+
+A saw op declares exactly one shape, else the plan is `BadInput`: `cut_plane`
+(a straight cut; `cut_plane = "unknown"` while the plane is undecided), or
+`follows`, the `"<setup>:<op>"` of an earlier `scribe` op whose line the cut
+follows. A cut that follows a line also declares `allowance_mm` (positive, the
+stock left outside the line for the file) and `stock_removal_bounds`, the
+setup-frame box the blade and its offcut take; neither belongs on a straight cut.
+Gentle curves (an R800 arc rising about 13 mm over 292 mm) are sawn by hand this
+way, then filed to the line:
+
+```toml
+[[setups.ops]]
+op = 20
+do = "saw_cut"
+tool = "junior-hacksaw"          # inventory kind = "hand_saw"
+follows = "S4:10"                # the scribe op that laid out the line
+allowance_mm = 0.5
+stock_removal_bounds = { x = [-1.0, 293.0], y = [13.5, 20.0], z = [-1.0, 17.0] }
+note = "Saw just outside the scribed line."
+```
+
+The box is the author's declaration of what the cut removes, the same contract
+as a mill op's clearing box: the kernel removes only the stock inside it, never
+infers a curved kerf from the line, and does not model break-out or chisel work
+(#213). An omitted or unknown box removes nothing and is plan-input debt: the
+`saw_cut` finding is `?` with "declare stock_removal_bounds for <setup:op>", and
+later stock stays unknown. The box must stay at least `allowance_mm` clear of the
+finished target, else `✗`; an unknown allowance is `?`. A box cannot follow a
+curve, so the file may face more than the allowance where the line falls away;
+the following `file_to_line` checks the stock it actually meets against the
+shop's `max_filing_stock_mm`, and counts this saw as the rough it finishes.
+
+A setup on a `bench`/`manual` machine whose saws all use a `hand_saw` tool, with
+otherwise only bench actions (`fit`, `inspect`, `deburr`, `coating`, `scribe`,
+`file_to_line`), is manual bench work: its DRO, zero and headroom screens are
+`not_applicable` and `speeds_feeds` gives the hand saw no blade speed or feed. A
+powered or unresolved blade on a bench machine waives nothing. The traveler
+prints a bench hand saw on the assembly / finishing card: "Hand saw, blade
+centred on Y 87.75 mm; keep the side below it", or "Hand saw outside the line
+scribed in S4 op 10, leave 0.5 mm for filing".
 

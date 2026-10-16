@@ -489,6 +489,12 @@ diameter filter. Positive row `sfm` is linear blade speed, clamped to the
 machine's `blade_speed_sfm`; row `feed_mm_min` is descent feed. It has no
 spindle RPM, tooth-count calculation, tool-chart precedence or op override.
 Missing/ambiguous/uncited data and machine/blade/material debt remain unknown.
+A hand saw (`kind = "hand_saw"`) in a manual bench setup
+([`rules._bench`](plan.md#hand-saw-on-the-bench-straight-or-to-a-scribed-line))
+has no blade speed or feed: its finding is `not_applicable`, citing the tool
+and bench machine kinds. The waiver comes from the setup being manual bench
+work, not the action: a bandsaw blade or an unresolved tool on a bench machine
+keeps this blade-speed screen.
 See [cutting data](cutting-data.md) and [native saw geometry](rules-geometry.md#saw-cut-off).
 
 Exact templates:

@@ -760,10 +760,12 @@ boxes. A missing or withheld entry box leaves travel unresolved. Equality
 with a measured travel limit passes; exceeding it fails.
 
 A machine with inventory `kind = "bench"` or `"manual"` whose non-empty
-operation list contains only `fit`, `inspect`, `deburr` and `coating` needs no DRO or spindle
-screen: `zero_check`, `coordinates` and `headroom` are `not_applicable`.
-Joint geometry and modeled holding still apply. Adding any cutting or unknown
-operation reinstates the normal machine screens.
+operation list contains only `fit`, `inspect`, `deburr`, `coating`, `scribe`,
+`file_to_line` and saw cuts whose tool resolves to a `hand_saw` needs no DRO or
+spindle screen: `zero_check`, `coordinates` and `headroom` are `not_applicable`.
+Joint geometry and modeled holding still apply. Adding any other cutting or
+unknown operation, or a saw with a powered or unresolved blade, reinstates the
+normal machine screens.
 
 The supply needs the positive dimensions and model-frame placement described
 under [plan stock](plan.md#stock), or a [profiled blank](plan.md#profiled-blank)'s
@@ -1094,8 +1096,9 @@ kernel job and does not enlarge an unbounded cut or certify a toolpath
 
 ### Saw cut-off
 
-`saw_cut` and `cut_off` use an authored setup-axis blade-centre `cut_plane`
-and the selected bandsaw blade's positive inventory kerf. Below retains the
+A straight `saw_cut` or `cut_off` uses an authored setup-axis blade-centre
+`cut_plane` and the selected blade's (bandsaw or hand saw) positive inventory
+kerf. Below retains the
 halfspace at or below `plane - kerf/2`; above retains the halfspace at or above
 `plane + kerf/2`. The native Boolean removes the kerf plus the discarded planar
 slab from the **current operation stock**, including earlier removals in that
@@ -1119,6 +1122,25 @@ tool-cylinder model does not model a saw blade. This states a model boundary,
 not certified blade/fixture clearance. Saw cuts provide no finished-face or
 surface-finish coverage credit. Holding, fixture solids and fixture-interference
 screens remain in effect, including on a dedicated bandsaw setup.
+
+### Saw to a scribed line
+
+A saw that `follows` an earlier scribe op's line has no plane: it removes only
+its declared `stock_removal_bounds` box (clipped to the current operation stock,
+plan units scaled to mm) and reads no blade kerf. The kernel never infers a curved
+kerf from the scribed line and does not model break-out or chisel removal (#213).
+An omitted or unknown box removes nothing: the saw's `saw_reason` reads "declare
+stock_removal_bounds for <setup:op> …", the `saw_cut` finding is `?`, and the
+stock after it stays unknown for later ops and setups. A box that misses the stock
+is a no-op error; one that removes finished target, leaves no stock or splits one
+input solid into loose pieces is an error, as for a straight cut. The retained
+material between the removed stock and the finished target is reported as
+`retained_to_target_mm` (the minimum distance between the two solids); below the
+op's `allowance_mm` it is an error naming both. An unknown allowance keeps the
+removal but leaves the finding `?`; an empty finished target in that setup leaves
+`retained_to_target_mm` unknown. The finding reports `follows`, the declared box,
+`allowance_mm`, `retained_to_target_mm` and the before/after and removed volumes;
+it has no kerf or offcut volume.
 
 ### Jaw placement
 
