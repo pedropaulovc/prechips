@@ -7876,13 +7876,15 @@ class _Traveler:
             return f"Hand saw {self.saw_setting(op)}{separator}{self.saw_leave(op)}."
         plane = _mapping(op.get("cut_plane"))
         axis = _text(plane.get("axis")).upper()
-        side = {"above": "+", "below": "-"}.get(plane.get("keep"))
-        keep = f"keep the {side}{axis} side" if side else "STOP: side to keep not established"
+        sides = {"above": ("+", "-"), "below": ("-", "+")}.get(plane.get("keep"))
+        if sides is None:
+            return "Hand saw: STOP: side to keep not established."
         edge = numbers.get("retained_boundary_mm")
-        retained = f" (retained edge {axis} {_number(edge)} mm)" if _known(edge) else ""
+        retained = f", retained edge {axis} {_number(edge)} mm" if _known(edge) else ""
         return (
-            f"Hand saw, blade centred on {axis} {_number(plane.get('value'))} "
-            f"{self.bundle.features.get('units', '?')}; {keep}{retained}."
+            f"Hand saw across the part, keeping the {sides[0]}{axis} piece; the kerf falls on "
+            f"the {sides[1]}{axis} (waste) side (blade centre {axis} "
+            f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}{retained})."
         )
 
     def speeds(self, setup, op, saw_table):
