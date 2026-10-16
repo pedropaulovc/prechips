@@ -226,6 +226,8 @@ def test_unknown_facts_withhold_both_current_and_downstream_union(engine, multi_
 def test_known_missing_or_malformed_compound_facts_are_native_errors(engine, multi_solids):
     baseline = _multi_job(engine, multi_solids["multi"])
     invalid = [
+        ("compound", {}),
+        ("compound", "Loctite"),
         ("product", None),
         ("product", " "),
         ("product", 12),

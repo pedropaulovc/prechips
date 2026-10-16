@@ -4026,7 +4026,9 @@ class _Job:
             compound = joint.get("compound")
             if compound is not None and not isinstance(compound, dict):
                 raise ValueError("joint compound must be a product, cure and prep record")
-            for field in ("product", "cure_time_min", "surface_prep") if compound else ():
+            # A present block, even an empty one, must carry every fact.
+            fields = ("product", "cure_time_min", "surface_prep") if compound is not None else ()
+            for field in fields:
                 value = compound.get(field)
                 if value == UNKNOWN:
                     debts.append(f"joint compound {field} is unknown")
