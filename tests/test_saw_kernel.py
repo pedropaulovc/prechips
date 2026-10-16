@@ -593,6 +593,22 @@ def _scribed_host_bundle(tmp_path, target, **op):
     return bundle
 
 
+@pytest.mark.parametrize("op", [_saw(), _scribed(_beyond(8.5))], ids=["straight", "scribed"])
+def test_an_unverified_hand_saw_routes_no_stock(saw_engine, saw_target, op):
+    op = {**op, "saw_tool": "unverified_hand_saw"}
+    result = _run(saw_engine, saw_target, op, machine="manual")
+    detail = result["ops"]["S1:10"]
+    assert "identity is unverified" in detail["saw_reason"], detail
+    assert "stock_bbox_mm" not in result["setups"]["S2"]
+
+
+def test_host_marks_an_unverified_hand_saw(tmp_path, saw_target):
+    bundle = _scribed_host_bundle(tmp_path, saw_target)
+    bundle.inventory["tools"]["hacksaw"]["verify"] = True
+    op = kernel.engine_job(kernel.build_job(bundle))["setups"][0]["ops"][0]
+    assert op["saw_tool"] == "unverified_hand_saw"
+
+
 def test_host_job_carries_the_scribed_shape_and_keys_the_cache_on_it(tmp_path, saw_target):
     bundle = _scribed_host_bundle(tmp_path, saw_target)
     job = kernel.engine_job(kernel.build_job(bundle))

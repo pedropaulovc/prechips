@@ -5618,6 +5618,9 @@ class _Setup:
     def _saw_machine(self, op, facts, missing):
         machine = self.setup.get("machine_kind")
         tool = op.get("saw_tool", "bandsaw")
+        if tool == "unverified_hand_saw":
+            missing.append("the selected hand saw's identity is unverified")
+            return
         if machine in (None, UNKNOWN):
             missing.append("saw machine kind is unknown")
         elif machine not in SAW_MACHINE_KINDS.get(tool, SAW_MACHINE_KINDS["bandsaw"]):

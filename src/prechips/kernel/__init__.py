@@ -41,6 +41,7 @@ from prechips.rules.resolution import (
     record,
     resolve,
     rough_leave,
+    saw_tool_unverified,
     setup_frame,
 )
 
@@ -300,9 +301,12 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     if op.get("do") in {"saw_cut", "cut_off"}:
         units = bundle.features.get("units", UNKNOWN)
         # A hand saw cuts only at a bench or manual station, and its straight cut reports
-        # the kept piece's length; any other tool keeps the powered-saw machine kinds.
-        hand = record(resolve(bundle, "tools", op.get("tool"))).get("kind") == "hand_saw"
-        saw_tool = {"saw_tool": "hand_saw"} if hand else {}
+        # the kept piece's length; one still to verify cannot route stock at all. Any other
+        # tool keeps the powered-saw machine kinds.
+        saw_tool = {}
+        if record(resolve(bundle, "tools", op.get("tool"))).get("kind") == "hand_saw":
+            verified = not saw_tool_unverified(bundle, op)
+            saw_tool = {"saw_tool": "hand_saw" if verified else "unverified_hand_saw"}
         if "follows" in op:
             # The scribed line's cut takes only its declared region (unknown extent is
             # plan-input debt); the blade's kerf locates nothing, so no kerf is consumed.
