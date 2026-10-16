@@ -1,0 +1,2326 @@
+{
+  "expected_exit": 0,
+  "findings": [
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "features.end_faces: faces and requirements",
+        "examples/geometry/author_solids.py: STRAP length (synthetic test specification)",
+        "plan.setups.S1: frame and hold",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-8-std: explicit-unit verified dimensions",
+        "inventory.holders.r8-collet-8mm: explicit-unit verified dimensions",
+        "inventory.machines.test-mill.resolution"
+      ],
+      "message": "Fixture solids are not declared for this holding kind. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "field": [
+              "resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "features.corner_chamfer: faces and requirements",
+        "examples/geometry/author_solids.py: STRAP chamfer (synthetic test specification)",
+        "plan.setups.S1: frame and hold",
+        "plan.setups.S1.ops.20: selected action/tool/holder",
+        "inventory.tools.em-8-std: explicit-unit verified dimensions",
+        "inventory.holders.r8-collet-8mm: explicit-unit verified dimensions",
+        "inventory.machines.test-mill.resolution"
+      ],
+      "message": "Fixture solids are not declared for this holding kind. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "field": [
+              "resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
+      "rule": "accessibility",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 accessibility",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "plan.setups.S1.ops.90: selected action/tool/holder"
+      ],
+      "message": "S1:90: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "accessibility",
+      "status": "not_applicable",
+      "subject": "S1:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 blank_credit",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "plan.stock.as_is_faces; kernel as_is_contact (STOCK_TOL 1e-3 mm)",
+        "stock.blank: strap-blank.STEP SHA-256 ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921, ±0.127 mm",
+        "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
+        "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)"
+      ],
+      "message": "bottom_edge: #17/ADVANCED_FACE[1]/ is supplied as cut.",
+      "numbers": {
+        "faces": [
+          {
+            "contact": "on_supply",
+            "max_gap_mm": 0.0,
+            "owners": [
+              "bottom_edge"
+            ],
+            "profile_tolerance_mm": 0.127,
+            "ref": "#17/ADVANCED_FACE[1]/",
+            "requirements": [
+              {
+                "band": [
+                  17.6,
+                  18.1
+                ],
+                "feature": "bottom_edge",
+                "high_margin": 0.135,
+                "low_margin": 0.111,
+                "nominal": 17.838,
+                "requirement": "height",
+                "tolerance": 0.127,
+                "verdict": "holds"
+              }
+            ],
+            "supplies": [
+              "stock"
+            ],
+            "verdict": "credited"
+          }
+        ]
+      },
+      "rule": "blank_credit",
+      "status": "pass",
+      "subject": "bottom_edge"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 blank_credit",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "plan.stock.as_is_faces; kernel as_is_contact (STOCK_TOL 1e-3 mm)",
+        "stock.blank: strap-blank.STEP SHA-256 ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921, ±0.127 mm",
+        "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
+        "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)"
+      ],
+      "message": "strap_faces: #187/ADVANCED_FACE[7]/ is supplied as cut; #174/ADVANCED_FACE[6]/ is supplied as cut.",
+      "numbers": {
+        "faces": [
+          {
+            "contact": "on_supply",
+            "max_gap_mm": 0.0,
+            "owners": [
+              "strap_faces"
+            ],
+            "profile_tolerance_mm": 0.127,
+            "ref": "#187/ADVANCED_FACE[7]/",
+            "requirements": [
+              {
+                "band": [
+                  2.3,
+                  2.7
+                ],
+                "feature": "strap_faces",
+                "high_margin": 0.073,
+                "low_margin": 0.073,
+                "nominal": 2.5,
+                "requirement": "thickness",
+                "tolerance": 0.127,
+                "verdict": "holds"
+              }
+            ],
+            "supplies": [
+              "stock"
+            ],
+            "verdict": "credited"
+          },
+          {
+            "contact": "on_supply",
+            "max_gap_mm": 0.0,
+            "owners": [
+              "strap_faces"
+            ],
+            "profile_tolerance_mm": 0.127,
+            "ref": "#174/ADVANCED_FACE[6]/",
+            "requirements": [
+              {
+                "band": [
+                  2.3,
+                  2.7
+                ],
+                "feature": "strap_faces",
+                "high_margin": 0.073,
+                "low_margin": 0.073,
+                "nominal": 2.5,
+                "requirement": "thickness",
+                "tolerance": 0.127,
+                "verdict": "holds"
+              }
+            ],
+            "supplies": [
+              "stock"
+            ],
+            "verdict": "credited"
+          }
+        ]
+      },
+      "rule": "blank_credit",
+      "status": "pass",
+      "subject": "strap_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 blank_credit",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "plan.stock.as_is_faces; kernel as_is_contact (STOCK_TOL 1e-3 mm)",
+        "stock.blank: strap-blank.STEP SHA-256 ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921, ±0.127 mm",
+        "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
+        "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)"
+      ],
+      "message": "top_arc: #119/ADVANCED_FACE[4]/ is supplied as cut.",
+      "numbers": {
+        "faces": [
+          {
+            "contact": "on_supply",
+            "max_gap_mm": 0.0,
+            "owners": [
+              "top_arc"
+            ],
+            "profile_tolerance_mm": 0.127,
+            "ref": "#119/ADVANCED_FACE[4]/",
+            "requirements": [
+              {
+                "band": [
+                  79.5,
+                  80.5
+                ],
+                "feature": "top_arc",
+                "high_margin": 0.373,
+                "low_margin": 0.373,
+                "nominal": 80.0,
+                "requirement": "radius",
+                "tolerance": 0.127,
+                "verdict": "holds"
+              }
+            ],
+            "supplies": [
+              "stock"
+            ],
+            "verdict": "credited"
+          }
+        ]
+      },
+      "rule": "blank_credit",
+      "status": "pass",
+      "subject": "top_arc"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "face"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "bottom_edge"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "chamfer"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "corner_chamfer"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "face"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "end_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "face"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "strap_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 tip endpoints",
+        "features manifest hole geometry",
+        "plan stock_state and operation depth/exit",
+        "inventory selected tool geometry"
+      ],
+      "message": "Not a hole; no tip endpoint applies.",
+      "numbers": {
+        "endpoints": [],
+        "kind": "profile"
+      },
+      "rule": "blind_depth",
+      "status": "not_applicable",
+      "subject": "top_arc"
+    },
+    {
+      "cite": [
+        "PLAN.md §5 input-bundle binding"
+      ],
+      "message": "The part model and every operative input are bound to the report.",
+      "numbers": {
+        "inputs": {
+          "cutting_data": {
+            "path": "examples/cutting-data.toml",
+            "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+          },
+          "features": {
+            "path": "examples/geometry/profiled-blank/features.toml",
+            "sha256": "17249556bb14074c85fe7403c6568a63cc7fef589947d4eb478acbedc362100a"
+          },
+          "inventory": {
+            "path": "examples/geometry/inventory.toml",
+            "sha256": "4a218826e99747448c27b662cc66c7714cd15d4ea841502c63f32ef20e35cb09"
+          },
+          "plan": {
+            "path": "examples/geometry/profiled-blank/machined-ends.toml",
+            "sha256": "b43e831fce90abc532b1c40c85420b356263b06142e159ed4c9bcccd12ca8444"
+          },
+          "shop_policy": {
+            "path": "examples/geometry/profiled-blank/shop-policy.toml",
+            "sha256": "1343555e14253e32eb52bde6e233c33c73ce4dd93b0520173f47e19bd1319bcd"
+          },
+          "step": {
+            "path": "examples/geometry/profiled-blank/strap-plate.STEP",
+            "sha256": "b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84"
+          },
+          "stock.blank": {
+            "path": "examples/geometry/profiled-blank/strap-blank.STEP",
+            "sha256": "ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921"
+          }
+        },
+        "step_sha256": "b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84"
+      },
+      "rule": "bundle_binding",
+      "status": "pass",
+      "subject": "inputs"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields: hold.centre_hole and centre_hole_dia_mm"
+      ],
+      "message": "S1: the work is not carried on a centre.",
+      "numbers": {},
+      "rule": "centre_support",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "plan setups S1: hold, zero, stock_state and notes",
+        "kernel setup-entry stock box",
+        "kernel setup picture: closest_cut and per-op cut_clearances"
+      ],
+      "message": "A stated fact cannot be compared: stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared; the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10, 20 are not computed.",
+      "numbers": {
+        "claims": 1,
+        "contradictions": [],
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "field": [
+              "resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
+        "unchecked": [
+          "stock_state.top_z is unknown, stock_state.bottom_z is unknown, so the authored stock is not compared",
+          "the setup picture's nearest cut cannot be compared: CLEARANCE rows for ops 10, 20 are not computed"
+        ]
+      },
+      "rule": "consistency",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.5 stock-form comparison"
+      ],
+      "message": "The candidate uses one-piece construction.",
+      "numbers": {
+        "drawing_construction": "one_piece",
+        "plan_construction": "one_piece"
+      },
+      "rule": "construction",
+      "status": "pass",
+      "subject": "strap-plate"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 coordinates",
+        "features declared frames and nominal geometry",
+        "plan contour steps, operation targets and stock allowances",
+        "inventory selected cutter nominal diameter"
+      ],
+      "message": "Feature targets use the declared model-to-setup basis; cutter tables use explicit nominal geometry and authored allowance. DRO grid debt: machine test-mill declares no positive numeric DRO resolution, so its grid is provisional Missing geometry or unverified tool/frame binding prevents a cleared toolpath.",
+      "numbers": {
+        "arc_table": [],
+        "binding": "unknown",
+        "contours": [],
+        "dro_grid": {
+          "decimals": 3,
+          "step": 0.001
+        },
+        "dro_grid_debt": "machine test-mill declares no positive numeric DRO resolution, so its grid is provisional",
+        "entry_surfaces": [
+          {
+            "op": 10
+          },
+          {
+            "op": 20
+          },
+          {
+            "op": 90
+          }
+        ],
+        "frame": "A",
+        "line_table": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "field": [
+              "resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
+        "operations": [
+          {
+            "direction": "climb",
+            "do": "finish_profile",
+            "dro_to_z": 0.0,
+            "feature": "end_faces",
+            "op": 10,
+            "to_z": 0.0,
+            "tool": "em-8-std"
+          },
+          {
+            "direction": "climb",
+            "do": "finish_profile",
+            "dro_to_z": 0.0,
+            "feature": "corner_chamfer",
+            "op": 20,
+            "to_z": 0.0,
+            "tool": "em-8-std"
+          },
+          {
+            "do": "inspect",
+            "feature": [
+              "strap_faces",
+              "top_arc",
+              "bottom_edge",
+              "end_faces",
+              "corner_chamfer"
+            ],
+            "op": 90
+          }
+        ],
+        "profiles": [],
+        "rows": []
+      },
+      "rule": "coordinates",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 coverage",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "plan.stock.as_is_faces; union of each cutting op's direction-valid face claims",
+        "blank_credit: profiled-blank as-is faces on the blank and within bands"
+      ],
+      "message": "strap-plate: every imported face is claimed by a cutting op or declared as-stock.",
+      "numbers": {
+        "claimed_face_count": 7,
+        "face_count": 7,
+        "unclaimed_faces": [],
+        "unclaimed_indices": []
+      },
+      "rule": "coverage",
+      "status": "pass",
+      "subject": "strap-plate"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "bottom_edge"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "corner_chamfer"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "end_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "strap_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 datum consistency"
+      ],
+      "message": "No tolerance on this feature refers to another datum.",
+      "numbers": {
+        "angularity_datums": [],
+        "position_datums": []
+      },
+      "rule": "datum_consistency",
+      "status": "not_applicable",
+      "subject": "top_arc"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.em-8-std.oal",
+        "inventory.holders.r8-collet-8mm.grip",
+        "inventory.tools.em-8-std: explicit-unit diameter/OAL",
+        "inventory.holders.r8-collet-8mm: selected holder grip/verification",
+        "plan.setups[S1].ops[10].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:10: Tool projection is 4.75×D, above 4×D; DOC reduction is unknown without a positive authored axial depth per pass.",
+      "numbers": {
+        "diameter_mm": 8.0,
+        "doc_mm": "unknown",
+        "doc_scale": 0.5,
+        "holder": "r8-collet-8mm",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [
+          "positive authored axial depth per pass (doc_mm)"
+        ],
+        "operation": "finish_profile",
+        "over_limit": true,
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": 4.75,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": "unknown",
+        "tool": "em-8-std",
+        "tool_kind": "endmill",
+        "tool_oal_mm": 63.0
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)",
+        "inventory.tools.em-8-std.oal",
+        "inventory.holders.r8-collet-8mm.grip",
+        "inventory.tools.em-8-std: explicit-unit diameter/OAL",
+        "inventory.holders.r8-collet-8mm: selected holder grip/verification",
+        "plan.setups[S1].ops[20].doc_mm",
+        "inventory explicit inch length × 25.4 mm/in (resolution.length_mm)",
+        "resolution.same_length: existing physical-length equality precision (1 nm absolute, no relative slack) at projection = 4·D"
+      ],
+      "message": "S1:20: Tool projection is 4.75×D, above 4×D; DOC reduction is unknown without a positive authored axial depth per pass.",
+      "numbers": {
+        "diameter_mm": 8.0,
+        "doc_mm": "unknown",
+        "doc_scale": 0.5,
+        "holder": "r8-collet-8mm",
+        "holder_grip_mm": 25.0,
+        "missing_inputs": [
+          "positive authored axial depth per pass (doc_mm)"
+        ],
+        "operation": "finish_profile",
+        "over_limit": true,
+        "projection_basis": "tool OAL - selected holder grip",
+        "projection_ld": 4.75,
+        "projection_ld_max": 4,
+        "projection_mm": 38.0,
+        "recommended_doc_mm": "unknown",
+        "tool": "em-8-std",
+        "tool_kind": "endmill",
+        "tool_oal_mm": 63.0
+      },
+      "rule": "engagement",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.4 (engagement: projection/D ≤ 4, else halve DOC)"
+      ],
+      "message": "S1:90: engagement applies only to an endmill cutting operation.",
+      "numbers": {
+        "holder": "unknown",
+        "operation": "inspect",
+        "tool": "unknown",
+        "tool_kind": "unknown"
+      },
+      "rule": "engagement",
+      "status": "not_applicable",
+      "subject": "S1:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack",
+        "features.features.corner_chamfer.bounds/at",
+        "features.features.end_faces.bounds/at",
+        "features.frames.model; features.frames.A",
+        "inventory.holders.r8-collet-8mm.gauge_len",
+        "inventory.holders.r8-collet-8mm.grip",
+        "inventory.machines.test-mill.envelope.spindle_to_table_max",
+        "inventory.machines.test-mill.envelope.spindle_to_table_min",
+        "inventory.tools.em-8-std.oal",
+        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
+        "plan.setups.S1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S1.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.S1.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S1.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.stock_state.top_z/entry_z/local_thickness",
+        "plan.setups.stock_state: physical supported stock height"
+      ],
+      "message": "S1: spindle envelope remains unmeasured or unresolved. resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S1.hold.fixture; measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Measure plan.setups.S1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
+      "numbers": {
+        "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
+        "fixture_height_mm": "unknown",
+        "measurements": [
+          {
+            "cite": [
+              "inventory.fixtures.unknown"
+            ],
+            "id": "fixtures.unknown.resolve",
+            "instruction": "resolve: add or select an owned fixture for unknown in inventory and author plan.setups.S1.hold.fixture",
+            "units": "identity"
+          },
+          {
+            "category": "holders",
+            "cite": [
+              "inventory.holders.r8-collet-8mm.gauge_len"
+            ],
+            "field": [
+              "gauge_len"
+            ],
+            "id": "holders.r8-collet-8mm.gauge_len",
+            "identity": "r8-collet-8mm",
+            "instruction": "measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm",
+            "units": "mm"
+          },
+          {
+            "category": "holders",
+            "cite": [
+              "inventory.holders.r8-collet-8mm.grip"
+            ],
+            "field": [
+              "grip"
+            ],
+            "id": "holders.r8-collet-8mm.grip",
+            "identity": "r8-collet-8mm",
+            "instruction": "measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.envelope.spindle_to_table_max"
+            ],
+            "field": [
+              "envelope",
+              "spindle_to_table_max"
+            ],
+            "id": "machines.test-mill.envelope.spindle_to_table_max",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.envelope.spindle_to_table_min"
+            ],
+            "field": [
+              "envelope",
+              "spindle_to_table_min"
+            ],
+            "id": "machines.test-mill.envelope.spindle_to_table_min",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill spindle nose to table at full Z-down, steel rule or height gauge, mm",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "plan.setups.S1.ops.10"
+            ],
+            "id": "plan.setups.S1.ops.10.z_geometry",
+            "instruction": "author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "plan.setups.S1.ops.20"
+            ],
+            "id": "plan.setups.S1.ops.20.z_geometry",
+            "instruction": "author: Measure plan.setups.S1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+            "units": "mm"
+          },
+          {
+            "category": "tools",
+            "cite": [
+              "inventory.tools.em-8-std.oal"
+            ],
+            "field": [
+              "oal"
+            ],
+            "id": "tools.em-8-std.oal",
+            "identity": "em-8-std",
+            "instruction": "measure: em-8-std selected tool overall length, steel rule or calipers, mm",
+            "units": "mm"
+          }
+        ],
+        "part_extents_mm": {
+          "x": 60.0,
+          "y": 17.838015,
+          "z": 2.5
+        },
+        "spindle_to_table_max_mm": "unknown",
+        "spindle_to_table_min_mm": "unknown",
+        "stacks": [
+          {
+            "approach_mm": "unknown",
+            "holder": "r8-collet-8mm",
+            "holder_gauge_len_mm": 60.0,
+            "lower_margin_mm": "unknown",
+            "op": 10,
+            "spindle_nose_table_band_mm": "unknown",
+            "stack_mm": "unknown",
+            "tip_z_bounds_mm": [
+              0.0,
+              0.0
+            ],
+            "tool": "em-8-std",
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": "unknown",
+            "verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "holder": "r8-collet-8mm",
+            "holder_gauge_len_mm": 60.0,
+            "lower_margin_mm": "unknown",
+            "op": 20,
+            "spindle_nose_table_band_mm": "unknown",
+            "stack_mm": "unknown",
+            "tip_z_bounds_mm": [
+              0.0,
+              0.0
+            ],
+            "tool": "em-8-std",
+            "tool_projection_mm": 38.0,
+            "upper_margin_mm": "unknown",
+            "verified": false
+          }
+        ]
+      },
+      "rule": "envelope",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "features.bottom_edge: faces and requirements",
+        "examples/geometry/author_solids.py: STRAP end_height and arc_r (synthetic test specification)"
+      ],
+      "message": "bottom_edge: drawing declares no finish requirement.",
+      "numbers": {
+        "finish_ra": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "not_applicable",
+      "subject": "bottom_edge"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "features.corner_chamfer: faces and requirements",
+        "examples/geometry/author_solids.py: STRAP chamfer (synthetic test specification)"
+      ],
+      "message": "corner_chamfer: drawing declares no finish requirement.",
+      "numbers": {
+        "finish_ra": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "not_applicable",
+      "subject": "corner_chamfer"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "features.end_faces: faces and requirements",
+        "examples/geometry/author_solids.py: STRAP length (synthetic test specification)"
+      ],
+      "message": "end_faces: drawing declares no finish requirement.",
+      "numbers": {
+        "finish_ra": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "not_applicable",
+      "subject": "end_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "features.strap_faces: faces and requirements",
+        "examples/geometry/author_solids.py: STRAP thickness (synthetic test specification)"
+      ],
+      "message": "strap_faces: drawing declares no finish requirement.",
+      "numbers": {
+        "finish_ra": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "not_applicable",
+      "subject": "strap_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 finish_coverage",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "features.top_arc: faces and requirements",
+        "examples/geometry/author_solids.py: STRAP arc_r (synthetic test specification)"
+      ],
+      "message": "top_arc: drawing declares no finish requirement.",
+      "numbers": {
+        "finish_ra": "unknown"
+      },
+      "rule": "finish_coverage",
+      "status": "not_applicable",
+      "subject": "top_arc"
+    },
+    {
+      "cite": [
+        "features.material.finish",
+        "plan coating ops",
+        "PLAN.md §4.1 finishing route"
+      ],
+      "message": "strap-plate: the drawing declares no finish.",
+      "numbers": {
+        "finish": "not_declared",
+        "ops": [],
+        "uncoated_cuts": [
+          "S1:10",
+          "S1:20"
+        ],
+        "unresolved_cuts": []
+      },
+      "rule": "finish_route",
+      "status": "not_applicable",
+      "subject": "strap-plate"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 fixture_interference",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.machines.test-mill.resolution"
+      ],
+      "message": "S1: holding identity is unknown. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "field": [
+              "resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
+      "rule": "fixture_interference",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "inventory: machine, fixture, support, tool and holder dimensions",
+        "plan: stock state and setup frame",
+        "inventory.machines.test-mill.envelope.spindle_to_table_max",
+        "kernel.setups.S1.stock_bbox_mm: setup-entry stock in the setup frame",
+        "inventory.machines.test-mill.envelope.travel.x",
+        "inventory.machines.test-mill.envelope.travel.y"
+      ],
+      "message": "S1: headroom, travel or jaw-path geometry remains unmeasured or unresolved.",
+      "numbers": {
+        "bed_height_mm": "unknown",
+        "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
+        "cut_tip_above_jaws_mm": {},
+        "fixture_height_mm": "not_applicable",
+        "fixture_verify": "missing",
+        "holder_gauge_len_mm": 60.0,
+        "insertion_mm": 25,
+        "jaw_obstruction": {
+          "jaw_top_z": "not_applicable",
+          "requires_path_check": false
+        },
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.envelope.spindle_to_table_max"
+            ],
+            "field": [
+              "envelope",
+              "spindle_to_table_max"
+            ],
+            "id": "machines.test-mill.envelope.spindle_to_table_max",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill spindle nose to table at full Z-up, steel rule or height gauge, mm",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.envelope.travel.x"
+            ],
+            "field": [
+              "envelope",
+              "travel",
+              "x"
+            ],
+            "id": "machines.test-mill.envelope.travel.x",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.envelope.travel.y"
+            ],
+            "field": [
+              "envelope",
+              "travel",
+              "y"
+            ],
+            "id": "machines.test-mill.envelope.travel.y",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
+            "units": "mm"
+          }
+        ],
+        "parallels_mm": "not_applicable",
+        "retained_rail_bottom_z": "unknown",
+        "spindle_to_table_max_mm": "unknown",
+        "stacks": [
+          {
+            "holder": "r8-collet-8mm",
+            "holder_gauge_len_mm": 60.0,
+            "margin_mm": "unknown",
+            "op": 10,
+            "sum_mm": "unknown",
+            "tool": "em-8-std",
+            "tool_oal_mm": 63.0,
+            "tool_projection_mm": 38.0,
+            "verify": true
+          },
+          {
+            "holder": "r8-collet-8mm",
+            "holder_gauge_len_mm": 60.0,
+            "margin_mm": "unknown",
+            "op": 20,
+            "sum_mm": "unknown",
+            "tool": "em-8-std",
+            "tool_oal_mm": 63.0,
+            "tool_projection_mm": 38.0,
+            "verify": true
+          }
+        ],
+        "stock_bottom_z": "unknown",
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          0.0,
+          0.0,
+          0.0,
+          60.0,
+          17.838015,
+          2.5
+        ],
+        "stock_extent_x_mm": 60.0,
+        "stock_extent_y_mm": 17.838015,
+        "stock_height_mm": "unknown",
+        "stock_top_above_jaws_mm": "not_applicable",
+        "stock_top_z": "unknown",
+        "sum_mm": "unknown",
+        "support_blocks_mm": 0,
+        "tool_oal_mm": 63.0,
+        "travel_checks": {
+          "x": {
+            "fixture_mm": "unknown",
+            "part_mm": 60.0,
+            "required_mm": "unknown",
+            "travel_mm": "unknown"
+          },
+          "y": {
+            "fixture_mm": "unknown",
+            "part_mm": 17.838015,
+            "required_mm": "unknown",
+            "travel_mm": "unknown"
+          }
+        }
+      },
+      "rule": "headroom",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 hold fields"
+      ],
+      "message": "S1: holding declarations need hold.fixture, hold.stop, hold.grip_mm, hold.clamp, hold.fixed_jaw, stock_state.top_z, stock_state.bottom_z.",
+      "numbers": {
+        "align_due": "not_applicable",
+        "coolant": "none",
+        "cut_directions": {
+          "10": "climb",
+          "20": "climb"
+        },
+        "deburr_mm": 0.0,
+        "fixture": "unknown",
+        "hold": {
+          "clamp": "unknown",
+          "fixed_jaw": "unknown",
+          "fixture": "unknown",
+          "grip_mm": "unknown",
+          "stop": "unknown"
+        },
+        "missing": [
+          "hold.fixture",
+          "hold.stop",
+          "hold.grip_mm",
+          "hold.clamp",
+          "hold.fixed_jaw",
+          "stock_state.top_z",
+          "stock_state.bottom_z"
+        ],
+        "stock_bottom_z": "unknown",
+        "stock_top_z": "unknown"
+      },
+      "rule": "hold_fields",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 indexing (360° per revolution; cumulative landings and cycle closure)"
+      ],
+      "message": "S1: no angular indexing is declared.",
+      "numbers": {},
+      "rule": "indexing",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "bottom_edge height: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          17.6,
+          18.1
+        ],
+        "op": "S1:90",
+        "requirement": "height"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "bottom_edge:height"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "corner_chamfer width: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          3.5,
+          4.5
+        ],
+        "op": "S1:90",
+        "requirement": "width"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "corner_chamfer:width"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "end_faces length: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          59.9,
+          60.1
+        ],
+        "op": "S1:90",
+        "requirement": "length"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "end_faces:length"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "strap_faces thickness: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          2.3,
+          2.7
+        ],
+        "op": "S1:90",
+        "requirement": "thickness"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "strap_faces:thickness"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 inspection",
+        "features requirement manifest",
+        "inventory gauge range/resolution/verification"
+      ],
+      "message": "top_arc radius: explicit inspection method is unknown.",
+      "numbers": {
+        "gauge": "unknown",
+        "limits": [
+          79.5,
+          80.5
+        ],
+        "op": "S1:90",
+        "requirement": "radius"
+      },
+      "rule": "inspection",
+      "status": "unknown",
+      "subject": "top_arc:radius"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "features.end_faces: faces and requirements",
+        "examples/geometry/author_solids.py: STRAP length (synthetic test specification)",
+        "plan.setups.S1: frame and hold",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-8-std: explicit-unit verified dimensions",
+        "inventory.holders.r8-collet-8mm: explicit-unit verified dimensions"
+      ],
+      "message": "S1:10: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.0
+      },
+      "rule": "internal_corner_radius",
+      "status": "not_applicable",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "features.corner_chamfer: faces and requirements",
+        "examples/geometry/author_solids.py: STRAP chamfer (synthetic test specification)",
+        "plan.setups.S1: frame and hold",
+        "plan.setups.S1.ops.20: selected action/tool/holder",
+        "inventory.tools.em-8-std: explicit-unit verified dimensions",
+        "inventory.holders.r8-collet-8mm: explicit-unit verified dimensions"
+      ],
+      "message": "S1:20: claimed faces have no concave edges perpendicular to the tool axis.",
+      "numbers": {
+        "corner_radii_mm": [],
+        "tool_radius_mm": 4.0
+      },
+      "rule": "internal_corner_radius",
+      "status": "not_applicable",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 internal_corner_radius",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "plan.setups.S1.ops.90: selected action/tool/holder"
+      ],
+      "message": "S1:90: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "internal_corner_radius",
+      "status": "not_applicable",
+      "subject": "S1:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "bottom_edge: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "inspect"
+        ],
+        "kind": "face",
+        "ops": [
+          "S1:90"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "bottom_edge"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "corner_chamfer: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "finish_profile",
+          "inspect"
+        ],
+        "kind": "chamfer",
+        "ops": [
+          "S1:20",
+          "S1:90"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "corner_chamfer"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "end_faces: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "finish_profile",
+          "inspect"
+        ],
+        "kind": "face",
+        "ops": [
+          "S1:10",
+          "S1:90"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "end_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "strap_faces: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "inspect"
+        ],
+        "kind": "face",
+        "ops": [
+          "S1:90"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "strap_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 op chain",
+        "plan authored route",
+        "features declared process/thread"
+      ],
+      "message": "top_arc: not a hole chain.",
+      "numbers": {
+        "chain": [
+          "inspect"
+        ],
+        "kind": "profile",
+        "ops": [
+          "S1:90"
+        ]
+      },
+      "rule": "op_chain",
+      "status": "not_applicable",
+      "subject": "top_arc"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 order",
+        "plan setup/operation sequence and stock_in/zero.transfer"
+      ],
+      "message": "S1: rough/finish, face/spot, hole and release order is consistent.",
+      "numbers": {
+        "sequence": [
+          "10 finish_profile end_faces",
+          "20 finish_profile corner_chamfer",
+          "90 inspect ['strap_faces', 'top_arc', 'bottom_edge', 'end_faces', 'corner_chamfer']"
+        ],
+        "violations": []
+      },
+      "rule": "order",
+      "status": "pass",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 stock: stock.prepared and plan.process_features end faces"
+      ],
+      "message": "stock.prepared: the plan declares no prepared blank.",
+      "numbers": {},
+      "rule": "prepared_blank",
+      "status": "not_applicable",
+      "subject": "stock.prepared"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "features.end_faces: faces and requirements",
+        "examples/geometry/author_solids.py: STRAP length (synthetic test specification)",
+        "plan.setups.S1: frame and hold",
+        "plan.setups.S1.ops.10: selected action/tool/holder",
+        "inventory.tools.em-8-std: explicit-unit verified dimensions",
+        "inventory.holders.r8-collet-8mm: explicit-unit verified dimensions"
+      ],
+      "message": "S1:10: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "clearances": [],
+        "flute_len_mm": 19.0,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.0,
+        "projection_mm": 38.0,
+        "reach_depth_mm": 2.5,
+        "reach_top_z_mm": 2.5,
+        "shank_dia_mm": 8.0,
+        "shank_from_mm": 19.0,
+        "shank_hits": 0
+      },
+      "rule": "reach",
+      "status": "pass",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "features.corner_chamfer: faces and requirements",
+        "examples/geometry/author_solids.py: STRAP chamfer (synthetic test specification)",
+        "plan.setups.S1: frame and hold",
+        "plan.setups.S1.ops.20: selected action/tool/holder",
+        "inventory.tools.em-8-std: explicit-unit verified dimensions",
+        "inventory.holders.r8-collet-8mm: explicit-unit verified dimensions"
+      ],
+      "message": "S1:20: entry-to-floor depth is within the selected flute length.",
+      "numbers": {
+        "clearances": [],
+        "flute_len_mm": 19.0,
+        "holder_wall_hits": 0,
+        "oal_mm": 63.0,
+        "projection_mm": 38.0,
+        "reach_depth_mm": 2.5,
+        "reach_top_z_mm": 2.5,
+        "shank_dia_mm": 8.0,
+        "shank_from_mm": 19.0,
+        "shank_hits": 0
+      },
+      "rule": "reach",
+      "status": "pass",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.2 reach",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "plan.setups.S1.ops.90: selected action/tool/holder"
+      ],
+      "message": "S1:90: inspect does not cut geometry.",
+      "numbers": {},
+      "rule": "reach",
+      "status": "not_applicable",
+      "subject": "S1:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "examples/geometry/author_solids.py: STRAP end_height and arc_r (synthetic test specification)"
+      ],
+      "message": "bottom_edge: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "face",
+        "kind": "face",
+        "ops": [
+          "S1:90"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "bottom_edge"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "examples/geometry/author_solids.py: STRAP chamfer (synthetic test specification)"
+      ],
+      "message": "corner_chamfer: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "chamfer",
+        "kind": "chamfer",
+        "ops": [
+          "S1:20",
+          "S1:90"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "corner_chamfer"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "examples/geometry/author_solids.py: STRAP length (synthetic test specification)"
+      ],
+      "message": "end_faces: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "face",
+        "kind": "face",
+        "ops": [
+          "S1:10",
+          "S1:90"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "end_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "examples/geometry/author_solids.py: STRAP thickness (synthetic test specification)"
+      ],
+      "message": "strap_faces: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "face",
+        "kind": "face",
+        "ops": [
+          "S1:90"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "strap_faces"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 sizing",
+        "examples/geometry/author_solids.py: STRAP arc_r (synthetic test specification)"
+      ],
+      "message": "top_arc: dimensions are set by the path or endpoint, not cutter diameter.",
+      "numbers": {
+        "feature_kind": "profile",
+        "kind": "profile",
+        "ops": [
+          "S1:90"
+        ]
+      },
+      "rule": "sizing",
+      "status": "not_applicable",
+      "subject": "top_arc"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.31496062992125984,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 100.0,
+        "rpm_range_verify": false,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
+        "inventory machine spindle range",
+        "cutting-data aliases and rows"
+      ],
+      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "numbers": {
+        "chip_load_mm_per_tooth": "unknown",
+        "cutting_data_row": "unknown",
+        "diameter_in": 0.31496062992125984,
+        "feed_mm_min": "unknown",
+        "flutes": 4,
+        "material": "unknown",
+        "material_class": "unknown",
+        "material_verify": false,
+        "operation": "profile",
+        "rpm": "unknown",
+        "rpm_max": 3000.0,
+        "rpm_min": 100.0,
+        "rpm_range_verify": false,
+        "sfm": "unknown",
+        "tool_material": "HSS"
+      },
+      "rule": "speeds_feeds",
+      "status": "unknown",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 speeds/feeds"
+      ],
+      "message": "This manual operation has no cutting speed or feed.",
+      "numbers": {
+        "operation": "inspect"
+      },
+      "rule": "speeds_feeds",
+      "status": "not_applicable",
+      "subject": "S1:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 stick-out",
+        "plan.stock.dia_mm",
+        "plan.setups.hold.stickout_mm; inventory selected support identity/verification",
+        "features declared finished diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan.setups.frame and stock_state.north_end_z/south_end_z define the exposed span; 25.4 mm/in"
+      ],
+      "message": "S1: not a lathe setup.",
+      "numbers": {
+        "diameter_features": [],
+        "diameter_mm": "unknown",
+        "diameter_source": "features declared finished profile in exposed setup Z, else the kernel's finished faces of revolution; exposed stock beyond every finished feature from the kernel's stock profile",
+        "exposed_z_mm": "unknown",
+        "held_diameter_mm": "unknown",
+        "held_diameter_source": "plan.stock.dia_mm",
+        "off_axis": {},
+        "segments": [],
+        "stickout_ld_max": "unknown",
+        "stickout_mm": "unknown",
+        "stock_reason": null,
+        "support_status": "unknown",
+        "supports": [],
+        "uncovered_z_mm": [],
+        "unresolved": [],
+        "unresolved_reasons": {},
+        "unsupported_limit_mm": "unknown"
+      },
+      "rule": "stickout",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 collet/chuck",
+        "plan.stock.dia_mm",
+        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+      ],
+      "message": "S1: selected collet/chuck identity is unresolved.",
+      "numbers": {
+        "diameter_mm": "unknown",
+        "diameter_source": "plan.stock.dia_mm",
+        "fixture": "unknown",
+        "fixture_kind": "unknown",
+        "ranges_mm": [],
+        "selected_size_mm": "unknown",
+        "sizes_mm": []
+      },
+      "rule": "stock_diameter",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 thin_wall_under_clamp",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.machines.test-mill.resolution"
+      ],
+      "message": "S1: holding identity is unknown. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "field": [
+              "resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
+      "rule": "thin_wall_under_clamp",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S1:10: holder interface and shank fit.",
+      "numbers": {
+        "holder": "r8-collet-8mm",
+        "holder_capacity_mm": 8.0,
+        "holder_standard": "R8",
+        "machine": "test-mill",
+        "machine_standard": "R8",
+        "shank_mm": 8.0,
+        "tool": "em-8-std"
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "inventory spindle/holder/shank fields",
+        "PLAN.md §4.1"
+      ],
+      "message": "S1:20: holder interface and shank fit.",
+      "numbers": {
+        "holder": "r8-collet-8mm",
+        "holder_capacity_mm": 8.0,
+        "holder_standard": "R8",
+        "machine": "test-mill",
+        "machine_standard": "R8",
+        "shank_mm": 8.0,
+        "tool": "em-8-std"
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "em-8-std: listed inventory identity resolves.",
+      "numbers": {
+        "category": "tools",
+        "dia_mm": 8.0,
+        "kind": "endmill",
+        "present": true,
+        "reference": "em-8-std",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "em-8-std"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "r8-collet-8mm: listed inventory identity resolves.",
+      "numbers": {
+        "category": "holders",
+        "kind": "collet",
+        "present": true,
+        "reference": "r8-collet-8mm",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "r8-collet-8mm"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
+      "message": "test-mill: listed inventory identity resolves.",
+      "numbers": {
+        "category": "machines",
+        "kind": "mill",
+        "present": true,
+        "reference": "test-mill",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "test-mill"
+    },
+    {
+      "cite": [
+        "plan.setups.S1",
+        "inventory.machines.test-mill",
+        "features.frames.A",
+        "plan.setups.S1.ops.10",
+        "features.features.end_faces.bounds/at",
+        "examples/geometry/author_solids.py: STRAP length (synthetic test specification)",
+        "features.frames.model",
+        "inventory.tools.em-8-std.dia",
+        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
+        "plan.setups.stock_state: physical supported stock height",
+        "inventory.holders.r8-collet-8mm.gauge_len",
+        "inventory.tools.em-8-std.oal",
+        "inventory.holders.r8-collet-8mm.grip",
+        "plan.setups.S1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S1.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
+        "plan.setups.stock_state.top_z/entry_z/local_thickness",
+        "plan.setups.S1.ops.20",
+        "features.features.corner_chamfer.bounds/at",
+        "examples/geometry/author_solids.py: STRAP chamfer (synthetic test specification)",
+        "plan.setups.S1.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
+        "plan.setups.S1.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
+        "inventory.machines.test-mill.envelope.travel.x",
+        "inventory.machines.test-mill.envelope.travel.y",
+        "inventory.machines.test-mill.envelope.travel.z"
+      ],
+      "message": "S1: declared operation travel remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Measure plan.setups.S1.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected cutter diameter, micrometer, mm; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
+      "numbers": {
+        "measurements": [
+          {
+            "category": "holders",
+            "cite": [
+              "inventory.holders.r8-collet-8mm.gauge_len"
+            ],
+            "field": [
+              "gauge_len"
+            ],
+            "id": "holders.r8-collet-8mm.gauge_len",
+            "identity": "r8-collet-8mm",
+            "instruction": "measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm",
+            "units": "mm"
+          },
+          {
+            "category": "holders",
+            "cite": [
+              "inventory.holders.r8-collet-8mm.grip"
+            ],
+            "field": [
+              "grip"
+            ],
+            "id": "holders.r8-collet-8mm.grip",
+            "identity": "r8-collet-8mm",
+            "instruction": "measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.envelope.travel.x"
+            ],
+            "field": [
+              "envelope",
+              "travel",
+              "x"
+            ],
+            "id": "machines.test-mill.envelope.travel.x",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.envelope.travel.y"
+            ],
+            "field": [
+              "envelope",
+              "travel",
+              "y"
+            ],
+            "id": "machines.test-mill.envelope.travel.y",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.envelope.travel.z"
+            ],
+            "field": [
+              "envelope",
+              "travel",
+              "z"
+            ],
+            "id": "machines.test-mill.envelope.travel.z",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "features.features.end_faces.bounds/at; plan.stock"
+            ],
+            "id": "plan.setups.S1.ops.10.xy_geometry",
+            "instruction": "author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "plan.setups.S1.ops.10"
+            ],
+            "id": "plan.setups.S1.ops.10.z_geometry",
+            "instruction": "author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "features.features.corner_chamfer.bounds/at; plan.stock"
+            ],
+            "id": "plan.setups.S1.ops.20.xy_geometry",
+            "instruction": "author: Measure plan.setups.S1.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "plan.setups.S1.ops.20"
+            ],
+            "id": "plan.setups.S1.ops.20.z_geometry",
+            "instruction": "author: Measure plan.setups.S1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed",
+            "units": "mm"
+          },
+          {
+            "category": "tools",
+            "cite": [
+              "inventory.tools.em-8-std.dia"
+            ],
+            "field": [
+              "dia"
+            ],
+            "id": "tools.em-8-std.dia",
+            "identity": "em-8-std",
+            "instruction": "measure: em-8-std selected cutter diameter, micrometer, mm",
+            "units": "mm"
+          },
+          {
+            "category": "tools",
+            "cite": [
+              "inventory.tools.em-8-std.oal"
+            ],
+            "field": [
+              "oal"
+            ],
+            "id": "tools.em-8-std.oal",
+            "identity": "em-8-std",
+            "instruction": "measure: em-8-std selected tool overall length, steel rule or calipers, mm",
+            "units": "mm"
+          }
+        ],
+        "operations": [
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": {
+              "x": 60.0,
+              "y": 17.838015,
+              "z": 2.5
+            },
+            "do": "finish_profile",
+            "endpoint": "not_applicable",
+            "extent_mm": "unknown",
+            "feature": "end_faces",
+            "holder": "r8-collet-8mm",
+            "holder_gauge_len_mm": 60.0,
+            "op": 10,
+            "rough_allowance_mm": 0,
+            "tip_z_bounds_mm": [
+              0.0,
+              0.0
+            ],
+            "tool": "em-8-std",
+            "tool_projection_mm": 38.0,
+            "tool_radius_mm": 4.0,
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              98.0,
+              98.0
+            ],
+            "z_verified": false
+          },
+          {
+            "approach_mm": "unknown",
+            "conservative_stock_spans_mm": {
+              "x": 60.0,
+              "y": 17.838015,
+              "z": 2.5
+            },
+            "do": "finish_profile",
+            "endpoint": "not_applicable",
+            "extent_mm": "unknown",
+            "feature": "corner_chamfer",
+            "holder": "r8-collet-8mm",
+            "holder_gauge_len_mm": 60.0,
+            "op": 20,
+            "rough_allowance_mm": 0,
+            "tip_z_bounds_mm": [
+              0.0,
+              0.0
+            ],
+            "tool": "em-8-std",
+            "tool_projection_mm": 38.0,
+            "tool_radius_mm": 4.0,
+            "tool_radius_verified": false,
+            "xy_cutter_bounds_mm": {
+              "x": "unknown",
+              "y": "unknown"
+            },
+            "z_bounds_mm": [
+              98.0,
+              98.0
+            ],
+            "z_verified": false
+          }
+        ],
+        "travel_checks": {
+          "x": {
+            "located_span_mm": "unknown",
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
+            "travel_mm": "unknown",
+            "travel_verified": false
+          },
+          "y": {
+            "located_span_mm": "unknown",
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
+            "travel_mm": "unknown",
+            "travel_verified": false
+          },
+          "z": {
+            "located_span_mm": "unknown",
+            "lower_bound_margin_mm": "unknown",
+            "margin_mm": "unknown",
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
+            "travel_mm": "unknown",
+            "travel_verified": false
+          }
+        }
+      },
+      "rule": "travel",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 turned profile; §8 M2 spindle Z convention",
+        "features declared nominal diameters/z_mm/frame, else the kernel's finished faces of revolution about setup Z; plan setup frame and current/preceding grooving ops; 25.4 mm/in"
+      ],
+      "message": "S1: not a lathe setup.",
+      "numbers": {
+        "direction": "+setup Z toward exposed end",
+        "exposed_z_mm": "unknown",
+        "frame": "A",
+        "intervals": [],
+        "off_axis": {},
+        "segments": [],
+        "transitions": [],
+        "unresolved": [],
+        "unresolved_reasons": {}
+      },
+      "rule": "turned_profile",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.4 (Physics proxies)"
+      ],
+      "message": "S1:10: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "end_faces",
+        "operation": "finish_profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.4 (Physics proxies)"
+      ],
+      "message": "S1:20: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": "corner_chamfer",
+        "operation": "finish_profile"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:20"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.4 (Physics proxies)"
+      ],
+      "message": "S1:90: the static turning proxy does not apply to this operation.",
+      "numbers": {
+        "feature": [
+          "strap_faces",
+          "top_arc",
+          "bottom_edge",
+          "end_faces",
+          "corner_chamfer"
+        ],
+        "operation": "inspect"
+      },
+      "rule": "turning_deflection",
+      "status": "not_applicable",
+      "subject": "S1:90"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.3 vise",
+        "kernel: STEP SHA-256 b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84; FreeCAD B-rep measurements",
+        "plan.setups.S1: frame and hold",
+        "inventory.machines.test-mill.resolution"
+      ],
+      "message": "S1: holding identity is unknown. Refused kernel facts: machines.test-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "numbers": {
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.resolution"
+            ],
+            "field": [
+              "resolution"
+            ],
+            "id": "machines.test-mill.resolution",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ]
+      },
+      "rule": "vise",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 zero recipe",
+        "Electronica EL400 Operation Manual §6.2 p20, §7.4 p31, §8.1 p37, §9.2.1 p62",
+        "plan zero and stock_state; inventory finder nominal size"
+      ],
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown.",
+      "numbers": {
+        "axes": {},
+        "binding": "unknown",
+        "derived_touches": [],
+        "dro": {
+          "mode": "unknown",
+          "radius_mode": "unknown"
+        },
+        "frame": "A",
+        "missing_touches": [],
+        "retouch": [],
+        "tool_touches": []
+      },
+      "rule": "zero_check",
+      "status": "unknown",
+      "subject": "S1"
+    }
+  ],
+  "hash": "6723d28e6de01435ee6f7cf8f996aab063ce0acf995ace3fbf9c83773950a9aa",
+  "inputs": {
+    "cutting_data": {
+      "path": "examples/cutting-data.toml",
+      "sha256": "2bcf78c7e2b496eacbd3d13219cd59e42157aac332785fd97cc3b219ce96c8c1"
+    },
+    "features": {
+      "path": "examples/geometry/profiled-blank/features.toml",
+      "sha256": "17249556bb14074c85fe7403c6568a63cc7fef589947d4eb478acbedc362100a"
+    },
+    "inventory": {
+      "path": "examples/geometry/inventory.toml",
+      "sha256": "4a218826e99747448c27b662cc66c7714cd15d4ea841502c63f32ef20e35cb09"
+    },
+    "plan": {
+      "path": "examples/geometry/profiled-blank/machined-ends.toml",
+      "sha256": "b43e831fce90abc532b1c40c85420b356263b06142e159ed4c9bcccd12ca8444"
+    },
+    "render:S1": {
+      "path": "setup-S1.png",
+      "sha256": "1178ca724fe87f0318dbf1d18e38acefd0b39787a4236a59da5307fc41a28bfa"
+    },
+    "shop_policy": {
+      "path": "examples/geometry/profiled-blank/shop-policy.toml",
+      "sha256": "1343555e14253e32eb52bde6e233c33c73ce4dd93b0520173f47e19bd1319bcd"
+    },
+    "step": {
+      "path": "examples/geometry/profiled-blank/strap-plate.STEP",
+      "sha256": "b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84"
+    },
+    "stock.blank": {
+      "path": "examples/geometry/profiled-blank/strap-blank.STEP",
+      "sha256": "ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921"
+    }
+  },
+  "prechips_version": "0.1.2",
+  "renders": {
+    "S1": {
+      "fixture": "unresolved",
+      "path": "setup-S1.png",
+      "scene": {
+        "closest_cut": null,
+        "components": [],
+        "cut_clearances": [
+          {
+            "mm": "unknown",
+            "op": "10",
+            "tag": "unknown"
+          },
+          {
+            "mm": "unknown",
+            "op": "20",
+            "tag": "unknown"
+          }
+        ],
+        "debts": [
+          "fixture not drawn: Fixture solids are not declared for this holding kind."
+        ],
+        "fixture_kind": null,
+        "guide_axis_mm": null,
+        "guide_stops": [],
+        "height_px": 1514,
+        "jaw_front_oblique": false,
+        "jaws": "absent",
+        "legend": [
+          "Blue-grey: material retained after this setup.",
+          "Amber hatch: material removed in this setup.",
+          "Brown/purple: holding. Green: selected tool and approach."
+        ],
+        "parallels": "absent",
+        "primary_op": "10",
+        "print_panels": [
+          {
+            "height_px": 1514,
+            "label": "SETUP S1  /  ISOMETRIC VIEW",
+            "role": "setup",
+            "top_px": 0
+          }
+        ],
+        "render_debts": [],
+        "shows": [
+          "holding",
+          "setup axes and zero",
+          "selected tool approach",
+          "material removed this setup (amber hatch)"
+        ],
+        "view": "isometric",
+        "waypoints": [],
+        "width_px": 1600
+      },
+      "sha256": "1178ca724fe87f0318dbf1d18e38acefd0b39787a4236a59da5307fc41a28bfa"
+    }
+  },
+  "rules_version": "m5-rev12",
+  "step_sha256": "b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84",
+  "verification": "checked"
+}

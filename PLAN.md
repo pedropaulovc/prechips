@@ -669,6 +669,7 @@ not exist.
 | reach: floor depth below the highest stock the op meets ≤ flute length, else ≤ OAL with the holder cylinder clear of that stock; at any depth the shank past the flutes clears the stock the op leaves (a reamer's own finished bore included); body, shank and holder-face clearances are reported numbers | features.faces, inventory.tools (flute_len, OAL, shank dia, holder dia) | M4 | "The 0.4500 in reamer's Ø10.05 shank clears the Ø11.43 bore it leaves by 0.69 mm; the 3/8 in spotter's chuck face stops 3.2 mm above the Z27.2 crown." |
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default; a rotary-claimed face counts only when the exact union of its rotary window portions covers it (a named-span gap errors, an undecided union is `?`) | features.faces, plan.ops.faces, plan.stock.as_is_faces, kernel rotary_coverage.cut | M4 | "Face 23 (the ear's back) is machined by no valid op." |
+| blank_credit: an as-is face of a profiled blank (a bought laser/waterjet-cut STEP) counts only when it lies on the blank within 1e-3 mm and every band of its owning features holds the vendor's ± t about the nominal (a planar zone needs 2√2·t); a face failing either check stays uncovered | plan.stock.blank, plan.stock.as_is_faces, features requirements and nominals, kernel as_is_contact | M4 | "end_faces length 60 ±0.127 exits its band 59.9-60.1 by 0.027 below." |
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence); rotary finishing windows count only when their exact union covers the face, and as-stock never finishes; a claimed hole cap counts only once its complete-form cut's setup leaves it clear of stock | features.finish_ra/faces, plan.ops.faces, kernel rotary_coverage.finish | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
 | joint_assembly (always required): received prepared branches satisfy actual target geometry, overlap/insertion or full internal surface contact, and final-material coverage plus permitted finite fill | STEP final solid, selected stock lineage/output completion, plan.joint_features, plan.setups.joint | M4 | "Join refused: the received branch has lost required finished material." |
 
@@ -1312,7 +1313,8 @@ sheet.
    provenance, labelled divergences and route choices live in the example guide.
 4. **M4 — geometry and workholding local deliverable** (§4.2–4.3).
    Eight sampled B-rep rules execute in a separate FreeCAD process; native
-   saw cut-off makes nine M4 kernel rules in total. STEP
+   saw cut-off and the profiled-blank face credit (`blank_credit`) make ten M4
+   kernel rules in total. STEP
    byte identity and entity/ordinal/label references are checked before
    mapping by surface/area/bbox, never by imported face ordinal. An absent
    kernel yields one console `?` line and unknown geometry, not fabricated
@@ -1416,6 +1418,17 @@ sheet.
    empty or omitted declarations add no cross-component dependency. Removal
    fragmentation is checked per input solid, so deleting one assembly piece
    cannot mask splitting another.
+   **Profiled blank stock shipped ([#248](https://github.com/pedropaulovc/prechips/issues/248)):**
+   a root stock or component may be a bought laser/waterjet-cut blank, a cited
+   STEP in part-model coordinates bound by its SHA-256, with the vendor's ± cut
+   tolerance. The loader refuses a digest mismatch (exit 3); the kernel imports
+   the blank as the supply and keys its cache on the blank's digest, never its
+   path. As-is faces of a profiled supply are measured face by face, and
+   `blank_credit` credits one only when it lies on the blank and its bands hold
+   the tolerance; refused faces stay uncovered for `coverage`. Local evidence:
+   `examples/geometry/profiled-blank` (exits 2 / 0) and `tests/test_blank_credit.py`.
+   An offset blank aimed mid-band is not yet supported
+   ([#256](https://github.com/pedropaulovc/prechips/issues/256)).
    **Joint-feature engine implemented:** plan-owned finite sockets and spigots
    resolve for operation/dimension rules without modifying the exported
    manifest. Their analytic claims never earn final STEP coverage; a finishing

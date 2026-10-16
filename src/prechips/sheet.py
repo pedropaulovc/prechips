@@ -1920,6 +1920,7 @@ _STOCK_FORMS = {
     "flat_bar": "flat bar",
     "rectangular_blank": "rectangular blank",
     "prepared_blank": "prepared blank",
+    "profiled_blank": "profiled blank",
 }
 # Stock / stock-state keys that place solids for the kernel; not bench instructions.
 _PLACEMENT_KEYS = {"origin_mm", "axis", "section_axis", "as_is_faces", "id", "components"}
@@ -9421,6 +9422,20 @@ class _Traveler:
         elif stock.get("length_mm") == "unknown":
             dims += " × ? length not set"
         label = _STOCK_FORMS.get(form, _text(form) if form else "stock")
+        blank = _mapping(stock.get("blank"))
+        if blank:
+            # A bought profiled blank is sized by its cut file, not by bar dimensions.
+            tolerance, step = blank.get("profile_tolerance_mm"), blank.get("step")
+            dims = (
+                f"bought cut to the outline in {step}"
+                if isinstance(step, str) and step != "unknown"
+                else "bought cut to an outline, ? cut file not set"
+            )
+            dims += (
+                f", vendor cut tolerance ±{tolerance:g} mm"
+                if _known(tolerance)
+                else ", ? vendor cut tolerance not set"
+            )
         parts.append(f"{label} {dims}".strip())
         # The material itself is printed once, in the job header's material line.
         if stock.get("material") == "unknown":
@@ -9432,7 +9447,15 @@ class _Traveler:
                 self.metadata(key)
                 or key in _PLACEMENT_KEYS
                 or key
-                in {"form", "material", "dia_mm", "section_mm", "length_mm", "drawing_material"}
+                in {
+                    "form",
+                    "material",
+                    "dia_mm",
+                    "section_mm",
+                    "length_mm",
+                    "drawing_material",
+                    "blank",
+                }
                 or value in ("unknown", "not_applicable")
             ):
                 continue

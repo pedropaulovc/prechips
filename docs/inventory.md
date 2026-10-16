@@ -837,7 +837,10 @@ not proof of geometric validity; rules perform the applicable checks.
 `StockComponent` is a separate authored blank with `form`, `dia_mm`,
 `length_mm`, `section_mm`, `note`, and `cite`; see [plan stock](plan.md#stock).
 Shared inventory accepting this shape does not assert an authored candidate is
-on hand.
+on hand. A [profiled blank](plan.md#profiled-blank) (`form = "profiled_blank"` or
+a `blank` table, on the stock or a component) is one part's supply bound to a STEP
+in that part's bundle: inventory stock refuses it (exit 3); declare it as the
+plan's stock.
 
 ## Source
 

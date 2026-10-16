@@ -1,0 +1,95 @@
+# strap-plate: a designed test solid for the #248 profiled-blank face credit (blank_credit).
+# A 2.5 mm strap 60 mm long: square ends 12 mm high under an R80 top arc (crown y = 17.838
+# at x = 30), its (60, 0) corner chamfered 4 x 4. Authored by ../author_solids.py (FreeCAD
+# 1.1, STEP AP214) and frozen as strap-plate.STEP; the profiled blank strap-blank.STEP is
+# the same outline with that corner left square. Every dimension and band is a fixture
+# choice, not a drawing or inventory measurement. Face references are
+# #<entity>/ADVANCED_FACE[<1-based file-order ordinal>]/<label> read from the STEP text
+# (FreeCAD exports an empty label); the kernel matches them by surface kind/area/bbox.
+part = "strap-plate"
+units = "mm"
+precision = "unknown"
+step = "strap-plate.STEP"
+step_sha256 = "b0221d4a9744dfa07c3a29647486a994ff9352c5f13aef7e17f1c1d43de5cc84"
+construction = "one_piece"
+
+[cite]
+part = "examples/geometry/author_solids.py: STRAP (synthetic test specification)"
+step_sha256 = "examples/geometry/profiled-blank/strap-plate.STEP"
+
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+note = "Strap lying flat: X along the 60 mm length, Y up the strap from the bottom edge (y = 0) to the arc crown, Z up through the 2.5 mm thickness (bottom face z = 0)."
+
+[frames.A]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "unknown"
+note = "S1, strap flat on its z = 0 face, model axes."
+
+# The two broad strap faces; the plate's thickness band. Credited faces of a profiled
+# blank answer to its one declared tolerance (docs/rules-geometry.md#blank_credit).
+[features.strap_faces]
+kind = "face"
+frame = "model"
+requirements = ["thickness"]
+thickness = [2.3, 2.7]
+thickness_nominal = 2.5
+upper_z = 2.5
+lower_z = 0.0
+faces = [
+  "#187/ADVANCED_FACE[7]/",
+  "#174/ADVANCED_FACE[6]/",
+]
+note = "Top [7] z = 2.5 and bottom [6] z = 0."
+cite = "examples/geometry/author_solids.py: STRAP thickness (synthetic test specification)"
+
+[features.top_arc]
+kind = "profile"
+frame = "model"
+requirements = ["radius"]
+radius = [79.5, 80.5]
+radius_nominal = 80.0
+faces = ["#119/ADVANCED_FACE[4]/"]
+note = "R80 top arc [4], centre (30, -62.162), from the right end's top to the left end's top."
+cite = "examples/geometry/author_solids.py: STRAP arc_r (synthetic test specification)"
+
+[features.bottom_edge]
+kind = "face"
+frame = "model"
+requirements = ["height"]
+height = [17.6, 18.1]
+height_nominal = 17.838
+faces = ["#17/ADVANCED_FACE[1]/"]
+note = "Bottom edge [1] y = 0 (x 0..56); height is the strap's depth from it to the arc crown."
+cite = "examples/geometry/author_solids.py: STRAP end_height and arc_r (synthetic test specification)"
+
+# A 60 +/-0.1 overall length is tighter than a +/-0.127 cut: both ends need an op.
+[features.end_faces]
+kind = "face"
+frame = "model"
+requirements = ["length"]
+length = [59.9, 60.1]
+length_nominal = 60.0
+faces = [
+  "#152/ADVANCED_FACE[5]/",
+  "#88/ADVANCED_FACE[3]/",
+]
+note = "Left end [5] x = 0 and right end [3] x = 60 (y 4..12)."
+cite = "examples/geometry/author_solids.py: STRAP length (synthetic test specification)"
+
+# The blank keeps this corner square: the chamfer face is buried in the blank, never cut.
+[features.corner_chamfer]
+kind = "chamfer"
+frame = "model"
+requirements = ["width"]
+width = [3.5, 4.5]
+width_nominal = 4.0
+faces = ["#57/ADVANCED_FACE[2]/"]
+note = "45-degree chamfer [2] from (56, 0) to (60, 4), outward normal (+X, -Y)."
+cite = "examples/geometry/author_solids.py: STRAP chamfer (synthetic test specification)"

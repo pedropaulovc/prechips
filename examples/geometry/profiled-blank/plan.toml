@@ -1,0 +1,71 @@
+# profiled-blank, failing candidate (#248 blank_credit). The strap is bought laser-cut to
+# strap-blank.STEP (same outline, corner square), so its broad faces, R80 arc and bottom
+# edge need no op: they lie on the blank and their bands hold the vendor's +/-0.127 mm.
+# S1 machines only the corner chamfer the blank lacks. The plan also credits both square
+# ends as cut, but their 60 +/-0.1 length cannot hold +/-0.127: blank_credit withholds
+# them and coverage reports both ends uncovered. All dimensions are synthetic choices.
+part = "strap-plate"
+features = "features.toml"
+construction = "one_piece"
+
+[paths]
+inventory = "../inventory.toml"
+policy = "shop-policy.toml"
+cutting_data = "../../cutting-data.toml"
+
+[stock]
+form = "profiled_blank"
+form_verify = false
+note = "Bought laser-cut 2.5 mm plate, cut to the strap outline with the chamfer corner left square; the chamfer is machined here."
+as_is_faces = [
+  "#187/ADVANCED_FACE[7]/",
+  "#174/ADVANCED_FACE[6]/",
+  "#119/ADVANCED_FACE[4]/",
+  "#17/ADVANCED_FACE[1]/",
+  "#152/ADVANCED_FACE[5]/",
+  "#88/ADVANCED_FACE[3]/",
+]
+
+[stock.blank]
+step = "strap-blank.STEP"
+step_sha256 = "ae8923c21b0e3fdb79cf0b7d108ebd757bf74ba4aa6c4624df7f61b70e06a921"
+profile_tolerance_mm = 0.127 # SendCutSend's posted +/-0.005 in cut tolerance (vendor value, not a measurement)
+cite = [
+  "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
+  "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)",
+]
+
+[[setups]]
+id = "S1"
+machine = "test-mill"
+frame = "A"
+coolant = "none"
+deburr_mm = 0.0
+stock_in = "stock"
+note = "Strap flat; the end mill's side cuts the corner chamfer the blank leaves square. Holding remains measurement debt."
+
+hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
+stock_state = { top_z = "unknown", bottom_z = "unknown" }
+
+[[setups.ops]]
+op = 10
+do = "finish_profile"
+feature = "corner_chamfer"
+faces = ["#57/ADVANCED_FACE[2]/"]
+tool = "em-8-std"
+holder = "r8-collet-8mm"
+to_z = 0.0
+direction = "climb"
+
+[[setups.ops]]
+op = 90
+do = "inspect"
+feature = ["strap_faces", "top_arc", "bottom_edge", "end_faces", "corner_chamfer"]
+note = "Supplied faces are inspected like machined ones: the blank's cut is checked against every band."
+
+[setups.ops.checks]
+thickness = "unknown"
+radius = "unknown"
+height = "unknown"
+length = "unknown"
+width = "unknown"

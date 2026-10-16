@@ -516,6 +516,8 @@ def _stock_piece_volume(piece: dict, subject: str) -> dict:
         if round_form
         else "section_mm, length_mm"
         if rectangular_form
+        else "blank STEP (a profiled blank's volume is not compared)"
+        if "blank" in piece
         else "form, length_mm (shape unresolved)"
     )
     return {

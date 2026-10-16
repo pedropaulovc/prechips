@@ -1,6 +1,7 @@
 """All imported faces need a cutting claim or explicit as-stock declaration."""
 
 from prechips.findings import Finding
+from prechips.rules import blank_credit
 from prechips.rules.geometry_common import (
     LATHE_APPROACH_REASON,
     ROTARY,
@@ -85,16 +86,26 @@ def evaluate(bundle):
             (rotary if approach(bundle, setup, op) == ROTARY else claimed).update(indices)
     refs = record(bundle.plan.get("stock")).get("as_is_faces", "unknown")
     mapping, invalid = record(facts.get("mapping")), record(facts.get("mapping_errors"))
+    # A profiled blank's as-is face counts only once supplied as cut within its bands.
+    credits = blank_credit.credit(bundle, facts)
+    withheld = []
+    if credits:
+        cite.append("blank_credit: profiled-blank as-is faces on the blank and within bands")
     if isinstance(refs, list):
         for ref in refs:
+            verdict = record(credits.get(ref)).get("verdict", blank_credit.CREDITED)
             if ref == "unknown":
                 debt = True
             elif ref in invalid:
                 errors.append(ref)
-            elif ref in mapping:
-                claimed.add(mapping[ref])
-            else:
+            elif ref not in mapping:
                 debt = True
+            elif verdict == blank_credit.CREDITED:
+                claimed.add(mapping[ref])
+            elif verdict == "unknown":
+                debt = True
+            else:
+                withheld.append(ref)
     else:
         debt = True
     # Whole-face claims and as-stock supersede any rotary portion of the same face.
@@ -113,6 +124,8 @@ def evaluate(bundle):
         values["rotary_gaps"] = list(gaps.values())
     if unresolved:
         values["rotary_unresolved"] = list(unresolved.values())
+    if withheld:
+        values["as_is_withheld"] = withheld
     uncovered = set(unclaimed) | set(gaps)
     if errors:
         values["mapping_errors"] = sorted(set(errors))
@@ -158,6 +171,12 @@ def evaluate(bundle):
                 if face["index"] in unclaimed
             ]
             problems.append("faces have no cutting op or as-stock claim: " + ", ".join(names))
+            refused = [ref for ref in withheld if mapping[ref] in unclaimed]
+            if refused:
+                problems.append(
+                    "the profiled blank's as-is credit is withheld (blank_credit) from "
+                    + ", ".join(refused)
+                )
         if gaps:
             problems.append(
                 "rotary windows leave part of a claimed face uncut: "
