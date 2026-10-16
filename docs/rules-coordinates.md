@@ -1060,7 +1060,10 @@ or Y recipe ([#255](https://github.com/pedropaulovc/prechips/issues/255)): the
 sweep's touch-off against its master sets them and X/Y stay locked, so an omitted
 `zero.x`/`zero.y` there is not a gap. The finding names those axes and ops in
 `touch_set`, and the DRO ZERO sheet prints that X and Y take no edge pickup; Z
-keeps its recipe. Any other spindle op in the setup still needs both.
+keeps its recipe. The touch feed and a rough back-off still move those axes by
+their DRO sign, so a reversed `dro.direction` for them is the same error, and an
+undeclared one the same debt, as under an edge pickup. Any other spindle op in the
+setup still needs both.
 
 EL400 ABS Axis Set, not Preset. Approach side is independent of jog polarity.
 For edge finding, `contact=edge + side*finder_radius`, side -1 from negative

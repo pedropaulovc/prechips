@@ -1682,8 +1682,9 @@ uses the 1898 manual arc method:
    zero is never reset), the master taken off the sweep's path, a rough stage's
    one-axis back-off with the direction the cutter must move (a finish after it
    raises Z, returns to the touch and continues the same numbered steps), a stop
-   block at each end of the sweep (the cutter's centre over the overrun's mark on a
-   steel rule laid along the arc from its end), then the sweep: spindle started, its
+   block at each end of the sweep (where the cutter's edge reaches the arc's end, its
+   centre on that end's radial line, then on by the overrun measured along the cutter's
+   path), a dry pass from stop to stop, then the sweep: spindle started, its
    direction viewed from above, its angle and cutter travel, and the time it takes
    at the op's starting feed; each sweep ends with Z raised clear of the work and the
    fixture, the op's last also stopping the spindle before anyone reaches in. The
