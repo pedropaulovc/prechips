@@ -5846,8 +5846,9 @@ class _Setup:
                         facts["saw_error"] = split
             if facts.get("saw_error") or facts.get("saw_reason"):
                 return None, facts
-            if op.get("saw_tool") == "hand_saw":
-                # A bench has no DRO: the hand-saw card gives the kept piece's length.
+            if op.get("saw_tool") == "hand_saw" and len(retained.Solids) == 1:
+                # A bench has no DRO: the hand-saw card gives the kept piece's length. Of
+                # separate retained supplies no one length is the kept piece's, so none.
                 kept = _bbox(retained)
                 facts["retained_length_mm"] = _r(kept[axis + 3] - kept[axis])
             return retained, facts
