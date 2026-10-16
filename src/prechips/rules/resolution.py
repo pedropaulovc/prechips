@@ -320,6 +320,32 @@ def select(bundle_or_inventory, reference, slot=None):
     it declares. A same-key item in another category is never read."""
     # A bundle with no shop list lists nothing.
     inventory = record(getattr(bundle_or_inventory, "inventory", bundle_or_inventory))
+    category, reference, entries = _listing(inventory, reference, slot)
+    if entries == UNKNOWN:
+        return category, reference, UNKNOWN
+    if entries is not None:
+        root, separator, member = reference.partition("/")
+        return category, reference, _item(entries[root], separator, member)
+    if not isinstance(reference, str) or reference in _NO_ITEM:
+        return category, reference, None
+    machines = inventory.get("machines", {})
+    for machine in machines.values() if isinstance(machines, dict) else ():
+        machine = inventory_record(machine)
+        if reference in machine.get("standard_accessories", []) + machine.get("included", []):
+            accessory = {
+                "kind": "accessory",
+                "verify": uncertain(machine),
+                "source": machine.get("source", "inventory machine accessories"),
+            }
+            return category, reference, accessory
+    return category, reference, None
+
+
+def _listing(inventory, reference, slot):
+    """``(category, reference, entries)``: where :func:`select` reads ``reference``, before
+    it resolves any item. ``entries`` is the category map that lists the reference's root,
+    :data:`UNKNOWN` for a category stated unknown as a whole, or None when nothing in order
+    lists it (``category`` is then the slot's first, or None for a bare reference)."""
     qualified = _QUALIFIED.fullmatch(reference) if isinstance(reference, str) else None
     if qualified:
         order, reference = (qualified[1],), qualified[2]
@@ -330,23 +356,13 @@ def select(bundle_or_inventory, reference, slot=None):
     first = order[0] if qualified or slot else None
     if not isinstance(reference, str) or reference in _NO_ITEM:
         return first, reference, None
-    root, separator, member = reference.partition("/")
+    root = reference.partition("/")[0]
     for category in order:
         entries = inventory.get(category, {})
         if entries == UNKNOWN:
             return category, reference, UNKNOWN
         if isinstance(entries, dict) and root in entries:
-            return category, reference, _item(entries[root], separator, member)
-    machines = inventory.get("machines", {})
-    for machine in machines.values() if isinstance(machines, dict) else ():
-        machine = inventory_record(machine)
-        if reference in machine.get("standard_accessories", []) + machine.get("included", []):
-            accessory = {
-                "kind": "accessory",
-                "verify": uncertain(machine),
-                "source": machine.get("source", "inventory machine accessories"),
-            }
-            return first, reference, accessory
+            return category, reference, entries
     return first, reference, None
 
 
@@ -354,8 +370,10 @@ def identity(bundle_or_inventory, reference, slot=None):
     """``(category, key)``: the one item ``reference`` names in ``slot`` (:func:`select`),
     however it is spelled (``tools.drill`` and ``drill``; a member's key keeps its member).
     Every map, set and comparison of items downstream keys on this, never on a spelling;
-    the spelling is kept only to print."""
-    return select(bundle_or_inventory, reference, slot)[:2]
+    the spelling is kept only to print. Only where the item is listed decides it, so the
+    item itself is never resolved here."""
+    inventory = record(getattr(bundle_or_inventory, "inventory", bundle_or_inventory))
+    return _listing(inventory, reference, slot)[:2]
 
 
 def authored(bundle_or_inventory, category, reference):
