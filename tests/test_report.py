@@ -13,7 +13,7 @@ from test_sheet_ops import Markup, content
 
 from prechips.inputs import load_bundle
 from prechips.report import build_report, canonical_bytes, render_assets, report_hash
-from prechips.sheet import _Traveler
+from prechips.sheet import render_traveler
 
 
 def test_canonical_report_unicode_sorted_keys_float_and_final_lf():
@@ -55,20 +55,27 @@ def test_traveler_preserves_authored_slash_instructions(tmp_path):
         encoding="utf-8",
     )
 
-    # The op note prints only in the setup's op assembly; build it in process on a
-    # synthetic kernel rather than run the whole rocker traveler through the CLI.
+    # The whole traveler document, rendered in process on a synthetic kernel: the CLI
+    # subprocess's full rule pass is not what this test is about.
     bundle = synthetic_kernel(load_bundle(plan))
-    setup = bundle.plan["setups"][0]
-    operation_id = str(setup["ops"][0]["op"])
-    sheet = _Traveler(bundle, list(evaluate("inspection", bundle).values()), {}, None)
-    numbers, _, _ = sheet.tool_table(setup)
-    rows, notes_html, worksheets, _ = sheet.operations(setup, numbers, {"notes": 2})
-    html = "".join([rows, notes_html, *(body for _, body in worksheets)])
+    findings = list(evaluate("inspection", bundle).values())
+    html = render_traveler(bundle, findings, {}, None)
+
     markup = Markup(html)
-    operations = [
-        node for node in markup.find("operation") if node["attrs"]["data-op"] == operation_id
+    setup = bundle.plan["setups"][0]
+    setup_id = setup["id"]
+    operation_id = str(setup["ops"][0]["op"])
+    pages = [
+        page
+        for page in markup.find("page")
+        if page["attrs"]["data-sheet"].startswith(f"SETUP {setup_id} sheet ")
     ]
-    assert len(operations) == 1
+    operations = [
+        node
+        for page in pages
+        for node in markup.find("operation", page)
+        if node["attrs"]["data-op"] == operation_id
+    ]
     notes = [node for operation in operations for node in markup.find("op-note", operation)]
     assert [content(node) for node in notes] == [instruction]
     instruction_blocks = [
