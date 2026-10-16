@@ -4774,8 +4774,16 @@ def evaluate(bundle, *, pre_kernel=False):
                         for sweep in sweeps
                         for cite in (
                             "docs/plan.md Manual arcs: guided sweep",
-                            f"inventory fixtures.{sweep['fixture']}: guided-sweep fixture",
-                            f"inventory gauges.{sweep['master']}: touch-off master",
+                            *(
+                                [f"inventory fixtures.{sweep['fixture']}: guided-sweep fixture"]
+                                if isinstance(sweep["fixture"], str) and sweep["fixture"] != UNKNOWN
+                                else []
+                            ),
+                            *(
+                                [f"inventory gauges.{sweep['master']}: touch-off master"]
+                                if isinstance(sweep["master"], str) and sweep["master"] != UNKNOWN
+                                else []
+                            ),
                         )
                     ),
                 ],
