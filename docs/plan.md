@@ -616,8 +616,11 @@ the broad faces are credited. Inventory `stock` cannot hold a profiled blank.
 credited only when the kernel finds it on the blank's boundary and every
 drawing band of its features holds the vendor tolerance about its nominal
 (rule [`blank_credit`](rules-geometry.md#blank_credit)); a face failing either
-check stays uncovered and needs a cutting op. The traveler prints the stock as
-bought cut to the blank's outline with the vendor tolerance.
+check stays uncovered and needs a cutting op, from a blank that leaves
+machining allowance on it (an op cannot restore an undersize face). The
+traveler prints the stock as a profiled blank of the kernel's overall size,
+bought already cut to outline, with the vendor tolerance; the cut file itself is
+bound in the report, not printed for the bench.
 
 ## Dro
 

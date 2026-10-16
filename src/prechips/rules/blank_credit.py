@@ -170,7 +170,10 @@ def _requirement_verdict(bundle, name, requirement, tolerance):
         return band_verdict(bundle, name, requirement, tolerance)
     if requirement == "thru" and feature.get("thru") is True:
         return HOLDS, {"requirement": requirement}
-    if requirement == "at" and "position_dia" in feature.get("requirements", ()):
+    location = feature.get("at", UNKNOWN)
+    located = isinstance(location, list) and len(location) == 3 and all(map(number, location))
+    if requirement == "at" and located and "position_dia" in feature.get("requirements", ()):
+        # A known true position its own zone governs; an unknown one resolves nothing.
         return HOLDS, {"requirement": requirement, "governed_by": "position_dia"}
     value = feature.get(requirement, UNKNOWN)
     return UNKNOWN, {

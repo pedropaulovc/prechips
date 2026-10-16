@@ -9425,7 +9425,8 @@ class _Traveler:
         blank = _mapping(stock.get("blank"))
         if blank:
             # A bought profiled blank is sized by its cut file, not by bar dimensions: the
-            # receiving check is the kernel's box of that solid (root supply only).
+            # receiving check is the kernel's box of that solid (root supply only). The
+            # file itself is bound in the report, never printed for the bench.
             tolerance, step = blank.get("profile_tolerance_mm"), blank.get("step")
             box = _mapping(_mapping(self.bundle.kernel).get("stock")).get("bbox_mm")
             dims = (
@@ -9434,9 +9435,9 @@ class _Traveler:
                 else ""
             )
             dims += (
-                f"bought cut to the outline of cut file {step}"
+                "bought already cut to outline"
                 if isinstance(step, str) and step != "unknown"
-                else "bought cut to an outline, ? cut file not set"
+                else "bought already cut to outline, ? cut file not set"
             )
             dims += (
                 f", vendor cut tolerance ±{tolerance:g} mm"

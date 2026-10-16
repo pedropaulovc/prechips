@@ -353,7 +353,7 @@
           },
           "plan": {
             "path": "examples/geometry/profiled-blank/machined-ends.toml",
-            "sha256": "20ed0d6c59c35ba536a13e32be2a53d867b30cb3c5895a18e06c73b5cb617a2c"
+            "sha256": "4de5c5a23baccba57ec876767493f73975aac621c583f3465af4dab5c68eea2c"
           },
           "shop_policy": {
             "path": "examples/geometry/profiled-blank/shop-policy.toml",
@@ -2227,7 +2227,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "886c43c2f58e674bbb294e01096911cc869903ad77a04ca06861ea631ef6cf30",
+  "hash": "dd6d0faee12f1544ca4d60cf4d742df7c85ff1967e0014d28ddbd6367e2767fb",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2243,7 +2243,7 @@
     },
     "plan": {
       "path": "examples/geometry/profiled-blank/machined-ends.toml",
-      "sha256": "20ed0d6c59c35ba536a13e32be2a53d867b30cb3c5895a18e06c73b5cb617a2c"
+      "sha256": "4de5c5a23baccba57ec876767493f73975aac621c583f3465af4dab5c68eea2c"
     },
     "render:S1": {
       "path": "setup-S1.png",

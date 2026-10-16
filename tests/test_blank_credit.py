@@ -469,6 +469,19 @@ def test_an_unknown_vendor_tolerance_is_debt_never_credit():
             {"requirements": ["at", "position_dia"], "at": [1.0, 2.0, 0.0], "position_dia": 0.4},
             "credited",
         ),
+        # An unknown true position is unresolved, however wide its zone.
+        (
+            {"requirements": ["at", "position_dia"], "at": "unknown", "position_dia": 0.4},
+            "unknown",
+        ),
+        (
+            {
+                "requirements": ["at", "position_dia"],
+                "at": [1.0, "unknown", 0.0],
+                "position_dia": 0.4,
+            },
+            "unknown",
+        ),
         # A reference dimension states no limit to hold.
         ({"requirements": ["depth_ref"], "depth_ref": 16.0}, "credited"),
     ],

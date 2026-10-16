@@ -72,7 +72,6 @@ direction = "climb"
 op = 90
 do = "inspect"
 feature = ["strap_faces", "top_arc", "bottom_edge", "end_faces", "corner_chamfer"]
-note = "Supplied faces are inspected like machined ones: the blank's cut is checked against every band."
 
 [setups.ops.checks]
 thickness = "unknown"
