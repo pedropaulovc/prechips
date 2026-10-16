@@ -997,9 +997,18 @@ class Plan(InputModel):
     @model_validator(mode="after")
     def saw_shapes(self) -> Plan:
         """A saw cut is planar (``cut_plane``) or follows an earlier scribe op's line
-        (``follows``, ``allowance_mm``, ``stock_removal_bounds``): exactly one shape."""
-        scribes = set()
+        (``follows``, ``allowance_mm``, ``stock_removal_bounds``): exactly one shape. The
+        line must be on the saw's own workpiece: scribed earlier in the same setup or in a
+        setup its ``stock_in`` routing descends from (omitted routing descends from none)."""
+        scribes = {}
+        upstream: dict[str, set[str]] = {}
         for setup in self.setups:
+            routed = "stock_in" in setup.model_fields_set
+            refs = setup.stock_in if isinstance(setup.stock_in, list) else [setup.stock_in]
+            lineage = {setup.id}
+            for ref in refs if routed else ():
+                lineage |= upstream.get(ref, set())
+            upstream[setup.id] = lineage
             for op in setup.ops if isinstance(setup.ops, list) else ():
                 where = f"Setup {setup.id} op {op.op}"
                 declared = op.model_fields_set
@@ -1008,7 +1017,7 @@ class Plan(InputModel):
                     if stray:
                         raise ValueError(f"{where}: only a saw cut declares {', '.join(stray)}.")
                     if op.do == "scribe":
-                        scribes.add(f"{setup.id}:{op.op}")
+                        scribes[f"{setup.id}:{op.op}"] = setup.id
                     continue
                 shapes = [field for field in ("cut_plane", "follows") if field in declared]
                 if len(shapes) != 1:
@@ -1029,6 +1038,11 @@ class Plan(InputModel):
                     raise ValueError(
                         f"{where}: follows {op.follows!r} names no earlier scribe op "
                         '("<setup>:<op>").'
+                    )
+                if scribes[op.follows] not in lineage:
+                    raise ValueError(
+                        f"{where}: follows {op.follows!r}, a line scribed on another "
+                        "workpiece: the scribe's setup is not upstream of this setup's stock_in."
                     )
                 if op.allowance_mm != UNKNOWN and op.allowance_mm <= 0:
                     raise ValueError(

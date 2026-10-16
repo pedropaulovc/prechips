@@ -928,10 +928,14 @@ def saw_tool_unverified(bundle, op):
     """Whether a saw op's selected tool is unverified. A cut that follows a scribed line
     reads no kerf, so verification debt on the tool's kerf alone does not make it so."""
     category, reference, item = select(bundle, op.get("tool"), "tools")
-    if "follows" not in op or not isinstance(item, dict) or "/" in str(reference):
+    if "follows" not in op or not isinstance(item, dict):
         return uncertain(item)
-    entry = record(record(record(bundle.inventory).get(category)).get(reference))
-    return uncertain({k: v for k, v in entry.items() if k not in {"kerf", "kerf_mm", "kerf_in"}})
+    root, _, member = str(reference).partition("/")
+    entry = record(record(record(bundle.inventory).get(category)).get(root))
+    # A kit member's own record is judged on its own; neither carries kerf debt.
+    entries = [entry, record(record(entry.get("members")).get(member))] if member else [entry]
+    unread = {"kerf", "kerf_mm", "kerf_in", "members"}
+    return any(uncertain({k: v for k, v in e.items() if k not in unread}) for e in entries)
 
 
 def saw_setup(setup):

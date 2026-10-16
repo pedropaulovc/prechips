@@ -4,15 +4,15 @@ with no DRO, spindle or table.
 A setup is manual bench work only when its machine is declared ``kind = "bench"`` or
 ``"manual"``, it has at least one operation, and every operation is ``fit``, ``inspect``,
 ``deburr``, ``coating``, ``scribe`` or ``file_to_line``, or a ``saw_cut``/``cut_off`` whose
-selected tool resolves to a ``hand_saw``; the joint a ``fit`` makes (silver braze, retaining
-compound, press or weld) is its declared ``joint.method``. Layout and filing to a line are
+selected tool resolves to a verified ``hand_saw``; the joint a ``fit`` makes (silver braze,
+retaining compound, press or weld) is its declared ``joint.method``. Layout and filing to a line are
 checked by the ``manual_arc`` rule, a hand-saw cut by ``saw_cut``. Any other or unknown
 action, or a saw whose tool is a powered blade or unresolved, keeps every machine screen in
 force: the bench kind alone waives nothing.
 """
 
 from prechips.findings import Finding
-from prechips.rules.resolution import SAW_OPS, UNKNOWN, record, resolve
+from prechips.rules.resolution import SAW_OPS, UNKNOWN, record, resolve, saw_tool_unverified
 
 BENCH_KINDS = frozenset({"bench", "manual"})
 BENCH_ACTIONS = frozenset({"fit", "inspect", "deburr", "coating", "scribe", "file_to_line"})
@@ -20,10 +20,13 @@ HAND_SAW = "hand_saw"
 
 
 def hand_saw(bundle, op):
-    """Whether ``op`` is a saw cut made with a resolved hand saw (no blade speed)."""
+    """Whether ``op`` is a saw cut made with a resolved, verified hand saw (no blade
+    speed); an unverified identity cannot establish that the work is manual."""
     if op.get("do") not in SAW_OPS:
         return False
-    return record(resolve(bundle, "tools", op.get("tool"))).get("kind") == HAND_SAW
+    if record(resolve(bundle, "tools", op.get("tool"))).get("kind") != HAND_SAW:
+        return False
+    return not saw_tool_unverified(bundle, op)
 
 
 def _bench_op(bundle, op):

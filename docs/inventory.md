@@ -153,8 +153,10 @@ A hand saw (a hacksaw or junior hacksaw) is `tools.<saw>.kind = "hand_saw"`. It
 cuts only on a `bench` or `manual` machine and needs no `blade_speed_sfm` or
 cutting-data row. A straight hand-saw cut reads the same `kerf_mm` / `kerf_in`
 as a bandsaw blade; a cut that follows a scribed line reads no kerf (its removal
-is the op's declared box). A saw whose tool resolves to `hand_saw` keeps a bench
-setup's manual-bench waiver; an unresolved or powered blade does not.
+is the op's declared box), so kerf debt alone, the item's or a kit member's,
+never leaves such a cut's tool unverified. A saw whose tool resolves to a verified
+`hand_saw` keeps a bench setup's manual-bench waiver; an unverified, unresolved or
+powered blade does not.
 
 ```toml
 [tools.junior-hacksaw]

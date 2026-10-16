@@ -1675,7 +1675,9 @@ own numeric digits; a coarse drawing print class does not round machine settings
 A saw op declares exactly one shape, else the plan is `BadInput`: `cut_plane`
 (a straight cut; `cut_plane = "unknown"` while the plane is undecided), or
 `follows`, the `"<setup>:<op>"` of an earlier `scribe` op whose line the cut
-follows. A cut that follows a line also declares `allowance_mm` (positive, the
+follows. The line must be on the saw's own workpiece: scribed earlier in the same
+setup, or in a setup the saw setup's `stock_in` routing descends from (a setup with
+omitted routing descends from none). A cut that follows a line also declares `allowance_mm` (positive, the
 stock left outside the line for the file) and `stock_removal_bounds`, the
 setup-frame box the blade and its offcut take; neither belongs on a straight cut.
 Gentle curves (an R800 arc rising about 13 mm over 292 mm) are sawn by hand this
@@ -1703,7 +1705,8 @@ curve, so the file may face more than the allowance where the line falls away;
 the following `file_to_line` checks the stock it actually meets against the
 shop's `max_filing_stock_mm`, and counts this saw as the rough it finishes.
 
-A setup on a `bench`/`manual` machine whose saws all use a `hand_saw` tool, with
+A setup on a `bench`/`manual` machine whose saws all use a verified `hand_saw`
+tool (kerf debt aside for a cut that follows a line, which reads no kerf), with
 otherwise only bench actions (`fit`, `inspect`, `deburr`, `coating`, `scribe`,
 `file_to_line`), is manual bench work: its DRO, zero and headroom screens are
 `not_applicable` and `speeds_feeds` gives the hand saw no blade speed or feed. A

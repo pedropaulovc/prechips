@@ -26,8 +26,8 @@ def plan(*saw_ops, scribe=True):
         "part": "rocker",
         "features": "features.toml",
         "setups": [
-            {"id": "S1", "machine": "bench", "ops": layout},
-            {"id": "S2", "machine": "bench", "ops": list(saw_ops)},
+            {"id": "S1", "machine": "bench", "stock_in": "stock", "ops": layout},
+            {"id": "S2", "machine": "bench", "stock_in": "S1", "ops": list(saw_ops)},
         ],
     }
 
@@ -85,9 +85,29 @@ def test_saw_shapes_are_exclusive_and_follow_an_earlier_scribe(op, scribe, words
 
 def test_a_scribe_later_in_plan_order_is_not_a_line_to_follow():
     data = plan(scribed())
+    del data["setups"][1]["stock_in"]
     data["setups"].reverse()
     with pytest.raises(ValidationError, match="names no earlier scribe op"):
         Plan.model_validate(data)
+
+
+@pytest.mark.parametrize("route", ["stock", None], ids=["own-branch", "unrouted"])
+def test_a_line_scribed_on_another_workpiece_is_not_followed(route):
+    data = plan(scribed())
+    data["setups"][1].pop("stock_in")
+    if route is not None:
+        data["setups"][1]["stock_in"] = route
+        data["stock"] = {"components": [{"id": "a"}, {"id": "b"}]}
+        data["setups"][0]["stock_in"] = "stock.a"
+        data["setups"][1]["stock_in"] = "stock.b"
+    with pytest.raises(ValidationError, match="scribed on another workpiece"):
+        Plan.model_validate(data)
+
+
+def test_a_line_scribed_earlier_in_the_same_setup_is_followed():
+    data = plan()
+    data["setups"][0]["ops"].append(scribed())
+    Plan.model_validate(data)
 
 
 # ------------------------------------------------------------- manual bench waiver and screens
@@ -119,6 +139,19 @@ def test_a_powered_or_unresolved_saw_tool_waives_no_bench_screen(screen, kind):
     row = screen.evaluate(bundle)[0]
     assert "plan.setups.B1.ops: manual bench actions only" not in row.cite
     assert row.numbers.get("machine_kind") != "bench"
+
+
+@pytest.mark.parametrize(
+    "debt",
+    [{"verify": True}, {"source": {"verify": True}}],
+    ids=["flagged", "nested"],
+)
+@pytest.mark.parametrize("screen", SCREENS)
+def test_an_unverified_hand_saw_waives_no_bench_screen(screen, debt):
+    bundle = with_tool(bench_bundle("bench", ("saw_cut", "fit")), "hand_saw")
+    bundle.inventory["tools"]["hacksaw"].update(debt)
+    row = screen.evaluate(bundle)[0]
+    assert "plan.setups.B1.ops: manual bench actions only" not in row.cite
 
 
 def saw_bundle(machine_kind="bench", tool_kind="hand_saw", op=None, kernel=None):
@@ -214,6 +247,19 @@ def test_kerf_debt_a_scribed_cut_never_reads_does_not_block_it():
     assert saw_cut.evaluate(bundle)[0].status == "pass"
     row = next(row for row in tool_resolves.evaluate(bundle) if row.subject == "S2:20")
     assert row.status == "pass"
+    # The same holds for a kit member's own kerf debt; other member debt still counts.
+    kit = scribed_bundle(tool="hacksaws/fine")
+    kit.kernel["ops"]["S2:20"] = dict(NATIVE)
+    kit.inventory["tools"] = {
+        "hacksaws": {
+            "kind": "hand_saw",
+            "verify": False,
+            "members": {"fine": {"kerf_mm": {"value": "unknown", "verify": True}}},
+        }
+    }
+    assert saw_cut.evaluate(kit)[0].status == "pass"
+    kit.inventory["tools"]["hacksaws"]["members"]["fine"]["verify"] = True
+    assert saw_cut.evaluate(kit)[0].status == "unknown"
     # A straight cut reads that kerf: the same debt keeps it unknown.
     straight = saw_bundle()
     straight.inventory["tools"]["hacksaw"]["kerf_mm"] = {"value": "unknown", "verify": True}
