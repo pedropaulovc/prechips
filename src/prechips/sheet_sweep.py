@@ -71,10 +71,9 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None):
         return [f"STOP: guided sweep not established ({', '.join(missing)}) — do not run."]
     if after_rough and arc.get("stage") == "finish":
         result.append(
-            f"Finish sweep: unlock {letter} only, return it to the touch reading and lock "
-            f"{letter} again."
+            f"Finish sweep: raise Z until the cutter clears the work and the {holder}; then "
+            f"unlock {letter} only, return it to the touch reading and lock {letter} again."
         )
-        result.extend(_cut(sweep))
         result.append(_sweep(arc, sweep, o, holder, move, start, stop, feed, stops=False))
         return result
     if guide == "pivot":
@@ -95,10 +94,7 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None):
         result.append(
             f"{fixture}: the work rides the sled, its R {_number(sweep.get('rail_radius_mm'))} "
             f"mm rail pushed against two rollers fixed in the T-slots {where} about the arc "
-            "centre from the cutter's radial line (counterclockwise from above). The rail's "
-            f"{_number(sweep.get('rail_form_error_mm'))} mm form error and the rollers' "
-            f"{_number(sweep.get('roller_runout_mm'))} mm runout are carried into the cut "
-            "radius below."
+            "centre from the cutter's radial line (counterclockwise from above)."
         )
         contacts = sweep.get("roller_contacts_mm")
         if isinstance(contacts, list) and all(map(_pair, contacts)):
@@ -114,39 +110,24 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None):
         f"Spindle stopped: bring a flute of the cutter itself to touch {master}, feeding "
         f"{_text(approach)} only. {other} needs no setting: every point of the master's touch "
         f"face stands at its radius from the arc centre. Lock X and Y there and write the DRO "
-        f"{letter} reading at the touch here: ________ ."
+        f"{letter} reading at the touch here: ________"
     )
     lift = "remove the setting bar" if kind == "setting_bar" else f"lift {master} off its pins"
     result.append(f"Raise Z only and {lift}: nothing of it may stay in the sweep's path.")
     back = sweep.get("back_off_dro")
     if _known(back):
+        # Off the line is into scrap: toward the arc centre on a concave arc, away from it on
+        # a convex one. The sense is the operator's check that the axis reads the right way.
+        toward = "away from" if sweep.get("convex") is True else "toward"
         result.append(
             f"Rough sweep: unlock {letter} only, move it {'+' if back > 0 else ''}{o(back)} "
             f"from the touch reading (the cutter {_number(sweep.get('back_off_mm'))} mm off "
-            f"the line) and lock {letter} again."
+            f"the line) and lock {letter} again. The cutter must move {toward} the arc "
+            f"centre; if it moves the other way, STOP: {letter} reads reversed."
         )
-    result.extend(_cut(sweep))
     result.append(_stops(sweep, o, holder, move, start, stop))
     result.append(_sweep(arc, sweep, o, holder, move, start, stop, feed, stops=True))
     return result
-
-
-def _cut(sweep):
-    """The cut radius the touch proves against the band."""
-    from prechips.sheet import _number
-
-    cut, band = sweep.get("cut_radius_mm"), sweep.get("band_mm")
-    error, radius = sweep.get("centre_error_mm"), sweep.get("master_radius_mm")
-    back = sweep.get("back_off_mm")
-    if not (_pair(cut) and _pair(band) and _pair(radius)):
-        return []
-    moved = f", moved {_number(back)} mm off the line" if _known(back) and back else ""
-    return [
-        f"This sweep cuts R {_number(cut[0])}–{_number(cut[1])} mm worst case: the master's "
-        f"R {_number(radius[0])}–{_number(radius[1])} mm{moved}, ± "
-        f"{_number(_round(error, 3))} mm the guide lets the arc centre move. The band is "
-        f"R {_number(band[0])}–{_number(band[1])} mm."
-    ]
 
 
 def _stops(sweep, o, holder, move, start, stop):
@@ -160,19 +141,20 @@ def _stops(sweep, o, holder, move, start, stop):
             f"Set the sweep's stops: with Z raised, {move} the {holder} round once and clamp a "
             "stop block on the table against it at each end of the sweep."
         )
-    past = (
-        f"{_number(_round(overrun, 1))} mm along the arc past the arc's end at"
+    over = (
+        f"the {_number(_round(overrun, 1))} mm mark of a steel rule laid along the arc from "
+        "its end at"
         if _known(overrun) and overrun > 0
-        else "on the arc's end at"
+        else "the arc's end at"
     )
     keys = [f" ({key})" if key else "" for key in (start, stop)]
     # Places on the work, not DRO targets: X and Y stay locked, so they print to 0.1.
     first, last = (f"X {_number(_round(x, 1))} Y {_number(_round(y, 1))}" for x, y in ends)
     return (
-        f"Set the sweep's stops: with Z raised, {move} the {holder} until the cutter{keys[0]} "
-        f"stands {past} {first} (a place on the work, measured from its X0 Y0), and clamp a "
-        f"stop block on the table against the {holder}; do the same at the other end: the "
-        f"cutter{keys[1]} {past} {last}."
+        f"Set the sweep's stops with Z raised: {move} the {holder} until the cutter's "
+        f"centre{keys[0]} is over {over} {first}, and clamp a stop block on the table against "
+        f"the {holder}; do the same past the other end: the cutter's centre{keys[1]} over "
+        f"{over} {last}."
     )
 
 
@@ -191,18 +173,20 @@ def _sweep(arc, sweep, o, holder, move, start, stop, feed, stops):
             f", at about the op's {_number(_round(feed, 0))} mm/min feed: "
             f"{_number(_round(path / feed * 60.0, 0))} s from stop to stop"
         )
-    first = f" ({start})" if start else ""
     turning = f" {turn}" if turn else ""
+    first = f" ({start})" if start else ""
+    last = f" ({stop})" if stop else ""
     lead = (
         f"{move.capitalize()} the {holder} against the first stop{first}, start the "
         f"spindle{turning}"
         if stops
-        else f"Raise Z, {move} the {holder} back against the first stop{first} with the "
-        f"spindle running{turning}"
+        else f"{move.capitalize()} the {holder} back against the same first stop (the finish "
+        f"path starts at {start or 'its first point'} in the picture) with the spindle "
+        f"running{turning}"
     )
     return (
         f"{lead} and set Z {o(arc.get('dro_tip_z'))}. With X and Y locked, move only the "
         f"{holder}: {move} it {_text(sweep.get('rotation'))} (viewed from above) to the other "
-        f"stop{' (' + stop + ')' if stop else ''}, {_number(sweep.get('sweep_deg'))}°, "
+        f"stop{last}, {_number(sweep.get('sweep_deg'))}°, "
         f"{_number(_round(path, 1))} mm of cutter travel along the work{pressed}{pace}."
     )

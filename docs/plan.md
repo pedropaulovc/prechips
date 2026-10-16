@@ -1675,17 +1675,19 @@ uses the 1898 manual arc method:
    with a `measure:` instruction for each physical fact. The traveler prints no
    DRO table for it (its contour heading and the op row's pointer name a guided
    sweep): it prints the guide's set-up (the setting bar seated on the pin, or the
-   rollers' angles, where each bears on the rail as an X/Y offset from the spindle
-   axis, and the rail's carried form error and runout), the touch-off (spindle
-   stopped, feeding one axis; the other axis needs no setting, since every point of
-   the master's touch face is at its radius from the centre), the X/Y lock and a
-   blank for the DRO reading at the touch (the setup's zero is never reset), the
-   master taken off the sweep's path, a rough stage's one-axis back-off (a finish
-   after it returns to the touch), the worst-case cut radius against the band, a
-   stop block at each end of the sweep (where the cutter stands on the work, past
-   the arc's ends by the overrun), then the sweep: spindle started, its direction
-   viewed from above, its angle and cutter travel, and the time it takes at the
-   op's starting feed. A cut radius or sweep not established prints a STOP.
+   rollers' angles and where each bears on the rail as an X/Y offset from the spindle
+   axis), the touch-off (spindle stopped, feeding one axis; the other axis needs no
+   setting, since every point of the master's touch face is at its radius from the
+   centre), the X/Y lock and a blank for the DRO reading at the touch (the setup's
+   zero is never reset), the master taken off the sweep's path, a rough stage's
+   one-axis back-off with the direction the cutter must move (a finish after it
+   raises Z, returns to the touch and continues the same numbered steps), a stop
+   block at each end of the sweep (the cutter's centre over the overrun's mark on a
+   steel rule laid along the arc from its end), then the sweep: spindle started, its
+   direction viewed from above, its angle and cutter travel, and the time it takes
+   at the op's starting feed. The worst-case cut radius stays in the report. Any
+   unproven guide, cut radius, axis, direction, angle, rollers or rail ends prints
+   only a STOP naming them.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.

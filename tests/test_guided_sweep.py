@@ -376,7 +376,9 @@ def test_the_traveler_prints_the_touch_off_and_the_sweep_not_a_dro_table(tmp_pat
     assert "Set the sweep's stops" in printed and "clamp a stop block" in printed
     assert "start the spindle clockwise" in printed
     if guide == "rail":
-        assert "rollers" in printed and "form error" in printed
+        # The form error is carried in the rule's cut radius, not narrated to the operator.
+        assert "rollers fixed in the T-slots at -15° and 15°" in printed
+        assert "form error" not in printed
         assert "set the rollers so each bears on the rail about X" in printed
 
 

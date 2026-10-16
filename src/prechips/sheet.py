@@ -8963,6 +8963,12 @@ class _Traveler:
                 ends = (labels[0], labels[-1]) if labels else ("", "")
                 feed = self.records.get(("speeds_feeds", subject), {}).get("feed_mm_min")
                 description = sweep_steps(arc, o, *ends, after_rough=rough, feed=feed)
+                # A finish after the op's rough sweep continues the rough's numbered steps.
+                previous = entry.get("sweep_steps")
+                if rough and arc.get("stage") == "finish" and previous is not None:
+                    previous.extend(description)
+                    continue
+                entry["sweep_steps"] = description
                 entry["parts"].append((order(entry, arc), description, [], [], None))
                 continue
             else:
