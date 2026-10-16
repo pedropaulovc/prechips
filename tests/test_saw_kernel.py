@@ -490,14 +490,13 @@ def test_straight_hand_saw_on_a_manual_station_removes_its_kerf_and_offcut(saw_e
 @pytest.mark.parametrize(
     "op, machine",
     [
-        ({**_saw(), "saw_tool": "hand_saw"}, "mill"),
-        ({**_saw(), "saw_tool": "hand_saw"}, "bandsaw"),
+        ({**_saw(), "saw_tool": "refused"}, "mill"),
+        ({**_scribed(_beyond(8.5)), "saw_tool": "refused"}, "bench"),
         (_saw(), "manual"),
-        ({**_scribed(_beyond(8.5)), "saw_tool": "hand_saw"}, "mill"),
     ],
-    ids=["hand-on-mill", "hand-on-bandsaw", "blade-on-manual", "scribed-hand-on-mill"],
+    ids=["refused-straight", "refused-scribed", "no-verdict-manual"],
 )
-def test_a_saw_tool_on_the_wrong_station_routes_no_stock(saw_engine, saw_target, op, machine):
+def test_a_refused_saw_routes_no_stock(saw_engine, saw_target, op, machine):
     result = _run(saw_engine, saw_target, op, machine=machine)
     detail = result["ops"]["S1:10"]
     assert machine in detail["saw_error"], detail
@@ -603,19 +602,32 @@ def test_an_unresolved_saw_tool_routes_no_stock(saw_engine, saw_target, op):
 
 
 @pytest.mark.parametrize(
-    "tools, marker",
+    "tools, machine, marker",
     [
-        ({"hacksaw": {"kind": "hand_saw"}}, "hand_saw"),
-        ({"hacksaw": {"kind": "bandsaw"}}, "bandsaw"),
-        ({"hacksaw": {"kind": "hand_saw", "verify": True}}, "unresolved"),
-        ({"hacksaw": {"kind": "endmill"}}, "unresolved"),
-        ({}, "unresolved"),
+        ({"hacksaw": {"kind": "hand_saw"}}, "bench", "hand_saw"),
+        ({"hacksaw": {"kind": "bandsaw"}}, "bench", "bandsaw"),
+        ({"hacksaw": {"kind": "hand_saw", "verify": True}}, "bench", "unresolved"),
+        ({"hacksaw": {"kind": "endmill"}}, "bench", "refused"),
+        ({}, "bench", "unresolved"),
+        ({"hacksaw": {"kind": "hand_saw"}}, "mill", "refused"),
+        ({"hacksaw": {"kind": "bandsaw"}}, "manual", "refused"),
+        ({"hacksaw": {"kind": "hand_saw"}}, "unknown", "unresolved"),
     ],
-    ids=["hand-saw", "blade", "unverified", "not-a-saw", "missing"],
+    ids=[
+        "hand-saw",
+        "blade",
+        "unverified",
+        "not-a-saw",
+        "missing",
+        "hand-on-mill",
+        "blade-on-manual",
+        "machine-unknown",
+    ],
 )
-def test_host_marks_the_saw_tool_or_its_absence(tmp_path, saw_target, tools, marker):
+def test_host_marks_the_saw_tool_or_its_absence(tmp_path, saw_target, tools, machine, marker):
     bundle = _scribed_host_bundle(tmp_path, saw_target)
     bundle.inventory["tools"] = tools
+    bundle.inventory["machines"]["bench"]["kind"] = machine
     op = kernel.engine_job(kernel.build_job(bundle))["setups"][0]["ops"][0]
     assert op["saw_tool"] == marker
 

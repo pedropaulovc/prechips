@@ -239,6 +239,62 @@ def scribed_bundle(native=None, **fields):
     return saw_bundle(op=scribed(**fields), kernel={"status": "ok", "ops": {"S2:20": detail}})
 
 
+# ------------------------------------------- one saw identity, read alike by every consumer
+
+KERF_DEBT = {"kerf_mm": {"value": "unknown", "verify": True}}
+IDENTITY_CASES = [
+    # (tool record, machine kind, scribed?, saw_tool, saw_station)
+    ({"kind": "hand_saw"}, "bench", True, "hand_saw", "fits"),
+    ({"kind": "hand_saw"}, "manual", False, "hand_saw", "fits"),
+    ({"kind": "hand_saw"}, "mill", True, "hand_saw", "wrong_station"),
+    ({"kind": "hand_saw", "verify": True}, "bench", True, "unverified", "unknown"),
+    ({"kind": "hand_saw", "source": {"verify": True}}, "bench", True, "unverified", "unknown"),
+    ({"kind": "hand_saw", **KERF_DEBT}, "bench", True, "hand_saw", "fits"),
+    ({"kind": "hand_saw", **KERF_DEBT}, "bench", False, "unverified", "unknown"),
+    ({"kind": "bandsaw"}, "bench", False, "bandsaw", "fits"),
+    ({"kind": "bandsaw"}, "manual", True, "bandsaw", "wrong_station"),
+    ({"kind": "bandsaw", "verify": True}, "lathe", False, "unverified", "unknown"),
+    ({"kind": "endmill"}, "bench", True, "not_a_saw", "wrong_station"),
+    ({"kind": "unknown"}, "bench", True, "unknown", "unknown"),
+    (None, "bench", True, "unknown", "unknown"),
+    ({"kind": "hand_saw"}, "unknown", True, "hand_saw", "unknown"),
+]
+
+
+@pytest.mark.parametrize("tool, machine, scribed_cut, kind, station", IDENTITY_CASES)
+def test_every_consumer_reads_the_one_saw_identity(tool, machine, scribed_cut, kind, station):
+    from prechips.kernel import op_inputs
+    from prechips.rules._bench import hand_saw
+    from prechips.rules.resolution import saw_station, saw_tool
+
+    native = {
+        **NATIVE,
+        "cut_plane": dict(PLANE),
+        "kerf_mm": 1.0,
+        "retained_boundary_mm": 87.0,
+        "kerf_volume_mm3": 15.0,
+        "offcut_volume_mm3": 25.0,
+    }
+    op = scribed() if scribed_cut else saw(cut_plane=dict(PLANE))
+    bundle = saw_bundle(machine, op=op, kernel={"status": "ok", "ops": {"S2:20": native}})
+    bundle.inventory["tools"] = {} if tool is None else {"hacksaw": dict(tool)}
+    setup = bundle.plan["setups"][0]
+    assert (saw_tool(bundle, op), saw_station(bundle, setup, op)) == (kind, station)
+    assert hand_saw(bundle, op) is (kind == "hand_saw")
+    speed = speeds_feeds.evaluate(bundle)[0].status
+    assert (speed == "not_applicable") is (kind == "hand_saw")
+    assembly = next(row for row in tool_resolves.evaluate(bundle) if row.subject == "S2:20")
+    expected = {"fits": "pass", "wrong_station": "error", "unknown": "unknown"}[station]
+    assert assembly.status == expected
+    verdict = saw_cut.evaluate(bundle)[0].status
+    assert (verdict == "error") is (station == "wrong_station")
+    if station == "unknown":
+        assert verdict == "unknown"
+    marker = op_inputs(bundle, setup, op)["saw_tool"]
+    routed = {"fits": kind, "wrong_station": "refused"}.get(station, "unresolved")
+    assert marker == routed
+
+
 def test_a_scribed_cut_that_keeps_its_allowance_passes_without_a_kerf():
     bundle = scribed_bundle()
     del bundle.inventory["tools"]["hacksaw"]["kerf_mm"]
@@ -322,6 +378,22 @@ def test_a_saw_to_the_scribed_line_roughs_the_arc_for_the_file():
     filed = branch["setups"][1]["ops"].pop()
     branch["setups"].append({"id": "S3", "stock_in": "stock", "ops": [filed]})
     assert _rough(SimpleNamespace(plan=branch), filed, "arc") is None
+    # A stairs rough on another workpiece does not rough this one.
+    stairs = deepcopy(data)
+    filed = stairs["setups"][1]["ops"].pop()
+    stairs["setups"][1]["ops"] = []
+    stairs["setups"].insert(
+        1,
+        {
+            "id": "R1",
+            "stock_in": "stock",
+            "ops": [
+                {"op": 5, "do": "rough_profile", "feature": "arc", "contour": {"method": "stairs"}}
+            ],
+        },
+    )
+    stairs["setups"][2]["ops"].append(filed)
+    assert _rough(SimpleNamespace(plan=stairs), filed, "arc") is None
     # A file on another workpiece in between does not take this saw's stock.
     between = deepcopy(data)
     filed = between["setups"][1]["ops"].pop()

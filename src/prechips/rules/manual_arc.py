@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from prechips.findings import Finding
 from prechips.measurements import length_debt, limits_debt, limits_fact, record_debt
+from prechips.model import setup_lineage
 from prechips.rules._profile import requirement_band
 from prechips.rules.coordinates import (
     _CENTRE_FORMS,
@@ -258,39 +259,34 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
     return record_
 
 
-def _lineage(bundle, op):
-    """The ids of ``op``'s setup and every setup its ``stock_in`` routing descends from
-    (omitted routing descends from none)."""
-    upstream = {}
+def _workpiece(bundle, op):
+    """The setups whose material ``op``'s setup works on (:func:`setup_lineage`)."""
     for setup in bundle.plan["setups"]:
-        refs = setup.get("stock_in", [])
-        lineage = {setup.get("id")}
-        for ref in refs if isinstance(refs, list) else [refs]:
-            lineage |= upstream.get(ref, set())
-        upstream[setup.get("id")] = lineage
         if any(other is op for other in setup.get("ops", [])):
-            return lineage
+            return setup_lineage(bundle.plan, setup["id"])
     return set()
 
 
 def _rough(bundle, op, name):
     """The stairs, chain-drill or scribed-line saw roughs of ``name`` before ``op`` that
     leave their stock to this file (no later rough recuts them): "S1 op 30 and S2 op 28",
-    else None. A saw roughs ``name`` when it ``follows`` a scribe op laying out its line,
-    on the filing's own workpiece (a setup its ``stock_in`` routing descends from)."""
+    else None. Only work on the filing's own workpiece counts (:func:`setup_lineage`): a
+    rough, saw or earlier file on another stock branch neither roughs nor files it. A saw
+    roughs ``name`` when it ``follows`` a scribe op laying out its line."""
     found = []
     lines = set()
-    lineage = _lineage(bundle, op)
+    lineage = _workpiece(bundle, op)
     for sid, other in _earlier(bundle, op):
+        if sid not in lineage:
+            continue
         if other.get("do") == "scribe" and other.get("feature") == name:
             lines.add(f"{sid}:{other.get('op', UNKNOWN)}")
-        if other.get("do") in SAW_OPS and other.get("follows") in lines and sid in lineage:
+        if other.get("do") in SAW_OPS and other.get("follows") in lines:
             found.append(f"{sid} op {other.get('op', UNKNOWN)}")
             continue
         if other.get("feature") != name:
             continue
-        if other.get("do") in HAND_FINISH and sid in lineage:
-            # Only a file on this workpiece takes the stock earlier roughs left.
+        if other.get("do") in HAND_FINISH:
             found = []
         method = record(other.get("contour")).get("method")
         if method in ROUGH_METHODS and _recut_by(bundle, other) is None:

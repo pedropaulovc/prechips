@@ -11,7 +11,7 @@ resolves to an outside service or in-house consumables is ``tool_resolves``'s pe
 """
 
 from ..findings import Finding
-from ..joint_features import _lineage
+from ..model import setup_lineage
 from .geometry_common import cutting_action
 from .resolution import UNKNOWN, operations, record
 
@@ -24,7 +24,7 @@ def evaluate(bundle):
     finish = material.get("finish")
     plan = bundle.plan
     route = operations(bundle)
-    lineage = {setup["id"]: _lineage(plan, setup["id"]) for setup in plan["setups"]}
+    lineage = {setup["id"]: setup_lineage(plan, setup["id"]) for setup in plan["setups"]}
     declared = {setup["id"] for setup in plan["setups"] if "stock_in" in setup}
     routed = {sid: members <= declared for sid, members in lineage.items()}
     coatings = [index for index, (_, op) in enumerate(route) if op["do"] == "coating"]

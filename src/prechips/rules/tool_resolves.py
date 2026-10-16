@@ -29,7 +29,7 @@ from .resolution import (
     record,
     resolve,
     same_length,
-    saw_tool_unverified,
+    saw_station,
     select,
     setup_items,
     shop_made_item,
@@ -71,7 +71,7 @@ def _h6_band(nominal):
     return UNKNOWN
 
 
-def _saw_assembly(bundle, subject, op, tool, machine, machine_ref):
+def _saw_assembly(bundle, subject, setup, op, tool, machine, machine_ref):
     nums = {
         "tool": op.get("tool", UNKNOWN),
         "holder": "not_applicable",
@@ -80,30 +80,25 @@ def _saw_assembly(bundle, subject, op, tool, machine, machine_ref):
         "tool_kind": (tool or {}).get("kind", UNKNOWN),
     }
     problems = []
-    unknown = tool is None or machine is None
-    if not unknown:
+    station = saw_station(bundle, setup, op)
+    if station == "wrong_station":
         for kind, accepted, label in (
             (nums["machine_kind"], SAW_MACHINE_KINDS, "machine"),
             (nums["tool_kind"], SAW_TOOL_KINDS, "tool"),
         ):
-            if kind == UNKNOWN:
-                unknown = True
-            elif kind not in accepted:
+            if kind not in accepted:
                 problems.append(
                     f"{label} kind {kind} cannot run a saw cut "
                     f"(accepted: {', '.join(sorted(accepted))})"
                 )
         pairs = SAW_MACHINES.get(nums["tool_kind"])
-        if not problems and not unknown and nums["machine_kind"] not in pairs:
+        if not problems:
             problems.append(
                 f"a {nums['tool_kind']} cuts only on a {' or '.join(sorted(pairs))} machine, "
                 f"not a {nums['machine_kind']}"
             )
-        # Unverified identities cannot establish either a fit or a mismatch.
-        if saw_tool_unverified(bundle, op) or uncertain(machine):
-            unknown = True
-            problems = []
-    status = "error" if problems else "unknown" if unknown else "pass"
+    status = "error" if problems else "unknown" if station == "unknown" else "pass"
+    unknown = status == "unknown"
     blade, station = (
         ("hand saw", "bench or manual station")
         if nums["tool_kind"] == "hand_saw"
@@ -314,6 +309,7 @@ def evaluate(bundle):
                 _saw_assembly(
                     bundle,
                     subject,
+                    setup,
                     op,
                     resolve(bundle, "tools", op.get("tool")),
                     resolve(bundle, "machines", setup["machine"]),

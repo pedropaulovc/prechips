@@ -14,14 +14,14 @@ from prechips.rules.geometry_common import (
     with_measurement_debts,
 )
 from prechips.rules.resolution import (
-    SAW_MACHINES,
     SAW_OPS,
     UNKNOWN,
     number,
     operations,
     record,
     resolve,
-    saw_tool_unverified,
+    saw_station,
+    saw_tool,
     select,
     uncertain,
 )
@@ -39,17 +39,11 @@ _FACTS = (
 _SCRIBED_FACTS = ("allowance_mm", "retained_to_target_mm", *_VOLUMES)
 
 
-def _pairing(machine, tool):
-    """Why the selected saw tool cannot cut on this machine, else None."""
-    machine_kind, tool_kind = machine.get("kind", UNKNOWN), tool.get("kind", UNKNOWN)
-    if tool_kind not in {UNKNOWN, *SAW_MACHINES}:
-        return "selected saw tool is not a bandsaw blade or hand saw"
-    stations = SAW_MACHINES.get(tool_kind, frozenset().union(*SAW_MACHINES.values()))
-    if machine_kind in {UNKNOWN, *stations}:
-        return None
-    if tool_kind == "hand_saw":
-        return "a hand saw cuts only at a bench or manual station"
-    return "saw cut-off requires a mill, bench or bandsaw machine"
+_MISMATCH = {
+    "not_a_saw": "selected saw tool is not a bandsaw blade or hand saw",
+    "hand_saw": "a hand saw cuts only at a bench or manual station",
+    "bandsaw": "saw cut-off requires a mill, bench or bandsaw machine",
+}
 
 
 def evaluate(bundle):
@@ -64,6 +58,7 @@ def evaluate(bundle):
     for setup, op in cuts:
         subject = f"{setup['id']}:{op['op']}"
         scribed = "follows" in op
+        tool = saw_tool(bundle, op)
         machine = record(resolve(bundle, "machines", setup.get("machine")))
         blade = record(resolve(bundle, "tools", op.get("tool")))
         kerf = length_fact(blade, "kerf", require_measured=False)
@@ -76,7 +71,7 @@ def evaluate(bundle):
         else:
             numbers["cut_plane"] = detail.get("cut_plane", op.get("cut_plane", UNKNOWN))
         numbers.update({field: detail.get(field, UNKNOWN) for field in fields})
-        if blade.get("kind") == "hand_saw" and not scribed:
+        if tool == "hand_saw" and not scribed:
             # A bench has no DRO: the card measures the kept piece, not a coordinate.
             numbers["retained_length_mm"] = detail.get("retained_length_mm", UNKNOWN)
         where = f"plan.setups.{setup['id']}.ops.{op['op']}"
@@ -103,14 +98,13 @@ def evaluate(bundle):
                 debts.append(debt)
         invalid = []
         missing = []
-        pairing = _pairing(machine, blade)
-        if pairing is not None:
-            invalid.append(pairing)
+        if saw_station(bundle, setup, op) == "wrong_station":
+            invalid.append(_MISMATCH[tool])
         if not scribed and kerf["verified"] and number(kerf["value"]) and kerf["value"] <= 0:
             invalid.append("blade kerf must be positive")
         if not machine or machine.get("kind", UNKNOWN) == UNKNOWN or uncertain(machine):
             missing.append("resolved, verified saw machine")
-        if not blade or blade.get("kind", UNKNOWN) == UNKNOWN or saw_tool_unverified(bundle, op):
+        if tool in ("unknown", "unverified"):
             hand = blade.get("kind") == "hand_saw"
             missing.append(f"resolved, verified {'hand saw' if hand else 'bandsaw blade'}")
         if not scribed and (not kerf["verified"] or not number(kerf["value"])):

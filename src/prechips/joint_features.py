@@ -13,7 +13,7 @@ from typing import Any
 
 from prechips.inputs import BadInput
 from prechips.measurements import angle_fact, length_fact
-from prechips.model import UNIT_TOLERANCE, UNKNOWN, stock_ancestry
+from prechips.model import UNIT_TOLERANCE, UNKNOWN, setup_lineage, stock_ancestry
 
 LABEL_PREFIX = "plan.joint_features."
 # The one public name for plan-authored preparation, kept apart from drawing acceptance.
@@ -130,20 +130,6 @@ def setup_span_mm(bundle, name: str, frame: dict) -> tuple[float, float] | None:
     return low, high
 
 
-def _lineage(plan: dict, sid: str) -> set[str]:
-    """The setup and every earlier setup whose output material flows into it."""
-    setups = {setup["id"]: setup for setup in plan.get("setups", [])}
-    seen, pending = set(), [sid]
-    while pending:
-        current = pending.pop()
-        if current in seen or current not in setups:
-            continue
-        seen.add(current)
-        refs = setups[current].get("stock_in")
-        pending.extend(refs if isinstance(refs, list) else [refs] if isinstance(refs, str) else [])
-    return seen
-
-
 def present(bundle, setup: dict, name: str) -> bool:
     """Whether a transient joint feature exists on this setup's in-process material.
 
@@ -155,7 +141,7 @@ def present(bundle, setup: dict, name: str) -> bool:
         return True
     if setup_ancestry(bundle.plan).get(setup["id"]) != {f"stock.{joint['component']}"}:
         return False
-    lineage = _lineage(bundle.plan, setup["id"])
+    lineage = setup_lineage(bundle.plan, setup["id"])
     return any(
         earlier["id"] in lineage and op.get("feature") == name
         for earlier in bundle.plan["setups"]

@@ -901,6 +901,21 @@ Setup = record(
 )
 
 
+def setup_lineage(plan: dict, sid: str) -> set[str]:
+    """The setup and every earlier setup whose output material flows into it: the one
+    workpiece its ops act on (omitted ``stock_in`` routing descends from none)."""
+    setups = {setup["id"]: setup for setup in plan.get("setups", [])}
+    seen, pending = set(), [sid]
+    while pending:
+        current = pending.pop()
+        if current in seen or current not in setups:
+            continue
+        seen.add(current)
+        refs = setups[current].get("stock_in")
+        pending.extend(refs if isinstance(refs, list) else [refs] if isinstance(refs, str) else [])
+    return seen
+
+
 def stock_ancestry(routes: Any) -> dict[str, frozenset[str]]:
     """Root supplies behind each validated setup output; ``routes`` = (id, refs or None).
 
@@ -1001,14 +1016,16 @@ class Plan(InputModel):
         line must be on the saw's own workpiece: scribed earlier in the same setup or in a
         setup its ``stock_in`` routing descends from (omitted routing descends from none)."""
         scribes = {}
-        upstream: dict[str, set[str]] = {}
+        routes = {
+            "setups": [
+                {"id": setup.id, "stock_in": setup.stock_in}
+                if "stock_in" in setup.model_fields_set
+                else {"id": setup.id}
+                for setup in self.setups
+            ]
+        }
         for setup in self.setups:
-            routed = "stock_in" in setup.model_fields_set
-            refs = setup.stock_in if isinstance(setup.stock_in, list) else [setup.stock_in]
-            lineage = {setup.id}
-            for ref in refs if routed else ():
-                lineage |= upstream.get(ref, set())
-            upstream[setup.id] = lineage
+            lineage = setup_lineage(routes, setup.id)
             for op in setup.ops if isinstance(setup.ops, list) else ():
                 where = f"Setup {setup.id} op {op.op}"
                 declared = op.model_fields_set

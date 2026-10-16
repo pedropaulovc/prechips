@@ -12,7 +12,7 @@ force: the bench kind alone waives nothing.
 """
 
 from prechips.findings import Finding
-from prechips.rules.resolution import SAW_OPS, UNKNOWN, record, resolve, saw_tool_unverified
+from prechips.rules.resolution import SAW_OPS, UNKNOWN, record, resolve, saw_tool
 
 BENCH_KINDS = frozenset({"bench", "manual"})
 BENCH_ACTIONS = frozenset({"fit", "inspect", "deburr", "coating", "scribe", "file_to_line"})
@@ -22,11 +22,7 @@ HAND_SAW = "hand_saw"
 def hand_saw(bundle, op):
     """Whether ``op`` is a saw cut made with a resolved, verified hand saw (no blade
     speed); an unverified identity cannot establish that the work is manual."""
-    if op.get("do") not in SAW_OPS:
-        return False
-    if record(resolve(bundle, "tools", op.get("tool"))).get("kind") != HAND_SAW:
-        return False
-    return not saw_tool_unverified(bundle, op)
+    return op.get("do") in SAW_OPS and saw_tool(bundle, op) == HAND_SAW
 
 
 def _bench_op(bundle, op):

@@ -261,12 +261,9 @@ ROTARY = "rotary"
 # max_filing_stock_mm off its claimed faces (:meth:`_Setup._hand_removal`).
 HAND = "hand"
 SAW_ACTIONS = {"saw_cut", "cut_off"}
-# Saw tool kind -> the machine kinds it cuts on: a powered blade (or an unresolved tool) on
-# a mill, bench or bandsaw; a hand saw at a bench or manual station.
-SAW_MACHINE_KINDS = {
-    "bandsaw": ("mill", "bench", "bandsaw"),
-    "hand_saw": ("bench", "manual"),
-}
+# The host judges each saw's tool and station (``saw_tool``); a job with no verdict cuts
+# only on the machine kinds a powered saw uses.
+POWERED_SAW_MACHINES = ("mill", "bench", "bandsaw")
 # Facing-type turning actions sweep their claims along +Z (toward the free end).
 AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
 # Fixture roles that turn with a dividing head's spindle; the head body, tailstock and
@@ -5616,19 +5613,20 @@ class _Setup:
     )
 
     def _saw_machine(self, op, facts, missing):
+        """The host's saw verdict (``saw_tool``): a refused tool/machine pair is an error,
+        an unresolved one stays debt; with no verdict only a powered saw's stations cut."""
         machine = self.setup.get("machine_kind")
-        tool = op.get("saw_tool", "bandsaw")
-        if tool == "unresolved":
-            missing.append("the selected saw tool is missing, unverified or not a saw")
+        verdict = op.get("saw_tool")
+        if verdict == "refused":
+            facts["saw_error"] = f"the selected saw tool does not cut on machine kind {machine!r}"
+            return
+        if verdict == "unresolved":
+            missing.append("the saw tool or its machine is missing, unverified or not a saw")
             return
         if machine in (None, UNKNOWN):
             missing.append("saw machine kind is unknown")
-        elif machine not in SAW_MACHINE_KINDS.get(tool, SAW_MACHINE_KINDS["bandsaw"]):
-            facts["saw_error"] = (
-                f"saw action is unsupported on machine kind {machine!r}"
-                if tool == "bandsaw"
-                else f"a {tool} does not cut on machine kind {machine!r}"
-            )
+        elif verdict is None and machine not in POWERED_SAW_MACHINES:
+            facts["saw_error"] = f"saw action is unsupported on machine kind {machine!r}"
 
     @staticmethod
     def _saw_debts(facts, missing):
