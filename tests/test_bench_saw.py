@@ -274,7 +274,7 @@ def test_a_saw_to_the_scribed_line_roughs_the_arc_for_the_file():
             scribed(allowance_mm="unknown"),
             "STOP: stock to leave for filing not established",
         ),
-        (saw(cut_plane=dict(PLANE)), "Hand saw, blade centred on Y 87.75 mm; keep the side below"),
+        (saw(cut_plane=dict(PLANE)), "Hand saw, blade centred on Y 87.75 mm; keep the -Y side."),
     ],
 )
 def test_a_bench_hand_saw_prints_a_hand_saw_card(op, words):
