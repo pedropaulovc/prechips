@@ -2324,16 +2324,19 @@ operator, not modelled as holding. The host sends an arc sled's rollers in the
 setup's render annotation (`guides.rollers`: setup XY axis `at_mm`, `dia_mm` and
 `z_mm` from the table to the roller top), each at the rail radius plus or minus its
 radius (`rail_side`) about the arc centre, at its `rollers_deg` from the cutter's
-radial line, the table at the stock bottom less the fixture's `bed_height`. The
+radial line, the table at the stock bottom less the parallels or support blocks
+under the work (the height the `headroom` stack counts) and the fixture's
+`bed_height`. The
 kernel draws them as cylinders in the guide colour with one `GUIDE ROLLERS
 (TABLE)` callout and lists them in `render_scene.components` with role
 `guide_roller`; they never join the fixture components, so no checkpoint, clash,
 contact, clearance or `fixture_rendered` verdict reads them, and a malformed roller is
 a picture debt only. The isometric view widens to frame rollers within one stock
-size of the work; rollers farther off would shrink the work unreadably, so a `NOT
-SHOWN` note gives the setup X/Y span they stand in. A roller fact that is missing or
-not measured leaves the rollers undrawn with a `NOT SHOWN` note naming its
-`measure:` instruction. A swing arm's pivot post stands at the arc centre, far
+size of the work along each of X, Y and Z; rollers farther off would shrink the
+work unreadably, so a `NOT SHOWN` note gives the setup X/Y/Z span they stand in. A
+roller fact that is missing or not measured, or an unknown support height under the
+work, leaves the rollers undrawn with a `NOT SHOWN` note naming each gap (a
+measured fact with its `measure:` instruction). A swing arm's pivot post stands at the arc centre, far
 off the part, so a note names where it stands instead of drawing it.
 
 Blue-grey is material retained after the setup; amber hatch is the Boolean

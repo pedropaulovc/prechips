@@ -1727,7 +1727,13 @@ uses the 1898 manual arc method:
    stepping down in axial levels (`doc_mm`) sets the heading's top level first and,
    with Z raised, returns to the first stop for each further level, never sweeping
    straight to the full depth. The stop step prints no setup X/Y: the marks place the
-   stops on the work. The worst-case cut radius stays in the report. `travel` and `headroom` do not model
+   stops on the work. The setup picture draws a rail's rollers where they stand on the
+   table, render-only, once the sled's `roller_dia`, `roller_height`, `bed_height`
+   and `rail_side` ([inventory](inventory.md#manual-arc-kit)) and the supports under
+   the work are known, and notes a pivot's post at the arc centre, off the picture
+   ([rules-geometry](rules-geometry.md#renders)); a missing roller fact is a `NOT
+   SHOWN` note with its `measure:` instruction, never a picture verdict. The
+   worst-case cut radius stays in the report. `travel` and `headroom` do not model
    the moving fixture (its swept footprint, the stack at every pose), so a setup with
    a guided sweep is never a pass for either: each owes a `check:` debt
    ([rules-setup](rules-setup.md#headroom), [#272](https://github.com/pedropaulovc/prechips/issues/272)). Any

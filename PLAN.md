@@ -1412,6 +1412,18 @@ sheet.
    Single-feature ops and `inspection_views` stay flat. No shipped example
    scopes its checks, so no example traveler changed.
 
+   **Guided-sweep guide pictures shipped (2026-10-16, #255):** a setup with a
+   rail `guided_sweep` draws the arc sled's table-side rollers render-only
+   (role `guide_roller`, one `GUIDE ROLLERS (TABLE)` callout) from the sled's
+   new measured `roller_dia` / `roller_height` facts, its `rail_side` and
+   `bed_height`, and the supports under the work; a missing or unmeasured fact
+   is a `NOT SHOWN` note with its `measure:` instruction, and rollers more than
+   one stock size off the work on any axis are a `NOT SHOWN` span note. A
+   pivot's post is a note at the arc centre. The rollers never join the
+   fixture components, so no rule verdict or exit code changes. No shipped
+   example uses a guided sweep, so no example picture changed; the blind
+   machinist review of an authored sled bundle found no introduced issue.
+
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a
    built-up component, any earlier setup id (not just the previous setup), or an

@@ -1134,6 +1134,32 @@ def _rotation(arc, label, debts, record_, scale):
     record_["rotation"] = "clockwise" if travel > 0 else "counterclockwise"
 
 
+def _support_lift(bundle, setup):
+    """The height (mm) the hold's parallels and support blocks (or riser) lift the work off
+    its fixture's bed, as the headroom stack reads them: 0 when none is declared, None
+    when a declared one's height is unknown."""
+    from .headroom import _height
+
+    hold = record(setup.get("hold"))
+    total = 0.0
+    absent = (None, "none", "not_applicable")
+    parallels = hold.get("parallels")
+    if parallels not in absent:
+        height = _height(resolve(bundle, "fixtures", parallels) or {})
+        if not number(height):
+            return None
+        total += height
+    support = hold.get("supports", hold.get("riser"))
+    if support not in absent:
+        height = _height(
+            resolve(bundle, "fixtures", support) or {}, hold.get("support_orientation")
+        )
+        if not number(height):
+            return None
+        total += height
+    return total
+
+
 # The guide-element facts the setup picture draws a rail's rollers from: (field, words).
 _ROLLER_FACTS = (("roller_dia", "roller diameter"), ("roller_height", "roller height"))
 
@@ -1195,6 +1221,11 @@ def guide_scene(bundle, setup, numbers, scale):
         bed = length_fact(item, "bed_height", require_measured=True)
         if not (bed["verified"] and number(bed["value"])):
             missing.append(measurement_entry(category, key, "bed_height", item=item)["instruction"])
+        # Parallels or support blocks under the work lift it off the fixture's bed, as the
+        # headroom stack counts them: the table is that much lower again.
+        lift = _support_lift(bundle, setup)
+        if lift is None:
+            missing.append("the parallels' or support blocks' height under the work is unknown")
         side = item.get("rail_side")
         if side not in ("outer", "inner"):
             missing.append(f"declare {key}'s rail_side (outer or inner)")
@@ -1205,7 +1236,7 @@ def guide_scene(bundle, setup, numbers, scale):
             notes.append(f"NOT SHOWN: op {op}'s guide rollers — " + "; ".join(missing) + ".")
             continue
         radius = rail + (1 if side == "outer" else -1) * values["roller_dia"] / 2
-        table = bottom * scale - bed["value"]
+        table = bottom * scale - lift - bed["value"]
         for index, angle in enumerate(angles, start=1):
             theta = heading + math.radians(angle)
             rollers.append(

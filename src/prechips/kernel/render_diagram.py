@@ -1207,7 +1207,7 @@ class _Diagram:
                 # unreadably, so a note says where they stand instead.
                 near = all(
                     box[i] >= self.stock[i] - size and box[i + 3] <= self.stock[i + 3] + size
-                    for i in range(2)
+                    for i in range(3)
                 )
                 if near:
                     framed.append(component)
@@ -1215,7 +1215,7 @@ class _Diagram:
                     self.render_debts.append(
                         f"NOT SHOWN: {_plain(component.get('label') or component['name'])} "
                         f"stand off the picture, setup X {box[0]:.1f} to {box[3]:.1f}, "
-                        f"Y {box[1]:.1f} to {box[4]:.1f}."
+                        f"Y {box[1]:.1f} to {box[4]:.1f}, Z {box[2]:.1f} to {box[5]:.1f}."
                     )
                 continue
             pressing = _role(component) in ("fixed_jaw", "moving_jaw") and any(

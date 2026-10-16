@@ -593,10 +593,10 @@ ROLLERS = (
 )
 
 
-def guide_annotation(tmp_path, guide="rail", rollers=ROLLERS):
+def guide_annotation(tmp_path, guide="rail", rollers=ROLLERS, **kwargs):
     from prechips.kernel.render_inputs import setup_annotations
 
-    plan = guided_plan(tmp_path, guide)
+    plan = guided_plan(tmp_path, guide, **kwargs)
     inventory = plan.with_name("inventory.toml")
     change(inventory, "rail_radius_mm = 850.0\n", "rail_radius_mm = 850.0\n" + rollers)
     bundle = load_bundle(plan)
@@ -618,6 +618,16 @@ def test_the_picture_draws_a_rails_rollers_where_they_bear_on_it(tmp_path):
         expected = [centre[0] + 861.0 * math.cos(theta), centre[1] + 861.0 * math.sin(theta)]
         assert roller["at_mm"] == pytest.approx(expected)
         assert roller["dia_mm"] == 22.0 and roller["z_mm"] == pytest.approx([-40.0, -28.0])
+
+
+def test_parallels_under_the_work_lower_the_table_the_rollers_stand_on(tmp_path):
+    # 12 mm parallels between the sled's bed and the work: the table is 12 lower again.
+    parallels = "[fixtures.par]\nkind = 'parallels'\nheight_mm = 12.0\nverify = false\n"
+    _, annotation = guide_annotation(
+        tmp_path, hold="fixture = 'sled'\nparallels = 'par'", inventory=parallels
+    )
+    for roller in annotation["guides"]["rollers"]:
+        assert roller["z_mm"] == pytest.approx([-52.0, -40.0])
 
 
 @pytest.mark.parametrize(
@@ -669,6 +679,11 @@ def test_the_isometric_view_frames_and_labels_rollers_standing_off_the_work():
         debt.startswith("NOT SHOWN: GUIDE ROLLERS (TABLE) stand off the picture")
         for debt in diagram.render_debts
     )
+    # Near in X and Y but far below the work (a tall sled): the limit holds along Z too.
+    deep = dict(distant, box_mm=[80.0, -50.0, -900.0, 100.0, -30.0, -880.0])
+    deep["center_mm"] = [90.0, -40.0, -890.0]
+    diagram = _Diagram([], dict(spec, components=[deep]))
+    assert "guide rollers" not in {component["name"] for component in diagram.components}
 
 
 def test_the_pivot_post_is_a_note_not_a_solid_800_mm_off_the_part(tmp_path):
