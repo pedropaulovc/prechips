@@ -295,6 +295,25 @@ def test_every_consumer_reads_the_one_saw_identity(tool, machine, scribed_cut, k
     assert marker == routed
 
 
+@pytest.mark.parametrize(
+    "ops, identity",
+    [
+        ([scribed()], "pass"),
+        ([saw(cut_plane=dict(PLANE))], "unknown"),
+        ([scribed(), {**saw(cut_plane=dict(PLANE)), "op": 30}], "unknown"),
+    ],
+    ids=["scribed-only", "straight", "both"],
+)
+def test_the_tool_listing_reads_the_saw_identity_too(ops, identity):
+    """The selected-identity row is one more consumer: kerf debt only a scribed cut leaves
+    unread is no listing debt; a straight cut that reads it keeps the whole item's."""
+    bundle = saw_bundle(op=ops[0])
+    bundle.plan["setups"][0]["ops"] = ops
+    bundle.inventory["tools"]["hacksaw"].update(KERF_DEBT)
+    rows = {row.subject: row.status for row in tool_resolves.evaluate(bundle)}
+    assert rows["hacksaw"] == identity
+
+
 def test_a_scribed_cut_that_keeps_its_allowance_passes_without_a_kerf():
     bundle = scribed_bundle()
     del bundle.inventory["tools"]["hacksaw"]["kerf_mm"]

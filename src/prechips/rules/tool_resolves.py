@@ -30,6 +30,7 @@ from .resolution import (
     resolve,
     same_length,
     saw_station,
+    saw_tool,
     select,
     setup_items,
     shop_made_item,
@@ -215,14 +216,26 @@ def evaluate(bundle):
         for category, ref, _ in setup_items(bundle, setup):
             bare = select(bundle, ref)[0] in (None, category)
             selected.setdefault(ref if bare else f"{category}.{ref}", (category, ref))
+    # A tool only scribed-line saw cuts select is judged as they judge it (saw_tool): its
+    # unread kerf debt is no identity debt; any other use reads the whole item.
+    uses = {}
+    for _, op in operations(bundle):
+        if op.get("tool") is not None:
+            uses.setdefault(op["tool"], []).append(op)
     for subject, (category, ref) in sorted(selected.items()):
         item = resolve(bundle, category, ref)
-        status = "error" if item is None else "unknown" if uncertain(item) else "pass"
+        scribed = [op for op in uses.get(ref, []) if op.get("do") in SAW_OPS and "follows" in op]
+        doubtful = (
+            saw_tool(bundle, scribed[0]) == "unverified"
+            if category == "tools" and scribed and len(scribed) == len(uses[ref])
+            else uncertain(item)
+        )
+        status = "error" if item is None else "unknown" if doubtful else "pass"
         numbers = {
             "reference": ref,
             "category": category,
             "present": item is not None,
-            "verified": item is not None and not uncertain(item),
+            "verified": item is not None and not doubtful,
         }
         diameter_reason = None
         if item:
@@ -251,7 +264,7 @@ def evaluate(bundle):
                     "not listed in the inventory."
                     if item is None
                     else "listed; presence or catalogue identity needs verification."
-                    if uncertain(item)
+                    if doubtful
                     else (
                         "listed identity resolves, but its diameter is unverified: "
                         f"{diameter_reason}"
