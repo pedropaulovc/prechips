@@ -76,6 +76,9 @@ def evaluate(bundle):
         else:
             numbers["cut_plane"] = detail.get("cut_plane", op.get("cut_plane", UNKNOWN))
         numbers.update({field: detail.get(field, UNKNOWN) for field in fields})
+        if blade.get("kind") == "hand_saw" and not scribed:
+            # A bench has no DRO: the card measures the kept piece, not a coordinate.
+            numbers["retained_length_mm"] = detail.get("retained_length_mm", UNKNOWN)
         where = f"plan.setups.{setup['id']}.ops.{op['op']}"
         cite = (
             [

@@ -474,10 +474,14 @@ def _beyond(y0):
 
 
 def test_straight_hand_saw_on_a_manual_station_removes_its_kerf_and_offcut(saw_engine, saw_target):
-    result = _run(saw_engine, saw_target, _saw(), machine="manual")
+    op = {**_saw(), "saw_tool": "hand_saw"}
+    result = _run(saw_engine, saw_target, op, machine="manual")
     detail = result["ops"]["S1:10"]
     assert "saw_error" not in detail and "saw_reason" not in detail, detail
     assert detail["retained_boundary_mm"] == 8.0
+    assert detail["retained_length_mm"] == pytest.approx(8.0)
+    powered = _run(saw_engine, saw_target, _saw(), machine="bandsaw")["ops"]["S1:10"]
+    assert "retained_length_mm" not in powered
     assert detail["kerf_volume_mm3"] == pytest.approx(100.0)
     assert detail["offcut_volume_mm3"] == pytest.approx(100.0)
     assert result["setups"]["S2"]["stock_bbox_mm"] == [0, 0, 0, 10, 8, 10]

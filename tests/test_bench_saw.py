@@ -274,11 +274,15 @@ def test_a_saw_to_the_scribed_line_roughs_the_arc_for_the_file():
             scribed(allowance_mm="unknown"),
             "STOP: stock to leave for filing not established",
         ),
-        (saw(cut_plane=dict(PLANE)), "keeping the -Y piece; the kerf falls on the +Y (waste) side"),
+        (
+            saw(cut_plane=dict(PLANE)),
+            "keeping the -Y piece 37.5 mm long; the kerf falls on the +Y (waste) side",
+        ),
     ],
 )
 def test_a_bench_hand_saw_prints_a_hand_saw_card(op, words):
-    bundle = saw_bundle(op=op)
+    native = {"retained_boundary_mm": 87.0, "retained_length_mm": 37.5}
+    bundle = saw_bundle(op=op, kernel={"status": "ok", "ops": {"S2:20": native}})
     findings = saw_cut.evaluate(bundle) + speeds_feeds.evaluate(bundle)
     setup = bundle.plan["setups"][0]
     html, _, _, _ = _Traveler(bundle, findings, {}, None).operations(setup, {}, {"notes": 2})

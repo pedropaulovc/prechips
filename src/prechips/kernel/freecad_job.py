@@ -5846,6 +5846,10 @@ class _Setup:
                         facts["saw_error"] = split
             if facts.get("saw_error") or facts.get("saw_reason"):
                 return None, facts
+            if op.get("saw_tool") == "hand_saw":
+                # A bench has no DRO: the hand-saw card gives the kept piece's length.
+                kept = _bbox(retained)
+                facts["retained_length_mm"] = _r(kept[axis + 3] - kept[axis])
             return retained, facts
         except Exception as exc:
             reason = f"saw stock boolean failed ({exc})"

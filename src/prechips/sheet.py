@@ -7879,11 +7879,13 @@ class _Traveler:
         sides = {"above": ("+", "-"), "below": ("-", "+")}.get(plane.get("keep"))
         if sides is None:
             return "Hand saw: STOP: side to keep not established."
+        length = numbers.get("retained_length_mm")
+        kept = f" {_number(length)} mm long" if _known(length) else ""
         edge = numbers.get("retained_boundary_mm")
         retained = f", retained edge {axis} {_number(edge)} mm" if _known(edge) else ""
         return (
-            f"Hand saw across the part, keeping the {sides[0]}{axis} piece; the kerf falls on "
-            f"the {sides[1]}{axis} (waste) side (blade centre {axis} "
+            f"Hand saw across the part, keeping the {sides[0]}{axis} piece{kept}; the kerf "
+            f"falls on the {sides[1]}{axis} (waste) side (blade centre {axis} "
             f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}{retained})."
         )
 

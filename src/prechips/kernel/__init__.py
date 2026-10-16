@@ -317,12 +317,15 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
                 else removal_bounds(bounds, units),
             }
         tool = measurement_item(bundle, "tools", op.get("tool"))
-        return {
+        result = {
             "subject": subject,
             "do": op["do"],
             "kerf_mm": _accepted_length(tool, "kerf"),
             "cut_plane": saw_plane(op.get("cut_plane"), units),
         }
+        if record(tool).get("kind") == "hand_saw":
+            result["saw_tool"] = "hand_saw"
+        return result
     if op.get("do") in HAND_FINISH:
         return _hand_inputs(bundle, setup, op, subject, finishing)
     model = approach(bundle, setup, op)
@@ -1617,6 +1620,7 @@ _ENGINE_OP = (
     "kerf_mm",
     "follows",
     "allowance_mm",
+    "saw_tool",
     "feature",
     "faces",
     "joint_cut",
