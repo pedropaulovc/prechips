@@ -29,7 +29,7 @@ import math
 from prechips.findings import Finding
 from prechips.model import (
     LENGTH_REQUIREMENTS,
-    PROFILED_BLANK,
+    profiled,
     reference_only,
     tolerance_requirements,
 )
@@ -57,11 +57,7 @@ def profiled_supplies(bundle):
         (f"stock.{component['id']}", component)
         for component in (components if isinstance(components, list) else ())
     ]
-    return {
-        name: record(piece.get("blank"))
-        for name, piece in pieces
-        if "blank" in piece or piece.get("form") == PROFILED_BLANK
-    }
+    return {name: record(piece.get("blank")) for name, piece in pieces if profiled(piece)}
 
 
 def cited_tolerance(blank):

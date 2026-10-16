@@ -25,7 +25,7 @@ from prechips.measurements import (
     record_debt,
     record_trusted,
 )
-from prechips.model import PROFILED_BLANK
+from prechips.model import profiled
 from prechips.rules._envelope import selected_item, tool_projection
 from prechips.rules.geometry_common import (
     TURNING_BLADE_KEYS,
@@ -1549,7 +1549,7 @@ def _profiled_envelope(bundle, stock, name):
 def _stock_envelope(bundle, stock, name):
     """One box/round supply's explicit dimensions and placement, never a STEP substitute;
     a profiled blank is its own cited STEP."""
-    if "blank" in stock or stock.get("form") == PROFILED_BLANK:
+    if profiled(stock):
         return _profiled_envelope(bundle, stock, name)
     section, dia = stock.get("section_mm", UNKNOWN), stock.get("dia_mm", UNKNOWN)
     if section != UNKNOWN and dia != UNKNOWN:

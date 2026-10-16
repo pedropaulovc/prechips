@@ -31,6 +31,7 @@ from fractions import Fraction
 
 from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact, measurement_entry
+from prechips.model import profiled
 from prechips.rules._bench import manual_bench, not_applicable
 from prechips.rules.resolution import (
     MANUAL,
@@ -125,11 +126,10 @@ def _entry_stock(bundle, setup, frame):
     """
     components = _mapping(bundle.plan.get("stock")).get("components")
     # A profiled blank has no authored box: only the kernel's entry stock sizes it.
-    profiled = "blank" in _mapping(bundle.plan.get("stock"))
     if (
         setup.get("stock_in", "stock") == "stock"
         and not (isinstance(components, list) and components)
-        and not profiled
+        and not profiled(_mapping(bundle.plan.get("stock")))
     ):
         stock = _mapping(bundle.plan.get("stock"))
         section = stock.get("section_mm", [])

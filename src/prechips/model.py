@@ -146,6 +146,13 @@ ProfiledBlank = record(
 BAR_ENVELOPE = ("section_mm", "dia_mm", "length_mm", "origin_mm", "axis", "section_axis")
 
 
+def profiled(piece: Any) -> bool:
+    """Whether a loaded stock or component table is a profiled blank: its form or an
+    authored ``blank`` table (known or ``"unknown"``) says so. Every reader uses this one
+    test, so a form-only blank is never mistaken for bar stock."""
+    return isinstance(piece, dict) and ("blank" in piece or piece.get("form") == PROFILED_BLANK)
+
+
 def profiled_blank_errors(stock: Any, where: str) -> list[str]:
     """Contradictions in one root stock or component that declares a profiled blank."""
     fields = getattr(stock, "model_fields_set", set())

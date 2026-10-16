@@ -16,6 +16,7 @@ from pathlib import Path
 from prechips import __version__, telemetry
 from prechips.findings import Finding, exit_code
 from prechips.inputs import BadInput, Bundle, load_bundle, load_inventory
+from prechips.model import profiled
 from prechips.report import (
     build_report,
     canonical_bytes,
@@ -517,7 +518,7 @@ def _stock_piece_volume(piece: dict, subject: str) -> dict:
         else "section_mm, length_mm"
         if rectangular_form
         else "blank STEP (a profiled blank's volume is not compared)"
-        if "blank" in piece
+        if profiled(piece)
         else "form, length_mm (shape unresolved)"
     )
     return {

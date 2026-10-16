@@ -21,7 +21,7 @@ from . import trig
 from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .measurements import angle_fact, length_debt, length_fact, measurement_entry, record_trusted
-from .model import PROFILED_BLANK, TOLERANCE_REQUIREMENTS, reference_only, tolerance_requirements
+from .model import TOLERANCE_REQUIREMENTS, profiled, reference_only, tolerance_requirements
 from .rules._bench import manual_bench
 from .rules._envelope import measurement_item
 from .rules.blank_credit import cited_tolerance
@@ -9423,7 +9423,7 @@ class _Traveler:
         elif stock.get("length_mm") == "unknown":
             dims += " × ? length not set"
         label = _STOCK_FORMS.get(form, _text(form) if form else "stock")
-        if "blank" in stock or form == PROFILED_BLANK:
+        if profiled(stock):
             # A bought profiled blank is sized by its cut file, not by bar dimensions: the
             # receiving check is the kernel's box of that blank's own solid. The file
             # itself is bound in the report, never printed for the bench; an unknown blank

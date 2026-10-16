@@ -17,8 +17,8 @@ from test_kernel_geometry import Engine
 
 from prechips import kernel
 from prechips.inputs import BadInput, Bundle, load_bundle
-from prechips.model import Inventory, Plan
-from prechips.rules import blank_credit, coverage
+from prechips.model import Inventory, Plan, profiled
+from prechips.rules import blank_credit, coverage, travel
 from prechips.sheet import _Traveler
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -317,6 +317,43 @@ def test_a_profiled_blank_has_no_box_to_prepare(tmp_path):
     )
     with pytest.raises(BadInput, match="profiled stock has no box to trim"):
         load_bundle(plan)
+
+
+@pytest.mark.parametrize(
+    ("piece", "verdict"),
+    [
+        ({"form": "profiled_blank"}, True),
+        ({"form": "profiled_blank", "blank": "unknown"}, True),
+        ({"blank": BLANK_RECORD}, True),
+        ({"form": "flat_bar", "section_mm": [6.0, 25.0]}, False),
+        ("unknown", False),
+    ],
+)
+def test_every_reader_knows_a_profiled_blank_by_its_form_or_its_table(piece, verdict):
+    assert profiled(piece) is verdict
+
+
+def test_a_form_only_profiled_blank_has_no_box_to_prepare(tmp_path):
+    folder = _bundle_copy(tmp_path)
+    plan = folder / "plan.toml"
+    text = plan.read_text(encoding="utf-8")
+    start, end = text.index("[stock.blank]"), text.index("[[setups]]")
+    plan.write_text(
+        text[:start] + text[end:] + '\n[stock.prepared]\nsetup = "S1"\n',
+        encoding="utf-8",
+        newline="\n",
+    )
+    with pytest.raises(BadInput, match="profiled stock has no box to trim"):
+        load_bundle(plan)
+
+
+def test_travel_never_asks_a_form_only_profiled_blank_for_bar_dimensions():
+    bundle = load_bundle(FIXTURE / "plan.toml")
+    del bundle.plan["stock"]["blank"]
+    object.__setattr__(bundle, "kernel", {"status": "unknown", "reason": "test: no kernel"})
+    texts = [finding.sentence for finding in travel.evaluate(bundle)]
+    assert any("feature.bounds" in text for text in texts), texts
+    assert not any("plan.stock.length_mm" in text for text in texts), texts
 
 
 def test_an_undeclared_blank_digest_keeps_the_supply_as_debt():

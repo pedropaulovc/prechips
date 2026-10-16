@@ -20,6 +20,7 @@ from prechips.model import (
     Inventory,
     Plan,
     Policy,
+    profiled,
     reference_only,
 )
 
@@ -94,7 +95,7 @@ def _prepared_blank(plan: dict, ids: list[str]) -> None:
     receiver = prepared.get("setup", "unknown") if isinstance(prepared, dict) else "unknown"
     if receiver != "unknown" and receiver not in ids:
         raise BadInput(f"stock.prepared.setup {receiver!r} is not a plan setup.")
-    if stock.get("components") or "dia_mm" in stock or "blank" in stock:
+    if stock.get("components") or "dia_mm" in stock or profiled(stock):
         raise BadInput(
             "stock.prepared squares one rectangular root stock; a round, built-up or "
             "profiled stock has no box to trim."
