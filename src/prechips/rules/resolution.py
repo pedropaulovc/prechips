@@ -31,6 +31,12 @@ SET_KINDS = {
 HAND_FINISH = frozenset({"file_to_line"})
 MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"} | HAND_FINISH
 SAW_OPS = frozenset({"saw_cut", "cut_off"})
+# Saw tool kind -> the machine kinds it cuts on: a powered bandsaw blade on a mill, bench or
+# bandsaw; a hand saw (hacksaw, junior hacksaw) only at a bench or manual station.
+SAW_MACHINES = {
+    "bandsaw": frozenset({"mill", "bench", "bandsaw"}),
+    "hand_saw": frozenset({"bench", "manual"}),
+}
 HOLE_KINDS = frozenset({"hole", "counterbore", "thread", "threaded_hole"})
 # The hole actions whose cut can form a hole's claimed point cap.
 COMPLETE_FORM = frozenset({"drill", "ream", "bore", "counterbore"})

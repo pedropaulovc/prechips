@@ -665,9 +665,15 @@ Operation = record(
         "angle_window_deg": Annotated[list[Number], Field(min_length=2, max_length=2)],
         # Blade centre plane in setup coordinates; kerf comes only from the selected blade.
         "cut_plane": SawPlane,
+        # A saw cut that follows a scribed line instead: the earlier ``scribe`` op
+        # (``"<setup>:<op>"``), the stock it leaves outside the line for the file, and its
+        # ``stock_removal_bounds``, the region the blade and offcut take.
+        "follows": str,
+        "allowance_mm": float,
     },
     indexed=("do",),
 )
+SAW_ACTIONS = frozenset({"saw_cut", "cut_off"})
 type KnownBand = Annotated[list[float], Field(min_length=2, max_length=2)]
 
 
@@ -985,6 +991,49 @@ class Plan(InputModel):
             errors.extend(profiled_blank_errors(component, f"stock.components.{component.id}"))
         if errors:
             raise ValueError("; ".join(errors) + ".")
+        return self
+
+    @model_validator(mode="after")
+    def saw_shapes(self) -> Plan:
+        """A saw cut is planar (``cut_plane``) or follows an earlier scribe op's line
+        (``follows``, ``allowance_mm``, ``stock_removal_bounds``): exactly one shape."""
+        scribes = set()
+        for setup in self.setups:
+            for op in setup.ops if isinstance(setup.ops, list) else ():
+                where = f"Setup {setup.id} op {op.op}"
+                declared = op.model_fields_set
+                if op.do not in SAW_ACTIONS:
+                    stray = sorted(declared & {"follows", "allowance_mm"})
+                    if stray:
+                        raise ValueError(f"{where}: only a saw cut declares {', '.join(stray)}.")
+                    if op.do == "scribe":
+                        scribes.add(f"{setup.id}:{op.op}")
+                    continue
+                shapes = [field for field in ("cut_plane", "follows") if field in declared]
+                if len(shapes) != 1:
+                    raise ValueError(
+                        f"{where}: a saw cut declares exactly one of cut_plane (a straight cut; "
+                        '"unknown" while its plane is undecided) or follows (an earlier scribe '
+                        "op's line)."
+                    )
+                if shapes == ["cut_plane"]:
+                    stray = sorted(declared & {"allowance_mm", "stock_removal_bounds"})
+                    if stray:
+                        raise ValueError(
+                            f"{where}: a straight saw cut is located by its cut_plane alone; "
+                            f"{', '.join(stray)} belong to a cut that follows a scribed line."
+                        )
+                    continue
+                if op.follows not in scribes:
+                    raise ValueError(
+                        f"{where}: follows {op.follows!r} names no earlier scribe op "
+                        '("<setup>:<op>").'
+                    )
+                if isinstance(op.allowance_mm, float) and op.allowance_mm <= 0:
+                    raise ValueError(
+                        f"{where}: allowance_mm, the stock left outside the line for the file, "
+                        "must be positive."
+                    )
         return self
 
     @model_validator(mode="after")

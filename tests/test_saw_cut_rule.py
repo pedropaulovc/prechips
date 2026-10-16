@@ -129,7 +129,7 @@ def test_blade_kerf_cannot_be_authored_in_two_units():
 @pytest.mark.parametrize("action", ["saw_cut", "cut_off"])
 def test_saw_stock_cut_does_not_need_a_finished_feature_claim(tmp_path, action):
     plan = (
-        PLAN.replace('do = "inspect"', f'do = "{action}"')
+        PLAN.replace('do = "inspect"', f'do = "{action}"\ncut_plane = "unknown"')
         .replace('feature = "subject"\n', "")
         .replace('checks = "unknown"\n', "")
     )
@@ -165,8 +165,10 @@ def test_machining_still_requires_a_manifest_feature(tmp_path, action):
 
 
 def test_unclaimed_saw_cannot_silently_drop_inspection_requirements(tmp_path):
-    plan = PLAN.replace('do = "inspect"', 'do = "saw_cut"').replace('feature = "subject"\n', "")
-    with pytest.raises(BadInput):
+    plan = PLAN.replace('do = "inspect"', 'do = "saw_cut"\ncut_plane = "unknown"').replace(
+        'feature = "subject"\n', ""
+    )
+    with pytest.raises(BadInput, match="saw inspection checks need a manifest feature"):
         load_bundle(bundle_files(tmp_path, plan))
 
 
