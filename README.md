@@ -784,6 +784,9 @@ break-out), not capped to the claims' XY
 bounding box plus cutter radius and not a toolpath proof; known radius,
 finite bounds, stock intersection, finished protection, exact claim/piece
 contact, future hole columns and no split of an original solid still apply.
+Accessibility judges a bounded op only where its cutter stands without meeting
+stock outside the box; the rest of each claimed face is carried to a later op
+that claims it, or errors without one (#236).
 Before a claimed planar wall it leaves a flat skin of its leave across the
 face's width and, past each end of a vertical wall's skin where stock stands
 behind its plane, the cusp of that step: what no disc of its own cutter radius

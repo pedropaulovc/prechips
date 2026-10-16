@@ -1166,6 +1166,34 @@ the cutter-radius offset along the in-plane (XY) outward normal; ordinary
 planar floor samples take their nearest legal centre below. The tip is at the sample's Z,
 except as the rough leave below moves it.
 
+**Bounded ops ([#236](https://github.com/pedropaulovc/prechips/issues/236)).** A
+bounded op removes nothing outside its `stock_removal_bounds` box, so its cutter
+never stands where it would meet its before-op stock outside the box, the
+finished part not counted. That is the same contact that clips its printed
+paths (rule A′ below): the cutter cylinder, radius less 0.001 mm, from the
+sample's tip up above the stock, common volume above 1e-6 mm³. A claimed-face
+sample posed there is not this op's to reach. It is neither judged nor counted
+as a hit. Beyond the box a cutter may still pass over air or the finished part,
+and its hits on that part stay hits. A cutter whose axis lies inside the
+authored box eroded by its radius stays in the box's XY column, so it is
+checked only when stock stands above or below the box. The kernel reports the
+unreached samples as `bounds_unreached`: their `sample_count` and the face
+`indices`. `sample_count` keeps only the judged samples. If every sample is
+unreached, `sample_count` is unknown with that reason. When the stock outside
+the box is unknown, every sample is judged as before; unknown stock already
+leaves the tool hits unknown. Hole and joint cuts keep their own poses.
+
+The rule carries those faces as debt. A later op that cuts (a rough cut
+included) or files to the line, never a saw or a coating, whose kernel claim
+holds the face discharges it and is judged on it in turn. The finding's `bounds_unreached` evidence lists `faces` and,
+for each face, the later ops it is `carried_to`. If no later op claims the face,
+the finding is an error: no op makes that part of it. An earlier claim never
+discharges it. If a later op names the face, or has unknown refs, and its
+claim is unknown, or an op of unknown action claims it, the debt stays unknown. Certain hits at the reached
+samples still fail the op. The debt is judged even when a missing tool or
+holder dimension, or other unresolved context, leaves the op's own hits
+unknown: with no later claim of the face it is still an error.
+
 **Printed checkpoints (rule A′).** For an op whose coordinates tables print
 cutter-centre rows ([rules-coordinates](rules-coordinates.md)), the kernel
 stands the op's cutter cylinder (radius less 0.001 mm) at every printed row's

@@ -318,7 +318,8 @@ def test_a_bounded_rough_keeps_what_no_legal_cutter_centre_reaches_past_its_skin
     ("start", "met"),
     [
         # The side box stands behind the front wall's plane: never credited with the cusp
-        # the front cutter leaves past the wall's edge, its flute meets it at the corner.
+        # the front cutter leaves past the wall's edge. Its cutter would meet that cusp
+        # near the corner, so it never stands there and carries those samples (#236).
         (20.0, True),
         # Its author declares it reaching in front of the plane by the leave, so it clears
         # that cusp as its cutter turns the corner.
@@ -361,7 +362,24 @@ def test_a_flat_skin_stops_at_its_walls_edge_and_only_a_box_covering_its_cusp_cl
     # guard's rounding of the wall's edge.
     reach = math.sqrt((3.0 + LEAVE) ** 2 - 3.0**2)
     side_op = result["ops"]["S1:20"]
-    assert ("part" in side_op["obstacles"]["tool"]) is met, side_op
+    # The side cutter stands 3 + LEAVE off the x3 side wall, axis x -LEAVE, so it reaches
+    # the cusp's x 3 - reach end, at the plane, from a side sample at most
+    # sqrt(3^2 - (3 + LEAVE - reach)^2) behind it. Outside a box starting at y20 that cusp
+    # is stock the side op may not remove: those corner samples are carried (#236), never
+    # hits, and the rest of the wall, back to y26, is judged and meets nothing. A box
+    # reaching the leave in front of the plane removes the cusp itself and carries nothing.
+    corner = math.sqrt(3.0**2 - (3.0 + LEAVE - reach) ** 2)
+    # How far behind the corner the side face's samples lie: GRID 5 cell centres over its
+    # 6 mm, and at the R3 spacing 7 on each 19 mm edge (at the corner and at y26) and 2 on
+    # each 6 mm edge.
+    behind = [0.6, 1.8, 3.0, 4.2, 5.4] * 5 + [0.0, 6.0] * 7 + [1.5, 4.5] * 2
+    carried = sum(depth < corner for depth in behind)
+    assert side_op["tool_hits"] == 0 and "part" not in side_op["obstacles"]["tool"], side_op
+    assert ("bounds_unreached" in side_op) is met, side_op
+    if met:
+        assert side_op["bounds_unreached"]["indices"] == side_op["claimed_indices"], side_op
+        assert side_op["bounds_unreached"]["sample_count"] == carried == 19, side_op
+    assert side_op["sample_count"] == len(behind) - (carried if met else 0), side_op
     # Left in place, the cusp is the work's edge; cleared, the side box's own skin is.
     assert second["stock_bbox_mm"][0] == pytest.approx(3 - reach if met else 3 - LEAVE, abs=1e-4)
 

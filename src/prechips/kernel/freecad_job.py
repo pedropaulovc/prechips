@@ -2233,6 +2233,20 @@ def _clearing_box(bounds, within=None):
     return (None, why) if span is None else (_box_shape(span), None)
 
 
+def _centre_window(span, radius):
+    """Setup-frame XY ``(x0, y0, x1, y1)``: a clearing ``span`` eroded by the full cutter
+    ``radius``. A cutter whose axis stands inside it lies wholly within the span's XY
+    column. An inverted window holds no axis."""
+    return (span[0] + radius, span[1] + radius, span[3] - radius, span[4] - radius)
+
+
+def _beyond_window(window, x, y):
+    """Whether the cutter axis ``(x, y)`` lies outside ``window`` (:func:`_centre_window`)
+    by more than PLANE_TOL."""
+    x0, y0, x1, y1 = window
+    return not (x0 - PLANE_TOL <= x <= x1 + PLANE_TOL and y0 - PLANE_TOL <= y <= y1 + PLANE_TOL)
+
+
 def _depth_window(span, to_z):
     """``span`` above an op's ``to_z``, or None when nothing of it is."""
     if to_z is None:
@@ -9444,6 +9458,40 @@ class _Setup:
         except Exception as exc:
             return None, name, f"its stock outside the box could not be derived ({exc})"
 
+    def _bounded_reach(self, op, radius):
+        """(window, obstacle, every) bounding where a bounded milling ``op``'s cutter may
+        stand to cut a claimed-face sample, or None when nothing limits it.
+
+        The box is all a bounded op may remove, so its cutter never stands where it would
+        meet its before-op stock outside the box, the finished part not counted
+        (:meth:`_checkpoint_stock`; its printed paths are clipped at that contact). A
+        cutter whose axis lies in ``window``, the authored box's XY span eroded by its
+        radius, lies in the box's XY column, so it meets that ``obstacle`` only when some
+        of it stands above or below the box (``every``). None when the stock outside the
+        box is empty, or unknown: every sample is then judged, and unknown before-op stock
+        already leaves its tool hits unknown."""
+        retained, _, why = self._checkpoint_stock(op)
+        span, _ = _clearing_span(op["stock_removal_bounds"])
+        if retained is None or why is not None or span is None:
+            return None
+        column = _box_shape(
+            (span[0], span[1], self.box[2] - COVER_MM, span[3], span[4], self.box[5] + COVER_MM)
+        )
+        beside = _common(retained, column)
+        every = beside is not None and beside.cut(self.finished).Volume > HIT_MM3
+        return _centre_window(span, radius), retained, every
+
+    def _meets_outside(self, reach, x, y, tip, radius):
+        """Whether a bounded op's cutter, its ``radius`` less LIFT from ``tip`` up above the
+        stock at axis ``(x, y)``, meets its stock outside its box (:meth:`_bounded_reach`)."""
+        window, obstacle, every = reach
+        height = self.box[5] + COVER_MM - tip
+        if height <= 0 or (not every and not _beyond_window(window, x, y)):
+            return False
+        cutter = Part.makeCylinder(radius - LIFT, height, V(x, y, tip))
+        common = _common(cutter, obstacle)
+        return common is not None and common.cut(self.finished).Volume > HIT_MM3
+
     def _designed(self, op):
         """(setup-frame volume a printed op clears by design, or None, and why it is
         unknown): a bounded op's clearing box, else its claim sweeps and cutter corridor
@@ -11756,6 +11804,20 @@ class _Setup:
         keys = ("holder_radius_mm", "holder_gauge_len_mm", "projection_mm")
         holder = {key: _positive(op, key) for key in keys}
         holder_missing = sorted(key for key, value in holder.items() if value is None)
+        # A bounded op never stands its cutter where it would meet its stock outside its
+        # box (:meth:`_bounded_reach`): a claimed-face sample posed there is not this op's
+        # to reach, so it is no hit either. Its count and faces are the op's carried debt
+        # (``bounds_unreached``), which only a later op claiming that face discharges.
+        reach = None
+        if "stock_removal_bounds" in op and hole_cut is None and not joint:
+            try:
+                reach = self._bounded_reach(op, radius)
+            except Exception as exc:  # OCC booleans
+                sample_problems.append(
+                    f"its stock outside its stock_removal_bounds is unknown ({exc})"
+                )
+        # Face index -> its samples whose cutter meets stock outside the box; failed checks.
+        beyond, unsure = {}, set()
         placed = []  # (index, point, axis x, axis y, tip z, downward)
         for index, point, normal in samples:
             if index in undefined:
@@ -11791,6 +11853,15 @@ class _Setup:
                 except Exception as exc:
                     undefined[index] = exc
                     continue
+            if reach is not None:
+                try:
+                    outside = self._meets_outside(reach, ax, ay, level + LIFT, radius)
+                except Exception as exc:  # OCC booleans
+                    outside = False
+                    unsure.add(f"{self.owner.labels[index]}: reach within its bounds ({exc})")
+                if outside:
+                    beyond[index] = beyond.get(index, 0) + 1
+                    continue
             placed.append((index, point, ax, ay, level + LIFT, normal.z < -1e-3))
         # A floor with no derivable pose drops its own poses only: every other face's
         # certain hits stay counted while the op's measured facts become unknown.
@@ -11799,8 +11870,19 @@ class _Setup:
             f"{self.owner.labels[index]}: floor tool pose is undefined ({exc})"
             for index, exc in undefined.items()
         )
+        sample_problems.extend(sorted(unsure))
         sample_reason = "; ".join(sample_problems) if sample_problems else None
-        facts["sample_count"] = UNKNOWN if sample_reason else len(samples)
+        beyond = {index: count for index, count in beyond.items() if index not in undefined}
+        unreached = sum(beyond.values())
+        facts["sample_count"] = UNKNOWN if sample_reason else len(samples) - unreached
+        if beyond:
+            facts["bounds_unreached"] = {"sample_count": unreached, "indices": sorted(beyond)}
+            if not sample_reason and unreached == len(samples):
+                facts["sample_count"] = UNKNOWN
+                reasons["sample_count"] = (
+                    "every claimed-face sample's cutter would meet stock outside its "
+                    "stock_removal_bounds"
+                )
         if sample_reason:
             reasons["sample_count"] = sample_reason
         if hole_cut is not None:

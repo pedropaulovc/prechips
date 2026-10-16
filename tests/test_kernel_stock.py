@@ -1007,15 +1007,15 @@ def test_facing_own_allowance_is_not_a_flute_obstacle_but_still_hits_a_low_holde
     assert low_facts["tool_hits"] == 0 and low_facts["holder_hits"] > 0
 
 
-def test_current_flute_meets_raw_outside_its_authorised_window_despite_a_later_facing(
+def test_bounded_flute_carries_the_raw_outside_its_box_never_crediting_a_later_facing(
     engine, solids
 ):
     step = solids["block"]
     top = engine.refs(step, (0, 0, 20), (60, 40, 20))
     stock = {**BOX, "section_mm": [40.0, 25.0]}
-    # S1:10 claims the whole top but authorises clearing only its x 0..30 half. Its floor
-    # poses take their nearest legal centre ignoring raw stock, so those over the
-    # uncleared right half meet the real 5 mm raw above their actual tip at z = 20.
+    # S1:10 claims the whole top but authorises clearing only its x 0..30 half. Posed over
+    # the uncleared right half, or within its radius of it, its cutter would meet the real
+    # 5 mm raw outside its box: those samples are not its to reach (prechips#236).
     half = {
         **_op("S1:10", "top", 5.0, 20.0, 40.0),
         "do": "face",
@@ -1031,10 +1031,30 @@ def test_current_flute_meets_raw_outside_its_authorised_window_despite_a_later_f
     # Alone it removes only its authorised half; the later facing clears the rest.
     assert alone["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(60 * 40 * 25 - 30 * 40 * 5)
     assert faced["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(60 * 40 * 20)
-    # The later clearance is never credited to the earlier flute.
-    hits = alone["ops"]["S1:10"]["tool_hits"]
-    assert hits > 0 and faced["ops"]["S1:10"]["tool_hits"] == hits
+    # The later clearance is never credited to the earlier flute: it carries the same
+    # samples with or without it, and meets nothing where it reaches.
+    carried = alone["ops"]["S1:10"]["bounds_unreached"]
+    assert carried["sample_count"] > 0 and faced["ops"]["S1:10"]["bounds_unreached"] == carried
+    assert alone["ops"]["S1:10"]["tool_hits"] == faced["ops"]["S1:10"]["tool_hits"] == 0
     assert faced["ops"]["S1:20"]["tool_hits"] == 0
+
+
+def test_bounded_facing_overhanging_its_box_into_air_carries_nothing(engine, solids):
+    step = solids["block"]
+    top = engine.refs(step, (0, 0, 20), (60, 40, 20))
+    stock = {**BOX, "section_mm": [40.0, 25.0]}
+    # The box is exactly the raw top's 5 mm skin, a margin smaller than the R8 face mill:
+    # at the face's edges the mill overhangs the box, but only into air (prechips#236).
+    face = {
+        **_op("S1:10", "top", 8.0, 20.0, 40.0),
+        "do": "face",
+        "to_z": 20.0,
+        "stock_removal_bounds": {"x": [0.0, 60.0], "y": [0.0, 40.0], "z": [20.0, 25.0]},
+    }
+    result = engine.run(engine.job(step, {"top": top}, [_setup("S1", [face])], stock=stock))
+    facts = result["ops"]["S1:10"]
+    assert "bounds_unreached" not in facts, facts
+    assert facts["tool_hits"] == 0 and facts["sample_count"] > 0, facts
 
 
 def test_nonprevious_output_keeps_its_removal_despite_an_unresolved_other_branch(engine, solids):

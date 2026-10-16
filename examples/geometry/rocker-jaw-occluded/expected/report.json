@@ -21,6 +21,53 @@
       ],
       "message": "Fixture solids are not declared for this holding kind. Refused kernel facts: holders.unknown.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.unknown.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.unknown.grip (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.em-preparation.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
       "numbers": {
+        "bounds_unreached": {
+          "carried_to": {
+            "#163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01": [
+              "S2:10"
+            ],
+            "#233/ADVANCED_FACE[5]/HAF_PIVOT_BORE__P01": [
+              "S2:10"
+            ],
+            "#248/ADVANCED_FACE[6]/HAF_TIP_LAND_POS_X__P01": [
+              "S2:10"
+            ],
+            "#343/ADVANCED_FACE[7]/HAF_ROD_HOLE__P01": [
+              "S2:10"
+            ],
+            "#382/ADVANCED_FACE[8]/HAF_PIVOT_BORE__P01": [
+              "S2:10"
+            ],
+            "#426/ADVANCED_FACE[9]/HAF_PROFILE_OUTER__P02": [
+              "S2:10"
+            ],
+            "#431/ADVANCED_FACE[10]/HAF_TIP_LAND_NEG_X__P01": [
+              "S2:10"
+            ],
+            "#49/ADVANCED_FACE[2]/HAF_ROD_HOLE__P01": [
+              "S2:10"
+            ],
+            "#505/ADVANCED_FACE[15]/HAF_PROFILE_OUTER__P03": [
+              "S2:10"
+            ],
+            "#532/ADVANCED_FACE[17]/HAF_PROFILE_OUTER__P01": [
+              "S2:10"
+            ]
+          },
+          "faces": [
+            "#343/ADVANCED_FACE[7]/HAF_ROD_HOLE__P01",
+            "#382/ADVANCED_FACE[8]/HAF_PIVOT_BORE__P01",
+            "#426/ADVANCED_FACE[9]/HAF_PROFILE_OUTER__P02",
+            "#505/ADVANCED_FACE[15]/HAF_PROFILE_OUTER__P03",
+            "#248/ADVANCED_FACE[6]/HAF_TIP_LAND_POS_X__P01",
+            "#163/ADVANCED_FACE[3]/HAF_TOP_EDGE__P01",
+            "#431/ADVANCED_FACE[10]/HAF_TIP_LAND_NEG_X__P01",
+            "#532/ADVANCED_FACE[17]/HAF_PROFILE_OUTER__P01",
+            "#233/ADVANCED_FACE[5]/HAF_PIVOT_BORE__P01",
+            "#49/ADVANCED_FACE[2]/HAF_ROD_HOLE__P01"
+          ],
+          "sample_count": 166
+        },
         "measurements": [
           {
             "category": "holders",
@@ -4565,7 +4612,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "0aa9ccbb757c4e82a4a57362fbe755054f30c8bed25e99fb0907afb9456815dd",
+  "hash": "a8c4cf99df5e3c1bed21b24581d6c62527d7a995359c9f900633a6b3ded0a00e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
