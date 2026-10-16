@@ -647,12 +647,17 @@ over the face's full area. Declared fit bands must cover the
 worst-case mating diameters, prepared geometry must reach the join along the
 selected stock lineage, and the kernel refuses interference outside the
 permitted fit or missing component-owned finished material at the join.
-Unknown joint dimensions or retaining-compound process facts withhold the union
+A cylindrical joint's `method` is the assembly action (`silver_braze` or `slip`
+for clearance, `press` for interference); a retaining compound on the interface
+is a `compound = { product, cure_time_min, surface_prep }` block, required on a
+slip fit and optional on a press fit.
+Unknown joint dimensions or compound process facts withhold the union
 and its render, rather than assuming a fit or cure. Each assembly step joins
 exactly two disjoint inputs: an existing assembly may receive one new component.
 Finite both-open cylindrical sockets accept turned sleeves; clearance joining
-fills the mating annulus, not a sleeve's intentional bore. Retaining-compound
-travelers state surface prep, cure time and do not disturb until cured.
+fills the mating annulus, not a sleeve's intentional bore. Compound-joint
+travelers state surface prep, cure time and do not disturb until cured; a press
+fit with a compound is pressed in with the compound on the interface.
 Plan-owned `process_features` describe stock preparation a later setup relies
 on — a faced `end_face` or a combined drill and countersink `centre_hole` — and
 are never drawing dimensions or coverage. The kernel cuts them, so the picture

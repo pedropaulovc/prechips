@@ -874,7 +874,7 @@ class CylindricalJoint(InputModel):
         legacy = sorted(key for key in ("cure_time_min", "surface_prep") if key in values)
         if legacy:
             raise ValueError(
-                f"A joint's {', '.join(legacy)} belong in its compound block: write "
+                f"A joint's {', '.join(legacy)} moved into its compound block: write "
                 f"{_COMPOUND_FORM}."
             )
         return values

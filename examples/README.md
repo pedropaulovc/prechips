@@ -433,9 +433,9 @@ sawn top's measured high spot, not from a nominal 87.0.
 The pre-bond sockets and spigots are plan-owned joint features, not invented
 STEP faces. The cone joint gives 0.044–0.076 mm diametral clearance inside its
 declared 0.04–0.08 mm band, and the crank joint 0.064–0.096 mm inside 0.06–0.10 mm.
-Each joint declares `method = "retaining_compound"`, an example Loctite 638-class
-anaerobic compound, solvent surface preparation and a 1440 min room-temperature
-cure. The sleeves seat on the cradle's locating pins under gravity, with no
+Each joint declares `method = "slip"` with a `compound` block: an example Loctite
+638-class anaerobic compound, solvent surface preparation and a 1440 min
+room-temperature cure. The sleeves seat on the cradle's locating pins under gravity, with no
 clamping force on a curing joint. Both running bores are reamed only after cure,
 from datum A/foot B re-indicated on the dividing head. The compound, band and
 cure are illustrative process choices, not a product datasheet claim or a
