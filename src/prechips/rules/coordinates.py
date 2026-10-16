@@ -1679,6 +1679,12 @@ def _arc(
     if method == "rotary_table":
         step = contour.get("step_deg", UNKNOWN)
         angles = _samples(start, end, step)
+    elif method == "guided_sweep":
+        from .guided_sweep import swept_angles
+
+        step = contour.get("step_deg", UNKNOWN)
+        sweep = mapping(contour.get("sweep")).get("sweep_deg")
+        angles = swept_angles(start, end, step, sweep, full)
     elif method == "chords" and isinstance(contour.get("count"), int) and contour["count"] > 0:
         angles = [start + (end - start) * i / contour["count"] for i in range(contour["count"] + 1)]
     elif method == "chain_drill" and number(contour.get("pitch_mm")) and contour["pitch_mm"] > 0:
@@ -1722,7 +1728,8 @@ def _arc(
             "feature": feature_name,
             "op": op["op"],
             "method": method,
-            **({"step_deg": step} if method == "rotary_table" else {}),
+            **({"step_deg": step} if method in ("rotary_table", "guided_sweep") else {}),
+            **({"span_deg": abs(end - start)} if method == "guided_sweep" else {}),
             **({"cusp_mm": contour["cusp_mm"]} if method == "stairs" and angles else {}),
             "centre_model_xy": model_centre[:2],
             "centre_setup_xy": centre_xy,
@@ -3249,14 +3256,15 @@ def _diagonal(points):
 
 # The manual-mill arc methods (docs/plan.md "Manual arcs"): rough outside the scribed line
 # in single-axis stairs or a chain of drilled holes and file to it (rules/manual_arc.py),
-# or finish it as straight chords or on a rotary table. No method moves two axes at once.
+# or finish it as straight chords, on a rotary table, or swept under a locked cutter in a
+# pivot or rail fixture (rules/guided_sweep.py). No method moves two axes at once.
 ROUGH_METHODS = frozenset({"stairs", "chain_drill"})
-FINISH_METHODS = frozenset({"chords", "rotary_table"})
+FINISH_METHODS = frozenset({"chords", "rotary_table", "guided_sweep"})
 ARC_METHODS = ROUGH_METHODS | FINISH_METHODS
 REMOVED_ARC_TABLE = (
     "contour method arc_table moves two handwheels at once, which a manual mill cannot: "
-    "rough the arc in stairs or chain_drill and file it to the line, or cut it as chords "
-    "or on a rotary_table"
+    "rough the arc in stairs or chain_drill and file it to the line, or cut it as chords, "
+    "on a rotary_table or as a guided_sweep"
 )
 
 
@@ -4013,6 +4021,7 @@ _NEEDS = {
     "chain_drill": "pitch_mm",
     "chords": "count",
     "rotary_table": "step_deg",
+    "guided_sweep": "step_deg",
 }
 
 
@@ -4118,6 +4127,10 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scal
     if method == "chords":
         offset = arc["offset_mm"] / scale if number(arc["offset_mm"]) else UNKNOWN
         return _chords(arc, band, offset, dro_grid(bundle, setup), table, label, scale)
+    if method == "guided_sweep":
+        from .guided_sweep import guided
+
+        return guided(bundle, setup, op, arc, band, label, scale)
     frame = setup_frame(bundle, setup)
     return _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label, scale)
 
@@ -4725,6 +4738,7 @@ def evaluate(bundle, *, pre_kernel=False):
             sentence += " Manual arc debt: " + "; ".join(arc_debts) + "."
         methods = {table.get("method") for table in numbers["arc_table"]}
         tables = [table.get("rotary", {}).get("table") for table in numbers["arc_table"]]
+        sweeps = [table["guided"] for table in numbers["arc_table"] if "guided" in table]
         result.append(
             Finding(
                 "coordinates",
@@ -4754,6 +4768,15 @@ def evaluate(bundle, *, pre_kernel=False):
                         f"inventory fixtures.{t}: rotary table dial"
                         for t in dict.fromkeys(tables)
                         if t
+                    ),
+                    *dict.fromkeys(
+                        cite
+                        for sweep in sweeps
+                        for cite in (
+                            "docs/plan.md Manual arcs: guided sweep",
+                            f"inventory fixtures.{sweep['fixture']}: guided-sweep fixture",
+                            f"inventory gauges.{sweep['master']}: touch-off master",
+                        )
                     ),
                 ],
                 sentence,

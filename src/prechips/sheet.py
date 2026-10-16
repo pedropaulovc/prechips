@@ -8939,6 +8939,14 @@ class _Traveler:
                 ]
                 entry["parts"].append((order(entry, arc), description, [], [], None))
                 continue
+            elif method == "guided_sweep":
+                from prechips.sheet_sweep import steps as sweep_steps
+
+                description = sweep_steps(
+                    arc, o, labels[0] if labels else "", labels[-1] if labels else ""
+                )
+                entry["parts"].append((order(entry, arc), description, [], [], None))
+                continue
             else:
                 entry["stops"].append("manual arc method not established")
                 continue

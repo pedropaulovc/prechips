@@ -416,8 +416,26 @@ Zero = record(
 )
 Bounds = record("Bounds", {"x": Vector, "y": Vector, "z": Vector})
 KeepOut = record("KeepOut", {"at": Vector, **numbers("dia_mm")})
+# A ``guided_sweep`` contour's guide (docs/plan.md "Manual arcs"): the work rides
+# ``fixture`` (an inventory swing arm on a ``pivot`` at the arc centre, or a sled whose
+# ``rail`` bears on two table rollers) under a cutter touched off on the ``master`` gauge
+# along ``touch_axis`` and locked; the fixture turns ``sweep_deg`` about the centre. A rail's
+# ``rollers_deg`` and ``rail_deg`` (its ends) are degrees about the arc centre from the
+# cutter's radial line, counterclockwise from above, with the cutter at the arc's middle.
+GuidedSweep = record(
+    "GuidedSweep",
+    {
+        "guide": Literal["pivot", "rail"],
+        **texts("fixture master"),
+        "touch_axis": Literal["+X", "-X", "+Y", "-Y"],
+        **numbers("sweep_deg"),
+        "rollers_deg": Vector,
+        "rail_deg": Vector,
+    },
+)
 # A manual-mill arc method (docs/plan.md): ``stairs`` and ``chain_drill`` rough outside the
-# line, ``chords`` mill straight chords, ``rotary_table`` turns the work under the cutter.
+# line, ``chords`` mill straight chords, ``rotary_table`` turns the work under the cutter,
+# ``guided_sweep`` sweeps it under a locked cutter on a pivot or rail fixture (``sweep``).
 Contour = record(
     "Contour",
     {
@@ -426,6 +444,7 @@ Contour = record(
         "count": int,
         "sweep_bounds": Bounds,
         "keep_out": list[KeepOut],
+        "sweep": GuidedSweep,
     },
 )
 # A layout or bench filing guide: ``buttons`` (an inventory ``fixtures`` kit of kind
@@ -1944,6 +1963,16 @@ InventoryItem = record(
             MeasuredLimits,
         ),
         **dict.fromkeys(("button_runout_mm", "button_runout_in"), MeasuredLength),
+        # Guided-sweep fixtures and masters (docs/inventory.md "Guided-sweep fixtures"): a
+        # swing arm's pivot play, an arc sled's rail radius, form error and roller runout,
+        # and the radius limits a setting bar or master arc sets about the guide's centre.
+        **dict.fromkeys(
+            ("pivot_play_mm", "pivot_play_in", "rail_radius_mm", "rail_radius_in")
+            + ("rail_form_error_mm", "rail_form_error_in")
+            + ("roller_runout_mm", "roller_runout_in"),
+            MeasuredLength,
+        ),
+        **dict.fromkeys(("radius_limits_mm", "radius_limits_in"), MeasuredLimits),
         # Follow rest jaw directions about the spindle axis, degrees from the cutting tool.
         "jaw_angles_deg": list[Number],
     },
@@ -1985,6 +2014,9 @@ _INVENTORY_LENGTH_STEMS |= {"max_work", "t_slot_width"}
 _INVENTORY_LENGTH_STEMS |= {"pilot_len"}
 # Jaw button thickness and spigot (a vise hold's jaw_buttons).
 _INVENTORY_LENGTH_STEMS |= {"thickness", "spigot_dia", "spigot_length"}
+# Guided-sweep fixtures and masters: one fact each, in mm or in, never both.
+_INVENTORY_LENGTH_STEMS |= {"pivot_play", "rail_radius", "rail_form_error", "roller_runout"}
+_INVENTORY_LENGTH_STEMS |= {"radius_limits"}
 
 
 def _inventory_lengths(
