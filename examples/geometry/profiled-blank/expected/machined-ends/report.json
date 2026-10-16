@@ -95,7 +95,7 @@
         "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
         "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)"
       ],
-      "message": "bottom_edge: #17/ADVANCED_FACE[1]/ is supplied as cut.",
+      "message": "bottom_edge: its face is supplied as cut.",
       "numbers": {
         "faces": [
           {
@@ -141,7 +141,7 @@
         "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
         "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)"
       ],
-      "message": "strap_faces: #187/ADVANCED_FACE[7]/ is supplied as cut; #174/ADVANCED_FACE[6]/ is supplied as cut.",
+      "message": "strap_faces: each of its 2 faces is supplied as cut.",
       "numbers": {
         "faces": [
           {
@@ -215,7 +215,7 @@
         "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
         "examples/geometry/author_solids.py: strap_blank (synthetic blank outline)"
       ],
-      "message": "top_arc: #119/ADVANCED_FACE[4]/ is supplied as cut.",
+      "message": "top_arc: its face is supplied as cut.",
       "numbers": {
         "faces": [
           {
@@ -1867,7 +1867,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S1: declared operation travel remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Measure plan.setups.S1.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected cutter diameter, micrometer, mm; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
+      "message": "S1: declared operation travel remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Measure plan.setups.S1.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; author: Measure plan.setups.S1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected cutter diameter, micrometer, mm; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
       "numbers": {
         "measurements": [
           {
@@ -1946,7 +1946,7 @@
               "features.features.end_faces.bounds/at; plan.stock"
             ],
             "id": "plan.setups.S1.ops.10.xy_geometry",
-            "instruction": "author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
+            "instruction": "author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm",
             "units": "mm"
           },
           {
@@ -1962,7 +1962,7 @@
               "features.features.corner_chamfer.bounds/at; plan.stock"
             ],
             "id": "plan.setups.S1.ops.20.xy_geometry",
-            "instruction": "author: Measure plan.setups.S1.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
+            "instruction": "author: Measure plan.setups.S1.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm",
             "units": "mm"
           },
           {
@@ -2227,7 +2227,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "6723d28e6de01435ee6f7cf8f996aab063ce0acf995ace3fbf9c83773950a9aa",
+  "hash": "cfb696bb4452bbe39592c7652401783ab21c9cc1f3804f69638fe2ec21a51548",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

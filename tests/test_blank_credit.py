@@ -9,6 +9,7 @@ import math
 import shutil
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from test_kernel_geometry import Engine
@@ -128,9 +129,16 @@ def test_inventory_stock_is_never_a_profiled_blank():
 # --------------------------------------------------------------------------- band arithmetic
 
 
+def _manifest(features, units="mm"):
+    """The bundle surface band_verdict reads: the exported manifest and its definitions."""
+    return SimpleNamespace(
+        features={"units": units, "features": features}, feature_definitions=features
+    )
+
+
 def _verdict(fields, requirement, tolerance=0.127, units="mm"):
     features = {"f": {"requirements": [requirement], **fields}}
-    return blank_credit.band_verdict(features, "f", requirement, tolerance, units)
+    return blank_credit.band_verdict(_manifest(features, units), "f", requirement, tolerance)
 
 
 @pytest.mark.parametrize(
@@ -173,27 +181,52 @@ def test_an_inch_manifest_compares_the_cut_in_inches():
     assert _verdict(fields, "length", units="in")[0] == "exceeds"
 
 
-@pytest.mark.parametrize("zone", ["position_dia", "surface_profile"])
-def test_a_planar_zone_must_hold_the_x_and_y_errors_together(zone):
-    needed = 2 * math.sqrt(2) * 0.127
-    status, numbers = _verdict({zone: 0.36}, zone)
-    assert status == "holds" and numbers["needed_zone"] == pytest.approx(needed)
-    assert _verdict({zone: 0.35}, zone)[0] == "exceeds"
+def test_a_position_zone_must_hold_the_x_and_y_errors_together():
+    status, numbers = _verdict({"position_dia": 0.36}, "position_dia")
+    assert status == "holds"
+    assert numbers["needed_zone"] == pytest.approx(2 * math.sqrt(2) * 0.127)
+    assert _verdict({"position_dia": 0.35}, "position_dia")[0] == "exceeds"
 
 
-def test_a_basic_scalar_answers_to_its_governing_profile_zone():
-    features = {
-        "arc": {
-            "requirements": ["radius", "surface_profile"],
-            "radius": 80.0,
-            "surface_profile": 0.5,
-            "surface_profile_governs": {"radius": {}},
+@pytest.mark.parametrize(
+    ("fields", "verdict"),
+    [
+        # Equal-bilateral 0.36: 0.18 each side holds the cut's 0.1796.
+        ({"surface_profile": 0.36}, "holds"),
+        ({"surface_profile": 0.35}, "exceeds"),
+        # The same 0.5 zone all on the material-removed side (U = 0) cannot take the
+        # cut's material-added error, however wide it is.
+        ({"surface_profile": 0.5, "surface_profile_u": 0.0}, "exceeds"),
+        ({"surface_profile": 0.5, "surface_profile_u": 0.2}, "holds"),
+        ({"surface_profile": 0.5, "surface_profile_u": "unknown"}, "unknown"),
+    ],
+)
+def test_a_profile_zone_must_take_the_cut_on_each_side_of_its_disposition(fields, verdict):
+    assert _verdict(fields, "surface_profile")[0] == verdict
+
+
+def _governed(*zones):
+    """``arc``'s BASIC R80, governed by each ``(owner, zone)`` profile in that order."""
+    features = {"datum_a": {"datum": "A", "requirements": []}}
+    features["arc"] = {"requirements": ["radius"], "radius": 80.0}
+    for owner, zone in zones:
+        features[owner] = {
+            "requirements": ["surface_profile"],
+            "surface_profile": zone,
+            "surface_profile_datums": ["A"],
+            "surface_profile_governs": {"arc:radius": "increases"},
         }
-    }
-    status, numbers = blank_credit.band_verdict(features, "arc", "radius", 0.127, "mm")
-    assert (status, numbers["zone"]) == ("holds", 0.5)
-    features["arc"]["surface_profile"] = 0.3
-    assert blank_credit.band_verdict(features, "arc", "radius", 0.127, "mm")[0] == "exceeds"
+    return blank_credit.band_verdict(_manifest(features), "arc", "radius", 0.127)
+
+
+def test_a_basic_scalar_holds_the_band_every_governing_profile_gives_it():
+    status, numbers = _governed(("wide", 1.0), ("tight", 0.5))
+    # Their intersection R79.75-80.25 holds 80 +/- 0.127 with 0.123 to spare.
+    assert (status, numbers["band"]) == ("holds", [79.75, 80.25])
+    # A looser profile can never hide a tighter one, in either order.
+    for zones in ((("wide", 1.0), ("tight", 0.2)), (("tight", 0.2), ("wide", 1.0))):
+        status, numbers = _governed(*zones)
+        assert (status, numbers["band"]) == ("exceeds", [79.9, 80.1])
 
 
 @pytest.mark.parametrize(
@@ -412,6 +445,16 @@ def test_faces_the_plan_does_not_credit_are_unclaimed_not_withheld():
 def test_an_unknown_vendor_tolerance_is_debt_never_credit():
     bundle = _credit_bundle(_on(*FACES))
     bundle.plan["stock"]["blank"]["profile_tolerance_mm"] = "unknown"
+    assert set(_statuses(bundle).values()) == {"unknown"}
+    [row] = coverage.evaluate(bundle)
+    assert str(row.status) == "unknown"
+
+
+def test_a_profiled_form_with_an_unknown_blank_is_debt_never_bar_credit():
+    # The kernel cannot build the supply, so it measures no contact either.
+    bundle = _credit_bundle({})
+    bundle.plan["stock"]["blank"] = "unknown"
+    assert blank_credit.profiled_supplies(bundle) == {"stock": {}}
     assert set(_statuses(bundle).values()) == {"unknown"}
     [row] = coverage.evaluate(bundle)
     assert str(row.status) == "unknown"

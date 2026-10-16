@@ -10,11 +10,16 @@ The tolerance is read as the vendor states it: any cut dimension, measured along
 lands within ± t of its nominal. A length band therefore holds when ``nominal ± t`` lies
 inside it: a one-sided band whose nominal is a limit (+0.50/0) never does, since the cut
 may fall t past that limit. Without an exported nominal only a band narrower than 2t is
-decided (no centring fits); a wider one stays unknown. A zone read across two axes (a
-``position_dia`` or a ``surface_profile``, including a BASIC scalar it governs) must hold
-the X and Y errors together: a circle of radius t√2, so a zone width of at least 2√2·t.
-An angle, a roughness and the other zones are not bounded by a length tolerance and stay
-unknown. A face failing either check is not credited: it stays uncovered and needs an op.
+decided (no centring fits); a wider one stays unknown. A BASIC scalar a surface profile
+governs reads the band every governing profile gives it about its BASIC value (their
+intersection, with each profile's disposition, sense and obliquity), as a drawn band.
+
+Zones on the face itself are read across the cut plane's two axes, so the X and Y errors
+combine: a circle of radius t√2. A ``position_dia`` zone needs a diameter of at least
+2√2·t; a ``surface_profile`` zone w with U of it on the material-added side (w/2 when
+unstated) needs t√2 on each side: ``t√2 <= U`` and ``t√2 <= w - U``. An angle, a
+roughness and the other zones are not bounded by a length tolerance and stay unknown. A
+face failing either check is not credited: it stays uncovered and needs an op.
 """
 
 from __future__ import annotations
@@ -22,8 +27,8 @@ from __future__ import annotations
 import math
 
 from prechips.findings import Finding
-from prechips.inputs import blank_supplies
-from prechips.model import LENGTH_REQUIREMENTS, profile_target, tolerance_requirements
+from prechips.model import LENGTH_REQUIREMENTS, PROFILED_BLANK, tolerance_requirements
+from prechips.rules._profile import requirement_band
 from prechips.rules.geometry_common import provenance, unavailable
 from prechips.rules.resolution import _citations, number, record
 
@@ -33,16 +38,24 @@ RULE = "blank_credit"
 CREDITED, OFF_BLANK, BAND = "credited", "off_blank", "band"
 # Per-requirement verdicts of the vendor tolerance against one drawing band.
 HOLDS, EXCEEDS = "holds", "exceeds"
-# Zones read across the cut plane's two axes: X and Y errors combine.
-PLANAR_ZONES = frozenset({"position_dia", "surface_profile"})
 _EPS = 1e-9
 _SCALE = {"mm": 1.0, "in": 25.4}
 
 
 def profiled_supplies(bundle):
-    """``{supply: blank record}`` for every profiled blank: ``stock`` or ``stock.<id>``."""
+    """``{supply: blank record}`` for the root stock (``stock``) or each component
+    (``stock.<id>``) declared a profiled blank; an unknown blank record is ``{}``, so its
+    tolerance stays unknown debt rather than dropping the supply."""
+    stock = record(bundle.plan.get("stock"))
+    components = stock.get("components")
+    pieces = [("stock", stock)] + [
+        (f"stock.{component['id']}", component)
+        for component in (components if isinstance(components, list) else ())
+    ]
     return {
-        kind.removesuffix(".blank"): blank for kind, blank in blank_supplies(bundle.plan).items()
+        name: record(piece.get("blank"))
+        for name, piece in pieces
+        if "blank" in piece or piece.get("form") == PROFILED_BLANK
     }
 
 
@@ -54,29 +67,54 @@ def nominal(feature, requirement):
     return UNKNOWN
 
 
-def _governing_zone(features, name, requirement):
-    """The surface profile zone width governing BASIC scalar ``requirement`` of ``name``."""
-    for owner, feature in features.items():
-        for key in record(feature.get("surface_profile_governs")):
-            if profile_target(owner, key) == (name, requirement):
-                return feature.get("surface_profile", UNKNOWN)
-    return None
-
-
-def _zone(requirement, width, tolerance):
-    numbers = {"requirement": requirement, "zone": width}
+def _position(width, t):
+    numbers = {"requirement": "position_dia", "zone": width}
     if not number(width) or width <= 0:
-        return UNKNOWN, {**numbers, "reason": f"{requirement} has no positive zone width"}
-    needed = 2 * math.sqrt(2) * tolerance
+        return UNKNOWN, {**numbers, "reason": "position_dia has no positive zone width"}
+    needed = 2 * math.sqrt(2) * t
     numbers["needed_zone"] = round(needed, 6)
     return (HOLDS if needed <= width + _EPS else EXCEEDS), numbers
 
 
-def band_verdict(features, name, requirement, tolerance_mm, units):
+def _profile_zone(feature, t):
+    """The face's own profile zone: t√2 must fit on each side of the true profile."""
+    width = feature.get("surface_profile", UNKNOWN)
+    numbers = {"requirement": "surface_profile", "zone": width}
+    if not number(width) or width <= 0:
+        return UNKNOWN, {**numbers, "reason": "surface_profile has no positive zone width"}
+    added = feature.get("surface_profile_u", width / 2)
+    if not number(added):
+        return UNKNOWN, {**numbers, "reason": "the disposition U is unknown"}
+    needed = math.sqrt(2) * t
+    numbers.update(
+        disposition=added,
+        needed_each_side=round(needed, 6),
+        added_margin=round(added - needed, 6),
+        removed_margin=round(width - added - needed, 6),
+    )
+    holds = min(numbers["added_margin"], numbers["removed_margin"]) >= -_EPS
+    return (HOLDS if holds else EXCEEDS), numbers
+
+
+def _band(requirement, band, middle, t):
+    """``middle ± t`` inside ``band``; without a nominal only a too-narrow band decides."""
+    low, high = band
+    numbers = {"requirement": requirement, "band": band, "tolerance": round(t, 6)}
+    if middle == UNKNOWN:
+        if high - low < 2 * t - _EPS:
+            return EXCEEDS, {**numbers, "band_width": round(high - low, 6)}
+        return UNKNOWN, {**numbers, "reason": "the band's nominal is not exported"}
+    below, above = (middle - t) - low, high - (middle + t)
+    numbers.update(nominal=middle, low_margin=round(below, 6), high_margin=round(above, 6))
+    return (HOLDS if min(below, above) >= -_EPS else EXCEEDS), numbers
+
+
+def band_verdict(bundle, name, requirement, tolerance_mm):
     """``(holds | exceeds | unknown, numbers)``: whether the vendor's ± ``tolerance_mm``
     cut, aimed at the nominal, keeps ``requirement`` of feature ``name`` inside its band.
     Numbers are in the manifest's units."""
-    feature = record(features.get(name))
+    feature = record(record(bundle.features.get("features")).get(name))
+    units = bundle.features.get("units", UNKNOWN)
     if not number(tolerance_mm) or tolerance_mm <= 0:
         return UNKNOWN, {"requirement": requirement, "reason": "vendor tolerance is unknown"}
     if units not in _SCALE:
@@ -85,30 +123,26 @@ def band_verdict(features, name, requirement, tolerance_mm, units):
         return UNKNOWN, {"requirement": UNKNOWN, "reason": "requirement identities unresolved"}
     t = tolerance_mm / _SCALE[units]
     value = feature.get(requirement, UNKNOWN)
-    if requirement in PLANAR_ZONES:
-        return _zone(requirement, value, t)
+    if requirement == "position_dia":
+        return _position(value, t)
+    if requirement == "surface_profile":
+        return _profile_zone(feature, t)
     if requirement.endswith("_deg") or requirement not in LENGTH_REQUIREMENTS:
         return UNKNOWN, {
             "requirement": requirement,
             "reason": "a length cut tolerance does not bound this requirement",
         }
-    if not isinstance(value, list):
-        zone = _governing_zone(features, name, requirement)
-        if zone is not None:
-            return _zone(requirement, zone, t)
+    if isinstance(value, list):
+        if not (len(value) == 2 and all(number(v) for v in value) and value[0] <= value[1]):
+            return UNKNOWN, {"requirement": requirement, "reason": "band limits are unknown"}
+        return _band(requirement, value, nominal(feature, requirement), t)
+    if not number(value):
         return UNKNOWN, {"requirement": requirement, "reason": "no two-limit band to hold"}
-    if not (len(value) == 2 and all(number(v) for v in value) and value[0] <= value[1]):
-        return UNKNOWN, {"requirement": requirement, "reason": "band limits are unknown"}
-    low, high = value
-    numbers = {"requirement": requirement, "band": value, "tolerance": round(t, 6)}
-    middle = nominal(feature, requirement)
-    if middle == UNKNOWN:
-        if high - low < 2 * t - _EPS:
-            return EXCEEDS, {**numbers, "band_width": round(high - low, 6)}
-        return UNKNOWN, {**numbers, "reason": "the band's nominal is not exported"}
-    below, above = (middle - t) - low, high - (middle + t)
-    numbers.update(nominal=middle, low_margin=round(below, 6), high_margin=round(above, 6))
-    return (HOLDS if min(below, above) >= -_EPS else EXCEEDS), numbers
+    # A BASIC scalar: the band its governing surface profiles give, about its BASIC value.
+    band, reason = requirement_band(bundle, name, requirement)
+    if band is None:
+        return UNKNOWN, {"requirement": requirement, "reason": reason}
+    return _band(requirement, band, value, t)
 
 
 def _owners(bundle, facts):
@@ -144,12 +178,11 @@ def _face(bundle, facts, ref, owners, tolerances):
     # Two profiled carriers (a face on a joint line) answer to the looser vendor tolerance.
     tolerance = max(profiled, key=lambda value: value if number(value) else math.inf)
     features = record(bundle.features.get("features"))
-    units = bundle.features.get("units", UNKNOWN)
     checks = [
         {"feature": name, **numbers, "verdict": verdict}
         for name in names
         for requirement in tolerance_requirements(record(features.get(name)))
-        for verdict, numbers in [band_verdict(features, name, requirement, tolerance, units)]
+        for verdict, numbers in [band_verdict(bundle, name, requirement, tolerance)]
     ]
     row.update(owners=names, profile_tolerance_mm=tolerance, requirements=checks)
     verdicts = {check["verdict"] for check in checks}
@@ -215,6 +248,17 @@ def _sentence(owner, faces):
 
 def _exceeds(check):
     name, requirement, t = check["feature"], check["requirement"], check.get("tolerance")
+    if "needed_each_side" in check:
+        needed = check["needed_each_side"]
+        side, margin = min(
+            (("added", check["added_margin"]), ("removed", check["removed_margin"])),
+            key=lambda m: m[1],
+        )
+        return (
+            f"{name} surface_profile {check['zone']:g} (U {check['disposition']:g}) leaves "
+            f"{margin + needed:g} on its material-{side} side, less than the {needed:g} "
+            "the cut needs"
+        )
     if "zone" in check:
         return (
             f"{name} {requirement} zone {check['zone']:g} is narrower than the "

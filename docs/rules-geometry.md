@@ -1938,7 +1938,8 @@ undecided credit is `unknown`, never a credit. The cite list then adds
 ## `blank_credit`
 
 Present only when the plan's stock or a component is a
-[profiled blank](plan.md#profiled-blank). One row per exported feature owning an
+[profiled blank](plan.md#profiled-blank) (its `form` or a `blank` table; an
+unknown `blank` keeps the rule, every credit then `unknown`). One row per exported feature owning an
 `as_is_faces` face of a profiled supply, with `faces`: one entry per such face
 (`ref`, the kernel's `contact`, `max_gap_mm` and `supplies`, its `owners`, the
 `profile_tolerance_mm` it answers to, each band check in `requirements`, and
@@ -1970,9 +1971,16 @@ A face is credited when both checks hold:
      credited.
    - Without an exported nominal only a band narrower than 2t is decided
      (`exceeds`: no centring fits); a wider one stays `unknown`.
-   - A `position_dia` or `surface_profile` zone, and a BASIC scalar a surface
-     profile governs, combine the X and Y errors: a circle of radius t√2, so
-     the zone width must be at least 2√2·t (`needed_zone`).
+   - A BASIC scalar a surface profile governs reads the band every governing
+     profile gives it about its BASIC value (their intersection, with each
+     profile's disposition, sense and obliquity, as
+     [inspection](rules-inspection.md) reads it), checked as a drawn band; a
+     looser profile never hides a tighter one.
+   - Zones on the face itself combine the X and Y errors into a circle of
+     radius t√2. A `position_dia` zone must be at least 2√2·t wide
+     (`needed_zone`). A `surface_profile` zone w with U on the material-added
+     side (w/2 unstated) must take t√2 on each side: `t√2 ≤ U` and
+     `t√2 ≤ w − U` (`added_margin`, `removed_margin`); an unknown U is `unknown`.
    - An angle (`*_deg`), `finish_ra`, `coaxiality_dia`, `angularity_dia`, an
      unrecognised band name, a band with an unknown limit and a scalar with no
      limits stay `unknown`: a length tolerance does not bound them.
