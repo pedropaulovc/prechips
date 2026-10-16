@@ -158,18 +158,53 @@ def test_roller_gain_is_the_worst_case_cut_shift_per_contact_error(rollers, gain
 
 
 @pytest.mark.parametrize(
-    ("more", "message"),
+    ("more", "status", "message"),
     [
-        ({"sweep_deg": "20.0"}, "stops short of the arc"),
-        ({"fixture": "'sled'"}, "is a arc_sled, not the swing_arm"),
-        ({"master": "'cutter'"}, "is not in the gauges inventory"),
+        ({"sweep_deg": "20.0"}, "error", "the 20° sweep stops short of the arc"),
+        ({"fixture": "'sled'"}, "error", "is a arc_sled, not the swing_arm"),
+        ({"master": "'cutter'"}, "unknown", "is not in the gauges inventory"),
+        ({"master": "'radius-gauge'"}, "error", "is a radius_gauge, not a setting_bar"),
+        ({"guide": "unknown"}, "unknown", "contour.sweep.guide is neither pivot nor rail"),
+        ({"touch_axis": None}, "unknown", "contour.sweep.touch_axis"),
+        ({"sweep_deg": None}, "unknown", "contour.sweep.sweep_deg is unknown"),
     ],
-    ids=["short-sweep", "wrong-fixture", "not-a-gauge"],
+    ids=[
+        "short-sweep",
+        "wrong-fixture",
+        "not-a-gauge",
+        "range-gauge",
+        "no-guide",
+        "no-axis",
+        "no-sweep",
+    ],
 )
-def test_a_pivot_sweep_that_cannot_cut_the_arc_is_an_error_or_debt(tmp_path, more, message):
+def test_a_pivot_sweep_that_cannot_cut_the_arc_is_an_error_or_debt(tmp_path, more, status, message):
     row = guided_row(tmp_path, **more)
-    assert row.status in ("error", "unknown"), row.sentence
-    assert message in errors(row) + debts(row)
+    assert row.status == status, row.sentence
+    assert message in (errors(row) if status == "error" else debts(row))
+
+
+def test_a_sweep_that_reaches_the_arc_ends_within_a_dro_step_needs_no_overrun(tmp_path):
+    # The arc spans exactly 21°; a sweep a hair over one DRO step's angle short of that is
+    # short, one within it reaches the ends.
+    step = math.degrees(0.001 / 797.0)
+    short = guided_row(tmp_path / "short", sweep_deg=f"{21.0 - 1.5 * step!r}")
+    assert short.status == "error" and "needs 21.0000°" in errors(short)
+    exact = guided_row(tmp_path / "exact", sweep_deg=f"{21.0 - 0.5 * step!r}")
+    assert exact.status == "pass", exact.sentence
+    _, sweep = recipe(exact)
+    assert sweep["overrun_mm"] == 0.0
+
+
+def test_a_master_on_the_swing_arm_moves_with_its_play_at_the_touch_and_the_cut(tmp_path):
+    # A setting bar seated on the pin is set from the pin's own axis: the play counts once.
+    # A master arc pinned on the arm moves with the beam at the touch-off too: twice.
+    row = guided_row(tmp_path, master="'master'")
+    assert row.status == "pass", row.sentence
+    _, sweep = recipe(row)
+    assert sweep["master_kind"] == "master_arc"
+    assert sweep["centre_error_mm"] == pytest.approx(0.04)
+    assert sweep["cut_radius_mm"] == pytest.approx([800.16, 800.29])
 
 
 def test_the_guide_fixture_must_carry_the_work(tmp_path):
@@ -332,6 +367,17 @@ def test_the_traveler_prints_the_touch_off_and_the_sweep_not_a_dro_table(tmp_pat
     assert "handwheel axis" not in printed and "hole #" not in printed
     if guide == "rail":
         assert "rollers" in printed and "form error" in printed
+
+
+def test_a_rough_then_finish_sweep_touches_off_once_and_returns_to_the_touch(tmp_path):
+    row, printed = traveler_text(tmp_path, allowance=0.3)
+    assert row.status == "pass", row.sentence
+    assert printed.count("Spindle stopped: bring a flute") == 1
+    rough, finish = printed.split("Finish sweep:")
+    assert "Rough sweep: unlock Y only, move to Y 0.300" in rough
+    assert "return it to Y 0 (the touch)" in finish
+    # Each stage keeps X and Y locked while the arm sweeps.
+    assert rough.count("With X and Y locked") == 1 and finish.count("With X and Y locked") == 1
 
 
 def test_a_sweep_whose_cut_is_unproven_prints_a_stop(tmp_path):

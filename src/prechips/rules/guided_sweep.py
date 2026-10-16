@@ -307,7 +307,11 @@ def guided(bundle, setup, op, arc, band, label, scale):
     # How far the arc centre moves on the guide between the touch-off and the cut.
     widen = UNKNOWN
     if found is not None and guide == "pivot" and number(found["pivot_play"]):
-        widen = found["pivot_play"]
+        # A setting bar seated on the pin sets the cutter from the pin's own axis: the
+        # beam's play moves the work once, at the cut. A master on the arm moves with the
+        # beam at the touch-off too, so its play counts at both.
+        bar = record_.get("master_kind") == "setting_bar"
+        widen = found["pivot_play"] * (1 if bar else 2)
     elif found is not None and gain is not None:
         form, runout = found["rail_form_error"], found["roller_runout"]
         if number(form) and number(runout):

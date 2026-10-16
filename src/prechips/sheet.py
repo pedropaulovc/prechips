@@ -8942,9 +8942,12 @@ class _Traveler:
             elif method == "guided_sweep":
                 from prechips.sheet_sweep import steps as sweep_steps
 
-                description = sweep_steps(
-                    arc, o, labels[0] if labels else "", labels[-1] if labels else ""
+                rough = any(
+                    t.get("op") == arc.get("op") and t.get("stage") == "rough"
+                    for t in numbers.get("arc_table", [])
                 )
+                ends = (labels[0], labels[-1]) if labels else ("", "")
+                description = sweep_steps(arc, o, *ends, after_rough=rough)
                 entry["parts"].append((order(entry, arc), description, [], [], None))
                 continue
             else:
