@@ -1482,7 +1482,7 @@ A `guided_sweep` contour's `sweep` record ([manual arcs](#manual-arcs), step 4).
 | `guide` | `"pivot"` (a swing arm on a pin at the arc centre) or `"rail"` (a sled's arc rail on two rollers) |
 | `fixture` | `str`: the inventory `fixtures` item that carries the work and rides the guide (`kind = "swing_arm"` for a pivot, `"arc_sled"` for a rail); it must be the setup's `hold.fixture` |
 | `master` | `str`: the inventory `gauges` item the stationary cutter is touched to (`kind = "setting_bar"`, pivot only, or `"master_arc"`) |
-| `touch_axis` | `"+X"`, `"-X"`, `"+Y"` or `"-Y"`: the setup axis on the cutter's radial line, and the side of the arc centre the cutter stands on |
+| `touch_axis` | `"+X"`, `"-X"`, `"+Y"` or `"-Y"`: the setup axis on the cutter's radial line, and the side of the arc centre the cutter stands on; the setup frame is the work at the sweep's middle pose, so it must point from the arc centre to the arc's middle |
 | `sweep_deg` | `float`: the fixture's whole sweep, centred on the arc; at least the arc's span (360 for a full circle) |
 | `rollers_deg` | `Vector` (rail: the two rollers' angles about the arc centre from the cutter's radial line, counterclockwise from above, with the cutter at the arc's middle) |
 | `rail_deg` | `Vector` (rail: the rail's two ends, the same way) |

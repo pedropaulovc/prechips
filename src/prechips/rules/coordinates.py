@@ -1730,7 +1730,12 @@ def _arc(
             "method": method,
             **({"step_deg": step} if method in ("rotary_table", "guided_sweep") else {}),
             **(
-                {"span_deg": abs(end - start), "arc_ends_deg": [start, end]}
+                {
+                    "span_deg": abs(end - start),
+                    "arc_ends_deg": [start, end],
+                    # The cutter at the arc's middle: the sweep's mid pose.
+                    "arc_mid_setup_xy": row_at((start + end) / 2)["setup_xy"],
+                }
                 if method == "guided_sweep"
                 else {}
             ),

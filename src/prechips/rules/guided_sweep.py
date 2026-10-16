@@ -370,10 +370,40 @@ def guided(bundle, setup, op, arc, band, label, scale):
             )
     _rotation(arc, label, debts, record_, scale)
     _landmarks(arc, record_, sweep, axis, found, scale)
+    _radial(arc, record_, axis, label, errors, grid)
     if measurements:
         by_id = {entry["id"]: entry for entry in measurements}
         arc["measurements"] = [*arc.get("measurements", []), *by_id.values()]
     return errors, debts
+
+
+def _radial(arc, record_, axis, label, errors, grid):
+    """The setup frame is the work at the sweep's middle pose, the cutter on the arc's
+    middle: ``touch_axis`` must point from the arc centre to that middle, the cutter's
+    radial line, to within one DRO step of cutter travel. A touch or back-off along any
+    other axis is not radial, so it would not set the radius the recipe claims: an error.
+    A full circle has no middle; every direction is radial at some pose."""
+    middle_xy, centre = arc.get("arc_mid_setup_xy"), arc["centre_setup_xy"]
+    if arc["full_circle"] or axis not in TOUCH_AXES or not (_pair(middle_xy) and _pair(centre)):
+        return
+    middle = [middle_xy[i] - centre[i] for i in range(2)]
+    length = math.hypot(*middle)
+    if length <= 0:
+        return
+    index, side = TOUCH_AXES[axis]
+    expected = [0.0, 0.0]
+    expected[index] = float(side)
+    cosine = sum(middle[i] / length * expected[i] for i in range(2))
+    off = math.degrees(math.acos(max(-1.0, min(1.0, cosine))))
+    radius = arc["cutter_centre_radius_mm"]
+    tolerance = math.degrees(grid[0] / radius) if number(radius) and radius > 0 else 0.0
+    record_["touch_axis_off_deg"] = off
+    if off > tolerance:
+        errors.append(
+            f"{label}: the cutter's radial line at the arc's middle runs {off:.3f}° off "
+            f"{axis}: touch_axis must be the setup axis from the arc centre to the arc's "
+            "middle, or the touch and back-off are not radial"
+        )
 
 
 def _landmarks(arc, record_, sweep, axis, found, scale):

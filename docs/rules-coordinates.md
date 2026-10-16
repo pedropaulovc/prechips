@@ -431,7 +431,11 @@ naming them. Each table is recorded under `arc_table` (its joins under
   the kernel judges every one ([rules-geometry](rules-geometry.md)). The fixture
   turns the work `rotation` (viewed from above) against the cutter's travel along
   the rows in cutting order. `ends_setup_xy` are the arc's ends on the work (setup
-  XY, the sweep's start end first) where the traveler sets its stops; on a rail,
+  XY, the sweep's start end first) where the traveler sets its stops. The setup
+  frame is the work at the sweep's middle pose: `touch_axis` must run from the arc
+  centre to the arc's middle (`arc_mid_setup_xy`), the cutter's radial line, to
+  within one DRO step of cutter travel (`touch_axis_off_deg`), else an error, since
+  a touch or back-off along any other axis is not radial. On a rail,
   `roller_contacts_mm` are where each roller bears on the rail, as setup X/Y offsets
   from the spindle axis at the touch. On a rail, both rollers must bear on the rail through
   the whole sweep (each within `rail_deg` narrowed by half the sweep at both ends)

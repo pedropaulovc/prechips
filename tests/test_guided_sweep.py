@@ -184,6 +184,25 @@ def test_a_pivot_sweep_that_cannot_cut_the_arc_is_an_error_or_debt(tmp_path, mor
     assert message in (errors(row) if status == "error" else debts(row))
 
 
+@pytest.mark.parametrize("case", ["opposite-side", "rotated-frame"])
+def test_a_touch_axis_off_the_cutters_radial_line_is_an_error(tmp_path, case):
+    # The setup frame is the work at the sweep's middle pose: the touch axis must run from
+    # the arc centre to the arc's middle, else the touch and back-off are not radial.
+    if case == "opposite-side":
+        plan = guided_plan(tmp_path, touch_axis="'+Y'")
+    else:
+        plan = guided_plan(tmp_path)
+        c, s = math.cos(math.radians(5.0)), math.sin(math.radians(5.0))
+        change(
+            plan.with_name("features.toml"),
+            "x = [1.0, 0.0, 0.0]\ny = [0.0, 1.0, 0.0]",
+            f"x = [{c}, {s}, 0.0]\ny = [{-s}, {c}, 0.0]",
+        )
+    row = coordinates_row(plan, stock_bbox=SWING)
+    assert row.status == "error", row.sentence
+    assert "touch_axis must be the setup axis from the arc centre" in errors(row)
+
+
 def test_a_sweep_that_reaches_the_arc_ends_within_a_dro_step_needs_no_overrun(tmp_path):
     # The arc spans exactly 21°; a sweep a hair over one DRO step's angle short of that is
     # short, one within it reaches the ends.
