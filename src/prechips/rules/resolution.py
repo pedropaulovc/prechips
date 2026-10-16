@@ -136,6 +136,35 @@ def op_features(op):
     return [] if feature is None else [feature]
 
 
+# An op's requirement-keyed inspection tables. A key naming one of the op's listed features
+# scopes its table of requirement entries to that feature; any other key is a requirement
+# whose entry applies to every listed feature that exports it.
+INSPECTION_TABLES = ("checks", "go_no_go", "inspection_methods")
+
+
+def op_entries(op, table):
+    """``[(feature, requirement, value)]`` of the op's ``table`` in authored order: a flat
+    entry with feature None, a feature-scoped entry with its feature."""
+    names = op_features(op)
+    entries = []
+    for key, value in record(op.get(table)).items():
+        if key in names and isinstance(value, dict):
+            entries += [(key, requirement, item) for requirement, item in value.items()]
+            continue
+        entries.append((None, key, value))
+    return entries
+
+
+def op_entry(op, table, feature, requirement):
+    """The op's ``table`` entry for ``feature``'s ``requirement``: its feature-scoped entry,
+    else the flat one; None when the op has neither."""
+    scoped = record(op.get(table)).get(feature) if feature in op_features(op) else None
+    if isinstance(scoped, dict) and requirement in scoped:
+        return scoped[requirement]
+    flat = {key: value for scope, key, value in op_entries(op, table) if scope is None}
+    return flat.get(requirement)
+
+
 def op_feature(op):
     """The one feature an op cuts or works on; ``None`` when absent or an inspect list."""
     feature = op.get("feature")
@@ -403,8 +432,8 @@ def setup_items(bundle, setup):
         uses += [("fixtures", guide.get("buttons"))]
         uses += [("gauges", guide.get("template")), ("gauges", guide.get("gauge"))]
         uses += [("tools", op.get("tool")), ("holders", op.get("holder"))]
-        for key in ("checks", "missing_requirements"):
-            uses += [("gauges", gauge) for gauge in record(op.get(key)).values()]
+        uses += [("gauges", gauge) for _, _, gauge in op_entries(op, "checks")]
+        uses += [("gauges", gauge) for gauge in record(op.get("missing_requirements")).values()]
         process_holds = op.get("process_holds")
         for held in process_holds if isinstance(process_holds, list) else []:
             uses.append(("gauges", record(held).get("gauge")))

@@ -57,6 +57,8 @@ from .rules.resolution import (
     make_ops,
     make_tool,
     named_item,
+    op_entries,
+    op_entry,
     op_feature,
     op_features,
     printed_band,
@@ -7341,7 +7343,7 @@ class _Traveler:
         feature = op.get("feature")
         size = f"Ø {o(plunges.get('diameter_mm'))}"
         band = plunges.get("dia_band_mm")
-        if isinstance(band, list) and scale and "dia" not in _mapping(op.get("checks")):
+        if isinstance(band, list) and scale and op_entry(op, "checks", feature, "dia") is None:
             size += f" ({self.band([v / scale for v in band], feature, 'dia')})"
         parts.append(("each to " if len(corners) > 1 else "to ") + size)
         low, high = plunges.get("groove_z_mm", [None, None])
@@ -7492,131 +7494,68 @@ class _Traveler:
         rows = ["? inspection checks not set"] if op.get("checks") == "unknown" else []
         names = op_features(op)
         missing = _mapping(op.get("missing_requirements"))
-        methods = _mapping(op.get("inspection_methods"))
-        for requirement, reference in (_mapping(op.get("checks")) | missing).items():
-            # One drawing limit split across several features is read once, on one row.
-            owners = [n for n in names if requirement in self.features.get(n, {})] or names
-            findings = [
-                next(
-                    (
-                        f
-                        for f in self.findings
-                        if _field(f, "rule") == "inspection"
-                        and _field(f, "subject") == f"{feature}:{requirement}"
-                    ),
-                    None,
-                )
-                for feature in owners
-            ]
-            name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
-            if requirement in missing:
-                target = "(no drawing limit)"
-            else:
-                bands = [
-                    self.band(self.features.get(feature, {}).get(requirement), feature, requirement)
-                    for feature in owners
-                ]
-                target = (
-                    "?"
-                    if not bands
-                    else bands[0]
-                    if len(set(bands)) == 1
-                    else " / ".join(
-                        f"{self.feature_name(feature)} {band}"
-                        for feature, band in zip(owners, bands, strict=True)
-                    )
-                )
-            gauge = (
-                "no gauge chosen"
-                if reference in (None, "unknown")
-                else self.short_reference(reference, "gauges")
-            )
-            pair = go_no_go_pair(op, requirement)
-            unresolved = (
-                requirement in missing
-                or pair == "unknown"
-                or any(
-                    finding is None or _status(finding) in ("unknown", "unsupported")
-                    for finding in findings
-                )
-            )
-            line = f"{'? ' if unresolved else ''}{name} {target}: {gauge}"
-            if pair == "unknown":
-                line += ", GO / NO-GO sizes not set"
-            elif pair and owners:
-                line += self.go_no_go(pair, owners[0], requirement, reference)
-            datums = [
-                self.features.get(feature, {}).get("position_datums")
-                for feature in owners
-                if requirement == "position_dia"
-            ]
-            datums = next(filter(None, datums), None)
-            if datums:
-                line += " to " + "|".join(map(_text, datums))
-            method = methods.get(requirement)
-            recording_at = ""
-            if method and method != "unknown":
+        flat_methods = {r for scope, r, _ in op_entries(op, "inspection_methods") if scope is None}
+        checked = dict.fromkeys(r for _, r, _ in op_entries(op, "checks"))
+        placed = {}
+
+        def method_note(requirement, owners, method, shared):
+            """``(destination, recording_at)`` of the method note ``owners``' requirement
+            reads, placed once: a flat method serves every feature, so its sketch (keyed by
+            requirement alone) goes with it, and a scoped one serves its own features. Its
+            readings are this row's to record only when the note serves this row alone."""
+            flat = requirement in flat_methods
+            key = (requirement, None if flat else tuple(owners))
+            if key not in placed:
+                name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
                 head = f"{sid} op {op['op']} {name}"
+                if not flat:
+                    head += " — " + ", ".join(self.feature_name(feature) for feature in owners)
                 item = self.note(head, method)
-                sketch = self.inspection_sketch(setup, op, requirement)
+                sketch = self.inspection_sketch(setup, op, requirement) if flat else ""
                 if sketch:
                     item.sketch = sketch
-                destination = place(item)
-                line += f" [{destination}]"
                 has_fields = (
                     any(_FIELD.search(step) for step in item[1])
                     or any(_FIELD.search(step) for step in item[2])
                     if isinstance(item, _Steps)
                     else _FIELD.search(str(item))
                 )
-                if has_fields:
-                    recording_at = destination
-            if requirement in missing or requirement == "unknown" or not owners:
-                rows.append(line)
-                continue
-            # Equal bands retain the original read-once grouping. Distinct authored
-            # bands get distinct result associations, without copying method obligations.
-            groups = (
-                [(owners, target)]
-                if len(set(bands)) == 1
-                else [([feature], band) for feature, band in zip(owners, bands, strict=True)]
+                placed[key] = (place(item), has_fields)
+            destination, has_fields = placed[key]
+            return destination, destination if has_fields and not (flat and shared) else ""
+
+        def resolved(feature, requirement):
+            """``(gauge, GO / NO-GO pair, method)`` the op reads ``feature``'s requirement
+            with: its feature-scoped entries, else the flat ones."""
+            reference = (
+                missing[requirement]
+                if requirement in missing
+                else op_entry(op, "checks", feature, requirement)
             )
-            for group, band in groups:
-                values = [self.features.get(feature, {}).get(requirement) for feature in group]
-                known = all(
-                    value is not None
-                    and value != []
-                    and all(
-                        _known(item)
-                        or isinstance(item, str)
-                        and item.strip() not in ("", "unknown")
-                        for item in (value if isinstance(value, (list, tuple)) else [value])
-                    )
-                    for value in values
-                )
-                text = ", ".join(self.feature_name(feature) for feature in group)
-                text += " — " + line.replace(target, band, 1)
-                if not known:
-                    rows.append(text)
-                    continue
-                unit = ""
-                if requirement.endswith("_deg"):
-                    unit = "°"
-                elif requirement in TOLERANCE_REQUIREMENTS - {"finish_ra", "land_angle_deg"}:
-                    unit = self.units if self.units in ("mm", "in") else ""
-                rows.append(
-                    _Inspection(
-                        text,
-                        tuple(group),
-                        requirement,
-                        unit,
-                        qualitative=bool(pair)
-                        and pair != "unknown"
-                        or any(isinstance(value, str) for value in values),
-                        # A method owns only its exact read-once requirement group;
-                        # unrelated or separately banded results keep their own box.
-                        recording_at=recording_at if len(groups) == 1 else "",
-                    )
+            pair = go_no_go_pair(op, feature, requirement)
+            return reference, pair, op_entry(op, "inspection_methods", feature, requirement)
+
+        for requirement in [*checked, *(r for r in missing if r not in checked)]:
+            # One drawing limit split across several features is read once, on one row;
+            # features the op reads with different gauges, pairs or methods get their own.
+            gauged = [
+                n
+                for n in names
+                if requirement in missing or op_entry(op, "checks", n, requirement) is not None
+            ]
+            exporting = [n for n in gauged if requirement in self.features.get(n, {})] or gauged
+            partitions = {}
+            for feature in exporting or [None]:
+                key = json.dumps(resolved(feature, requirement), sort_keys=True)
+                partitions.setdefault(key, []).append(feature)
+            for owners in partitions.values():
+                owners = [feature for feature in owners if feature is not None]
+                reference, pair, method = resolved(owners[0] if owners else None, requirement)
+                note = None
+                if method and method != "unknown":
+                    note = method_note(requirement, owners, method, len(partitions) > 1)
+                rows += self.inspection_rows(
+                    requirement, owners, reference, pair, requirement in missing, note
                 )
         for hold in op.get("process_holds", []):
             rows.append(self.process_hold(hold))
@@ -7627,6 +7566,116 @@ class _Traveler:
                 self.note(head, note) if isinstance(note, list) else f"{head}: {self.bench(note)}"
             )
             rows.append(f"see {place(item)}")
+        return rows
+
+    def inspection_rows(self, requirement, owners, reference, pair, absent, note):
+        """The inspection cell's rows for ``requirement`` of the ``owners`` an op reads with
+        one gauge (``reference``), GO / NO-GO ``pair`` and method note (``note``:
+        ``(destination, recording_at)``, or None). ``absent``: a missing requirement, with
+        no drawing limit."""
+        findings = [
+            next(
+                (
+                    f
+                    for f in self.findings
+                    if _field(f, "rule") == "inspection"
+                    and _field(f, "subject") == f"{feature}:{requirement}"
+                ),
+                None,
+            )
+            for feature in owners
+        ]
+        name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
+        bands = [
+            self.band(self.features.get(feature, {}).get(requirement), feature, requirement)
+            for feature in ([] if absent else owners)
+        ]
+        target = (
+            "(no drawing limit)"
+            if absent
+            else "?"
+            if not bands
+            else bands[0]
+            if len(set(bands)) == 1
+            else " / ".join(
+                f"{self.feature_name(feature)} {band}"
+                for feature, band in zip(owners, bands, strict=True)
+            )
+        )
+        gauge = (
+            "no gauge chosen"
+            if reference in (None, "unknown")
+            else self.short_reference(reference, "gauges")
+        )
+        unresolved = (
+            absent
+            or pair == "unknown"
+            or any(
+                finding is None or _status(finding) in ("unknown", "unsupported")
+                for finding in findings
+            )
+        )
+        line = f"{'? ' if unresolved else ''}{name} {target}: {gauge}"
+        if pair == "unknown":
+            line += ", GO / NO-GO sizes not set"
+        elif pair and owners:
+            line += self.go_no_go(pair, owners[0], requirement, reference)
+        datums = [
+            self.features.get(feature, {}).get("position_datums")
+            for feature in owners
+            if requirement == "position_dia"
+        ]
+        datums = next(filter(None, datums), None)
+        if datums:
+            line += " to " + "|".join(map(_text, datums))
+        destination, recording_at = note or (None, "")
+        if destination:
+            line += f" [{destination}]"
+        if absent or requirement == "unknown" or not owners:
+            return [line]
+        # Equal bands retain the original read-once grouping. Distinct authored
+        # bands get distinct result associations, without copying method obligations.
+        groups = (
+            [(owners, target)]
+            if len(set(bands)) == 1
+            else [([feature], band) for feature, band in zip(owners, bands, strict=True)]
+        )
+        rows = []
+        for group, band in groups:
+            values = [self.features.get(feature, {}).get(requirement) for feature in group]
+            known = all(
+                value is not None
+                and value != []
+                and all(
+                    _known(item) or isinstance(item, str) and item.strip() not in ("", "unknown")
+                    for item in (value if isinstance(value, (list, tuple)) else [value])
+                )
+                for value in values
+            )
+            text = ", ".join(self.feature_name(feature) for feature in group)
+            text += " — " + line.replace(target, band, 1)
+            if not known:
+                rows.append(text)
+                continue
+            unit = ""
+            if requirement.endswith("_deg"):
+                unit = "°"
+            elif requirement in TOLERANCE_REQUIREMENTS - {"finish_ra", "land_angle_deg"}:
+                unit = self.units if self.units in ("mm", "in") else ""
+            rows.append(
+                _Inspection(
+                    text,
+                    tuple(group),
+                    requirement,
+                    unit,
+                    qualitative=bool(pair)
+                    and pair != "unknown"
+                    or any(isinstance(value, str) for value in values),
+                    # A method owns only its exact read-once requirement group;
+                    # unrelated or separately banded results keep their own box.
+                    recording_at=recording_at if len(groups) == 1 else "",
+                )
+            )
         return rows
 
     def inspection_sketch(self, setup, op, requirement):

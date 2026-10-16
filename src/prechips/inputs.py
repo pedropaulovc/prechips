@@ -101,6 +101,80 @@ def _prepared_blank(plan: dict, ids: list[str]) -> None:
         )
 
 
+def _inspection_tables(where: str, op: dict, names: list[str], definitions: dict) -> None:
+    """An op's ``checks``, ``go_no_go`` and ``inspection_methods``: requirement-keyed, or on
+    a multi-feature inspect op scoped to one listed feature (``{ <feature> = { <requirement>
+    = ... } }``). A scoped requirement is one its feature exports, a requirement is flat or
+    scoped in one table, never both, and a GO / NO-GO pair or scoped method has a checks gauge
+    for every feature it applies to."""
+    from prechips.rules.resolution import INSPECTION_TABLES, op_entries, op_entry
+
+    exported = {name: set(_exported(definitions[name])) for name in names}
+    every = set().union(*exported.values())
+    for table in INSPECTION_TABLES:
+        for key, value in (op.get(table) if isinstance(op.get(table), dict) else {}).items():
+            # A table of entries, never a flat value (a GO / NO-GO pair is a table too).
+            scoping = isinstance(value, dict) and not (
+                table == "go_no_go" and {"go", "no_go"} & set(value)
+            )
+            if key not in names and scoping:
+                raise BadInput(
+                    f"{where} {table}.{key} scopes entries to a feature the op does not list; "
+                    f"scope them to one of {', '.join(names)}."
+                )
+            if key not in names:
+                continue
+            if key in every:
+                raise BadInput(
+                    f"{where} {table}.{key} is both a listed feature and an exported "
+                    "requirement; the key is ambiguous."
+                )
+            if len(names) == 1:
+                raise BadInput(
+                    f"{where} {table}.{key} scopes entries to the op's only feature; a "
+                    f"single-feature op keys {table} by requirement alone."
+                )
+            if not scoping:
+                raise BadInput(
+                    f"{where} {table}.{key} names a listed feature: scope its entries as "
+                    f"{table}.{key}.<requirement>."
+                )
+        entries = op_entries(op, table)
+        flat = {requirement for scope, requirement, _ in entries if scope is None}
+        for scope, requirement, _ in entries:
+            if scope is None and table == "checks" and requirement not in every:
+                raise BadInput(
+                    f"{where} checks.{requirement} is not in the exported requirements; use "
+                    "missing_requirements for an absent requirement."
+                )
+            if scope is None:
+                continue
+            if requirement not in exported[scope]:
+                raise BadInput(
+                    f"{where} {table}.{scope}.{requirement} is not one of {scope}'s exported "
+                    "requirements; use missing_requirements for an absent requirement."
+                )
+            if requirement in flat:
+                raise BadInput(
+                    f"{where} {table}.{requirement} is given both for every listed feature "
+                    f"and for {scope} alone; give it flat or per feature, not both."
+                )
+            if table != "checks" and op_entry(op, "checks", scope, requirement) is None:
+                raise BadInput(
+                    f"{where} {table}.{scope}.{requirement} names no checks gauge for "
+                    f"{scope}; it needs a checks entry for that feature's {requirement}."
+                )
+        for requirement in flat if table == "go_no_go" else ():
+            owners = [name for name in names if requirement in exported[name]]
+            if not owners or any(
+                op_entry(op, "checks", name, requirement) is None for name in owners
+            ):
+                raise BadInput(
+                    f"{where} go_no_go.{requirement} names no checks gauge; a GO / NO-GO pair "
+                    "needs its checks entry."
+                )
+
+
 def _load(path: Path, model: type[InputModel], kind: str) -> tuple[dict, str]:
     with _span(kind, path):
         try:
@@ -239,23 +313,7 @@ def load_bundle(
                     )
             label = "/".join(names)
             exported = {item for name in names for item in _exported(definitions[name])}
-            checks = op.get("checks")
-            if isinstance(checks, dict):
-                for requirement in checks:
-                    if requirement not in exported:
-                        raise BadInput(
-                            f"{setup['id']}:{op['op']}: {label} checks.{requirement} "
-                            "is not in the exported requirements; use missing_requirements "
-                            "for an absent requirement."
-                        )
-            limits = op.get("go_no_go")
-            if isinstance(limits, dict):
-                for requirement in limits:
-                    if not isinstance(checks, dict) or requirement not in checks:
-                        raise BadInput(
-                            f"{setup['id']}:{op['op']}: {label} go_no_go.{requirement} "
-                            "names no checks gauge; a GO / NO-GO pair needs its checks entry."
-                        )
+            _inspection_tables(f"{setup['id']}:{op['op']}: {label}", op, names, definitions)
             missing = op.get("missing_requirements")
             if isinstance(missing, dict):
                 for requirement in missing:

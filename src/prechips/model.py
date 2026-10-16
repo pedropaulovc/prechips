@@ -7,7 +7,15 @@ import re
 from datetime import date
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, create_model, model_serializer, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    create_model,
+    model_serializer,
+    model_validator,
+)
 
 type Unknown = Literal["unknown"]
 UNKNOWN: Unknown = "unknown"
@@ -396,6 +404,18 @@ class GoNoGo(InputModel):
         return self
 
 
+def _requirement_pairs(value: dict) -> dict:
+    """A feature's scoped table keys requirements: a malformed pair (``go`` / ``no_go``
+    keys) must fail as a pair, never pass as a table of requirement entries."""
+    if {"go", "no_go"} & set(value):
+        raise ValueError("A GO / NO-GO pair needs two positive sizes, go and no_go.")
+    return value
+
+
+# One listed feature's GO / NO-GO pairs, requirement -> pair.
+type ScopedGoNoGo = Annotated[dict[str, GoNoGo | Unknown], AfterValidator(_requirement_pairs)]
+
+
 class ProcessHold(InputModel):
     """A shop limit inside one drawing requirement band, held for a stated process reason
     (a downstream fit, a clocking stop): printed as a process hold, never a drawing limit.
@@ -573,13 +593,16 @@ Operation = record(
         "to_z_cite": Citations,
         "note_cite": Citations,
         "faces": Annotated[list[str], Field(min_length=1)],
-        "checks": dict[str, str],
+        # Requirement -> gauge. A multi-feature inspect op may scope entries to one of its
+        # listed features instead: feature -> {requirement -> gauge}.
+        "checks": dict[str, str | dict[str, str]],
         # Requirement -> the GO / NO-GO sizes its `checks` gauge uses (a limit check), or
-        # "unknown" when the pair is undecided.
-        "go_no_go": dict[str, GoNoGo | Unknown],
+        # "unknown" when the pair is undecided; scoped per listed feature like `checks`.
+        "go_no_go": dict[str, GoNoGo | Unknown | ScopedGoNoGo],
         "missing_requirements": dict[str, str],
-        "inspection_methods": dict[str, Procedure],
-        # Requirement -> the labelled sketches its inspection method's worksheet prints.
+        # Requirement -> procedure; scoped per listed feature like `checks`.
+        "inspection_methods": dict[str, Procedure | dict[str, Procedure]],
+        # Requirement -> the labelled sketches its flat inspection method's worksheet prints.
         "inspection_views": dict[str, Annotated[list[InspectionView], Field(min_length=1)]],
         "to_z_band": Vector,
         "contour": Contour,
@@ -881,16 +904,20 @@ class Plan(InputModel):
                 if isinstance(op.inspection_views, dict):
                     if op.do != "inspect":
                         raise ValueError(f"{where}: only an inspect op declares inspection views.")
-                    methods = op.inspection_methods
+                    # Views are keyed by requirement alone: they illustrate a flat method.
+                    methods = (
+                        op.inspection_methods if isinstance(op.inspection_methods, dict) else {}
+                    )
                     unmatched = [
                         requirement
                         for requirement in op.inspection_views
-                        if not isinstance(methods, dict) or requirement not in methods
+                        if requirement not in methods or isinstance(methods[requirement], dict)
                     ]
                     if unmatched:
                         raise ValueError(
                             f"{where}: inspection views for {', '.join(unmatched)} illustrate "
-                            "no stated inspection method."
+                            "no stated inspection method (views are keyed by requirement "
+                            "alone, so they illustrate a flat inspection_methods entry)."
                         )
         return self
 

@@ -129,8 +129,9 @@ height reading is taken. The kernel draws the sketch on the stock the op's setup
 leaves ([renders](rules-geometry.md#renders)) and the traveler prints it at the
 head of that requirement's worksheet or inspection note
 ([report binding](report-and-telemetry.md#kernel-renders)). Views on an op that is
-not `inspect`, or for a requirement with no `inspection_methods` entry, are
-`BadInput`.
+not `inspect`, or for a requirement with no flat `inspection_methods` entry, are
+`BadInput`: views are keyed by requirement alone, so a requirement whose method is
+scoped per feature has none.
 
 The traveler retains every authored view, in list order, with its own `title`.
 Each view prints as a complete figure attached once to the original requirement's
@@ -1159,11 +1160,11 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `approach_mm` | `float` |
 | `to_z_cite` | `Citations` |
 | `note_cite` | `Citations` |
-| `checks` | `dict[str, str]` |
-| `go_no_go` | `dict[str, GoNoGo \| Unknown]` (each key also in `checks`) |
+| `checks` | `dict[str, str \| dict[str, str]]` (a nested table scopes entries to one listed feature) |
+| `go_no_go` | `dict[str, GoNoGo \| Unknown \| dict[str, GoNoGo \| Unknown]]` (each entry needs its feature's `checks` gauge) |
 | `missing_requirements` | `dict[str, str]` |
-| `inspection_methods` | `dict[str, str \| list[str]]` |
-| `inspection_views` | `dict[str, list[InspectionView]]` |
+| `inspection_methods` | `dict[str, str \| list[str] \| dict[str, str \| list[str]]]` |
+| `inspection_views` | `dict[str, list[InspectionView]]` (flat only) |
 | `to_z_band` | `Vector` |
 | `contour` | `Contour` |
 | `stock_removal_bounds` | `Bounds` |
@@ -1171,12 +1172,39 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `angle_window_deg` | `[Number, Number]` |
 | `cut_plane` | `SawPlane` (saw cut-off only) |
 
-An `inspect` op may name several features (`feature = ["a", "b"]`) when one
-drawing limit is split across them: its `checks` and `inspection_methods` keys
-are requirement names, valid when any named feature exports them, and apply to
-every named feature that does. The inspection rule credits the op to each of
-those features; the sheet prints one row per requirement naming every feature.
-A list on any other action is `BadInput`.
+An `inspect` op may name several features (`feature = ["a", "b"]`): one
+drawing limit split across them, or one inspection station reading several. A
+flat `checks`, `go_no_go` or `inspection_methods` key is a requirement name, valid
+when any named feature exports it, and applies to every named feature that does.
+A key naming one of the listed features instead scopes a table of requirement
+entries to that feature, so one station reads the same requirement name with a
+different gauge on each:
+
+```toml
+feature = ["pivot_bore", "hub_od", "hub_faces"]
+checks = { pivot_bore = { dia = "pin-gauges" }, hub_od = { dia = "micrometers/0-1in" }, length = "micrometers/0-1in" }
+go_no_go = { pivot_bore = { dia = { go = 6.500, no_go = 6.530 } } }
+```
+
+Each feature's entry is its scoped one, else the flat one. Flat and scoped entries
+mix in one table, but one requirement is flat or scoped within a table, never both
+(a flat entry already applies to every feature exporting it). Across tables they
+mix freely: a flat `go_no_go.dia` pairs with scoped `checks`. `BadInput` when a
+scope key is not one of the op's features, when a scoped requirement is not one
+its feature exports (use `missing_requirements`), when a key is both a listed
+feature and an exported requirement (ambiguous), when one requirement is given
+both flat and scoped, and when a `go_no_go` pair or scoped method has no `checks`
+gauge for its feature's requirement (a flat pair needs one on every listed feature
+exporting it). A single-feature op keys these tables by requirement alone, so a
+scope key on it is `BadInput`: there is nothing to tell apart, and one spelling
+keeps every single-feature reader flat. `missing_requirements` and
+`inspection_views` stay flat: a view illustrates a flat `inspection_methods`
+entry, never a scoped one. The inspection rule credits the op to each feature
+it reads, with that feature's own gauge, pair and method. The sheet prints the op
+as one station card: one row per requirement, naming every feature that shares a
+gauge, pair and method, and its own row for each feature read differently. A
+scoped method prints once as its own note headed with its feature; a flat method
+prints once for every feature. A list on any other action is `BadInput`.
 
 **Finishing route.** `deburr` and `coating` are manual bench actions. A
 `coating` op (black oxide, paint, oil) names its `process`: an outside
@@ -1207,7 +1235,7 @@ A `GoNoGo` is `{ go = <mm>, no_go = <mm> }`, both positive and different: the tw
 limit-gauge sizes a limit check uses. The GO size must pass the work (enter a hole,
 pass over a boss or shaft) and the NO-GO size must not. An op's
 `go_no_go.<requirement>` is the pair its `checks.<requirement>` gauge uses for the
-drawing band; a `process_holds` entry's `go_no_go` is the pair for the hold band.
+drawing band (`go_no_go.<feature>.<requirement>` scoped on a multi-feature op); a `process_holds` entry's `go_no_go` is the pair for the hold band.
 Both sizes must be listed in the gauge's `sizes_mm` and lie inside the band they
 accept, the drawing band as printed (rounded inward) or the hold band; see
 [inspection rules](rules-inspection.md#go--no-go-limit-checks). The op row prints

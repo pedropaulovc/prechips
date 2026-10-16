@@ -100,6 +100,9 @@ from prechips.rules.resolution import (
     UNKNOWN,
     identity,
     number,
+    op_entries,
+    op_entry,
+    op_features,
     record,
     resolve,
     tool_numbers,
@@ -554,25 +557,39 @@ def _kernel_stock(bundle, setup, scale):
 
 def _no_go(op):
     """Inspection text that sends a NO-GO plug through an op checked by GO / NO-GO plugs."""
-    pairs = {
-        req: pair.get("no_go")
-        for req, pair in record(op.get("go_no_go")).items()
-        if isinstance(pair, dict) and "no_go" in pair
-    }
+    # (requirement, NO-GO size) -> the features that pair gauges, each read with its own
+    # (feature-scoped, else flat) method.
+    pairs = {}
+    for name in op_features(op) or [None]:
+        entries = op_entries(op, "go_no_go")
+        for req in dict.fromkeys(r for scope, r, _ in entries if scope in (None, name)):
+            pair = op_entry(op, "go_no_go", name, req)
+            if isinstance(pair, dict) and "no_go" in pair:
+                pairs.setdefault((req, pair["no_go"]), []).append(name)
+    # A hold's pair counts unless the op's own pair already gauges that feature's requirement.
     for hold in op.get("process_holds") or []:
         pair = record(record(hold).get("go_no_go"))
-        if "no_go" in pair:
-            pairs.setdefault(hold.get("requirement"), pair["no_go"])
-    methods = record(op.get("inspection_methods"))
-    sources = [(req, t) for req in pairs for t in _texts(methods.get(req))]
+        name, req = hold.get("feature"), hold.get("requirement")
+        if "no_go" in pair and not isinstance(op_entry(op, "go_no_go", name, req), dict):
+            pairs.setdefault((req, pair["no_go"]), []).append(name)
+    sources = list(
+        dict.fromkeys(
+            (key, t)
+            for key, names in pairs.items()
+            for name in names
+            for t in _texts(op_entry(op, "inspection_methods", name, key[0]))
+        )
+    )
     if len(pairs) == 1:
-        (req,) = pairs
-        sources += [(req, t) for key in ("inspection_note", "note") for t in _texts(op.get(key))]
+        (key,) = pairs
+        sources += [
+            (key, t) for field in ("inspection_note", "note") for t in _texts(op.get(field))
+        ]
     found = []
-    for req, text in sources:
+    for (req, no_go), text in sources:
         for _, _, clause in _clauses(re.sub(r"\([^()]*\)", " ", text)):
             if _THROUGH.match(clause) and not _NEGATION.search(clause):
-                size = f" {pairs[req]:g}" if number(pairs[req]) else ""
+                size = f" {no_go:g}" if number(no_go) else ""
                 found.append(
                     f"the {req} inspection text passes the NO-GO plug through "
                     f'("{clause.strip()}"), but the go/no-go check\'s NO-GO{size} must not enter'
@@ -1016,7 +1033,7 @@ def evaluate(bundle):
         for op in setup.get("ops", []):
             texts = [
                 t for key in ("note", "inspection_note", "layout") for t in _texts(op.get(key))
-            ] + [t for v in record(op.get("inspection_methods")).values() for t in _texts(v)]
+            ] + [t for _, _, v in op_entries(op, "inspection_methods") for t in _texts(v)]
             checks = [
                 _tool_claims(bundle, setup, texts, frames),
                 _restated_jaw_heights(hold, texts),
