@@ -353,10 +353,52 @@ def guided(bundle, setup, op, arc, band, label, scale):
                 f"R{low:g} to R{high:g} mm band"
             )
     _rotation(arc, label, debts, record_, scale)
+    _landmarks(arc, record_, sweep, axis, found, scale)
     if measurements:
         by_id = {entry["id"]: entry for entry in measurements}
         arc["measurements"] = [*arc.get("measurements", []), *by_id.values()]
     return errors, debts
+
+
+def _landmarks(arc, record_, sweep, axis, found, scale):
+    """Where the operator sets the sweep's stops and the rollers: ``ends_setup_xy``, the
+    arc's ends on the work (setup XY, plan units) in cutting order, the first where the
+    sweep starts (a full circle has none); and, on a rail, ``roller_contacts_mm``, each
+    roller's contact on the rail as a setup X/Y offset (mm) from the spindle axis at the
+    touch, the cutter on its nominal cutter-centre radius."""
+    centre, rows = arc["centre_setup_xy"], arc["rows"]
+    ends = arc.get("arc_ends_deg")
+    wall, cutter = arc["wall_radius_mm"], arc["cutter_centre_radius_mm"]
+    if not arc["full_circle"] and isinstance(ends, list) and _pair(centre) and rows:
+        found_rows = [
+            next((r for r in rows if abs(r["angle_deg"] - angle) <= _JOIN_TOL), None)
+            for angle in ends
+        ]
+        if all(r is not None and _pair(r["setup_xy"]) for r in found_rows):
+            points = [
+                [centre[i] + wall / cutter * (r["setup_xy"][i] - centre[i]) for i in range(2)]
+                for r in found_rows
+            ]
+            first = rows[0]["angle_deg"]
+            if abs(first - ends[1]) < abs(first - ends[0]):
+                points.reverse()
+            record_["ends_setup_xy"] = points
+    rollers, radius = sweep.get("rollers_deg"), (found or {}).get("rail_radius")
+    if record_.get("guide") != "rail" or axis not in TOUCH_AXES:
+        return
+    if not (_pair(rollers) and number(radius)):
+        return
+    index, side = TOUCH_AXES[axis]
+    radial = [0.0, 0.0]
+    radial[index] = float(side)
+    tangent = [-radial[1], radial[0]]  # counterclockwise from above
+    reach = cutter * scale
+    contacts = []
+    for angle in rollers:
+        out = radius * trig.cos(math.radians(angle)) - reach
+        along = radius * trig.sin(math.radians(angle))
+        contacts.append([radial[i] * out + tangent[i] * along for i in range(2)])
+    record_["roller_contacts_mm"] = contacts
 
 
 def _rotation(arc, label, debts, record_, scale):

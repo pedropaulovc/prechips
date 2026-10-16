@@ -430,7 +430,10 @@ naming them. Each table is recorded under `arc_table` (its joins under
   (`path_mm` of cutter travel along the work), the arc's own ends kept as rows, and
   the kernel judges every one ([rules-geometry](rules-geometry.md)). The fixture
   turns the work `rotation` (viewed from above) against the cutter's travel along
-  the rows in cutting order. On a rail, both rollers must bear on the rail through
+  the rows in cutting order. `ends_setup_xy` are the arc's ends on the work (setup
+  XY, the sweep's start end first) where the traveler sets its stops; on a rail,
+  `roller_contacts_mm` are where each roller bears on the rail, as setup X/Y offsets
+  from the spindle axis at the touch. On a rail, both rollers must bear on the rail through
   the whole sweep (each within `rail_deg` narrowed by half the sweep at both ends)
   and must not lie on one line through the centre, else an error. A guide fixture
   that is not the hold's or not the guide's kind, a master that is not a setting

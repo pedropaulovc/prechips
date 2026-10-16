@@ -1729,7 +1729,11 @@ def _arc(
             "op": op["op"],
             "method": method,
             **({"step_deg": step} if method in ("rotary_table", "guided_sweep") else {}),
-            **({"span_deg": abs(end - start)} if method == "guided_sweep" else {}),
+            **(
+                {"span_deg": abs(end - start), "arc_ends_deg": [start, end]}
+                if method == "guided_sweep"
+                else {}
+            ),
             **({"cusp_mm": contour["cusp_mm"]} if method == "stairs" and angles else {}),
             "centre_model_xy": model_centre[:2],
             "centre_setup_xy": centre_xy,

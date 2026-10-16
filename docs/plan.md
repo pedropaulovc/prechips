@@ -1670,14 +1670,19 @@ uses the 1898 manual arc method:
    undeclared, unmeasured or flagged guide or master fact (a rail is never
    perfect), or an unknown guide, axis, sweep, rollers or rail ends, is unknown,
    with a `measure:` instruction for each physical fact. The traveler prints no
-   DRO table for it: it prints the guide's set-up (the setting bar seated on the
-   pin, or the rollers' angles and the rail's carried form error and runout), the
-   touch-off (spindle stopped, feeding one axis), the X/Y lock and a blank for the
-   DRO reading at the touch (the setup's zero is never reset), a
-   rough stage's one-axis back-off (a finish after it returns to the touch), the
-   worst-case cut radius against the band, then the sweep: its direction viewed
-   from above, its angle and the cutter's run past each end. A cut radius or sweep
-   not established prints a STOP.
+   DRO table for it (its contour heading and the op row's pointer name a guided
+   sweep): it prints the guide's set-up (the setting bar seated on the pin, or the
+   rollers' angles, where each bears on the rail as an X/Y offset from the spindle
+   axis, and the rail's carried form error and runout), the touch-off (spindle
+   stopped, feeding one axis; the other axis needs no setting, since every point of
+   the master's touch face is at its radius from the centre), the X/Y lock and a
+   blank for the DRO reading at the touch (the setup's zero is never reset), the
+   master taken off the sweep's path, a rough stage's one-axis back-off (a finish
+   after it returns to the touch), the worst-case cut radius against the band, a
+   stop block at each end of the sweep (where the cutter stands on the work, past
+   the arc's ends by the overrun), then the sweep: spindle started, its direction
+   viewed from above, its angle and cutter travel, and the time it takes at the
+   op's starting feed. A cut radius or sweep not established prints a STOP.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.

@@ -2935,6 +2935,7 @@ class _Traveler:
         self.setup_measurement_ids = {}
         # Ops of the current setup with a block on its contour sheet; set by contours().
         self.contour_ops = set()
+        self.sweep_ops = set()  # those whose block is a guided sweep's recipe
         # (shop-made reference, its poses) -> the setup whose sheet 2 prints its table.
         self.shop_made_homes = {}
         # Setup-frame places (axis -> values) of the fits on the shop-made tables being
@@ -8314,7 +8315,8 @@ class _Traveler:
             if instruction and not finishing:
                 boxes.append(_Note(instruction))
             if str(op["op"]) in self.contour_ops:
-                boxes.append(_Plain(f"See contour table on {where['contours']}"))
+                what = "guided sweep" if str(op["op"]) in self.sweep_ops else "contour table"
+                boxes.append(_Plain(f"See {what} on {where['contours']}"))
             for text, blocked in getattr(self, "contour_stop_rows", {}).items():
                 if str(op["op"]) in blocked:
                     boxes.append(_Box("STOP: " + text))
@@ -8947,7 +8949,8 @@ class _Traveler:
                     for t in numbers.get("arc_table", [])
                 )
                 ends = (labels[0], labels[-1]) if labels else ("", "")
-                description = sweep_steps(arc, o, *ends, after_rough=rough)
+                feed = self.records.get(("speeds_feeds", subject), {}).get("feed_mm_min")
+                description = sweep_steps(arc, o, *ends, after_rough=rough, feed=feed)
                 entry["parts"].append((order(entry, arc), description, [], [], None))
                 continue
             else:
@@ -9207,6 +9210,12 @@ class _Traveler:
             )
         # The op rows on the front sheet point at these blocks.
         self.contour_ops = set(blocks)
+        # Ops whose block is a guided sweep's recipe: no cutter-centre table (#255).
+        self.sweep_ops = {
+            str(arc.get("op"))
+            for arc in numbers.get("arc_table", []) or []
+            if arc.get("method") == "guided_sweep"
+        }
         if not blocks:
             return ""
         html = []
@@ -9363,6 +9372,8 @@ class _Traveler:
                     numbers.get("x_display"), "X: ? radius or diameter"
                 )
                 if self.lathe(setup)
+                else "guided sweep: X / Y locked, the fixture moves the work"
+                if set(blocks) <= self.sweep_ops
                 else "cutter-centre X / Y"
             )
             + "</h2>"

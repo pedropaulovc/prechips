@@ -363,10 +363,65 @@ def test_the_traveler_prints_the_touch_off_and_the_sweep_not_a_dro_table(tmp_pat
     assert "touch" in printed.lower()
     assert "sweep" in printed.lower()
     assert "25°" in printed
-    # No cutter-centre DRO table: no row coordinates are printed for the sweep.
+    # No cutter-centre DRO table: no row coordinates are printed for the sweep, and the
+    # heading says the work moves, not the cutter.
     assert "handwheel axis" not in printed and "hole #" not in printed
+    assert "guided sweep: X / Y locked, the fixture moves the work" in printed
+    assert "cutter-centre X / Y" not in printed
+    # The touch sets the radius anywhere on the master, which is then taken off the path;
+    # stops at the arc's ends bound the sweep, and the spindle starts only then.
+    assert "X needs no setting" in printed
+    lift = "remove the setting bar" if guide == "pivot" else "lift R800 master arc off its pins"
+    assert lift in printed and "nothing of it may stay in the sweep's path" in printed
+    assert "Set the sweep's stops" in printed and "clamp a stop block" in printed
+    assert "start the spindle clockwise" in printed
     if guide == "rail":
         assert "rollers" in printed and "form error" in printed
+        assert "set the rollers so each bears on the rail about X" in printed
+
+
+def test_the_sweep_names_its_stops_at_the_arc_ends_and_the_rollers_from_the_spindle(tmp_path):
+    row = guided_row(tmp_path, "rail")
+    table, sweep = recipe(row)
+    centre = table["centre_setup_xy"]
+    # The arc's ends on the work, the sweep's start end first.
+    first, last = sweep["ends_setup_xy"]
+    assert math.dist(first, centre) == pytest.approx(800.0)
+    assert math.dist(last, centre) == pytest.approx(800.0)
+    assert math.dist(first, table["rows"][0]["setup_xy"]) < math.dist(
+        last, table["rows"][0]["setup_xy"]
+    )
+    # Rollers at ±15° bear on the R850 rail 850 sin 15° either side of the spindle along X
+    # and 850 cos 15° - 797 beyond it along -Y (the cutter's radial side).
+    contacts = sorted(sweep["roller_contacts_mm"])
+    reach = 850.0 * math.cos(math.radians(15.0)) - 797.0
+    along = 850.0 * math.sin(math.radians(15.0))
+    assert contacts[0] == pytest.approx([-along, -reach])
+    assert contacts[1] == pytest.approx([along, -reach])
+
+
+def test_the_sweep_is_paced_from_the_ops_feed():
+    from prechips.sheet_sweep import steps
+
+    arc = {
+        "stage": "finish",
+        "spindle_rotation": "cw",
+        "dro_tip_z": -1.0,
+        "guided": {
+            "guide": "pivot",
+            "master_kind": "setting_bar",
+            "touch_axis": "-Y",
+            "touch_feed": "-Y",
+            "rotation": "counterclockwise",
+            "cut_radius_mm": [800.08, 800.14],
+            "sweep_deg": 25.0,
+            "path_mm": 120.0,
+            "overrun_mm": 10.0,
+        },
+    }
+    printed = " ".join(steps(arc, str, "P1", "P3", feed=60.0))
+    assert "at about the op's 60 mm/min feed: 120 s from stop to stop" in printed
+    assert "to the other stop (P3)" in printed
 
 
 def test_a_rough_then_finish_sweep_touches_off_once_and_returns_to_the_touch(tmp_path):
