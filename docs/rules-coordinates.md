@@ -224,7 +224,7 @@ with mirrored sides explicit. Degenerate joins do not become invented paths.
 
 **Manual arcs.** The mill is manual: one handwheel moves at a time, so no
 printed move turns two axes together (no MDI, no G-code, no continuous
-circle). An arc is cut by one of four `contour.method`s
+circle). An arc is cut by one of five `contour.method`s
 ([plan](plan.md#manual-arcs)); authoring the former `arc_table` is an error
 naming them. Each table is recorded under `arc_table` (its joins under
 `line_table`) with its `method`.
@@ -404,6 +404,42 @@ naming them. Each table is recorded under `arc_table` (its joins under
   `max_work` are errors; unknown dial, centre or swing facts, a table
   flagged to verify, or a `max_work`/`bore_dia` whose own record is not
   trusted are unknown, the untrusted fact named in `numbers.measurements`.
+- `guided_sweep` (finish; rows every `step_deg` over the whole sweep,
+  `rules/guided_sweep.py`): the work rides the setup's `hold.fixture`, named by
+  `contour.sweep.fixture`, which holds it to rotation about the arc centre on a
+  `pivot` (`kind = "swing_arm"`) or a `rail` (`kind = "arc_sled"`, two rollers at
+  `rollers_deg`, the rail's ends at `rail_deg`). The stationary cutter is touched
+  to `contour.sweep.master` (a `setting_bar` on the pivot pin or a `master_arc` on
+  the fixture) feeding along `touch_axis` from the scrap side (`touch_feed`), and
+  X and Y are locked (`locked_axes`; `moves = "fixture"`): the cutter's own size
+  never enters the cut radius. The worst-case cut (`cut_radius_mm`) is the master's
+  measured `radius_limits` (`master_radius_mm`), moved off the line by a rough
+  stage's back-off (`back_off_mm`: the allowance rounded off the line onto the DRO
+  grid, printed as `back_off_dro` on the touch axis from a zero set at the touch),
+  widened by `centre_error_mm`: the swing arm's measured `pivot_play` (doubled
+  for a master arc on the arm, which moves with the beam at the touch-off too), or
+  `2 × roller_gain × (rail_form_error + roller_runout / 2)` with
+  `roller_gain = (|sin a| + |sin b|) / |sin(a − b)|` for rollers at `a`, `b`
+  degrees from the cutter's radial line: each contact errs at the touch-off and
+  again at the cut, and the sled's centre translates by both through the rollers'
+  geometry. It must lie inside the radial band (`band_mm`; a rough stage's moved
+  off the line by its allowance), else an error. `sweep_deg`, centred on the arc,
+  must reach both arc ends (`span_deg`, the cutter-centre span) to within one DRO
+  step of cutter travel, else an error; the rows run `overrun_mm` past each end
+  (`path_mm` of cutter travel along the work), the arc's own ends kept as rows, and
+  the kernel judges every one ([rules-geometry](rules-geometry.md)). The fixture
+  turns the work `rotation` (viewed from above) against the cutter's travel along
+  the rows in cutting order. On a rail, both rollers must bear on the rail through
+  the whole sweep (each within `rail_deg` narrowed by half the sweep at both ends)
+  and must not lie on one line through the centre, else an error. A guide fixture
+  that is not the hold's or not the guide's kind, a master that is not a setting
+  bar or master arc, or a setting bar on a rail is an error. An unknown guide,
+  fixture, master, axis, sweep, rollers or rail ends, a fixture or master flagged
+  to verify, and a `pivot_play`, `rail_form_error`, `roller_runout` or
+  `radius_limits` without its own complete `measured` record (`rail_radius` is
+  read as declared) are unknown, each untrusted fact named in
+  `numbers.measurements` with a `measure:` instruction: an undeclared form error
+  is never a perfect rail.
 
 Every manual-arc table is cut in the plan's feature units (`mm` or `in`, else
 unknown) and records its millimetre facts (`*_mm`) in millimetres: the cutter,
@@ -414,7 +450,7 @@ A rough stage's leftover (`stock_left_mm`) goes to the file
 `numbers.max_filing_stock_mm` (`stock_cap_mm`), else an error. The cap is
 unknown, never zero or a pass, when absent, negative, uncited or not marked
 `numbers_verify.max_filing_stock_mm = false`. A rough whose claimed faces a
-later `stairs`/`chain_drill`/`chords`/`rotary_table` op cuts again before any
+later `stairs`/`chain_drill`/`chords`/`rotary_table`/`guided_sweep` op cuts again before any
 file reaches them leaves its stock to the last such op, the one that hands the
 faces to the file (`recut_by`), instead of the cap. The claim test does not
 compare depth: an op between them may cut the same faces from the other side.
@@ -805,14 +841,15 @@ withheld, numbers `allowance_errors`):
 
 A manual arc that cuts into the part or cannot be cut (a stair or hole inside the
 line, leftover over the filing cap, a sagitta or chord face outside the band, a
-slanted chord without a rotary table, a rotary-table recipe off its axis, or an
-authored `arc_table`) appends (error; the stage's rows are withheld, numbers
+slanted chord without a rotary table, a rotary-table recipe off its axis, a
+guided sweep whose worst-case cut leaves the band or whose sweep, guide, rollers or
+master cannot cut it, or an authored `arc_table`) appends (error; the stage's rows are withheld, numbers
 `arc_errors`):
 
 ` Manual arc error: op {op} {stage}: … .` (`;`-joined)
 
 Unknown manual-arc inputs (cutter, cusp/pitch/count/step, filing cap, rotary
-dial, centre or swing) append (unknown; numbers `arc_debts`):
+dial, centre or swing, a guided sweep's guide, master or sweep facts) append (unknown; numbers `arc_debts`):
 
 ` Manual arc debt: op {op} {stage}: … .` (`;`-joined)
 

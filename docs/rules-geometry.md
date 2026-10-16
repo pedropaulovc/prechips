@@ -977,6 +977,18 @@ protected-leave material never taken): the box is then its removal, as for
 any bounded op. It is not a demonstrated toolpath or measured execution. An
 explicit break-out/chisel phase or schema is tracked in
 [#213](https://github.com/pedropaulovc/prechips/issues/213), not implied here.
+A `guided_sweep` table ([rules-coordinates](rules-coordinates.md), issue
+[#255](https://github.com/pedropaulovc/prechips/issues/255)) is a driven path in
+the work's frame: the setup frame rides the work on its swing arm or sled, so the
+locked cutter traces the printed cutter-centre arc in it, and the kernel credits
+and checks it exactly like any milling table (corridor beside the claimed wall,
+the rows as chords, a cutter cylinder at every row). Its rows span the whole
+declared sweep, so the cutter's run past each arc end is judged too: a run into
+finished material (a tip wall rising at a concave end) is a rule A′ hit the
+coordinates rule cannot see. The carrier's own `solids` (posed by `hold.pose`)
+move with the work and are checked in the same frame; the pivot post or the
+rollers fixed to the table move relative to the work and are not drawn. No
+`freecad_job.py` code knows the method.
 **Rule A′** limits every printed table, row by row: a printed
 row is an accessibility error naming the row when its cutter meets the finished
 part or the op's rough leave (its guard), a fixture component, stock outside a
