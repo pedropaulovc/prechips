@@ -341,7 +341,7 @@ def recipe(bundle, setup, op, arc, band, label, scale):
     gain over the sweep (:func:`line_gain`, about 1:1). The widened wall must lie inside
     the band. A trammel cannot back off, so a rough stage is an error."""
     from .coordinates import _WALL_TOL, _pair
-    from .guided_sweep import _rotation, _sweep_span
+    from .guided_sweep import _rotation, _row_spacing, _sweep_span
     from .resolution import UNKNOWN, number, record
 
     contour = record(op.get("contour"))
@@ -412,6 +412,7 @@ def recipe(bundle, setup, op, arc, band, label, scale):
     grid = (1e-9, 9)  # the DRO sets nothing: a sweep's reach is judged exactly
     sweep_deg = sweep.get("sweep_deg", UNKNOWN)
     _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid)
+    _row_spacing(contour, label, errors)
     centre, middle = arc["centre_setup_xy"], arc.get("arc_mid_setup_xy")
     window = None
     if number(sweep_deg) and sweep_deg > 0 and _pair(centre) and _pair(middle):
@@ -574,14 +575,15 @@ _PICTURE_FACTS = (
 
 
 def guide_scene(bundle, guided, op, bottom, lift, scale):
-    """({"rails": [...], "pins": [...]}, picture notes) for one trammel op's ``guided``
-    record: drawn render-only at the sweep's middle pose (the setup frame), never
-    hit-tested (rules/guided_sweep.py :func:`guide_scene`). Each rail is a box along its
-    pin-line from the spindle axis, over its measured ``rail_travel`` stations, standing
-    ``rail_height`` from the table (the stock bottom less the fixture's ``bed_height``);
-    each pin a cylinder of ``pin_dia`` at its place on the carrier, from the rail tops to
-    the stock bottom. ``lift`` is the supports' height under the work (None: unknown). A missing or unmeasured fact leaves them undrawn, named in a note
-    with its ``measure:`` instruction."""
+    """({"rails": [...], "pins": [...]}, picture notes) for one trammel op's ``guided`` record:
+    drawn render-only at the sweep's middle pose (the setup frame), never hit-tested
+    (rules/guided_sweep.py :func:`guide_scene`). Each rail is a box along its pin-line from
+    the spindle axis, over its measured ``rail_travel`` stations, standing ``rail_height``
+    from the table (the work's seat less the supports under it and the fixture's
+    ``bed_height``); each pin a cylinder of ``pin_dia`` at its place on the carrier, from
+    the rail tops to the work's seat. ``lift`` is the supports' height under the work (None:
+    unknown). A missing or unmeasured fact leaves them undrawn, named in a note with its
+    ``measure:`` instruction."""
     from ..measurements import length_fact, limits_fact, measurement_entry
     from .coordinates import _pair
     from .resolution import identity, number, resolve

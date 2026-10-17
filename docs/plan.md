@@ -1636,7 +1636,7 @@ A `guided_sweep` contour's `sweep` record ([manual arcs](#manual-arcs), step 4).
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
-| `guide` | `"pivot"` (a swing arm on a pin at the arc centre) `"rail"` (a sled's arc rail on two rollers) or `"trammel"` (a carrier's pin pair in two straight rails crossing at the spindle axis, [#269](https://github.com/pedropaulovc/prechips/issues/269)) |
+| `guide` | `"pivot"` (a swing arm on a pin at the arc centre), `"rail"` (a sled's arc rail on two rollers) or `"trammel"` (a carrier's pin pair in two straight rails crossing at the spindle axis, [#269](https://github.com/pedropaulovc/prechips/issues/269)) |
 | `fixture` | `str`: the inventory `fixtures` item that carries the work and rides the guide (`kind = "swing_arm"` for a pivot, `"arc_sled"` for a rail, `"trammel"` for a trammel); it must be the setup's `hold.fixture` |
 | `master` | `str`: the inventory `gauges` item the stationary cutter is touched to (`kind = "setting_bar"`, pivot only, or `"master_arc"`, rail only in practice: a master arc on a swing arm gives no radial line to centre the cutter on, so it prints only a STOP, [#288](https://github.com/pedropaulovc/prechips/issues/288)); a trammel has none, and naming one is an error |
 | `touch_axis` | `"+X"`, `"-X"`, `"+Y"` or `"-Y"`: the setup axis on the cutter's radial line, and the side of the arc centre the cutter stands on; the setup frame is the work at the sweep's middle pose, so it must point from the arc centre to the arc's middle |

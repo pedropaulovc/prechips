@@ -3606,9 +3606,10 @@ _GUIDE_GROUPS = (
 
 def _guide_solids(setup, debts):
     """[(name, op, solid, group key)] of a setup's render annotation guide elements (each
-    naming the ``op`` it guides), in setup frame (#255, #269): ``guides.rollers`` and ``guides.pins`` cylinders (setup XY axis
-    ``at_mm``, ``dia_mm``, ``z_mm`` bottom to top) and ``guides.rails`` boxes (``from_mm``
-    to ``to_mm`` along the rail's centre line, ``width_mm``, ``z_mm``). They are fixed to
+    naming the ``op`` it guides), in setup frame (#255, #269): ``guides.rollers`` and
+    ``guides.pins`` cylinders (setup XY axis ``at_mm``, ``dia_mm``, ``z_mm`` bottom to
+    top) and ``guides.rails`` boxes (``from_mm`` to ``to_mm`` along the rail's centre
+    line, ``width_mm``, ``z_mm``). They are fixed to
     the table, or ride the carrier under the work, so they are drawn only: never fixture
     components, so no hit test, clash, contact or clearance reads them and
     ``fixture_ready`` stays as it was. A malformed element is a picture debt (``debts``,
@@ -3667,14 +3668,14 @@ def _guide_tags(guides, taken):
 
 
 def _guide_components(guides):
-    """One picture component per op's guide group (``guides``: (mesh name, op, box, group
-    key), :data:`_GUIDE_GROUPS`), so each op's rollers, rails or pins are framed, called
-    out or noted off the picture on their own: one op's guide standing far off never takes
-    another's nearby one out of the view. The label names the op only when more than one
-    op has that group in the setup (#255, #269)."""
+    """One picture component per op's guide group (``guides``: (mesh name, op, box, group key),
+    the key ``rollers`` when omitted, :data:`_GUIDE_GROUPS`), so each op's rollers, rails or
+    pins are framed, called out or noted off the picture on their own: one op's guide
+    standing far off never takes another's nearby one out of the view. The label names the
+    op only when more than one op has that group in the setup (#255, #269)."""
     groups = {}
-    for name, op, box, key in guides:
-        groups.setdefault((key, op), []).append((name, box))
+    for name, op, box, *key in guides:
+        groups.setdefault((key[0] if key else "rollers", op), []).append((name, box))
     components = []
     for key, base, label, _ in _GUIDE_GROUPS:
         ops = [op for k, op in groups if k == key]

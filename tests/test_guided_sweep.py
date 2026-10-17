@@ -750,9 +750,17 @@ def engine_function(name):
 
     engine = Path(render_diagram.__file__).with_name("freecad_job.py")
     tree = ast.parse(engine.read_text(encoding="utf-8"))
-    (node,) = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name]
+    # The function and the module constants it reads (the guide groups).
+    nodes = [
+        n
+        for n in tree.body
+        if isinstance(n, ast.FunctionDef)
+        and n.name == name
+        or isinstance(n, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "_GUIDE_GROUPS" for t in n.targets)
+    ]
     namespace = {}
-    exec(compile(ast.Module(body=[node], type_ignores=[]), str(engine), "exec"), namespace)
+    exec(compile(ast.Module(body=nodes, type_ignores=[]), str(engine), "exec"), namespace)
     return namespace[name]
 
 
