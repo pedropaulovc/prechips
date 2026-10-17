@@ -124,7 +124,7 @@ init = { "src/prechips/kernel/engine/__init__.py" = "The FreeCAD geometry engine
 ]
 "src/prechips/kernel/engine/cull.py" = ["_culled_common", "_StockSupport", "_Culled"]
 "src/prechips/kernel/engine/tools.py" = [
-    "_seat", "_seat_solid", "_cutter", "_plunge", "_centre_drill_cutter", "_tool_hits_box",
+    "_seat", "_seat_solid", "_blank", "_cutter", "_plunge", "_centre_drill_cutter", "_tool_hits_box",
     "_stock_vector", "_envelope", "_clearing_*", "_centre_window", "_beyond_window",
     "_depth_window", "_flat", "_straight", "_level_offset", "_span", "_stadium", "_path_area",
     "_fitted", "_edge_band", "_end_discs", "_grown", "_level_section", "_out_of_reach",
@@ -157,7 +157,7 @@ init = { "src/prechips/kernel/engine/__init__.py" = "The FreeCAD geometry engine
     "_Setup._expects_parallels", "_Setup._parallels",
 ]
 "src/prechips/kernel/engine/render.py" = [
-    "_COLOURS", "_Setup._render*", "_Setup._blade_paths", "_Setup._guide_view",
+    "_COLOURS", "_guide_*", "_Setup._render*", "_Setup._blade_paths", "_Setup._guide_view",
     "_Setup._inspection_sketches", "_Setup._stock_after", "_Setup._guide_stops",
     "_Setup._external_rim", "_Setup._rim_sets_boundary", "_Setup._nearest",
     "_Setup._cut_clearances", "_Setup._taken_off", "_Setup._tool_moves", "_Setup._index_arc",
@@ -173,7 +173,7 @@ init = { "src/prechips/kernel/engine/__init__.py" = "The FreeCAD geometry engine
     "SAW_*", "_scribed_*", "_saw*", "_Setup._scribed_*", "_Setup._hand_removal", "_Setup._saw_*", "_Setup._hand_op",
 ]
 "src/prechips/kernel/engine/removal.py" = [
-    "SUPPLY_*", "_profiled*", "_blank", "_Setup._stock_*", "_Setup._round_stock_dia", "_Setup._certain_material", "_Setup._build",
+    "SUPPLY_*", "_profiled*", "_Setup._stock_*", "_Setup._round_stock_dia", "_Setup._certain_material", "_Setup._build",
     "_Setup._remove", "_Setup._cut", "_Setup._finish", "_Setup._bounded", "_Setup._flat_leave",
     "_Setup._skin*", "_Setup._removal", "_Setup._slabs", "_Setup._band",
     "_Job._supplies", "_Job._supply", "_Job._as_is", "_Job._held", "_Job._prepared",

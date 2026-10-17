@@ -179,6 +179,8 @@ def units(source, expand=EXPAND_LINES, classes=()):
             found.append(Unit(root, "trailer", start, end, node))
             continue
         defined.add(name)
+        for target in getattr(node, "targets", []):
+            _targets(target, defined)  # A = B = ...: a trailer on B follows it too
         big = end - start + 1 >= expand or name in classes
         if not (isinstance(node, ast.ClassDef) and big):
             found.append(Unit(name, "def", start, end, node))
@@ -331,8 +333,8 @@ def _mixin_hazards(node):
             found.append(f"name-mangled member {name}")
     for n in ast.walk(node):
         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "super":
-            if not n.args:
-                found.append("zero-argument super()")
+            # super(Cls, self) would start its search at the mixin, inside Cls's MRO.
+            found.append("explicit super(...)" if n.args else "zero-argument super()")
         elif isinstance(n, ast.Name) and n.id == "__class__":
             found.append("__class__")
         elif isinstance(n, ast.Attribute) and n.attr.startswith("__") and not n.attr.endswith("__"):
@@ -460,7 +462,8 @@ def assign(module, source_units):
             if target is None:
                 new = known is not None and unit.name not in known
                 target = previous if new else module["rest"]
-            placed[unit.name] = target
+            for name in unit.binds or [unit.name]:
+                placed[name] = target
         if unit.kind != "import" and unit.kind != "module":
             previous = target
         result.append((unit, target))

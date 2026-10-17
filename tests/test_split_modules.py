@@ -834,3 +834,23 @@ def test_an_all_keyword_patch_of_the_split_module_refuses(at, tmp_path, capsys):
         split.main(["apply", "big"])
     out = capsys.readouterr()
     assert "by keyword" in out.out + out.err
+
+
+def test_a_trailer_on_any_name_of_a_chained_assignment_moves_with_it(at):
+    source = "A = B = 0\nB += 1\n\n\ndef use():\n    return A + B\n"
+    plan = at(source, _spec('["A"]'))
+    trailer = next(u for u, _ in plan.placed if u.kind == "trailer")
+    assert (
+        dict((u.name, t) for u, t in plan.placed)["A"]
+        == dict((id(u), t) for u, t in plan.placed)[id(trailer)]
+    )
+
+
+def test_a_mixin_method_using_explicit_super_is_refused(at):
+    source = """\
+        class Engine:
+            def run(self):
+                return super(Engine, self).run()
+        """
+    plan = at(source, _spec('["Engine.run"]'))
+    assert any("explicit super(...)" in refusal for refusal in plan.refusals)

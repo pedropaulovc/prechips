@@ -330,7 +330,7 @@ What `apply` does:
    * an import cycle between the new files (it names the symbols on each edge);
    * a star import, in the module or of it in an importer;
    * module state written under `global` and read from another file;
-   * a moved member that uses zero-argument `super()`, `__class__` or a name-mangled
+   * a moved member that uses `super()` or `super(Cls, self)`, `__class__`, a name-mangled
      `self.__x`, or is itself named `__x`, or whose decorators, defaults, annotations
      or value read a name the class body binds (mixins would change their meaning);
    * a symbol that reads `__file__`, `__name__`, `__spec__`, `__package__` or `__doc__`
