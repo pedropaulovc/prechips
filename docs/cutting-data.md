@@ -133,7 +133,13 @@ not proof of geometric validity; rules perform the applicable checks.
 | `material_class` | `str` |
 | `kc_n_per_mm2` | `float` |
 | `e_gpa` | `float` |
+| `kc1_n_per_mm2` | `float` (Kienzle specific cutting force at h = 1 mm, > 0) |
+| `mc` | `float` (Kienzle exponent, 0 ≤ mc < 1) |
+| `radial_ratio` | `float` (radial / tangential force ratio, ≥ 0) |
 | `cite` | `Citations` |
+
+`kc1_n_per_mm2`, `mc` and `radial_ratio` feed the [milling force bound](rules-physics.md#cutting-force)
+under the row's own `cite`; `kc_n_per_mm2` stays the constant K_c of `turning_deflection`.
 
 ## DeepHole
 
