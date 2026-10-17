@@ -22,7 +22,8 @@ MEASURED = (
     'measurement)", date = "2026-10-11", instrument = "example fixture (no physical '
     'measurement)" }'
 )
-# Test-local socket tools: a 10.0 drill and a 10.21 reamer for the Ø10.200-10.218 socket.
+# Test-local socket tools: a 10.0 drill and a 10.21 reamer for the Ø10.200-10.218 socket,
+# and a pivot drill held too short, whose Ø50.8 chuck meets the joined hub and strap.
 TOOLS = f"""
 [tools.strap-socket-drill-10]
 kind = "drill"
@@ -47,6 +48,18 @@ lead_mm = {{ value = 1.0, {MEASURED} }}
 flute_len_mm = {{ value = 30.0, {MEASURED} }}
 oal_mm = {{ value = 100.0, {MEASURED} }}
 projection_mm = {{ "drill-chuck-r8" = {{ value = 60.0, {MEASURED} }} }}
+
+[tools.stub-drill-6p25]
+kind = "drill"
+material = "HSS"
+present = true
+dia_mm = {{ value = 6.25, {MEASURED} }}
+shank_in = {{ value = 0.25, {MEASURED} }}
+flutes = 2
+point_angle = {{ value = 118.0, {MEASURED} }}
+flute_len_mm = {{ value = 4.0, {MEASURED} }}
+oal_mm = {{ value = 30.0, {MEASURED} }}
+projection_mm = {{ "drill-chuck-r8" = {{ value = 5.0, {MEASURED} }} }}
 """
 
 
@@ -230,6 +243,17 @@ holder = "drill-chuck-r8"
 exit_mm = 2.0
 approach_mm = 5.0
 """
+    + _setup("K1", "R1", "J1")
+    + """
+[[setups.ops]]
+op = 10
+do = "drill"
+feature = "pivot_bore"
+tool = "stub-drill-6p25"
+holder = "drill-chuck-r8"
+exit_mm = 2.0
+approach_mm = 5.0
+"""
     + _setup("F1", "SA", "J1")
     + _face("strap_datum_b", 2.75, (1.25, 1.5), (-16.0, 28.0), 6.0)
     + _setup("G1", "SA", "F1")
@@ -279,8 +303,7 @@ def test_prejoin_strap_facing_meets_no_hub_material(built_up_rocker, subject):
     row = _finding(report, "accessibility", subject)
     # No fixture solids are declared, so the verdict stays unknown, but no sample is hit.
     assert row["status"] == "unknown", row
-    assert row["numbers"]["certain_tool_hits"] == row["numbers"]["certain_holder_hits"] == 0
-    assert "hit_owners" not in row["numbers"]
+    assert not {"certain_tool_hits", "certain_holder_hits", "hit_owners"} & set(row["numbers"])
     op = facts["ops"][subject]
     assert op["min_hits"] == {"tool": 0, "holder": 0}
     assert op["hit_refs"] == {"tool": [], "holder": []}
@@ -315,3 +338,17 @@ def test_joined_hub_still_protects_its_finished_material(built_up_rocker):
     assert ROCKER_TOP + 1.5 <= left[5] < entry[5]
     assert setups["G1"]["stock_volume_mm3"] < setups["F1"]["stock_volume_mm3"]
     assert facts["ops"]["F1:10"]["min_hits"]["tool"] == 0
+
+
+def test_hit_owners_name_the_component_behind_each_occluder(built_up_rocker):
+    report, facts = built_up_rocker
+    row = _finding(report, "accessibility", "K1:10")
+    assert row["status"] == "error", row
+    assert row["numbers"]["certain_holder_hits"] > 0
+    owners = row["numbers"]["hit_owners"]
+    assert owners == facts["ops"]["K1:10"]["hit_owners"]
+    holder = owners["holder"]
+    # The joined branch's stock is both components'; each finished face names its owner.
+    assert holder["part"] == ["hub", "strap"]
+    assert holder["#374/ADVANCED_FACE[8]/HAF_HUB_FACES__P02"] == ["hub"]
+    assert holder["#503/ADVANCED_FACE[14]/HAF_TOP_EDGE__P01"] == ["strap"]
