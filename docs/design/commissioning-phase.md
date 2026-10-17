@@ -445,11 +445,12 @@ used. Each entry therefore also carries a structured `gauge`: the inventory id
 of what took the reading (or of the wrench, for a `steps` entry). It must equal
 the gauge the plan names for that key: the `align` op's `gauge`, the `accept`
 op's `checks` entry, or the `TorqueStep`'s `wrench`. A reading read over a pin
-also records its `pin` id, which must equal the reading's planned `pin`, because
-the pin's diameter enters the prediction. A DRO-derived entry (`align`,
+also records its `pin` id and its `contact` side, which must equal the
+reading's planned `pin` and `contact`, because both enter the prediction. On the
+wrong side, a hole at `o − 2r` reads the planned near target from the far side. A DRO-derived entry (`align`,
 `dro_xy`) also records its `machine` id, which must equal the commissioning
 setup's machine, because that machine's DRO resolution and travel enter the
-judgement. A missing or different `pin` or `machine` leaves the entry `?`,
+judgement. A missing or different `pin`, `contact` or `machine` leaves the entry `?`,
 naming both. A missing or different
 `gauge` leaves the entry `?`, naming both ids ("taken with calipers, planned
 gauge-pins"). The capability checks of §2.3 therefore always describe the
@@ -504,9 +505,12 @@ that region, so its interval stays narrow.
 step of it, and the band check judges that whole interval, not the bare number:
 
 - an indicating gauge of resolution `r`: `[read − r/2, read + r/2]`;
-- a DRO coordinate (`align`, `dro_xy`): two devices contribute, so their
-  half-steps add up. With DRO resolution `r_dro` and centring-gauge resolution
-  `r_g`, the interval is `[read − (r_dro + r_g)/2, read + (r_dro + r_g)/2]`. Both
+- a DRO coordinate read from the zero (`align`): two devices contribute, so
+  their half-steps add up. With DRO resolution `r_dro` and centring-gauge
+  resolution `r_g`, the interval is `[read − (r_dro + r_g)/2, read + (r_dro + r_g)/2]`;
+- a relational DRO displacement (`dro_xy` from a reference): the reading is
+  the difference of two positions, each centred and each read on the DRO. Both
+  ends contribute, so the interval is `read ± (r_g + r_dro)`. Both
   can err in the same direction, so a reading near a limit is `?` rather than a
   pass;
 - a limit-style pin set read as the largest pin that enters:
@@ -1096,8 +1100,11 @@ Also:
   machine, or is missing → `?`. `pin`/`contact` on a non-distance reading, or
   `contact` without `pin` → schema error.
 - Torque `count = 0` or negative → schema error.
-- DRO interval: a reading inside the band by less than `(r_dro + r_g)/2` → `?`;
-  by more → pass.
+- DRO interval: an `align` reading inside the band by less than
+  `(r_dro + r_g)/2` → `?`, by more → pass; a relational `dro_xy` reading uses
+  `r_g + r_dro`.
+- Contact binding: a record whose `contact` differs from the plan's, or is
+  missing → `?`.
 - Pin gaps: a set with 8.000 and 8.020 only, reading 8.000 against
   `[8.000, 8.015]` → `?`; a recorded size not in the set → error; a reading of
   the set's largest pin → `?`.
