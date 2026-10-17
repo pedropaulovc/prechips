@@ -244,7 +244,13 @@ measures, which depends on what produces the value:
   reference plus the predicted offset. The positions are collected across
   **every commissioning setup on the same installation**, not setup by setup,
   because the installed fixture never moves between them. C1 at X −400 and C4 at
-  X +400 need 800 of stroke even though each setup alone spans 400. On each axis, the span from the least to
+  X +400 need 800 of stroke even though each setup alone spans 400. Every
+  commissioning setup in one block must therefore name the **same machine**; a
+  different machine is a schema error. Moving the fixture to another machine is
+  a new installation, with its own `commissioning` block and record. Each visited
+  position counts at its **outer extent**: its prediction interval widened by
+  its acceptance band. Nominal endpoints at −400 and +400 with a 0.02 band need
+  800.04, which an 800 stroke does not have. On each axis, the span from the least to
   the greatest of those absolute positions, check-jog positions included, must be
   no longer than that axis's stroke. Two ±100 moves from references 800 apart
   therefore need about 1000 of stroke, not 200. Where the zero sits in the
@@ -1257,7 +1263,8 @@ Also:
 - Guide budget: a rail-angle uncertainty widens the sagitta and width
   predictions; a missing budget fact → those readings `?`.
 - Installation travel: C1 at X −400 and C4 at X +400 on a 600 stroke → error,
-  although each setup alone fits.
+  although each setup alone fits; endpoints at ±400 with a 0.02 band on an 800
+  stroke → error; two machines in one commissioning block → schema error.
 - Feasibility with prediction uncertainty: ±0.05 band, ±0.03 prediction, ±0.03
   measurement → schema error.
 - Combined DRO interval: a 0.05 band with `r_g = r_dro = 0.03` on a relational
@@ -1295,7 +1302,7 @@ The six real `fixtures.vise-pm-6` measurements are untouched.
 kind = "trammel"                   # #269's kind; name is D3
 shop_made = true
 note = "Oblique trammel: two HGR15 rails, carrier on two pin pairs (#269)."
-pin_spacing_mm = { value = 450.0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }   # #269: D = 450
+pin_spacing_limits_mm = { value = [449.995, 450.005], measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }   # #269: D = 450; limits give the budget its spacing uncertainty
 rail_angle_deg = 16.44             # #269: alpha; non-length nominal, example value from #269
 # guide error budget facts (§4.1); field names are #269's (D3), shown here as placeholders
 rail_angle_limits_deg = { value = [16.435, 16.445], measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
