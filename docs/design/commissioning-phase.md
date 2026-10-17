@@ -1591,3 +1591,23 @@ With every key present and in band, the `commissioning` findings pass, and the
 part setups' roll-up passes. Their other findings are unchanged. As with every
 demonstration fixture, this exercises the measured branch. It is disclosure, not
 an observation.
+
+## 10. Open review notes
+
+Codex review findings left unresolved when review rounds stopped on PR #275.
+They are follow-ups for implementation, not fixed in this design:
+
+- §4.2 kernel: resolve `hold.stop_fixture`, like `hold.fixture`, through
+  `commissioned[fixture id]`, so stop-fixture setups see the commissioned state
+  ([r4301068266](https://github.com/pedropaulovc/prechips/pull/275#discussion_r4301068266)).
+- §2.3 `expect` cross-check: compare the signed expect-minus-prediction interval
+  against `[low, high]` rather than an unsigned distance, so asymmetric bands
+  keep their direction
+  ([r4301068269](https://github.com/pedropaulovc/prechips/pull/275#discussion_r4301068269)).
+- §2.3 `align` verify sets: require at least one qualifying `verify` set for every guide
+  element a dependent sweep uses, even when no `set` or torque op was authored
+  ([r4303120941](https://github.com/pedropaulovc/prechips/pull/275#discussion_r4303120941)).
+- §2.3 and §3.6 installation travel: include commissioning cutting and sweep
+  tool extents (and relevant stock bounds) in the installation-wide travel
+  union, not only DRO readings, zero and check-jogs
+  ([r4303120943](https://github.com/pedropaulovc/prechips/pull/275#discussion_r4303120943)).
