@@ -221,7 +221,7 @@ new kinds the commissioning PRs add:
 |---|---|
 | `align`, `dro_xy` (centring under the spindle) | `dial_test_indicator`, `coax_indicator` (new). An edge finder is a `tools` item, not a gauge, and cannot centre on a pin, so it is not accepted |
 | `sagitta` | `sagitta_gauge` (new: a chord bar with an indicator). Its chord is a new inventory field, `chord_limits_mm` / `chord_limits_in` (one spelling), a fact-local `MeasuredLimits` `[least, greatest]` with its own `measured` record. The limits are the chord's measured uncertainty, so no resolution is invented. An unmeasured or flagged chord leaves the reading `?`. A bare indicator is not accepted, because nothing would fix the chord. The gauge is digested like any named gauge (§3.4) |
-| `width`, `distance` | `caliper`, `micrometer`, `height_gauge`. A `distance` to a hole is read over a pin in it: the reading names the `pin` (an inventory `pin_gauge` with a measured diameter) and the `contact` side, `"near"` or `"far"`. The printed target moves the predicted centreline offset `o` by the pin radius `r` toward the reference for `near` and away from it for `far`. That is `o − sign(o)·r` (near) and `o + sign(o)·r` (far), so a hole inside the edge (negative `o`) gets `o + r` on its near side, not `o − r`. A pin reading needs the pin to lie wholly on one side of the edge across the **whole accepted range**: every centreline offset the reading could accept, `o + band` widened by the reading's own uncertainty interval, must keep `|offset| > r`. With `o = 4.01`, `r = 4.00` and a ±0.05 band, accepted offsets reach 3.96, inside the pin radius, so that is a plan error. Where the range reaches `|offset| ≤ r` (including `o = 0`), the near and far sides are undefined; such a position is read as a `dro_xy` instead. The sheet prints the target with its sign and names the side. The recorded value is the signed contact distance, and it is judged directly against that signed contact target; the rules never convert it back to a centreline value. Range coverage uses the **magnitude** of the contact interval, since a caliper reads distance, not side. A hole inside the edge, with a target of −3.2, needs a caliper that covers 3.2. An untrusted pin diameter leaves the reading `?`, and the pin is digested in `[planned]` |
+| `width`, `distance` | `caliper`, `micrometer`, `height_gauge`. A `distance` to a hole is read over a pin in it: the reading names the `pin` (an inventory `pin_gauge` with a measured diameter) and the `contact` side, `"near"` or `"far"`. The printed target moves the predicted centreline offset `o` by the pin radius `r` toward the reference for `near` and away from it for `far`. That is `o − sign(o)·r` (near) and `o + sign(o)·r` (far), so a hole inside the edge (negative `o`) gets `o + r` on its near side, not `o − r`. The pin sits in a bore with clearance, so its axis can be off the bore's axis by up to the radial play `p = (bore − pin)/2`. The bore size is the upper end of the hole's trusted `size` reading interval, and the pin size is its measured diameter. The reading's interval widens by `± p`. If the hole's `size` claim is untrusted, or its reading comes later in authored order, `p` is unknown and the reading is `?`. A pin reading needs the pin to lie wholly on one side of the edge across the **whole accepted range**: every centreline offset the reading could accept, `o + band` widened by the reading's own uncertainty interval, must keep `|offset| > r`. With `o = 4.01`, `r = 4.00` and a ±0.05 band, accepted offsets reach 3.96, inside the pin radius, so that is a plan error. Where the range reaches `|offset| ≤ r` (including `o = 0`), the near and far sides are undefined; such a position is read as a `dro_xy` instead. The sheet prints the target with its sign and names the side. The recorded value is the signed contact distance, and it is judged directly against that signed contact target; the rules never convert it back to a centreline value. Range coverage uses the **magnitude** of the contact interval, since a caliper reads distance, not side. A hole inside the edge, with a target of −3.2, needs a caliper that covers 3.2. An untrusted pin diameter leaves the reading `?`, and the pin is digested in `[planned]` |
 | `size` of a hole | `pin_gauge_set`, `bore_gauge` (an external micrometer never measures a bore) |
 | `z` | `height_gauge`, `dial_test_indicator` |
 | torque `steps` | `torque_wrench` |
@@ -558,7 +558,8 @@ number, like a nominal, and only a recorded reading is evidence.
 
 Each dependent part setup gets one `commissioning` finding. Its **scope** is:
 
-- the setup's consumed claims (§3.3), each through the readings that list it;
+- the setup's consumed claims (§3.3), each through the readings that list it,
+  plus the claims and readings of each one's reference chain back to the root;
 - the guide prerequisites for the guide elements the setup uses: the `align`
   readings and torque steps of each element its sweeps ride, or that locate an
   in-situ claim it consumes. On the trammel every sweep rides both rails, so
@@ -666,9 +667,13 @@ dependent part setup consumes is listed by at least one compatible, bound
 reading. A missing claim is an error ("in-situ claim trammel-jig.dowel_hole.size
 has no acceptance reading"), because nothing would ever discharge its debt.
 
-**Trust.** A claim is trusted only when every reading that lists it passes. A
-dependent setup's roll-up (§3.2) is a pass only when every consumed claim is
-trusted.
+**Trust.** A claim is trusted only when every reading that lists it passes
+**and**, for a relational claim, the reference's own claims are trusted. That
+applies recursively along the chain to the root: the dowel's position is
+trusted only if HUB's position claims are. A dependent setup's roll-up (§3.2)
+covers every consumed claim **and** every claim in the reference chains behind
+them, with their readings. A setup that locates only on the dowel is still
+blocked by a missing HUB reading. It passes only when all of these are trusted.
 
 **Read after the last change.** An acceptance reading must describe the final
 geometry. Each reading must come after the last commissioning op that can change
@@ -1104,6 +1109,10 @@ Also:
 - Tangential projection: a tangent at 45° to the setup axes with a tangential
   error of 1.2 × band → `✗`, although X and Y are each within the band; a radial
   residual alone does not fail `hub_apex`.
+- Reference chains: a passing `dowel_position` with a failed or missing HUB
+  position reading leaves the dowel untrusted, and a dowel-only setup blocked.
+- Pin clearance: a pin reading widens by the radial play from the hole's
+  trusted `size` interval; an untrusted or later size reading → `?`.
 - Roll-up scope: a missing `dowel_fit` leaves a setup that locates only on HUB
   unblocked; a missing `align` reading on a rail the setup rides blocks it; one
   on a guide element it never uses does not.
