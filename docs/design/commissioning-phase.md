@@ -375,7 +375,7 @@ dro = "<sha256>"
 features = "<sha256>"
 "tools.endmill-10" = "<sha256>"     # the part cutter that derives the riser cutter
 "tools.endmill-14" = "<sha256>"     # the riser cutter
-"tools.reamer-8h7" = "<sha256>"     # terminal reamers: predict the size readings
+"tools.reamer-8h7" = "<sha256>"     # terminal reamers: checked against the declared sizes
 "tools.reamer-6h7" = "<sha256>"
 "machines.PM-30MV" = "<sha256>"
 "gauges.coax-indicator" = "<sha256>"
@@ -585,6 +585,14 @@ has no acceptance reading"), because nothing would ever discharge its debt.
 dependent setup's roll-up (§3.2) is a pass only when every consumed claim is
 trusted.
 
+**Read after the last change.** An acceptance reading must describe the final
+geometry. Each reading must come after the last commissioning op that can change
+its subject or its reference: any op of the subject's route, a sweep of a swept
+edge, or an adjustment of a guide element. Ordering is by setup order, then by
+op number. A reading taken before such an op, for example `hub_size` after the
+drill but before the terminal ream, is an error, and it can never trust the
+claim.
+
 The trammel's claims and readings (decision D4 adds the dowel's two):
 
 | Claim | Reading |
@@ -595,7 +603,7 @@ The trammel's claims and readings (decision D4 adds the dowel's two):
 | `hub_hole.position.tangential` | `hub_apex`: `dro_xy` from the guide's apex pose, HUB pin centred under the spindle with the carrier locked at the apex |
 | `hub_hole.size` | `hub_size` (largest gauge pin that enters) |
 | `dowel_hole.position` | `dowel_position`: `dro_xy` from the HUB pin to the dowel hole, with a coaxial indicator on each |
-| `dowel_hole.size` | `dowel_fit`: largest gauge pin that enters, predicted from the terminal reamer and banded by the dowel's fit |
+| `dowel_hole.size` | `dowel_fit`: largest gauge pin that enters, predicted from the declared Ø6.0 and banded by the dowel's fit |
 
 ### 3.4 Staleness
 
@@ -611,8 +619,8 @@ approval record's `[inputs]`. The inputs are:
 - the features file, when a prediction reads it (HUB's offset and the
   hub-pin-to-edge distance read the hub centre);
 - every inventory item a prediction or a derived check consumes: the
-  commissioned fixture, each terminal tool whose size predicts a `size`
-  reading, the riser cutter and the part cutter it is derived from;
+  commissioned fixture, each terminal tool checked against its declared
+  size, the riser cutter and the part cutter it is derived from;
 - the equipment the readings are taken with: the machine of every
   commissioning setup (its DRO resolution sets the printed targets) and every
   gauge an `align`, `accept` or `torque` op names. The commissioning block holds
@@ -818,9 +826,9 @@ the derived cutter printed as "Ø14 = part cutter Ø10 + 2 × 2.0 inset".
 | C4:10/width | width | riser | … | (computed) | ±… | ______ | ☐ |
 | C4:10/hub_pin_to_edge | distance | HUB pin → riser edge at apex | … | (computed) | ±… | ______ | ☐ |
 | C4:10/hub_apex | DRO X/Y | apex pose → HUB pin | coaxial indicator, DRO | (computed X, Y) | ±… | ______ , ______ | ☐ |
-| C4:10/hub_size | size | HUB hole | gauge pins | (reamer size) | fit band | ______ | ☐ |
+| C4:10/hub_size | size | HUB hole | gauge pins | 8.000 (declared) | fit band | ______ | ☐ |
 | C4:10/dowel_position | DRO X/Y | HUB pin → dowel hole | coaxial indicator, DRO | (computed X, Y) | ±… | ______ , ______ | ☐ |
-| C4:10/dowel_fit | size | dowel hole | gauge pins | (reamer size) | fit band | ______ | ☐ |
+| C4:10/dowel_fit | size | dowel hole | gauge pins | 6.000 (declared) | fit band | ______ | ☐ |
 
 A closing box reads: "Do not load a part until every ☐ is ticked and entered in
 <record path>."
@@ -1012,6 +1020,8 @@ Also:
 - Staleness: changing only a commissioning setup's `plan.frames` entry stales
   the record. A changed torque value or wrench stales the torque completion as
   well as the readings.
+- Acceptance order: `hub_size` read between the drill and the ream → error; read
+  after the ream → valid.
 - Terminal tool: a 9 mm reamer on the 8 mm `hub_hole` → error; the `size`
   prediction is the declared 8.0, never the tool's size.
 - Torque `count = 0` or negative → schema error.
