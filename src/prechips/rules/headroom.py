@@ -27,11 +27,12 @@ otherwise stays unknown.  Manual bench fit/inspection setups (``rules._bench``) 
 spindle stack or travel.
 """
 
+import math
 from fractions import Fraction
 
 from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact, measurement_entry
-from prechips.model import profiled
+from prechips.model import UNIT_TOLERANCE, profiled
 from prechips.rules._bench import manual_bench, not_applicable
 from prechips.rules.resolution import (
     MANUAL,
@@ -106,6 +107,13 @@ def _footprint(fixture, hold, length, width):
     x, z = pose.get("x"), pose.get("z")
     if not all(isinstance(v, list) and len(v) == 3 and all(map(_numeric, v)) for v in (x, z)):
         return _UNKNOWN, _UNKNOWN, "fixture pose not declared"
+    # A scaled or skewed pose would stretch the footprint: unit, orthogonal axes only.
+    norms = [math.hypot(*axis) for axis in (x, z)]
+    if (
+        any(abs(norm - 1) > UNIT_TOLERANCE for norm in norms)
+        or abs(sum(a * b for a, b in zip(x, z, strict=True))) > UNIT_TOLERANCE
+    ):
+        return _UNKNOWN, _UNKNOWN, "fixture pose axes are not unit and orthogonal"
     y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]]
     head = fixture.get("kind") == "dividing_head"
     along = z if head else x

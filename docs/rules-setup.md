@@ -317,7 +317,8 @@ carries the fixture's `length`/`width` footprint in setup X/Y
 across the jaws, so `jaws_along = "x"` puts it along Y and `jaws_along = "y"`
 along X. A posed fixture rotates by `hold.pose` (`y = z × x`). A dividing
 head's `length` lies along its axis (pose z) and any other fixture's along
-pose x, with `width` along pose y in both cases. Without `jaws_along` or a pose,
+pose x, with `width` along pose y in both cases. Without `jaws_along` or a pose
+(with unit, orthogonal `x` and `z` axes),
 the footprint stays unknown. The table's extents (and any extension), the allowed
 overhang and the table load are not inventory facts yet
 ([#272](https://github.com/pedropaulovc/prechips/issues/272) item 1). Until they

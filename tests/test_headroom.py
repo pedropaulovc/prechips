@@ -492,6 +492,19 @@ def test_vise_footprint_turns_with_jaws_along(jaws_along, footprint):
     assert table["status"] == "unknown"
 
 
+@pytest.mark.parametrize(
+    ("x", "z"),
+    [([2, 0, 0], [0, 0, 1]), ([1, 0, 0], [0.5, 0, math.sqrt(0.75)])],
+    ids=["scaled", "skewed"],
+)
+def test_a_malformed_fixture_pose_leaves_the_footprint_unknown(x, z):
+    data = head_bundle()
+    data.plan["setups"][0]["hold"]["pose"].update(x=x, z=z)
+    table = evaluate(data)[0].numbers["fixture_table_check"]
+    assert (table["footprint_x_mm"], table["footprint_y_mm"]) == ("unknown", "unknown")
+    assert table["status"] == "unknown"
+
+
 def test_unverified_fixture_size_stays_on_the_table_check_not_the_headroom_row():
     data = bundle()
     data.inventory["fixtures"]["vise"]["width_mm"] = "unknown"
