@@ -426,8 +426,10 @@ def test_the_kernel_job_carries_the_swept_rows_as_checkpoints(tmp_path):
     assert [v for point in path["xy_mm"] for v in point] == pytest.approx(flat)
 
 
-def traveler_text(tmp_path, guide="pivot", **kwargs):
+def traveler_text(tmp_path, guide="pivot", drop="", **kwargs):
     plan = guided_plan(tmp_path, guide, **kwargs)
+    if drop:
+        change(plan.with_name("inventory.toml"), drop, "")
     kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
     bundle = dataclasses.replace(load_bundle(plan), kernel=kernel)
     row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
@@ -545,6 +547,16 @@ def test_a_sweep_whose_guide_is_unproven_prints_only_a_stop(tmp_path, missing):
     assert row.status == "unknown"
     assert "STOP: guided sweep not established (" in printed
     assert "rollers or rail ends unknown) — do not run." in printed
+    assert "Lock X and Y" not in printed and "stop block" not in printed
+
+
+def test_a_rail_sweep_with_an_unknown_rail_radius_prints_only_a_stop(tmp_path):
+    # The measured form error and runout still bound the cut, but without the rail's
+    # radius the operator cannot set the rollers from the spindle: nothing to run.
+    row, printed = traveler_text(tmp_path, "rail", drop="rail_radius_mm = 850.0\n")
+    assert row.status == "unknown", row.sentence
+    assert "STOP: guided sweep not established (" in printed
+    assert "rail radius or roller positions unknown) — do not run." in printed
     assert "Lock X and Y" not in printed and "stop block" not in printed
 
 

@@ -43,11 +43,25 @@ def _unresolved(sweep):
         # Each stop block is set where the cutter reaches an arc end: without them the
         # sweep has nothing to bound it.
         missing.append("sweep stops unknown")
-    if sweep.get("guide") == "rail" and not (
-        _pair(sweep.get("rollers_deg")) and _pair(sweep.get("rail_deg"))
-    ):
-        missing.append("rollers or rail ends unknown")
+    if sweep.get("guide") == "rail":
+        missing += _rail_unresolved(sweep)
     return missing
+
+
+def _rail_unresolved(sweep):
+    """A rail sweep's unproven set-up: the rollers' angles and the rail's ends, then where
+    the operator sets each roller from the spindle, which the rail's radius places."""
+    if not (_pair(sweep.get("rollers_deg")) and _pair(sweep.get("rail_deg"))):
+        return ["rollers or rail ends unknown"]
+    contacts = sweep.get("roller_contacts_mm")
+    if not (
+        _known(sweep.get("rail_radius_mm"))
+        and isinstance(contacts, list)
+        and len(contacts) == 2
+        and all(map(_pair, contacts))
+    ):
+        return ["rail radius or roller positions unknown"]
+    return []
 
 
 def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True):
@@ -104,15 +118,14 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True)
             f"mm rail pushed against two rollers fixed in the T-slots {where} about the arc "
             "centre from the cutter's radial line (counterclockwise from above)."
         )
-        contacts = sweep.get("roller_contacts_mm")
-        if isinstance(contacts, list) and all(map(_pair, contacts)):
-            places = " and ".join(
-                f"X {_number(_round(x, 1))} Y {_number(_round(y, 1))}" for x, y in contacts
-            )
-            result.append(
-                "With the spindle over the master's edge where it will touch, set the rollers "
-                f"so each bears on the rail about {places} mm from the spindle axis."
-            )
+        places = " and ".join(
+            f"X {_number(_round(x, 1))} Y {_number(_round(y, 1))}"
+            for x, y in sweep["roller_contacts_mm"]
+        )
+        result.append(
+            "With the spindle over the master's edge where it will touch, set the rollers "
+            f"so each bears on the rail about {places} mm from the spindle axis."
+        )
         result.append(f"Push the sled until {master}, pinned on it, is under the cutter.")
     result.append(
         f"Spindle stopped: bring a flute of the cutter itself to touch {master}, feeding "

@@ -1696,7 +1696,7 @@ uses the 1898 manual arc method:
    a guided sweep is never a pass for either: each owes a `check:` debt
    ([rules-setup](rules-setup.md#headroom), [#272](https://github.com/pedropaulovc/prechips/issues/272)). Any
    unproven guide, cut radius, axis, direction, angle, stops (the arc's ends on the
-   work), rollers or rail ends prints only a STOP naming them.
+   work), rollers, rail ends or rail radius prints only a STOP naming them.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.
