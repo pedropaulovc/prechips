@@ -197,8 +197,27 @@ use only an already-present successful kernel's setup-entry `stock_bbox_mm`,
 already in the setup frame, never the finished part or the raw supply.
 A missing, failed or malformed entry box leaves those extents unresolved;
 `headroom` never starts the kernel. Per axis, `travel_checks` requires
-`max(stock_extent, fixture_extent) <= machine_travel`; no separate radial tip
-envelope is computed. Inch inventory lengths convert explicitly by 25.4.
+`stock_extent <= machine_travel`: travel bounds what the spindle must reach, so
+the fixture's footprint does not enter it. A vise or sub-plate wider than an
+axis's travel is not an error ([#297](https://github.com/pedropaulovc/prechips/issues/297)).
+The `travel` rule separately checks the declared cutter spans; no separate
+radial tip envelope is computed.
+
+The fixture's size belongs against the table: `numbers.fixture_table_check`
+carries the fixture's `length`/`width` footprint in setup X/Y
+(`footprint_x_mm`/`footprint_y_mm`). A vise's `length` runs along its screw,
+across the jaws, so `jaws_along = "x"` puts it along Y and `jaws_along = "y"`
+along X. A posed fixture rotates by `hold.pose` (`y = z × x`). A dividing
+head's `length` lies along its axis (pose z) and any other fixture's along
+pose x, with `width` along pose y in both cases. Without `jaws_along` or a pose
+(with unit, orthogonal `x` and `z` axes),
+the footprint stays unknown. The table's extents (and any extension), the allowed
+overhang and the table load are not inventory facts yet
+([#272](https://github.com/pedropaulovc/prechips/issues/272) item 1). Until they
+are, the check is always `status = "unknown"`, with a `missing` instruction naming
+those table facts. It never errors or passes, and it does not change the
+`headroom` row's status. Unverified fixture length/width debt is listed in the
+check's own `measurements`, not in the row's. Inch inventory lengths convert explicitly by 25.4.
 Unverified dimensions cannot establish a verified stack/travel pass or measured
 clearance violation.
 
@@ -233,14 +252,14 @@ Templates:
 - `{setup}: lathe swing, chuck body or between-centres length remains unmeasured or unresolved.`
 - `{setup}: stock and chuck fit the measured swing and between-centres length.`
 - `{setup}: headroom, travel or jaw-path geometry remains unmeasured or unresolved.`
-- `{setup}: measured spindle stack and part/fixture travels fit.`
+- `{setup}: measured spindle stack and setup-entry stock travels fit.`
 - `{setup}: {violations}.`, joining `supported stock height is not positive`,
   `op {n} exceeds spindle clearance by {overrun:g} mm`, and
-  `part/fixture envelope exceeds {X|Y} travel`.
+  `setup-entry stock exceeds {X|Y} travel`.
 
 Evidence: per-op stacks, projection, OAL, gauge length, margin/verification,
 `stock_height_mm`, stock/support dimensions, maximum full stack, jaw obstruction,
-stock extents and per-axis `travel_checks`. Citations: PLAN §4.1 headroom;
+stock extents, per-axis `travel_checks` and `fixture_table_check`. Citations: PLAN §4.1 headroom;
 inventory machine/fixture/support/tool/
 holder dimensions; plan stock-state/setup frame. Raw rail height is not a
 coordinate and fixture height is not silently assumed to be bed height.
