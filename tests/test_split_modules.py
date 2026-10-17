@@ -696,3 +696,27 @@ def test_a_direct_write_lands_where_the_name_is_looked_up(at, tmp_path):
         at, tmp_path, source, '["radius", "area"]', "from pkg import big\n\nbig.radius = abs\n"
     )
     assert "big_parts.radius = abs" in rewritten
+
+
+@pytest.mark.parametrize(
+    "use",
+    [
+        "delattr(big, 'radius')\n",
+        "def test(monkeypatch):\n    monkeypatch.delattr(big, 'radius')\n",
+    ],
+)
+def test_a_deletion_lands_where_the_name_is_looked_up(at, tmp_path, use):
+    source = "def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x) ** 2\n"
+    rewritten = _importer_case(
+        at, tmp_path, source, '["radius", "area"]', "from pkg import big\n\n" + use
+    )
+    assert "big_parts, " in rewritten or "big_parts," in rewritten
+
+
+def test_an_alias_imported_in_a_class_body_refuses(at, tmp_path):
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "class Holder:\n    from pkg import big\n\n    VALUE = big.radius(1)\n", encoding="utf-8"
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])

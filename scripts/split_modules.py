@@ -921,6 +921,7 @@ class Rewriter:
             ]
 
     def _rewrite(self, path, text, tree):
+        self._consumed = defaultdict(int)  # alias loads an edit replaced, per alias import
         lines = text.splitlines(keepends=True)
         edits = []  # (start offset, end offset, replacement)
         offsets = list(itertools.accumulate([0] + [len(line) for line in lines]))
@@ -955,6 +956,12 @@ class Rewriter:
                         # Binds the top package, so code reaches the split module as
                         # prechips.<...>.<name>; `import <child> as x` binds only the child.
                         self.refusals.append(f"{path}:{node.lineno} plain `import {a.name}`")
+        for node in imports.values():
+            if _in_class_body(tree, node):
+                self.refusals.append(
+                    f"line {node.lineno}: the split module is imported in a class body; "
+                    "move the import out of the class"
+                )
         for key, names in aliases.items():
             scope = _scope_of(tree, imports[key])
             for name, line in _other_bindings(scope, names, imports[key]):
@@ -1122,19 +1129,38 @@ class Rewriter:
         return name
 
     def _builtin_setattr(self, node, binding, at, added):
-        """``setattr(alias, "name", value)`` lands where the name is looked up, as a
-        monkeypatch does; a computed name or several looking files refuse."""
+        """``setattr``/``delattr(alias, "name", ...)`` and ``monkeypatch.delattr(alias,
+        "name")`` land where the name is looked up, as a monkeypatch does; a computed name
+        or several looking files refuse."""
         first, second = node.args[0], node.args[1]
         if not (isinstance(first, ast.Name) and binding is not None):
             return None
+        call = ast.unparse(node.func)
         if not (isinstance(second, ast.Constant) and isinstance(second.value, str)):
-            self.refusals.append(f"line {node.lineno}: setattr({first.id}, <computed name>)")
+            self.refusals.append(f"line {node.lineno}: {call}({first.id}, <computed name>)")
             return None
         module = self.patched_module(second.value)
         if module is None or module == self.source:
+            if module is None:
+                self._consumed[id(binding)] += 1  # refused; keep the alias count whole
             return None
         local = self._alias_for(first.id, module, added, binding)
+        self._consumed[id(binding)] += 1
         return at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset), local
+
+    def _dotted_delattr(self, node, at):
+        """``monkeypatch.delattr("prechips.<module>.name")``: the one looking file, or refuse."""
+        first = node.args[0]
+        if not (isinstance(first, ast.Constant) and isinstance(first.value, str)):
+            return None
+        prefix, _, name = first.value.rpartition(".")
+        if prefix != self.source:
+            return None
+        module = self.patched_module(name)
+        if module is None or module == self.source:
+            return None
+        span = at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset)
+        return *span, repr(f"{module}.{name}")
 
     def _lookup(self, node, binding, at, added):
         """``getattr(alias, "name")`` / ``hasattr(alias, "name")`` of a moved name reads
@@ -1159,10 +1185,17 @@ class Rewriter:
         return at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset), local
 
     def _patch(self, node, binding, at, added):
-        if not isinstance(node, ast.Call) or len(node.args) < 2:
+        if not isinstance(node, ast.Call):
             return None
-        if isinstance(node.func, ast.Name) and node.func.id == "setattr":
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr == "delattr" and len(node.args) == 1:
+            return self._dotted_delattr(node, at)
+        if len(node.args) < 2:
+            return None
+        if isinstance(node.func, ast.Name) and node.func.id in ("setattr", "delattr"):
             return self._builtin_setattr(node, binding, at, added)
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "delattr":
+            return self._builtin_setattr(node, binding, at, added)  # monkeypatch.delattr
         if not (isinstance(node.func, ast.Attribute) and node.func.attr == "setattr"):
             return None
         first, second = node.args[0], node.args[1]
@@ -1205,6 +1238,17 @@ class Rewriter:
         local = self._alias_for(node.value.id, module, added, binding)
         value = node.value
         return at(value.lineno, value.col_offset), at(value.end_lineno, value.end_col_offset), local
+
+
+def _in_class_body(tree, node):
+    """Whether ``node``'s nearest enclosing scope is a class body."""
+    nearest = None
+    for scope in ast.walk(tree):
+        kinds = (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+        if isinstance(scope, kinds) and any(n is node for n in ast.walk(scope)):
+            if nearest is None or any(n is scope for n in ast.walk(nearest)):
+                nearest = scope
+    return isinstance(nearest, ast.ClassDef)
 
 
 def _scope_of(tree, node):
@@ -1287,14 +1331,14 @@ def _parses_source(tree):
 
 def _reached(name, parents):
     """Whether this load of a module alias is one the rewriter follows: ``alias.attr``,
-    or the module argument of ``setattr``/``getattr``/``hasattr``."""
+    or the module argument of ``setattr``/``delattr``/``getattr``/``hasattr``."""
     parent = parents.get(id(name))
     if isinstance(parent, ast.Attribute) and parent.value is name:
         return True
     if isinstance(parent, ast.Call) and parent.args and parent.args[0] is name:
         func = parent.func
         called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
-        return called in ("setattr", "getattr", "hasattr")
+        return called in ("setattr", "delattr", "getattr", "hasattr")
     return False
 
 
