@@ -239,9 +239,12 @@ measures, which depends on what produces the value:
   stop-to-stop stroke, not a coordinate bound, so the check is collective, and it
   is made in **one frame**. A relational reading's DRO value is relative to its
   reference (`hub_apex` from the apex pose, `dowel_position` from HUB), so the
-  rules first place every position the setup visits in that setup's frame: the
+  rules first place every position visited in one frame: the
   zero, each reference at its predicted position, and each subject at its
-  reference plus the predicted offset. On each axis, the span from the least to
+  reference plus the predicted offset. The positions are collected across
+  **every commissioning setup on the same installation**, not setup by setup,
+  because the installed fixture never moves between them. C1 at X −400 and C4 at
+  X +400 need 800 of stroke even though each setup alone spans 400. On each axis, the span from the least to
   the greatest of those absolute positions, check-jog positions included, must be
   no longer than that axis's stroke. Two ±100 moves from references 800 apart
   therefore need about 1000 of stroke, not 200. Where the zero sits in the
@@ -265,10 +268,12 @@ measures, which depends on what produces the value:
 
 The **combined** measurement interval is validated too. For `align` that is
 `(r_dro + r_g)/2` either side, and for a relational `dro_xy` it is
-`r_g + r_dro`. That whole interval, centred on the prediction, must fit inside
-the band, otherwise no reading could ever pass and the plan is a schema error,
-not a permanent `?`. A 0.05 band with both resolutions at 0.03 gives ±0.06 and
-is rejected.
+`r_g + r_dro`. The prediction's own interval adds to it: its half-width from
+the guide budget, chord limits and pin terms. Their sum, centred on the nominal
+prediction, must fit inside the band, otherwise no reading could ever pass and
+the plan is a schema error, not a permanent `?`. A 0.05 band with both
+resolutions at 0.03 gives ±0.06 and is rejected. So is a ±0.05 band with ±0.03
+of prediction uncertainty and ±0.03 of measurement uncertainty.
 
 An unresolved or untrusted gauge or machine fact leaves the reading `?`. A gauge
 or DRO too coarse for the band, or a target outside the travel, is an error.
@@ -1251,6 +1256,10 @@ Also:
   Ø8.010 object in an accepted Ø8.000–8.015 hole → not clear.
 - Guide budget: a rail-angle uncertainty widens the sagitta and width
   predictions; a missing budget fact → those readings `?`.
+- Installation travel: C1 at X −400 and C4 at X +400 on a 600 stroke → error,
+  although each setup alone fits.
+- Feasibility with prediction uncertainty: ±0.05 band, ±0.03 prediction, ±0.03
+  measurement → schema error.
 - Combined DRO interval: a 0.05 band with `r_g = r_dro = 0.03` on a relational
   `dro_xy` → schema error.
 - Envelope: a riser edge 0.05 from a cutter path with a ±0.10 band → clash;
@@ -1288,6 +1297,9 @@ shop_made = true
 note = "Oblique trammel: two HGR15 rails, carrier on two pin pairs (#269)."
 pin_spacing_mm = { value = 450.0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }   # #269: D = 450
 rail_angle_deg = 16.44             # #269: alpha; non-length nominal, example value from #269
+# guide error budget facts (§4.1); field names are #269's (D3), shown here as placeholders
+rail_angle_limits_deg = { value = [16.435, 16.445], measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+pin_clearance_mm = { value = 0.005, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 
 [[fixtures.trammel-jig.solids]]
 name = "hub_hole"
