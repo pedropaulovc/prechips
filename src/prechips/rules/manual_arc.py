@@ -87,7 +87,7 @@ def mark_step(scale):
 
 # Earlier ops in the setup that leave the bar's faces as received: the marks are measured
 # from them.
-_UNCUT = frozenset({"scribe", "inspect"})
+UNCUT = frozenset({"scribe", "inspect"})
 
 
 def arc_end_marks(bundle, setup, op, ends, scale, centre):
@@ -107,7 +107,7 @@ def arc_end_marks(bundle, setup, op, ends, scale, centre):
     for other in map(record, setup.get("ops") or []):
         if other is op or other.get("op") == record(op).get("op"):
             break
-        if other.get("do") not in _UNCUT:
+        if other.get("do") not in UNCUT:
             return None, (
                 f"op {other.get('op')} before it in setup {setup.get('id')} may cut the bar's "
                 "faces the marks are measured from: scribe the arc's ends first"

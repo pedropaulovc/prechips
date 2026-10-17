@@ -448,7 +448,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   XY, the sweep's start end first, reference geometry). The traveler sets the stops
   on the arc-end marks an earlier `scribe` op with `layout = "ends"` lays out in the
   same setup (`marks`: that op and which mark, A or B, each stop sits on, the start
-  first); no such op, or marks it cannot place, is unknown. The setup
+  first); no such op, marks it cannot place, or any op between that layout and the sweep
+  that may cut (an earlier sweep cuts through the arc's ends: rough and finish in one op,
+  whose stops are set once) is unknown. The setup
   frame is the work at the sweep's middle pose: `touch_axis` must run from the arc
   centre to the arc's middle (`arc_mid_setup_xy`), the cutter's radial line, to
   within one DRO step of cutter travel (`touch_axis_off_deg`), else an error, since

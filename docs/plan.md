@@ -1711,7 +1711,8 @@ uses the 1898 manual arc method:
    a rectangular bar the setup receives as the plan's raw stock, square to the setup
    axes, and a short stroke through it toward the arc's centre at a printed angle to
    that side face, scribed before any op in the setup that may cut those faces; no
-   such op, stock without those faces, or a layout after a cut is unknown and the sweep
+   such op, stock without those faces, a layout after a cut, or a cut between the layout
+   and the sweep (an earlier sweep cuts its marks away) is unknown and the sweep
    prints only a STOP. Then a dry pass from stop to stop, then the sweep: spindle started, its
    direction viewed from above, its angle and cutter travel, and the time it takes
    at the op's starting feed; each sweep ends with Z raised clear of the work and the

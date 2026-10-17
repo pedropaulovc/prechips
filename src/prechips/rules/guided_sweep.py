@@ -575,13 +575,15 @@ def _marks(bundle, setup, op, record_, label, debts, scale):
     ``layout = "ends"`` on the swept feature (its marks measured from the stock's own
     faces, :func:`~.manual_arc.arc_end_marks`). Recorded as ``marks``: the scribe ``op``
     and which mark (``A`` or ``B``) each stop sits on, the sweep's ``start`` first; else
-    UNKNOWN with a debt, since nothing else places a stop on the work."""
+    UNKNOWN with a debt, since nothing else places a stop on the work. An op between the
+    layout and the sweep that may cut (an earlier sweep cuts through the arc's ends and
+    the strokes beside them) leaves no mark to trust."""
     from .coordinates import arc_layout
-    from .manual_arc import arc_end_marks
+    from .manual_arc import UNCUT, arc_end_marks
 
     record_["marks"] = UNKNOWN
     feature = op.get("feature")
-    scribe = None
+    scribe = cut = None
     for other in map(record, setup.get("ops") or []):
         if other.get("op") == op.get("op"):
             break
@@ -590,11 +592,20 @@ def _marks(bundle, setup, op, record_, label, debts, scale):
             and other.get("feature") == feature
             and other.get("layout") == "ends"
         ):
-            scribe = other
+            scribe, cut = other, None
+        elif other.get("do") not in UNCUT:
+            cut = other
     if scribe is None:
         debts.append(
             f'{label}: no earlier scribe op (layout = "ends") in setup {setup.get("id")} '
             f"marks {feature}'s ends to set the stops on"
+        )
+        return
+    if cut is not None:
+        debts.append(
+            f"{label}: op {cut.get('op')} after the layout (op {scribe.get('op')}) may have "
+            "cut its marks away, so no mark sets the stops: rough and finish the arc in one "
+            "op, whose stops are set once"
         )
         return
     line = arc_layout(bundle, setup, feature) or {}

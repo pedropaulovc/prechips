@@ -884,6 +884,17 @@ def test_marks_scribed_after_a_cut_in_the_setup_place_no_stop(tmp_path):
     assert "op 30 finish: op 20 before it in setup S1 may cut the bar's faces" in debts(row)
 
 
+def test_a_second_sweep_sets_no_stops_on_marks_the_first_cut_away(tmp_path):
+    # Op 20 sweeps through the arc's ends and the strokes beside them: op 30, resting on
+    # the same layout, has no mark left to set its stops on (Codex review of #258 at
+    # 9401838). A rough and finish in one op set their stops once, before either cuts.
+    plan = guided_plan(tmp_path, after=op(30, "finish_profile", sweep_contour()))
+    row = coordinates_row(plan, stock_bbox=SWING)
+    assert recipe_of(row, 20)["marks"]["op"] == 5
+    assert recipe_of(row, 30)["marks"] == "unknown"
+    assert "op 30 finish: op 20 after the layout (op 5) may have cut its marks away" in debts(row)
+
+
 def recipe_of(row, number, stage="finish"):
     (table,) = [t for t in arcs(row, number) if t["stage"] == stage]
     return table["guided"]
