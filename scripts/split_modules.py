@@ -55,7 +55,7 @@ SRC = ROOT / "src"
 SPEC = Path(__file__).with_suffix(".toml")
 EXPAND_LINES = 300  # a class this long is analysed per method (and split into mixins)
 SWEEP = 0.5  # a change touching more than this share of a module's symbols is a sweep
-HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", re.M)
+HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", re.M)
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 BUILTINS = set(dir(builtins)) | {"__file__", "__name__", "__doc__", "__spec__"}
 REWRITE_ROOTS = ("src", "tests", "scripts")
@@ -224,6 +224,13 @@ def _local_bindings(function):
             continue
         if isinstance(n, ast.Lambda):
             continue
+        if isinstance(n, (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)):
+            # Its loop targets are its own scope's; only a walrus inside binds here.
+            parts = [getattr(n, key) for key in ("elt", "key", "value") if hasattr(n, key)]
+            for generator in n.generators:
+                parts += [generator.iter, *generator.ifs]
+            stack.extend(parts)
+            continue
         if isinstance(n, (ast.Global, ast.Nonlocal)):
             declared.update(n.names)
         elif isinstance(n, (ast.Import, ast.ImportFrom)):
@@ -347,6 +354,8 @@ def load_spec():
     folding target files into others and ``whole_classes`` dropping method patterns."""
     data = tomllib.loads(SPEC.read_text(encoding="utf-8"))
     modules = data["module"]
+    for module in modules:
+        module["_parses_source"] = data.get("parses_source", {})
     for variant in data.get("variant", []):
         base = next(m for m in modules if m["name"] == variant["base"])
         merge = variant.get("merge", {})
@@ -869,6 +878,7 @@ class Rewriter:
                 for name in _unit_free(unit):
                     self.lookups[name].add(target)
         self.refusals = []
+        self.hand = []
         self.flat = Path(self.module["source"]).stem
 
     def new_module(self, name):
@@ -888,7 +898,10 @@ class Rewriter:
 
     def rewrite(self, path):
         text = path.read_text(encoding="utf-8")
-        if Path(self.module["source"]).stem not in text and self.source.rsplit(".")[-1] not in text:
+        probe = self.module.get("entry") and "module_from_spec" in text
+        probe = probe or "ast.parse(" in text or "getsource(" in text
+        mentioned = Path(self.module["source"]).stem in text or self.source.rsplit(".")[-1] in text
+        if not (probe or mentioned):
             return None
         tree = ast.parse(text)
         lines = text.splitlines(keepends=True)
@@ -900,7 +913,8 @@ class Rewriter:
             return offsets[lineno - 1] + len(line[:col].decode("utf-8"))
 
         flat = self.flat if path.parent == ROOT / self.module.get("flat_root", "-") else None
-        aliases = {}  # local name bound to the source module object
+        aliases = {}  # id(import node) -> {local name bound there to the source module}
+        imports = {}  # id(import node) -> import node
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom):
                 absolute = _absolute(path, node)
@@ -908,73 +922,127 @@ class Rewriter:
                     edits.append(self._from_import(path, node, at, flat=True))
                 elif absolute == self.source:
                     edits.append(self._from_import(path, node, at))
-                elif absolute and any(f"{absolute}.{a.name}" == self.source for a in node.names):
+                elif absolute:
                     for a in node.names:
                         if f"{absolute}.{a.name}" == self.source:
-                            aliases[a.asname or a.name] = node
+                            aliases.setdefault(id(node), set()).add(a.asname or a.name)
+                            imports[id(node)] = node
             elif isinstance(node, ast.Import):
                 for a in node.names:
                     if a.name == self.source and a.asname:
-                        aliases[a.asname] = node
+                        aliases.setdefault(id(node), set()).add(a.asname)
+                        imports[id(node)] = node
                     elif a.name == self.source or a.name.startswith(self.source + "."):
                         self.refusals.append(f"{path}:{node.lineno} plain `import {a.name}`")
-        added = set()
-        for node in ast.walk(tree):
-            edit = self._patch(node, aliases, at, added)
-            edit = edit or self._attribute(node, aliases, at, added)
+        added = defaultdict(set)  # id(import node) -> import lines to add beside it
+        for node, binding in _resolved_uses(tree, aliases):
+            edit = self._patch(node, binding, at, added)
+            edit = edit or self._attribute(node, binding, at, added)
             if edit:
                 edits.append(edit)
-        if self.module.get("entry") and "KERNEL_SOURCE" in text:
-            edits.extend(self._probes(text, tree, at))
+        for key, lines_ in added.items():
+            node = imports[key]
+            indent = " " * node.col_offset
+            offset = offsets[node.end_lineno]  # start of the line after the alias import
+            edits.append((offset, offset, "".join(f"{indent}{line}\n" for line in sorted(lines_))))
+        if self.module.get("entry"):
+            edits.extend(self._probes(text, tree, at, path))
+        relative = path.relative_to(ROOT).as_posix()
+        parsers = self.module.get("_parses_source", {})
+        if self._reads_source(text):
+            if relative not in parsers:
+                self.refusals.append(
+                    f"{relative} parses source: list it in the spec's [parses_source] "
+                    "with the modules whose source it reads"
+                )
+            elif self.module["source"] in parsers[relative]:
+                self.hand.append(f"{relative} reads {self.module['source']}'s source")
         edits = [e for e in edits if e is not None]
         if not edits:
             return None
-        for start, end, replacement in sorted(edits, reverse=True):
+        for start, end, replacement in sorted(edits, key=lambda e: (e[0], e[1]), reverse=True):
             text = text[:start] + replacement + text[end:]
-        if added:
-            imports = "".join(f"{line}\n" for line in sorted(added))
-            text = _insert_imports(text, imports)
         return text
 
-    def _probes(self, text, tree, at):
-        """Rewrite in-kernel probe scripts (test string literals that load the entry via
-        ``KERNEL_SOURCE``): ``alias.name`` of a moved name reads the owning engine module,
-        imported right after the probe's ``exec_module(alias)``. Edits the literal's
-        source text, so raw strings and their backslashes stay as written."""
+    def _reads_source(self, text):
+        """A file that parses source text (``ast.parse``, ``inspect.getsource``) may depend
+        on where a split module's code lives, which the script cannot port. Each such file
+        is listed once in the spec's ``[parses_source]`` with the modules it reads."""
+        return "ast.parse(" in text or "getsource(" in text
+
+    def _probes(self, text, tree, at, path):
+        """Rewrite in-kernel probe scripts: test string literals that load the entry with
+        ``importlib.util.module_from_spec`` (whatever variable names its path), plus every
+        other literal of that file (probe fragments joined to a loader). A read of a moved
+        name, ``alias.name``, reads its owning engine module, imported after the loader's
+        ``exec_module(alias)`` at that line's indentation; a write, ``alias.name = ...``,
+        lands in the one file that looks the name up (else it refuses, as for
+        ``monkeypatch``). Edits the literals' source text, so raw strings stay as written."""
+        loader = r"^[ \t]*(\w+) = importlib\.util\.module_from_spec"
+        literals = [
+            n for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)
+        ]
+        aliases = set()
+        for node in literals:
+            aliases.update(re.findall(loader, node.value, re.M))
+        if not aliases:
+            return []
+        used = defaultdict(dict)  # alias -> {stem: dotted module}
         edits = []
-        for node in ast.walk(tree):
-            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
-                continue
-            loader = r"^([ \t]*)(\w+) = importlib\.util\.module_from_spec"
-            loaders = re.findall(loader, node.value, re.M)
-            if not loaders:
-                continue
+        for node in literals:
             start = at(node.lineno, node.col_offset)
             end = at(node.end_lineno, node.end_col_offset)
             literal = original = text[start:end]
-            for indent, alias in loaders:
-                used = {}
+            for alias in sorted(aliases):
 
-                def moved(match, alias=alias, used=used):
+                def written(match, alias=alias):
+                    if self.owner.get(match[2]) in (None, self.rest):
+                        return match[0]
+                    module = self.patched_module(match[2])
+                    if module is None or module == dotted(self.module, self.rest):
+                        return match[0]
+                    stem = module.rsplit(".", 1)[-1]
+                    used[alias][stem] = module
+                    return f"{match[1]}{alias}_{stem}.{match[2]}{match[3]}"
+
+                def read(match, alias=alias):
                     owner = self.owner.get(match[1])
                     if owner is None or owner == self.rest:
                         return match[0]
                     stem = Path(owner).stem
-                    used[stem] = dotted(self.module, owner)
+                    used[alias][stem] = dotted(self.module, owner)
                     return f"{alias}_{stem}.{match[1]}"
 
-                literal = re.sub(rf"\b{alias}\.(\w+)", moved, literal)
-                loaded = f"spec.loader.exec_module({alias})\n"
-                if used and loaded not in literal:
-                    raise Refused(f"probe at line {node.lineno}: no exec_module({alias}) line")
-                imports = "".join(
-                    f"{indent}import {name} as {alias}_{stem}\n"
-                    for stem, name in sorted(used.items())
-                )
-                literal = literal.replace(loaded, loaded + imports, 1)
+                write = rf"(^[ \t]*){alias}\.(\w+)(\s*=(?!=))"
+                literal = re.sub(write, written, literal, flags=re.M)
+                literal = re.sub(rf"(?<![\w.]){alias}\.(\w+)", read, literal)
             if literal != original:
-                edits.append((start, end, literal))
-        return edits
+                edits.append([start, end, literal, node])
+        for alias, stems in used.items():
+            exec_line = rf"^([ \t]*)spec\.loader\.exec_module\({alias}\)\n"
+            for edit in edits + [[at(n.lineno, n.col_offset), None, None, n] for n in literals]:
+                body = (
+                    edit[2]
+                    if edit[2] is not None
+                    else text[edit[0] : at(edit[3].end_lineno, edit[3].end_col_offset)]
+                )
+                match = re.search(exec_line, body, re.M)
+                if not match:
+                    continue
+                imports = "".join(
+                    f"{match[1]}import {name} as {alias}_{stem}\n"
+                    for stem, name in sorted(stems.items())
+                )
+                body = body[: match.end()] + imports + body[match.end() :]
+                if edit[2] is None:
+                    end = at(edit[3].end_lineno, edit[3].end_col_offset)
+                    edits.append([edit[0], end, body, edit[3]])
+                else:
+                    edit[2] = body
+                break
+            else:
+                raise Refused(f"{path.name}: no spec.loader.exec_module({alias}) line")
+        return [(start, end, literal) for start, end, literal, _ in edits]
 
     def _from_import(self, path, node, at, flat=False):
         groups = defaultdict(list)
@@ -992,15 +1060,17 @@ class Rewriter:
         span = at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset)
         return *span, replacement
 
-    def _alias_for(self, local, module, added):
+    def _alias_for(self, local, module, added, binding):
+        """The local name of ``module``, imported beside the alias import ``binding``
+        (same scope and indentation, so a function-level import stays lazy)."""
         if module == self.source:
             return local
         short = module.rsplit(".", 1)
         name = f"{local}_{short[-1]}"
-        added.add(f"from {short[0]} import {short[-1]} as {name}")
+        added[id(binding)].add(f"from {short[0]} import {short[-1]} as {name}")
         return name
 
-    def _patch(self, node, aliases, at, added):
+    def _patch(self, node, binding, at, added):
         if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
             return None
         if node.func.attr != "setattr" or len(node.args) < 2:
@@ -1015,7 +1085,7 @@ class Rewriter:
                 return None
             span = at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset)
             return *span, repr(f"{module}.{name}")
-        if not (isinstance(first, ast.Name) and first.id in aliases):
+        if not (isinstance(first, ast.Name) and binding is not None):
             return None
         if not (isinstance(second, ast.Constant) and isinstance(second.value, str)):
             self.refusals.append(f"monkeypatch of {first.id} with a computed name")
@@ -1023,32 +1093,76 @@ class Rewriter:
         module = self.patched_module(second.value)
         if module is None or module == self.source:
             return None
-        local = self._alias_for(first.id, module, added)
+        local = self._alias_for(first.id, module, added, binding)
         return at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset), local
 
-    def _attribute(self, node, aliases, at, added):
+    def _attribute(self, node, binding, at, added):
         if not (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)):
             return None
-        if node.value.id not in aliases:
+        if binding is None:
             return None
         module = self.new_module(node.attr)
         if module == self.source:
             return None
-        local = self._alias_for(node.value.id, module, added)
+        local = self._alias_for(node.value.id, module, added, binding)
         value = node.value
         return at(value.lineno, value.col_offset), at(value.end_lineno, value.end_col_offset), local
 
 
-def _insert_imports(text, imports):
-    tree = ast.parse(text)
-    last = 0
+def _module_bindings(tree):
+    bound = set()
     for node in tree.body:
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            last = node.end_lineno
-        elif last:
-            break
-    lines = text.splitlines(keepends=True)
-    return "".join(lines[:last]) + imports + "".join(lines[last:])
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound.add(node.name)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            bound.update((a.asname or a.name).split(".")[0] for a in node.names)
+        else:
+            _targets(node, bound)
+    return bound
+
+
+def _resolved_uses(tree, aliases):
+    """``(node, alias import or None)`` for every node, the import being the one the
+    node's leading name resolves to lexically: a function's own parameter or local
+    named like a module alias hides that alias, as Python's scoping does."""
+    scope_of = {}  # id(import node) -> id(scope node)
+    names_of = {}
+    for scope in ast.walk(tree):
+        if not isinstance(scope, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            continue
+        body = scope.body if isinstance(scope.body, list) else [scope.body]
+        stack = list(body)
+        while stack:
+            n = stack.pop()
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+                continue
+            if id(n) in aliases:
+                scope_of[id(n)] = id(scope)
+                for name in aliases[id(n)]:
+                    names_of[(id(scope), name)] = n
+            stack.extend(ast.iter_child_nodes(n))
+    found = []
+
+    def visit(n, chain):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            chain = [*chain, (id(n), _local_bindings(n))]
+        name = None
+        if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name):
+            name = n.value.id
+        elif isinstance(n, ast.Call) and n.args and isinstance(n.args[0], ast.Name):
+            name = n.args[0].id
+        binding = None
+        if name is not None:
+            for scope, bound in reversed(chain):
+                if name in bound:
+                    binding = names_of.get((scope, name))
+                    break
+        found.append((n, binding))
+        for child in ast.iter_child_nodes(n):
+            visit(child, chain)
+
+    visit(tree, [(id(tree), _module_bindings(tree))])
+    return found
 
 
 def _citations(source):
@@ -1105,12 +1219,16 @@ def apply(args):
         path.write_text(text, encoding="utf-8", newline="\n")
     changed = [str(p) for p in {**files, **rewritten}]
     ruff = [sys.executable, "-m", "ruff"]
-    subprocess.run([*ruff, "check", "--quiet", "--fix", "--select", "I", *changed], cwd=ROOT)
-    subprocess.run([*ruff, "format", "--quiet", *changed], cwd=ROOT)
+    for step in (["check", "--quiet", "--fix", "--select", "I"], ["format", "--quiet"]):
+        process = subprocess.run([*ruff, *step, *changed], cwd=ROOT)
+        if process.returncode:
+            raise SystemExit(f"ruff {step[0]} failed ({process.returncode}) on the written files")
     for path in sorted(changed):
         print(f"wrote {Path(path).relative_to(ROOT)}")
     for where in mentioned:
         print(f"UPDATE BY HAND: {where} names {module['source']}")
+    for note in rewriter.hand:
+        print(f"UPDATE BY HAND: {note}")
 
 
 # --- churn -----------------------------------------------------------------------------
@@ -1139,22 +1257,40 @@ def _units_at(commit, path):
     return blob, _UNITS[blob]
 
 
-def touched(base, head, path):
-    """``(units at head, {indices touched})``: the units whose lines ``base..head``
-    added or changed, and the unit at each pure deletion's position."""
-    diff = git("diff", "-U0", "--no-color", base, head, "--", path)
-    blob, found = _units_at(head, path)
-    if not diff or blob is None:
-        return found, set()
+def _hits(found, spans):
     owner = {}
     for index, unit in enumerate(found):
         for line in range(unit.start, unit.end + 1):
             owner[line] = index
-    hit = set()
+    return {
+        owner[line]
+        for first, count in spans
+        for line in range(first, first + count)
+        if line in owner
+    }
+
+
+def touched(base, head, path):
+    """``[(units, {indices touched})]`` for both sides of ``base..head``: at ``head`` the
+    units whose lines were added or changed (a pure deletion counts against the unit at
+    its position), and at ``base`` the units whose lines were removed or changed, so a
+    deleted symbol still counts against the file it lived in."""
+    diff = git("diff", "-U0", "--no-color", base, head, "--", path)
+    if not diff:
+        return []
+    old, new = [], []
     for match in HUNK.finditer(diff):
-        first, count = int(match[1]), int(match[2] or 1)
-        hit.update(owner[line] for line in range(first, first + max(count, 1)) if line in owner)
-    return found, hit
+        old_count = 1 if match[2] is None else int(match[2])
+        new_count = 1 if match[4] is None else int(match[4])
+        if old_count:
+            old.append((int(match[1]), old_count))
+        new.append((int(match[3]), max(new_count, 1)))
+    sides = []
+    for commit, spans in ((head, new), (base, old)):
+        blob, found = _units_at(commit, path) if commit != EMPTY_TREE else (None, [])
+        if blob is not None and spans:
+            sides.append((found, _hits(found, spans)))
+    return sides
 
 
 def changes(since, refs, paths, by):
@@ -1173,7 +1309,10 @@ def changes(since, refs, paths, by):
         base = git("merge-base", "HEAD", ref).strip()
         label = "open:" + ref.split("/", 1)[-1]
         found[label] = {p: touched(base, ref, p) for p in paths}
-    return {k: {p: v for p, v in files.items() if v[1]} for k, files in found.items()}
+    return {
+        k: {p: v for p, v in files.items() if any(hit for _, hit in v)}
+        for k, files in found.items()
+    }
 
 
 def churn(args):
@@ -1193,19 +1332,31 @@ def churn(args):
         for change, files in found.items():
             if path not in files:
                 continue
-            version, hit = files[path]
+            sides = files[path]
+            version, hit = sides[0]
             movable = [i for i, u in enumerate(version) if u.kind not in ("import", "module")]
             hit_movable = [i for i in hit if version[i].kind not in ("import", "module")]
             if len(movable) > 8 and len(hit_movable) > SWEEP * len(movable):
                 sweeps.append(change)
                 continue
             touching.append(change)
-            for index, (unit, target) in enumerate(assign(module, version)):
-                if index in hit and unit.kind not in ("import", "module"):
-                    per_target[target].add(change)
+            targets, imports = set(), False
+            for version, hit in sides:
+                for index, (unit, target) in enumerate(assign(module, version)):
+                    if index not in hit:
+                        continue
+                    if unit.kind in ("import", "module"):
+                        per_unit[f"<{unit.kind}>"].add(change)
+                        imports = True
+                        continue
+                    targets.add(target)
                     per_unit[unit.name].add(change)
-                elif index in hit:
-                    per_unit[f"<{unit.kind}>"].add(change)
+            # An import edit serves the change's own symbols, so it lands in their files;
+            # a change that edits only imports keeps the rest file.
+            if imports and not targets:
+                targets.add(module["rest"])
+            for target in targets:
+                per_target[target].add(change)
         pairs = list(itertools.combinations(touching, 2))
         shared = [p for p in pairs if any(p[0] in s and p[1] in s for s in per_target.values())]
         open_ = [c for c in touching if c.startswith("open:")]
@@ -1252,11 +1403,12 @@ def churn(args):
 
 # --- byte identity ---------------------------------------------------------------------
 
-BUNDLES = {  # plan -> its expected traveler directory
-    "examples/pivot-shaft/plan.toml": "examples/pivot-shaft/expected",
-    "examples/rocker-arm/plan.toml": "examples/rocker-arm/expected",
-    "examples/pivot-bracket/plan.toml": "examples/pivot-bracket/expected",
-    "examples/cone-pivot-post/built-up.toml": "examples/cone-pivot-post/expected/built-up",
+# plan -> (its expected traveler directory, the exit examples/README.md documents for it)
+BUNDLES = {
+    "examples/pivot-shaft/plan.toml": ("examples/pivot-shaft/expected", 0),
+    "examples/rocker-arm/plan.toml": ("examples/rocker-arm/expected", 0),
+    "examples/pivot-bracket/plan.toml": ("examples/pivot-bracket/expected", 0),
+    "examples/cone-pivot-post/built-up.toml": ("examples/cone-pivot-post/expected/built-up", 4),
 }
 
 
@@ -1269,10 +1421,19 @@ def _digests(directory):
 
 
 def snapshot(args):
+    """Fails on any of: a non-empty OUT (an earlier run's file could stand in for a missing
+    output), an exit other than the bundle's documented one, a traveler directory or a
+    check's report.json differing from ``expected/``, or any difference from the
+    ``--against`` manifest (read before anything is written)."""
     out = Path(args.out).resolve()
+    if out.exists() and any(out.iterdir()):
+        raise SystemExit(f"{out} is not empty; snapshot needs a fresh output directory")
+    before = json.loads(Path(args.against).read_text()) if args.against else None
     manifest = {}
-    for plan, expected in BUNDLES.items():
+    failed = []
+    for plan, (expected, exit_code) in BUNDLES.items():
         stem = Path(plan).parent.name
+        reference = _digests(ROOT / expected)
         for verb in ("check", "traveler"):
             target = out / stem / verb
             process = subprocess.run(
@@ -1281,21 +1442,26 @@ def snapshot(args):
                 capture_output=True,
                 text=True,
             )
-            manifest[f"{stem}/{verb}"] = {
+            files = _digests(target) if target.exists() else {}
+            wanted = reference if verb == "traveler" else {"report.json": reference["report.json"]}
+            entry = {
                 "exit": process.returncode,
-                "files": _digests(target) if target.exists() else {},
+                "files": files,
+                "matches_expected": files == wanted,
             }
+            manifest[f"{stem}/{verb}"] = entry
+            if process.returncode != exit_code:
+                failed.append(f"{stem}/{verb}: exit {process.returncode}, documented {exit_code}")
+            if not entry["matches_expected"]:
+                failed.append(f"{stem}/{verb}: outputs differ from {expected}")
             print(f"{stem:16s} {verb:9s} exit={process.returncode}", flush=True)
-        traveler = manifest[f"{stem}/traveler"]
-        traveler["matches_expected"] = traveler["files"] == _digests(ROOT / expected)
+    out.mkdir(parents=True, exist_ok=True)
     (out / "manifest.json").write_text(json.dumps(manifest, indent=1, sort_keys=True) + "\n")
-    failed = [k for k, v in manifest.items() if v.get("matches_expected") is False]
-    if args.against:
-        before = json.loads(Path(args.against).read_text())
+    if before is not None:
         keys = sorted(set(before) | set(manifest))
-        failed += [k for k in keys if before.get(k) != manifest.get(k)]
-    for key in failed:
-        print(f"DIFFERS: {key}")
+        failed += [f"{k}: differs from --against" for k in keys if before.get(k) != manifest.get(k)]
+    for reason in failed:
+        print(f"DIFFERS: {reason}")
     raise SystemExit(1 if failed else 0)
 
 

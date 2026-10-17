@@ -288,11 +288,22 @@ with `src/prechips/**` (`*.py` and `tokens.css`). A missing `model/stock.py` or
   reads the name. It refuses when two files read it: the `sheet` prototype first found
   `stock_states` read by both `_Traveler` and `dro`, and that turned out to be a scope
   bug in the script. The rewritten patch reads `"prechips.sheet.dro.stock_states"`.
-* **In-kernel probes** (seven test files load `freecad_job.py` through `KERNEL_SOURCE`
-  and read `job._Setup`, `kernel._grown`, …): the script rewrites `alias.name` for a
-  moved name to `alias_<file>.name` and adds `import engine.<file> as alias_<file>`
-  right after the probe's `exec_module(alias)`. It edits the literal's source text, so
-  raw strings keep their backslashes.
+* **In-kernel probes**: test string literals that load `freecad_job.py` with
+  `importlib.util.module_from_spec`. The path comes from whatever variable the test
+  uses: `KERNEL_SOURCE`, `ENGINE`, `CULLED_ENGINE`, `POOL_PROBE_ENGINE`, or a fixture.
+  The script finds probes by that loader, not by the variable. It rewrites a read
+  `alias.name` of a moved name, in the loader literal and in every other literal of the
+  file (probe fragments joined to a loader), to `alias_<file>.name`. It adds
+  `import engine.<file> as alias_<file>` after the loader's `exec_module(alias)`, at
+  that line's indentation. A write `alias.name = ...` is rewritten like a monkeypatch,
+  to the one file that looks the name up, and refused if more than one file does. It
+  edits the literal's source text, so raw strings keep their backslashes.
+* **Tests that parse source** (`ast.parse`, `inspect.getsource`) may rebuild code from
+  the module's own AST. `test_kernel_checkpoints.py` and `test_render_png.py` both do this
+  to `freecad_job.py`. The script cannot port that, so every file that parses source is
+  listed once in the spec's `[parses_source]` table with the modules whose source it
+  reads. An unlisted file is refused, and a reader of the module being split is printed
+  as `UPDATE BY HAND`, for a hand commit in that PR.
 
 ## The split script
 
@@ -322,7 +333,9 @@ What `apply` does:
      `self.__x` (mixins would change their meaning);
    * a symbol that reads `__file__` and would move to another directory;
    * a name bound twice that would land in two files;
-   * a monkeypatched name read from two files;
+   * a monkeypatched name read from two files, from `monkeypatch.setattr` or from a
+     probe's `alias.name = ...`;
+   * a file that parses source and that the spec has not classified (section 6);
    * a plain `import prechips.<module>` it cannot rewrite;
    * a `file:line` citation of the module in docs or example data (AGENTS.md cites
      Python by line).
@@ -334,8 +347,10 @@ What `apply` does:
 5. It rewrites importers in `src/`, `tests/` and `scripts/` (module-level and
    function-level `from … import`, module-alias attribute uses, monkeypatch targets
    and in-kernel probes), then runs `ruff check --select I --fix` and `ruff format` on
-   the files it wrote. It prints the prose mentions of the old path (for example
-   `docs/plan.md` naming `src/prechips/model.py`) as `UPDATE BY HAND` lines.
+   the files it wrote, failing if either Ruff step fails. It prints the prose mentions of
+   the old path (for example `docs/plan.md` naming `src/prechips/model.py`) and the
+   `[parses_source]` readers to port as `UPDATE BY HAND` lines.
+6. It never stages anything: new files are untracked until `git add -A`.
 
 ### Prototype results
 
@@ -345,15 +360,28 @@ Each split ran in a throwaway worktree on `main` at `f5c7414`. Nothing was commi
 |---|---|
 | `model` (the small module) | `apply`: 12 files, 27 importers rewritten. Ruff and format clean. Full suite (`-n 2 --dist loadscope`, `PRECHIPS_KERNEL_WORKERS=1`, `PRECHIPS_REQUIRE_KERNEL=1`, pinned AppImage): 9,423 passed, 83 skipped (82 for no print browser here, 1 packaging-only), 0 failed. Snapshot manifest identical to `main`'s, all four travelers equal to `expected/`. `uv build`: the wheel and sdist both contain all 78 files under `src/prechips/`, `model/` included. |
 | `sheet` (mixins) | `apply`: 18 files, 10 `_Traveler` mixins, the `stock_states` monkeypatches retargeted to `sheet.dro`. Ruff clean. The pivot-shaft traveler is byte-identical to `expected/`. |
-| `freecad_job` (FreeCAD) | `apply` after one hand prep commit (`_POOL` holder, below): 21 engine files, 14 mixins, 6 probe test files rewritten. Under the pinned AppImage with a fresh `PRECHIPS_KERNEL_CACHE` that only the split engine filled, the snapshot manifest is identical to `main`'s and all four travelers equal `expected/`. Cold rocker-arm `check`: `main` 537 s, split 501 s, reports byte-identical. Full suite: running at the time of this commit; result in the PR body. |
+| `freecad_job` (FreeCAD) | `apply` after one hand prep commit (`_POOL` holder, below): 21 engine files, 14 mixins, 6 probe test files rewritten. Under the pinned AppImage with a fresh `PRECHIPS_KERNEL_CACHE` that only the split engine filled, the snapshot manifest is identical to `main`'s and all four travelers equal `expected/`. Cold rocker-arm `check`: `main` 537 s, split 501 s, reports byte-identical. Full suite of that first prototype: 9,115 passed, 11 failed, 297 errors, 83 skipped. Every failure traced to a test seam the first script did not handle: probes loading the entry through `ENGINE`/`CULLED_ENGINE`/a fixture, probe fragments, two tests that rebuild code from `freecad_job.py`'s AST, and probes that patch `_culled_common`/`_face_samples`. The fixed script now rewrites the first two and refuses the rest: `_culled_common` is read from 2 files and `_face_samples` from 8. So the engine split needs hand prep before `apply` (below); it is not mechanical yet. |
 
 Gaps the prototypes found, to close in the split PRs:
 
 * **`_POOL` (freecad_job)**: `main()` assigns it under `global` and `_ahead()`/`run`
   read it. Split naively, the readers would see `None` forever and every boolean would
   run un-pooled with byte-identical output. Only the `pool_answers` timing fact would
-  show it. The script refuses this. A hand prep commit, first in that PR, replaces the
-  global with a mutable holder in `engine/pool.py` (`_POOL["pool"]`) that `main` fills.
+  show it. The script refuses this. A hand prep commit, first in that PR and still inside
+  `freecad_job.py`, replaces the global with a mutable holder (`_POOL = {"pool": None}`,
+  set by `main` as `_POOL["pool"] = ...`). The spec then moves `_POOL` and `_ahead` into
+  `engine/pool.py`, which therefore does not exist before `apply` (it refuses an
+  existing target).
+* **Probe patches of shared engine functions (freecad_job)**: `test_kernel_pose_reuse.py`
+  replaces `engine._culled_common`, read after the split by `engine/cull.py` and the
+  entry's `_POOL_FUNCTIONS`. `test_kernel_region_geometry.py` replaces
+  `engine._face_samples`, read by 8 engine files. A hand prep commit makes those probes
+  patch each reading module (or makes the callers read the function through one
+  module) before `apply`.
+* **AST-reading tests (freecad_job)**: `pure_chain_regeneration` and `stock_dispatch` in
+  `test_kernel_checkpoints.py`, and `test_render_png.py`, rebuild functions from
+  `freecad_job.py`'s AST. In that PR they read the engine files that now hold those
+  functions (a hand commit after the mechanical one).
 * **Dead duplicate (model)**: `model.py` defines `_unit` twice (lines 489 and 636); the
   first is shadowed and never runs. The split keeps both in `model/common.py` in order
   (the script refuses to separate them). Deleting the dead one is a separate fix.
@@ -381,8 +409,9 @@ git fetch origin main && git checkout -B refactor/split-model origin/main
 git cherry-pick <prep commits>           # small, hand-made, re-checked
 uv run scripts/split_modules.py apply model
 uv run ruff check . && uv run ruff format --check . && uv run pytest -n 2 --dist loadscope
-uv run scripts/split_modules.py snapshot out/split --against out/main/manifest.json
-git commit -am "model: split per input family (mechanical, scripts/split_modules.py)"
+uv run scripts/split_modules.py snapshot out/split --against out/main/manifest.json  # fresh dir
+git add -A    # apply's new files are untracked until staged
+git commit -m "model: split per input family (mechanical, scripts/split_modules.py)"
 git cherry-pick <docs commit>
 ```
 
@@ -393,16 +422,33 @@ pattern names stays in `rest`, so `plan` after a rebase lists what to classify.
 A feature branch opened before a split lands can port its change without hand-merging
 the moved code:
 
-1. Commit `apply` on the branch's merge base (S₀) and on the branch tip (S₁).
-2. `git rebase --onto origin/main S₀ S₁`.
+```sh
+base=$(git merge-base origin/main feature)
+git checkout --detach "$base" && uv run scripts/split_modules.py apply model
+git add -A && git commit -qm "split at base" && s0=$(git rev-parse HEAD)
+git checkout --detach feature && uv run scripts/split_modules.py apply model
+git add -A && tree=$(git write-tree)
+s1=$(git commit-tree "$tree" -p "$s0" -m "feature, in the split layout")
+git checkout -B feature-split "$s1" && git rebase --onto origin/main "$s0"
+```
 
-The branch's diff then arrives already in the split layout, and the only conflicts
-left are real same-symbol ones.
+S₁ is a child of S₀, so S₀..S₁ is exactly the feature's change in the split layout. The
+rebase replays only that one commit, never the unsplit feature commits, and the only
+conflicts left are real same-symbol ones. Use the same spec and script revision that
+main's split commit used. Checked on a throwaway clone with the `model` split: a branch
+that edited `Policy` in `model.py` came out as a 2-line change to `model/policy.py`
+on top of the split main.
 
 ## Sequence and estimates
 
-One module per PR, lowest risk first. All of them start after #251, #253, #254, #258 and
-#263 land.
+One module per PR, stacked on this plan, each re-run by the script on the latest
+`origin/main`. #251, #253, #254 and #263 have landed since this evidence was taken. A
+module that an open PR still edits is split only after that PR lands: as of 2026-10-17,
+#258/#267/#278 (guided sweep: `sheet.py`, `freecad_job.py`, `model.py`, `coordinates.py`,
+`render_diagram.py`), #279 (`freecad_job.py`), #280 (`coordinates.py`) and #285
+(`kernel/__init__.py` and the engine digest). So the first split is `zero_recipe`,
+the one module no open PR edits, even though its gain is small. The order below applies
+as the others become free.
 
 | # | Split | Risk | Why here | Estimate |
 |---|---|---|---|---|

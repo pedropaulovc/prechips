@@ -6,6 +6,7 @@ repository's own sources.
 
 import ast
 import importlib.util
+import json
 import subprocess
 import sys
 import textwrap
@@ -244,3 +245,268 @@ def test_apply_moves_symbols_and_mixins_and_rewrites_importers_and_patches(at, t
         text=True,
     )
     assert process.returncode == 0, process.stdout + process.stderr
+
+
+def test_a_comprehension_target_never_hides_a_global_the_function_reads():
+    node = ast.parse(
+        textwrap.dedent(
+            """\
+            def f():
+                values = [LIMIT for LIMIT in range(2)]
+                return LIMIT, values, [(seen := item) for item in values], seen
+            """
+        )
+    ).body[0]
+    assert "LIMIT" in split.free_names(node)
+    assert "seen" not in split.free_names(node)  # a walrus binds the function's scope
+
+
+def _importer_case(at, tmp_path, source, targets, test_source):
+    at(source, _spec(targets))
+    test = tmp_path / "tests" / "test_big.py"
+    test.write_text(textwrap.dedent(test_source), encoding="utf-8")
+    split.main(["apply", "big"])
+    return test.read_text(encoding="utf-8")
+
+
+def test_a_parameter_named_like_a_module_alias_is_not_rewritten(at, tmp_path):
+    source = "def radius(x):\n    return x\n"
+    rewritten = _importer_case(
+        at,
+        tmp_path,
+        source,
+        '["radius"]',
+        """\
+        from pkg import big
+
+
+        def module_level():
+            return big.radius(1)
+
+
+        def shadowed(big):
+            return big.radius(1)
+        """,
+    )
+    assert "return big_parts.radius(1)" in rewritten
+    assert "def shadowed(big):\n    return big.radius(1)" in rewritten
+
+
+def test_a_lazy_module_import_stays_lazy_and_gets_its_replacement_beside_it(at, tmp_path):
+    source = "def radius(x):\n    return x\n"
+    rewritten = _importer_case(
+        at,
+        tmp_path,
+        source,
+        '["radius"]',
+        """\
+        def lazy():
+            from pkg import big
+
+            return big.radius(2)
+        """,
+    )
+    assert rewritten.splitlines()[:4] == [
+        "def lazy():",
+        "    from pkg import big",
+        "    from pkg import parts as big_parts",
+        "",
+    ]
+    assert "return big_parts.radius(2)" in rewritten
+
+
+def test_a_ruff_failure_fails_apply(at, tmp_path, monkeypatch):
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    real = subprocess.run
+
+    def failing_ruff(command, **kwargs):
+        if command[1:3] == ["-m", "ruff"]:
+            return subprocess.CompletedProcess(command, 2)
+        return real(command, **kwargs)
+
+    monkeypatch.setattr(split.subprocess, "run", failing_ruff)
+    with pytest.raises(SystemExit, match="ruff check failed"):
+        split.main(["apply", "big"])
+
+
+def test_a_test_reading_the_split_modules_source_is_refused_until_listed(at, tmp_path):
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    reader = tmp_path / "tests" / "test_reader.py"
+    reader.write_text(
+        'import ast\nfrom pathlib import Path\n\nTREE = ast.parse(Path("big.py").read_text())\n'
+        'NAME = "big.py"\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+    assert (tmp_path / "src" / "pkg" / "big.py").read_text().startswith("def radius")
+
+
+ENGINE_SPEC = """\
+    [[module]]
+    name = "big"
+    source = "src/pkg/big.py"
+    rest = "src/pkg/big.py"
+    entry = "src/pkg/big.py"
+    style = "engine"
+    root = "src/pkg"
+    [module.targets]
+    "src/pkg/parts.py" = ["helper", "patched", "user"]
+    """
+
+
+def test_probes_are_found_by_their_loader_and_fragments_are_rewritten_too(at, tmp_path):
+    source = """\
+        def helper():
+            return 1
+
+
+        def patched():
+            return 2
+
+
+        def user():
+            return patched()
+
+
+        def run():
+            return 0
+        """
+    at(source, ENGINE_SPEC)
+    test = tmp_path / "tests" / "test_probe.py"
+    test.write_text(
+        textwrap.dedent(
+            '''\
+            _HEAD = r"""
+            import importlib.util, os
+            spec = importlib.util.spec_from_file_location("e", os.environ["OTHER_ENGINE"])
+            engine = importlib.util.module_from_spec(spec)
+            if True:
+                spec.loader.exec_module(engine)
+            engine.run()
+            """
+            _TAIL = r"""
+            engine.patched = lambda: 3
+            print(engine.helper(), engine.run())
+            """
+            PROBE = _HEAD + _TAIL
+            '''
+        ),
+        encoding="utf-8",
+    )
+    split.main(["apply", "big"])
+    rewritten = test.read_text(encoding="utf-8")
+    assert "    spec.loader.exec_module(engine)\n    import parts as engine_parts\n" in rewritten
+    assert "engine_parts.patched = lambda: 3" in rewritten  # patched where user reads it
+    assert "print(engine_parts.helper(), engine.run())" in rewritten
+
+
+def _fake_cli(outputs, exits):
+    """A stand-in for ``uv run prechips VERB PLAN --out DIR`` writing ``outputs``."""
+
+    def run(command, **kwargs):
+        verb, plan, target = command[3], command[4], Path(command[6])
+        target.mkdir(parents=True)
+        for name, data in outputs[(plan, verb)].items():
+            (target / name).write_bytes(data)
+        return subprocess.CompletedProcess(command, exits[(plan, verb)], "", "")
+
+    return run
+
+
+@pytest.fixture
+def bundle(tmp_path, monkeypatch):
+    expected = tmp_path / "expected"
+    expected.mkdir()
+    (expected / "report.json").write_bytes(b"{}")
+    (expected / "traveler.html").write_bytes(b"<p>")
+    monkeypatch.setattr(split, "ROOT", tmp_path)
+    monkeypatch.setattr(split, "BUNDLES", {"plan.toml": ("expected", 0)})
+    good = {
+        ("plan.toml", "check"): {"report.json": b"{}"},
+        ("plan.toml", "traveler"): {"report.json": b"{}", "traveler.html": b"<p>"},
+    }
+    return tmp_path, good
+
+
+def _snapshot(monkeypatch, outputs, exits, *argv):
+    monkeypatch.setattr(split.subprocess, "run", _fake_cli(outputs, exits))
+    with pytest.raises(SystemExit) as stopped:
+        split.main(["snapshot", *map(str, argv)])
+    return stopped.value.code
+
+
+def test_snapshot_passes_only_matching_outputs_at_the_documented_exit(bundle, monkeypatch):
+    root, good = bundle
+    clean = {("plan.toml", "check"): 0, ("plan.toml", "traveler"): 0}
+    assert _snapshot(monkeypatch, good, clean, root / "a") == 0
+    timed_out = {("plan.toml", "check"): 2, ("plan.toml", "traveler"): 0}
+    assert _snapshot(monkeypatch, good, timed_out, root / "b") == 1
+    missing = {**good, ("plan.toml", "traveler"): {"report.json": b"{}"}}
+    assert _snapshot(monkeypatch, missing, clean, root / "c") == 1
+
+
+def test_snapshot_refuses_a_used_directory_and_reads_its_baseline_first(bundle, monkeypatch):
+    root, good = bundle
+    clean = {("plan.toml", "check"): 0, ("plan.toml", "traveler"): 0}
+    assert _snapshot(monkeypatch, good, clean, root / "base") == 0
+    # An earlier run's files cannot stand in for this run's outputs.
+    with pytest.raises(SystemExit, match="not empty"):
+        split.main(["snapshot", str(root / "base")])
+    baseline = root / "base" / "manifest.json"
+    changed = {**good, ("plan.toml", "check"): {"report.json": b"{}", "extra.txt": b"x"}}
+    assert _snapshot(monkeypatch, changed, clean, root / "new", "--against", baseline) == 1
+
+
+def _repo(tmp_path, monkeypatch, versions):
+    monkeypatch.setattr(split, "ROOT", tmp_path)
+    split._UNITS.clear()
+    commits = []
+    for text in versions:
+        (tmp_path / "big.py").write_text(textwrap.dedent(text), encoding="utf-8")
+        if not commits:
+            split.git("init", "-q")
+        split.git("add", "big.py")
+        split.git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "v")
+        commits.append(split.git("rev-parse", "HEAD").strip())
+    return commits
+
+
+def test_churn_counts_a_deleted_symbol_against_the_file_it_lived_in(tmp_path, monkeypatch):
+    base, head = _repo(
+        tmp_path,
+        monkeypatch,
+        ["def a():\n    return 1\n\n\ndef b():\n    return 2\n", "def a():\n    return 1\n"],
+    )
+    names = {
+        unit.name
+        for version, hit in split.touched(base, head, "big.py")
+        for i, unit in enumerate(version)
+        if i in hit
+    }
+    assert "b" in names
+
+
+BODY = "\n\ndef f():\n    return 1\n\n\ndef g():\n    return 2\n"
+
+
+def test_churn_keeps_two_import_edits_paired_after_the_split(tmp_path, monkeypatch, capsys):
+    _repo(
+        tmp_path,
+        monkeypatch,
+        [
+            imports + BODY
+            for imports in ("import a\n", "import a\nimport b\n", "import a\nimport b\nimport c\n")
+        ],
+    )
+    spec = tmp_path / "split.toml"
+    spec.write_text(
+        '[[module]]\nname = "big"\nsource = "big.py"\nrest = "big.py"\n'
+        '[module.targets]\n"parts.py" = ["g"]\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(split, "SPEC", spec)
+    split.main(["churn", "--by", "commit", "--since", "2000-01-01", "--json", str(tmp_path / "o")])
+    report = json.loads((tmp_path / "o").read_text())["modules"]["big"]
+    # The base commit adds every line (one change); the two import edits stay a pair.
+    assert report["pairs_after"] == report["pairs_before"] == 3

@@ -4,6 +4,15 @@
 # every symbol no pattern names stays in `rest`. A `variant` is an alternative the
 # `churn` report compares; `plan` and `apply` take the variant-less entry by default.
 
+# Every file that parses Python source (ast.parse, inspect.getsource), with the split
+# modules whose source it reads: apply refuses an unlisted one and prints the readers of
+# the module it splits, to port by hand in that PR.
+[parses_source]
+"scripts/split_modules.py" = []
+"tests/test_split_modules.py" = []
+"tests/test_kernel_checkpoints.py" = ["src/prechips/kernel/freecad_job.py"]
+"tests/test_render_png.py" = ["src/prechips/kernel/freecad_job.py"]
+
 # --- model.py -> model/ per input family, the plan schema per plan concern ----------------
 [[module]]
 name = "model"
