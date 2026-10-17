@@ -188,7 +188,7 @@ the spindle axis at the guide's crossing point. It is computed by the guide
 | `claims` | `list[str]`: the in-situ claims this reading establishes (`"trammel-jig.dowel_hole.position"`, §3.3); empty for a reading that trusts nothing (#11) |
 | `pin` | `str`: the inventory `pin_gauge` a `distance` to a hole is read over. Required for that case and refused for any other reading |
 | `contact` | `"near"` or `"far"`: the side of the pin the gauge touches. Required with `pin`, refused without it |
-| `chord_mm` / `chord_in` | `float` (`sagitta` only) |
+| `chord_mm` / `chord_in` | `float` (`sagitta` only), with `0 < chord ≤ 2R` for the edge's predicted radius `R`. A chord outside that range is an error, so the sagitta formula is never evaluated outside its domain; an unknown `R` leaves the check `?` |
 | `band_mm` / `band_in` | `Vector` `[low, high]` relative to the prediction, or a symmetric `float` |
 | `band_cite` | `Citations` |
 | `expect` | optional authored cross-check (above) |
@@ -222,7 +222,7 @@ new kinds the commissioning PRs add:
 |---|---|
 | `align`, `dro_xy` (centring under the spindle) | `dial_test_indicator`, `coax_indicator` (new), `edge_finder` |
 | `sagitta` | `sagitta_gauge` (new: a chord bar with an indicator) whose own measured `chord` equals the reading's `chord_mm` within its resolution. A different chord is an error, and an unmeasured chord leaves the reading `?`. A bare indicator is not accepted, because nothing would fix the chord. The gauge is digested like any named gauge (§3.4) |
-| `width`, `distance` | `caliper`, `micrometer`, `height_gauge`. A `distance` to a hole is read over a pin in it: the reading names the `pin` (an inventory `pin_gauge` with a measured diameter) and the `contact` side, `"near"` or `"far"`. The printed target moves the predicted centreline offset `o` by the pin radius `r` toward the reference for `near` and away from it for `far`. That is `o − sign(o)·r` (near) and `o + sign(o)·r` (far), so a hole inside the edge (negative `o`) gets `o + r` on its near side, not `o − r`. The sheet prints the target with its sign and names the side. An untrusted pin diameter leaves the reading `?`, and the pin is digested in `[planned]` |
+| `width`, `distance` | `caliper`, `micrometer`, `height_gauge`. A `distance` to a hole is read over a pin in it: the reading names the `pin` (an inventory `pin_gauge` with a measured diameter) and the `contact` side, `"near"` or `"far"`. The printed target moves the predicted centreline offset `o` by the pin radius `r` toward the reference for `near` and away from it for `far`. That is `o − sign(o)·r` (near) and `o + sign(o)·r` (far), so a hole inside the edge (negative `o`) gets `o + r` on its near side, not `o − r`. The sheet prints the target with its sign and names the side. The recorded value is the signed contact distance, and it is judged directly against that signed contact target; the rules never convert it back to a centreline value. Range coverage uses the **magnitude** of the contact interval, since a caliper reads distance, not side. A hole inside the edge, with a target of −3.2, needs a caliper that covers 3.2. An untrusted pin diameter leaves the reading `?`, and the pin is digested in `[planned]` |
 | `size` of a hole | `pin_gauge_set`, `bore_gauge` (an external micrometer never measures a bore) |
 | `z` | `height_gauge`, `dial_test_indicator` |
 | torque `steps` | `torque_wrench` |
@@ -1055,6 +1055,9 @@ Also:
 - Gauge kind: pin gauges for `sagitta`, or calipers as a centring gauge → error.
   A `sagitta_gauge` whose chord differs from `chord_mm` → error; with an
   unmeasured chord → `?`; a bare DTI for `sagitta` → error.
+- Sagitta chord: `chord_mm = 0`, negative, or greater than `2R` → error.
+- Pin range: a caliper covering `[0, 150]` judges a −3.2 contact target (inside
+  the edge); a target beyond its range in magnitude → error.
 - Pin contact: a `distance` to a hole with no `pin` or `contact` → error; the
   near target is `o − sign(o)·r` and the far target `o + sign(o)·r`, tested for
   a hole outside the edge (positive `o`) and one inside it (negative `o`); an
@@ -1281,12 +1284,13 @@ The rules compute the predictions. They are not authored:
   engine's value replaces it.
 - **Width:** `R_outer − R_inner` of the riser edges.
 - **Hub-pin-to-edge:** read with calipers from the edge to the near side of
-  the HUB pin (`pin = "pin-8"`, `contact = "near"`). The rules judge the
-  centreline value, the caliper reading plus the pin's measured radius, as the
-  **signed** radial offset `ρ_hub − R_edge`, where
-  `ρ_hub` is the hub centre's distance from the arc centre, taken from
-  `features.toml`. It is positive when HUB lies outside the edge (away from the
-  arc centre) and negative when it lies inside. The sheet prints which side is
+  the HUB pin (`pin = "pin-8"`, `contact = "near"`). The predicted centreline
+  value is the **signed** radial offset `o = ρ_hub − R_edge`, and the printed
+  target is the near-contact value `o − sign(o)·r` (§2.3). The shop records the
+  signed caliper reading, which is judged against that target. `ρ_hub` is the
+  hub centre's distance from the arc centre, taken from `features.toml`; `o` is
+  positive when HUB lies outside the edge (away from the arc centre) and
+  negative when it lies inside. The sheet prints which side is
   positive, and the shop records the value with its sign. A HUB on the wrong side
   of the edge therefore reads with the wrong sign and fails the band, instead of
   matching the mirror position `2·R_edge − ρ_hub`.
