@@ -967,12 +967,12 @@ branches:
   its annulus must be present inside the mouth plane, and nothing may lie outside it.
   A mouth the received socket already shows broken therefore places. The break is
   cut only after the join's certain checks (fit, overlap, insertion, fill process).
-  A mouth that cannot be placed, such as an authored end in air or a saddle on a
-  curved face, may yet change the corner. While it stands, the refusals a break can
-  undo (a carried face, a corner that is not sharp, a single component) are debt.
-  The refusals no break can undo stay certain: loss beyond the band's MAX, and a band
-  not starting at 0. A thru socket authored past its material is such a case. An
-  undeclared or unknown break is debt.
+  A mouth that cannot be placed, such as an authored end in air (a thru socket
+  authored past its material) or a saddle on a curved face, makes the joined corner
+  undecided. While it stands, a carried face, a corner that is not sharp (a groove at
+  the other, placed mouth included) and a single component are debt. Loss beyond the
+  band's MAX and a band not starting at 0 stay certain refusals. An undeclared or
+  unknown break is debt.
 - No lost point, sampled faces and vertices included, lies farther from the formed
   faces than the band's MAX. Material missing beyond the band stays lost.
 - The corner shares area with both received branches. A corner that one branch
@@ -983,11 +983,11 @@ branches:
 Each of these failures refuses the join with its message. An unknown band, units
 or mouth break makes a formed feature debt. So does a known feature whose lost
 material is shared with an undecided one, transitively and whatever the order of
-`forms`. Its other pieces are still held to the refusals no undecided corner can
-undo: loss beyond its MAX, and a band not starting at 0. Otherwise its loss is
-excused with it. Lost material left at an undecided
-feature's faces then withholds the joined stock instead of refusing it. Lost
-material elsewhere is still a certain refusal. Two cases withhold the stock for any
+`forms`. Its other pieces are still held to loss beyond its MAX and to a band not
+starting at 0. Otherwise all its lost pieces are excused with it, and so is any lost
+piece touching them. Lost material left at an undecided
+feature's faces, or at a deferred feature's lost pieces, then withholds the joined
+stock instead of refusing it. Lost material elsewhere is still a certain refusal. Two cases withhold the stock for any
 leftover loss: a feature whose faces are unknown, since nothing says where its corner
 is, and a lost piece that touches an undecided corner, which is excused as a whole
 because no known band bounds it. With no lost material at all, the join assembles

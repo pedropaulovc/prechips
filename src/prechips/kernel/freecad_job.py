@@ -4256,10 +4256,11 @@ class _Job:
         sharp corner is radius 0, so the band must start at 0. ``lost`` was taken against
         the join of the socket as made, its declared mouth break cut in, so a broken mouth
         leaves a groove, which no neighbour surface bounds. A known feature sharing lost
-        material with an undecided one is undecided too, and only the shared pieces are
-        excused with it. A mouth whose break could not be placed (``unplaced_mouth``) turns
-        a feature that passes every check into debt. Admitted material is no longer lost;
-        anything else raises with its reason."""
+        material with an undecided one, or judged while a mouth break could not be placed
+        (``unplaced_mouth``), is undecided too: loss beyond its MAX and a band not
+        starting at 0 still refuse, its other refusals become debt, and all its lost
+        pieces are excused with it. Admitted material is no longer lost; anything else
+        raises with its reason."""
         if not joint.get("forms"):
             return {}, [lost], []
         pieces = list(lost.Solids)
@@ -4395,11 +4396,6 @@ class _Job:
                     f"the join at {name} leaves material missing {_r(reach)} mm from its "
                     f"faces, beyond its R{_r(high)} MAX"
                 )
-            if mine and low > STOCK_TOL:
-                raise ValueError(
-                    f"the joined corner at {name} is sharp, outside its radius band "
-                    f"[{_r(low)}, {_r(high)}]"
-                )
             if problem is None and judged and len(touched) < len(branches):
                 problem = (
                     f"{name} is owned by a single component: its corner does not meet both "
@@ -4407,6 +4403,11 @@ class _Job:
                 )
             if problem is not None and not because:
                 raise ValueError(problem)
+            if mine and low > STOCK_TOL:
+                raise ValueError(
+                    f"the joined corner at {name} is sharp, outside its radius band "
+                    f"[{_r(low)}, {_r(high)}]"
+                )
             if because:
                 rows[name] = {"status": UNKNOWN, "reason": because}
                 deferred.append((because, near if near is not None else target))
