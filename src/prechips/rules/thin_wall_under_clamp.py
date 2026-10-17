@@ -9,7 +9,8 @@ from prechips.rules.geometry_common import (
 )
 from prechips.rules.resolution import number, record, same_length
 
-_PROTECTED = {"soft_jaws", "soft jaws", "mandrel", "tape", "wax"}
+# Tape is a typed area hold (hold.area), never a method name.
+_PROTECTED = {"soft_jaws", "soft jaws", "mandrel", "wax"}
 
 
 def evaluate(bundle):
@@ -68,7 +69,8 @@ def evaluate(bundle):
             else:
                 status, message = (
                     "error",
-                    "wall is below the shop floor; name soft jaws, mandrel, tape or wax",
+                    "wall is below the shop floor; name soft jaws, mandrel or wax, "
+                    "or hold it by area (hold.area)",
                 )
         rows.append(
             with_measurement_debts(

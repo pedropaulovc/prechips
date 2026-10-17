@@ -176,6 +176,64 @@ def _inspection_tables(where: str, op: dict, names: list[str], definitions: dict
                 )
 
 
+_AREA_FORM = 'hold.area = { ref = "<consumables adhesive_tape id>", on = "<fixture solid>" }'
+
+
+def _area_holds(plan: dict, inventory: dict) -> None:
+    """An area hold is typed (docs/design/area-hold.md): ``hold.method`` no longer carries
+    tape, ``area.ref`` names an inventory ``adhesive_tape`` consumable, and ``area.on``
+    names exactly one non-void solid of the holding fixture. A literal unknown identity stays
+    unresolved debt for the rules, and so does a named seat the kernel cannot draw (an
+    untrusted or incomplete solid): that is the phase 3 seat check's ``?``, never a pass."""
+    from prechips.rules.resolution import select
+
+    for setup in plan["setups"]:
+        hold = setup.get("hold")
+        if not isinstance(hold, dict):
+            continue
+        where = f"{setup['id']}: hold"
+        method = hold.get("method")
+        if isinstance(method, str) and method.strip().lower() == "tape":
+            raise BadInput(
+                f"{where}.method {method!r} is no longer a holding method: name the "
+                f"consumables adhesive_tape item with {_AREA_FORM}."
+            )
+        area = hold.get("area")
+        if not isinstance(area, dict):
+            continue
+        ref, on = area.get("ref", "unknown"), area.get("on", "unknown")
+        # Every inventory reference resolves through the one selector the rules use, so
+        # a qualified hold.fixture (fixtures.plate) names the same item as a bare one.
+        # A qualified ref keeps its own category, so only a consumables item was
+        # validated as an AdhesiveTape record.
+        category, _, tape = (
+            select(inventory, ref, "consumables") if ref != "unknown" else (None,) * 3
+        )
+        if ref != "unknown" and not (
+            category == "consumables"
+            and isinstance(tape, dict)
+            and tape.get("kind") == "adhesive_tape"
+        ):
+            raise BadInput(f"{where}.area.ref {ref!r} is not a consumables adhesive_tape item.")
+        fixture = hold.get("fixture", "unknown")
+        item = select(inventory, fixture, "workholding")[2] if fixture != "unknown" else None
+        # An unresolved fixture or a solids list stated unknown is debt for the rules; a
+        # known fixture that draws no solids has no seat to name.
+        solids = item.get("solids", []) if isinstance(item, dict) else "unknown"
+        if on == "unknown" or not isinstance(solids, list):
+            continue
+        named = [
+            solid
+            for solid in solids
+            if isinstance(solid, dict) and solid.get("name") == on and solid.get("void") is not True
+        ]
+        if len(named) != 1:
+            raise BadInput(
+                f"{where}.area.on {on!r} must name exactly one non-void solid of fixture "
+                f"{fixture!r} (found {len(named)})."
+            )
+
+
 def blank_supplies(plan: dict) -> dict[str, dict]:
     """Each declared profiled blank keyed by its input kind: ``stock.blank`` for the root
     stock, ``stock.<id>.blank`` for a component."""
@@ -454,6 +512,7 @@ def load_bundle(
                     raise BadInput("The STEP bytes do not match the manifest digest.")
                 paths[field], hashes[field] = path, digest
     _blank_assets(plan, plan_path.parent, root, paths, hashes)
+    _area_holds(plan, resolved["inventory"])
     step_digest = features.get("step_sha256", "unknown")
     if step_digest != "unknown":
         if len(step_digest) != 64 or any(char not in "0123456789abcdef" for char in step_digest):

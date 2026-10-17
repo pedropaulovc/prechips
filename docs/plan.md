@@ -859,6 +859,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `jaw_center_along_mm` | `Number` |
 | `jaw_bar` | `str` (fixtures `round_bar` between the work and the moving jaw) |
 | `jaw_buttons` | `str` (fixtures `jaw_buttons`: one button between each jaw and the work, its spigot in the work's bore) |
+| `area` | `{ ref: str, on: str }`: an [area hold](inventory.md#area-holds). `ref` names a `consumables` `adhesive_tape` item; `on` names exactly one non-void solid of `fixture`, whose posed +z face carries the tape layer; a named seat the kernel cannot draw (untrusted or incomplete) stays seat-check debt, never a pass. Coverage is the work's footprint. Any other `ref` (a qualified ref outside `consumables` included), or an `on` that names no such solid or several, is bad input; a literal `"unknown"` stays unresolved |
 | `align` | `{ indicator: str, limit_mm: Number, over_mm: Number, face: str, cite: str \| list[str] }`: how a mill vise's fixed jaw or angle plate's locating face is squared to the table travel; `indicator` is an inventory `dial_test_indicator` / `dial_indicator` gauge swept `over_mm` along the face, its reading changing no more than `limit_mm`; an angle plate's `face` names the fixture solid whose face is squared. Required where the setup mounts or turns the vise or plate ([hold_fields](rules-setup.md#hold_fields)) |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
 | `parallels_along` | `str` (`x` / `y`; parallels under a non-vise hold) |
@@ -895,6 +896,10 @@ each of its solids that declares `locates` bears on the stock the way its
 inventory `bears` declares: a pin's contact cylinder in the bore it locates
 (`bore`) or a flat locator's face (`face`). See rules-geometry,
 `thin_wall_under_clamp`.
+
+`method` names a protective holding method in words (soft jaws, mandrel, wax).
+Tape is not a method: `method = "tape"` (any case) is bad input whose message
+names the `area` form.
 
 `clamp` is the clamping instruction, or a declared clamp fixture's name. An
 explicit `clamp = "none"` or `"not_applicable"` with no `clamps` members
@@ -1142,6 +1147,7 @@ touch-off against its master sets them ([zero_check](rules-coordinates.md#zero_c
 | `retouch_after` | `list[int]` |
 | `after_op` | `int` |
 | `measure_before_hold` | `bool` (`measure_then_set`: M is read on the part before it is held) |
+| `at_mm` | `[Number, Number]`: where a Z touch lands, setup-frame X, Y. An [area hold](inventory.md#area-holds) that zeroes Z on its seat face will require it; no rule reads it yet |
 
 Only explicit `measure_before_hold = true` with an authored `measure` places
 M acquisition in its original first HOLD step (`Before clamping, measure Z M = …`).
