@@ -542,3 +542,85 @@ def unmodelled(op, fixture, guided, rule):
         f"setup pose only; check: the dry pass from stop to stop{turning} clears the spindle "
         f"nose, holder and column at every pose{near}"
     )
+
+
+# The guide-element facts the setup picture draws a trammel's rails and pins from.
+_PICTURE_FACTS = (
+    ("pin_dia", "pin diameter"),
+    ("rail_width", "rail width"),
+    ("rail_height", "rail height"),
+    ("bed_height", "bed height"),
+)
+
+
+def guide_scene(bundle, guided, op, bottom, lift, scale):
+    """({"rails": [...], "pins": [...]}, picture notes) for one trammel op's ``guided``
+    record: drawn render-only at the sweep's middle pose (the setup frame), never
+    hit-tested (rules/guided_sweep.py :func:`guide_scene`). Each rail is a box along its
+    pin-line from the spindle axis, over its measured ``rail_travel`` stations, standing
+    ``rail_height`` from the table (the stock bottom less the fixture's ``bed_height``);
+    each pin a cylinder of ``pin_dia`` at its place on the carrier, from the rail tops to
+    the stock bottom. ``lift`` is the supports' height under the work (None: unknown). A missing or unmeasured fact leaves them undrawn, named in a note
+    with its ``measure:`` instruction."""
+    from ..measurements import length_fact, limits_fact, measurement_entry
+    from .coordinates import _pair
+    from .resolution import identity, number, resolve
+
+    reference = guided.get("fixture")
+    item = resolve(bundle, "fixtures", reference) if isinstance(reference, str) else None
+    item = item if isinstance(item, dict) else {}
+    category, key = identity(bundle, reference, "fixtures")
+    values, missing = {}, []
+    for field, _ in _PICTURE_FACTS:
+        fact = length_fact(item, field, require_measured=True)
+        if fact["verified"] and number(fact["value"]) and fact["value"] > 0:
+            values[field] = fact["value"]
+        else:
+            missing.append(measurement_entry(category, key, field, item=item)["instruction"])
+    travel = limits_fact(item, "rail_travel", require_measured=True)
+    if not travel["verified"]:
+        missing.append(measurement_entry(category, key, "rail_travel", item=item)["instruction"])
+    spindle, pins = guided.get("spindle_setup_xy"), guided.get("pins_setup_xy")
+    directions = guided.get("rails_dir")
+    placed = (
+        _pair(spindle)
+        and isinstance(pins, list)
+        and all(map(_pair, pins))
+        and isinstance(directions, list)
+        and all(map(_pair, directions))
+        and number(bottom)
+    )
+    if not placed:
+        missing.append("its pins' places on the carrier or the stock bottom are unknown")
+    if lift is None:
+        missing.append("the parallels' or support blocks' height under the work is unknown")
+    if not missing and values["bed_height"] <= values["rail_height"]:
+        missing.append(f"{key}'s bed_height does not stand above its rail_height")
+    if missing:
+        return {}, [f"NOT SHOWN: op {op}'s trammel rails and pins — " + "; ".join(missing) + "."]
+    table = bottom * scale - lift - values["bed_height"]
+    top = table + values["rail_height"]
+    near, far = travel["value"]
+    origin = [v * scale for v in spindle]
+    rails_ = [
+        {
+            "name": f"trammel rail {index} (op {op})",
+            "op": op,
+            "from_mm": [origin[i] + near * d[i] for i in range(2)],
+            "to_mm": [origin[i] + far * d[i] for i in range(2)],
+            "width_mm": values["rail_width"],
+            "z_mm": [table, top],
+        }
+        for index, d in enumerate(directions, start=1)
+    ]
+    pins_ = [
+        {
+            "name": f"carrier pin {index} (op {op})",
+            "op": op,
+            "at_mm": [v * scale for v in pin],
+            "dia_mm": values["pin_dia"],
+            "z_mm": [top, bottom * scale - lift],
+        }
+        for index, pin in enumerate(pins, start=1)
+    ]
+    return {"rails": rails_, "pins": pins_}, []

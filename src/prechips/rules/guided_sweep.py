@@ -1220,7 +1220,8 @@ _ROLLER_FACTS = (("roller_dia", "roller diameter"), ("roller_height", "roller he
 
 
 def guide_scene(bundle, setup, numbers, scale):
-    """(``{"rollers": [...]}`` or None, picture notes) for ``setup``'s guided sweeps, from
+    """(``{"rollers": [...], "rails": [...], "pins": [...]}`` (the groups present) or None,
+    picture notes) for ``setup``'s guided sweeps, from
     its coordinates ``numbers``; ``scale`` is mm per plan unit.
 
     The rollers and the pivot post are fixed to the table while the work turns, so they
@@ -1235,7 +1236,7 @@ def guide_scene(bundle, setup, numbers, scale):
     rollers undrawn, named in a note with its ``measure:`` instruction."""
     from ..measurements import measurement_entry
 
-    rollers, notes, seen = [], [], set()
+    rollers, notes, seen, found = [], [], set(), {}
     # The work sits on its lowest authored bottom: retained rails below ``bottom_z`` when
     # declared, as the headroom stack and the jaw seat read it; an authored but unknown
     # one leaves the seat unknown.
@@ -1265,6 +1266,15 @@ def guide_scene(bundle, setup, numbers, scale):
                 f"{centre[0]:.{decimals}f} Y {centre[1]:.{decimals}f}, {reach:.{decimals}f} "
                 f"{units} from the cutter at the arc's middle."
             )
+            continue
+        if sweep.get("guide") == "trammel":
+            from .trammel import guide_scene as trammel_scene
+
+            lift = _support_lift(bundle, setup)
+            drawn, note = trammel_scene(bundle, sweep, op, bottom, lift, scale)
+            for key, elements in drawn.items():
+                found.setdefault(key, []).extend(elements)
+            notes.extend(note)
             continue
         if sweep.get("guide") != "rail":
             continue
@@ -1327,4 +1337,6 @@ def guide_scene(bundle, setup, numbers, scale):
                     "z_mm": [table, table + values["roller_height"]],
                 }
             )
-    return ({"rollers": rollers} if rollers else None), notes
+    if rollers:
+        found["rollers"] = rollers
+    return (found or None), notes

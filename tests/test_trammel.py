@@ -376,3 +376,277 @@ def test_a_trammel_only_setup_owes_no_xy_pickup_and_no_xy_dro_sign(tmp_path):
     html = _Traveler(bundle, [row], {}, None).dro(bundle.plan["setups"][0], tools)
     printed = " ".join(unescape(re.sub(r"<[^>]+>", "", html)).split())
     assert "puts the cutter where its rails' pin-lines cross" in printed
+
+
+# --- the traveler --------------------------------------------------------------------
+
+
+def traveler_text(tmp_path, **kwargs):
+    import dataclasses
+    import re
+    from html import unescape
+
+    from prechips.inputs import load_bundle
+    from prechips.rules import coordinates
+    from prechips.sheet import _Traveler
+
+    plan = trammel_plan(tmp_path, **kwargs)
+    kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
+    bundle = dataclasses.replace(load_bundle(plan), kernel=kernel)
+    row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
+    tools = {("tools", "cutter"): "6 mm endmill"}
+    html = _Traveler(bundle, [row], {}, None).contours(bundle.plan["setups"][0], tools)
+    return row, " ".join(unescape(re.sub(r"<[^>]+>", " ", html)).split())
+
+
+def test_the_traveler_prints_the_pins_stops_on_a_rail_and_the_lever_feed(tmp_path):
+    row, printed = traveler_text(tmp_path)
+    assert row.status == "pass", row.sentence
+    _, sweep = recipe(row)
+    assert "on its inner pin pair" in printed and "rails' crossing" in printed
+    assert "lock X and Y there" in printed
+    # No master, touch-off or DRO table.
+    assert "master" not in printed.lower() and "flute of the cutter" not in printed
+    assert "handwheel axis" not in printed
+    # Stops on one rail at the pin's exact stations, the other rail's as a check.
+    (start, end), (other_start, other_end) = sweep["stations_mm"]
+    assert f"stands {round(start, 1):g} mm from the spindle axis" in printed
+    assert f"Do the same at {round(end, 1):g} mm" in printed
+    assert f"{round(other_start, 1):g} and {round(other_end, 1):g} mm" in printed
+    assert "lever the carrier from stop to stop once" in printed
+    assert "by its hand lever" in printed and "turns 12.5°" in printed
+    assert "stop the spindle" in printed
+
+
+def test_an_unproven_trammel_prints_only_a_stop(tmp_path):
+    inventory = "\n".join(
+        line for line in TRAMMEL.splitlines() if not line.startswith("rail_angle_deg ")
+    )
+    row, printed = traveler_text(tmp_path, inventory=inventory + "\n")
+    assert row.status == "unknown"
+    assert "STOP: guided sweep not established (cut radius unproven" in printed
+    assert "hand lever" not in printed
+
+
+# --- the kernel ----------------------------------------------------------------------
+
+_EXACT = r"""
+import importlib.util
+import json
+import math
+import os
+import sys
+
+kernel, out = sys.argv[sys.argv.index("--") + 1 :]
+spec = importlib.util.spec_from_file_location("trammel_job", os.path.join(kernel, "freecad_job.py"))
+job = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(job)
+R, r, sweep, height = 797.0, 3.0, 25.0, 10.0
+c = [0.0, 816.0]
+angles = [math.radians(-sweep / 2 + sweep * k / 25) for k in range(26)]
+rows = [[c[0] + R * math.sin(a), c[1] - R * math.cos(a)] for a in angles]
+arc = {"centre": c, "radius": R}
+exact = job._centre_sweep([(rows, 0.0, arc)], r, height)
+chords = job._centre_sweep([(rows, 0.0)], r, height)
+# The disc swept along the arc: its annular sector and a half disc at each end.
+want = (2 * R * r * math.radians(sweep) + math.pi * r * r) * height
+with open(out, "w") as handle:
+    json.dump({"exact": exact.Volume, "chords": chords.Volume, "want": want}, handle)
+"""
+
+
+def test_the_kernel_sweeps_the_exact_annulus_not_the_rows_chords(tmp_path, freecad_kernel):
+    import json
+    import subprocess
+    from pathlib import Path
+
+    import prechips.kernel
+
+    script, out = tmp_path / "exact.py", tmp_path / "exact.json"
+    script.write_text(_EXACT, encoding="utf-8")
+    kernel = Path(prechips.kernel.__file__).parent
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(kernel), str(out)],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=300,
+    )
+    assert out.is_file(), process.stdout[-2000:] + process.stderr
+    found = json.loads(out.read_text(encoding="utf-8"))
+    assert found["exact"] == pytest.approx(found["want"], rel=1e-9)
+    # The rows' chords fall short of the arc by their sagitta: the exact sweep is not them.
+    assert found["chords"] < found["want"] - 0.1
+
+
+def kernel_checkpoints(tmp_path, sweep_deg=25.0):
+    """The trammel's rows as build_job hands them to the kernel: a finish of the plate's
+    concave R800 top edge to Z 1 with a 6 mm cutter on the R797 pin circle."""
+    from test_guided_sweep import TOP_EDGE
+
+    from prechips.inputs import load_bundle
+    from prechips.kernel import table_checkpoints
+    from prechips.rules import coordinates
+
+    spacing = 2 * 797.0 * math.sin(math.radians(ALPHA))
+    inventory = TRAMMEL.replace(f"value = {SPACING},", f"value = {spacing!r},")
+    plan = scratch(
+        tmp_path,
+        op(20, "finish_profile", trammel_contour(sweep_deg=sweep_deg)),
+        origin="[0.0, 0.0, 0.0]",
+        hold="fixture = 'tram'",
+        target=TOP_EDGE,
+    )
+    path = plan.with_name("inventory.toml")
+    path.write_text(path.read_text(encoding="utf-8") + inventory, encoding="utf-8")
+    change(plan, "to_z = -1.0", "to_z = 1.0")
+    bundle = load_bundle(plan)
+    row = next(r for r in coordinates.evaluate(bundle, pre_kernel=True) if r.subject == "S1")
+    (table,) = row.numbers["arc_table"]
+    return table, table_checkpoints("S1:20", row.numbers, 20, "mm")
+
+
+def test_the_kernel_receives_the_exact_pin_circle(tmp_path):
+    table, checkpoints = kernel_checkpoints(tmp_path)
+    (path,) = checkpoints["paths"]
+    assert path["exact_arc_mm"]["radius"] == pytest.approx(797.0)
+    assert path["exact_arc_mm"]["centre"] == pytest.approx(table["centre_setup_xy"])
+    for xy in path["xy_mm"]:
+        assert math.dist(xy, path["exact_arc_mm"]["centre"]) == pytest.approx(797.0)
+
+
+@pytest.fixture(scope="module")
+def plates(tmp_path_factory, freecad_kernel):
+    """The open and walled R800 plates of test_guided_sweep's kernel tests."""
+    import subprocess
+
+    from test_guided_sweep import _PLATES
+
+    directory = tmp_path_factory.mktemp("trammel-plates")
+    script = directory / "author.py"
+    script.write_text(_PLATES, encoding="utf-8")
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(directory)],
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=300,
+    )
+    found = {name: directory / f"{name}.step" for name in ("open", "walled")}
+    assert all(p.is_file() for p in found.values()), process.stdout[-2000:] + process.stderr
+    return found
+
+
+def trammel_run(tmp_path, freecad_kernel, step, render=None):
+    from test_guided_sweep import PLATE_BLANK
+    from test_kernel_geometry import Engine, _op, _setup, _vise
+
+    table, checkpoints = kernel_checkpoints(tmp_path / "plan")
+    engine = Engine(tmp_path, freecad_kernel)
+    edge = engine.refs(step, (-145.25, 15.9, 0), (145.25, 29.4, 5.0), kind="Cylinder")
+    assert len(edge) == 1
+    finish = {
+        **_op("S1:20", "edge", 3.0, 25.0, 30.0),
+        "do": "finish_profile",
+        "to_z": 1.0,
+        "checkpoints": checkpoints,
+    }
+    hold = _vise(5.0, centre=0.0)
+    first = _setup([finish], hold, setup_id="S1")
+    if render is not None:
+        first["render"] = render
+    setups = [first, _setup([], hold, setup_id="S2")]
+    result = engine.run(engine.job(step, {"edge": edge}, setups, stock=PLATE_BLANK))
+    assert result["status"] == "ok", result.get("reason")
+    return table, result
+
+
+def test_the_kernel_clears_the_pin_circle_and_judges_the_run_past_its_ends(
+    tmp_path, freecad_kernel, plates
+):
+    table, result = trammel_run(tmp_path, freecad_kernel, plates["open"])
+    assert table["guided"]["overrun_mm"] > 25.0
+    facts = result["ops"]["S1:20"]
+    assert facts["claimed_indices"] and not facts["claim_errors"], facts
+    assert facts["checkpoint_errors"] == [], facts["checkpoint_errors"]
+    assert "stock_reason" not in result["setups"]["S2"], result["setups"]["S2"]
+    _, walled = trammel_run(tmp_path / "walled", freecad_kernel, plates["walled"])
+    errors = walled["ops"]["S1:20"]["checkpoint_errors"]
+    assert errors and {error["obstacle"] for error in errors} == {"finished part"}, errors
+
+
+def test_trammel_rails_and_pins_are_drawn_but_never_hit_tested(tmp_path, freecad_kernel, plates):
+    # A rail and a pin placed right through the stock and the cutter's rows: drawn, but
+    # no holding solid, so every verdict matches the same job without them.
+    rail = {
+        "name": "trammel rail T",
+        "from_mm": [-100.0, 20.0],
+        "to_mm": [100.0, 20.0],
+        "width_mm": 15.0,
+        "z_mm": [-5.0, 9.0],
+    }
+    pin = {"name": "carrier pin T", "at_mm": [0.0, 20.0], "dia_mm": 8.0, "z_mm": [-5.0, 9.0]}
+    broken = {**rail, "name": "trammel rail X", "to_mm": [-100.0, 20.0]}
+    render = {"guides": {"rails": [rail, broken], "pins": [pin]}}
+    _, plain = trammel_run(tmp_path / "plain", freecad_kernel, plates["open"])
+    _, drawn = trammel_run(tmp_path / "drawn", freecad_kernel, plates["open"], render)
+    scene = drawn["setups"]["S1"]["render_scene"]
+    roles = {c["name"]: c.get("role") for c in scene["components"]}
+    assert roles["trammel rail T"] == "guide_rail" and roles["carrier pin T"] == "guide_pin"
+    assert "trammel rail X" not in roles
+    assert any(debt.startswith("trammel rail X not drawn") for debt in scene["render_debts"])
+    assert not any("trammel" in debt or "carrier pin" in debt for debt in scene["debts"])
+    facts, before = drawn["ops"]["S1:20"], plain["ops"]["S1:20"]
+    assert facts["checkpoint_errors"] == before["checkpoint_errors"] == []
+    assert facts["checkpoint_hits"] == before["checkpoint_hits"]
+    setup, unchanged = drawn["setups"]["S1"], plain["setups"]["S1"]
+    for key in ("fixture_rendered", "fixture_clashes"):
+        assert key in setup and setup[key] == unchanged[key], key
+    assert scene["cut_clearances"] == plain["setups"]["S1"]["render_scene"]["cut_clearances"]
+
+
+PICTURE = (
+    f"pin_dia_mm = {{ value = 12.0, {MEASURED} }}\n"
+    f"rail_width_mm = {{ value = 15.0, {MEASURED} }}\n"
+    f"rail_height_mm = {{ value = 24.0, {MEASURED} }}\n"
+    f"bed_height_mm = {{ value = 40.0, {MEASURED} }}\n"
+)
+
+
+def scene(tmp_path, inventory):
+    from prechips.inputs import load_bundle
+    from prechips.rules.guided_sweep import guide_scene
+
+    row = trammel_row(tmp_path, inventory=inventory)
+    bundle = load_bundle(trammel_plan(tmp_path / "again", inventory=inventory))
+    setup = bundle.plan["setups"][0]
+    return row, guide_scene(bundle, setup, row.numbers, 1.0)
+
+
+def test_the_setup_picture_draws_the_rails_and_pins_where_the_pose_puts_them(tmp_path):
+    row, (drawn, notes) = scene(
+        tmp_path, TRAMMEL.replace("verify = false\n", PICTURE + "verify = false\n")
+    )
+    assert notes == []
+    _, sweep = recipe(row)
+    spindle = sweep["spindle_setup_xy"]
+    for rail, direction in zip(drawn["rails"], sweep["rails_dir"], strict=True):
+        assert rail["width_mm"] == 15.0
+        for end, station in (("from_mm", 40.0), ("to_mm", 420.0)):
+            want = [spindle[i] + station * direction[i] for i in range(2)]
+            assert rail[end] == pytest.approx(want)
+        assert rail["z_mm"][1] - rail["z_mm"][0] == pytest.approx(24.0)
+    for pin, at in zip(drawn["pins"], sweep["pins_setup_xy"], strict=True):
+        assert pin["at_mm"] == pytest.approx(at) and pin["dia_mm"] == 12.0
+        # Each pin stands on the pin circle, at its station from the spindle axis.
+        assert math.dist(at, spindle) == pytest.approx(
+            trammel.station(sweep["pin_radius_mm"], ALPHA, 0.0)
+        )
+
+
+def test_an_unmeasured_picture_fact_leaves_the_rails_undrawn_with_a_note(tmp_path):
+    _, (drawn, notes) = scene(tmp_path, TRAMMEL)
+    assert drawn is None
+    (note,) = notes
+    assert note.startswith("NOT SHOWN: op 20's trammel rails and pins — measure: tram")
+    assert "pin diameter" in note and "rail width" in note

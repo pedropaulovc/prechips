@@ -2646,13 +2646,29 @@ def _out_of_reach(obstacle, band, reach, centres, radius):
     ]
 
 
+def _arc_wire(points, arc):
+    """The exact cutter-centre arc through ``points`` (all on ``arc``'s circle, a trammel's
+    ``exact_arc_mm``, #269): the circle's arc from the first point through the middle one
+    to the last, not their chords; None when they do not make one."""
+    if arc is None or len(points) < 3:
+        return None
+    centre, radius = V(arc["centre"][0], arc["centre"][1], 0), arc["radius"]
+    first, middle, last = points[0], points[len(points) // 2], points[-1]
+    if any(abs((p - centre).Length - radius) > 1e-6 for p in (first, middle, last)):
+        raise ValueError("an exact arc's rows are not on its circle")
+    if min((first - middle).Length, (middle - last).Length) <= PLANE_TOL:
+        return None
+    return Part.Wire(Part.Arc(first, middle, last).toShape())
+
+
 def _centre_pieces(paths, radius, top):
     """What a cutter of ``radius`` sweeps along level cutter-centre ``paths`` (each
-    ``(setup-frame xy points, tip z)``), as overlapping solids left unfused: together every
-    point within the radius of a path, standing from its tip up to ``top``. Empty when every
+    ``(setup-frame xy points, tip z)``, or ``(..., exact arc)`` for rows on one exact
+    circle, :func:`_arc_wire`), as overlapping solids left unfused: together every point
+    within the radius of a path, standing from its tip up to ``top``. Empty when every
     path stands at or above ``top``. OCC failures raise."""
     pieces = []
-    for xy, z0 in paths:
+    for xy, z0, *exact in paths:
         points = []
         for x, y in xy:
             point = V(x, y, 0)
@@ -2660,7 +2676,11 @@ def _centre_pieces(paths, radius, top):
                 points.append(point)
         if z0 >= top:
             continue
-        if len(points) == 1:
+        wire = _arc_wire(points, exact[0] if exact else None)
+        if wire is not None:
+            # The disc swept along the arc: an annular sector with round ends, exactly.
+            area = _path_area(wire, radius)
+        elif len(points) == 1:
             area = Part.Face(Part.Wire(Part.makeCircle(radius, points[0])))
         else:
             if len(points) > 2 and (points[-1] - points[0]).Length <= PLANE_TOL:
@@ -2701,7 +2721,7 @@ def _tool_envelope(op, moves):
     holder face at the lowest tip, its body above. Raises :class:`_Unknown` naming
     unmeasured dimensions."""
     keys = ["holder_radius_mm", "holder_gauge_len_mm", "projection_mm"]
-    if any(axial is None or "centre" not in axial for *_, axial in moves):
+    if any(axial is None or "centre" not in axial for _, _, _, axial, *_ in moves):
         keys += ["radius_mm", "flute_len_mm"]
     holder, gauge, projection = (_positive(op, key) for key in keys[:3])
     radius, flute = _positive(op, "radius_mm"), _positive(op, "flute_len_mm")
@@ -2715,7 +2735,7 @@ def _tool_envelope(op, moves):
         raise _Unknown("the tool's " + ", ".join(missing) + " unmeasured")
     seat = _seat(op)
     solids = []
-    for xy, low, high, axial in moves:
+    for xy, low, high, axial, *exact in moves:
         pieces = [(holder, low + projection, high + projection + gauge)]
         if axial is not None and "centre" in axial:
             (x, y), centre = xy[0], axial["centre"]
@@ -2735,7 +2755,7 @@ def _tool_envelope(op, moves):
             if flute < projection and start < projection:
                 pieces.append((shank, low + start, high + projection))
         for piece_radius, bottom, top in pieces:
-            solids += _centre_pieces([(xy, bottom)], piece_radius, top)
+            solids += _centre_pieces([(xy, bottom, *exact)], piece_radius, top)
     return solids
 
 
@@ -3575,77 +3595,106 @@ def _fixture_kind(hold):
     return kind if isinstance(kind, str) and kind != UNKNOWN else None
 
 
+# A guided sweep's render-only guide groups (#255, #269): the render annotation key, the
+# picture's callout and the scene component's role for each element.
+_GUIDE_GROUPS = (
+    ("rollers", "guide rollers", "GUIDE ROLLERS (TABLE)", "guide_roller"),
+    ("rails", "trammel rails", "TRAMMEL RAILS (TABLE)", "guide_rail"),
+    ("pins", "carrier pins", "CARRIER PINS", "guide_pin"),
+)
+
+
 def _guide_solids(setup, debts):
-    """[(name, op, solid)] of a setup's render annotation guide rollers (``guides.rollers``:
-    setup XY ``at_mm``, ``dia_mm``, ``z_mm`` table to top, the ``op`` they guide), as
-    setup-frame cylinders (#255). They are fixed to the table while the work turns, so
-    they are drawn only: never fixture components, so no hit test, clash, contact or
-    clearance reads them and ``fixture_ready`` stays as it was. A malformed roller is a
-    picture debt (``debts``, the render debts), not drawn."""
+    """[(name, op, solid, group key)] of a setup's render annotation guide elements (each
+    naming the ``op`` it guides), in setup frame (#255, #269): ``guides.rollers`` and ``guides.pins`` cylinders (setup XY axis
+    ``at_mm``, ``dia_mm``, ``z_mm`` bottom to top) and ``guides.rails`` boxes (``from_mm``
+    to ``to_mm`` along the rail's centre line, ``width_mm``, ``z_mm``). They are fixed to
+    the table, or ride the carrier under the work, so they are drawn only: never fixture
+    components, so no hit test, clash, contact or clearance reads them and
+    ``fixture_ready`` stays as it was. A malformed element is a picture debt (``debts``,
+    the render debts), not drawn."""
     drawn = []
-    rollers = ((setup.get("render") or {}).get("guides") or {}).get("rollers") or []
-    for roller in rollers:
-        name = str(roller.get("name", "guide roller"))
-        at, dia, z = roller.get("at_mm"), roller.get("dia_mm"), roller.get("z_mm")
-        ok = (
-            isinstance(at, list)
-            and len(at) == 2
-            and all(map(_number, at))
-            and _number(dia)
-            and dia > 0
-            and isinstance(z, list)
-            and len(z) == 2
-            and all(map(_number, z))
-            and z[1] > z[0]
-        )
-        if not ok:
-            debts.append(f"{name} not drawn: its position or size is malformed")
-            continue
-        solid = Part.makeCylinder(dia / 2, z[1] - z[0], V(at[0], at[1], z[0]))
-        drawn.append((name, roller.get("op"), solid))
+    guides = (setup.get("render") or {}).get("guides") or {}
+
+    def pair(value):
+        return isinstance(value, list) and len(value) == 2 and all(map(_number, value))
+
+    for key, *_ in _GUIDE_GROUPS:
+        for element in guides.get(key) or []:
+            name = str(element.get("name", key.rstrip("s")))
+            z = element.get("z_mm")
+            ok = pair(z) and z[1] > z[0]
+            if key == "rails":
+                ends, width = (
+                    (element.get("from_mm"), element.get("to_mm")),
+                    element.get("width_mm"),
+                )
+                ok = ok and all(map(pair, ends)) and _number(width) and width > 0
+                if ok:
+                    a, b = (V(x, y, 0) for x, y in ends)
+                    ok = (b - a).Length > PLANE_TOL
+            else:
+                at, dia = element.get("at_mm"), element.get("dia_mm")
+                ok = ok and pair(at) and _number(dia) and dia > 0
+            if not ok:
+                debts.append(f"{name} not drawn: its position or size is malformed")
+                continue
+            if key == "rails":
+                run = b - a
+                box = Part.makeBox(run.Length, width, z[1] - z[0], V(0, -width / 2, z[0]))
+                box.rotate(V(0, 0, 0), V(0, 0, 1), math.degrees(math.atan2(run.y, run.x)))
+                box.translate(a)
+                drawn.append((name, element.get("op"), box, key))
+                continue
+            solid = Part.makeCylinder(dia / 2, z[1] - z[0], V(at[0], at[1], z[0]))
+            drawn.append((name, element.get("op"), solid, key))
     return drawn
 
 
 def _guide_tags(guides, taken):
-    """``guides`` ((name, op, solid)) with each roller's mesh tag distinct from every name
+    """``guides`` ((name, op, solid[, group key])) with each guide element's mesh tag distinct from every name
     in ``taken`` (the setup's authored and holding solids) and from each other: the
     picture leaves guide meshes off by tag and the holding evidence skips them by it, so a
     fixture primitive named like a roller must never go with them."""
     taken = set(taken)
     tagged = []
-    for name, op, solid in guides:
+    for name, op, solid, *group in guides:
         while name in taken:
             name += " (guide)"
         taken.add(name)
-        tagged.append((name, op, solid))
+        tagged.append((name, op, solid, *group))
     return tagged
 
 
 def _guide_components(guides):
-    """One picture component per op's guide rollers (``guides``: (mesh name, op, box)),
-    so each op's rollers are framed, called out or noted off the picture on their own: one
-    op's rollers standing far off never take another op's nearby ones out of the view. The
-    label names the op only when more than one op has rollers in the setup (#255)."""
+    """One picture component per op's guide group (``guides``: (mesh name, op, box, group
+    key), :data:`_GUIDE_GROUPS`), so each op's rollers, rails or pins are framed, called
+    out or noted off the picture on their own: one op's guide standing far off never takes
+    another's nearby one out of the view. The label names the op only when more than one
+    op has that group in the setup (#255, #269)."""
     groups = {}
-    for name, op, box in guides:
-        groups.setdefault(op, []).append((name, box))
-    several = len(groups) > 1
+    for name, op, box, key in guides:
+        groups.setdefault((key, op), []).append((name, box))
     components = []
-    for op, members in groups.items():
-        boxes = [box for _, box in members]
-        box = [min(b[i] for b in boxes) for i in range(3)] + [
-            max(b[i + 3] for b in boxes) for i in range(3)
-        ]
-        components.append(
-            {
-                "name": f"guide rollers (op {op})" if several else "guide rollers",
-                "label": f"GUIDE ROLLERS (TABLE, OP {op})" if several else "GUIDE ROLLERS (TABLE)",
-                "role": "guide",
-                "box_mm": box,
-                "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
-                "meshes": [name for name, _ in members],
-            }
-        )
+    for key, base, label, _ in _GUIDE_GROUPS:
+        ops = [op for k, op in groups if k == key]
+        several = len(ops) > 1
+        for op in ops:
+            boxes = [box for _, box in groups[(key, op)]]
+            box = [min(b[i] for b in boxes) for i in range(3)] + [
+                max(b[i + 3] for b in boxes) for i in range(3)
+            ]
+            tagged = label[:-1] + f", OP {op})" if label.endswith(")") else f"{label} (OP {op})"
+            components.append(
+                {
+                    "name": f"{base} (op {op})" if several else base,
+                    "label": tagged if several else label,
+                    "role": "guide",
+                    "box_mm": box,
+                    "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                    "meshes": [name for name, _ in groups[(key, op)]],
+                }
+            )
     return components
 
 
@@ -7057,7 +7106,8 @@ class _Setup:
                 if path.get("method") == "chain_drill":
                     paths.extend(([point], path["tip_z_mm"]) for point in path["xy_mm"])
                 else:
-                    paths.append((path["xy_mm"], path["tip_z_mm"]))
+                    exact = [path["exact_arc_mm"]] if "exact_arc_mm" in path else []
+                    paths.append((path["xy_mm"], path["tip_z_mm"], *exact))
             swept = _centre_sweep(paths, radius, top)
             if swept is not None:
                 result = swept, None
@@ -9148,7 +9198,8 @@ class _Setup:
             _guide_solids(self.setup, render_debts),
             {name for name, _, _ in solids} | {name for name, _ in self.fixture_possible},
         )
-        solids += [(name, shape, _COLOURS["guide"]) for name, _, shape in guides]
+        roles = {key: role for key, _, _, role in _GUIDE_GROUPS}
+        solids += [(name, shape, _COLOURS["guide"]) for name, _, shape, _ in guides]
         for name, shape, colour in solids + possible:
             mesh(shape, colour, tag=name)
         parallels = any(c["role"] == "parallel" for c in self.fixture)
@@ -9179,8 +9230,8 @@ class _Setup:
                 for name, jaws, pose, _, _ in rests
             ]
             + [
-                {"name": name, "role": "guide_roller", "exact": True, "box_mm": _bbox(shape)}
-                for name, _, shape in guides
+                {"name": name, "role": roles[group], "exact": True, "box_mm": _bbox(shape)}
+                for name, _, shape, group in guides
             ],
             "debts": debts,
         }
@@ -9298,7 +9349,9 @@ class _Setup:
                     "meshes": [name],
                 }
             )
-        components += _guide_components([(name, op, _bbox(shape)) for name, op, shape in guides])
+        components += _guide_components(
+            [(name, op, _bbox(shape), group) for name, op, shape, group in guides]
+        )
         if section_view is not None:
             axis, keep, plane = section_view[:3]
             # A solid wholly on the removed near side is not in the section: no callout.
@@ -9408,7 +9461,7 @@ class _Setup:
         # Neither the possible-jaw strips nor the table-side guide rollers hold the work:
         # no contact, clearance or blade path is measured against them.
         possible_names = {name for name, _ in self.fixture_possible}
-        possible_names |= {name for name, _, _ in guides}
+        possible_names |= {name for name, *_ in guides}
         held = [(name, shape) for name, shape, _ in solids if name not in possible_names]
         # A saw's cut is its blade's path, not the offcut that falls away.
         blades = self._blade_paths(held)
@@ -9957,7 +10010,9 @@ class _Setup:
                 if path.get("method") == "chain_drill":
                     moves.extend(([point], low, max(entry, high), None) for point in path["xy_mm"])
                 else:
-                    moves.append((path["xy_mm"], low, high, None))
+                    # A trammel's rows lie on one exact circle: the tool sweeps that arc.
+                    exact = [path["exact_arc_mm"]] if "exact_arc_mm" in path else []
+                    moves.append((path["xy_mm"], low, high, None, *exact))
                     for end in (path["xy_mm"][0], path["xy_mm"][-1]):
                         moves.append(([end], low, max(entry, high), None))
         elif sweep.get("tables"):
@@ -10621,7 +10676,9 @@ class _Setup:
                     )
                     if flag:
                         rows[-1]["overshoot"] = True
-                paths.append({**path, "xy_mm": xy, "ids": ids, "overshoot": flags})
+                # A clipped piece keeps only its rows: never a stale exact arc.
+                kept = {k: v for k, v in path.items() if k != "exact_arc_mm"}
+                paths.append({**kept, "xy_mm": xy, "ids": ids, "overshoot": flags})
         table["rows"], table["paths"] = rows, paths
         self.run_outs.pop(id(op), None)  # a run-out is only ever of the clipped paths
 
