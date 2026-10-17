@@ -156,13 +156,13 @@ authored number. An author can add an optional `expect` as a cross-check only
 
 **Read after tightening.** Tightening can move a rail, so a reading taken before
 the torque says nothing about where the guide ends up. A `TorqueStep` names the
-guide `element` its fasteners hold. For every torqued element, the validator
-requires a `verify` align op on that element after its last torque op, in the
-same setup. A `verify` op on a torqued element with no torque after it is the
-final reading. A `verify` op followed by another torque on the same element is
-an error, because its readings would describe a guide that has since moved. A
-`set` op generates no keys, so a pre-torque adjustment is printed and never
-recorded as evidence.
+guide `element` its fasteners hold. Both a torque and a `set` align can move
+the element, so both count as **adjustments**. For every element that has any
+adjustment, the validator requires a `verify` align op on that element after its
+**last adjustment**, in the same setup. Any `set` or torque on the element after
+its last `verify` is an error, because the `verify` would then describe a guide
+that has since moved (torque → verify → set is rejected). A `set` op generates
+no keys, so an adjustment is printed and never recorded as evidence.
 
 Each `verify` station becomes one reading, keyed `"<setup>:<op>/<element>@<station>"` (for
 example `C1:40/rail_a.pin@400`). The prediction is a DRO X/Y pair in the plan's
@@ -479,7 +479,7 @@ kind. They are not authored:
 
 | In-situ element | Claims | Quantities that can establish each claim |
 |---|---|---|
-| hole (a `void` cylinder) | `size`, and `position` (`position.radial` when located from the guide, below) | `size`: `size`. `position`: `dro_xy` only. `position.radial`: a **signed** radial `distance` to a swept edge (positive away from the arc centre) |
+| hole (a `void` cylinder) | `size`, and `position` (split into `position.radial` and `position.tangential` when located from the guide, below) | `size`: `size`. `position`: `dro_xy` only. `position.radial`: a **signed** radial `distance` to a swept edge (positive away from the arc centre). `position.tangential`: `dro_xy` from the guide pose |
 | swept edge (`<solid>.<edge>`) | `radius`, and `location` unless it is the root edge | `radius`: `sagitta`. `location`: `width` or `distance` |
 
 **Root edge.** The first edge the guide cuts in route order is the **root**. It
@@ -508,17 +508,24 @@ mirror image (a hole reflected across the line joining the references reads the
 same), and a third reference only adds cases the validator would have to rule
 out. A hole position listed by a `distance` is an error naming the claim.
 
-There is one exception: a hole located from the guide (`locate.from = "guide"`,
-HUB). Its claim is `position.radial`: the distance from the arc centre, read as
-a `distance` to a swept edge. Its placement along the arc is not a claim,
-because:
+A hole located from the guide (`locate.from = "guide"`, HUB) has its position
+split into two claims, each read against what it must match:
 
-- the cut path is a circle, so the arc constrains no tangential position;
-- each part's sweep stops are set on the part's own cutter path by the guided
-  sweep's measured stop-setting procedure (#255), not from HUB.
+- `position.radial`, HUB's distance from the arc centre relative to the cut
+  edge, read as a signed `distance` to a swept edge. This ties HUB to the real
+  arc, which is why HUB is drilled in situ;
+- `position.tangential`, HUB's placement along the arc, read as a `dro_xy` from
+  the guide's `apex` pose. With the carrier locked at the apex, the HUB pin is
+  centred under the spindle and the DRO is read; the component along the arc's
+  tangent at the apex is judged against the band. A HUB shifted along the arc,
+  with the dowel shifted by the same amount, leaves the radial reading and the
+  HUB-to-dowel reading unchanged. Its parts would still cut true radii, but each
+  would sit off-centre in the carrier's sweep window (±6.5° for the trammel)
+  and on its riser support. Only this reading catches that.
 
-The part's rotation about HUB is fixed by the dowel, whose own position (two
-axes, from HUB) is a claim.
+A guide pose (`"guide.apex"`) may be a relational reference, like the root
+edge: the guide defines it. The dowel then fixes the part's rotation about HUB,
+and its own position (two axes, from HUB) is a claim.
 
 **Reference chain.** A relational claim's reference must itself be the root edge,
 or an element whose relational claim is covered, so that the chain reaches the
@@ -546,6 +553,7 @@ The trammel's claims and readings (decision D4 adds the dowel's two):
 | `riser.inner_edge.radius` (root), `riser.outer_edge.radius` | `sagitta_inner`, `sagitta_outer` |
 | `riser.outer_edge.location` | `width`, from the inner edge |
 | `hub_hole.position.radial` | `hub_pin_to_edge`, from the outer edge |
+| `hub_hole.position.tangential` | `hub_apex`: `dro_xy` from the guide's apex pose, HUB pin centred under the spindle with the carrier locked at the apex |
 | `hub_hole.size` | `hub_size` (largest gauge pin that enters) |
 | `dowel_hole.position` | `dowel_position`: `dro_xy` from the HUB pin to the dowel hole, with a coaxial indicator on each |
 | `dowel_hole.size` | `dowel_fit`: largest gauge pin that enters, predicted from the terminal reamer and banded by the dowel's fit |
@@ -765,6 +773,7 @@ the derived cutter printed as "Ø14 = part cutter Ø10 + 2 × 2.0 inset".
 | C4:10/sagitta_outer | sagitta over 300 chord | riser outer edge | … | (computed) | ±0.10 | ______ | ☐ |
 | C4:10/width | width | riser | … | (computed) | ±… | ______ | ☐ |
 | C4:10/hub_pin_to_edge | distance | HUB pin → riser edge at apex | … | (computed) | ±… | ______ | ☐ |
+| C4:10/hub_apex | DRO X/Y | apex pose → HUB pin | coaxial indicator, DRO | (computed X, Y) | ±… | ______ , ______ | ☐ |
 | C4:10/hub_size | size | HUB hole | gauge pins | (reamer size) | fit band | ______ | ☐ |
 | C4:10/dowel_position | DRO X/Y | HUB pin → dowel hole | coaxial indicator, DRO | (computed X, Y) | ±… | ______ , ______ | ☐ |
 | C4:10/dowel_fit | size | dowel hole | gauge pins | (reamer size) | fit band | ______ | ☐ |
@@ -891,8 +900,9 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
   claiming a position) → error. A reading listing a claim of an element it does
   not measure (a `size` of `hub_hole` listing `dowel_hole.size`), or of its own
   reference → error. A hole `position` listed by any `distance` → error (the
-  mirror-image case); one `dro_xy` → covered; a guide-located hole needs only
-  `position.radial`, from a `distance` to a swept edge. A relational reading with
+  mirror-image case); one `dro_xy` → covered; a guide-located hole needs
+  `position.radial` (a signed `distance` to a swept edge) and
+  `position.tangential` (a `dro_xy` from the guide pose). A relational reading with
   other than two `of` entries → error.
 - A consumed claim no reading lists (drop `dowel_fit`) → error naming the
   claim. A reference cycle, or a relational claim whose chain never reaches the
@@ -943,9 +953,12 @@ Also:
   commissioning contribution.
 - Riser cutter: matching, mismatched, and unknown part cutter.
 - `batch_qty = 0` or negative → schema error.
-- Read after tightening: a torqued element with no later `verify` align → error;
-  a `verify` followed by another torque on the same element → error; `set`
-  readings generate no record keys.
+- Read after tightening: an adjusted element (torque or `set`) with no later
+  `verify` align → error; torque → verify → set, or a `verify` followed by
+  another torque → error; `set` readings generate no record keys.
+- HUB tangential: a HUB and dowel shifted together along the arc pass the radial
+  and HUB-to-dowel readings but fail `hub_apex`; a plan without a tangential
+  reading for a guide-located hole → uncovered claim, error.
 - Gauge binding: a record entry with no `gauge`, or a different gauge from the
   plan's → `?` naming both.
 - Signed radial: a HUB at the mirror radius `2·R_edge − ρ_hub` reads with the
@@ -1143,13 +1156,14 @@ readings = [
   { name = "sagitta_inner", quantity = "sagitta", of = "trammel-jig.riser.inner_edge", chord_mm = 300.0, band_mm = 0.1, band_cite = "#270", claims = ["trammel-jig.riser.inner_edge.radius"] },
   { name = "width", quantity = "width", of = ["trammel-jig.riser.inner_edge", "trammel-jig.riser.outer_edge"], band_mm = 0.1, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.riser.outer_edge.location"] },
   { name = "hub_pin_to_edge", quantity = "distance", of = ["trammel-jig.riser.outer_edge", "trammel-jig.hub_hole"], band_mm = 0.05, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.hub_hole.position.radial"] },
+  { name = "hub_apex", quantity = "dro_xy", of = ["guide.apex", "trammel-jig.hub_hole"], band_mm = 0.05, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.hub_hole.position.tangential"] },
   { name = "hub_size", quantity = "size", of = "trammel-jig.hub_hole", band_mm = [0.0, 0.015], band_cite = "example value (realistic, not a shop measurement): 8 H7 slip fit for the hub pin", claims = ["trammel-jig.hub_hole.size"] },
   # D4: the dowel hole's own readings
   { name = "dowel_position", quantity = "dro_xy", of = ["trammel-jig.hub_hole", "trammel-jig.dowel_hole"], band_mm = 0.03, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.dowel_hole.position"] },
   { name = "dowel_fit", quantity = "size", of = "trammel-jig.dowel_hole", band_mm = [0.0, 0.012], band_cite = "example value (realistic, not a shop measurement): 6 H7 for the Ø6 dowel", claims = ["trammel-jig.dowel_hole.size"] },
 ]
 # gauge-pins: example metric set in 0.01 mm steps, finer than the 0.012 and 0.015 fit bands
-checks = { sagitta_outer = "sagitta-gauge-300", sagitta_inner = "sagitta-gauge-300", width = "calipers", hub_pin_to_edge = "calipers", hub_size = "gauge-pins", dowel_position = "coax-indicator", dowel_fit = "gauge-pins" }
+checks = { sagitta_outer = "sagitta-gauge-300", sagitta_inner = "sagitta-gauge-300", width = "calipers", hub_pin_to_edge = "calipers", hub_apex = "coax-indicator", hub_size = "gauge-pins", dowel_position = "coax-indicator", dowel_fit = "gauge-pins" }
 ```
 
 The rules compute the predictions. They are not authored:
@@ -1177,8 +1191,9 @@ The rules compute the predictions. They are not authored:
 Every claim of §3.3's table is listed by exactly the readings shown there, and
 each reading lists only claims of the elements it measures, so the binding and
 coverage checks pass. The reference chain runs from the root (inner) edge to the
-outer edge through `width`, from the outer edge to HUB's radial position, and
-from HUB to the dowel in both axes.
+outer edge through `width`, from the outer edge to HUB's radial position, from
+the guide's apex pose to HUB's tangential position, and from HUB to the dowel in
+both axes.
 
 ### 9.3 State A: record absent (the normal planned state)
 
