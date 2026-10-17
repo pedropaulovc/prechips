@@ -486,6 +486,12 @@ def measurement_entry(category, identity, field, *, status=None, item=None, subj
             "entering_angle_deg": "installed cutting-edge entering angle",
         }[field]
         instrument, units = "protractor", "degrees"
+    elif field == "rail_angle_deg":
+        description = "trammel rail angle: the angle its two rails' pin-lines cross at"
+        instrument, units = "sine bar or protractor on the clamped rails", "degrees"
+    elif field == "rail_angle_error_deg":
+        description = "trammel rail angle error: the most the rails' crossing angle is off"
+        instrument, units = "sine bar or protractor on the clamped rails", "degrees"
     elif field.endswith("_deg"):
         instrument, units = "protractor", "degrees"
     elif field in {"body_dia", "quill_dia", "tailstock.quill_dia", "spigot_dia"}:
@@ -535,6 +541,31 @@ def measurement_entry(category, identity, field, *, status=None, item=None, subj
     elif field == "roller_height":
         description = "guide roller top above the table, on its stud"
         instrument = "height gauge"
+    elif field.startswith("pin_spacing.") or field == "pin_spacing":
+        description = "trammel pin pair spacing on the carrier, pin centre to pin centre"
+        instrument = "calipers over the pins, less one pin diameter"
+    elif field == "pin_spacing_error":
+        description = "trammel pin spacing error: the most a pin pair's spacing is off"
+        instrument = "calipers over the pins, less one pin diameter"
+    elif field == "pin_clearance":
+        description = "trammel pin radial play in its carriage bore"
+        instrument = "dial indicator on the carrier, rocked across the pin"
+    elif field == "rail_offset":
+        description = (
+            "trammel rail alignment: the most either rail's pin-line stands off the spindle axis"
+        )
+        instrument = "indicator in the spindle on a pin in its carriage at stations along the rail"
+    elif field == "rail_travel":
+        description = (
+            "trammel pin stations along each rail, nearest and farthest from the spindle axis"
+        )
+        instrument = "steel rule from the spindle axis with each carriage on its end stops"
+    elif field == "pin_dia":
+        description = "trammel carrier pin diameter"
+        instrument = "micrometer or calipers"
+    elif field in ("rail_width", "rail_height"):
+        description = f"trammel rail {field.removeprefix('rail_')} on the table"
+        instrument = "calipers or height gauge"
     elif field == "radius_limits":
         description = (
             "setting bar radius limits: the pivot pin's axis to the touch face, seated on the pin"
@@ -595,6 +626,17 @@ def limits_debt(item, field, category, identity, *, require_measured=False):
     """One refused consumed length-limit pair, never inferred from attribution prose."""
     return _fact_debt(
         limits_fact(item, field, require_measured=require_measured),
+        field,
+        category,
+        identity,
+        item=item,
+    )
+
+
+def angle_debt(item, field, category, identity, *, require_measured=False):
+    """One refused consumed angle (degrees), like :func:`length_debt`."""
+    return _fact_debt(
+        angle_fact(item, field, require_measured=require_measured),
         field,
         category,
         identity,

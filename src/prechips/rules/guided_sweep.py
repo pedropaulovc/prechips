@@ -27,8 +27,9 @@ from .coordinates import _JOIN_TOL, _WALL_TOL, _grid, _pair, _samples, dro_grid,
 from .resolution import UNKNOWN, authored, identity, number, record, resolve, uncertain
 
 METHOD = "guided_sweep"
-# The fixture kind each guide rides on: a swing arm pivots on its pin, a sled on its rail.
-FIXTURE_KINDS = {"pivot": "swing_arm", "rail": "arc_sled"}
+# The fixture kind each guide rides on: a swing arm pivots on its pin, a sled on its rail,
+# a trammel carrier on its pins in two straight rails (rules/trammel.py, #269).
+FIXTURE_KINDS = {"pivot": "swing_arm", "rail": "arc_sled", "trammel": "trammel"}
 MASTER_KINDS = frozenset({"setting_bar", "master_arc"})
 # (setup axis index, sign): which axis lies on the cutter's radial line, and on which side
 # of the arc centre the cutter stands.
@@ -40,6 +41,11 @@ _GUIDE_FACTS = {
         ("rail_radius", False, "rail radius"),
         ("rail_form_error", True, "rail form error"),
         ("roller_runout", True, "roller runout"),
+    ),
+    "trammel": (
+        ("pin_spacing_error", True, "pin spacing error"),
+        ("pin_clearance", True, "pin clearance"),
+        ("rail_offset", True, "rail offset"),
     ),
 }
 
@@ -877,6 +883,10 @@ def guided(bundle, setup, op, arc, band, label, scale):
     sweep = record(contour.get("sweep"))
     errors, debts, measurements = [], [], []
     guide = sweep.get("guide", UNKNOWN)
+    if guide == "trammel":
+        from .trammel import recipe
+
+        return recipe(bundle, setup, op, arc, band, label, scale)
     convex = arc["cutter_centre_radius_mm"] > arc["wall_radius_mm"]
     record_ = {
         "guide": guide,
@@ -898,7 +908,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
     }
     arc["guided"] = record_
     if guide not in FIXTURE_KINDS:
-        debts.append(f"{label}: contour.sweep.guide is neither pivot nor rail")
+        debts.append(f"{label}: contour.sweep.guide is neither pivot, rail nor trammel")
     found = _carrier(bundle, setup, sweep, guide, errors, debts, measurements, record_)
     master = _master(bundle, sweep, guide, errors, debts, measurements, record_)
     sweep_deg = sweep.get("sweep_deg", UNKNOWN)
