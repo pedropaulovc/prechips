@@ -671,17 +671,19 @@ def _samples(start, end, step):
     return list(reversed(values)) if reverse else values
 
 
-def _row_spacing(contour, label, errors):
-    """Rows half a turn or more apart (``step_deg`` of 180 or more) leave the cutter's
-    path between them undetermined: the chord between two such rows reads as the short
-    way round, so neither the rows' cutting order nor the work's turn can be told from
-    them. An error; rows under half a turn apart (:func:`_samples` never spaces them wider
-    than ``step_deg``) fix both."""
-    step = contour.get("step_deg")
-    if number(step) and step >= 180.0:
+def _row_spacing(rows, label, errors):
+    """Consecutive rows half a turn or more apart leave the cutter's path between them
+    undetermined: the chord between two such rows reads as the short way round, so
+    neither the rows' cutting order nor the work's turn can be told from them. An error;
+    rows under half a turn apart fix both. :func:`_samples` never spaces rows wider than
+    ``step_deg``, so a ``step_deg`` under 180 always does, and a wider one only errs when
+    the arc is long enough to leave such a gap."""
+    angles = [row.get("angle_deg") for row in rows]
+    gaps = [abs(b - a) for a, b in itertools.pairwise(angles) if number(a) and number(b)]
+    if gaps and max(gaps) >= 180.0:
         errors.append(
-            f"{label}: step_deg {step:g}° puts rows half a turn or more apart, so the way "
-            "the work turns between them is not determined; space them under 180°"
+            f"{label}: rows {max(gaps):g}° apart, half a turn or more, leave the way the "
+            "work turns between them undetermined; set step_deg under 180°"
         )
 
 
@@ -3844,7 +3846,7 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
         return [f"{label}: rotary_table needs the work held on a rotary table (hold.fixture)"], []
     contour = mapping(op.get("contour"))
     errors, debts = [], []
-    _row_spacing(contour, label, errors)
+    _row_spacing(arc["rows"], label, errors)
     if errors:
         return errors, debts
     if table["uncertain"]:

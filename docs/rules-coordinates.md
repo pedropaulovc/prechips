@@ -394,10 +394,11 @@ naming them. Each table is recorded under `arc_table` (its joins under
   is found; an unknown band is unknown. The table turns
   the work against the cutter from the `start_deg` to the `stop_deg` dial
   reading, both rounded inward along the turn to the vernier (else graduation)
-  resolution: an arc too short to keep a reading inside it is an error. Rows
-  must lie under half a turn apart (`step_deg` under 180°): wider rows read as
-  the short way round, so neither their cutting order nor the table's turn
-  follows the cut's sense, an error. The
+  resolution: an arc too short to keep a reading inside it is an error. Consecutive
+  rows must lie under half a turn apart (always so with `step_deg` under 180°;
+  a wider step on an arc shorter than half a turn leaves only its two ends):
+  wider rows read as the short way round, so neither their cutting order nor the
+  table's turn follows the cut's sense, an error. The
   setup-entry stock (kernel `stock_bbox_mm`) must swing inside the table's
   `max_work`. Off-axis centres, no table, no earlier centre hole or a swing over
   `max_work` are errors; unknown dial, centre or swing facts, a table
