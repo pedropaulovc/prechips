@@ -462,10 +462,13 @@ rows = [[c[0] + R * math.sin(a), c[1] - R * math.cos(a)] for a in angles]
 arc = {"centre": c, "radius": R}
 exact = job._centre_sweep([(rows, 0.0, arc)], r, height)
 chords = job._centre_sweep([(rows, 0.0)], r, height)
+# Two rows only (a short sweep under one step): still the arc, never its chord.
+two = job._centre_sweep([([rows[0], rows[-1]], 0.0, arc)], r, height)
 # The disc swept along the arc: its annular sector and a half disc at each end.
 want = (2 * R * r * math.radians(sweep) + math.pi * r * r) * height
 with open(out, "w") as handle:
-    json.dump({"exact": exact.Volume, "chords": chords.Volume, "want": want}, handle)
+    found = {"exact": exact.Volume, "chords": chords.Volume, "two": two.Volume}
+    json.dump({**found, "want": want}, handle)
 """
 
 
@@ -489,6 +492,7 @@ def test_the_kernel_sweeps_the_exact_annulus_not_the_rows_chords(tmp_path, freec
     assert out.is_file(), process.stdout[-2000:] + process.stderr
     found = json.loads(out.read_text(encoding="utf-8"))
     assert found["exact"] == pytest.approx(found["want"], rel=1e-9)
+    assert found["two"] == pytest.approx(found["want"], rel=1e-9)
     # The rows' chords fall short of the arc by their sagitta: the exact sweep is not them.
     assert found["chords"] < found["want"] - 0.1
 
@@ -980,3 +984,50 @@ def test_stops_too_close_to_the_arc_ends_for_a_rule_are_an_error(tmp_path):
     row = trammel_row(tmp_path, sweep_deg="21.06")
     assert row.status == "error"
     assert "short of the arc's end" in errors(row)
+
+
+# --- Codex review of 4c65714 -----------------------------------------------------------
+
+
+def test_the_start_is_proven_clear_over_the_whole_stop_band_not_samples():
+    # The arc runs tangent to X at pose 0, inside the band: its ends and middle clear the
+    # box's X face, its tangent point does not, so the start is unproven.
+    from prechips.rules.trammel import _arc_clear
+
+    box = [102.95, -50.0, -10.0, 200.0, 50.0, 0.0]
+    assert not _arc_clear(box, [0.0, 0.0], 100.0, 0.0, [-10.0, 4.0], 3.0, 1.0)
+    for t in (-10.0, -3.0, 4.0):  # what sampling the ends and middle would have seen
+        assert 100.0 * math.cos(math.radians(t)) + 3.0 <= box[0]
+    assert _arc_clear([103.5, *box[1:]], [0.0, 0.0], 100.0, 0.0, [-10.0, 4.0], 3.0, 1.0)
+
+
+def test_the_pin_line_gain_is_worst_over_the_rail_angle_tolerance():
+    # Codex on #278: at α = 60° ± 20° the symmetric pose's 1 / cos(α/2) is 1.155 nominal
+    # but 1.305 at the 80° end; the budget takes the worse.
+    from prechips.rules.trammel import _gain_over_angle
+
+    r, centre, heading = 100.0, [0.0, 100.0], -90.0
+    directions = trammel.rails(centre, heading, r, [-60.0, 60.0])
+    nominal = trammel.line_gain(directions, heading, 0.0, 0.0)
+    assert nominal == pytest.approx(1 / math.cos(math.radians(30.0)))
+    worst = _gain_over_angle(directions, heading, 0.0, 0.0, 20.0)
+    assert worst >= 1 / math.cos(math.radians(40.0)) - 1e-9
+    assert _gain_over_angle(directions, heading, 0.0, 0.0, "unknown") is None
+
+
+def test_an_authored_xy_zero_in_a_trammel_setup_is_an_error(tmp_path):
+    # An edge pickup moves the table off the rails' crossing the trammel cuts on.
+    from test_guided_sweep import ZERO_Z
+
+    from prechips.inputs import load_bundle
+    from prechips.rules import zero_recipe
+
+    plan = trammel_plan(tmp_path)
+    zero_x = (
+        "[setups.zero.x]\nedge = 'left'\nmethod = 'edge_finder'\nedge_mm = 0.0\n"
+        "tool = 'cutter'\ncheck_jog_mm = 10.0\n"
+    )
+    plan.write_text(plan.read_text(encoding="utf-8") + ZERO_Z + zero_x, encoding="utf-8")
+    (row,) = [r for r in zero_recipe.evaluate(load_bundle(plan)) if r.subject == "S1"]
+    assert row.status == "error", row.sentence
+    assert "zero.x picks up an edge, but the trammel" in row.sentence

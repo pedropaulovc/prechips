@@ -558,13 +558,35 @@ def _stops_proof(arc, record_, pins, window, label, errors, debts):
     record_["stops"] = "proven"
 
 
+def _arc_clear(box, centre, r, heading, band, reach, scale):
+    """Whether a cutter of ``reach`` mm, its centre anywhere on the arc of radius ``r``
+    (plan units) about ``centre`` over the poses ``band`` (degrees from ``heading``),
+    stands wholly outside ``box`` (mm, setup frame) on one side of one axis over the
+    whole band: exact, from the arc's true X and Y extremes (its ends, and any pose where
+    it runs tangent to an axis); False when the box is unknown. A corner a cutter clears
+    only by changing sides is not proven: conservative."""
+    from .level_entry import STOCK_TOL_MM
+
+    if box is None:
+        return False
+    lo, hi = heading + band[0], heading + band[1]
+    extremes = [lo, hi, *(90.0 * k for k in range(-8, 9) if lo < 90.0 * k < hi)]
+    xs = [(centre[0] + r * _u(t)[0]) * scale for t in extremes]
+    ys = [(centre[1] + r * _u(t)[1]) * scale for t in extremes]
+    return any(
+        max(values) + reach <= box[axis] - STOCK_TOL_MM
+        or min(values) - reach >= box[axis + 3] + STOCK_TOL_MM
+        for axis, values in ((0, xs), (1, ys))
+    )
+
+
 def _start_clear(bundle, setup, arc, record_, pins, window, label, debts, scale):
     """The cutter goes down at the first stop: ``start`` ``"air"`` only when, at every pose
     the first stop can hold (:func:`_stops_proof`'s band) and on every cut radius the
     budget allows, the cutter stands wholly outside the stock box the setup receives
     (:func:`~.level_entry.in_air`), as for every guided sweep; else ``"unproven"`` and
     debt, so the traveler stops."""
-    from .level_entry import in_air, stock_box
+    from .level_entry import stock_box
 
     record_["start"] = "unproven"
     bands, cut = record_.get("stop_bands_deg"), record_.get("cut_radius_mm")
@@ -578,12 +600,7 @@ def _start_clear(bundle, setup, arc, record_, pins, window, label, debts, scale)
         spread = max(abs(cut[0] - wall), abs(cut[1] - wall))
         reach = radius + spread
         box = stock_box(bundle, setup)
-        clear = True
-        # The band is a few hundredths of a degree: its ends and middle bound it.
-        for psi in (bands[0][0], sum(bands[0]) / 2, bands[0][1]):
-            u = _u(heading + psi)
-            point = [centre[i] + nominal / scale * u[i] for i in range(2)]
-            clear &= bool(in_air(box, point, reach, scale))
+        clear = _arc_clear(box, centre, nominal / scale, heading, bands[0], reach, scale)
         if clear:
             record_["start"] = "air"
             return
@@ -625,9 +642,43 @@ def _pose(arc, record_, found, pins, window, r_plan, scale, errors, label):
                     f"spindle axis along its rail over the sweep, beyond the rail's "
                     f"{near:g} to {far:g} mm travel"
                 )
-    gain = line_gain(directions, heading, lo, hi)
+    gain = _gain_over_angle(directions, heading, lo, hi, found.get("rail_angle_error"))
     record_["line_gain"] = gain if gain is not None else "unknown"
     return gain if gain is not None else "unknown"
+
+
+# Rail-angle samples the pin-line gain is maximized over, across the measured error.
+GAIN_SAMPLES = 64
+
+
+def _gain_over_angle(directions, heading, lo, hi, error):
+    """:func:`line_gain` at its worst over the true crossing angle too: the rails' crossing
+    opened or closed by up to the measured ``rail_angle_error`` (degrees). Exact in the pose;
+    across the angle, the ends, the nominal and :data:`GAIN_SAMPLES` evenly spaced angles
+    each way (the gain is smooth in the angle, ``1 / cos(α/2)`` at the symmetric pose).
+    None when unproven: an unknown error, or lines turned parallel."""
+    from .resolution import number
+
+    if not number(error):
+        return None
+    worst = None
+    for k in range(-GAIN_SAMPLES, GAIN_SAMPLES + 1):
+        # Only the crossing angle is uncertain: turning both rails together turns the
+        # whole motion with them and leaves the gain as it was, so the error is split
+        # half to each rail, which keeps their bisector, the cutter's radial line at the
+        # middle pose, where the pose model has it.
+        half = error * k / GAIN_SAMPLES / 2
+        turned = [_turn(directions[0], -half), _turn(directions[1], half)]
+        gain = line_gain(turned, heading, lo, hi)
+        if gain is None:
+            return None
+        worst = gain if worst is None else max(worst, gain)
+    return worst
+
+
+def _turn(v, deg):
+    c, s = trig.cos(math.radians(deg)), trig.sin(math.radians(deg))
+    return [c * v[0] - s * v[1], s * v[0] + c * v[1]]
 
 
 def _footprint(bundle, setup, arc, record_, pins, window, r_plan, scale):
