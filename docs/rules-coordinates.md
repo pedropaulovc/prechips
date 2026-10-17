@@ -475,8 +475,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   proven), at the pose the first stop block sets (`start_xy`: the printed overrun,
   0.1 mm rounded down, at the radius the stops are measured on, the rough's for a
   finish run between the rough's stops), the cutter widened by the most the master-set
-  cut (`cut_radius_mm`) stands off the nominal wall the rows assume, else `unproven`
-  and unknown, since nothing
+  cut (`cut_radius_mm`) stands off the nominal wall the rows assume, and by the arc
+  that radius range turns the measured overrun through (it is measured along the real
+  path; `start_reach_mm`), else `unproven` and unknown, since nothing
   checks a plunge for a sweep. The traveler prints the recipe only with a known band
   (`band_mm`), a proven cut and a start in air; any unproven cut is debt, whatever
   left it so (a pivot play or rail error too large to bound included).

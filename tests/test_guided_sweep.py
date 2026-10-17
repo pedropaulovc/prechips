@@ -929,6 +929,60 @@ def test_a_finish_is_proven_at_the_pose_its_roughs_stops_set(tmp_path):
     )
 
 
+HALF10 = math.radians(10.5)
+# A concave R10 arc, 21° long about its lowest point (20, 10), its band wide enough for an
+# R10.5 master.
+CONCAVE_R10 = (
+    "kind = 'profile'\nrequirements = ['radius']\nradius = [9.5, 10.6]\n"
+    "radius_nominal = 10.0\narc_centre = [20.0, 20.0, 0.0]\n"
+    f"end = {[20.0 + 10.0 * math.sin(HALF10), 20.0 - 10.0 * math.cos(HALF10)]}\n"
+)
+R10_5 = (
+    "[gauges.r10_5]\nkind = 'setting_bar'\nname = 'R10.5 setting bar'\n"
+    f"radius_limits_mm = {{ value = [10.50, 10.52], {MEASURED} }}\nverify = false\n"
+)
+
+
+def test_the_start_bound_covers_the_stop_measured_on_the_real_path(tmp_path):
+    # The operator measures the printed 12.2 mm overrun along the real cutter path: an
+    # R10.5 master puts it at R7.5, not the nominal R7, turning the fixture about 6.7°
+    # less. Stock just past the nominal start's radial bound, but inside that turn, leaves
+    # the R10.5 start unproven while a near-nominal bar's start stays in air.
+    def row(name, master, box=SWING):
+        plan = guided_plan(
+            tmp_path / name,
+            target=CONCAVE_R10,
+            inventory=BAR10 + R10_5,
+            master=master,
+            sweep_deg="221.0",
+        )
+        return coordinates_row(plan, stock_bbox=box)
+
+    _, probe = recipe(row("probe", "'r10_5'"))
+    x, _ = probe["start_xy"]
+    # Clear of the nominal point by its radial bound, plus half a millimetre.
+    edge = x + 3.0 + 0.52 + 0.5
+    box = [edge, -1000.0, -10.0, 1000.0, 1000.0, 0.0]
+    assert recipe(row("near", "'bar10'", box))[1]["start"] == "air"
+    assert recipe(row("off", "'r10_5'", box))[1]["start"] == "unproven"
+
+
+def test_a_rough_stops_the_spindle_when_its_finish_is_withheld(tmp_path):
+    # Stock the rough's start clears but the finish's (0.3 mm further out on the same
+    # stop pose) does not: the finish stops, so the runnable rough is the op's last sweep
+    # and must stop the spindle.
+    row = coordinates_row(guided_plan(tmp_path / "rows", allowance=0.3), stock_bbox=SWING)
+    rough = recipe(row, "rough")[1]
+    _, y = rough["start_xy"]
+    box = [-1000.0, -1000.0, -10.0, 1000.0, y - rough["start_reach_mm"] - 0.002, 0.0]
+    row, printed = traveler_text(tmp_path / "box", allowance=0.3, box=box)
+    assert recipe(row, "rough")[1]["start"] == "air"
+    assert recipe(row, "finish")[1]["start"] == "unproven"
+    rough_steps = printed.split("STOP: guided sweep not established")[0]
+    assert "Lock X and Y" in rough_steps
+    assert rough_steps.rstrip().endswith("then stop the spindle and wait for it to stop.")
+
+
 def test_a_flagged_member_of_a_master_set_proves_no_cut(tmp_path):
     # A set's own verify = false does not clear a selected member flagged to verify.
     bars = (

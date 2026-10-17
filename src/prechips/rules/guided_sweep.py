@@ -419,7 +419,7 @@ def _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid):
         )
 
 
-def _start_clear(bundle, setup, op, arc, label, debts, record_, scale):
+def _start_clear(bundle, setup, op, arc, label, debts, record_, scale, grid):
     """The cutter goes down at the sweep's first stop, its first row, at every level: the
     stops lie past the arc's ends so it enters in air. That entry is ``start`` ``"air"``
     only when the cutter there stands wholly outside the stock box the setup receives
@@ -442,15 +442,27 @@ def _start_clear(bundle, setup, op, arc, label, debts, record_, scale):
         return
     outward = 1 if centre > arc["wall_radius_mm"] else -1
     wall = centre * scale - outward * radius
-    reach = radius + max(abs(cut[0] - wall), abs(cut[1] - wall))
-    stops = centre * scale
+    # How far the real path stands off the nominal one, radially.
+    radial = max(abs(cut[0] - wall), abs(cut[1] - wall))
+    stops, spread = centre * scale, radial
     leave = op.get("rough_allowance_mm")
     if arc.get("stage") == "finish" and number(leave) and leave > 0:
         # The finish runs between the rough's stops, set on the rough's path: the leave
-        # off the line.
+        # off the line, which the rough's back-off rounds by under one DRO step more.
         stops += outward * leave
+        spread += grid[0] * scale
     point = _printed_start(arc, record_, stops)
+    printed = _printed_overrun(record_, stops)
     record_["start_xy"] = point if point is not None else UNKNOWN
+    if point is None or printed is None or stops - spread <= 0:
+        point = None
+    else:
+        # The operator measures the printed overrun along the real path, so the stop's
+        # angle lies within printed / (stops ± spread): the cutter there stands off the
+        # nominal point by the radial spread plus that much arc at its own real radius.
+        swing = printed * spread / (stops * (stops - spread))
+        reach = radius + radial + (centre * scale + radial) * swing
+        record_["start_reach_mm"] = reach
     if point is not None and in_air(stock_box(bundle, setup), point, reach, scale):
         record_["start"] = "air"
         return
@@ -459,6 +471,17 @@ def _start_clear(bundle, setup, op, arc, label, debts, record_, scale):
         "so the cutter would go down into material there; sweep far enough past the arc's "
         "ends for the cutter to start clear (a longer sweep_deg), with the stock modelled"
     )
+
+
+def _printed_overrun(record_, stops_mm):
+    """The overrun (mm) the traveler prints for stops measured on a ``stops_mm`` radius:
+    half the sweep's excess over the arc, as cutter travel there, 0.1 mm rounded down;
+    None when unknown."""
+    sweep_deg, span = record_.get("sweep_deg"), record_.get("span_deg")
+    if not (number(sweep_deg) and number(span) and number(stops_mm) and stops_mm > 0):
+        return None
+    over = max(0.0, (sweep_deg - span) / 2)
+    return math.floor(math.radians(over) * stops_mm * 10 + 1e-9) / 10
 
 
 def _printed_start(arc, record_, stops_mm):
@@ -488,8 +511,7 @@ def _printed_start(arc, record_, stops_mm):
     reach = math.dist(first, centre)
     if reach <= 0:
         return None
-    over = max(0.0, (sweep_deg - span) / 2)
-    printed = math.floor(math.radians(over) * stops_mm * 10 + 1e-9) / 10
+    printed = _printed_overrun(record_, stops_mm)
     start = trig.atan2(first[1] - centre[1], first[0] - centre[0])
     sweep = rows[0]["setup_xy"]
     toward = trig.atan2(sweep[1] - centre[1], sweep[0] - centre[0]) - start
@@ -663,7 +685,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
             )
     _rotation(arc, label, debts, record_, scale)
     _landmarks(arc, record_, sweep, axis, found, scale)
-    _start_clear(bundle, setup, op, arc, label, debts, record_, scale)
+    _start_clear(bundle, setup, op, arc, label, debts, record_, scale, grid)
     _radial(arc, record_, axis, label, errors, grid)
     if measurements:
         by_id = {entry["id"]: entry for entry in measurements}

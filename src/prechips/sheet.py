@@ -8963,10 +8963,11 @@ class _Traveler:
                     if t.get("op") == arc.get("op") and t.get("stage") == "rough"
                 ]
                 rough = bool(roughs)
-                finish_follows = arc.get("stage") == "rough" and any(
-                    t.get("op") == arc.get("op") and t.get("stage") == "finish"
+                finishes = [
+                    t
                     for t in numbers.get("arc_table", [])
-                )
+                    if t.get("op") == arc.get("op") and t.get("stage") == "finish"
+                ]
                 ends = (labels[0], labels[-1]) if labels else ("", "")
                 feed = self.records.get(("speeds_feeds", subject), {}).get("feed_mm_min")
                 # An op stepping down in axial levels sweeps once per level the heading
@@ -8976,6 +8977,13 @@ class _Traveler:
                 depths = z_levels.get("levels") if z_levels else None
                 if isinstance(depths, list) and len(depths) <= 1:
                     depths = None
+                # A rough leaves the spindle running only for a finish that prints runnable
+                # after it; a withheld finish leaves the rough the op's last sweep.
+                finish_follows = (
+                    arc.get("stage") == "rough"
+                    and bool(finishes)
+                    and all(established(t, depths) for t in finishes)
+                )
                 # A finish runs on from its rough's touch-off and stops: when the op leaves
                 # stock for a rough sweep that is not printed runnable (rejected, or stopped),
                 # the finish would return to a touch never made or take the whole leave.
