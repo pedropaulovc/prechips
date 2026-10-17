@@ -81,7 +81,7 @@ corner past the limit, so the leaf read must be at or under r − t. Outcomes:
 - **Error, tolerance crosses the limit:** no leaf lies at or under r − t. With
   t = 0.01, a leaf set R0.2–R1.0 has no leaf at or under R0.19, so the check is not a
   clean pass.
-- **Error, resolution:** the gauge's resolution exceeds r.
+- **Error, resolution:** the gauge's resolution exceeds r, whatever the tolerance.
 - **Unknown, tolerance:** the declared tolerance is unknown or not trusted. The
   tolerance is listed as debt.
 - **Unknown, leaf not named:** t > 0 and a safe leaf exists. Only a leaf at or under
