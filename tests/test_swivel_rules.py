@@ -8,9 +8,12 @@ import pytest
 from test_hold_align import ALIGN, hold_text
 from test_hold_align import bundle as square_bundle
 from test_hold_align import setup as square_setup
+from test_sheet_ops import Markup, content
 
+from prechips import kernel
 from prechips.inputs import Bundle
 from prechips.rules import headroom, hold_fields, swivel, zero_recipe
+from prechips.sheet import _Traveler
 
 MEASURED = {
     "status": "measured",
@@ -356,3 +359,29 @@ def test_each_unknown_printed_swivel_field_is_a_stop(change, field):
 def test_square_vises_print_as_before():
     data = square_bundle(square_setup("V1", "vise"))
     assert "Swivel" not in hold_text(data, "V1") and "Square the fixed jaw" in hold_text(data, "V1")
+
+
+def test_the_zero_section_prints_a_stop_for_an_edge_pick_up_under_a_swivel():
+    data = bundle(setup())
+    data.plan["setups"][0]["zero"] = {
+        "x": {"edge": "left", "edge_mm": 0.0, "from": "-x", "tool": "em", "check_jog_mm": 5},
+    }
+    sheet = _Traveler(data, zero_recipe.evaluate(data), {}, None)
+    text = " ".join(content(node) for node in Markup(sheet.dro(data.plan["setups"][0], {})).nodes)
+    assert "STOP: X zero — the vise is swivelled" in text and "indicating a bore" in text
+    assert "from -X side" not in text
+
+
+@pytest.mark.parametrize(
+    ("angle", "engine_angle", "placed"),
+    [(ANGLE, ANGLE, True), (0.0, None, True), (None, None, True), ("unknown", None, False)],
+)
+def test_the_kernel_hold_carries_a_known_swivel_and_an_unknown_one_unplaces_the_jaws(
+    angle, engine_angle, placed
+):
+    """A known swivel reaches the engine (and its cache key); none or 0 leaves today's
+    square-jaw input byte for byte; a stated-unknown swivel leaves the jaws unplaced."""
+    data = bundle(setup(angle=angle))
+    hold = kernel._engine_hold(kernel.hold_inputs(data, data.plan["setups"][0]))
+    assert hold.get("jaws_angle_deg") == engine_angle
+    assert ("jaws_angle_deg" in hold.get("reason", "")) is not placed
