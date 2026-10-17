@@ -75,7 +75,7 @@ from .rules.resolution import (
 )
 from .rules.resolution import record as _mapping
 from .rules.swivel import STATED as SWIVEL_STATED
-from .rules.swivel import jaw_line_move, swivelled
+from .rules.swivel import jaw_line_move, swivel_angle, swivelled
 from .rules.swivel import setting as swivel_setting
 from .rules.tip_endpoints import (
     FACING,
@@ -4319,8 +4319,8 @@ class _Traveler:
                 mount += " with the " + self.reference(hold["chuck"], "fixtures")
             if stated("jaws_along"):
                 mount += f"; jaws along {_text(hold['jaws_along']).upper()}"
-            if "jaws_angle_deg" in hold:
-                angle = hold["jaws_angle_deg"]
+            angle = swivel_angle(hold)
+            if angle:
                 mount += (
                     f", swivelled {_number(abs(angle))}° "
                     + ("counterclockwise" if angle > 0 else "clockwise")
@@ -4721,7 +4721,7 @@ class _Traveler:
         along = _text(hold.get("jaws_along")).upper()
         if _known(hold.get("jaw_center_along_mm")) and along in ("X", "Y"):
             # A swivelled jaw line runs off the travel: its centre is along the jaws.
-            where = "along the jaws" if "jaws_angle_deg" in hold else f"at {along}"
+            where = "along the jaws" if swivel_angle(hold) else f"at {along}"
             facts.append((f"jaw centre {where}", o(hold["jaw_center_along_mm"])))
         for key, label in (
             ("parallels_centres_mm", "parallels at (X, Y)"),

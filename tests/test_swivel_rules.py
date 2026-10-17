@@ -389,3 +389,28 @@ def test_the_kernel_hold_carries_a_known_swivel_and_an_unknown_one_unplaces_the_
     hold = kernel._engine_hold(kernel.hold_inputs(data, data.plan["setups"][0]))
     assert hold.get("jaws_angle_deg") == engine_angle
     assert ("jaws_angle_deg" in hold.get("reason", "")) is not placed
+
+
+def test_a_setup_keeping_the_swivel_inherits_how_it_was_set():
+    """The vise stays as V1 set it, so V2 (no align of its own) is held to V1's setting;
+    once another setup takes the vise off, the next swivel is set again and needs its own."""
+    data = bundle(
+        setup("V1", ops=[taper()]),
+        setup("V2", align=None, ops=[taper()]),
+        setup("J1", angle=None, align=None, fixture="chuck"),
+        setup("V3", align=None, ops=[taper()]),
+    )
+    first, kept, remounted = swivel.evaluate(data)
+    assert first.status == kept.status == "pass", kept.sentence
+    assert kept.numbers["tolerance_deg"] == pytest.approx(derived())
+    assert swivel.setting(data, data.plan["setups"][1])["set_in"] == "V1"
+    assert remounted.status == "unknown"
+    assert "plan.setups.V3.hold.align.method" in remounted.numbers["unresolved"]
+
+
+def test_an_explicit_zero_swivel_prints_as_square_jaws():
+    data = bundle(setup(angle=0.0, align=ALIGN, jaw_center_along_mm=30.0))
+    text = hold_text(data, "V1")
+    assert "swivelled" not in text and "Swivel" not in text
+    assert "Square the fixed jaw" in text
+    assert swivel.evaluate(data) == []

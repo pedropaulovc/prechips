@@ -74,7 +74,10 @@ One subject per setup that holds the work in a mill vise with a `jaws_angle_deg`
 otherwise. The setting tolerance δθ comes from `hold.align`
 ([swivelled vise](plan.md#swivelled-vise)): derived for `indicate_jaw` as
 asin((`limit_mm` + √2·step) / `over_mm`) with the machine's measured DRO step, or the
-cited `tolerance_deg` of a stated method. Each walled cut (every machining op except
+cited `tolerance_deg` of a stated method. A setup that keeps the vise as an earlier one
+on the same machine set it (not `align_due`) inherits that setup's `hold.align`
+(`set_in`). An explicit `jaws_angle_deg = 0` is square jaws: no row, and the HOLD prints
+no swivel. Each walled cut (every machining op except
 facing, point/hole actions, saws and manual work) is held against its feature's ± angle
 band: `angle_tol_deg`, else none for a BASIC angle, else
 `general_tolerances.angular_deg`, as [indexing](rules-indexing.md) sources it. A band
@@ -84,7 +87,7 @@ cutter-centre path, else `stock_removal_bounds`, lies from the DRO zero) and
 `shift_mm` = reach·sin δθ: where the swivel error moves that cut, for inspection to
 read. A horizontal face is unchanged by a turn about Z.
 
-Evidence: `jaws_angle_deg`, `line_deg` (the jaw line from setup X), `method`,
+Evidence: `jaws_angle_deg`, `line_deg` (the jaw line from setup X), `set_in`, `method`,
 `tolerance_deg`, `limit_mm`/`over_mm`/`dro_step_mm` when derived, `cuts`, `unresolved`,
 `invalid`.
 

@@ -22,6 +22,7 @@ from prechips.rules.resolution import (
     SAW_OPS,
     UNKNOWN,
     _citations,
+    identity,
     number,
     record,
     resolve,
@@ -66,6 +67,26 @@ def _positive(value):
     return number(value) and value > 0
 
 
+def set_in(bundle, setup):
+    """The setup whose ``hold.align`` set the swivel ``setup`` works in: itself where it
+    mounts the vise or changes its swivel (``hold_fields.align_due``) or declares its own
+    align, else the nearest earlier setup on the same machine that did; the vise stays as
+    that setup left it."""
+    from prechips.rules.hold_fields import align_due
+
+    due = align_due(bundle)
+    if setup["id"] in due or "align" in record(setup.get("hold")):
+        return setup
+    machine = identity(bundle, setup.get("machine"), "machines")
+    order = [other["id"] for other in bundle.plan["setups"]]
+    for other in reversed(bundle.plan["setups"][: order.index(setup["id"])]):
+        if identity(bundle, other.get("machine"), "machines") != machine:
+            continue
+        if other["id"] in due:
+            return other
+    return setup
+
+
 def setting(bundle, setup):
     """How the swivel of ``setup``'s vise is set: ``method``, the jaw line's angle from
     setup X (``line_deg``), the setting tolerance ``tolerance_deg`` (``UNKNOWN`` while any
@@ -75,8 +96,11 @@ def setting(bundle, setup):
     hold = record(setup.get("hold"))
     source = f"plan.setups.{setup['id']}.hold"
     angle = swivel_angle(hold)
-    align = hold.get("align")
+    # A setup that keeps the vise as an earlier one set it inherits that setting.
+    setter = set_in(bundle, setup)
+    align = record(setter.get("hold")).get("align")
     align = {} if align is None else align
+    aligned = f"plan.setups.{setter['id']}.hold"
     result = {
         "jaws_angle_deg": angle,
         "line_deg": UNKNOWN,
@@ -85,6 +109,7 @@ def setting(bundle, setup):
         "unresolved": [],
         "invalid": [],
         "cite": [_CITE, source],
+        "set_in": setter["id"],
     }
     if angle == UNKNOWN:
         result["unresolved"].append(f"{source}.jaws_angle_deg")
@@ -96,18 +121,18 @@ def setting(bundle, setup):
     else:
         result["unresolved"].append(f"{source}.jaws_along")
     if align == UNKNOWN or record(align).get("method", UNKNOWN) == UNKNOWN:
-        result["unresolved"].append(f"{source}.align.method")
+        result["unresolved"].append(f"{aligned}.align.method")
         return result
     method = result["method"] = align["method"]
     if method in STATED:
         tolerance, cites = align.get("tolerance_deg", UNKNOWN), _citations(align.get("cite"))
         if tolerance != UNKNOWN and not _positive(tolerance):
-            result["invalid"].append(f"{source}.align.tolerance_deg must be positive")
+            result["invalid"].append(f"{aligned}.align.tolerance_deg must be positive")
         elif tolerance == UNKNOWN:
-            result["unresolved"].append(f"{source}.align.tolerance_deg")
+            result["unresolved"].append(f"{aligned}.align.tolerance_deg")
         elif not cites:
             # A stated tolerance is evidence only with its source beside it.
-            result["unresolved"].append(f"{source}.align.cite")
+            result["unresolved"].append(f"{aligned}.align.cite")
         else:
             result["tolerance_deg"] = float(tolerance)
             result["cite"].extend(cites)
@@ -115,9 +140,9 @@ def setting(bundle, setup):
     for key in ("limit_mm", "over_mm"):
         value = align.get(key, UNKNOWN)
         if value == UNKNOWN:
-            result["unresolved"].append(f"{source}.align.{key}")
+            result["unresolved"].append(f"{aligned}.align.{key}")
         elif not _positive(value):
-            result["invalid"].append(f"{source}.align.{key} must be positive")
+            result["invalid"].append(f"{aligned}.align.{key} must be positive")
         else:
             result[key] = float(value)
     scale = UNIT_MM.get(bundle.features.get("units"))
@@ -137,7 +162,7 @@ def setting(bundle, setup):
     # most asin((limit + √2·step) / over).
     reading = result["limit_mm"] + math.sqrt(2.0) * result["dro_step_mm"]
     if reading >= result["over_mm"]:
-        result["invalid"].append(f"{source}.align.over_mm must exceed the indicator limit")
+        result["invalid"].append(f"{aligned}.align.over_mm must exceed the indicator limit")
         return result
     result["tolerance_deg"] = math.degrees(math.asin(reading / result["over_mm"]))
     return result
