@@ -371,33 +371,63 @@ an example change only when that example gains a `commissioning` block.
 Trust is granted per **claim**, never per feature as a whole. Naming a feature
 in a reading's `of` trusts nothing by itself.
 
-**Claims.** Each in-situ solid has a fixed set of claims, derived from its kind.
-They are not authored:
+**Claims.** Each in-situ element has a fixed set of claims, derived from its
+kind. They are not authored:
 
 | In-situ element | Claims | Quantities that can establish each claim |
 |---|---|---|
-| hole (a `void` cylinder) | `size`, `position` | `size`: `size`. `position`: `distance` or `dro_xy`, from a reference |
-| swept edge (`<solid>.<edge>`) | `radius`, `location` | `radius`: `sagitta`. `location`: `distance` or `width`, from a reference |
+| hole (a `void` cylinder) | `size`, and `position` (`position.radial` when located from the guide, below) | `size`: `size`. `position`: `dro_xy`, or `distance` (one direction per reading; see below) |
+| swept edge (`<solid>.<edge>`) | `radius`, and `location` unless it is the root edge | `radius`: `sagitta`. `location`: `width` or `distance` |
 
-A reading lists the claims it establishes in `claims`. The validator checks
-each listed claim against this table. A `z` reading can establish none of them,
-so `claims = ["…hub_hole.position"]` on a `z` reading is an error, not a
-silent trust.
+**Root edge.** The first edge the guide cuts in route order is the **root**. It
+is a cut path: it is cut by the guide on a pin pair the part is also cut on, and
+it defines the frame the other claims are read in. It has only a `radius` claim.
+Every other swept edge also has a `location` claim, relative to the root.
 
-**Reference chain.** A `position` or `location` claim is relative: the reading's
-first `of` entry is its reference. The references must form a chain that reaches
-a **cut path**, meaning an edge cut by the guide on the same pin pair the part is
-cut by, without a cycle. For the trammel:
+**Binding.** A reading may list only claims owned by an element it actually
+measures:
 
-- `hub_pin_to_edge` puts HUB's position relative to the outer cut edge, which is
-  what the in-situ HUB exists to match;
-- `width` puts the inner edge relative to the outer edge;
-- `dowel_position` puts the dowel hole relative to HUB.
+- a single-subject quantity (`sagitta`, `size`, `z`) has one `of` entry, and may
+  list only that element's claims;
+- a relational quantity (`distance`, `width`, `dro_xy`) lists its reference first
+  in `of`. It may list only claims owned by the other entries, never the
+  reference's;
+- each listed claim must also accept the reading's quantity, per the table above.
 
-**Coverage.** The validator requires that every claim of every in-situ solid a
-dependent part setup consumes is listed by at least one compatible reading. A
-missing claim is an error ("in-situ claim trammel-jig.dowel_hole.size has no
-acceptance reading"), because nothing would ever discharge its debt.
+So a `size` reading of `hub_hole` listing `dowel_hole.size` is an error, and so
+is a `z` reading listing any position. Neither is ever a silent trust.
+
+**Two-axis positions.** A hole's `position` is a 2D claim. One `dro_xy` reading
+from a reference covers both axes. A `distance` covers only the direction from
+its reference to the hole, so a hole whose position rests on distances needs
+two, from references whose directions to the hole differ by at least 30°.
+Otherwise the claim is uncovered, an error naming it.
+
+There is one exception: a hole located from the guide (`locate.from = "guide"`,
+HUB). Its claim is `position.radial`: the distance from the arc centre, read as
+a `distance` to a swept edge. Its placement along the arc is not a claim,
+because:
+
+- the cut path is a circle, so the arc constrains no tangential position;
+- each part's sweep stops are set on the part's own cutter path by the guided
+  sweep's measured stop-setting procedure (#255), not from HUB.
+
+The part's rotation about HUB is fixed by the dowel, whose own position (two
+axes, from HUB) is a claim.
+
+**Reference chain.** A relational claim's reference must itself be the root edge,
+or an element whose relational claim is covered, so that the chain reaches the
+root without a cycle. For the trammel:
+
+- `width` puts the outer edge relative to the root (inner) edge;
+- `hub_pin_to_edge` puts HUB's radial position relative to the outer edge,
+  which is what the in-situ HUB exists to match;
+- `dowel_position` puts the dowel hole relative to HUB, in both axes (`dro_xy`).
+
+**Coverage.** The validator requires that every claim of every in-situ element a
+dependent part setup consumes is listed by at least one compatible, bound
+reading. A missing claim is an error ("in-situ claim trammel-jig.dowel_hole.size
+has no acceptance reading"), because nothing would ever discharge its debt.
 
 **Trust.** A claim is trusted only when every reading that lists it passes. A
 dependent setup's roll-up (§3.2) is a pass only when every consumed claim is
@@ -407,11 +437,11 @@ The trammel's claims and readings (decision D4 adds the dowel's two):
 
 | Claim | Reading |
 |---|---|
-| `riser.outer_edge.radius`, `riser.inner_edge.radius` | `sagitta_outer`, `sagitta_inner` |
-| `riser.inner_edge.location` | `width` |
-| `hub_hole.position`, `riser.outer_edge.location` | `hub_pin_to_edge` |
+| `riser.inner_edge.radius` (root), `riser.outer_edge.radius` | `sagitta_inner`, `sagitta_outer` |
+| `riser.outer_edge.location` | `width`, from the inner edge |
+| `hub_hole.position.radial` | `hub_pin_to_edge`, from the outer edge |
 | `hub_hole.size` | `hub_size` (largest gauge pin that enters) |
-| `dowel_hole.position` | `dowel_position`: distance from the HUB pin to the dowel, read by DRO with a coaxial indicator |
+| `dowel_hole.position` | `dowel_position`: `dro_xy` from the HUB pin to the dowel hole, with a coaxial indicator on each |
 | `dowel_hole.size` | `dowel_fit`: largest gauge pin that enters, predicted from the terminal reamer and banded by the dowel's fit |
 
 ### 3.4 Staleness
@@ -599,7 +629,7 @@ the derived cutter printed as "Ø14 = part cutter Ø10 + 2 × 2.0 inset".
 | C4:10/width | width | riser | … | (computed) | ±… | ______ | ☐ |
 | C4:10/hub_pin_to_edge | distance | HUB pin → riser edge at apex | … | (computed) | ±… | ______ | ☐ |
 | C4:10/hub_size | size | HUB hole | gauge pins | (reamer size) | fit band | ______ | ☐ |
-| C4:10/dowel_position | distance | HUB pin → dowel hole | coaxial indicator, DRO | (computed) | ±… | ______ | ☐ |
+| C4:10/dowel_position | DRO X/Y | HUB pin → dowel hole | coaxial indicator, DRO | (computed X, Y) | ±… | ______ , ______ | ☐ |
 | C4:10/dowel_fit | size | dowel hole | gauge pins | (reamer size) | fit band | ______ | ☐ |
 
 A closing box reads: "Do not load a part until every ☐ is ticked and entered in
@@ -721,9 +751,14 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
   finished size.
 - `locate.from` naming a feature made later or not at all → error.
 - Claims: a reading listing a claim its quantity cannot establish (a `z` reading
-  claiming a position) → error. A consumed claim no reading lists (drop
-  `dowel_fit`) → error naming the claim. A reference cycle, or a located claim
-  whose chain never reaches a cut path → error.
+  claiming a position) → error. A reading listing a claim of an element it does
+  not measure (a `size` of `hub_hole` listing `dowel_hole.size`), or of its own
+  reference → error. A hole position resting on one `distance` → uncovered; two
+  distances from references at least 30° apart, or one `dro_xy` → covered; a
+  guide-located hole needs only `position.radial`.
+- A consumed claim no reading lists (drop `dowel_fit`) → error naming the
+  claim. A reference cycle, or a relational claim whose chain never reaches the
+  root edge → error.
 - `expect` beyond the tolerance → error; within it → no finding; `expect` on an
   unknown prediction → still `?`.
 - A `fixture.<id>` `stock_in` in a part setup → error.
@@ -914,11 +949,11 @@ do = "accept"
 readings = [
   { name = "sagitta_outer", quantity = "sagitta", of = "trammel-jig.riser.outer_edge", chord_mm = 300.0, band_mm = 0.1, band_cite = "#270", claims = ["trammel-jig.riser.outer_edge.radius"] },
   { name = "sagitta_inner", quantity = "sagitta", of = "trammel-jig.riser.inner_edge", chord_mm = 300.0, band_mm = 0.1, band_cite = "#270", claims = ["trammel-jig.riser.inner_edge.radius"] },
-  { name = "width", quantity = "width", of = ["trammel-jig.riser.outer_edge", "trammel-jig.riser.inner_edge"], band_mm = 0.1, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.riser.inner_edge.location"] },
-  { name = "hub_pin_to_edge", quantity = "distance", of = ["trammel-jig.riser.outer_edge", "trammel-jig.hub_hole"], band_mm = 0.05, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.hub_hole.position", "trammel-jig.riser.outer_edge.location"] },
+  { name = "width", quantity = "width", of = ["trammel-jig.riser.inner_edge", "trammel-jig.riser.outer_edge"], band_mm = 0.1, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.riser.outer_edge.location"] },
+  { name = "hub_pin_to_edge", quantity = "distance", of = ["trammel-jig.riser.outer_edge", "trammel-jig.hub_hole"], band_mm = 0.05, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.hub_hole.position.radial"] },
   { name = "hub_size", quantity = "size", of = "trammel-jig.hub_hole", band_mm = [0.0, 0.015], band_cite = "example value (realistic, not a shop measurement): 8 H7 slip fit for the hub pin", claims = ["trammel-jig.hub_hole.size"] },
   # D4: the dowel hole's own readings
-  { name = "dowel_position", quantity = "distance", of = ["trammel-jig.hub_hole", "trammel-jig.dowel_hole"], band_mm = 0.03, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.dowel_hole.position"] },
+  { name = "dowel_position", quantity = "dro_xy", of = ["trammel-jig.hub_hole", "trammel-jig.dowel_hole"], band_mm = 0.03, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.dowel_hole.position"] },
   { name = "dowel_fit", quantity = "size", of = "trammel-jig.dowel_hole", band_mm = [0.0, 0.012], band_cite = "example value (realistic, not a shop measurement): 6 H7 for the Ø6 dowel", claims = ["trammel-jig.dowel_hole.size"] },
 ]
 checks = { sagitta_outer = "sagitta-gauge-300", sagitta_inner = "sagitta-gauge-300", width = "calipers", hub_pin_to_edge = "calipers", hub_size = "gauge-pins", dowel_position = "coax-indicator", dowel_fit = "gauge-pins" }
@@ -933,16 +968,18 @@ The rules compute the predictions. They are not authored:
 - **Width:** `R_outer − R_inner` of the riser edges.
 - **Hub-pin-to-edge:** `|R_edge − ρ_hub|`, where `ρ_hub` is the hub centre's
   distance from the arc centre, taken from `features.toml`.
-- **Dowel position:** the length of the dowel route's `locate` offset (292.0 in
-  the sketch), read as the DRO distance between the HUB pin and the dowel hole.
+- **Dowel position:** the dowel route's `locate` offset as an X/Y pair
+  (`[-292.0, 0.0]` in the sketch), read as the DRO X/Y move from the HUB pin to
+  the dowel hole, each centred with the coaxial indicator.
 - **Hub size and dowel fit:** the terminal reamer's size from the inventory. The
   band is the fit the pin or dowel needs. An unmeasured reamer size leaves the
   prediction `?`.
 
-Every claim of §3.3's table is listed by exactly the readings shown there, so
-the coverage check passes. The reference chain runs from the outer cut edge to
-HUB, and from HUB to the dowel; the inner edge hangs off the outer edge through
-`width`.
+Every claim of §3.3's table is listed by exactly the readings shown there, and
+each reading lists only claims of the elements it measures, so the binding and
+coverage checks pass. The reference chain runs from the root (inner) edge to the
+outer edge through `width`, from the outer edge to HUB's radial position, and
+from HUB to the dowel in both axes.
 
 ### 9.3 State A: record absent (the normal planned state)
 
