@@ -3192,3 +3192,22 @@ def test_chain_missing_finished_geometry_owes_debt_without_printed_holes(kind):
     assert not actual_errors and actual_debts
     assert any("finished line" in debt for debt in actual_debts)
     assert all(key not in table for key in ("hole_clear_mm", "drill_dia_mm", "stock_left_mm"))
+
+
+@pytest.mark.parametrize("step", [180.0, 270.0, 360.0])
+def test_rotary_rows_half_a_turn_or_more_apart_are_an_error(tmp_path, step):
+    # Rows that far apart read as the short way round: the cutting order and the table's
+    # turn would come from that chord, not the cut's own sense (#277).
+    row = rotary(tmp_path, step=step)
+    assert row.status == "error", row.sentence
+    assert "space them under 180" in errors(row)
+    assert not arcs(row, 20)
+
+
+@pytest.mark.parametrize("step", [30.0, 179.0])
+def test_rotary_rows_under_half_a_turn_apart_keep_the_cut_sense(tmp_path, step):
+    row = rotary(tmp_path, step=step)
+    assert row.status == "pass", row.sentence
+    (table,) = arcs(row, 20)
+    assert table["rows"][0]["angle_deg"] == 0.0 and table["rows"][-1]["angle_deg"] == 360.0
+    assert table["rotary"]["rotation"] == "clockwise"

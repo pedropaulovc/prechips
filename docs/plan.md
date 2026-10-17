@@ -1608,8 +1608,8 @@ uses the 1898 manual arc method:
    (`hold.fixture`, its centre bore `bore_dia_mm` for a pin) under a cutter
    locked at the cutter-centre radius on the DRO grid, between dial readings
    rounded inward on its resolution; a pin that misses the table bore, a printed
-   offset whose cut (widened by a pin's play) leaves the band, and an arc too
-   short for one dial step are errors.
+   offset whose cut (widened by a pin's play) leaves the band, an arc too
+   short for one dial step, and a `step_deg` of 180° or more are errors.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.

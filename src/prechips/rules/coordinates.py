@@ -671,6 +671,20 @@ def _samples(start, end, step):
     return list(reversed(values)) if reverse else values
 
 
+def _row_spacing(contour, label, errors):
+    """Rows half a turn or more apart (``step_deg`` of 180 or more) leave the cutter's
+    path between them undetermined: the chord between two such rows reads as the short
+    way round, so neither the rows' cutting order nor the work's turn can be told from
+    them. An error; rows under half a turn apart (:func:`_samples` never spaces them wider
+    than ``step_deg``) fix both."""
+    step = contour.get("step_deg")
+    if number(step) and step >= 180.0:
+        errors.append(
+            f"{label}: step_deg {step:g}° puts rows half a turn or more apart, so the way "
+            "the work turns between them is not determined; space them under 180°"
+        )
+
+
 def _cross(a, b):
     return a[0] * b[1] - a[1] * b[0]
 
@@ -3823,11 +3837,16 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
     reading to the stop reading, both rounded inward to the dial's resolution: an arc
     shorter than that leaves no reading inside it, an error. A table flagged to verify is
     a debt, and the setup-entry stock must swing inside the table's ``max_work``.
-    Geometry is plan units, ``scale`` mm per unit."""
+    Rows under half a turn apart (:func:`_row_spacing`) make the rows' order follow the
+    cut's sense and each step's shortest angle the table's true turn; wider rows are an
+    error. Geometry is plan units, ``scale`` mm per unit."""
     if table is None:
         return [f"{label}: rotary_table needs the work held on a rotary table (hold.fixture)"], []
     contour = mapping(op.get("contour"))
     errors, debts = [], []
+    _row_spacing(contour, label, errors)
+    if errors:
+        return errors, debts
     if table["uncertain"]:
         debts.append(f"{label}: the rotary table {table['id']} is flagged to verify")
     centre = arc["centre_setup_xy"]
