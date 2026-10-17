@@ -343,7 +343,7 @@ Each split ran in a throwaway worktree on `main` at `f5c7414`. Nothing was commi
 
 | Split | Result |
 |---|---|
-| `model` (the small module) | `apply`: 12 files, 27 importers rewritten. Ruff and format clean. Full suite with the pinned AppImage and `PRECHIPS_REQUIRE_KERNEL=1`: **see PR body for the observed counts**. Snapshot: **see PR body**. |
+| `model` (the small module) | `apply`: 12 files, 27 importers rewritten. Ruff and format clean. Full suite (`-n 2 --dist loadscope`, `PRECHIPS_KERNEL_WORKERS=1`, `PRECHIPS_REQUIRE_KERNEL=1`, pinned AppImage): 9,423 passed, 83 skipped (82 for no print browser here, 1 packaging-only), 0 failed. Snapshot manifest identical to `main`'s, all four travelers equal to `expected/`. `uv build`: the wheel and sdist both contain all 78 files under `src/prechips/`, `model/` included. |
 | `sheet` (mixins) | `apply`: 18 files, 10 `_Traveler` mixins, the `stock_states` monkeypatches retargeted to `sheet.dro`. Ruff clean. The pivot-shaft traveler is byte-identical to `expected/`. |
 | `freecad_job` (FreeCAD) | `apply` after one hand prep commit (`_POOL` holder, below): 21 engine files, 14 mixins, 6 probe test files rewritten. **See PR body** for the kernel suite and cold snapshot. |
 
