@@ -23729,7 +23729,7 @@
       "subject": "S5"
     }
   ],
-  "hash": "387d7158ebf166fb6a7d5b3858934de19a55085b0ed88c4232824cd9f5325bc5",
+  "hash": "66e492293721be168940cb0a6763da7e8e00f61134587638570b66ad9f1467c8",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -23804,7 +23804,7 @@
       "sha256": "6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc"
     }
   },
-  "prechips_version": "0.1.2",
+  "prechips_version": "0.2.0",
   "renders": {
     "P1": {
       "fixture": "modeled",

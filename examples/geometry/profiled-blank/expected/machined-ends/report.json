@@ -2276,7 +2276,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "3f7c8231ee1b6f27d9c6d8f77ad28d5f49ef5ffbf29eb787208f11e15c2dd63a",
+  "hash": "c7f198ae36ec25cb9f33db5ce5d84b38da4f24657fcc08befda5e641e712e660",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2311,7 +2311,7 @@
       "sha256": "372a9587b44f418211aa994e9653baed07506d4f390713916b82148397f5baf3"
     }
   },
-  "prechips_version": "0.1.2",
+  "prechips_version": "0.2.0",
   "renders": {
     "S1": {
       "fixture": "unresolved",
