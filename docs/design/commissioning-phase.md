@@ -278,9 +278,13 @@ drill and ream, and the riser's is one sweep per edge. The validator requires:
   each edge's own sweep for a profile, which is located by its guide pose;
 - every op of one hole's route in the same commissioning setup, so the hole is
   never re-located between ops. A riser's edges may be cut in one setup or two;
-- the route's last op that sets size is the **terminal** op. Its tool sets the
-  finished size the kernel cuts and the `size` reading predicts (a reamer's size,
-  for HUB), and the route's earlier ops are roughing.
+- the route's last op that sets size is the **terminal** op, and the route's
+  earlier ops are roughing. The **declared** solid sets the target: its `dia`
+  (8.0 for HUB) is what the `size` reading predicts, and the reading's band is
+  relative to it. The terminal tool must suit that target: the tool's own size
+  plus the band must fall within the declared size's band. A 9 mm reamer named
+  for the 8 mm `hub_hole` is an error, not a 9 mm prediction. An unmeasured tool
+  size leaves that check `?`. The kernel cuts the declared size.
 
 A part setup that relies on an `in_situ` solid that the plan has no route for is
 an error, not debt: the plan is incomplete.
@@ -1008,6 +1012,8 @@ Also:
 - Staleness: changing only a commissioning setup's `plan.frames` entry stales
   the record. A changed torque value or wrench stales the torque completion as
   well as the readings.
+- Terminal tool: a 9 mm reamer on the 8 mm `hub_hole` → error; the `size`
+  prediction is the declared 8.0, never the tool's size.
 - Torque `count = 0` or negative → schema error.
 - DRO interval: a reading inside the band by less than `(r_dro + r_g)/2` → `?`;
   by more → pass.
@@ -1235,10 +1241,10 @@ The rules compute the predictions. They are not authored:
 - **Dowel position:** the dowel route's `locate` offset as an X/Y pair
   (`[-292.0, 0.0]` in the sketch), read as the DRO X/Y move from the HUB pin to
   the dowel hole, each centred with the coaxial indicator.
-- **Hub size and dowel fit:** the terminal reamer's size (`reamer-8h7`,
-  `reamer-6h7`) from the inventory. The
-  band is the fit the pin or dowel needs. An unmeasured reamer size leaves the
-  prediction `?`.
+- **Hub size and dowel fit:** the declared solid's `dia` (8.0 and 6.0). The
+  band is the fit the pin or dowel needs. The terminal reamers (`reamer-8h7`,
+  `reamer-6h7`) are checked against those declared sizes and bands, and an
+  unmeasured reamer size leaves that check `?`.
 
 Every claim of §3.3's table is listed by exactly the readings shown there, and
 each reading lists only claims of the elements it measures, so the binding and
