@@ -273,6 +273,26 @@ qualifies only that pair. Surface condition (finish, oxide, residual oil) has no
 schema. It is gated instead by the printed `surface_prep` step, which is a STOP
 when missing, and named as residue.
 
+### 2.8 Input domains
+
+Every number the capacity and stack rules consume has a domain, checked before
+it is used. A value outside its domain is debt (`?`), never clamped, and the
+finding names the fact and its domain. One parametrized test per row (section 8).
+
+| Input | Domain | Outside it |
+|---|---|---|
+| `helix_deg` | finite, `0 ≤ β < 90`; the hand is `helix_hand`, never a sign | `?` (a signed or ≥ 90° value would flip or blow up `tan β`) |
+| `D`, `z`, `fz`, `ap`, `ae` | `D > 0`, integer `z ≥ 1`, `fz > 0`, `ap > 0`, `0 < ae ≤ D` | `?` |
+| `kc1`, `mc`, `radial_ratio` | `kc1 > 0`, `0 ≤ mc < 1`, `radial_ratio ≥ 0` | `?` |
+| shear, peel, `vacuum_kpa`, `dwell_min` | `> 0` (schema) | bad input |
+| `friction` | `0 < μ ≤ 1` | `?` |
+| tape `thickness_mm` pair | `0 < t_lo ≤ t_hi` (schema) | bad input |
+| `gasket_inset_mm`, `flatness_mm`, `touch_error_mm` | `≥ 0` | `?` |
+| vacuum gauge | kind `vacuum_gauge`; range, resolution and accuracy as section 2.3 | `?` |
+| recipe-B mic | the `zero.z` gauge resolves to a dimensional thickness gauge (kind `micrometer` or `caliper`) with trusted `range_mm` containing the work's planned thickness band at P (`stock_state` top − bottom), trusted `resolution_mm` > 0 and `accuracy_mm` ≥ 0 | `?` |
+| recipe-A touch disc | the `zero.z` tool's resolved radius `> 0`, or a gauge block's half-width | `?` |
+| `k` (`hold_capacity_factor_min`) | `≥ 1` | `?` |
+
 ## 3. Capacity model
 
 ### 3.1 Contact area
@@ -635,7 +655,13 @@ is taped, so M must be read **before** the hold. Recipe B under an area hold
 therefore requires `zero.z.measure_before_hold = true`, which prints the
 reading in the HOLD before the apply step. Without it, the stack row is an
 error ("the work's thickness cannot be miked once it is taped: set
-measure_before_hold"), never a printed step the operator cannot do.
+measure_before_hold"), never a printed step the operator cannot do. Both the
+mic reading and the top touch happen at the same point P, `zero.z.at_mm`
+(required here too, inside the footprint and clear of its edges by the gauge
+anvil's radius); the HOLD prints "mic at X …, Y …" and the DRO step "touch at
+the same X …, Y …". Without `at_mm`, the stack is `?`, because a mic reading
+taken in one place and a touch in another differ by the work's own thickness
+variation. The mic must be a dimensional gauge that can read M (section 2.8).
 
 ```text
 thickness(x) = to_z + (t(P) − t(x)) + (Z_p(P) − Z_p(x)) + e_mic + e_touch + e_dro
@@ -916,6 +942,14 @@ tests request the shared `freecad_kernel` fixture.
 - *Zero a DRO step off:* recipe A with the DRO term at one step; the band
   verdict changes exactly at the step that moves an endpoint past a limit.
 
+**Input domains**
+- One parametrized test per row of section 2.8: a value just inside the domain
+  is used, and the boundary outside it (`helix_deg` = 90, −30, NaN-free;
+  `friction` = 1.01; a mic whose range stops below the planned thickness;
+  `ae` > D; `k` = 0.9) is `?` naming the fact and its domain.
+- Recipe B without `zero.z.at_mm` is `?`; with it, the mic step and the touch
+  step print the same X, Y.
+
 **Printed values**
 - One parametrized test per row of section 6.3: an unknown source prints that
   STOP and never a runnable row.
@@ -1023,6 +1057,9 @@ not separately decided by the maintainer:
   must lie on it; releases need a cited record, and vacuum gains its own release
   (sections 2.3, 2.7, 5.2, 6.1);
 - recipe A's touch point is a plan field, `zero.z.at_mm`, never prose (section 5.2);
+- every consumed number has a stated domain, checked before use (section 2.8),
+  and recipe B mics and touches at the same `zero.z.at_mm` with a gauge whose
+  range contains the planned thickness (section 5.2);
 - recipe B requires `measure_before_hold = true`, since the work cannot be
   miked once taped (section 5.2);
 - a pull test's dwell is a trusted measured fact, and step 7 prints the
