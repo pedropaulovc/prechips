@@ -1758,10 +1758,12 @@ uses the 1898 manual arc method:
    moving the rails. X, Y and Z are locked and the carrier is fed by its hand lever:
    no handwheel moves, so a rough stage (no back-off exists) is an error. The rows
    run on the pin-defined circle and the kernel sweeps that exact arc. The cut is
-   `R` less or plus the cutter radius, widened by the error budget: the measured
-   `rail_angle_error` through `∂R/∂α = D cos α / (2 sin² α)` (about 47 mm per degree
-   for `D = 450`, `α = 16.44°`), the `pin_spacing_error` through `1 / (2 sin α)`,
-   and each pin-line's offset (`pin_clearance` plus `rail_offset`) through its exact
+   `R` less or plus the cutter radius, widened by the error budget: `R` itself at the
+   corners of the measured `rail_angle_error` and `pin_spacing_error` (it falls with `α`
+   and grows with `D`, so `R(D − δD, α + δα)` and `R(D + δD, α − δα)` bound it exactly;
+   to first order `∂R/∂α = D cos α / (2 sin² α)`, about 47 mm per degree for
+   `D = 450`, `α = 16.44°`, and `1 / (2 sin α)` per mm of spacing), plus each
+   pin-line's offset (`pin_clearance` plus `rail_offset`) through its exact
    worst radius gain over the sweep (about 1:1); it must lie inside the band. The
    budget bounds the cut radius; where the part's centre sits on the carrier is its
    locator's ([#270](https://github.com/pedropaulovc/prechips/issues/270)). Pins that

@@ -385,6 +385,11 @@ def recipe(bundle, setup, op, arc, band, label, scale):
     alpha, spacing = found.get("rail_angle", UNKNOWN), found.get("pin_spacing", UNKNOWN)
     pins = sweep.get("pins_deg", UNKNOWN)
     pinned = number(alpha) and number(spacing) and spacing > 0
+    if number(spacing) and spacing <= 0:
+        errors.append(
+            f"{label}: pin pair {sweep.get('pin_pair')}'s spacing {spacing:g} mm is not "
+            "positive: two pins that far apart set no circle"
+        )
     if not _pair(pins):
         debts.append(
             f"{label}: contour.sweep.pins_deg (the pin pair's angles about the arc centre) "
@@ -436,17 +441,28 @@ def recipe(bundle, setup, op, arc, band, label, scale):
     terms = [found.get(k, UNKNOWN) for k in ("rail_angle_error", "pin_spacing_error")]
     lines = [found.get(k, UNKNOWN) for k in ("pin_clearance", "rail_offset")]
     if pinned and number(gain) and all(map(number, terms + lines)):
-        parts = {
-            "rail_angle": record_["radius_per_deg_mm"] * terms[0],
-            "pin_spacing": record_["radius_per_spacing"] * terms[1],
-            "pin_lines": gain * (lines[0] + lines[1]),
-        }
-        record_["error_terms_mm"] = parts
-        widen = sum(parts.values())
+        error, give = terms
+        if not (alpha - error > 0 and alpha + error < 90 and spacing - give > 0):
+            errors.append(
+                f"{label}: the rail angle {alpha:g}° ± {error:g}° or the pin spacing "
+                f"{spacing:g} ± {give:g} mm leaves no acute crossing or no spacing"
+            )
+        else:
+            # R = D / (2 sin α) falls with α and grows with D, so its exact extremes over
+            # the measured tolerances are at the corners, not the first-order slopes.
+            nominal = record_["pin_radius_mm"]
+            parts = {
+                "radius_below": nominal - radius(spacing - give, alpha + error),
+                "radius_above": radius(spacing + give, alpha - error) - nominal,
+                "pin_lines": gain * (lines[0] + lines[1]),
+            }
+            record_["error_terms_mm"] = parts
+            below = parts["radius_below"] + parts["pin_lines"]
+            above = parts["radius_above"] + parts["pin_lines"]
+            widen = max(below, above)
+            wall = nominal + to_wall * scale
+            record_["cut_radius_mm"] = [wall - below, wall + above]
     record_["centre_error_mm"] = widen
-    if pinned and number(widen):
-        wall = record_["pin_radius_mm"] + to_wall * scale
-        record_["cut_radius_mm"] = [wall - widen, wall + widen]
     if band is None:
         debts.append(f"{label}: its radial band is unknown, so the cut radius is unproven")
     else:
