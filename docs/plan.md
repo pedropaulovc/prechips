@@ -529,7 +529,7 @@ Incompatible as-is surfaces also keep stock-dependent geometry `?` with a reason
 
 `as_is_faces` lists STEP face references (same forms as a feature's `faces`)
 that stay as supplied stock; the M4 `coverage` rule unites them with the faces
-claimed by cutting operations. An omitted list is unknown, not empty. On a
+claimed by cutting operations and those a joint [forms](#assembly-joints). An omitted list is unknown, not empty. On a
 [profiled blank](#profiled-blank) each listed face is credited only when it is
 supplied as cut within its drawing bands.
 
@@ -755,6 +755,43 @@ not model cure kinetics or certify a product: cite the author's source/choice fo
 the declared band and cure conditions. A joint without a compound prints no prep
 or cure. Use the canonical noncutting bench action `do = "fit"`, not an
 undeclared `fit_up` or `bond` cutting action.
+
+Either joint kind may declare `forms`, a list of exported features whose finished
+faces the join itself forms and no op cuts. The usual case is a root fillet whose
+drawing limit admits the sharp corner the join leaves: a hub pressed through a
+strap, with its root printed `2X R0.2 MAX` (`radius = [0, 0.2]`). The list goes on
+the joint because forming the faces is a fact about the join. The exported manifest
+is a consumer export that the plan does not edit. Rules for `forms`:
+
+- Each entry names an exported feature with a `radius` band.
+- An entry naming a plan joint feature is bad input (exit 3).
+- An entry naming the same feature twice, in one joint or in two, is bad input
+  (exit 3).
+- An entry naming a feature with no radius band refuses the join.
+
+The kernel checks the joined corner against the band (see the [assembly
+backstop](rules-geometry.md#transient-joint-preparation-and-assembly)). The
+corner must be the sharp corner between the two components' finished faces, no
+material may be missing beyond the band's MAX, and the band must start at 0.
+`coverage` credits the faces to the joint only after a check in the joint's setup,
+or a setup downstream of it, reads the feature's `radius` band and passes. Without
+that check the credit is debt. A [limit leaf](rules-inspection.md) at the MAX is
+enough:
+
+```toml
+[setups.joint]
+kind = "cylindrical"
+socket = "strap_hole"
+spigot = "hub_land"
+fit = "interference"
+interference_mm = [0.005, 0.035]
+method = "press"
+process = "AUTHOR'S CHOICE: arbor press, hub square to the strap face"
+cite = "AUTHOR'S CHOICE: H7/r6 press"
+forms = ["hub_root"]   # 2X R0.2 MAX: the press leaves the root sharp
+```
+
+A formed face is neither as-is stock nor a cut, so it does not go in `as_is_faces`.
 
 For example (illustrative process choices, not manufacturer specifications):
 

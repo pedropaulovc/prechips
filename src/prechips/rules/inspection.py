@@ -593,6 +593,30 @@ def _capability(
     return status, message
 
 
+def requirement_check(bundle, name, requirement, op):
+    """``(status, message, nums)`` of ``op``'s check of ``name``'s ``requirement``, graded
+    as the final check is in :func:`evaluate` (a ``[0, r]`` radius band as a limit check)."""
+    feature = record(bundle.feature_definitions.get(name))
+    value, _ = _limits(bundle, name, requirement, feature)
+    gauge_ref = op_entry(op, "checks", name, requirement)
+    nums = {"requirement": requirement, "limits": value, "gauge": gauge_ref}
+    tilt = _tilt(bundle, name, requirement, feature, nums)
+    accept = printed_band(value, drawing_precision(bundle, name, requirement))
+    accept = accept or _drawing_band(requirement, value)
+    status, message = _capability(
+        bundle,
+        feature,
+        requirement,
+        value,
+        gauge_ref,
+        op_entry(op, "inspection_methods", name, requirement),
+        nums,
+        (go_no_go_pair(op, name, requirement), accept),
+        tilt,
+    )
+    return status, message, nums
+
+
 def evaluate(bundle):
     result = []
     for name, feature in bundle.feature_definitions.items():
