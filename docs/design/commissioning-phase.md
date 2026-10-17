@@ -126,8 +126,9 @@ example a 2–24 N·m wrench named for the 40 N·m step. A wrench with no range,
 one whose range carries no citation, leaves the step `?`. A trusted `steps`
 entry never overrides either result.
 
-An `align` tolerance is an authored limit, like `Hold.align`'s `limit_mm`, and it
-needs `tolerance_cite`: the part band it protects, a vendor figure, or the
+An `align` tolerance is an authored limit, like `Hold.align`'s `limit_mm`. It
+must be strictly positive (0 or negative is a schema error), and it needs
+`tolerance_cite`: the part band it protects, a vendor figure, or the
 author's reasoning. An uncited tolerance leaves every reading of that op `?`
 ("alignment tolerance uncited"), never a pass against an invented threshold.
 
@@ -240,8 +241,9 @@ measures, which depends on what produces the value:
   is made in **one frame**. A relational reading's DRO value is relative to its
   reference (`hub_apex` from the apex pose, `dowel_position` from HUB), so the
   rules first place every position visited in one frame: the
-  zero, each reference at its predicted position, and each subject at its
-  reference plus the predicted offset. The positions are collected across
+  zero, each reference across its full accepted position set, and each
+  subject at its reference's accepted set plus its own offset, composed along
+  the chain. A dowel ±0.03 from a HUB that may sit ±0.05 out spans ±0.08. The positions are collected across
   **every commissioning setup on the same installation**, not setup by setup,
   because the installed fixture never moves between them. C1 at X −400 and C4 at
   X +400 need 800 of stroke even though each setup alone spans 400. Every
@@ -279,9 +281,13 @@ measures, which depends on what produces the value:
 The **combined** measurement interval is validated too. For `align` that is
 `(r_dro + r_g)/2` either side, and for a relational `dro_xy` it is
 `r_g + r_dro`. The prediction's own interval adds to it: its half-width from
-the guide budget, chord limits and pin terms. Their sum, centred on the nominal
-prediction, must fit inside the band, otherwise no reading could ever pass and
-the plan is a schema error, not a permanent `?`. A 0.05 band with both
+the guide budget, chord limits and pin terms. A reading can pass only if some
+permitted residual leaves the whole interval inside the band, which holds
+exactly when the band is at least twice their sum wide:
+`high − low ≥ 2·(u_measure + u_predict)`. The interval need not fit centred on
+the nominal, so the asymmetric `[0.000, 0.015]` with ±0.005 is feasible (a
++0.0075 reading passes). A band narrower than that is a schema error, not a
+permanent `?`. A 0.05 band with both
 resolutions at 0.03 gives ±0.06 and is rejected. So is a ±0.05 band with ±0.03
 of prediction uncertainty and ±0.03 of measurement uncertainty.
 
@@ -879,6 +885,13 @@ The kernel builds **planned geometry only**. Recorded readings never enter
     hole is modelled as Ø8.000 less its position band, so a Ø8.010 object in it
     is never reported clear.
 
+  **Contact is proved on the opposite envelope.** The grown envelope is
+  conservative for clash and clearance, but it would wrongly prove contact when
+  only some accepted positions touch. So contact uses the guaranteed-material
+  envelope: material present in **every** accepted placement, with edges offset
+  away from the part and holes grown. Contact holds only when that envelope
+  touches; otherwise contact stays `?`.
+
   The envelope depends only on the plan, never on the record, so cache keys stay
   record-independent (§4.3). A riser edge 0.05 from a cutter path with a ±0.10
   band therefore reads as a clash, not as clear.
@@ -1273,6 +1286,11 @@ Also:
   Ø8.010 object in an accepted Ø8.000–8.015 hole → not clear.
 - Guide budget: a rail-angle uncertainty widens the sagitta and width
   predictions; a missing budget fact → those readings `?`.
+- Contact proof: a riser edge with a ±0.10 band that touches only in the grown
+  envelope → contact `?`; touching in the guaranteed envelope → contact holds.
+- Feasibility: `[0.000, 0.015]` with ±0.005 → feasible; with ±0.008 → schema
+  error. `tolerance_mm = 0` or negative → schema error.
+- Chain travel: a dowel ±0.03 from HUB ±0.05 counts ±0.08 in the span.
 - Installation pose: two commissioning setups with different installation
   transforms → schema error; carrier poses along the guide → valid.
 - Reading order: `hub_pin_to_edge` listed before `hub_size` → its pin play is
