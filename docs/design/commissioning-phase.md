@@ -206,12 +206,19 @@ gauge does. What it must span depends on what produces the value:
   on each side ("zero X with at least 395.9 of travel toward −X"). A span longer
   than the stroke is an error, and an unmeasured stroke leaves the reading `?`. The gauge's
   resolution must be no coarser than the tolerance, and its range need only
-  cover the centring deviation, at least the tolerance either side. So the
+  cover the centring deviation: the tolerance either side, plus one resolution
+  step beyond each end, so a deviation past either limit still reads. So the
   −395.89 mm target of `rail_a.pin@400` is checked against the table's travel,
   not against the indicator;
 - **every other quantity** (`sagitta`, `width`, `distance`, `size`, `z`): the
-  gauge gives the value, so its range must span the predicted value and its
-  resolution must be no coarser than the band.
+  gauge gives the value. Its range must cover the whole **acceptance
+  interval**, `[predicted + low, predicted + high]`, plus one resolution step
+  beyond each end, so that a value past either limit reads as past it rather
+  than as the gauge's last step. Its resolution must be no coarser than the
+  band. For a limit-style gauge (a pin set read as the largest pin that enters),
+  the set must hold a pin at or below the low limit, a pin at or above the high
+  limit, and one past each. A pin set ending at 8.000 therefore cannot judge
+  HUB's `[8.000, 8.015]`: an oversized hole would still read 8.000.
 
 An unresolved or untrusted gauge or machine fact leaves the reading `?`. A gauge
 or DRO too coarse for the band, or a target outside the travel, is an error.
@@ -335,6 +342,7 @@ install = "PM-30MV table; rail A in T-slots 2/3, rail B in 3/4"
 commissioning = "<sha256>"
 "fixtures.trammel-jig" = "<sha256>"
 dro = "<sha256>"
+"frames.CT" = "<sha256>"         # the plan frame all four commissioning setups use
 features = "<sha256>"
 "tools.endmill-10" = "<sha256>"     # the part cutter that derives the riser cutter
 "tools.endmill-14" = "<sha256>"     # the riser cutter
@@ -448,7 +456,7 @@ kind. They are not authored:
 
 | In-situ element | Claims | Quantities that can establish each claim |
 |---|---|---|
-| hole (a `void` cylinder) | `size`, and `position` (`position.radial` when located from the guide, below) | `size`: `size`. `position`: `dro_xy`, or `distance` (one direction per reading; see below) |
+| hole (a `void` cylinder) | `size`, and `position` (`position.radial` when located from the guide, below) | `size`: `size`. `position`: `dro_xy` only. `position.radial`: `distance` to a swept edge |
 | swept edge (`<solid>.<edge>`) | `radius`, and `location` unless it is the root edge | `radius`: `sagitta`. `location`: `width` or `distance` |
 
 **Root edge.** The first edge the guide cuts in route order is the **root**. It
@@ -470,13 +478,12 @@ measures:
 So a `size` reading of `hub_hole` listing `dowel_hole.size` is an error, and so
 is a `z` reading listing any position. Neither is ever a silent trust.
 
-**Two-axis positions.** A hole's `position` is a 2D claim. One `dro_xy` reading
-from a reference covers both axes. A `distance` covers only the direction from
-its reference to the hole, so a hole whose position rests on distances needs
-two, from references whose direction **axes** to the hole meet at an acute
-angle of at least 30°. Directions are compared modulo 180°, so two references on
-opposite sides of the hole (180° apart) are collinear and count as one direction.
-Otherwise the claim is uncovered, an error naming it.
+**Two-axis positions.** A hole's `position` is a 2D claim, and only a `dro_xy`
+reading from a reference establishes it: one signed X/Y pair fixes both axes and
+the side. Distances are not accepted for `position`. Two distances leave a
+mirror image (a hole reflected across the line joining the references reads the
+same), and a third reference only adds cases the validator would have to rule
+out. A hole position listed by a `distance` is an error naming the claim.
 
 There is one exception: a hole located from the guide (`locate.from = "guide"`,
 HUB). Its claim is `position.radial`: the distance from the arc centre, read as
@@ -555,8 +562,11 @@ The checker computes the same table for the current plan and compares the two:
   predictions use;
 - an input only in the record (no longer consumed) is ignored.
 
-Any changed or new input makes every reading `?` with: "install record no longer
-matches the plan: <changed and new inputs> changed. Re-commission." This mirrors
+Any changed or new input makes **every record entry** stale: every reading
+and every torque `steps` completion is `?`, with "install record no longer
+matches the plan: <changed and new inputs> changed. Re-commission." A torque
+completion recorded against a different planned value or wrench therefore no
+longer passes. This mirrors
 the approval record's stale warning. A record never certifies a plan it was not
 taken against.
 
@@ -856,10 +866,9 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
 - Claims: a reading listing a claim its quantity cannot establish (a `z` reading
   claiming a position) → error. A reading listing a claim of an element it does
   not measure (a `size` of `hub_hole` listing `dowel_hole.size`), or of its own
-  reference → error. A hole position resting on one `distance` → uncovered; two
-  distances whose direction axes meet at an acute angle of at least 30°, or one
-  `dro_xy` → covered; two references on opposite sides (180°) → uncovered; a
-  guide-located hole needs only `position.radial`. A relational reading with
+  reference → error. A hole `position` listed by any `distance` → error (the
+  mirror-image case); one `dro_xy` → covered; a guide-located hole needs only
+  `position.radial`, from a `distance` to a swept edge. A relational reading with
   other than two `of` entries → error.
 - A consumed claim no reading lists (drop `dowel_fit`) → error naming the
   claim. A reference cycle, or a relational claim whose chain never reaches the
@@ -911,7 +920,11 @@ Also:
 - Riser cutter: matching, mismatched, and unknown part cutter.
 - `batch_qty = 0` or negative → schema error.
 - Staleness: changing only a commissioning setup's `plan.frames` entry stales
-  the record.
+  the record. A changed torque value or wrench stales the torque completion as
+  well as the readings.
+- Gauge coverage: a pin set ending at the predicted size cannot judge a
+  `[0.0, 0.015]` band → error; a set reaching one step past each limit → no
+  error.
 - Batch: `quantity > batch_qty` warns with the run count for both scopes, and
   the exit code is unchanged.
 
@@ -1145,6 +1158,7 @@ fixture = "trammel-jig"
 commissioning = "<sha256 printed by the checker>"
 "fixtures.trammel-jig" = "<sha256 printed by the checker>"
 dro = "<sha256 printed by the checker>"
+"frames.CT" = "<sha256 printed by the checker>"
 features = "<sha256 printed by the checker>"
 "tools.endmill-10" = "<sha256 printed by the checker>"
 "tools.endmill-14" = "<sha256 printed by the checker>"
