@@ -103,6 +103,15 @@ def test_an_empty_result_file_says_so(monkeypatch):
     assert "empty result file" in _execute()["reason"]
 
 
+def test_a_result_file_that_is_not_utf8_says_so(monkeypatch):
+    def run(command):
+        Path(command[-1]).write_bytes(b'{"results": ["\xff\xfe"]}')
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(kernel, "_run_kernel", run)
+    assert "result file is unreadable" in _execute()["reason"]
+
+
 def test_a_result_that_is_not_json_says_so(monkeypatch):
     _fake(monkeypatch, output='{"results": [')
     assert "did not return valid JSON" in _execute()["reason"]
@@ -118,6 +127,17 @@ def test_an_engine_batch_error_without_a_reason_gets_one(monkeypatch, reason):
     error = {"status": "error"} if reason is None else {"status": "error", "reason": reason}
     _fake(monkeypatch, output=json.dumps(error))
     assert "batch error without a reason" in _execute()["reason"]
+
+
+def test_an_engine_batch_error_keeps_its_reason_and_gains_the_hosts_diagnostics(monkeypatch):
+    error = {"status": "error", "reason": "kernel batch failed: OSError: pool"}
+    _fake(monkeypatch, output=json.dumps(error), stderr="pool start-up noise", trail=TRAIL)
+    result = _execute()
+    assert result["reason"].startswith("kernel batch failed: OSError: pool; ")
+    assert "batch/job 0/S1/stock_states" in result["reason"]
+    assert "pool start-up noise" in result["reason"]
+    assert result["timing"]["trail"]["open"]
+    assert result["timing"]["host_wall_ms"] >= 0
 
 
 def test_an_engine_job_error_without_a_reason_gets_one(monkeypatch):

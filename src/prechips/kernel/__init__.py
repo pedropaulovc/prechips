@@ -2235,7 +2235,7 @@ def _execute(executable, job):
         except FileNotFoundError:
             reason = "FreeCAD kernel exited 0 without writing its result file"
             return _failure(reason, started, trail, *output)
-        except OSError as exc:
+        except (OSError, UnicodeDecodeError) as exc:
             reason = f"FreeCAD kernel result file is unreadable: {exc}"
             return _failure(reason, started, trail, *output)
         if not text.strip():
@@ -2247,10 +2247,9 @@ def _execute(executable, job):
             return _failure(reason, started, trail, *output)
         host_wall_ms = round((time.perf_counter() - started) * 1000, 3)
         if _valid_result(result) and result["status"] == "error":
-            fallback = _failure(
-                "FreeCAD kernel reported a batch error without a reason", started, trail, *output
-            )["reason"]
-            return _reasoned(result, fallback)
+            # The engine's own reason leads; the host adds the phase, output and timing.
+            reason = _reasoned(result, "FreeCAD kernel reported a batch error without a reason")
+            return {**result, **_failure(reason["reason"], started, trail, *output)}
         if (
             isinstance(result, dict)
             and isinstance(result.get("results"), list)
