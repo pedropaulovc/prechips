@@ -27,6 +27,7 @@ from prechips.rules import (
     inspection,
     internal_corner_radius,
     joints,
+    keep_piece,
     manual_arc,
     op_chain,
     op_order,
@@ -96,6 +97,7 @@ GEOMETRY_RULES = [
     Rule("vise", vise.evaluate),
     Rule("thin_wall_under_clamp", thin_wall_under_clamp.evaluate),
     Rule("saw_cut", saw_cut.evaluate),
+    Rule("keep_piece", keep_piece.evaluate),
     Rule("fixture_interference", fixture_interference.evaluate),
     Rule("joint_assembly", joints.evaluate_assembly),
 ]

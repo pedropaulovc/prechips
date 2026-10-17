@@ -1490,6 +1490,25 @@ def _inspections_after(setup, sent, render):
     return render
 
 
+def _keeps(setup, sent):
+    """Each op's ``keep`` in route order as ``{subject, feature, after}``: ``after`` is the
+    subject of the last op sent to the kernel at or before it (None when none is), where
+    the kernel keeps the piece that carries ``feature`` and discards every other."""
+    keeps = []
+    for position, op in enumerate(setup["ops"]):
+        if "keep" not in op:
+            continue
+        before = [o for o in setup["ops"][: position + 1] if any(o is other for other in sent)]
+        keeps.append(
+            {
+                "subject": f"{setup['id']}:{op['op']}",
+                "feature": op["keep"],
+                "after": f"{setup['id']}:{before[-1]['op']}" if before else None,
+            }
+        )
+    return keeps
+
+
 def build_job(bundle):
     from prechips.joint_features import primitives_mm, setup_joint
     from prechips.process_features import primitives_mm as process_primitives_mm
@@ -1524,6 +1543,7 @@ def build_job(bundle):
             for op in setup["ops"]
             if cutting_action(op) is not False or op.get("do") in HAND_FINISH
         ]
+        keeps = _keeps(setup, sent)
         setups.append(
             {
                 "id": setup["id"],
@@ -1534,6 +1554,7 @@ def build_job(bundle):
                     for op in sent
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
+                **({"keep": keeps} if keeps else {}),
                 "render": _inspections_after(
                     setup, sent, setup_annotations(bundle, setup, coordinates.get(setup["id"], {}))
                 ),
@@ -1838,6 +1859,7 @@ def engine_job(job):
                 "hold": _engine_hold(setup["hold"]),
                 "ops": [_engine_op(op) for op in setup["ops"]],
                 "stock_in": setup["stock_in"],
+                **({"keep": setup["keep"]} if setup.get("keep") else {}),
                 "joint": setup.get("joint"),
                 "machine_kind": setup["machine_kind"],
                 "locate_revolved": setup["locate_revolved"],
