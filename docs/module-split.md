@@ -13,7 +13,7 @@ Seven modules are touched by almost every feature PR:
 | `src/prechips/sheet.py` | 10,249 | `class _Traveler`, 7,266 lines (218 methods) |
 | `src/prechips/rules/coordinates.py` | 4,730 | `evaluate`, 638 lines |
 | `src/prechips/kernel/render_diagram.py` | 4,029 | `class _Diagram`, 1,796 lines |
-| `src/prechips/rules/zero_recipe.py` | 2,956 | `evaluate`, 453 lines |
+| `src/prechips/rules/zero_recipe.py` (split since: `rules/zero_recipe/`) | 2,956 | `evaluate`, 453 lines |
 | `src/prechips/model.py` | 2,103 | `InventoryItem`, 177 lines |
 | `src/prechips/kernel/__init__.py` | 2,074 | `op_inputs`, 190 lines |
 
@@ -201,42 +201,29 @@ the stdlib, `FreeCAD` or `Part`.
 
 ### 2. Every engine source file stays in both digests
 
-`_engine_digest` hashes `Path(__file__).parent.glob("*.py")`, and CI keys the geometry
-cache on `hashFiles('src/prechips/kernel/*.py')`. Neither covers `kernel/engine/`. The
-first PR that adds a kernel subpackage makes both recursive in the same commit as the
-move:
+#285 (merged after this plan was written) made the digest explicit:
+`kernel/__init__.py` hashes the files named in `ENGINE_SOURCES` (`freecad_job.py` and
+the five modules it imports), and CI keys the geometry cache on the
+`PRECHIPS_ENGINE_DIGEST` they produce. `tests/test_engine_digest.py` already pins the
+constraint this section asked for. `ENGINE_SOURCES` must equal the set of kernel files
+reachable from `freecad_job.py`'s imports at any depth (`engine.job`-style nested
+names included). Every listed file's edit must move the digest, and a host-only
+kernel edit must not.
 
-```diff
--def _engine_digest():
-+def _engine_digest(root=Path(__file__).parent):
-     digest = hashlib.sha256()
--    for path in sorted(Path(__file__).parent.glob("*.py")):
--        digest.update(path.name.encode())
-+    for path in sorted(root.rglob("*.py"), key=lambda p: p.relative_to(root).as_posix()):
-+        digest.update(path.relative_to(root).as_posix().encode())
-         digest.update(path.read_bytes())
-```
+What remains for the splits:
 
-```diff
--hashFiles('src/prechips/kernel/*.py')
-+hashFiles('src/prechips/kernel/**/*.py')
-```
-
-For top-level files the posix relative name is the bare file name, so the digest of
-today's flat tree does not change; only the split's own moves invalidate the cache
-(once, cold). The tests that ship with it:
-
-* **every engine source is digested**: copy `kernel/` to `tmp_path`, then for each
-  `*.py` found by an independent `os.walk`, append a byte and assert
-  `_engine_digest(copy)` changes;
-* **the engine's import closure is digested**: resolve `freecad_job.py`'s imports
-  transitively (ast) and assert every local file is in that set (this catches an
-  engine module importing `prechips.trig` from outside `kernel/`);
-* **CI keys match the digest**: every `kernel-…` cache key and restore key in
-  `.github/workflows/ci.yml` uses `hashFiles('src/prechips/kernel/**/*.py')`.
-
-This change is not in the design PR: `kernel/__init__.py` is being edited by #253, #254
-and #263 right now, and the digest change would cold-start the cache for nothing.
+* **`freecad_job`**: `apply` must add each new `kernel/engine/*.py` file (and
+  `engine/__init__.py`) to `ENGINE_SOURCES` in the same mechanical commit; the script
+  will do this from the spec's file list. If one is missing, the
+  `test_engine_sources_cover_every_module_the_engine_imports` check fails.
+* **`kernel/__init__.py`**: the new `job_*.py` files are host-only. They stay out of
+  `ENGINE_SOURCES`, and `test_host_only_kernel_edits_keep_the_engine_digest` keeps them
+  out. `ENGINE_SOURCES` and `_engine_digest` stay in `__init__.py` (the spec does not
+  move them).
+* **`render_diagram`**: its new files are imported by the engine, so each joins
+  `ENGINE_SOURCES` in the same way as the `freecad_job` files.
+* **Splits outside `kernel/`** (`zero_recipe`, `coordinates`, `model`, `sheet`) do not
+  change the engine digest at all.
 
 ### 3. Reports and travelers stay byte-identical
 
@@ -336,11 +323,11 @@ What `apply` does:
    * a symbol that reads `__file__`, `__name__`, `__spec__`, `__package__` or `__doc__`
      and would move to another file (each file has its own);
    * a name bound twice that would land in two files;
-   * a monkeypatched name read from two files, from `monkeypatch.setattr` or from a
-     probe's `alias.name = ...`;
-   * a monkeypatch whose landing file differs from the name's owner while the same
-     function reads the name directly after patching it, or a function nested in it reads
-     it at all (the read would miss the patch);
+   * a probe's `alias.name = ...` of a name read from two files; and, outside
+     `tests/`, a monkeypatched name read from two files, or a monkeypatch whose landing
+     file differs from the name's owner while the same function (or one nested in it)
+     reads the name after patching it. In `tests/` those monkeypatches become
+     `patch_split` calls (below);
    * a namespace dunder of the split module (`__dict__`, `__all__`…), which loses the
      moved names; identity attributes such as `__name__` stay on a kept module;
    * a moved name rebound by a module-level `if`/`try`/`for`/`with` block that stays in
@@ -412,8 +399,13 @@ Gaps the prototypes found, to close in the split PRs:
 * **Patches by computed name (zero_recipe)**: `tests/test_validate_examples.py`
   patches and reads carry helpers through `forge_carry(monkeypatch, target)`
   (`getattr`/`setattr(zero_recipe, target)`), and patches `_position`, which four
-  split files read. The script refuses all of these, so that split starts with a hand
-  prep commit that names each patched helper's owning module.
+  split files read. No hand prep: a patch the script cannot land in one file (a
+  computed name, a name several split files look up, or a patch followed by a read
+  that would reach another file) is rewritten in tests to
+  `patch_split(monkeypatch, "<module>", name, value)` from the generated
+  `tests/split_patch.py`. It patches the name in every split file that binds it, which
+  is what one patch of the unsplit module did; `split_attr` reads it the same way.
+  Outside `tests/` such a patch still refuses.
 * **Cold kernel deadline**: the first cold engine snapshot here gave rocker-arm exit 2
   because its kernel job hit the 600 s deadline. Timed alone, the job takes about 500 s
   cold with `PRECHIPS_KERNEL_WORKERS=1` on 4 vCPUs, on `main` as well as on the split.
