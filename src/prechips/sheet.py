@@ -8076,9 +8076,32 @@ class _Traveler:
             )
         return lines
 
+    def arc_end_marks(self, op, numbers):
+        """A guided sweep's layout: mark A and mark B at the arc's two ends on the work
+        top, each measured from the stock's own faces (manual_arc ``marks``); the sweep sets
+        its stops on them. Unknown marks print no dimension (the op's STOP follows)."""
+        marks = numbers.get("marks")
+        unit = self.bundle.features.get("units", "")
+        feature = self.feature_name(op.get("feature"))
+        if not (isinstance(marks, list) and len(marks) == 2):
+            return f"Layout: the ends of {feature} are not placed — no marks to scribe."
+        decimals = 1 if unit == "mm" else 3
+        placed = [
+            f"mark {letter} {mark['x']:.{decimals}f} {unit} from the {mark['x_face']} along X "
+            f"and {mark['y']:.{decimals}f} {unit} from the {mark['y_face']} along Y"
+            for letter, mark in zip("AB", marks, strict=True)
+        ]
+        return (
+            f"Layout: blue the work top and, with a rule and square, scribe a short cross at "
+            f"each end of {feature}: {placed[0]}; {placed[1]}. The guided sweep sets its "
+            "stops on these marks."
+        )
+
     def manual_arc_steps(self, op, numbers, proven):
         """The layout or bench-filing line itself; ``proven`` says whether the rule passed it."""
         o = self.operative
+        if op.get("do") == "scribe" and numbers.get("layout") == "ends":
+            return [_Plain(self.arc_end_marks(op, numbers))]
         if op.get("do") == "scribe":
             centre = numbers.get("centre_setup_xy") or ["unknown", "unknown"]
             axis = numbers.get("centre_on")

@@ -17,7 +17,17 @@ from html import unescape
 
 import pytest
 from test_kernel_geometry import Engine, _op, _setup, _vise
-from test_manual_arc import ARC, arcs, change, coordinates_row, debts, errors, op, scratch
+from test_manual_arc import (
+    ARC,
+    arcs,
+    bench_op,
+    change,
+    coordinates_row,
+    debts,
+    errors,
+    op,
+    scratch,
+)
 
 from prechips.inputs import load_bundle
 from prechips.kernel import build_job, table_checkpoints
@@ -48,7 +58,9 @@ GUIDES = (
     "[gauges.master]\nkind = 'master_arc'\nname = 'R800 master arc'\n"
     f"radius_limits_mm = {{ value = [800.20, 800.25], {MEASURED} }}\nverify = false\n"
 )
-SWING = [-160.0, -20.0, -10.0, 190.0, 20.0, 0.0]
+# The strap the sweep cuts: it holds both arc ends (Y 23.4) while the sweep starts
+# clear of it (the cutter edge from Y 28.9 out).
+SWING = [-160.0, -20.0, -10.0, 190.0, 25.0, 0.0]
 
 
 def sweep_contour(guide="pivot", **more):
@@ -77,16 +89,22 @@ def guided_plan(
     inventory="",
     target=LONG_ARC,
     doc=None,
+    layout=True,
     **more,
 ):
     fixture = "arm" if guide == "pivot" else "sled"
     stepped = {} if doc is None else {"doc_mm": doc}
+    # The stops are set on the arc-end marks an earlier scribe op lays out, measured from
+    # the faces of a rectangular bar.
+    marks = bench_op(5, "scribe", layout="'ends'") if layout else ""
     plan = scratch(
         tmp_path,
-        op(20, "finish_profile", sweep_contour(guide, **more), allowance=allowance, **stepped),
+        marks
+        + op(20, "finish_profile", sweep_contour(guide, **more), allowance=allowance, **stepped),
         hold=hold or f"fixture = '{fixture}'",
         target=target,
     )
+    change(plan, "material = 'scratch steel'\n", "material = 'scratch steel'\nform = 'flat_bar'\n")
     path = plan.with_name("inventory.toml")
     path.write_text(path.read_text(encoding="utf-8") + GUIDES + inventory, encoding="utf-8")
     return plan
@@ -226,9 +244,11 @@ def test_a_sweep_that_reaches_the_arc_ends_within_a_dro_step_needs_no_overrun(tm
     short = guided_row(tmp_path / "short", sweep_deg=f"{21.0 - 1.5 * step!r}")
     assert short.status == "error" and "needs 21.0000°" in errors(short)
     exact = guided_row(tmp_path / "exact", sweep_deg=f"{21.0 - 0.5 * step!r}")
-    assert exact.status == "pass", exact.sentence
+    assert exact.status != "error", exact.sentence
     _, sweep = recipe(exact)
     assert sweep["overrun_mm"] == 0.0
+    # With no overrun the cutter would start on the arc's end, inside the strap: unproven.
+    assert sweep["start"] == "unproven"
 
 
 def test_a_full_circle_cannot_be_swept_between_two_stops(tmp_path):
@@ -367,9 +387,10 @@ def test_the_rows_stay_on_the_nominal_path_the_kernel_checks(tmp_path):
         "[gauges.r810]\nkind = 'setting_bar'\nname = 'R810 setting bar'\n"
         f"radius_limits_mm = {{ value = [810.0, 810.02], {MEASURED} }}\nverify = false\n"
     )
-    plan = guided_plan(tmp_path, target=target, master="'r810'", inventory=master)
-    # Stock the real R807 path also starts clear of (the start check uses the real path).
-    row = coordinates_row(plan, stock_bbox=[-160.0, -20.0, -10.0, 190.0, 5.0, 0.0])
+    # A 40° sweep carries the real R807 path's start clear of the strap too (the start
+    # check uses the real path).
+    plan = guided_plan(tmp_path, target=target, master="'r810'", inventory=master, sweep_deg="40.0")
+    row = coordinates_row(plan, stock_bbox=SWING)
     assert row.status == "pass", row.sentence
     table, sweep = recipe(row)
     assert sweep["cut_radius_mm"] == pytest.approx([809.98, 810.04])
@@ -535,10 +556,13 @@ def test_the_traveler_prints_the_touch_off_and_the_sweep_not_a_dro_table(tmp_pat
     lift = "remove the setting bar" if guide == "pivot" else "lift R800 master arc off its pins"
     assert lift in printed and "nothing of it may stay in the sweep's path" in printed
     assert "Set the sweep's stops" in printed and "clamp a stop block" in printed
-    # The stop landmark is on the cutter's path: its edge at the arc's end, its centre a
-    # cutter radius off the arc (R797 on this concave R800), then the overrun along it.
-    assert "cutter's edge reaches the arc's end at X" in printed
-    assert "(its centre at X" in printed
+    # The stops are set at the touch on the layout's scribed arc-end marks, the cutter's
+    # edge over each, then the overrun along the cutter's path: no setup X/Y to find.
+    assert "Set the sweep's stops at the touch, X and Y still locked" in printed
+    # Numbers print in their own spans: stripped, a space can stand before the bracket.
+    assert "until mark A (op 5" in printed and "until mark B (op 5" in printed
+    assert printed.count("stands under the cutter's edge") == 2
+    assert "reaches the arc's end at X" not in printed
     assert "measured with a steel rule along the cutter's path, outward" in printed
     assert "of cutter travel beyond the arc's ends on purpose" in printed
     assert "must pass clear of every clamp" in printed
@@ -590,6 +614,7 @@ def proven(guide="pivot"):
         "band_mm": [800.0, 800.5],
         "back_off_mm": 0.0,
         "start": "air",
+        "marks": {"op": 5, "start": "A", "end": "B"},
         "sweep_deg": 25.0,
         "path_mm": 120.0,
         "stop_overrun_mm": 10.0,
@@ -640,6 +665,7 @@ SWEEP_FACTS = [
     "ends_cutter_setup_xy",
     "start",
     "band_mm",
+    "marks",
 ]
 
 
@@ -700,16 +726,58 @@ def test_the_traveler_sweeps_a_stepped_op_at_each_level_in_its_heading(tmp_path)
     assert f"set Z {bottom} " not in printed
 
 
-def test_stop_landmarks_print_at_the_dros_digits_in_inches():
-    # Rounding an inch landmark to 0.1 in could move a stop by 1.27 mm: the places print at
-    # the DRO's own digits.
-    arc = proven()
-    arc["guided"].update(
-        ends_setup_xy=[[-5.7481, -0.1181], [5.7481, -0.1181]],
-        ends_cutter_setup_xy=[[-5.7283, 0.0], [5.7283, 0.0]],
+def test_the_layout_scribes_each_arc_end_from_the_stocks_own_faces(tmp_path):
+    # The marks the stops are set on are measured from the strap's nearer end and edge,
+    # at 0.1 mm for a rule and square (0.005 in in inches), never as setup X/Y.
+    from prechips.rules import manual_arc
+
+    assert manual_arc.mark_step(1.0) == 0.1 and manual_arc.mark_step(25.4) == 0.005
+    plan = guided_plan(tmp_path / "rule")
+    bundle = dataclasses.replace(
+        load_bundle(plan), kernel={"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
     )
-    printed = printed_steps(arc, operative=lambda value: f"{value:.4f}")
-    assert "the arc's end at X -5.7481 Y -0.1181 (its centre at X -5.7283 Y 0.0000)" in printed
+    (layout,) = [f for f in manual_arc.evaluate(bundle) if f.subject == "S1:5"]
+    assert layout.status == "pass", layout.sentence
+    marks = layout.numbers["marks"]
+    ends = coordinates.arc_layout(bundle, bundle.plan["setups"][0], "target")["ends_setup_xy"]
+    for mark, end in zip(marks, ends, strict=True):
+        low, high = end[0] - SWING[0], SWING[3] - end[0]
+        assert mark["x"] == pytest.approx(round(min(low, high), 1))
+        assert mark["x_face"] == ("-X end" if low <= high else "+X end")
+        low, high = end[1] - SWING[1], SWING[4] - end[1]
+        assert mark["y"] == pytest.approx(round(min(low, high), 1))
+        assert mark["y_face"] == ("-Y edge" if low <= high else "+Y edge")
+    scribe = bundle.plan["setups"][0]["ops"][0]
+    printed = _Traveler(bundle, [layout], {}, None).arc_end_marks(scribe, layout.numbers)
+    first = marks[0]
+    assert printed.startswith("Layout: blue the work top")
+    assert (
+        f"mark A {first['x']:.1f} mm from the {first['x_face']} along X and "
+        f"{first['y']:.1f} mm from the {first['y_face']} along Y"
+    ) in printed
+    assert "setup" not in printed.lower()
+
+
+@pytest.mark.parametrize("case", ["no-layout", "round-bar"])
+def test_stops_with_no_measurable_marks_stop_the_recipe(tmp_path, case):
+    # The stops sit on scribed arc-end marks: no layout op, or no flat faces of the bar's
+    # own to measure them from, leaves only a STOP.
+    plan = guided_plan(tmp_path, layout=case != "no-layout")
+    if case == "round-bar":
+        change(plan, "form = 'flat_bar'\n", "form = 'round_bar'\n")
+    kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
+    bundle = dataclasses.replace(load_bundle(plan), kernel=kernel)
+    row = next(r for r in coordinates.evaluate(bundle) if r.subject == "S1")
+    tools = {("tools", "cutter"): "6 mm endmill"}
+    html = _Traveler(bundle, [row], {}, None).contours(bundle.plan["setups"][0], tools)
+    printed = " ".join(unescape(re.sub(r"<[^>]+>", " ", html)).split())
+    assert row.status == "unknown", row.sentence
+    assert "arc-end marks unknown" in printed and "Lock X and Y" not in printed
+
+
+def test_the_stops_are_set_at_the_touch_before_the_rough_back_off(tmp_path):
+    _, printed = traveler_text(tmp_path, allowance=0.3)
+    assert printed.index("Set the sweep's stops at the touch") < printed.index("Rough sweep:")
 
 
 def test_a_rough_then_finish_sweep_touches_off_once_and_returns_to_the_touch(tmp_path):
@@ -803,17 +871,18 @@ def exact_cut_spread(rollers, error, rail, roller, reach):
 
 def test_the_start_is_cleared_on_the_path_the_master_sets(tmp_path):
     # The rows stand on the nominal R797 path; an R799.60 master sets the cut 0.4 mm off
-    # it. A stock box the nominal cutter clears by 0.2 mm at the start proves the start in
-    # air for a near-nominal bar, but not for that master: its real cutter may touch it.
+    # it. A stock box the nominal cutter clears by 0.3 mm at the printed start proves the
+    # start in air for a near-nominal bar (0.14 mm radial spread, 0.05 mm mark rounding),
+    # but not for that master: its real cutter may touch it.
     target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [799.5, 800.5]")
     low = (
         "[gauges.low]\nkind = 'setting_bar'\nname = 'R799.6 setting bar'\n"
         f"radius_limits_mm = {{ value = [799.60, 799.62], {MEASURED} }}\nverify = false\n"
     )
     plan = guided_plan(tmp_path / "probe", target=target)
-    table, _ = recipe(coordinates_row(plan, stock_bbox=SWING))
-    x, y = table["rows"][0]["dro_xy"]
-    box = [x - 50.0, -500.0, -10.0, x + 50.0, y - 3.0 - 0.2, 0.0]
+    _, probe = recipe(coordinates_row(plan, stock_bbox=SWING))
+    x, y = probe["start_xy"]
+    box = [x - 50.0, -500.0, -10.0, x + 50.0, y - 3.0 - 0.3, 0.0]
     near = guided_plan(tmp_path / "near", target=target)
     assert recipe(coordinates_row(near, stock_bbox=box))[1]["start"] == "air"
     off = guided_plan(tmp_path / "off", target=target, master="'low'", inventory=low)

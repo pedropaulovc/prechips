@@ -79,6 +79,15 @@ def _unresolved(arc, sweep, levels=None):
         # Each stop block is set where the cutter reaches an arc end: without them the
         # sweep has nothing to bound it.
         missing.append("sweep stops unknown")
+    marks = sweep.get("marks")
+    if not (
+        isinstance(marks, dict)
+        and marks.get("op") is not None
+        and {marks.get("start"), marks.get("end")} == {"A", "B"}
+    ):
+        # The stops are set on the layout's scribed arc-end marks: nothing else places
+        # them on the work.
+        missing.append("arc-end marks unknown")
     if _depths(arc, levels) is None:
         missing.append("cut depth Z unknown")
     if sweep.get("start") != "air":
@@ -186,6 +195,8 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True,
     )
     lift = "remove the setting bar" if kind == "setting_bar" else f"lift {master} off its pins"
     result.append(f"Raise Z only and {lift}: nothing of it may stay in the sweep's path.")
+    # The stops are set at the touch pose, before any rough back-off moves the cutter.
+    result.append(_stops(sweep, o, holder, move, start, stop))
     back = sweep.get("back_off_dro")
     if _known(back):
         # Off the line is into scrap: toward the arc centre on a concave arc, away from it on
@@ -197,16 +208,16 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True,
             f"the line) and lock {letter} again. The cutter must move {toward} the arc "
             f"centre; if it moves the other way, STOP: {letter} reads reversed."
         )
-    result.append(_stops(sweep, o, holder, move, start, stop))
     result.append(_sweep(arc, sweep, o, holder, move, (start, stop), feed, depths, True, final))
     return result
 
 
 def _stops(sweep, o, holder, move, start, stop):
-    """Where to clamp a stop block for each end of the sweep, from the arc's ends."""
+    """Where to clamp a stop block for each end of the sweep: on the arc-end marks the
+    layout scribed, set at the touch with X and Y locked."""
     from prechips.sheet import _number
 
-    ends = sweep.get("ends_setup_xy")
+    marks = sweep["marks"]
     overrun = sweep.get("stop_overrun_mm")
     # The dry pass with the cutter just over the work: the stock is still there to cut, so
     # only what stands above it (clamps, the fixture) can be checked before cutting.
@@ -216,18 +227,11 @@ def _stops(sweep, o, holder, move, start, stop):
         f"clamp and of the {holder}."
     )
     keys = [f" ({key})" if key else "" for key in (start, stop)]
-
-    def at(point):
-        # Places on the work in plan units, at the DRO's own digits: in inches a 0.1
-        # rounding would move a stop by up to 1.27 mm.
-        return f"X {o(point[0])} Y {o(point[1])}"
-
-    centres = sweep["ends_cutter_setup_xy"]
-    # The landmark is on the cutter's own path: its edge reaches the arc's end when its
-    # centre stands on the end's radial line, a cutter radius off the arc.
+    # The mark is the arc's end on the work: the cutter's edge over it puts the cutter's
+    # centre on the end's radial line, where the stop's measured overrun begins.
     place = [
-        f"edge reaches the arc's end at {at(end)} (its centre at {at(centre)})"
-        for end, centre in zip(ends, centres, strict=True)
+        f"mark {marks[side]} (op {marks['op']}) stands under the cutter's edge"
+        for side in ("start", "end")
     ]
     if overrun > 0:
         far = _number(_round(overrun, 1))
@@ -242,9 +246,10 @@ def _stops(sweep, o, holder, move, start, stop):
     else:
         on, why = "", ""
     return (
-        f"Set the sweep's stops, spindle stopped and Z raised: {move} the {holder} until the "
-        f"cutter's {place[0]}{on}{keys[0]}, and clamp a stop block on the table against the "
-        f"{holder}. Do the same at the other end: the cutter's {place[1]}{on}{keys[1]}." + why + dry
+        "Set the sweep's stops at the touch, X and Y still locked, spindle stopped and Z "
+        f"raised just clear of the work top: {move} the {holder} until {place[0]}{on}"
+        f"{keys[0]}, and clamp a stop block on the table against the {holder}. Do the same "
+        f"the other way: until {place[1]}{on}{keys[1]}." + why + dry
     )
 
 

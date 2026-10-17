@@ -445,7 +445,10 @@ naming them. Each table is recorded under `arc_table` (its joins under
   in-band master past nominal a part hit). The fixture
   turns the work `rotation` (viewed from above) against the cutter's travel along
   the rows in cutting order. `ends_setup_xy` are the arc's ends on the work (setup
-  XY, the sweep's start end first) where the traveler sets its stops. The setup
+  XY, the sweep's start end first, reference geometry). The traveler sets the stops
+  on the arc-end marks an earlier `scribe` op with `layout = "ends"` lays out in the
+  same setup (`marks`: that op and which mark, A or B, each stop sits on, the start
+  first); no such op, or marks it cannot place, is unknown. The setup
   frame is the work at the sweep's middle pose: `touch_axis` must run from the arc
   centre to the arc's middle (`arc_mid_setup_xy`), the cutter's radial line, to
   within one DRO step of cutter travel (`touch_axis_off_deg`), else an error, since
@@ -1035,10 +1038,16 @@ from the DRF-located centre: a t = U = 0.2 zone `"increases"` a BASIC Ø20 boss 
 Ø[20.0, 20.4], R[10.0, 10.2]. An ungoverned BASIC value or an unresolved profile
 leaves it unknown. The `coordinates` arc tables still read the drawing band only.
 
-- `scribe`: `layout` must be `dividers`, `trammel` or `template` (else
+- `scribe`: `layout` must be `dividers`, `trammel`, `template` or `ends` (else
   unknown); a template (`guide.template`) must be an inventory radius or profile
   gauge whose `range_mm` covers R (a range miss or another kind is an error; an
-  unknown range or `verify = true` is unknown).
+  unknown range or `verify = true` is unknown). `ends` lays out only the arc's two
+  ends, for a guided sweep's stops (its centre is too far off the part to scribe
+  about): `marks` A and B, each measured from the nearer end face along X and the
+  nearer side face along Y of the stock box the setup receives, at 0.1 mm (0.005 in).
+  It needs a rectangular bar (`flat_bar`, `square_bar`, `plate`) that the setup
+  receives as the plan's raw stock, a modelled stock box and both ends on the stock;
+  else unknown, since no face of the bar's own would place the marks.
 - `file_to_line`: `guide.buttons` names an inventory `fixtures` kit of
   `kind = "filing_buttons"` that the setup holds (`hold.fixture` or a clamp
   `ref`), pinned through `guide.bore`. The bore must be the hole on the arc's

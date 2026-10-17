@@ -1206,7 +1206,7 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `holder` | `str` (the tool's `shank` must fit it; a single nominal collet capacity accepts the ISO 286 h6 band below it, [`tool_resolves`](rules-tools.md#tool_resolves)) |
 | `direction` | `str` |
 | `note` | `str` |
-| `layout` | `str` (`scribe` only: `dividers`, `trammel` or `template`) |
+| `layout` | `str` (`scribe` only: `dividers`, `trammel` or `template`; or `ends`, a guided sweep's two arc-end marks measured from the bar's own faces) |
 | `guide` | `Guide` (`scribe` with a template, `file_to_line`) |
 | `inspection_note` | `str \| list[str]` (numbered steps; see above) |
 | `process` | `str \| list[str]` (`coating` only: a `services` or `consumables` id) |
@@ -1692,17 +1692,22 @@ uses the 1898 manual arc method:
    one-axis back-off with the direction the cutter must move (a finish after it
    raises Z, returns to the touch and continues the same numbered steps; when the op
    leaves stock for a rough sweep that does not print runnable, the finish stops
-   too), a stop block at each end of the sweep (where the cutter's edge reaches the
-   arc's end, its centre on that end's radial line, then on by the overrun measured
-   along the cutter's path, printed to 0.1 mm rounded down; the start is proven in
-   air at that printed stop), a dry pass from stop to stop, then the sweep: spindle started, its
+   too), a stop block at each end of the sweep, set at the touch before any back-off
+   (X and Y still locked, spindle stopped, Z just clear): the fixture is moved until
+   the arc-end mark an earlier `scribe` op with `layout = "ends"` laid out in the same
+   setup stands under the cutter's edge, then on by the overrun measured along the
+   cutter's path (printed to 0.1 mm rounded down; the start is proven in air at that
+   printed stop). That layout scribes marks A and B on the work top, each measured
+   from the nearer end face and side face of a rectangular bar the setup receives as
+   the plan's raw stock; no such op, or stock without those faces, is unknown and the
+   sweep prints only a STOP. Then a dry pass from stop to stop, then the sweep: spindle started, its
    direction viewed from above, its angle and cutter travel, and the time it takes
    at the op's starting feed; each sweep ends with Z raised clear of the work and the
    fixture, the op's last also stopping the spindle before anyone reaches in. An op
    stepping down in axial levels (`doc_mm`) sets the heading's top level first and,
    with Z raised, returns to the first stop for each further level, never sweeping
-   straight to the full depth. The stops' landmarks print in plan units at the DRO's
-   digits. The worst-case cut radius stays in the report. `travel` and `headroom` do not model
+   straight to the full depth. The stop step prints no setup X/Y: the marks place the
+   stops on the work. The worst-case cut radius stays in the report. `travel` and `headroom` do not model
    the moving fixture (its swept footprint, the stack at every pose), so a setup with
    a guided sweep is never a pass for either: each owes a `check:` debt
    ([rules-setup](rules-setup.md#headroom), [#272](https://github.com/pedropaulovc/prechips/issues/272)). Any

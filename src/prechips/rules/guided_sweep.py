@@ -474,7 +474,12 @@ def _start_clear(bundle, setup, op, arc, label, debts, record_, scale, grid):
         # angle lies within printed / (stops ± spread): the cutter there stands off the
         # nominal point by the radial spread plus that much arc at its own real radius.
         swing = printed * spread / (stops * (stops - spread))
-        reach = radius + radial + (centre * scale + radial) * swing
+        # The stop is set on a scribed mark printed at mark_step: up to half a step off.
+        from .manual_arc import mark_step
+
+        step = mark_step(scale)
+        rounding = step * scale / 2 if step is not None else math.inf
+        reach = radius + radial + (centre * scale + radial) * swing + rounding
         record_["start_reach_mm"] = reach
     if point is not None and in_air(stock_box(bundle, setup), point, reach, scale):
         record_["start"] = "air"
@@ -531,6 +536,45 @@ def _printed_start(arc, record_, stops_mm):
     toward = (toward + math.pi) % math.tau - math.pi
     turn = math.copysign(printed / stops_mm, toward) if printed else 0.0
     return [centre[0] + reach * trig.cos(start + turn), centre[1] + reach * trig.sin(start + turn)]
+
+
+def _marks(bundle, setup, op, record_, label, debts, scale):
+    """The arc-end marks the stops are set on: an earlier ``scribe`` op in this setup with
+    ``layout = "ends"`` on the swept feature (its marks measured from the stock's own
+    faces, :func:`~.manual_arc.arc_end_marks`). Recorded as ``marks``: the scribe ``op``
+    and which mark (``A`` or ``B``) each stop sits on, the sweep's ``start`` first; else
+    UNKNOWN with a debt, since nothing else places a stop on the work."""
+    from .coordinates import arc_layout
+    from .manual_arc import arc_end_marks
+
+    record_["marks"] = UNKNOWN
+    feature = op.get("feature")
+    scribe = None
+    for other in map(record, setup.get("ops") or []):
+        if other.get("op") == op.get("op"):
+            break
+        if (
+            other.get("do") == "scribe"
+            and other.get("feature") == feature
+            and other.get("layout") == "ends"
+        ):
+            scribe = other
+    if scribe is None:
+        debts.append(
+            f'{label}: no earlier scribe op (layout = "ends") in setup {setup.get("id")} '
+            f"marks {feature}'s ends to set the stops on"
+        )
+        return
+    ends = (arc_layout(bundle, setup, feature) or {}).get("ends_setup_xy")
+    marks, reason = arc_end_marks(bundle, setup, ends, scale)
+    start = record_.get("ends_setup_xy")
+    if marks is None or not (isinstance(start, list) and start and _pair(start[0])):
+        debts.append(
+            f"{label}: {reason or 'the sweep start end is unknown'}, so no mark sets the stops"
+        )
+        return
+    first = 0 if math.dist(ends[0], start[0]) <= math.dist(ends[1], start[0]) else 1
+    record_["marks"] = {"op": scribe.get("op"), "start": "AB"[first], "end": "AB"[1 - first]}
 
 
 def _own_setup(setup, label, errors):
@@ -698,6 +742,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
             )
     _rotation(arc, label, debts, record_, scale)
     _landmarks(arc, record_, sweep, axis, found, scale)
+    _marks(bundle, setup, op, record_, label, debts, scale)
     _start_clear(bundle, setup, op, arc, label, debts, record_, scale, grid)
     _radial(arc, record_, axis, label, errors, grid)
     if measurements:

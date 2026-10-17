@@ -40,10 +40,74 @@ from prechips.rules.resolution import (
     uncertain,
 )
 
-LAYOUTS = ("dividers", "trammel", "template")
+LAYOUTS = ("dividers", "trammel", "template", "ends")
 GAUGE_KINDS = frozenset({"radius_gauge", "profile_gauge"})
 BUTTON_KIND = "filing_buttons"
 _TOL = 1e-9
+# Bar stock whose flat end and side faces bound it: the faces a layout measures from.
+RECTANGULAR_STOCK = frozenset({"flat_bar", "square_bar", "plate"})
+
+
+def mark_step(scale):
+    """The step (plan units) an arc-end mark's dimensions print at for a rule or square:
+    0.1 mm, or 0.005 in; None for other units."""
+    return {1.0: 0.1, 25.4: 0.005}.get(scale)
+
+
+def arc_end_marks(bundle, setup, ends, scale):
+    """``(marks, reason)``: each arc end (``ends``, setup XY in plan units, as
+    :func:`~prechips.rules.coordinates.arc_layout` gives them) as a mark the operator
+    scribes on the work top, measured from the nearer end face along X and the nearer side
+    face along Y of the stock the setup receives, at :func:`mark_step`. ``marks`` is a list
+    of ``{"x": dist, "x_face": "-X end" | "+X end", "y": dist, "y_face": "-Y edge" |
+    "+Y edge"}``, or None with the reason no face proves a measurable datum: stock that is
+    not a rectangular bar, a setup that receives worked stock (its faces need not be the
+    bar's own), no modelled stock box, unknown ends or units, or an end off the stock."""
+    from prechips.rules.level_entry import stock_box
+
+    stock = record(bundle.plan.get("stock"))
+    if stock.get("form") not in RECTANGULAR_STOCK:
+        return None, (
+            "the stock is not a rectangular bar with flat end and side faces to measure "
+            "the arc's ends from"
+        )
+    raw = setup.get("stock_in", "stock") == "stock"
+    if not raw or setup_lineage(bundle.plan, setup["id"]) != {setup["id"]}:
+        return None, (
+            "the setup receives worked stock, whose faces need not be the bar's own to "
+            "measure the arc's ends from"
+        )
+    step = mark_step(scale)
+    box = stock_box(bundle, setup)
+    if box is None or step is None:
+        return (
+            None,
+            "the stock the setup receives is not modelled, so no face places the arc's ends",
+        )
+    if not (
+        isinstance(ends, list)
+        and len(ends) == 2
+        and all(isinstance(e, list) and len(e) >= 2 and all(map(number, e[:2])) for e in ends)
+    ):
+        return None, "the arc's ends are unknown"
+    decimals = 1 if step >= 0.1 else 3
+    marks = []
+    for end in ends:
+        mark = {}
+        for axis, (index, word) in {"x": (0, "end"), "y": (1, "edge")}.items():
+            low = end[index] - box[index] / scale
+            high = box[index + 3] / scale - end[index]
+            if min(low, high) < -_TOL:
+                return None, "an arc end lies off the stock the setup receives"
+            near, face = (
+                (low, f"-{axis.upper()} {word}")
+                if low <= high
+                else (high, f"+{axis.upper()} {word}")
+            )
+            mark[axis] = round(round(max(near, 0.0) / step) * step, decimals)
+            mark[f"{axis}_face"] = face
+        marks.append(mark)
+    return marks, None
 
 
 def _arc_feature(feature):
@@ -357,7 +421,16 @@ def evaluate(bundle):
                 how = op.get("layout", UNKNOWN)
                 numbers["layout"] = how
                 if how not in LAYOUTS:
-                    debts.append(f"layout {how} is not dividers, trammel or template")
+                    debts.append(f"layout {how} is not dividers, trammel, template or ends")
+                elif how == "ends":
+                    # Only the arc's two ends, each measured from the stock's own faces: for a
+                    # guided sweep, whose centre is too far off the part to scribe about.
+                    marks, reason = arc_end_marks(
+                        bundle, setup, (layout or {}).get("ends_setup_xy"), scale
+                    )
+                    numbers["marks"] = marks if marks is not None else UNKNOWN
+                    if reason:
+                        debts.append(reason)
                 elif how == "template":
                     ref = guide.get("template", UNKNOWN)
                     numbers["template"] = ref
