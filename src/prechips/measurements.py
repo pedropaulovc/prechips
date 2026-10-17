@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from datetime import date
 
 UNKNOWN = "unknown"
@@ -214,10 +215,12 @@ def angle_fact(item, field, *, require_measured=True):
     return _fact(item, value, fact, "No numeric angle in degrees is recorded.", require_measured)
 
 
-def cited_fact(item, field, *, tested=False):
+def cited_fact(item, field, *, tested=False, domain=None):
     """A non-length fact (``{value, cite, measured, verify}``) under its own qualifiers only.
 
-    It is trusted when its value is positive and it has a known citation or a complete
+    ``domain`` is ``(predicate, text)`` for the values the consumer accepts, ``> 0`` by
+    default; a value outside it is debt naming the domain, never clamped.
+    It is trusted when its value is in its domain and it has a known citation or a complete
     ``status = "measured"`` record, and its own ``verify`` is not true or unknown. A bare
     number, a blank or unknown cite and an incomplete, assumed or illustrative measurement
     are debt; a cite never stands in for a refused measurement. ``tested`` facts (an
@@ -227,14 +230,19 @@ def cited_fact(item, field, *, tested=False):
 
     raw = item.get(field, UNKNOWN) if isinstance(item, dict) else UNKNOWN
     fact = raw if isinstance(raw, dict) and "value" in raw else None
+    inside, text = domain or ((lambda v: v > 0), "> 0")
     value = fact["value"] if fact is not None else raw
-    value = value if number(value) and value > 0 else UNKNOWN
+    known = number(value) and math.isfinite(value)
+    outside = value if known and not inside(value) else None
+    value = value if known and outside is None else UNKNOWN
     cite = _citations(fact.get("cite")) if fact is not None else []
     measured = fact.get("measured", UNKNOWN) if fact is not None else UNKNOWN
     status = measured.get("status", "assumed") if isinstance(measured, dict) else UNKNOWN
     result = {"value": value, "verified": False, "cite": cite, "measurement_status": status}
+    if outside is not None:
+        return {**result, "reason": f"{field} {outside:g} is outside its domain {text}."}
     if value == UNKNOWN:
-        return {**result, "reason": f"No positive {field} is recorded."}
+        return {**result, "reason": f"No {field} is recorded."}
     if fact is None:
         return {**result, "reason": f"{field} is a bare value with no citation or measurement."}
     if fact.get("verify") is True or fact.get("verify") == UNKNOWN:

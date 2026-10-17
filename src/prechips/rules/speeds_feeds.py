@@ -269,6 +269,19 @@ def _starting_data(bundle, op, tool, diameter):
     return UNKNOWN, UNKNOWN, UNKNOWN, UNKNOWN, range_unknown
 
 
+def chip_load(bundle, op, tool):
+    """``(chip_load_mm_per_tooth, cite, why)`` a mill op cuts at: the same cited tool chart
+    or unique cutting-data row speeds_feeds starts it from (resolution unchanged). An
+    uncited, ambiguous, unverified or non-positive chip load stays unknown with ``why``."""
+    _, chip, _, cite, debt = _starting_data(bundle, op, tool, length_mm(tool, "dia"))
+    if not _citations(cite):
+        # A blank or whitespace-only source cites nothing.
+        return UNKNOWN, UNKNOWN, "no cited tool chart or unique cutting-data row matches"
+    if debt or not _positive(chip):
+        return UNKNOWN, UNKNOWN, "the matching chart or row's chip load is unverified or unknown"
+    return chip, cite, None
+
+
 def plunge_row(bundle, op, *, measurements=None):
     """``(feed_mm_rev, cite, why)`` for axial entry: a drill's cited drilling tooth
     feed times flutes, or a declared centre-cutting end mill's unique cited plunge
