@@ -101,12 +101,23 @@ def evaluate(bundle):
         bad = dro.get("mode", UNKNOWN) not in {"abs", UNKNOWN}
         # A setup whose every spindle op is a guided sweep sets X and Y by touching the
         # cutter to its master and locks them: it picks up no X/Y zero (#255).
-        from ..guided_sweep import touch_set
+        from ..guided_sweep import touch_set, trammel_set
 
         swept = [] if lathe else touch_set(setup)
+        # A trammel's rails fix the cut: no X/Y handwheel move, so no X/Y DRO sign (#269).
+        railed = bool(swept) and trammel_set(setup)
+        # An X/Y pickup moves the table off the rails' crossing the trammel cuts on.
+        railed_errors = [
+            f"zero.{axis} picks up an edge, but the trammel ({', '.join(map(str, swept))}) "
+            "cuts where its rails cross the spindle axis with X and Y locked: remove it"
+            for axis in ("x", "y")
+            if railed and isinstance(zero.get(axis), dict)
+        ]
         for axis in ("x", "y", "z"):
             recipe = zero.get(axis)
             if not isinstance(recipe, dict):
+                if axis in ("x", "y") and railed:
+                    continue
                 if axis in ("x", "y") and swept:
                     # No edge pickup, but the sweep's touch feed and rough back-off still
                     # move this axis by its DRO sign: a reversed or undeclared direction
@@ -395,7 +406,11 @@ def evaluate(bundle):
         }
         touched = [axis for axis in ("x", "y") if swept and not isinstance(zero.get(axis), dict)]
         if touched:
-            numbers["touch_set"] = {"axes": touched, "ops": swept}
+            numbers["touch_set"] = {
+                "axes": touched,
+                "ops": swept,
+                "by": "trammel" if railed else "touch",
+            }
         grid_debt = dro_grid_debt(bundle, setup) if face_unknowns else None
         if grid_debt:
             numbers["dro_grid_debt"] = grid_debt
@@ -417,7 +432,15 @@ def evaluate(bundle):
         )
         unknown |= unrecovered or UNKNOWN in finder_status
         finder_error = "error" in finder_status
-        errors = bad or missing or corner_errors or face_errors or x_errors or finder_error
+        errors = (
+            bad
+            or missing
+            or corner_errors
+            or face_errors
+            or x_errors
+            or finder_error
+            or railed_errors
+        )
         status = "error" if errors else "unknown" if unknown else "pass"
         sentence = (
             "DRO direction or mode disagrees with the setup convention; stop and correct it "
@@ -485,6 +508,8 @@ def evaluate(bundle):
                 + "; ".join(face_unknowns)
                 + "): its Axis Set is not known."
             )
+        if railed_errors:
+            sentence += " " + "; ".join(railed_errors) + "."
         if x_errors:
             sentence += (
                 " An X touch measures a diameter that does not stand where it touches ("

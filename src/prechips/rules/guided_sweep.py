@@ -66,14 +66,25 @@ def touch_set(setup):
     return swept
 
 
+def trammel_set(setup):
+    """Whether every guided sweep of a :func:`touch_set` setup is a trammel (#269): its
+    rails fix the cut, so no handwheel moves X or Y at all, not even to touch off or back
+    off, and no X/Y DRO sign is consumed."""
+    ops = [record(op) for op in setup.get("ops") or [] if "tool" in record(op)]
+    return bool(ops) and all(
+        record(record(op.get("contour")).get("sweep")).get("guide") == "trammel" for op in ops
+    )
+
+
 def unmodelled(bundle, setup, rule):
     """The ``check:`` debts ``rule`` (``"travel"`` or ``"headroom"``) owes for each guided
     sweep op in ``setup``: what neither models while the fixture moves, so the finding is
     unknown, never a pass. ``travel``: the fixture's swept footprint (a swing arm's pivot
     post, possibly on a table extension, or a sled pushed along its rollers) against the
     table, column and way covers. ``headroom``: the spindle stack and fixture clearance,
-    judged at the setup pose only, at every pose of the sweep."""
-    debts = []
+    judged at the setup pose only, at every pose of the sweep. A trammel's debt carries
+    its exact swept footprint and rail stations (rules/trammel.py)."""
+    debts, records = [], None
     for op in setup.get("ops") or []:
         op = record(op)
         contour = record(op.get("contour"))
@@ -83,6 +94,12 @@ def unmodelled(bundle, setup, rule):
         fixture = sweep.get("fixture", UNKNOWN)
         angle = sweep.get("sweep_deg", UNKNOWN)
         turn = f"{angle:g}°" if number(angle) else "its whole sweep"
+        if sweep.get("guide") == "trammel":
+            from .trammel import unmodelled as trammel_unmodelled
+
+            records = trammel_records(bundle, setup) if records is None else records
+            debts.append(trammel_unmodelled(op, fixture, records.get(op.get("op")), rule))
+            continue
         if rule == "travel":
             what = (
                 "the pivot post at the arc centre, on the table or a table extension, and the "
@@ -103,6 +120,22 @@ def unmodelled(bundle, setup, rule):
                 "at every pose"
             )
     return debts
+
+
+def trammel_records(bundle, setup):
+    """{op: its trammel ``guided`` record} from the coordinates rule for ``setup``: the
+    footprint and stations the travel and headroom debts quote."""
+    from .coordinates import evaluate
+
+    found = {}
+    for row in evaluate(bundle):
+        if row.subject != setup["id"]:
+            continue
+        for arc in row.numbers.get("arc_table") or []:
+            guided = arc.get("guided")
+            if isinstance(guided, dict) and guided.get("guide") == "trammel":
+                found.setdefault(arc.get("op"), guided)
+    return found
 
 
 def swept_angles(start, end, step, sweep, full):

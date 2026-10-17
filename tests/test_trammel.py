@@ -321,3 +321,58 @@ def test_the_wrong_fixture_kind_is_an_error(tmp_path):
     row = trammel_row(tmp_path, inventory=inventory)
     assert row.status == "error"
     assert "is a arc_sled, not the trammel a trammel guide rides on" in errors(row)
+
+
+# --- setup rules ---------------------------------------------------------------------
+
+
+def test_travel_and_headroom_owe_a_check_quoting_the_exact_footprint(tmp_path):
+    import dataclasses
+
+    from prechips.inputs import load_bundle
+    from prechips.rules import headroom, travel
+
+    bundle = load_bundle(trammel_plan(tmp_path))
+    kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
+    bundle = dataclasses.replace(bundle, kernel=kernel)
+    (row,) = [r for r in travel.evaluate(bundle) if r.subject == "S1"]
+    assert row.status in ("unknown", "error"), row.sentence
+    (debt,) = row.numbers["guided_sweep_debts"]
+    assert debt.startswith("op 20 guided sweep (trammel): the swept footprint of tram")
+    assert "the work and pins sweep X" in debt and "about the spindle axis" in debt
+    assert "check: with Z raised and the spindle stopped, lever the carrier" in debt
+    assert debt in row.sentence
+    (row,) = [r for r in headroom.evaluate(bundle) if r.subject == "S1"]
+    assert row.status in ("unknown", "error"), row.sentence
+    (debt,) = row.numbers["guided_sweep_debts"]
+    assert "turning 12.5°" in debt and "the carriages, as near as" in debt
+
+
+def test_a_trammel_only_setup_owes_no_xy_pickup_and_no_xy_dro_sign(tmp_path):
+    # The rails fix the cut: no X/Y handwheel moves at all, so neither a pickup nor an
+    # X/Y DRO direction is consumed; the DRO ZERO sheet says why.
+    import re
+    from html import unescape
+
+    from test_guided_sweep import ZERO_Z
+
+    from prechips.inputs import load_bundle
+    from prechips.rules import zero_recipe
+    from prechips.sheet import _Traveler
+
+    plan = trammel_plan(tmp_path)
+    text = plan.read_text(encoding="utf-8")
+    dro = (
+        "[dro]\ncontroller = 'el400'\nmode = 'abs'\nradius_mode = false\n"
+        "[dro.direction]\nz = 'up'\n"
+    )
+    plan.write_text(text.replace("[[setups]]", dro + "[[setups]]", 1) + ZERO_Z, encoding="utf-8")
+    bundle = load_bundle(plan)
+    (row,) = [r for r in zero_recipe.evaluate(bundle) if r.subject == "S1"]
+    assert set(row.numbers["axes"]) == {"z"}
+    assert row.numbers["touch_set"] == {"axes": ["x", "y"], "ops": [20], "by": "trammel"}
+    assert row.status != "error", row.sentence
+    tools = {("tools", "cutter"): "6 mm endmill"}
+    html = _Traveler(bundle, [row], {}, None).dro(bundle.plan["setups"][0], tools)
+    printed = " ".join(unescape(re.sub(r"<[^>]+>", "", html)).split())
+    assert "puts the cutter where its rails' pin-lines cross" in printed
