@@ -263,6 +263,13 @@ measures, which depends on what produces the value:
   limit, and one past each. A pin set ending at 8.000 therefore cannot judge
   HUB's `[8.000, 8.015]`: an oversized hole would still read 8.000.
 
+The **combined** measurement interval is validated too. For `align` that is
+`(r_dro + r_g)/2` either side, and for a relational `dro_xy` it is
+`r_g + r_dro`. That whole interval, centred on the prediction, must fit inside
+the band, otherwise no reading could ever pass and the plan is a schema error,
+not a permanent `?`. A 0.05 band with both resolutions at 0.03 gives ±0.06 and
+is rejected.
+
 An unresolved or untrusted gauge or machine fact leaves the reading `?`. A gauge
 or DRO too coarse for the band, or a target outside the travel, is an error.
 
@@ -787,7 +794,10 @@ analytic predictions these are pure arithmetic in the rules, with no kernel run:
    angle, pin spacing), with each fact's measured uncertainty. An `align`
    reading's interval widens by the target uncertainty this budget gives, so a
    pin centre inside the 0.03 band cannot pass while the guide geometry is
-   outside it. Any guide fact the budget needs that is missing or unmeasured
+   outside it. The same budget feeds **every** prediction derived from the
+   guide: the sagitta, width and hub-pin-to-edge predictions widen to intervals
+   by the radius and arc-centre uncertainty it gives, alongside their own chord
+   and pin terms. Any guide fact the budget needs that is missing or unmeasured
    leaves the dependent readings `?`. It is never treated as zero.
 
 The field names belong to #269. This design only requires that the guide exposes
@@ -830,9 +840,21 @@ The kernel builds **planned geometry only**. Recorded readings never enter
   a commissioned riser edge can pass anywhere inside its band. Clash, contact
   and clearance checks therefore use a conservative **envelope** built from the
   planned geometry and the planned acceptance bands, not the nominal shape:
-  - each swept edge is offset by its band toward the part, which is the worst
-    case for clearance;
-  - each hole is grown by its size band and its position band.
+  - **swept edges.** A sagitta band is not a radial offset. At `c = 300`,
+    `R = 802`, a ±0.10 sagitta band allows roughly −5.5/+5.6 mm of radius, so
+    the envelope never treats it as a radial offset. The edge is pinned at the
+    apex by its location readings (`hub_pin_to_edge`, `width`). At arc
+    position `s` from the apex, its radial deviation is the location band plus
+    the sagitta band scaled by `(s / (c/2))²`, with chord and gauge uncertainty
+    included. That is exact to first order inside the measured chord. Beyond
+    `|s| > c/2` the term keeps growing quadratically, so an edge that extends far
+    past the chord gets a wide envelope. The envelope is offset toward the part,
+    the worst case for clearance;
+  - **holes** keep the worst-case **material**: the void is the intersection of
+    every accepted void. It is shrunk to the lower end of its size band and
+    shrunk again by its position band, never grown. An accepted Ø8.000–8.015
+    hole is modelled as Ø8.000 less its position band, so a Ø8.010 object in it
+    is never reported clear.
 
   The envelope depends only on the plan, never on the record, so cache keys stay
   record-independent (§4.3). A riser edge 0.05 from a cutter path with a ±0.10
@@ -1218,6 +1240,13 @@ Also:
   commissioned fixture has exactly one HUB hole even when the spot and the
   planned location differ.
 - The riser band is kept and the offcuts discarded (after #182).
+- Edge envelope: the sagitta band is applied as `(s / (c/2))²` × band from the
+  apex, never as a radius change; holes use the shrunk (intersected) void, so a
+  Ø8.010 object in an accepted Ø8.000–8.015 hole → not clear.
+- Guide budget: a rail-angle uncertainty widens the sagitta and width
+  predictions; a missing budget fact → those readings `?`.
+- Combined DRO interval: a 0.05 band with `r_g = r_dro = 0.03` on a relational
+  `dro_xy` → schema error.
 - Envelope: a riser edge 0.05 from a cutter path with a ±0.10 band → clash;
   the envelope changes no cache key when only the record changes.
 - Guide error budget: an `align` reading inside the band whose target
