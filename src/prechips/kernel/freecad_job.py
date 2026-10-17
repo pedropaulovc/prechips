@@ -141,6 +141,12 @@ Measurement conventions (setup frame, tool axis +Z):
   The op inputs carry only a centre the selected tool's own facts make. A centre not
   wholly inside the stock it is drilled in, or whose mouth has stock over it (not on the
   exposed surface the quill touches), leaves that stock unknown.
+  A ``tooling_hole`` (a locating hole in the waste) is its wall at the band's largest
+  size; its drill or ream op removes the op tool's own diameter from 1 mm above the
+  mouth, to ``depth_mm`` or through the stock plus ``exit_mm``, a drill's point below,
+  then measures the plain axial tool. Each setup's ``tooling_holes`` gives every tooling
+  hole's state on its entering stock (``undrilled``, ``present``, ``partial``,
+  ``gone``), so a waste cut that takes the hole's material takes the hole.
 * Rotary (mill ops with ``approach = "rotary"``; dividing-head setups): the head
   axis is the chuck pose z through its origin and must be perpendicular to setup Z
   (otherwise the op is unsupported). Claimable portions are the positive-area
@@ -3172,6 +3178,31 @@ def _process_faces(spec, stock):
     pilot walls.
     """
     at, axis = _process_place(spec)
+    if spec.get("kind") == "tooling_hole":
+        # Its wall at the band's largest size, over its depth or, through, the stock's
+        # extent along its axis; never a finished face.
+        band = spec.get("dia_mm")
+        if not (isinstance(band, list) and len(band) == 2 and all(map(_number, band))):
+            raise _Unknown(f"{spec.get('label')} size is unknown")
+        if spec.get("thru"):
+            if stock is None:
+                raise _Unknown(f"{spec.get('label')}: the stock is unknown")
+            low, high = _axis_extent(stock, axis)
+            start, length = low, high - low
+        else:
+            depth = spec.get("depth_mm")
+            if not (_number(depth) and depth > 0):
+                raise _Unknown(f"{spec.get('label')} depth is unknown")
+            start, length = at.dot(axis), depth
+        base = at + axis * (start - at.dot(axis))
+        wall = Part.makeCylinder(band[1] / 2, length, base, axis)
+        faces = []
+        for face in wall.Faces:
+            if isinstance(face.Surface, Part.Cylinder):
+                target = face.copy()
+                target.reverse()
+                faces.append(target)
+        return faces
     if spec.get("kind") == "centre_hole":
         faces = []
         for solid in _centre_solids(spec):
@@ -4653,6 +4684,9 @@ class _Setup:
             self.box = _bbox(self.part)
             facts["stock_bbox_mm"] = [_r(v) for v in self.box]
             facts["stock_volume_mm3"] = _r(self.part.Volume)
+            holes = self._tooling_presence()
+            if holes:
+                facts["tooling_holes"] = holes
             if self.setup.get("stock_features"):
                 facts["stock_faces_mm"] = self._stock_faces()
             with _timed(phases, "fixture"):
@@ -4871,6 +4905,58 @@ class _Setup:
         """A model-frame direction in setup axes."""
         return self.matrix.multVec(vector) - self.matrix.multVec(FreeCAD.Vector())
 
+    def _tooling_presence(self):
+        """Each plan tooling hole's state on the stock entering this setup, by name.
+
+        The probe is the hole's band in the setup frame over its span (its depth, or through
+        the stock): ``undrilled`` while stock fills its core (half its smallest radius),
+        ``gone`` once no stock stands within 1 mm of its largest wall (a waste cut took it),
+        ``present`` when its core is clear and that ring is whole stock, else ``partial``
+        (cut into, or a span the stock does not fill). Placement it cannot model is
+        ``unknown`` with ``reason``."""
+        result = {}
+        features = self.owner.job.get("process_features", {})
+        for name, spec in sorted((features if isinstance(features, dict) else {}).items()):
+            if spec.get("kind") != "tooling_hole":
+                continue
+            try:
+                result[name] = {"state": self._tooling_state(spec)}
+            except (_Unknown, Part.OCCError) as exc:
+                result[name] = {"state": UNKNOWN, "reason": str(exc)}
+        return result
+
+    def _tooling_state(self, spec):
+        at, axis = _process_place(spec)
+        band = spec.get("dia_mm")
+        if not (isinstance(band, list) and len(band) == 2 and all(map(_number, band))):
+            raise _Unknown(f"{spec.get('label')} size is unknown")
+        entry = self.matrix.multVec(at)
+        direction = (self.matrix.multVec(at + axis) - entry).normalize()
+        outer = band[1] / 2 + 1.0
+        if spec.get("thru"):
+            span = self.part.BoundBox.DiagonalLength + 10.0
+            probe = Part.makeCylinder(outer, 2 * span, entry - direction * span, direction)
+            near = self.part.common(probe)
+            if near.isNull() or near.Volume <= HIT_MM3:
+                return "gone"
+            low, high = (v - entry.dot(direction) for v in _axis_extent(near, direction))
+        else:
+            depth = spec.get("depth_mm")
+            if not (_number(depth) and depth > 0):
+                raise _Unknown(f"{spec.get('label')} depth is unknown")
+            low, high = 0.0, depth
+        base, length = entry + direction * low, high - low
+        core = Part.makeCylinder(band[0] / 4, length, base, direction)
+        if self.part.common(core).Volume > HIT_MM3:
+            return "undrilled"
+        ring = Part.makeCylinder(outer, length, base, direction).cut(
+            Part.makeCylinder(band[1] / 2 + STOCK_TOL, length, base, direction)
+        )
+        held = self.part.common(ring).Volume
+        if held <= HIT_MM3:
+            return "gone"
+        return "present" if ring.Volume - held <= STOCK_MM3 else "partial"
+
     def _use(self, solid):
         """Make ``solid`` the material present for the following facts."""
         self.part = solid
@@ -5004,12 +5090,16 @@ class _Setup:
         if cut.get("kind") == "end_face":
             return self._slab_removal(op, stock)
         try:
-            angle = cut.get("point_angle_deg")
-            exact, led = (_centre_solids(cut, angle, lead) for lead in (0.0, 1.0))
+            if cut.get("kind") == "tooling_hole":
+                exact, led = (self._tooling_solid(cut, stock, lead) for lead in (0.0, 1.0))
+            else:
+                angle = cut.get("point_angle_deg")
+                exact, led = (_centre_solids(cut, angle, lead) for lead in (0.0, 1.0))
+                exact, led = (self._placed(s[0].fuse(s[1:]).removeSplitter()) for s in (exact, led))
         except _Unknown as exc:
             return None, str(exc)
-        exact, led = (self._placed(s[0].fuse(s[1:]).removeSplitter()) for s in (exact, led))
-        outside = exact.cut(stock).Volume
+        # A through tooling hole runs out of the stock by design.
+        outside = 0.0 if cut.get("thru") else exact.cut(stock).Volume
         if outside > STOCK_MM3:
             return None, (
                 f"{cut['label']} is not wholly inside the stock it is drilled in "
@@ -9260,7 +9350,11 @@ class _Setup:
             if process.get("reason"):
                 raise _Unknown(process["reason"])
             entry, tip = self._process_axis(op)
-            moves.append(([(entry.x, entry.y)], tip, max(tip, entry.z, top), {"centre": process}))
+            axial = {"centre": process}
+            if process.get("kind") == "tooling_hole":
+                angle = process.get("point_angle_deg")
+                axial = {"slope": math.tan(math.radians(angle / 2)) if _number(angle) else None}
+            moves.append(([(entry.x, entry.y)], tip, max(tip, entry.z, top), axial))
         if not moves:
             raise _Unknown("the kernel is told no move its tool is commanded through")
         return moves
@@ -10845,6 +10939,11 @@ class _Setup:
             entry, tip = self._process_axis(op)
         except _Unknown as exc:
             return self._op_unknown(op, str(exc))
+        if cut.get("kind") == "tooling_hole":
+            # A plain drill or reamer: the radius/flute model, pointed for a drill.
+            angle = cut.get("point_angle_deg")
+            slope = math.tan(math.radians(angle / 2)) if _number(angle) else None
+            return self._axial_facts(op, after, entry, tip, slope)
         projection = _positive(op, "projection_mm")
         try:
             if projection is None:
@@ -10866,7 +10965,47 @@ class _Setup:
             raise _Unknown(f"{cut['label']} axis is not the setup -Z feed of an axial tool")
         if self.setup.get("machine_kind") == "lathe" and math.hypot(entry.x, entry.y) > AXIS_TOL:
             raise _Unknown(f"{cut['label']} is off the spindle axis the tailstock tool feeds along")
+        if cut.get("kind") == "tooling_hole":
+            length, point, _ = self._tooling_feed(cut, self.part, entry, feed.normalize())
+            return entry, entry.z - length - point
         return entry, entry.z - cut["depth_mm"]
+
+    def _tooling_feed(self, cut, stock, entry, direction):
+        """(full-diameter length from the mouth, point length, tan(point angle / 2) or None)
+        of a tooling hole's tool (``process_cut``) fed from setup-frame ``entry`` along
+        ``direction``. A blind hole's body runs its ``depth_mm``; a through one runs to the
+        far side of ``stock`` along its axis plus the op's ``exit_mm``, as ``blind_depth``
+        prints it. A drill's point cone runs on below either."""
+        radius = cut["diameter_mm"] / 2
+        angle = cut.get("point_angle_deg")
+        slope = math.tan(math.radians(angle / 2)) if _number(angle) else None
+        point = radius / slope if slope else 0.0
+        if not cut.get("thru"):
+            return cut["depth_mm"], point, slope
+        span = stock.BoundBox.DiagonalLength + 10.0
+        probe = Part.makeCylinder(radius, 2 * span, entry - direction * span, direction)
+        common = stock.common(probe)
+        if common.isNull() or common.Volume <= HIT_MM3:
+            raise _Unknown(f"{cut['label']} axis does not meet the stock it is drilled through")
+        far = _axis_extent(common, direction)[1] - entry.dot(direction)
+        if far <= PLANE_TOL:
+            raise _Unknown(f"{cut['label']} stock lies behind its mouth, not along its axis")
+        return far + cut["exit_mm"], point, slope
+
+    def _tooling_solid(self, cut, stock, lead=0.0):
+        """A tooling hole's setup-frame cut in ``stock``: its tool's full-diameter body from
+        ``lead`` above the mouth to :meth:`_tooling_feed`'s length, a drill's point cone
+        below it."""
+        at, axis = _process_place(cut)
+        entry = self.matrix.multVec(at)
+        direction = (self.matrix.multVec(at + axis) - entry).normalize()
+        length, point, _ = self._tooling_feed(cut, stock, entry, direction)
+        radius = cut["diameter_mm"] / 2
+        body = Part.makeCylinder(radius, length + lead, entry - direction * lead, direction)
+        if point <= PLANE_TOL:
+            return body
+        cone = Part.makeCone(radius, 0.0, point, entry + direction * length, direction)
+        return body.fuse(cone).removeSplitter()
 
     def _axial_facts(self, op, after, entry, tip, slope, tool=None):
         """Centred axial tool (pointed when ``slope``) and holder hits on ``after`` stock.

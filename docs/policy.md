@@ -27,12 +27,13 @@ it is a known empty requirement map, so nonrequired unknowns do not block the
 gate. Any error still yields exit 2. Policy cannot make an unimplemented required
 check silently pass.
 
-`joint_fit`, `joint_assembly`, `manual_arc`, `centre_support`, `prepared_blank`
-and `purchased_tooling` are always required (`findings.ALWAYS_REQUIRED`): their
+`joint_fit`, `joint_assembly`, `manual_arc`, `centre_support`, `tooling_hole`,
+`prepared_blank` and `purchased_tooling` are always required (`findings.ALWAYS_REQUIRED`): their
 `warn`, `unknown` or `unsupported` rows yield 4 whatever `[required]` says, so a
 shop never lists them and an omission cannot waive them. A setup with no joint or
 no centre has only `not_applicable` rows for them, which never block; a setup
-using no bought item with receipt checks has no `purchased_tooling` row.
+using no bought item with receipt checks has no `purchased_tooling` row, and one
+that neither works nor locates on a tooling hole has no `tooling_hole` row.
 
 The traveler's operation-performed square records process progress only. It is
 not a rule `pass`, inspection acceptance, clearance to proceed, readiness or

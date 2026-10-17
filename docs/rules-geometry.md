@@ -264,7 +264,7 @@ nothing leaves the face's obligations open; it is never debt or
 `not_applicable`.
 
 Plan [process features](plan.md#process-features) (a faced `end_face`, a
-`centre_hole`) are analytic stock preparation labelled
+`centre_hole`, a `tooling_hole`) are analytic stock preparation labelled
 `plan.process_features.<id>`. The kernel adds them as transient faces after
 the STEP faces (an end face is the disc through `at` normal to `axis`,
 intersected with the stock; a centre is its reversed countersink cone and pilot
@@ -296,6 +296,32 @@ spindle axis is a reason, not a removal. Accessibility, reach and later stock
 states then see the cut centre, and a later setup's hold `centre_hole` seats its
 dead centre in that countersink instead of cutting a seat from
 `centre_hole_dia_mm`.
+
+### Tooling holes
+
+A `tooling_hole`'s transient claim is its reversed wall at the band's largest
+diameter, over its `depth` or, through, the stock's extent along its axis. Its
+`drill` or `ream` op removes the selected tool's own accepted diameter (a drill
+also its accepted `point_angle`) from 1 mm above the mouth along the hole axis,
+which must be setup -Z: a blind hole to its full-diameter `depth`, a through
+hole to the far side of the stock along that axis plus the op's `exit_mm`, a
+drill's point cone below either, minus protected finished material. A blind hole
+must lie wholly inside the stock and its mouth may have no stock over it within
+the lead, as for a centre. An unknown tool diameter or point angle, or an unknown
+`exit_mm` through the stock, is a refused input and leaves the cut unknown. The
+op then measures the plain axial tool and holder like any drill or reamer.
+
+Every setup's facts carry `tooling_holes`, each hole's state on the stock entering
+that setup, but only when the plan declares one. The probe runs in the setup
+frame over the hole's span: `undrilled` while stock fills its core (half its
+smallest radius), `gone` once no stock stands within 1 mm of its largest wall,
+`present` when its core is clear and that ring is whole stock, else `partial`; an
+unplaceable hole is unknown with a reason. A saw cut or any other waste cut that
+takes the hole's material takes the hole: a later setup sees it `gone`. The
+[`tooling_hole`](rules-setup.md#tooling_hole) rule reads these states. A locating
+pin in the hole is also checked by the geometric locator proof below
+(`thin_wall_under_clamp`) when its clamp is a `restraint = "locate"` clamp: the
+drawn pin against the bore the kernel cut.
 
 
 ## Approach models
@@ -2184,7 +2210,9 @@ a run that meets the floor is `unknown` (`drawn straps meet the shop floor but
 other clamps are unresolved: …`) while any debt remains.
 
 A clamp declared `restraint = "locate"` carries no clamping load, so it has no
-footprint run and adds nothing to `min_wall_mm`. Each of its drawn solids that
+footprint run and adds nothing to `min_wall_mm`. (A pin whose `locates` names a
+plan tooling hole also gets a band fit check, see
+[Tooling holes](#tooling-holes).) Each of its drawn solids that
 declares `locates` must instead bear on the setup-entry stock the way its
 `bears` declares, and only that way: neither proof stands in for the other.
 `bears = "bore"` is a radial pin. A convex cylinder of the solid stands in a

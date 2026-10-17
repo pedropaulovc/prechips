@@ -1,12 +1,15 @@
-"""Plan-owned transient stock-preparation features: a faced stock end and a centre hole.
+"""Plan-owned transient stock-preparation features: a faced stock end, a centre hole and a
+tooling (locating) hole in the work's own waste.
 
 Process features resolve once into the operative feature mapping
 (``Bundle.feature_definitions``) with their own kinds (``end_face``, ``centre_hole``) and no
-drawing requirements, so operation rules (speeds and feeds, tip endpoints, accessibility,
-headroom) resolve their ops like any feature's. They are never finished drawing surfaces:
-no exported face maps to them, they earn no drawing coverage or finishing credit, and the
-kernel removes their analytic solids from the stock when their op runs, so later setups
-hold the faced end and the cut centre. Kernel payloads are normalised to millimetres here;
+drawing requirements; a ``tooling_hole`` resolves as a standard ``hole`` (its ``dia`` band,
+``thru`` or ``depth``) whose ``preparation`` identity names it. Operation rules (speeds and
+feeds, tip endpoints, accessibility, headroom) resolve their ops like any feature's. They
+are never finished drawing surfaces: no exported face maps to them, they earn no drawing
+coverage or finishing credit, and the kernel removes their analytic solids from the stock
+when their op runs, so later setups hold the faced end, the cut centre and the tooling hole
+(until a waste cut takes it). Kernel payloads are normalised to millimetres here;
 numeric unknowns stay debt.
 """
 
@@ -29,6 +32,9 @@ ACTIONS = {
         {"face", "rough_face", "finish_face", "profile", "rough_profile", "finish_profile"}
     ),
     "centre_hole": frozenset({"center_drill"}),
+    # A tooling hole is drilled, and reamed when its band needs it: the ream finishes the
+    # band, the drill roughs it (``sizing`` judges the finishing tool against ``dia``).
+    "tooling_hole": frozenset({"drill", "ream"}),
 }
 _CENTRE_KEYS = ("drill_dia_mm", "drill_length_mm", "mouth_dia_mm", "countersink_angle_deg")
 # The selected combined drill and countersink's own fact behind each centre size
@@ -136,8 +142,10 @@ def feature_definitions(plan: dict, definitions: dict, units: str = UNKNOWN) -> 
     for name, feature in declared.items():
         process = {"id": name, "kind": feature["kind"], "label": label(name)}
         process.update({key: feature[key] for key in _CENTRE_KEYS if key in feature})
+        tooling = feature["kind"] == "tooling_hole"
         definition = {
-            "kind": feature["kind"],
+            # A tooling hole is a plain hole to every operation rule.
+            "kind": "hole" if tooling else feature["kind"],
             "frame": "model",
             "at": feature["at"],
             "axis": feature["axis"],
@@ -146,6 +154,11 @@ def feature_definitions(plan: dict, definitions: dict, units: str = UNKNOWN) -> 
             "cite": feature["cite"],
             "preparation": process,
         }
+        if tooling:
+            definition["dia"] = feature["dia"]
+            definition["thru"] = feature.get("thru", False)
+            if "depth" in feature:
+                definition["depth"] = feature["depth"]
         bounds = _planar_bounds(feature, box)
         if bounds is not None:
             definition["bounds"] = bounds
@@ -342,6 +355,11 @@ def primitive(bundle, name: str) -> dict:
         result["depth_mm"] = centre_depth_mm(
             {"preparation": {key: feature[key] for key in _CENTRE_KEYS}}
         )["depth_mm"]
+    if feature["kind"] == "tooling_hole":
+        result["dia_mm"] = _scaled(feature["dia"], scale)
+        result["thru"] = feature.get("thru", False)
+        if not result["thru"]:
+            result["depth_mm"] = _scaled(feature["depth"], scale)
     return result
 
 
@@ -368,7 +386,7 @@ def process_operation(bundle, op: dict) -> dict | None:
             + f", not {result['action']}"
         )
         return result
-    unknown = [key for key in ("at_mm", "axis", "depth_mm") if result.get(key) == UNKNOWN]
+    unknown = [key for key in ("at_mm", "axis", "depth_mm", "dia_mm") if result.get(key) == UNKNOWN]
     if unknown:
         result["reason"] = f"{label(name)} geometry is unknown: " + ", ".join(unknown)
     return result

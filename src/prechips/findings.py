@@ -55,6 +55,7 @@ ALWAYS_REQUIRED = frozenset(
         "joint_assembly",
         "manual_arc",
         "centre_support",
+        "tooling_hole",
         "prepared_blank",
         "purchased_tooling",
     }
