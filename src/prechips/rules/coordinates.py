@@ -671,6 +671,22 @@ def _samples(start, end, step):
     return list(reversed(values)) if reverse else values
 
 
+def _row_spacing(rows, label, errors):
+    """Consecutive rows half a turn or more apart leave the cutter's path between them
+    undetermined: the chord between two such rows reads as the short way round, so
+    neither the rows' cutting order nor the work's turn can be told from them. An error;
+    rows under half a turn apart fix both. :func:`_samples` never spaces rows wider than
+    ``step_deg``, so a ``step_deg`` under 180 always does, and a wider one only errs when
+    the arc is long enough to leave such a gap."""
+    angles = [row.get("angle_deg") for row in rows]
+    gaps = [abs(b - a) for a, b in itertools.pairwise(angles) if number(a) and number(b)]
+    if gaps and max(gaps) >= 180.0:
+        errors.append(
+            f"{label}: rows {max(gaps):g}° apart, half a turn or more, leave the way the "
+            "work turns between them undetermined; set step_deg under 180°"
+        )
+
+
 def _cross(a, b):
     return a[0] * b[1] - a[1] * b[0]
 
@@ -1663,6 +1679,12 @@ def _arc(
     if method == "rotary_table":
         step = contour.get("step_deg", UNKNOWN)
         angles = _samples(start, end, step)
+    elif method == "guided_sweep":
+        from .guided_sweep import swept_angles
+
+        step = contour.get("step_deg", UNKNOWN)
+        sweep = mapping(contour.get("sweep")).get("sweep_deg")
+        angles = swept_angles(start, end, step, sweep, full)
     elif method == "chords" and isinstance(contour.get("count"), int) and contour["count"] > 0:
         angles = [start + (end - start) * i / contour["count"] for i in range(contour["count"] + 1)]
     elif method == "chain_drill" and number(contour.get("pitch_mm")) and contour["pitch_mm"] > 0:
@@ -1706,7 +1728,17 @@ def _arc(
             "feature": feature_name,
             "op": op["op"],
             "method": method,
-            **({"step_deg": step} if method == "rotary_table" else {}),
+            **({"step_deg": step} if method in ("rotary_table", "guided_sweep") else {}),
+            **(
+                {
+                    "span_deg": abs(end - start),
+                    "arc_ends_deg": [start, end],
+                    # The cutter at the arc's middle: the sweep's mid pose.
+                    "arc_mid_setup_xy": row_at((start + end) / 2)["setup_xy"],
+                }
+                if method == "guided_sweep"
+                else {}
+            ),
             **({"cusp_mm": contour["cusp_mm"]} if method == "stairs" and angles else {}),
             "centre_model_xy": model_centre[:2],
             "centre_setup_xy": centre_xy,
@@ -3233,14 +3265,15 @@ def _diagonal(points):
 
 # The manual-mill arc methods (docs/plan.md "Manual arcs"): rough outside the scribed line
 # in single-axis stairs or a chain of drilled holes and file to it (rules/manual_arc.py),
-# or finish it as straight chords or on a rotary table. No method moves two axes at once.
+# or finish it as straight chords, on a rotary table, or swept under a locked cutter in a
+# pivot or rail fixture (rules/guided_sweep.py). No method moves two axes at once.
 ROUGH_METHODS = frozenset({"stairs", "chain_drill"})
-FINISH_METHODS = frozenset({"chords", "rotary_table"})
+FINISH_METHODS = frozenset({"chords", "rotary_table", "guided_sweep"})
 ARC_METHODS = ROUGH_METHODS | FINISH_METHODS
 REMOVED_ARC_TABLE = (
     "contour method arc_table moves two handwheels at once, which a manual mill cannot: "
-    "rough the arc in stairs or chain_drill and file it to the line, or cut it as chords "
-    "or on a rotary_table"
+    "rough the arc in stairs or chain_drill and file it to the line, or cut it as chords, "
+    "on a rotary_table or as a guided_sweep"
 )
 
 
@@ -3831,11 +3864,16 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
     reading to the stop reading, both rounded inward to the dial's resolution: an arc
     shorter than that leaves no reading inside it, an error. A table flagged to verify is
     a debt, and the setup-entry stock must swing inside the table's ``max_work``.
-    Geometry is plan units, ``scale`` mm per unit."""
+    Rows under half a turn apart (:func:`_row_spacing`) make the rows' order follow the
+    cut's sense and each step's shortest angle the table's true turn; wider rows are an
+    error. Geometry is plan units, ``scale`` mm per unit."""
     if table is None:
         return [f"{label}: rotary_table needs the work held on a rotary table (hold.fixture)"], []
     contour = mapping(op.get("contour"))
     errors, debts = [], []
+    _row_spacing(arc["rows"], label, errors)
+    if errors:
+        return errors, debts
     if table["uncertain"]:
         debts.append(f"{label}: the rotary table {table['id']} is flagged to verify")
     centre = arc["centre_setup_xy"]
@@ -3992,6 +4030,7 @@ _NEEDS = {
     "chain_drill": "pitch_mm",
     "chords": "count",
     "rotary_table": "step_deg",
+    "guided_sweep": "step_deg",
 }
 
 
@@ -4097,6 +4136,10 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scal
     if method == "chords":
         offset = arc["offset_mm"] / scale if number(arc["offset_mm"]) else UNKNOWN
         return _chords(arc, band, offset, dro_grid(bundle, setup), table, label, scale)
+    if method == "guided_sweep":
+        from .guided_sweep import guided
+
+        return guided(bundle, setup, op, arc, band, label, scale)
     frame = setup_frame(bundle, setup)
     return _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label, scale)
 
@@ -4704,6 +4747,7 @@ def evaluate(bundle, *, pre_kernel=False):
             sentence += " Manual arc debt: " + "; ".join(arc_debts) + "."
         methods = {table.get("method") for table in numbers["arc_table"]}
         tables = [table.get("rotary", {}).get("table") for table in numbers["arc_table"]]
+        sweeps = [table["guided"] for table in numbers["arc_table"] if "guided" in table]
         result.append(
             Finding(
                 "coordinates",
@@ -4733,6 +4777,23 @@ def evaluate(bundle, *, pre_kernel=False):
                         f"inventory fixtures.{t}: rotary table dial"
                         for t in dict.fromkeys(tables)
                         if t
+                    ),
+                    *dict.fromkeys(
+                        cite
+                        for sweep in sweeps
+                        for cite in (
+                            "docs/plan.md Manual arcs: guided sweep",
+                            *(
+                                [f"inventory fixtures.{sweep['fixture']}: guided-sweep fixture"]
+                                if isinstance(sweep["fixture"], str) and sweep["fixture"] != UNKNOWN
+                                else []
+                            ),
+                            *(
+                                [f"inventory gauges.{sweep['master']}: touch-off master"]
+                                if isinstance(sweep["master"], str) and sweep["master"] != UNKNOWN
+                                else []
+                            ),
+                        )
                     ),
                 ],
                 sentence,

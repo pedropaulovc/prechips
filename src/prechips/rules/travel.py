@@ -208,7 +208,12 @@ def evaluate(bundle):
             )
             xy = {}
             op_xy_complete = True
-            for axis in ("x", "y"):
+            # A guided sweep locks X and Y and its fixture moves the work: the arc's span is
+            # no table stroke. Its swept footprint stays a debt below (#255).
+            fixture_driven = record(op.get("contour")).get("method") == "guided_sweep"
+            if fixture_driven:
+                xy = {"x": "not_applicable", "y": "not_applicable"}
+            for axis in () if fixture_driven else ("x", "y"):
                 band = record(extent).get(axis)
                 located = record(point).get(axis) if fallback else band
                 if path_known and _band(located) and _known(padding):
@@ -349,6 +354,11 @@ def evaluate(bundle):
                     f"declared {axis.upper()} operation span {bound}{minimum_required:g} mm "
                     f"exceeds measured travel {travel['value']:g} mm by {-lower_margin:g} mm"
                 )
+        # A guided sweep's fixture moves while the table stays put: its swept footprint is
+        # not modelled, so the setup is never a travel pass (#255).
+        from .guided_sweep import unmodelled
+
+        swept = unmodelled(bundle, setup, "travel")
         if not operations:
             status, sentence = (
                 "not_applicable",
@@ -366,6 +376,10 @@ def evaluate(bundle):
                 debts,
                 list(dict.fromkeys(missing)),
             )
+            if swept:
+                sentence = sentence.rstrip(".") + "; " + "; ".join(swept) + "."
+        elif swept:
+            status, sentence = "unknown", f"{setup['id']}: " + "; ".join(swept) + "."
         else:
             status = "pass"
             sentence = (
@@ -381,6 +395,7 @@ def evaluate(bundle):
                     "travel_checks": checks,
                     "operations": operations,
                     "measurements": [debts[key] for key in sorted(debts)],
+                    **({"guided_sweep_debts": swept} if swept else {}),
                 },
                 list(dict.fromkeys(cite)),
                 sentence,

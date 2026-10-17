@@ -25,7 +25,8 @@ parented farm/App Insights acceptance remain pending/unobserved.
 Rev 6 design, with current delivery status. Manual arcs (D1): the manual
 mill cuts arcs only by the 1898 method (layout, single-axis stairs or a chain
 drill outside the line, bench filing to buttons or a template checked with a
-radius gauge, or chords / a rotary table); the MDI/`contouring` path and
+radius gauge, or chords / a rotary table, or a guided sweep on a pivot or arc
+rail fixture under a locked cutter, #255); the MDI/`contouring` path and
 `arc_table` are removed. Shipped straight joins support stairs and chain drilling:
 finite drill legs retain exact endpoints and nominal equal spacing within pitch
 (DRO snapping may shift printed spacing); after method/stage/full-hole/
@@ -649,7 +650,7 @@ not exist.
 | tip endpoints from stock state: the setup's `stock_state` advances per op (`to_z`); a through hole's tip endpoint = exit face − point length (`point_angle`, D) − `exit_mm`, reamer: − `lead_mm` − `exit_mm`; blind: depth + point ≤ `features.depth`; tap flute ≥ thread depth; exit face from `local_thickness[feature]`, never the stock section | plan.setups.stock_state, plan.ops.exit_mm/depth_mm/to_z, features.thru/depth, inventory.tools.point_angle/lead_mm/flute_len | M1 | fills the Z column; "6.2 drill to −2.0 leaves 0.14 of cone in the bore; go to −3.86." |
 | speeds/feeds from cutting-data, rounded, then clamped | plan.ops, inventory.tools (material, flutes, chart), machine rpm range, cutting-data | M1 | fills the columns; "? no row for O1 hardened" |
 | zero recipe: for each axis, contact reading = (edge coordinate in frame A) + side·(finder radius), side = −1 when the finder approaches from the negative side of the edge, +1 from the positive side; paper: edge + side·paper, side the side of the face the tool meets it from (its outward normal on a lathe); the Axis Set value is that reading; the check reading = Axis Set value + sign·`check_jog_mm` where sign = +1 if `dro.direction` agrees with the frame axis, else −1; the mirrored reading = Axis Set value − sign·jog; the retouch value after each `retouch_after` op from the advanced stock state | plan.dro, plan.setups.zero (edge, approach side), plan.setups.stock_state, features.frames, inventory.tools (finder dia) | M1 | fills the DRO block; "Y direction is set 'toward' but frame A's Y points away: the sheet would mirror every Y." |
-| coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; manual-arc tables for `contour.method` `stairs`/`chain_drill`/`chords`/`rotary_table`, docs/plan.md Manual arcs) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia, policy.numbers.max_filing_stock_mm | M1 | silent when right; prints sheet 3a |
+| coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; manual-arc tables for `contour.method` `stairs`/`chain_drill`/`chords`/`rotary_table`/`guided_sweep`, docs/plan.md Manual arcs) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia, policy.numbers.max_filing_stock_mm | M1 | silent when right; prints sheet 3a |
 | inspection per requirement: every entry in a feature's `requirements` that is a tolerance (any `*_dia`, `dia`, `finish_ra`, `depth`, `coaxiality_dia` — every requirement that carries a band, not a fixed list) has a `checks.<requirement>` (or, on a multi-feature inspect op, a feature-scoped `checks.<feature>.<requirement>`) on the op that finishes it, and the named gauge exists and spans the band | features.requirements, plan.ops.checks, inventory.gauges | M1 | "Rod hole position Ø0.20 has no check; the 2.00 pin proves size only." |
 | hold fields complete: fixed jaw, stop, grip, clamp, coolant, deburr, direction per cutting op, holder per op, stock state per setup | plan.setups.hold/coolant/deburr_mm/stock_state, plan.ops.direction/holder | M1 | "S3 does not say which jaw is fixed." |
 | headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL/projection, holder gauge length, `machine.envelope` max and X/Y travel — unmeasured → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
@@ -1410,6 +1411,18 @@ sheet.
    prints the op as one station card, a row per feature read differently.
    Single-feature ops and `inspection_views` stay flat. No shipped example
    scopes its checks, so no example traveler changed.
+
+   **Guided-sweep guide pictures shipped (2026-10-16, #255):** a setup with a
+   rail `guided_sweep` draws the arc sled's table-side rollers render-only
+   (role `guide_roller`, one `GUIDE ROLLERS (TABLE)` callout per op) from the sled's
+   new measured `roller_dia` / `roller_height` facts, its `rail_side` and
+   `bed_height`, and the supports under the work; a missing or unmeasured fact
+   is a `NOT SHOWN` note with its `measure:` instruction, and rollers more than
+   one stock size off the work on any axis are a `NOT SHOWN` span note. A
+   pivot's post is a note at the arc centre. The rollers never join the
+   fixture components, so no rule verdict or exit code changes. No shipped
+   example uses a guided sweep, so no example picture changed; the blind
+   machinist review of an authored sled bundle found no introduced issue.
 
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a

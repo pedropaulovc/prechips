@@ -464,6 +464,31 @@ def measurement_entry(category, identity, field, *, status=None, item=None, subj
     elif field == "button_runout":
         description = "filing button outside-diameter runout about its bore"
         instrument = "dial indicator on a fitted mandrel"
+    elif field == "pivot_play":
+        description = "swing arm pivot play: the most its beam's axis moves off the pivot pin's"
+        instrument = "dial indicator on the beam, rocked across the pin"
+    elif field == "rail_radius":
+        description = "arc sled rail radius about its centre"
+        instrument = "trammel from the rail's centre"
+    elif field == "rail_form_error":
+        description = "arc sled rail form error: the most the rail departs from a true arc"
+        instrument = "trammel with a dial indicator, swung along the rail"
+    elif field == "roller_runout":
+        description = "guide roller outside-diameter runout about its stud"
+        instrument = "dial indicator on the roller, turned by hand"
+    elif field == "roller_dia":
+        description = "guide roller outside diameter"
+        instrument = "micrometer or calipers"
+    elif field == "roller_height":
+        description = "guide roller top above the table, on its stud"
+        instrument = "height gauge"
+    elif field == "radius_limits":
+        description = (
+            "setting bar radius limits: the pivot pin's axis to the touch face, seated on the pin"
+            if kind == "setting_bar"
+            else "master arc radius limits about its guide's centre (pivot axis or rail centre)"
+        )
+        instrument = "calipers over the pin" if kind == "setting_bar" else "trammel and feelers"
     elif field == "range" and category == "gauges":
         description = "gauge usable measuring range"
         instrument = "calibrated gauge blocks or length standard"

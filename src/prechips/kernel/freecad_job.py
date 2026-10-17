@@ -66,7 +66,8 @@ Measurement conventions (setup frame, tool axis +Z):
   are multipass volumes, clipped to the stock, not limited to the claims' footprint.
   They keep unclaimed hole-bore columns for their own hole ops, except that a facing
   op releases a column whose bore opens on a claimed +Z face above that face's cut
-  height, inside the box, guard window and its own outer-loop sweep.
+  height, inside the box, guard window and its own outer-loop sweep. Before joining,
+  a column is kept only inside the ownership regions of the branch's components.
 * Modelled placement only: each sample gets one prescribed tool pose, so a hit
   means that pose collides, not that no other pose reaches the face.
 * Vise: stock seated at its lowest z; jaw zone z in [seat, seat +
@@ -3449,6 +3450,80 @@ def _fixture_kind(hold):
     return kind if isinstance(kind, str) and kind != UNKNOWN else None
 
 
+def _guide_solids(setup, debts):
+    """[(name, op, solid)] of a setup's render annotation guide rollers (``guides.rollers``:
+    setup XY ``at_mm``, ``dia_mm``, ``z_mm`` table to top, the ``op`` they guide), as
+    setup-frame cylinders (#255). They are fixed to the table while the work turns, so
+    they are drawn only: never fixture components, so no hit test, clash, contact or
+    clearance reads them and ``fixture_ready`` stays as it was. A malformed roller is a
+    picture debt (``debts``, the render debts), not drawn."""
+    drawn = []
+    rollers = ((setup.get("render") or {}).get("guides") or {}).get("rollers") or []
+    for roller in rollers:
+        name = str(roller.get("name", "guide roller"))
+        at, dia, z = roller.get("at_mm"), roller.get("dia_mm"), roller.get("z_mm")
+        ok = (
+            isinstance(at, list)
+            and len(at) == 2
+            and all(map(_number, at))
+            and _number(dia)
+            and dia > 0
+            and isinstance(z, list)
+            and len(z) == 2
+            and all(map(_number, z))
+            and z[1] > z[0]
+        )
+        if not ok:
+            debts.append(f"{name} not drawn: its position or size is malformed")
+            continue
+        solid = Part.makeCylinder(dia / 2, z[1] - z[0], V(at[0], at[1], z[0]))
+        drawn.append((name, roller.get("op"), solid))
+    return drawn
+
+
+def _guide_tags(guides, taken):
+    """``guides`` ((name, op, solid)) with each roller's mesh tag distinct from every name
+    in ``taken`` (the setup's authored and holding solids) and from each other: the
+    picture leaves guide meshes off by tag and the holding evidence skips them by it, so a
+    fixture primitive named like a roller must never go with them."""
+    taken = set(taken)
+    tagged = []
+    for name, op, solid in guides:
+        while name in taken:
+            name += " (guide)"
+        taken.add(name)
+        tagged.append((name, op, solid))
+    return tagged
+
+
+def _guide_components(guides):
+    """One picture component per op's guide rollers (``guides``: (mesh name, op, box)),
+    so each op's rollers are framed, called out or noted off the picture on their own: one
+    op's rollers standing far off never take another op's nearby ones out of the view. The
+    label names the op only when more than one op has rollers in the setup (#255)."""
+    groups = {}
+    for name, op, box in guides:
+        groups.setdefault(op, []).append((name, box))
+    several = len(groups) > 1
+    components = []
+    for op, members in groups.items():
+        boxes = [box for _, box in members]
+        box = [min(b[i] for b in boxes) for i in range(3)] + [
+            max(b[i + 3] for b in boxes) for i in range(3)
+        ]
+        components.append(
+            {
+                "name": f"guide rollers (op {op})" if several else "guide rollers",
+                "label": f"GUIDE ROLLERS (TABLE, OP {op})" if several else "GUIDE ROLLERS (TABLE)",
+                "role": "guide",
+                "box_mm": box,
+                "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                "meshes": [name for name, _ in members],
+            }
+        )
+    return components
+
+
 def _primitive(spec):
     """A fixture-local box (min corner, size) or cylinder (base centre, axis, dia, length)."""
     at = V(*spec["at_mm"])
@@ -3497,6 +3572,7 @@ _COLOURS = {
     "fixture": (120, 104, 136),
     "clamp": (164, 132, 64),
     "rest": (176, 96, 72),
+    "guide": (72, 116, 148),  # a guided sweep's table-side rollers, drawn only
 }
 
 
@@ -3541,6 +3617,8 @@ class _Job:
             raise ValueError("input is not a version-1 prechips geometry job")
         self.job = job
         self.timing = timing
+        # Component -> ownership region (:meth:`_init_joints`); absent is unrestricted.
+        self.owned_regions = {}
         if timing is not None:
             timing["setups"] = {}
 
@@ -4118,6 +4196,12 @@ class _Job:
         self.protected = {
             name: self.solid for state in self.states.values() for name in state["components"]
         }
+        # Each component's ownership region, in lockstep with ``protected``: the space whose
+        # finished material it owns before joining (None: unrestricted, no boolean at all).
+        self.owned_regions = dict.fromkeys(self.protected)
+        box = _bbox(self.solid)
+        span = 4 * math.dist(box[:3], box[3:]) + 10
+        everywhere = _box_shape([v - span for v in box[:3]] + [v + span for v in box[3:]])
         roots = {ref: state["components"] for ref, state in self.states.items()}
         ancestors = {ref: set() for ref in self.states}
         for setup in self.job["setups"]:
@@ -4183,6 +4267,14 @@ class _Job:
                     owned
                 )
                 self.protected[socket["component"]] = self.protected[socket["component"]].cut(owned)
+                region = self.owned_regions[spigot["component"]]
+                self.owned_regions[spigot["component"]] = (
+                    target if region is None else region.common(target)
+                )
+                region = self.owned_regions[socket["component"]]
+                self.owned_regions[socket["component"]] = (
+                    everywhere if region is None else region
+                ).cut(target)
             elif joint.get("kind") == "surface":
                 try:
                     interfaces = joint.get("interfaces")
@@ -4204,6 +4296,10 @@ class _Job:
                             half = wide.extrude(normal * (sign * size))
                             for name in names:
                                 self.protected[name] = self.protected[name].common(half)
+                                region = self.owned_regions[name]
+                                self.owned_regions[name] = (
+                                    half if region is None else region.common(half)
+                                )
                         if joint.get("negative_ref", refs[0]) == joint.get("positive_ref", refs[1]):
                             raise ValueError(
                                 "surface joint requires opposite branch side ownership"
@@ -4693,6 +4789,9 @@ class _Setup:
                 if self.stock_reason is not None and not _sawn(op) and not _hand(op):
                     self._unproven(result, self.stock_reason)
                 self._checkpoint_facts(op, result)
+                owners = self._hit_owners(result.get("obstacles"), result.get("hit_refs"))
+                if owners:
+                    result["hit_owners"] = owners
                 if self._subject(op) in self.split_holds:
                     result["split_hold"] = self.split_holds[self._subject(op)]
                 ops[self._subject(op)] = result
@@ -4876,6 +4975,41 @@ class _Setup:
         self.part = solid
         self.culled_part = None
         self.regions = {}
+
+    def _hit_owners(self, obstacles, hit_refs):
+        """Built-up only: per hit kind, each occluding solid's owner.
+
+        Part material is this branch's components' stock; a finished face bounding a hit
+        names each component whose finished share bounds a positive area of it, so a hit
+        at a face another component owns is visible as such. A fixture label owns itself.
+        Empty when the plan has one stock or nothing was hit.
+        """
+        if set(self.owner.protected) == {"stock"} or not isinstance(obstacles, dict):
+            return {}
+        faces = [*self.owner.solid.Faces, *self.owner.synthetic_faces]
+        indices = {}
+        for index, label in enumerate(self.owner.labels):
+            indices.setdefault(label, []).append(index)
+        owners = {}
+        for kind, labels in sorted(obstacles.items()):
+            found = {}
+            for label in labels if isinstance(labels, list) else ():
+                found[label] = sorted(self.state["components"]) if label == "part" else [label]
+            refs = hit_refs.get(kind, []) if isinstance(hit_refs, dict) else []
+            for ref in refs:
+                found[ref] = sorted(
+                    name
+                    for name, share in self.owner.protected.items()
+                    if any(
+                        index < len(faces)
+                        and faces[index].Area - faces[index].cut(share).Area
+                        > max(AREA_ABS, faces[index].Area * AREA_REL)
+                        for index in indices.get(ref, ())
+                    )
+                )
+            if found:
+                owners[kind] = dict(sorted(found.items()))
+        return owners
 
     def _certain_material(self):
         pieces = []
@@ -8437,6 +8571,15 @@ class _Setup:
                 possible = []
         rests = self._rest_render(debts)
         solids += [(rest[0], jaw, _COLOURS["rest"]) for rest in rests for jaw in rest[1]]
+        # A guided sweep's rollers are fixed to the table while the work turns: drawn at
+        # the setup's (mid-sweep) pose for the operator, never a holding solid (#255).
+        # A malformed roller is a picture debt, never a holding one: it must not turn
+        # fixture_rendered or the holding clearances unknown.
+        guides = _guide_tags(
+            _guide_solids(self.setup, render_debts),
+            {name for name, _, _ in solids} | {name for name, _ in self.fixture_possible},
+        )
+        solids += [(name, shape, _COLOURS["guide"]) for name, _, shape in guides]
         for name, shape, colour in solids + possible:
             mesh(shape, colour, tag=name)
         parallels = any(c["role"] == "parallel" for c in self.fixture)
@@ -8465,6 +8608,10 @@ class _Setup:
                     "box_mm": _union_box([_bbox(jaw) for jaw in jaws]),
                 }
                 for name, jaws, pose, _, _ in rests
+            ]
+            + [
+                {"name": name, "role": "guide_roller", "exact": True, "box_mm": _bbox(shape)}
+                for name, _, shape in guides
             ],
             "debts": debts,
         }
@@ -8582,6 +8729,7 @@ class _Setup:
                     "meshes": [name],
                 }
             )
+        components += _guide_components([(name, op, _bbox(shape)) for name, op, shape in guides])
         if section_view is not None:
             axis, keep, plane = section_view[:3]
             # A solid wholly on the removed near side is not in the section: no callout.
@@ -8688,7 +8836,10 @@ class _Setup:
         details = [c for c in components if c["role"] == "detail"]
         if details:
             scene["fixture_detail_labels"] = details
+        # Neither the possible-jaw strips nor the table-side guide rollers hold the work:
+        # no contact, clearance or blade path is measured against them.
         possible_names = {name for name, _ in self.fixture_possible}
+        possible_names |= {name for name, _, _ in guides}
         held = [(name, shape) for name, shape, _ in solids if name not in possible_names]
         # A saw's cut is its blade's path, not the offcut that falls away.
         blades = self._blade_paths(held)
@@ -11546,6 +11697,8 @@ class _Setup:
         mouth or beyond a horizontal blind hole's end is never reserved. Its radius stays
         the bore's nominal radius. The bore opens on its native shared-edge neighbours
         except the closed caps among them: point caps and flat bottoms (:meth:`_flat_cap`).
+        Each column is clipped to this branch's component ownership (:meth:`_owned_region`):
+        before joining, another component's bore reserves none of this branch's stock.
         A failed classification raises ValueError and caches nothing.
         """
         if self.hole_columns is None:
@@ -11555,8 +11708,9 @@ class _Setup:
                 face = self.faces[index]
                 if isinstance(face.Surface, Part.Cylinder) and _cylinder_concave(face):
                     bores.append(index)
-            neighbours = {}
+            neighbours, region = {}, None
             if bores:
+                region = self._owned_region()
                 for _, a, b in _shared_edges(self.faces, range(len(self.finished.Faces))):
                     neighbours.setdefault(a, set()).add(b)
                     neighbours.setdefault(b, set()).add(a)
@@ -11575,8 +11729,11 @@ class _Setup:
                         openings.add(other)
                 lo, hi = lo - LIFT, hi + LIFT
                 start = centre + axis * (lo - centre.dot(axis))
-                column = Part.makeCylinder(surface.Radius, hi - lo, start, axis)
-                columns[index] = (column, frozenset(openings))
+                column = self._owned_column(
+                    Part.makeCylinder(surface.Radius, hi - lo, start, axis), region
+                )
+                if column is not None:
+                    columns[index] = (column, frozenset(openings))
             self.hole_columns = columns
         claimed = set(claimed)
         return [
@@ -11584,6 +11741,41 @@ class _Setup:
             for index, (column, around) in sorted(self.hole_columns.items())
             if index not in claimed
         ]
+
+    def _owned_region(self):
+        """This branch's components' ownership regions in the setup frame, or None.
+
+        Before joining, a bore in another component's region (a spigot's own bore seen from
+        its socket's branch) is that component's future hole, not stock this branch keeps
+        for it: the branch's cutters remove the raw stock there. A branch with an
+        unrestricted component (a one-piece part, a stock root no joint divides) is None.
+        """
+        regions = [self.owner.owned_regions.get(name) for name in sorted(self.state["components"])]
+        if not regions or any(region is None for region in regions):
+            return None
+        try:
+            return self._placed(
+                regions[0].multiFuse(regions[1:]) if len(regions) > 1 else regions[0]
+            )
+        except Part.OCCError as exc:
+            raise ValueError(f"the branch's component ownership failed ({exc})") from exc
+
+    @staticmethod
+    def _owned_column(column, region):
+        """The part of a bore ``column`` inside ``region`` (:meth:`_owned_region`), or None.
+
+        A column wholly inside it, or any column when it is None, keeps its exact shape;
+        one wholly outside it is dropped.
+        """
+        if region is None:
+            return column
+        try:
+            if column.cut(region).Volume <= HIT_MM3:
+                return column
+            inside = column.common(region)
+        except Part.OCCError as exc:
+            raise ValueError(f"a bore column's component ownership failed ({exc})") from exc
+        return inside if inside.Volume > HIT_MM3 else None
 
     def _flute_regions(self, op, regions):
         """The material a flute meets: the stock the builder accepted after this op

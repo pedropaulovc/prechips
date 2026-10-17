@@ -426,7 +426,8 @@ def setup_items(bundle, setup):
     bar / buttons, support, clamps, stop, supports and support blocks (fixtures) and
     alignment indicator (a gauge); the zero's touch tools (spindle), holders and gauges (a
     tool touch's Z measuring gauge too), the transfer's tool (spindle) and gauge; then each
-    op's filing guide (its buttons a fixture, its template and gauge gauges), tool,
+    op's filing guide (its buttons a fixture, its template and gauge gauges), guided
+    sweep (its fixture a fixture, its master a gauge), tool,
     holder, inspection gauges (``checks`` and ``missing_requirements``) and process-hold
     gauges. A shop-made holding item is followed by the tool of each of its make
     operations (:func:`make_ops`), a ``tools`` item only (:func:`make_tool`). One reference
@@ -454,6 +455,9 @@ def setup_items(bundle, setup):
         op = record(op)
         guide = record(op.get("guide"))
         uses += [("fixtures", guide.get("buttons"))]
+        # A guided sweep's fixture and the master its cutter is touched to (#255).
+        sweep = record(record(op.get("contour")).get("sweep"))
+        uses += [("fixtures", sweep.get("fixture")), ("gauges", sweep.get("master"))]
         uses += [("gauges", guide.get("template")), ("gauges", guide.get("gauge"))]
         uses += [("tools", op.get("tool")), ("holders", op.get("holder"))]
         uses += [("gauges", gauge) for _, _, gauge in op_entries(op, "checks")]

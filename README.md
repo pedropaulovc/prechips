@@ -80,9 +80,9 @@ two pytest workers and load-scope scheduling, caps extra native workers at one,
 records durations (complete in JUnit) and uploads the pytest log and JUnit
 results even on failure. Successful geometry results persist across runs in a
 cache namespaced by runner OS/architecture, pinned AppImage SHA-256, cache epoch
-and engine source digest. Each immutable save key also includes the run ID and
-attempt; restore uses the matching namespace prefix. Only successful test jobs
-publish the per-run cache.
+and engine source digest (only the sources `freecadcmd` executes). Each immutable save key also includes the shard index,
+run ID and attempt; a shard restores its own latest entry, else the shared
+namespace prefix. Only successful test shards publish their per-run cache.
 The product reports unknown geometry (`?`, exit 4) without FreeCAD;
 skips do not change that behavior.
 CI also sets `PRECHIPS_REQUIRE_PRINT_BROWSER=1`: a missing or unlaunchable
@@ -395,7 +395,17 @@ phase: [#213](https://github.com/pedropaulovc/prechips/issues/213)); a
 arc's bore (or a template) and checks R with a radius gauge whose range covers
 it. `chords` (sagitta proven inside the band, ends on the DRO grid) and a
 `rotary_table` recipe (inventory table, centre pin, offset and dial readings)
-finish arcs on the mill. No traveler prints MDI, G-code or a continuous circle;
+finish arcs on the mill, and a `guided_sweep` (#255), in a setup of its own, finishes an arc whose centre
+is too far off the part for a table: the cutter is touched to a measured master
+and locked while a swing arm on a pivot, or a sled whose rail bears on two
+rollers, sweeps the work under it; the master's radius limits widened by the
+measured pivot play, or the rail's form error and roller runout through the
+rollers' geometry, must hold the band, and an unmeasured guide is debt, never a
+perfect rail. The setup picture draws an arc sled's table-side rollers
+render-only from the sled's measured `roller_dia`, `roller_height` and
+`bed_height` and its `rail_side` (a missing fact is a `NOT SHOWN` note with its
+`measure:` instruction), and notes where a swing arm's pivot post stands, off
+the picture. No traveler prints MDI, G-code or a continuous circle;
 the former `arc_table` method and machine `contouring` are gone.
 Drawing dimensions retain their declared precision; when no precision is
 declared, known values still print their own digits rather than `?`. Operative

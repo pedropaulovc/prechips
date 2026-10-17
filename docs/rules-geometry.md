@@ -115,8 +115,10 @@ Successful (`status = "ok"`) results are cached as JSON under
 `PRECHIPS_KERNEL_CACHE`, else `%LOCALAPPDATA%\prechips\geometry` (or
 `~/.cache/prechips/geometry` without `LOCALAPPDATA`). The key is the SHA-256
 of the canonical job without its `step_path` (the STEP digest and every
-numeric input are inside), the digest of the engine's own `kernel/*.py`
-sources, and the kernel executable's resolved path and freshly read byte SHA-256.
+numeric input are inside), the digest of the engine sources `freecadcmd`
+executes (`kernel.ENGINE_SOURCES`: `freecad_job.py` and its transitive local
+imports, never host-only `kernel/__init__.py` or `render_inputs.py`), and the
+kernel executable's resolved path and freshly read byte SHA-256.
 Changing a consumed geometry input, the STEP, the engine or the kernel
 executable bytes therefore misses; moving the bundle does not. A
 [profiled blank](plan.md#profiled-blank) enters the job as its declared
@@ -133,6 +135,11 @@ unchanged. A hit returns the stored facts and render bytes of the run that
 produced it. Fresh native runs are not proven bit-repeatable; see the
 [print and native acceptance limits](../examples/README.md#print-and-native-acceptance-limits).
 The cache is not part of the hashed bundle.
+Host-side kernel code stays out of the engine digest because whatever it
+changes in the job the engine receives already changes the key: the batch sent
+to `freecadcmd` is exactly the keyed job. Tests derive the engine's import
+closure from `freecad_job.py` and fail when `ENGINE_SOURCES` misses or adds a
+module.
 Native collision fixes change that engine-source digest and require new
 geometry results under the new key. Existing cache entries remain evidence
 of their original worker source; they are never relabelled or copied to the
@@ -140,9 +147,11 @@ new key.
 
 CI persists this local result-cache directory in a separate external cache.
 Its namespace includes runner OS/architecture, the pinned FreeCAD AppImage
-SHA-256, cache epoch and the `kernel/*.py` source digest. Each save key adds the
-unique workflow run ID and attempt; restore uses the matching namespace prefix.
-The workflow saves only after the test job succeeds
+SHA-256, cache epoch and the same engine source digest, printed by
+`prechips.kernel._engine_digest()`. Each save key adds the test shard's
+index, then the unique workflow run ID and attempt; a shard restores its own
+latest entry first, then any entry under the shared namespace prefix. Each
+shard saves only after it succeeds
 ([CI cache policy](../.github/workflows/ci.yml)).
 
 ### Worker processes
@@ -932,6 +941,13 @@ a contained cone apex or sphere pole) extends the column. A wider back
 countersink is therefore not reserved, and a blind hole's column stops at its
 actual cap rather than running on as an unbounded rod; pins or rods outside
 that span are not reserved hole stock.
+In a built-up plan a column is reserved only inside the ownership regions of the
+components on the op's branch, the regions that divide finished material between
+them (a spigot's full joint cylinder, its socket's space outside that cylinder, a
+surface joint's side): before joining, a bore in another component's region is
+that component's future hole, so the branch's cutters remove the raw stock over it
+and none of it stands as an island or obstacle. A one-piece part, a stock root no
+joint divides and an assembly holding every owner keep each column whole.
 A milling profile op (`profile`, `rough_profile`, `finish_profile`) with no
 `stock_removal_bounds` clears its cutter corridor beside its vertical claimed
 walls and the sweep of the cutter-centre paths the traveler prints for it,
@@ -968,6 +984,21 @@ protected-leave material never taken): the box is then its removal, as for
 any bounded op. It is not a demonstrated toolpath or measured execution. An
 explicit break-out/chisel phase or schema is tracked in
 [#213](https://github.com/pedropaulovc/prechips/issues/213), not implied here.
+A `guided_sweep` table ([rules-coordinates](rules-coordinates.md), issue
+[#255](https://github.com/pedropaulovc/prechips/issues/255)) is a driven path in
+the work's frame: the setup frame rides the work on its swing arm or sled, so the
+locked cutter traces the printed cutter-centre arc in it, and the kernel credits
+and checks it exactly like any milling table (corridor beside the claimed wall,
+the rows as chords, a cutter cylinder at every row). Its rows span the whole
+declared sweep, so the cutter's run past each arc end is judged too: a run into
+finished material (a tip wall rising at a concave end) is a rule A′ hit the
+coordinates rule cannot see. The carrier's own `solids` (posed by `hold.pose`)
+move with the work and are checked in the same frame. The pivot post or the
+rollers fixed to the table move relative to the work, so they are never
+fixture components: an arc sled's rollers are drawn render-only at the setup's
+mid-sweep pose (see [Renders](#renders)), and no checkpoint, clash, contact or
+clearance reads them. No removal or hit code in `freecad_job.py` knows the
+method.
 **Rule A′** limits every printed table, row by row: a printed
 row is an accessibility error naming the row when its cutter meets the finished
 part or the op's rough leave (its guard), a fixture component, stock outside a
@@ -1351,9 +1382,9 @@ clip unknown, even when another piece survives: never a partial table.
 Deliberately shortening a free end to preserve a positive web remains allowed.
 Internal `chain_geometry.walls` carry line scrap normals and arc outward
 signs for this shared predicate, not new user schema or policy. The pure
-`kernel/chain_boundary.py` helper participates in the `kernel/*.py` engine
-source digest, so adding or changing it re-keys every kernel job, not just
-chain jobs.
+`kernel/chain_boundary.py` helper is an engine source (`freecad_job.py`
+imports it), so it participates in the engine source digest and changing it
+re-keys every kernel job, not just chain jobs.
 The kept
 rows, renamed per piece with the coordinates row-id formats, are the only rows
 the row check and the setup picture's waypoints use; a bounded op's removal
@@ -1730,7 +1761,10 @@ Numbers: `sample_count`, `tool_hits`, `holder_hits`, the five inputs, and
 `certain_tool_hits` / `certain_holder_hits` when observed hits are definite
 despite unresolved inputs, poses or undeclared jaw overhang. Unknown stock
 leaves `certain_tool_hits` unknown rather than a certain collision; holder
-minima retain their entry-material evidence. A stopping op's known before-stock
+minima retain their entry-material evidence. In a built-up plan any hit adds
+`hit_owners`: per hit kind, `part` names the branch's components (their stock
+was hit), each finished face ref bounding a hit names every component whose
+finished share holds a positive area of it, and a fixture label names itself. A stopping op's known before-stock
 can establish a zero upper hit bound and independent fixture hits, but not
 certainty for its unresolved own part-material removal.
 
@@ -2293,6 +2327,35 @@ are cut and their contacts show (`render_scene.section`: `axis`, `at_mm`). The e
 own orthographic z-buffer rasterizer, bundled bitmap font and PNG encoder
 use no installed fonts, timestamps or machine-specific metadata. Fresh runs
 and cache hits give identical bytes.
+
+A guided sweep's table-side guide elements
+([#255](https://github.com/pedropaulovc/prechips/issues/255)) are drawn for the
+operator, not modelled as holding. The host sends an arc sled's rollers in the
+setup's render annotation (`guides.rollers`: setup XY axis `at_mm`, `dia_mm` and
+`z_mm` from the table to the roller top), each at the rail radius plus or minus its
+radius (`rail_side`) about the arc centre, at its `rollers_deg` from the cutter's
+radial line, the table at the work's seated bottom (`retained_rail_bottom_z` when
+below `bottom_z`, as `headroom` reads it; an authored but unknown one leaves it
+unknown) less the parallels or support blocks under the work (the height the
+`headroom` stack counts) and the fixture's `bed_height`. The
+kernel draws them as cylinders in the guide colour with one `GUIDE ROLLERS
+(TABLE)` callout per op (`GUIDE ROLLERS (TABLE, OP n)` when more than one op in the
+setup has rollers) and lists them in `render_scene.components` with role
+`guide_roller`; they never join the fixture components, so no checkpoint, clash,
+contact, clearance or `fixture_rendered` verdict reads them, and a malformed roller is
+a picture debt only. The isometric view widens to frame each op's rollers within one
+stock size of the work along each of X, Y and Z; rollers farther off would shrink the
+work unreadably, so they are not drawn in the picture or its holding details and a
+`NOT SHOWN` note gives the setup X/Y/Z span
+they stand in, and
+another op's nearby rollers stay framed. A
+roller fact that is missing or not measured, a sled flagged to verify, a negative bed
+height, an inner roller as wide as the rail's diameter (no inner tangency exists), or
+a support with a negative height, or one
+under the work that is unknown or flagged to verify (item or height, as `headroom`
+leaves that stack unresolved), leaves the rollers undrawn with a `NOT SHOWN` note
+naming each gap (a measured fact with its `measure:` instruction). A swing arm's pivot post stands at the arc centre, far
+off the part, so a note names where it stands instead of drawing it.
 
 Blue-grey is material retained after the setup; amber hatch is the Boolean
 difference between actual entry and derived exit stock. When exit stock is

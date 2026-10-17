@@ -2935,6 +2935,7 @@ class _Traveler:
         self.setup_measurement_ids = {}
         # Ops of the current setup with a block on its contour sheet; set by contours().
         self.contour_ops = set()
+        self.sweep_ops = set()  # those whose block is a guided sweep's recipe
         # (shop-made reference, its poses) -> the setup whose sheet 2 prints its table.
         self.shop_made_homes = {}
         # Setup-frame places (axis -> values) of the fits on the shop-made tables being
@@ -6314,6 +6315,18 @@ class _Traveler:
         transfer = _mapping(authored.get("transfer"))
         if transfer:
             pieces.append(_p(self.transfer_line(setup, transfer) + ".", "zero-transfer"))
+        touch_set = _mapping(numbers.get("touch_set"))
+        if touch_set.get("axes"):
+            # A guided-sweep setup (#255): the touch-off on the master sets X and Y.
+            named = " and ".join(str(axis).upper() for axis in touch_set["axes"])
+            ops = ", ".join(f"op {op}" for op in touch_set.get("ops", []))
+            pieces.append(
+                _p(
+                    f"{named}: no edge pickup. The guided sweep ({ops}) sets them by touching "
+                    "the cutter to its master, then locks them for the whole sweep; see its "
+                    "contour sheet."
+                )
+            )
         axes = numbers.get("axes", {})
         # Each toolpost tool is set on centre (a blade also squared) before its first
         # touch-off in the setup: the zero's tools before the zero, the rest before theirs.
@@ -7474,8 +7487,11 @@ class _Traveler:
                 break
             earlier.extend(other.get("ops", []))
         earlier.extend(ops[: index or 0])
+        # An ``ends`` layout scribes only the arc's two end marks (a guided sweep's stops):
+        # no line for the rough to stay outside.
         scribed = feature and any(
-            op.get("do") == "scribe" and op.get("feature") == feature for op in earlier
+            op.get("do") == "scribe" and op.get("layout") != "ends" and op.get("feature") == feature
+            for op in earlier
         )
         return "the scribed line" if scribed else "the finished outline"
 
@@ -8063,9 +8079,34 @@ class _Traveler:
             )
         return lines
 
+    def arc_end_marks(self, op, numbers):
+        """A guided sweep's layout: mark A and mark B at the arc's two ends on the work
+        top, each measured from the stock's own faces (manual_arc ``marks``); the sweep sets
+        its stops on them. Unknown marks print no dimension (the op's STOP follows)."""
+        marks = numbers.get("marks")
+        unit = self.bundle.features.get("units", "")
+        feature = self.feature_name(op.get("feature"))
+        if not (isinstance(marks, list) and len(marks) == 2):
+            return f"Layout: the ends of {feature} are not placed — no marks to scribe."
+        decimals = 1 if unit == "mm" else 3
+        placed = [
+            f"mark {letter} at {mark['x']:.{decimals}f} {unit} from the {mark['x_face']} along "
+            f"X and {mark['y']:.{decimals}f} {unit} from the {mark['y_face']} along Y, its "
+            f"stroke at {mark['angle']:.1f}° to that edge"
+            for letter, mark in zip("AB", marks, strict=True)
+        ]
+        return (
+            f"Layout: blue the work top. At each end of the {feature}, prick a point with a "
+            "rule and square and, with a protractor on the edge named, scribe through it a "
+            f"short stroke toward the arc's centre: {placed[0]}; {placed[1]}. The guided "
+            "sweep sets its stops on these strokes."
+        )
+
     def manual_arc_steps(self, op, numbers, proven):
         """The layout or bench-filing line itself; ``proven`` says whether the rule passed it."""
         o = self.operative
+        if op.get("do") == "scribe" and numbers.get("layout") == "ends":
+            return [_Plain(self.arc_end_marks(op, numbers))]
         if op.get("do") == "scribe":
             centre = numbers.get("centre_setup_xy") or ["unknown", "unknown"]
             axis = numbers.get("centre_on")
@@ -8314,7 +8355,8 @@ class _Traveler:
             if instruction and not finishing:
                 boxes.append(_Note(instruction))
             if str(op["op"]) in self.contour_ops:
-                boxes.append(_Plain(f"See contour table on {where['contours']}"))
+                what = "guided sweep" if str(op["op"]) in self.sweep_ops else "contour table"
+                boxes.append(_Plain(f"See {what} on {where['contours']}"))
             for text, blocked in getattr(self, "contour_stop_rows", {}).items():
                 if str(op["op"]) in blocked:
                     boxes.append(_Box("STOP: " + text))
@@ -8939,6 +8981,68 @@ class _Traveler:
                 ]
                 entry["parts"].append((order(entry, arc), description, [], [], None))
                 continue
+            elif method == "guided_sweep":
+                from prechips.sheet_sweep import established
+                from prechips.sheet_sweep import steps as sweep_steps
+
+                roughs = [
+                    t
+                    for t in numbers.get("arc_table", [])
+                    if t.get("op") == arc.get("op") and t.get("stage") == "rough"
+                ]
+                rough = bool(roughs)
+                finishes = [
+                    t
+                    for t in numbers.get("arc_table", [])
+                    if t.get("op") == arc.get("op") and t.get("stage") == "finish"
+                ]
+                ends = (labels[0], labels[-1]) if labels else ("", "")
+                feed = self.records.get(("speeds_feeds", subject), {}).get("feed_mm_min")
+                # An op stepping down in axial levels sweeps once per level the heading
+                # lists; an unknown level list stops the recipe.
+                swept = operations.get(str(arc.get("op")))
+                z_levels = self.z_levels(setup, swept) if swept else None
+                depths = z_levels.get("levels") if z_levels else None
+                if isinstance(depths, list) and len(depths) <= 1:
+                    depths = None
+                # A rough leaves the spindle running only for a finish that prints runnable
+                # after it; a withheld finish leaves the rough the op's last sweep.
+                finish_follows = (
+                    arc.get("stage") == "rough"
+                    and bool(finishes)
+                    and all(established(t, depths) for t in finishes)
+                )
+                # A finish runs on from its rough's touch-off and stops: when the op leaves
+                # stock for a rough sweep that is not printed runnable (rejected, or stopped),
+                # the finish would return to a touch never made or take the whole leave.
+                leave = (swept or {}).get("rough_allowance_mm")
+                # An authored leave that is not a known amount is unresolved, never absent:
+                # the finish would cut through stock nobody measured.
+                wants_rough = leave is not None and not (_known(leave) and leave <= 0)
+                rough_ready = rough and all(established(t, depths) for t in roughs)
+                if arc.get("stage") == "finish" and wants_rough and not rough_ready:
+                    description = [
+                        "STOP: guided sweep not established (its rough sweep is not "
+                        "established) — do not run."
+                    ]
+                else:
+                    description = sweep_steps(
+                        arc,
+                        o,
+                        *ends,
+                        after_rough=rough,
+                        feed=feed,
+                        final=not finish_follows,
+                        levels=depths,
+                    )
+                # A finish after the op's rough sweep continues the rough's numbered steps.
+                previous = entry.get("sweep_steps")
+                if rough and arc.get("stage") == "finish" and previous is not None:
+                    previous.extend(description)
+                    continue
+                entry["sweep_steps"] = description
+                entry["parts"].append((order(entry, arc), description, [], [], None))
+                continue
             else:
                 entry["stops"].append("manual arc method not established")
                 continue
@@ -9196,6 +9300,12 @@ class _Traveler:
             )
         # The op rows on the front sheet point at these blocks.
         self.contour_ops = set(blocks)
+        # Ops whose block is a guided sweep's recipe: no cutter-centre table (#255).
+        self.sweep_ops = {
+            str(arc.get("op"))
+            for arc in numbers.get("arc_table", []) or []
+            if arc.get("method") == "guided_sweep"
+        }
         if not blocks:
             return ""
         html = []
@@ -9352,6 +9462,8 @@ class _Traveler:
                     numbers.get("x_display"), "X: ? radius or diameter"
                 )
                 if self.lathe(setup)
+                else "guided sweep: X / Y locked, the fixture moves the work"
+                if set(blocks) <= self.sweep_ops
                 else "cutter-centre X / Y"
             )
             + "</h2>"

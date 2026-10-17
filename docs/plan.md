@@ -1118,6 +1118,9 @@ pass sequence.
 | `transfer` | `Transfer` |
 | `tool_touches` | `list[ToolTouch]` |
 
+A setup whose every spindle op is a `guided_sweep` omits `x` and `y`: the sweep's
+touch-off against its master sets them ([zero_check](rules-coordinates.md#zero_check)).
+
 ## AxisZero
 
 | Field | Type (also accepts `"unknown"`) |
@@ -1203,7 +1206,7 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `holder` | `str` (the tool's `shank` must fit it; a single nominal collet capacity accepts the ISO 286 h6 band below it, [`tool_resolves`](rules-tools.md#tool_resolves)) |
 | `direction` | `str` |
 | `note` | `str` |
-| `layout` | `str` (`scribe` only: `dividers`, `trammel` or `template`) |
+| `layout` | `str` (`scribe` only: `dividers`, `trammel` or `template`; or `ends`, a guided sweep's two arc-end marks measured from the bar's own faces) |
 | `guide` | `Guide` (`scribe` with a template, `file_to_line`) |
 | `inspection_note` | `str \| list[str]` (numbered steps; see above) |
 | `process` | `str \| list[str]` (`coating` only: a `services` or `consumables` id) |
@@ -1234,7 +1237,7 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `approach` | `"rotary"` |
 | `angle_window_deg` | `[Number, Number]` |
 | `cut_plane` | `SawPlane` (a straight saw cut only) |
-| `follows` | `str`: `"<setup>:<op>"` of an earlier `scribe` op (a saw that follows its line only) |
+| `follows` | `str`: `"<setup>:<op>"` of an earlier `scribe` op (a saw that follows its line only; an `ends` layout scribes no line, an error) |
 | `allowance_mm` | `Number` > 0: stock a saw that `follows` a line leaves outside it for the file |
 
 An `inspect` op may name several features (`feature = ["a", "b"]`): one
@@ -1433,10 +1436,10 @@ path cut in several depth levels) it also sets the raise Z the sheet prints,
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
-| `method` | `str`: `linear_table`, or a manual-arc method `stairs`, `chain_drill`, `chords`, `rotary_table` |
+| `method` | `str`: `linear_table`, or a manual-arc method `stairs`, `chain_drill`, `chords`, `rotary_table`, `guided_sweep` |
 | `sweep_frame` | `str` |
 | `open_side` | `str` |
-| `step_deg` | `float` (`rotary_table` row spacing) |
+| `step_deg` | `float` (`rotary_table` and `guided_sweep` row spacing; `guided_sweep` under 180) |
 | `step_mm` | `float` (raster step) |
 | `start_deg` | `float` |
 | `end_deg` | `float` |
@@ -1447,6 +1450,7 @@ path cut in several depth levels) it also sets the raise Z the sheet prints,
 | `centre_feature` | `str` (`rotary_table`: the hole on the arc axis the table centres on) |
 | `sweep_bounds` | `Bounds` |
 | `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
+| `sweep` | `GuidedSweep` (`guided_sweep`: its guide, master and sweep) |
 
 A `rough_profile` with `method = "chain_drill"` and a resolved drill-kind
 tool performs drilling, so its speed/feed lookup selects `operation = "drill"`.
@@ -1468,6 +1472,20 @@ poses stand at least one cutter radius outside it (see
 island grown by the cutter radius reaches is at most partly faced, and an unknown
 cutter radius leaves its coverage `?` (see
 [coordinates](rules-coordinates.md)).
+
+## GuidedSweep
+
+A `guided_sweep` contour's `sweep` record ([manual arcs](#manual-arcs), step 4).
+
+| Field | Type (also accepts `"unknown"`) |
+|---|---|
+| `guide` | `"pivot"` (a swing arm on a pin at the arc centre) or `"rail"` (a sled's arc rail on two rollers) |
+| `fixture` | `str`: the inventory `fixtures` item that carries the work and rides the guide (`kind = "swing_arm"` for a pivot, `"arc_sled"` for a rail); it must be the setup's `hold.fixture` |
+| `master` | `str`: the inventory `gauges` item the stationary cutter is touched to (`kind = "setting_bar"`, pivot only, or `"master_arc"`, rail only in practice: a master arc on a swing arm gives no radial line to centre the cutter on, so it prints only a STOP, [#288](https://github.com/pedropaulovc/prechips/issues/288)) |
+| `touch_axis` | `"+X"`, `"-X"`, `"+Y"` or `"-Y"`: the setup axis on the cutter's radial line, and the side of the arc centre the cutter stands on; the setup frame is the work at the sweep's middle pose, so it must point from the arc centre to the arc's middle |
+| `sweep_deg` | `float`: the fixture's whole sweep, centred on the arc; at least the arc's span and under 360 (a full circle cannot be swept: use a rotary table) |
+| `rollers_deg` | `Vector` (rail: the two rollers' angles about the arc centre from the cutter's radial line, counterclockwise from above, with the cutter at the arc's middle) |
+| `rail_deg` | `Vector` (rail: the rail's two ends, the same way) |
 
 ## Guide
 
@@ -1537,7 +1555,7 @@ uses the 1898 manual arc method:
    bounds and the existing 3D collision/accessibility backstop. The open
    fallback is not full-part region proof. Internal wall normals/outward
    signs add no user schema, policy knob or tolerance; the shared
-   `kernel/*.py` helper changes the source digest and re-keys every kernel job.
+   engine helper (`kernel/chain_boundary.py`) changes the source digest and re-keys every kernel job.
    Method, stage, full-hole outside-the-line and requested no-web (authored `pitch_mm` no greater than
    the drill diameter) errors are preconditions found before any clip. A bounded
    chain is then clipped at drill granularity: the drill-centre offset arc and
@@ -1622,8 +1640,109 @@ uses the 1898 manual arc method:
    (`hold.fixture`, its centre bore `bore_dia_mm` for a pin) under a cutter
    locked at the cutter-centre radius on the DRO grid, between dial readings
    rounded inward on its resolution; a pin that misses the table bore, a printed
-   offset whose cut (widened by a pin's play) leaves the band, and an arc too
-   short for one dial step are errors.
+   offset whose cut (widened by a pin's play) leaves the band, an arc too
+   short for one dial step, and rows half a turn or more apart
+   (`step_deg` 180° or more on a long enough arc) are errors.
+5. **Or sweep it under a locked cutter** when its centre is too far off the part
+   for a rotary table: `{ method = "guided_sweep", step_deg = …, sweep = { guide,
+   fixture, master, touch_axis, sweep_deg, rollers_deg, rail_deg } }`
+   ([GuidedSweep](#guidedsweep)). The work rides a fixture that holds it to rotation
+   about the arc centre: a swing arm (`guide = "pivot"`, inventory
+   `kind = "swing_arm"`) turning on a pin at the centre, or a sled
+   (`guide = "rail"`, `kind = "arc_sled"`) whose rail, an arc concentric with the
+   part, is pushed against two rollers fixed in the T-slots. With the spindle
+   stopped the cutter itself is touched to the named `master` along `touch_axis`
+   (a `setting_bar` seated on the pivot pin, or a `master_arc` pinned on the
+   fixture), and X and Y are locked: the table never moves while it cuts, only the
+   fixture does, so no method moves two axes at once. The cut radius is the
+   master's declared `radius_limits` (a measured fact), widened by how far the
+   guide lets the arc centre move between the touch-off and the cut: the swing
+   arm's measured `pivot_play` (twice for a master on the arm, which moves with the
+   beam at the touch-off too), or, on a rail, `2 × g × (rail_form_error +
+   roller_runout / 2)` with the rollers' gain `g = (|sin a| + |sin b|) / |sin(a −
+   b)|` for rollers at `a` and `b`, each plus its finite-geometry terms (a linear
+   gain alone is no bound; one that does not converge leaves the cut unknown); it
+   must lie inside the radial band (a rough
+   stage's moved off the line by its allowance, the cutter backed off that
+   allowance along `touch_axis` on the DRO grid, the only handwheel move, and
+   widened by how far that move misses its radial one with the cutter beside the
+   radial line: one DRO step plus the pivot play for a centred setting bar, or a
+   rail centre's sideways shift `(|cos a| + |cos b|) / |sin(a − b)|` times its
+   rollers' 0.1 mm print rounding plus its form error and half its runout), then by
+   one explicit safety margin, the machine's DRO resolution (one display step,
+   `margin_mm`), which the start's clearance carries too. Bound terms provably
+   smaller than that margin are absorbed rather than modelled (a setting bar touched
+   up to a step beside its line, a touch axis leaning within its one-step tolerance;
+   [#272](https://github.com/pedropaulovc/prechips/issues/272)); a DRO resolution not
+   stated as a measured fact, or a cutter-centre reach under two steps, leaves the
+   margin unproven. The
+   rows sample the cutter-centre arc every `step_deg` over the whole sweep, centred
+   on the arc with its ends kept, so the kernel judges the cutter where the arc
+   ends and where the sweep stops. A sweep shorter than the arc (by more than one
+   DRO step of cutter travel), a sweep of a full turn or more or a full circle
+   (either starts and ends at one fixture pose, so no pair of stops bounds it), a
+   `step_deg` of 180° or more (rows half a turn apart do not show which way the
+   fixture turns between them), a guide fixture that does not carry the work or of
+   the wrong kind, a master that is not a setting bar or master arc, a setting bar
+   on a rail, two rollers on one line through the centre, a roller that runs off
+   the rail during the sweep, a worst-case cut outside the band, and a sweep sharing
+   its setup with another spindle op (nothing holds the turning fixture at the setup
+   pose for it, before the sweep or after; manual ops aside) are errors; an
+   undeclared, unmeasured or flagged guide or master fact (a rail is never
+   perfect), an unknown guide, axis, sweep, rollers or rail ends, or a sweep start
+   not proven clear of the stock the setup receives (the cutter goes down there at
+   every level, in air only), is unknown,
+   with a `measure:` instruction for each physical fact. The traveler prints no
+   DRO table for it (its contour heading and the op row's pointer name a guided
+   sweep): it prints the guide's set-up, which puts the cutter on the arc's radial line
+   so a rough's one-axis back-off is radial (the setting bar seated on the pin, the
+   other axis centred between the bar's two sides and locked; or, on a rail, the other
+   axis locked first and the rollers set from the spindle at their X/Y offsets, which
+   puts the rail's centre on the spindle's line; a master arc on a swing arm gives no
+   radial line, so it prints only a STOP, a finish too, until a feeler touch lifts it,
+   [#288](https://github.com/pedropaulovc/prechips/issues/288)), the touch-off (spindle
+   stopped, feeding the touch axis only), its lock and a blank for the DRO reading at
+   the touch (the setup's zero is never reset), the master taken off the sweep's path, a rough stage's
+   one-axis back-off with the direction the cutter must move (a finish after it
+   raises Z, returns to the touch and continues the same numbered steps; when the op
+   leaves stock for a rough sweep that does not print runnable, the finish stops
+   too), a stop block at each end of the sweep, set at the touch before any back-off
+   (X and Y still locked, spindle stopped, Z just clear): the fixture is moved until
+   the radial stroke of the arc-end mark an earlier `scribe` op with `layout = "ends"`
+   laid out in the same setup, extended, runs through the cutter's axis (whatever
+   radius the master set; only the line counts, never the stroke's direction, so the
+   angle's 0.1° rounding moves the stop by thousandths), then on by the overrun measured
+   along the cutter's path (printed to 0.1 mm rounded down, measured on the touch path;
+   the start is proven in air at that printed stop). That layout scribes marks A and
+   B on the work top, each a point measured from the nearer end face and side face of
+   a rectangular bar the setup receives as the plan's raw stock, square to the setup
+   axes, and a short stroke through it toward the arc's centre at a printed angle to
+   that side face, scribed before any op in the setup that may cut those faces; no
+   such op, stock without those faces, a layout after a cut, or a cut between the layout
+   and the sweep (an earlier sweep cuts its marks away) is unknown and the sweep
+   prints only a STOP. Then a dry pass from stop to stop, then the sweep: spindle started, its
+   direction viewed from above, its angle and cutter travel, and the time it takes
+   at the op's starting feed; each sweep ends with Z raised clear of the work and the
+   fixture, the op's last also stopping the spindle before anyone reaches in. An op
+   stepping down in axial levels (`doc_mm`) sets the heading's top level first and,
+   with Z raised, returns to the first stop for each further level, never sweeping
+   straight to the full depth. The stop step prints no setup X/Y: the marks place the
+   stops on the work. The setup picture draws a rail's rollers where they stand on the
+   table, render-only, once the sled's `roller_dia`, `roller_height`, `bed_height`
+   and `rail_side` ([inventory](inventory.md#manual-arc-kit)) and the supports under
+   the work are known, and notes a pivot's post at the arc centre, off the picture
+   ([rules-geometry](rules-geometry.md#renders)); a missing roller fact is a `NOT
+   SHOWN` note with its `measure:` instruction, never a picture verdict. The
+   worst-case cut radius stays in the report. `travel` and `headroom` do not model
+   the moving fixture (its swept footprint, the stack at every pose), so a setup with
+   a guided sweep is never a pass for either: each owes a `check:` debt
+   ([rules-setup](rules-setup.md#headroom), [#272](https://github.com/pedropaulovc/prechips/issues/272)). Any
+   unproven fact the recipe prints (the guide, its fixture or master, the cut radius,
+   the touch axis, a rough back-off, the sweep and spindle direction, the sweep angle,
+   path or overrun, the stops' landmarks, the cut Z or any axial level, a pivot's play,
+   or a rail's rollers, ends, radius or roller positions) prints only a STOP naming
+   them: nothing runnable stands beside it. So does any error or debt the rule left on
+   the stage that no printed value shows (a machine not proven a mill, say).
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.

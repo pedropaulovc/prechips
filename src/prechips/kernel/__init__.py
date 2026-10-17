@@ -878,6 +878,9 @@ def scribed_profile(bundle, setup, op):
     feature = record(bundle.feature_definitions.get(name))
     if not _arc_feature(feature):
         return None
+    if record(scribe).get("layout") == "ends":
+        # An ends-only layout marks a guided sweep's stops: no line for a saw to follow.
+        return {"reason": f"the scribe op lays out only {name}'s two ends, not its line"}
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     layout = arc_layout(bundle, setup, name)
     if layout is None or scale is None:
@@ -1899,11 +1902,25 @@ def _cache_recipe(job):
     return recipe
 
 
-def _engine_digest():
+# The sources freecadcmd executes, relative to this directory: freecad_job.py and its
+# transitive local imports.
+# Host-only modules (this one, render_inputs.py) stay out, so editing them reuses cached
+# geometry; whatever they change in the job already changes its key.
+ENGINE_SOURCES = (
+    "boolean_pool.py",
+    "chain_boundary.py",
+    "freecad_job.py",
+    "render_diagram.py",
+    "render_png.py",
+    "step_faces.py",
+)
+
+
+def _engine_digest(root=Path(__file__).parent):
     digest = hashlib.sha256()
-    for path in sorted(Path(__file__).parent.glob("*.py")):
-        digest.update(path.name.encode())
-        digest.update(path.read_bytes())
+    for name in ENGINE_SOURCES:
+        digest.update(name.encode())
+        digest.update((root / name).read_bytes())
     return digest.hexdigest()
 
 
