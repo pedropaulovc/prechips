@@ -4699,7 +4699,9 @@ class _Traveler:
                 )
         along = _text(hold.get("jaws_along")).upper()
         if _known(hold.get("jaw_center_along_mm")) and along in ("X", "Y"):
-            facts.append((f"jaw centre at {along}", o(hold["jaw_center_along_mm"])))
+            # A swivelled jaw line runs off the travel: its centre is along the jaws.
+            where = "along the jaws" if "jaws_angle_deg" in hold else f"at {along}"
+            facts.append((f"jaw centre {where}", o(hold["jaw_center_along_mm"])))
         for key, label in (
             ("parallels_centres_mm", "parallels at (X, Y)"),
             ("riser_centres_mm", "risers at (X, Y)"),
@@ -6416,8 +6418,20 @@ class _Traveler:
         top_feature = setup.get("stock_state", {}).get("top_feature")
         rows = []
         measurements = []
+        # A swivelled vise stands the work's edges off the travel: an edge touch there sets
+        # nothing, so it prints a STOP instead of a pick-up (zero_check, #300).
+        slanted = set(numbers.get("swivel_unproven_axes") or [])
         for axis in ("x", "y", "z"):
             if axis not in authored and axis not in axes:
+                continue
+            if axis.upper() in slanted:
+                pieces.append(
+                    _p(
+                        f"STOP: {axis.upper()} zero — the vise is swivelled, so a touch on the "
+                        f"work's edge does not set {axis.upper()}; pick it up by indicating a "
+                        "bore's centre. Do not run."
+                    )
+                )
                 continue
             computed = axes.get(axis, {})
             touch = dict(authored.get(axis, {}))
