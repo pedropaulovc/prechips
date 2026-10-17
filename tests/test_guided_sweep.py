@@ -1089,6 +1089,32 @@ def test_the_margin_needs_a_measured_dro_resolution(tmp_path):
     assert "With X and Y locked" not in printed
 
 
+@pytest.mark.parametrize(
+    "bounds", ["{ x = [0.0, 60.0], y = [-20.0, 25.0], z = [-10.0, 0.0] }", "'unknown'"]
+)
+def test_a_bounded_guided_sweep_prints_only_a_stop(tmp_path, bounds):
+    # The kernel would clip the rows to the bounds, but the stops sit on the arc's ends and
+    # the fixture still sweeps the whole arc: the manual-arc preconditions leave a bounded
+    # sweep debt before any guided record is made, so the traveler has nothing to run
+    # (Codex review of #258 at 10fc8da).
+    plan = guided_plan(tmp_path)
+    change(
+        plan,
+        "direction = 'conventional'\n",
+        f"direction = 'conventional'\nstock_removal_bounds = {bounds}\n",
+    )
+    kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
+    bundle = dataclasses.replace(load_bundle(plan), kernel=kernel)
+    row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
+    assert row.status != "pass", row.sentence
+    assert "guided_sweep cuts its whole arc; stock_removal_bounds cannot clip it" in debts(row)
+    assert all("guided" not in table for table in arcs(row, 20))
+    tools = {("tools", "cutter"): "6 mm endmill"}
+    html = _Traveler(bundle, [row], {}, None).contours(bundle.plan["setups"][0], tools)
+    printed = " ".join(unescape(re.sub(r"<[^>]+>", " ", html)).split())
+    assert "With X and Y locked" not in printed and "stop block" not in printed
+
+
 @pytest.mark.parametrize("kind", ["lathe", "unknown"])
 def test_a_guided_sweep_needs_a_mill(tmp_path, kind):
     # The recipe locks a mill table's X and Y under a vertical spindle; a lathe is an
