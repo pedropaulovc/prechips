@@ -63,8 +63,23 @@ Gauge kinds must suit the requirement. Roughness needs a roughness gauge,
 comparator or profilometer; position/coaxiality/angularity needs CMM, indicator or height
 gauge. Both scalar and banded geometric requirements additionally need a known,
 nonempty declared datum inspection method; bands also use range/resolution checks.
-Complex shape controls need CMM/profile/radius/angle gauges. Other dimensions use the capable dimensional
-gauge kinds. An external micrometer does not measure a hole bore (`dia` or `nominal_dia`). Type
+Complex shape controls (`radius`, `bottom_radius`, `arc_len`, `bottom_arc_len`,
+`land_angle_deg`) are forms: they need CMM/profile/radius/angle gauges.
+A height from a datum axis (`height_above_pivot`, measured from the feature's
+`height_from`) is a linear height to a surface's lowest point, not a form. A
+`cmm`, a `height_gauge` (the part on a surface plate, a pin gauge in the datum
+bore, reading pin top and surface) or a `profile_gauge` template that carries its
+own datum pin (the rocker's) reads it. A radius or angle gauge reads no height. A
+caliper cannot: the height is taken square to the part's datum direction, which
+needs a reference plane, and a hand-held caliper reads only a nearest-point
+distance that equals the height for special geometry alone. The pin and plate
+setup is part of the reading, so it passes only when `height_from` names
+another feature of the exported manifest (not the inspected feature itself, and not
+a plan joint or process feature) and `inspection_methods.height_above_pivot` declares a known
+procedure; otherwise it is `unknown` (`datum height setup (height_from datum or
+inspection method) unresolved`), never a pass. The rule does not parse the
+procedure for a pin. Evidence adds `height_from` and `inspection_method`.
+Other dimensions use the capable dimensional gauge kinds. An external micrometer does not measure a hole bore (`dia` or `nominal_dia`). Type
 incompatibility is an error even if catalog dimensions are unverified.
 
 For a `[low, high]` mm band, gauge range must cover both ends and resolution must
@@ -180,6 +195,7 @@ Sentence templates:
   - `limit check: the gauge's leaf at the MAX limit reads go/no-go (not a reading across the band)`
   - `gauge resolution and declared geometric inspection method cover requirement`
   - `geometric gauge capability or datum inspection method unresolved`
+  - `datum height setup (height_from datum or inspection method) unresolved`
   - `no angular gauge capability`
   - `gauge resolves the tilt's linear zone across its face`
   - `gauge resolution unresolved`

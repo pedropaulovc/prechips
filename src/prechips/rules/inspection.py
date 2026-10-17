@@ -37,6 +37,14 @@ face is the exception: a BASIC angle a profile bounds by ``tilt_across``, or a d
 whose feature declares ``tilt_across``. It is the deviation read end to end across that
 length, so it is judged as the linear zone it is (:func:`._profile.tilt_reading`), on
 resolution alone like a zone.
+
+A height from a datum axis (``height_above_pivot``, from the feature's ``height_from``) is
+a linear height, not a form: a CMM, a height gauge over a pin in the datum bore on a
+surface plate, or a profile template carrying its own datum pin reads it. A radius or angle
+gauge reads no height, and a caliper has no reference plane to read it square to the
+datum, only a nearest-point distance. The setup is debt until both the datum
+(``height_from`` naming another exported manifest feature) and an authored procedure are
+declared.
 """
 
 import math
@@ -78,6 +86,8 @@ ZONES = frozenset(
 GEOMETRIC = frozenset({"position_dia", "coaxiality_dia", "angularity_dia", "surface_profile"})
 # The lengths a machine axis read-out measures, along its own axis.
 AXIAL_LENGTHS = frozenset({"length", "depth", "height", "thickness", "station"})
+# The heights read from a datum axis (``height_from``) to a surface.
+DATUM_HEIGHTS = frozenset({"height_above_pivot"})
 # A limit check's gauge kinds: plugs/pins enter a hole; rings/snaps pass over a boss or shaft.
 LIMIT_GAUGES = {
     "internal": frozenset({"pin_gauge", "pin_gauge_set", "plug_gauge"}),
@@ -261,6 +271,7 @@ def process_holds(bundle, setup, op):
             row,
             limits=(hold.get("go_no_go"), hold["band"]),
             tilt=tilt,
+            name=hold["feature"],
         )
         row.update(gauge_status=capability, gauge_message=reading)
         rows.append(row)
@@ -358,10 +369,20 @@ def procedure_known(method):
     )
 
 
+def _height_datum(bundle, name, feature):
+    """The exported manifest feature ``name``'s ``height_from`` names as its datum, else None:
+    unknown, a plan joint or process feature, or ``name`` itself (no independent datum)."""
+    datum = feature.get("height_from", UNKNOWN)
+    if datum == UNKNOWN or datum == name:
+        return None
+    return datum if datum in record(bundle.features.get("features")) else None
+
+
 def _capability(
-    bundle, feature, requirement, value, gauge_ref, method, nums, limits=None, tilt=None
+    bundle, feature, requirement, value, gauge_ref, method, nums, limits=None, tilt=None, name=None
 ):
-    """``(status, message)`` and consumed debt in ``nums`` for an unresolved capability.
+    """``(status, message)`` and consumed debt in ``nums`` for an unresolved capability of the
+    feature ``name`` (``feature`` its definition).
 
     ``method`` is the op's authored inspection procedure for this check, or None.
 
@@ -417,8 +438,12 @@ def _capability(
         profile_frame_known = (
             requirement == "surface_profile" and frame_unresolved(bundle, profile_datums) is None
         )
-        if geometric:
+        datum_height = requirement in DATUM_HEIGHTS
+        height_from = feature.get("height_from", UNKNOWN)
+        if geometric or datum_height:
             nums["inspection_method"] = method or "unknown"
+        if datum_height:
+            nums["height_from"] = height_from
         if requirement == "angularity_dia":
             nums["angularity_datums"] = angularity_datums
         if requirement == "surface_profile":
@@ -429,13 +454,14 @@ def _capability(
             "arc_len",
             "bottom_arc_len",
             "land_angle_deg",
-            "height_above_pivot",
         }
         capable = (
             kind in {"roughness_gauge", "roughness_comparator", "profilometer"}
             if requirement == "finish_ra"
             else kind in {"cmm", "dial_indicator", "dial_test_indicator", "height_gauge"}
             if geometric
+            else kind in {"cmm", "height_gauge", "profile_gauge"}
+            if datum_height
             else kind in {"cmm", "profile_gauge", "radius_gauge", "angle_gauge"}
             if complex_shape
             else requirement in AXIAL_LENGTHS
@@ -471,6 +497,9 @@ def _capability(
             or (requirement == "surface_profile" and not profile_frame_known)
         ):
             message = "geometric gauge capability or datum inspection method unresolved"
+        elif datum_height and not (method_known and _height_datum(bundle, name, feature)):
+            # The datum pin and plate setup the reading stands on: unknown until declared.
+            message = "datum height setup (height_from datum or inspection method) unresolved"
         elif requirement == "finish_ra":
             consumed = ("ra_range" if "ra_range" in gauge else "range_ra",)
             capability = gauge.get("ra_range", gauge.get("range_ra", "unknown"))
@@ -760,7 +789,16 @@ def evaluate(bundle):
                 method = op_entry(op, "inspection_methods", name, requirement)
                 limits = (pair, accept)
                 status, message = _capability(
-                    bundle, feature, requirement, value, gauge_ref, method, nums, limits, tilt
+                    bundle,
+                    feature,
+                    requirement,
+                    value,
+                    gauge_ref,
+                    method,
+                    nums,
+                    limits,
+                    tilt,
+                    name=name,
                 )
             # Every other op's GO / NO-GO pair for this requirement also prints the drawing
             # band, so it must accept only that band too.
@@ -784,6 +822,7 @@ def evaluate(bundle):
                     row,
                     (pair, accept),
                     tilt,
+                    name=name,
                 )
                 others.append(row)
             if others:

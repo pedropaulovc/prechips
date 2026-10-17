@@ -49205,6 +49205,17 @@
         "band_mm": 0.5,
         "gauge": "rocker-profile-template",
         "gauge_kind": "profile_gauge",
+        "height_from": "pivot_bore",
+        "inspection_method": [
+          "Profile template (make before S4; example dimensions, plausible, not measured; AUTHOR'S CHOICE: made to order by the same outside wire-EDM shop as the S4 op 10 outline template, because the shop cannot hold the R799/R817 blade edges to 0.01): ground steel base plate 380 x 110 x 12.7 with a pressed 6.500 h6 pivot pin, a 2.000 diamond pin with radial flats at X 133.067, Y 8.456 from the pivot pin (the nominal rod hole) and a Ø14 x 3 deep relief under the hub.",
+          "Template blades: two 2.0 blades, doweled and screwed round the part position, each working edge 1.00 outside the nominal outline given at S4 op 10: top blade R799.00 and bottom blade R817.00, both about the arc centre 808.00 above the pivot pin, each blade edge within 0.01 of its radius.",
+          "Template engraving: gap stations on the top blade at X 0, ±40, ±80, ±120 and ±140 and on the bottom blade at X 0, ±40, ±80 and ±120 from the pivot pin; arc-length limit lines, radial through the arc centre, on the top blade at X ±144.808 and ±145.309 from the pivot pin (top-edge arc length 291.59 and 292.61) and on the bottom blade at X ±132.668 and ±133.172 (bottom arc length 266.19 and 267.21).",
+          "Template calibration report (supplied with the template by its maker; re-checked yearly): at every gap station, the blade edge's actual deviation d from its radius, + outward (away from the arc centre), each within ±0.01; and the top blade's actual height over the pivot pin at X 0, H (nominally 9.00). The checks below use these actual values, so the drawing limits are the acceptance limits.",
+          "The kit also holds a loose land square (ground steel block with a 40 long convex R800.00 stock face ground with the top blade, and a 12 blade square to the stock face at its end within 0.01 over 10) and a 0.02 to 1.00 feeler set.",
+          "Set-up, after op 40: clean the part and the template. Lower the part over both pins onto its lower strap face with the hub in the relief, turn it counterclockwise against the diamond pin and hold it down by hand.",
+          "At the X 0 station, find the thickest feeler stack, built in 0.01 steps, that enters between the top blade and the top edge: {g}. Copy the template's H from its calibration report: {H}.",
+          "Calculate: the top edge lies between H - g - 0.01 = {low} and H - g = {high} over the pivot (the 0.01 is the feeler step). Accept if low is at least 8.00 and high at most 8.50, the drawing's limits. If either limit falls between low and high, the reading cannot decide: tag the part HOLD with the readings for the shop owner; it is not accepted or scrapped on this reading."
+        ],
         "limits": [
           8.0,
           8.5
@@ -64350,7 +64361,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "c95d05773fa2993026cf4e9f56e4c6b1f7fdf38c1cafc92997b304e9d4174d85",
+  "hash": "1dad3a91503806b9687553f8ba764f8bf6d611e21a8b38ef2184f7931dde0d9d",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
