@@ -1,7 +1,16 @@
-"""All imported faces need a cutting claim or explicit as-stock declaration."""
+"""All imported faces need a cutting claim, an explicit as-stock declaration, or a joint
+that forms them.
+
+A joint's ``forms`` feature is credited to the joint only when the join assembles, the
+kernel admits its joined corner inside the feature's own band (a sharp corner for a
+``[0, r]`` radius band), and the last op naming the feature at or after the join checks
+that band with a capable gauge (:func:`~prechips.rules.inspection.requirement_check`, a
+limit leaf included). Without a passing check the credit is debt, never a pass; a
+refused join credits nothing.
+"""
 
 from prechips.findings import Finding
-from prechips.rules import blank_credit
+from prechips.rules import blank_credit, inspection
 from prechips.rules.geometry_common import (
     LATHE_APPROACH_REASON,
     ROTARY,
@@ -18,12 +27,89 @@ from prechips.rules.geometry_common import (
 from prechips.rules.resolution import (
     HAND_FINISH,
     SAW_OPS,
+    UNKNOWN,
     claim_refs,
     known_refs,
+    op_entry,
     op_feature,
     operations,
     record,
 )
+
+CLAIM_DEBT = "cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown"
+# The band a joint-formed feature's joined corner is admitted against and read in.
+FORMED_REQUIREMENT = "radius"
+
+
+def _downstream(plan, sid):
+    """``sid`` and every setup whose stock descends from it."""
+    found = {sid}
+    for setup in plan["setups"]:
+        refs = setup.get("stock_in")
+        if any(ref in found for ref in (refs if isinstance(refs, list) else [refs])):
+            found.add(setup["id"])
+    return found
+
+
+def joint_formed(bundle, facts):
+    """``(credited indices, debts, pending indices, rows)`` for every feature a joint
+    ``forms``; ``pending`` are the faces whose credit is debt."""
+    credited, debts, pending, rows = set(), [], set(), []
+    mapping = record(facts.get("mapping"))
+    for setup in bundle.plan["setups"]:
+        joint = record(setup.get("joint"))
+        sid = setup["id"]
+        detail = record(record(facts.get("setups")).get(sid))
+        later = _downstream(bundle.plan, sid)
+        for name in joint.get("forms") or ():
+            formed = record(record(detail.get("forms")).get(name))
+            row = {"joint": sid, "feature": name, "kernel": formed.get("status", UNKNOWN)}
+            rows.append(row)
+            if detail.get("assembly_error"):
+                # The refused join (joint_assembly's error) credits nothing: faces stay open.
+                row["credit"] = "refused"
+                continue
+            refs = record(bundle.feature_definitions.get(name)).get("faces")
+            faces = (
+                {mapping[ref] for ref in refs if ref in mapping}
+                if isinstance(refs, list)
+                else set()
+            )
+            if formed.get("status") != "formed":
+                why = formed.get("reason") or detail.get("stock_reason") or "join unresolved"
+                debts.append(f"{sid} forms {name}, but its joined corner is unresolved ({why})")
+                pending |= faces
+                row["credit"] = UNKNOWN
+                continue
+            # Only an op naming the feature checks it: an unscoped entry on another
+            # feature's op reads that feature, never this corner.
+            checks = [
+                (s, o)
+                for s, o in operations(bundle, name)
+                if s["id"] in later and op_entry(o, "checks", name, FORMED_REQUIREMENT) is not None
+            ]
+            if not checks:
+                debts.append(
+                    f"{sid} forms {name}, but no check after the join reads its "
+                    f"{FORMED_REQUIREMENT} band"
+                )
+                pending |= faces
+                row["credit"] = UNKNOWN
+                continue
+            check_setup, op = checks[-1]
+            status, message, _ = inspection.requirement_check(bundle, name, FORMED_REQUIREMENT, op)
+            row.update(check=f"{check_setup['id']}:{op['op']}", check_status=status)
+            if status != "pass":
+                debts.append(
+                    f"{sid} forms {name}, but its {FORMED_REQUIREMENT} check is not a pass "
+                    f"({message})"
+                )
+                pending |= faces
+                row["credit"] = UNKNOWN
+                continue
+            row["credit"] = "credited"
+            credited.update(formed.get("indices", ()))
+    return credited, debts, pending, rows
 
 
 def evaluate(bundle):
@@ -109,12 +195,19 @@ def evaluate(bundle):
                 withheld.append(ref)
     else:
         debt = True
+    formed, formed_debts, pending, formed_rows = joint_formed(bundle, facts)
+    claimed |= formed
+    if formed_rows:
+        cite.append(
+            "plan.setups.<id>.joint.forms: joined corner admitted by the kernel and checked"
+        )
     # Whole-face claims and as-stock supersede any rotary portion of the same face.
     complete, gaps, unresolved = rotary_union(facts, "cut", rotary - claimed)
     claimed |= complete
     if rotary:
         cite.append("kernel rotary_coverage.cut: exact union of rotary window portions per face")
-    unclaimed = sorted(all_faces - claimed - set(gaps) - set(unresolved))
+    # A formed feature's faces whose credit is debt are judged by that debt, not as missing.
+    unclaimed = sorted(all_faces - claimed - set(gaps) - set(unresolved) - pending)
     values = {
         "face_count": len(all_faces),
         "claimed_face_count": len(all_faces & claimed),
@@ -127,6 +220,8 @@ def evaluate(bundle):
         values["rotary_unresolved"] = list(unresolved.values())
     if withheld:
         values["as_is_withheld"] = withheld
+    if formed_rows:
+        values["joint_formed"] = formed_rows
     uncovered = set(unclaimed) | set(gaps)
     if errors:
         values["mapping_errors"] = sorted(set(errors))
@@ -134,10 +229,10 @@ def evaluate(bundle):
             "error",
             "invalid STEP face reference(s): " + ", ".join(values["mapping_errors"]),
         )
-    elif debt:
+    elif debt or formed_debts and not uncovered:
         status, message = (
             "unknown",
-            "cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown",
+            "; ".join(([CLAIM_DEBT] if debt else []) + formed_debts),
         )
     elif unresolved:
         status, message = (
@@ -181,6 +276,9 @@ def evaluate(bundle):
     else:
         status, message = (
             "pass",
-            "every imported face is claimed by a cutting op or declared as-stock",
+            "every imported face is claimed by a cutting op, declared as-stock or formed by "
+            "a checked joint"
+            if formed
+            else "every imported face is claimed by a cutting op or declared as-stock",
         )
     return [Finding("coverage", subject, status, values, cite, f"{subject}: {message}.")]
