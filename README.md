@@ -63,6 +63,10 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
+While iterating, `uv run scripts/affected_tests.py --base main` runs only the
+tests a change can affect (`--dry-run` prints the selection); CI always runs the
+full suite.
+
 Install [FreeCAD 1.x](https://github.com/FreeCAD/FreeCAD/releases) for real
 geometry checks. Discovery uses `FREECAD_CMD` first, the installed Windows
 FreeCAD 1.1 path next, then `FreeCADCmd`/`freecadcmd` on `PATH`. For example,
