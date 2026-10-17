@@ -8,6 +8,13 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request supersedes its older runs: cancel them instead of
+# spending runner time on a head nobody can merge. Each push to main gets its own
+# group (run_id), so merges never queue behind or cancel one another.
+concurrency:
+  group: ci-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
