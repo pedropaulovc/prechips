@@ -12,7 +12,8 @@ The selection is the union of:
   ``[paths]`` hits below get the same closure;
 * for each changed ``src/prechips`` file, the test modules that executed it,
   from the committed map ``tests/affected_tests.toml`` (``[sources]``,
-  measured per-test coverage; rebuild with ``--rebuild-map``);
+  measured per-test coverage, including the Python subprocesses a test starts,
+  such as the CLI under ``run_cli``; rebuild with ``--rebuild-map``);
 * ``[consumers]``: for a changed file matching a glob, every test module whose
   source names the rule's token. The kernel's engine sources
   (``kernel.ENGINE_SOURCES``) select every ``freecad_kernel`` test: they run
@@ -161,28 +162,75 @@ def select(changed, config):
 
 
 def rebuild_map(pytest_args, datafile=None):
-    """Record which test modules executed each source, from one full testmon run.
+    """Record which test modules executed each source, from one full green testmon run.
 
-    Without ``datafile`` this runs the full suite under ``--testmon-noselect`` first. The
-    map-completeness test is deselected: it fails until this run rewrites the map. A failing
-    test still executed what it covers, so failures still rewrite the map (and are reported);
-    an interrupted or broken session keeps the old one."""
+    Without ``datafile`` this runs the full suite under ``--testmon-noselect`` first, with
+    the map-completeness test deselected (it fails until this run rewrites the map). Python
+    subprocesses the tests start, such as the CLI under ``run_cli``, are measured too, each
+    credited to the test that started it. Any failure keeps the existing map: a failing
+    test may stop before the code it normally covers, and a partial map drops tests."""
     if datafile is not None:
         return write_sources(sources_from(datafile))
     with tempfile.TemporaryDirectory(prefix="prechips-affected-") as directory:
         datafile = Path(directory) / "testmondata"
-        env = {**os.environ, "TESTMON_DATAFILE": str(datafile)}
+        children = Path(directory) / "subprocesses"
+        children.mkdir()
+        rc = Path(directory) / "subprocess.coveragerc"
+        rc.write_text(SUBPROCESS_RC.format(data=children / "coverage"), "utf-8")
+        path = os.pathsep.join(filter(None, [str(ROOT / "scripts"), os.environ.get("PYTHONPATH")]))
+        env = {**os.environ, "TESTMON_DATAFILE": str(datafile), SUBPROCESS_RC_ENV: str(rc)}
+        env["PYTHONPATH"] = path
         env.setdefault("PRECHIPS_KERNEL_WORKERS", "1")
         command = [sys.executable, "-m", "pytest", "--testmon-noselect", "-n", "2"]
-        command += ["--dist", "loadscope", "-q", "--deselect", COMPLETENESS, *pytest_args]
+        command += ["--dist", "loadscope", "-q", "-p", "affected_tests"]
+        command += ["--deselect", COMPLETENESS, *pytest_args]
         status = subprocess.run(command, cwd=ROOT, env=env).returncode
-        if status not in (pytest.ExitCode.OK, pytest.ExitCode.TESTS_FAILED):
+        if status != pytest.ExitCode.OK:
             print(f"pytest exited {status}; keeping the existing map", file=sys.stderr)
             return status
-        write_sources(sources_from(datafile))
-        if status:
-            print("some tests failed; the map still records what they ran", file=sys.stderr)
-        return status
+        sources = sources_from(datafile)
+        for source, modules in subprocess_sources(children).items():
+            sources.setdefault(source, set()).update(modules)
+        return write_sources(sources)
+
+
+# Loaded by --rebuild-map as a pytest plugin (`-p affected_tests`) in every xdist worker:
+# Python subprocesses started from then on run under coverage with the starting test as
+# their context. The workers themselves stay unmeasured, leaving them to testmon.
+SUBPROCESS_RC_ENV = "AFFECTED_TESTS_SUBPROCESS_RC"
+SUBPROCESS_RC = """[run]
+data_file = {data}
+parallel = true
+context = ${{PYTEST_CURRENT_TEST}}
+"""
+
+
+def pytest_configure(config):
+    rc = os.environ.get(SUBPROCESS_RC_ENV)
+    if rc and hasattr(config, "workerinput"):
+        os.environ["COVERAGE_PROCESS_START"] = rc
+
+
+def subprocess_sources(directory):
+    """Map each package source to the test modules whose subprocesses executed it."""
+    import coverage
+
+    package = ROOT / "src" / "prechips"
+    sources = {}
+    for datafile in Path(directory).glob("coverage*"):
+        data = coverage.CoverageData(basename=str(datafile))
+        data.read()
+        for context in data.measured_contexts():
+            module = context.split("::")[0]
+            if not module.startswith("tests/"):
+                continue
+            data.set_query_context(context)
+            for measured in data.measured_files():
+                path = Path(measured).resolve()
+                if path.is_relative_to(package) and data.lines(measured):
+                    source = path.relative_to(ROOT).as_posix()
+                    sources.setdefault(source, set()).add(module)
+    return sources
 
 
 def sources_from(datafile):

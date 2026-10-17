@@ -95,3 +95,27 @@ def test_every_engine_source_selects_every_real_kernel_test():
         if token == "freecad_kernel"
     }
     assert engine == set(kernel.ENGINE_SOURCES)
+
+
+def test_subprocess_coverage_credits_the_test_that_started_it(tmp_path):
+    import coverage
+
+    source = ROOT / "src" / "prechips" / "rules" / "op_order.py"
+    data = coverage.CoverageData(basename=str(tmp_path / "coverage.host.1.x"))
+    data.set_context("tests/test_arithmetic.py::test_x[a] (call)")
+    data.add_lines({str(source): [1], str(ROOT / "scripts" / "affected_tests.py"): [1]})
+    data.set_context("")
+    data.add_lines({str(ROOT / "src" / "prechips" / "sheet.py"): [1]})
+    data.write()
+    assert SCRIPT["subprocess_sources"](tmp_path) == {
+        "src/prechips/rules/op_order.py": {"tests/test_arithmetic.py"}
+    }
+
+
+def test_a_failed_rebuild_keeps_the_existing_map(tmp_path, monkeypatch):
+    monkeypatch.setitem(SCRIPT["rebuild_map"].__globals__, "MAP", tmp_path / "map.toml")
+    (tmp_path / "map.toml").write_text("[sources]\n", "utf-8")
+    failed = subprocess.CompletedProcess([], 1)
+    monkeypatch.setattr(SCRIPT["subprocess"], "run", lambda *a, **k: failed)
+    assert SCRIPT["rebuild_map"]([]) == 1
+    assert (tmp_path / "map.toml").read_text("utf-8") == "[sources]\n"

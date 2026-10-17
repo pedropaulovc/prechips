@@ -174,8 +174,9 @@ the lock, the package version) or a changed file nothing maps selects the full
 suite, never nothing. CI fails (`test_every_tracked_source_is_in_the_map`) while
 a tracked `src/prechips` file is unmapped: list a new source in `[sources]` with
 the test modules that exercise it, or regenerate `[sources]` with `uv run
-scripts/affected_tests.py --rebuild-map` (one full in-process coverage run under
-pytest-testmon, 46 minutes cold here) when the selection drifts. Add a `[paths]`
+scripts/affected_tests.py --rebuild-map` (one full green run under pytest-testmon
+that also measures the Python subprocesses each test starts, such as the CLI under
+`run_cli`; a failing run keeps the old map) when the selection drifts. Add a `[paths]`
 rule when a test starts reading a new non-Python input. CI is the
 authoritative full suite with the required kernel; a local selection is not a
 substitute for it and is not reported as a full-suite pass. Still run `uv run
