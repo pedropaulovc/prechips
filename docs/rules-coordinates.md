@@ -443,8 +443,10 @@ naming them. Each table is recorded under `arc_table` (its joins under
   a touch or back-off along any other axis is not radial. On a rail,
   `roller_contacts_mm` are where each roller bears on the rail, as setup X/Y offsets
   from the spindle axis at the touch. On a rail, both rollers must bear on the rail through
-  the whole sweep (each within `rail_deg` narrowed by half the sweep at both ends)
-  and must not lie on one line through the centre, else an error. A guide fixture
+  the whole sweep (each within `rail_deg` narrowed by half the sweep at both ends;
+  the rail is the shorter arc between its ends, across the ±180° line too, and ends
+  half a turn apart leave its side unknown) and must not lie on one line through the
+  centre, else an error. A guide fixture
   that is not the hold's or not the guide's kind, a master that is not a setting
   bar or master arc, or a setting bar on a rail is an error. An unknown guide,
   fixture, master, axis, sweep, rollers or rail ends, a fixture or master flagged

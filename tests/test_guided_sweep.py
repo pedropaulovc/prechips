@@ -69,12 +69,21 @@ def sweep_contour(guide="pivot", **more):
 
 
 def guided_plan(
-    tmp_path, guide="pivot", *, allowance=None, hold=None, inventory="", target=LONG_ARC, **more
+    tmp_path,
+    guide="pivot",
+    *,
+    allowance=None,
+    hold=None,
+    inventory="",
+    target=LONG_ARC,
+    doc=None,
+    **more,
 ):
     fixture = "arm" if guide == "pivot" else "sled"
+    stepped = {} if doc is None else {"doc_mm": doc}
     plan = scratch(
         tmp_path,
-        op(20, "finish_profile", sweep_contour(guide, **more), allowance=allowance),
+        op(20, "finish_profile", sweep_contour(guide, **more), allowance=allowance, **stepped),
         hold=hold or f"fixture = '{fixture}'",
         target=target,
     )
@@ -314,6 +323,23 @@ def test_a_roller_that_runs_off_the_rail_during_the_sweep_is_an_error(tmp_path):
     assert "runs off the rail" in errors(row)
 
 
+def test_a_rail_across_the_half_turn_line_carries_its_rollers(tmp_path):
+    # Ends at 160° and -160° are the 40° rail through 180°, behind the arc centre: rollers
+    # at ±175° stay on it through the 25° sweep, one at 150° runs off. Ends half a turn
+    # apart leave the rail's side unknown.
+    behind = guided_row(
+        tmp_path / "behind", "rail", rail_deg="[160.0, -160.0]", rollers_deg="[175.0, -175.0]"
+    )
+    assert "runs off the rail" not in errors(behind)
+    off = guided_row(
+        tmp_path / "off", "rail", rail_deg="[160.0, -160.0]", rollers_deg="[150.0, -175.0]"
+    )
+    assert "the roller at 150° runs off the rail" in errors(off)
+    assert "the roller at -175°" not in errors(off)
+    half = guided_row(tmp_path / "half", "rail", rail_deg="[-90.0, 90.0]")
+    assert "are half a turn apart" in debts(half)
+
+
 def test_the_rail_form_error_is_carried_into_the_band(tmp_path):
     # A 0.2 rail: 2 x 1.035 x 0.205 = 0.42 either way of R800.20-800.25 leaves the band.
     worn = f"rail_form_error_mm = {{ value = 0.2, {MEASURED} }}"
@@ -497,29 +523,136 @@ def test_the_sweep_names_its_stops_at_the_arc_ends_and_the_rollers_from_the_spin
     assert contacts[1] == pytest.approx([along, -reach])
 
 
-def test_the_sweep_is_paced_from_the_ops_feed():
+def proven(guide="pivot"):
+    """A guided-sweep table whose every printed fact the coordinates rule established."""
+    sweep = {
+        "guide": guide,
+        "fixture_name": "R800 swing arm",
+        "master_name": "R800 setting bar",
+        "master_kind": "setting_bar",
+        "pivot_play_mm": 0.02,
+        "touch_axis": "-Y",
+        "touch_feed": "-Y",
+        "rotation": "counterclockwise",
+        "cut_radius_mm": [800.08, 800.14],
+        "back_off_mm": 0.0,
+        "sweep_deg": 25.0,
+        "path_mm": 120.0,
+        "overrun_mm": 10.0,
+        "ends_setup_xy": [[-146.0, -3.0], [146.0, -3.0]],
+        "ends_cutter_setup_xy": [[-145.5, 0.0], [145.5, 0.0]],
+    }
+    if guide == "rail":
+        del sweep["pivot_play_mm"]
+        sweep.update(
+            fixture_name="R850 arc sled",
+            master_name="R800 master arc",
+            master_kind="master_arc",
+            rollers_deg=[-15.0, 15.0],
+            rail_deg=[-40.0, 40.0],
+            rail_radius_mm=850.0,
+            roller_contacts_mm=[[-220.0, 50.0], [220.0, 50.0]],
+        )
+    return {"stage": "finish", "spindle_rotation": "cw", "dro_tip_z": -1.0, "guided": sweep}
+
+
+def printed_steps(arc, operative=str, **kwargs):
     from prechips.sheet_sweep import steps
 
-    arc = {
-        "stage": "finish",
-        "spindle_rotation": "cw",
-        "dro_tip_z": -1.0,
-        "guided": {
-            "guide": "pivot",
-            "master_kind": "setting_bar",
-            "touch_axis": "-Y",
-            "touch_feed": "-Y",
-            "rotation": "counterclockwise",
-            "cut_radius_mm": [800.08, 800.14],
-            "sweep_deg": 25.0,
-            "path_mm": 120.0,
-            "overrun_mm": 10.0,
-            "ends_setup_xy": [[-146.0, -3.0], [146.0, -3.0]],
-        },
-    }
-    printed = " ".join(steps(arc, str, "P1", "P3", feed=60.0))
+    return " ".join(steps(arc, operative, "P1", "P3", **kwargs))
+
+
+def test_the_sweep_is_paced_from_the_ops_feed():
+    printed = printed_steps(proven(), feed=60.0)
     assert "at about the op's 60 mm/min feed: 120 s from stop to stop" in printed
     assert "to the other stop (P3)" in printed
+
+
+SWEEP_FACTS = [
+    "guide",
+    "fixture_name",
+    "master_name",
+    "master_kind",
+    "cut_radius_mm",
+    "touch_axis",
+    "touch_feed",
+    "back_off_mm",
+    "rotation",
+    "sweep_deg",
+    "path_mm",
+    "overrun_mm",
+    "ends_setup_xy",
+    "ends_cutter_setup_xy",
+]
+
+
+@pytest.mark.parametrize(
+    ("guide", "where", "key"),
+    [("pivot", "guided", key) for key in [*SWEEP_FACTS, "pivot_play_mm"]]
+    + [
+        ("rail", "guided", key)
+        for key in [*SWEEP_FACTS, "rollers_deg", "rail_deg", "rail_radius_mm"]
+        + ["roller_contacts_mm"]
+    ]
+    + [("pivot", "arc", "dro_tip_z"), ("pivot", "arc", "spindle_rotation")],
+)
+def test_every_unknown_fact_the_recipe_prints_stops_it(guide, where, key):
+    # Unknown is never a pass: each value the printed recipe reads, made unknown on an
+    # otherwise proven sweep, leaves only a STOP, never a runnable touch, lock or sweep.
+    arc = proven(guide)
+    assert "Lock X and Y" in printed_steps(arc)
+    record = arc if where == "arc" else arc["guided"]
+    record[key] = "unknown"
+    printed = printed_steps(arc)
+    assert printed.startswith("STOP: guided sweep not established ("), printed
+    assert "Lock X and Y" not in printed and "stop block" not in printed
+
+
+def test_a_rough_back_off_without_its_dro_reading_stops_the_recipe():
+    arc = proven()
+    arc["guided"].update(back_off_mm=0.3, back_off_dro=0.3)
+    assert "Rough sweep: unlock Y only, move it +0.3" in printed_steps(arc)
+    del arc["guided"]["back_off_dro"]
+    assert printed_steps(arc).startswith("STOP: guided sweep not established (rough back-off")
+
+
+def test_a_stepped_op_sweeps_once_per_level_top_first():
+    # An op stepping down in axial levels never sweeps straight to the full depth: it sets
+    # the top level, returns to the first stop for each further level, and stops the
+    # spindle only after the last.
+    printed = printed_steps(proven(), levels=[-0.5, -1.0])
+    assert "set Z -0.5." in printed and "set Z -1.0." not in printed
+    assert "set the next Z in the heading" in printed and "down to Z -1.0." in printed
+    assert printed.rstrip().endswith(
+        "After the last level, raise Z until the cutter clears the work and the arm, then "
+        "stop the spindle and wait for it to stop."
+    )
+    stopped = printed_steps(proven(), levels="unknown")
+    assert stopped.startswith("STOP: guided sweep not established (cut depth Z unknown)")
+
+
+def test_the_traveler_sweeps_a_stepped_op_at_each_level_in_its_heading(tmp_path):
+    row, printed = traveler_text(tmp_path, doc="0.5")
+    (entry,) = [e for e in row.numbers["operations"] if str(e.get("op")) == "20"]
+    levels = entry["z_levels"]["levels"]
+    assert len(levels) == 2, levels
+    top, bottom = (f"{z:.3f}" for z in levels)
+    assert "2 depth levels: run the complete path below at each Z in the heading" in printed
+    # Numbers print in their own spans: stripped, a space can stand before the stop.
+    assert f"set Z {top} " in printed and f"down to Z {bottom} " in printed
+    assert f"set Z {bottom} " not in printed
+
+
+def test_stop_landmarks_print_at_the_dros_digits_in_inches():
+    # Rounding an inch landmark to 0.1 in could move a stop by 1.27 mm: the places print at
+    # the DRO's own digits.
+    arc = proven()
+    arc["guided"].update(
+        ends_setup_xy=[[-5.7481, -0.1181], [5.7481, -0.1181]],
+        ends_cutter_setup_xy=[[-5.7283, 0.0], [5.7283, 0.0]],
+    )
+    printed = printed_steps(arc, operative=lambda value: f"{value:.4f}")
+    assert "the arc's end at X -5.7481 Y -0.1181 (its centre at X -5.7283 Y 0.0000)" in printed
 
 
 def test_a_rough_then_finish_sweep_touches_off_once_and_returns_to_the_touch(tmp_path):

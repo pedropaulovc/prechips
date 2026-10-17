@@ -8966,8 +8966,21 @@ class _Traveler:
                 )
                 ends = (labels[0], labels[-1]) if labels else ("", "")
                 feed = self.records.get(("speeds_feeds", subject), {}).get("feed_mm_min")
+                # An op stepping down in axial levels sweeps once per level the heading
+                # lists; an unknown level list stops the recipe.
+                swept = operations.get(str(arc.get("op")))
+                z_levels = self.z_levels(setup, swept) if swept else None
+                depths = z_levels.get("levels") if z_levels else None
+                if isinstance(depths, list) and len(depths) <= 1:
+                    depths = None
                 description = sweep_steps(
-                    arc, o, *ends, after_rough=rough, feed=feed, final=not finish_follows
+                    arc,
+                    o,
+                    *ends,
+                    after_rough=rough,
+                    feed=feed,
+                    final=not finish_follows,
+                    levels=depths,
                 )
                 # A finish after the op's rough sweep continues the rough's numbered steps.
                 previous = entry.get("sweep_steps")

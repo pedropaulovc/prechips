@@ -268,14 +268,34 @@ def _rail(sweep, sweep_deg, errors, debts, record_):
             "to bear on both rollers through the sweep"
         )
     elif number(sweep_deg):
-        low, high = sorted(rail)
-        for angle in rollers:
-            if not low + sweep_deg / 2 - _JOIN_TOL <= angle <= high - sweep_deg / 2 + _JOIN_TOL:
-                errors.append(
-                    f"the roller at {angle:g}° runs off the rail (ends {low:g}° to {high:g}°) "
-                    f"during the {sweep_deg:g}° sweep"
-                )
+        _on_rail(rollers, rail, sweep_deg, errors, debts)
     return gain
+
+
+def _wrap(angle):
+    """``angle`` (degrees) on (-180, 180]."""
+    return -((-angle + 180.0) % 360.0 - 180.0)
+
+
+def _on_rail(rollers, rail, sweep_deg, errors, debts):
+    """Each roller must bear on the rail through the whole sweep: within the rail's arc,
+    narrowed by half the sweep at both ends. The rail is the shorter arc between its two
+    ends (a sled's rail is under half a turn), wherever it lies about the centre, across
+    the ±180° line included; ends half a turn apart leave its side unknown."""
+    turn = _wrap(rail[1] - rail[0])
+    if abs(abs(turn) - 180.0) <= _JOIN_TOL:
+        debts.append(
+            f"the rail's ends at {rail[0]:g}° and {rail[1]:g}° are half a turn apart, so which "
+            "side of the arc centre the rail runs is unknown"
+        )
+        return
+    middle, reach = rail[0] + turn / 2, abs(turn) / 2 - sweep_deg / 2
+    for angle in rollers:
+        if abs(_wrap(angle - middle)) > reach + _JOIN_TOL:
+            errors.append(
+                f"the roller at {angle:g}° runs off the rail (ends {rail[0]:g}° to "
+                f"{rail[1]:g}°) during the {sweep_deg:g}° sweep"
+            )
 
 
 def _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid):

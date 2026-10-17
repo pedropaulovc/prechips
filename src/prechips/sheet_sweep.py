@@ -24,25 +24,64 @@ def _pair(value):
 _TURN = {"cw": "clockwise", "ccw": "counterclockwise"}
 
 
-def _unresolved(sweep):
-    """What the coordinates rule left unproven for a printable sweep, in the operator's
-    words; empty when every fact the recipe prints is established."""
+_AXES = ("+X", "-X", "+Y", "-Y")
+
+
+def _points(value):
+    """Two known setup X/Y points (a stop's landmarks, a rail's roller contacts)."""
+    return isinstance(value, list) and len(value) == 2 and all(map(_pair, value))
+
+
+def _named(value):
+    return isinstance(value, str) and value not in ("", "unknown")
+
+
+def _depths(arc, levels):
+    """The Z (plan units, DRO) the sweep runs at, top level first: the op's axial levels
+    when it steps down (``levels``, the heading's list), else the arc's one cut Z; None
+    when any of them is unknown."""
+    if levels is None:
+        levels = [arc.get("dro_tip_z")]
+    if not (isinstance(levels, list) and levels and all(map(_known, levels))):
+        return None
+    return levels
+
+
+def _unresolved(arc, sweep, levels=None):
+    """Every fact the printed recipe states that the coordinates rule left unproven, in
+    the operator's words; empty only when each one is established. An unknown input never
+    prints a runnable step: each value the recipe reads is checked here, not trusted to
+    follow from another."""
     missing = []
     if sweep.get("guide") not in ("pivot", "rail"):
         missing.append("guide unknown")
+    if not (
+        _named(sweep.get("fixture_name"))
+        and _named(sweep.get("master_name"))
+        and sweep.get("master_kind") in ("setting_bar", "master_arc")
+    ):
+        missing.append("guide fixture or master unknown")
     if not _pair(sweep.get("cut_radius_mm")):
         missing.append("cut radius unproven")
-    if sweep.get("touch_axis") not in ("+X", "-X", "+Y", "-Y"):
+    if sweep.get("touch_axis") not in _AXES or sweep.get("touch_feed") not in _AXES:
         missing.append("touch axis unknown")
-    if sweep.get("rotation") not in ("clockwise", "counterclockwise"):
+    back = sweep.get("back_off_mm")
+    if not _known(back) or (back > 0 and not _known(sweep.get("back_off_dro"))):
+        missing.append("rough back-off unknown")
+    if sweep.get("rotation") not in ("clockwise", "counterclockwise") or (
+        arc.get("spindle_rotation") not in _TURN
+    ):
         missing.append("sweep direction unknown")
-    if not (_known(sweep.get("sweep_deg")) and _known(sweep.get("path_mm"))):
+    if not all(_known(sweep.get(key)) for key in ("sweep_deg", "path_mm", "overrun_mm")):
         missing.append("sweep angle unknown")
-    ends = sweep.get("ends_setup_xy")
-    if not (isinstance(ends, list) and len(ends) == 2 and all(map(_pair, ends))):
+    if not (_points(sweep.get("ends_setup_xy")) and _points(sweep.get("ends_cutter_setup_xy"))):
         # Each stop block is set where the cutter reaches an arc end: without them the
         # sweep has nothing to bound it.
         missing.append("sweep stops unknown")
+    if _depths(arc, levels) is None:
+        missing.append("cut depth Z unknown")
+    if sweep.get("guide") == "pivot" and not _known(sweep.get("pivot_play_mm")):
+        missing.append("pivot play unknown")
     if sweep.get("guide") == "rail":
         missing += _rail_unresolved(sweep)
     return missing
@@ -53,24 +92,20 @@ def _rail_unresolved(sweep):
     the operator sets each roller from the spindle, which the rail's radius places."""
     if not (_pair(sweep.get("rollers_deg")) and _pair(sweep.get("rail_deg"))):
         return ["rollers or rail ends unknown"]
-    contacts = sweep.get("roller_contacts_mm")
-    if not (
-        _known(sweep.get("rail_radius_mm"))
-        and isinstance(contacts, list)
-        and len(contacts) == 2
-        and all(map(_pair, contacts))
-    ):
+    if not (_known(sweep.get("rail_radius_mm")) and _points(sweep.get("roller_contacts_mm"))):
         return ["rail radius or roller positions unknown"]
     return []
 
 
-def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True):
+def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True, levels=None):
     """The recipe's numbered steps for one guided-sweep table ``arc`` (its ``guided`` record
     and stage); ``operative`` prints a machine target at DRO resolution, ``start`` and
     ``stop`` are the picture keys of its first and last cutter rows (may be empty) and
     ``feed`` the op's starting feed, mm/min. A finish ``after_rough`` (the same op's rough
     sweep printed first) only returns to the touch and sweeps between the same stops. Only
-    the op's ``final`` sweep stops the spindle at its end."""
+    the op's ``final`` sweep stops the spindle at its end. ``levels`` are the op's axial
+    levels (the contour heading's Z list, top first) when it steps down; the sweep then
+    runs once at each."""
     from prechips.sheet import _number, _text
 
     sweep = arc.get("guided") if isinstance(arc.get("guided"), dict) else {}
@@ -84,18 +119,19 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True)
     holder = {"pivot": "arm", "rail": "sled"}.get(guide, "fixture")
     move = {"pivot": "swing", "rail": "push"}.get(guide, "move")
     result = []
-    missing = _unresolved(sweep)
+    missing = _unresolved(arc, sweep, levels)
     if missing:
         # Nothing actionable prints under an unproven sweep: a guide, touch or stop printed
         # beside a STOP would still be run.
         return [f"STOP: guided sweep not established ({', '.join(missing)}) — do not run."]
+    depths = _depths(arc, levels)
     if after_rough and arc.get("stage") == "finish":
         result.append(
             f"Finish sweep, Z still raised clear: unlock {letter} only, return it to the touch "
             f"reading and lock {letter} again."
         )
         result.append(
-            _sweep(arc, sweep, o, holder, move, start, stop, feed, stops=False, final=final)
+            _sweep(arc, sweep, o, holder, move, (start, stop), feed, depths, False, final)
         )
         return result
     if guide == "pivot":
@@ -147,7 +183,7 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True)
             f"centre; if it moves the other way, STOP: {letter} reads reversed."
         )
     result.append(_stops(sweep, o, holder, move, start, stop))
-    result.append(_sweep(arc, sweep, o, holder, move, start, stop, feed, stops=True, final=final))
+    result.append(_sweep(arc, sweep, o, holder, move, (start, stop), feed, depths, True, final))
     return result
 
 
@@ -167,19 +203,18 @@ def _stops(sweep, o, holder, move, start, stop):
     keys = [f" ({key})" if key else "" for key in (start, stop)]
 
     def at(point):
-        # Places on the work, not DRO targets: X and Y stay locked, so they print to 0.1.
-        return f"X {_number(_round(point[0], 1))} Y {_number(_round(point[1], 1))}"
+        # Places on the work in plan units, at the DRO's own digits: in inches a 0.1
+        # rounding would move a stop by up to 1.27 mm.
+        return f"X {o(point[0])} Y {o(point[1])}"
 
-    centres = sweep.get("ends_cutter_setup_xy")
-    centres = centres if isinstance(centres, list) and all(map(_pair, centres)) else None
+    centres = sweep["ends_cutter_setup_xy"]
     # The landmark is on the cutter's own path: its edge reaches the arc's end when its
     # centre stands on the end's radial line, a cutter radius off the arc.
     place = [
-        f"edge reaches the arc's end at {at(end)}"
-        + (f" (its centre at {at(centre)})" if centre else "")
-        for end, centre in zip(ends, centres or [None, None], strict=True)
+        f"edge reaches the arc's end at {at(end)} (its centre at {at(centre)})"
+        for end, centre in zip(ends, centres, strict=True)
     ]
-    if _known(overrun) and overrun > 0:
+    if overrun > 0:
         far = _number(_round(overrun, 1))
         on = (
             f", then on {far} mm more, measured with a steel rule along the cutter's path, "
@@ -198,41 +233,51 @@ def _stops(sweep, o, holder, move, start, stop):
     )
 
 
-def _sweep(arc, sweep, o, holder, move, start, stop, feed, stops, final):
-    """Start the spindle, set Z, sweep the fixture from stop to stop and withdraw; the
-    ``final`` sweep of the op also stops the spindle."""
+def _sweep(arc, sweep, o, holder, move, keys, feed, depths, stops, final):
+    """Start the spindle, set Z, sweep the fixture from stop to stop and withdraw, once at
+    each of ``depths`` (top first, returning to the first stop between them); the op's
+    ``final`` sweep also stops the spindle."""
     from prechips.sheet import _number, _text
 
+    start, stop = keys
     pressed = (
         ", keeping the rail pressed against both rollers" if sweep.get("guide") == "rail" else ""
     )
-    turn = _TURN.get(arc.get("spindle_rotation"))
-    path = sweep.get("path_mm")
+    turn = _TURN[arc["spindle_rotation"]]
+    path = sweep["path_mm"]
     pace = ""
-    if _known(feed) and feed > 0 and _known(path):
+    if _known(feed) and feed > 0:
         pace = (
             f", at about the op's {_number(_round(feed, 0))} mm/min feed: "
             f"{_number(_round(path / feed * 60.0, 0))} s from stop to stop"
         )
-    turning = f" {turn}" if turn else ""
     first = f" ({start})" if start else ""
     last = f" ({stop})" if stop else ""
+    raise_z = f" At that stop, raise Z until the cutter clears the work and the {holder}"
+    # A stepped op sweeps once per level, top first, back from the first stop each time,
+    # never straight to the full depth.
+    again = ""
+    if len(depths) > 1:
+        again = (
+            f"{raise_z}, {move} the {holder} back against the first stop and set the next Z "
+            "in the heading; sweep the same way at each Z in the heading, in order, down to "
+            f"Z {o(depths[-1])}."
+        )
+        raise_z = " After the last level," + raise_z[len(" At that stop,") :]
     # Every sweep ends withdrawn; the op's last also stops the spindle before anyone
     # reaches in to unclamp or measure.
-    end = f" At that stop, raise Z until the cutter clears the work and the {holder}" + (
-        ", then stop the spindle and wait for it to stop." if final else "."
-    )
+    end = raise_z + (", then stop the spindle and wait for it to stop." if final else ".")
     lead = (
-        f"{move.capitalize()} the {holder} against the first stop{first}, start the "
-        f"spindle{turning}"
+        f"{move.capitalize()} the {holder} against the first stop{first}, start the spindle {turn}"
         if stops
         else f"{move.capitalize()} the {holder} back against the same first stop (the finish "
         f"path starts at {start or 'its first point'} in the picture) with the spindle "
-        f"running{turning}"
+        f"running {turn}"
     )
     return (
-        f"{lead} and set Z {o(arc.get('dro_tip_z'))}. With X and Y locked, move only the "
+        f"{lead} and set Z {o(depths[0])}. With X and Y locked, move only the "
         f"{holder}: {move} it {_text(sweep.get('rotation'))} (viewed from above) to the other "
         f"stop{last}, {_number(sweep.get('sweep_deg'))}°, "
-        f"{_number(_round(path, 1))} mm of cutter travel along the work{pressed}{pace}.{end}"
+        f"{_number(_round(path, 1))} mm of cutter travel along the work{pressed}{pace}."
+        f"{again}{end}"
     )

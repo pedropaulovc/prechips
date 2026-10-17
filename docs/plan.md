@@ -1690,13 +1690,19 @@ uses the 1898 manual arc method:
    path), a dry pass from stop to stop, then the sweep: spindle started, its
    direction viewed from above, its angle and cutter travel, and the time it takes
    at the op's starting feed; each sweep ends with Z raised clear of the work and the
-   fixture, the op's last also stopping the spindle before anyone reaches in. The
-   worst-case cut radius stays in the report. `travel` and `headroom` do not model
+   fixture, the op's last also stopping the spindle before anyone reaches in. An op
+   stepping down in axial levels (`doc_mm`) sets the heading's top level first and,
+   with Z raised, returns to the first stop for each further level, never sweeping
+   straight to the full depth. The stops' landmarks print in plan units at the DRO's
+   digits. The worst-case cut radius stays in the report. `travel` and `headroom` do not model
    the moving fixture (its swept footprint, the stack at every pose), so a setup with
    a guided sweep is never a pass for either: each owes a `check:` debt
    ([rules-setup](rules-setup.md#headroom), [#272](https://github.com/pedropaulovc/prechips/issues/272)). Any
-   unproven guide, cut radius, axis, direction, angle, stops (the arc's ends on the
-   work), rollers, rail ends or rail radius prints only a STOP naming them.
+   unproven fact the recipe prints (the guide, its fixture or master, the cut radius,
+   the touch axis, a rough back-off, the sweep and spindle direction, the sweep angle,
+   path or overrun, the stops' landmarks, the cut Z or any axial level, a pivot's play,
+   or a rail's rollers, ends, radius or roller positions) prints only a STOP naming
+   them: nothing runnable stands beside it.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.
