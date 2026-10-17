@@ -1169,8 +1169,9 @@ recipes; an unknown action cannot establish the saw-only exemption.
   above by each side's sum, and must lie inside `band_mm`. A master or touch axis, a
   rough stage, a nonpositive pin spacing, pins that do not subtend `α`, a pin inside
   the swept window, tolerances that leave no acute crossing, and a
-  carriage beyond `rail_travel`, a stop that set 0.55 mm off its station could hold
-  the carrier short of an arc end (`stops`, with each stop's `stop_bands_deg`), and a
+  carriage that may leave its `rail_travel` on the fixture at its measured tolerances
+  (`station_envelope_mm`), a stop that set off its station could hold the carrier short of
+  an arc end (`stops`), and a
   setup shared with another spindle op, or a machine not a mill, are errors; a start not proven clear of the
   stock at every pose the first stop can hold (`start`, proven exactly over that band from
   the arc's true X and Y extremes) and any unmeasured fixture
@@ -1181,6 +1182,14 @@ each of the trammel's geometric proofs carries one DRO step of margin (`margin_m
 cut's widening below and above, the stops' setting error and the start's clearance; an
 unmeasured DRO resolution leaves the margin unproven, as debt. Any error or debt the rule
 records (`open_debts`) stops the card even when no printed value shows it.
+
+The stops, the start and the rails' travel are proven on the fixture at its measured
+tolerances, not the nominal one: for every corner of the rail angle and pin spacing errors
+and each pin-line off by its pin clearance plus rail offset either way, with each stop set
+at its printed 0.1 mm station off by half a millimetre of rule plus one DRO step either
+way, the carrier's pose is solved exactly from its two pin-on-line constraints
+(`stop_bands_deg`, the cutter's angle about the arc centre at each stop; `stop_radial_mm`,
+how far it stands off the nominal path there; `stop_stations_mm`, each pin's station).
 
 #### Trammel operator sequence
 
@@ -1194,7 +1203,7 @@ its error reaches the cut. Every value printed here is in the card's one gate
 | 0. Rails aligned (once per install, [#270](https://github.com/pedropaulovc/prechips/issues/270)) | rail angle `α` (information) | the commissioning readings that put both pin-lines through the spindle axis | the rails' crossing angle: radius `R(D, α)`; a pin-line off the spindle axis: about 1:1 | the measured `rail_angle_error` at its corners; `rail_offset` through `line_gain` |
 | 1. Seat the pin pair | pair name, spacing `D` (information) | the carrier's drilled pin holes | spacing: radius `R(D, α)`; a pin's play in its carriage: about 1:1 | `pin_spacing_error` at its corners; `pin_clearance` through `line_gain` |
 | 2. Lock X and Y on the rails' crossing | none (no X/Y pickup, no DRO sign) | the spindle left where step 0 aligned the rails | moving X/Y offsets both pin-lines: radial about 1:1 | the card forbids moving them; the zero owes no X/Y |
-| 3. Clamp the stops on rail 1 | each end's pin station, 0.1 mm, from the spindle axis and along the rail from the carriage's near end stop (`rail_travel` near limit) | a steel rule from that end-stop position | a stop off by up to 0.55 mm holds the carrier at another pose (`stop_bands_deg`, the exact inverse of the station); it never moves the radius | an error unless the worst stop still holds past its arc end; debt unless the cutter goes down in air at every pose the first stop can hold |
+| 3. Clamp the stops on rail 1 | each end's pin station, 0.1 mm, from the spindle axis and along the rail from the carriage's near end stop (`rail_travel` near limit) | a steel rule from that end-stop position | a stop off by up to 0.55 mm holds the carrier at another pose (`stop_bands_deg`, the exact inverse of the station); it never moves the radius | an error unless the worst stop, on the fixture at its tolerances, still holds past its arc end; debt unless the cutter goes down in air at every pose the first stop can hold |
 | 4. Check rail 2's stations | the other pin's stations at both stops | the same rule on rail 2 | a mismatch means the rails or pins are not as set | the card says STOP on a mismatch |
 | 5. Dry pass | none | — | clamps or holder in the path | `headroom` owes this check at every pose |
 | 6. Start the spindle, set and lock Z | spindle direction; Z at DRO resolution (each level when stepped) | the setup's Z zero | one DRO step of Z moves the depth only, never the radius | the tip rules; not the trammel's |

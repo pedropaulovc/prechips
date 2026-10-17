@@ -48,12 +48,14 @@ def trammel_contour(**more):
     return f"{{ method = 'guided_sweep', step_deg = 1.0, sweep = {{ {sweep} }} }}"
 
 
-def trammel_plan(tmp_path, *, allowance=None, hold="fixture = 'tram'", inventory=TRAMMEL, **more):
+def trammel_plan(
+    tmp_path, *, allowance=None, hold="fixture = 'tram'", inventory=TRAMMEL, target=LONG_ARC, **more
+):
     plan = scratch(
         tmp_path,
         op(20, "finish_profile", trammel_contour(**more), allowance=allowance),
         hold=hold,
-        target=LONG_ARC,
+        target=target,
     )
     path = plan.with_name("inventory.toml")
     path.write_text(path.read_text(encoding="utf-8") + inventory, encoding="utf-8")
@@ -1049,3 +1051,53 @@ def test_an_open_debt_no_printed_value_shows_still_stops_the_card(tmp_path):
     card = steps(blocked, lambda v: f"{v:.3f}", "A", "B", feed=100.0)
     assert card[0].startswith("STOP:") and "machine kind is unknown" in card[0]
     assert not established(blocked)
+
+
+# --- Codex review of 6651721 -----------------------------------------------------------
+
+
+def _nearest_stop_overshoot(row):
+    """How far past its arc end each stop's worst pose stays, degrees (least of both)."""
+    _, sweep = recipe(row)
+    bands, half = sweep["stop_bands_deg"], sweep["span_deg"] / 2
+    return min(min(abs(v) for v in band) - half for band in bands)
+
+
+WIDE = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [798.5, 802.0]")
+
+
+def test_stops_are_proven_on_the_fixture_at_its_tolerances_not_the_nominal_one(tmp_path):
+    # Pin-lines standing off by the clearance plus the rail offset slide the pins along
+    # their rails, so a printed station holds the carrier a little nearer the arc than on
+    # the nominal fixture. On a band wide enough for 1.2 mm of play, some sweep's stops
+    # are proven for the as-built fixture yet refused for the loose one: the proof runs
+    # on the fixture at its measured tolerances, not the nominal one.
+    loose = _with(clearance=1.2)
+    found = False
+    for k in range(80):
+        sweep = f"{21.03 + k * 0.001:.4f}"
+        tight = trammel_row(tmp_path / f"a{k}", sweep_deg=sweep, target=WIDE)
+        if not arcs(tight, 20) or recipe(tight)[1]["stops"] != "proven":
+            continue
+        row = trammel_row(tmp_path / f"b{k}", sweep_deg=sweep, target=WIDE, inventory=loose)
+        if "on a fixture at its measured tolerances" in errors(row):
+            assert row.status == "error" and "short of the arc's end" in errors(row)
+            found = True
+            break
+    assert found
+
+
+def test_rail_travel_is_checked_over_the_tolerance_envelope(tmp_path):
+    # A near end stop between where the as-built and the loose fixture's carriages can
+    # reach: the as-built one passes, the loose one (pin-lines 0.18 mm off) does not.
+    as_built = recipe(trammel_row(tmp_path / "a"))[1]["station_envelope_mm"]
+    loose = recipe(trammel_row(tmp_path / "b", inventory=_with(clearance=0.17)))[1]
+    lows = [min(lo for lo, _ in as_built), min(lo for lo, _ in loose["station_envelope_mm"])]
+    assert lows[1] < lows[0]
+    near = round(sum(lows) / 2, 4)
+    nominal = TRAMMEL.replace("[40.0, 420.0]", f"[{near}, 420.0]")
+    assert trammel_row(tmp_path / "nominal", inventory=nominal).status == "pass"
+    inventory = _with(clearance=0.17).replace("[40.0, 420.0]", f"[{near}, 420.0]")
+    row = trammel_row(tmp_path / "tight", inventory=inventory)
+    assert row.status == "error"
+    assert "on a fixture at its measured tolerances, beyond the rail's" in errors(row)
