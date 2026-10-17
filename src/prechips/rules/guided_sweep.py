@@ -1174,14 +1174,20 @@ def guide_scene(bundle, setup, numbers, scale):
     (``at_mm`` its axis in setup XY, ``dia_mm``, ``z_mm`` from the table to its top). A
     rail roller stands at the rail radius plus (``rail_side = "outer"``) or minus its own
     radius from the arc centre, at its ``rollers_deg`` from the cutter's radial line; the
-    table is the work-support face (stock bottom) less the fixture's ``bed_height``. A
-    pivot post 800 mm off the part would shrink it to a speck, so it is a note giving
-    where it stands. A roller fact that is missing or unmeasured leaves the rollers
-    undrawn, named in a note with its ``measure:`` instruction."""
+    table is the work's seated bottom less the supports under it and the fixture's
+    ``bed_height``. A pivot post 800 mm off the part would shrink it to a speck, so it is
+    a note giving where it stands. A roller fact that is missing or unmeasured leaves the
+    rollers undrawn, named in a note with its ``measure:`` instruction."""
     from ..measurements import measurement_entry
 
     rollers, notes, seen = [], [], set()
-    bottom = record(setup.get("stock_state")).get("bottom_z")
+    # The work sits on its lowest authored bottom: retained rails below ``bottom_z`` when
+    # declared, as the headroom stack and the jaw seat read it; an authored but unknown
+    # one leaves the seat unknown.
+    state = record(setup.get("stock_state"))
+    seats = [state.get(key) for key in ("bottom_z", "retained_rail_bottom_z")]
+    seats = [value for value in seats if value is not None]
+    bottom = min(seats) if seats and all(number(value) for value in seats) else UNKNOWN
     for arc in numbers.get("arc_table") or []:
         sweep = arc.get("guided")
         op = arc.get("op")

@@ -593,10 +593,12 @@ ROLLERS = (
 )
 
 
-def guide_annotation(tmp_path, guide="rail", rollers=ROLLERS, **kwargs):
+def guide_annotation(tmp_path, guide="rail", rollers=ROLLERS, state="", **kwargs):
     from prechips.kernel.render_inputs import setup_annotations
 
     plan = guided_plan(tmp_path, guide, **kwargs)
+    if state:
+        change(plan, "bottom_z = -10.0\n", "bottom_z = -10.0\n" + state)
     inventory = plan.with_name("inventory.toml")
     change(inventory, "rail_radius_mm = 850.0\n", "rail_radius_mm = 850.0\n" + rollers)
     bundle = load_bundle(plan)
@@ -628,6 +630,23 @@ def test_parallels_under_the_work_lower_the_table_the_rollers_stand_on(tmp_path)
     )
     for roller in annotation["guides"]["rollers"]:
         assert roller["z_mm"] == pytest.approx([-52.0, -40.0])
+
+
+def test_retained_rails_below_the_bottom_seat_the_work_the_rollers_stand_below(tmp_path):
+    # Retained rails 4 below bottom_z are what sits on the sled's bed, as the headroom
+    # stack reads it: the table, and the rollers on it, are 4 lower. An authored but
+    # unknown rail leaves the seat unknown: no rollers, a note instead.
+    _, annotation = guide_annotation(tmp_path / "rail", state="retained_rail_bottom_z = -14.0\n")
+    for roller in annotation["guides"]["rollers"]:
+        assert roller["z_mm"] == pytest.approx([-44.0, -32.0])
+    _, annotation = guide_annotation(
+        tmp_path / "unknown", state="retained_rail_bottom_z = 'unknown'\n"
+    )
+    assert "guides" not in annotation
+    assert any(
+        "NOT SHOWN: op 20's guide rollers" in note and "stock bottom" in note
+        for note in annotation["notes"]
+    )
 
 
 @pytest.mark.parametrize(

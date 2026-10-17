@@ -2324,9 +2324,10 @@ operator, not modelled as holding. The host sends an arc sled's rollers in the
 setup's render annotation (`guides.rollers`: setup XY axis `at_mm`, `dia_mm` and
 `z_mm` from the table to the roller top), each at the rail radius plus or minus its
 radius (`rail_side`) about the arc centre, at its `rollers_deg` from the cutter's
-radial line, the table at the stock bottom less the parallels or support blocks
-under the work (the height the `headroom` stack counts) and the fixture's
-`bed_height`. The
+radial line, the table at the work's seated bottom (`retained_rail_bottom_z` when
+below `bottom_z`, as `headroom` reads it; an authored but unknown one leaves it
+unknown) less the parallels or support blocks under the work (the height the
+`headroom` stack counts) and the fixture's `bed_height`. The
 kernel draws them as cylinders in the guide colour with one `GUIDE ROLLERS
 (TABLE)` callout and lists them in `render_scene.components` with role
 `guide_roller`; they never join the fixture components, so no checkpoint, clash,
