@@ -26,8 +26,8 @@ resolution stays unknown.
 import math
 
 from prechips.findings import Finding
-from prechips.joint_features import _lineage
 from prechips.measurements import length_fact
+from prechips.model import setup_lineage
 from prechips.process_features import ACTIONS, label, primitive, process_of
 from prechips.rules.inspection import _capability, _gauge_measurements, procedure_known
 from prechips.rules.resolution import UNKNOWN, number, op_feature, record, resolve, uncertain
@@ -84,7 +84,7 @@ def _box(origin, sizes, axes):
 def _faces(bundle, receiver):
     """``(made, later)``: process end-face ops before ``receiver`` in its lineage, as
     ``(name, "<setup> op <n>")`` pairs, and those of setups outside that lineage."""
-    earlier = _lineage(bundle.plan, receiver) - {receiver}
+    earlier = setup_lineage(bundle.plan, receiver) - {receiver}
     made, later = [], []
     for setup in bundle.plan["setups"]:
         for op in setup["ops"]:
@@ -116,7 +116,7 @@ def _evaluate(bundle, prepared):
     made, later = _faces(bundle, receiver)
     numbers["made_by"] = [f"{label(name)} in {where}" for name, where in made]
     numbers["made_outside_lineage"] = [f"{label(name)} in {where}" for name, where in later]
-    lineage = _lineage(bundle.plan, receiver)
+    lineage = setup_lineage(bundle.plan, receiver)
     axes = _axes(stock)
     raw_section = _vector(stock.get("section_mm"), 2)
     raw_length = stock.get("length_mm", UNKNOWN)

@@ -1342,6 +1342,15 @@ sheet.
    not applicable; saw cuts earn no finished-face coverage. Fixture modeling
    and input debt semantics remain operative.
 
+   **Bench hand saw shipped (2026-10-16, #249):** a `hand_saw` tool on a
+   bench/manual machine keeps the manual-bench waiver and has no blade-speed
+   screen. A saw declares exactly one shape: a straight `cut_plane`, or
+   `follows` an earlier scribe op with `allowance_mm` and
+   `stock_removal_bounds`; the latter removes only its declared box (unknown
+   extent is debt), must stay the allowance clear of the finished target, and
+   roughs the arc for the following `file_to_line`. The traveler prints a
+   hand-saw card. Explicit break-out/chisel removal (#213) stays open.
+
    **Process features shipped (2026-10-06, round-4 ShaftPrep):** plan-owned
    `process_features` (`end_face`, `centre_hole`) are stock preparation the
    kernel cuts through transient faces and later stock states carry; they earn

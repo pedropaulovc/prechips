@@ -455,3 +455,223 @@ def test_undeclared_or_unmeasured_vise_parallels_remain_fixture_debt(
         "thin_wall_under_clamp": "unknown",
     }, statuses
     assert all("parallels_height_mm" in message for _, message in statuses.values()), statuses
+
+
+# ------------------------------------------------- hand saw to a scribed line (#249)
+
+
+def _scribed(bounds, allowance=0.5, subject="S1:10"):
+    """A hand-saw cut following S0:10's scribed line, removing only ``bounds``."""
+    op = {"subject": subject, "do": "saw_cut", "follows": "S0:10", "allowance_mm": allowance}
+    if bounds is not None:
+        op["stock_removal_bounds"] = bounds
+    return op
+
+
+def _beyond(y0):
+    """The +Y side of the 10 mm stock from ``y0`` out, past the stock on X and Z."""
+    return {"x": [-1.0, 11.0], "y": [y0, 11.0], "z": [-1.0, 11.0]}
+
+
+def test_straight_hand_saw_on_a_manual_station_removes_its_kerf_and_offcut(saw_engine, saw_target):
+    op = {**_saw(), "saw_tool": "hand_saw"}
+    result = _run(saw_engine, saw_target, op, machine="manual")
+    detail = result["ops"]["S1:10"]
+    assert "saw_error" not in detail and "saw_reason" not in detail, detail
+    assert detail["retained_boundary_mm"] == 8.0
+    assert detail["retained_length_mm"] == pytest.approx(8.0)
+    powered = _run(saw_engine, saw_target, _saw(), machine="bandsaw")["ops"]["S1:10"]
+    assert "retained_length_mm" not in powered
+    assert detail["kerf_volume_mm3"] == pytest.approx(100.0)
+    assert detail["offcut_volume_mm3"] == pytest.approx(100.0)
+    assert result["setups"]["S2"]["stock_bbox_mm"] == [0, 0, 0, 10, 8, 10]
+
+
+@pytest.mark.parametrize(
+    "op, machine",
+    [
+        ({**_saw(), "saw_tool": "refused"}, "mill"),
+        ({**_scribed(_beyond(8.5)), "saw_tool": "refused"}, "bench"),
+        (_saw(), "manual"),
+    ],
+    ids=["refused-straight", "refused-scribed", "no-verdict-manual"],
+)
+def test_a_refused_saw_routes_no_stock(saw_engine, saw_target, op, machine):
+    result = _run(saw_engine, saw_target, op, machine=machine)
+    detail = result["ops"]["S1:10"]
+    assert machine in detail["saw_error"], detail
+    assert "stock_bbox_mm" not in result["setups"]["S2"]
+
+
+def test_scribed_saw_removes_only_its_declared_region(saw_engine, saw_target):
+    result = _run(saw_engine, saw_target, _scribed(_beyond(8.5)), machine="bench")
+    detail = result["ops"]["S1:10"]
+    assert "saw_error" not in detail and "saw_reason" not in detail, detail
+    assert detail["retained_to_target_mm"] == pytest.approx(0.5)
+    assert detail["allowance_mm"] == 0.5
+    assert detail["removed_volume_mm3"] == pytest.approx(150.0)
+    assert detail["stock_volume_after_mm3"] == pytest.approx(850.0)
+    assert "kerf_volume_mm3" not in detail and "cut_plane" not in detail
+    assert result["setups"]["S2"]["stock_bbox_mm"] == [0, 0, 0, 10, 8.5, 10]
+    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(850.0)
+    assert "saw_cuts" in result["setups"]["S1"]["render_scene"]
+
+
+def test_scribed_saw_without_an_allowance_still_takes_its_region(saw_engine, saw_target):
+    result = _run(saw_engine, saw_target, _scribed(_beyond(8.5), "unknown"), machine="bench")
+    detail = result["ops"]["S1:10"]
+    assert "saw_error" not in detail and "saw_reason" not in detail, detail
+    assert detail["allowance_mm"] == "unknown"
+    assert "allowance_mm" in detail["reasons"]
+    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(850.0)
+
+
+@pytest.mark.parametrize(
+    "bounds",
+    [
+        None,
+        {"reason": "declare stock_removal_bounds for S1:10"},
+        {"x": [-1.0, 11.0], "y": "unknown", "z": [-1.0, 11.0]},
+    ],
+    ids=["omitted", "undeclared", "unknown-span"],
+)
+def test_scribed_saw_with_unknown_extent_removes_nothing_and_stays_debt(
+    saw_engine, saw_target, bounds
+):
+    result = _run(saw_engine, saw_target, _scribed(bounds), machine="bench")
+    detail = result["ops"]["S1:10"]
+    assert "stock_removal_bounds" in detail["saw_reason"], detail
+    assert "saw_error" not in detail
+    assert detail["stock_removal_bounds"] == "unknown"
+    assert detail["stock_volume_before_mm3"] == pytest.approx(1000.0)
+    assert detail["removed_volume_mm3"] == "unknown"
+    assert "stock_bbox_mm" not in result["setups"]["S2"]
+    assert "S1:10" in result["setups"]["S2"]["stock_reason"]
+
+
+@pytest.mark.parametrize(
+    "y0, error",
+    [
+        (8.2, "inside the 0.5 mm allowance"),
+        (8.0, "inside the 0.5 mm allowance"),
+        (7.5, "finished target"),
+        (10.5, "saw no-op"),
+        (-1.0, "no retained stock"),
+    ],
+)
+def test_scribed_saw_cannot_cut_into_the_allowance_or_target(saw_engine, saw_target, y0, error):
+    result = _run(saw_engine, saw_target, _scribed(_beyond(y0)), machine="bench")
+    detail = result["ops"]["S1:10"]
+    assert error in detail["saw_error"], detail
+    assert "stock_bbox_mm" not in result["setups"]["S2"]
+
+
+def test_scribed_saw_rejects_a_loose_retained_piece(saw_engine, saw_target):
+    # A slot through the bar outside the target parts off a 0.5 mm strip nothing holds.
+    slot = {"x": [-1.0, 11.0], "y": [0.5, 1.5], "z": [-1.0, 11.0]}
+    result = _run(saw_engine, saw_target, _scribed(slot), machine="bench")
+    assert "splits an input stock piece" in result["ops"]["S1:10"]["saw_error"]
+
+
+def _scribed_host_bundle(tmp_path, target, **op):
+    bundle = _host_bundle(tmp_path, target)
+    bundle.inventory["tools"] = {"hacksaw": {"kind": "hand_saw"}}
+    setup = bundle.plan["setups"][0]
+    # The host never re-reads the scribe op: the plan schema already resolved ``follows``.
+    setup["ops"] = [
+        {
+            "op": 10,
+            "do": "saw_cut",
+            "tool": "hacksaw",
+            "follows": "S1:5",
+            "allowance_mm": 0.5,
+            "stock_removal_bounds": _beyond(8.5),
+            **op,
+        },
+    ]
+    return bundle
+
+
+@pytest.mark.parametrize("op", [_saw(), _scribed(_beyond(8.5))], ids=["straight", "scribed"])
+def test_an_unresolved_saw_tool_routes_no_stock(saw_engine, saw_target, op):
+    op = {**op, "saw_tool": "unresolved"}
+    result = _run(saw_engine, saw_target, op, machine="bench")
+    detail = result["ops"]["S1:10"]
+    assert "missing, unverified or not a saw" in detail["saw_reason"], detail
+    assert "stock_bbox_mm" not in result["setups"]["S2"]
+
+
+@pytest.mark.parametrize(
+    "tools, machine, marker",
+    [
+        ({"hacksaw": {"kind": "hand_saw"}}, "bench", "hand_saw"),
+        ({"hacksaw": {"kind": "bandsaw"}}, "bench", "bandsaw"),
+        ({"hacksaw": {"kind": "hand_saw", "verify": True}}, "bench", "unresolved"),
+        ({"hacksaw": {"kind": "endmill"}}, "bench", "refused"),
+        ({}, "bench", "unresolved"),
+        ({"hacksaw": {"kind": "hand_saw"}}, "mill", "refused"),
+        ({"hacksaw": {"kind": "bandsaw"}}, "manual", "refused"),
+        ({"hacksaw": {"kind": "hand_saw"}}, "unknown", "unresolved"),
+    ],
+    ids=[
+        "hand-saw",
+        "blade",
+        "unverified",
+        "not-a-saw",
+        "missing",
+        "hand-on-mill",
+        "blade-on-manual",
+        "machine-unknown",
+    ],
+)
+def test_host_marks_the_saw_tool_or_its_absence(tmp_path, saw_target, tools, machine, marker):
+    bundle = _scribed_host_bundle(tmp_path, saw_target)
+    bundle.inventory["tools"] = tools
+    bundle.inventory["machines"]["bench"]["kind"] = machine
+    op = kernel.engine_job(kernel.build_job(bundle))["setups"][0]["ops"][0]
+    assert op["saw_tool"] == marker
+
+
+def test_host_job_carries_the_scribed_shape_and_keys_the_cache_on_it(tmp_path, saw_target):
+    bundle = _scribed_host_bundle(tmp_path, saw_target)
+    job = kernel.engine_job(kernel.build_job(bundle))
+    op = job["setups"][0]["ops"][0]
+    assert op == {
+        "subject": "S1:10",
+        "do": "saw_cut",
+        "follows": "S1:5",
+        "allowance_mm": 0.5,
+        "stock_removal_bounds": _beyond(8.5),
+        "saw_tool": "hand_saw",
+        "refused_fields": [],
+    }
+    wider = _scribed_host_bundle(tmp_path, saw_target, allowance_mm=0.8)
+    assert kernel.engine_job(kernel.build_job(wider)) != job
+    undeclared = _scribed_host_bundle(tmp_path, saw_target)
+    del undeclared.plan["setups"][0]["ops"][0]["stock_removal_bounds"]
+    reason = kernel.engine_job(kernel.build_job(undeclared))["setups"][0]["ops"][0]
+    assert "declare stock_removal_bounds for S1:10" in reason["stock_removal_bounds"]["reason"]
+
+
+@pytest.mark.parametrize(
+    "y0, status", [(8.5, "pass"), (8.2, "error"), ("unknown", "unknown")], ids=str
+)
+def test_bench_hand_saw_to_the_line_verdict_follows_its_declared_region(
+    tmp_path, saw_target, freecad_kernel, kernel_cache, y0, status
+):
+    from prechips.rules import saw_cut
+
+    bounds = _beyond(y0) if y0 != "unknown" else "unknown"
+    bundle = _scribed_host_bundle(tmp_path, saw_target, stock_removal_bounds=bounds)
+    if bounds == "unknown":
+        del bundle.plan["setups"][0]["ops"][0]["stock_removal_bounds"]
+    kernel.run_geometry(bundle)
+    finding = next(row for row in saw_cut.evaluate(bundle) if row.subject == "S1:10")
+    assert finding.status == status, finding
+    if status == "unknown":
+        assert "declare stock_removal_bounds for S1:10" in finding.sentence
+        assert "stock_bbox_mm" not in bundle.kernel["setups"]["S2"]
+        return
+    if status == "pass":
+        assert finding.numbers["retained_to_target_mm"] == pytest.approx(0.5)
+        assert bundle.kernel["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(850.0)

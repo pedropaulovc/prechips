@@ -261,6 +261,9 @@ ROTARY = "rotary"
 # max_filing_stock_mm off its claimed faces (:meth:`_Setup._hand_removal`).
 HAND = "hand"
 SAW_ACTIONS = {"saw_cut", "cut_off"}
+# The host judges each saw's tool and station (``saw_tool``); a job with no verdict cuts
+# only on the machine kinds a powered saw uses.
+POWERED_SAW_MACHINES = ("mill", "bench", "bandsaw")
 # Facing-type turning actions sweep their claims along +Z (toward the free end).
 AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
 # Fixture roles that turn with a dividing head's spindle; the head body, tailstock and
@@ -323,6 +326,11 @@ def _hand(op):
 
 def _sawn(op):
     return op.get("do") in SAW_ACTIONS
+
+
+def _scribed_saw(op):
+    """A saw cut that follows a scribed line: it removes its declared region, no plane."""
+    return _sawn(op) and "follows" in op
 
 
 def _op_number(op):
@@ -5604,8 +5612,67 @@ class _Setup:
         "stock_volume_after_mm3",
     )
 
+    def _saw_machine(self, op, facts, missing):
+        """The host's saw verdict (``saw_tool``): a refused tool/machine pair is an error,
+        an unresolved one stays debt; with no verdict only a powered saw's stations cut."""
+        machine = self.setup.get("machine_kind")
+        verdict = op.get("saw_tool")
+        if verdict == "refused":
+            facts["saw_error"] = f"the selected saw tool does not cut on machine kind {machine!r}"
+            return
+        if verdict == "unresolved":
+            missing.append("the saw tool or its machine is missing, unverified or not a saw")
+            return
+        if machine in (None, UNKNOWN):
+            missing.append("saw machine kind is unknown")
+        elif verdict is None and machine not in POWERED_SAW_MACHINES:
+            facts["saw_error"] = f"saw action is unsupported on machine kind {machine!r}"
+
+    @staticmethod
+    def _saw_debts(facts, missing):
+        if not missing:
+            return facts
+        facts["saw_reason"] = "; ".join(missing)
+        facts["reason"] = facts["saw_reason"]
+        for key, value in facts.items():
+            if value == UNKNOWN:
+                facts["reasons"].setdefault(key, facts["saw_reason"])
+        return facts
+
+    def _scribed_saw_facts(self, op, stock_reason=None):
+        """A saw that follows a scribed line: its declared removal region and the stock it
+        must leave outside the line, without a blade plane, kerf slab or offcut solid."""
+        facts = {
+            "claimed_indices": [],
+            "follows": op.get("follows", UNKNOWN),
+            "allowance_mm": UNKNOWN,
+            "stock_removal_bounds": UNKNOWN,
+            "retained_to_target_mm": UNKNOWN,
+            **{key: UNKNOWN for key in self._SAW_VOLUMES if not key.startswith(("kerf", "off"))},
+            "reasons": {},
+        }
+        missing = []
+        allowance = op.get("allowance_mm")
+        if _number(allowance) and allowance > 0:
+            facts["allowance_mm"] = float(allowance)
+        else:
+            facts["reasons"]["allowance_mm"] = "allowance_mm is unknown"
+        span, why = _clearing_span(op.get("stock_removal_bounds"))
+        if span is None:
+            missing.append(why)
+        else:
+            facts["stock_removal_bounds"] = {
+                axis: [_r(span[i]), _r(span[i + 3])] for i, axis in enumerate("xyz")
+            }
+        self._saw_machine(op, facts, missing)
+        if stock_reason is not None:
+            missing.append(str(stock_reason))
+        return self._saw_debts(facts, missing)
+
     def _saw_facts(self, op, stock_reason=None):
         """Saw inputs and debts, without a spindle/holder model or finished-face claims."""
+        if _scribed_saw(op):
+            return self._scribed_saw_facts(op, stock_reason)
         facts = {
             "claimed_indices": [],
             "kerf_mm": UNKNOWN,
@@ -5643,23 +5710,94 @@ class _Setup:
             if _number(kerf) and kerf > 0:
                 sign = -1 if plane["keep"] == "below" else 1
                 facts["retained_boundary_mm"] = _r(plane["value"] + sign * kerf / 2)
-        machine = self.setup.get("machine_kind")
-        if machine in (None, UNKNOWN):
-            missing.append("saw machine kind is unknown")
-        elif machine not in ("mill", "bench", "bandsaw"):
-            facts["saw_error"] = f"saw action is unsupported on machine kind {machine!r}"
+        self._saw_machine(op, facts, missing)
         if stock_reason is not None:
             missing.append(str(stock_reason))
-        if missing:
-            facts["saw_reason"] = "; ".join(missing)
-            facts["reason"] = facts["saw_reason"]
-            for key, value in facts.items():
-                if value == UNKNOWN:
-                    facts["reasons"][key] = facts["saw_reason"]
-        return facts
+        return self._saw_debts(facts, missing)
+
+    @staticmethod
+    def _saw_split(stock, retained, keep):
+        """Why ``retained`` (``stock`` after one saw, each input solid's share ``keep(solid)``)
+        is unacceptable as pieces, else None.
+
+        Existing separate supplies may remain separate. A cut must not create loose pieces
+        from one connected input solid, even slivers; native material is never filtered
+        away and the volume facts never change."""
+        if len(retained.Solids) <= 1:
+            return None
+        for original in stock.Solids:
+            count = len(keep(original).Solids)
+            if count > 1:
+                return f"saw splits an input stock piece into {count} retained pieces"
+        return None
+
+    def _scribed_saw_stock(self, op, stock):
+        """Remove only the declared region outside the scribed line; the finished target
+        grown by the allowance left for the file must survive it (:meth:`_saw_stock`)."""
+        facts = self._saw_facts(op)
+        facts["stock_volume_before_mm3"] = _r(stock.Volume)
+        facts["reasons"].pop("stock_volume_before_mm3", None)
+        if facts.get("saw_error") or facts.get("saw_reason"):
+            return None, facts
+        try:
+            span, why = _clearing_span(op["stock_removal_bounds"], _bbox(stock))
+            if span is None:
+                facts["saw_error"] = f"{why}: the declared saw removes no stock (saw no-op)"
+                return None, facts
+            box = _box_shape(span)
+            removed = stock.common(box)
+            if removed.Volume <= HIT_MM3:
+                facts["saw_error"] = "the declared saw region removes no stock (saw no-op)"
+                return None, facts
+            retained = stock.cut(box)
+            after = retained.Volume
+            facts.update(
+                stock_volume_after_mm3=_r(after),
+                removed_volume_mm3=_r(stock.Volume - after),
+            )
+            if not retained.Solids or after <= HIT_MM3:
+                facts["saw_error"] = "saw leaves no retained stock"
+                return None, facts
+            if not retained.isValid():
+                facts["saw_reason"] = facts["reason"] = "saw retained-stock boolean is invalid"
+                return None, facts
+            split = self._saw_split(stock, retained, lambda original: original.cut(box))
+            if split is not None:
+                facts["saw_error"] = split
+                return None, facts
+            if self.protected.Volume <= HIT_MM3:
+                # No finished material to measure from: the stock is known, the clearance
+                # the file needs is not.
+                facts["reasons"]["retained_to_target_mm"] = (
+                    "this setup's finished target is empty; the stock left for the file is unknown"
+                )
+                return retained, facts
+            target_loss = self.protected.common(removed).Volume
+            if target_loss > HIT_MM3:
+                facts["saw_error"] = (
+                    f"saw removes {_r(target_loss)} mm^3 of finished target material"
+                )
+                return None, facts
+            clearance = _r(removed.distToShape(self.protected)[0])
+            facts["retained_to_target_mm"] = clearance
+            facts["reasons"].pop("retained_to_target_mm", None)
+            allowance = facts["allowance_mm"]
+            if _number(allowance) and clearance < allowance - STOCK_TOL:
+                facts["saw_error"] = (
+                    f"the declared saw region comes within {clearance} mm of the finished "
+                    f"target, inside the {_r(allowance)} mm allowance left for the file"
+                )
+                return None, facts
+            return retained, facts
+        except Exception as exc:
+            reason = f"saw stock boolean failed ({exc})"
+            facts["saw_reason"] = facts["reason"] = reason
+            return None, facts
 
     def _saw_stock(self, op, stock):
         """Keep one side of the blade slab; the kerf and offcut never enter later setups."""
+        if _scribed_saw(op):
+            return self._scribed_saw_stock(op, stock)
         facts = self._saw_facts(op)
         facts["stock_volume_before_mm3"] = _r(stock.Volume)
         facts["reasons"].pop("stock_volume_before_mm3", None)
@@ -5712,19 +5850,17 @@ class _Setup:
                     facts["saw_error"] = (
                         f"saw removes {_r(target_loss)} mm^3 of finished target material"
                     )
-                elif len(retained.Solids) > 1:
-                    # Existing separate supplies may remain separate. A cut must not
-                    # create loose pieces from one connected input solid, even slivers;
-                    # do not filter away native material or change the volume facts.
-                    for original in stock.Solids:
-                        count = len(original.common(keep).Solids)
-                        if count > 1:
-                            facts["saw_error"] = (
-                                f"saw splits an input stock piece into {count} retained pieces"
-                            )
-                            break
+                else:
+                    split = self._saw_split(stock, retained, lambda original: original.common(keep))
+                    if split is not None:
+                        facts["saw_error"] = split
             if facts.get("saw_error") or facts.get("saw_reason"):
                 return None, facts
+            if op.get("saw_tool") == "hand_saw" and len(retained.Solids) == 1:
+                # A bench has no DRO: the hand-saw card gives the kept piece's length. Of
+                # separate retained supplies no one length is the kept piece's, so none.
+                kept = _bbox(retained)
+                facts["retained_length_mm"] = _r(kept[axis + 3] - kept[axis])
             return retained, facts
         except Exception as exc:
             reason = f"saw stock boolean failed ({exc})"
@@ -9273,8 +9409,9 @@ class _Setup:
         """Selected primary cutter's actual silhouette at an illustrative approach pose;
         a turning op whose follow rest is drawn (``rest_z``: op subject -> the cut Z its
         jaws are posed for) shows the tool at that Z, beside the jaws."""
-        # A bench file has no cutter to draw: the primary cutter is the first machine op's.
-        ops = [op for op in self.ops if not _hand(op)]
+        # A bench file, or a hand saw following a scribed line, has no cutter to draw: the
+        # primary cutter is the first machine op's.
+        ops = [op for op in self.ops if not (_hand(op) or _scribed_saw(op))]
         if not ops:
             return None, None
         op = ops[0]

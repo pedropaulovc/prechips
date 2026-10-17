@@ -22,7 +22,7 @@ from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .measurements import angle_fact, length_debt, length_fact, measurement_entry, record_trusted
 from .model import TOLERANCE_REQUIREMENTS, profiled, reference_only, tolerance_requirements
-from .rules._bench import manual_bench
+from .rules._bench import hand_saw, manual_bench
 from .rules._envelope import measurement_item
 from .rules.blank_credit import cited_tolerance
 from .rules.coordinates import (
@@ -7850,9 +7850,51 @@ class _Traveler:
             return _Box("STOP: spindle direction not known — the tool's hand is not declared")
         return "REVERSE" if op.get("do") in _AXIAL_OPS and hand == "left" else "FORWARD"
 
+    def saw_setting(self, op):
+        """Where a saw cut runs: a straight cut's blade-centre plane, or the scribed line a
+        cut follows (named by its layout op)."""
+        if "follows" in op:
+            return f"outside the line scribed in {_text(op['follows']).replace(':', ' op ')}"
+        plane = _mapping(op.get("cut_plane"))
+        return (
+            f"blade centre {_text(plane.get('axis')).upper()} "
+            f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}"
+        )
+
+    def saw_leave(self, op):
+        """The stock a saw that follows a scribed line leaves outside it for the file."""
+        allowance = op.get("allowance_mm")
+        if not _known(allowance):
+            return _Box("STOP: stock to leave for filing not established")
+        return f"leave {self.operative(allowance)} mm for filing"
+
+    def hand_saw_step(self, op, numbers):
+        """A bench hand-saw card: the straight cut's plane and the side kept, or "saw
+        outside the scribed line, leave <allowance> for filing"."""
+        if "follows" in op:
+            separator = "; " if self.saw_leave(op).startswith("STOP") else ", "
+            return f"Hand saw {self.saw_setting(op)}{separator}{self.saw_leave(op)}."
+        plane = _mapping(op.get("cut_plane"))
+        axis = _text(plane.get("axis")).upper()
+        sides = {"above": ("+", "-"), "below": ("-", "+")}.get(plane.get("keep"))
+        if sides is None:
+            return "Hand saw: STOP: side to keep not established."
+        length = numbers.get("retained_length_mm")
+        kept = f" {_number(length)} mm long" if _known(length) else ""
+        edge = numbers.get("retained_boundary_mm")
+        retained = f", retained edge {axis} {_number(edge)} mm" if _known(edge) else ""
+        return (
+            f"Hand saw across the part, keeping the {sides[0]}{axis} piece{kept}; the kerf "
+            f"falls on the {sides[1]}{axis} (waste) side (blade centre {axis} "
+            f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}{retained})."
+        )
+
     def speeds(self, setup, op, saw_table):
         numbers = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
         if op.get("do") in MANUAL:
+            return "—", "—", False
+        if hand_saw(self.bundle, op):
+            # A hand saw: no blade speed or machine feed applies.
             return "—", "—", False
         if op.get("do") in SAW_OPS:
             speed = numbers.get("blade_speed_sfm")
@@ -8061,7 +8103,9 @@ class _Traveler:
         rows, inspection_notes, worksheets = [], [], []
         where = {kind: f"{setup['id']} sheet {number}" for kind, number in sheets.items() if number}
         saw_table = any(op.get("do") in SAW_OPS for op in ops)
-        finishing = bool(ops) and all(op.get("do") in MANUAL for op in ops)
+        # A bench of hand steps, hand-saw cuts among them, runs no machine either.
+        bench = manual_bench(self.bundle, setup) is not None
+        finishing = bool(ops) and (bench or all(op.get("do") in MANUAL for op in ops))
         lathe = self.lathe(setup)
         # Each lathe op that runs the spindle turns it one way (:meth:`spindle_turn`). When
         # every one turns it the same known way, the heading says so once and the narrow
@@ -8085,11 +8129,7 @@ class _Traveler:
             saw = op.get("do") in SAW_OPS
             action = self.cut_depths(setup, op, lathe)
             if saw:
-                plane = _mapping(op.get("cut_plane"))
-                action.append(
-                    f"blade centre {_text(plane.get('axis')).upper()} "
-                    f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}"
-                )
+                action.append(self.saw_setting(op))
             reference = op.get("tool")
             if op.get("do") == "coating":
                 tool = self.coating(op)
@@ -8134,11 +8174,18 @@ class _Traveler:
                 "not_applicable" if manual or op.get("do") in _AXIAL_OPS else None,
             )
             direction = self.direction(direction)
+            scribed = saw and "follows" in op
             if saw:
-                direction = "keep " + _text(_mapping(op.get("cut_plane")).get("keep"))
+                direction = (
+                    "outside the line"
+                    if scribed
+                    else "keep " + _text(_mapping(op.get("cut_plane")).get("keep"))
+                )
             saw_numbers = self.records.get(("saw_cut", f"{setup['id']}:{op['op']}"), {})
             rest_cells, rest_lines = ([], []) if saw else self.rest_steps(setup, op)
-            if saw:
+            if scribed:
+                target = [self.saw_leave(op)]
+            elif saw:
                 target = [
                     "retained edge " + _number(saw_numbers.get("retained_boundary_mm")) + " mm"
                 ]
@@ -8239,7 +8286,13 @@ class _Traveler:
             )
             inspection = self.inspection(setup, op, inspection_notes, worksheets, sheets)
             if finishing:
-                cells = (_text(op["op"]), features, tool, instruction or ", ".join(action))
+                step = instruction or ", ".join(action)
+                if saw:
+                    # A hand-saw card: where the blade runs and what it leaves, then the note.
+                    step = " ".join(
+                        filter(None, [self.hand_saw_step(op, saw_numbers), instruction])
+                    )
+                cells = (_text(op["op"]), features, tool, step)
                 rows.append(
                     _Row(
                         (*cells, inspection), boxes, optional_observations=op.get("do") == "coating"

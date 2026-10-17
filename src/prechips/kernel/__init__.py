@@ -41,6 +41,8 @@ from prechips.rules.resolution import (
     record,
     resolve,
     rough_leave,
+    saw_station,
+    saw_tool,
     setup_frame,
 )
 
@@ -298,12 +300,39 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
 
     subject = f"{setup['id']}:{op['op']}"
     if op.get("do") in {"saw_cut", "cut_off"}:
+        units = bundle.features.get("units", UNKNOWN)
+        # The host's one saw verdict (rules.resolution.saw_tool/saw_station) decides whether
+        # the kernel may route this cut's stock: a verified saw on a station that carries it
+        # names its kind (a hand saw's straight cut also reports the kept piece's length); a
+        # known mismatch is refused; any unresolved tool or machine leaves it unrouted.
+        station = saw_station(bundle, setup, op)
+        verdict = {"fits": saw_tool(bundle, op), "wrong_station": "refused"}
+        saw_tool_marker = {"saw_tool": verdict.get(station, "unresolved")}
+        if "follows" in op:
+            # The scribed line's cut takes only its declared region (unknown extent is
+            # plan-input debt); the blade's kerf locates nothing, so no kerf is consumed.
+            bounds = op.get("stock_removal_bounds", UNKNOWN)
+            return {
+                "subject": subject,
+                "do": op["do"],
+                "follows": op["follows"],
+                "allowance_mm": op.get("allowance_mm", UNKNOWN),
+                "stock_removal_bounds": {
+                    "reason": f"declare stock_removal_bounds for {subject}: the setup-frame "
+                    f"region the saw and its offcut take outside the line {op['follows']} "
+                    "scribed"
+                }
+                if bounds == UNKNOWN
+                else removal_bounds(bounds, units),
+                **saw_tool_marker,
+            }
         tool = measurement_item(bundle, "tools", op.get("tool"))
         return {
             "subject": subject,
             "do": op["do"],
             "kerf_mm": _accepted_length(tool, "kerf"),
-            "cut_plane": saw_plane(op.get("cut_plane"), bundle.features.get("units", UNKNOWN)),
+            "cut_plane": saw_plane(op.get("cut_plane"), units),
+            **saw_tool_marker,
         }
     if op.get("do") in HAND_FINISH:
         return _hand_inputs(bundle, setup, op, subject, finishing)
@@ -1597,6 +1626,9 @@ _ENGINE_OP = (
     "do",
     "cut_plane",
     "kerf_mm",
+    "follows",
+    "allowance_mm",
+    "saw_tool",
     "feature",
     "faces",
     "joint_cut",

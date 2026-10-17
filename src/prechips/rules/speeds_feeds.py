@@ -20,7 +20,9 @@ A saw cut (``saw_cut``/``cut_off``) has no spindle: its one canonical
 ``operation = "saw_cut"`` row supplies blade linear speed (``sfm``) and descent
 feed (``feed_mm_min``) directly. There is no diameter band, tool chart or
 override; the sourced speed is clamped to the machine's inclusive
-``blade_speed_sfm`` range and no RPM is derived.
+``blade_speed_sfm`` range and no RPM is derived. A cut made with a verified hand saw
+(:func:`prechips.rules._bench.hand_saw`) has no blade speed or feed at all:
+``not_applicable``, judged per operation, whatever else its setup runs.
 
 A mill op with a ``contour`` path also carries its plunge feed. A drill doing
 ``chain_drill`` is centre-cutting by kind and uses its cited drilling chip load
@@ -36,6 +38,7 @@ import math
 from ..findings import Finding
 from ..measurements import length_debt
 from . import tip_endpoints
+from ._bench import hand_saw
 from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
     MANUAL,
@@ -423,6 +426,21 @@ def evaluate(bundle):
                         {"operation": op["do"]},
                         ["PLAN.md §4.1 speeds/feeds"],
                         "This manual operation has no cutting speed or feed.",
+                    )
+                )
+                continue
+            if hand_saw(bundle, op):
+                result.append(
+                    Finding(
+                        "speeds_feeds",
+                        subject,
+                        "not_applicable",
+                        {"operation": op["do"], "tool": op["tool"]},
+                        [
+                            "PLAN.md §4.1 speeds/feeds",
+                            f"inventory.tools.{op['tool']}: kind hand_saw",
+                        ],
+                        "A hand saw has no blade speed or machine feed.",
                     )
                 )
                 continue

@@ -31,6 +31,12 @@ SET_KINDS = {
 HAND_FINISH = frozenset({"file_to_line"})
 MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"} | HAND_FINISH
 SAW_OPS = frozenset({"saw_cut", "cut_off"})
+# Saw tool kind -> the machine kinds it cuts on: a powered bandsaw blade on a mill, bench or
+# bandsaw; a hand saw (hacksaw, junior hacksaw) only at a bench or manual station.
+SAW_MACHINES = {
+    "bandsaw": frozenset({"mill", "bench", "bandsaw"}),
+    "hand_saw": frozenset({"bench", "manual"}),
+}
 HOLE_KINDS = frozenset({"hole", "counterbore", "thread", "threaded_hole"})
 # The hole actions whose cut can form a hole's claimed point cap.
 COMPLETE_FORM = frozenset({"drill", "ream", "bore", "counterbore"})
@@ -916,6 +922,36 @@ def coating_process(bundle_or_inventory, reference):
         }
     # An outside service (a machine's accessory of that name too, as any slot reads one).
     return "services", {"kind": UNKNOWN, "verify": True} if item == UNKNOWN else item
+
+
+def saw_tool(bundle, op):
+    """The one classification of a saw op's selected tool every consumer reads (bench
+    waiver, speeds, assembly, saw rule, kernel routing): ``"bandsaw"`` or ``"hand_saw"``
+    for a resolved, verified saw of that kind; ``"unknown"`` for a missing, unlisted or
+    kind-less tool; ``"unverified"`` for one with any verification debt (an item's debt,
+    a kerf's included, is its identity's, as its inventory listing reads it);
+    ``"not_a_saw"`` for a verified tool of another kind."""
+    item = resolve(bundle, "tools", op.get("tool"))
+    if not isinstance(item, dict) or item.get("kind", UNKNOWN) == UNKNOWN:
+        return "unknown"
+    if uncertain(item):
+        return "unverified"
+    return item["kind"] if item["kind"] in SAW_MACHINES else "not_a_saw"
+
+
+def saw_station(bundle, setup, op):
+    """Whether a saw op's machine can carry its tool: ``"fits"``; ``"wrong_station"``
+    (a known pair that cannot, or a non-saw tool); ``"unknown"`` while the tool or the
+    machine is unresolved or unverified (debt never establishes a fit or a mismatch)."""
+    tool = saw_tool(bundle, op)
+    if tool == "not_a_saw":
+        # No machine can make a verified non-saw a saw.
+        return "wrong_station"
+    machine = record(resolve(bundle, "machines", setup.get("machine")))
+    kind = machine.get("kind", UNKNOWN)
+    if tool in ("unknown", "unverified") or kind == UNKNOWN or uncertain(machine):
+        return "unknown"
+    return "fits" if kind in SAW_MACHINES[tool] else "wrong_station"
 
 
 def saw_setup(setup):

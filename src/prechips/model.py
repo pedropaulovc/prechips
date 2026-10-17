@@ -665,9 +665,16 @@ Operation = record(
         "angle_window_deg": Annotated[list[Number], Field(min_length=2, max_length=2)],
         # Blade centre plane in setup coordinates; kerf comes only from the selected blade.
         "cut_plane": SawPlane,
+        # A saw cut that follows a scribed line instead: the earlier ``scribe`` op
+        # (``"<setup>:<op>"``), the stock it leaves outside the line for the file, and its
+        # ``stock_removal_bounds``, the region the blade and offcut take.
+        "follows": str,
+        "allowance_mm": float,
     },
     indexed=("do",),
 )
+# The schema cannot import the rules package: rules.resolution.SAW_OPS names the same actions.
+SAW_ACTIONS = frozenset({"saw_cut", "cut_off"})
 type KnownBand = Annotated[list[float], Field(min_length=2, max_length=2)]
 
 
@@ -894,6 +901,21 @@ Setup = record(
 )
 
 
+def setup_lineage(plan: dict, sid: str) -> set[str]:
+    """The setup and every earlier setup whose output material flows into it: the one
+    workpiece its ops act on (omitted ``stock_in`` routing descends from none)."""
+    setups = {setup["id"]: setup for setup in plan.get("setups", [])}
+    seen, pending = set(), [sid]
+    while pending:
+        current = pending.pop()
+        if current in seen or current not in setups:
+            continue
+        seen.add(current)
+        refs = setups[current].get("stock_in")
+        pending.extend(refs if isinstance(refs, list) else [refs] if isinstance(refs, str) else [])
+    return seen
+
+
 def stock_ancestry(routes: Any) -> dict[str, frozenset[str]]:
     """Root supplies behind each validated setup output; ``routes`` = (id, refs or None).
 
@@ -985,6 +1007,65 @@ class Plan(InputModel):
             errors.extend(profiled_blank_errors(component, f"stock.components.{component.id}"))
         if errors:
             raise ValueError("; ".join(errors) + ".")
+        return self
+
+    @model_validator(mode="after")
+    def saw_shapes(self) -> Plan:
+        """A saw cut is planar (``cut_plane``) or follows an earlier scribe op's line
+        (``follows``, ``allowance_mm``, ``stock_removal_bounds``): exactly one shape. The
+        line must be on the saw's own workpiece: scribed earlier in the same setup or in a
+        setup its ``stock_in`` routing descends from (omitted routing descends from none)."""
+        scribes = {}
+        routes = {
+            "setups": [
+                {"id": setup.id, "stock_in": setup.stock_in}
+                if "stock_in" in setup.model_fields_set
+                else {"id": setup.id}
+                for setup in self.setups
+            ]
+        }
+        for setup in self.setups:
+            lineage = setup_lineage(routes, setup.id)
+            for op in setup.ops if isinstance(setup.ops, list) else ():
+                where = f"Setup {setup.id} op {op.op}"
+                declared = op.model_fields_set
+                if op.do not in SAW_ACTIONS:
+                    stray = sorted(declared & {"follows", "allowance_mm"})
+                    if stray:
+                        raise ValueError(f"{where}: only a saw cut declares {', '.join(stray)}.")
+                    if op.do == "scribe":
+                        scribes[f"{setup.id}:{op.op}"] = setup.id
+                    continue
+                shapes = [field for field in ("cut_plane", "follows") if field in declared]
+                if len(shapes) != 1:
+                    raise ValueError(
+                        f"{where}: a saw cut declares exactly one of cut_plane (a straight cut; "
+                        '"unknown" while its plane is undecided) or follows (an earlier scribe '
+                        "op's line)."
+                    )
+                if shapes == ["cut_plane"]:
+                    stray = sorted(declared & {"allowance_mm", "stock_removal_bounds"})
+                    if stray:
+                        raise ValueError(
+                            f"{where}: a straight saw cut is located by its cut_plane alone; "
+                            f"{', '.join(stray)} belong to a cut that follows a scribed line."
+                        )
+                    continue
+                if op.follows not in scribes:
+                    raise ValueError(
+                        f"{where}: follows {op.follows!r} names no earlier scribe op "
+                        '("<setup>:<op>").'
+                    )
+                if scribes[op.follows] not in lineage:
+                    raise ValueError(
+                        f"{where}: follows {op.follows!r}, a line scribed on another "
+                        "workpiece: the scribe's setup is not upstream of this setup's stock_in."
+                    )
+                if op.allowance_mm != UNKNOWN and op.allowance_mm <= 0:
+                    raise ValueError(
+                        f"{where}: allowance_mm, the stock left outside the line for the file, "
+                        "must be positive."
+                    )
         return self
 
     @model_validator(mode="after")

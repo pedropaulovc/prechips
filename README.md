@@ -253,7 +253,11 @@ Native [saw cut-off](docs/plan.md#saw-cut-off) supports `saw_cut` / `cut_off` on
 mill, bench and bandsaw setups: an explicit blade-centre plane plus inventory
 kerf removes only the discarded stock side. The traveler shows cited blade sfm
 and descent feed, not spindle RPM; cylinder-based accessibility explicitly does
-not apply. Dividing-head headroom uses centre height and the posed axis offset,
+not apply. A [hand saw on the bench](docs/plan.md#hand-saw-on-the-bench-straight-or-to-a-scribed-line)
+(`kind = "hand_saw"` on a bench/manual machine) keeps the manual-bench waiver and
+has no blade speed; it cuts straight on a `cut_plane` or `follows` an earlier
+scribe op's line, removing only its declared `stock_removal_bounds` and leaving
+at least `allowance_mm` outside the line for the file (unknown extent is `?`). Dividing-head headroom uses centre height and the posed axis offset,
 and child hole operations inherit a missing travel centre from their named
 parent/hole while explicit unknown locations remain debt.
 

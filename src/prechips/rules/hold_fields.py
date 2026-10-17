@@ -12,7 +12,7 @@ it runs along is the vise's ``jaws_along``, or the plate face's run (:func:`alig
 import math
 
 from prechips.findings import Finding
-from prechips.joint_features import _lineage
+from prechips.model import setup_lineage
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -163,7 +163,7 @@ def stop_face(bundle, setup, name):
     """
     if name == STOCK_END:
         return "pass", {"face": name, "on_arriving_stock": True}
-    lineage = _lineage(bundle.plan, setup["id"])
+    lineage = setup_lineage(bundle.plan, setup["id"])
     earlier = lineage - {setup["id"]}
     routed = all("stock_in" in other for other in bundle.plan["setups"] if other["id"] in lineage)
     # stock_in names only earlier setups: this setup and later ones are never upstream of it.

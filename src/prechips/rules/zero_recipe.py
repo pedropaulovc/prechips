@@ -7,9 +7,8 @@ import re
 from itertools import pairwise, product
 
 from ..findings import Finding
-from ..joint_features import _lineage
 from ..measurements import length_debt, length_keys, measurement_checklist
-from ..model import UNIT_TOLERANCE
+from ..model import UNIT_TOLERANCE, setup_lineage
 from ._bench import manual_bench, not_applicable
 from .geometry_common import TURNING_BLADE_KINDS, approach, cutting_action, op_claims
 from .resolution import (
@@ -1798,7 +1797,7 @@ def x_face_state(bundle, setup, touch, x_recipe, states, index):
         return "pass", None
     if face not in mapping(bundle.feature_definitions):
         return "error", f"names x_face {face}, no plan feature"
-    lineage = _lineage(bundle.plan, setup["id"])
+    lineage = setup_lineage(bundle.plan, setup["id"])
     earlier = [
         (other["id"], op)
         for other in bundle.plan["setups"]

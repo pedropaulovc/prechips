@@ -149,6 +149,23 @@ fact-local verification debt withholds geometry. An example blade's kerf
 follows the examples policy (a demonstration-fixture record or a cited
 catalogue value), never a fabricated shop measurement.
 
+A hand saw (a hacksaw or junior hacksaw) is `tools.<saw>.kind = "hand_saw"`. It
+cuts only on a `bench` or `manual` machine and needs no `blade_speed_sfm` or
+cutting-data row. A straight hand-saw cut reads the same `kerf_mm` / `kerf_in`
+as a bandsaw blade; a cut that follows a scribed line consumes no kerf (its removal
+is the op's declared box). Any verification debt on the saw, a kerf's included,
+is still its identity's: like its `tool_resolves` listing row, every saw consumer
+then leaves the cut unresolved and the kernel routes no stock for it. A saw whose
+tool resolves to a verified `hand_saw` keeps a bench setup's manual-bench waiver;
+an unverified, unresolved or powered blade does not.
+
+```toml
+[tools.junior-hacksaw]
+kind = "hand_saw"
+name = "junior hacksaw, 32 TPI blade"
+kerf_mm = { value = 0.6, measured = { status = "measured", by = "...", date = "...", instrument = "..." } }
+```
+
 Saw operations need no spindle taper, holder, shank diameter, tool OAL or
 projection. A mill/bench may host the saw operation but must also declare its
 actual blade-speed range for a sourced speed recommendation. The hold resolves
@@ -909,7 +926,7 @@ plan's stock.
 | `angle_deg` | `float` |
 | `point_angle` | `MeasuredAngle` |
 | `blade_speed_sfm` | `[Number, Number]` (machine blade-speed limits) |
-| `kerf_mm` / `kerf_in` | `MeasuredLength` (selected bandsaw blade) |
+| `kerf_mm` / `kerf_in` | `MeasuredLength` (selected bandsaw blade or hand saw) |
 | `flute_len` | `MeasuredLength` |
 | `oal` | `MeasuredLength` |
 | `head_in` | `float` |

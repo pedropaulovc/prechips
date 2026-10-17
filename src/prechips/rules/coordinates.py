@@ -3995,16 +3995,19 @@ _NEEDS = {
 }
 
 
-def _recut_by(bundle, op):
+def _recut_by(bundle, op, lineage=None):
     """The last later manual-arc op ("S4 op 27") that cuts all of ``op``'s claimed faces
     again before any file reaches them, else None: then ``op``'s leftover stock is not the
     file's. The last such op hands the faces to the file, so it names the leftover's taker:
     an op between them may claim the faces from the other side (a half-depth rough from
     the opposite face), and the face claim does not compare depth. A claim without
-    ``faces`` is the whole feature."""
+    ``faces`` is the whole feature. Given ``lineage`` (a filing's workpiece setups), work on
+    another stock branch neither recuts nor files the faces."""
     name, faces = op.get("feature"), op.get("faces")
     passed, last = False, None
     for setup in bundle.plan["setups"]:
+        if lineage is not None and setup["id"] not in lineage:
+            continue
         for other in setup["ops"]:
             if other is op:
                 passed = True
