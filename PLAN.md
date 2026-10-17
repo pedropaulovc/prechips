@@ -1485,8 +1485,10 @@ sheet.
    a joint's `forms` names exported features whose faces the join leaves, such as
    a root fillet `R0.2 MAX` that the press leaves sharp. The assembly backstop
    admits that corner's material only when the kernel finds the sharp corner
-   between both branches' finished faces, nothing lost beyond the band's MAX, and
-   a band starting at 0. `coverage` credits the faces once a post-join check reads
+   between both branches' finished faces, judged with the socket's declared mouth
+   `edge_break` cut in (a radius or chamfer mouth leaves a groove, refused; an
+   undeclared or unknown break is debt), nothing lost beyond the band's MAX, and a
+   band starting at 0. `coverage` credits the faces once a post-join check reads
    the band ([#302](https://github.com/pedropaulovc/prechips/issues/302) limit
    leaf); otherwise the credit is debt. Local evidence:
    `tests/test_joint_forms_kernel.py` (real FreeCAD R0.2 root, press and

@@ -665,7 +665,8 @@ selected stock lineage, and the kernel refuses interference outside the
 permitted fit or missing component-owned finished material at the join.
 A joint's `forms` names exported features whose faces the join itself leaves, such as
 a root fillet `R0.2 MAX` that a press leaves sharp. The kernel admits that sharp
-corner against the feature's band, and `coverage` credits its faces only after a
+corner against the feature's band, judged with the socket's declared mouth
+`edge_break` (a broken mouth leaves a groove, which is refused), and `coverage` credits its faces only after a
 post-join check reads the band. Without that check the credit is `?`.
 A cylindrical joint's `method` is the assembly action (`silver_braze` or `slip`
 for clearance, `press` for interference); a retaining compound on the interface

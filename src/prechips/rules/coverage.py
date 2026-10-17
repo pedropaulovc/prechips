@@ -3,9 +3,10 @@ that forms them.
 
 A joint's ``forms`` feature is credited to the joint only when the join assembles, the
 kernel admits its joined corner inside the feature's own band (a sharp corner for a
-``[0, r]`` radius band), and a check after the join reads that band (inspection's
-:func:`~prechips.rules.inspection.requirement_check`, a limit leaf included). Without a
-passing check the credit is debt, never a pass; a refused join credits nothing.
+``[0, r]`` radius band), and the last op naming the feature at or after the join checks
+that band with a capable gauge (:func:`~prechips.rules.inspection.requirement_check`, a
+limit leaf included). Without a passing check the credit is debt, never a pass; a
+refused join credits nothing.
 """
 
 from prechips.findings import Finding
@@ -51,8 +52,10 @@ def _downstream(plan, sid):
 
 
 def joint_formed(bundle, facts):
-    """``(credited indices, debts, rows)`` for every feature a joint ``forms``."""
-    credited, debts, rows = set(), [], []
+    """``(credited indices, debts, pending indices, rows)`` for every feature a joint
+    ``forms``; ``pending`` are the faces whose credit is debt."""
+    credited, debts, pending, rows = set(), [], set(), []
+    mapping = record(facts.get("mapping"))
     for setup in bundle.plan["setups"]:
         joint = record(setup.get("joint"))
         sid = setup["id"]
@@ -66,23 +69,31 @@ def joint_formed(bundle, facts):
                 # The refused join (joint_assembly's error) credits nothing: faces stay open.
                 row["credit"] = "refused"
                 continue
+            refs = record(bundle.feature_definitions.get(name)).get("faces")
+            faces = (
+                {mapping[ref] for ref in refs if ref in mapping}
+                if isinstance(refs, list)
+                else set()
+            )
             if formed.get("status") != "formed":
                 why = formed.get("reason") or detail.get("stock_reason") or "join unresolved"
                 debts.append(f"{sid} forms {name}, but its joined corner is unresolved ({why})")
+                pending |= faces
                 row["credit"] = UNKNOWN
                 continue
+            # Only an op naming the feature checks it: an unscoped entry on another
+            # feature's op reads that feature, never this corner.
             checks = [
                 (s, o)
-                for s in bundle.plan["setups"]
-                if s["id"] in later
-                for o in s["ops"]
-                if op_entry(o, "checks", name, FORMED_REQUIREMENT) is not None
+                for s, o in operations(bundle, name)
+                if s["id"] in later and op_entry(o, "checks", name, FORMED_REQUIREMENT) is not None
             ]
             if not checks:
                 debts.append(
                     f"{sid} forms {name}, but no check after the join reads its "
                     f"{FORMED_REQUIREMENT} band"
                 )
+                pending |= faces
                 row["credit"] = UNKNOWN
                 continue
             check_setup, op = checks[-1]
@@ -93,11 +104,12 @@ def joint_formed(bundle, facts):
                     f"{sid} forms {name}, but its {FORMED_REQUIREMENT} check is not a pass "
                     f"({message})"
                 )
+                pending |= faces
                 row["credit"] = UNKNOWN
                 continue
             row["credit"] = "credited"
             credited.update(formed.get("indices", ()))
-    return credited, debts, rows
+    return credited, debts, pending, rows
 
 
 def evaluate(bundle):
@@ -183,7 +195,7 @@ def evaluate(bundle):
                 withheld.append(ref)
     else:
         debt = True
-    formed, formed_debts, formed_rows = joint_formed(bundle, facts)
+    formed, formed_debts, pending, formed_rows = joint_formed(bundle, facts)
     claimed |= formed
     if formed_rows:
         cite.append(
@@ -194,7 +206,8 @@ def evaluate(bundle):
     claimed |= complete
     if rotary:
         cite.append("kernel rotary_coverage.cut: exact union of rotary window portions per face")
-    unclaimed = sorted(all_faces - claimed - set(gaps) - set(unresolved))
+    # A formed feature's faces whose credit is debt are judged by that debt, not as missing.
+    unclaimed = sorted(all_faces - claimed - set(gaps) - set(unresolved) - pending)
     values = {
         "face_count": len(all_faces),
         "claimed_face_count": len(all_faces & claimed),
@@ -216,7 +229,7 @@ def evaluate(bundle):
             "error",
             "invalid STEP face reference(s): " + ", ".join(values["mapping_errors"]),
         )
-    elif debt or formed_debts:
+    elif debt or formed_debts and not uncovered:
         status, message = (
             "unknown",
             "; ".join(([CLAIM_DEBT] if debt else []) + formed_debts),

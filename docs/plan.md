@@ -360,6 +360,13 @@ exported features. Every declaration requires:
 | `thru` | Boolean through/blind declaration |
 | `cite` | Nonempty author/source citation |
 
+A `cylinder_bore` may also state its mouth edges as made: `edge_break = { kind =
+"sharp" }`, or `{ kind = "radius" | "chamfer", size = s }` in manifest units (`size =
+"unknown"` is debt). The mouths are the `at` end and, when `thru`, the far end too.
+Only a joint that [forms](#assembly-joints) a feature reads it. A spigot carries no
+`edge_break`, and a sharp break with a size, a sized break without one, or a
+nonpositive size is bad input (exit 3).
+
 Unsuffixed lengths use the manifest's model units; `axis` is dimensionless.
 Known geometry must satisfy these constraints. Literal numeric `"unknown"`
 remains debt and cannot create a solid, an inferred nominal, or a successful
@@ -770,13 +777,24 @@ is a consumer export that the plan does not edit. Rules for `forms`:
 - An entry naming a feature with no radius band refuses the join.
 
 The kernel checks the joined corner against the band (see the [assembly
-backstop](rules-geometry.md#transient-joint-preparation-and-assembly)). The
-corner must be the sharp corner between the two components' finished faces, no
-material may be missing beyond the band's MAX, and the band must start at 0.
-`coverage` credits the faces to the joint only after a check in the joint's setup,
-or a setup downstream of it, reads the feature's `radius` band and passes. Without
-that check the credit is debt. A [limit leaf](rules-inspection.md) at the MAX is
-enough:
+backstop](rules-geometry.md#transient-joint-preparation-and-assembly)). It judges the
+joined geometry with each component's edge breaks included, so a cylindrical joint
+that forms a feature needs its socket's mouth `edge_break`:
+
+- **Sharp mouth:** the press leaves the sharp corner the band admits.
+- **Radius or chamfer mouth:** the break leaves a groove round the spigot, neither a
+  fillet nor a sharp corner, so the join is refused.
+- **Omitted or unknown break:** the corner is debt and the joined stock is
+  withheld.
+
+The drawing's general `edge_break_r`/`chamfer_max` is not read for this. That
+allowance is a maximum and does not say what this mouth carries.
+
+Beyond that, no material may be missing beyond the band's MAX, and the band must
+start at 0. `coverage` credits the faces to the joint only after an op naming the
+feature checks its `radius` band, in the joint's setup or a setup downstream of it,
+and that check passes. Without such a check the credit is debt. A [limit
+leaf](rules-inspection.md) at or under the MAX is enough:
 
 ```toml
 [setups.joint]
@@ -789,6 +807,10 @@ method = "press"
 process = "AUTHOR'S CHOICE: arbor press, hub square to the strap face"
 cite = "AUTHOR'S CHOICE: H7/r6 press"
 forms = ["hub_root"]   # 2X R0.2 MAX: the press leaves the root sharp
+
+[joint_features.strap_hole]
+# ... kind = "cylinder_bore", at, axis, dia, nominal_dia, depth, thru, cite
+edge_break = { kind = "sharp" }   # mouths stated sharp: no break to leave a groove
 ```
 
 A formed face is neither as-is stock nor a cut, so it does not go in `as_is_faces`.

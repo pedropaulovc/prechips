@@ -723,6 +723,26 @@ def _ordered(band: Any, what: str, *, floor: float, inclusive: bool) -> None:
         raise ValueError(f"{what} must be an ordered [lo, hi] band with lo {relation} {floor:g}.")
 
 
+class EdgeBreak(InputModel):
+    """A socket mouth's edge as made: ``sharp`` (no break), or a ``radius`` or ``chamfer``
+    of ``size`` in manifest units; a numeric literal ``"unknown"`` size is debt."""
+
+    kind: Literal["sharp", "radius", "chamfer"]
+    size: float | Unknown | None = None
+
+    @model_validator(mode="after")
+    def sized(self) -> EdgeBreak:
+        if self.kind == "sharp":
+            if self.size is not None:
+                raise ValueError("A sharp edge_break has no size.")
+            return self
+        if self.size is None:
+            raise ValueError(f'A {self.kind} edge_break needs a size (or "unknown").')
+        if self.size != UNKNOWN and self.size <= 0:
+            raise ValueError(f"A {self.kind} edge_break size must be positive; write sharp.")
+        return self
+
+
 class JointFeature(InputModel):
     """A plan-owned transient cylinder on one stock component, never a finished surface.
 
@@ -742,6 +762,8 @@ class JointFeature(InputModel):
     requirements: list[Literal["dia"]] = Field(default_factory=lambda: ["dia"])
     precision: dict[str, int | Unknown] | Unknown = UNKNOWN
     note: str | Unknown = UNKNOWN
+    # A socket's mouth edges as made, which a joint's ``forms`` corner is judged with.
+    edge_break: EdgeBreak | Unknown | None = None
 
     @model_validator(mode="after")
     def known_geometry(self) -> JointFeature:
@@ -757,6 +779,8 @@ class JointFeature(InputModel):
             raise ValueError("A joint feature depth must be positive, also when thru.")
         if len(set(self.requirements)) != len(self.requirements):
             raise ValueError("A joint feature lists a requirement twice.")
+        if self.edge_break is not None and self.kind != "cylinder_bore":
+            raise ValueError("A joint feature edge_break describes a socket's mouth edges.")
         return self
 
 

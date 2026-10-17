@@ -241,3 +241,107 @@ def test_joint_cannot_form_its_own_interface_or_a_feature_twice(tmp_path, forms)
 
     with pytest.raises(BadInput):
         _load(tmp_path, _with_forms(forms))
+
+
+def test_a_check_of_another_feature_does_not_credit_the_formed_corner(monkeypatch):
+    # An unscoped radius check on an op naming the hub OD reads the OD, not the root.
+    b = bundle()
+    b.plan["setups"][3]["ops"][0]["feature"] = "hub_od"
+    finding = run(monkeypatch, b, facts())
+    assert finding.status == "unknown"
+    assert "no check after the join reads its radius band" in finding.sentence
+
+
+def test_formed_debt_does_not_hide_an_unrelated_unclaimed_face(monkeypatch):
+    kernel = facts()
+    kernel["ops"]["S0:10"] = {"claimed_indices": []}  # the strap top is left unclaimed
+    finding = run(monkeypatch, bundle(inspect=False), kernel)
+    assert finding.status == "error"
+    assert finding.numbers["unclaimed_faces"] == [FACES[0]["ref"]]
+
+
+def test_a_malformed_radius_band_cannot_be_formed():
+    feature = {"requirements": ["radius"], "radius": [0.0, 0.1, 0.2], "faces": ROOT}
+    assert "no radius band" in formed(_manifest(feature), "root")["error"]
+
+
+def _sockets(edge_break, units="mm"):
+    from prechips.joint_features import mouth_break
+
+    socket = {"kind": "cylinder_bore"}
+    if edge_break is not None:
+        socket["edge_break"] = edge_break
+    b = SimpleNamespace(plan={"joint_features": {"socket": socket}}, features={"units": units})
+    return mouth_break(b, "socket")
+
+
+@pytest.mark.parametrize(
+    ("edge_break", "units", "expected"),
+    [
+        ({"kind": "sharp"}, "mm", {"kind": "sharp"}),
+        ({"kind": "chamfer", "size": 0.25}, "mm", {"kind": "chamfer", "size_mm": 0.25}),
+        ({"kind": "radius", "size": 0.01}, "in", {"kind": "radius", "size_mm": 0.254}),
+    ],
+)
+def test_a_declared_mouth_break_reaches_the_kernel_in_mm(edge_break, units, expected):
+    assert _sockets(edge_break, units) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("edge_break", [None, {"kind": "chamfer", "size": "unknown"}])
+def test_an_undeclared_or_unknown_mouth_break_is_debt(edge_break):
+    assert "reason" in _sockets(edge_break)
+
+
+def test_forms_sends_the_socket_mouth_break(tmp_path):
+    from test_joint_features import _load
+
+    from prechips.joint_features import setup_joint
+
+    text = _with_forms('["subject"]').replace(
+        'cite = "AUTHOR\'S CHOICE: socket preparation"',
+        'cite = "AUTHOR\'S CHOICE: socket preparation"\nedge_break = { kind = "sharp" }',
+    )
+    b = _load(tmp_path, text)
+    assert setup_joint(b, b.plan["setups"][2])["socket_break"] == {"kind": "sharp"}
+    b = _load(tmp_path, _plan_without_forms())
+    assert "socket_break" not in setup_joint(b, b.plan["setups"][2])
+
+
+def _plan_without_forms():
+    from test_joint_features import _plan
+
+    return _plan()
+
+
+@pytest.mark.parametrize(
+    "edge_break",
+    [
+        '{ kind = "sharp", size = 0.1 }',
+        '{ kind = "chamfer" }',
+        '{ kind = "radius", size = 0 }',
+    ],
+)
+def test_malformed_mouth_break_is_bad_input(tmp_path, edge_break):
+    from test_joint_features import _load
+
+    from prechips.inputs import BadInput
+
+    text = _with_forms('["subject"]').replace(
+        'cite = "AUTHOR\'S CHOICE: socket preparation"',
+        f'cite = "AUTHOR\'S CHOICE: socket preparation"\nedge_break = {edge_break}',
+    )
+    with pytest.raises(BadInput):
+        _load(tmp_path, text)
+
+
+def test_a_spigot_has_no_mouth_break(tmp_path):
+    from test_joint_features import _load
+
+    from prechips.inputs import BadInput
+
+    text = _with_forms('["subject"]').replace(
+        'cite = "AUTHOR\'S CHOICE: spigot preparation"',
+        'cite = "AUTHOR\'S CHOICE: spigot preparation"\nedge_break = { kind = "sharp" }',
+    )
+    with pytest.raises(BadInput):
+        _load(tmp_path, text)
