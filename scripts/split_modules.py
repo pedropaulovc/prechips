@@ -1112,6 +1112,21 @@ class Rewriter:
         added[id(binding)].add(f"from {short[0]} import {short[-1]} as {name}")
         return name
 
+    def _builtin_setattr(self, node, binding, at, added):
+        """``setattr(alias, "name", value)`` lands where the name is looked up, as a
+        monkeypatch does; a computed name or several looking files refuse."""
+        first, second = node.args[0], node.args[1]
+        if not (isinstance(first, ast.Name) and binding is not None):
+            return None
+        if not (isinstance(second, ast.Constant) and isinstance(second.value, str)):
+            self.refusals.append(f"line {node.lineno}: setattr({first.id}, <computed name>)")
+            return None
+        module = self.patched_module(second.value)
+        if module is None or module == self.source:
+            return None
+        local = self._alias_for(first.id, module, added, binding)
+        return at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset), local
+
     def _lookup(self, node, binding, at, added):
         """``getattr(alias, "name")`` / ``hasattr(alias, "name")`` of a moved name reads
         the owning module; a computed name cannot be resolved, so it refuses."""
@@ -1135,9 +1150,11 @@ class Rewriter:
         return at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset), local
 
     def _patch(self, node, binding, at, added):
-        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+        if not isinstance(node, ast.Call) or len(node.args) < 2:
             return None
-        if node.func.attr != "setattr" or len(node.args) < 2:
+        if isinstance(node.func, ast.Name) and node.func.id == "setattr":
+            return self._builtin_setattr(node, binding, at, added)
+        if not (isinstance(node.func, ast.Attribute) and node.func.attr == "setattr"):
             return None
         first, second = node.args[0], node.args[1]
         if isinstance(first, ast.Constant) and isinstance(first.value, str):
@@ -1404,6 +1421,7 @@ def churn(args):
         path = module["source"]
         source = (ROOT / path).read_text(encoding="utf-8")
         head_units = units(source)
+        plain = module
         module = {**module, "_known": {u.name for u in head_units}}
         per_target = defaultdict(set)
         per_unit = defaultdict(set)
@@ -1422,7 +1440,10 @@ def churn(args):
             touching.append(change)
             targets, imports = set(), False
             for version, hit in sides:
-                for index, (unit, target) in enumerate(assign(module, version)):
+                # Only an in-flight branch's symbols that HEAD lacks are new; one that
+                # merged history had and HEAD dropped since falls back to rest.
+                placed = assign(module if change.startswith("open:") else plain, version)
+                for index, (unit, target) in enumerate(placed):
                     if index not in hit:
                         continue
                     if unit.kind in ("import", "module"):

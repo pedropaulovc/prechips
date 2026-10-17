@@ -613,3 +613,47 @@ def test_churn_never_counts_a_pure_deletion_against_the_symbol_after_it(tmp_path
         if i in hit
     }
     assert names == {"b"}
+
+
+def test_builtin_setattr_lands_where_the_name_is_looked_up(at, tmp_path):
+    source = "def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x) ** 2\n"
+    rewritten = _importer_case(
+        at,
+        tmp_path,
+        source,
+        '["radius", "area"]',
+        'from pkg import big\n\nsetattr(big, "radius", abs)\n',
+    )
+    assert 'setattr(big_parts, "radius", abs)' in rewritten
+
+
+def test_builtin_setattr_with_a_computed_name_refuses(at, tmp_path):
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "from pkg import big\n\nNAME = 'radius'\nsetattr(big, NAME, abs)\n", encoding="utf-8"
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+
+
+def test_churn_keeps_a_symbol_history_dropped_in_rest(tmp_path, monkeypatch):
+    _repo(
+        tmp_path,
+        monkeypatch,
+        [
+            "def f():\n    return 1\n\n\ndef old():\n    return 2\n\n\ndef g():\n    return 3\n",
+            "def f():\n    return 1\n\n\ndef old():\n    return 4\n\n\ndef g():\n    return 3\n",
+            "def f():\n    return 1\n\n\ndef g():\n    return 3\n",
+        ],
+    )
+    spec = tmp_path / "split.toml"
+    spec.write_text(
+        '[[module]]\nname = "big"\nsource = "big.py"\nrest = "big.py"\n'
+        '[module.targets]\n"parts.py" = ["f"]\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(split, "SPEC", spec)
+    split.main(["churn", "--by", "commit", "--since", "2000-01-01", "--json", str(tmp_path / "o")])
+    targets = json.loads((tmp_path / "o").read_text())["modules"]["big"]["targets"]
+    # The edit to `old` (dropped since) stays with rest, never with f's parts.py.
+    assert len(targets["parts.py"]["changes"]) == 1  # only the first commit adds f
