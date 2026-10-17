@@ -1002,6 +1002,91 @@
     {
       "cite": [
         "PLAN.md §4.1 headroom",
+        "plan.setups.S1.hold",
+        "inventory: unknown length/width",
+        "inventory.machines.test-mill"
+      ],
+      "message": "S1: the fixture on the table is not checked: the machine has no table size, overhang or load facts; check: the unknown footprint seats on the table within its allowed overhang and the fixture plus work weight is within the table load.",
+      "numbers": {
+        "fixture": "unknown",
+        "fixture_length_mm": "unknown",
+        "fixture_width_mm": "unknown",
+        "footprint_basis": "fixture length/width unknown",
+        "footprint_x_mm": "unknown",
+        "footprint_y_mm": "unknown",
+        "measurements": [],
+        "missing": [
+          "inventory.machines.test-mill table length/width (and any extension)",
+          "allowed fixture overhang",
+          "table load limit"
+        ],
+        "table_mm": "unknown"
+      },
+      "rule": "fixture_table",
+      "status": "unknown",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "plan.setups.S2.hold",
+        "inventory: test-vise length/width",
+        "inventory.machines.test-mill"
+      ],
+      "message": "S2: the fixture on the table is not checked: the machine has no table size, overhang or load facts; check: the test-vise footprint seats on the table within its allowed overhang and the fixture plus work weight is within the table load.",
+      "numbers": {
+        "fixture": "test-vise",
+        "fixture_length_mm": "unknown",
+        "fixture_width_mm": "unknown",
+        "footprint_basis": "fixture length/width unknown",
+        "footprint_x_mm": "unknown",
+        "footprint_y_mm": "unknown",
+        "measurements": [
+          {
+            "category": "fixtures",
+            "cite": [
+              "inventory.fixtures.test-vise.length"
+            ],
+            "field": [
+              "length"
+            ],
+            "id": "fixtures.test-vise.length",
+            "identity": "test-vise",
+            "instruction": "measure: test-vise overall fixture length along its local X axis, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "fixtures",
+            "cite": [
+              "inventory.fixtures.test-vise.width"
+            ],
+            "field": [
+              "width"
+            ],
+            "id": "fixtures.test-vise.width",
+            "identity": "test-vise",
+            "instruction": "measure: test-vise overall fixture width along its local Y axis, steel rule or calipers, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
+        "missing": [
+          "inventory.machines.test-mill table length/width (and any extension)",
+          "allowed fixture overhang",
+          "table load limit"
+        ],
+        "table_mm": "unknown"
+      },
+      "rule": "fixture_table",
+      "status": "unknown",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
         "inventory.machines.test-mill.envelope.spindle_to_table_max",
@@ -1014,17 +1099,6 @@
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "not_applicable",
-        "fixture_table_check": {
-          "fixture_length_mm": "unknown",
-          "fixture_width_mm": "unknown",
-          "footprint_basis": "fixture length/width unknown",
-          "footprint_x_mm": "unknown",
-          "footprint_y_mm": "unknown",
-          "measurements": [],
-          "missing": "inventory.machines.test-mill has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's its footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
-          "status": "unknown",
-          "table_mm": "unknown"
-        },
         "fixture_verify": "missing",
         "holder_gauge_len_mm": "unknown",
         "insertion_mm": 25,
@@ -1153,48 +1227,6 @@
           "10": -10.0
         },
         "fixture_height_mm": 40.0,
-        "fixture_table_check": {
-          "fixture_length_mm": "unknown",
-          "fixture_width_mm": "unknown",
-          "footprint_basis": "fixture length/width unknown",
-          "footprint_x_mm": "unknown",
-          "footprint_y_mm": "unknown",
-          "measurements": [
-            {
-              "category": "fixtures",
-              "cite": [
-                "inventory.fixtures.test-vise.length"
-              ],
-              "field": [
-                "length"
-              ],
-              "id": "fixtures.test-vise.length",
-              "identity": "test-vise",
-              "instruction": "measure: test-vise overall fixture length along its local X axis, steel rule or calipers, mm",
-              "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-              "status": "missing",
-              "units": "mm"
-            },
-            {
-              "category": "fixtures",
-              "cite": [
-                "inventory.fixtures.test-vise.width"
-              ],
-              "field": [
-                "width"
-              ],
-              "id": "fixtures.test-vise.width",
-              "identity": "test-vise",
-              "instruction": "measure: test-vise overall fixture width along its local Y axis, steel rule or calipers, mm",
-              "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-              "status": "missing",
-              "units": "mm"
-            }
-          ],
-          "missing": "inventory.machines.test-mill has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's its footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
-          "status": "unknown",
-          "table_mm": "unknown"
-        },
         "fixture_verify": false,
         "holder_gauge_len_mm": 60.0,
         "insertion_mm": 25,
@@ -2628,7 +2660,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "0de6ed0732340891500343a73844485b04f83183656eb604bf0af8ac07c504e5",
+  "hash": "a7c7ecc21083366e5f5228d2d1d84f27c7604b5cd40f702128e4c5820628fc5b",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

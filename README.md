@@ -450,7 +450,7 @@ Authored bench instructions retain slash-separated text such as
 drive-path and URL citations are removed from the sheet. Headroom evidence uses
 one `stock_height_mm` value and compares the transformed setup-entry stock
 with machine travel, not an unused nominal profile extent or the fixture's
-footprint, which is a separate, always-unknown check against the table.
+footprint, which the always-unknown `fixture_table` rule judges against the table.
 
 A report with exit 0 is eligible, but its traveler still needs a matching report
 hash and nonblank first-article evidence to remove **PLANNED**. Use one root

@@ -743,8 +743,9 @@ facts remain unresolved independently.
 For a manual joining, finishing or inspection station, declare the inventory
 machine's `kind = "bench"` (or `"manual"`) and use only `fit`, `inspect`,
 `deburr` and `coating` operations.
-`zero_check`, `coordinates` and `headroom` are then `not_applicable`: the station
-has no DRO, cutter-centre table, spindle stack or machine travel to check.
+`zero_check`, `coordinates`, `headroom` and `fixture_table` are then `not_applicable`:
+the station has no DRO, cutter-centre table, spindle stack, machine travel or mill
+table to check.
 The joint's joining method does not create machine axes. Any cutting or
 explicitly unknown action retains the normal screens; a bench declaration
 cannot waive a machining operation. This does not waive physical joint,

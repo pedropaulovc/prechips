@@ -2893,7 +2893,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "83f8cb3d74c555c28357dffdb8e672b1e9a5e697058f36f5e7b1f1eb0da02bc8"
+            "sha256": "d8e3f42e5353fee28c2c48d5c2f183ea430f5854005545e7f20919f4ac11d8dd"
           },
           "plan": {
             "path": "examples/cone-pivot-post/built-up.toml",
@@ -7708,6 +7708,271 @@
     {
       "cite": [
         "PLAN.md §4.1 headroom",
+        "plan.setups.S1.hold"
+      ],
+      "message": "S1: a lathe holds the work on its spindle, not on a mill table.",
+      "numbers": {},
+      "rule": "fixture_table",
+      "status": "not_applicable",
+      "subject": "S1"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "plan.setups.S10.hold"
+      ],
+      "message": "S10: saw cuts seat no fixture on a mill table.",
+      "numbers": {},
+      "rule": "fixture_table",
+      "status": "not_applicable",
+      "subject": "S10"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "plan.setups.S11.hold",
+        "inventory: vise-pm-6-tall-soft-jaws length/width",
+        "inventory.machines.PM-30MV"
+      ],
+      "message": "S11: the fixture on the table is not checked: the machine has no table size, overhang or load facts; check: the vise-pm-6-tall-soft-jaws 177.8 x 419.1 mm footprint seats on the table within its allowed overhang and the fixture plus work weight is within the table load.",
+      "numbers": {
+        "fixture": "vise-pm-6-tall-soft-jaws",
+        "fixture_length_mm": 419.09999999999997,
+        "fixture_width_mm": 177.79999999999998,
+        "footprint_basis": "jaws_along = \"x\": length along Y",
+        "footprint_x_mm": 177.79999999999998,
+        "footprint_y_mm": 419.09999999999997,
+        "measurements": [],
+        "missing": [
+          "inventory.machines.PM-30MV table length/width (and any extension)",
+          "allowed fixture overhang",
+          "table load limit"
+        ],
+        "table_mm": "unknown"
+      },
+      "rule": "fixture_table",
+      "status": "unknown",
+      "subject": "S11"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "inventory.machines.cone-bond-bench: kind bench",
+        "plan.setups.S12.ops: manual bench actions only"
+      ],
+      "message": "S12: manual bench work has no fixture on a mill table.",
+      "numbers": {
+        "joint_method": "not_applicable",
+        "machine": "cone-bond-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "coating",
+            "op": 10
+          },
+          {
+            "do": "coating",
+            "op": 20
+          }
+        ]
+      },
+      "rule": "fixture_table",
+      "status": "not_applicable",
+      "subject": "S12"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "plan.setups.S2.hold"
+      ],
+      "message": "S2: a lathe holds the work on its spindle, not on a mill table.",
+      "numbers": {},
+      "rule": "fixture_table",
+      "status": "not_applicable",
+      "subject": "S2"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "plan.setups.S3.hold"
+      ],
+      "message": "S3: a lathe holds the work on its spindle, not on a mill table.",
+      "numbers": {},
+      "rule": "fixture_table",
+      "status": "not_applicable",
+      "subject": "S3"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "plan.setups.S4.hold",
+        "inventory: BS-0 length/width",
+        "inventory.machines.PM-30MV"
+      ],
+      "message": "S4: the fixture on the table is not checked: the machine has no table size, overhang or load facts; check: the BS-0 160 x 150 mm footprint seats on the table within its allowed overhang and the fixture plus work weight is within the table load.",
+      "numbers": {
+        "fixture": "BS-0",
+        "fixture_length_mm": 160.0,
+        "fixture_width_mm": 150.0,
+        "footprint_basis": "hold.pose: length along pose z, width along pose y",
+        "footprint_x_mm": 160.0,
+        "footprint_y_mm": 150.0,
+        "measurements": [],
+        "missing": [
+          "inventory.machines.PM-30MV table length/width (and any extension)",
+          "allowed fixture overhang",
+          "table load limit"
+        ],
+        "table_mm": "unknown"
+      },
+      "rule": "fixture_table",
+      "status": "unknown",
+      "subject": "S4"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "plan.setups.S5.hold",
+        "inventory: BS-0 length/width",
+        "inventory.machines.PM-30MV"
+      ],
+      "message": "S5: the fixture on the table is not checked: the machine has no table size, overhang or load facts; check: the BS-0 160 x 150 mm footprint seats on the table within its allowed overhang and the fixture plus work weight is within the table load.",
+      "numbers": {
+        "fixture": "BS-0",
+        "fixture_length_mm": 160.0,
+        "fixture_width_mm": 150.0,
+        "footprint_basis": "hold.pose: length along pose z, width along pose y",
+        "footprint_x_mm": 160.0,
+        "footprint_y_mm": 150.0,
+        "measurements": [],
+        "missing": [
+          "inventory.machines.PM-30MV table length/width (and any extension)",
+          "allowed fixture overhang",
+          "table load limit"
+        ],
+        "table_mm": "unknown"
+      },
+      "rule": "fixture_table",
+      "status": "unknown",
+      "subject": "S5"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "inventory.machines.cone-bond-bench: kind bench",
+        "plan.setups.S6.ops: manual bench actions only"
+      ],
+      "message": "S6: manual bench work has no fixture on a mill table.",
+      "numbers": {
+        "joint_method": "slip",
+        "machine": "cone-bond-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "inspect",
+            "op": 10
+          },
+          {
+            "do": "fit",
+            "op": 20
+          },
+          {
+            "do": "inspect",
+            "op": 30
+          }
+        ]
+      },
+      "rule": "fixture_table",
+      "status": "not_applicable",
+      "subject": "S6"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "inventory.machines.cone-bond-bench: kind bench",
+        "plan.setups.S7.ops: manual bench actions only"
+      ],
+      "message": "S7: manual bench work has no fixture on a mill table.",
+      "numbers": {
+        "joint_method": "slip",
+        "machine": "cone-bond-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "inspect",
+            "op": 10
+          },
+          {
+            "do": "fit",
+            "op": 20
+          },
+          {
+            "do": "inspect",
+            "op": 30
+          }
+        ]
+      },
+      "rule": "fixture_table",
+      "status": "not_applicable",
+      "subject": "S7"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "plan.setups.S8.hold",
+        "inventory: BS-0 length/width",
+        "inventory.machines.PM-30MV"
+      ],
+      "message": "S8: the fixture on the table is not checked: the machine has no table size, overhang or load facts; check: the BS-0 160 x 150 mm footprint seats on the table within its allowed overhang and the fixture plus work weight is within the table load.",
+      "numbers": {
+        "fixture": "BS-0",
+        "fixture_length_mm": 160.0,
+        "fixture_width_mm": 150.0,
+        "footprint_basis": "hold.pose: length along pose z, width along pose y",
+        "footprint_x_mm": 160.0,
+        "footprint_y_mm": 150.0,
+        "measurements": [],
+        "missing": [
+          "inventory.machines.PM-30MV table length/width (and any extension)",
+          "allowed fixture overhang",
+          "table load limit"
+        ],
+        "table_mm": "unknown"
+      },
+      "rule": "fixture_table",
+      "status": "unknown",
+      "subject": "S8"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
+        "plan.setups.S9.hold",
+        "inventory: BS-0 length/width",
+        "inventory.machines.PM-30MV"
+      ],
+      "message": "S9: the fixture on the table is not checked: the machine has no table size, overhang or load facts; check: the BS-0 160 x 150 mm footprint seats on the table within its allowed overhang and the fixture plus work weight is within the table load.",
+      "numbers": {
+        "fixture": "BS-0",
+        "fixture_length_mm": 160.0,
+        "fixture_width_mm": 150.0,
+        "footprint_basis": "hold.pose: length along pose z, width along pose y",
+        "footprint_x_mm": 160.0,
+        "footprint_y_mm": 150.0,
+        "measurements": [],
+        "missing": [
+          "inventory.machines.PM-30MV table length/width (and any extension)",
+          "allowed fixture overhang",
+          "table load limit"
+        ],
+        "table_mm": "unknown"
+      },
+      "rule": "fixture_table",
+      "status": "unknown",
+      "subject": "S9"
+    },
+    {
+      "cite": [
+        "PLAN.md §4.1 headroom",
         "inventory: lathe swing/between-centres facts and chuck body dimensions",
         "plan: stock_state od_mm/north_end_z/south_end_z and hold stickout_mm",
         "http://web.archive.org/web/20220525213743/https://www.precisionmatthews.com/shop/pm-1127vf-lb/",
@@ -7764,17 +8029,6 @@
           "10": 35.2
         },
         "fixture_height_mm": 63.5,
-        "fixture_table_check": {
-          "fixture_length_mm": 419.09999999999997,
-          "fixture_width_mm": 177.79999999999998,
-          "footprint_basis": "jaws_along = \"x\": length along Y",
-          "footprint_x_mm": 177.79999999999998,
-          "footprint_y_mm": 419.09999999999997,
-          "measurements": [],
-          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 177.8 x 419.1 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
-          "status": "unknown",
-          "table_mm": "unknown"
-        },
         "fixture_verify": false,
         "holder_gauge_len_mm": 95.0,
         "insertion_mm": 25,
@@ -8001,17 +8255,6 @@
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "unknown",
-        "fixture_table_check": {
-          "fixture_length_mm": 160.0,
-          "fixture_width_mm": 150.0,
-          "footprint_basis": "hold.pose: length along pose z, width along pose y",
-          "footprint_x_mm": 160.0,
-          "footprint_y_mm": 150.0,
-          "measurements": [],
-          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 160 x 150 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
-          "status": "unknown",
-          "table_mm": "unknown"
-        },
         "fixture_verify": false,
         "head_axis_z": 0.0,
         "head_centre_height_mm": 100.01249999999999,
@@ -8124,17 +8367,6 @@
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "unknown",
-        "fixture_table_check": {
-          "fixture_length_mm": 160.0,
-          "fixture_width_mm": 150.0,
-          "footprint_basis": "hold.pose: length along pose z, width along pose y",
-          "footprint_x_mm": 160.0,
-          "footprint_y_mm": 150.0,
-          "measurements": [],
-          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 160 x 150 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
-          "status": "unknown",
-          "table_mm": "unknown"
-        },
         "fixture_verify": false,
         "head_axis_z": 0.0,
         "head_centre_height_mm": 100.01249999999999,
@@ -8307,17 +8539,6 @@
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "unknown",
-        "fixture_table_check": {
-          "fixture_length_mm": 160.0,
-          "fixture_width_mm": 150.0,
-          "footprint_basis": "hold.pose: length along pose z, width along pose y",
-          "footprint_x_mm": 160.0,
-          "footprint_y_mm": 150.0,
-          "measurements": [],
-          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 160 x 150 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
-          "status": "unknown",
-          "table_mm": "unknown"
-        },
         "fixture_verify": false,
         "head_axis_z": -21.3753,
         "head_centre_height_mm": 100.01249999999999,
@@ -8419,17 +8640,6 @@
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "unknown",
-        "fixture_table_check": {
-          "fixture_length_mm": 160.0,
-          "fixture_width_mm": 150.0,
-          "footprint_basis": "hold.pose: length along pose z, width along pose y",
-          "footprint_x_mm": 160.0,
-          "footprint_y_mm": 150.0,
-          "measurements": [],
-          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 160 x 150 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
-          "status": "unknown",
-          "table_mm": "unknown"
-        },
         "fixture_verify": false,
         "head_axis_z": 0.0,
         "head_centre_height_mm": 100.01249999999999,
@@ -26359,7 +26569,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "1dde5652d76c042d2c3d1182e0b08cd7c5c021183629022db7993c834faecfcd",
+  "hash": "b20d2442818f1af66b2737e597e4ea2a287d6dfc7f45fff861c5bccd2a388516",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26371,7 +26581,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "83f8cb3d74c555c28357dffdb8e672b1e9a5e697058f36f5e7b1f1eb0da02bc8"
+      "sha256": "d8e3f42e5353fee28c2c48d5c2f183ea430f5854005545e7f20919f4ac11d8dd"
     },
     "plan": {
       "path": "examples/cone-pivot-post/built-up.toml",

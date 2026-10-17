@@ -903,7 +903,8 @@ with a measured travel limit passes; exceeding it fails.
 A machine with inventory `kind = "bench"` or `"manual"` whose non-empty
 operation list contains only `fit`, `inspect`, `deburr`, `coating`, `scribe`,
 `file_to_line` and saw cuts whose tool resolves to a `hand_saw` needs no DRO or
-spindle screen: `zero_check`, `coordinates` and `headroom` are `not_applicable`.
+spindle screen: `zero_check`, `coordinates`, `headroom` and `fixture_table` are
+`not_applicable`.
 Joint geometry and modeled holding still apply. Adding any other cutting or
 unknown operation, or a saw with a powered or unresolved blade, reinstates the
 normal machine screens.

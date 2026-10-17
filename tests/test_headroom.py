@@ -9,7 +9,7 @@ from test_cli import traveler
 from test_sheet_ops import Markup, content
 
 from prechips.inputs import load_bundle
-from prechips.rules import coordinates
+from prechips.rules import coordinates, fixture_table
 from prechips.rules.headroom import evaluate
 
 MEASURED = {"status": "measured", "by": "test", "date": "2026-10-03", "instrument": "steel rule"}
@@ -427,13 +427,14 @@ def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_table_check():
     assert finding.numbers["fixture_verify"] is False
     assert finding.numbers["sum_mm"] == pytest.approx(214)
     assert "fixture_mm" not in finding.numbers["travel_checks"]["x"]
-    table = finding.numbers["fixture_table_check"]
-    assert table["status"] == "unknown"
+    [row] = fixture_table.evaluate(data)
+    assert row.status == "unknown"
+    table = row.numbers
     # The head's length lies along its posed axis, setup X. This test pose puts pose x
     # along setup Y, so pose y (z × x) is vertical and the width adds nothing in plan.
     assert table["footprint_x_mm"] == 450
     assert table["footprint_y_mm"] == 0
-    assert "table length/width" in table["missing"]
+    assert any("table length/width" in fact for fact in table["missing"])
     assert finding.status == "pass"
 
 
@@ -460,13 +461,16 @@ def pm30_bundle(vise_width_mm):
 
 @pytest.mark.parametrize("vise_width_mm", [200, 290])
 def test_a_fixture_wider_than_travel_is_no_travel_error(vise_width_mm):
-    finding = evaluate(pm30_bundle(vise_width_mm))[0]
+    data = pm30_bundle(vise_width_mm)
+    finding = evaluate(data)[0]
     assert finding.status == "pass"
     assert finding.numbers["travel_checks"]["y"]["required_mm"] == 30
-    table = finding.numbers["fixture_table_check"]
-    assert table["status"] == "unknown"
-    assert table["fixture_width_mm"] == vise_width_mm
-    assert table["table_mm"] == "unknown"
+    # The fixture's size is a visible unknown against the table, never a pass or error.
+    [row] = fixture_table.evaluate(data)
+    assert row.status == "unknown"
+    assert row.numbers["fixture_width_mm"] == vise_width_mm
+    assert row.numbers["table_mm"] == "unknown"
+    assert "check: the vise" in row.sentence
 
 
 def test_stock_beyond_travel_errors_while_the_fixture_fits():
@@ -487,9 +491,9 @@ def test_vise_footprint_turns_with_jaws_along(jaws_along, footprint):
     hold = data.plan["setups"][0]["hold"]
     if jaws_along:
         hold["jaws_along"] = jaws_along
-    table = evaluate(data)[0].numbers["fixture_table_check"]
-    assert (table["footprint_x_mm"], table["footprint_y_mm"]) == footprint
-    assert table["status"] == "unknown"
+    [row] = fixture_table.evaluate(data)
+    assert (row.numbers["footprint_x_mm"], row.numbers["footprint_y_mm"]) == footprint
+    assert row.status == "unknown"
 
 
 @pytest.mark.parametrize(
@@ -500,9 +504,9 @@ def test_vise_footprint_turns_with_jaws_along(jaws_along, footprint):
 def test_a_malformed_fixture_pose_leaves_the_footprint_unknown(x, z):
     data = head_bundle()
     data.plan["setups"][0]["hold"]["pose"].update(x=x, z=z)
-    table = evaluate(data)[0].numbers["fixture_table_check"]
-    assert (table["footprint_x_mm"], table["footprint_y_mm"]) == ("unknown", "unknown")
-    assert table["status"] == "unknown"
+    [row] = fixture_table.evaluate(data)
+    assert (row.numbers["footprint_x_mm"], row.numbers["footprint_y_mm"]) == ("unknown", "unknown")
+    assert row.status == "unknown"
 
 
 def test_unverified_fixture_size_stays_on_the_table_check_not_the_headroom_row():
@@ -510,7 +514,20 @@ def test_unverified_fixture_size_stays_on_the_table_check_not_the_headroom_row()
     data.inventory["fixtures"]["vise"]["width_mm"] = "unknown"
     finding = evaluate(data)[0]
     assert finding.status == "pass"
-    assert finding.numbers["fixture_table_check"]["footprint_y_mm"] == "unknown"
+    assert fixture_table.evaluate(data)[0].numbers["footprint_y_mm"] == "unknown"
+
+
+def test_the_table_check_never_passes_or_errors_and_skips_non_table_setups():
+    data = bundle()
+    [row] = fixture_table.evaluate(data)
+    assert row.status == "unknown"
+    assert row.numbers["missing"] == [
+        "inventory.machines.mill table length/width (and any extension)",
+        "allowed fixture overhang",
+        "table load limit",
+    ]
+    data.inventory["machines"]["mill"]["kind"] = "lathe"
+    assert fixture_table.evaluate(data)[0].status == "not_applicable"
 
 
 def test_block_orientation_unknown_does_not_guess_shortest_dimension():

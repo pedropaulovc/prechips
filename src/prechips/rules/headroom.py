@@ -27,12 +27,11 @@ otherwise stays unknown.  Manual bench fit/inspection setups (``rules._bench``) 
 spindle stack or travel.
 """
 
-import math
 from fractions import Fraction
 
 from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact, measurement_entry
-from prechips.model import UNIT_TOLERANCE, profiled
+from prechips.model import profiled
 from prechips.rules._bench import manual_bench, not_applicable
 from prechips.rules.resolution import (
     MANUAL,
@@ -85,67 +84,6 @@ def _head_axis_z(pose):
     if isinstance(origin, list) and len(origin) == 3 and all(_numeric(v) for v in origin):
         return origin[2]
     return _UNKNOWN
-
-
-def _footprint(fixture, hold, length, width):
-    """(X, Y, basis) of the fixture's ``length`` x ``width`` footprint in the setup frame.
-
-    A vise's ``length`` runs along its screw, across the jaws: ``jaws_along = "x"`` puts
-    it along Y. A posed fixture rotates by its pose (y = z x x): a dividing head's
-    ``length`` lies along its axis (pose z), any other fixture's along pose x, and
-    ``width`` along pose y. Without that pose the footprint stays unknown."""
-    if not (_numeric(length) and _numeric(width)):
-        return _UNKNOWN, _UNKNOWN, "fixture length/width unknown"
-    if fixture.get("kind") == "vise":
-        along = hold.get("jaws_along")
-        if along == "x":
-            return width, length, 'jaws_along = "x": length along Y'
-        if along == "y":
-            return length, width, 'jaws_along = "y": length along X'
-        return _UNKNOWN, _UNKNOWN, "vise jaws_along not declared"
-    pose = _mapping(hold.get("pose"))
-    x, z = pose.get("x"), pose.get("z")
-    if not all(isinstance(v, list) and len(v) == 3 and all(map(_numeric, v)) for v in (x, z)):
-        return _UNKNOWN, _UNKNOWN, "fixture pose not declared"
-    # A scaled or skewed pose would stretch the footprint: unit, orthogonal axes only.
-    norms = [math.hypot(*axis) for axis in (x, z)]
-    if (
-        any(abs(norm - 1) > UNIT_TOLERANCE for norm in norms)
-        or abs(sum(a * b for a, b in zip(x, z, strict=True))) > UNIT_TOLERANCE
-    ):
-        return _UNKNOWN, _UNKNOWN, "fixture pose axes are not unit and orthogonal"
-    y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]]
-    head = fixture.get("kind") == "dividing_head"
-    along = z if head else x
-    extents = [abs(along[i]) * length + abs(y[i]) * width for i in (0, 1)]
-    return *extents, f"hold.pose: length along pose {'z' if head else 'x'}, width along pose y"
-
-
-def _fixture_table(bundle, setup, fixture, fixture_ref, machine_ref):
-    """The fixture footprint against the machine table: always unknown until the table's
-    extents, allowed overhang and load are inventory facts (#272 item 1, #297). It never
-    errors or passes, and it does not move the headroom row's status."""
-    debts = {}
-    length = _length(bundle, fixture, "length", "workholding", fixture_ref, debts)
-    width = _length(bundle, fixture, "width", "workholding", fixture_ref, debts)
-    x, y, basis = _footprint(fixture, _mapping(setup.get("hold")), length, width)
-    size = f"{x:g} x {y:g} mm" if _numeric(x) and _numeric(y) else "its"
-    return {
-        "status": "unknown",
-        "fixture_length_mm": length,
-        "fixture_width_mm": width,
-        "footprint_x_mm": x,
-        "footprint_y_mm": y,
-        "footprint_basis": basis,
-        "table_mm": _UNKNOWN,
-        "missing": (
-            f"inventory.machines.{machine_ref} has no table length/width (or extension), "
-            "allowed fixture overhang or table load limit facts; check: the fixture's "
-            f"{size} footprint seats on the table within the allowed overhang and the "
-            "fixture plus work weight is within the table load"
-        ),
-        "measurements": [debts[key] for key in sorted(debts)],
-    }
 
 
 def _limit(machine, identity, field, debts, cite):
@@ -608,9 +546,6 @@ def evaluate(bundle):
             if travel["verified"] and _numeric(extent) and extent > travel["value"]:
                 errors.append(f"setup-entry stock exceeds {axis.upper()} travel")
         numbers["travel_checks"] = travels
-        numbers["fixture_table_check"] = _fixture_table(
-            bundle, setup, fixture, fixture_ref, machine_ref
-        )
         # A guided sweep moves its fixture under the spindle: the stack and clearance
         # judged at the setup pose do not cover every pose, so it is never a pass (#255).
         from .guided_sweep import unmodelled

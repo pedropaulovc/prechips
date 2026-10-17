@@ -1846,6 +1846,7 @@ _TOPICS = {
     "headroom": "headroom and clearance",
     "envelope": "machine envelope",
     "travel": "axis travel",
+    "fixture_table": "fixture seated on the table",
     "fixture_interference": "holding clearance",
     "thin_wall_under_clamp": "thin walls under clamping",
     "vise": "vise grip",

@@ -148,7 +148,7 @@ included = ["chuck_3jaw_5in_inside_outside_jaws", "tailstock_adjustable", "spind
 height_mm = { value = 100.0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 # `length` lies along the head's axis (pose z) and `width` along pose y: the base
 # footprint the solids below draw (160 x 150 mm). Headroom reports it against the
-# table (fixture_table_check), not against travel (#297).
+# table (the fixture_table rule), not against travel (#297).
 length_mm = { value = 160.0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 width_mm = { value = 150.0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 solids = [

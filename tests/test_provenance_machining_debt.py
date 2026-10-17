@@ -10,6 +10,7 @@ from prechips import kernel
 from prechips.measurements import length_debt, measurement_checklist, measurement_entry
 from prechips.rules import (
     accessibility,
+    fixture_table,
     headroom,
     level_entry,
     op_chain,
@@ -310,20 +311,16 @@ def test_headroom_names_each_consumed_stack_or_travel_fact(category, identity, f
 
 @pytest.mark.parametrize("case", ["assumed", "illustrative"])
 @pytest.mark.parametrize(("field", "value"), [("length", 150), ("width", 80)])
-def test_headroom_keeps_fixture_footprint_debt_on_its_table_check(field, value, case):
-    # The footprint no longer bounds travel (#297): its debt names the table check's
-    # input and leaves the stack/reach verdict alone.
+def test_fixture_footprint_debt_is_the_table_checks_not_headrooms(field, value, case):
+    # The footprint no longer bounds travel (#297): its debt is the fixture_table row's
+    # consumed input, on the checklist, and leaves the stack/reach verdict alone.
     data = bundle()
     [baseline] = headroom.evaluate(data)
     data.inventory["fixtures"]["vise"][f"{field}_mm"] = fact(value, case)
     [row] = headroom.evaluate(data)
-    assert row.status == baseline.status == "pass"
-    assert row.numbers["measurements"] == baseline.numbers["measurements"]
-    table = row.numbers["fixture_table_check"]
-    assert table["status"] == "unknown"
-    assert [(e["id"], e["status"]) for e in table["measurements"]] == [
-        (f"fixtures.vise.{field}", case)
-    ]
+    assert row == baseline and row.status == "pass"
+    [table] = fixture_table.evaluate(data)
+    assert_debts(table, {f"fixtures.vise.{field}": case})
 
 
 def test_headroom_names_selected_projection_not_the_unused_grip_and_keeps_m5_debt():
