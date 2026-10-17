@@ -1698,8 +1698,9 @@ uses the 1898 manual arc method:
    too), a stop block at each end of the sweep, set at the touch before any back-off
    (X and Y still locked, spindle stopped, Z just clear): the fixture is moved until
    the radial stroke of the arc-end mark an earlier `scribe` op with `layout = "ends"`
-   laid out in the same setup lies along the touch axis and, extended, runs through
-   the cutter's axis (whatever radius the master set), then on by the overrun measured
+   laid out in the same setup, extended, runs through the cutter's axis (whatever
+   radius the master set; only the line counts, never the stroke's direction, so the
+   angle's 0.1° rounding moves the stop by thousandths), then on by the overrun measured
    along the cutter's path (printed to 0.1 mm rounded down, measured on the touch path;
    the start is proven in air at that printed stop). That layout scribes marks A and
    B on the work top, each a point measured from the nearer end face and side face of

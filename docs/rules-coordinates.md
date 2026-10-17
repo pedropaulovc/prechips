@@ -490,7 +490,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   stage's stops are set, before any rough back-off), the cutter widened by the most the master-set
   cut (`cut_radius_mm`) stands off the nominal wall the rows assume, and by the arc
   that radius range turns the measured overrun through (it is measured along the real
-  path; `start_reach_mm`), else `unproven` and unknown, since nothing
+  path), by half the mark's placement step and by the stop's shift when the stroke's
+  printed angle is off by half its 0.1° step across a cutter radius plus that spread
+  (`start_reach_mm`), else `unproven` and unknown, since nothing
   checks a plunge for a sweep. The traveler prints the recipe only with a known band
   (`band_mm`), a proven cut and a start in air; any unproven cut is debt, whatever
   left it so (a pivot play or rail error too large to bound included).
@@ -1055,8 +1057,8 @@ leaves it unknown. The `coordinates` arc tables still read the drawing band only
   about): `marks` A and B, each a point measured from the nearer end face along X and
   the nearer side face along Y of the stock box the setup receives, at 0.1 mm (0.005
   in), and a short stroke through it toward the arc's centre at `angle` degrees
-  (0.1°) to that side face; the sweep sets each stop with its stroke run through the
-  cutter's axis along the touch axis.
+  (0.1°) to that side face; the sweep sets each stop where its stroke, extended, runs
+  through the cutter's axis, whatever its direction there.
   It needs a rectangular bar (`flat_bar`, `square_bar`, `plate`) that the setup
   receives as the plan's raw stock, its faces (`axis`, `section_axis`) square to the
   setup's X, Y and Z, a modelled stock box and both ends on the stock; else unknown,
