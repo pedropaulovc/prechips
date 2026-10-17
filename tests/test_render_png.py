@@ -4,9 +4,12 @@ import ast
 import bisect
 import json
 import math
+import os
 import random
 import re
 import struct
+import time
+import traceback
 import zlib
 from collections import defaultdict
 from contextlib import contextmanager
@@ -1749,12 +1752,23 @@ def pure_native_outline_render():
                 "_guide_tags",
                 "_Unknown",
                 "_timed",
+                "_mark",
+                "_failure_text",
                 "run_job",
             }
             or isinstance(node, ast.Assign)
             and any(
                 isinstance(target, ast.Name)
-                and target.id in {"UNKNOWN", "STOCK_TOL", "STOCK_MM3", "_COLOURS"}
+                and target.id
+                in {
+                    "UNKNOWN",
+                    "STOCK_TOL",
+                    "STOCK_MM3",
+                    "_COLOURS",
+                    "_TRAIL",
+                    "_TRAIL_PATH",
+                    "_TRAIL_START",
+                }
                 for target in node.targets
             )
         )
@@ -1767,6 +1781,10 @@ def pure_native_outline_render():
     )
     namespace = {
         "contextmanager": contextmanager,
+        "json": json,
+        "os": os,
+        "time": time,
+        "traceback": traceback,
         "_nominal_outline_deflection": render_module._nominal_outline_deflection,
     }
     exec(
@@ -1906,10 +1924,11 @@ def test_native_outline_discretization_failure_is_not_coarsened(
     assert calls == [{"Deflection": 10 / 400}, {"Deflection": requested}]
     calls.clear()
     result = namespace["run_job"]({})
-    assert result == {
-        "status": "error",
-        "reason": f"{error_type.__name__}: requested deflection is below native precision",
-    }
+    assert result.keys() == {"status", "reason"} and result["status"] == "error"
+    # The engine's own reason formatter names the failure and where it was raised.
+    message = f"{error_type.__name__}: requested deflection is below native precision at "
+    assert result["reason"].startswith(message), result
+    assert result["reason"].endswith(" in discretize"), result
     assert calls == [{"Deflection": 10 / 400}, {"Deflection": requested}]
 
 

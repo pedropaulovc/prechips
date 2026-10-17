@@ -55,7 +55,11 @@ def pilot_kernel_cache(freecad_kernel):
 
     def prepare(plan):
         facts = kernel.run_geometry(load_bundle(plan))
-        assert facts["status"] == "ok", (plan, facts)
+        # Reason first: pytest truncates a long explanation, and the facts can be long.
+        assert facts["status"] == "ok", (
+            f"{plan}: kernel {facts['status']}: {facts.get('reason', '<no reason>')}; "
+            f"timing {facts.get('timing')}"
+        )
         return facts
 
     return prepare
