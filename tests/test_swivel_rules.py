@@ -414,3 +414,17 @@ def test_an_explicit_zero_swivel_prints_as_square_jaws():
     assert "swivelled" not in text and "Swivel" not in text
     assert "Square the fixed jaw" in text
     assert swivel.evaluate(data) == []
+
+
+def test_a_redundant_align_on_a_kept_swivel_is_never_the_setting_the_cuts_hold():
+    """V2 keeps V1's swivel, so the traveler prints no setting step for it: a stricter
+    align V2 declares is never performed, and V2 is held to V1's coarse graduations."""
+    data = bundle(
+        setup("V1", align=GRADUATIONS, ops=[taper()]),
+        setup("V2", align=INDICATE, ops=[taper()]),
+        band=0.25,
+    )
+    _, kept = swivel.evaluate(data)
+    assert swivel.setting(data, data.plan["setups"][1])["set_in"] == "V1"
+    assert kept.numbers["tolerance_deg"] == 0.5 and kept.status == "error"
+    assert "Swivel" not in hold_text(data, "V2")

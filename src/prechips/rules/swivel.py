@@ -69,13 +69,14 @@ def _positive(value):
 
 def set_in(bundle, setup):
     """The setup whose ``hold.align`` set the swivel ``setup`` works in: itself where it
-    mounts the vise or changes its swivel (``hold_fields.align_due``) or declares its own
-    align, else the nearest earlier setup on the same machine that did; the vise stays as
-    that setup left it."""
+    mounts the vise or changes its swivel (``hold_fields.align_due``), else the nearest
+    earlier setup on the same machine that did; the vise stays as that setup left it. A
+    setup that is not due prints no setting step, so its own align sets nothing: only a
+    setting the traveler prints is the one the cuts are held to."""
     from prechips.rules.hold_fields import align_due
 
     due = align_due(bundle)
-    if setup["id"] in due or "align" in record(setup.get("hold")):
+    if setup["id"] in due:
         return setup
     machine = identity(bundle, setup.get("machine"), "machines")
     order = [other["id"] for other in bundle.plan["setups"]]

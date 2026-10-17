@@ -76,7 +76,8 @@ otherwise. The setting tolerance δθ comes from `hold.align`
 asin((`limit_mm` + √2·step) / `over_mm`) with the machine's measured DRO step, or the
 cited `tolerance_deg` of a stated method. A setup that keeps the vise as an earlier one
 on the same machine set it (not `align_due`) inherits that setup's `hold.align`
-(`set_in`). An explicit `jaws_angle_deg = 0` is square jaws: no row, and the HOLD prints
+(`set_in`), even when it declares an align of its own: the traveler prints a setting
+step only where one is due, so only that setting is the one its cuts are held to. An explicit `jaws_angle_deg = 0` is square jaws: no row, and the HOLD prints
 no swivel. Each walled cut (every machining op except
 facing, point/hole actions, saws and manual work) is held against its feature's ± angle
 band: `angle_tol_deg`, else none for a BASIC angle, else
