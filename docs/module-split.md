@@ -298,7 +298,8 @@ with `src/prechips/**` (`*.py` and `tokens.css`). A missing `model/stock.py` or
   that line's indentation. A write `alias.name = ...` is rewritten like a monkeypatch,
   to the one file that looks the name up, and refused if more than one file does. It
   edits the literal's source text, so raw strings keep their backslashes.
-* **Tests that parse source** (`ast.parse`, `inspect.getsource`) may rebuild code from
+* **Tests that parse, compile or execute source** (`ast.parse`, `inspect.getsource`,
+  built-in `compile`/`exec`, also inside probe scripts) may rebuild code from
   the module's own AST. `test_kernel_checkpoints.py` and `test_render_png.py` both do this
   to `freecad_job.py`. The script cannot port that, so every file that parses source is
   listed once in the spec's `[parses_source]` table with the modules whose source it
@@ -331,7 +332,8 @@ What `apply` does:
    * module state written under `global` and read from another file;
    * a moved method that uses zero-argument `super()`, `__class__` or a name-mangled
      `self.__x` (mixins would change their meaning);
-   * a symbol that reads `__file__` and would move to another directory;
+   * a symbol that reads `__file__`, `__name__`, `__spec__`, `__package__` or `__doc__`
+     and would move to another file (each file has its own);
    * a name bound twice that would land in two files;
    * a monkeypatched name read from two files, from `monkeypatch.setattr` or from a
      probe's `alias.name = ...`;
@@ -340,7 +342,8 @@ What `apply` does:
      the spec says `value_uses = "rest"`. That setting means such a value stands for the
      module's entry point that `rest` keeps, such as a rule's `evaluate`, and the value
      is rebound to `rest`. The suite checks the claim;
-   * a file that parses source and that the spec has not classified (section 6);
+   * a file that parses, compiles or executes source and that the spec has not
+     classified (section 6);
    * a plain `import prechips.<module>` it cannot rewrite;
    * a `file:line` citation of the module in docs or example data (AGENTS.md cites
      Python by line).

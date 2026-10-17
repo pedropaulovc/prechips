@@ -513,11 +513,12 @@ def make_plan(module):
     for name, files in bound_in.items():
         if len(files) > 1:
             refusals.append(f"{name} is bound more than once, across {sorted(files)}")
-    here = (ROOT / module["source"]).parent
     for unit, target in placed:
-        located = {"__file__", "__package__", "__spec__"} & _unit_free(unit)
-        if located and (ROOT / target).parent != here and unit.kind != "import":
-            refusals.append(f"{unit.name} reads {sorted(located)} and would change directory")
+        # Each file has its own __file__, __name__, __spec__, __package__ and __doc__.
+        located = {"__file__", "__name__", "__spec__", "__package__", "__doc__"}
+        located &= _unit_free(unit)
+        if located and target != module["source"] and unit.kind != "import":
+            refusals.append(f"{unit.name} reads {sorted(located)}, which differ in {target}")
     mixins = {}
     for unit, target in placed:
         if unit.kind != "method":
@@ -905,7 +906,7 @@ class Rewriter:
     def rewrite(self, path):
         text = path.read_text(encoding="utf-8")
         probe = self.module.get("entry") and "module_from_spec" in text
-        probe = probe or "ast.parse(" in text or "getsource(" in text
+        probe = probe or any(word in text for word in ("parse(", "getsource(", "compile(", "exec("))
         mentioned = Path(self.module["source"]).stem in text or self.source.rsplit(".")[-1] in text
         if not (probe or mentioned):
             return None
@@ -990,10 +991,11 @@ class Rewriter:
         return text
 
     def _reads_source(self, text):
-        """A file that parses source text (``ast.parse``, ``inspect.getsource``) may depend
-        on where a split module's code lives, which the script cannot port. Each such file
-        is listed once in the spec's ``[parses_source]`` with the modules it reads."""
-        return "ast.parse(" in text or "getsource(" in text
+        """A file that parses, compiles or executes source text (``ast.parse``,
+        ``inspect.getsource``, built-in ``compile``/``exec``) may depend on where a split
+        module's code lives, which the script cannot port. Each such file is listed once
+        in the spec's ``[parses_source]`` with the modules it reads."""
+        return _parses_source(ast.parse(text))
 
     def _probes(self, text, tree, at, path):
         """Rewrite in-kernel probe scripts: test string literals that load the entry with
@@ -1190,6 +1192,30 @@ class Rewriter:
         return at(value.lineno, value.col_offset), at(value.end_lineno, value.end_col_offset), local
 
 
+def _parses_source(tree):
+    """Whether code in ``tree``, or in a probe script held in one of its string literals
+    (run inside freecadcmd), parses, compiles or executes source text."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            if "\n" in node.value and ("compile(" in node.value or "exec(" in node.value):
+                try:
+                    if _parses_source(ast.parse(node.value)):
+                        return True
+                except SyntaxError:
+                    pass
+            continue
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Name) and func.id in ("compile", "exec"):
+            return True
+        if isinstance(func, ast.Attribute) and func.attr in ("parse", "getsource"):
+            owner = func.value
+            if isinstance(owner, ast.Name) and owner.id in ("ast", "inspect"):
+                return True
+    return False
+
+
 def _reached(name, parents):
     """Whether this load of a module alias is one the rewriter follows: ``alias.attr``,
     or the module argument of ``setattr``/``getattr``/``hasattr``."""
@@ -1204,14 +1230,27 @@ def _reached(name, parents):
 
 
 def _module_bindings(tree):
+    """Names the module scope binds, including imports and assignments nested in
+    module-level ``try``/``if``/``with``/``for`` blocks (not inside functions,
+    classes or comprehensions, which have scopes of their own)."""
     bound = set()
-    for node in tree.body:
+    stack = list(tree.body)
+    while stack:
+        node = stack.pop()
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             bound.add(node.name)
-        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            continue
+        if isinstance(
+            node, (ast.Lambda, ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)
+        ):
+            continue
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
             bound.update((a.asname or a.name).split(".")[0] for a in node.names)
-        else:
-            _targets(node, bound)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            bound.add(node.id)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            bound.add(node.name)
+        stack.extend(ast.iter_child_nodes(node))
     return bound
 
 
@@ -1238,6 +1277,20 @@ def _resolved_uses(tree, aliases):
     found = []
 
     def visit(n, chain):
+        if isinstance(n, (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)):
+            # Its targets hide an alias inside it; each iterable is read before its
+            # own targets bind, the first one in the enclosing scope.
+            found.append((n, None))
+            bound = set()
+            for generator in n.generators:
+                visit(generator.iter, [*chain, (id(n), set(bound))])
+                _targets(generator.target, bound)
+                for condition in generator.ifs:
+                    visit(condition, [*chain, (id(n), set(bound))])
+            for key in ("elt", "key", "value"):
+                if hasattr(n, key):
+                    visit(getattr(n, key), [*chain, (id(n), set(bound))])
+            return
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
             chain = [*chain, (id(n), _local_bindings(n))]
         name = None

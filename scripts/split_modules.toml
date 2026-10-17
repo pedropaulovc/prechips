@@ -4,7 +4,8 @@
 # every symbol no pattern names stays in `rest`. A `variant` is an alternative the
 # `churn` report compares; `plan` and `apply` take the variant-less entry by default.
 
-# Every file that parses Python source (ast.parse, inspect.getsource), with the split
+# Every file that parses, compiles or executes Python source (ast.parse, inspect.getsource,
+# built-in compile/exec, also inside probe scripts), with the split
 # modules whose source it reads: apply refuses an unlisted one and prints the readers of
 # the module it splits, to port by hand in that PR.
 [parses_source]
@@ -12,6 +13,11 @@
 "tests/test_split_modules.py" = []
 "tests/test_kernel_checkpoints.py" = ["src/prechips/kernel/freecad_job.py"]
 "tests/test_render_png.py" = ["src/prechips/kernel/freecad_job.py"]
+"tests/test_guided_sweep.py" = ["src/prechips/kernel/freecad_job.py"]
+# Its probe compiles a mutated copy of freecad_job.py.
+"tests/test_kernel_unknown_stock_own_cut.py" = ["src/prechips/kernel/freecad_job.py"]
+# Walks the kernel's import graph, whatever files hold the code.
+"tests/test_engine_digest.py" = []
 
 # --- model.py -> model/ per input family, the plan schema per plan concern ----------------
 [[module]]

@@ -657,3 +657,54 @@ def test_churn_keeps_a_symbol_history_dropped_in_rest(tmp_path, monkeypatch):
     targets = json.loads((tmp_path / "o").read_text())["modules"]["big"]["targets"]
     # The edit to `old` (dropped since) stays with rest, never with f's parts.py.
     assert len(targets["parts.py"]["changes"]) == 1  # only the first commit adds f
+
+
+def test_a_unit_reading_its_modules_name_never_moves_to_another_file(at):
+    plan = at("def where():\n    return __name__\n", _spec('["where"]'))
+    assert any("__name__" in refusal for refusal in plan.refusals)
+
+
+def test_a_comprehension_target_hides_a_module_alias(at, tmp_path):
+    rewritten = _importer_case(
+        at,
+        tmp_path,
+        "def radius(x):\n    return x\n",
+        '["radius"]',
+        """\
+        from pkg import big
+
+        PROVIDERS = []
+        FOUND = [big.radius for big in PROVIDERS]
+        DIRECT = big.radius
+        """,
+    )
+    assert "FOUND = [big.radius for big in PROVIDERS]" in rewritten
+    assert "DIRECT = big_parts.radius" in rewritten
+
+
+def test_an_alias_imported_in_a_module_level_try_is_followed(at, tmp_path):
+    rewritten = _importer_case(
+        at,
+        tmp_path,
+        "def radius(x):\n    return x\n",
+        '["radius"]',
+        """\
+        try:
+            from pkg import big
+        except ImportError:
+            big = None
+
+        VALUE = big.radius(1)
+        """,
+    )
+    assert "VALUE = big_parts.radius(1)" in rewritten
+
+
+def test_a_probe_compiling_the_source_is_a_source_reader(at, tmp_path):
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    (tmp_path / "tests" / "test_probe.py").write_text(
+        'PROBE = r"""\ntext = open(path).read()\nexec(compile(text, path, "exec"), {})\n"""\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
