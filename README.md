@@ -263,6 +263,13 @@ along a scribed arc the predicted removal follows the curve, offset by the allow
 and child hole operations inherit a missing travel centre from their named
 parent/hole while explicit unknown locations remain debt.
 
+A cut that frees the part from its frame leaves a held split: every pressed piece
+stays in the stock. The op that ends it (usually `release`) takes
+`keep = "<feature>"`, and only the piece carrying that finished feature goes on to
+later setups. Each discarded piece is logged by the
+[`keep_piece`](docs/rules-geometry.md#keep-piece) finding. A keep that cannot pick
+exactly one piece is `?`.
+
 On the lathe, a parting/grooving blade's Z touch names the blade corner it sets
 (the touched face's normal decides it; a scribe touch states it), and every blade
 op row prints Z as that corner's reading. Each toolpost tool's first touch-off in
@@ -395,7 +402,17 @@ phase: [#213](https://github.com/pedropaulovc/prechips/issues/213)); a
 arc's bore (or a template) and checks R with a radius gauge whose range covers
 it. `chords` (sagitta proven inside the band, ends on the DRO grid) and a
 `rotary_table` recipe (inventory table, centre pin, offset and dial readings)
-finish arcs on the mill. No traveler prints MDI, G-code or a continuous circle;
+finish arcs on the mill, and a `guided_sweep` (#255), in a setup of its own, finishes an arc whose centre
+is too far off the part for a table: the cutter is touched to a measured master
+and locked while a swing arm on a pivot, or a sled whose rail bears on two
+rollers, sweeps the work under it; the master's radius limits widened by the
+measured pivot play, or the rail's form error and roller runout through the
+rollers' geometry, must hold the band, and an unmeasured guide is debt, never a
+perfect rail. The setup picture draws an arc sled's table-side rollers
+render-only from the sled's measured `roller_dia`, `roller_height` and
+`bed_height` and its `rail_side` (a missing fact is a `NOT SHOWN` note with its
+`measure:` instruction), and notes where a swing arm's pivot post stands, off
+the picture. No traveler prints MDI, G-code or a continuous circle;
 the former `arc_table` method and machine `contouring` are gone.
 Drawing dimensions retain their declared precision; when no precision is
 declared, known values still print their own digits rather than `?`. Operative

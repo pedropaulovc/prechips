@@ -214,6 +214,11 @@ def evaluate(bundle):
             for key in ("tool", "holder")
             if isinstance(minimum, dict) and key in minimum
         }
+        # Built-up only: who owns each occluding solid (a component's stock, the component
+        # whose finished face bounds the hit, or a fixture), so a hit is attributable.
+        owners = detail.get("hit_owners")
+        if isinstance(owners, dict) and owners:
+            certain["hit_owners"] = owners
         checkpoints, checkpoint_hit, checkpoint_unknown = _checkpoints(detail)
         # The whole turning tool's axial extent and its nose's over the same poses (or why
         # they are unknown): the traveler's jaw distance, whatever the op's own verdict. A

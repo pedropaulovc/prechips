@@ -416,8 +416,26 @@ Zero = record(
 )
 Bounds = record("Bounds", {"x": Vector, "y": Vector, "z": Vector})
 KeepOut = record("KeepOut", {"at": Vector, **numbers("dia_mm")})
+# A ``guided_sweep`` contour's guide (docs/plan.md "Manual arcs"): the work rides
+# ``fixture`` (an inventory swing arm on a ``pivot`` at the arc centre, or a sled whose
+# ``rail`` bears on two table rollers) under a cutter touched off on the ``master`` gauge
+# along ``touch_axis`` and locked; the fixture turns ``sweep_deg`` about the centre. A rail's
+# ``rollers_deg`` and ``rail_deg`` (its ends) are degrees about the arc centre from the
+# cutter's radial line, counterclockwise from above, with the cutter at the arc's middle.
+GuidedSweep = record(
+    "GuidedSweep",
+    {
+        "guide": Literal["pivot", "rail"],
+        **texts("fixture master"),
+        "touch_axis": Literal["+X", "-X", "+Y", "-Y"],
+        **numbers("sweep_deg"),
+        "rollers_deg": Vector,
+        "rail_deg": Vector,
+    },
+)
 # A manual-mill arc method (docs/plan.md): ``stairs`` and ``chain_drill`` rough outside the
-# line, ``chords`` mill straight chords, ``rotary_table`` turns the work under the cutter.
+# line, ``chords`` mill straight chords, ``rotary_table`` turns the work under the cutter,
+# ``guided_sweep`` sweeps it under a locked cutter on a pivot or rail fixture (``sweep``).
 Contour = record(
     "Contour",
     {
@@ -426,6 +444,7 @@ Contour = record(
         "count": int,
         "sweep_bounds": Bounds,
         "keep_out": list[KeepOut],
+        "sweep": GuidedSweep,
     },
 )
 # A layout or bench filing guide: ``buttons`` (an inventory ``fixtures`` kit of kind
@@ -536,11 +555,6 @@ type KnownPoint3 = Annotated[list[float], Field(min_length=3, max_length=3)]
 UNIT_TOLERANCE = 1e-6
 
 
-def _unit(vector: list[float], what: str) -> None:
-    if abs(math.sqrt(sum(v * v for v in vector)) - 1.0) > UNIT_TOLERANCE:
-        raise ValueError(f"{what} must be a unit vector.")
-
-
 class InspectionAid(InputModel):
     """A gauge, block or holding an inspection sketch draws, in the part model's own
     coordinates (mm): a ``box`` from its least corner ``at_mm`` by ``size_mm`` along its
@@ -632,6 +646,9 @@ Operation = record(
         # split across features is read once).
         "feature": str | Annotated[list[str], Field(min_length=2)],
         **texts("tool holder direction note layout"),
+        # The finished feature whose piece stays when the work is in pieces after this op:
+        # every other piece is discarded (the kernel's stock pass; keep_piece reports it).
+        "keep": str,
         "inspection_note": Procedure,
         # A coating op's process: an outside ``services`` entry or in-house ``consumables``.
         "process": str | Annotated[list[str], Field(min_length=1)],
@@ -1079,6 +1096,9 @@ class Plan(InputModel):
         line must be on the saw's own workpiece: scribed earlier in the same setup or in a
         setup its ``stock_in`` routing descends from (omitted routing descends from none)."""
         scribes = {}
+        # An ``ends`` layout scribes only an arc's two end marks (a guided sweep's stops): no
+        # line for a saw to follow.
+        end_marks = set()
         routes = {
             "setups": [
                 {"id": setup.id, "stock_in": setup.stock_in}
@@ -1096,7 +1116,9 @@ class Plan(InputModel):
                     stray = sorted(declared & {"follows", "allowance_mm"})
                     if stray:
                         raise ValueError(f"{where}: only a saw cut declares {', '.join(stray)}.")
-                    if op.do == "scribe":
+                    if op.do == "scribe" and op.layout == "ends":
+                        end_marks.add(f"{setup.id}:{op.op}")
+                    elif op.do == "scribe":
                         scribes[f"{setup.id}:{op.op}"] = setup.id
                     continue
                 shapes = [field for field in ("cut_plane", "follows") if field in declared]
@@ -1114,6 +1136,11 @@ class Plan(InputModel):
                             f"{', '.join(stray)} belong to a cut that follows a scribed line."
                         )
                     continue
+                if op.follows in end_marks:
+                    raise ValueError(
+                        f"{where}: follows {op.follows!r}, an ends layout: it scribes only the "
+                        "arc's two end marks, no line for the saw to follow."
+                    )
                 if op.follows not in scribes:
                     raise ValueError(
                         f"{where}: follows {op.follows!r} names no earlier scribe op "
@@ -1968,6 +1995,23 @@ InventoryItem = record(
             MeasuredLimits,
         ),
         **dict.fromkeys(("button_runout_mm", "button_runout_in"), MeasuredLength),
+        # Guided-sweep fixtures and masters (docs/inventory.md "Guided-sweep fixtures"): a
+        # swing arm's pivot play, an arc sled's rail radius, form error and roller runout,
+        # and the radius limits a setting bar or master arc sets about the guide's centre.
+        **dict.fromkeys(
+            ("pivot_play_mm", "pivot_play_in", "rail_radius_mm", "rail_radius_in")
+            + ("rail_form_error_mm", "rail_form_error_in")
+            + ("roller_runout_mm", "roller_runout_in"),
+            MeasuredLength,
+        ),
+        **dict.fromkeys(("radius_limits_mm", "radius_limits_in"), MeasuredLimits),
+        # An arc sled's guide rollers: which edge of the sled the rail is (the rollers bear
+        # on it from outside the arc, or from the arc centre's side), and their diameter,
+        # which sets how far an inside roller's centre orbits.
+        **dict.fromkeys(("roller_dia_mm", "roller_dia_in"), MeasuredLength),
+        # Their top above the table, as the setup picture draws them (render-only).
+        **dict.fromkeys(("roller_height_mm", "roller_height_in"), MeasuredLength),
+        "rail_side": Literal["outer", "inner"],
         # Follow rest jaw directions about the spindle axis, degrees from the cutting tool.
         "jaw_angles_deg": list[Number],
     },
@@ -2009,6 +2053,9 @@ _INVENTORY_LENGTH_STEMS |= {"max_work", "t_slot_width"}
 _INVENTORY_LENGTH_STEMS |= {"pilot_len"}
 # Jaw button thickness and spigot (a vise hold's jaw_buttons).
 _INVENTORY_LENGTH_STEMS |= {"thickness", "spigot_dia", "spigot_length"}
+# Guided-sweep fixtures and masters: one fact each, in mm or in, never both.
+_INVENTORY_LENGTH_STEMS |= {"pivot_play", "rail_radius", "rail_form_error", "roller_runout"}
+_INVENTORY_LENGTH_STEMS |= {"radius_limits", "roller_dia", "roller_height"}
 
 
 def _inventory_lengths(

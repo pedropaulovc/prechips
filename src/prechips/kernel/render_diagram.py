@@ -1035,6 +1035,8 @@ class _Diagram:
                     radius = x / 2 if convention == "diameter" else x
                     self.off_window_keys.append((waypoint["label"], (radius, 0, z)))
         self.meshes = list(self.input_meshes)
+        # Tags of guide meshes left off the picture: no view of this setup draws them.
+        self.hidden_meshes = set()
         points = _corners(self.stock)
         points.extend(point for line in self.nominal for point in line)
         points.extend(point for _, point in self.off_window_keys)
@@ -1199,6 +1201,31 @@ class _Diagram:
             box = component.get("box_mm")
             if box is None:
                 framed.append(component)
+                continue
+            if _role(component) == "guide":
+                # A guided sweep's table-side rollers stand off the work by design: the
+                # view widens to show where they are, since the operator sets them (#255),
+                # but only within one stock size of it; farther ones would shrink the work
+                # unreadably, so a note says where they stand instead.
+                near = all(
+                    box[i] >= self.stock[i] - size and box[i + 3] <= self.stock[i + 3] + size
+                    for i in range(3)
+                )
+                if near:
+                    framed.append(component)
+                else:
+                    # Off the picture means not drawn at all: its meshes must not cover the
+                    # work from the camera's depth axis while the note says NOT SHOWN.
+                    dropped = set(component.get("meshes") or [])
+                    self.hidden_meshes |= dropped
+                    self.meshes = [
+                        mesh for mesh in self.meshes if not (len(mesh) > 4 and mesh[4] in dropped)
+                    ]
+                    self.render_debts.append(
+                        f"NOT SHOWN: {_plain(component.get('label') or component['name'])} "
+                        f"stand off the picture, setup X {box[0]:.1f} to {box[3]:.1f}, "
+                        f"Y {box[1]:.1f} to {box[4]:.1f}, Z {box[2]:.1f} to {box[5]:.1f}."
+                    )
                 continue
             pressing = _role(component) in ("fixed_jaw", "moving_jaw") and any(
                 touches(box, other) for other in touching
@@ -3062,7 +3089,11 @@ def render_diagram(meshes, spec):
         notes = list(spec.get("notes", [])) + debts
         diagram, png = _main_diagram(meshes, {**spec, "notes": notes, "key_closest_cut": here})
         if attempt == 0:
-            details = _holding_details(meshes, spec, diagram)
+            # Guide meshes the setup picture leaves off (its NOT SHOWN note) stay off its
+            # holding details too, or one could cover the enlarged holding from that
+            # detail camera's depth axis.
+            shown = [m for m in meshes if not (len(m) > 4 and m[4] in diagram.hidden_meshes)]
+            details = _holding_details(shown, spec, diagram)
             guide = _guide_view(spec, diagram)
             if guide is not None:
                 details.append(guide)
