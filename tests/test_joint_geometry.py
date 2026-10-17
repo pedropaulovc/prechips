@@ -162,8 +162,7 @@ def test_worst_case_fit_limits_join_real_prepared_stock(engine, joint_solids, in
     job = _joint_job(engine, joint_solids["joined"], interference=interference)
     joint = job["setups"][2]["joint"]
     assert joint["method"] == ("press" if interference else "silver_braze")
-    assert "cure_time_min" not in joint
-    assert "surface_prep" not in joint
+    assert "compound" not in joint
     facts = engine.run(job)
     assert facts["status"] == "ok", facts
     rows = facts["setups"]

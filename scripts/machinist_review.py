@@ -353,7 +353,8 @@ def print_traveler_pdf(html: Path, pdf: Path, *, chrome: Path, timeout_s: float 
             "--no-pdf-header-footer",
             "--run-all-compositor-stages-before-draw",
             f"--virtual-time-budget={VIRTUAL_TIME_BUDGET_MS}",
-            f"--print-to-pdf={pdf}",
+            # Chrome may resolve a relative output path against its own directory.
+            f"--print-to-pdf={pdf.resolve()}",
             html.as_uri(),
         ]
         proc = subprocess.run(

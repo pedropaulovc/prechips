@@ -2187,6 +2187,27 @@ def _field(finding, name, default=None):
     return getattr(finding, "sentence" if name == "message" else name, default)
 
 
+# How a traveler names a joint's assembly action ("Joined by slip fit with ...").
+_JOINED_BY = {"silver_braze": "silver braze", "slip": "slip fit", "press": "press fit"}
+
+
+def _bonding_op(setup, op):
+    """Whether ``op`` is the first ``fit`` op of a compound joint setup: the op that applies
+    the compound, so its consumable cell names it and its note carries prep and cure."""
+    joint = _mapping(setup.get("joint"))
+    fits = [o for o in setup.get("ops", []) if o.get("do") == "fit"]
+    return bool(_mapping(joint.get("compound"))) and bool(fits) and fits[0] is op
+
+
+def _compound_lead(joint, fitted):
+    """Opens a compound joint's "... not disturb until cured" sentence."""
+    if joint["method"] == "press":
+        return "Press in with the compound on the interface, then do"
+    if fitted:
+        return "Do"
+    return "Apply the retaining compound, assemble, then do"
+
+
 def _text(value):
     if value is None or value == "unknown":
         return "?"
@@ -2952,14 +2973,19 @@ class _Traveler:
         return f"{name}: {JOINT_PREP_LABEL}" if marked else name
 
     def joint_text(self, setup):
-        """How a joint setup joins its two received branches: method, process and the
-        declared fit band; for retaining compound, surface prep and the undisturbed cure
-        too, unless a ``fit`` op does the join: then they print once, on that op
+        """How a joint setup joins its two received branches: method, compound, process and
+        the declared fit band; with a compound, surface prep and the undisturbed cure too,
+        unless a ``fit`` op does the join: then they print once, on that op
         (:meth:`compound_note`), and the arrival line never repeats them."""
         joint = _mapping(setup.get("joint"))
         if not joint:
             return ""
-        text = f" Joined by {_text(joint['method'])} ({self.bench(joint['process'], setup)})"
+        compound = _mapping(joint.get("compound"))
+        method = _JOINED_BY.get(joint["method"]) or _text(joint["method"])
+        text = f" Joined by {method}"
+        if compound:
+            text += f" with {self.compound_product(setup, compound)}"
+        text += f" ({self.bench(joint['process'], setup)})"
         if joint["kind"] == "cylindrical":
             band = joint.get(f"{joint['fit']}_mm")
             limits = " to ".join(map(_number, band)) if isinstance(band, list) else _text(band)
@@ -2974,16 +3000,23 @@ class _Traveler:
             text += f" at {len(joint['interfaces'])} declared interface(s)"
         text += "."
         fitted = any(op.get("do") == "fit" for op in setup.get("ops", []))
-        if joint["method"] == "retaining_compound" and not fitted:
-            text += " " + self.compound_text(
-                setup, joint, "Apply the retaining compound, assemble, then do"
-            )
+        if compound and not fitted:
+            text += " " + self.compound_text(setup, joint, fitted=False)
         return text
 
-    def compound_text(self, setup, joint, lead):
-        """A retaining-compound joint's surface prep and undisturbed cure, an unknown one
-        printed as unknown; ``lead`` opens the cure sentence ("… not disturb until cured")."""
-        prep, cure = joint.get("surface_prep"), joint.get("cure_time_min")
+    def compound_product(self, setup, compound):
+        """The compound's product name, an unknown one printed as unknown."""
+        product = compound.get("product")
+        if not isinstance(product, str) or not product.strip() or product == "unknown":
+            return "compound ? UNKNOWN (not declared)"
+        return self.bench(product, setup).rstrip(".")
+
+    def compound_text(self, setup, joint, *, fitted):
+        """A compound joint's surface prep and undisturbed cure, an unknown one printed as
+        unknown. A press fit is pressed in with the compound on the interface; a slip fit
+        is assembled with it by its ``fit`` op, else as this text says."""
+        compound = _mapping(joint.get("compound"))
+        prep, cure = compound.get("surface_prep"), compound.get("cure_time_min")
         known_prep = isinstance(prep, str) and prep.strip() and prep != "unknown"
         return (
             "Surface prep: "
@@ -2992,7 +3025,7 @@ class _Traveler:
                 if known_prep
                 else "? UNKNOWN (not declared)."
             )
-            + f" {lead} not disturb until cured: "
+            + f" {_compound_lead(joint, fitted)} not disturb until cured: "
             + (
                 f"cure time {_number(cure)} min."
                 if _known(cure)
@@ -3001,18 +3034,11 @@ class _Traveler:
         )
 
     def compound_note(self, setup, op):
-        """The first ``fit`` op of a retaining-compound joint setup carries the joint's
-        surface prep and undisturbed cure (the arrival line then leaves them out)."""
-        joint = _mapping(setup.get("joint"))
-        fits = [o for o in setup.get("ops", []) if o.get("do") == "fit"]
-        if (
-            not joint
-            or joint.get("method") != "retaining_compound"
-            or not fits
-            or fits[0] is not op
-        ):
+        """The first ``fit`` op of a compound joint setup carries the joint's surface prep
+        and undisturbed cure (the arrival line then leaves them out)."""
+        if not _bonding_op(setup, op):
             return None
-        return self.compound_text(setup, joint, "Do")
+        return self.compound_text(setup, setup["joint"], fitted=True)
 
     def joint_debt(self, setup):
         """The joint's own declared facts left unknown: the join is withheld, never assumed."""
@@ -3022,12 +3048,16 @@ class _Traveler:
         missing = []
         if joint["kind"] == "cylindrical" and joint.get(f"{joint['fit']}_mm") == "unknown":
             missing.append(f"{joint['fit']} band")
-        if joint["method"] == "retaining_compound":
-            missing.extend(
-                name
-                for key, name in (("surface_prep", "surface prep"), ("cure_time_min", "cure time"))
-                if joint.get(key) == "unknown"
+        compound = _mapping(joint.get("compound"))
+        missing.extend(
+            name
+            for key, name in (
+                ("product", "compound product"),
+                ("surface_prep", "surface prep"),
+                ("cure_time_min", "cure time"),
             )
+            if compound.get(key) == "unknown"
+        )
         if not missing:
             return ""
         return (
@@ -8142,6 +8172,8 @@ class _Traveler:
             reference = op.get("tool")
             if op.get("do") == "coating":
                 tool = self.coating(op)
+            elif manual and reference is None and _bonding_op(setup, op):
+                tool = self.compound_product(setup, setup["joint"]["compound"])
             elif manual and reference is None:
                 tool = "—"
             elif reference in (None, "unknown"):

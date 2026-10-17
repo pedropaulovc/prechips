@@ -1275,11 +1275,11 @@ def test_plans_author_inspection_procedures_as_strings_or_step_lists():
 PAINT_NOTE = "Mask the bores; brush RAL 6005 to 50-75 um dry film."
 
 
-def _bench_sheet(ops):
+def _bench_sheet(ops, **setup):
     from prechips.inputs import Bundle
 
     data = Bundle(
-        plan={"setups": [{"id": "S12", "machine": "bench", "ops": ops}]},
+        plan={"setups": [{"id": "S12", "machine": "bench", "ops": ops, **setup}]},
         inventory={
             "machines": {"bench": {"kind": "bench"}},
             "consumables": {"ral-6005": {"name": "RAL 6005 alkyd"}},
@@ -1378,10 +1378,20 @@ JOINT = {
     "spigot": "spigot",
     "fit": "clearance",
     "clearance_mm": [0.044, 0.076],
-    "method": "retaining_compound",
-    "process": "retaining compound",
-    "cure_time_min": 1440,
-    "surface_prep": "solvent-degreased and dry",
+    "method": "slip",
+    "process": "applied to both mating surfaces",
+    "compound": {
+        "product": "Loctite 638",
+        "cure_time_min": 1440,
+        "surface_prep": "solvent-degreased and dry",
+    },
+}
+PRESS_JOINT = {
+    **{key: value for key, value in JOINT.items() if key != "clearance_mm"},
+    "fit": "interference",
+    "interference_mm": [0.005, 0.02],
+    "method": "press",
+    "process": "light arbor press",
 }
 
 
@@ -1402,6 +1412,61 @@ def test_a_joint_prep_and_cure_print_once_on_the_op_that_fits_it_not_in_the_arri
     printed = [text for text in [arrival, *at_ops] if text and "Surface prep" in text]
     assert len(printed) == 1 and ("cure time 1440 min" in printed[0])
     assert at_ops == ([None, cure] if fit_op else [None])
+    assert arrival.startswith(" Joined by slip fit with Loctite 638 (applied to both mating")
+
+
+@pytest.mark.parametrize("fit_op", [True, False])
+def test_a_press_fit_with_compound_is_pressed_in_on_the_compound_then_left_to_cure(fit_op):
+    sheet = shop({})
+    sheet.features = {"socket": {"thru": False}}
+    ops = [{"op": 10, "do": "inspect"}] + ([{"op": 20, "do": "fit"}] if fit_op else [])
+    setup = {"id": "S6", "joint": PRESS_JOINT, "ops": ops}
+    arrival = sheet.joint_text(setup)
+    at_ops = [sheet.compound_note(setup, op) for op in ops]
+    assert arrival.startswith(
+        " Joined by press fit with Loctite 638 (light arbor press): spigot spigot into socket"
+        " socket, interference 0.005 to 0.02 mm diametral."
+    )
+    cure = (
+        "Surface prep: solvent-degreased and dry. Press in with the compound on the interface,"
+        " then do not disturb until cured: cure time 1440 min."
+    )
+    printed = [text for text in [arrival, *at_ops] if text and cure in text]
+    assert len(printed) == 1
+    assert at_ops == ([None, cure] if fit_op else [None])
+
+
+def test_a_press_fit_without_compound_prints_no_prep_or_cure():
+    sheet = shop({})
+    sheet.features = {}
+    joint = {key: value for key, value in PRESS_JOINT.items() if key != "compound"}
+    ops = [{"op": 20, "do": "fit"}]
+    setup = {"id": "S6", "joint": joint, "ops": ops}
+    assert sheet.joint_text(setup).startswith(" Joined by press fit (light arbor press): ")
+    assert "cure" not in sheet.joint_text(setup)
+    assert sheet.compound_note(setup, ops[0]) is None
+    assert sheet.joint_debt(setup) == ""
+
+
+def test_an_unknown_compound_product_prints_unknown_and_stops_the_join():
+    sheet = shop({})
+    sheet.features = {}
+    joint = {**PRESS_JOINT, "compound": {**PRESS_JOINT["compound"], "product": "unknown"}}
+    setup = {"id": "S6", "joint": joint, "ops": [{"op": 20, "do": "fit"}]}
+    assert "with compound ? UNKNOWN (not declared)" in sheet.joint_text(setup)
+    assert sheet.joint_debt(setup).startswith("STOP: joint facts unknown — compound product.")
+
+
+@pytest.mark.parametrize("joint", [JOINT, PRESS_JOINT])
+def test_the_op_that_bonds_names_its_compound_as_its_consumable(joint):
+    ops = [
+        {"op": 10, "do": "inspect", "feature": "body"},
+        {"op": 20, "do": "fit", "feature": "body"},
+        {"op": 30, "do": "fit", "feature": "body"},
+    ]
+    markup = Markup(_bench_sheet(ops, joint=joint))
+    cells = [content(markup.find("op-consumable", row)[0]) for row in markup.find("operation")]
+    assert [cell.endswith("Loctite 638") for cell in cells] == [False, True, False]
 
 
 def test_each_lathe_op_that_turns_the_spindle_names_which_way_from_its_tool_hand():

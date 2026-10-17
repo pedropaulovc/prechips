@@ -2897,7 +2897,7 @@
           },
           "plan": {
             "path": "examples/cone-pivot-post/built-up.toml",
-            "sha256": "08bd140bfac5c4c7270dc3272a3342d712957832142082daf4080324e3b54056"
+            "sha256": "78d09b907bc31d0ab2edbed7b2ead283146455d807b00030bf8cd322fbef954e"
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
@@ -4843,7 +4843,7 @@
       ],
       "message": "S6: manual bench work has no DRO target or cutter-centre table.",
       "numbers": {
-        "joint_method": "retaining_compound",
+        "joint_method": "slip",
         "machine": "cone-bond-bench",
         "machine_kind": "bench",
         "operations": [
@@ -4873,7 +4873,7 @@
       ],
       "message": "S7: manual bench work has no DRO target or cutter-centre table.",
       "numbers": {
-        "joint_method": "retaining_compound",
+        "joint_method": "slip",
         "machine": "cone-bond-bench",
         "machine_kind": "bench",
         "operations": [
@@ -8211,7 +8211,7 @@
       ],
       "message": "S6: manual bench work has no spindle stack or machine travel.",
       "numbers": {
-        "joint_method": "retaining_compound",
+        "joint_method": "slip",
         "machine": "cone-bond-bench",
         "machine_kind": "bench",
         "operations": [
@@ -8241,7 +8241,7 @@
       ],
       "message": "S7: manual bench work has no spindle stack or machine travel.",
       "numbers": {
-        "joint_method": "retaining_compound",
+        "joint_method": "slip",
         "machine": "cone-bond-bench",
         "machine_kind": "bench",
         "operations": [
@@ -12045,8 +12045,9 @@
           0.04400000000000048,
           0.07600000000000051
         ],
-        "method": "retaining_compound",
+        "method": "slip",
         "missing": [],
+        "product": "AUTHOR'S CHOICE: Loctite 638 retaining compound",
         "socket": "plan.joint_features.cone_socket",
         "spigot": "plan.joint_features.cone_spigot",
         "surface_prep": "AUTHOR'S CHOICE: solvent-degreased and dry, op 10.",
@@ -12079,8 +12080,9 @@
           0.06400000000000006,
           0.09600000000000009
         ],
-        "method": "retaining_compound",
+        "method": "slip",
         "missing": [],
+        "product": "AUTHOR'S CHOICE: Loctite 638 retaining compound",
         "socket": "plan.joint_features.crank_socket",
         "spigot": "plan.joint_features.crank_spigot",
         "surface_prep": "AUTHOR'S CHOICE: solvent-degreased and dry, op 10.",
@@ -25961,7 +25963,7 @@
       ],
       "message": "S6: manual bench work has no DRO zero to set.",
       "numbers": {
-        "joint_method": "retaining_compound",
+        "joint_method": "slip",
         "machine": "cone-bond-bench",
         "machine_kind": "bench",
         "operations": [
@@ -25991,7 +25993,7 @@
       ],
       "message": "S7: manual bench work has no DRO zero to set.",
       "numbers": {
-        "joint_method": "retaining_compound",
+        "joint_method": "slip",
         "machine": "cone-bond-bench",
         "machine_kind": "bench",
         "operations": [
@@ -26312,7 +26314,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "6c9dccde4f5e47f3d1e390a7c9781536d65efe705c6023ace0800fe2476d8c28",
+  "hash": "e88f1cdc6a6162e54e00be3b8c11a65fa8158314004f16f64f706a45e2b01682",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26328,7 +26330,7 @@
     },
     "plan": {
       "path": "examples/cone-pivot-post/built-up.toml",
-      "sha256": "08bd140bfac5c4c7270dc3272a3342d712957832142082daf4080324e3b54056"
+      "sha256": "78d09b907bc31d0ab2edbed7b2ead283146455d807b00030bf8cd322fbef954e"
     },
     "render:S1": {
       "path": "setup-S1.png",

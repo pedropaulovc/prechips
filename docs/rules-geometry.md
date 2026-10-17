@@ -878,14 +878,17 @@ consumed preparation remains historical provenance, not permission to cut
 through the assembled interface. Shared ancestry still refuses the join, and
 upstream unknown stock cannot become known by adding another component.
 
-For `retaining_compound`, `clearance_mm` is the declared diametral band,
-`process` identifies the selected application, `surface_prep` declares preparation
-instructions, and positive `cure_time_min` declares the wait before disturbing
-the joint or machining it. Explicit unknown clearance, prep or cure time remains
-debt and withholds union/render; absent or malformed required process facts are
-bad input. These are authored process facts, not a chemical cure simulation or
-manufacturer certification. Travelers print **do not disturb until cured**.
-Existing silver-braze and press behavior is unchanged.
+A joint `compound` (required on a `slip` clearance fit, optional on a `press`
+interference fit, refused on `silver_braze`) names its `product`, declares
+`surface_prep` instructions and a positive `cure_time_min`, the wait before
+disturbing the joint or machining it. `joint_fit` reports the fit band with the
+compound's `product`, `cure_time_min` and `surface_prep` whenever one is declared,
+on either fit. Explicit unknown band, product, prep or cure time remains debt and
+withholds union/render; absent or malformed required compound facts are bad input.
+These are authored process facts, not a chemical cure simulation or manufacturer
+certification, and the compound adds no geometry: a bonded press fit joins the
+same stock as a bare one. Travelers print **do not disturb until cured**, after
+**press in with the compound on the interface** for a press fit.
 A known geometric refusal (missing preparation, blocked insertion, overlap or
 lost required material) remains an error even when cure or surface prep is
 unknown. Only a geometrically derivable join becomes process debt; it still

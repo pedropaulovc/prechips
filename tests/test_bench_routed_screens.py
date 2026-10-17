@@ -54,7 +54,7 @@ def bench_bundle(kind="bench", actions=("fit", "inspect"), joint=None):
     "actions,joint",
     [
         (("fit", "inspect"), "silver_braze"),
-        (("fit", "inspect"), "retaining_compound"),
+        (("fit", "inspect"), "slip"),
         (("fit",), "press"),
         (("fit",), "weld"),
         (("fit",), None),

@@ -1323,9 +1323,12 @@ def check_joint_declarations(plan: dict, features: dict, findings: dict, kernel)
             "violations": result["violations"],
             "missing": result["missing"],
         }
-        if joint["method"] == "retaining_compound":
+        compound = joint.get("compound")
+        if compound is not None:
             expected.update(
-                cure_time_min=joint["cure_time_min"], surface_prep=joint["surface_prep"]
+                product=compound["product"],
+                cure_time_min=compound["cure_time_min"],
+                surface_prep=compound["surface_prep"],
             )
         row = findings["joint_fit", sid]
         require(row["numbers"] == expected, f"{sid}: joint fit evidence differs from the plan")

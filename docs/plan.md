@@ -709,13 +709,14 @@ more than two references are bad input (exit 3). Shared supply ancestry remains
 forbidden at every step. Each interface identity is consumed only once.
 Joint geometry is in the model frame, regardless of the assembly setup's frame.
 A missing or malformed identity/reference is bad input; unknown numeric
-geometry or retaining-compound process facts withhold the union as named debt.
+geometry or joint-compound process facts withhold the union as named debt.
 
 A cylindrical joint declares `kind = "cylindrical"`, `socket` and `spigot`
 (matching plan joint-feature kinds on the two distinct consumed component
 branches), `fit`, the applicable diametral fit band, `method`, nonempty
-`process` and `cite`. Clearance uses `fit = "clearance"` and `clearance_mm`,
-with `method = "silver_braze"` or `"retaining_compound"`. Interference uses
+`process` and `cite`, plus an optional `compound`. `method` is the assembly
+action. Clearance uses `fit = "clearance"` and `clearance_mm`, with
+`method = "silver_braze"` or `"slip"`. Interference uses
 `fit = "interference"`, `interference_mm` and `method = "press"`.
 All tolerance extremes must satisfy the declared fit:
 
@@ -730,23 +731,30 @@ Both preparation cuts must be completed on the actual selected ancestors,
 remain intact, and have their target geometry verified at assembly. Declaring
 a joint cannot turn untouched blanks into prepared components.
 
-`method = "retaining_compound"` additionally requires `cure_time_min` (positive
-minutes, or literal `"unknown"`) and `surface_prep` (nonempty instructions, or
-literal `"unknown"`). `process` identifies the selected compound/application
-process; `clearance_mm` remains the diametral clearance band in millimetres.
-Missing process fields are bad input; explicitly unknown clearance, cure time
-or prep remains debt and cannot produce assembled stock or a render.
-`process` itself must be known text: the literal `"unknown"` is malformed,
-not an alternative bond process. Known physical refusals remain errors even
-when prep or cure is unknown; a later invalid join does not invalidate an
-earlier independent, valid assembly.
+A retaining compound on the interface is a
+`compound = { product, cure_time_min, surface_prep }` block: `product` names the
+compound (nonempty, or literal `"unknown"`), `cure_time_min` is positive minutes
+(or `"unknown"`) and `surface_prep` nonempty instructions (or `"unknown"`). The
+joint's `cite` covers the compound's data sheet. A `slip` joint requires a
+compound (a slip fit with nothing bonding it is not a joint), a `press` joint
+takes one optionally (a light press with the compound filling the micro-gaps)
+and a `silver_braze` joint takes none. A missing compound field is bad input;
+explicitly unknown fit band, product, cure time or prep remains debt and cannot
+produce assembled stock or a render. The retired `method = "retaining_compound"`
+and the joint-level `cure_time_min`/`surface_prep` fields are bad input whose
+message names this form. `process` itself must be known text: the literal
+`"unknown"` is malformed, not an alternative bond process. Known physical
+refusals remain errors even when prep or cure is unknown; a later invalid join
+does not invalidate an earlier independent, valid assembly.
 The traveler prints the prep, cure time and **do not disturb until cured** before
 later machining, once: on the setup's first `fit` op (the op that bonds), else in
-its "Starts from" line. The process does not model cure kinetics or certify a product:
-cite the author's source/choice for the declared band and cure conditions.
-These fields do not apply to `silver_braze` or `press`; their behavior is unchanged.
-Use the canonical noncutting bench action `do = "fit"`, not an undeclared
-`fit_up` or `bond` cutting action.
+its "Starts from" line; that `fit` op's material / consumable cell names the
+compound's product. A press fit with a compound prints **press in with the
+compound on the interface, then do not disturb until cured**. The process does
+not model cure kinetics or certify a product: cite the author's source/choice for
+the declared band and cure conditions. A joint without a compound prints no prep
+or cure. Use the canonical noncutting bench action `do = "fit"`, not an
+undeclared `fit_up` or `bond` cutting action.
 
 For example (illustrative process choices, not manufacturer specifications):
 
@@ -760,10 +768,9 @@ socket = "crank_socket"
 spigot = "crank_spigot"
 fit = "clearance"
 clearance_mm = [0.02, 0.06]
-method = "retaining_compound"
-process = "AUTHOR'S CHOICE: example Loctite 638-class retaining compound"
-cure_time_min = 1440
-surface_prep = "AUTHOR'S CHOICE: degrease and dry both mating surfaces"
+method = "slip"
+process = "AUTHOR'S CHOICE: applied to both mating surfaces"
+compound = { product = "AUTHOR'S CHOICE: example Loctite 638-class retaining compound", cure_time_min = 1440, surface_prep = "AUTHOR'S CHOICE: degrease and dry both mating surfaces" }
 cite = "AUTHOR'S CHOICE: example clearance band and 24-hour cure before machining"
 [[setups.ops]]
 op = 10
