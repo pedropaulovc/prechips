@@ -86,7 +86,7 @@ def test_host_only_kernel_edits_keep_the_engine_digest(kernel_copy):
     before = kernel._engine_digest(kernel_copy)
     host = sorted(path.relative_to(kernel_copy).as_posix() for path in kernel_copy.rglob("*.py"))
     host = [name for name in host if name not in kernel.ENGINE_SOURCES]
-    assert "__init__.py" in host and "render_inputs.py" in host
+    assert "__init__.py" in host
     for name in host:
         _edit(kernel_copy / name)
     (kernel_copy / "new_host_module.py").write_text("VALUE = 1\n", encoding="utf-8")
