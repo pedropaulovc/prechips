@@ -188,7 +188,7 @@ the spindle axis at the guide's crossing point. It is computed by the guide
 | `claims` | `list[str]`: the in-situ claims this reading establishes (`"trammel-jig.dowel_hole.position"`, §3.3); empty for a reading that trusts nothing (#11) |
 | `pin` | `str`: the inventory `pin_gauge` a `distance` to a hole is read over. Required for that case and refused for any other reading |
 | `contact` | `"near"` or `"far"`: the side of the pin the gauge touches. Required with `pin`, refused without it |
-| `chord_mm` / `chord_in` | `float` (`sagitta` only): the nominal chord the sheet prints. The prediction uses the gauge's **measured** chord, not this value (below). The nominal must agree with the gauge's chord within 1 %, else it is an error naming both. Both must satisfy `0 < chord < 2R` for the edge's predicted radius `R`, else it is an error; an unknown `R` leaves the check `?` |
+| `chord_mm` / `chord_in` | `float` (`sagitta` only): the nominal chord the sheet prints. The prediction uses the gauge's **measured** chord, not this value (below). The nominal must lie within 1 % of the gauge's `chord_limits`, else it is an error naming both. The nominal and the whole limits interval must satisfy `0 < chord < 2R` for the edge's predicted radius `R`, else it is an error; an unknown `R` leaves the check `?` |
 | `band_mm` / `band_in` | `Vector` `[low, high]` relative to the prediction, or a symmetric `float` |
 | `band_cite` | `Citations` |
 | `expect` | optional authored cross-check (above) |
@@ -221,7 +221,7 @@ new kinds the commissioning PRs add:
 | Quantity | Compatible gauge kinds |
 |---|---|
 | `align`, `dro_xy` (centring under the spindle) | `dial_test_indicator`, `coax_indicator` (new), `edge_finder` |
-| `sagitta` | `sagitta_gauge` (new: a chord bar with an indicator). Its chord is a new inventory length field, `chord_mm` / `chord_in` (one spelling), a fact-local `MeasuredLength` with its own `measured` record. An unmeasured or flagged chord leaves the reading `?`. A bare indicator is not accepted, because nothing would fix the chord. The gauge is digested like any named gauge (§3.4) |
+| `sagitta` | `sagitta_gauge` (new: a chord bar with an indicator). Its chord is a new inventory field, `chord_limits_mm` / `chord_limits_in` (one spelling), a fact-local `MeasuredLimits` `[least, greatest]` with its own `measured` record. The limits are the chord's measured uncertainty, so no resolution is invented. An unmeasured or flagged chord leaves the reading `?`. A bare indicator is not accepted, because nothing would fix the chord. The gauge is digested like any named gauge (§3.4) |
 | `width`, `distance` | `caliper`, `micrometer`, `height_gauge`. A `distance` to a hole is read over a pin in it: the reading names the `pin` (an inventory `pin_gauge` with a measured diameter) and the `contact` side, `"near"` or `"far"`. The printed target moves the predicted centreline offset `o` by the pin radius `r` toward the reference for `near` and away from it for `far`. That is `o − sign(o)·r` (near) and `o + sign(o)·r` (far), so a hole inside the edge (negative `o`) gets `o + r` on its near side, not `o − r`. The sheet prints the target with its sign and names the side. The recorded value is the signed contact distance, and it is judged directly against that signed contact target; the rules never convert it back to a centreline value. Range coverage uses the **magnitude** of the contact interval, since a caliper reads distance, not side. A hole inside the edge, with a target of −3.2, needs a caliper that covers 3.2. An untrusted pin diameter leaves the reading `?`, and the pin is digested in `[planned]` |
 | `size` of a hole | `pin_gauge_set`, `bore_gauge` (an external micrometer never measures a bore) |
 | `z` | `height_gauge`, `dial_test_indicator` |
@@ -482,8 +482,8 @@ keep their sign. With `hub_size`'s `[0.0, 0.015]` and a predicted 8.000, a
 reading applies the band to each axis separately.
 
 **Sagitta from the measured chord.** The predicted sagitta comes from the
-gauge's measured chord `c`, carried with its uncertainty: the chord interval
-`[c − u, c + u]`, with `u` the chord measurement's resolution, maps through
+gauge's measured chord, carried with its uncertainty: the chord interval is the
+gauge's `chord_limits` `[least, greatest]` itself, and it maps through
 `R − √(R² − (c/2)²)` to a predicted sagitta interval. The reading passes only
 when its own gauge-step interval minus that whole predicted interval lies
 inside the band. A chord interval that reaches `2R` leaves the reading `?`. Near
@@ -502,15 +502,20 @@ step of it, and the band check judges that whole interval, not the bare number:
   `r_g`, the interval is `[read − (r_dro + r_g)/2, read + (r_dro + r_g)/2]`. Both
   can err in the same direction, so a reading near a limit is `?` rather than a
   pass;
-- a limit-style pin set read as the largest pin that enters, with step `q`:
-  `[read, read + q)`. The next pin did not enter, so the hole is smaller than
-  `read + q`.
+- a limit-style pin set read as the largest pin that enters:
+  `[read, next)`, where `next` is the next larger pin the set actually holds.
+  That pin did not enter, so the hole is smaller than it. The recorded value
+  must be one of the set's listed sizes, else the entry is an error. The set's
+  largest pin has no next, so a reading of it leaves the upper end open and the
+  reading `?`. In a set holding 8.000 and 8.020 but no pins between, a reading of
+  8.000 means `[8.000, 8.020)`, which can be oversize for `[8.000, 8.015]`, so it
+  is `?`, not a pass.
 
 The reading passes when the whole interval lies inside the band, and fails when
 the whole interval lies outside it. Otherwise it is `?`, "indeterminate at this
-gauge step; re-read with a finer gauge". With the sketch's 0.01 mm pins and
-HUB's `[8.000, 8.015]`, a reading of 8.000 passes, because the hole is in
-`[8.000, 8.010)`. A reading of 8.01 is `?`, because the hole is in
+gauge step; re-read with a finer gauge". With the sketch's contiguous 0.01 mm pins
+and HUB's `[8.000, 8.015]`, a reading of 8.000 passes, because the next pin is
+8.010 and the hole is in `[8.000, 8.010)`. A reading of 8.01 is `?`, because the hole is in
 `[8.010, 8.020)` and could be oversize (an 8.019 hole reads 8.01). A reading of
 7.99 fails. A band narrower than one step can never pass, and the validator
 reports it as an error.
@@ -1069,8 +1074,8 @@ Also:
   unmeasured chord → `?`; a bare DTI for `sagitta` → error.
 - Sagitta chord: `chord_mm = 0`, negative, or at least `2R` → error; a nominal
   more than 1 % off the gauge's measured chord → error; an unmeasured gauge
-  chord → `?`; the prediction uses the measured chord, and for `R = 100` a
-  chord interval reaching 200 → `?`.
+  chord → `?`; the prediction uses the measured chord limits, and for `R = 100`
+  limits reaching 200 → `?`.
 - Pin range: a caliper covering `[0, 150]` judges a −3.2 contact target (inside
   the edge); a target beyond its range in magnitude → error.
 - Pin contact: a `distance` to a hole with no `pin` or `contact` → error; the
@@ -1083,6 +1088,11 @@ Also:
 - Torque `count = 0` or negative → schema error.
 - DRO interval: a reading inside the band by less than `(r_dro + r_g)/2` → `?`;
   by more → pass.
+- Pin gaps: a set with 8.000 and 8.020 only, reading 8.000 against
+  `[8.000, 8.015]` → `?`; a recorded size not in the set → error; a reading of
+  the set's largest pin → `?`.
+- Chord limits: a `sagitta_gauge` without `chord_limits` → `?`; with them, the
+  predicted sagitta interval spans the limits.
 - Gauge step: 0.01 pins against `[8.000, 8.015]`: 8.000 → pass; 8.01 → `?`
   (an 8.019 hole reads 8.01); 7.99 → `✗`. A band narrower than the step → error.
 - Travel frame: two ±100 relational moves from references 800 apart against a
