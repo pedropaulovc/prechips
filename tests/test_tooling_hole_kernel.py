@@ -60,8 +60,12 @@ def cut_op(subject, action, diameter, spec, exit_mm=1.0):
     cut = {"process_feature": "cl", "action": action, **spec, "diameter_mm": diameter}
     if action == "drill":
         cut["point_angle_deg"] = 118.0
+    if action == "ream":
+        cut["lead_mm"] = 1.0
     if spec.get("thru"):
         cut["exit_mm"] = exit_mm
+    else:
+        cut["op_depth_mm"] = spec["depth_mm"]
     op["process_cut"] = cut
     return op
 
@@ -159,3 +163,11 @@ def test_a_hole_off_the_tool_axis_is_not_drilled(engine, part):
 def test_a_plan_without_tooling_holes_reports_no_tooling_facts(engine, part):
     result = engine.run(engine.job(part, setups=[setup("T1", [])], stock=BOX))
     assert "tooling_holes" not in result["setups"]["T1"]
+
+
+def test_a_second_pass_at_the_same_size_still_finds_the_far_side(engine, part):
+    spec = hole()
+    ops = [cut_op("T1:10", "ream", 6.016, spec), cut_op("T1:20", "ream", 6.016, spec)]
+    result = run(engine, part, spec, [setup("T1", ops), setup("T2", [])])
+    assert "reason" not in result["ops"]["T1:20"] or LABEL not in result["ops"]["T1:20"]["reason"]
+    assert states(result)["T2"] == "present"
