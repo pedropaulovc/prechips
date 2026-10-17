@@ -8954,12 +8954,15 @@ class _Traveler:
                 entry["parts"].append((order(entry, arc), description, [], [], None))
                 continue
             elif method == "guided_sweep":
+                from prechips.sheet_sweep import established
                 from prechips.sheet_sweep import steps as sweep_steps
 
-                rough = any(
-                    t.get("op") == arc.get("op") and t.get("stage") == "rough"
+                roughs = [
+                    t
                     for t in numbers.get("arc_table", [])
-                )
+                    if t.get("op") == arc.get("op") and t.get("stage") == "rough"
+                ]
+                rough = bool(roughs)
                 finish_follows = arc.get("stage") == "rough" and any(
                     t.get("op") == arc.get("op") and t.get("stage") == "finish"
                     for t in numbers.get("arc_table", [])
@@ -8973,15 +8976,27 @@ class _Traveler:
                 depths = z_levels.get("levels") if z_levels else None
                 if isinstance(depths, list) and len(depths) <= 1:
                     depths = None
-                description = sweep_steps(
-                    arc,
-                    o,
-                    *ends,
-                    after_rough=rough,
-                    feed=feed,
-                    final=not finish_follows,
-                    levels=depths,
-                )
+                # A finish runs on from its rough's touch-off and stops: when the op leaves
+                # stock for a rough sweep that is not printed runnable (rejected, or stopped),
+                # the finish would return to a touch never made or take the whole leave.
+                leave = (swept or {}).get("rough_allowance_mm")
+                wants_rough = _known(leave) and leave > 0
+                rough_ready = rough and all(established(t, depths) for t in roughs)
+                if arc.get("stage") == "finish" and wants_rough and not rough_ready:
+                    description = [
+                        "STOP: guided sweep not established (its rough sweep is not "
+                        "established) — do not run."
+                    ]
+                else:
+                    description = sweep_steps(
+                        arc,
+                        o,
+                        *ends,
+                        after_rough=rough,
+                        feed=feed,
+                        final=not finish_follows,
+                        levels=depths,
+                    )
                 # A finish after the op's rough sweep continues the rough's numbered steps.
                 previous = entry.get("sweep_steps")
                 if rough and arc.get("stage") == "finish" and previous is not None:

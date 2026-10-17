@@ -210,7 +210,9 @@ the check that the dry pass from stop to stop clears the spindle nose, holder an
 column at every pose. `travel` owes the check that the swept footprint (a swing
 arm's pivot post at the arc centre, on the table or a table extension, or a sled's
 rollers in the T-slots, through the whole sweep) clears the column, the table ends
-and the way covers. Each finding names these in `guided_sweep_debts` and in its
+and the way covers. X and Y stay locked while the fixture moves the work, so the
+arc's span is no table stroke: `travel` counts no XY span for the op
+(`xy_cutter_bounds_mm` `not_applicable`), only its Z. Each finding names these in `guided_sweep_debts` and in its
 sentence, `op {n} guided sweep: … check: …`, and stays `?` (an established error
 still wins). Follow-ups: [#272](https://github.com/pedropaulovc/prechips/issues/272).
 

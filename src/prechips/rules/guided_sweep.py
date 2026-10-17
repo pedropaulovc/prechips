@@ -400,8 +400,12 @@ def _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid):
         return
     over = max(0.0, (sweep_deg - span) / 2)
     if number(radius):
+        overrun = math.radians(over) * radius * scale
         record_.update(
-            overrun_mm=math.radians(over) * radius * scale,
+            overrun_mm=overrun,
+            # What the traveler prints for the operator's steel rule: 0.1 mm, rounded
+            # down, so the swept path never runs past the rows the kernel checked.
+            stop_overrun_mm=math.floor(overrun * 10 + 1e-9) / 10,
             path_mm=math.radians(sweep_deg) * radius * scale,
         )
 
@@ -414,13 +418,15 @@ def _start_clear(bundle, setup, arc, label, debts, record_, scale):
     ``"unproven"`` and debt: it would plunge into material, which nothing checks for a
     sweep, so the traveler stops.
 
-    The rows stand on the nominal path, but the master sets the real one: the cutter is
-    widened by the most the cut (``cut_radius_mm``, master and guide error) stands off the
-    nominal wall the rows assume. An unproven cut leaves the start unproven too (its own
-    debt names it)."""
+    The entry is checked where the traveler puts it: the start end's cutter landmark
+    carried on by the printed ``stop_overrun_mm`` along the cutter's path. The rows stand
+    on the nominal path, but the master sets the real one: the cutter is widened by the
+    most the cut (``cut_radius_mm``, master and guide error) stands off the nominal wall
+    the rows assume. An unproven cut leaves the start unproven too (its own debt names
+    it)."""
     from .level_entry import in_air, stock_box
 
-    rows, cut, radius = arc["rows"], record_.get("cut_radius_mm"), arc.get("cutter_radius_mm")
+    cut, radius = record_.get("cut_radius_mm"), arc.get("cutter_radius_mm")
     centre = arc["cutter_centre_radius_mm"]
     record_["start"] = "unproven"
     if not (_pair(cut) and number(radius) and number(centre)):
@@ -428,8 +434,8 @@ def _start_clear(bundle, setup, arc, label, debts, record_, scale):
     outward = 1 if centre > arc["wall_radius_mm"] else -1
     wall = centre * scale - outward * radius
     reach = radius + max(abs(cut[0] - wall), abs(cut[1] - wall))
-    point = rows[0].get("dro_xy") if rows else None
-    if in_air(stock_box(bundle, setup), point, reach, scale):
+    point = _printed_start(arc, record_, scale)
+    if point is not None and in_air(stock_box(bundle, setup), point, reach, scale):
         record_["start"] = "air"
         return
     debts.append(
@@ -437,6 +443,35 @@ def _start_clear(bundle, setup, arc, label, debts, record_, scale):
         "so the cutter would go down into material there; sweep far enough past the arc's "
         "ends for the cutter to start clear (a longer sweep_deg), with the stock modelled"
     )
+
+
+def _printed_start(arc, record_, scale):
+    """The cutter centre (setup XY, plan units) where the traveler's first stop puts it:
+    the start end's landmark (``ends_cutter_setup_xy[0]``) carried ``stop_overrun_mm`` on
+    along the cutter's path, away from the arc toward the sweep's first row; None when any
+    of those is unknown."""
+    ends, centre = record_.get("ends_cutter_setup_xy"), arc["centre_setup_xy"]
+    rows, printed = arc["rows"], record_.get("stop_overrun_mm")
+    if not (
+        isinstance(ends, list)
+        and ends
+        and _pair(ends[0])
+        and _pair(centre)
+        and number(printed)
+        and rows
+        and _pair(rows[0].get("setup_xy"))
+    ):
+        return None
+    first = ends[0]
+    reach = math.dist(first, centre)
+    if reach <= 0:
+        return None
+    start = trig.atan2(first[1] - centre[1], first[0] - centre[0])
+    sweep = rows[0]["setup_xy"]
+    toward = trig.atan2(sweep[1] - centre[1], sweep[0] - centre[0]) - start
+    toward = (toward + math.pi) % math.tau - math.pi
+    turn = math.copysign(printed / scale / reach, toward) if printed else 0.0
+    return [centre[0] + reach * trig.cos(start + turn), centre[1] + reach * trig.sin(start + turn)]
 
 
 def _own_setup(setup, label, errors):

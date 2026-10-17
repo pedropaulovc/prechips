@@ -73,7 +73,7 @@ def _unresolved(arc, sweep, levels=None):
         arc.get("spindle_rotation") not in _TURN
     ):
         missing.append("sweep direction unknown")
-    if not all(_known(sweep.get(key)) for key in ("sweep_deg", "path_mm", "overrun_mm")):
+    if not all(_known(sweep.get(key)) for key in ("sweep_deg", "path_mm", "stop_overrun_mm")):
         missing.append("sweep angle unknown")
     if not (_points(sweep.get("ends_setup_xy")) and _points(sweep.get("ends_cutter_setup_xy"))):
         # Each stop block is set where the cutter reaches an arc end: without them the
@@ -90,6 +90,12 @@ def _unresolved(arc, sweep, levels=None):
     if sweep.get("guide") == "rail":
         missing += _rail_unresolved(sweep)
     return missing
+
+
+def established(arc, levels=None):
+    """Whether ``arc``'s sweep recipe prints runnable steps, not its STOP."""
+    sweep = arc.get("guided") if isinstance(arc.get("guided"), dict) else {}
+    return not _unresolved(arc, sweep, levels)
 
 
 def _rail_unresolved(sweep):
@@ -201,7 +207,7 @@ def _stops(sweep, o, holder, move, start, stop):
     from prechips.sheet import _number
 
     ends = sweep.get("ends_setup_xy")
-    overrun = sweep.get("overrun_mm")
+    overrun = sweep.get("stop_overrun_mm")
     # The dry pass with the cutter just over the work: the stock is still there to cut, so
     # only what stands above it (clamps, the fixture) can be checked before cutting.
     dry = (

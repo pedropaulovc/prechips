@@ -1690,10 +1690,12 @@ uses the 1898 manual arc method:
    centre), the X/Y lock and a blank for the DRO reading at the touch (the setup's
    zero is never reset), the master taken off the sweep's path, a rough stage's
    one-axis back-off with the direction the cutter must move (a finish after it
-   raises Z, returns to the touch and continues the same numbered steps), a stop
-   block at each end of the sweep (where the cutter's edge reaches the arc's end, its
-   centre on that end's radial line, then on by the overrun measured along the cutter's
-   path), a dry pass from stop to stop, then the sweep: spindle started, its
+   raises Z, returns to the touch and continues the same numbered steps; when the op
+   leaves stock for a rough sweep that does not print runnable, the finish stops
+   too), a stop block at each end of the sweep (where the cutter's edge reaches the
+   arc's end, its centre on that end's radial line, then on by the overrun measured
+   along the cutter's path, printed to 0.1 mm rounded down; the start is proven in
+   air at that printed stop), a dry pass from stop to stop, then the sweep: spindle started, its
    direction viewed from above, its angle and cutter travel, and the time it takes
    at the op's starting feed; each sweep ends with Z raised clear of the work and the
    fixture, the op's last also stopping the spindle before anyone reaches in. An op

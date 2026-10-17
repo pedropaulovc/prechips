@@ -208,7 +208,12 @@ def evaluate(bundle):
             )
             xy = {}
             op_xy_complete = True
-            for axis in ("x", "y"):
+            # A guided sweep locks X and Y and its fixture moves the work: the arc's span is
+            # no table stroke. Its swept footprint stays a debt below (#255).
+            fixture_driven = record(op.get("contour")).get("method") == "guided_sweep"
+            if fixture_driven:
+                xy = {"x": "not_applicable", "y": "not_applicable"}
+            for axis in () if fixture_driven else ("x", "y"):
                 band = record(extent).get(axis)
                 located = record(point).get(axis) if fallback else band
                 if path_known and _band(located) and _known(padding):

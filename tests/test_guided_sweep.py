@@ -577,7 +577,7 @@ def proven(guide="pivot"):
         "start": "air",
         "sweep_deg": 25.0,
         "path_mm": 120.0,
-        "overrun_mm": 10.0,
+        "stop_overrun_mm": 10.0,
         "ends_setup_xy": [[-146.0, -3.0], [146.0, -3.0]],
         "ends_cutter_setup_xy": [[-145.5, 0.0], [145.5, 0.0]],
     }
@@ -620,7 +620,7 @@ SWEEP_FACTS = [
     "rotation",
     "sweep_deg",
     "path_mm",
-    "overrun_mm",
+    "stop_overrun_mm",
     "ends_setup_xy",
     "ends_cutter_setup_xy",
     "start",
@@ -863,13 +863,57 @@ def test_the_rail_bound_holds_for_finite_form_errors():
 def test_a_finish_after_a_rejected_rough_prints_no_return_to_an_unprinted_touch(tmp_path):
     # The finish cut (R800.07999975 low) sits just inside the band's R800.0799 edge; the
     # rough's 0.0003 leave rounds off the line to a 0.001 back-off, so only the rough leaves
-    # its band. The rejected rough prints nothing; the finish stands alone with its touch.
+    # its band. The rejected rough prints nothing, and the finish, which would take the
+    # whole leave, stops too.
     target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [800.0799, 800.5]")
     row, printed = traveler_text(tmp_path, allowance=0.0003, target=target)
     assert row.status == "error", row.sentence
     assert "op 20 rough: " in errors(row) and "op 20 finish: " not in errors(row)
+    assert "its rough sweep is not established) — do not run." in printed
     assert "Rough sweep" not in printed and "return it to the touch reading" not in printed
-    assert printed.count("Spindle stopped: bring a flute") == 1
+    assert "Spindle stopped: bring a flute" not in printed
+
+
+def test_a_finish_after_a_stopped_rough_stops_too(tmp_path):
+    # Stock reaching the rough's start but not the finish's: the rough sweep stops, so the
+    # finish must not return to its unmade touch or sweep between its unset stops.
+    box = [-500.0, -500.0, -10.0, 184.33, 500.0, 0.0]
+    row, printed = traveler_text(tmp_path, allowance=0.3, box=box)
+    assert "STOP: guided sweep not established (sweep start not proven clear" in printed
+    assert "its rough sweep is not established) — do not run." in printed
+    assert "return it to the touch reading" not in printed and "Lock X and Y" not in printed
+
+
+def test_the_start_is_proven_where_the_printed_stop_puts_it(tmp_path):
+    # A 0.049 mm overrun prints as no overrun (0.1 mm, rounded down): the first stop then
+    # puts the cutter at the arc's end, not at the computed sweep start 0.049 mm on. Stock
+    # between the two must leave the start unproven.
+    over = math.degrees(0.049 / 797.0)
+    sweep = f"{21.0 + 2 * over!r}"
+    plan = guided_plan(tmp_path / "probe", sweep_deg=sweep)
+    table, record_ = recipe(coordinates_row(plan, stock_bbox=SWING))
+    assert record_["stop_overrun_mm"] == 0.0
+    (ex, _), (sx, _) = record_["ends_cutter_setup_xy"][0], table["rows"][0]["setup_xy"]
+    edge = (sx + 3.0 + 0.02) if sx < ex else (sx - 3.0 - 0.02)
+    box = (
+        [edge, -500.0, -10.0, 1000.0, 500.0, 0.0]
+        if sx < ex
+        else [-1000.0, -500.0, -10.0, edge, 500.0, 0.0]
+    )
+    row = coordinates_row(guided_plan(tmp_path / "box", sweep_deg=sweep), stock_bbox=box)
+    assert recipe(row)[1]["start"] == "unproven"
+
+
+def test_a_guided_sweep_span_is_no_table_stroke(tmp_path):
+    # X and Y stay locked while the fixture moves the work: the arc's span is no table
+    # travel, so no stroke can be exceeded by it; the swept footprint stays a check.
+    from prechips.rules import travel
+
+    bundle = load_bundle(guided_plan(tmp_path))
+    (row,) = [r for r in travel.evaluate(bundle) if r.subject == "S1"]
+    (entry,) = [o for o in row.numbers["operations"] if o["op"] == 20]
+    assert entry["xy_cutter_bounds_mm"] == {"x": "not_applicable", "y": "not_applicable"}
+    assert row.numbers["guided_sweep_debts"]
 
 
 ZERO_Z = (
