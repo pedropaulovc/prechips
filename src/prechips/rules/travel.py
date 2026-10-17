@@ -359,6 +359,15 @@ def evaluate(bundle):
                 candidates.append(located_span)
             minimum_required = max(candidates) if candidates else UNKNOWN
             required = minimum_required if complete[axis] else UNKNOWN
+            # What the span is the stroke of: the cutter-centre path (located extents and
+            # printed paths), or a broad cut's stock span where no located path reaches it.
+            basis = (
+                UNKNOWN
+                if not _known(minimum_required)
+                else "cutter-centre path"
+                if _known(located_span) and located_span >= minimum_required
+                else "stock span"
+            )
             verified = travel["verified"] and _known(travel["value"]) and travel["value"] >= 0
             if travel["verified"] and not verified:
                 missing.append(
@@ -385,6 +394,7 @@ def evaluate(bundle):
                 "located_span_mm": located_span,
                 "minimum_required_mm": minimum_required,
                 "lower_bound_margin_mm": lower_margin,
+                "basis": basis,
             }
             if _known(lower_margin) and lower_margin < 0:
                 bound = "" if complete[axis] else "at least "

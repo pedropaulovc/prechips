@@ -5,13 +5,16 @@ seats on the table is a separate question. It needs the table's extents (and any
 extension), the allowed overhang and the table load, which are not inventory facts yet
 (#272 item 1, #297). Until they are, each mill setup's row is ``unknown`` with a
 ``check:`` naming them, and the fixture's length/width (turned into setup X/Y by
-``jaws_along`` or ``hold.pose``) is evidence. It never errors or passes. Lathe, saw-only
+``jaws_along`` or ``hold.pose``) is evidence. It never errors or passes. Its debt is one
+job-level ``machines.<id>.table`` checklist entry (``measure:`` the table extents, allowed
+overhang and load), which the traveler prints once, not a box on every setup. Lathe, saw-only
 and manual bench setups do not seat a fixture on a mill table.
 """
 
 import math
 
 from prechips.findings import Finding
+from prechips.measurements import measurement_entry
 from prechips.model import UNIT_TOLERANCE
 from prechips.rules._bench import manual_bench, not_applicable
 from prechips.rules.headroom import _UNKNOWN, _length, _mapping, _numeric
@@ -75,6 +78,14 @@ def evaluate(bundle):
         length = _length(bundle, fixture, "length", "workholding", fixture_ref, debts)
         width = _length(bundle, fixture, "width", "workholding", fixture_ref, debts)
         x, y, basis = _footprint(fixture, hold, length, width)
+        # One job-level checklist entry per machine (same id on every setup), never a box
+        # on each setup page: the table facts the screen needs are not inventory facts yet.
+        table = measurement_entry("machines", machine_ref, "table")
+        table.update(
+            status="missing",
+            reason="The machine table's extents, allowed overhang and load are not recorded.",
+        )
+        debts[table["id"]] = table
         size = f" {x:g} x {y:g} mm" if _numeric(x) and _numeric(y) else ""
         name = fixture_ref if isinstance(fixture_ref, str) else "fixture"
         cite.extend([f"inventory: {name} length/width", f"inventory.machines.{machine_ref}"])

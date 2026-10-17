@@ -1199,6 +1199,21 @@
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.test-mill.table",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
           }
         ],
         "missing": [
@@ -1257,6 +1272,21 @@
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.test-mill.table",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
           }
         ],
         "missing": [
@@ -1313,6 +1343,21 @@
             "identity": "test-tapped-plate",
             "instruction": "measure: test-tapped-plate drawing width; check as made: overall fixture width along its local Y axis, steel rule or calipers, mm",
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.test-mill.table",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
           }
@@ -1450,11 +1495,13 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "part_mm": 30.0,
             "required_mm": 30.0,
             "travel_mm": "unknown"
           },
           "y": {
+            "basis": "stock span",
             "part_mm": 30.0,
             "required_mm": 30.0,
             "travel_mm": "unknown"
@@ -1585,11 +1632,13 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "part_mm": 30.0,
             "required_mm": 30.0,
             "travel_mm": "unknown"
           },
           "y": {
+            "basis": "stock span",
             "part_mm": 30.0,
             "required_mm": 30.0,
             "travel_mm": "unknown"
@@ -1720,11 +1769,13 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "part_mm": 30.0,
             "required_mm": 30.0,
             "travel_mm": "unknown"
           },
           "y": {
+            "basis": "stock span",
             "part_mm": 30.0,
             "required_mm": 30.0,
             "travel_mm": "unknown"
@@ -2883,6 +2934,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2893,6 +2945,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2903,6 +2956,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -3074,6 +3128,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -3084,6 +3139,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -3094,6 +3150,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -3265,6 +3322,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -3275,6 +3333,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -3285,6 +3344,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -3527,7 +3587,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "61d03a386e3661191e8122d734bfee4a41fa4a6ad8759c15fa28dd23f3ffbdd9",
+  "hash": "f36655f1ab0afc52fc064893975a50888c7de1ecd112275563ebb02ef08b1528",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

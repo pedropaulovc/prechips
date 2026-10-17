@@ -994,7 +994,23 @@
         "footprint_basis": "fixture length/width unknown",
         "footprint_x_mm": "unknown",
         "footprint_y_mm": "unknown",
-        "measurements": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.test-mill.table",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing": [
           "inventory.machines.test-mill table length/width (and any extension)",
           "allowed fixture overhang",
@@ -1122,11 +1138,13 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "part_mm": 61.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
+            "basis": "unknown",
             "part_mm": 17.838015,
             "required_mm": "unknown",
             "travel_mm": "unknown"
@@ -2098,6 +2116,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2108,6 +2127,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2118,6 +2138,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2255,7 +2276,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "fc1302992b04b3d5f9e204d98bb4f1555db45fce567dfc329bad3712b5c764a5",
+  "hash": "3f7c8231ee1b6f27d9c6d8f77ad28d5f49ef5ffbf29eb787208f11e15c2dd63a",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

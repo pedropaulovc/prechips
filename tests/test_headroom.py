@@ -536,6 +536,10 @@ def test_the_table_check_never_passes_or_errors_and_skips_non_table_setups():
         "allowed fixture overhang",
         "table load limit",
     ]
+    # Its debt is one job-level checklist entry per machine, not a per-setup box.
+    [entry] = [e for e in row.numbers["measurements"] if e["id"] == "machines.mill.table"]
+    assert entry["instruction"].startswith("measure: mill table X/Y extents")
+    assert "allowed fixture overhang" in entry["instruction"]
     data.inventory["machines"]["mill"]["kind"] = "lathe"
     assert fixture_table.evaluate(data)[0].status == "not_applicable"
 

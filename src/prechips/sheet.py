@@ -1837,6 +1837,9 @@ _REQUIREMENT_NAMES = {
     "land_angle_deg": "land angle °",
     "tip_land": "tip land",
 }
+# Unknown rows whose debt is listed once in the JOB measurement register: no per-setup
+# "Not verified" box or decision-input STOP repeats it (#297).
+_CHECKLIST_ONLY = frozenset({"fixture_table"})
 # Plain topics for checks the planner could not complete (report.json keeps the detail).
 _TOPICS = {
     "accessibility": "tool access",
@@ -1846,7 +1849,6 @@ _TOPICS = {
     "headroom": "headroom and clearance",
     "envelope": "machine envelope",
     "travel": "axis travel",
-    "fixture_table": "fixture seated on the table",
     "fixture_interference": "holding clearance",
     "thin_wall_under_clamp": "thin walls under clamping",
     "vise": "vise grip",
@@ -3355,6 +3357,19 @@ class _Traveler:
                     self.setup_measurement_ids.setdefault(sid, set()).add(quantity["id"])
                     self.measurement_sources.setdefault(quantity["id"], set()).add(sid)
 
+    def register_job_measurements(self, entries, setup):
+        """Job-level entries: listed once in the JOB register with the setups that owe
+        them, never a setup's own decision input (no setup STOP)."""
+        registry = self.measurement_registry()
+        for entry in entries or []:
+            if not (
+                isinstance(entry, dict) and {"id", "category", "identity", "field"} <= entry.keys()
+            ):
+                continue
+            for quantity in self.measurement_quantities(entry):
+                registry.setdefault(quantity["id"], (f"M{len(registry) + 1}", quantity))
+                self.measurement_sources.setdefault(quantity["id"], set()).add(setup["id"])
+
     def finalize_measurements(self, sheets):
         """Number once after all consumers have rendered; rewrite their short refs once."""
         registry = self.measurement_registry()
@@ -3669,6 +3684,9 @@ class _Traveler:
                 continue
             rule, subject = _field(finding, "rule"), _field(finding, "subject", "")
             numbers = _field(finding, "numbers", {})
+            if rule in _CHECKLIST_ONLY:
+                self.register_job_measurements(numbers.get("measurements"), setup)
+                continue
             if rule == "coordinates":
                 # coordinates owns this list: grid, cut order and actual generated path
                 # inputs. It is not geometry_common's diagnostic prerequisite union.
@@ -4289,7 +4307,7 @@ class _Traveler:
                 for prefix in (subject + ":", subject.replace(":", " ") + ":"):
                     message = message.removeprefix(prefix).strip()
                 cautions.setdefault(self.bench(message), []).append(label)
-            elif status in ("unknown", "unsupported"):
+            elif status in ("unknown", "unsupported") and rule not in _CHECKLIST_ONLY:
                 unverified.setdefault(_TOPICS.get(rule, _text(rule)), []).append(label)
 
         def labelled(text, labels):
@@ -5834,8 +5852,11 @@ class _Traveler:
                     f"{axis.upper()} travel{machine_marks(('envelope', 'travel', axis))}"
                 )
             elif record:
+                # Every printed need states what it is the stroke of (travel's basis).
+                basis = record.get("basis")
+                basis = f" ({basis})" if isinstance(basis, str) and basis != "unknown" else ""
                 lines.append(
-                    f"{axis.upper()} travel: needs {o(record.get('required_mm'))} of "
+                    f"{axis.upper()} travel: needs {o(record.get('required_mm'))}{basis} of "
                     f"{o(record.get('travel_mm'))}{machine_marks(('envelope', 'travel', axis))}: "
                     f"{fits(record.get('required_mm'), record.get('travel_mm'))}."
                 )

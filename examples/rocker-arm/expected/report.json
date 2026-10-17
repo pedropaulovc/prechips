@@ -46738,7 +46738,23 @@
         "footprint_basis": "jaws_along = \"x\": length along Y",
         "footprint_x_mm": 177.79999999999998,
         "footprint_y_mm": 419.09999999999997,
-        "measurements": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.PM-30MV.table",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing": [
           "inventory.machines.PM-30MV table length/width (and any extension)",
           "allowed fixture overhang",
@@ -46765,7 +46781,23 @@
         "footprint_basis": "jaws_along = \"x\": length along Y",
         "footprint_x_mm": 177.79999999999998,
         "footprint_y_mm": 419.09999999999997,
-        "measurements": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.PM-30MV.table",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing": [
           "inventory.machines.PM-30MV table length/width (and any extension)",
           "allowed fixture overhang",
@@ -46792,7 +46824,23 @@
         "footprint_basis": "jaws_along = \"x\": length along Y",
         "footprint_x_mm": 177.79999999999998,
         "footprint_y_mm": 419.09999999999997,
-        "measurements": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.PM-30MV.table",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing": [
           "inventory.machines.PM-30MV table length/width (and any extension)",
           "allowed fixture overhang",
@@ -46819,7 +46867,23 @@
         "footprint_basis": "jaws_along = \"x\": length along Y",
         "footprint_x_mm": 177.79999999999998,
         "footprint_y_mm": 419.09999999999997,
-        "measurements": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.PM-30MV.table",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing": [
           "inventory.machines.PM-30MV table length/width (and any extension)",
           "allowed fixture overhang",
@@ -46846,7 +46910,23 @@
         "footprint_basis": "jaws_along = \"x\": length along Y",
         "footprint_x_mm": 177.79999999999998,
         "footprint_y_mm": 419.09999999999997,
-        "measurements": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.PM-30MV.table",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing": [
           "inventory.machines.PM-30MV table length/width (and any extension)",
           "allowed fixture overhang",
@@ -46873,7 +46953,23 @@
         "footprint_basis": "jaws_along = \"x\": length along Y",
         "footprint_x_mm": 177.79999999999998,
         "footprint_y_mm": 419.09999999999997,
-        "measurements": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.PM-30MV.table",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing": [
           "inventory.machines.PM-30MV table length/width (and any extension)",
           "allowed fixture overhang",
@@ -46900,7 +46996,23 @@
         "footprint_basis": "jaws_along = \"x\": length along Y",
         "footprint_x_mm": 177.79999999999998,
         "footprint_y_mm": 419.09999999999997,
-        "measurements": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.PM-30MV.table",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing": [
           "inventory.machines.PM-30MV table length/width (and any extension)",
           "allowed fixture overhang",
@@ -46927,7 +47039,23 @@
         "footprint_basis": "hold.pose: length along pose x, width along pose y",
         "footprint_x_mm": 360.0,
         "footprint_y_mm": 145.0,
-        "measurements": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.PM-30MV.table",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing": [
           "inventory.machines.PM-30MV table length/width (and any extension)",
           "allowed fixture overhang",
@@ -46976,7 +47104,23 @@
         "footprint_basis": "hold.pose: length along pose x, width along pose y",
         "footprint_x_mm": 360.0,
         "footprint_y_mm": 145.0,
-        "measurements": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.PM-30MV.table",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing": [
           "inventory.machines.PM-30MV table length/width (and any extension)",
           "allowed fixture overhang",
@@ -47051,11 +47195,13 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "part_mm": 345.0,
             "required_mm": 368.04999999999995,
             "travel_mm": 584.1999999999999
           },
           "y": {
+            "basis": "cutter-centre path",
             "part_mm": 76.19999999999999,
             "required_mm": 76.19999999999999,
             "travel_mm": 222.25
@@ -47129,11 +47275,13 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "part_mm": 345.0,
             "required_mm": 368.04999999999995,
             "travel_mm": 584.1999999999999
           },
           "y": {
+            "basis": "cutter-centre path",
             "part_mm": 17.525,
             "required_mm": 19.049999999999997,
             "travel_mm": 222.25
@@ -47207,11 +47355,13 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "part_mm": 345.0,
             "required_mm": 368.04999999999995,
             "travel_mm": 584.1999999999999
           },
           "y": {
+            "basis": "cutter-centre path",
             "part_mm": 17.525,
             "required_mm": 19.049999999999997,
             "travel_mm": 222.25
@@ -47285,11 +47435,13 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "part_mm": 345.0,
             "required_mm": 368.04999999999995,
             "travel_mm": 584.1999999999999
           },
           "y": {
+            "basis": "cutter-centre path",
             "part_mm": 65.0,
             "required_mm": 76.19999999999999,
             "travel_mm": 222.25
@@ -47372,11 +47524,13 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "part_mm": 345.0,
             "required_mm": 364.04999999999995,
             "travel_mm": 584.1999999999999
           },
           "y": {
+            "basis": "cutter-centre path",
             "part_mm": 65.0,
             "required_mm": 95.25,
             "travel_mm": 222.25
@@ -47547,11 +47701,13 @@
         "tool_oal_mm": 101.6,
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "part_mm": 340.0,
             "required_mm": 349.925,
             "travel_mm": 584.1999999999999
           },
           "y": {
+            "basis": "stock span",
             "part_mm": 65.0,
             "required_mm": 74.925,
             "travel_mm": 222.25
@@ -47733,11 +47889,13 @@
         "tool_oal_mm": 63.5,
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "part_mm": 340.0,
             "required_mm": 349.925,
             "travel_mm": 584.1999999999999
           },
           "y": {
+            "basis": "stock span",
             "part_mm": 65.0,
             "required_mm": 74.925,
             "travel_mm": 222.25
@@ -47809,11 +47967,13 @@
         "tool_oal_mm": 93.0,
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "part_mm": 340.0,
             "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
+            "basis": "cutter-centre path",
             "part_mm": 65.0,
             "required_mm": 0.0,
             "travel_mm": 222.25
@@ -47918,11 +48078,13 @@
         "tool_oal_mm": 61.9,
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "part_mm": 340.0,
             "required_mm": 346.75,
             "travel_mm": 584.1999999999999
           },
           "y": {
+            "basis": "stock span",
             "part_mm": 65.0,
             "required_mm": 71.75,
             "travel_mm": 222.25
@@ -60104,6 +60266,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "located_span_mm": 368.04999999999995,
             "lower_bound_margin_mm": 216.14999999999998,
             "margin_mm": 216.14999999999998,
@@ -60114,6 +60277,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "cutter-centre path",
             "located_span_mm": 76.19999999999999,
             "lower_bound_margin_mm": 146.05,
             "margin_mm": 146.05,
@@ -60124,6 +60288,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "cutter-centre path",
             "located_span_mm": 6.525000000000006,
             "lower_bound_margin_mm": 349.07499999999993,
             "margin_mm": 349.07499999999993,
@@ -60228,6 +60393,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "located_span_mm": 368.04999999999995,
             "lower_bound_margin_mm": 216.14999999999998,
             "margin_mm": 216.14999999999998,
@@ -60238,6 +60404,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "cutter-centre path",
             "located_span_mm": 19.049999999999997,
             "lower_bound_margin_mm": 203.2,
             "margin_mm": 203.2,
@@ -60248,6 +60415,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "cutter-centre path",
             "located_span_mm": 10.599999999999994,
             "lower_bound_margin_mm": 345.0,
             "margin_mm": 345.0,
@@ -60352,6 +60520,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "located_span_mm": 368.04999999999995,
             "lower_bound_margin_mm": 216.14999999999998,
             "margin_mm": 216.14999999999998,
@@ -60362,6 +60531,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "cutter-centre path",
             "located_span_mm": 19.049999999999997,
             "lower_bound_margin_mm": 203.2,
             "margin_mm": 203.2,
@@ -60372,6 +60542,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "cutter-centre path",
             "located_span_mm": 10.599999999999994,
             "lower_bound_margin_mm": 345.0,
             "margin_mm": 345.0,
@@ -60476,6 +60647,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "located_span_mm": 368.04999999999995,
             "lower_bound_margin_mm": 216.14999999999998,
             "margin_mm": 216.14999999999998,
@@ -60486,6 +60658,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "cutter-centre path",
             "located_span_mm": 76.19999999999999,
             "lower_bound_margin_mm": 146.05,
             "margin_mm": 146.05,
@@ -60496,6 +60669,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "cutter-centre path",
             "located_span_mm": 6.525000000000006,
             "lower_bound_margin_mm": 349.07499999999993,
             "margin_mm": 349.07499999999993,
@@ -60665,6 +60839,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "located_span_mm": 364.04999999999995,
             "lower_bound_margin_mm": 220.14999999999998,
             "margin_mm": 220.14999999999998,
@@ -60675,6 +60850,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "cutter-centre path",
             "located_span_mm": 95.25,
             "lower_bound_margin_mm": 127.0,
             "margin_mm": 127.0,
@@ -60685,6 +60861,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "cutter-centre path",
             "located_span_mm": 22.525,
             "lower_bound_margin_mm": 333.075,
             "margin_mm": 333.075,
@@ -61369,6 +61546,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "located_span_mm": 310.47,
             "lower_bound_margin_mm": 234.27499999999992,
             "margin_mm": 234.27499999999992,
@@ -61379,6 +61557,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "stock span",
             "located_span_mm": 42.16,
             "lower_bound_margin_mm": 147.325,
             "margin_mm": 147.325,
@@ -61389,6 +61568,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "cutter-centre path",
             "located_span_mm": 153.32825,
             "lower_bound_margin_mm": 202.27174999999997,
             "margin_mm": 202.27174999999997,
@@ -62098,6 +62278,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "located_span_mm": 310.47,
             "lower_bound_margin_mm": 234.27499999999992,
             "margin_mm": 234.27499999999992,
@@ -62108,6 +62289,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "stock span",
             "located_span_mm": 42.16,
             "lower_bound_margin_mm": 147.325,
             "margin_mm": 147.325,
@@ -62118,6 +62300,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "cutter-centre path",
             "located_span_mm": 106.32825,
             "lower_bound_margin_mm": 249.27174999999997,
             "margin_mm": 249.27174999999997,
@@ -62243,6 +62426,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "cutter-centre path",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 584.1999999999999,
             "margin_mm": 584.1999999999999,
@@ -62253,6 +62437,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "cutter-centre path",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 222.25,
             "margin_mm": 222.25,
@@ -62263,6 +62448,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "cutter-centre path",
             "located_span_mm": 15.080000000000013,
             "lower_bound_margin_mm": 340.52,
             "margin_mm": 340.52,
@@ -62343,6 +62529,7 @@
         "operations": [],
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -62353,6 +62540,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -62363,6 +62551,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -62526,6 +62715,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "located_span_mm": 299.81,
             "lower_bound_margin_mm": 237.44999999999993,
             "margin_mm": 237.44999999999993,
@@ -62536,6 +62726,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "stock span",
             "located_span_mm": 36.61,
             "lower_bound_margin_mm": 150.5,
             "margin_mm": 150.5,
@@ -62546,6 +62737,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "cutter-centre path",
             "located_span_mm": 11.02825,
             "lower_bound_margin_mm": 344.57174999999995,
             "margin_mm": 344.57174999999995,
@@ -64891,7 +65083,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "6caca46ef48da45a2e3797a88c877a5f09e220da20741d21d1115bfa8e492ad3",
+  "hash": "97912f0cf609989e332a83b4c693d309cb65a777e84b1fcfe8cba3a79aa90f0b",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

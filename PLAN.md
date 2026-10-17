@@ -1513,8 +1513,8 @@ sheet.
    table extent, overhang and load facts (#272 item 1) with a `check:`. It never
    errors or passes. The example policy does not require it. No finding status,
    exit or setup picture changed. The traveler's CLEARANCE travel lines now print
-   the cutter-centre span, and each mill setup lists "fixture seated on the
-   table" among its unchecked items. The paired blind machinist review on
+   the span with its basis (`cutter-centre path` or `stock span`), and the table
+   facts are one JOB MEASUREMENT REGISTER entry, not a box on each setup. The paired blind machinist review on
    `683c9a5` found the wrong-axis and below-path numbers this fixes (#313); it
    re-runs on the new head.
 

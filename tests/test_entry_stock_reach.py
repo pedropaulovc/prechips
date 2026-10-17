@@ -124,6 +124,7 @@ def test_the_travel_span_covers_the_printed_cutter_path_and_headroom_needs_it():
         "travel_mm": 400,
         "part_mm": 100,
         "required_mm": 124,
+        "basis": "cutter-centre path",
     }
     # The printed path reaching past the travel is an error on both rows.
     data.inventory["machines"]["mill"]["envelope"]["travel_mm"]["x"] = measured(120)
@@ -143,3 +144,10 @@ def test_a_printed_path_raises_but_never_completes_an_unresolved_span():
     assert x["minimum_required_mm"] == 124
     assert row.status == "unknown"
     assert row.numbers["travel_checks"]["x"]["required_mm"] == "unknown"
+
+
+def test_a_broad_cut_without_a_printed_path_needs_its_stock_span_and_says_so():
+    [span] = travel.evaluate(bundle())
+    [row] = headroom.evaluate(bundle())
+    assert span.numbers["travel_checks"]["x"]["required_mm"] == 100
+    assert row.numbers["travel_checks"]["x"]["basis"] == "stock span"

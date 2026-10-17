@@ -966,7 +966,23 @@
         "footprint_basis": "fixture length/width unknown",
         "footprint_x_mm": "unknown",
         "footprint_y_mm": "unknown",
-        "measurements": [],
+        "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.test-mill.table",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          }
+        ],
         "missing": [
           "inventory.machines.test-mill table length/width (and any extension)",
           "allowed fixture overhang",
@@ -1021,6 +1037,21 @@
             "identity": "test-vise",
             "instruction": "measure: test-vise overall fixture width along its local Y axis, steel rule or calipers, mm",
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table"
+            ],
+            "field": [
+              "table"
+            ],
+            "id": "machines.test-mill.table",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
           }
@@ -1156,11 +1187,13 @@
         "tool_oal_mm": "unknown",
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "part_mm": 60.0,
             "required_mm": 60.0,
             "travel_mm": "unknown"
           },
           "y": {
+            "basis": "stock span",
             "part_mm": 40.0,
             "required_mm": 40.0,
             "travel_mm": "unknown"
@@ -1293,11 +1326,13 @@
         "tool_oal_mm": 57.0,
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "part_mm": 60.0,
             "required_mm": 60.0,
             "travel_mm": "unknown"
           },
           "y": {
+            "basis": "stock span",
             "part_mm": 40.0,
             "required_mm": 40.0,
             "travel_mm": "unknown"
@@ -2170,6 +2205,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2180,6 +2216,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2190,6 +2227,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2361,6 +2399,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2371,6 +2410,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2381,6 +2421,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2551,7 +2592,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "c9890c693d34ad0be6f612abff79b55660f6abf0422a8423992ac79d66a2479a",
+  "hash": "a62188d31004db7f5578cda4ee3171149b435d2822b186568b8c105ae5d23533",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -315,8 +315,10 @@ Per axis, `travel_checks` is the [`travel`](#m5-measured-inventory-screens)
 rule's own cutter-centre span for the setup (`required_mm`) against the measured
 travel, with the entry stock as `part_mm`: what the table must reach, never the
 fixture's footprint, so a vise or sub-plate wider than an axis's travel is not an
-error. The traveler's CLEARANCE `X/Y travel: needs …` prints that span, so it never
-reads less than the printed cutter-centre path. An unresolved span is `?`; a span
+error. The traveler's CLEARANCE `X/Y travel: needs … (basis)` prints that span
+with its basis, so it never reads less than the printed cutter-centre path:
+`cutter-centre path` when located extents or printed paths set it, `stock span` when a
+broad cut's stock span (no located path reaching it) does. An unresolved span is `?`; a span
 whose (lower bound) exceeds the measured travel is an error on both rows. No
 separate radial tip envelope is computed.
 
@@ -385,9 +387,13 @@ table's length and width (and any extension), the allowed overhang and the table
 load. None of these is an inventory fact yet
 ([#272](https://github.com/pedropaulovc/prechips/issues/272) item 1), so every mill
 setup's row is `?`. It never errors or passes. `numbers.missing` names the
-table facts to add, and the sentence ends in a `check:` for the operator: the
-fixture's footprint seats on the table within its allowed overhang, and the
-fixture plus work weight is within the table load.
+table facts to add, and the sentence ends in a `check:`: the fixture's footprint
+seats on the table within its allowed overhang, and the fixture plus work weight
+is within the table load. Its debt is one `machines.<id>.table` measurement entry
+(`measure:` the table's X/Y extents and any extension, the allowed overhang and the
+load limit). The traveler lists it once in the JOB MEASUREMENT REGISTER, naming the
+setups that owe it, and prints no per-setup "Not verified" box or decision-input
+STOP for it.
 
 Evidence is the fixture's accepted `length`/`width`, with its footprint in setup
 X/Y (`footprint_x_mm`/`footprint_y_mm`, `footprint_basis`). A vise's `length` runs
