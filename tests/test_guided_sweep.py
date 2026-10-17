@@ -10,6 +10,7 @@ anything undeclared or unmeasured is debt, never a perfect guide.
 """
 
 import dataclasses
+import itertools
 import math
 import re
 import subprocess
@@ -90,6 +91,7 @@ def guided_plan(
     target=LONG_ARC,
     doc=None,
     layout=True,
+    after="",
     **more,
 ):
     fixture = "arm" if guide == "pivot" else "sled"
@@ -100,7 +102,8 @@ def guided_plan(
     plan = scratch(
         tmp_path,
         marks
-        + op(20, "finish_profile", sweep_contour(guide, **more), allowance=allowance, **stepped),
+        + op(20, "finish_profile", sweep_contour(guide, **more), allowance=allowance, **stepped)
+        + after,
         hold=hold or f"fixture = '{fixture}'",
         target=target,
     )
@@ -832,7 +835,7 @@ def test_a_start_proven_in_air_holds_at_the_stop_the_printed_marks_set(tmp_path)
             continue
         proven += 1
         centre = table["centre_setup_xy"]
-        marks, _ = arc_end_marks(boxed, setup, line["ends_setup_xy"], 1.0, centre)
+        marks, _ = arc_end_marks(boxed, setup, setup["ops"][0], line["ends_setup_xy"], 1.0, centre)
         mark = marks[start]
         at = [
             box[0] + mark["x"] if mark["x_face"].startswith("-") else box[3] - mark["x"],
@@ -855,6 +858,121 @@ def test_a_start_proven_in_air_holds_at_the_stop_the_printed_marks_set(tmp_path)
         real = [centre[0] + 797.0 * math.cos(turn), centre[1] + 797.0 * math.sin(turn)]
         assert in_air(box, real, 3.0, 1.0), (sweep["sweep_deg"], mark, real, box)
     assert proven == 100
+
+
+def test_marks_scribed_after_a_cut_in_the_setup_place_no_stop(tmp_path):
+    # Op 20's sweep may cut the bar's edge the marks are measured from, so a layout after
+    # it in the same setup proves nothing, and a sweep resting on that layout stops
+    # (Codex local round 13: scribe, sweep, scribe, sweep).
+    plan = guided_plan(
+        tmp_path,
+        after=bench_op(25, "scribe", layout="'ends'") + op(30, "finish_profile", sweep_contour()),
+    )
+    bundle = dataclasses.replace(
+        load_bundle(plan), kernel={"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
+    )
+    from prechips.rules import manual_arc
+
+    layouts = {f.subject: f for f in manual_arc.evaluate(bundle) if f.subject in {"S1:5", "S1:25"}}
+    assert layouts["S1:5"].status == "pass", layouts["S1:5"].sentence
+    assert layouts["S1:25"].status == "unknown"
+    assert layouts["S1:25"].numbers["marks"] == "unknown"
+    assert "op 20 before it in setup S1 may cut the bar's faces" in layouts["S1:25"].sentence
+    row = next(r for r in coordinates.evaluate(bundle) if r.subject == "S1")
+    assert recipe_of(row, 20)["marks"]["op"] == 5
+    assert recipe_of(row, 30)["marks"] == "unknown"
+    assert "op 30 finish: op 20 before it in setup S1 may cut the bar's faces" in debts(row)
+
+
+def recipe_of(row, number, stage="finish"):
+    (table,) = [t for t in arcs(row, number) if t["stage"] == stage]
+    return table["guided"]
+
+
+def test_the_rail_centres_sideways_shift_covers_its_rollers_printed_rounding():
+    # Each roller set to its printed contact (0.1 mm on X and on Y) may stand the diagonal
+    # of two half-steps off. The sled's centre then moves sideways by (|cos a| + |cos b|) /
+    # |sin(a - b)| times that, not by the print step: rollers 3° apart on an R50 rail put
+    # it about 2.6 mm beside the radial line (Codex local round 13).
+    from prechips.rules.guided_sweep import rail_transverse_shift
+
+    off = math.hypot(0.05, 0.05)
+    cases = (([16.8, 19.8], 850.0, 1.0), ([-15.0, 15.0], 850.0, 11.0), ([-15.0, 15.0], 50.0, 1.0))
+    for rollers, rail, roller in cases:
+        assert exact_sideways_shift(rollers, off, rail, roller) <= rail_transverse_shift(
+            rollers, off, rail
+        )
+    # Rollers 3° apart put the centre over 2.5 mm beside the line, far past the print step.
+    assert exact_sideways_shift([16.8, 19.8], off, 850.0, 1.0) > 2.5
+    # On Codex's R50 rail the finite bound does not converge: unproven, never 0.1 mm.
+    assert exact_sideways_shift([16.8, 19.8], off, 50.0, 1.0) > 2.5
+    assert rail_transverse_shift([16.8, 19.8], off, 50.0) is None
+    assert rail_transverse_shift([20.0, 20.0], off, 50.0) is None
+
+
+def exact_sideways_shift(rollers, off, rail, roller):
+    """The largest sideways (X) shift of a rail's centre resting on two rollers outside it,
+    radius ``roller``, at ``rollers`` degrees from +Y about the nominal centre, when each
+    roller moves ``off`` mm along its own radial line either way: solved exactly."""
+    reach = rail + roller
+    centres = [
+        [-reach * math.sin(math.radians(a)), reach * math.cos(math.radians(a))] for a in rollers
+    ]
+    worst = 0.0
+    for signs in itertools.product((-1, 1), repeat=2):
+        moved = [
+            [c[0] + s * off * c[0] / reach, c[1] + s * off * c[1] / reach]
+            for c, s in zip(centres, signs, strict=True)
+        ]
+        (x0, y0), (x1, y1) = moved
+        d = math.hypot(x1 - x0, y1 - y0)
+        mid = [(x0 + x1) / 2, (y0 + y1) / 2]
+        h = math.sqrt(reach * reach - d * d / 4)
+        normal = [-(y1 - y0) / d, (x1 - x0) / d]
+        options = [[mid[i] + k * h * normal[i] for i in range(2)] for k in (-1, 1)]
+        centre = min(options, key=lambda p: math.hypot(*p))
+        worst = max(worst, abs(centre[0]))
+    return worst
+
+
+def test_a_rough_on_a_pivot_counts_the_beams_play_beside_the_line(tmp_path):
+    # The bar centres the cutter on the pin's axis to one DRO step (0.001 mm here); the
+    # beam's 0.02 mm play then moves the work's centre at the cut, sideways too.
+    sweep = recipe(guided_row(tmp_path, allowance=0.3), "rough")[1]
+    assert sweep["transverse"] == "bar_centred"
+    assert sweep["transverse_offset_mm"] == pytest.approx(0.001 + 0.02)
+
+
+@pytest.mark.parametrize(
+    ("rollers", "form", "runout"), [([-15.0, 15.0], 0.05, 0.01), ([16.8, 19.8], 0.0, 0.0)]
+)
+def test_a_rough_on_a_rail_widens_its_cut_by_the_centres_sideways_shift(
+    tmp_path, rollers, form, runout
+):
+    # The back-off is radial only on the radial line: the rail's centre stands beside it by
+    # the rollers' printed rounding plus the rail's form error and half the runout through
+    # the rollers' sideways gain, over 2.5 mm for rollers 3° apart even on a perfect rail.
+    from prechips.rules.guided_sweep import _off_line_backoff, rail_transverse_shift
+
+    plan = guided_plan(tmp_path, "rail", allowance=0.3, rollers_deg=str(rollers))
+    inventory = plan.with_name("inventory.toml")
+    change(
+        inventory,
+        "rail_form_error_mm = { value = 0.05,",
+        f"rail_form_error_mm = {{ value = {form},",
+    )
+    change(
+        inventory, "roller_runout_mm = { value = 0.01,", f"roller_runout_mm = {{ value = {runout},"
+    )
+    row = coordinates_row(plan, stock_bbox=SWING)
+    sweep = recipe(row, "rough")[1]
+    contact = math.hypot(0.05, 0.05) + form + runout / 2
+    off = rail_transverse_shift(rollers, contact, 850.0)
+    assert off > 0.25
+    assert sweep["transverse_offset_mm"] == pytest.approx(off)
+    # Backed off from the R797 touch to the rough's R796.7.
+    residual = _off_line_backoff(797.0, 0.3, off)
+    assert sweep["transverse_residual_mm"] == pytest.approx(residual)
 
 
 def test_a_back_off_off_the_radial_line_is_carried_into_the_cut():

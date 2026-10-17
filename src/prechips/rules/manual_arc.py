@@ -85,20 +85,33 @@ def mark_step(scale):
     return {1.0: 0.1, 25.4: 0.005}.get(scale)
 
 
-def arc_end_marks(bundle, setup, ends, scale, centre):
+# Earlier ops in the setup that leave the bar's faces as received: the marks are measured
+# from them.
+_UNCUT = frozenset({"scribe", "inspect"})
+
+
+def arc_end_marks(bundle, setup, op, ends, scale, centre):
     """``(marks, reason)``: each arc end (``ends``, setup XY in plan units, as
-    :func:`~prechips.rules.coordinates.arc_layout` gives them) as a mark the operator
-    scribes on the work top: a point measured from the nearer end face along X and the
-    nearer side face along Y of the stock the setup receives, at :func:`mark_step`, and a
-    short stroke through it along the end's radial line, toward the arc ``centre``, at
+    :func:`~prechips.rules.coordinates.arc_layout` gives them) as a mark the scribe op
+    ``op`` lays out on the work top: a point measured from the nearer end face along X and
+    the nearer side face along Y of the stock the setup receives, at :func:`mark_step`, and
+    a short stroke through it along the end's radial line, toward the arc ``centre``, at
     ``angle`` degrees (0.1°, 0 to 180) to the side faces (which run along X). ``marks``
     is a list of ``{"x": dist, "x_face": "-X end" | "+X end", "y": dist, "y_face": "-Y
     edge" | "+Y edge", "angle": deg}``, or None with the reason no face proves a
     measurable datum: stock that is not a rectangular bar, a setup that receives worked
-    stock (its faces need not be the bar's own), no modelled stock box, unknown ends,
-    centre or units, or an end off the stock."""
+    stock or cuts it before ``op`` (its faces need not be the bar's own), no modelled stock
+    box, unknown ends, centre or units, or an end off the stock."""
     from prechips.rules.level_entry import stock_box
 
+    for other in map(record, setup.get("ops") or []):
+        if other is op or other.get("op") == record(op).get("op"):
+            break
+        if other.get("do") not in _UNCUT:
+            return None, (
+                f"op {other.get('op')} before it in setup {setup.get('id')} may cut the bar's "
+                "faces the marks are measured from: scribe the arc's ends first"
+            )
     stock = record(bundle.plan.get("stock"))
     if stock.get("form") not in RECTANGULAR_STOCK:
         return None, (
@@ -477,6 +490,7 @@ def evaluate(bundle):
                     marks, reason = arc_end_marks(
                         bundle,
                         setup,
+                        op,
                         line.get("ends_setup_xy"),
                         scale,
                         line.get("centre_setup_xy"),

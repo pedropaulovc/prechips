@@ -468,9 +468,13 @@ naming them. Each table is recorded under `arc_table` (its joins under
   before the touch so a rough's one-axis back-off is radial (`transverse`):
   `bar_centred` (a setting bar centred between its two sides) or `rollers_set` (a
   rail's rollers set from the locked spindle); a rough's cut is widened by how far a
-  back-off then misses its radial move with the cutter axis up to one DRO step (bar)
-  or the rollers' 0.1 mm print step (rail) beside the line
-  (`transverse_residual_mm`). A master arc on a swing arm gives no radial line: it is
+  back-off then misses its radial move (`transverse_residual_mm`) with the cutter axis
+  beside the line by up to `transverse_offset_mm`: one DRO step plus the pivot play
+  (bar), or, on a rail, the sled centre's sideways shift `(|cos a| + |cos b|) / |sin(a
+  − b)|` times each contact's error, finite as the cut's own bound: its roller set to
+  a contact printed to 0.1 mm on X and on Y (the diagonal of two half-steps) plus the
+  rail's form error and half its roller's runout. Rollers close in angle amplify it; a
+  bound that does not converge is unknown. A master arc on a swing arm gives no radial line: it is
   unknown and prints only a STOP, a finish too
   ([#288](https://github.com/pedropaulovc/prechips/issues/288) would lift it with a
   feeler touch). An unknown guide,
@@ -1062,7 +1066,9 @@ leaves it unknown. The `coordinates` arc tables still read the drawing band only
   through the cutter's axis, whatever its direction there.
   It needs a rectangular bar (`flat_bar`, `square_bar`, `plate`) that the setup
   receives as the plan's raw stock, its faces (`axis`, `section_axis`) square to the
-  setup's X, Y and Z, a modelled stock box and both ends on the stock; else unknown,
+  setup's X, Y and Z, a modelled stock box and both ends on the stock, and no op
+  before it in the setup but another `scribe` or an `inspect` (anything else may cut
+  the faces the marks are measured from); else unknown,
   since no face of the bar's own would place the marks. An `ends` layout draws no
   line: no `file_to_line`, rough or saw that follows a scribed line counts it.
 - `file_to_line`: `guide.buttons` names an inventory `fixtures` kit of

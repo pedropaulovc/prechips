@@ -331,10 +331,25 @@ def rail_cut_shift(rollers, per_contact, rail_radius, cutter_radius):
     term at ``cutter_radius`` mm. None when the rollers leave the sled free or no bound
     converges inside half of either radius."""
     gain = roller_gain(rollers)
-    if gain is None or not (number(per_contact) and per_contact >= 0):
+    contact = _contact_error(rollers, per_contact, rail_radius)
+    if gain is None or contact is None:
         return None
     a, b = (math.radians(v) for v in rollers)
+    term = _second_order(2 * contact / abs(trig.sin(a - b)), cutter_radius)
+    if term is None:
+        return None
+    return gain * contact + term
+
+
+def _contact_error(rollers, per_contact, rail_radius):
+    """``e + q`` (mm): each roller contact's radial error ``e`` (``per_contact``) plus the
+    finite term ``q`` the sled centre's shift leaves at it (:func:`rail_cut_shift`), solved
+    as a fixed point. None when the rollers leave the sled free, ``e`` is unknown or no
+    bound converges inside half the rail radius."""
+    a, b = (math.radians(v) for v in rollers)
     spread = abs(trig.sin(a - b))
+    if spread < 1e-9 or not (number(per_contact) and per_contact >= 0):
+        return None
     error = 0.0
     for _ in range(200):
         shift = 2 * (per_contact + error) / spread
@@ -344,14 +359,22 @@ def rail_cut_shift(rollers, per_contact, rail_radius, cutter_radius):
         settled = bound - error <= 1e-12
         error = bound
         if settled:
-            break
-    else:
+            return per_contact + error
+    return None
+
+
+def rail_transverse_shift(rollers, per_contact, rail_radius):
+    """The most the sled's centre stands beside the cutter's radial line (mm) when each
+    roller contact errs by up to ``per_contact`` mm along its radial line: the sideways
+    part of the shift :func:`roller_gain` measures along the line, ``(|cos a| + |cos b|) /
+    |sin(a - b)|`` on the finite contact error (:func:`_contact_error`) for rollers at
+    ``a`` and ``b`` degrees. Rollers close in angle amplify it. None when the rollers
+    leave the sled free or no bound converges."""
+    contact = _contact_error(rollers, per_contact, rail_radius)
+    if contact is None:
         return None
-    shift = 2 * (per_contact + error) / spread
-    term = _second_order(shift, cutter_radius)
-    if term is None:
-        return None
-    return gain * (per_contact + error) + term
+    a, b = (math.radians(v) for v in rollers)
+    return (abs(trig.cos(a)) + abs(trig.cos(b))) / abs(trig.sin(a - b)) * contact
 
 
 def _wrap(angle):
@@ -576,7 +599,7 @@ def _marks(bundle, setup, op, record_, label, debts, scale):
         return
     line = arc_layout(bundle, setup, feature) or {}
     ends = line.get("ends_setup_xy")
-    marks, reason = arc_end_marks(bundle, setup, ends, scale, line.get("centre_setup_xy"))
+    marks, reason = arc_end_marks(bundle, setup, scribe, ends, scale, line.get("centre_setup_xy"))
     start = record_.get("ends_setup_xy")
     if marks is None or not (isinstance(start, list) and start and _pair(start[0])):
         debts.append(
@@ -587,9 +610,30 @@ def _marks(bundle, setup, op, record_, label, debts, scale):
     record_["marks"] = {"op": scribe.get("op"), "start": "AB"[first], "end": "AB"[1 - first]}
 
 
-# The rollers' offsets from the spindle print to 0.1 mm: how far the rail's centre may
-# stand off the spindle's radial line once they are set from it.
+# The rollers' contacts print as X/Y offsets from the spindle to 0.1 mm each: a roller set
+# to them may stand up to half a step off on both, the diagonal of the two.
 ROLLER_PRINT_MM = 0.1
+
+
+def _transverse_offset(record_, found, sweep, grid, scale):
+    """How far the cutter's axis may stand beside the arc's radial line at the cut (mm),
+    once :func:`_transverse` has put it there; None when unknown. A setting bar centres it
+    to one DRO step on the pin's axis, and the beam's play moves the work's centre at the
+    cut. A rail's centre stands beside the spindle's line by the sled's sideways shift
+    (:func:`rail_transverse_shift`) with each contact off by its roller's printed rounding
+    plus the rail's form error and half its roller's runout."""
+    found = found or {}
+    how = record_.get("transverse")
+    if how == "bar_centred" and number(found.get("pivot_play")):
+        return grid[0] * scale + found["pivot_play"]
+    if how != "rollers_set":
+        return None
+    form, runout = found.get("rail_form_error"), found.get("roller_runout")
+    if not (number(form) and number(runout) and _pair(sweep.get("rollers_deg"))):
+        return None
+    half = ROLLER_PRINT_MM / 2
+    contact = math.hypot(half, half) + form + runout / 2
+    return rail_transverse_shift(sweep["rollers_deg"], contact, found.get("rail_radius"))
 
 
 def _transverse(record_, guide, label, debts):
@@ -773,11 +817,17 @@ def guided(bundle, setup, op, arc, band, label, scale):
     # it to within a residual, which turns a back-off into a slightly shorter radial move.
     residual = 0.0
     if number(back) and back > 0:
-        off = {"bar_centred": grid[0] * scale, "rollers_set": ROLLER_PRINT_MM}
+        off = _transverse_offset(record_, found, sweep, grid, scale)
+        record_["transverse_offset_mm"] = off if off is not None else UNKNOWN
         touch = arc["cutter_centre_radius_mm"]
         touch = touch * scale - outward * allowance if number(touch) else UNKNOWN
-        residual = _off_line_backoff(touch, back * scale, off.get(record_["transverse"]))
-        record_["transverse_residual_mm"] = residual
+        residual = _off_line_backoff(touch, back * scale, off)
+        record_["transverse_residual_mm"] = residual if residual is not None else UNKNOWN
+        if residual is not None and not math.isfinite(residual):
+            debts.append(
+                f"{label}: the cutter may stand as far beside the arc's radial line as the "
+                "arc's own radius, so no one-axis back-off is proven radial"
+            )
     proven = (
         master is not None
         and number(widen)

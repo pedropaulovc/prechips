@@ -1664,7 +1664,11 @@ uses the 1898 manual arc method:
    gain alone is no bound; one that does not converge leaves the cut unknown); it
    must lie inside the radial band (a rough
    stage's moved off the line by its allowance, the cutter backed off that
-   allowance along `touch_axis` on the DRO grid, the only handwheel move). The
+   allowance along `touch_axis` on the DRO grid, the only handwheel move, and
+   widened by how far that move misses its radial one with the cutter beside the
+   radial line: one DRO step plus the pivot play for a centred setting bar, or a
+   rail centre's sideways shift `(|cos a| + |cos b|) / |sin(a − b)|` times its
+   rollers' 0.1 mm print rounding plus its form error and half its runout). The
    rows sample the cutter-centre arc every `step_deg` over the whole sweep, centred
    on the arc with its ends kept, so the kernel judges the cutter where the arc
    ends and where the sweep stops. A sweep shorter than the arc (by more than one
@@ -1706,7 +1710,8 @@ uses the 1898 manual arc method:
    B on the work top, each a point measured from the nearer end face and side face of
    a rectangular bar the setup receives as the plan's raw stock, square to the setup
    axes, and a short stroke through it toward the arc's centre at a printed angle to
-   that side face; no such op, or stock without those faces, is unknown and the sweep
+   that side face, scribed before any op in the setup that may cut those faces; no
+   such op, stock without those faces, or a layout after a cut is unknown and the sweep
    prints only a STOP. Then a dry pass from stop to stop, then the sweep: spindle started, its
    direction viewed from above, its angle and cutter travel, and the time it takes
    at the op's starting feed; each sweep ends with Z raised clear of the work and the
