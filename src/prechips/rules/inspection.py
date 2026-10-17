@@ -100,14 +100,19 @@ def max_limit(requirement, value):
     return high if number(low) and number(high) and low == 0 and high > 0 else None
 
 
-def on_leaf(gauge, span, resolution, size):
-    """Whether the leaf set has a leaf of ``size``: one of its listed ``sizes_mm``, else a
-    step of ``resolution`` (the leaf pitch) up from ``range_mm[0]``."""
-    sizes = gauge.get("sizes_mm")
-    if isinstance(sizes, list) and sizes and all(map(number, sizes)):
-        return any(same_length(size, leaf) for leaf in sizes)
-    steps = (size - span[0]) / resolution
-    return same_length(span[0] + resolution * round(steps), size)
+def leaf_under(gauge, span, resolution, size):
+    """The largest leaf of the set at or under ``size``, else None. A declared
+    ``sizes_mm`` is the leaf inventory, an empty one none at all; without it the leaves
+    are the steps of ``resolution`` (the leaf pitch, positive) up from ``range_mm[0]``."""
+    if "sizes_mm" in gauge:
+        sizes = gauge["sizes_mm"]
+        listed = [leaf for leaf in sizes if number(leaf)] if isinstance(sizes, list) else []
+        under = [leaf for leaf in listed if leaf <= size or same_length(leaf, size)]
+        return max(under) if under else None
+    if size < span[0] and not same_length(size, span[0]):
+        return None
+    steps = math.floor((size - span[0]) / resolution + 1e-9)
+    return span[0] + resolution * steps
 
 
 def leaf_tolerance(gauge):
@@ -509,6 +514,9 @@ def _capability(
                     nums["leaf_tolerance_mm"] = UNKNOWN if tolerance is None else tolerance
             if not (isinstance(span, list) and all(number(v) for v in span) and number(resolution)):
                 message = "gauge range or resolution unresolved"
+            elif limit is not None and resolution <= 0:
+                # No leaf pitch: the set's leaves cannot be laid out to find the limit's.
+                message = "gauge range or resolution unresolved"
             elif limit is not None and not span[0] <= limit <= span[1]:
                 status, message = "error", "limit check: gauge has no leaf at the MAX limit"
             elif limit is not None and resolution > limit:
@@ -521,26 +529,28 @@ def _capability(
                 # corners past the limit, so the leaf read must be one at or under r - t.
                 # Sharp needs no leaf, so the band is never read across.
                 guard = limit - tolerance
-                if guard < span[0]:
+                safe = leaf_under(gauge, span, resolution, guard)
+                at_limit = leaf_under(gauge, span, resolution, limit)
+                if safe is not None:
+                    nums["leaf_max_mm"] = safe
+                if safe is None and tolerance > 0:
                     status, message = (
                         "error",
                         f"limit check: the leaf's ±{tolerance:g} tolerance crosses the MAX "
                         "limit (no leaf at or under the limit less its tolerance)",
                     )
+                elif safe is None:
+                    status, message = "error", "limit check: gauge has no leaf at the MAX limit"
                 elif tolerance > 0:
                     # Only a leaf under the limit is safe, and the traveler prints the band
                     # and gauge, never which leaf: the operator would reach for the limit's.
-                    nums["leaf_max_mm"] = guard
                     message = (
                         f"limit check: only a leaf at or under R{guard:g} reads the limit, "
                         "and the traveler does not name it"
                     )
-                elif not on_leaf(gauge, span, resolution, limit):
+                elif not same_length(at_limit, limit):
                     # The set brackets the limit but no leaf is R MAX: a smaller leaf is
                     # safe, yet the traveler names no leaf, so the operator has none to use.
-                    nums["leaf_max_mm"] = span[0] + resolution * math.floor(
-                        (limit - span[0]) / resolution + 1e-9
-                    )
                     message = (
                         f"limit check: the gauge has no R{limit:g} leaf, and the traveler "
                         "does not name the smaller one that reads the limit"

@@ -187,3 +187,32 @@ def test_listed_leaf_sizes_decide_whether_the_limit_leaf_exists(sizes, status):
     b = bundle([0.1, 0.5])
     b.inventory["gauges"]["radius-gauge-small"]["sizes_mm"] = sizes
     assert finding(b).status == status
+
+
+def test_an_empty_leaf_list_has_no_leaf_at_the_limit():
+    # A declared empty inventory is no leaves, never a grid inferred from range and pitch.
+    b = bundle([0.2, 1.0])
+    b.inventory["gauges"]["radius-gauge-small"]["sizes_mm"] = []
+    row = finding(b)
+    assert row.status == "error"
+    assert "no leaf at the MAX limit" in row.sentence
+
+
+def test_a_zero_leaf_pitch_is_unresolved_not_a_crash():
+    row = finding(bundle([0.2, 1.0], resolution=0.0))
+    assert row.status == "unknown"
+    assert "range or resolution unresolved" in row.sentence
+
+
+@pytest.mark.parametrize(
+    ("tolerance", "expected"),
+    [(None, 0.1), ({"value": 0.01, "measured": dict(MEASURED)}, 0.1)],
+)
+def test_the_safe_leaf_named_is_a_listed_one(tolerance, expected):
+    # Listed R0.1 and R0.5 only: the safe leaf under R0.2 (or R0.19) is R0.1, never an
+    # inferred R0.2 or R0.19 the set does not hold.
+    b = bundle([0.1, 0.5], resolution=0.01, leaf_tolerance=tolerance)
+    b.inventory["gauges"]["radius-gauge-small"]["sizes_mm"] = [0.1, 0.5]
+    row = finding(b)
+    assert row.status == "unknown"
+    assert row.numbers["leaf_max_mm"] == pytest.approx(expected)

@@ -89,13 +89,18 @@ corner past the limit, so the leaf read must be at or under r − t. Outcomes:
   leaf to use, so the operator would reach for the one at the limit. The evidence
   gives `leaf_max_mm` (r − t).
 - **Unknown, no leaf at the limit:** t = 0, but the set brackets r without a leaf
-  of r. A leaf is one of the gauge's listed `sizes_mm`, else a step of
-  `resolution_mm` (the leaf pitch) up from `range_mm[0]`. For example, leaves from
-  R0.15 by 0.1 have no R0.2 leaf. The smaller safe leaf is unnamed on the
-  traveler; `leaf_max_mm` gives it.
+  of r. For example, leaves from R0.15 by 0.1 have no R0.2 leaf. The smaller safe
+  leaf is unnamed on the traveler; `leaf_max_mm` gives it.
+
 - **Pass:** t = 0 (the tolerance is omitted or declared as 0), resolution ≤ r, and the
   set has a leaf of r. A leaf set R0.2–R1.0 by 0.1 with no declared tolerance reads
   `R0.2 MAX`.
+
+The leaves are the gauge's declared `sizes_mm`; a declared empty list means none, so
+no leaf reads the limit (error). Without `sizes_mm`, the leaves are the steps of
+`resolution_mm` (the leaf pitch) up from `range_mm[0]`. A pitch that is not positive
+leaves the check unknown (`gauge range or resolution unresolved`). `leaf_max_mm` is
+always one of those leaves: the largest at or under r − t.
 
 Evidence adds `limit_check = "max"`, `limit_mm` (r) and, when declared,
 `leaf_tolerance_mm`, instead of `band_mm`. An unverified gauge stays debt. A two-sided band (R5 ±0.1) and any reading gauge (a CMM) keep the full-span
