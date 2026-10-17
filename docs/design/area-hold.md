@@ -964,3 +964,47 @@ not separately decided by the maintainer:
 - vacuum: rounds 1–19 also built a vacuum model (fixed seal circuit, residual
   contact load after lift, gauge error, ambient bound), until the seal geometry
   problem led to D11. That model is preserved in #309.
+
+## 12. Open review notes (follow-ups for phases 2–6)
+
+Codex review stopped after 20 rounds on this design, by the user's decision.
+These items are still open. Each is tracked to the phase that settles it, and
+none of them blocks this design.
+
+**Fixed after the last review, not re-reviewed.** Codex's round 20, on
+`82a3850`, raised three findings. `6f7c68c` fixes all three, but no review has
+run on that commit:
+- *Local peel front* (§3.2, §3.4): `L_i = min(D, w_i)` uses the island's local
+  width at the cut. Phase 3 emits each island's outline and its sampled cut
+  points. Phase 4 computes `w_i` from them and tests the 5 mm tab and the
+  2 mm neck (§8).
+- *Orientation gate* (§3.2): weight is ignored only for a seat facing setup +Z
+  on a mill. Phase 3 emits `seat_normal`, and phase 4 applies the gate and
+  tests the angle-plate and lathe cases.
+- *Release wait domain* (§2.7): phase 1 already rejects a `wait_min` or
+  `temp_c` that is not > 0, and tests it.
+
+**Answered without a change.** In *eccentric axial lift in tape overturning*
+(P1, `f6cf60a`), Codex asked for the axial load's lever about the centroid.
+Model A already puts that load at the nearest free edge, the most eccentric
+place it can be, so moving it toward the centroid can only lower `use_z`
+(§3.3). Phase 4 should pin this with a test: the same op at the centroid and
+at the edge gives the same `use_z`.
+
+**Deferred with vacuum (D11, #309).** The round 19 findings *derive the seal
+from recorded groove geometry* and *bound vacuum pressure by available
+atmosphere* belong to the vacuum design. #309 carries them, and this design
+does not apply them.
+
+**Raised in the code PRs, for the phases that consume them:**
+- *Undrawn seat* (#310): a named `on` solid that is untrusted or incomplete
+  still loads. Phase 3 reports it as `area_hold.reason`, and the phase 5 seat
+  check must report it as `?`, never as a pass.
+- *Explicit `ae_mm = "unknown"`* (#312): this takes the full-slot bound,
+  like an omitted `ae`, because the force cannot grow past `ae = D`. If the
+  maintainer wants an explicit unknown to be debt instead, the change is one
+  line in `_cutting_force.py`.
+- *Entry is passed in* (#312): `milling_force` takes the side, plunge or
+  unknown entry from its caller, since phase 2 is kernel-free. Phase 4 reads it
+  from the coordinates level path (`entry_of`) and updates the §4.1 signature
+  to match.
