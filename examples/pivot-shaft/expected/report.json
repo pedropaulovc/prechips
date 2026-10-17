@@ -1388,7 +1388,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "a8e328f3fed387b92b81160cd87e6e9d9532e8d70318c6b10c68b84c075bf1ed"
+            "sha256": "83f8cb3d74c555c28357dffdb8e672b1e9a5e697058f36f5e7b1f1eb0da02bc8"
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
@@ -1396,7 +1396,7 @@
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
-            "sha256": "383236cece90d5741c9f1bd03f3348d10fb21f39ba3ca34f05a4cd87ba3c49f8"
+            "sha256": "131383b5005a3a689ab0a8b55a002c231f06433bfcf0a8234ef4030a2bd363e0"
           },
           "step": {
             "path": "examples/pivot-shaft/pivot-shaft.STEP",
@@ -10959,7 +10959,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "22f0dd28ceb59034533ba44792dd5c8d67d5156833d6d40ce77b917d20be37f9",
+  "hash": "15da9b061c99d277e0cb1f0cd3adcc179f336e2086959651e642fbddf521ead2",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -10971,7 +10971,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "a8e328f3fed387b92b81160cd87e6e9d9532e8d70318c6b10c68b84c075bf1ed"
+      "sha256": "83f8cb3d74c555c28357dffdb8e672b1e9a5e697058f36f5e7b1f1eb0da02bc8"
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",
@@ -10995,14 +10995,14 @@
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
-      "sha256": "383236cece90d5741c9f1bd03f3348d10fb21f39ba3ca34f05a4cd87ba3c49f8"
+      "sha256": "131383b5005a3a689ab0a8b55a002c231f06433bfcf0a8234ef4030a2bd363e0"
     },
     "step": {
       "path": "examples/pivot-shaft/pivot-shaft.STEP",
       "sha256": "cc8d57b5c73d5de8f7cbcbd53e1fbee1f2a196e69267ecb19d5a23fe2c42d7bc"
     }
   },
-  "prechips_version": "0.2.0",
+  "prechips_version": "0.1.2",
   "renders": {
     "S0": {
       "fixture": "modeled",

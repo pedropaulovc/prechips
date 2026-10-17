@@ -429,8 +429,10 @@ def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_table_check():
     assert "fixture_mm" not in finding.numbers["travel_checks"]["x"]
     table = finding.numbers["fixture_table_check"]
     assert table["status"] == "unknown"
-    # The head's length lies along its posed axis, setup X.
+    # The head's length lies along its posed axis, setup X. This test pose puts pose x
+    # along setup Y, so pose y (z × x) is vertical and the width adds nothing in plan.
     assert table["footprint_x_mm"] == 450
+    assert table["footprint_y_mm"] == 0
     assert "table length/width" in table["missing"]
     assert finding.status == "pass"
 
