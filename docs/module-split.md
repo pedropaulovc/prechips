@@ -345,7 +345,7 @@ Each split ran in a throwaway worktree on `main` at `f5c7414`. Nothing was commi
 |---|---|
 | `model` (the small module) | `apply`: 12 files, 27 importers rewritten. Ruff and format clean. Full suite (`-n 2 --dist loadscope`, `PRECHIPS_KERNEL_WORKERS=1`, `PRECHIPS_REQUIRE_KERNEL=1`, pinned AppImage): 9,423 passed, 83 skipped (82 for no print browser here, 1 packaging-only), 0 failed. Snapshot manifest identical to `main`'s, all four travelers equal to `expected/`. `uv build`: the wheel and sdist both contain all 78 files under `src/prechips/`, `model/` included. |
 | `sheet` (mixins) | `apply`: 18 files, 10 `_Traveler` mixins, the `stock_states` monkeypatches retargeted to `sheet.dro`. Ruff clean. The pivot-shaft traveler is byte-identical to `expected/`. |
-| `freecad_job` (FreeCAD) | `apply` after one hand prep commit (`_POOL` holder, below): 21 engine files, 14 mixins, 6 probe test files rewritten. **See PR body** for the kernel suite and cold snapshot. |
+| `freecad_job` (FreeCAD) | `apply` after one hand prep commit (`_POOL` holder, below): 21 engine files, 14 mixins, 6 probe test files rewritten. Under the pinned AppImage with a fresh `PRECHIPS_KERNEL_CACHE` that only the split engine filled, the snapshot manifest is identical to `main`'s and all four travelers equal `expected/`. Cold rocker-arm `check`: `main` 537 s, split 501 s, reports byte-identical. Full suite: running at the time of this commit; result in the PR body. |
 
 Gaps the prototypes found, to close in the split PRs:
 
@@ -360,6 +360,11 @@ Gaps the prototypes found, to close in the split PRs:
 * **Probe line length**: rewritten probe lines can pass 100 columns (two lines in
   `test_kernel_guard_frames.py`). Ruff does not reflow strings, so they are wrapped by
   hand in that PR.
+* **Cold kernel deadline**: the first cold engine snapshot here gave rocker-arm exit 2
+  because its kernel job hit the 600 s deadline. Timed alone, the job takes about 500 s
+  cold with `PRECHIPS_KERNEL_WORKERS=1` on 4 vCPUs, on `main` as well as on the split.
+  So a split PR runs its cold snapshot with nothing else on the machine, and checks
+  any timeout against `main` cold before calling it a regression.
 * **Prose paths**: `AGENTS.md`, `examples/README.md` and five `docs/` pages name
   `src/prechips/model.py`; `examples/geometry/README.md` and `docs/rules-geometry.md`
   name `freecad_job.py`. These are updated by hand in each split PR, as AGENTS.md
