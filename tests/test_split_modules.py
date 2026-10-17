@@ -965,3 +965,39 @@ def test_namespace_dunders_keyword_strings_and_nested_reads_refuse(at, tmp_path,
     )
     with pytest.raises(SystemExit):
         split.main(["apply", "big"])
+
+
+def test_a_moved_name_captured_by_a_module_level_match_is_refused(at):
+    source = "X = 0\nmatch VALUE:\n    case X:\n        pass\n\n\ndef use():\n    return X\n"
+    plan = at(source, _spec('["X"]'))
+    assert any("X is rebound at module level" in refusal for refusal in plan.refusals)
+
+
+def test_a_unit_reading_its_loader_never_moves(at):
+    plan = at("def loader():\n    return __loader__\n", _spec('["loader"]'))
+    assert any("__loader__" in refusal for refusal in plan.refusals)
+
+
+@pytest.mark.parametrize(
+    ("helper", "test"),
+    [
+        (None, "    monkeypatch.setattr(big, 'radius', abs); assert big.radius(-1) == 1\n"),
+        (
+            "from pkg import big\n\n\ndef later():\n    return big.radius(-1)\n",
+            "    monkeypatch.setattr(big, 'radius', abs)\n    assert helper.later() == 1\n",
+        ),
+    ],
+    ids=["same-line", "helper-module"],
+)
+def test_a_read_after_a_retargeted_patch_on_one_line_or_in_a_helper_refuses(
+    at, tmp_path, helper, test
+):
+    source = "def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x) ** 2\n"
+    at(source, _spec('["radius"]'))
+    if helper:
+        (tmp_path / "tests" / "helper.py").write_text(helper, encoding="utf-8")
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "from pkg import big\n\n\ndef test(monkeypatch):\n" + test, encoding="utf-8"
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
