@@ -287,8 +287,6 @@ def test_untapped_hole_prerequisites_and_path_sizing_are_pure_identity_checks():
     [
         ("fixtures", "vise", "bed_height", 20),
         ("fixtures", "vise", "jaw_height", 10),
-        ("fixtures", "vise", "length", 150),
-        ("fixtures", "vise", "width", 80),
         ("tools", "cutter", "oal", 80),
         ("holders", "holder", "gauge_len", 30),
         ("holders", "holder", "grip", 25),
@@ -301,13 +299,31 @@ def test_headroom_names_each_consumed_stack_or_travel_fact(category, identity, f
     assert baseline.numbers["sum_mm"] == 150
     assert baseline.numbers["stacks"][0]["tool_projection_mm"] == 55
     assert baseline.numbers["stacks"][0]["margin_mm"] == 50
-    assert baseline.numbers["travel_checks"]["x"]["required_mm"] == 150
+    assert baseline.numbers["travel_checks"]["x"]["required_mm"] == 100
     data.inventory[category][identity][f"{field}_mm"] = fact(value, case)
     data.inventory["tools"]["cutter"]["dia_mm"] = fact(6.35, "illustrative")
     [row] = headroom.evaluate(data)
     assert_debts(row, {f"{category}.{identity}.{field}": case})
     data.inventory[category][identity][f"{field}_mm"] = fact(value)
     assert headroom.evaluate(data) == [baseline]
+
+
+@pytest.mark.parametrize("case", ["assumed", "illustrative"])
+@pytest.mark.parametrize(("field", "value"), [("length", 150), ("width", 80)])
+def test_headroom_keeps_fixture_footprint_debt_on_its_table_check(field, value, case):
+    # The footprint no longer bounds travel (#297): its debt names the table check's
+    # input and leaves the stack/reach verdict alone.
+    data = bundle()
+    [baseline] = headroom.evaluate(data)
+    data.inventory["fixtures"]["vise"][f"{field}_mm"] = fact(value, case)
+    [row] = headroom.evaluate(data)
+    assert row.status == baseline.status == "pass"
+    assert row.numbers["measurements"] == baseline.numbers["measurements"]
+    table = row.numbers["fixture_table_check"]
+    assert table["status"] == "unknown"
+    assert [(e["id"], e["status"]) for e in table["measurements"]] == [
+        (f"fixtures.vise.{field}", case)
+    ]
 
 
 def test_headroom_names_selected_projection_not_the_unused_grip_and_keeps_m5_debt():

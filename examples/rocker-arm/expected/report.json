@@ -2230,7 +2230,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "a8e328f3fed387b92b81160cd87e6e9d9532e8d70318c6b10c68b84c075bf1ed"
+            "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
           },
           "plan": {
             "path": "examples/rocker-arm/plan.toml",
@@ -2238,7 +2238,7 @@
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
-            "sha256": "383236cece90d5741c9f1bd03f3348d10fb21f39ba3ca34f05a4cd87ba3c49f8"
+            "sha256": "131383b5005a3a689ab0a8b55a002c231f06433bfcf0a8234ef4030a2bd363e0"
           },
           "step": {
             "path": "examples/rocker-arm/rocker-arm.STEP",
@@ -46733,7 +46733,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "P1: measured spindle stack and part/fixture travels fit.",
+      "message": "P1: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -46741,6 +46741,17 @@
           "10": 4.3297000000000025
         },
         "fixture_height_mm": 44.945299999999996,
+        "fixture_table_check": {
+          "fixture_length_mm": 419.09999999999997,
+          "fixture_width_mm": 177.79999999999998,
+          "footprint_basis": "jaws_along = \"x\": length along Y",
+          "footprint_x_mm": 177.79999999999998,
+          "footprint_y_mm": 419.09999999999997,
+          "measurements": [],
+          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 177.8 x 419.1 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
+          "status": "unknown",
+          "table_mm": "unknown"
+        },
         "fixture_verify": false,
         "holder_gauge_len_mm": 6.0,
         "insertion_mm": 25,
@@ -46776,15 +46787,13 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
             "part_mm": 345.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 345.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
             "part_mm": 76.2,
-            "required_mm": 177.79999999999998,
+            "required_mm": 76.2,
             "travel_mm": 222.25
           }
         }
@@ -46804,7 +46813,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "P2: measured spindle stack and part/fixture travels fit.",
+      "message": "P2: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -46812,6 +46821,17 @@
           "10": 38.354699999999994
         },
         "fixture_height_mm": 44.945299999999996,
+        "fixture_table_check": {
+          "fixture_length_mm": 419.09999999999997,
+          "fixture_width_mm": 177.79999999999998,
+          "footprint_basis": "jaws_along = \"x\": length along Y",
+          "footprint_x_mm": 177.79999999999998,
+          "footprint_y_mm": 419.09999999999997,
+          "measurements": [],
+          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 177.8 x 419.1 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
+          "status": "unknown",
+          "table_mm": "unknown"
+        },
         "fixture_verify": false,
         "holder_gauge_len_mm": 6.0,
         "insertion_mm": 25,
@@ -46856,15 +46876,13 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
             "part_mm": 345.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 345.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
             "part_mm": 17.525,
-            "required_mm": 177.79999999999998,
+            "required_mm": 17.525,
             "travel_mm": 222.25
           }
         }
@@ -46884,7 +46902,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "P3: measured spindle stack and part/fixture travels fit.",
+      "message": "P3: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -46892,6 +46910,17 @@
           "10": 32.7547
         },
         "fixture_height_mm": 44.945299999999996,
+        "fixture_table_check": {
+          "fixture_length_mm": 419.09999999999997,
+          "fixture_width_mm": 177.79999999999998,
+          "footprint_basis": "jaws_along = \"x\": length along Y",
+          "footprint_x_mm": 177.79999999999998,
+          "footprint_y_mm": 419.09999999999997,
+          "measurements": [],
+          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 177.8 x 419.1 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
+          "status": "unknown",
+          "table_mm": "unknown"
+        },
         "fixture_verify": false,
         "holder_gauge_len_mm": 6.0,
         "insertion_mm": 25,
@@ -46936,15 +46965,13 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
             "part_mm": 345.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 345.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
             "part_mm": 17.525,
-            "required_mm": 177.79999999999998,
+            "required_mm": 17.525,
             "travel_mm": 222.25
           }
         }
@@ -46964,7 +46991,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "P4: measured spindle stack and part/fixture travels fit.",
+      "message": "P4: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -46972,6 +46999,17 @@
           "10": 2.804700000000004
         },
         "fixture_height_mm": 44.945299999999996,
+        "fixture_table_check": {
+          "fixture_length_mm": 419.09999999999997,
+          "fixture_width_mm": 177.79999999999998,
+          "footprint_basis": "jaws_along = \"x\": length along Y",
+          "footprint_x_mm": 177.79999999999998,
+          "footprint_y_mm": 419.09999999999997,
+          "measurements": [],
+          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 177.8 x 419.1 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
+          "status": "unknown",
+          "table_mm": "unknown"
+        },
         "fixture_verify": false,
         "holder_gauge_len_mm": 6.0,
         "insertion_mm": 25,
@@ -47016,15 +47054,13 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
             "part_mm": 345.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 345.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
             "part_mm": 65.0,
-            "required_mm": 177.79999999999998,
+            "required_mm": 65.0,
             "travel_mm": 222.25
           }
         }
@@ -47044,12 +47080,23 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "P5: measured spindle stack and part/fixture travels fit.",
+      "message": "P5: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": 44.945299999999996,
+        "fixture_table_check": {
+          "fixture_length_mm": 419.09999999999997,
+          "fixture_width_mm": 177.79999999999998,
+          "footprint_basis": "jaws_along = \"x\": length along Y",
+          "footprint_x_mm": 177.79999999999998,
+          "footprint_y_mm": 419.09999999999997,
+          "measurements": [],
+          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 177.8 x 419.1 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
+          "status": "unknown",
+          "table_mm": "unknown"
+        },
         "fixture_verify": false,
         "holder_gauge_len_mm": 6.0,
         "insertion_mm": 25,
@@ -47105,15 +47152,13 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
             "part_mm": 345.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 345.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
             "part_mm": 65.0,
-            "required_mm": 177.79999999999998,
+            "required_mm": 65.0,
             "travel_mm": 222.25
           }
         }
@@ -47133,12 +47178,23 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S1: measured spindle stack and part/fixture travels fit.",
+      "message": "S1: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": 44.945299999999996,
+        "fixture_table_check": {
+          "fixture_length_mm": 419.09999999999997,
+          "fixture_width_mm": 177.79999999999998,
+          "footprint_basis": "jaws_along = \"x\": length along Y",
+          "footprint_x_mm": 177.79999999999998,
+          "footprint_y_mm": 419.09999999999997,
+          "measurements": [],
+          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 177.8 x 419.1 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
+          "status": "unknown",
+          "table_mm": "unknown"
+        },
         "fixture_verify": false,
         "holder_gauge_len_mm": 95.0,
         "insertion_mm": 25,
@@ -47282,15 +47338,13 @@
         "tool_oal_mm": 101.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
             "part_mm": 340.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 340.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
             "part_mm": 65.0,
-            "required_mm": 177.79999999999998,
+            "required_mm": 65.0,
             "travel_mm": 222.25
           }
         }
@@ -47310,12 +47364,23 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S2: measured spindle stack and part/fixture travels fit.",
+      "message": "S2: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": 44.945299999999996,
+        "fixture_table_check": {
+          "fixture_length_mm": 419.09999999999997,
+          "fixture_width_mm": 177.79999999999998,
+          "footprint_basis": "jaws_along = \"x\": length along Y",
+          "footprint_x_mm": 177.79999999999998,
+          "footprint_y_mm": 419.09999999999997,
+          "measurements": [],
+          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 177.8 x 419.1 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
+          "status": "unknown",
+          "table_mm": "unknown"
+        },
         "fixture_verify": false,
         "holder_gauge_len_mm": 95.0,
         "insertion_mm": 25,
@@ -47470,15 +47535,13 @@
         "tool_oal_mm": 63.5,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
             "part_mm": 340.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 340.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
             "part_mm": 65.0,
-            "required_mm": 177.79999999999998,
+            "required_mm": 65.0,
             "travel_mm": 222.25
           }
         }
@@ -47498,12 +47561,23 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S3: measured spindle stack and part/fixture travels fit.",
+      "message": "S3: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 28.87175,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "not_applicable",
+        "fixture_table_check": {
+          "fixture_length_mm": 360.0,
+          "fixture_width_mm": 145.0,
+          "footprint_basis": "hold.pose: length along pose x, width along pose y",
+          "footprint_x_mm": 360.0,
+          "footprint_y_mm": 145.0,
+          "measurements": [],
+          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 360 x 145 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
+          "status": "unknown",
+          "table_mm": "unknown"
+        },
         "fixture_verify": false,
         "holder_gauge_len_mm": 95.0,
         "insertion_mm": 25,
@@ -47548,15 +47622,13 @@
         "tool_oal_mm": 93.0,
         "travel_checks": {
           "x": {
-            "fixture_mm": 360.0,
             "part_mm": 340.0,
-            "required_mm": 360.0,
+            "required_mm": 340.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 145.0,
             "part_mm": 65.0,
-            "required_mm": 145.0,
+            "required_mm": 65.0,
             "travel_mm": 222.25
           }
         }
@@ -47598,12 +47670,23 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S4: measured spindle stack and part/fixture travels fit.",
+      "message": "S4: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 28.87175,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "not_applicable",
+        "fixture_table_check": {
+          "fixture_length_mm": 360.0,
+          "fixture_width_mm": 145.0,
+          "footprint_basis": "hold.pose: length along pose x, width along pose y",
+          "footprint_x_mm": 360.0,
+          "footprint_y_mm": 145.0,
+          "measurements": [],
+          "missing": "inventory.machines.PM-30MV has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's 360 x 145 mm footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
+          "status": "unknown",
+          "table_mm": "unknown"
+        },
         "fixture_verify": false,
         "holder_gauge_len_mm": 6.0,
         "insertion_mm": 25,
@@ -47659,15 +47742,13 @@
         "tool_oal_mm": 61.9,
         "travel_checks": {
           "x": {
-            "fixture_mm": 360.0,
             "part_mm": 340.0,
-            "required_mm": 360.0,
+            "required_mm": 340.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 145.0,
             "part_mm": 65.0,
-            "required_mm": 145.0,
+            "required_mm": 65.0,
             "travel_mm": 222.25
           }
         }
@@ -49205,17 +49286,6 @@
         "band_mm": 0.5,
         "gauge": "rocker-profile-template",
         "gauge_kind": "profile_gauge",
-        "height_from": "pivot_bore",
-        "inspection_method": [
-          "Profile template (make before S4; example dimensions, plausible, not measured; AUTHOR'S CHOICE: made to order by the same outside wire-EDM shop as the S4 op 10 outline template, because the shop cannot hold the R799/R817 blade edges to 0.01): ground steel base plate 380 x 110 x 12.7 with a pressed 6.500 h6 pivot pin, a 2.000 diamond pin with radial flats at X 133.067, Y 8.456 from the pivot pin (the nominal rod hole) and a Ø14 x 3 deep relief under the hub.",
-          "Template blades: two 2.0 blades, doweled and screwed round the part position, each working edge 1.00 outside the nominal outline given at S4 op 10: top blade R799.00 and bottom blade R817.00, both about the arc centre 808.00 above the pivot pin, each blade edge within 0.01 of its radius.",
-          "Template engraving: gap stations on the top blade at X 0, ±40, ±80, ±120 and ±140 and on the bottom blade at X 0, ±40, ±80 and ±120 from the pivot pin; arc-length limit lines, radial through the arc centre, on the top blade at X ±144.808 and ±145.309 from the pivot pin (top-edge arc length 291.59 and 292.61) and on the bottom blade at X ±132.668 and ±133.172 (bottom arc length 266.19 and 267.21).",
-          "Template calibration report (supplied with the template by its maker; re-checked yearly): at every gap station, the blade edge's actual deviation d from its radius, + outward (away from the arc centre), each within ±0.01; and the top blade's actual height over the pivot pin at X 0, H (nominally 9.00). The checks below use these actual values, so the drawing limits are the acceptance limits.",
-          "The kit also holds a loose land square (ground steel block with a 40 long convex R800.00 stock face ground with the top blade, and a 12 blade square to the stock face at its end within 0.01 over 10) and a 0.02 to 1.00 feeler set.",
-          "Set-up, after op 40: clean the part and the template. Lower the part over both pins onto its lower strap face with the hub in the relief, turn it counterclockwise against the diamond pin and hold it down by hand.",
-          "At the X 0 station, find the thickest feeler stack, built in 0.01 steps, that enters between the top blade and the top edge: {g}. Copy the template's H from its calibration report: {H}.",
-          "Calculate: the top edge lies between H - g - 0.01 = {low} and H - g = {high} over the pivot (the 0.01 is the feeler step). Accept if low is at least 8.00 and high at most 8.50, the drawing's limits. If either limit falls between low and high, the reading cannot decide: tag the part HOLD with the readings for the shop owner; it is not accepted or scrapped on this reading."
-        ],
         "limits": [
           8.0,
           8.5
@@ -64361,7 +64431,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "263c5675e5e1490d942d1cbecba5e21cfc9775d15e03dd836f51ee49f8d58869",
+  "hash": "5641cbf53519e7c6d614f9fabeba92e24c77f636b3e2ab7f36839f49162c90bc",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -64373,7 +64443,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "a8e328f3fed387b92b81160cd87e6e9d9532e8d70318c6b10c68b84c075bf1ed"
+      "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
     },
     "plan": {
       "path": "examples/rocker-arm/plan.toml",
@@ -64425,14 +64495,14 @@
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
-      "sha256": "383236cece90d5741c9f1bd03f3348d10fb21f39ba3ca34f05a4cd87ba3c49f8"
+      "sha256": "131383b5005a3a689ab0a8b55a002c231f06433bfcf0a8234ef4030a2bd363e0"
     },
     "step": {
       "path": "examples/rocker-arm/rocker-arm.STEP",
       "sha256": "e5707bbb540b32280712423635a3d5ebd5c1f1cfb6265615b18dfe3453772e9e"
     }
   },
-  "prechips_version": "0.2.0",
+  "prechips_version": "0.1.2",
   "renders": {
     "P1": {
       "fixture": "modeled",

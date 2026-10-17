@@ -995,6 +995,17 @@
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "not_applicable",
+        "fixture_table_check": {
+          "fixture_length_mm": "unknown",
+          "fixture_width_mm": "unknown",
+          "footprint_basis": "fixture length/width unknown",
+          "footprint_x_mm": "unknown",
+          "footprint_y_mm": "unknown",
+          "measurements": [],
+          "missing": "inventory.machines.test-mill has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's its footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
+          "status": "unknown",
+          "table_mm": "unknown"
+        },
         "fixture_verify": "missing",
         "holder_gauge_len_mm": 60.0,
         "insertion_mm": 25,
@@ -1095,15 +1106,13 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
-            "fixture_mm": "unknown",
             "part_mm": 61.0,
-            "required_mm": "unknown",
+            "required_mm": 61.0,
             "travel_mm": "unknown"
           },
           "y": {
-            "fixture_mm": "unknown",
             "part_mm": 17.838015,
-            "required_mm": "unknown",
+            "required_mm": 17.838015,
             "travel_mm": "unknown"
           }
         }
@@ -2227,7 +2236,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "8a382dceb4a6bdca1aa990ecfbd60149e1d42aaeb6609520654a8c1cf7783cda",
+  "hash": "c696627549c6787ef0e032e8ed18da1840e990f070b12d4cc3d378de53eee83a",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2262,7 +2271,7 @@
       "sha256": "372a9587b44f418211aa994e9653baed07506d4f390713916b82148397f5baf3"
     }
   },
-  "prechips_version": "0.2.0",
+  "prechips_version": "0.1.2",
   "renders": {
     "S1": {
       "fixture": "unresolved",
