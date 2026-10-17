@@ -188,6 +188,48 @@ projection and its source basis, ratio, PLAN limit, authored DOC, reduction
 factor, recommended DOC and missing-input reasons. Citations identify the PLAN
 §4.4 engagement row and the actual selected inventory/operation fields.
 
+## Cutting force
+
+A shared model, not a rule: it has no finding of its own. The holding providers
+read it (the area hold's `hold_capacity`, [#295](https://github.com/pedropaulovc/prechips/issues/295),
+and #158's clamp provider later; see the [area-hold design](design/area-hold.md#4-force-model-shared-with-158)).
+It bounds an end-mill milling op's force from above (Kienzle, peripheral milling,
+every engaged tooth at the maximum chip):
+
+```text
+φ_e   = arccos(1 − 2·ae/D)              engagement angle (π at ae = D)
+h_max = fz·sin φ_e when φ_e ≤ π/2, else fz
+n_e   = ceil(z·φ_e / 2π)                most teeth in the cut at once
+F_t   = n_e·kc1·ap·h_max^(1 − mc)
+F_xy  = F_t·sqrt(1 + k_r²)              lateral, in the seat plane
+F_z   = F_t·tan β                       axial
+```
+
+| Input | Source | Missing or outside its domain |
+|---|---|---|
+| `D`, `z` | the resolved tool's `dia` and `flutes` (`D > 0`, one integer `z ≥ 1`) | `?` |
+| `β` | tool `helix_deg`, trusted by its own cite or measurement (`0 ≤ β < 90`) | `?` |
+| `fz` | the chip load speeds_feeds starts the op from: the tool's cited chart, else the unique cited cutting-data row (`> 0`) | `?` |
+| `ap` | op `doc_mm` (`> 0`) | `?` |
+| `ae` | op `ae_mm` (`0 < ae ≤ D`) | omitted: the bound `D` (`ae_basis = "bound_full_slot"`); outside: `?` |
+| `kc1`, `mc`, `k_r` | the stock class's one cited [`[[material]]`](cutting-data.md#cutmaterial) row: `kc1_n_per_mm2 > 0`, `0 ≤ mc < 1`, `radial_ratio ≥ 0` | `?` |
+
+A value outside its domain is never clamped. The axial force lifts the work when
+the tool's `helix_hand` equals its cutting `hand` (`"right"`: cuts turning
+clockwise seen from above), pushes it when they differ, and is taken as lift
+when either is unknown. Every debt is listed, each prefixed by the input it
+names.
+
+Scope: endmill-family tools (`endmill`, `endmill_set` members) on facing,
+pocketing and profile actions whose path enters from the side. The entry comes
+from the coordinates [level path](rules-coordinates.md#coordinates): every
+down standing in air, or one lowered level above the stock, is a side entry;
+a plunge, an unproven entry and an end mill's hole action (a counterbore) have
+no axial-entry model and stay `?`. A drill-family tool (drill, spot drill,
+reamer, tap) has no thrust/torque model and stays `?`; any other cutting op
+stays `?`; a noncutting action is `not_applicable`. A `?` is never a pass for
+the rule that consumes it.
+
 ## Existing readiness gate
 
 There is no new warning-promotion mechanism. The existing shop `required`

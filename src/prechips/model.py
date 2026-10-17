@@ -666,7 +666,7 @@ Operation = record(
         "process_holds": Annotated[list[ProcessHold], Field(min_length=1)],
         **numbers(
             "to_z depth_mm exit_mm rough_allowance_mm stock_to_leave_mm z_from z_to "
-            "to_dia rpm feed_mm_min doc_mm feed_mm_rev approach_mm"
+            "to_dia rpm feed_mm_min doc_mm ae_mm feed_mm_rev approach_mm"
         ),
         "to_z_cite": Citations,
         "note_cite": Citations,
@@ -1672,15 +1672,20 @@ type MeasuredLimits = LimitPair | LimitsMeasurement
 type MeasuredAngle = Number | LengthMeasurement
 
 
-class CitedFact(InputModel):
-    """A non-length fact (an adhesive's strength, a dwell): a value > 0 qualified only by
-    its own source, a ``cite`` or a complete ``measured`` record, and its own ``verify``
-    (docs/inventory.md "Area holds")."""
+class CitedNumber(InputModel):
+    """A non-length fact qualified only by its own source, a ``cite`` or a complete
+    ``measured`` record, and its own ``verify``. Its domain is the consuming rule's (a
+    tool's ``helix_deg`` may be 0)."""
 
     value: Number
     cite: Citations | Unknown = UNKNOWN
     measured: Measurement | Unknown = UNKNOWN
     verify: bool | Unknown = UNKNOWN
+
+
+class CitedFact(CitedNumber):
+    """A cited number that is > 0 by schema (an adhesive's strength, a dwell;
+    docs/inventory.md "Area holds")."""
 
     @model_validator(mode="after")
     def positive(self) -> CitedFact:
@@ -1982,6 +1987,10 @@ InventoryItem = record(
         # A tool's own shank, or an end-mill set's {shank: [sizes]} map.
         "shank_in": MeasuredLength | str | dict[str, list[str]],
         "flutes": int | list[int],
+        # An end mill's helix angle and its hand, separate from the cutting ``hand``
+        # (docs/inventory.md "Helix"); the force model reads both.
+        "helix_deg": CitedNumber,
+        "helix_hand": Literal["right", "left"],
         "source": str | Source,
         "cite": Citations,
         "sizes": list[str | int | float],
@@ -2461,7 +2470,12 @@ Cut = record(
     },
 )
 CutMaterial = record(
-    "CutMaterial", {"material_class": str, **numbers("kc_n_per_mm2 e_gpa"), "cite": Citations}
+    "CutMaterial",
+    {
+        "material_class": str,
+        **numbers("kc_n_per_mm2 e_gpa kc1_n_per_mm2 mc radial_ratio"),
+        "cite": Citations,
+    },
 )
 DeepHole = record(
     "DeepHole",
