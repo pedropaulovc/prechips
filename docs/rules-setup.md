@@ -109,6 +109,52 @@ the cut countersink and checks it against the setup-entry stock; that check is
 a fixture render debt, not this rule. Its unknown blocks (exit 4) under any
 shop policy; an error always exits 2.
 
+## `tooling_hole`
+
+One subject per setup and plan [`tooling_hole`](plan.md#process-features) the
+setup works (an op names it) or locates on (a drawn solid of `hold.fixture` or of
+a `hold.clamps` member whose inventory `locates` names the hole), as
+`<setup>:<hole>`. A setup that does neither has no row, so a plan without tooling
+holes has none. Always required (`findings.ALWAYS_REQUIRED`): no shop-policy entry
+is needed and none can waive it. It reads the kernel's `tooling_holes` state of the
+hole on the stock entering the setup ([rules-geometry](rules-geometry.md#tooling-holes)).
+
+The pin's fit comes from the hole's `dia` band `[lo, hi]` (to mm) and the pin
+solid's own `dia_mm` under its `measured`/`verify` record: the clearance range is
+`[lo - pin, hi - pin]` mm. Before this rule, a locator's only check was the
+kernel's geometric one (the drawn pin against the cut bore,
+`thin_wall_under_clamp`); no band-based locator fit existed.
+
+- **error:** the hole is `gone` (a waste cut removed it) yet an op or a pin names
+  it; a pin stands in a hole no earlier setup of a fully routed stock lineage
+  drills, or that is still `undrilled` on the entering stock; a pin locates before
+  the op that sizes the hole to its band has run in its stock lineage (the ream when
+  the hole has one, else the drill, as `sizing` picks: a pin between the rough drill
+  and a later ream sees a drill-size hole); or a pin is larger than the hole's
+  smallest size `lo`;
+- **unknown:** the hole is `partial` or its state is unknown, the kernel is
+  unavailable, the lineage is not routed, the band is unknown, or the pin is not
+  a cylinder or its size is not accepted (unknown, `verify`, or an incomplete
+  measurement record);
+- **pass:** otherwise, with the clearance range of each pin, or, for a setup that
+  only works the hole, that the entering stock still has it.
+
+Each locator also reports, for information only, `clocking`: for every other
+locating cylinder the setup places (any posed fixture or clamp solid with a
+`locates`, such as a HUB pin in the part's bore) whose posed axis is parallel to
+the hole's (any other leaves its turn unknown, with a reason), the setup-frame
+distance `L` between that pin's axis and the hole's axis, the angle the work may turn on this
+pin about it, `angle_rad = (hi - pin) / L` (the largest diametral clearance over
+that distance), and `max_shift_mm`, the most that turn moves a corner of the
+entering stock's bounding box. An unknown clearance, pose or box leaves the
+number unknown. These numbers never change the row's status; they are there for
+an error budget (such as a trammel's, #278) to add, not judged here.
+
+Evidence: the hole, its ops in the setup, its entry state, its makers and each
+locator's pin, pin and hole diameters, clearance range and clocking. The hole itself earns
+no drawing coverage or finishing credit, and `inspection` has no requirement to
+check on it.
+
 ## `prepared_blank`
 
 One subject, `stock.prepared`; not applicable without a

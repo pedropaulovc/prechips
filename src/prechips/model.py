@@ -768,9 +768,13 @@ class ProcessFeature(InputModel):
     the countersink of ``countersink_angle_deg`` (included) opens to ``mouth_dia_mm`` on the
     face and the pilot (``drill_dia_mm``, ``drill_length_mm`` from the countersink to the
     tip, point included) runs on along ``axis``. Centre sizes are mm, cited to their source.
+    A ``tooling_hole`` is a locating hole drilled (and reamed) in the work's own waste for a
+    later setup's fixture pin: its mouth centre is ``at``, it runs along ``axis`` either
+    ``thru`` the stock or to ``depth``, and ``dia`` is its ``[lo, hi]`` size band. Like
+    ``at``, ``dia`` and ``depth`` are manifest units.
     """
 
-    kind: Literal["end_face", "centre_hole"]
+    kind: Literal["end_face", "centre_hole", "tooling_hole"]
     at: KnownPoint3 | Unknown
     axis: KnownPoint3 | Unknown
     cite: Citations
@@ -779,6 +783,9 @@ class ProcessFeature(InputModel):
     drill_length_mm: float | Unknown = UNKNOWN
     mouth_dia_mm: float | Unknown = UNKNOWN
     countersink_angle_deg: float | Unknown = UNKNOWN
+    dia: KnownBand | Unknown = UNKNOWN
+    thru: bool = False
+    depth: float | Unknown = UNKNOWN
     note: str | Unknown = UNKNOWN
 
     @model_validator(mode="after")
@@ -788,6 +795,23 @@ class ProcessFeature(InputModel):
         _unit(self.axis, "A process feature axis")
         centre = ("size", "drill_dia_mm", "drill_length_mm", "mouth_dia_mm")
         centre += ("countersink_angle_deg",)
+        hole = ("dia", "thru", "depth")
+        if self.kind != "tooling_hole":
+            authored = sorted(key for key in hole if key in self.model_fields_set)
+            if authored:
+                raise ValueError(f"A {self.kind} process feature has no {', '.join(authored)}.")
+        if self.kind == "tooling_hole":
+            authored = sorted(key for key in centre if key in self.model_fields_set)
+            if authored:
+                raise ValueError(f"A tooling_hole process feature has no {', '.join(authored)}.")
+            if "dia" not in self.model_fields_set:
+                raise ValueError("A tooling_hole process feature needs dia.")
+            _ordered(self.dia, "A tooling_hole dia", floor=0.0, inclusive=False)
+            if self.thru == ("depth" in self.model_fields_set):
+                raise ValueError("A tooling_hole is either thru = true or has a depth, not both.")
+            if self.depth != UNKNOWN and self.depth <= 0:
+                raise ValueError("A tooling_hole depth must be positive.")
+            return self
         if self.kind == "end_face":
             authored = sorted(key for key in centre if key in self.model_fields_set)
             if authored:

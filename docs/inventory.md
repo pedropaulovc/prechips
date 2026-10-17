@@ -546,7 +546,10 @@ Other holding solids come from the same accepted-fact rule, never defaults:
   names the drawn solid that must prove it bears on the work, and
   `bears = "bore" | "face"` on that solid says which proof it owes: its
   contact cylinder in a bore, or a flat face. A `locates` solid without `bears`
-  leaves the clamp unproven (rules-geometry, `thin_wall_under_clamp`).
+  leaves the clamp unproven (rules-geometry, `thin_wall_under_clamp`). A
+cylinder whose `locates` is the name of a plan
+[`tooling_hole`](plan.md#process-features) is a pin in that hole: the
+`tooling_hole` rule judges its `dia_mm` against the hole's band.
 
 For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
 its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies

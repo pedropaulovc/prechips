@@ -1859,6 +1859,7 @@ _TOPICS = {
     "indexing": "indexing",
     "hold_fields": "holding details",
     "centre_support": "tailstock centre",
+    "tooling_hole": "tooling hole / locating pin",
     "prepared_blank": "squared blank size",
     "order": "op order",
     "op_chain": "op sequence",
