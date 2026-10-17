@@ -178,7 +178,11 @@ def test_an_unknown_tolerance_is_never_a_pass():
 
 
 def test_facing_and_holes_carry_no_angle_band_and_square_vises_no_finding():
-    ops = [taper(do="finish_face", op=10), taper(do="drill", op=20)]
+    ops = [
+        taper(do="finish_face", op=10),
+        taper(do="drill", op=20),
+        {"op": 30, "do": "transfer"},  # a datum transfer cuts nothing
+    ]
     (row,) = swivel.evaluate(bundle(setup(ops=ops), band=None))
     assert row.status == "pass" and [c["cut"] for c in row.numbers["cuts"]] == ["point"]
     assert swivel.evaluate(bundle(setup(angle=None, align=ALIGN))) == []
