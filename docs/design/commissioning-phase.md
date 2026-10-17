@@ -782,9 +782,13 @@ analytic predictions these are pure arithmetic in the rules, with no kernel run:
    (`"apex"`), as a transform from the carrier frame to the setup frame.
 3. **Per pin pair:** the cutter-centre radius, `D / (2 sin α)`, and the arc centre
    in the carrier frame.
-4. **Error budget:** the change in radius and arc centre per unit of each guide
-   fact (pin clearance, rail angle), so that tolerances such as 0.03 mm can be
-   checked against the part band. This is optional for v1.
+4. **Error budget (required):** the change in each predicted target, radius
+   and arc centre per unit of each guide fact (carriage-pin clearance, rail
+   angle, pin spacing), with each fact's measured uncertainty. An `align`
+   reading's interval widens by the target uncertainty this budget gives, so a
+   pin centre inside the 0.03 band cannot pass while the guide geometry is
+   outside it. Any guide fact the budget needs that is missing or unmeasured
+   leaves the dependent readings `?`. It is never treated as zero.
 
 The field names belong to #269. This design only requires that the guide exposes
 these four things as functions of its declared, measured facts. Any input that is
@@ -822,11 +826,28 @@ The kernel builds **planned geometry only**. Recorded readings never enter
   their fixture components from it instead of rebuilding the inventory
   primitives. Clash, contact and clearance checks then see the cut riser and the
   holes where the plan puts them.
+- **Accepted envelopes for clash checks.** An in-situ component is never exact:
+  a commissioned riser edge can pass anywhere inside its band. Clash, contact
+  and clearance checks therefore use a conservative **envelope** built from the
+  planned geometry and the planned acceptance bands, not the nominal shape:
+  - each swept edge is offset by its band toward the part, which is the worst
+    case for clearance;
+  - each hole is grown by its size band and its position band.
+
+  The envelope depends only on the plan, never on the record, so cache keys stay
+  record-independent (§4.3). A riser edge 0.05 from a cutter path with a ±0.10
+  band therefore reads as a clash, not as clear.
 - **Render and fixture verdicts.** Today a fixture is `modeled` only when every
-  drawn component is exact and no debt remains. Add one enum value: a fixture
-  whose only remaining debt is unrecorded commissioning is `predicted`, drawn
-  with a "located by commissioning C — not yet recorded" callout. It is not
-  `modeled`, and nothing reads `predicted` as a pass.
+  drawn component is exact and no debt remains. In-situ components are never
+  exact, so a commissioned fixture is never `modeled`. Two enum values are
+  added:
+  - `predicted`: commissioning not yet recorded, drawn with a "located by
+    commissioning C — not yet recorded" callout;
+  - `commissioned`: every consumed claim trusted, with clearance judged on the
+    accepted envelope.
+
+  Neither is read as `modeled`. A pass on clearance comes from the envelope
+  check, never from the verdict name.
 
 Recommended: chain from the commissioning output (above). The alternative
 considered was to keep in-situ features as inventory primitives at a predicted
@@ -1197,6 +1218,11 @@ Also:
   commissioned fixture has exactly one HUB hole even when the spot and the
   planned location differ.
 - The riser band is kept and the offcuts discarded (after #182).
+- Envelope: a riser edge 0.05 from a cutter path with a ±0.10 band → clash;
+  the envelope changes no cache key when only the record changes.
+- Guide error budget: an `align` reading inside the band whose target
+  uncertainty from the budget reaches past it → `?`; a missing budget fact →
+  `?`.
 - Part-setup clash checks see the cut riser **and** C2's holes: the state
   accumulates across C2 (whole fixture) and C3 (riser only), and C3's riser
   result replaces only the blank.
