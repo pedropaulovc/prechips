@@ -1,0 +1,506 @@
+# Split spec for scripts/split_modules.py; the design and evidence are in
+# docs/module-split.md. Each [[module]] moves the top-level symbols (fnmatch patterns on
+# names; "Class.method" for a method of a split class) into the listed target files;
+# every symbol no pattern names stays in `rest`. A `variant` is an alternative the
+# `churn` report compares; `plan` and `apply` take the variant-less entry by default.
+
+# Every file that parses, compiles or executes Python source (ast.parse, inspect.getsource,
+# built-in compile/exec, also inside probe scripts), with the split
+# modules whose source it reads: apply refuses an unlisted one and prints the readers of
+# the module it splits, to port by hand in that PR.
+[parses_source]
+"scripts/split_modules.py" = []
+"tests/test_split_modules.py" = []
+"tests/test_kernel_checkpoints.py" = ["src/prechips/kernel/freecad_job.py"]
+"tests/test_render_png.py" = ["src/prechips/kernel/freecad_job.py"]
+"tests/test_guided_sweep.py" = ["src/prechips/kernel/freecad_job.py"]
+# Its probe compiles a mutated copy of freecad_job.py.
+"tests/test_kernel_unknown_stock_own_cut.py" = ["src/prechips/kernel/freecad_job.py"]
+# Walks the kernel's import graph, whatever files hold the code.
+"tests/test_engine_digest.py" = []
+
+# --- model.py -> model/ per input family, the plan schema per plan concern ----------------
+[[module]]
+name = "model"
+source = "src/prechips/model.py"
+rest = "src/prechips/model/plan.py"
+style = "package"
+init = { "src/prechips/model/__init__.py" = """The five TOML input schemas, one module per input family (the plan's by concern).
+
+Literal unknown is never a numeric default.
+""" }
+
+[module.docs]
+"src/prechips/model/plan.py" = "The plan schema's root: the plan, its setups and their shared plan-level records."
+"src/prechips/model/common.py" = "Shared schema vocabulary: unknown, records, citations and requirement names."
+"src/prechips/model/stock.py" = "Plan stock: components, prepared blanks and stock states."
+"src/prechips/model/holding.py" = "Plan holding: hold, poses, clamps, alignment and stickout."
+"src/prechips/model/zero.py" = "Plan zero recipes: axis zeros, transfers and tool touches."
+"src/prechips/model/operation.py" = "Plan operations: the operation record, contours, guides and saw planes."
+"src/prechips/model/inspection.py" = "Plan inspection: gauges, process holds, aims, aids, marks and views."
+"src/prechips/model/joints.py" = "Plan joints and process features: interfaces, cylindrical and surface joints."
+"src/prechips/model/features.py" = "The features.toml schema: frames, datums, features and profile readings."
+"src/prechips/model/inventory.py" = "The inventory schema: measured facts, machines, items and their checks."
+"src/prechips/model/policy.py" = "The shop policy schema."
+"src/prechips/model/cutting_data.py" = "The cutting-data schema."
+
+[module.targets]
+"src/prechips/model/common.py" = [
+    "Unknown", "UNKNOWN", "Number", "Vector", "Citations", "TOLERANCE_REQUIREMENTS",
+    "PROFILE_GOVERNABLE", "LENGTH_REQUIREMENTS", "CENTRED", "tolerance_requirements",
+    "profile_target", "reference_only", "InputModel", "record", "texts", "numbers", "flags",
+    "Point3", "KnownPoint3", "KnownBand", "UNIT_TOLERANCE", "_cited", "_known_text", "_ordered",
+    "_numeric_pair", "_unit", "Drawing", "Paths", "Direction", "Dro", "Reference", "Index",
+]
+"src/prechips/model/stock.py" = [
+    "StockComponent", "Prepared*", "Stock", "StockState", "PROFILED_BLANK", "BAR_ENVELOPE",
+    "profiled", "profiled_blank_errors",
+]
+"src/prechips/model/holding.py" = [
+    "Pose", "ClampPlacement", "PlanCentres", "StickoutFit", "Align", "Hold",
+]
+"src/prechips/model/zero.py" = ["AxisZero", "Transfer", "ToolTouch", "Zero"]
+"src/prechips/model/operation.py" = [
+    "Bounds", "KeepOut", "Contour", "Guide", "GuidedSweep", "SawPlane", "Operation",
+    "SAW_ACTIONS",
+]
+"src/prechips/model/inspection.py" = [
+    "GoNoGo", "_requirement_pairs", "ScopedGoNoGo", "ProcessHold", "Procedure", "Aim",
+    "InspectionAid", "InspectionMark", "InspectionView",
+]
+"src/prechips/model/joints.py" = [
+    "JointFeature", "ProcessFeature", "JointInterface", "_FIT_METHODS", "CylindricalJoint",
+    "SurfaceJoint", "_COMPOUND_FORM", "JointCompound",
+]
+"src/prechips/model/features.py" = [
+    "FrameVector", "Frame", "PlanFrame", "Datum", "MaterialSpec", "GeneralTolerances", "Plane",
+    "Notes", "Profile*", "PROFILE_FIELDS", "Feature", "Features", "_governed", "_face_extent",
+    "_two_limits",
+]
+"src/prechips/model/inventory.py" = [
+    "Source", "Measurement", "LengthMeasurement", "MeasuredLength", "LimitPair",
+    "LimitsMeasurement", "MeasuredLimits", "MeasuredAngle", "EnvelopeTravel", "MachineEnvelope",
+    "SpindleRotation", "Spindle", "ProjectionMap", "LeadScrew", "Capacity", "Tailstock",
+    "Threads", "Toolpost", "DirectIndex", "Tilt", "Bars", "RecordBlank", "MakeOp", "MakeOps",
+    "FixtureSolid", "AcceptanceCheck", "InventoryItem", "_INVENTORY_LENGTH_STEMS",
+    "_ENVELOPE_LENGTH_STEMS", "_TRAVEL_LENGTH_STEMS", "_inventory_lengths", "_inventory_checks",
+    "_make_ops_checks", "_MADE_CATEGORIES", "_declares_make_ops", "_FEED_NUMBER", "_MAKE_FEED",
+    "_MAKE_OP_FIELDS", "_make_ops", "_record_blank", "_acceptance_check", "Consumable",
+    "Inventory",
+]
+"src/prechips/model/policy.py" = ["Policy"]
+"src/prechips/model/cutting_data.py" = ["Cut", "CutMaterial", "DeepHole", "Plunge", "CuttingData"]
+
+# --- kernel/freecad_job.py -> kernel/engine/ per job stage and op kind ---------------------
+# Runs inside freecadcmd: the entry keeps sys.path, the pool wiring and main(); the
+# engine package imports by its name under the kernel directory (style "engine").
+[[module]]
+name = "freecad_job"
+source = "src/prechips/kernel/freecad_job.py"
+rest = "src/prechips/kernel/freecad_job.py"
+entry = "src/prechips/kernel/freecad_job.py"
+style = "engine"
+root = "src/prechips/kernel"
+init = { "src/prechips/kernel/engine/__init__.py" = "The FreeCAD geometry engine behind freecad_job.py; imported only inside freecadcmd." }
+
+[module.targets]
+"src/prechips/kernel/engine/sections.py" = [
+    "_hull", "_clip_axis", "_revolved_side", "_revolved", "_meridian_segments", "_in_material",
+    "_segment_distance", "_near", "_disk_clear", "_cross", "_polygon_clear", "_nearest_free",
+    "_band", "_max_radius", "_outer_radius", "_profile_rows", "_least_rows", "_revolved_rows",
+    "_prism", "_stadium", "_unbounded_chain", "_islands", "_segments", "_foot", "_to_segment",
+    "_segment_gap", "_unreached", "_unswept", "_off_islands", "_on_pass", "_kept_runs",
+    "_rim_runs", "_common", "_shared", "_checkpoint_row", "_pooled_checkpoint_row", "_shares",
+    "_distant_box", "_merged_length", "_clipped", "_signature",
+]
+"src/prechips/kernel/engine/faces.py" = [
+    "_fills_bbox", "_matches", "_map_faces", "_frame_matrix", "_normal_at", "_common_normal",
+    "_aimed_solid", "_aimed_lengths", "_square_to", "_moved_face", "_setup_axis_words",
+    "_on_surface", "_distance", "_nearest_pair", "_face_samples", "_concave_edge",
+    "_offset_primitives", "_primitive_distance", "_primitive_nearest", "_primitive_meets",
+    "_edge_direction", "_shared_edges", "_curved_concave", "_cylinder_concave",
+    "_cylinder_hits_box", "_trustworthy", "_box_distance", "_surface_distance", "_face_bound",
+    "_clearance",
+]
+"src/prechips/kernel/engine/cull.py" = ["_culled_common", "_StockSupport", "_Culled"]
+"src/prechips/kernel/engine/tools.py" = [
+    "_seat", "_seat_solid", "_blank", "_cutter", "_plunge", "_centre_drill_cutter", "_tool_hits_box",
+    "_stock_vector", "_envelope", "_clearing_*", "_centre_window", "_beyond_window",
+    "_depth_window", "_flat", "_straight", "_level_offset", "_span", "_stadium", "_path_area",
+    "_fitted", "_edge_band", "_end_discs", "_grown", "_level_section", "_out_of_reach",
+    "_centre_pieces", "_centre_sweep", "_tool_envelope", "_sweep_window", "_offset", "_tube",
+    "_overrun",
+]
+"src/prechips/kernel/engine/material.py" = [
+    "_dihedral", "_invariant", "_material", "_valid", "_cleared", "_solids", "_breaking",
+    "_touching", "_leave", "_inner_point", "_vertical",
+]
+"src/prechips/kernel/engine/joints.py" = [
+    "_joint_*", "_process_place", "_centre_solids", "_process_faces", "_interface",
+    "_axis_extent", "_straight_sweep",
+    "_Job._init_process", "_Job._init_joints", "_Job._add_joint_faces",
+    "_Job._component_protection", "_Job._cylindrical_join", "_Job._surface_join", "_Job._joined",
+    "_Setup._joint_*", "_Setup._complete_joint", "_Setup._certify_joint",
+    "_Setup._process_removal", "_Setup._slab_removal", "_Setup._process_axial_op",
+    "_Setup._process_axis",
+]
+"src/prechips/kernel/engine/fixtures.py" = [
+    "_PLACERS", "_VISE_FACTS", "_SOLID_ROLES", "_ANCHOR_ROLES", "_VISE_ACCESSORIES",
+    "_CONTACT_KINDS", "_CLAMP_CONTACTS", "_pose_matrix", "_HeadAxis", "_in_window",
+    "_floor_patches", "_tangent_offset", "_fixture_kind", "_primitive", "_owner_primitives",
+    "_Setup._fixture", "_Setup._add", "_Setup._add_local", "_Setup._add_owned", "_Setup._place*",
+    "_Setup._accessories", "_Setup._interference", "_Setup._jaw_*", "_Setup._fixture_*",
+    "_Setup._contact", "_Setup._source", "_Setup._bearing", "_Setup._line_contact",
+    "_Setup._in_jaws", "_Setup._walls", "_Setup._strap_*", "_Setup._stock_bores",
+    "_Setup._locator_bearing", "_Setup._bore_bearing", "_Setup._face_bearing",
+    "_Setup._footprint", "_Setup._held", "_Setup._pressed", "_Setup._holding_middle",
+    "_Setup._expects_parallels", "_Setup._parallels",
+]
+"src/prechips/kernel/engine/render.py" = [
+    "_COLOURS", "_guide_*", "_Setup._render*", "_Setup._blade_paths", "_Setup._guide_view",
+    "_Setup._inspection_sketches", "_Setup._stock_after", "_Setup._guide_stops",
+    "_Setup._external_rim", "_Setup._rim_sets_boundary", "_Setup._nearest",
+    "_Setup._cut_clearances", "_Setup._taken_off", "_Setup._tool_moves", "_Setup._index_arc",
+    "_Setup._on_surface", "_Setup._clipped_sketch", "_Setup._rest_render",
+]
+"src/prechips/kernel/engine/checkpoints.py" = [
+    "_Setup._op_unknown", "_Setup._checkpoint*", "_Setup._bounded_reach",
+    "_Setup._meets_outside", "_Setup._designed", "_Setup._clip_checkpoints",
+    "_Setup._regenerate_chain", "_Setup._clip_path", "_Setup._finish_checkpoints",
+    "_Setup._later_touch", "_Setup._later_contacts",
+]
+"src/prechips/kernel/engine/saw.py" = [
+    "SAW_*", "_scribed_*", "_saw*", "_Setup._scribed_*", "_Setup._hand_removal", "_Setup._saw_*", "_Setup._hand_op",
+]
+"src/prechips/kernel/engine/removal.py" = [
+    "SUPPLY_*", "_profiled*", "_Setup._stock_*", "_Setup._round_stock_dia", "_Setup._certain_material", "_Setup._build",
+    "_Setup._remove", "_Setup._cut", "_Setup._finish", "_Setup._bounded", "_Setup._flat_leave",
+    "_Setup._skin*", "_Setup._removal", "_Setup._slabs", "_Setup._band",
+    "_Job._supplies", "_Job._supply", "_Job._as_is", "_Job._held", "_Job._prepared",
+]
+"src/prechips/kernel/engine/sweeps.py" = [
+    "_Setup._op_sweep", "_Setup._run_out", "_Setup._corridor", "_Setup._centre_path",
+    "_Setup._sweep", "_Setup._above", "_Setup._covered", "_Setup._lateral",
+    "_Setup._interior_contact", "_Setup._carried", "_Setup._guarded", "_Setup._windows",
+    "_Setup._reach_window", "_Setup._claim_window", "_Setup._protect", "_Setup._guard",
+    "_Setup._window_guard", "_Setup._stopping_tool_*", "_Setup._unproven",
+]
+"src/prechips/kernel/engine/holes.py" = [
+    "_Setup._hole_*", "_Setup._bore_span", "_Setup._cap_span", "_Setup._flat_cap",
+    "_Setup._axial_facts",
+]
+"src/prechips/kernel/engine/milling.py" = [
+    "_Setup._op", "_Setup._corners", "_Setup._own_caps", "_Setup._region",
+    "_Setup._flute_regions", "_Setup._floor_*", "_Setup._wall_corner", "_Setup._upward_plane",
+    "_Setup._certain_debt", "_Setup._planar_*", "_Setup._sample_facts", "_Setup._holder",
+    "_Setup._culled_part", "_Setup._op_stock", "_Setup._kept_facts", "_Setup._shank_hits",
+    "_Setup._clearances", "_Setup._seat_gap", "_Setup._ref_candidates", "_Setup._hit_refs",
+    "_Setup._new_refs_possible", "_Setup._subject", "_Setup._claim_refs", "_Setup._indices",
+    "_Setup._direction", "_Setup._split", "_Setup._undefined", "_Setup._claims",
+    "_Setup._claimed",
+]
+"src/prechips/kernel/engine/turning.py" = [
+    "_Setup._revolution*", "_Setup._turn_*", "_Setup._outer", "_Setup._facing_region",
+    "_Setup._profile_regions", "_Setup._nose_z", "_Setup._rest_*", "_Setup._follow_rests",
+    "_Setup._window_*", "_Setup._nearest_fixture", "_Setup._chuck_walls",
+]
+"src/prechips/kernel/engine/rotary.py" = [
+    "_Setup._rotary_*", "_Setup._radial_sweep", "_Setup._head", "_Job._collect_rotary_portions",
+    "_Job._rotary_*",
+]
+"src/prechips/kernel/engine/pool.py" = ["_POOL", "_ahead"]
+"src/prechips/kernel/engine/common.py" = [
+    "[A-Z]*", "V", "Z", "_timed", "_Unknown", "_ClipUnknown", "_turned", "_rotary", "_hand",
+    "_sawn", "_op_number", "_internal_reason", "_r", "_number", "_positive", "_bbox",
+    "_union_box", "_box_shape", "_boxes_overlap", "_box_gap", "_box_within", "_boxes_touch",
+    "_tolerant_box", "_AXIS_WORD", "_CURVED_ANALYTIC", "_UNRADIUSED",
+]
+"src/prechips/kernel/engine/job.py" = ["run_job", "run", "_Job"]
+"src/prechips/kernel/engine/setup.py" = ["_Setup"]
+
+# --- sheet.py -> sheet/ per traveler card ------------------------------------------------
+[[module]]
+name = "sheet"
+source = "src/prechips/sheet.py"
+rest = "src/prechips/sheet/traveler.py"
+style = "package"
+init = { "src/prechips/sheet/__init__.py" = "The printed traveler, one module per card." }
+
+[module.targets]
+"src/prechips/sheet/styles.py" = ["_CSS"]
+"src/prechips/sheet/common.py" = [
+    "_CRASH_ZONE_MM", "_STOCK_BOX_TOL_MM", "_NUMBER", "_WHOLE", "_READING*", "_ABBREVIATIONS",
+    "PROCESS_HOLDS_LABEL", "_REQUIREMENT_NAMES", "_TOPICS", "_DIRECTIONS", "_MILL_SENSE",
+    "_LATHE_SENSE", "_KIND_NAMES", "_METHODS", "_CORNERS", "_PLACEMENT_KEYS",
+    "_CLAMP_ROLES", "_FIXTURE_SURFACES", "_AXIAL_OPS", "_SPINDLE_TURNS", "LOOSE", "LOOSE_TEXT",
+    "_ITEM_FRAME", "_supply", "_make_notes", "_MAKE_OP_WORDS", "EXAMPLE_MARK", "EXAMPLE_LEGEND",
+    "_example", "_known", "_carried", "_touch_outside", "_outward_mm", "_inward", "_declared",
+    "_stated", "_supply_name", "_amount", "_number", "_leftover", "_places", "_limits",
+    "_buttons_text", "_angle", "_sentence", "_op_number", "_ops_label", "_Box", "_Unverified",
+    "_FixtureFeature", "_X_DISPLAY_STOP", "_text",
+]
+"src/prechips/sheet/duplex.py" = ["_DUPLEX_JS"]
+"src/prechips/sheet/html.py" = [
+    "_GLYPHS", "_status", "_field", "_Plain", "_Note", "_Inspection", "_Row",
+    "_numeric_html", "_p", "_cell_line", "_writing_field", "_ledger_*", "_warning_line",
+    "_action_body", "_table", "_levels", "_Steps", "_NAMED_FIELD", "_FIELD", "CALCULATION",
+    "_fields", "_readings", "_worksheet", "_item", "_list", "_box",
+]
+"src/prechips/sheet/solids.py" = [
+    "_pose_axes", "_place", "_setup_axis", "_solid_extents", "_solid_name", "_name_group",
+    "_void_parents", "_primitive", "_overlap", "_meet", "_bounds", "_touching_groups",
+]
+"src/prechips/sheet/labels.py" = [
+    "reference_label", "short_reference_label", "tool_label", "_holding_slot",
+]
+"src/prechips/sheet/measurements.py" = [
+    "_Traveler.measurement_*", "_Traveler.register_measurements",
+    "_Traveler.finalize_measurements", "_Traveler.stock_dependency",
+    "_Traveler.causal_measurements", "_Traveler.setup_for_op",
+    "_Traveler.stock_source_measurements", "_Traveler.upstream_stock_stop",
+    "_Traveler.collect_measurements", "_Traveler.fixture_measurement_marks",
+    "_Traveler.job_measurement_box",
+    "_Traveler.compact_operation_stops", "_Traveler.setup_status_boxes",
+    "_Traveler.endpoint_measurements",
+]
+"src/prechips/sheet/holding.py" = [
+    "_Traveler.hold", "_Traveler.align_step", "_Traveler.bench*", "_Traveler.blank_checks",
+    "_Traveler.jaw_*", "_Traveler.hold_facts", "_Traveler.shop_made*",
+    "_Traveler.holding_identity", "_Traveler.mill_grid", "_Traveler.fixture_*",
+    "_Traveler.shim_steps", "_Traveler.tightening", "_Traveler.solid_*", "_Traveler.make_*",
+    "_Traveler.authored", "_Traveler.record_blank", "_Traveler.hardware", "_Traveler.index*",
+    "_Traveler.process_hold*", "_Traveler.holding_name",
+]
+"src/prechips/sheet/clearance.py" = [
+    "_Traveler.clearance*", "_Traveler.reach_candidates", "_Traveler.cut_span",
+    "_Traveler.lathe_approaches", "_Traveler.contour_tips", "_Traveler.posed_start",
+    "_Traveler.mm_on_grid", "_Traveler.rest_steps", "_Traveler.path_zs", "_Traveler.op_z",
+    "_Traveler.near_jaw_mm", "_Traveler.crash_boxes", "_Traveler.cut_clearance",
+]
+"src/prechips/sheet/dro.py" = [
+    "_Traveler.transfer_line", "_Traveler.centring", "_Traveler.dro", "_Traveler.finder_*",
+    "_Traveler.receipt_homes", "_Traveler.purchased_tooling", "_Traveler.measured_top",
+    "_Traveler.reading", "_Traveler.touched_tool", "_Traveler.tool_setting",
+    "_Traveler.tool_touch", "_Traveler.feature_map", "_Traveler.reference_point",
+    "_Traveler.aim_note", "_Traveler.faced_aim_note", "_Traveler.dro_resolution",
+    "_Traveler.dro_controller_name",
+]
+"src/prechips/sheet/tools.py" = [
+    "_Traveler.tool_detail", "_Traveler.tool_pair", "_Traveler.setup_tool",
+    "_Traveler.tool_table", "_Traveler.tool_name", "_Traveler.spindle_turn", "_Traveler.speeds*",
+    "_Traveler.coating",
+]
+"src/prechips/sheet/inspection.py" = [
+    "_Traveler.inspection*", "_Traveler.gauge_places", "_Traveler.go_no_go",
+    "_Traveler.requirements", "_Traveler.drawing_dimensions", "_Traveler.edge_break",
+    "_Traveler.setup_edge_break",
+]
+"src/prechips/sheet/joints.py" = [
+    "_JOINED_BY", "_compound_*", "_bonding_op", "_Traveler.joint_*", "_Traveler.compound_*",
+]
+"src/prechips/sheet/stock.py" = [
+    "_STOCK_FORMS", "_Traveler.stock_*", "_Traveler.flip", "_Traveler.receiving_setup",
+    "_Traveler.material",
+]
+"src/prechips/sheet/saw.py" = ["_Traveler.saw_*", "_Traveler.hand_saw_*"]
+"src/prechips/sheet/contours.py" = [
+    "_Traveler.contours", "_Traveler.raster_clearance", "_Traveler.outline_clearance",
+    "_Traveler.level_path", "_Traveler.plunge_feed", "_Traveler.level_entries",
+    "_Traveler.arrival",
+]
+"src/prechips/sheet/operations.py" = [
+    "_Traveler.operations", "_Traveler.tip", "_Traveler.plunge_x", "_Traveler.hole_xy",
+    "_Traveler.dro_to_z", "_Traveler.coordinates_entry", "_Traveler.z_levels",
+    "_Traveler.z_target", "_Traveler.allowed", "_Traveler.relief_plunges", "_Traveler.surface_z",
+    "_Traveler.kernel_z", "_Traveler.datum_z", "_Traveler.ops_done", "_Traveler.endpoint",
+    "_Traveler.tip_note", "_Traveler.arc_line", "_Traveler.steps", "_Traveler.note",
+    "_Traveler.unset_z", "_Traveler.cut_depths", "_Traveler.manual_arc_*",
+    "_Traveler.waypoint*", "_Traveler.cut_order", "_Traveler.clip",
+]
+
+# --- alternatives the churn report compares ------------------------------------------------
+[[variant]]
+name = "family-only"  # model/ per input family, the whole plan schema in one file
+base = "model"
+[variant.merge]
+"src/prechips/model/stock.py" = "src/prechips/model/plan.py"
+"src/prechips/model/holding.py" = "src/prechips/model/plan.py"
+"src/prechips/model/zero.py" = "src/prechips/model/plan.py"
+"src/prechips/model/operation.py" = "src/prechips/model/plan.py"
+"src/prechips/model/inspection.py" = "src/prechips/model/plan.py"
+"src/prechips/model/joints.py" = "src/prechips/model/plan.py"
+"src/prechips/model/cutting_data.py" = "src/prechips/model/policy.py"
+
+[[variant]]
+name = "helpers-only"  # sheet/ helpers and literals out, _Traveler whole
+base = "sheet"
+whole_classes = true
+
+[[variant]]
+name = "helpers-only"  # engine helpers out, _Job and _Setup whole
+base = "freecad_job"
+whole_classes = true
+
+# --- rules/coordinates.py -> rules/coordinates/ per printed-coordinate family -------------
+[[module]]
+name = "coordinates"
+source = "src/prechips/rules/coordinates.py"
+rest = "src/prechips/rules/coordinates/rule.py"
+style = "package"
+# Tests list the rule module itself (SCREENS, parametrize, `rule is ...`) and call its
+# evaluate, which stays in rule.py.
+value_uses = "rest"
+init = { "src/prechips/rules/coordinates/__init__.py" = "Printed coordinates: frames, bands, DRO grids and each op family's rows." }
+
+[module.targets]
+"src/prechips/rules/coordinates/frames.py" = [
+    "AXES", "CENTRE_OPS", "LOCATED_KINDS", "_CUT_SENSE", "_SPINDLE_SENSE", "mapping",
+    "located_by", "_op_names", "_centred", "_located_names", "revolved_located", "_sum",
+    "model_point", "mapping_vector", "frame_axes", "frame_point", "_dot", "_unit",
+    "_model_axis", "_xy_model", "_cross", "_nominal", "_samples", "UNIT_MM", "_WALL_TOL",
+    "_JOIN_TOL", "_pair", "RASTER_OPS", "_OPEN_SIDES", "_PROFILE_OPS", "_LEVEL_OPS", "_WALL_OPS",
+    "_CENTRE_FORMS",
+]
+"src/prechips/rules/coordinates/bands.py" = [
+    "HEIGHT_BANDS", "_blade_target", "printed_band", "aim_band_error", "faced_aim*", "band_reference",
+    "_measure", "_plan_aim", "_dialled", "_aimed", "planned_point", "dro_point",
+    "_planned_rows", "_band_rows", "_band_ends", "_allowed_error", "_text_z", "formed_z",
+    "_band", "_band_radius",
+]
+"src/prechips/rules/coordinates/grid.py" = [
+    "DRO_DEFAULT_STEP", "OVERSHOOT_NOTE", "dro_grid*", "_grid",
+    "dro_z", "dro_nearest", "_to_segment", "_to_arc", "_dro_xy", "_printed",
+]
+"src/prechips/rules/coordinates/chains.py" = [
+    "cut_order", "_reversal", "_side", "_ordered", "_offset_line", "_line_join",
+    "_circle_join", "_top_join", "_joins", "_finished_boundary", "_boundary_walls",
+    "_chain_wall_geometry", "_signed_chain_walls", "_chain_arc_walls", "_ray_capsule",
+    "_segment_cross", "_segment_circle", "_circle_cross", "_sweep_vertices", "_material",
+]
+"src/prechips/rules/coordinates/stairs.py" = [
+    "_STAIR_*", "STAIR_*", "_axis_tangents", "_route_points", "_stair", "_jog", "_fraction",
+    "_stair_angles", "_arc", "_respaced", "_split", "_split_chain", "_boundary", "_sweep_area",
+    "_linear",
+]
+"src/prechips/rules/coordinates/raster.py" = [
+    "_rastered",
+    "_outside_circle", "_raster", "_xy_box", "_cleared_floor", "_z_levels",
+]
+"src/prechips/rules/coordinates/lathe.py" = [
+    "_x_reading", "_lathe_rows", "_axis_rows", "_nose_arc", "_dome", "_dome_stair",
+    "_edge_facts", "_plunges",
+]
+"src/prechips/rules/coordinates/checkpoints.py" = [
+    "ROW_FORMAT", "FRAGMENT_FORMAT", "_table_name", "row_id", "checkpoints", "_clip_facts",
+    "_LINE_COLUMNS", "_STEPPED_COLUMNS", "_line_rows", "_between", "_clip_row",
+    "_kernel_clip", "_joined", "_sequence", "_z_residuals", "_narrowest_band",
+    "_grid_residual", "_diagonal",
+]
+"src/prechips/rules/coordinates/manual.py" = [
+    "ROUGH_METHODS", "FINISH_METHODS", "ARC_METHODS", "REMOVED_ARC_TABLE", "_grid_refusal",
+    "DIAGONAL_OUTLINE", "_INSIDE_TOL", "CHAIN_BREAK_OUT", "filing_cap",
+    "_filed", "_stairs", "_leaves", "_holes", "_chain", "_join_stock", "_wall_square",
+    "_square_crossings", "_NEEDS", "_recut_by", "_manual_preconditions",
+    "_chain_preconditions", "_manual",
+]
+"src/prechips/rules/coordinates/rotary.py" = [
+    "_row_spacing", "_rotate", "_turn", "_reading", "_towards", "_chords", "rotary_table", "_made_before",
+    "arc_layout", "_swing", "_rotary",
+]
+
+# --- rules/zero_recipe.py -> rules/zero_recipe/ per zero source ----------------------------
+[[module]]
+name = "zero_recipe"
+source = "src/prechips/rules/zero_recipe.py"
+rest = "src/prechips/rules/zero_recipe/rule.py"
+style = "package"
+# Tests list the rule module itself (SCREENS, parametrize, `rule is ...`) and call its
+# evaluate, which stays in rule.py.
+value_uses = "rest"
+init = { "src/prechips/rules/zero_recipe/__init__.py" = "Zero recipes: finders, touches, carried faces and tool settings." }
+
+[module.targets]
+"src/prechips/rules/zero_recipe/touch.py" = [
+    "MEASURED", "TURNED", "TOUCH_LAND_MM", "FILL_MARGIN_MM", "DIRECTIONS", "_touch_diameter",
+    "finder_procedure", "axis_recipe", "measured", "x_touch_set", "gauge_ready",
+    "measured_edge", "measured_z", "CORNERS", "SIDES", "_NAMED_CORNER", "FACE_Z_TOL_MM",
+    "blade", "face_normal_z", "touch_corner", "touch_side", "_kernel_face", "_stock_route",
+    "_framed", "lathe_setup", "_position",
+]
+"src/prechips/rules/zero_recipe/native.py" = [
+    "_NATIVE_*", "_native_*", "_plane_in_frame", "_axial_cut_footprint",
+    "_primitive_spares_plane", "_rectangular_spares_plunge", "_same_plane_axis",
+    "_carry_boxes", "_carry_cut", "_component_supply_plane", "_carried_native_plane_groups",
+    "_carried_face_z", "_retouch_recipe", "_credited_side",
+]
+"src/prechips/rules/zero_recipe/faces.py" = [
+    "paper_offset", "_boundary", "_features", "_top_cut", "_rectangle", "_uncut",
+    "_cuts", "_standing", "_tops", "_turned_standing", "_named", "x_face_state",
+]
+"src/prechips/rules/zero_recipe/tool_setting.py" = [
+    "same_tool", "tool_changes", "z_readings", "carried_z_reading",
+    "reads_unknown", "blade_readings", "TOOL_SETTING_CITES", "CENTRE_HEIGHT", "SQUARE_BLADE",
+    "toolpost", "tool_setting", "_corner_recorder", "face_stands", "_face_checker",
+    "_carried_setting",
+]
+
+# --- kernel/__init__.py -> kernel/ siblings per job-input family ---------------------------
+# Host-only, but inside the engine digest (kernel/*.py): the run/cache seam tests patch
+# (_execute, discover_kernel, _engine_digest, run_geometry, build_job) stays in __init__.
+[[module]]
+name = "kernel"
+source = "src/prechips/kernel/__init__.py"
+rest = "src/prechips/kernel/__init__.py"
+style = "package"
+
+[module.targets]
+"src/prechips/kernel/job_debts.py" = [
+    "UNKNOWN", "_vector", "_INPUT_DEBTS", "_collect_debts", "measurement_item", "_nested_item", "_length_debt",
+    "_record_debt", "_host_only_debt", "_projection", "_accepted_length", "_accepted_angle",
+    "_measured_length", "_shank_from",
+]
+"src/prechips/kernel/job_ops.py" = [
+    "_turning_values", "op_inputs", "_xy", "face_sweep", "tool_paths", "_hand_inputs",
+    "_clamp_owner", "raster_keep_out", "table_checkpoints", "saw_plane", "removal_bounds",
+    "scribed_profile",
+]
+"src/prechips/kernel/job_holds.py" = [
+    "_CHUCK_JAWS", "_CHUCK_DIMS", "_ABSENT", "_BLOCK_EDGES", "_positive_length", "_pose",
+    "_solids", "_vise_inputs", "_jaw_bar_inputs", "_JAW_BUTTON_SIZES", "_jaw_buttons_inputs",
+    "_centres", "_parallels_inputs", "_riser_inputs", "_chuck_inputs", "_centre_inputs",
+    "_clamp_inputs", "_JAW_SIDES", "_rest_subjects", "_follow_rest", "_steady_rest",
+    "_supports_inputs", "hold_inputs",
+]
+"src/prechips/kernel/job_engine.py" = [
+    "_ENGINE_*", "_engine_hold", "_engine_op", "engine_job", "stock_inputs",
+    "_stock_envelope", "_inspections_after", "_profiled_envelope", "_blank_supplies",
+    "_blank_mismatch",
+]
+
+# --- kernel/render_diagram.py -> kernel/ siblings per picture --------------------------
+# Imported on the host (prechips.kernel.render_diagram) and inside freecadcmd
+# (render_diagram): style "dual" keeps both, as its render_png import already does.
+[[module]]
+name = "render_diagram"
+source = "src/prechips/kernel/render_diagram.py"
+rest = "src/prechips/kernel/render_diagram.py"
+style = "dual"
+flat_root = "src/prechips/kernel"
+
+[module.targets]
+"src/prechips/kernel/render_diagram.py" = [
+    "render_diagram", "_compose_diagram", "_main_diagram",
+]
+"src/prechips/kernel/render_canvas.py" = [
+    "_Diagram", "_ProfileCanvas", "_AnnotationDetail", "_solid_name", "_setup_height_refusal",
+]
+"src/prechips/kernel/render_footer.py" = ["_footer*", "_FooterDetail", "_append_panel"]
+"src/prechips/kernel/render_guide.py" = ["_guide_view", "_GuideView"]
+"src/prechips/kernel/render_inspection.py" = ["render_inspection", "_InspectionSketch"]
+"src/prechips/kernel/render_details.py" = [
+    "_AnnotationDetail", "_annotation_detail*", "_holding_details", "_HoldingDetail",
+    "_detail_*", "_tiles", "_axis_camera", "_short_side", "_fit_scale", "_solid_name",
+    "_nearest_on_segment", "_stop_key", "_common_plane", "_same_plane", "_shared_plane",
+    "_contact_plane",
+]
+"src/prechips/kernel/render_common.py" = ["*"]
