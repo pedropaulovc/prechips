@@ -700,6 +700,10 @@ declaration within the declared tolerance and requires an inventory gauge and
 written method for its size, flatness, squareness and parallelism checks, which
 the sheet prints as CHECK THE BLANK. A hold's `jaw_bar` puts a round bar against
 the moving jaw while a reference face seats on the fixed jaw.
+A lathe `part_off` also prepares an `end_face`: a piece parted off over length
+keeps its later stock known until a later setup faces it to length.
+`parting_face` checks that the end face is the disc at the op's `to_z`, with its
+axis pointing into the kept piece toward the exposed end.
 See [the plan format](docs/plan.md) for the authored fields.
 
 Cutter self-contact exclusion is only a thin shell of the sampled face;

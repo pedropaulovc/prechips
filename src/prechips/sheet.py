@@ -1860,6 +1860,7 @@ _TOPICS = {
     "hold_fields": "holding details",
     "centre_support": "tailstock centre",
     "prepared_blank": "squared blank size",
+    "parting_face": "parted end",
     "order": "op order",
     "op_chain": "op sequence",
     "construction": "construction",

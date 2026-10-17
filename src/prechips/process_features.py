@@ -22,11 +22,21 @@ LABEL_PREFIX = "plan.process_features."
 # The one public name for plan-authored stock preparation, kept apart from drawing acceptance.
 PROCESS_PREP_LABEL = "STOCK PREPARATION — plan only, not a drawing dimension"
 # The actions that make each kind. A centre is drilled with a combined drill and
-# countersink; an end face is faced to the axis, or on a mill side-milled with the
-# cutter's periphery (a blank end overhanging the vise).
+# countersink; an end face is faced to the axis, parted off on a lathe (the parted end a
+# later setup faces to length), or on a mill side-milled with the cutter's periphery (a
+# blank end overhanging the vise). A cut_to_fit keeps the chuck side and drops the free
+# end, the opposite of a part-off, so it makes none.
 ACTIONS = {
     "end_face": frozenset(
-        {"face", "rough_face", "finish_face", "profile", "rough_profile", "finish_profile"}
+        {
+            "face",
+            "rough_face",
+            "finish_face",
+            "part_off",
+            "profile",
+            "rough_profile",
+            "finish_profile",
+        }
     ),
     "centre_hole": frozenset({"center_drill"}),
 }
@@ -306,6 +316,69 @@ def centre_tool(bundle, op: dict) -> dict:
         "tool": tool,
         "measurements": measurements,
     }
+
+
+def parts_off(bundle, op: dict) -> bool:
+    """Whether ``op`` parts off onto a process end face."""
+    if op.get("do") != "part_off" or not isinstance(op.get("feature"), str):
+        return False
+    process = process_of(bundle.feature_definitions.get(op["feature"])) or {}
+    return process.get("kind") == "end_face"
+
+
+def parting_plane(bundle, setup: dict, op: dict) -> dict:
+    """How part-off ``op`` of lathe ``setup`` leaves its process end face.
+
+    The blade parts the disc at ``to_z``, so the end face must be that plane: ``at`` at
+    setup Z ``to_z``, and ``axis`` (into the kept material) along the spindle, toward the
+    exposed end (+Z), because the part comes off the free end and the remainder stays in
+    the chuck with the bar. ``status`` is ``error`` when the axis is not along setup Z,
+    points toward the chuck, or ``at`` lies on another Z; ``unknown`` while the machine is
+    not known to be a lathe, or the frame, ``at``, ``axis``, ``to_z`` or manifest units
+    are unknown; otherwise ``pass``. ``reasons`` explains each; ``face_z`` is ``at``'s
+    setup Z (manifest units) when known.
+    """
+    from prechips.rules.coordinates import frame_point
+    from prechips.rules.resolution import record, resolve, same_length, setup_frame
+
+    definition = bundle.feature_definitions.get(op.get("feature"), {})
+    at, axis, to_z = definition.get("at"), definition.get("axis"), op.get("to_z", UNKNOWN)
+    scale = _SCALE.get(bundle.features.get("units", UNKNOWN))
+    kind = record(resolve(bundle, "machines", setup.get("machine", UNKNOWN))).get("kind")
+    errors, unknown, face_z = [], [], UNKNOWN
+    if kind != "lathe":
+        unknown.append(f"machine {setup.get('machine')!r} is not known to be a lathe")
+    vectors = (at, axis)
+    if not all(isinstance(v, list) and len(v) == 3 and all(map(_number, v)) for v in vectors):
+        unknown.append("its at or axis is unknown")
+    else:
+        frame = setup_frame(bundle, setup)
+        face = frame_point(at, frame)
+        ahead = frame_point([a + d for a, d in zip(at, axis, strict=True)], frame)
+        if not all(map(_number, face + ahead)):
+            unknown.append("its plane in the setup frame is unknown")
+        else:
+            face_z = face[2]
+            normal = [b - a for a, b in zip(face, ahead, strict=True)]
+            length = math.sqrt(sum(v * v for v in normal))
+            along = normal[2] / length if length else 0.0
+            if abs(along) < 1 - 1e-6:
+                errors.append(
+                    "its axis is not along setup Z, the spindle axis the blade parts square to"
+                )
+            elif along < 0:
+                errors.append(
+                    "its axis points toward the chuck (setup -Z); a part-off keeps the piece "
+                    "toward the exposed end, so the axis must point along setup +Z"
+                )
+    if not _number(to_z):
+        unknown.append("the op's to_z is unknown")
+    if scale is None:
+        unknown.append("the manifest units are unknown")
+    elif _number(to_z) and _number(face_z) and not same_length(face_z * scale, to_z * scale):
+        errors.append(f"it lies at setup Z {face_z:g}, not on the to_z {to_z:g} the blade parts at")
+    status = "error" if errors else "unknown" if unknown else "pass"
+    return {"status": status, "reasons": errors or unknown, "face_z": face_z}
 
 
 def makers(bundle, setup: dict, name: str) -> list[tuple[dict, dict]]:

@@ -13124,6 +13124,16 @@ class _Setup:
         if removal.isNull() or removal.Volume <= HIT_MM3:
             return None, None
         precision = max(self.faces[index].getTolerance(1) for index in valid)
+        process = op.get("process_cut")
+        if op.get("do") == "part_off" and isinstance(process, dict):
+            # A part-off onto a stock-preparation face separates stock only: parted short,
+            # the finished part on the chuck side would stay joined to the kept piece.
+            spoiled = removal.common(self.protected).Volume if self.protected.Solids else 0.0
+            if spoiled > HIT_MM3:
+                return None, (
+                    f"{process['label']} part-off takes {_r(spoiled)} mm^3 of finished target "
+                    "material; part off clear of the finished part"
+                )
         if self.protected.Volume > HIT_MM3:
             removal = removal.cut(self.protected)
             precision = max(precision, self.protected.getTolerance(1))
@@ -13210,6 +13220,10 @@ class _Setup:
 
     def _turn_cut(self, op, stock):
         """(this turning op's revolved removal or None, and why it cannot be derived)."""
+        process = op.get("process_cut")
+        if isinstance(process, dict) and process.get("reason"):
+            # A refused process cut removes nothing here either, as in the stock pass.
+            return None, process["reason"]
         valid, _, why = self._claims(op)
         if not isinstance(valid, list):
             return None, why
