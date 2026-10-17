@@ -2335,7 +2335,8 @@ setup has rollers) and lists them in `render_scene.components` with role
 contact, clearance or `fixture_rendered` verdict reads them, and a malformed roller is
 a picture debt only. The isometric view widens to frame each op's rollers within one
 stock size of the work along each of X, Y and Z; rollers farther off would shrink the
-work unreadably, so they are not drawn and a `NOT SHOWN` note gives the setup X/Y/Z span
+work unreadably, so they are not drawn in the picture or its holding details and a
+`NOT SHOWN` note gives the setup X/Y/Z span
 they stand in, and
 another op's nearby rollers stay framed. A
 roller fact that is missing or not measured, a sled flagged to verify, an inner

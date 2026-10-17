@@ -15,6 +15,7 @@ import math
 import re
 import subprocess
 from html import unescape
+from types import SimpleNamespace
 
 import pytest
 from test_kernel_geometry import Engine, _op, _setup, _vise
@@ -794,6 +795,27 @@ def test_each_ops_rollers_are_framed_or_noted_on_their_own():
     drawn = {mesh[4] for mesh in diagram.meshes if len(mesh) > 4}
     assert "guide roller 1 (op 20)" in drawn
     assert not drawn & {"guide roller 1 (op 30)", "guide roller 2 (op 30)"}
+    assert diagram.hidden_meshes == {"guide roller 1 (op 30)", "guide roller 2 (op 30)"}
+    # The holding detail bands rasterize the setup's meshes on their own camera: they get
+    # the picture's meshes less the ones it left off (Codex review of #267 at 742f031).
+    from prechips.kernel import render_diagram as module
+
+    seen = []
+    patches = {
+        "_main_diagram": lambda meshes, spec: (diagram, b""),
+        "_holding_details": lambda meshes, spec, main: seen.append(list(meshes)) or [],
+        "_guide_view": lambda spec, main: None,
+        "_compose_diagram": lambda main, details: (SimpleNamespace(print_panels=[]), b""),
+    }
+    saved = {name: getattr(module, name) for name in patches}
+    try:
+        for name, stub in patches.items():
+            setattr(module, name, stub)
+        module.render_diagram(meshes, spec)
+    finally:
+        for name, original in saved.items():
+            setattr(module, name, original)
+    assert [[mesh[4] for mesh in band] for band in seen] == [["guide roller 1 (op 20)"]]
     # One op's rollers keep the plain callout.
     (single,) = guide_components(
         [("guide roller 1 (op 20)", 20, near), ("guide roller 2 (op 20)", 20, near)]
