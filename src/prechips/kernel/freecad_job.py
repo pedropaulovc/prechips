@@ -5679,7 +5679,8 @@ class _Setup:
     @staticmethod
     def _scribed_region(op, span):
         """The setup-frame solid a saw that follows a scribed line takes: its declared box,
-        clipped to stay ``allowance_mm`` outside a scribed arc (``scribed_profile``)."""
+        clipped to stay ``allowance_mm`` outside a scribed arc (``scribed_profile``); None
+        when an inward offset leaves no room inside the arc at all."""
         box = _box_shape(span)
         profile = op.get("scribed_profile")
         if not isinstance(profile, dict):
@@ -5687,8 +5688,10 @@ class _Setup:
         (cx, cy), radius = profile["centre_mm"], profile["radius_mm"]
         outside = profile["remove"] == "outside"
         offset = radius + op["allowance_mm"] if outside else radius - op["allowance_mm"]
+        if offset <= 0:
+            return None
         height = span[5] - span[2] + 2.0
-        circle = Part.makeCylinder(max(offset, LIFT), height, V(cx, cy, span[2] - 1.0))
+        circle = Part.makeCylinder(offset, height, V(cx, cy, span[2] - 1.0))
         return box.cut(circle) if outside else box.common(circle)
 
     def _saw_facts(self, op, stock_reason=None):
@@ -5767,6 +5770,12 @@ class _Setup:
                 facts["saw_error"] = f"{why}: the declared saw removes no stock (saw no-op)"
                 return None, facts
             box = self._scribed_region(op, span)
+            if box is None:
+                facts["saw_error"] = (
+                    "the allowance leaves no room inside the scribed arc: the saw removes no "
+                    "stock (saw no-op)"
+                )
+                return None, facts
             removed = stock.common(box)
             if removed.Volume <= HIT_MM3:
                 facts["saw_error"] = "the declared saw region removes no stock (saw no-op)"

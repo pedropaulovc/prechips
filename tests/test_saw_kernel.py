@@ -632,6 +632,13 @@ def test_a_saw_follows_a_scribed_arc_its_allowance_outside_it(
     assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(kept, rel=1e-3)
 
 
+def test_an_allowance_past_the_arc_centre_is_a_no_op(saw_engine, saw_target):
+    step = saw_target.parent / "bored-target.step"
+    result = _run(saw_engine, step, _arc_cut("inside", 3.0, allowance=3.5), machine="bandsaw")
+    assert "saw no-op" in result["ops"]["S1:10"]["saw_error"]
+    assert "stock_bbox_mm" not in result["setups"]["S2"]
+
+
 @pytest.mark.parametrize(
     "op, words",
     [
