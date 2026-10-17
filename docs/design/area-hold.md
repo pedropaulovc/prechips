@@ -307,17 +307,19 @@ therefore also checked for yaw (in the seat plane) and overturning (about a
 seat edge):
 
 ```text
-c_i      island centroid on the seat
+T_i      the traction region: the island's contact area for tape (A_i), the sealed area
+         S ∩ island_i for vacuum. Every lever below is measured from its centroid, the same
+         origin the traction capacity is integrated about.
+c_i      centroid of T_i
 r_k      the farthest distance from c_i to op k's cut on that island
          (the kernel's removed volume of op k, intersected with the island's column)
 h_k      the cut's height above the seat (op k's deepest cut Z minus the seat Z) — the lever of F_xy
-J_i      ∫ |ρ| dA over the island about c_i     (polar first moment, mm³)
-J_seal   the same integral over S ∩ island_i, about its own centroid (vacuum)
-d_i      the least distance from c_i to the island's convex-hull boundary
+J_i      ∫ |ρ| dA over T_i about c_i            (polar first moment, mm³)
+d_i      the least distance from c_i to the convex-hull boundary of T_i
 
 yaw demand            M_yaw  = F_xy · r_k
 tape yaw capacity     C_yaw  = shear_n_per_cm2 / 100 × J_i          (fully developed shear about c_i)
-vacuum yaw capacity   C_yaw  = friction × vacuum_kpa / 1000 × J_seal
+vacuum yaw capacity   C_yaw  = friction × vacuum_kpa / 1000 × J_i
 overturning demand    M_ot   = F_xy · h_k + F_z · r_k               (lift sense only)
 vacuum overturning    C_ot   = N_i · d_i                            (uniform pressure, tipping about the nearest hull edge)
 tape overturning      folded into lift: F_z,eff = F_z + F_xy · h_k / D, checked against C_z,i
@@ -368,7 +370,7 @@ island *i* at op *k* only when **every** machine-checkable field matches:
 | width | the island's least width (the short side of its minimum-area bounding rectangle) is at least `front_mm` |
 | thickness | the island's least work thickness over the seat (kernel section) is at least `thickness_mm` |
 | footprint | the island is still the setup-entry footprint: no op so far has reduced or split it |
-| dwell | `dwell_min` is at least the tape's `dwell_min` |
+| dwell | `dwell_min` is at least the tape's `dwell_min`. A credited test also raises the setup's dwell gate to the test's `dwell_min`: the HOLD prints "cut no earlier than" from the test's dwell, so the work is never cut sooner than the bond the test measured |
 | trust | `lift_n`, `front_mm` and `thickness_mm` are trusted measured facts |
 
 Then `C_z = lift_n`, unscaled. Any failed check leaves model A in force, and
@@ -726,14 +728,18 @@ tests request the shared `freecad_kernel` fixture.
 - Tape and vacuum with `use` exactly `1/k` (pass), just above (error), and `k`
   unknown or flagged (`?`).
 - Moments: the same island and force pass with the cutter at the centroid and
-  fail with it at the far end of a long, narrow island (yaw). A vacuum island
+  fail with it at the far end of a long, narrow island (yaw). An asymmetric vacuum
+  island whose sealed area is offset from the island centroid is judged about
+  the seal centroid: a cutter at the island centroid but far from the seal
+  centroid still fails yaw. A vacuum island
   fails overturning with a tall cut at its narrow edge.
 - Vacuum seal: a through-hole inside S at setup entry gives zero capacity from
   the first op; an op that drills through inside S, or profiles across the seal
   line, errors from that op on, even with its force unknown; a profile that
   splits the work inside S does not credit the islands independently; a work
   narrower than 2 × inset has sealed area 0.
-- Pull test: a qualifying test raises `C_z` to `lift_n`; each failed check in
+- Pull test: a qualifying test raises `C_z` to `lift_n` and the printed dwell
+  gate to the test's `dwell_min`; each failed check in
   the section 3.4 table (another fixture or seat, material class, a narrower or
   thinner island, a reduced footprint, a shorter dwell, an unmeasured field)
   falls back to model A and names that check.
@@ -861,6 +867,9 @@ not separately decided by the maintainer:
 - the force model scoped to end-mill milling, with drill-family ops `?` until
   a thrust/torque model exists (section 4.1);
 - the S0A clean-up row uses the half-width (section 5.4);
+- every moment lever is measured from the centroid of the traction region that
+  carries it, which for vacuum is the sealed area (section 3.3);
+- a credited pull test raises the dwell gate to the test's dwell (section 3.4);
 - pull tests qualify only by machine-checkable fields that must all match the
   setup (section 3.4);
 - the tape's `width_mm` bounds footprint coverage, so seams are never credited
