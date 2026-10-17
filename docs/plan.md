@@ -432,7 +432,35 @@ face is those bounds trimmed by every process face an earlier setup in its stock
 lineage made, so a blank face is always cut whole. Round, built-up or unaligned
 stock gets no derived bounds.
 
-`face`, `rough_face` and `finish_face` prepare an `end_face`; on a mill
+`face`, `rough_face`, `finish_face` and, on a lathe, `part_off` prepare an
+`end_face`. A part-off parts the disc at its `to_z`: the end face's `at` must lie
+on that setup Z and its `axis` must point along setup +Z, into the piece toward
+the exposed end that the route keeps; the remainder stays in the chuck with the
+bar. The disc must lie clear of the finished part. A part off over length then
+names an `end_face` that a later setup faces to the finished length. Here the
+setup frame's Z is model +Z with its origin at model Z +4.2:
+
+```toml
+[process_features.hub_supply_bottom]
+kind = "end_face"
+at = [0.0, 8.0, -4.2]
+axis = [0.0, 0.0, 1.0]          # into the kept hub
+cite = ["AUTHOR'S CHOICE: parted 0.67 over the finished hub face"]
+
+[[setups.ops]]
+op = 60
+do = "part_off"
+feature = "hub_supply_bottom"
+to_z = -8.4
+```
+
+An axis off setup Z or pointing toward the chuck, or an `at` on another Z than
+`to_z`, is a [`parting_face`](rules-geometry.md#parting-face)
+error and the kernel does not cut it; an unknown `at`, `axis`, `to_z`, frame or
+machine kind is `?`. Either leaves the later stock unknown. A part-off that
+names a finished drawing face is unchanged. `cut_to_fit` never prepares an
+`end_face`: it keeps the chuck side and drops the free end, the opposite of a
+part-off. On a mill
 `profile`, `rough_profile` and `finish_profile` also prepare one, side-milled with
 the cutter's periphery (a blank end overhanging the vise; give the op's
 `linear_table` contour an `open_side` so its passes step in from clear air, see

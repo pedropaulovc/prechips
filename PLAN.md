@@ -1439,6 +1439,19 @@ sheet.
    job, and so its cache key, only when present. No shipped example uses
    `keep`, so no example report or traveler changed.
 
+   **Part-off onto a process end face shipped (2026-10-17, #292):** a lathe
+   `part_off` prepares a process `end_face`, so a piece parted off over length
+   and faced to length in a later setup keeps every later stock state known. The
+   kernel's revolved part-off removal is unchanged: the kept piece is the side
+   the end face's `axis` points into and the remainder leaves with the bar. The
+   new `parting_face` row requires that axis along setup +Z (the exposed end)
+   and `at` on the op's `to_z`; a contradiction is an error and anything unknown
+   is `?`, and either keeps the kernel from cutting it; so does a disc that
+   cuts into the finished part (parted short). `cut_to_fit` keeps the
+   chuck side, so it still prepares no end face. A part-off leaves one piece,
+   so a `keep` after it has only that piece to keep. No shipped example parts
+   onto an end face, so no example report or traveler changed.
+
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a
    built-up component, any earlier setup id (not just the previous setup), or an

@@ -391,6 +391,42 @@ def test_parting_off_to_the_axis_removes_the_core_a_later_bore_would(engine, sha
     assert cored == pytest.approx(bar + math.pi * 1.5**2 * 5, rel=1e-6)
 
 
+def test_parting_off_onto_a_process_end_face_keeps_the_side_its_axis_points_into(engine, shafts):
+    """#292: the bar runs 10 mm past the shaft's chuck-side end; S1 parts it off 2 mm over
+    length onto a process end face whose axis points to the exposed end. S2 receives the
+    parted piece alone, from the parted disc to the free end; the remainder stays with the
+    bar. A refused part-off (the host's reason) leaves S2's stock unknown."""
+    step = shafts["shaft"]
+    spec = {"kind": "end_face", "label": "plan.process_features.supply_end"}
+    spec |= {"at_mm": [0.0, 0.0, -2.0], "axis": [0.0, 0.0, 1.0]}
+    hold = {"reason": "chuck not modelled here"}
+
+    def part_off(to_z=-2.0, **cut):
+        op = _blade("S1:10", "supply_end", 1.6, to_z=to_z, to_dia_mm=0.0, finishing=False)
+        op |= {"do": "part_off", "process_cut": {"process_feature": "supply_end"} | spec | cut}
+        job = engine.job(
+            step,
+            {},
+            [_lathe([op]), {**_lathe([], "S2"), "hold": hold}],
+            stock={**_bar(length=50.0), "origin_mm": [0, 0, -10]},
+        )
+        return engine.run({**job, "process_features": {"supply_end": spec}})["setups"]
+
+    parted = part_off(action="part_off")
+    assert "stock_reason" not in parted["S2"], parted["S2"].get("stock_reason")
+    assert parted["S2"]["stock_bbox_mm"] == pytest.approx([-6, -6, -2, 6, 6, 40], abs=1e-3)
+    assert parted["S2"]["stock_volume_mm3"] == pytest.approx(math.pi * 36 * 42, rel=1e-6)
+    refused = part_off(action="part_off", reason="the plane disagrees with to_z")
+    assert "the plane disagrees with to_z" in refused["S2"]["stock_reason"]
+    assert "stock_bbox_mm" not in refused["S2"]
+    # Parted 2 mm short, into the finished part: the shaft's chuck end would stay joined
+    # to the kept piece, so the cut is refused, never trimmed round the part.
+    short = {"at_mm": [0.0, 0.0, 2.0]}
+    spec |= short
+    inside = part_off(2.0, action="part_off", **short)
+    assert "of finished target material" in inside["S2"]["stock_reason"]
+
+
 def test_facing_reach_is_the_faced_profile_while_a_blade_plunge_is_the_bar_radius(engine, shafts):
     step = shafts["shaft"]
     end = engine.refs(step, (-4, -4, 40), (4, 4, 40), kind="Plane")

@@ -288,7 +288,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     """One op's kernel inputs; ``tables`` is its setup's coordinates numbers, whose printed
     cutter-centre checkpoints the kernel checks against the stock model (``checkpoints``)."""
     from prechips.joint_features import joint_operation
-    from prechips.process_features import centre_tool, process_operation
+    from prechips.process_features import centre_tool, parting_plane, parts_off, process_operation
     from prechips.rules.geometry_common import (
         ROTARY,
         TURNING,
@@ -411,6 +411,15 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             else:
                 process_cut["point_angle_deg"] = binding["tool"]["point_angle_deg"]
                 process_cut["body_dia_mm"] = binding["tool"]["body_dia_mm"]
+        elif parts_off(bundle, op) and "reason" not in process_cut:
+            # The blade parts the disc at to_z: the kernel cuts only a part-off whose end
+            # face is that plane and keeps the exposed-end side its axis points into.
+            plane = parting_plane(bundle, setup, op)
+            if plane["status"] != "pass":
+                process_cut["reason"] = (
+                    f"{process_cut['label']} is not the face part_off {subject} leaves: "
+                    + "; ".join(plane["reasons"])
+                )
         elif process_cut.get("kind") == "end_face" and not turned and "reason" not in process_cut:
             process_cut.update(face_sweep(op, tables, bundle.features.get("units", UNKNOWN)))
         result["process_cut"] = process_cut
