@@ -13124,6 +13124,16 @@ class _Setup:
         if removal.isNull() or removal.Volume <= HIT_MM3:
             return None, None
         precision = max(self.faces[index].getTolerance(1) for index in valid)
+        process = op.get("process_cut")
+        if op.get("do") == "part_off" and isinstance(process, dict):
+            # A part-off onto a stock-preparation face separates stock only: parted short,
+            # the finished part on the chuck side would stay joined to the kept piece.
+            spoiled = removal.common(self.protected).Volume if self.protected.Solids else 0.0
+            if spoiled > HIT_MM3:
+                return None, (
+                    f"{process['label']} part-off takes {_r(spoiled)} mm^3 of finished target "
+                    "material; part off clear of the finished part"
+                )
         if self.protected.Volume > HIT_MM3:
             removal = removal.cut(self.protected)
             precision = max(precision, self.protected.getTolerance(1))
