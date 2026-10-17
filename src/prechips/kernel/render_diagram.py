@@ -1212,6 +1212,12 @@ class _Diagram:
                 if near:
                     framed.append(component)
                 else:
+                    # Off the picture means not drawn at all: its meshes must not cover the
+                    # work from the camera's depth axis while the note says NOT SHOWN.
+                    dropped = set(component.get("meshes") or [])
+                    self.meshes = [
+                        mesh for mesh in self.meshes if not (len(mesh) > 4 and mesh[4] in dropped)
+                    ]
                     self.render_debts.append(
                         f"NOT SHOWN: {_plain(component.get('label') or component['name'])} "
                         f"stand off the picture, setup X {box[0]:.1f} to {box[3]:.1f}, "

@@ -764,13 +764,28 @@ def test_each_ops_rollers_are_framed_or_noted_on_their_own():
         "stock_box": [-60.0, 0.0, -5.0, 60.0, 18.75, 0.0],
         "components": components,
     }
-    diagram = _Diagram([], spec)
+    from prechips.kernel.render_diagram import _WHITE
+
+    def roller(tag, box):
+        points = [tuple(box[:3]), (box[3], box[1], box[2]), (box[0], box[4], box[5])]
+        return (points, [(0, 1, 2)], _WHITE, False, tag)
+
+    meshes = [
+        roller("guide roller 1 (op 20)", near),
+        roller("guide roller 1 (op 30)", far),
+        roller("guide roller 2 (op 30)", farther),
+    ]
+    diagram = _Diagram(meshes, spec)
     names = {component["name"] for component in diagram.components}
     assert "guide rollers (op 20)" in names and "guide rollers (op 30)" not in names
     assert any(
         debt.startswith("NOT SHOWN: GUIDE ROLLERS (TABLE, OP 30) stand off the picture")
         for debt in diagram.render_debts
     )
+    # Off the picture means not drawn: op 30's meshes leave the rasterized set too.
+    drawn = {mesh[4] for mesh in diagram.meshes if len(mesh) > 4}
+    assert "guide roller 1 (op 20)" in drawn
+    assert not drawn & {"guide roller 1 (op 30)", "guide roller 2 (op 30)"}
     # One op's rollers keep the plain callout.
     (single,) = guide_components(
         [("guide roller 1 (op 20)", 20, near), ("guide roller 2 (op 20)", 20, near)]
