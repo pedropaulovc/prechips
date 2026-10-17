@@ -248,9 +248,10 @@ def _master(bundle, sweep, guide, errors, debts, measurements, record_):
 
 def _rail(sweep, sweep_deg, errors, debts, record_):
     """The rollers' gain on the cut (:func:`roller_gain`), or None when unproven; the rail
-    must bear on both rollers through the whole sweep."""
+    must bear on both rollers through the whole sweep, recorded as ``rail_coverage``
+    (``"proven"``, ``"off"`` or ``"unknown"``)."""
     rollers, rail = sweep.get("rollers_deg", UNKNOWN), sweep.get("rail_deg", UNKNOWN)
-    record_.update(rollers_deg=rollers, rail_deg=rail)
+    record_.update(rollers_deg=rollers, rail_deg=rail, rail_coverage=UNKNOWN)
     if not _pair(rollers):
         debts.append("contour.sweep.rollers_deg (the two rollers' angles) is unknown")
         return None
@@ -268,7 +269,7 @@ def _rail(sweep, sweep_deg, errors, debts, record_):
             "to bear on both rollers through the sweep"
         )
     elif number(sweep_deg):
-        _on_rail(rollers, rail, sweep_deg, errors, debts)
+        record_["rail_coverage"] = _on_rail(rollers, rail, sweep_deg, errors, debts)
     return gain
 
 
@@ -278,24 +279,29 @@ def _wrap(angle):
 
 
 def _on_rail(rollers, rail, sweep_deg, errors, debts):
-    """Each roller must bear on the rail through the whole sweep: within the rail's arc,
-    narrowed by half the sweep at both ends. The rail is the shorter arc between its two
-    ends (a sled's rail is under half a turn), wherever it lies about the centre, across
-    the ±180° line included; ends half a turn apart leave its side unknown."""
+    """Whether each roller bears on the rail through the whole sweep: ``"proven"``,
+    ``"off"`` (an error per roller) or ``"unknown"`` (a debt). A roller must stand within
+    the rail's arc narrowed by half the sweep at both ends. The rail is the shorter arc
+    between its two ends (a sled's rail is under half a turn), wherever it lies about the
+    centre, across the ±180° line included; ends half a turn apart leave its side
+    unknown."""
     turn = _wrap(rail[1] - rail[0])
     if abs(abs(turn) - 180.0) <= _JOIN_TOL:
         debts.append(
             f"the rail's ends at {rail[0]:g}° and {rail[1]:g}° are half a turn apart, so which "
             "side of the arc centre the rail runs is unknown"
         )
-        return
+        return UNKNOWN
     middle, reach = rail[0] + turn / 2, abs(turn) / 2 - sweep_deg / 2
+    coverage = "proven"
     for angle in rollers:
         if abs(_wrap(angle - middle)) > reach + _JOIN_TOL:
             errors.append(
                 f"the roller at {angle:g}° runs off the rail (ends {rail[0]:g}° to "
                 f"{rail[1]:g}°) during the {sweep_deg:g}° sweep"
             )
+            coverage = "off"
+    return coverage
 
 
 def _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid):
@@ -341,6 +347,25 @@ def _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid):
         )
 
 
+def _own_setup(setup, label, errors):
+    """A guided sweep's fixture turns the work off the setup frame (the work at the sweep's
+    middle pose) and nothing holds it at that pose for another spindle op, before the
+    sweep or after it: a swing arm or sled moves freely between stops. Sharing the setup
+    with one is an error; the sweep takes a setup of its own (manual ops aside)."""
+    if touch_set(setup):
+        return
+    others = [
+        str(op.get("op"))
+        for op in map(record, setup.get("ops") or [])
+        if "tool" in op and record(op.get("contour")).get("method") != METHOD
+    ]
+    errors.append(
+        f"{label}: setup {setup.get('id')} also runs spindle op {', '.join(others)}, but the "
+        "sweep's fixture turns the work off the setup frame and nothing holds it at that "
+        "pose for them; give the guided sweep a setup of its own"
+    )
+
+
 def _row_spacing(contour, label, errors):
     """Rows half a turn or more apart (``step_deg`` of 180 or more) leave the cutter's
     path between them undetermined: the chord between two such rows reads as the short
@@ -364,7 +389,14 @@ def guided(bundle, setup, op, arc, band, label, scale):
     ``touch_axis``, the cut radius that touch sets worst case and the sweep: the fixture
     turns the work ``rotation`` (viewed from above) through ``sweep_deg``, centred on the
     arc. A rough stage backs the cutter off the touch along that axis by its allowance,
-    rounded off the line onto the DRO grid: the only handwheel move, one axis."""
+    rounded off the line onto the DRO grid: the only handwheel move, one axis.
+
+    The rows stay on the nominal cutter-centre arc, deliberately. The kernel judges that
+    path against the nominal STEP part, as for every manual-arc method; where the master
+    actually sets the cut is judged here, against the band (``cut_radius_mm`` inside
+    ``band_mm``). Rows moved to the master's radius would make any in-band master past
+    nominal a finished-part hit, and the band already bounds how far the real path lies
+    from the checked one."""
     contour = record(op.get("contour"))
     sweep = record(contour.get("sweep"))
     errors, debts, measurements = [], [], []
@@ -398,6 +430,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
     grid = dro_grid(bundle, setup)
     _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid)
     _row_spacing(contour, label, errors)
+    _own_setup(setup, label, errors)
     axis = sweep.get("touch_axis", UNKNOWN)
     if axis not in TOUCH_AXES:
         debts.append(f"{label}: contour.sweep.touch_axis (the cutter's radial axis) is unknown")

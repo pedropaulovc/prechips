@@ -395,7 +395,7 @@ phase: [#213](https://github.com/pedropaulovc/prechips/issues/213)); a
 arc's bore (or a template) and checks R with a radius gauge whose range covers
 it. `chords` (sagitta proven inside the band, ends on the DRO grid) and a
 `rotary_table` recipe (inventory table, centre pin, offset and dial readings)
-finish arcs on the mill, and a `guided_sweep` (#255) finishes an arc whose centre
+finish arcs on the mill, and a `guided_sweep` (#255), in a setup of its own, finishes an arc whose centre
 is too far off the part for a table: the cutter is touched to a measured master
 and locked while a swing arm on a pivot, or a sled whose rail bears on two
 rollers, sweeps the work under it; the master's radius limits widened by the

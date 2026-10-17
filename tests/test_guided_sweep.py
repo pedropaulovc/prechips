@@ -336,8 +336,41 @@ def test_a_rail_across_the_half_turn_line_carries_its_rollers(tmp_path):
     )
     assert "the roller at 150° runs off the rail" in errors(off)
     assert "the roller at -175°" not in errors(off)
-    half = guided_row(tmp_path / "half", "rail", rail_deg="[-90.0, 90.0]")
+    half, printed = traveler_text(tmp_path / "half", "rail", rail_deg="[-90.0, 90.0]")
     assert "are half a turn apart" in debts(half)
+    # Numeric ends are not proof the rollers bear on the rail: nothing runnable prints.
+    assert "rollers not proven on the rail through the sweep) — do not run." in printed
+    assert "Lock X and Y" not in printed
+
+
+def test_a_guided_sweep_takes_a_setup_of_its_own(tmp_path):
+    # The fixture turns the work off the setup frame, and nothing holds it at that pose for
+    # another spindle op, before the sweep or after it.
+    plan = guided_plan(tmp_path)
+    drill = op(30, "drill", feature="bore", tool="bore-drill")
+    plan.write_text(plan.read_text(encoding="utf-8") + drill, encoding="utf-8")
+    row = coordinates_row(plan, stock_bbox=SWING)
+    assert row.status == "error", row.sentence
+    assert "also runs spindle op 30" in errors(row)
+    assert "give the guided sweep a setup of its own" in errors(row)
+
+
+def test_the_rows_stay_on_the_nominal_path_the_kernel_checks(tmp_path):
+    # An R810 master in a permitted R800 to R820 band cuts R810 (the band check proves it),
+    # while the kernel checks the nominal R797 cutter-centre path against the nominal part:
+    # moved to the master's radius, any in-band master past nominal would be a part hit.
+    target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [800.0, 820.0]")
+    master = (
+        "[gauges.r810]\nkind = 'setting_bar'\nname = 'R810 setting bar'\n"
+        f"radius_limits_mm = {{ value = [810.0, 810.02], {MEASURED} }}\nverify = false\n"
+    )
+    plan = guided_plan(tmp_path, target=target, master="'r810'", inventory=master)
+    row = coordinates_row(plan, stock_bbox=SWING)
+    assert row.status == "pass", row.sentence
+    table, sweep = recipe(row)
+    assert sweep["cut_radius_mm"] == pytest.approx([809.98, 810.04])
+    for r in table["rows"]:
+        assert math.dist(r["setup_xy"], table["centre_setup_xy"]) == pytest.approx(797.0)
 
 
 def test_the_rail_form_error_is_carried_into_the_band(tmp_path):
@@ -551,6 +584,7 @@ def proven(guide="pivot"):
             rollers_deg=[-15.0, 15.0],
             rail_deg=[-40.0, 40.0],
             rail_radius_mm=850.0,
+            rail_coverage="proven",
             roller_contacts_mm=[[-220.0, 50.0], [220.0, 50.0]],
         )
     return {"stage": "finish", "spindle_rotation": "cw", "dro_tip_z": -1.0, "guided": sweep}
@@ -591,7 +625,7 @@ SWEEP_FACTS = [
     [("pivot", "guided", key) for key in [*SWEEP_FACTS, "pivot_play_mm"]]
     + [
         ("rail", "guided", key)
-        for key in [*SWEEP_FACTS, "rollers_deg", "rail_deg", "rail_radius_mm"]
+        for key in [*SWEEP_FACTS, "rollers_deg", "rail_deg", "rail_radius_mm", "rail_coverage"]
         + ["roller_contacts_mm"]
     ]
     + [("pivot", "arc", "dro_tip_z"), ("pivot", "arc", "spindle_rotation")],

@@ -433,7 +433,11 @@ naming them. Each table is recorded under `arc_table` (its joins under
   as the short way round, so neither their cutting order nor the fixture's turn can
   be told. The rows run `overrun_mm` past each end
   (`path_mm` of cutter travel along the work), the arc's own ends kept as rows, and
-  the kernel judges every one ([rules-geometry](rules-geometry.md)). The fixture
+  the kernel judges every one ([rules-geometry](rules-geometry.md)). The rows stay
+  on the nominal cutter-centre arc: the kernel judges that path against the nominal
+  part, as for every manual-arc method, and the band check above judges where the
+  master actually sets the cut (rows moved to the master's radius would make any
+  in-band master past nominal a part hit). The fixture
   turns the work `rotation` (viewed from above) against the cutter's travel along
   the rows in cutting order. `ends_setup_xy` are the arc's ends on the work (setup
   XY, the sweep's start end first) where the traveler sets its stops. The setup
@@ -446,9 +450,13 @@ naming them. Each table is recorded under `arc_table` (its joins under
   the whole sweep (each within `rail_deg` narrowed by half the sweep at both ends;
   the rail is the shorter arc between its ends, across the ±180° line too, and ends
   half a turn apart leave its side unknown) and must not lie on one line through the
-  centre, else an error. A guide fixture
+  centre, else an error; the traveler prints the sweep only once `rail_coverage` is
+  `proven`. A guide fixture
   that is not the hold's or not the guide's kind, a master that is not a setting
-  bar or master arc, or a setting bar on a rail is an error. An unknown guide,
+  bar or master arc, or a setting bar on a rail is an error, and so is a setup that
+  runs any other spindle op beside a guided sweep: the fixture turns the work off
+  the setup frame and nothing holds it at that pose for the other op, before the
+  sweep or after it (manual ops aside). An unknown guide,
   fixture, master, axis, sweep, rollers or rail ends, a fixture or master flagged
   to verify, and a `pivot_play`, `rail_form_error`, `roller_runout` or
   `radius_limits` without its own complete `measured` record (`rail_radius` is

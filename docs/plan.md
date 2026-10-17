@@ -1672,7 +1672,9 @@ uses the 1898 manual arc method:
    fixture turns between them), a guide fixture that does not carry the work or of
    the wrong kind, a master that is not a setting bar or master arc, a setting bar
    on a rail, two rollers on one line through the centre, a roller that runs off
-   the rail during the sweep, and a worst-case cut outside the band are errors; an
+   the rail during the sweep, a worst-case cut outside the band, and a sweep sharing
+   its setup with another spindle op (nothing holds the turning fixture at the setup
+   pose for it, before the sweep or after; manual ops aside) are errors; an
    undeclared, unmeasured or flagged guide or master fact (a rail is never
    perfect), or an unknown guide, axis, sweep, rollers or rail ends, is unknown,
    with a `measure:` instruction for each physical fact. The traveler prints no
