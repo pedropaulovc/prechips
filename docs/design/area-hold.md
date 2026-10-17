@@ -133,6 +133,7 @@ seal = "laid_cord"                                  # a gasket cord laid on the 
 gasket_inset_mm = { value = 3.0, measured = { ... } } # work outline to the cord's centreline
 friction = { value = 0.2, pairs = [{ work = "low_carbon_steel", seat = "aluminium" }], cite = "..." }   # illustrative; work on the chuck face, dry
 surface_prep = "Wipe the chuck face and the work underside clean and dry."
+release = { steps = "Close the chuck valve and open the vent; wait until the gauge reads 0; lift the work straight up.", cite = "..." }
 gauge = "chuck-vacuum-gauge"                          # inventory gauge the operator reads
 solids = [ { name = "face", shape = "box", ... } ]    # the chuck body, as for any fixture
 ```
@@ -144,6 +145,7 @@ solids = [ { name = "face", shape = "box", ... } ]    # the chuck body, as for a
 | `gasket_inset_mm` | `MeasuredLength` | inset of the cord's centreline inside the work outline | sealed area `?` |
 | `friction` | `CitedFact` + `pairs` | static μ of the work on the chuck face, for the exact work/seat pairs it was established on (section 2.7) | capacity `?` |
 | `surface_prep` | text | printed in the vacuum apply step | STOP row in the apply step |
+| `release` | `{ steps, cite }` | printed vacuum release step (valve, vent, gauge at 0, lift) | STOP row in the release step, also when `cite` is blank or unknown |
 | `gauge` | `str` | inventory gauge read at the chuck: an item of kind `vacuum_gauge` with trusted `range_kpa` `[lo, hi]`, `resolution_kpa` > 0 and `accuracy_kpa` >= 0. A displayed reading R proves only `R − accuracy_kpa − resolution_kpa / 2`, so the HOLD prints the minimum reading `P = ⌈(vacuum_kpa + accuracy_kpa + resolution_kpa / 2) / resolution_kpa⌉ × resolution_kpa`, and `P` itself must lie inside `range_kpa` | capacity `?` and STOP in place of the gauge row when the gauge is missing, of another kind, its range, resolution or accuracy is unknown, or `P` is outside the range |
 
 Vacuum assumes the work seats metal-to-metal on the chuck face, with the gasket
@@ -255,7 +257,7 @@ rules consume comes from a trusted fact, otherwise the finding is `?`:
 |---|---|---|
 | tape shear, peel | tape `shear_n_per_cm2`, `peel_n_per_cm` | cited or measured, `test` named, and `pairs` contains the exact pair `{ work = <the stock material's class through cutting-data aliases>, seat = <the holding fixture's material class through the same aliases> }` |
 | vacuum friction | chuck `friction` | the same exact-pair check, for the work and the chuck face |
-| plate flatness f | new `flatness_mm` (`MeasuredLength`) on the `on` fixture solid | measured (a stack dimension, as D4) |
+| plate flatness f | new `flatness_mm` (`MeasuredLength`) on the `on` fixture solid: the flatness of that solid's **whole** top face, footprint and touch area alike | measured (a stack dimension, as D4); the recipe-A touch point must lie on that face (section 5.2) |
 | touch error e | new policy number `touch_error_mm`, with `numbers_cite` | cited and not flagged by `numbers_verify` |
 | mic error m | the measuring gauge's new `accuracy_mm` plus half its existing `resolution_mm` | both trusted |
 | DRO step r | the setup machine's existing `resolution_mm` (the DRO grid) | measured, as the coordinates rules already require |
@@ -602,7 +604,11 @@ Let P be the point where the zero is touched. For any point x under the cut,
 each term is a signed interval added to the nominal thickness `to_z`:
 
 **Recipe A, Z from the plate.** Touch the plate top beside the work (with paper
-or a gauge block). Printed: `Axis Set Z = −t_nom + paper_mm`.
+or a gauge block). Printed: `Axis Set Z = −t_nom + paper_mm`. The printed touch
+point P must lie on the `on` solid's top face, the face `flatness_mm` covers,
+and off the work's footprint. A point the kernel cannot place on that face
+(off the plate, on another solid, or inside the footprint) makes the stack row
+an error, because the plate term would no longer be bounded by `f`.
 
 ```text
 thickness(x) = to_z + (t_nom − t(x)) + (Z_p(P) − Z_p(x)) + e_touch + e_dro
@@ -694,7 +700,9 @@ that bonds):
   **Z stack** row print in the HOLD step under the apply rows, naming the
   governing op and the strength's `test`;
 - the **release** step prints after the setup's last op, before "Ends with",
-  as a numbered noncutting step;
+  as a numbered noncutting step: the tape's `release` (solvent or heat, then
+  roll off, never pry thin work), or the vacuum chuck's `release` steps (valve,
+  vent, gauge at 0, lift). Each is runnable only with a known, cited record;
 - each unknown prints its STOP form in place of the runnable row. It never
   prints a runnable row with `?` in it (#289 proposal 2). A computed margin
   below the policy factor is an error, so it prints the STOP line the sheet
@@ -762,7 +770,7 @@ both endpoints to land inside the band.
 | Axis Set Z | recipe and `t_nom` | `t_nom` unknown |
 | vacuum gauge minimum P | `vacuum_kpa`, `gauge` (`vacuum_gauge`, `range_kpa`, `resolution_kpa`, `accuracy_kpa`) | `vacuum_kpa` untrusted, no gauge, a gauge of another kind, an untrusted range, resolution or accuracy, or a corrected P outside `range_kpa` |
 | vacuum cord lay step and inset | `seal`, `gasket_inset_mm` | seal not `laid_cord`, or inset untrusted |
-| release method, agent or temperature, wait | `release` | missing |
+| release method, agent or temperature, wait (tape); release steps (vacuum) | tape or chuck `release` | missing, or its `cite` blank or `"unknown"`: a temperature or solvent is never printed without its source |
 
 ## 7. Operator step sequence and error propagation
 
@@ -873,6 +881,10 @@ tests request the shared `freecad_kernel` fixture.
 - The S0A→S0B clean-up row: positive, zero and negative `T_A,lo − T_B,hi`; the
   raw clean-up row with `raw_min − T_A,hi` at both signs.
 - Seat check: a pose written for 0.10 tape with a 0.25 gap is an error.
+- Recipe A touch point: on the `on` face off the footprint passes; off the
+  plate, on another solid or inside the footprint is an error.
+- Release: an uncited tape or chuck release prints the STOP; a cited one prints
+  its steps.
 
 **Operator perturbation**
 - *Dwell cut short:* with `dwell_min` untrusted, no capacity is claimed and
@@ -904,7 +916,7 @@ Each phase is its own PR, stacked on the previous one.
 
 | Phase | PR | Contents | Size (est.) |
 |---|---|---|---|
-| 1 | schema | `CitedFact` (+ `test`, `pairs`); solid `flatness_mm`; gauge `accuracy_mm`; `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`); `vacuum_gauge` `range_kpa` / `resolution_kpa` / `accuracy_kpa`; `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
+| 1 | schema | `CitedFact` (+ `test`, `pairs`); solid `flatness_mm`; gauge `accuracy_mm`; `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`, `release`); `vacuum_gauge` `range_kpa` / `resolution_kpa` / `accuracy_kpa`; `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
 | 2 | force | `_cutting_force.py` (endmill milling scope); `[[material]]` `kc1_n_per_mm2` / `mc` / `radial_ratio`; tool `helix_deg` and `helix_hand`; op `ae_mm`; `cutting-data.md`, `rules-physics.md` | ~400 + tests |
 | 3 | kernel | seat-plane sections before and after each op, islands, centroid, polar moment, hull distance; the fixed seal circuit and its opening op; op removed-volume extent per island; the layer drawn from facts; seat check; `ENGINE_SOURCES` cache identity | ~700 + geometry tests |
 | 4 | capacity | `hold_capacity` rule (area provider: force, yaw, lift, overturning), always required for area holds, shared policy factor, pull-test schema, `thin_wall_under_clamp` change; `rules-setup.md` | ~500 + tests |
@@ -992,6 +1004,9 @@ not separately decided by the maintainer:
   rounding up, and must itself lie in the range (section 2.3);
 - only proven side entries are computed; a plunge or unproven entry is `?`
   until an axial-entry model exists (section 4.1);
+- the plate's flatness covers its whole top face, and recipe A's touch point
+  must lie on it; releases need a cited record, and vacuum gains its own release
+  (sections 2.3, 2.7, 5.2, 6.1);
 - recipe B requires `measure_before_hold = true`, since the work cannot be
   miked once taped (section 5.2);
 - a pull test's dwell is a trusted measured fact, and step 7 prints the
