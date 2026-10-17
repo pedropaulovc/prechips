@@ -20,7 +20,7 @@ from test_tool_change_touch import (
     zero_rows,
 )
 
-from prechips.rules.zero_recipe import evaluate
+from prechips.rules.zero_recipe.rule import evaluate
 from prechips.sheet import _outward_mm, _Traveler
 
 OPS = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]

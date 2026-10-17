@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from test_envelope_m5 import measured
 
-from prechips.rules.zero_recipe import evaluate
+from prechips.rules.zero_recipe.rule import evaluate
 
 
 def lathe(radius_mode=False, x=None, touches=None, inventory=None):
