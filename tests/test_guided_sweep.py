@@ -590,8 +590,10 @@ def test_a_negative_leave_prints_no_sweep(tmp_path):
 ROLLERS = (
     f"roller_dia_mm = {{ value = 22.0, {MEASURED} }}\n"
     f"roller_height_mm = {{ value = 12.0, {MEASURED} }}\n"
-    f"bed_height_mm = {{ value = 30.0, {MEASURED} }}\nrail_side = 'outer'\n"
+    f"bed_height_mm = {{ value = 30.0, {MEASURED} }}\n"
 )
+# The sled's own rail_side line (GUIDES), which the rail bound reads too.
+OUTER = "rail_side = 'outer'\n"
 
 
 def guide_annotation(tmp_path, guide="rail", rollers=ROLLERS, state="", edits=(), **kwargs):
@@ -703,34 +705,37 @@ def test_a_sled_flagged_to_verify_draws_no_rollers(tmp_path):
 
 
 @pytest.mark.parametrize(
-    ("rollers", "named"),
+    ("rollers", "edits", "named"),
     [
         (
             ROLLERS.replace(
                 f"roller_dia_mm = {{ value = 22.0, {MEASURED} }}", "roller_dia_mm = 22.0"
             ),
+            (),
             "measure: sled guide roller outside diameter",
         ),
-        (ROLLERS.replace("rail_side = 'outer'\n", ""), "declare sled's rail_side"),
+        (ROLLERS, ((OUTER, ""),), "declare sled's rail_side"),
         (
             # Codex review of #267 at 86bd65f: no inner tangency on an R850 rail for a
             # Ø1700 roller, so no centre-side position is drawn.
-            ROLLERS.replace("value = 22.0,", "value = 1700.0,").replace(
-                "rail_side = 'outer'", "rail_side = 'inner'"
-            ),
+            ROLLERS.replace("value = 22.0,", "value = 1700.0,"),
+            ((OUTER, "rail_side = 'inner'\n"),),
             "a Ø1700 mm roller cannot bear inside sled's R850 mm rail",
         ),
         (
             # Codex review of #267 at c39a7d6: a measured but negative bed height would
             # stand the rollers above the seated work.
             ROLLERS.replace("value = 30.0,", "value = -30.0,"),
+            (),
             "sled's bed_height -30 mm is negative",
         ),
     ],
     ids=["unmeasured-diameter", "no-rail-side", "inner-roller-wider-than-rail", "negative-bed"],
 )
-def test_rollers_the_picture_cannot_place_are_a_note_with_their_measure(tmp_path, rollers, named):
-    _, annotation = guide_annotation(tmp_path, rollers=rollers)
+def test_rollers_the_picture_cannot_place_are_a_note_with_their_measure(
+    tmp_path, rollers, edits, named
+):
+    _, annotation = guide_annotation(tmp_path, rollers=rollers, edits=edits)
     assert "guides" not in annotation
     (note,) = [n for n in annotation["notes"] if "guide rollers" in n]
     assert note.startswith("NOT SHOWN: op 20's guide rollers") and named in note
