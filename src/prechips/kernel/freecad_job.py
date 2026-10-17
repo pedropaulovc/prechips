@@ -3663,10 +3663,10 @@ def _guide_solids(setup, debts):
 
 
 def _guide_tags(guides, taken):
-    """``guides`` ((name, op, solid[, group key])) with each guide element's mesh tag distinct from every name
-    in ``taken`` (the setup's authored and holding solids) and from each other: the
-    picture leaves guide meshes off by tag and the holding evidence skips them by it, so a
-    fixture primitive named like a roller must never go with them."""
+    """``guides`` ((name, op, solid[, group key])) with each guide element's mesh tag distinct
+    from every name in ``taken`` (the setup's authored and holding solids) and from each
+    other: the picture leaves guide meshes off by tag and the holding evidence skips them by
+    it, so a fixture primitive named like a roller must never go with them."""
     taken = set(taken)
     tagged = []
     for name, op, solid, *group in guides:

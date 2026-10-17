@@ -214,8 +214,10 @@ def test_a_trammel_sweep_locks_every_axis_and_cuts_on_its_pin_circle(tmp_path):
     assert terms["radius_above"] == pytest.approx(first, rel=1e-3)
     assert terms["radius_above"] > terms["radius_below"]  # R is convex in α
     assert terms["pin_lines"] == pytest.approx(sweep["line_gain"] * 0.015)
-    below = terms["radius_below"] + terms["pin_lines"]
-    above = terms["radius_above"] + terms["pin_lines"]
+    # Plus one DRO step of margin each way, as on every guided-sweep proof (#258).
+    assert sweep["margin_mm"] == pytest.approx(0.001)
+    below = terms["radius_below"] + terms["pin_lines"] + sweep["margin_mm"]
+    above = terms["radius_above"] + terms["pin_lines"] + sweep["margin_mm"]
     assert sweep["centre_error_mm"] == pytest.approx(max(below, above))
     wall = sweep["pin_radius_mm"] + 3.0  # an Ø6 cutter inside the concave edge
     assert sweep["cut_radius_mm"] == pytest.approx([wall - below, wall + above], abs=1e-9)
@@ -1031,3 +1033,19 @@ def test_an_authored_xy_zero_in_a_trammel_setup_is_an_error(tmp_path):
     (row,) = [r for r in zero_recipe.evaluate(load_bundle(plan)) if r.subject == "S1"]
     assert row.status == "error", row.sentence
     assert "zero.x picks up an edge, but the trammel" in row.sentence
+
+
+def test_an_open_debt_no_printed_value_shows_still_stops_the_card(tmp_path):
+    # #258's gate: anything the rule left open (a machine not proven a mill, say) stops
+    # the card even when every printed value is proven.
+    import copy
+
+    from prechips.sheet_sweep import established, steps
+
+    table, _ = established_card(tmp_path)
+    assert table["guided"]["open_debts"] == []
+    blocked = copy.deepcopy(table)
+    blocked["guided"]["open_debts"] = ["op 20 finish: setup S1's machine kind is unknown"]
+    card = steps(blocked, lambda v: f"{v:.3f}", "A", "B", feed=100.0)
+    assert card[0].startswith("STOP:") and "machine kind is unknown" in card[0]
+    assert not established(blocked)

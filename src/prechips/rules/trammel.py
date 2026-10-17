@@ -354,8 +354,8 @@ def recipe(bundle, setup, op, arc, band, label, scale):
     carriage plus a rail's pin-line off the spindle axis) through its exact worst radius
     gain over the sweep (:func:`line_gain`, about 1:1). The widened wall must lie inside
     the band. A trammel cannot back off, so a rough stage is an error."""
-    from .coordinates import _WALL_TOL, _pair
-    from .guided_sweep import _own_setup, _rotation, _row_spacing, _sweep_span
+    from .coordinates import _WALL_TOL, _pair, dro_grid
+    from .guided_sweep import _margin, _on_mill, _own_setup, _rotation, _row_spacing, _sweep_span
     from .resolution import UNKNOWN, number, record
 
     contour = record(op.get("contour"))
@@ -433,6 +433,11 @@ def recipe(bundle, setup, op, arc, band, label, scale):
     _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid)
     _row_spacing(contour, label, errors)
     _own_setup(setup, label, errors)
+    _on_mill(bundle, setup, label, errors, debts)
+    # One DRO step of margin on every geometric proof, as for every guided sweep (#258):
+    # the cut's widening, the stops' setting error and the start's clearance.
+    _margin(bundle, setup, arc, label, debts, record_, scale, dro_grid(bundle, setup))
+    margin = record_["margin_mm"]
     centre, middle = arc["centre_setup_xy"], arc.get("arc_mid_setup_xy")
     window = None
     if number(sweep_deg) and sweep_deg > 0 and _pair(centre) and _pair(middle):
@@ -473,8 +478,8 @@ def recipe(bundle, setup, op, arc, band, label, scale):
                 "pin_lines": gain * (lines[0] + lines[1]),
             }
             record_["error_terms_mm"] = parts
-            below = parts["radius_below"] + parts["pin_lines"]
-            above = parts["radius_above"] + parts["pin_lines"]
+            below = parts["radius_below"] + parts["pin_lines"] + margin
+            above = parts["radius_above"] + parts["pin_lines"] + margin
             widen = max(below, above)
             wall = nominal + to_wall * scale
             record_["cut_radius_mm"] = [wall - below, wall + above]
@@ -504,6 +509,8 @@ def recipe(bundle, setup, op, arc, band, label, scale):
     if measurements:
         by_id = {entry["id"]: entry for entry in measurements}
         arc["measurements"] = [*arc.get("measurements", []), *by_id.values()]
+    # Whatever the rule left open stops the card, printed value or not (#258's gate).
+    record_["open_debts"] = [*errors, *debts]
     return errors, debts
 
 
@@ -515,8 +522,9 @@ def _stop_band(record_, pins, psi):
     terms = record_.get("error_terms_mm") or {}
     radii = [nominal - terms.get("radius_below", 0.0), nominal + terms.get("radius_above", 0.0)]
     found = []
+    error = STATION_ERROR_MM + record_.get("margin_mm", 0.0)
     for r in radii:
-        band = stop_poses(r, pins[0], psi)
+        band = stop_poses(r, pins[0], psi, error)
         if band is None:
             return None
         found.extend(band)
@@ -550,7 +558,8 @@ def _stops_proof(arc, record_, pins, window, label, errors, debts):
         nearest = band[0] if side > 0 else band[1]
         if side * (nearest - end) < 0:
             errors.append(
-                f"{label}: a stop set {STATION_ERROR_MM:g} mm off its printed rail station "
+                f"{label}: a stop set {STATION_ERROR_MM + record_['margin_mm']:g} mm off its "
+                "printed rail station "
                 f"could hold the carrier {abs(nearest - end):.3f}° short of the arc's end: "
                 "sweep farther past the arc's ends"
             )
@@ -598,7 +607,7 @@ def _start_clear(bundle, setup, arc, record_, pins, window, label, debts, scale)
         wall = arc["wall_radius_mm"] * scale
         # How far the real cutter centre stands off the nominal path, radially.
         spread = max(abs(cut[0] - wall), abs(cut[1] - wall))
-        reach = radius + spread
+        reach = radius + spread + record_["margin_mm"]
         box = stock_box(bundle, setup)
         clear = _arc_clear(box, centre, nominal / scale, heading, bands[0], reach, scale)
         if clear:
