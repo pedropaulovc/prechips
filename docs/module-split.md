@@ -504,3 +504,27 @@ verified by the same snapshot.
 
 `rules/manual_arc.py` (407 lines, 15 commits since 2026-09-01, one of the five open PRs)
 is small and cohesive. Splitting it would add files without removing a collision.
+
+## Open review notes
+
+Codex reviewed this plan over 15 rounds; the owner stopped the rounds there. Every
+finding where `apply` would write a broken tree or wrong code is fixed, each with a
+test in `tests/test_split_modules.py`. These notes stay open:
+
+* **The rewriter refuses what it does not model.** Later rounds kept naming rarer
+  shapes (match captures, keyword-only patch calls, reads in nested helpers, namespace
+  dunders). Each now refuses, and none occurs in the repository: a dry-run `apply` of
+  every non-engine module triggers no refusal beyond the documented prep. A shape not
+  yet listed would pass the script, so every split PR keeps its own gates: the
+  byte-identical snapshot, the full suite with the kernel, and the validator. A new
+  shape found that way gets a refusal and a test in the script, not a hand fix in
+  the split.
+* **`model[family-only]` has an import cycle** (`features` needs `Bounds` from the
+  plan). It is a compared option, not the applied layout, so its spec is left as is.
+* **`freecad_job` still refuses on `_POOL`.** The engine split starts with the hand
+  prep commit described above.
+* **Package `__init__.py` files stay empty.** Re-exporting a split module's entry point
+  (for example `zero_recipe.evaluate`) would keep old import paths working for code
+  outside the repository, but it widens the package's name surface that the empty
+  `__init__` keeps one-way. The supported interface is the `prechips` CLI. Whether to
+  add re-exports is the owner's call, raised on #311.
