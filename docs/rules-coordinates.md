@@ -418,7 +418,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   grid, `back_off_dro` the signed move on the touch axis from the DRO reading the
   operator writes down at the touch; the setup's DRO zero is never reset),
   widened by `centre_error_mm`: the swing arm's measured `pivot_play` (doubled
-  for a master arc on the arm, which moves with the beam at the touch-off too), or
+  for a master arc on the arm, which moves with the beam at the touch-off too; a
+  setting bar's touch, made with the cutter centred on the bar to one DRO step, adds
+  `touch_aside_mm`, `sqrt(reach² + step²) − reach` at the cutter-centre reach), or
   `2 × roller_gain × (rail_form_error + roller_runout / 2)` with
   `roller_gain = (|sin a| + |sin b|) / |sin(a − b)|` for rollers at `a`, `b`
   degrees from the cutter's radial line: each contact errs at the touch-off and
@@ -463,7 +465,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   centre, else an error; the traveler prints the sweep only once `rail_coverage` is
   `proven`. A guide fixture
   that is not the hold's or not the guide's kind, a master that is not a setting
-  bar or master arc, or a setting bar on a rail is an error, and so is a setup that
+  bar or master arc, a setting bar on a rail, or a setup on a machine other than a
+  `mill` (the sweep locks a mill table's X and Y; an unknown kind is unknown) is an
+  error, and so is a setup that
   runs any other spindle op beside a guided sweep: the fixture turns the work off
   the setup frame and nothing holds it at that pose for the other op, before the
   sweep or after it (manual ops aside). The cutter is put on the arc's radial line

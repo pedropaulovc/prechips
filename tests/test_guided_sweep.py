@@ -821,7 +821,7 @@ def test_a_start_proven_in_air_holds_at_the_stop_the_printed_marks_set(tmp_path)
             bundle, kernel={"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
         )
         guided = recipe(coordinates.evaluate(probe)[0])[1]
-        assert guided["cut_radius_mm"] == [800.0, 800.0]
+        assert guided["cut_radius_mm"] == pytest.approx([800.0, 800.0], abs=1e-6)
         line = coordinates.arc_layout(probe, setup, "target")
         start = 0 if guided["marks"]["start"] == "A" else 1
         x, _ = guided["start_xy"]
@@ -952,6 +952,44 @@ def test_a_rough_on_a_pivot_counts_the_beams_play_beside_the_line(tmp_path):
     sweep = recipe(guided_row(tmp_path, allowance=0.3), "rough")[1]
     assert sweep["transverse"] == "bar_centred"
     assert sweep["transverse_offset_mm"] == pytest.approx(0.001 + 0.02)
+
+
+def test_a_bar_touch_beside_its_line_widens_even_a_finish(tmp_path):
+    # Centred on the bar to one DRO step, the cutter touches the bar's end up to that step
+    # beside its line, so its axis stands sqrt(reach² + step²) from the pin: the finish's
+    # cut is widened by it as well as by the play (Codex review of #258 at 8a96167).
+    plan = guided_plan(
+        tmp_path,
+        target=SEMICIRCLE,
+        inventory=BAR10,
+        master="'bar10'",
+        touch_axis="'+Y'",
+        sweep_deg="180.0",
+    )
+    sweep = recipe(coordinates_row(plan, stock_bbox=SWING))[1]
+    reach = 13.0  # the R10 convex wall plus the Ø6 cutter's radius
+    aside = math.hypot(reach, 0.001) - reach
+    assert sweep["touch_aside_mm"] == pytest.approx(aside)
+    play = 0.02 + 0.02**2 / (2 * (reach - 0.02))
+    assert sweep["centre_error_mm"] == pytest.approx(play + aside)
+
+
+@pytest.mark.parametrize("kind", ["lathe", "unknown"])
+def test_a_guided_sweep_needs_a_mill(tmp_path, kind):
+    # The recipe locks a mill table's X and Y under a vertical spindle; a lathe is an
+    # error and an unknown machine kind only debt, never a runnable sweep.
+    plan = guided_plan(tmp_path)
+    change(
+        plan.with_name("inventory.toml"),
+        "[machines.mill]\nkind = 'mill'",
+        f"[machines.mill]\nkind = '{kind}'",
+    )
+    row = coordinates_row(plan, stock_bbox=SWING)
+    if kind == "lathe":
+        assert "setup S1 runs on a lathe" in errors(row)
+    else:
+        assert "setup S1's machine kind is unknown, so no mill is proven" in debts(row)
+    assert row.status != "pass"
 
 
 @pytest.mark.parametrize(

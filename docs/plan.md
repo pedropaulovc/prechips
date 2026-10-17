@@ -1658,7 +1658,8 @@ uses the 1898 manual arc method:
    master's declared `radius_limits` (a measured fact), widened by how far the
    guide lets the arc centre move between the touch-off and the cut: the swing
    arm's measured `pivot_play` (twice for a master on the arm, which moves with the
-   beam at the touch-off too), or, on a rail, `2 × g × (rail_form_error +
+   beam at the touch-off too; a setting bar's touch, made up to one DRO step beside
+   its line, adds `sqrt(reach² + step²) − reach`, `touch_aside_mm`), or, on a rail, `2 × g × (rail_form_error +
    roller_runout / 2)` with the rollers' gain `g = (|sin a| + |sin b|) / |sin(a −
    b)|` for rollers at `a` and `b`, each plus its finite-geometry terms (a linear
    gain alone is no bound; one that does not converge leaves the cut unknown); it

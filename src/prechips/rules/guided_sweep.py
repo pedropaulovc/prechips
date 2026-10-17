@@ -685,6 +685,26 @@ def _off_line_backoff(touch, back, off):
     )
 
 
+def _on_mill(bundle, setup, label, errors, debts):
+    """A guided sweep locks a mill's table X and Y under a vertical spindle while a fixture
+    in its T-slots or on its pivot turns the work: any other machine kind (a lathe, a
+    bench) is an error, and an unknown kind is debt."""
+    machine = record(resolve(bundle, "machines", setup.get("machine")))
+    kind = machine.get("kind", UNKNOWN)
+    if kind == "mill":
+        return
+    if isinstance(kind, str) and kind != UNKNOWN:
+        errors.append(
+            f"{label}: a guided sweep locks a mill's X and Y under the cutter, but setup "
+            f"{setup.get('id')} runs on a {kind}"
+        )
+        return
+    debts.append(
+        f"{label}: setup {setup.get('id')}'s machine kind is unknown, so no mill is proven "
+        "to lock X and Y under the cutter for the sweep"
+    )
+
+
 def _own_setup(setup, label, errors):
     """A guided sweep's fixture turns the work off the setup frame (the work at the sweep's
     middle pose) and nothing holds it at that pose for another spindle op, before the
@@ -769,6 +789,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
     _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid)
     _row_spacing(contour, label, errors)
     _own_setup(setup, label, errors)
+    _on_mill(bundle, setup, label, errors, debts)
     axis = sweep.get("touch_axis", UNKNOWN)
     if axis not in TOUCH_AXES:
         debts.append(f"{label}: contour.sweep.touch_axis (the cutter's radial axis) is unknown")
@@ -795,6 +816,13 @@ def guided(bundle, setup, op, arc, band, label, scale):
             )
         else:
             widen = (play + term) * (1 if bar else 2)
+            if bar and number(reach) and reach > 0:
+                # Centred on the bar to one DRO step, the cutter touches the bar's end
+                # beside its line: its axis stands sqrt(reach² + step²) from the pin, past
+                # the reach the bar's limits give.
+                aside = math.hypot(reach, grid[0] * scale) - reach
+                record_["touch_aside_mm"] = aside
+                widen += aside
     elif found is not None and gain is not None:
         form, runout = found["rail_form_error"], found["roller_runout"]
         if number(form) and number(runout) and number(found["rail_radius"]):
