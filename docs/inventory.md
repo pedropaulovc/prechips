@@ -209,8 +209,10 @@ arcs is ordinary inventory:
   `"profile_gauge"` and the `range_mm` of radii they read. A leaf set may declare
   `leaf_tolerance_mm`, the maker's ± on each leaf's radius (a fact-local length
   fact). An `R MAX` limit check then reads a leaf at or under the limit less that
-  tolerance ([inspection](rules-inspection.md)). An omitted tolerance is zero. A
-  declared one that is unknown or not trusted leaves the limit check unknown.
+  tolerance ([inspection](rules-inspection.md)). The traveler does not yet name that
+  leaf, so a positive tolerance leaves the check unknown at best. An omitted
+  tolerance is zero. A declared one that is unknown or not trusted leaves the limit
+  check unknown.
 - A guided sweep's fixture ([plan Manual arcs](plan.md#manual-arcs), step 5) is a
   `fixtures.<id>` the setup holds the work on (`hold.fixture`): a swing arm,
   `kind = "swing_arm"`, turning on a pin at the arc centre, with `pivot_play`

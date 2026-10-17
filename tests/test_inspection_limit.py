@@ -89,12 +89,20 @@ def test_leaf_tolerance_crossing_the_limit_is_not_a_clean_pass():
     assert row.numbers["leaf_tolerance_mm"] == 0.01
 
 
-def test_a_leaf_under_the_limit_by_its_tolerance_passes():
-    # Leaves R0.1-R1.0 by 0.01 read R0.2 MAX with the R0.19 leaf: at most R0.2.
+def test_a_leaf_under_the_limit_by_its_tolerance_is_not_named_so_not_a_pass():
+    # Leaves R0.1-R1.0 by 0.01 hold a safe R0.19 leaf, but the traveler prints only the
+    # band and gauge: the operator would reach for R0.2, which may accept R0.21.
     tolerance = {"value": 0.01, "measured": dict(MEASURED)}
     row = finding(bundle([0.1, 1.0], resolution=0.01, leaf_tolerance=tolerance))
-    assert row.status == "pass", row.sentence
-    assert row.numbers["leaf_tolerance_mm"] == 0.01
+    assert row.status == "unknown", row.sentence
+    assert "only a leaf at or under R0.19 reads the limit" in row.sentence
+    assert row.numbers["leaf_max_mm"] == pytest.approx(0.19)
+
+
+def test_no_leaf_at_the_limit_is_an_error_whatever_the_tolerance():
+    row = finding(bundle([0.3, 1.0], leaf_tolerance="unknown"))
+    assert row.status == "error"
+    assert "no leaf at the MAX limit" in row.sentence
 
 
 @pytest.mark.parametrize(

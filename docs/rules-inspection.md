@@ -74,15 +74,25 @@ marks it. A `radius_gauge` or `profile_gauge` reads it as a **limit check**, go/
 with its leaf at r: the leaf seats without rocking on a corner at or under r, and a
 sharp corner needs no leaf. A leaf marked L whose maker tolerance is ±t
 (`leaf_tolerance_mm`, [inventory](inventory.md)) may really be L + t and accept a
-corner past the limit, so the leaf read must be at or under r − t. The gauge passes
-when `range_mm[0] ≤ r − t ≤ range_mm[1]`, so a leaf set R0.2–R1.0 with no declared
-tolerance reads `R0.2 MAX`. Its resolution must not exceed r. With t = 0.01 the same
-set has no leaf at or under R0.19, so the leaf's tolerance crosses the limit and the
-check is not a clean pass: it is an error. An omitted tolerance is zero. A declared one
-that is unknown or not trusted leaves the check unknown, with the tolerance as debt.
+corner past the limit, so the leaf read must be at or under r − t. Outcomes:
+
+- **Error, no leaf:** `range_mm` does not hold r (`range_mm[0] ≤ r ≤ range_mm[1]`
+  fails), whatever the tolerance.
+- **Error, tolerance crosses the limit:** no leaf lies at or under r − t. With
+  t = 0.01, a leaf set R0.2–R1.0 has no leaf at or under R0.19, so the check is not a
+  clean pass.
+- **Error, resolution:** the gauge's resolution exceeds r.
+- **Unknown, tolerance:** the declared tolerance is unknown or not trusted. The
+  tolerance is listed as debt.
+- **Unknown, leaf not named:** t > 0 and a safe leaf exists. Only a leaf at or under
+  r − t reads the limit, and the traveler prints the band and the gauge, never which
+  leaf to use, so the operator would reach for the one at the limit. The evidence
+  gives `leaf_max_mm` (r − t).
+- **Pass:** t = 0, the tolerance is omitted (zero) or declared as 0, and resolution
+  ≤ r. A leaf set R0.2–R1.0 with no declared tolerance reads `R0.2 MAX`.
+
 Evidence adds `limit_check = "max"`, `limit_mm` (r) and, when declared,
-`leaf_tolerance_mm`, instead of `band_mm`. A leaf set that does not reach r is an
-error; an unverified gauge stays debt. A two-sided band (R5 ±0.1) and any reading gauge (a CMM) keep the full-span
+`leaf_tolerance_mm`, instead of `band_mm`. An unverified gauge stays debt. A two-sided band (R5 ±0.1) and any reading gauge (a CMM) keep the full-span
 rule. The mirror "R MIN" band `[r, inf]` cannot be written, since inputs refuse
 `inf`, so no min-only case exists. A scalar geometric tolerance needs resolution
 at most the tolerance and a known declared method. Non-mm/unknown limits stay unknown.
@@ -147,7 +157,8 @@ Sentence templates:
   - `limit check: the leaf's ±{t} tolerance crosses the MAX limit (no leaf at or under the limit less its tolerance)`
   - `limit check: gauge leaf tolerance unresolved`
   - `limit check: gauge resolution exceeds the MAX limit`
-  - `limit check: a gauge leaf at or under the MAX limit, less its tolerance, reads go/no-go (not a reading across the band)`
+  - `limit check: only a leaf at or under R{r − t} reads the limit, and the traveler does not name it`
+  - `limit check: a gauge leaf at or under the MAX limit reads go/no-go (not a reading across the band)`
   - `gauge resolution and declared geometric inspection method cover requirement`
   - `geometric gauge capability or datum inspection method unresolved`
   - `no angular gauge capability`
