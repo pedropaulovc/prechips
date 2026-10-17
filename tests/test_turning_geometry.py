@@ -6,6 +6,7 @@ shoulder fillet, a milled flat, a bore, a 2 mm relief groove (floor r 3, z 30..3
 or a hemispherical end (r 4 about z 36).  Assertions read the engine's JSON.
 """
 
+import json
 import math
 import subprocess
 from types import SimpleNamespace
@@ -401,29 +402,35 @@ def test_parting_off_onto_a_process_end_face_keeps_the_side_its_axis_points_into
     spec |= {"at_mm": [0.0, 0.0, -2.0], "axis": [0.0, 0.0, 1.0]}
     hold = {"reason": "chuck not modelled here"}
 
-    def part_off(to_z=-2.0, **cut):
+    def part_off(to_z=-2.0, later=(), **cut):
         op = _blade("S1:10", "supply_end", 1.6, to_z=to_z, to_dia_mm=0.0, finishing=False)
         op |= {"do": "part_off", "process_cut": {"process_feature": "supply_end"} | spec | cut}
         job = engine.job(
             step,
-            {},
-            [_lathe([op]), {**_lathe([], "S2"), "hold": hold}],
+            _features(engine, step),
+            [_lathe([op, *later]), {**_lathe([], "S2"), "hold": hold}],
             stock={**_bar(length=50.0), "origin_mm": [0, 0, -10]},
         )
-        return engine.run({**job, "process_features": {"supply_end": spec}})["setups"]
+        return engine.run({**job, "process_features": {"supply_end": spec}})
 
-    parted = part_off(action="part_off")
+    parted = part_off(action="part_off")["setups"]
     assert "stock_reason" not in parted["S2"], parted["S2"].get("stock_reason")
     assert parted["S2"]["stock_bbox_mm"] == pytest.approx([-6, -6, -2, 6, 6, 40], abs=1e-3)
     assert parted["S2"]["stock_volume_mm3"] == pytest.approx(math.pi * 36 * 42, rel=1e-6)
-    refused = part_off(action="part_off", reason="the plane disagrees with to_z")
+    turn = _turn("S1:20", "small", z_from=40.0, z_to=20.0)
+    result = part_off(action="part_off", reason="the plane disagrees with to_z", later=[turn])
+    refused = result["setups"]
     assert "the plane disagrees with to_z" in refused["S2"]["stock_reason"]
     assert "stock_bbox_mm" not in refused["S2"]
+    # A later turning op's obstacle profile never sees the refused cut either.
+    reasons = json.dumps(result["ops"]["S1:20"].get("reasons", {}))
+    assert "earlier op S1:10's turned removal cannot be derived" in reasons, reasons
+    assert "the plane disagrees with to_z" in reasons
     # Parted 2 mm short, into the finished part: the shaft's chuck end would stay joined
     # to the kept piece, so the cut is refused, never trimmed round the part.
     short = {"at_mm": [0.0, 0.0, 2.0]}
     spec |= short
-    inside = part_off(2.0, action="part_off", **short)
+    inside = part_off(2.0, action="part_off", **short)["setups"]
     assert "of finished target material" in inside["S2"]["stock_reason"]
 
 

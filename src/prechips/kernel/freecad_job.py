@@ -13220,6 +13220,10 @@ class _Setup:
 
     def _turn_cut(self, op, stock):
         """(this turning op's revolved removal or None, and why it cannot be derived)."""
+        process = op.get("process_cut")
+        if isinstance(process, dict) and process.get("reason"):
+            # A refused process cut removes nothing here either, as in the stock pass.
+            return None, process["reason"]
         valid, _, why = self._claims(op)
         if not isinstance(valid, list):
             return None, why
