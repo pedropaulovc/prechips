@@ -39,6 +39,8 @@ length, so it is judged as the linear zone it is (:func:`._profile.tilt_reading`
 resolution alone like a zone.
 """
 
+import math
+
 from ..findings import Finding
 from ..joint_features import source_cite
 from ..measurements import length_debt, length_fact, length_keys, record_debt
@@ -96,6 +98,16 @@ def max_limit(requirement, value):
         return None
     low, high = value
     return high if number(low) and number(high) and low == 0 and high > 0 else None
+
+
+def on_leaf(gauge, span, resolution, size):
+    """Whether the leaf set has a leaf of ``size``: one of its listed ``sizes_mm``, else a
+    step of ``resolution`` (the leaf pitch) up from ``range_mm[0]``."""
+    sizes = gauge.get("sizes_mm")
+    if isinstance(sizes, list) and sizes and all(map(number, sizes)):
+        return any(same_length(size, leaf) for leaf in sizes)
+    steps = (size - span[0]) / resolution
+    return same_length(span[0] + resolution * round(steps), size)
 
 
 def leaf_tolerance(gauge):
@@ -523,10 +535,20 @@ def _capability(
                         f"limit check: only a leaf at or under R{guard:g} reads the limit, "
                         "and the traveler does not name it"
                     )
+                elif not on_leaf(gauge, span, resolution, limit):
+                    # The set brackets the limit but no leaf is R MAX: a smaller leaf is
+                    # safe, yet the traveler names no leaf, so the operator has none to use.
+                    nums["leaf_max_mm"] = span[0] + resolution * math.floor(
+                        (limit - span[0]) / resolution + 1e-9
+                    )
+                    message = (
+                        f"limit check: the gauge has no R{limit:g} leaf, and the traveler "
+                        "does not name the smaller one that reads the limit"
+                    )
                 else:
                     status, message = (
                         "pass",
-                        "limit check: a gauge leaf at or under the MAX limit reads go/no-go "
+                        "limit check: the gauge's leaf at the MAX limit reads go/no-go "
                         "(not a reading across the band)",
                     )
             else:
