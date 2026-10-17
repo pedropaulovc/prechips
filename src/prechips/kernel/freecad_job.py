@@ -2547,6 +2547,88 @@ def _level_section(solid, z):
     return moved
 
 
+# Area holds (docs/design/area-hold.md §2.4, §3): the seat's flat +z face, the work's
+# contact faces on it, and each contact island's area, centroid and polar first moment.
+_POLAR_DEPTH = 4  # each tessellation triangle is split 4^depth times for the |ρ| integral
+_OUTLINE_MM = 0.05  # deflection of an island outline's discretized edges
+_CUT_POINTS = 400  # at most this many sampled points of an op's cut beside an island
+
+
+def _flat_at(face, z, sense):
+    """Whether ``face`` is planar at height ``z`` with its outward normal ``sense`` · +Z."""
+    if face.Surface.__class__.__name__ != "Plane":
+        return False
+    box = face.BoundBox
+    if abs(box.ZMin - z) > PLANE_TOL or abs(box.ZMax - z) > PLANE_TOL:
+        return False
+    u0, u1, v0, v1 = face.ParameterRange
+    return abs(face.normalAt((u0 + u1) / 2, (v0 + v1) / 2).z - sense) <= 1e-9
+
+
+def _contact_faces(solid, seat_faces, seat_z, z):
+    """The faces of ``solid`` facing down at ``z`` that lie over the seat's +z faces (at
+    ``seat_z``): the area the layer laid on the seat can bond, never an overhang."""
+    region = []
+    for face in solid.Faces:
+        if not _flat_at(face, z, -1):
+            continue
+        for seat in seat_faces:
+            raised = seat.copy()
+            raised.translate(V(0, 0, z - seat_z))
+            region.extend(piece for piece in face.common(raised).Faces if piece.Area > CONTACT_MM2)
+    return region
+
+
+def _polar_moment(faces, centre):
+    """∫|ρ| dA over ``faces`` about ``centre`` (x, y), mm³: each tessellation triangle split
+    into 4^_POLAR_DEPTH and integrated at the sub-triangles' centroids."""
+    cx, cy = centre
+    total = 0.0
+    for face in faces:
+        points, triangles = face.tessellate(0.01)
+        for a, b, c in triangles:
+            stack = [(points[a], points[b], points[c], 0)]
+            while stack:
+                p, q, r, depth = stack.pop()
+                if depth == _POLAR_DEPTH:
+                    area = abs((q - p).cross(r - p).z) / 2
+                    total += area * math.hypot(
+                        (p.x + q.x + r.x) / 3 - cx, (p.y + q.y + r.y) / 3 - cy
+                    )
+                    continue
+                pq, qr, rp = (p + q) / 2, (q + r) / 2, (r + p) / 2
+                depth += 1
+                stack += [(p, pq, rp, depth), (pq, q, qr, depth), (rp, qr, r, depth)]
+                stack.append((pq, qr, rp, depth))
+    return total
+
+
+def _loop(wire):
+    return [[_r(p.x), _r(p.y)] for p in wire.discretize(Deflection=_OUTLINE_MM)]
+
+
+def _contact_island(faces):
+    """One island's contact: ``area_mm2``, ``centroid_mm``, ``polar_mm3`` (about the
+    centroid) and ``outline_mm`` (each face's outer loop and holes, setup-frame XY)."""
+    area = sum(face.Area for face in faces)
+    if area <= CONTACT_MM2:
+        return {"area_mm2": 0.0}
+    cx = sum(face.Area * face.CenterOfMass.x for face in faces) / area
+    cy = sum(face.Area * face.CenterOfMass.y for face in faces) / area
+    return {
+        "area_mm2": _r(area),
+        "centroid_mm": [_r(cx), _r(cy)],
+        "polar_mm3": _r(_polar_moment(faces, (cx, cy))),
+        "outline_mm": [
+            {
+                "outer": _loop(face.OuterWire),
+                "holes": [_loop(w) for w in face.Wires if not w.isSame(face.OuterWire)],
+            }
+            for face in faces
+        ],
+    }
+
+
 def _out_of_reach(obstacle, band, reach, centres, radius):
     """Level faces of ``band`` that no disc of ``radius`` clear of the level ``obstacle``
     faces (which may overlap) covers, those touching ``reach``: the obstacle's own share
@@ -3497,6 +3579,7 @@ _COLOURS = {
     "fixture": (120, 104, 136),
     "clamp": (164, 132, 64),
     "rest": (176, 96, 72),
+    "tape": (214, 190, 120),
 }
 
 
@@ -4550,6 +4633,9 @@ class _Setup:
         self.fixture = []
         self.fixture_possible = []
         self.hold_solids = []  # an authored holding body's placed solids (``_place_solids``)
+        # An area hold's seat once placed (:meth:`_area_seat`): its +z faces and Z, the
+        # contact plane and the gap's bridge between seat and work.
+        self.area = None
         self.fixture_ready = False  # the holding itself is placed, so hit counts can be made
         self.fixture_debts = []  # scene-only debts (supports below the seat, poses to check)
         self.fixture_gaps = []  # undrawn components that could be obstacles
@@ -4700,6 +4786,10 @@ class _Setup:
         if self.stock_reason is None:
             with _timed(phases, "stock_output"):
                 self.stock_out, self.stock_out_reason = self._finish(ops)
+            if self.area is not None:
+                with _timed(phases, "area_islands"):
+                    for op in self.ops:
+                        ops[self._subject(op)]["area_hold"] = self._area_islands(op)
             with _timed(phases, "render"):
                 png, scene = self._render()
             facts["render_png_base64"] = base64.b64encode(png).decode("ascii")
@@ -7110,6 +7200,8 @@ class _Setup:
                 reason = f"vise grip-zone facts do not apply to {hold.get('fixture_kind')} holding"
         else:
             self.fixture_reason = reason
+        if isinstance(hold, dict) and isinstance(hold.get("area"), dict):
+            self._area_seat(hold["area"], facts)
         if self.hold is not None:
             self._accessories()
             self._interference(facts)
@@ -7323,6 +7415,127 @@ class _Setup:
             return "no fixture solid is declared free of measurement debt"
         return None
 
+    def _area_seat(self, area, facts):
+        """``area_hold``: an area hold's seat, the gap the work sits above it at, the
+        setup-entry contact footprint and the tape layer (docs/design/area-hold.md §2.4).
+
+        The seat is the drawn ``on`` solid; its posed +z face must face setup +Z, and its
+        flat faces at the top carry the layer. The layer is drawn on the footprint at the
+        midpoint of a measured thickness pair, otherwise not drawn (a scene debt). An
+        undrawn seat, another orientation or no flat top leaves only a ``reason``."""
+        if area.get("reason"):
+            facts["area_hold"] = {"reason": str(area["reason"])}
+            return
+        seat = next((c for c in self.fixture if c["name"] == area.get("on")), None)
+        if seat is None:
+            facts["area_hold"] = {
+                "reason": f"seat solid {area.get('on')} is not drawn: it is untrusted, "
+                "incomplete or not placed"
+            }
+            return
+        normal = V(*self.hold["pose"]["z"])
+        normal.normalize()
+        result = {"seat": seat["name"], "seat_normal": [_r(v) for v in normal]}
+        facts["area_hold"] = result
+        if abs(normal.z - 1) > 1e-9:
+            result["reason"] = "the seat's +z face does not face setup +Z"
+            return
+        top = seat["solid"].BoundBox.ZMax
+        faces = [face for face in seat["solid"].Faces if _flat_at(face, top, 1)]
+        if not faces:
+            result["reason"] = "the seat solid has no flat +z face"
+            return
+        contact = self.box[2]
+        footprint = _contact_faces(self.part, faces, top, contact)
+        gap = contact - top
+        result.update(
+            seat_z_mm=_r(top),
+            contact_z_mm=_r(contact),
+            gap_mm=_r(gap),
+            footprint=_contact_island(footprint),
+            overhang_mm2=_r(
+                sum(f.Area for f in self.part.Faces if _flat_at(f, contact, -1))
+                - sum(f.Area for f in footprint)
+            ),
+        )
+        bridge = None
+        if footprint and gap > PLANE_TOL:
+            bridge = Part.makeCompound([face.extrude(V(0, 0, -gap)) for face in footprint])
+        self.area = {"faces": faces, "seat_z": top, "z": contact, "bridge": bridge}
+        thickness = area.get("thickness_mm")
+        if not footprint:
+            result["layer"] = "not_drawn"
+            self.fixture_debts.append("tape layer not drawn: the work has no contact on the seat")
+            return
+        if not (isinstance(thickness, list) and len(thickness) == 2):
+            result["layer"] = "not_drawn"
+            reason = area.get("thickness_reason", "thickness_mm is not a measured pair")
+            self.fixture_debts.append(f"tape layer not drawn: {reason}")
+            return
+        middle = (thickness[0] + thickness[1]) / 2
+        layer = []
+        for face in footprint:
+            laid = face.copy()
+            laid.translate(V(0, 0, top - contact))
+            layer.append(laid.extrude(V(0, 0, middle)))
+        self._add("tape layer", "tape", Part.makeCompound(layer), owner="area")
+        result["layer"] = "drawn"
+        result["layer_thickness_mm"] = _r(middle)
+
+    def _area_islands(self, op):
+        """``area_hold`` of one op: each piece of the stock it leaves as a contact island
+        (:func:`_contact_island`), whether the setup keeps it (``kept``: it meets the end
+        stock), and the op's cut beside it: ``reach_mm`` from the island centroid to the
+        farthest point of the removed pieces touching it, ``top_z_mm`` the before-op stock
+        top over the island's contact and ``points_mm`` sampled cut XY."""
+        before, after, why = self.cuts.get(id(op), (None, None, "not built"))
+        if why is not None or before is None or id(op) == self.stopped_cut:
+            return {"reason": f"its cut is unknown ({why})"}
+        removal = None if after is before else before.cut(after)
+        pieces = [] if removal is None else [p for p in removal.Solids if p.Volume > STOCK_MM3]
+        area = self.area
+        islands = []
+        for solid in after.Solids:
+            faces = _contact_faces(solid, area["faces"], area["seat_z"], area["z"])
+            island = _contact_island(faces)
+            island["kept"] = (
+                solid.common(self.stock_out).Volume > STOCK_MM3
+                if self.stock_out_reason is None
+                else UNKNOWN
+            )
+            touching = [p for p in pieces if p.distToShape(solid)[0] <= STOCK_TOL]
+            island["cut"] = self._island_cut(island, faces, before, touching)
+            islands.append(island)
+        return {"islands": islands}
+
+    def _island_cut(self, island, faces, before, touching):
+        if not touching:
+            return None
+        points = []
+        for piece in touching:
+            for edge in piece.Edges:
+                points.extend((p.x, p.y) for p in edge.discretize(Distance=1.0))
+        step = max(1, len(points) // _CUT_POINTS)
+        sampled = points[::step]
+        result = {
+            "volume_mm3": _r(sum(p.Volume for p in touching)),
+            "points_mm": [[_r(x), _r(y)] for x, y in sampled],
+        }
+        centre = island.get("centroid_mm")
+        result["reach_mm"] = (
+            _r(max(math.hypot(x - centre[0], y - centre[1]) for x, y in points))
+            if centre
+            else UNKNOWN
+        )
+        column = [
+            face.extrude(V(0, 0, before.BoundBox.ZMax - self.area["z"] + 1)) for face in faces
+        ]
+        over = before.common(Part.makeCompound(column)) if column else None
+        result["top_z_mm"] = (
+            _r(over.BoundBox.ZMax) if over is not None and over.Volume > STOCK_MM3 else UNKNOWN
+        )
+        return result
+
     def _place_clamps(self, hold):
         """Each posed clamp member's solids (strap, stud, heel; voids cut) as one owner, and
         the (name, solid, bearing kind: ``bore``, ``face`` or unknown) of each drawn primitive
@@ -7414,6 +7627,8 @@ class _Setup:
         # An authored body holds the work directly or through a clamp that bears on it (a
         # bench vise gripping the stud of filing buttons pressed on the work).
         reached = [self.part, *bearing]
+        if self.area is not None and self.area["bridge"] is not None:
+            reached.append(self.area["bridge"])  # the seat holds the work through the tape
         if self.hold_solids and all(
             solid.distToShape(other)[0] > STOCK_TOL
             for solid in self.hold_solids
@@ -7456,7 +7671,8 @@ class _Setup:
         components = self.fixture
         stock = self.part if self.centre_seat is None else self.part.cut(self.centre_seat)
         for component in components:
-            if not _boxes_overlap(component["bbox"], self.box):
+            # The tape layer is a compliant contact with the stock it carries (§2.4).
+            if component["role"] == "tape" or not _boxes_overlap(component["bbox"], self.box):
                 continue
             volume = component["solid"].common(stock).Volume
             if volume > STOCK_MM3:

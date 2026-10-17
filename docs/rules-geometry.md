@@ -2287,6 +2287,39 @@ Unknown in-process stock, frame or hold inputs stay `?` as for `vise`. The
 rule checks declared geometry only: it does not prove the clamp sequence,
 torque, or that the shop's real fixture matches its record.
 
+An [area hold](inventory.md#area-holds)'s tape layer is a compliant contact
+with the stock it carries: check 1 skips it, while check 2 still pairs it
+with every other component, so a leftover tape box in the fixture's `solids`
+clashes the layer.
+
+### Area-hold facts
+
+For a setup whose hold names `hold.area` on a drawn solids fixture, the kernel
+writes `setups.<id>.area_hold` (docs/design/area-hold.md §2.4, §3); no rule
+reads it yet:
+
+- `seat` and `seat_normal`: the drawn `on` solid and its posed +z direction.
+  A seat that is not drawn (untrusted or incomplete), a normal other than
+  setup +Z, or a seat with no flat top face leaves only a `reason`.
+- `seat_z_mm`, `contact_z_mm` (the setup-entry stock's lowest Z) and
+  `gap_mm` between them: the seat check compares the gap with the tape's
+  `thickness_mm` pair.
+- `footprint`: the stock's downward faces at the contact plane over the seat's
+  top faces, as one contact island (`area_mm2`, `centroid_mm`, `polar_mm3` =
+  ∫|ρ| dA about the centroid, `outline_mm` loops), and `overhang_mm2`, the
+  contact off the seat that no tape can bond.
+- `layer`: `drawn` at the midpoint of a measured `thickness_mm` pair
+  (`layer_thickness_mm`) on the footprint, else `not_drawn` with a scene debt
+  naming why. A drawn layer appears in the render and obstructs the cutter.
+
+Each op of such a setup carries `ops.<subject>.area_hold.islands`: one entry
+per piece of the stock the op leaves, with the same contact fields, `kept`
+(whether the piece meets the setup's end stock) and `cut`, the op's removed
+pieces touching it (`volume_mm3`, `reach_mm` from the island centroid to the
+farthest removed point, `top_z_mm` the before-op stock top over the island's
+contact, `points_mm` sampled cut XY), or null. An op whose cut is unknown
+carries only a `reason`.
+
 ## Renders
 
 For each setup with a numeric frame and derivable incoming stock the kernel

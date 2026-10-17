@@ -1416,6 +1416,36 @@ def _supports_inputs(bundle, setup, hold, result, debts, gaps):
         result["steady_rests"] = steady
 
 
+def _area_inputs(bundle, hold, result):
+    """An area hold's seat and tape layer for the kernel (docs/design/area-hold.md §2.4):
+    ``on`` is the seat primitive's name as :func:`_solids` places it, and ``thickness_mm``
+    the tape's applied pair only when it is a measured pair (the layer is drawn at its
+    midpoint); otherwise the layer is not drawn and ``thickness_reason`` says why."""
+    from prechips.rules.resolution import select
+
+    area = record(hold.get("area"))
+    on, ref = area.get("on", UNKNOWN), area.get("ref", UNKNOWN)
+    if "solids" not in result:
+        result["area"] = {
+            "reason": "an area hold seats on a drawn fixture solid, which this "
+            "holding kind does not declare"
+        }
+        return
+    if on == UNKNOWN:
+        result["area"] = {"reason": "the area hold names no seat solid (hold.area.on)"}
+        return
+    entry = {"on": f"{hold.get('fixture')}:{on}"}
+    tape = select(bundle, ref, "consumables")[2] if ref != UNKNOWN else None
+    thickness = limits_fact(tape, "thickness", require_measured=True) if tape else None
+    if thickness is not None and thickness["verified"]:
+        entry["thickness_mm"] = list(thickness["value"])
+    elif thickness is None:
+        entry["thickness_reason"] = "the area hold's tape is unresolved"
+    else:
+        entry["thickness_reason"] = f"thickness_mm is not a measured pair: {thickness['reason']}"
+    result["area"] = entry
+
+
 @_collect_debts
 def hold_inputs(bundle, setup):
     hold = record(setup.get("hold"))
@@ -1463,6 +1493,8 @@ def hold_inputs(bundle, setup):
             gaps.extend(missing)
             if stop_solids:
                 result["stop"] = {"pose": stop_pose, "solids": stop_solids}
+    if isinstance(hold.get("area"), dict):
+        _area_inputs(bundle, hold, result)
     _parallels_inputs(bundle, hold, result)
     _clamp_inputs(bundle, hold, result, gaps)
     # Vise supports sit below the seat (render-only); elsewhere an undrawn support may collide.
@@ -1771,6 +1803,7 @@ _ENGINE_COMMON = (
     "follow_rests",
     "steady_rests",
     "refused_fields",
+    "area",
 )
 
 
