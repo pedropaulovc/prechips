@@ -80,6 +80,25 @@ def test_unverified_blade_kerf_cannot_pass_from_stale_native_facts():
     assert evaluate(data)[0].status == "unknown"
 
 
+@pytest.mark.parametrize("status", ["assumed", "illustrative", None])
+@pytest.mark.parametrize("kind", ["bandsaw", "hand_saw"])
+def test_a_straight_cut_reading_an_unmeasured_kerf_stays_unknown(kind, status):
+    """A kerf whose provenance is assumed, illustrative or omitted is measurement debt on
+    the fact the straight cut consumes: the cut stays ``?`` with that kerf's measurement
+    debt, though the saw's identity carries no ``verify`` flag."""
+    data = bundle()
+    if kind == "hand_saw":
+        data.inventory["machines"]["saw"]["kind"] = "bench"
+    measured = {"by": "x", "date": "2026-10-11", "instrument": "rule"}
+    if status is not None:
+        measured["status"] = status
+    data.inventory["tools"]["blade"].update(kind=kind, kerf_mm={"value": 1.5, "measured": measured})
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    assert "known, verified blade kerf" in finding.sentence
+    assert any(entry["field"] == ["kerf"] for entry in finding.numbers["measurements"])
+
+
 @pytest.mark.parametrize("field", ["kerf_mm", "removed_volume_mm3", "stock_volume_after_mm3"])
 def test_incomplete_native_saw_stock_stays_unknown(field):
     data = bundle()
