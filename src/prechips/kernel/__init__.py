@@ -2071,6 +2071,12 @@ def _await_launcher(process, timeout):
         time.sleep(delay)
 
 
+# Runaway guard on one FreeCAD batch, in seconds: about twice the heaviest example's cold
+# batch on a 4-vCPU host (docs/rules-geometry.md#kernel-errors).
+RUNAWAY_GUARD_S = 600
+OUTPUT_TAIL = 2000  # characters of the engine's stderr/stdout an error reason quotes
+
+
 def _run_kernel(command):
     """``command`` run to its end under the runaway guard; no process of the run outlives it.
 
@@ -2082,16 +2088,19 @@ def _run_kernel(command):
     launcher has ended, or the guard expires, or the host is interrupted, that group is
     killed before the launcher is reaped. Output goes to files, so nothing reaps the launcher
     while it is waited for. On Windows ``command`` is the engine, and its job object ends
-    its workers (boolean_pool)."""
+    its workers (boolean_pool). When the guard expires, the raised ``TimeoutExpired``
+    carries the run's stdout and stderr."""
     posix = os.name == "posix"
     with (
         tempfile.TemporaryFile("w+", errors="replace") as stdout,
         tempfile.TemporaryFile("w+", errors="replace") as stderr,
         subprocess.Popen(command, stdout=stdout, stderr=stderr, start_new_session=posix) as process,
     ):
+        expired = None
         try:
-            # Runaway guard: about twice the heaviest example's cold batch.
-            _await_launcher(process, 600)
+            _await_launcher(process, RUNAWAY_GUARD_S)
+        except subprocess.TimeoutExpired as exc:
+            expired = exc
         finally:
             if posix:
                 os.killpg(process.pid, signal.SIGKILL)
@@ -2100,47 +2109,164 @@ def _run_kernel(command):
         process.wait()
         stdout.seek(0)
         stderr.seek(0)
-        return subprocess.CompletedProcess(
-            process.args, process.returncode, stdout.read(), stderr.read()
+        out, err = stdout.read(), stderr.read()
+        if expired is not None:
+            raise subprocess.TimeoutExpired(process.args, expired.timeout, output=out, stderr=err)
+        return subprocess.CompletedProcess(process.args, process.returncode, out, err)
+
+
+def _exit_text(code):
+    """How the launcher ended: a negative code is the signal that killed it, and a
+    launcher shell (the AppImage's AppRun) reports a child killed by signal N as 128 + N."""
+    number = -code if code < 0 else code - 128 if code > 128 else None
+    try:
+        name = signal.Signals(number).name if number is not None else None
+    except ValueError:
+        name = None
+    if name is None:
+        return f"exited {code}"
+    hint = " (often the host's out-of-memory killer)" if name == "SIGKILL" else ""
+    return f"exited {code}: killed by {name}{hint}"
+
+
+def _output_tail(stdout, stderr):
+    for name, text in (("stderr", stderr), ("stdout", stdout)):
+        if isinstance(text, bytes):
+            text = text.decode(errors="replace")
+        text = (text or "").strip()
+        if text:
+            clipped = "..." + text[-OUTPUT_TAIL:] if len(text) > OUTPUT_TAIL else text
+            return f"{name} tail: {clipped}"
+    return "no stderr or stdout output"
+
+
+def _read_trail(path):
+    """The engine's progress trail (``freecad_job._mark``): the phases it entered and has
+    not left, deepest last, and the last phases it finished, each with engine-clock ms."""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    entered, finished = {}, []
+    for line in lines:
+        try:
+            mark = json.loads(line)
+            at, event, ms = mark["at"], mark["event"], mark["ms"]
+        except (ValueError, TypeError, KeyError):
+            continue  # a line the kill cut short
+        if event == "enter":
+            entered[at] = ms
+        elif event == "exit" and at in entered:
+            finished.append({"at": at, "wall_ms": mark.get("wall_ms"), "ms": ms})
+            del entered[at]
+    if not lines:
+        return None
+    return {
+        "open": [{"at": at, "entered_ms": ms} for at, ms in entered.items()],
+        "finished": finished[-20:],
+        "last_mark_ms": max([0, *entered.values(), *(item["ms"] for item in finished)]),
+    }
+
+
+def _failure(reason, started, trail_path, stdout=None, stderr=None):
+    """An error result whose reason says what failed, what the engine printed and, from its
+    progress trail, which phase it was in; ``timing`` keeps the host wall time and trail."""
+    trail = _read_trail(trail_path)
+    timing = {"host_wall_ms": round((time.perf_counter() - started) * 1000, 3)}
+    if trail is None:
+        where = "the engine recorded no progress"
+    elif trail["open"]:
+        deepest = trail["open"][-1]
+        where = (
+            f"the engine was in {deepest['at']} (entered at "
+            f"{deepest['entered_ms'] / 1000:.1f} s, last mark at "
+            f"{trail['last_mark_ms'] / 1000:.1f} s of engine time)"
         )
+    else:
+        where = (
+            f"the engine had finished every phase it entered ({trail['last_mark_ms'] / 1000:.1f} s)"
+        )
+    if trail is not None:
+        timing["trail"] = trail
+    parts = [reason, where]
+    if stdout is not None or stderr is not None:
+        parts.append(_output_tail(stdout, stderr))
+    return {"status": "error", "reason": "; ".join(parts), "timing": timing}
+
+
+def _reasoned(result, fallback):
+    """``result``, with ``fallback`` as its reason when it is an error that names none."""
+    if not isinstance(result, dict) or result.get("status") != "error":
+        return result
+    reason = result.get("reason")
+    if isinstance(reason, str) and reason.strip():
+        return result
+    return {**result, "reason": fallback}
 
 
 def _execute(executable, job):
     with tempfile.TemporaryDirectory(prefix="prechips-kernel-") as directory:
         source = Path(directory) / "input.json"
         target = Path(directory) / "output.json"
+        trail = Path(directory) / "output.json.trail"  # freecad_job.main's progress trail
         source.write_text(_json(job), encoding="utf-8")
-        process = _run_kernel(
-            [
-                str(executable),
-                str(Path(__file__).with_name("freecad_job.py")),
-                "--",
-                str(source),
-                str(target),
-            ]
-        )
-        if process.returncode:
-            detail = (process.stderr or process.stdout).strip()
-            return {
-                "status": "error",
-                "reason": f"FreeCAD kernel exited {process.returncode}: {detail}",
-            }
+        started = time.perf_counter()
         try:
-            result = json.loads(target.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            return {"status": "error", "reason": f"FreeCAD kernel did not return valid JSON: {exc}"}
+            process = _run_kernel(
+                [
+                    str(executable),
+                    str(Path(__file__).with_name("freecad_job.py")),
+                    "--",
+                    str(source),
+                    str(target),
+                ]
+            )
+        except subprocess.TimeoutExpired as exc:
+            reason = f"FreeCAD kernel exceeded the {exc.timeout:g} s runaway guard and was killed"
+            return _failure(reason, started, trail, exc.output, exc.stderr)
+        output = process.stdout, process.stderr
+        if process.returncode:
+            reason = f"FreeCAD kernel {_exit_text(process.returncode)}"
+            return _failure(reason, started, trail, *output)
+        try:
+            text = target.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            reason = "FreeCAD kernel exited 0 without writing its result file"
+            return _failure(reason, started, trail, *output)
+        except OSError as exc:
+            reason = f"FreeCAD kernel result file is unreadable: {exc}"
+            return _failure(reason, started, trail, *output)
+        if not text.strip():
+            return _failure("FreeCAD kernel wrote an empty result file", started, trail, *output)
+        try:
+            result = json.loads(text)
+        except ValueError as exc:
+            reason = f"FreeCAD kernel did not return valid JSON: {exc}"
+            return _failure(reason, started, trail, *output)
+        host_wall_ms = round((time.perf_counter() - started) * 1000, 3)
         if _valid_result(result) and result["status"] == "error":
-            return result
+            fallback = _failure(
+                "FreeCAD kernel reported a batch error without a reason", started, trail, *output
+            )["reason"]
+            return _reasoned(result, fallback)
         if (
             isinstance(result, dict)
             and isinstance(result.get("results"), list)
             and all(_valid_result(value) for value in result["results"])
         ):
+            result["results"] = [
+                _reasoned(
+                    value, f"FreeCAD kernel reported job {index} as an error without a reason"
+                )
+                for index, value in enumerate(result["results"])
+            ]
+            timing = result.get("timing")
+            if isinstance(timing, dict):
+                timing["host_wall_ms"] = host_wall_ms
             return result
-        return {
-            "status": "error",
-            "reason": "FreeCAD kernel returned an invalid batch result contract.",
-        }
+        return _failure(
+            "FreeCAD kernel returned an invalid batch result contract", started, trail, *output
+        )
 
 
 def _read_cache(path):
@@ -2341,13 +2467,18 @@ def run_geometries(bundles, jobs=None):
                             "reason": f"FreeCAD kernel job failed: {exc}",
                         }
                     if active:
-                        geometry_span.set_attributes(
-                            {
-                                f"kernel.batch.{name}": value
-                                for name, value in response.get("timing", {}).items()
-                                if name in {"wall_ms", "cpu_ms"}
-                            }
-                        )
+                        timing = response.get("timing", {})
+                        attributes = {
+                            f"kernel.batch.{name}": value
+                            for name, value in timing.items()
+                            if name in {"wall_ms", "cpu_ms", "host_wall_ms"}
+                        }
+                        if response.get("status") == "error":
+                            attributes["kernel.batch.error"] = response["reason"]
+                            open_phases = timing.get("trail", {}).get("open")
+                            if open_phases:
+                                attributes["kernel.batch.open_phase"] = open_phases[-1]["at"]
+                        geometry_span.set_attributes(attributes)
                     results = response.get("results")
                     if not isinstance(results, list) or len(results) != len(jobs):
                         error = (

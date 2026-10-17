@@ -187,6 +187,7 @@ import re
 import sys
 import tempfile
 import time
+import traceback
 from contextlib import contextmanager
 from enum import Enum
 
@@ -283,19 +284,56 @@ Z = V(0, 0, 1)
 
 
 @contextmanager
-def _timed(records, key):
-    """Nonoperative elapsed/process-CPU facts, only when the caller requests them."""
+def _timed(records, key, label=None):
+    """Nonoperative elapsed/process-CPU facts, only when the caller requests them. Each timed
+    span also marks its entry and exit (``label``, else ``key``) on the progress trail."""
     if records is None:
         yield
         return
     wall, cpu = time.perf_counter(), time.process_time()
     record = {}
     records[key] = record
+    _TRAIL_PATH.append(str(key if label is None else label))
+    _mark("enter")
     try:
         yield record
     finally:
         record["wall_ms"] = _r((time.perf_counter() - wall) * 1000)
         record["cpu_ms"] = _r((time.process_time() - cpu) * 1000)
+        _mark("exit", record["wall_ms"])
+        _TRAIL_PATH.pop()
+
+
+# Progress trail: one flushed JSON line per timed span's entry and exit, beside the output
+# file, so a host that kills the engine (runaway guard, out-of-memory killer) still learns
+# which phase it was in and where the time went. Nonoperative: a lost line changes nothing.
+_TRAIL = None  # the open trail file while main() runs a batch
+_TRAIL_PATH = []  # labels of the timed spans entered and not yet left
+_TRAIL_START = time.perf_counter()
+
+
+def _mark(event, wall_ms=None):
+    if _TRAIL is None:
+        return
+    mark = {"at": "/".join(_TRAIL_PATH), "event": event}
+    mark["ms"] = _r((time.perf_counter() - _TRAIL_START) * 1000)
+    if wall_ms is not None:
+        mark["wall_ms"] = wall_ms
+    try:
+        _TRAIL.write(json.dumps(mark, sort_keys=True) + "\n")
+        _TRAIL.flush()
+    except (OSError, ValueError):
+        pass
+
+
+def _failure_text(exc):
+    """``Type: message at file:line in function``, never empty, for an exception's reason."""
+    text = f"{type(exc).__name__}: {exc}" if str(exc) else f"{type(exc).__name__} (no message)"
+    frames = traceback.extract_tb(exc.__traceback__)
+    if frames:
+        frame = frames[-1]
+        text += f" at {os.path.basename(frame.filename)}:{frame.lineno} in {frame.name}"
+    return text
 
 
 _POOL = None  # boolean_pool.Pool while main() runs the engine with worker processes
@@ -3666,16 +3704,16 @@ _COLOURS = {
 # --------------------------------------------------------------------------- job
 
 
-def run_job(job, timing=False):
+def run_job(job, timing=False, label="job"):
     """Result dict for one job; failures become status error/unknown with a reason."""
     measured = {} if timing else None
-    with _timed(measured, "job") as clocks:
+    with _timed(measured, "job", label) as clocks:
         try:
             result = _Job(job, clocks).run()
         except _Unknown as exc:
             result = {"status": UNKNOWN, "reason": str(exc)}
         except Exception as exc:
-            result = {"status": "error", "reason": f"{type(exc).__name__}: {exc}"}
+            result = {"status": "error", "reason": _failure_text(exc)}
     if timing:
         result["timing"] = measured["job"]
     return result
@@ -3689,7 +3727,9 @@ def run(payload):
         timing = payload.get("timing") is True
         measured = {} if timing else None
         with _timed(measured, "batch"):
-            result = {"results": [run_job(job, timing) for job in jobs]}
+            result = {
+                "results": [run_job(job, timing, f"job {index}") for index, job in enumerate(jobs)]
+            }
         if timing:
             result["timing"] = measured["batch"]
             # Non-operative: the booleans pool workers answered (see boolean_pool).
@@ -15394,7 +15434,7 @@ def _pool(target):
 
 
 def main(argv):
-    global _POOL
+    global _POOL, _TRAIL
     args = argv[argv.index("--") + 1 :] if "--" in argv else []
     if len(args) == 3 and args[0] == "--pool":
         boolean_pool.serve(args[1], args[2], _POOL_FUNCTIONS)
@@ -15408,13 +15448,27 @@ def main(argv):
     except (OSError, ValueError) as exc:
         result = {"status": "error", "reason": f"kernel job input unreadable: {exc}"}
     else:
-        _POOL = _pool(target)
         try:
+            _TRAIL = open(target + ".trail", "w", encoding="utf-8", newline="\n")
+        except OSError:
+            _TRAIL = None
+        try:
+            _POOL = _pool(target)
             result = run(payload)
+        except Exception as exc:
+            result = {"status": "error", "reason": f"kernel batch failed: {_failure_text(exc)}"}
         finally:
-            _POOL.close()
-            _POOL = None
-    text = json.dumps(result, sort_keys=True, separators=(",", ":"), allow_nan=False)
+            if _POOL is not None:
+                _POOL.close()
+                _POOL = None
+            if _TRAIL is not None:
+                _TRAIL.close()
+                _TRAIL = None
+    try:
+        text = json.dumps(result, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    except ValueError as exc:  # a NaN or infinity the engine let through
+        reason = f"kernel result is not strict JSON: {_failure_text(exc)}"
+        text = json.dumps({"reason": reason, "status": "error"}, sort_keys=True)
     with open(target, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(text)
 

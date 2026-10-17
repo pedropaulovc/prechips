@@ -204,7 +204,7 @@ def test_the_hosts_runaway_guard_leaves_no_worker_or_pool_file_behind(
         # The host's 600 s guard expiring while the worker is inside its boolean, the real
         # wait running until then. The engine is FREECAD_CMD's process or, under a launcher
         # such as the Linux AppImage's AppRun shell, that process's child.
-        assert timeout == 600
+        assert timeout == kernel.RUNAWAY_GUARD_S
         deadline = time.monotonic() + 300
         while not (tmp_path / "worker.json").exists():
             try:
@@ -218,9 +218,10 @@ def test_the_hosts_runaway_guard_leaves_no_worker_or_pool_file_behind(
 
     monkeypatch.setattr(kernel.subprocess, "Popen", _launch(script, []))
     monkeypatch.setattr(kernel, "_await_launcher", guard)
-    with pytest.raises(subprocess.TimeoutExpired):
-        kernel._execute(freecad_kernel, {"jobs": [], "timing": True})
+    result = kernel._execute(freecad_kernel, {"jobs": [], "timing": True})
     monkeypatch.undo()
+    assert result["status"] == "error"
+    assert "runaway guard" in result["reason"], result
     _assert_nothing_left(tmp_path)
 
 
