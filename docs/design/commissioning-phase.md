@@ -110,7 +110,7 @@ which replaces `feature` (§2.4).
 |---|---|
 | `fasteners` | `str`: the fastener group as the fixture names it (`"rail A T-slot studs"`) |
 | `element` | `str`: the guide element those fasteners hold (`"rail_a.pin"`), for the read-after-tightening rule (§2.3) |
-| `count` | `int` |
+| `count` | `int`, at least 1: a step tightening no fastener is a schema error |
 | `value_nm` / `value_in_lbf` | `float`, one spelling |
 | `passes` | `list[float]`: fractions of `value`, ascending, ending at 1.0 (`[0.5, 1.0]`) |
 | `sequence` | `str`: printed order (`"centre outward, alternating sides"`) |
@@ -453,7 +453,12 @@ reading applies the band to each axis separately.
 **Gauge step.** A recorded value only says the true value lies within one gauge
 step of it, and the band check judges that whole interval, not the bare number:
 
-- an indicating gauge or DRO of resolution `r`: `[read − r/2, read + r/2]`;
+- an indicating gauge of resolution `r`: `[read − r/2, read + r/2]`;
+- a DRO coordinate (`align`, `dro_xy`): two devices contribute, so their
+  half-steps add up. With DRO resolution `r_dro` and centring-gauge resolution
+  `r_g`, the interval is `[read − (r_dro + r_g)/2, read + (r_dro + r_g)/2]`. Both
+  can err in the same direction, so a reading near a limit is `?` rather than a
+  pass;
 - a limit-style pin set read as the largest pin that enters, with step `q`:
   `[read, read + q)`. The next pin did not enter, so the hole is smaller than
   `read + q`.
@@ -1003,6 +1008,9 @@ Also:
 - Staleness: changing only a commissioning setup's `plan.frames` entry stales
   the record. A changed torque value or wrench stales the torque completion as
   well as the readings.
+- Torque `count = 0` or negative → schema error.
+- DRO interval: a reading inside the band by less than `(r_dro + r_g)/2` → `?`;
+  by more → pass.
 - Gauge step: 0.01 pins against `[8.000, 8.015]`: 8.000 → pass; 8.01 → `?`
   (an 8.019 hole reads 8.01); 7.99 → `✗`. A band narrower than the step → error.
 - Travel frame: two ±100 relational moves from references 800 apart against a
