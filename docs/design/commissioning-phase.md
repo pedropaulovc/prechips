@@ -306,8 +306,9 @@ drill and ream, and the riser's is one sweep per edge. The validator requires:
 - the route's last op that sets size is the **terminal** op, and the route's
   earlier ops are roughing. The **declared** solid sets the target: its `dia`
   (8.0 for HUB) is what the `size` reading predicts, and the reading's band is
-  relative to it. The terminal tool must suit that target: the tool's own size
-  plus the band must fall within the declared size's band. A 9 mm reamer named
+  relative to it. The terminal tool must suit that target: the tool's own measured
+  size interval must lie within `declared diameter + band` (8.000–8.015 for
+  HUB). A measured 8.005 reamer passes; the band is not applied a second time. A 9 mm reamer named
   for the 8 mm `hub_hole` is an error, not a 9 mm prediction. An unmeasured tool
   size leaves that check `?`. The kernel cuts the declared size.
 
@@ -843,13 +844,15 @@ The kernel builds **planned geometry only**. Recorded readings never enter
   - **swept edges.** A sagitta band is not a radial offset. At `c = 300`,
     `R = 802`, a ±0.10 sagitta band allows roughly −5.5/+5.6 mm of radius, so
     the envelope never treats it as a radial offset. The edge is pinned at the
-    apex by its location readings (`hub_pin_to_edge`, `width`). At arc
-    position `s` from the apex, its radial deviation is the location band plus
-    the sagitta band scaled by `(s / (c/2))²`, with chord and gauge uncertainty
-    included. That is exact to first order inside the measured chord. Beyond
-    `|s| > c/2` the term keeps growing quadratically, so an edge that extends far
-    past the chord gets a wide envelope. The envelope is offset toward the part,
-    the worst case for clearance;
+    apex by its location readings (`hub_pin_to_edge`, `width`). The accepted
+    sagitta interval is **inverted** through the sagitta formula, with the
+    chord limits, gauge interval and guide budget included, to radius bounds
+    `[R_min, R_max]`. The envelope is the region swept by every arc of radius in
+    that range that passes through the apex location band, evaluated exactly over
+    the edge's whole length. No quadratic approximation is used, and the bound
+    stays conservative far beyond the measured chord. At 600 mm from the apex on
+    R802 with c = 300, a ±0.10 sagitta moves the edge about 2.8 mm. The envelope
+    is offset toward the part, the worst case for clearance;
   - **holes** keep the worst-case **material**: the void is the intersection of
     every accepted void. It is shrunk to the lower end of its size band and
     shrunk again by its position band, never grown. An accepted Ø8.000–8.015
@@ -1184,6 +1187,8 @@ Also:
 - Riser cutter binding: a riser edge op without `part_op`, or with a `part_op`
   that is a rough sweep or on another pin pair → error; two finishing sweeps on
   that edge with different cutters → error.
+- Terminal tool interval: a measured 8.005 reamer for an 8.000 `[0.000, 0.015]`
+  hole → valid; 8.020 → error.
 - Terminal tool: a 9 mm reamer on the 8 mm `hub_hole` → error; the `size`
   prediction is the declared 8.0, never the tool's size.
 - Torque `value_nm = 0` or negative → schema error.
@@ -1240,8 +1245,9 @@ Also:
   commissioned fixture has exactly one HUB hole even when the spot and the
   planned location differ.
 - The riser band is kept and the offcuts discarded (after #182).
-- Edge envelope: the sagitta band is applied as `(s / (c/2))²` × band from the
-  apex, never as a radius change; holes use the shrunk (intersected) void, so a
+- Edge envelope: built from the arcs at the inverted `[R_min, R_max]` through
+  the apex location band, evaluated over the whole edge; at 600 mm from the
+  apex (R802, c 300, ±0.10 sagitta) the envelope is at least 2.8 mm; holes use the shrunk (intersected) void, so a
   Ø8.010 object in an accepted Ø8.000–8.015 hole → not clear.
 - Guide budget: a rail-angle uncertainty widens the sagitta and width
   predictions; a missing budget fact → those readings `?`.
