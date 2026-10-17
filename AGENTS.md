@@ -151,15 +151,44 @@ No physical rehearsal or live farm evidence is recorded merely because exporter 
 
 ## Local validation
 
-From the repository root:
+From the repository root, local iteration runs the affected tests plus ruff:
 
 ```sh
 uv sync --locked
-uv run pytest
-uv run scripts/validate_examples.py
+uv run scripts/affected_tests.py --base main
 uv run ruff check .
 uv run ruff format --check .
 ```
+
+`scripts/affected_tests.py` selects from the merge base with `--base` plus
+staged, unstaged and untracked changes, and runs pytest capped at `-n 2 --dist
+loadscope` with `PRECHIPS_KERNEL_WORKERS=1`; `--dry-run` prints the selection
+and why. It uses the committed `tests/affected_tests.toml` map: changed test
+modules and their importers, the test modules measured as executing each changed
+source (`[sources]`), every `freecad_kernel` test for an engine source change
+and every `run_cli` test for a `cli.py` change (`[consumers]`),
+`[paths]` rules for examples, goldens, data and scripts, the always-run
+`keepers` (the golden examples, which drive the CLI as a subprocess) and every
+test module the map does not name yet. A `full` trigger (conftest, pyproject,
+the lock, the package version) or a changed file nothing maps selects the full
+suite, never nothing. CI fails (`test_every_tracked_source_is_in_the_map`) while
+a tracked `src/prechips` file is unmapped: list a new source in `[sources]` with
+the test modules that exercise it, or regenerate `[sources]` with `uv run
+scripts/affected_tests.py --rebuild-map` (one full in-process coverage run under
+pytest-testmon, 46 minutes cold here) when the selection drifts. Add a `[paths]`
+rule when a test starts reading a new non-Python input. CI is the
+authoritative full suite with the required kernel; a local selection is not a
+substitute for it and is not reported as a full-suite pass. Still run `uv run
+scripts/validate_examples.py` locally whenever examples, goldens or printed
+traveler content change, and the full `uv run pytest` when asked to.
+
+Point `PRECHIPS_KERNEL_CACHE` at one persistent shared directory (for example
+`~/.cache/prechips/kernel`) for every local run: unset, the test session uses a
+private temporary cache and every run starts cold. Entries are content-keyed and
+written atomically (temporary file plus `os.replace`), so concurrent sessions,
+worktrees and xdist workers can share the directory. A change to an engine
+source (`kernel.ENGINE_SOURCES`) changes the engine digest, so its first run is
+cold whatever the selection.
 
 Install FreeCAD 1.x and set `FREECAD_CMD` to its command executable if it is
 not discovered on `PATH` or at the installed Windows FreeCAD 1.1 location
