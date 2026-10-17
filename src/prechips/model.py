@@ -306,10 +306,20 @@ StickoutFit = record("StickoutFit", {"measure": str, **numbers("nominal_mm add_m
 # The step that squares a mill vise's fixed jaw, or an angle plate's locating face (the
 # fixture solid ``face`` names), to the table travel before the work goes in: the
 # ``indicator`` (an inventory gauge) is swept ``over_mm`` along it and its reading may
-# change by at most ``limit_mm``.
+# change by at most ``limit_mm``. A vise swivelled about Z (``hold.jaws_angle_deg``) is set
+# by ``method``: ``indicate_jaw`` touches the indicator on the fixed jaw at two DRO points
+# ``over_mm`` apart along the swivelled jaw line, the readings agreeing within ``limit_mm``;
+# a stated method (base ``graduations``, a bevel ``protractor`` or a ``sine_bar``) sets it
+# to within its cited ``tolerance_deg``.
+SWIVEL_METHODS = ("indicate_jaw", "graduations", "protractor", "sine_bar")
 Align = record(
     "Align",
-    {**texts("indicator face"), **numbers("limit_mm over_mm"), "cite": Citations},
+    {
+        **texts("indicator face"),
+        **numbers("limit_mm over_mm tolerance_deg"),
+        "method": Literal[SWIVEL_METHODS],
+        "cite": Citations,
+    },
 )
 JAW_AXES = ("x", "y", "not_applicable")
 
@@ -320,6 +330,15 @@ def _jaw_axis(value: str) -> str:
             f"jaws_along {value!r} is not a jaw axis: it is the jaw length axis before any "
             'swivel, "x", "y" or "not_applicable"; a vise swivelled about Z states its angle '
             "in jaws_angle_deg."
+        )
+    return value
+
+
+def _swivel_angle(value: float) -> float:
+    if not -90.0 < value < 90.0:
+        raise ValueError(
+            f"jaws_angle_deg {value} is not a swivel: it lies strictly between -90 and 90 "
+            "degrees from jaws_along; a quarter turn is the other jaws_along."
         )
     return value
 
@@ -338,6 +357,9 @@ Hold = record(
         "stickout_mm": Number,
         "stickout_fit": StickoutFit,
         "jaw_center_along_mm": Number,
+        # A vise swivelled on its base about setup +Z: the jaw line's angle from
+        # ``jaws_along``, counterclockwise positive seen from above (|angle| < 90).
+        "jaws_angle_deg": Annotated[float, AfterValidator(_swivel_angle)],
         "parallels_centres_mm": Annotated[PlanCentres, Field(min_length=2, max_length=2)],
         "riser_centres_mm": Annotated[PlanCentres, Field(min_length=1)],
         "supports": str | list[str | Reference],
