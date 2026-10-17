@@ -529,6 +529,22 @@ def _tooling_inputs(bundle, op, cut):
         result["point_angle_deg"] = angle
         if not (number(angle) and 0 < angle < 180):
             return {**result, "reason": f"{cut['label']}: the drill point angle is unknown"}
+    if op.get("do") == "ream":
+        # The lead below the full diameter reaches deeper, as blind_depth prints the tip.
+        lead = _accepted_length(tool, "lead")
+        result["lead_mm"] = lead
+        if not (number(lead) and lead >= 0):
+            return {**result, "reason": f"{cut['label']}: the reamer lead is unknown"}
+    if not cut.get("thru"):
+        # As blind_depth: the op's depth_mm is the full-diameter depth below the mouth; the
+        # feature's depth only bounds it.
+        depth = op.get("depth_mm", UNKNOWN)
+        result["op_depth_mm"] = depth
+        if not (number(depth) and depth > 0):
+            return {
+                **result,
+                "reason": f"{cut['label']}: op {op['op']} depth_mm in the blind hole is unknown",
+            }
     if cut.get("thru"):
         allowance = op.get("exit_mm", UNKNOWN)
         result["exit_mm"] = allowance

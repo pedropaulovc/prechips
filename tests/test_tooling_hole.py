@@ -277,8 +277,29 @@ def test_the_kernel_job_carries_the_drilled_hole_and_its_exit(tmp_path):
     assert "hole" not in ream
     assert ream["process_cut"]["diameter_mm"] == REAMER
     assert ream["process_cut"]["exit_mm"] == 2.0
+    assert ream["process_cut"]["lead_mm"] == 1.0
     drill = next(op for op in s1["ops"] if op["subject"] == "S1:10")
     assert drill["process_cut"]["point_angle_deg"] > 0
+
+
+@pytest.mark.parametrize(("depth_mm", "status"), [(7.5, "pass"), (8.5, "error")])
+def test_a_blind_tooling_hole_is_drilled_to_the_op_depth_within_its_own(tmp_path, depth_mm, status):
+    plan = bundle_plan(tmp_path)
+    text = plan.read_text(encoding="utf-8")
+    start = text.index("[process_features.cr_tooling_hole]")
+    text = text[:start] + text[start:].replace("thru = true\n", "depth = 10.0\n", 1)
+    text = text.replace(
+        'tool = "drill-index-115/9-32in"\nholder = "drill-chuck-r8"\nexit_mm = 2.0\n',
+        f'tool = "drill-index-115/9-32in"\nholder = "drill-chuck-r8"\ndepth_mm = {depth_mm}\n',
+    )
+    plan.write_text(text, encoding="utf-8")
+    bundle = load_bundle(plan)
+    # The 118° point of the 7.14 drill runs on past depth_mm; depth bounds the whole tip.
+    assert rows(bundle, "blind_depth")["cr_tooling_hole"].status == status
+    job = kernel.engine_job(prepared_job(bundle))
+    (s1,) = [setup for setup in job["setups"] if setup["id"] == "S1"]
+    drill = next(op for op in s1["ops"] if op["subject"] == "S1:30")
+    assert drill["process_cut"]["op_depth_mm"] == depth_mm
 
 
 @pytest.mark.parametrize(

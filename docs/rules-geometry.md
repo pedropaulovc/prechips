@@ -303,12 +303,16 @@ A `tooling_hole`'s transient claim is its reversed wall at the band's largest
 diameter, over its `depth` or, through, the stock's extent along its axis. Its
 `drill` or `ream` op removes the selected tool's own accepted diameter (a drill
 also its accepted `point_angle`) from 1 mm above the mouth along the hole axis,
-which must be setup -Z: a blind hole to its full-diameter `depth`, a through
-hole to the far side of the stock along that axis plus the op's `exit_mm`, a
-drill's point cone below either, minus protected finished material. A blind hole
+which must be setup -Z: a blind hole to the op's full-diameter `depth_mm` (the
+feature's `depth` bounds it, as in
+[`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)), a through hole to
+the far side of the stock near its axis plus the op's `exit_mm`, a drill's point
+cone below either, minus protected finished material; a reamer's accepted `lead`
+runs on below its full diameter for the tool and holder checks. A blind hole
 must lie wholly inside the stock and its mouth may have no stock over it within
-the lead, as for a centre. An unknown tool diameter or point angle, or an unknown
-`exit_mm` through the stock, is a refused input and leaves the cut unknown. The
+the lead, as for a centre. An unknown tool diameter, point angle or reamer lead,
+an unknown op `depth_mm` in a blind hole, or an unknown `exit_mm` through the
+stock, is a refused input and leaves the cut unknown. The
 op then measures the plain axial tool and holder like any drill or reamer.
 
 Every setup's facts carry `tooling_holes`, each hole's state on the stock entering

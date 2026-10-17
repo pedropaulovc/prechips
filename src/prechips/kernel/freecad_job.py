@@ -10967,23 +10967,27 @@ class _Setup:
             raise _Unknown(f"{cut['label']} is off the spindle axis the tailstock tool feeds along")
         if cut.get("kind") == "tooling_hole":
             length, point, _ = self._tooling_feed(cut, self.part, entry, feed.normalize())
-            return entry, entry.z - length - point
+            # A reamer's lead runs on below its full diameter.
+            lead = cut.get("lead_mm", 0.0) if _number(cut.get("lead_mm")) else 0.0
+            return entry, entry.z - length - point - lead
         return entry, entry.z - cut["depth_mm"]
 
     def _tooling_feed(self, cut, stock, entry, direction):
         """(full-diameter length from the mouth, point length, tan(point angle / 2) or None)
         of a tooling hole's tool (``process_cut``) fed from setup-frame ``entry`` along
-        ``direction``. A blind hole's body runs its ``depth_mm``; a through one runs to the
-        far side of ``stock`` along its axis plus the op's ``exit_mm``, as ``blind_depth``
+        ``direction``. A blind hole's body runs the op's ``op_depth_mm``; a through one runs
+        to the far side of ``stock`` near its axis (within the band's largest radius, so an
+        earlier op's bore does not hide it) plus the op's ``exit_mm``, as ``blind_depth``
         prints it. A drill's point cone runs on below either."""
         radius = cut["diameter_mm"] / 2
         angle = cut.get("point_angle_deg")
         slope = math.tan(math.radians(angle / 2)) if _number(angle) else None
         point = radius / slope if slope else 0.0
         if not cut.get("thru"):
-            return cut["depth_mm"], point, slope
+            return cut["op_depth_mm"], point, slope
         span = stock.BoundBox.DiagonalLength + 10.0
-        probe = Part.makeCylinder(radius, 2 * span, entry - direction * span, direction)
+        outer = max(radius, max(cut["dia_mm"]) / 2) + 1.0
+        probe = Part.makeCylinder(outer, 2 * span, entry - direction * span, direction)
         common = stock.common(probe)
         if common.isNull() or common.Volume <= HIT_MM3:
             raise _Unknown(f"{cut['label']} axis does not meet the stock it is drilled through")
