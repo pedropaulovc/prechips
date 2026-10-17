@@ -1229,8 +1229,9 @@ def guide_scene(bundle, setup, numbers, scale):
         item = item if isinstance(item, dict) else {}
         category, key = identity(bundle, reference, "fixtures")
         values, missing = {}, []
-        if not item or uncertain(item):
-            # A sled flagged to verify as a whole proves none of its facts, measured or not.
+        if not item or _item_flagged(bundle, category, key):
+            # A sled flagged to verify as a whole proves none of its facts, measured or not;
+            # a flag on one of them leaves only that fact (if the picture reads it) unproven.
             missing.append(f"{key} is not in the fixtures inventory or is flagged to verify")
         for field, _ in _ROLLER_FACTS:
             fact = length_fact(item, field, require_measured=True)

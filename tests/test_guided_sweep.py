@@ -674,6 +674,21 @@ def test_parallels_not_proven_leave_the_rollers_undrawn(tmp_path, parallels):
     )
 
 
+def test_a_flagged_picture_dimension_leaves_the_cut_proven(tmp_path):
+    # roller_dia is picture-only: flagged, it leaves the rollers undrawn with its note, but
+    # the cut the sweep proves from the rail's own facts stands.
+    flagged = ROLLERS.replace(
+        f"roller_dia_mm = {{ value = 22.0, {MEASURED} }}",
+        "roller_dia_mm = { value = 22.0, verify = true }",
+    )
+    row, annotation = guide_annotation(tmp_path, rollers=flagged)
+    cut = recipe(row)[1]["cut_radius_mm"]
+    assert isinstance(cut, list) and len(cut) == 2 and all(map(math.isfinite, cut))
+    assert "guides" not in annotation
+    notes = [note for note in annotation["notes"] if note.startswith("NOT SHOWN: op 20's")]
+    assert notes and not any("is flagged to verify" in note for note in notes), notes
+
+
 def test_a_sled_flagged_to_verify_draws_no_rollers(tmp_path):
     _, annotation = guide_annotation(
         tmp_path, edits=[("verify = false\n[gauges.bar]", "verify = true\n[gauges.bar]")]
