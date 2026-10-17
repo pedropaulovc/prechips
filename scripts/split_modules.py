@@ -340,6 +340,30 @@ def _mixin_hazards(node):
     return found
 
 
+def _class_reads(member, cls):
+    """Class-body names a member's definition reads while the class body runs: its
+    decorators, defaults and annotations, or an attribute's value. A mixin body lacks
+    them."""
+    if isinstance(member, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        args = member.args
+        parts = [*member.decorator_list, *args.defaults, *filter(None, args.kw_defaults)]
+        every = [*args.posonlyargs, *args.args, *args.kwonlyargs, args.vararg, args.kwarg]
+        parts += [a.annotation for a in every if a is not None and a.annotation is not None]
+        parts += [member.returns] if member.returns else []
+    elif isinstance(member, ast.ClassDef):
+        parts = [*member.decorator_list, *member.bases, *member.keywords]
+    else:
+        parts = [member]
+    read = {
+        n.id
+        for part in parts
+        for n in ast.walk(part)
+        if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)
+    }
+    bound = {name for n in cls.body if n is not member for name in _defined_names(n)}
+    return read & bound
+
+
 def _defined_names(node):
     """Names a class-body member binds: a def, or an assignment's plain targets."""
     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -534,11 +558,17 @@ def make_plan(module):
     for unit, target in placed:
         if unit.kind != "method":
             continue
+        heads = {u.name: u for u, _ in placed if u.kind == "head"}
         head_target = dict((u.name, t) for u, t in placed if u.kind == "head")[unit.cls]
         if target != head_target:
             mixins[(unit.cls, target)] = _mixin_name(unit.cls, target)
             for hazard in _mixin_hazards(unit.node):
                 refusals.append(f"{unit.name} -> {target}: {hazard}")
+            for name in sorted(_class_reads(unit.node, heads[unit.cls].node)):
+                refusals.append(
+                    f"{unit.name} -> {target}: its definition reads class-body name {name}, "
+                    "which the mixin does not bind"
+                )
     needs = defaultdict(set)
     uses = defaultdict(set)  # name -> {target reading it}
     writes = defaultdict(set)

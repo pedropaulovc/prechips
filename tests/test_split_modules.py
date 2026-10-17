@@ -789,3 +789,18 @@ def test_a_name_mangled_member_moved_to_a_mixin_is_refused(at, member, name):
     source = f"class Engine:\n    def run(self):\n        return 2\n\n    {member}\n"
     plan = at(source, _spec(f'["Engine.{name}"]'))
     assert any("name-mangled member" in refusal for refusal in plan.refusals)
+
+
+@pytest.mark.parametrize(
+    "member",
+    ["def moved(self, value=DEFAULT):\n        return value", "LIMIT = DEFAULT"],
+)
+def test_a_moved_member_reading_a_class_body_name_is_refused(at, member):
+    # The class body runs the default (or the attribute's value); a mixin's body would
+    # not see DEFAULT.
+    source = (
+        f"class Engine:\n    DEFAULT = 1\n\n    def run(self):\n        return 2\n\n    {member}\n"
+    )
+    name = "moved" if "def" in member else "LIMIT"
+    plan = at(source, _spec(f'["Engine.{name}"]'))
+    assert any("class-body name DEFAULT" in refusal for refusal in plan.refusals)
