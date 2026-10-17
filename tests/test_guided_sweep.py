@@ -465,6 +465,21 @@ def test_a_rough_sweep_backs_off_the_touch_on_one_axis(tmp_path, leave, back, dr
     assert rough["band_mm"] == pytest.approx([800.0 - leave, 800.5 - leave])
 
 
+def test_an_unknown_leave_withholds_the_finish(tmp_path):
+    # An authored leave of unknown size makes no rough table, but the finish must not cut
+    # through stock nobody measured.
+    row, printed = traveler_text(tmp_path, allowance="'unknown'")
+    assert row.status == "unknown", row.sentence
+    assert "its rough sweep is not established) — do not run." in printed
+    assert "Lock X and Y" not in printed and "start the spindle" not in printed
+
+
+def test_a_huge_sweep_is_rejected_without_sampling_it(tmp_path):
+    row = guided_row(tmp_path, sweep_deg="1e9")
+    assert row.status == "error", row.sentence
+    assert "sweep is a full turn or more" in errors(row)
+
+
 def test_a_negative_leave_prints_no_sweep(tmp_path):
     row = guided_row(tmp_path, allowance=-0.2)
     assert row.status == "error"

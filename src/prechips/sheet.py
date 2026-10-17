@@ -8988,7 +8988,9 @@ class _Traveler:
                 # stock for a rough sweep that is not printed runnable (rejected, or stopped),
                 # the finish would return to a touch never made or take the whole leave.
                 leave = (swept or {}).get("rough_allowance_mm")
-                wants_rough = _known(leave) and leave > 0
+                # An authored leave that is not a known amount is unresolved, never absent:
+                # the finish would cut through stock nobody measured.
+                wants_rough = leave is not None and not (_known(leave) and leave <= 0)
                 rough_ready = rough and all(established(t, depths) for t in roughs)
                 if arc.get("stage") == "finish" and wants_rough and not rough_ready:
                     description = [

@@ -107,7 +107,9 @@ def swept_angles(start, end, step, sweep, full):
     arc ends as well as where the sweep stops. A full circle, an unknown or short sweep
     keeps the arc's own samples."""
     arc = _samples(start, end, step)
-    if full or not arc or not number(sweep):
+    # A sweep of a full turn or more is an error (:func:`_sweep_span`): never expanded, so a
+    # huge one cannot run the sampling away.
+    if full or not arc or not number(sweep) or sweep >= 360.0:
         return arc
     over = (sweep - abs(end - start)) / 2
     if over <= _JOIN_TOL:
