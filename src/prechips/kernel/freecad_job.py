@@ -3542,6 +3542,8 @@ class _Job:
             raise ValueError("input is not a version-1 prechips geometry job")
         self.job = job
         self.timing = timing
+        # Component -> ownership region (:meth:`_init_joints`); absent is unrestricted.
+        self.owned_regions = {}
         if timing is not None:
             timing["setups"] = {}
 
