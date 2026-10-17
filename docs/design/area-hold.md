@@ -259,7 +259,7 @@ rules consume comes from a trusted fact, otherwise the finding is `?`:
 | vacuum friction | chuck `friction` | the same exact-pair check, for the work and the `on` solid (the chuck face) |
 | plate flatness f | new `flatness_mm` (`MeasuredLength`) on the `on` fixture solid: the flatness of that solid's **whole** top face, footprint and touch area alike | measured (a stack dimension, as D4); the recipe-A touch point must lie on that face (section 5.2) |
 | touch error e | new policy number `touch_error_mm`, with `numbers_cite` | cited and not flagged by `numbers_verify` |
-| mic error m | the measuring gauge's new `accuracy_mm` plus half its existing `resolution_mm` | both trusted |
+| mic error m | (recipe B only, out of scope under an area hold) the gauge's `accuracy_mm` plus half its `resolution_mm` | not consumed |
 | DRO step r | the setup machine's existing `resolution_mm` (the DRO grid) | measured, as the coordinates rules already require |
 
 A strength or coefficient applies only to the exact interfaces it was
@@ -289,7 +289,7 @@ finding names the fact and its domain. One parametrized test per row (section 8)
 | tape `thickness_mm` pair | `0 < t_lo ≤ t_hi` (schema) | bad input |
 | `gasket_inset_mm`, `flatness_mm`, `touch_error_mm` | `≥ 0` | `?` |
 | vacuum gauge | kind `vacuum_gauge`; range, resolution and accuracy as section 2.3 | `?` |
-| recipe-B mic | the `zero.z` gauge resolves to a dimensional thickness gauge (kind `micrometer` or `caliper`) with trusted `range_mm` containing the work's planned thickness band at P (`stock_state` top − bottom), trusted `resolution_mm` > 0 and `accuracy_mm` ≥ 0 | `?` |
+| pull test `lift_n`, `front_mm`, `thickness_mm`, `dwell_min` | each `> 0` | the test does not qualify (model A) |
 | recipe-A touch disc | the `zero.z` tool's resolved radius `> 0`, or a gauge block's half-width | `?` |
 | `k` (`hold_capacity_factor_min`) | `≥ 1` | `?` |
 
@@ -649,19 +649,14 @@ terms:         tape  [t_nom − t_hi, t_nom − t_lo]
 ```
 
 **Recipe B, Z from the work top** (`measure_then_set`). Mic the work at P to
-read M, then touch its top at P. Printed: `Axis Set Z = M + paper_mm`. A
-micrometer reads across both faces, and the underside is bonded once the work
-is taped, so M must be read **before** the hold. Recipe B under an area hold
-therefore requires `zero.z.measure_before_hold = true`, which prints the
-reading in the HOLD before the apply step. Without it, the stack row is an
-error ("the work's thickness cannot be miked once it is taped: set
-measure_before_hold"), never a printed step the operator cannot do. Both the
-mic reading and the top touch happen at the same point P, `zero.z.at_mm`
-(required here too, inside the footprint and clear of its edges by the gauge
-anvil's radius); the HOLD prints "mic at X …, Y …" and the DRO step "touch at
-the same X …, Y …". Without `at_mm`, the stack is `?`, because a mic reading
-taken in one place and a touch in another differ by the work's own thickness
-variation. The mic must be a dimensional gauge that can read M (section 2.8).
+read M, then touch its top at P. Printed: `Axis Set Z = M + paper_mm`. **Recipe B
+is out of scope under an area hold: its stack row is `?`** ("zero Z from the
+seat face (recipe A) under an area hold"). The micrometer must read across both
+faces before the work is bonded, at the same P the tool later touches, with an
+instrument whose throat or jaw reach is modelled to get there. That needs
+instrument-envelope facts the schema does not carry, and the result is worse
+on the tape term anyway (below). The arithmetic is kept to show why recipe A is
+preferred and as the basis for a follow-up, if a shop needs it.
 
 ```text
 thickness(x) = to_z + (t(P) − t(x)) + (Z_p(P) − Z_p(x)) + e_mic + e_touch + e_dro
@@ -819,7 +814,6 @@ both endpoints to land inside the band.
 | 4 | Seats the work (tape: and rolls it) | end stop, plate top | stop X from the pose | work bridges instead of conforming | area loss; the stack stops following t(x) (residue; printed "no daylight") |
 | 5 | (tape) Waits the dwell, writing both clock times | the clock | `dwell_min` | dwell cut short | strengths below the cited values; the printed gate is a STOP, so a short dwell is a stopped setup, not a reduced margin (D6) |
 | 6 | Sets Z (recipe A: plate + paper) | plate top at P | `−t_nom + paper` | paper, touch feel, DRO step | touch and DRO terms; the tape mean enters as `t_nom − t(x)` |
-| 6′ | Sets Z (recipe B: M miked at P before step 3, `measure_before_hold`; touch the top at P) | work top at P | `M + paper` | mic, touch, DRO; t(P) unknown | mic and touch terms; tape term doubled |
 | 7 | (vacuum) Reads the chuck gauge before each op | chuck gauge | the corrected minimum P (section 2.3), never `vacuum_kpa` itself | leak, pump, gauge error and resolution | P already absorbs gauge error, so a reading at P proves `vacuum_kpa`; a reading below P → STOP |
 | 8 | Cuts each op at the printed feed | — | feed from cutting data | feeds faster by hand | F_xy and F_z scale with fz^(1−mc) (residue; covered by the factor) |
 | 9 | Releases (solvent or heat, roll off) | — | release text | prying | bends thin work: the free-state bow is residue, and prying is forbidden in print |
@@ -874,9 +868,8 @@ tests request the shared `freecad_kernel` fixture.
 - Pairs: a value listed for `{ work = steel, seat = aluminium }` qualifies that
   setup, but not steel on steel or aluminium on steel; those leave capacity `?`,
   naming the pair.
-- Stack sources: each of `flatness_mm`, `touch_error_mm`, the gauge's
-  `accuracy_mm` (recipe B) and the machine's `resolution_mm` missing or
-  untrusted leaves the stack `?`, naming that fact.
+- Stack sources: each of `flatness_mm`, `touch_error_mm` and the machine's
+  `resolution_mm` missing or untrusted leaves the stack `?`, naming that fact.
 - Vacuum gauge: a `gauge` of another kind, a range not containing `vacuum_kpa`
   an unknown resolution or accuracy, or a printed minimum outside the range,
   leaves capacity `?`. On a 2 kPa gauge with 1.0 kPa accuracy, 80.0 kPa prints
@@ -909,10 +902,7 @@ tests request the shared `freecad_kernel` fixture.
   the work.
 
 **Stack** (`area_hold_stack`)
-- Recipe A and recipe B on the same inputs: B's tape interval is exactly twice
-  A's.
-- Recipe B without `measure_before_hold = true` is an error; with it, the HOLD
-  prints the mic reading before the apply step.
+- Recipe B under an area hold is `?` naming recipe A as the supported zero.
 - Endpoints: `to_z` at the band centre with a total width equal to the band
   passes, and 0.001 wider is an error; a narrow stack about an off-centre
   `to_z` that crosses one limit is an error.
@@ -944,11 +934,9 @@ tests request the shared `freecad_kernel` fixture.
 
 **Input domains**
 - One parametrized test per row of section 2.8: a value just inside the domain
-  is used, and the boundary outside it (`helix_deg` = 90, −30, NaN-free;
-  `friction` = 1.01; a mic whose range stops below the planned thickness;
+  is used, and the boundary outside it (`helix_deg` = 90 or −30;
+  `friction` = 1.01; a pull test with `front_mm` = 0;
   `ae` > D; `k` = 0.9) is `?` naming the fact and its domain.
-- Recipe B without `zero.z.at_mm` is `?`; with it, the mic step and the touch
-  step print the same X, Y.
 
 **Printed values**
 - One parametrized test per row of section 6.3: an unknown source prints that
@@ -1057,11 +1045,10 @@ not separately decided by the maintainer:
   must lie on it; releases need a cited record, and vacuum gains its own release
   (sections 2.3, 2.7, 5.2, 6.1);
 - recipe A's touch point is a plan field, `zero.z.at_mm`, never prose (section 5.2);
-- every consumed number has a stated domain, checked before use (section 2.8),
-  and recipe B mics and touches at the same `zero.z.at_mm` with a gauge whose
-  range contains the planned thickness (section 5.2);
-- recipe B requires `measure_before_hold = true`, since the work cannot be
-  miked once taped (section 5.2);
+- every consumed number has a stated domain, checked before use (section 2.8);
+- recipe B (zero from the work top) is out of scope under an area hold and
+  stays `?`: it would need instrument reach facts, and recipe A carries the tape
+  spread once instead of twice (section 5.2);
 - a pull test's dwell is a trusted measured fact, and step 7 prints the
   corrected minimum P (sections 3.4, 7);
 - strengths and friction apply only to the exact work/seat pairs they were
