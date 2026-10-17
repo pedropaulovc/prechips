@@ -2329,12 +2329,14 @@ below `bottom_z`, as `headroom` reads it; an authored but unknown one leaves it
 unknown) less the parallels or support blocks under the work (the height the
 `headroom` stack counts) and the fixture's `bed_height`. The
 kernel draws them as cylinders in the guide colour with one `GUIDE ROLLERS
-(TABLE)` callout and lists them in `render_scene.components` with role
+(TABLE)` callout per op (`GUIDE ROLLERS (TABLE, OP n)` when more than one op in the
+setup has rollers) and lists them in `render_scene.components` with role
 `guide_roller`; they never join the fixture components, so no checkpoint, clash,
 contact, clearance or `fixture_rendered` verdict reads them, and a malformed roller is
-a picture debt only. The isometric view widens to frame rollers within one stock
-size of the work along each of X, Y and Z; rollers farther off would shrink the
-work unreadably, so a `NOT SHOWN` note gives the setup X/Y/Z span they stand in. A
+a picture debt only. The isometric view widens to frame each op's rollers within one
+stock size of the work along each of X, Y and Z; rollers farther off would shrink the
+work unreadably, so a `NOT SHOWN` note gives the setup X/Y/Z span they stand in, and
+another op's nearby rollers stay framed. A
 roller fact that is missing or not measured, or an unknown support height under the
 work, leaves the rollers undrawn with a `NOT SHOWN` note naming each gap (a
 measured fact with its `measure:` instruction). A swing arm's pivot post stands at the arc centre, far

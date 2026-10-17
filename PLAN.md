@@ -1414,7 +1414,7 @@ sheet.
 
    **Guided-sweep guide pictures shipped (2026-10-16, #255):** a setup with a
    rail `guided_sweep` draws the arc sled's table-side rollers render-only
-   (role `guide_roller`, one `GUIDE ROLLERS (TABLE)` callout) from the sled's
+   (role `guide_roller`, one `GUIDE ROLLERS (TABLE)` callout per op) from the sled's
    new measured `roller_dia` / `roller_height` facts, its `rail_side` and
    `bed_height`, and the supports under the work; a missing or unmeasured fact
    is a `NOT SHOWN` note with its `measure:` instruction, and rollers more than

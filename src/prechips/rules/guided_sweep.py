@@ -1248,6 +1248,7 @@ def guide_scene(bundle, setup, numbers, scale):
             rollers.append(
                 {
                     "name": f"guide roller {index} (op {op})",
+                    "op": op,
                     "at_mm": [
                         centre_mm[0] + radius * trig.cos(theta),
                         centre_mm[1] + radius * trig.sin(theta),

@@ -669,6 +669,65 @@ def test_rollers_the_picture_cannot_place_are_a_note_with_their_measure(tmp_path
     assert note.startswith("NOT SHOWN: op 20's guide rollers") and named in note
 
 
+def guide_components(guides):
+    """The kernel's ``_guide_components`` run without FreeCAD: it builds plain dicts."""
+    import ast
+    from pathlib import Path
+
+    from prechips.kernel import render_diagram
+
+    engine = Path(render_diagram.__file__).with_name("freecad_job.py")
+    tree = ast.parse(engine.read_text(encoding="utf-8"))
+    (node,) = [
+        n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_guide_components"
+    ]
+    namespace = {}
+    exec(compile(ast.Module(body=[node], type_ignores=[]), str(engine), "exec"), namespace)
+    return namespace["_guide_components"](guides)
+
+
+def test_each_ops_rollers_are_framed_or_noted_on_their_own():
+    # Two guided sweeps in one setup: op 20's rollers stand beside the work, op 30's far
+    # off. Each op's rollers are their own component, so op 30's going off the picture as
+    # a note leaves op 20's framed and called out.
+    from prechips.kernel.render_diagram import _Diagram
+
+    near = [80.0, -50.0, -40.0, 100.0, -30.0, -10.0]
+    far = [800.0, -50.0, -40.0, 820.0, -30.0, -10.0]
+    farther = [840.0, -50.0, -40.0, 860.0, -30.0, -10.0]
+    components = guide_components(
+        [
+            ("guide roller 1 (op 20)", 20, near),
+            ("guide roller 1 (op 30)", 30, far),
+            ("guide roller 2 (op 30)", 30, farther),
+        ]
+    )
+    assert [c["label"] for c in components] == [
+        "GUIDE ROLLERS (TABLE, OP 20)",
+        "GUIDE ROLLERS (TABLE, OP 30)",
+    ]
+    assert components[1]["meshes"] == ["guide roller 1 (op 30)", "guide roller 2 (op 30)"]
+    assert components[1]["box_mm"] == [800.0, -50.0, -40.0, 860.0, -30.0, -10.0]
+    spec = {
+        "setup_id": "S1",
+        "view": "isometric",
+        "stock_box": [-60.0, 0.0, -5.0, 60.0, 18.75, 0.0],
+        "components": components,
+    }
+    diagram = _Diagram([], spec)
+    names = {component["name"] for component in diagram.components}
+    assert "guide rollers (op 20)" in names and "guide rollers (op 30)" not in names
+    assert any(
+        debt.startswith("NOT SHOWN: GUIDE ROLLERS (TABLE, OP 30) stand off the picture")
+        for debt in diagram.render_debts
+    )
+    # One op's rollers keep the plain callout.
+    (single,) = guide_components(
+        [("guide roller 1 (op 20)", 20, near), ("guide roller 2 (op 20)", 20, near)]
+    )
+    assert single["name"] == "guide rollers" and single["label"] == "GUIDE ROLLERS (TABLE)"
+
+
 def test_the_isometric_view_frames_and_labels_rollers_standing_off_the_work():
     # Holding that does not touch the work is cropped out of an isometric frame, but the
     # rollers stand off the work by design: they stay framed and get their callout.
