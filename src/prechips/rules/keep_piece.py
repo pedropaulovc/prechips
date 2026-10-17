@@ -63,7 +63,11 @@ def evaluate(bundle):
                 Finding("keep_piece", subject, "pass", numbers, cite, f"{subject}: {message}.")
             )
             continue
-        stock = setup_facts.get("stock_reason") or setup_facts.get("stock_out_reason")
+        stock = (
+            setup_facts.get("stock_reason")
+            or setup_facts.get("stock_out_reason")
+            or setup_facts.get("reason")
+        )
         reason = detail.get("reason") or (
             f"the kept piece is unknown: in-process stock unknown: {stock}"
             if stock

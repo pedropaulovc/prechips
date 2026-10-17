@@ -224,6 +224,7 @@ faces = [plane(2, 8), plane(22, 28), plane(5, 25), plane(12, 18)]
 owner = SimpleNamespace(features={
     "west_top": [0], "east_top": [1], "both_tops": [0, 1], "bridge": [2], "gap": [3],
 })
+owner._declared = lambda: owner.features
 fake = SimpleNamespace(owner=owner, faces=faces)
 out = {}
 for stock_name, stock in {

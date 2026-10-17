@@ -5467,7 +5467,8 @@ class _Setup:
         if not isinstance(feature, str) or feature == UNKNOWN:
             return refused("keep is unknown; name the finished feature the kept piece carries")
         indices = self.owner.features.get(feature)
-        if feature not in self.owner.features:
+        # A finished feature of the part only: a plan joint feature is a transient surface.
+        if feature not in self.owner._declared():
             return refused(
                 f"keep names {feature}, which is not a feature of the part; name the finished "
                 "feature the piece that leaves this setup carries"
@@ -5477,17 +5478,17 @@ class _Setup:
                 f"keep feature {feature} has no resolved faces; resolve its face references so "
                 "the piece that carries it can be found"
             )
-        pieces = list(stock.Solids)
-        rows = [
-            {
-                "piece": number,
-                "volume_mm3": _r(piece.Volume),
-                "bbox_mm": [_r(v) for v in _bbox(piece)],
-            }
-            for number, piece in enumerate(pieces, start=1)
-        ]
         carriers, touched = [], set()
         try:
+            pieces = list(stock.Solids)
+            rows = [
+                {
+                    "piece": number,
+                    "volume_mm3": _r(piece.Volume),
+                    "bbox_mm": [_r(v) for v in _bbox(piece)],
+                }
+                for number, piece in enumerate(pieces, start=1)
+            ]
             for number, piece in enumerate(pieces, start=1):
                 whole = True
                 for index in indices:
