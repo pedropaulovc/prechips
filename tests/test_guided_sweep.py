@@ -998,6 +998,22 @@ def test_a_rough_stops_the_spindle_when_its_finish_is_withheld(tmp_path):
     assert rough_steps.rstrip().endswith("then stop the spindle and wait for it to stop.")
 
 
+@pytest.mark.parametrize("where", ["fixture", "master"])
+def test_an_item_whose_source_is_flagged_proves_no_cut(tmp_path, where):
+    # A flagged source record leaves the item's identity unresolved, however complete its
+    # measured facts: the sweep cannot rest on it.
+    plan = guided_plan(tmp_path)
+    block = "[fixtures.arm]" if where == "fixture" else "[gauges.bar]"
+    change(
+        plan.with_name("inventory.toml"),
+        block + "\n",
+        block + "\nsource = { cite = 'shop list', verify = true }\n",
+    )
+    row = coordinates_row(plan, stock_bbox=SWING)
+    assert row.status == "unknown", row.sentence
+    assert "is flagged to verify" in debts(row)
+
+
 def test_a_flagged_member_of_a_master_set_proves_no_cut(tmp_path):
     # A set's own verify = false does not clear a selected member flagged to verify.
     bars = (

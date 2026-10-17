@@ -24,7 +24,7 @@ import math
 from .. import trig
 from ..measurements import length_debt, length_fact, limits_debt, limits_fact, record_debt
 from .coordinates import _JOIN_TOL, _WALL_TOL, _grid, _pair, _samples, dro_grid
-from .resolution import UNKNOWN, authored, identity, number, record, resolve
+from .resolution import UNKNOWN, authored, identity, number, record, resolve, uncertain
 
 METHOD = "guided_sweep"
 # The fixture kind each guide rides on: a swing arm pivots on its pin, a sled on its rail.
@@ -169,25 +169,36 @@ def _flagged(item, fields, category, key, measurements):
 
 def _item_flagged(bundle, category, key):
     """Whether the inventory item ``key`` is flagged to verify as a whole, as the shop list
-    states it (its own ``verify``, ``present`` or coverage). A flag on one nested fact does
-    not count (resolving an item folds those into its ``verify``): each fact the sweep
-    consumes is checked on its own, and one it does not consume (a picture-only dimension,
-    a bed height headroom reads) must not leave the cut unproven."""
+    states it: its own ``verify``, ``present`` or coverage, or any record about the item
+    rather than one of its measured facts (its ``source`` provenance, say). A flag on one
+    measured fact (a ``_mm`` / ``_in`` record) does not count, though resolving an item
+    folds those into its ``verify``: each fact the sweep consumes is checked on its own,
+    and one it does not consume (a picture-only dimension, a bed height headroom reads)
+    must not leave the cut unproven. A selected member (``bars/r800``) is read the same
+    way beside its set."""
     parent = authored(bundle, category, key)
     stated = [parent]
     member = key.partition("/")[2] if isinstance(key, str) else ""
     if member:
-        # A selected member (``bars/r800``) carries its own flags beside its set's.
         chosen = record(parent.get("members")).get(member, {})
         if chosen == UNKNOWN:
             return True
         stated.append(record(chosen))
-    return any(
+    return any(_flagged_as_a_whole(item) for item in stated)
+
+
+def _flagged_as_a_whole(item):
+    if (
         item.get("verify") is True
         or item.get("verify") == UNKNOWN
         or item.get("present") == UNKNOWN
         or "verify" in str(item.get("coverage", "")).lower()
-        for item in stated
+    ):
+        return True
+    return any(
+        uncertain(value)
+        for name, value in item.items()
+        if isinstance(value, dict) and name != "members" and not name.endswith(("_mm", "_in"))
     )
 
 

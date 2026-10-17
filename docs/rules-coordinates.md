@@ -463,7 +463,8 @@ naming them. Each table is recorded under `arc_table` (its joins under
   the setup frame and nothing holds it at that pose for the other op, before the
   sweep or after it (manual ops aside). An unknown guide,
   fixture, master, axis, sweep, rollers or rail ends, a fixture or master flagged
-  to verify as a whole (as the shop list states it, a selected set member's own flags
+  to verify as a whole (as the shop list states it, its source provenance and a
+  selected set member's own flags
   included; a flag on a fact the sweep does not read, a picture-only dimension say,
   does not count), and a `pivot_play`, `rail_form_error`, `roller_runout` or
   `radius_limits` without its own complete `measured` record (`rail_radius` is
