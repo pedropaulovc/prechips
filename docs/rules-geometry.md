@@ -263,6 +263,28 @@ nothing. Earning
 nothing leaves the face's obligations open; it is never debt or
 `not_applicable`.
 
+The other exception is a face the join itself forms. A joint's `forms` lists
+exported features whose faces no op cuts because the join leaves them, such as a
+hub-to-strap root fillet `R0.2 MAX` (`radius = [0, 0.2]`) that the press leaves
+sharp. `coverage` credits that feature's faces to the joint only when three things
+hold:
+
+1. The join assembles, with known joined stock.
+2. The kernel admits the joined corner inside the feature's own band (see the
+   [assembly backstop](#transient-joint-preparation-and-assembly)).
+3. The last op that names the feature and checks its `radius` band, in a setup
+   downstream of the joint or in the joint's own setup after its first `fit` (the op
+   that joins; a setup with none joins on entry), passes that check under
+   [inspection's](rules-inspection.md) gauge capability rule. A leaf at or under
+   the `[0, r]` limit is enough when the gauge declares no leaf tolerance (or zero).
+   With a positive tolerance the check is unknown until the traveler names the safe
+   leaf. A check on an op naming another
+   feature reads that feature, not this one.
+
+If the inspection is missing or not a pass, or the join is unresolved, the credit
+is debt (`?`), never a pass. Those faces are then left out of `unclaimed_faces`,
+but any other unclaimed face is still an error. A refused join credits nothing.
+
 Plan [process features](plan.md#process-features) (a faced `end_face`, a
 `centre_hole`, a `tooling_hole`) are analytic stock preparation labelled
 `plan.process_features.<id>`. The kernel adds them as transient faces after
@@ -989,6 +1011,59 @@ spigot-owned preparation stock; if a cut loses material that neither received
 branch nor authorized fill supplies, the assembly backstop refuses the join.
 This late check is not permission to discard a shoulder or other finished
 material.
+
+The backstop does not count corner material that a joint's `forms` feature
+admits as lost. The kernel checks each formed feature on the actual joined
+branches:
+
+- Every one of its STEP faces bounds lost finished material. If a received
+  branch already carries a face, or never meets it, the join does not form it.
+- Each lost piece touching those faces is bounded only by formed faces and the
+  untrimmed surfaces of their neighbouring finished faces, so the joined corner is
+  the sharp corner where those neighbours meet. Features that share one lost piece
+  are judged together.
+- The socket's mouth breaks are included; the spigot runs through the corner with no
+  edge there. A cylindrical joint's socket mouths carry its declared `edge_break`,
+  cut into the received socket before the join. The mouths are the `at` end, and the
+  far end too when `thru`. A radius or chamfer mouth leaves a groove round the
+  spigot that no neighbour surface bounds, so the join is refused (`the socket's
+  <kind> <size> mouth break leaves a groove, not a fillet or a sharp corner`). A break
+  is placed only on a flat socket face square to the axis: the material it leaves in
+  its annulus must be present inside the mouth plane, and nothing may lie outside it.
+  A mouth the received socket already shows broken therefore places. The break is
+  cut only after the join's certain checks (fit, overlap, insertion, fill process).
+  A mouth that cannot be placed, such as an authored end in air (a thru socket
+  authored past its material) or a saddle on a curved face, makes the joined corner
+  undecided. While it stands, a carried face, a corner that is not sharp (a groove at
+  the other, placed mouth included) and a single component are debt. Loss beyond the
+  band's MAX and a band not starting at 0 stay certain refusals. An undeclared or
+  unknown break is debt.
+- No lost point, sampled faces and vertices included, lies farther than the band's
+  MAX from the faces of the formed features its piece touches. Material missing
+  beyond the band stays lost. Another formed feature's face that the piece never
+  meets, and that face's neighbours, neither shorten that distance nor bound the
+  piece.
+- The corner shares area with both received branches. A corner that one branch
+  alone bounds belongs to a single component, which the join did not form.
+- A sharp corner is radius 0, so the band's lower end must be 0. A `[0.1, 0.2]`
+  band refuses it.
+
+Each of these failures refuses the join with its message. An unknown band, units
+or mouth break makes a formed feature debt. So does a known feature whose lost
+material is shared with an undecided one, transitively and whatever the order of
+`forms`. Its other pieces are still held to loss beyond its MAX and to a band not
+starting at 0. Otherwise all its lost pieces are excused with it, and so is any lost
+piece touching them. Lost material left at an undecided
+feature's faces, or at a deferred feature's lost pieces, then withholds the joined
+stock instead of refusing it. Lost material elsewhere is still a certain refusal. Two cases withhold the stock for any
+leftover loss: a feature whose faces are unknown, since nothing says where its corner
+is, and a lost piece that touches an undecided corner, which is excused as a whole
+because no known band bounds it. With no lost material at all, the join assembles
+and the undecided feature's row stays unknown. The joined setup
+reports `forms.<feature>` with `status = "formed"`, `indices`, `corner = "sharp"`,
+`radius_mm`, `admitted_mm3` and `reach_mm` (the farthest lost point from the
+faces). Later joins keep the admitted material admitted. A joint without `forms`
+runs the backstop unchanged.
 
 For a derivable face footprint, removal is clipped to the authored `to_z`
 endpoint and to material outside the finished solid.
@@ -2074,7 +2149,9 @@ The rule does not certify a floor fillet or bottom radius against the cutter.
 ## `coverage`
 
 One row for the whole part. Every imported face must be in the union of the
-face sets claimed by cutting operations and `stock.as_is_faces`, where a face
+face sets claimed by cutting operations, `stock.as_is_faces` and the faces of
+features a checked joint forms
+([joint-formed faces](#face-identity)), where a face
 claimed through rotary windows counts only when the union of those windows
 covers it. Numbers: `face_count`, `claimed_face_count`, `unclaimed_faces`
 (their references, `null` for an unnamed face) with `unclaimed_indices`,
@@ -2084,10 +2161,11 @@ a rotary-claimed face is not covered (below). Sentences label an unnamed face
 
 - `invalid STEP face reference(s): …` (error)
 - `cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown.` (unknown: any unknown action, unmapped feature, unresolved claim direction or unknown/omitted `as_is_faces`)
+- `<joint> forms <feature>, but no check after the join reads its radius band`, `… but its radius check is not a pass (<inspection message>)` or `… but its joined corner is unresolved (<reason>)` (unknown; joined to any claim debt with `; `). `joint_formed` lists each formed feature's `joint`, `feature`, `kernel` status, `credit` and, when checked, `check` and `check_status`.
 - `rotary window coverage is unresolved for <face> (<reason>); …` (unknown)
 - `faces have no cutting op or as-stock claim: …` (error)
 - `rotary windows leave part of a claimed face uncut: <face> (<area> mm² at <setup> z <lo>..<hi> mm, angle <lo>..<hi>°); …` (error; joined to the previous error with `; ` when both apply)
-- `every imported face is claimed by a cutting op or declared as-stock.` (pass)
+- `every imported face is claimed by a cutting op or declared as-stock.` (pass), or `every imported face is claimed by a cutting op, declared as-stock or formed by a checked joint.` when a joint's credit is used
 - `Imported STEP face inventory is unresolved.` (unknown)
 
 Only supported, direction-valid claims are credited. If every remaining

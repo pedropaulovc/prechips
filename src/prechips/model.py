@@ -732,6 +732,26 @@ def _ordered(band: Any, what: str, *, floor: float, inclusive: bool) -> None:
         raise ValueError(f"{what} must be an ordered [lo, hi] band with lo {relation} {floor:g}.")
 
 
+class EdgeBreak(InputModel):
+    """A socket mouth's edge as made: ``sharp`` (no break), or a ``radius`` or ``chamfer``
+    of ``size`` in manifest units; a numeric literal ``"unknown"`` size is debt."""
+
+    kind: Literal["sharp", "radius", "chamfer"]
+    size: float | Unknown | None = None
+
+    @model_validator(mode="after")
+    def sized(self) -> EdgeBreak:
+        if self.kind == "sharp":
+            if self.size is not None:
+                raise ValueError("A sharp edge_break has no size.")
+            return self
+        if self.size is None:
+            raise ValueError(f'A {self.kind} edge_break needs a size (or "unknown").')
+        if self.size != UNKNOWN and self.size <= 0:
+            raise ValueError(f"A {self.kind} edge_break size must be positive; write sharp.")
+        return self
+
+
 class JointFeature(InputModel):
     """A plan-owned transient cylinder on one stock component, never a finished surface.
 
@@ -751,6 +771,8 @@ class JointFeature(InputModel):
     requirements: list[Literal["dia"]] = Field(default_factory=lambda: ["dia"])
     precision: dict[str, int | Unknown] | Unknown = UNKNOWN
     note: str | Unknown = UNKNOWN
+    # A socket's mouth edges as made, which a joint's ``forms`` corner is judged with.
+    edge_break: EdgeBreak | Unknown | None = None
 
     @model_validator(mode="after")
     def known_geometry(self) -> JointFeature:
@@ -766,6 +788,8 @@ class JointFeature(InputModel):
             raise ValueError("A joint feature depth must be positive, also when thru.")
         if len(set(self.requirements)) != len(self.requirements):
             raise ValueError("A joint feature lists a requirement twice.")
+        if self.edge_break is not None and self.kind != "cylinder_bore":
+            raise ValueError("A joint feature edge_break describes a socket's mouth edges.")
         return self
 
 
@@ -913,6 +937,9 @@ class CylindricalJoint(InputModel):
     process: str
     compound: JointCompound | None = None
     cite: Citations
+    # Exported features whose finished faces the join itself forms (a root fillet the press
+    # leaves sharp); credited only as the kernel and an inspection admit them (#301).
+    forms: list[str] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -966,6 +993,7 @@ class SurfaceJoint(InputModel):
     process: str
     cite: Citations
     interfaces: Annotated[list[JointInterface], Field(min_length=1)]
+    forms: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def declared_process(self) -> SurfaceJoint:
@@ -1250,6 +1278,7 @@ class Plan(InputModel):
             if setup.id != UNKNOWN
         )
         joined: dict[str, str] = {}
+        formed: dict[str, str] = {}
         for setup in self.setups:
             where = f"Setup {setup.id}"
             refs = setup.stock_in if "stock_in" in setup.model_fields_set else UNKNOWN
@@ -1272,6 +1301,18 @@ class Plan(InputModel):
             joint = setup.joint
             if not declared or joint == UNKNOWN:
                 raise ValueError(f"{where} stock_in array requires a declared joint.")
+            for name in joint.forms:
+                _known_text(name, f"{where} joint forms entry")
+                if name in features:
+                    raise ValueError(
+                        f"{where} joint forms {name!r}, a plan joint feature: a joint forms "
+                        "exported finished faces, never its own transient interface."
+                    )
+                if name in formed:
+                    raise ValueError(
+                        f"{where} joint forms {name!r}, already formed in setup {formed[name]}."
+                    )
+                formed[name] = setup.id
             if not isinstance(joint, CylindricalJoint):
                 continue
             sides = {}

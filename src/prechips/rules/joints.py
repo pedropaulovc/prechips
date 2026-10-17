@@ -103,5 +103,8 @@ def evaluate_assembly(bundle):
             "stock_in": list(setup["stock_in"]),
             "completed_joint_features": detail.get("completed_joint_features", UNKNOWN),
         }
+        if setup["joint"].get("forms"):
+            # Each formed feature's admitted corner, or nothing when the join was refused.
+            numbers["forms"] = detail.get("forms", UNKNOWN)
         rows.append(Finding("joint_assembly", sid, status, numbers, cite, f"{sid}: {message}."))
     return rows

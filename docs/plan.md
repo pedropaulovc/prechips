@@ -360,6 +360,13 @@ exported features. Every declaration requires:
 | `thru` | Boolean through/blind declaration |
 | `cite` | Nonempty author/source citation |
 
+A `cylinder_bore` may also state its mouth edges as made: `edge_break = { kind =
+"sharp" }`, or `{ kind = "radius" | "chamfer", size = s }` in manifest units (`size =
+"unknown"` is debt). The mouths are the `at` end and, when `thru`, the far end too.
+Only a joint that [forms](#assembly-joints) a feature reads it. A spigot carries no
+`edge_break`, and a sharp break with a size, a sized break without one, or a
+nonpositive size is bad input (exit 3).
+
 Unsuffixed lengths use the manifest's model units; `axis` is dimensionless.
 Known geometry must satisfy these constraints. Literal numeric `"unknown"`
 remains debt and cannot create a solid, an inferred nominal, or a successful
@@ -589,7 +596,7 @@ Incompatible as-is surfaces also keep stock-dependent geometry `?` with a reason
 
 `as_is_faces` lists STEP face references (same forms as a feature's `faces`)
 that stay as supplied stock; the M4 `coverage` rule unites them with the faces
-claimed by cutting operations. An omitted list is unknown, not empty. On a
+claimed by cutting operations and those a joint [forms](#assembly-joints). An omitted list is unknown, not empty. On a
 [profiled blank](#profiled-blank) each listed face is credited only when it is
 supplied as cut within its drawing bands.
 
@@ -815,6 +822,65 @@ not model cure kinetics or certify a product: cite the author's source/choice fo
 the declared band and cure conditions. A joint without a compound prints no prep
 or cure. Use the canonical noncutting bench action `do = "fit"`, not an
 undeclared `fit_up` or `bond` cutting action.
+
+Either joint kind may declare `forms`, a list of exported features whose finished
+faces the join itself forms and no op cuts. The usual case is a root fillet whose
+drawing limit admits the sharp corner the join leaves: a hub pressed through a
+strap, with its root printed `2X R0.2 MAX` (`radius = [0, 0.2]`). The list goes on
+the joint because forming the faces is a fact about the join. The exported manifest
+is a consumer export that the plan does not edit. Rules for `forms`:
+
+- Each entry names an exported feature with a `radius` band.
+- An entry naming a plan joint feature is bad input (exit 3).
+- An entry naming the same feature twice, in one joint or in two, is bad input
+  (exit 3).
+- An entry naming a feature with no radius band refuses the join.
+
+The kernel checks the joined corner against the band (see the [assembly
+backstop](rules-geometry.md#transient-joint-preparation-and-assembly)). It judges the
+joined geometry with the socket's mouth breaks included, so a cylindrical joint that
+forms a feature needs its socket's mouth `edge_break`. The spigot runs through the
+corner and has no edge there.
+
+- **Sharp mouth:** the press leaves the sharp corner the band admits.
+- **Radius or chamfer mouth:** the break leaves a groove round the spigot, neither a
+  fillet nor a sharp corner, so the join is refused.
+- **Mouth not on a flat face:** the break can only be placed on a flat socket face
+  square to the axis. An authored end in air, or a saddle on a curved face, turns a
+  formed feature that passes every other check into debt. A thru socket authored past
+  its material is such a case.
+- **Omitted or unknown break:** the formed feature is debt. Lost material at its
+  faces withholds the joined stock; loss elsewhere is still refused.
+
+The drawing's general `edge_break_r`/`chamfer_max` is not read for this. That
+allowance is a maximum and does not say what this mouth carries.
+
+Beyond that, no material may be missing beyond the band's MAX, and the band must
+start at 0. `coverage` credits the faces to the joint only when the last op that
+names the feature and checks its `radius` band passes. That op must run in a setup
+downstream of the joint, or in the joint's own setup after its first `fit`, the op that
+joins. A setup with no `fit` joins on entry. Without such a check the credit is debt. A [limit
+leaf](rules-inspection.md) at or under the MAX is enough when the gauge declares no
+leaf tolerance (or zero):
+
+```toml
+[setups.joint]
+kind = "cylindrical"
+socket = "strap_hole"
+spigot = "hub_land"
+fit = "interference"
+interference_mm = [0.005, 0.035]
+method = "press"
+process = "AUTHOR'S CHOICE: arbor press, hub square to the strap face"
+cite = "AUTHOR'S CHOICE: H7/r6 press"
+forms = ["hub_root"]   # 2X R0.2 MAX: the press leaves the root sharp
+
+[joint_features.strap_hole]
+# ... kind = "cylinder_bore", at, axis, dia, nominal_dia, depth, thru, cite
+edge_break = { kind = "sharp" }   # mouths stated sharp: no break to leave a groove
+```
+
+A formed face is neither as-is stock nor a cut, so it does not go in `as_is_faces`.
 
 For example (illustrative process choices, not manufacturer specifications):
 
