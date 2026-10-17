@@ -812,14 +812,19 @@ with `{"jobs": [...], "timing": true}`; native requests without that opt-in reta
 their untimed output contract.
 
 The native batch response has `timing = {wall_ms, cpu_ms}`. Each job result has
-its own top-level `timing = {wall_ms, cpu_ms, setups}`, where `setups` maps setup
-ids to `{wall_ms, cpu_ms, phases, ops}`. `phases` holds measured `fixture`,
+its own top-level `timing = {wall_ms, cpu_ms, phases, setups}`. The job's
+`phases` holds its work before the first setup: `step_import` (reading and
+digesting the STEP, parsing it and importing its one valid solid),
+`face_binding` (face signatures, STEP face references, declared features and
+faced aims) and `stock_prep` (stock supplies, blank boxes, joints and the process
+model), each present once that step starts. `setups` maps setup ids to
+`{wall_ms, cpu_ms, phases, ops}`. A setup's `phases` holds measured `fixture`,
 `chuck_walls` (radial clamp-wall sampling), `stock_states` (the one op-order
-pass deriving each op's before-op stock), `render` and `stock_output` (final
-wall/cap checks on the end stock) intervals when those paths run; `ops` maps operation subjects to
-`{wall_ms, cpu_ms}`. All measurements are milliseconds rounded to six decimal
+pass deriving each op's before-op stock), `render`, `stock_output` (final
+wall/cap checks on the end stock) and `inspection_sketches` intervals when those
+paths run; `ops` maps operation subjects to `{wall_ms, cpu_ms}`. All measurements are milliseconds rounded to six decimal
 places: elapsed time uses a monotonic clock, while CPU time uses the FreeCAD
-process CPU clock, not host CPU or machine-wide utilization. Setup totals include
+process CPU clock, not host CPU or machine-wide utilization. Job and setup totals include
 their phases and operations; do not add those nested measurements to the totals.
 Batch measurements include orchestration and are not a sum of job measurements.
 

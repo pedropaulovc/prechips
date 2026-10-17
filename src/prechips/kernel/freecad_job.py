@@ -3751,52 +3751,59 @@ class _Job:
 
     def run(self):
         job = self.job
-        path, digest = job.get("step_path"), job.get("step_sha256")
-        if not isinstance(path, str) or path == UNKNOWN:
-            raise _Unknown("STEP path is unknown.")
-        if not isinstance(digest, str) or digest == UNKNOWN:
-            raise _Unknown("STEP SHA-256 is unknown; face references cannot be bound to the file.")
-        with open(path, "rb") as handle:
-            data = handle.read()
-        actual = hashlib.sha256(data).hexdigest()
-        if actual != digest.lower():
-            raise ValueError(f"STEP SHA-256 mismatch: job declares {digest}, file has {actual}")
-        try:
-            step = StepFile(data.decode("latin-1"))
-        except StepError as exc:
-            raise ValueError(f"STEP is not parseable: {exc}") from None
-        shape = Part.Shape()
-        shape.read(path)
-        solids = shape.Solids
-        if len(solids) != 1:
-            raise _Unknown(
-                f"STEP import yields {len(solids)} solids; "
-                "the kernel measures exactly one part solid."
-            )
-        solid = solids[0]
-        if len(shape.Faces) != len(solid.Faces):
-            raise _Unknown("STEP import holds faces outside its single solid.")
-        if not solid.isValid():
-            raise _Unknown(
-                "imported solid is not a valid B-rep; booleans on it would be unreliable."
-            )
-        self.solid = solid
-        signatures = [_signature(face) for face in solid.Faces]
-        mapping, errors = _map_faces(step, signatures)
-        refs_by_index = {index: ref for ref, index in mapping.items()}
-        self.labels = [
-            refs_by_index.get(index, f"imported face index {index}")
-            for index in range(len(signatures))
-        ]
-        mapping, errors = self._job_refs(step, mapping, errors)
-        self.mapping, self.errors = mapping, errors
-        self.features = {name: self._feature(value) for name, value in self._declared().items()}
-        aimed = job.get("aimed_faces", [])
-        if not isinstance(aimed, list):
-            raise ValueError("job aimed_faces is not a list")
-        # ``faces`` and ``bbox_mm`` describe the STEP as exported; every setup cuts the part
-        # the plan's faced aims make.
-        self.solid, aimed_facts = _aimed_solid(solid, aimed, mapping, self.labels)
+        # Job-level phases before the first setup, on the timing record and the progress
+        # trail, so a kill during STEP import or face binding names that step.
+        phases = self.timing.setdefault("phases", {}) if self.timing is not None else None
+        with _timed(phases, "step_import"):
+            path, digest = job.get("step_path"), job.get("step_sha256")
+            if not isinstance(path, str) or path == UNKNOWN:
+                raise _Unknown("STEP path is unknown.")
+            if not isinstance(digest, str) or digest == UNKNOWN:
+                raise _Unknown(
+                    "STEP SHA-256 is unknown; face references cannot be bound to the file."
+                )
+            with open(path, "rb") as handle:
+                data = handle.read()
+            actual = hashlib.sha256(data).hexdigest()
+            if actual != digest.lower():
+                raise ValueError(f"STEP SHA-256 mismatch: job declares {digest}, file has {actual}")
+            try:
+                step = StepFile(data.decode("latin-1"))
+            except StepError as exc:
+                raise ValueError(f"STEP is not parseable: {exc}") from None
+            shape = Part.Shape()
+            shape.read(path)
+            solids = shape.Solids
+            if len(solids) != 1:
+                raise _Unknown(
+                    f"STEP import yields {len(solids)} solids; "
+                    "the kernel measures exactly one part solid."
+                )
+            solid = solids[0]
+            if len(shape.Faces) != len(solid.Faces):
+                raise _Unknown("STEP import holds faces outside its single solid.")
+            if not solid.isValid():
+                raise _Unknown(
+                    "imported solid is not a valid B-rep; booleans on it would be unreliable."
+                )
+            self.solid = solid
+        with _timed(phases, "face_binding"):
+            signatures = [_signature(face) for face in solid.Faces]
+            mapping, errors = _map_faces(step, signatures)
+            refs_by_index = {index: ref for ref, index in mapping.items()}
+            self.labels = [
+                refs_by_index.get(index, f"imported face index {index}")
+                for index in range(len(signatures))
+            ]
+            mapping, errors = self._job_refs(step, mapping, errors)
+            self.mapping, self.errors = mapping, errors
+            self.features = {name: self._feature(value) for name, value in self._declared().items()}
+            aimed = job.get("aimed_faces", [])
+            if not isinstance(aimed, list):
+                raise ValueError("job aimed_faces is not a list")
+            # ``faces`` and ``bbox_mm`` describe the STEP as exported; every setup cuts the part
+            # the plan's faced aims make.
+            self.solid, aimed_facts = _aimed_solid(solid, aimed, mapping, self.labels)
         result = {
             "status": "ok",
             "bbox_mm": [_r(v) for v in _bbox(solid)],
@@ -3824,31 +3831,32 @@ class _Job:
         setups = job.get("setups", [])
         if not isinstance(setups, list):
             raise ValueError("job setups is not a list")
-        self.as_is_contact = {}
-        supplies, (stock, reason) = self._supplies()
-        self.raw_supplies = supplies
-        if self.as_is_contact:
-            result["as_is_contact"] = dict(sorted(self.as_is_contact.items()))
-        # Each profiled blank's own box: the traveler's receiving size for a bought blank.
-        blanks = {
-            name: [_r(v) for v in _bbox(solid)]
-            for name, (solid, why) in supplies.items()
-            if why is None and solid is not None and _profiled_supply(job.get("stock"), name)
-        }
-        if blanks:
-            result["blank_bbox_mm"] = dict(sorted(blanks.items()))
-        self.states = {
-            ref: {
-                "components": {ref.removeprefix("stock.")},
-                "completed": {},
-                "joined": set(),
-                "consumed": set(),
-                "formed": set(),
+        with _timed(phases, "stock_prep"):
+            self.as_is_contact = {}
+            supplies, (stock, reason) = self._supplies()
+            self.raw_supplies = supplies
+            if self.as_is_contact:
+                result["as_is_contact"] = dict(sorted(self.as_is_contact.items()))
+            # Each profiled blank's own box: the traveler's receiving size for a bought blank.
+            blanks = {
+                name: [_r(v) for v in _bbox(solid)]
+                for name, (solid, why) in supplies.items()
+                if why is None and solid is not None and _profiled_supply(job.get("stock"), name)
             }
-            for ref in supplies
-        }
-        self._init_joints()
-        self._init_process(stock if reason is None else None)
+            if blanks:
+                result["blank_bbox_mm"] = dict(sorted(blanks.items()))
+            self.states = {
+                ref: {
+                    "components": {ref.removeprefix("stock.")},
+                    "completed": {},
+                    "joined": set(),
+                    "consumed": set(),
+                    "formed": set(),
+                }
+                for ref in supplies
+            }
+            self._init_joints()
+            self._init_process(stock if reason is None else None)
         result["transient_faces"] = [
             {"index": len(signatures) + index, "label": self.labels[len(signatures) + index]}
             for index in range(len(self.synthetic_faces))
