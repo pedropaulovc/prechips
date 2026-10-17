@@ -771,11 +771,11 @@ both endpoints to land inside the band.
 | 1 | Skims the plate, or checks the skimmed plate (once per install) | table travel | — (fixture fact) | plate flatness f | stack term ±f (both recipes) |
 | 2 | Cleans the plate and the work | — | prep text | residual oil or chips | contact area and shear (residue); chips also add to t(x) |
 | 3 | Lays the tape over the footprint | plate top, work outline | outline 350 × 40 (manifest footprint) | seams, wrinkles, short coverage | area below the derived A (residue); thickness locally outside the pair |
-| 4 | Seats the work and rolls it | end stop, plate top | stop X from the pose | work bridges instead of conforming | area loss; the stack stops following t(x) (residue; printed "no daylight") |
-| 5 | Waits the dwell, writing both clock times | the clock | `dwell_min` | dwell cut short | strengths below the cited values; the printed gate is a STOP, so a short dwell is a stopped setup, not a reduced margin (D6) |
+| 3v | (vacuum, instead of 3) Lays the gasket cord in the grid grooves along the work outline, before the work is seated; step 7 checks it after seating | the work outline | `gasket_inset_mm` | cord off the inset, a gap at the joint | sealed area differs from S; an open joint is caught by the gauge row (step 7) |
+| 4 | Seats the work (tape: and rolls it) | end stop, plate top | stop X from the pose | work bridges instead of conforming | area loss; the stack stops following t(x) (residue; printed "no daylight") |
+| 5 | (tape) Waits the dwell, writing both clock times | the clock | `dwell_min` | dwell cut short | strengths below the cited values; the printed gate is a STOP, so a short dwell is a stopped setup, not a reduced margin (D6) |
 | 6 | Sets Z (recipe A: plate + paper) | plate top at P | `−t_nom + paper` | paper, touch feel, DRO step | touch and DRO terms; the tape mean enters as `t_nom − t(x)` |
-| 6′ | Sets Z (recipe B: mic M at P, touch the top) | work top at P | `M + paper` | mic, touch, DRO; t(P) unknown | mic and touch terms; tape term doubled |
-| 6″ | (vacuum) Lays the gasket cord in the grid grooves along the work outline | the work outline | `gasket_inset_mm` | cord off the inset, a gap at the joint | sealed area differs from S; an open joint is caught by the gauge row (step 7) |
+| 6′ | Sets Z (recipe B: M miked at P before step 3, `measure_before_hold`; touch the top at P) | work top at P | `M + paper` | mic, touch, DRO; t(P) unknown | mic and touch terms; tape term doubled |
 | 7 | (vacuum) Reads the chuck gauge before each op | chuck gauge | the corrected minimum P (section 2.3), never `vacuum_kpa` itself | leak, pump, gauge error and resolution | P already absorbs gauge error, so a reading at P proves `vacuum_kpa`; a reading below P → STOP |
 | 8 | Cuts each op at the printed feed | — | feed from cutting data | feeds faster by hand | F_xy and F_z scale with fz^(1−mc) (residue; covered by the factor) |
 | 9 | Releases (solvent or heat, roll off) | — | release text | prying | bends thin work: the free-state bow is residue, and prying is forbidden in print |
