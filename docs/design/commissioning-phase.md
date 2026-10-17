@@ -220,7 +220,7 @@ new kinds the commissioning PRs add:
 |---|---|
 | `align`, `dro_xy` (centring under the spindle) | `dial_test_indicator`, `coax_indicator` (new), `edge_finder` |
 | `sagitta` | `sagitta_gauge` (new: a chord bar with an indicator) whose own measured `chord` equals the reading's `chord_mm` within its resolution. A different chord is an error, and an unmeasured chord leaves the reading `?`. A bare indicator is not accepted, because nothing would fix the chord. The gauge is digested like any named gauge (§3.4) |
-| `width`, `distance` | `caliper`, `micrometer`, `height_gauge`. A `distance` to a hole is read over a pin in it: the reading names the `pin` (an inventory `pin_gauge` with a measured diameter) and the `contact` side, `"near"` or `"far"`. The printed target is the predicted centreline offset minus the pin radius (`near`) or plus it (`far`). An untrusted pin diameter leaves the reading `?`, and the pin is digested in `[planned]` |
+| `width`, `distance` | `caliper`, `micrometer`, `height_gauge`. A `distance` to a hole is read over a pin in it: the reading names the `pin` (an inventory `pin_gauge` with a measured diameter) and the `contact` side, `"near"` or `"far"`. The printed target moves the predicted centreline offset `o` by the pin radius `r` toward the reference for `near` and away from it for `far`. That is `o − sign(o)·r` (near) and `o + sign(o)·r` (far), so a hole inside the edge (negative `o`) gets `o + r` on its near side, not `o − r`. The sheet prints the target with its sign and names the side. An untrusted pin diameter leaves the reading `?`, and the pin is digested in `[planned]` |
 | `size` of a hole | `pin_gauge_set`, `bore_gauge` (an external micrometer never measures a bore) |
 | `z` | `height_gauge`, `dial_test_indicator` |
 | torque `steps` | `torque_wrench` |
@@ -434,7 +434,9 @@ or `verify = true` is debt. `by` is attribution and never affects trust.
 used. Each entry therefore also carries a structured `gauge`: the inventory id
 of what took the reading (or of the wrench, for a `steps` entry). It must equal
 the gauge the plan names for that key: the `align` op's `gauge`, the `accept`
-op's `checks` entry, or the `TorqueStep`'s `wrench`. A missing or different
+op's `checks` entry, or the `TorqueStep`'s `wrench`. A reading read over a pin
+also records its `pin` id, which must equal the reading's planned `pin`, because
+the pin's diameter enters the prediction. A missing or different
 `gauge` leaves the entry `?`, naming both ids ("taken with calipers, planned
 gauge-pins"). The capability checks of §2.3 therefore always describe the
 gauge that actually took the reading. `instrument` stays attribution.
@@ -1047,8 +1049,10 @@ Also:
   A `sagitta_gauge` whose chord differs from `chord_mm` → error; with an
   unmeasured chord → `?`; a bare DTI for `sagitta` → error.
 - Pin contact: a `distance` to a hole with no `pin` or `contact` → error; the
-  printed target is the centreline offset ∓ the pin radius; an untrusted pin
-  diameter → `?`.
+  near target is `o − sign(o)·r` and the far target `o + sign(o)·r`, tested for
+  a hole outside the edge (positive `o`) and one inside it (negative `o`); an
+  untrusted pin diameter → `?`; a record whose `pin` differs from the planned
+  pin → `?` naming both.
 - Torque `count = 0` or negative → schema error.
 - DRO interval: a reading inside the band by less than `(r_dro + r_g)/2` → `?`;
   by more → pass.
