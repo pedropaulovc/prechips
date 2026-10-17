@@ -1257,6 +1257,14 @@ def guide_scene(bundle, setup, numbers, scale):
             notes.append(f"NOT SHOWN: op {op}'s guide rollers — " + "; ".join(missing) + ".")
             continue
         radius = rail + (1 if side == "outer" else -1) * values["roller_dia"] / 2
+        if radius <= 0:
+            # A roller as wide as the rail's own diameter cannot bear inside it: no place
+            # to draw it is true.
+            notes.append(
+                f"NOT SHOWN: op {op}'s guide rollers — a Ø{values['roller_dia']:g} mm roller "
+                f"cannot bear inside {key}'s R{rail:g} mm rail."
+            )
+            continue
         table = bottom * scale - lift - bed["value"]
         for index, angle in enumerate(angles, start=1):
             theta = heading + math.radians(angle)

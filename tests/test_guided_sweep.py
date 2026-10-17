@@ -709,8 +709,16 @@ def test_a_sled_flagged_to_verify_draws_no_rollers(tmp_path):
             "measure: sled guide roller outside diameter",
         ),
         (ROLLERS.replace("rail_side = 'outer'\n", ""), "declare sled's rail_side"),
+        (
+            # Codex review of #267 at 86bd65f: no inner tangency on an R850 rail for a
+            # Ø1700 roller, so no centre-side position is drawn.
+            ROLLERS.replace("value = 22.0,", "value = 1700.0,").replace(
+                "rail_side = 'outer'", "rail_side = 'inner'"
+            ),
+            "a Ø1700 mm roller cannot bear inside sled's R850 mm rail",
+        ),
     ],
-    ids=["unmeasured-diameter", "no-rail-side"],
+    ids=["unmeasured-diameter", "no-rail-side", "inner-roller-wider-than-rail"],
 )
 def test_rollers_the_picture_cannot_place_are_a_note_with_their_measure(tmp_path, rollers, named):
     _, annotation = guide_annotation(tmp_path, rollers=rollers)
