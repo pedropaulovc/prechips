@@ -111,7 +111,7 @@ which replaces `feature` (§2.4).
 | `fasteners` | `str`: the fastener group as the fixture names it (`"rail A T-slot studs"`) |
 | `element` | `str`: the guide element those fasteners hold (`"rail_a.pin"`), for the read-after-tightening rule (§2.3) |
 | `count` | `int`, at least 1: a step tightening no fastener is a schema error |
-| `value_nm` / `value_in_lbf` | `float`, one spelling |
+| `value_nm` / `value_in_lbf` | `float`, one spelling, strictly positive: 0 or a negative target is a schema error, because a step with no preload must never pass |
 | `passes` | `list[float]`: fractions of `value`, ascending, ending at 1.0 (`[0.5, 1.0]`) |
 | `sequence` | `str`: printed order (`"centre outward, alternating sides"`) |
 | `wrench` | `str`: the inventory `gauges` item, `kind = "torque_wrench"`, with `range_nm` / `range_in_lbf` (a new torque-unit `[least, greatest]` range field, one spelling) |
@@ -211,7 +211,24 @@ Each collision is an error naming the duplicated key.
 
 **Gauges.** A reading's gauge (the `align` op's `gauge`, an `accept` op's
 `checks`) must resolve to an inventory `gauges` item, as an inspection check's
-gauge does. What it must span depends on what produces the value:
+gauge does. Its **kind must suit the quantity**, as in
+[rules-inspection](../rules-inspection.md) ("Gauge kinds must suit the
+requirement"). The kind names below are the inventory's existing ones, plus the
+new kinds the commissioning PRs add:
+
+| Quantity | Compatible gauge kinds |
+|---|---|
+| `align`, `dro_xy` (centring under the spindle) | `dial_test_indicator`, `coax_indicator` (new), `edge_finder` |
+| `sagitta` | `sagitta_gauge` (new: a chord bar with an indicator), or a `dial_test_indicator` on a declared chord fixture |
+| `width`, `distance` | `caliper`, `micrometer`, `height_gauge` |
+| `size` of a hole | `pin_gauge_set`, `bore_gauge` (an external micrometer never measures a bore) |
+| `z` | `height_gauge`, `dial_test_indicator` |
+| torque `steps` | `torque_wrench` |
+
+An incompatible kind is an error even when its range and resolution would do
+(pin gauges named for a `sagitta`, calipers named as a centring gauge), and no
+record entry can make such a reading pass. Then the gauge must span what it
+measures, which depends on what produces the value:
 
 - a **DRO coordinate** (`align`, and `dro_xy`): the machine's DRO gives the
   value, and the gauge, a coaxial indicator or edge finder, only centres the
@@ -1024,6 +1041,9 @@ Also:
   after the ream → valid.
 - Terminal tool: a 9 mm reamer on the 8 mm `hub_hole` → error; the `size`
   prediction is the declared 8.0, never the tool's size.
+- Torque `value_nm = 0` or negative → schema error.
+- Gauge kind: pin gauges for `sagitta`, or calipers as a centring gauge → error;
+  `sagitta_gauge` / `dial_test_indicator` → valid.
 - Torque `count = 0` or negative → schema error.
 - DRO interval: a reading inside the band by less than `(r_dro + r_g)/2` → `?`;
   by more → pass.
@@ -1231,6 +1251,7 @@ readings = [
   { name = "dowel_fit", quantity = "size", of = "trammel-jig.dowel_hole", band_mm = [0.0, 0.012], band_cite = "example value (realistic, not a shop measurement): 6 H7 for the Ø6 dowel", claims = ["trammel-jig.dowel_hole.size"] },
 ]
 # gauge-pins: example metric set in 0.01 mm steps, finer than the 0.012 and 0.015 fit bands
+# kinds: sagitta-gauge-300 = sagitta_gauge (new); calipers = caliper; coax-indicator = coax_indicator (new); gauge-pins = pin_gauge_set
 checks = { sagitta_outer = "sagitta-gauge-300", sagitta_inner = "sagitta-gauge-300", width = "calipers", hub_pin_to_edge = "calipers", hub_apex = "coax-indicator", hub_size = "gauge-pins", dowel_position = "coax-indicator", dowel_fit = "gauge-pins" }
 ```
 
