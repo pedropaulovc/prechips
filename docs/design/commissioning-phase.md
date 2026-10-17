@@ -245,8 +245,12 @@ measures, which depends on what produces the value:
   **every commissioning setup on the same installation**, not setup by setup,
   because the installed fixture never moves between them. C1 at X −400 and C4 at
   X +400 need 800 of stroke even though each setup alone spans 400. Every
-  commissioning setup in one block must therefore name the **same machine**; a
-  different machine is a schema error. Moving the fixture to another machine is
+  commissioning setup in one block must therefore name the **same machine**,
+  and resolve to the **same fixture installation transform** (its composed
+  `frame` and `hold.pose` for the installed base); a different machine or
+  installation transform is a schema error. Carrier motion along the guide is
+  not a moved installation: it is modelled by the guide's named poses on top of
+  that one transform. Moving the fixture to another machine is
   a new installation, with its own `commissioning` block and record. Each visited
   position counts at its **outer extent**: its prediction interval widened by
   its acceptance band. Nominal endpoints at −400 and +400 with a 0.02 band need
@@ -695,7 +699,9 @@ them, with their readings. A setup that locates only on the dowel is still
 blocked by a missing HUB reading. It passes only when all of these are trusted.
 
 **Read after the last change.** An acceptance reading must describe the final
-geometry. Each reading must come after the last commissioning op that can change
+geometry. Within one `accept` op, readings are ordered by their position in `readings`;
+a reading that depends on another (a pin reading on its hole's `size`) must come
+after it. Each reading must come after the last commissioning op that can change
 its subject or its reference: any op of the subject's route, a sweep of a swept
 edge, or an adjustment of a guide element. Ordering is by setup order, then by the
 op's **authored position** in the setup's `ops` array, never by its numeric `op`
@@ -1267,6 +1273,10 @@ Also:
   Ø8.010 object in an accepted Ø8.000–8.015 hole → not clear.
 - Guide budget: a rail-angle uncertainty widens the sagitta and width
   predictions; a missing budget fact → those readings `?`.
+- Installation pose: two commissioning setups with different installation
+  transforms → schema error; carrier poses along the guide → valid.
+- Reading order: `hub_pin_to_edge` listed before `hub_size` → its pin play is
+  unknown → `?`; the sketch lists `hub_size` first.
 - Installation travel: C1 at X −400 and C4 at X +400 on a 600 stroke → error,
   although each setup alone fits; endpoints at ±400 with a 0.02 band on an 800
   stroke → error; two machines in one commissioning block → schema error.
@@ -1453,9 +1463,9 @@ readings = [
   { name = "sagitta_outer", quantity = "sagitta", of = "trammel-jig.riser.outer_edge", chord_mm = 300.0, band_mm = 0.1, band_cite = "#270", claims = ["trammel-jig.riser.outer_edge.radius"] },
   { name = "sagitta_inner", quantity = "sagitta", of = "trammel-jig.riser.inner_edge", chord_mm = 300.0, band_mm = 0.1, band_cite = "#270", claims = ["trammel-jig.riser.inner_edge.radius"] },
   { name = "width", quantity = "width", of = ["trammel-jig.riser.inner_edge", "trammel-jig.riser.outer_edge"], band_mm = 0.1, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.riser.outer_edge.location"] },
+  { name = "hub_size", quantity = "size", of = "trammel-jig.hub_hole", band_mm = [0.0, 0.015], band_cite = "example value (realistic, not a shop measurement): 8 H7 slip fit for the hub pin", claims = ["trammel-jig.hub_hole.size"] },
   { name = "hub_pin_to_edge", quantity = "distance", of = ["trammel-jig.riser.outer_edge", "trammel-jig.hub_hole"], pin = "pin-8", contact = "near", band_mm = 0.05, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.hub_hole.position.radial"] },
   { name = "hub_apex", quantity = "dro_xy", of = ["guide.apex", "trammel-jig.hub_hole"], band_mm = 0.05, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.hub_hole.position.tangential"] },
-  { name = "hub_size", quantity = "size", of = "trammel-jig.hub_hole", band_mm = [0.0, 0.015], band_cite = "example value (realistic, not a shop measurement): 8 H7 slip fit for the hub pin", claims = ["trammel-jig.hub_hole.size"] },
   # D4: the dowel hole's own readings
   { name = "dowel_position", quantity = "dro_xy", of = ["trammel-jig.hub_hole", "trammel-jig.dowel_hole"], band_mm = 0.03, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.dowel_hole.position"] },
   { name = "dowel_fit", quantity = "size", of = "trammel-jig.dowel_hole", band_mm = [0.0, 0.012], band_cite = "example value (realistic, not a shop measurement): 6 H7 for the Ø6 dowel", claims = ["trammel-jig.dowel_hole.size"] },
