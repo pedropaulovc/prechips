@@ -499,3 +499,46 @@ def _footprint(bundle, setup, arc, record_, pins, window, r_plan, scale):
     }
     record_["spindle_setup_xy"] = start
     record_["pins_setup_xy"] = points
+
+
+def unmodelled(op, fixture, guided, rule):
+    """The ``check:`` debt ``rule`` (``"travel"`` or ``"headroom"``) owes for one trammel
+    op: the table's extents and the column are not modelled, nor the stack at every pose,
+    so the finding stays unknown; the debt quotes the exact footprint and stations where
+    the coordinates rule established them."""
+    from .resolution import UNKNOWN, number
+
+    guided = guided if isinstance(guided, dict) else {}
+    name = f"op {op.get('op', UNKNOWN)} guided sweep (trammel)"
+    swept, ranges = guided.get("swept_mm"), guided.get("station_ranges_mm")
+    turn = guided.get("carrier_turn_deg")
+    turning = f", turning {turn:g}°" if number(turn) else ""
+    if rule == "travel":
+        where = ""
+        if isinstance(swept, dict):
+            what = "the work and pins" if swept.get("stock") else "the pins"
+            where = (
+                f": {what} sweep X {swept['x'][0]:.0f} to {swept['x'][1]:.0f}, Y "
+                f"{swept['y'][0]:.0f} to {swept['y'][1]:.0f} mm about the spindle axis (the "
+                "carrier plate beyond them is not modelled)"
+            )
+        if isinstance(ranges, list):
+            far = max(high for _, high in ranges)
+            where += f", and its pins run out to {far:.0f} mm along the rails"
+        return (
+            f"{name}: the swept footprint of {fixture} is not checked against the table, "
+            f"column or way covers{where}; check: with Z raised and the spindle stopped, "
+            f"lever the carrier from stop to stop{turning} and see it, the work and both "
+            "rails clear the column, the table ends and the way covers"
+        )
+    near = ""
+    if isinstance(ranges, list):
+        near = (
+            f", and that the carriages, as near as {min(low for low, _ in ranges):.0f} mm to "
+            "the spindle axis, pass under the cutter and holder clear"
+        )
+    return (
+        f"{name}: the spindle stack and fixture clearance are judged with {fixture} at its "
+        f"setup pose only; check: the dry pass from stop to stop{turning} clears the spindle "
+        f"nose, holder and column at every pose{near}"
+    )

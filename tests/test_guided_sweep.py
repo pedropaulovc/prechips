@@ -207,7 +207,7 @@ def test_roller_gain_is_the_worst_case_cut_shift_per_contact_error(rollers, gain
         ({"fixture": "'sled'"}, "error", "is a arc_sled, not the swing_arm"),
         ({"master": "'cutter'"}, "unknown", "is not in the gauges inventory"),
         ({"master": "'radius-gauge'"}, "error", "is a radius_gauge, not a setting_bar"),
-        ({"guide": "unknown"}, "unknown", "contour.sweep.guide is neither pivot nor rail"),
+        ({"guide": "unknown"}, "unknown", "contour.sweep.guide is neither pivot, rail nor trammel"),
         ({"touch_axis": None}, "unknown", "contour.sweep.touch_axis"),
         ({"sweep_deg": None}, "unknown", "contour.sweep.sweep_deg is unknown"),
         ({"sweep_deg": "360.0"}, "error", "the 360° sweep is a full turn or more"),
@@ -1981,7 +1981,7 @@ def test_a_sweep_only_setup_picks_up_no_xy_zero(tmp_path, mixed):
     if mixed:
         assert "touch_set" not in row.numbers
         return
-    assert row.numbers["touch_set"] == {"axes": ["x", "y"], "ops": [20]}
+    assert row.numbers["touch_set"] == {"axes": ["x", "y"], "ops": [20], "by": "touch"}
     tools = {("tools", "cutter"): "6 mm endmill"}
     html = _Traveler(bundle, [row], {}, None).dro(bundle.plan["setups"][0], tools)
     printed = " ".join(unescape(re.sub(r"<[^>]+>", "", html)).split())
