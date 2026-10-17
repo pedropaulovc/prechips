@@ -186,6 +186,8 @@ the spindle axis at the guide's crossing point. It is computed by the guide
 | `quantity` | `"sagitta"` / `"width"` / `"distance"` / `"size"` / `"dro_xy"` / `"z"` |
 | `of` | the commissioned element read: one `str` for a single-subject quantity (`sagitta`, `size`, `z`); exactly two, `[reference, subject]`, for a relational quantity (`distance`, `width`, `dro_xy`). Any other count is an error |
 | `claims` | `list[str]`: the in-situ claims this reading establishes (`"trammel-jig.dowel_hole.position"`, §3.3); empty for a reading that trusts nothing (#11) |
+| `pin` | `str`: the inventory `pin_gauge` a `distance` to a hole is read over. Required for that case and refused for any other reading |
+| `contact` | `"near"` or `"far"`: the side of the pin the gauge touches. Required with `pin`, refused without it |
 | `chord_mm` / `chord_in` | `float` (`sagitta` only) |
 | `band_mm` / `band_in` | `Vector` `[low, high]` relative to the prediction, or a symmetric `float` |
 | `band_cite` | `Citations` |
@@ -405,6 +407,7 @@ features = "<sha256>"
 [readings."C1:40/rail_a.pin@400"]
 value_mm = [-395.884, -57.203]
 gauge = "coax-indicator"            # must equal the align op's gauge
+machine = "PM-30MV"                 # DRO reading: must equal the setup's machine
 measured = { status = "measured", by = "...", date = "2026-...", instrument = "coaxial indicator, gauges.coax" }
 
 [steps."C1:30"]                     # a torque step: done, not a value
@@ -436,7 +439,11 @@ of what took the reading (or of the wrench, for a `steps` entry). It must equal
 the gauge the plan names for that key: the `align` op's `gauge`, the `accept`
 op's `checks` entry, or the `TorqueStep`'s `wrench`. A reading read over a pin
 also records its `pin` id, which must equal the reading's planned `pin`, because
-the pin's diameter enters the prediction. A missing or different
+the pin's diameter enters the prediction. A DRO-derived entry (`align`,
+`dro_xy`) also records its `machine` id, which must equal the commissioning
+setup's machine, because that machine's DRO resolution and travel enter the
+judgement. A missing or different `pin` or `machine` leaves the entry `?`,
+naming both. A missing or different
 `gauge` leaves the entry `?`, naming both ids ("taken with calipers, planned
 gauge-pins"). The capability checks of §2.3 therefore always describe the
 gauge that actually took the reading. `instrument` stays attribution.
@@ -1052,7 +1059,9 @@ Also:
   near target is `o − sign(o)·r` and the far target `o + sign(o)·r`, tested for
   a hole outside the edge (positive `o`) and one inside it (negative `o`); an
   untrusted pin diameter → `?`; a record whose `pin` differs from the planned
-  pin → `?` naming both.
+  pin → `?` naming both. A DRO entry whose `machine` differs from the setup's
+  machine, or is missing → `?`. `pin`/`contact` on a non-distance reading, or
+  `contact` without `pin` → schema error.
 - Torque `count = 0` or negative → schema error.
 - DRO interval: a reading inside the band by less than `(r_dro + r_g)/2` → `?`;
   by more → pass.
@@ -1207,7 +1216,7 @@ fixture_feature = "trammel-jig.hub_hole"
 [[commissioning.setups.ops]]
 op = 30
 do = "ream"
-tool = "reamer-8h7"               # terminal: its inventory size predicts hub_size
+tool = "reamer-8h7"               # terminal: checked against the declared Ø8.0, which hub_size predicts
 fixture_feature = "trammel-jig.hub_hole"
 [[commissioning.setups.ops]]
 op = 40
@@ -1223,7 +1232,7 @@ fixture_feature = "trammel-jig.dowel_hole"
 [[commissioning.setups.ops]]
 op = 60
 do = "ream"                        # terminal op: sets the Ø6 size
-tool = "reamer-6h7"               # its inventory size predicts dowel_fit
+tool = "reamer-6h7"               # terminal: checked against the declared Ø6.0, which dowel_fit predicts
 fixture_feature = "trammel-jig.dowel_hole"
 
 [[commissioning.setups]]           # C3: the jig cuts its own riser
@@ -1336,6 +1345,7 @@ features = "<sha256 printed by the checker>"
 [readings."C1:40/rail_a.pin@400"]
 value_mm = [-395.884, -57.203]     # example value: inside the 0.03 band
 gauge = "coax-indicator"
+machine = "PM-30MV"
 measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" }
 # ... one entry per generated key ...
 ```
