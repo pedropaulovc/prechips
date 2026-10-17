@@ -1446,8 +1446,11 @@ sheet.
    the setup frame by `jaws_along` or `hold.pose`, is reported in
    `fixture_table_check`. That check is always unknown and names the missing table
    extent, overhang and load facts (#272 item 1). It never errors or passes and
-   leaves the row's status unchanged, so no printed traveler content or exit
-   changes.
+   leaves the row's status unchanged. No finding status, exit or setup picture
+   changed. The traveler's CLEARANCE travel lines now print the stock reach
+   instead of the fixture size (pivot-bracket S1 X 419.100 → 19.050, still
+   "fits"). The cross-family blind machinist review of that printed change is
+   owed and was not run here.
 
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a
