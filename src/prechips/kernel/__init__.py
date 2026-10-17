@@ -1899,11 +1899,24 @@ def _cache_recipe(job):
     return recipe
 
 
-def _engine_digest():
+# The sources freecadcmd executes: freecad_job.py and its transitive local imports.
+# Host-only modules (this one, render_inputs.py) stay out, so editing them reuses cached
+# geometry; whatever they change in the job already changes its key.
+ENGINE_SOURCES = (
+    "boolean_pool.py",
+    "chain_boundary.py",
+    "freecad_job.py",
+    "render_diagram.py",
+    "render_png.py",
+    "step_faces.py",
+)
+
+
+def _engine_digest(root=Path(__file__).parent):
     digest = hashlib.sha256()
-    for path in sorted(Path(__file__).parent.glob("*.py")):
-        digest.update(path.name.encode())
-        digest.update(path.read_bytes())
+    for name in ENGINE_SOURCES:
+        digest.update(name.encode())
+        digest.update((root / name).read_bytes())
     return digest.hexdigest()
 
 

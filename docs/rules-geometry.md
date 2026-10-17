@@ -115,8 +115,10 @@ Successful (`status = "ok"`) results are cached as JSON under
 `PRECHIPS_KERNEL_CACHE`, else `%LOCALAPPDATA%\prechips\geometry` (or
 `~/.cache/prechips/geometry` without `LOCALAPPDATA`). The key is the SHA-256
 of the canonical job without its `step_path` (the STEP digest and every
-numeric input are inside), the digest of the engine's own `kernel/*.py`
-sources, and the kernel executable's resolved path and freshly read byte SHA-256.
+numeric input are inside), the digest of the engine sources `freecadcmd`
+executes (`kernel.ENGINE_SOURCES`: `freecad_job.py` and its transitive local
+imports, never host-only `kernel/__init__.py` or `render_inputs.py`), and the
+kernel executable's resolved path and freshly read byte SHA-256.
 Changing a consumed geometry input, the STEP, the engine or the kernel
 executable bytes therefore misses; moving the bundle does not. A
 [profiled blank](plan.md#profiled-blank) enters the job as its declared
@@ -133,6 +135,11 @@ unchanged. A hit returns the stored facts and render bytes of the run that
 produced it. Fresh native runs are not proven bit-repeatable; see the
 [print and native acceptance limits](../examples/README.md#print-and-native-acceptance-limits).
 The cache is not part of the hashed bundle.
+Host-side kernel code stays out of the engine digest because whatever it
+changes in the job the engine receives already changes the key: the batch sent
+to `freecadcmd` is exactly the keyed job. Tests derive the engine's import
+closure from `freecad_job.py` and fail when `ENGINE_SOURCES` misses or adds a
+module.
 Native collision fixes change that engine-source digest and require new
 geometry results under the new key. Existing cache entries remain evidence
 of their original worker source; they are never relabelled or copied to the
@@ -140,9 +147,11 @@ new key.
 
 CI persists this local result-cache directory in a separate external cache.
 Its namespace includes runner OS/architecture, the pinned FreeCAD AppImage
-SHA-256, cache epoch and the `kernel/*.py` source digest. Each save key adds the
-unique workflow run ID and attempt; restore uses the matching namespace prefix.
-The workflow saves only after the test job succeeds
+SHA-256, cache epoch and the same engine source digest, printed by
+`prechips.kernel._engine_digest()`. Each save key adds the test shard's
+index, then the unique workflow run ID and attempt; a shard restores its own
+latest entry first, then any entry under the shared namespace prefix. Each
+shard saves only after it succeeds
 ([CI cache policy](../.github/workflows/ci.yml)).
 
 ### Worker processes
@@ -1351,9 +1360,9 @@ clip unknown, even when another piece survives: never a partial table.
 Deliberately shortening a free end to preserve a positive web remains allowed.
 Internal `chain_geometry.walls` carry line scrap normals and arc outward
 signs for this shared predicate, not new user schema or policy. The pure
-`kernel/chain_boundary.py` helper participates in the `kernel/*.py` engine
-source digest, so adding or changing it re-keys every kernel job, not just
-chain jobs.
+`kernel/chain_boundary.py` helper is an engine source (`freecad_job.py`
+imports it), so it participates in the engine source digest and changing it
+re-keys every kernel job, not just chain jobs.
 The kept
 rows, renamed per piece with the coordinates row-id formats, are the only rows
 the row check and the setup picture's waypoints use; a bounded op's removal

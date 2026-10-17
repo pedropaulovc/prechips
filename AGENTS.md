@@ -179,7 +179,8 @@ JUnit cases equal to the full collection, each exactly once. Rebuild
 `.test_durations` from one green run's shard JUnit files with
 `uv run scripts/ci_shards.py durations <junit>...`, never from guesses. Geometry
 persistence uses a runner OS/architecture, pinned AppImage SHA-256, engine
-source digest and epoch namespace. Immutable
+source digest (only the sources `freecadcmd` executes, `kernel.ENGINE_SOURCES`)
+and epoch namespace. Immutable
 per-run, per-shard save keys publish only on success; a shard restores its own
 latest entry first, then the shared prefix. Cold/invalidation fixtures stay private.
 Package validation builds wheel and sdist and exercises installed consumers;

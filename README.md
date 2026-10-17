@@ -80,9 +80,9 @@ two pytest workers and load-scope scheduling, caps extra native workers at one,
 records durations (complete in JUnit) and uploads the pytest log and JUnit
 results even on failure. Successful geometry results persist across runs in a
 cache namespaced by runner OS/architecture, pinned AppImage SHA-256, cache epoch
-and engine source digest. Each immutable save key also includes the run ID and
-attempt; restore uses the matching namespace prefix. Only successful test jobs
-publish the per-run cache.
+and engine source digest (only the sources `freecadcmd` executes). Each immutable save key also includes the shard index,
+run ID and attempt; a shard restores its own latest entry, else the shared
+namespace prefix. Only successful test shards publish their per-run cache.
 The product reports unknown geometry (`?`, exit 4) without FreeCAD;
 skips do not change that behavior.
 CI also sets `PRECHIPS_REQUIRE_PRINT_BROWSER=1`: a missing or unlaunchable
