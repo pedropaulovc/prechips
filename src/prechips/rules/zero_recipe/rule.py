@@ -32,7 +32,6 @@ from prechips.rules.zero_recipe.touch import (
 from ...findings import Finding
 from ...measurements import length_debt, measurement_checklist
 from .._bench import manual_bench, not_applicable
-from ..swivel import swivel_angle, swivelled
 from ..resolution import (
     UNKNOWN,
     identity,
@@ -43,6 +42,7 @@ from ..resolution import (
     setup_frame,
     uncertain,
 )
+from ..swivel import swivel_angle, swivelled
 from ..tip_endpoints import mapping, records, stock_states
 
 

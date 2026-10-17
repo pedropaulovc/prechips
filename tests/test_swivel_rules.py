@@ -12,7 +12,8 @@ from test_sheet_ops import Markup, content
 
 from prechips import kernel
 from prechips.inputs import Bundle
-from prechips.rules import headroom, hold_fields, swivel, zero_recipe
+from prechips.rules import headroom, hold_fields, swivel
+from prechips.rules.zero_recipe import rule as zero_recipe
 from prechips.sheet import _Traveler
 
 MEASURED = {
