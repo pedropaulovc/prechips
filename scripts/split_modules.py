@@ -955,6 +955,13 @@ class Rewriter:
                         # Binds the top package, so code reaches the split module as
                         # prechips.<...>.<name>; `import <child> as x` binds only the child.
                         self.refusals.append(f"{path}:{node.lineno} plain `import {a.name}`")
+        for key, names in aliases.items():
+            scope = _scope_of(tree, imports[key])
+            for name, line in _other_bindings(scope, names, imports[key]):
+                self.refusals.append(
+                    f"line {line}: {name} names the split module and is also bound here; "
+                    "rename one so every use of it means the module"
+                )
         added = defaultdict(set)  # id(import node) -> import lines to add beside it
         parents = {id(c): n for n in ast.walk(tree) for c in ast.iter_child_nodes(n)}
         for node, binding in _resolved_uses(tree, aliases):
@@ -1184,12 +1191,74 @@ class Rewriter:
             return None
         if binding is None:
             return None
-        module = self.new_module(node.attr)
+        if isinstance(node.ctx, (ast.Store, ast.Del)):
+            # A write lands where the name is looked up, as setattr does.
+            if self.owner.get(node.attr) in (None, self.rest) and node.attr not in self.lookups:
+                return None
+            module = self.patched_module(node.attr)
+            if module is None:
+                return None
+        else:
+            module = self.new_module(node.attr)
         if module == self.source:
             return None
         local = self._alias_for(node.value.id, module, added, binding)
         value = node.value
         return at(value.lineno, value.col_offset), at(value.end_lineno, value.end_col_offset), local
+
+
+def _scope_of(tree, node):
+    """The innermost module or function whose own scope holds ``node``: the region where
+    the name it binds is visible."""
+    best = tree
+    for scope in ast.walk(tree):
+        if not isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            continue
+        if any(n is node for n in ast.walk(scope)):
+            if best is tree or any(n is scope for n in ast.walk(best)):
+                best = scope
+    return best
+
+
+def _other_bindings(tree, names, alias_import):
+    """``(name, line)`` for each binding of a module-alias name in the file that is not an
+    import of the split module itself (a parameter, local, loop or comprehension target,
+    assignment, def, except name). With none, every load of the name means the module, so
+    no scope rule can make a rewrite wrong."""
+    found = []
+    for node in ast.walk(tree):
+        bound = []
+        if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            bound = [node.id]
+        elif isinstance(node, ast.arg):
+            bound = [node.arg]
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound = [node.name]
+        elif isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)):
+            bound = [node.name] if node.name else []
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            bound = list(node.names)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            bound = [
+                (a.asname or a.name).split(".")[0]
+                for a in node.names
+                if not _imports_alias(node, a, alias_import)
+            ]
+        found += [(name, getattr(node, "lineno", 0)) for name in bound if name in names]
+    return found
+
+
+def _imports_alias(node, alias, alias_import):
+    """Whether ``alias`` in ``node`` imports the same module object ``alias_import`` does."""
+    if node is alias_import:
+        return True
+    same = [a for a in alias_import.names if (a.asname or a.name) == (alias.asname or alias.name)]
+    if not same or type(node) is not type(alias_import):
+        return False
+    if isinstance(node, ast.ImportFrom):
+        spelled = (node.level, node.module, alias.name)
+        return spelled == (alias_import.level, alias_import.module, same[0].name)
+    return alias.name == same[0].name
 
 
 def _parses_source(tree):

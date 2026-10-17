@@ -269,29 +269,6 @@ def _importer_case(at, tmp_path, source, targets, test_source):
     return test.read_text(encoding="utf-8")
 
 
-def test_a_parameter_named_like_a_module_alias_is_not_rewritten(at, tmp_path):
-    source = "def radius(x):\n    return x\n"
-    rewritten = _importer_case(
-        at,
-        tmp_path,
-        source,
-        '["radius"]',
-        """\
-        from pkg import big
-
-
-        def module_level():
-            return big.radius(1)
-
-
-        def shadowed(big):
-            return big.radius(1)
-        """,
-    )
-    assert "return big_parts.radius(1)" in rewritten
-    assert "def shadowed(big):\n    return big.radius(1)" in rewritten
-
-
 def test_a_lazy_module_import_stays_lazy_and_gets_its_replacement_beside_it(at, tmp_path):
     source = "def radius(x):\n    return x\n"
     rewritten = _importer_case(
@@ -664,22 +641,35 @@ def test_a_unit_reading_its_modules_name_never_moves_to_another_file(at):
     assert any("__name__" in refusal for refusal in plan.refusals)
 
 
-def test_a_comprehension_target_hides_a_module_alias(at, tmp_path):
-    rewritten = _importer_case(
-        at,
-        tmp_path,
-        "def radius(x):\n    return x\n",
-        '["radius"]',
-        """\
-        from pkg import big
-
-        PROVIDERS = []
-        FOUND = [big.radius for big in PROVIDERS]
-        DIRECT = big.radius
-        """,
+def test_a_probe_compiling_the_source_is_a_source_reader(at, tmp_path):
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    (tmp_path / "tests" / "test_probe.py").write_text(
+        'PROBE = r"""\ntext = open(path).read()\nexec(compile(text, path, "exec"), {})\n"""\n',
+        encoding="utf-8",
     )
-    assert "FOUND = [big.radius for big in PROVIDERS]" in rewritten
-    assert "DIRECT = big_parts.radius" in rewritten
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+
+
+@pytest.mark.parametrize(
+    "use",
+    [
+        "def shadowed(big):\n    return big.radius(1)\n",
+        "FOUND = [big.radius for big in []]\n",
+        "def later(x=big.radius):\n    big = None\n    return big\n",
+        "big = object()\nVALUE = big.radius\n",
+    ],
+)
+def test_an_alias_name_bound_by_anything_but_its_import_refuses(at, tmp_path, use):
+    # A parameter, comprehension target, local or reassignment named like the module
+    # alias makes some loads mean something else; the script refuses rather than guess.
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "from pkg import big\n\n" + use, encoding="utf-8"
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+    assert not (tmp_path / "src" / "pkg" / "parts.py").exists()
 
 
 def test_an_alias_imported_in_a_module_level_try_is_followed(at, tmp_path):
@@ -692,7 +682,7 @@ def test_an_alias_imported_in_a_module_level_try_is_followed(at, tmp_path):
         try:
             from pkg import big
         except ImportError:
-            big = None
+            raise
 
         VALUE = big.radius(1)
         """,
@@ -700,11 +690,9 @@ def test_an_alias_imported_in_a_module_level_try_is_followed(at, tmp_path):
     assert "VALUE = big_parts.radius(1)" in rewritten
 
 
-def test_a_probe_compiling_the_source_is_a_source_reader(at, tmp_path):
-    at("def radius(x):\n    return x\n", _spec('["radius"]'))
-    (tmp_path / "tests" / "test_probe.py").write_text(
-        'PROBE = r"""\ntext = open(path).read()\nexec(compile(text, path, "exec"), {})\n"""\n',
-        encoding="utf-8",
+def test_a_direct_write_lands_where_the_name_is_looked_up(at, tmp_path):
+    source = "def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x) ** 2\n"
+    rewritten = _importer_case(
+        at, tmp_path, source, '["radius", "area"]', "from pkg import big\n\nbig.radius = abs\n"
     )
-    with pytest.raises(SystemExit):
-        split.main(["apply", "big"])
+    assert "big_parts.radius = abs" in rewritten
