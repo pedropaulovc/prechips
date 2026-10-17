@@ -1162,8 +1162,9 @@ recipes; an unknown action cannot establish the saw-only exemption.
   budget (`radius_below` and `radius_above`: the pin radius at the corners of the
   measured rail angle and spacing errors, exact since `R` is monotone in both, with
   `radius_per_deg_mm` and `radius_per_spacing` the first-order slopes for reference;
-  `pin_lines`: `line_gain × (pin_clearance + rail_offset)`, `line_gain` the exact
-  worst `|g₁| + |g₂|` over the sweep); `centre_error_mm` is the larger side, and
+  `pin_lines`: `line_gain × (pin_clearance + rail_offset)`, `line_gain` the
+  worst `|g₁| + |g₂|`, exact over the sweep's poses and taken over the crossing
+  angle's measured error too, at its ends and 64 angles each way); `centre_error_mm` is the larger side, and
   `cut_radius_mm` is the wall a cutter radius off the pin circle, widened below and
   above by each side's sum, and must lie inside `band_mm`. A master or touch axis, a
   rough stage, a nonpositive pin spacing, pins that do not subtend `α`, a pin inside
@@ -1171,7 +1172,8 @@ recipes; an unknown action cannot establish the saw-only exemption.
   carriage beyond `rail_travel`, a stop that set 0.55 mm off its station could hold
   the carrier short of an arc end (`stops`, with each stop's `stop_bands_deg`), and a
   setup shared with another spindle op are errors; a start not proven clear of the
-  stock at every pose the first stop can hold (`start`) and any unmeasured fixture
+  stock at every pose the first stop can hold (`start`, proven exactly over that band from
+  the arc's true X and Y extremes) and any unmeasured fixture
   fact are unknown, with a `measure:` entry for each fact.
 
 #### Trammel operator sequence
@@ -1208,7 +1210,9 @@ keeps its recipe. The touch feed and a rough back-off still move those axes by
 their DRO sign, so a reversed `dro.direction` for them is the same error, and an
 undeclared one the same debt, as under an edge pickup. Any other spindle op in the
 setup still needs both. When every such op is a trammel, nothing moves X or Y at
-all (the rails' crossing fixes the cutter), so no X/Y DRO sign is consumed;
+all (the rails' crossing fixes the cutter), so no X/Y DRO sign is consumed, and an
+authored `zero.x` or `zero.y` is an error (its pickup would move the table off the
+crossing);
 `touch_set.by` is `"trammel"` (else `"touch"`) and the DRO ZERO sheet says the
 rails' pin-lines cross on the spindle.
 

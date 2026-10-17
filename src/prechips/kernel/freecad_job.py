@@ -2596,11 +2596,21 @@ def _out_of_reach(obstacle, band, reach, centres, radius):
 def _arc_wire(points, arc):
     """The exact cutter-centre arc through ``points`` (all on ``arc``'s circle, a trammel's
     ``exact_arc_mm``, #269): the circle's arc from the first point through the middle one
-    to the last, not their chords; None when they do not make one."""
-    if arc is None or len(points) < 3:
+    (for two points, the circle's point between them) to the last, not their chords; None
+    when they do not make one."""
+    if arc is None or len(points) < 2:
         return None
     centre, radius = V(arc["centre"][0], arc["centre"][1], 0), arc["radius"]
-    first, middle, last = points[0], points[len(points) // 2], points[-1]
+    first, last = points[0], points[-1]
+    if len(points) == 2:
+        # Two rows under half a turn apart (the rules refuse wider spacing): the arc's
+        # middle is the circle's point on their bisector, on the minor arc between them.
+        half = (first + last) * 0.5 - centre
+        if half.Length <= PLANE_TOL:
+            raise ValueError("an exact arc's two rows are half a turn apart")
+        middle = centre + half * (radius / half.Length)
+    else:
+        middle = points[len(points) // 2]
     if any(abs((p - centre).Length - radius) > 1e-6 for p in (first, middle, last)):
         raise ValueError("an exact arc's rows are not on its circle")
     if min((first - middle).Length, (middle - last).Length) <= PLANE_TOL:

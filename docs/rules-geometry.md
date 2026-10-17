@@ -1003,7 +1003,8 @@ is the same driven path in the carrier's frame, its rows on the nominal arc like
 guided sweep's, except that they all lie on one exact circle: its checkpoint path carries `exact_arc_mm`
 (setup centre and radius), and the run-out and the tool envelope sweep the cutter,
 shank and holder along the true arc through the rows (an annular sector with round
-ends), not their chords, so its removal is exact. A clipped piece drops the arc.
+ends), not their chords, so its removal is exact; a sweep of only two rows takes the
+circle's point between them as the arc's middle. A clipped piece drops the arc.
 **Rule A′** limits every printed table, row by row: a printed
 row is an accessibility error naming the row when its cutter meets the finished
 part or the op's rough leave (its guard), a fixture component, stock outside a

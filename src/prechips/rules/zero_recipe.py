@@ -2561,6 +2561,13 @@ def evaluate(bundle):
         swept = [] if lathe else touch_set(setup)
         # A trammel's rails fix the cut: no X/Y handwheel move, so no X/Y DRO sign (#269).
         railed = bool(swept) and trammel_set(setup)
+        # An X/Y pickup moves the table off the rails' crossing the trammel cuts on.
+        railed_errors = [
+            f"zero.{axis} picks up an edge, but the trammel ({', '.join(map(str, swept))}) "
+            "cuts where its rails cross the spindle axis with X and Y locked: remove it"
+            for axis in ("x", "y")
+            if railed and isinstance(zero.get(axis), dict)
+        ]
         for axis in ("x", "y", "z"):
             recipe = zero.get(axis)
             if not isinstance(recipe, dict):
@@ -2880,7 +2887,15 @@ def evaluate(bundle):
         )
         unknown |= unrecovered or UNKNOWN in finder_status
         finder_error = "error" in finder_status
-        errors = bad or missing or corner_errors or face_errors or x_errors or finder_error
+        errors = (
+            bad
+            or missing
+            or corner_errors
+            or face_errors
+            or x_errors
+            or finder_error
+            or railed_errors
+        )
         status = "error" if errors else "unknown" if unknown else "pass"
         sentence = (
             "DRO direction or mode disagrees with the setup convention; stop and correct it "
@@ -2948,6 +2963,8 @@ def evaluate(bundle):
                 + "; ".join(face_unknowns)
                 + "): its Axis Set is not known."
             )
+        if railed_errors:
+            sentence += " " + "; ".join(railed_errors) + "."
         if x_errors:
             sentence += (
                 " An X touch measures a diameter that does not stand where it touches ("
