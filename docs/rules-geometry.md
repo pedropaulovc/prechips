@@ -352,7 +352,7 @@ Every setup's facts carry `tooling_holes`, each hole's state on the stock enteri
 that setup, but only when the plan declares one. The probe runs in the setup
 frame over the hole's span: `undrilled` while stock fills its core (half its
 smallest radius) in the first 1 mm below the mouth (a blind hole's ops may stop
-short of `depth`), `gone` once no stock stands within 1 mm of its largest wall,
+short of `depth`), `gone` once no stock stands within 0.5 mm of its largest wall,
 `present` when its core is clear and that ring is whole stock, else `partial`; an
 unplaceable hole is unknown with a reason. A saw cut or any other waste cut that
 takes the hole's material takes the hole: a later setup sees it `gone`. The
