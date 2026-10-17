@@ -1253,9 +1253,11 @@ keep = "hub_od"
 
 The kernel applies it to the stock after the last op it models at or before the
 keep op (a `release` is not modelled, so that is the freeing cut), keeps the one
-piece that carries every face of the feature and discards the rest. Later ops,
-later setups' entry stock and their `stock_state` checks then see the kept piece
-only. Without `keep`, a held split keeps every piece, as before.
+piece that carries every face of the feature and discards the rest. Later
+setups' entry stock and their `stock_state` checks then see the kept piece only,
+as do later ops' flutes in the same setup; their holders still see the
+setup-entry stock, as for any cut ([keep piece](rules-geometry.md#keep-piece)).
+Without `keep`, a held split keeps every piece, as before.
 
 An `inspect` op may name several features (`feature = ["a", "b"]`): one
 drawing limit split across them, or one inspection station reading several. A

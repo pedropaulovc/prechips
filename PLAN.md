@@ -1428,8 +1428,9 @@ sheet.
    **Kept piece after a held split shipped (2026-10-17, #182):** an op's
    `keep = "<feature>"` (typically the `release` after the cut that frees the
    part from its frame) keeps the one stock piece that carries every face of
-   that feature and discards the rest, so later ops, the next setups' entry
-   stock and their `stock_state` see the part alone. An unknown feature,
+   that feature and discards the rest, so later ops' flutes, the next setups'
+   entry stock and their `stock_state` see the part alone (holders keep the
+   setup-entry stock within the keep's own setup, as for any cut). An unknown feature,
    unresolved faces, no carrier, a feature spanning pieces or two carriers is
    `?` stock debt naming what to change, never a guess; without `keep` a held
    split keeps every piece as before. The new, always required `keep_piece` finding logs each

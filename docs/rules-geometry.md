@@ -1197,9 +1197,14 @@ entering stock.
 After that op, the stock pass keeps the one piece that carries every face of
 the feature. A piece carries a face when no more of the face than the
 face-signature area tolerance (1e-6 mm² or 1e-6 of its area, whichever is
-larger) lies off it. Every other piece is discarded. Later ops in the setup,
+larger) lies off it. Every other piece is discarded. The before-op stock of
+later ops in the setup (what their flutes, reach and shank checks meet),
 `stock_out`, the next setups' entry stock (`stock_bbox_mm`, `stock_faces_mm`)
-and so their `stock_state` checks see only the kept piece. A keep never
+and so their `stock_state` checks see only the kept piece. Within the keep's
+own setup, holder obstacles, holding and the picture keep the setup-entry
+stock, as they do for every earlier cut, so a dropped offcut can still meet a
+later op's holder there; key the keep to the setup's last cut, usually by
+placing it on the `release`, to avoid that. A keep never
 changes the held-split proof: each piece must still be held while the split
 stands. The kept and discarded pieces are recorded under the setup's `keeps`,
 keyed by the keep op, each with its number, volume (mm³) and bbox (setup frame,
