@@ -8093,7 +8093,7 @@ class _Traveler:
         ]
         return (
             f"Layout: blue the work top and, with a rule and square, scribe a short cross at "
-            f"each end of {feature}: {placed[0]}; {placed[1]}. The guided sweep sets its "
+            f"each end of the {feature}: {placed[0]}; {placed[1]}. The guided sweep sets its "
             "stops on these marks."
         )
 
