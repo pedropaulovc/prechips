@@ -999,8 +999,8 @@ fixture components: an arc sled's rollers are drawn render-only at the setup's
 mid-sweep pose (see [Renders](#renders)), and no checkpoint, clash, contact or
 clearance reads them. No removal or hit code in `freecad_job.py` knows the
 method. A trammel's table ([#269](https://github.com/pedropaulovc/prechips/issues/269))
-is the same driven path in the carrier's frame, on its pin circle, except that its
-rows all lie on that one exact circle: its checkpoint path carries `exact_arc_mm`
+is the same driven path in the carrier's frame, its rows on the nominal arc like every
+guided sweep's, except that they all lie on one exact circle: its checkpoint path carries `exact_arc_mm`
 (setup centre and radius), and the run-out and the tool envelope sweep the cutter,
 shank and holder along the true arc through the rows (an annular sector with round
 ends), not their chords, so its removal is exact. A clipped piece drops the arc.

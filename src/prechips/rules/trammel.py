@@ -283,28 +283,42 @@ def _facts(bundle, setup, sweep, errors, debts, measurements, record_):
     return found
 
 
-def _rescale(bundle, arc, radius, scale):
-    """Move ``arc``'s rows radially onto the pin-defined cutter-centre ``radius`` (plan
-    units): the pins, not the drawing, set where the cutter runs. The DRO places nothing,
-    so each row's printed XY is its exact one."""
-    from .coordinates import mapping
-
-    centre = arc["centre_setup_xy"]
-    nominal = arc["cutter_centre_radius_mm"]
-    feature = mapping(bundle.feature_definitions.get(arc["feature"]))
-    plane = feature.get("arc_centre", feature.get("at"))
-    k = radius / nominal
+def _exact_path(arc):
+    """The rows stay on the nominal cutter-centre arc, as every guided sweep's do (rules/
+    guided_sweep.py :func:`guided`): the kernel judges that path against the nominal part,
+    and where the pins actually put the cut is judged against the band here. The DRO places
+    nothing, so each row's printed XY is its exact one, and the kernel sweeps the cutter
+    along the exact arc through them, not their chords."""
     for row in arc["rows"]:
-        xy = [centre[i] + k * (row["setup_xy"][i] - centre[i]) for i in range(2)]
-        row.update(setup_xy=xy, x=xy[0], y=xy[1], dro_xy=list(xy))
-        if isinstance(plane, list) and len(plane) >= 2:
-            row["model_xy"] = [plane[i] + k * (row["model_xy"][i] - plane[i]) for i in range(2)]
-    middle = arc.get("arc_mid_setup_xy")
-    if isinstance(middle, list) and len(middle) == 2:
-        arc["arc_mid_setup_xy"] = [centre[i] + k * (middle[i] - centre[i]) for i in range(2)]
-    arc["cutter_centre_radius_mm"] = arc["radius_mm"] = radius
-    # The kernel sweeps the cutter along this exact circle, not the rows' chords.
-    arc["exact_arc"] = {"centre": list(centre), "radius": radius}
+        row["dro_xy"] = list(row["setup_xy"])
+    arc["exact_arc"] = {
+        "centre": list(arc["centre_setup_xy"]),
+        "radius": arc["cutter_centre_radius_mm"],
+    }
+
+
+# A stop is set by a steel rule along its rail to the printed station: the station prints
+# to 0.1 mm (half that in rounding) and a novice reads a rule to half a millimetre. The
+# stop-setting and start proofs hold for a stop anywhere that far off (#289).
+STATION_PRINT_MM = 0.05
+RULE_READING_MM = 0.5
+STATION_ERROR_MM = STATION_PRINT_MM + RULE_READING_MM
+
+
+def stop_poses(r, pin, psi, error=STATION_ERROR_MM):
+    """The poses (degrees, as ``psi``) a stop set at the pin's station for pose ``psi``,
+    off by up to ``error`` mm along its rail, can hold the carrier at, on a pin circle of
+    radius ``r``: the exact inverse of :func:`station` on the same side of the pin, as
+    ``[least, greatest]``; None when the station is within ``error`` of the pin's reach."""
+    s = station(r, pin, psi)
+    side = 1 if _wrap(pin - psi) > 0 else -1
+    found = []
+    for target in (s - error, s + error):
+        if not 0 < target < 2 * r:
+            return None
+        half = math.degrees(math.asin(target / (2 * r)))
+        found.append(pin - side * 2 * half)
+    return sorted(found)
 
 
 def _pose_angle(point, centre, heading):
@@ -341,7 +355,7 @@ def recipe(bundle, setup, op, arc, band, label, scale):
     gain over the sweep (:func:`line_gain`, about 1:1). The widened wall must lie inside
     the band. A trammel cannot back off, so a rough stage is an error."""
     from .coordinates import _WALL_TOL, _pair
-    from .guided_sweep import _rotation, _row_spacing, _sweep_span
+    from .guided_sweep import _own_setup, _rotation, _row_spacing, _sweep_span
     from .resolution import UNKNOWN, number, record
 
     contour = record(op.get("contour"))
@@ -413,17 +427,19 @@ def recipe(bundle, setup, op, arc, band, label, scale):
             radius_per_deg_mm=per_degree(spacing, alpha),
             radius_per_spacing=per_spacing(alpha),
         )
-        _rescale(bundle, arc, r_mm / scale, scale)
+    _exact_path(arc)
     grid = (1e-9, 9)  # the DRO sets nothing: a sweep's reach is judged exactly
     sweep_deg = sweep.get("sweep_deg", UNKNOWN)
     _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid)
     _row_spacing(contour, label, errors)
+    _own_setup(setup, label, errors)
     centre, middle = arc["centre_setup_xy"], arc.get("arc_mid_setup_xy")
     window = None
     if number(sweep_deg) and sweep_deg > 0 and _pair(centre) and _pair(middle):
         heading = math.degrees(trig.atan2(middle[1] - centre[1], middle[0] - centre[0]))
         window = (heading, -sweep_deg / 2, sweep_deg / 2)
-    r_plan = arc["cutter_centre_radius_mm"]
+    # The pins stand on their own circle: the pose and stations are the real fixture's.
+    r_plan = record_["pin_radius_mm"] / scale if pinned else UNKNOWN
     gain = UNKNOWN
     if window and pinned and _pair(pins):
         heading, lo, hi = window
@@ -477,10 +493,105 @@ def recipe(bundle, setup, op, arc, band, label, scale):
                 f"R{cut[1]:.3f} mm, outside the R{low:g} to R{high:g} mm band"
             )
     _rotation(arc, label, debts, record_, scale)
+    if window and pinned and number(gain):
+        _stops_proof(arc, record_, pins, window, label, errors, debts)
+        _start_clear(bundle, setup, arc, record_, pins, window, label, debts, scale)
+    else:
+        record_.update(stops="unproven", start="unproven")
+    if not (errors or debts) and not _pair(record_["cut_radius_mm"]):
+        # Unknown is never a pass: an unproven cut always names itself.
+        debts.append(f"{label}: the cut radius is unproven")
     if measurements:
         by_id = {entry["id"]: entry for entry in measurements}
         arc["measurements"] = [*arc.get("measurements", []), *by_id.values()]
     return errors, debts
+
+
+def _stop_band(record_, pins, psi):
+    """``[least, greatest]`` pose (degrees from the heading) a stop set on rail 1 for pose
+    ``psi`` can hold, over every pin radius the budget allows and a station off by
+    :data:`STATION_ERROR_MM`; None when it cannot be bounded."""
+    nominal = record_["pin_radius_mm"]
+    terms = record_.get("error_terms_mm") or {}
+    radii = [nominal - terms.get("radius_below", 0.0), nominal + terms.get("radius_above", 0.0)]
+    found = []
+    for r in radii:
+        band = stop_poses(r, pins[0], psi)
+        if band is None:
+            return None
+        found.extend(band)
+    return [min(found), max(found)]
+
+
+def _stops_proof(arc, record_, pins, window, label, errors, debts):
+    """The stops are clamped on rail 1 at the printed stations by a steel rule (``stops``
+    ``"proven"`` only when this holds): set anywhere within :data:`STATION_ERROR_MM` of
+    them, each must still hold the carrier past its arc end, so the cutter reaches the
+    arc's whole span; a stop that could fall short is an error (sweep farther). Records
+    each stop's worst pose band ``stop_bands_deg``."""
+    heading, lo, hi = window
+    centre, rows, ends = arc["centre_setup_xy"], arc["rows"], arc.get("arc_ends_deg")
+    record_["stops"] = "unproven"
+    if not rows or not isinstance(ends, list):
+        debts.append(f"{label}: the sweep's stops are unknown")
+        return
+    poses = [_pose_angle(rows[i]["setup_xy"], centre, heading) for i in (0, -1)]
+    # The arc's own ends as poses: the rows at the arc ends lie inside the sweep's.
+    span = record_.get("span_deg")
+    first_side = 1 if poses[0] > poses[1] else -1
+    arc_ends = [first_side * span / 2, -first_side * span / 2]
+    bands = [_stop_band(record_, pins, psi) for psi in poses]
+    if any(band is None for band in bands):
+        debts.append(f"{label}: the stops' poses cannot be bounded from the rail stations")
+        return
+    record_["stop_bands_deg"] = bands
+    for band, end, side in zip(bands, arc_ends, (first_side, -first_side), strict=True):
+        # The stop's nearest pose to the arc must still lie past that arc end.
+        nearest = band[0] if side > 0 else band[1]
+        if side * (nearest - end) < 0:
+            errors.append(
+                f"{label}: a stop set {STATION_ERROR_MM:g} mm off its printed rail station "
+                f"could hold the carrier {abs(nearest - end):.3f}° short of the arc's end: "
+                "sweep farther past the arc's ends"
+            )
+            return
+    record_["stops"] = "proven"
+
+
+def _start_clear(bundle, setup, arc, record_, pins, window, label, debts, scale):
+    """The cutter goes down at the first stop: ``start`` ``"air"`` only when, at every pose
+    the first stop can hold (:func:`_stops_proof`'s band) and on every cut radius the
+    budget allows, the cutter stands wholly outside the stock box the setup receives
+    (:func:`~.level_entry.in_air`), as for every guided sweep; else ``"unproven"`` and
+    debt, so the traveler stops."""
+    from .level_entry import in_air, stock_box
+
+    record_["start"] = "unproven"
+    bands, cut = record_.get("stop_bands_deg"), record_.get("cut_radius_mm")
+    radius = arc.get("cutter_radius_mm")
+    heading = window[0]
+    centre = arc["centre_setup_xy"]
+    nominal = arc["cutter_centre_radius_mm"] * scale
+    if bands and isinstance(cut, list) and isinstance(radius, (int, float)):
+        wall = arc["wall_radius_mm"] * scale
+        # How far the real cutter centre stands off the nominal path, radially.
+        spread = max(abs(cut[0] - wall), abs(cut[1] - wall))
+        reach = radius + spread
+        box = stock_box(bundle, setup)
+        clear = True
+        # The band is a few hundredths of a degree: its ends and middle bound it.
+        for psi in (bands[0][0], sum(bands[0]) / 2, bands[0][1]):
+            u = _u(heading + psi)
+            point = [centre[i] + nominal / scale * u[i] for i in range(2)]
+            clear &= bool(in_air(box, point, reach, scale))
+        if clear:
+            record_["start"] = "air"
+            return
+    debts.append(
+        f"{label}: the sweep's start is not proven clear of the stock the setup receives, "
+        "so the cutter would go down into material there; sweep far enough past the arc's "
+        "ends for the cutter to start clear (a longer sweep_deg), with the stock modelled"
+    )
 
 
 def _pose(arc, record_, found, pins, window, r_plan, scale, errors, label):

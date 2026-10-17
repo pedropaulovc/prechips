@@ -1151,10 +1151,11 @@ recipes; an unknown action cannot establish the saw-only exemption.
 
 - A `guided_sweep` on a `trammel` guide ([#269](https://github.com/pedropaulovc/prechips/issues/269), `rules/trammel.py`)
   records `guide = "trammel"`, `feed = "lever"` and `locked_axes` X, Y and Z. Its
-  rows move radially onto the pin-defined circle `pin_radius_mm = D / (2 sin α)`
+  rows stay on the nominal cutter-centre arc, as every guided sweep's do
   (`exact_arc` hands that circle to the kernel; each row's `dro_xy` is its exact
-  XY, since the DRO sets nothing). The exact carrier pose (it turns `−ψ/2` while
-  the cutter runs `ψ` on the circle) gives `carrier_turn_deg`, `rails_dir`, each
+  XY, since the DRO sets nothing); the pins put the real cutter centre on
+  `pin_radius_mm = D / (2 sin α)`, judged against the band. The exact carrier pose
+  on the pin circle (it turns `−ψ/2` while the cutter runs `ψ` on it) gives `carrier_turn_deg`, `rails_dir`, each
   pin's `stations_mm` at the sweep's start and end in cutting order and its exact
   `station_ranges_mm`, and `swept_mm`, the exact table-frame footprint of the pins
   and the kernel's stock box about the spindle axis. `error_terms_mm` holds the
@@ -1167,8 +1168,36 @@ recipes; an unknown action cannot establish the saw-only exemption.
   above by each side's sum, and must lie inside `band_mm`. A master or touch axis, a
   rough stage, a nonpositive pin spacing, pins that do not subtend `α`, a pin inside
   the swept window, tolerances that leave no acute crossing, and a
-  carriage beyond `rail_travel` are errors; any unmeasured fixture fact is unknown
-  with its `measure:` entry.
+  carriage beyond `rail_travel`, a stop that set 0.55 mm off its station could hold
+  the carrier short of an arc end (`stops`, with each stop's `stop_bands_deg`), and a
+  setup shared with another spindle op are errors; a start not proven clear of the
+  stock at every pose the first stop can hold (`start`) and any unmeasured fixture
+  fact are unknown, with a `measure:` entry for each fact.
+
+#### Trammel operator sequence
+
+What the operator does with a trammel card ([#289](https://github.com/pedropaulovc/prechips/issues/289)),
+what each printed number is measured from, which physical reference sets it, and how
+its error reaches the cut. Every value printed here is in the card's one gate
+(`sheet_sweep.TRAMMEL_PRINTED`): an unproven one prints only a STOP.
+
+| Step | Printed | Measured from / set by | Its error reaches the cut as | Bounded by |
+|---|---|---|---|---|
+| 0. Rails aligned (once per install, [#270](https://github.com/pedropaulovc/prechips/issues/270)) | rail angle `α` (information) | the commissioning readings that put both pin-lines through the spindle axis | the rails' crossing angle: radius `R(D, α)`; a pin-line off the spindle axis: about 1:1 | the measured `rail_angle_error` at its corners; `rail_offset` through `line_gain` |
+| 1. Seat the pin pair | pair name, spacing `D` (information) | the carrier's drilled pin holes | spacing: radius `R(D, α)`; a pin's play in its carriage: about 1:1 | `pin_spacing_error` at its corners; `pin_clearance` through `line_gain` |
+| 2. Lock X and Y on the rails' crossing | none (no X/Y pickup, no DRO sign) | the spindle left where step 0 aligned the rails | moving X/Y offsets both pin-lines: radial about 1:1 | the card forbids moving them; the zero owes no X/Y |
+| 3. Clamp the stops on rail 1 | each end's pin station, 0.1 mm, from the spindle axis and along the rail from the carriage's near end stop (`rail_travel` near limit) | a steel rule from that end-stop position | a stop off by up to 0.55 mm holds the carrier at another pose (`stop_bands_deg`, the exact inverse of the station); it never moves the radius | an error unless the worst stop still holds past its arc end; debt unless the cutter goes down in air at every pose the first stop can hold |
+| 4. Check rail 2's stations | the other pin's stations at both stops | the same rule on rail 2 | a mismatch means the rails or pins are not as set | the card says STOP on a mismatch |
+| 5. Dry pass | none | — | clamps or holder in the path | `headroom` owes this check at every pose |
+| 6. Start the spindle, set and lock Z | spindle direction; Z at DRO resolution (each level when stepped) | the setup's Z zero | one DRO step of Z moves the depth only, never the radius | the tip rules; not the trammel's |
+| 7. Lever stop to stop | the carrier's turn, sweep angle, cutter travel, pace (information) | the stops | the carrier must keep both pins seated: a pin lifting out of its carriage is outside every bound | the card's instruction |
+
+The rule's `cut_radius_mm` bound encloses every wall an independent model of the
+perturbed fixture finds: the rail angle and spacing at either tolerance limit, each
+pin-line off by its clearance plus offset either way, and both stops 0.55 mm off
+either way (tests/test_trammel.py). The radius terms bound `R` itself, while
+the work sits on the pins, so the wall moves far less than `R` does: the bound is
+conservative.
 
 A setup whose every spindle op (one with a `tool`) is a `guided_sweep` needs no X
 or Y recipe ([#255](https://github.com/pedropaulovc/prechips/issues/255)): the
