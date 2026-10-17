@@ -1754,7 +1754,7 @@ def pure_native_outline_render():
             or isinstance(node, ast.Assign)
             and any(
                 isinstance(target, ast.Name)
-                and target.id in {"UNKNOWN", "STOCK_TOL", "STOCK_MM3", "_COLOURS"}
+                and target.id in {"UNKNOWN", "STOCK_TOL", "STOCK_MM3", "_COLOURS", "_GUIDE_GROUPS"}
                 for target in node.targets
             )
         )

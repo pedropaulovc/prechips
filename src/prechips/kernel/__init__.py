@@ -776,6 +776,21 @@ def raster_keep_out(tables, op, units):
     return (UNKNOWN, UNKNOWN) if circles is None else (circles, passes)
 
 
+def _exact_arc(arc, scale):
+    """``{"exact_arc_mm": {centre, radius}}`` (setup mm) for a path whose rows lie on one
+    exact cutter-centre circle (a trammel, #269), else {}."""
+    arc = arc if isinstance(arc, dict) else {}
+    centre, radius = arc.get("centre"), arc.get("radius")
+    if not (
+        isinstance(centre, list)
+        and len(centre) == 2
+        and all(number(v) for v in (*centre, radius))
+        and radius > 0
+    ):
+        return {}
+    return {"exact_arc_mm": {"centre": [v * scale for v in centre], "radius": radius * scale}}
+
+
 def table_checkpoints(subject, tables, op, units):
     """An op's printed DRO cutter-centre checkpoints in setup-frame mm: ``rows`` of id,
     ``xy_mm`` and ``tip_z_mm`` (the values the DRO shows, ``overshoot`` on a corner miter),
@@ -835,6 +850,7 @@ def table_checkpoints(subject, tables, op, units):
                     "stepped": path["stepped"],
                     "method": path["method"],
                     "chain_geometry": path["chain_geometry"],
+                    **_exact_arc(path.get("exact_arc"), scale),
                 }
             )
         elif len(points) == len(path["rows"]):
