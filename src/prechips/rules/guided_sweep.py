@@ -1137,27 +1137,38 @@ def _rotation(arc, label, debts, record_, scale):
 def _support_lift(bundle, setup):
     """The height (mm) the hold's parallels and support blocks (or riser) lift the work off
     its fixture's bed, as the headroom stack reads them: 0 when none is declared, None
-    when a declared one's height is unknown."""
-    from .headroom import _height
-
+    when a declared one is unknown or unproven (:func:`_trusted_height`)."""
     hold = record(setup.get("hold"))
-    total = 0.0
     absent = (None, "none", "not_applicable")
-    parallels = hold.get("parallels")
-    if parallels not in absent:
-        height = _height(resolve(bundle, "fixtures", parallels) or {})
-        if not number(height):
-            return None
-        total += height
-    support = hold.get("supports", hold.get("riser"))
-    if support not in absent:
-        height = _height(
-            resolve(bundle, "fixtures", support) or {}, hold.get("support_orientation")
-        )
-        if not number(height):
+    parts = (
+        (hold.get("parallels"), None),
+        (hold.get("supports", hold.get("riser")), hold.get("support_orientation")),
+    )
+    total = 0.0
+    for reference, orientation in parts:
+        if reference in absent:
+            continue
+        height = _trusted_height(bundle, reference, orientation)
+        if height is None:
             return None
         total += height
     return total
+
+
+def _trusted_height(bundle, reference, orientation):
+    """A support's height (mm) as the headroom stack reads it, or None when the item is
+    missing or flagged to verify, or its declared height is itself flagged: headroom leaves
+    such a stack unresolved, so the picture draws no rollers on it."""
+    from .headroom import _height
+
+    item = resolve(bundle, "fixtures", reference)
+    if not isinstance(item, dict) or uncertain(item):
+        return None
+    fact = length_fact(item, "height", require_measured=False)
+    if number(fact["value"]) and not fact["verified"]:
+        return None
+    height = _height(item, orientation)
+    return height if number(height) else None
 
 
 # The guide-element facts the setup picture draws a rail's rollers from: (field, words).
@@ -1218,6 +1229,9 @@ def guide_scene(bundle, setup, numbers, scale):
         item = item if isinstance(item, dict) else {}
         category, key = identity(bundle, reference, "fixtures")
         values, missing = {}, []
+        if not item or uncertain(item):
+            # A sled flagged to verify as a whole proves none of its facts, measured or not.
+            missing.append(f"{key} is not in the fixtures inventory or is flagged to verify")
         for field, _ in _ROLLER_FACTS:
             fact = length_fact(item, field, require_measured=True)
             if fact["verified"] and number(fact["value"]) and fact["value"] > 0:

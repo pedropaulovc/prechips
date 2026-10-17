@@ -593,7 +593,7 @@ ROLLERS = (
 )
 
 
-def guide_annotation(tmp_path, guide="rail", rollers=ROLLERS, state="", **kwargs):
+def guide_annotation(tmp_path, guide="rail", rollers=ROLLERS, state="", edits=(), **kwargs):
     from prechips.kernel.render_inputs import setup_annotations
 
     plan = guided_plan(tmp_path, guide, **kwargs)
@@ -601,6 +601,8 @@ def guide_annotation(tmp_path, guide="rail", rollers=ROLLERS, state="", **kwargs
         change(plan, "bottom_z = -10.0\n", "bottom_z = -10.0\n" + state)
     inventory = plan.with_name("inventory.toml")
     change(inventory, "rail_radius_mm = 850.0\n", "rail_radius_mm = 850.0\n" + rollers)
+    for old, new in edits:
+        change(inventory, old, new)
     bundle = load_bundle(plan)
     (row,) = [r for r in coordinates.evaluate(bundle, pre_kernel=True) if r.subject == "S1"]
     return row, setup_annotations(bundle, bundle.plan["setups"][0], row.numbers)
@@ -646,6 +648,39 @@ def test_retained_rails_below_the_bottom_seat_the_work_the_rollers_stand_below(t
     assert any(
         "NOT SHOWN: op 20's guide rollers" in note and "stock bottom" in note
         for note in annotation["notes"]
+    )
+
+
+@pytest.mark.parametrize(
+    "parallels",
+    [
+        "height_mm = 12.0\nverify = true\n",
+        "height_mm = { value = 12.0, verify = true }\nverify = false\n",
+    ],
+    ids=["item-flagged", "height-flagged"],
+)
+def test_parallels_not_proven_leave_the_rollers_undrawn(tmp_path, parallels):
+    # Headroom leaves a stack on flagged parallels unresolved: the picture draws no rollers
+    # at a table height they would only seem to prove.
+    _, annotation = guide_annotation(
+        tmp_path,
+        hold="fixture = 'sled'\nparallels = 'par'",
+        inventory="[fixtures.par]\nkind = 'parallels'\n" + parallels,
+    )
+    assert "guides" not in annotation
+    assert any(
+        "the parallels' or support blocks' height under the work is unknown" in note
+        for note in annotation["notes"]
+    )
+
+
+def test_a_sled_flagged_to_verify_draws_no_rollers(tmp_path):
+    _, annotation = guide_annotation(
+        tmp_path, edits=[("verify = false\n[gauges.bar]", "verify = true\n[gauges.bar]")]
+    )
+    assert "guides" not in annotation
+    assert any(
+        "sled is not in the fixtures inventory or is flagged" in n for n in annotation["notes"]
     )
 
 
