@@ -418,9 +418,7 @@ naming them. Each table is recorded under `arc_table` (its joins under
   grid, `back_off_dro` the signed move on the touch axis from the DRO reading the
   operator writes down at the touch; the setup's DRO zero is never reset),
   widened by `centre_error_mm`: the swing arm's measured `pivot_play` (doubled
-  for a master arc on the arm, which moves with the beam at the touch-off too; a
-  setting bar's touch, made with the cutter centred on the bar to one DRO step, adds
-  `touch_aside_mm`, `sqrt(reach² + step²) − reach` at the cutter-centre reach), or
+  for a master arc on the arm, which moves with the beam at the touch-off too), or
   `2 × roller_gain × (rail_form_error + roller_runout / 2)` with
   `roller_gain = (|sin a| + |sin b|) / |sin(a − b)|` for rollers at `a`, `b`
   degrees from the cutter's radial line: each contact errs at the touch-off and
@@ -430,7 +428,17 @@ naming them. Each table is recorded under `arc_table` (its joins under
   rail the roller centres', taken as half the rail radius at least, true of any
   roller outside the rail or inside it and no wider than its radius), solved as a
   fixed point (`rules/guided_sweep.py` `rail_cut_shift`); one that does not converge
-  inside half of either radius leaves the cut unknown. It must lie inside the radial band (`band_mm`; a rough stage's moved
+  inside half of either radius leaves the cut unknown. Every geometric proof of the
+  sweep then carries one explicit safety margin, `margin_mm`, the machine's DRO
+  resolution (one display step): the cut is widened by it, and so is the start's
+  clearance, which also places both stops past the arc's ends. A bound term provably
+  smaller than the margin is absorbed rather than modelled: a setting bar touched up
+  to one step beside its line moves the cut by at most `hypot(reach, step) − reach`,
+  and a touch axis leaning within its one-step tolerance shortens a back-off `b` by
+  `b (1 − cos)`, both under one step for any cutter-centre reach of two steps or more
+  ([#272](https://github.com/pedropaulovc/prechips/issues/272)). A DRO resolution the
+  machine does not state as a measured fact, or a reach under two steps, leaves the
+  margin unproven: debt. It must lie inside the radial band (`band_mm`; a rough stage's moved
   off the line by its allowance), else an error. `sweep_deg`, centred on the arc,
   must reach both arc ends (`span_deg`, the cutter-centre span) to within one DRO
   step of cutter travel and stay under a full turn, else an error; a full circle is
@@ -502,8 +510,8 @@ naming them. Each table is recorded under `arc_table` (its joins under
   that radius range turns the measured overrun through (it is measured along the real
   path), by the mark's placement rounding (its X and Y each up to half a step off,
   the diagonal of the two) and by the stop's shift when the stroke's
-  printed angle is off by half its 0.1° step across a cutter radius plus that spread
-  (`start_reach_mm`), else `unproven` and unknown, since nothing
+  printed angle is off by half its 0.1° step across a cutter radius plus that spread,
+  and by the DRO-step margin (`start_reach_mm`), else `unproven` and unknown, since nothing
   checks a plunge for a sweep. The traveler prints the recipe only with a known band
   (`band_mm`), a proven cut and a start in air; any unproven cut is debt, whatever
   left it so (a pivot play or rail error too large to bound included). The stage

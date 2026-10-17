@@ -150,7 +150,8 @@ def test_a_guided_sweep_locks_the_cutter_and_moves_only_the_fixture(tmp_path, gu
         # The bar's R800.10-800.12 widened by the beam's 0.02 pivot play, plus the
         # cutter's own second-order term at R797: 0.02² / (2 × 796.98).
         assert sweep["centre_error_mm"] == pytest.approx(0.02 + 0.02**2 / (2 * 796.98))
-        assert cut == pytest.approx([800.08, 800.14])
+        # The bar's limits widened by the play, plus one DRO step of margin.
+        assert cut == pytest.approx([800.08 - 0.001, 800.14 + 0.001])
     else:
         # Rollers at ±15°: each contact's 0.05 form error + 0.005 half runout, at the touch
         # and again at the cut, through a 1/cos 15° gain, plus the finite-geometry terms:
@@ -328,7 +329,7 @@ def test_a_master_on_the_swing_arm_moves_with_its_play_at_the_touch_and_the_cut(
     _, sweep = recipe(row)
     assert sweep["master_kind"] == "master_arc" and sweep["transverse"] == "unknown"
     assert sweep["centre_error_mm"] == pytest.approx(2 * (0.02 + 0.02**2 / (2 * 796.98)))
-    assert sweep["cut_radius_mm"] == pytest.approx([800.16, 800.29])
+    assert sweep["cut_radius_mm"] == pytest.approx([800.16 - 0.001, 800.29 + 0.001])
     _, printed = traveler_text(tmp_path / "printed", master="'master'")
     assert "no radial line to centre the cutter on" in printed and "Lock" not in printed
 
@@ -406,7 +407,7 @@ def test_the_rows_stay_on_the_nominal_path_the_kernel_checks(tmp_path):
     row = coordinates_row(plan, stock_bbox=SWING)
     assert row.status == "pass", row.sentence
     table, sweep = recipe(row)
-    assert sweep["cut_radius_mm"] == pytest.approx([809.98, 810.04])
+    assert sweep["cut_radius_mm"] == pytest.approx([809.98 - 0.001, 810.04 + 0.001])
     for r in table["rows"]:
         assert math.dist(r["setup_xy"], table["centre_setup_xy"]) == pytest.approx(797.0)
 
@@ -809,7 +810,9 @@ def test_a_start_proven_in_air_holds_at_the_stop_the_printed_marks_set(tmp_path)
     from prechips.rules.level_entry import in_air
     from prechips.rules.manual_arc import arc_end_marks
 
-    plan = guided_plan(tmp_path)
+    # An exact R800 master on a play-free pivot, its band wide enough for the margin.
+    target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [799.99, 800.5]")
+    plan = guided_plan(tmp_path, target=target)
     inventory = plan.with_name("inventory.toml")
     change(inventory, "value = 0.02,", "value = 0.0,")
     change(inventory, "value = [800.10, 800.12],", "value = [800.0, 800.0],")
@@ -823,7 +826,7 @@ def test_a_start_proven_in_air_holds_at_the_stop_the_printed_marks_set(tmp_path)
             bundle, kernel={"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
         )
         guided = recipe(coordinates.evaluate(probe)[0])[1]
-        assert guided["cut_radius_mm"] == pytest.approx([800.0, 800.0], abs=1e-6)
+        assert guided["cut_radius_mm"] == pytest.approx([799.999, 800.001], abs=1e-6)
         line = coordinates.arc_layout(probe, setup, "target")
         start = 0 if guided["marks"]["start"] == "A" else 1
         x, _ = guided["start_xy"]
@@ -956,10 +959,10 @@ def test_a_rough_on_a_pivot_counts_the_beams_play_beside_the_line(tmp_path):
     assert sweep["transverse_offset_mm"] == pytest.approx(0.001 + 0.02)
 
 
-def test_a_bar_touch_beside_its_line_widens_even_a_finish(tmp_path):
-    # Centred on the bar to one DRO step, the cutter touches the bar's end up to that step
-    # beside its line, so its axis stands sqrt(reach² + step²) from the pin: the finish's
-    # cut is widened by it as well as by the play (Codex review of #258 at 8a96167).
+def test_every_cut_carries_one_dro_step_of_margin(tmp_path):
+    # One explicit margin, the machine's 0.001 mm DRO step, widens every cut beyond the
+    # master and guide error. It absorbs smaller terms: a bar touched up to a step beside
+    # its line (hypot(reach, step) - reach, 3.8e-8 mm at this R13 reach).
     plan = guided_plan(
         tmp_path,
         target=SEMICIRCLE,
@@ -969,11 +972,56 @@ def test_a_bar_touch_beside_its_line_widens_even_a_finish(tmp_path):
         sweep_deg="180.0",
     )
     sweep = recipe(coordinates_row(plan, stock_bbox=SWING))[1]
+    assert sweep["margin_mm"] == pytest.approx(0.001)
     reach = 13.0  # the R10 convex wall plus the Ø6 cutter's radius
-    aside = math.hypot(reach, 0.001) - reach
-    assert sweep["touch_aside_mm"] == pytest.approx(aside)
     play = 0.02 + 0.02**2 / (2 * (reach - 0.02))
-    assert sweep["centre_error_mm"] == pytest.approx(play + aside)
+    assert sweep["centre_error_mm"] == pytest.approx(play)
+    assert sweep["cut_radius_mm"] == pytest.approx([10.0 - play - 0.001, 10.02 + play + 0.001])
+    assert math.hypot(reach, 0.001) - reach < 0.001
+
+
+def test_a_band_just_inside_the_old_bound_now_needs_the_margin(tmp_path):
+    # The R800 bar on a 0.02 pivot cuts R800.08 to R800.14 before the margin: a band from
+    # R800.0795 held that, but not the cut one DRO step wider.
+    target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [800.0795, 800.5]")
+    row = coordinates_row(guided_plan(tmp_path, target=target), stock_bbox=SWING)
+    assert row.status == "error", row.sentence
+    assert "cuts R800.079 to R800.141 mm, outside the" in errors(row)
+
+
+def test_a_start_just_inside_the_old_bound_now_needs_the_margin(tmp_path):
+    # Stock half a DRO step inside the start's reach: clear of the reach without the
+    # margin, so the old proof said air; one step of margin leaves it unproven.
+    from prechips.rules.level_entry import STOCK_TOL_MM
+
+    row = coordinates_row(guided_plan(tmp_path / "probe"), stock_bbox=SWING)
+    probe = recipe(row)[1]
+    _, y = probe["start_xy"]
+    reach, margin = probe["start_reach_mm"], probe["margin_mm"]
+    for name, edge, start in (
+        ("inside", y - reach + margin / 2 - STOCK_TOL_MM, "unproven"),
+        ("clear", y - reach - STOCK_TOL_MM - 0.0005, "air"),
+    ):
+        box = [-1000.0, -1000.0, -10.0, 1000.0, edge, 0.0]
+        row = coordinates_row(guided_plan(tmp_path / name), stock_bbox=box)
+        assert recipe(row)[1]["start"] == start, name
+
+
+def test_the_margin_needs_a_measured_dro_resolution(tmp_path):
+    # The margin is the machine's stated DRO step: 0.005 mm stated, 0.005 mm of margin;
+    # a resolution with no measurement leaves the margin unproven, so the sweep stops.
+    plan = guided_plan(tmp_path / "coarse")
+    change(plan.with_name("inventory.toml"), "value = 0.001, measured", "value = 0.005, measured")
+    coarse = recipe(coordinates_row(plan, stock_bbox=SWING))[1]
+    assert coarse["margin_mm"] == pytest.approx(0.005)
+    row, printed = traveler_text(
+        tmp_path / "unmeasured",
+        drop=", measured = { status = 'measured', by = 'synthetic test operator', "
+        "date = '2026-10-05', instrument = 'test DRO' }",
+    )
+    assert "so the sweep's one-DRO-step margin is unproven" in debts(row)
+    assert "STOP: guided sweep not established" in printed
+    assert "With X and Y locked" not in printed
 
 
 @pytest.mark.parametrize("kind", ["lathe", "unknown"])
@@ -1277,11 +1325,12 @@ def test_the_rail_bound_holds_for_finite_form_errors():
 
 
 def test_a_finish_after_a_rejected_rough_prints_no_return_to_an_unprinted_touch(tmp_path):
-    # The finish cut (R800.07999975 low) sits just inside the band's R800.0799 edge; the
+    # The finish cut (R800.07899975 low, its DRO-step margin in) sits just inside the band's
+    # R800.0789 edge; the
     # rough's 0.0003 leave rounds off the line to a 0.001 back-off, so only the rough leaves
     # its band. The rejected rough prints nothing, and the finish, which would take the
     # whole leave, stops too.
-    target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [800.0799, 800.5]")
+    target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [800.0789, 800.5]")
     row, printed = traveler_text(tmp_path, allowance=0.0003, target=target)
     assert row.status == "error", row.sentence
     assert "op 20 rough: " in errors(row) and "op 20 finish: " not in errors(row)

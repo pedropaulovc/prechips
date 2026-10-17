@@ -1658,8 +1658,7 @@ uses the 1898 manual arc method:
    master's declared `radius_limits` (a measured fact), widened by how far the
    guide lets the arc centre move between the touch-off and the cut: the swing
    arm's measured `pivot_play` (twice for a master on the arm, which moves with the
-   beam at the touch-off too; a setting bar's touch, made up to one DRO step beside
-   its line, adds `sqrt(reach² + step²) − reach`, `touch_aside_mm`), or, on a rail, `2 × g × (rail_form_error +
+   beam at the touch-off too), or, on a rail, `2 × g × (rail_form_error +
    roller_runout / 2)` with the rollers' gain `g = (|sin a| + |sin b|) / |sin(a −
    b)|` for rollers at `a` and `b`, each plus its finite-geometry terms (a linear
    gain alone is no bound; one that does not converge leaves the cut unknown); it
@@ -1669,7 +1668,14 @@ uses the 1898 manual arc method:
    widened by how far that move misses its radial one with the cutter beside the
    radial line: one DRO step plus the pivot play for a centred setting bar, or a
    rail centre's sideways shift `(|cos a| + |cos b|) / |sin(a − b)|` times its
-   rollers' 0.1 mm print rounding plus its form error and half its runout). The
+   rollers' 0.1 mm print rounding plus its form error and half its runout), then by
+   one explicit safety margin, the machine's DRO resolution (one display step,
+   `margin_mm`), which the start's clearance carries too. Bound terms provably
+   smaller than that margin are absorbed rather than modelled (a setting bar touched
+   up to a step beside its line, a touch axis leaning within its one-step tolerance;
+   [#272](https://github.com/pedropaulovc/prechips/issues/272)); a DRO resolution not
+   stated as a measured fact, or a cutter-centre reach under two steps, leaves the
+   margin unproven. The
    rows sample the cutter-centre arc every `step_deg` over the whole sweep, centred
    on the arc with its ends kept, so the kernel judges the cutter where the arc
    ends and where the sweep stops. A sweep shorter than the arc (by more than one

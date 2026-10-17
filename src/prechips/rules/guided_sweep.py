@@ -23,7 +23,7 @@ import math
 
 from .. import trig
 from ..measurements import length_debt, length_fact, limits_debt, limits_fact, record_debt
-from .coordinates import _JOIN_TOL, _WALL_TOL, _grid, _pair, _samples, dro_grid
+from .coordinates import _JOIN_TOL, _WALL_TOL, _grid, _pair, _samples, dro_grid, dro_grid_debt
 from .resolution import UNKNOWN, authored, identity, number, record, resolve, uncertain
 
 METHOD = "guided_sweep"
@@ -451,6 +451,30 @@ def _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid):
         record_.update(overrun_mm=overrun, path_mm=math.radians(sweep_deg) * radius * scale)
 
 
+def _margin(bundle, setup, arc, label, debts, record_, scale, grid):
+    """The one explicit safety margin every geometric proof of the sweep carries:
+    ``margin_mm``, the machine's DRO resolution, one display step. The cut's widening
+    and the start's clearance (which also places both stops past the arc's ends) each
+    add it. Any bound term provably smaller than it is absorbed rather than modelled:
+    a setting bar's touch up to one step beside its line moves the cut by at most
+    ``hypot(reach, step) - reach``, and a touch axis leaning within its one-step
+    tolerance turns a back-off ``b`` short by ``b (1 - cos)``, both under one step for
+    any cutter-centre reach of two steps or more (#272). A DRO resolution the machine
+    does not state as a measured fact leaves the margin unproven, and a reach under two
+    steps leaves the absorbed terms unbounded: debt either way."""
+    margin = grid[0] * scale
+    record_["margin_mm"] = margin
+    why = dro_grid_debt(bundle, setup)
+    if why is not None:
+        debts.append(f"{label}: {why}, so the sweep's one-DRO-step margin is unproven")
+    reach = arc["cutter_centre_radius_mm"]
+    if number(reach) and reach * scale < 2 * margin:
+        debts.append(
+            f"{label}: the cutter's centre runs within two DRO steps of the arc's centre, "
+            "so the one-step margin bounds nothing it absorbs"
+        )
+
+
 def _start_clear(bundle, setup, arc, label, debts, record_, scale, grid):
     """The cutter goes down at the sweep's first stop, its first row, at every level: the
     stops lie past the arc's ends so it enters in air. That entry is ``start`` ``"air"``
@@ -512,6 +536,7 @@ def _start_clear(bundle, setup, arc, label, debts, record_, scale, grid):
         rounding = math.hypot(half, half)
         tilt = (radius + radial) * math.tan(math.radians(ANGLE_STEP_DEG / 2))
         reach = radius + radial + (centre * scale + radial) * swing + rounding + tilt
+        reach += record_["margin_mm"]
         record_["start_reach_mm"] = reach
     if point is not None and in_air(stock_box(bundle, setup), point, reach, scale):
         record_["start"] = "air"
@@ -786,6 +811,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
     sweep_deg = sweep.get("sweep_deg", UNKNOWN)
     gain = _rail(sweep, sweep_deg, errors, debts, record_) if guide == "rail" else None
     grid = dro_grid(bundle, setup)
+    _margin(bundle, setup, arc, label, debts, record_, scale, grid)
     _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid)
     _row_spacing(contour, label, errors)
     _own_setup(setup, label, errors)
@@ -816,13 +842,6 @@ def guided(bundle, setup, op, arc, band, label, scale):
             )
         else:
             widen = (play + term) * (1 if bar else 2)
-            if bar and number(reach) and reach > 0:
-                # Centred on the bar to one DRO step, the cutter touches the bar's end
-                # beside its line: its axis stands sqrt(reach² + step²) from the pin, past
-                # the reach the bar's limits give.
-                aside = math.hypot(reach, grid[0] * scale) - reach
-                record_["touch_aside_mm"] = aside
-                widen += aside
     elif found is not None and gain is not None:
         form, runout = found["rail_form_error"], found["roller_runout"]
         if number(form) and number(runout) and number(found["rail_radius"]):
@@ -876,7 +895,8 @@ def guided(bundle, setup, op, arc, band, label, scale):
     )
     if proven:
         shifted = outward * back * scale
-        widened = widen + residual
+        # One DRO step more, the margin every proof here carries (:func:`_margin`).
+        widened = widen + residual + record_["margin_mm"]
         record_["cut_radius_mm"] = [master[0] + shifted - widened, master[1] + shifted + widened]
     elif not (errors or debts):
         # Unknown is never a pass: a cut left unproven always names itself, whatever
@@ -893,6 +913,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
             why = f"the master's R{master[0]:g} to R{master[1]:g} mm"
             if widen:
                 why += f" widened by the guide's {widen:.3f} mm centre error"
+            why += f" and the {record_['margin_mm']:g} mm DRO-step margin"
             if back:
                 why += f" and backed off {back * scale:g} mm"
             errors.append(
