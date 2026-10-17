@@ -203,6 +203,7 @@ def test_z_touch_point_is_a_setup_frame_pair(tmp_path):
         ({"value": 3.0, "cite": "x", "test": " "}, True, False, "test method"),
         ({"value": 3.0, "cite": "x", "test": "unknown"}, True, False, "test method"),
         ({"value": 3.0, "cite": "x", "test": "overlap shear"}, True, True, "own citation"),
+        ({"value": 3.0, "cite": "x", "measured": "unknown"}, False, False, "stated unknown"),
     ],
 )
 def test_cited_fact_is_trusted_only_by_its_own_qualifiers(fact, tested, verified, reason):
@@ -261,6 +262,23 @@ def test_other_methods_and_unknown_area_identities_still_load(tmp_path):
 def test_area_reference_must_resolve_to_its_kind_and_one_drawn_solid(tmp_path, hold, match):
     with pytest.raises(BadInput, match=match):
         bundle(tmp_path, hold)
+
+
+@pytest.mark.parametrize(
+    "fixture,error",
+    [
+        ('[fixtures.subplate]\nkind = "custom"\n', "found 0"),  # draws no solids: no seat
+        ('[fixtures.subplate]\nkind = "custom"\nsolids = "unknown"\n', None),  # debt
+        ("", None),  # an unresolved fixture is tool_resolves' finding, not a seat error
+    ],
+)
+def test_known_seat_needs_a_drawn_solid_of_a_resolved_fixture(tmp_path, fixture, error):
+    hold = 'fixture = "subplate"\narea = { ref = "tape", on = "plate" }'
+    if error is None:
+        bundle(tmp_path, hold, TAPE + fixture)
+        return
+    with pytest.raises(BadInput, match=error):
+        bundle(tmp_path, hold, TAPE + fixture)
 
 
 def test_two_solids_of_the_named_seat_are_ambiguous(tmp_path):

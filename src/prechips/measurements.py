@@ -239,6 +239,9 @@ def cited_fact(item, field, *, tested=False):
         return {**result, "reason": f"{field} is a bare value with no citation or measurement."}
     if fact.get("verify") is True or fact.get("verify") == UNKNOWN:
         return {**result, "reason": "This fact explicitly requires verification."}
+    if "measured" in fact and measured == UNKNOWN:
+        # A measurement stated unknown is unresolved, and a cite does not stand in for it.
+        return {**result, "reason": f"{field}'s measurement is stated unknown."}
     if measured != UNKNOWN:
         trusted, reason = _trust({"measured": measured}, True)
         if not trusted:

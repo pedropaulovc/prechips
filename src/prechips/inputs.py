@@ -208,7 +208,9 @@ def _area_holds(plan: dict, inventory: dict) -> None:
             raise BadInput(f"{where}.area.ref {ref!r} is not a consumables adhesive_tape item.")
         fixture = hold.get("fixture", "unknown")
         item = fixtures.get(fixture) if isinstance(fixtures, dict) else None
-        solids = item.get("solids") if isinstance(item, dict) else None
+        # An unresolved fixture or a solids list stated unknown is debt for the rules; a
+        # known fixture that draws no solids has no seat to name.
+        solids = item.get("solids", []) if isinstance(item, dict) else "unknown"
         if on == "unknown" or not isinstance(solids, list):
             continue
         named = [
