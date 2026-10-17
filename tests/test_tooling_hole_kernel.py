@@ -54,7 +54,7 @@ def hole(at=(50.0, 20.0, 20.0), axis=(0.0, 0.0, -1.0), depth=None):
     return spec
 
 
-def cut_op(subject, action, diameter, spec, exit_mm=1.0):
+def cut_op(subject, action, diameter, spec, exit_mm=1.0, through=20.0, depth=None):
     op = _op(subject, "cl", diameter / 2, 30.0, 60.0)
     op["do"] = action
     cut = {"process_feature": "cl", "action": action, **spec, "diameter_mm": diameter}
@@ -63,9 +63,11 @@ def cut_op(subject, action, diameter, spec, exit_mm=1.0):
     if action == "ream":
         cut["lead_mm"] = 1.0
     if spec.get("thru"):
+        # The setup's authored local thickness plus the exit allowance.
         cut["exit_mm"] = exit_mm
+        cut["through_mm"] = through + exit_mm
     else:
-        cut["op_depth_mm"] = spec["depth_mm"]
+        cut["op_depth_mm"] = spec["depth_mm"] if depth is None else depth
     op["process_cut"] = cut
     return op
 
@@ -171,3 +173,26 @@ def test_a_second_pass_at_the_same_size_still_finds_the_far_side(engine, part):
     result = run(engine, part, spec, [setup("T1", ops), setup("T2", [])])
     assert "reason" not in result["ops"]["T1:20"] or LABEL not in result["ops"]["T1:20"]["reason"]
     assert states(result)["T2"] == "present"
+
+
+def test_a_blind_hole_drilled_short_of_its_depth_bound_is_present(engine, part):
+    # blind_depth lets the op's full diameter stop short so its point stays inside depth.
+    spec = hole(depth=10.0)
+    ops = [cut_op("T1:10", "drill", 5.8, spec, depth=8.0)]
+    result = run(engine, part, spec, [setup("T1", ops), setup("T2", [])])
+    assert states(result)["T2"] == "present"
+
+
+def test_a_through_plan_that_stops_short_of_the_far_side_is_not_cut(engine, part):
+    spec = hole()
+    ops = [cut_op("T1:10", "ream", 6.016, spec, exit_mm=0.0, through=15.0)]
+    result = run(engine, part, spec, [setup("T1", ops), setup("T2", [])])
+    assert "short of the far side" in result["ops"]["T1:10"]["reason"]
+    assert "stock_reason" in result["setups"]["T2"]
+
+
+def test_a_mouth_above_the_stock_is_not_cut(engine, part):
+    spec = hole(at=(50.0, 20.0, 22.0))
+    ops = [cut_op("T1:10", "ream", 6.016, spec, through=22.0)]
+    result = run(engine, part, spec, [setup("T1", ops), setup("T2", [])])
+    assert "mouth is not on the stock's exposed surface" in result["ops"]["T1:10"]["reason"]

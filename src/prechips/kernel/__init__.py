@@ -414,9 +414,12 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         elif process_cut.get("kind") == "end_face" and not turned and "reason" not in process_cut:
             process_cut.update(face_sweep(op, tables, bundle.features.get("units", UNKNOWN)))
         elif process_cut.get("kind") == "tooling_hole" and "reason" not in process_cut:
-            process_cut.update(_tooling_inputs(bundle, op, process_cut))
-            if process_cut.get("reason"):
+            tooling = _tooling_inputs(bundle, setup, op, process_cut)
+            # An unaccepted tool fact is a refused (debt-carrying) input; a missing plan
+            # value keeps its own reason.
+            if tooling.pop("refused", False):
                 result.setdefault("refusal_reasons", []).append("process_cut")
+            process_cut.update(tooling)
         result["process_cut"] = process_cut
     if "faces" in op:
         result["faces"] = op["faces"]
@@ -515,7 +518,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     return result
 
 
-def _tooling_inputs(bundle, op, cut):
+def _tooling_inputs(bundle, setup, op, cut):
     """What the kernel drills a tooling hole (``process_cut``) with: the selected tool's
     accepted diameter (a drill also its accepted point angle) and, through the stock, the
     op's exit allowance. ``reason`` names the first unaccepted fact; the cut then stays
@@ -523,18 +526,30 @@ def _tooling_inputs(bundle, op, cut):
     tool = measurement_item(bundle, "tools", op.get("tool"))
     result = {"diameter_mm": _accepted_length(tool, "dia")}
     if not (number(result["diameter_mm"]) and result["diameter_mm"] > 0):
-        return {**result, "reason": f"{cut['label']}: the {op.get('do')} tool diameter is unknown"}
+        return {
+            **result,
+            "refused": True,
+            "reason": f"{cut['label']}: the {op.get('do')} tool diameter is unknown",
+        }
     if op.get("do") == "drill":
         angle = _accepted_angle(tool, "point_angle")
         result["point_angle_deg"] = angle
         if not (number(angle) and 0 < angle < 180):
-            return {**result, "reason": f"{cut['label']}: the drill point angle is unknown"}
+            return {
+                **result,
+                "refused": True,
+                "reason": f"{cut['label']}: the drill point angle is unknown",
+            }
     if op.get("do") == "ream":
         # The lead below the full diameter reaches deeper, as blind_depth prints the tip.
         lead = _accepted_length(tool, "lead")
         result["lead_mm"] = lead
         if not (number(lead) and lead >= 0):
-            return {**result, "reason": f"{cut['label']}: the reamer lead is unknown"}
+            return {
+                **result,
+                "refused": True,
+                "reason": f"{cut['label']}: the reamer lead is unknown",
+            }
     if not cut.get("thru"):
         # As blind_depth: the op's depth_mm is the full-diameter depth below the mouth; the
         # feature's depth only bounds it.
@@ -546,13 +561,25 @@ def _tooling_inputs(bundle, op, cut):
                 "reason": f"{cut['label']}: op {op['op']} depth_mm in the blind hole is unknown",
             }
     if cut.get("thru"):
+        # As blind_depth: the authored local thickness plus the exit allowance, never the
+        # far side the geometry suggests.
         allowance = op.get("exit_mm", UNKNOWN)
+        thickness = record(record(setup.get("stock_state")).get("local_thickness")).get(
+            op.get("feature"), UNKNOWN
+        )
         result["exit_mm"] = allowance
         if not (number(allowance) and allowance >= 0):
             return {
                 **result,
                 "reason": f"{cut['label']}: op {op['op']} exit_mm through the stock is unknown",
             }
+        if not (number(thickness) and thickness > 0):
+            return {
+                **result,
+                "reason": f"{cut['label']}: stock_state.local_thickness.{op.get('feature')} "
+                "is unknown, so its through exit is unplanned",
+            }
+        result["through_mm"] = thickness + allowance
     return result
 
 
