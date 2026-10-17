@@ -66,7 +66,7 @@ def taper(op=10, do="side_mill", feature="taper"):
     }
 
 
-def bundle(*setups, resolution=STEP, band=1.0, general=None):
+def bundle(*setups, resolution=STEP, band=1.0, general=None, registered=True):
     machine = {"kind": "mill"}
     if resolution is not None:
         machine["resolution_mm"] = {"value": resolution, "measured": MEASURED}
@@ -93,7 +93,13 @@ def bundle(*setups, resolution=STEP, band=1.0, general=None):
         paths={},
         hashes={},
         root=None,
-        kernel={},
+        # The kernel's proof that the work seats flat on both swivelled jaws.
+        kernel={
+            "status": "ok",
+            "setups": {s["id"]: {"parallel_pair": registered} for s in setups},
+        }
+        if registered is not None
+        else {},
     )
 
 
@@ -428,3 +434,15 @@ def test_a_redundant_align_on_a_kept_swivel_is_never_the_setting_the_cuts_hold()
     assert swivel.setting(data, data.plan["setups"][1])["set_in"] == "V1"
     assert kept.numbers["tolerance_deg"] == 0.5 and kept.status == "error"
     assert "Swivel" not in hold_text(data, "V2")
+
+
+@pytest.mark.parametrize("registered", [None, False])
+def test_work_not_proven_seated_on_the_swivelled_jaws_leaves_its_edges_unknown(registered):
+    """The swivel's tolerance reaches an edge only when the work turns with the jaws: with
+    no kernel proof that flat faces of it seat on both jaws, its angle to them is unknown,
+    so even a wide band never passes."""
+    data = bundle(setup(ops=[taper()]), band=5.0, registered=registered)
+    (row,) = swivel.evaluate(data)
+    assert row.status == "unknown" and row.numbers["work_registered"] in ("unknown", False)
+    assert "kernel.setups.V1.parallel_pair" in row.numbers["unresolved"]
+    assert "within" not in row.numbers["cuts"][0]

@@ -78,7 +78,9 @@ cited `tolerance_deg` of a stated method. A setup that keeps the vise as an earl
 on the same machine set it (not `align_due`) inherits that setup's `hold.align`
 (`set_in`), even when it declares an align of its own: the traveler prints a setting
 step only where one is due, so only that setting is the one its cuts are held to. An explicit `jaws_angle_deg = 0` is square jaws: no row, and the HOLD prints
-no swivel. Each walled cut (every machining op except
+no swivel. The tolerance reaches an edge only when the work turns with the jaws: the
+kernel must prove flat faces of it seated on both jaw planes (`parallel_pair`,
+`work_registered`); otherwise its angle to the jaws is unknown and so is every edge. Each walled cut (every machining op except
 facing, point/hole actions, saws and manual work) is held against its feature's ± angle
 band: `angle_tol_deg`, else none for a BASIC angle, else
 `general_tolerances.angular_deg`, as [indexing](rules-indexing.md) sources it. A band

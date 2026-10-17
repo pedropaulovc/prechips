@@ -207,6 +207,18 @@ def _reach(bundle, setup, op, memo):
     return max(math.hypot(*p) for p in points) * scale
 
 
+def registration(bundle, setup):
+    """Whether the work is registered to the swivelled jaws: True when the kernel proves
+    flat faces of it seated on both jaw planes (``parallel_pair``), False when it proves
+    they are not, else ``UNKNOWN``."""
+    kernel = getattr(bundle, "kernel", None)
+    if not isinstance(kernel, dict) or kernel.get("status") != "ok":
+        return UNKNOWN
+    detail = record(record(kernel.get("setups")).get(setup["id"]))
+    pair = detail.get("parallel_pair", UNKNOWN)
+    return pair if isinstance(pair, bool) else UNKNOWN
+
+
 def evaluate(bundle):
     findings, memo = [], {}
     for setup in bundle.plan["setups"]:
@@ -216,6 +228,13 @@ def evaluate(bundle):
         tolerance = set_by["tolerance_deg"]
         unresolved, invalid = list(set_by["unresolved"]), list(set_by["invalid"])
         cite = list(set_by["cite"])
+        # The swivel's tolerance reaches an edge only when the work turns with the jaws:
+        # flat faces of it seated on both jaw planes (the kernel's parallel_pair). Work held
+        # on a line, or not proven seated, has its own unknown angle to the jaw.
+        registered = registration(bundle, setup)
+        if registered is not True:
+            unresolved.append(f"kernel.setups.{setup['id']}.parallel_pair")
+            cite.append(f"kernel.setups.{setup['id']}.parallel_pair")
         rows, failed = [], []
         for op in setup.get("ops", []):
             action = op.get("do", UNKNOWN)
@@ -245,12 +264,13 @@ def evaluate(bundle):
             if band < 0:
                 invalid.append(f"{source} must be nonnegative")
                 continue
-            if number(tolerance):
+            if number(tolerance) and registered is True:
                 row["within"] = tolerance <= band
                 if not row["within"]:
                     failed.append(f"op {op['op']} ({row['feature']}: ±{band:g}°)")
         numbers = {
             "jaws_angle_deg": set_by["jaws_angle_deg"],
+            "work_registered": registered,
             "line_deg": set_by["line_deg"],
             "method": set_by["method"],
             "tolerance_deg": tolerance,
