@@ -1047,7 +1047,7 @@ plan's stock.
 | `bed_height_mm` | `MeasuredLength` |
 | `diameter_in` | `float` |
 | `thickness_in` | `float` |
-| `resolution_in` | `MeasuredLength` (on a machine, as `resolution_mm`) |
+| `resolution_in` | `MeasuredLength` > 0 or `"unknown"` (on a machine, as `resolution_mm`) |
 | `leaf_tolerance_mm` | `MeasuredLength` (a radius/profile gauge leaf's ±, read by an `R MAX` limit check) |
 | `leaf_tolerance_in` | `MeasuredLength` |
 | `runout_max_in` | `float` |
@@ -1105,7 +1105,7 @@ plan's stock.
 | `range_in` | `float \| list[Number]` |
 | `range_mm` | `float \| list[Number]` |
 | `ra_range` | `list[Number]` (two items, µm Ra; roughness gauges, read by inspection finish_ra) |
-| `resolution_mm` | `MeasuredLength` (inspection trusts only the fact's own qualifiers: `verify = true`/`"unknown"`, an incomplete `measured` or a non-`measured` status stays unknown, never pass or error; on a machine, its declared value is the DRO grid every printed coordinate and depth rounds to the safe side on, else 0.001 plan units, while a declared step whose record is not `measured` leaves every rule that judges on that grid unknown with the resolution as debt: [rules-coordinates](rules-coordinates.md)) |
+| `resolution_mm` | `MeasuredLength` > 0 or `"unknown"`: a step of 0 or less is refused at load, since it would read every band and zone; inspection trusts only the fact's own qualifiers: `verify = true`/`"unknown"`, an incomplete `measured` or a non-`measured` status stays unknown, never pass or error; on a machine, its declared value is the DRO grid every printed coordinate and depth rounds to the safe side on, else 0.001 plan units, while a declared step whose record is not `measured` leaves every rule that judges on that grid unknown with the resolution as debt: [rules-coordinates](rules-coordinates.md) |
 | `size_in` | `str \| list[Number]` |
 | `nominal_dia_mm` | `dict[str, Number]` |
 | `nominal_dia_cite` | `dict[str, Citations]` |

@@ -401,9 +401,11 @@ def _capability(
     elif gauge:
         kind = gauge.get("kind", "unknown")
         consumed = ()
-        # Only the resolution fact's own trust lets it establish or refute capability.
+        # Only the resolution fact's own trust lets it establish or refute capability; a
+        # step that is not positive reads nothing, so it is never sufficient (#315).
         fact = length_fact(gauge, "resolution", require_measured=False)
-        resolution = fact["value"] if fact["verified"] else "unknown"
+        trusted = fact["verified"] and number(fact["value"]) and fact["value"] > 0
+        resolution = fact["value"] if trusted else "unknown"
         span = gauge.get("range_mm")
         if not isinstance(span, list):
             maximum = length_mm(gauge, "range")

@@ -177,7 +177,7 @@ Each blank check resolves too: `length`, `section_0` and `section_1` through the
 [inspection](rules-inspection.md) gauge capability against the size ± tolerance
 band (`limits_mm`); `flat`, `square` and `parallel` need a dial indicator, dial
 test indicator, height gauge or CMM from inventory, a written `methods`
-procedure, a positive `form_mm` limit and a verified gauge resolution no coarser
+procedure, a positive `form_mm` limit and a verified, positive gauge resolution no coarser
 than that limit. The worse of the cut and the checks stands.
 
 - **error:** a blank face is made outside the receiving setup's lineage or after

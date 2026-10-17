@@ -293,7 +293,7 @@ least limit 5.08 gives 10.46 ± 5.65°.
 ## Angle bands read across a face
 
 No gauge reads degrees: an inventory gauge declares millimetre range and
-resolution only, so a drawn angle band (`*_deg`, `[lo, hi]` degrees) has no
+(positive) resolution only, so a drawn angle band (`*_deg`, `[lo, hi]` degrees) has no
 inspection capability on its own ([inspection](rules-inspection.md#inspection)).
 A planar face's angle is read instead as the deviation end to end across the
 face, and the optional feature field `tilt_across` declares that length per

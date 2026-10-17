@@ -114,7 +114,7 @@ corner past the limit, so the leaf read must be at or under r − t. Outcomes:
 The leaves are the gauge's declared `sizes_mm`; a declared empty list means none, so
 no leaf reads the limit (error). Without `sizes_mm`, the leaves are the steps of
 `resolution_mm` (the leaf pitch) up from `range_mm[0]`. A pitch that is not positive
-leaves the check unknown (`gauge range or resolution unresolved`). `leaf_max_mm` is
+is refused at load; a rule that meets one anyway leaves the check unknown (`gauge range or resolution unresolved`). `leaf_max_mm` is
 always one of those leaves: the largest at or under r − t. A `sizes_mm` that is
 unknown, wholly or in part, shows neither a leaf nor its absence, so the check is
 unknown (`gauge leaf sizes unresolved`, or the gauge's own verification debt).
@@ -143,7 +143,10 @@ band's m. A BASIC angle a surface profile bounds by `tilt_across` is read likewi
 ([Surface profiles](#surface-profiles)). An unknown length leaves
 `tilt_across_length = "unknown"` with `tilt_across_reason`, and no angular gauge
 capability.
-Unverified gauge range/resolution cannot prove a dimensional error or pass.
+Unverified gauge range/resolution cannot prove a dimensional error or pass. A
+resolution that is not positive is refused at load
+([inventory](inventory.md)); a rule that meets one anyway reads it as unresolved,
+never as sufficient.
 Roughness capability is unresolved without explicit range evidence. A gauge of a
 roughness kind (e.g. `roughness_comparator`) declares it with the inventory field
 `ra_range = [low_um, high_um]`; the Ra limit must lie inside that range. Without

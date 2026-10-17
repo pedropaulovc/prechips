@@ -1720,6 +1720,18 @@ class LengthMeasurement(InputModel):
 
 
 type MeasuredLength = Number | LengthMeasurement
+
+
+def _positive_resolution(fact: Number | LengthMeasurement) -> Number | LengthMeasurement:
+    """A gauge's or DRO's least readable step is > 0 or unknown: a step of 0 would read
+    every band and zone perfectly (#315)."""
+    value = fact.value if isinstance(fact, LengthMeasurement) else fact
+    if value != UNKNOWN and value <= 0:
+        raise ValueError("A resolution must be a positive length, or be unknown.")
+    return fact
+
+
+type MeasuredResolution = Annotated[MeasuredLength, AfterValidator(_positive_resolution)]
 # A declared tolerance zone [least, greatest] (a filing-button kit's receipt limits): a
 # plain pair, or one qualified only by its own measured/verify like a LengthMeasurement.
 type LimitPair = Annotated[list[Number], Field(min_length=2, max_length=2)]
@@ -2003,8 +2015,6 @@ InventoryItem = record(
                 "length_in",
                 "width_mm",
                 "width_in",
-                "resolution_mm",
-                "resolution_in",
                 # A leaf gauge's ± on each leaf's radius (a radius gauge's maker tolerance).
                 "leaf_tolerance_mm",
                 "leaf_tolerance_in",
@@ -2025,6 +2035,7 @@ InventoryItem = record(
             ),
             MeasuredLength,
         ),
+        **dict.fromkeys(("resolution_mm", "resolution_in"), MeasuredResolution),
         # Turning tools (insert holder) and toolpost holder bodies: docs/rules-lathe.md.
         **dict.fromkeys(
             (

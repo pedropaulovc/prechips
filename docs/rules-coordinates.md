@@ -703,7 +703,8 @@ all use these clipped rows and their ids; the op's removal stays its box.
 
 **Printed values.** The operator cuts what the DRO shows. One rule serves
 every axis: the DRO grid is the setup machine's declared inventory
-`resolution` (`resolution_mm` or `resolution_in`), else 0.001 plan units
+`resolution` (`resolution_mm` or `resolution_in`, a positive length: 0 or less is
+refused at load), else 0.001 plan units
 (`DRO_DEFAULT_STEP`), printed at the decimals of one step (`dro_grid`). A
 declared resolution whose own record is `assumed`/`illustrative` (or omitted
 status) is still the step instructions round on, but every rule that judges a

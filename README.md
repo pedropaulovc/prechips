@@ -251,7 +251,9 @@ only when it is read across a face: a drawn band whose feature names the face
 extent in `tilt_across` ([features](docs/features.md#angle-bands-read-across-a-face)),
 or a BASIC angle a surface profile bounds by `tilt_across`. Inspection judges it as
 the linear zone it reads across that length, on gauge resolution alone; any other
-angle band is `?` (no angular gauge capability).
+angle band is `?` (no angular gauge capability). A gauge or DRO resolution must be a
+positive length or `"unknown"`: 0 or less is refused at load, never read as perfect
+resolution ([inventory](docs/inventory.md)).
 
 Native [saw cut-off](docs/plan.md#saw-cut-off) supports `saw_cut` / `cut_off` on
 mill, bench and bandsaw setups: an explicit blade-centre plane plus inventory
