@@ -96,7 +96,7 @@ anywhere else they are an error.
 
 | `do` | Purpose | Fields |
 |---|---|---|
-| `align` | read a guide element against predicted DRO targets | `readings` (a `ReadingSet`, §2.3), `gauge`, `tolerance_mm` / `tolerance_in` |
+| `align` | read a guide element against predicted DRO targets | `readings` (a `ReadingSet`, §2.3), `gauge`, `tolerance_mm` / `tolerance_in`, `tolerance_cite` |
 | `torque` | tighten named fasteners in a stated order | `torque` (`TorqueStep`) |
 | `accept` | acceptance readings on a commissioned fixture feature | `readings` (a list of `Reading`), with `checks` naming the gauge per reading |
 
@@ -118,6 +118,11 @@ which replaces `feature` (§2.4).
 
 A torque value is a shop/vendor number, never a measured length. It needs a
 citation, or the AGENTS.md example-value comment. Unknown → `?`.
+
+An `align` tolerance is an authored limit, like `Hold.align`'s `limit_mm`, and it
+needs `tolerance_cite`: the part band it protects, a vendor figure, or the
+author's reasoning. An uncited tolerance leaves every reading of that op `?`
+("alignment tolerance uncited"), never a pass against an invented threshold.
 
 ### 2.3 Readings: predicted values, never authored answers
 
@@ -164,6 +169,25 @@ Each reading's key is `"<setup>:<op>/<name>"`.
 
 The band is an authored acceptance limit, so it needs a citation: a part
 tolerance it protects, or the author's reasoning. A band is not a measurement.
+An uncited band leaves the reading `?`.
+
+**Unique keys.** Every generated record key must be unique in the plan, because
+one record entry must never answer two readings. The validator therefore
+rejects:
+
+- two readings with the same `name` in one `accept` op;
+- a station listed twice in one `ReadingSet`;
+- two `ReadingSet`s on the same `element` in one `align` op;
+- two commissioning setups with the same `id` (setup ids are already unique
+  across the plan, §2.1).
+
+Each collision is an error naming the duplicated key.
+
+**Gauges.** A reading's gauge (the `align` op's `gauge`, an `accept` op's
+`checks`) must resolve to an inventory `gauges` item, as an inspection check's
+gauge does. Its resolution must be no coarser than the reading's tolerance or
+band, and its range must span the predicted value. An unresolved or untrusted
+gauge leaves the reading `?`; a gauge too coarse for the band is an error.
 
 ### 2.4 In-situ fixture features
 
@@ -287,6 +311,12 @@ features = "<sha256>"
 "tools.endmill-14" = "<sha256>"     # the riser cutter
 "tools.reamer-8h7" = "<sha256>"     # terminal reamers: predict the size readings
 "tools.reamer-6h7" = "<sha256>"
+"machines.PM-30MV" = "<sha256>"
+"gauges.coax-indicator" = "<sha256>"
+"gauges.torque-wrench" = "<sha256>"
+"gauges.sagitta-gauge-300" = "<sha256>"
+"gauges.calipers" = "<sha256>"
+"gauges.gauge-pins" = "<sha256>"
 
 [readings."C1:20/rail_a.pin@400"]
 value_mm = [-395.884, -57.203]
@@ -461,7 +491,14 @@ approval record's `[inputs]`. The inputs are:
   hub-pin-to-edge distance read the hub centre);
 - every inventory item a prediction or a derived check consumes: the
   commissioned fixture, each terminal tool whose size predicts a `size`
-  reading, the riser cutter and the part cutter it is derived from.
+  reading, the riser cutter and the part cutter it is derived from;
+- the equipment the readings are taken with: the machine of every
+  commissioning setup (its DRO resolution sets the printed targets) and every
+  gauge an `align`, `accept` or `torque` op names. The commissioning block holds
+  only their ids, so their inventory records are digested too. A gauge replaced
+  by a better one, or a machine whose resolution changed, therefore stales
+  readings taken with the old equipment, rather than letting them start to
+  pass.
 
 The checker's printed table lists exactly these, so a record copied from it is
 complete.
@@ -772,6 +809,9 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
 - A consumed claim no reading lists (drop `dowel_fit`) → error naming the
   claim. A reference cycle, or a relational claim whose chain never reaches the
   root edge → error.
+- Duplicate generated keys (a repeated reading name, a repeated station) →
+  error. An uncited `align` tolerance or `accept` band → `?`. A reading gauge
+  coarser than its band → error; an unresolved gauge → `?`.
 - `expect` beyond the tolerance → error; within it → no finding; `expect` on an
   unknown prediction → still `?`.
 - A `fixture.<id>` `stock_in` in a part setup → error.
@@ -794,7 +834,8 @@ Also:
 - Staleness, per input: one changed digest → all `?` naming only that input; an
   input absent from the record → named as new; an input only in the record →
   ignored. The table the checker prints for the §9 sketch lists every input of
-  §3.4, and a record copied from it is not stale.
+  §3.4, and a record copied from it is not stale. Changing only a gauge's or
+  the machine's inventory record stales the record.
 - Claim trust: one failed reading leaves only the claims it lists untrusted.
   The roll-up names them.
 - Roll-up: dependent setups get `?`/`✗`. A setup on a different fixture is
@@ -902,7 +943,8 @@ op = 20
 do = "align"
 readings = { element = "rail_a.pin", stations_mm = [50, 100, 150, 200, 250, 300, 350, 400] }
 gauge = "coax-indicator"
-tolerance_mm = 0.03                # #270
+tolerance_mm = 0.03
+tolerance_cite = "#270: rail pin within 0.03 of its predicted target"
 # predicted @400: (-395.890, -57.191) per #270; the rules compute it from the guide
 
 [[commissioning.setups.ops]]
@@ -976,6 +1018,7 @@ readings = [
   { name = "dowel_position", quantity = "dro_xy", of = ["trammel-jig.hub_hole", "trammel-jig.dowel_hole"], band_mm = 0.03, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.dowel_hole.position"] },
   { name = "dowel_fit", quantity = "size", of = "trammel-jig.dowel_hole", band_mm = [0.0, 0.012], band_cite = "example value (realistic, not a shop measurement): 6 H7 for the Ø6 dowel", claims = ["trammel-jig.dowel_hole.size"] },
 ]
+# gauge-pins: example metric set in 0.01 mm steps, finer than the 0.012 and 0.015 fit bands
 checks = { sagitta_outer = "sagitta-gauge-300", sagitta_inner = "sagitta-gauge-300", width = "calipers", hub_pin_to_edge = "calipers", hub_size = "gauge-pins", dowel_position = "coax-indicator", dowel_fit = "gauge-pins" }
 ```
 
@@ -1029,6 +1072,12 @@ features = "<sha256 printed by the checker>"
 "tools.endmill-14" = "<sha256 printed by the checker>"
 "tools.reamer-8h7" = "<sha256 printed by the checker>"
 "tools.reamer-6h7" = "<sha256 printed by the checker>"
+"machines.PM-30MV" = "<sha256 printed by the checker>"
+"gauges.coax-indicator" = "<sha256 printed by the checker>"
+"gauges.torque-wrench" = "<sha256 printed by the checker>"
+"gauges.sagitta-gauge-300" = "<sha256 printed by the checker>"
+"gauges.calipers" = "<sha256 printed by the checker>"
+"gauges.gauge-pins" = "<sha256 printed by the checker>"
 # every input the checker's table lists for this plan; none missing, so not stale
 
 [readings."C1:20/rail_a.pin@400"]
