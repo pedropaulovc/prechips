@@ -129,6 +129,10 @@ jobs:
   # shard passed and the shards together ran the full collection exactly once.
   test:
     needs: test-shard
+    # Always runs, even in a cancelled run: a skipped required job counts as
+    # success, so skipping here would let a manually cancelled run satisfy the
+    # gate. A run superseded by a newer push therefore posts a red `test`; the
+    # newer run's result replaces it.
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -136,6 +140,9 @@ jobs:
         shell: bash
         run: |
           echo "test-shard result: ${{ needs.test-shard.result }}"
+          if [ "${{ needs.test-shard.result }}" = cancelled ]; then
+            echo "::error::Shards were cancelled (superseded by a newer push, or cancelled by hand); this run proves nothing."
+          fi
           test "${{ needs.test-shard.result }}" = success
       - uses: actions/checkout@v4
         if: ${{ !cancelled() }}
@@ -148,12 +155,33 @@ jobs:
       - uses: actions/download-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          pattern: pytest-${{ runner.os }}-${{ runner.arch }}-shard*-${{ github.run_id }}-${{ github.run_attempt }}
+          # Every attempt's artifacts: "Re-run failed jobs" reruns only some shards, and
+          # the others' results live under the attempt that ran them.
+          pattern: pytest-${{ runner.os }}-${{ runner.arch }}-shard*-${{ github.run_id }}-*
           path: shard-results
       - name: Assert shards ran the full collection once
         if: ${{ !cancelled() }}
         shell: bash
-        run: uv run scripts/ci_shards.py check shard-results/*/pytest.xml
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          # One result per shard: its latest attempt.
+          declare -A latest
+          for dir in shard-results/pytest-*-shard*-"$RUN_ID"-*; do
+            name=${dir##*/}
+            attempt=${name##*-}
+            shard=${name%-"$RUN_ID"-*}
+            best=${latest[$shard]:-}
+            if [ -z "$best" ] || [ "$attempt" -gt "${best##*-}" ]; then
+              latest[$shard]=$dir
+            fi
+          done
+          files=()
+          for shard in "${!latest[@]}"; do
+            echo "$shard: ${latest[$shard]##*/}"
+            files+=("${latest[$shard]}/pytest.xml")
+          done
+          uv run scripts/ci_shards.py check "${files[@]}"
 
   build:
     runs-on: ubuntu-latest
