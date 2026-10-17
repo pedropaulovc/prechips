@@ -222,7 +222,7 @@ new kinds the commissioning PRs add:
 |---|---|
 | `align`, `dro_xy` (centring under the spindle) | `dial_test_indicator`, `coax_indicator` (new). An edge finder is a `tools` item, not a gauge, and cannot centre on a pin, so it is not accepted |
 | `sagitta` | `sagitta_gauge` (new: a chord bar with an indicator). Its chord is a new inventory field, `chord_limits_mm` / `chord_limits_in` (one spelling), a fact-local `MeasuredLimits` `[least, greatest]` with its own `measured` record. The limits are the chord's measured uncertainty, so no resolution is invented. An unmeasured or flagged chord leaves the reading `?`. A bare indicator is not accepted, because nothing would fix the chord. The gauge is digested like any named gauge (§3.4) |
-| `width`, `distance` | `caliper`, `micrometer`, `height_gauge`. A `distance` to a hole is read over a pin in it: the reading names the `pin` (an inventory `pin_gauge` with a measured diameter) and the `contact` side, `"near"` or `"far"`. The printed target moves the predicted centreline offset `o` by the pin radius `r` toward the reference for `near` and away from it for `far`. That is `o − sign(o)·r` (near) and `o + sign(o)·r` (far), so a hole inside the edge (negative `o`) gets `o + r` on its near side, not `o − r`. A pin reading needs `|o| > r`, so the pin lies wholly on one side of the edge. At `|o| ≤ r`, including `o = 0`, the near and far sides are undefined and the reading is a plan error; such a position is read as a `dro_xy` instead. The sheet prints the target with its sign and names the side. The recorded value is the signed contact distance, and it is judged directly against that signed contact target; the rules never convert it back to a centreline value. Range coverage uses the **magnitude** of the contact interval, since a caliper reads distance, not side. A hole inside the edge, with a target of −3.2, needs a caliper that covers 3.2. An untrusted pin diameter leaves the reading `?`, and the pin is digested in `[planned]` |
+| `width`, `distance` | `caliper`, `micrometer`, `height_gauge`. A `distance` to a hole is read over a pin in it: the reading names the `pin` (an inventory `pin_gauge` with a measured diameter) and the `contact` side, `"near"` or `"far"`. The printed target moves the predicted centreline offset `o` by the pin radius `r` toward the reference for `near` and away from it for `far`. That is `o − sign(o)·r` (near) and `o + sign(o)·r` (far), so a hole inside the edge (negative `o`) gets `o + r` on its near side, not `o − r`. A pin reading needs the pin to lie wholly on one side of the edge across the **whole accepted range**: every centreline offset the reading could accept, `o + band` widened by the reading's own uncertainty interval, must keep `|offset| > r`. With `o = 4.01`, `r = 4.00` and a ±0.05 band, accepted offsets reach 3.96, inside the pin radius, so that is a plan error. Where the range reaches `|offset| ≤ r` (including `o = 0`), the near and far sides are undefined; such a position is read as a `dro_xy` instead. The sheet prints the target with its sign and names the side. The recorded value is the signed contact distance, and it is judged directly against that signed contact target; the rules never convert it back to a centreline value. Range coverage uses the **magnitude** of the contact interval, since a caliper reads distance, not side. A hole inside the edge, with a target of −3.2, needs a caliper that covers 3.2. An untrusted pin diameter leaves the reading `?`, and the pin is digested in `[planned]` |
 | `size` of a hole | `pin_gauge_set`, `bore_gauge` (an external micrometer never measures a bore) |
 | `z` | `height_gauge`, `dial_test_indicator` |
 | torque `steps` | `torque_wrench` |
@@ -662,8 +662,10 @@ trusted.
 **Read after the last change.** An acceptance reading must describe the final
 geometry. Each reading must come after the last commissioning op that can change
 its subject or its reference: any op of the subject's route, a sweep of a swept
-edge, or an adjustment of a guide element. Ordering is by setup order, then by
-op number. A reading taken before such an op, for example `hub_size` after the
+edge, or an adjustment of a guide element. Ordering is by setup order, then by the
+op's **authored position** in the setup's `ops` array, never by its numeric `op`
+id ([plan](../plan.md): execution follows authored order). The same order
+applies to routes, adjustments and the read-after-the-last-change rule. A reading taken before such an op, for example `hub_size` after the
 drill but before the terminal ream, is an error, and it can never trust the
 claim.
 
@@ -1094,7 +1096,10 @@ Also:
   on a guide element it never uses does not.
 - Bands: `band_mm = -0.1`, `[0.1, -0.1]` or `[0.005, 0.02]` (excludes 0) → schema
   error.
-- Pin at zero offset: a pin reading with `|o| ≤ r` → plan error.
+- Pin at zero offset: a pin reading with `|o| ≤ r` → plan error; `o = 4.01`,
+  `r = 4.00`, ±0.05 band → plan error (accepted range reaches 3.96).
+- Authored order: an `accept` op numbered 100 authored before a ream numbered 20
+  → the reading precedes the ream → error.
 - `expect_mm` shapes: a scalar for scalar quantities and `[x, y]` for `dro_xy`;
   any other shape → schema error.
 - Spindle zero: `method = "spindle"` with `edge` or `tool` → schema error; alone
