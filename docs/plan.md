@@ -1228,6 +1228,7 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `rpm` | `float` |
 | `feed_mm_min` | `float` |
 | `doc_mm` | `float` |
+| `ae_mm` | `float` (radial width of cut, 0 < ae ≤ D; omitted, the [force bound](rules-physics.md#cutting-force) takes a full slot. `contour.step_mm` is never read as it) |
 | `feed_mm_rev` | `float` |
 | `approach_mm` | `float` |
 | `to_z_cite` | `Citations` |

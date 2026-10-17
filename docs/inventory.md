@@ -1080,6 +1080,8 @@ plan's stock.
 | `dia` | `MeasuredLength` |
 | `shank_in` | `MeasuredLength \| str \| dict[str, list[str]]` (as `shank_mm` on a tool; a string or size map on a set) |
 | `flutes` | `int \| list[int]` |
+| `helix_deg` | `{ value, cite, measured, verify }` (an end mill's helix angle, 0 ≤ β < 90; a cited vendor nominal is enough, a bare number is debt) |
+| `helix_hand` | `"right"` / `"left"`: the flutes' hand, separate from the cutting `hand` |
 | `source` | `str \| Source` |
 | `cite` | `Citations` |
 | `sizes` | `list[str \| int \| float]` |
