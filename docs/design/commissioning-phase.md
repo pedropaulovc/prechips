@@ -487,7 +487,9 @@ relative to the prediction, and the reading passes only when
 `[−b, b]`, and an `align` tolerance `t` means `[−t, t]`. One-sided fit bands
 keep their sign. With `hub_size`'s `[0.0, 0.015]` and a predicted 8.000, a
 7.990 reading has `d = −0.010` and fails as undersize. A `dro_xy` or `align`
-reading applies the band to each axis separately.
+reading applies the band to each axis separately, **except** a reading that
+establishes a guide-located `position.tangential` (`hub_apex`): it projects its
+residual onto the guide frame and judges only the tangential component (§3.3).
 
 **Sagitta from the measured chord.** The predicted sagitta comes from the
 gauge's measured chord, carried with its uncertainty: the chord interval is the
@@ -896,9 +898,9 @@ the derived cutter printed as "Ø14 = part cutter Ø10 + 2 × 2.0 inset".
 | C4:10/sagitta_outer | sagitta over 300 chord | riser outer edge | … | (computed) | ±0.10 | ______ | ☐ |
 | C4:10/width | width | riser | … | (computed) | ±… | ______ | ☐ |
 | C4:10/hub_pin_to_edge | distance | HUB pin → riser edge at apex | … | (computed) | ±… | ______ | ☐ |
-| C4:10/hub_apex | DRO X/Y | apex pose → HUB pin | coaxial indicator, DRO | (computed X, Y) | ±… | ______ , ______ | ☐ |
+| C4:10/hub_apex | DRO X/Y (tangential judged) | apex pose → HUB bore (no pin) | coaxial indicator, DRO | (computed X, Y) | ±… | ______ , ______ | ☐ |
 | C4:10/hub_size | size | HUB hole | gauge pins | 8.000 (declared) | fit band | ______ | ☐ |
-| C4:10/dowel_position | DRO X/Y | HUB pin → dowel hole | coaxial indicator, DRO | (computed X, Y) | ±… | ______ , ______ | ☐ |
+| C4:10/dowel_position | DRO X/Y | HUB bore → dowel bore (no pins) | coaxial indicator, DRO | (computed X, Y) | ±… | ______ , ______ | ☐ |
 | C4:10/dowel_fit | size | dowel hole | gauge pins | 6.000 (declared) | fit band | ______ | ☐ |
 
 A closing box reads: "Do not load a part until every ☐ is ticked and entered in
@@ -1363,8 +1365,8 @@ The rules compute the predictions. They are not authored:
   of the edge therefore reads with the wrong sign and fails the band, instead of
   matching the mirror position `2·R_edge − ρ_hub`.
 - **Dowel position:** the dowel route's `locate` offset as an X/Y pair
-  (`[-292.0, 0.0]` in the sketch), read as the DRO X/Y move from the HUB pin to
-  the dowel hole, each centred with the coaxial indicator.
+  (`[-292.0, 0.0]` in the sketch), read as the DRO X/Y move from the HUB bore to
+  the dowel bore, each centred directly with the coaxial indicator (no pins).
 - **Hub size and dowel fit:** the declared solid's `dia` (8.0 and 6.0). The
   band is the fit the pin or dowel needs. The terminal reamers (`reamer-8h7`,
   `reamer-6h7`) are checked against those declared sizes and bands, and an
