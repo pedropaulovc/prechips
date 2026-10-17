@@ -44,6 +44,7 @@ from prechips.rules.resolution import (
     setup_frame,
     uncertain,
 )
+from prechips.rules.swivel import swivel_angle, to_jaw_frame
 
 _UNKNOWN = "unknown"
 
@@ -186,18 +187,26 @@ CRASH_ZONE_MM = 3.0
 
 
 def _jaw_faces(bundle, setup):
-    """(clamp axis index, [low, high] setup coordinates of the vise jaw faces), or None.
+    """(clamp axis index, [low, high] jaw-frame coordinates of the vise jaw faces, swivel
+    in degrees), or None.
 
     The jaws grip the setup-entry stock across the axis they do not run along, so their
-    faces stand at the kernel's setup-entry stock box along that axis."""
-    axis = {"x": 1, "y": 0}.get(_mapping(setup.get("hold")).get("jaws_along"))
+    faces stand at the kernel's setup-entry stock box along that axis. A swivelled vise's
+    faces are read from the stock box in its jaw frame (the setup frame turned by the
+    swivel); an unknown swivel places no faces."""
+    hold = _mapping(setup.get("hold"))
+    axis = {"x": 1, "y": 0}.get(hold.get("jaws_along"))
+    angle = swivel_angle(hold)
     kernel = getattr(bundle, "kernel", None)
-    if axis is None or not isinstance(kernel, dict) or kernel.get("status") != "ok":
+    if axis is None or angle == _UNKNOWN:
         return None
-    bbox = _mapping(_mapping(kernel.get("setups")).get(setup["id"])).get("stock_bbox_mm")
+    if not isinstance(kernel, dict) or kernel.get("status") != "ok":
+        return None
+    detail = _mapping(_mapping(kernel.get("setups")).get(setup["id"]))
+    bbox = detail.get("jaw_frame_stock_bbox_mm" if angle else "stock_bbox_mm")
     if not (isinstance(bbox, list) and len(bbox) == 6 and all(_numeric(v) for v in bbox)):
         return None
-    return axis, [bbox[axis], bbox[axis + 3]]
+    return axis, [bbox[axis], bbox[axis + 3]], angle
 
 
 def _setup_coordinates(bundle, setup, memo):
@@ -230,14 +239,23 @@ def _printed_xy(coordinates, op):
     return points if points and known else None
 
 
-def _span(op, coordinates, axis):
-    """[low, high] of ``op``'s cutter-centre sweep along setup ``axis`` (0 = X, 1 = Y): its
-    printed cutter-centre path (:func:`_printed_xy`), else its stock_removal_bounds."""
+def _span(op, coordinates, axis, angle=0.0):
+    """[low, high] of ``op``'s cutter-centre sweep along ``axis`` (0 = X, 1 = Y) of the
+    jaw frame (the setup frame turned by the swivel ``angle``): its printed cutter-centre
+    path (:func:`_printed_xy`), else its stock_removal_bounds (under a swivel, the turned
+    corners of that box, which bound the sweep)."""
     printed = _printed_xy(coordinates, op["op"])
+    bounds = _mapping(op.get("stock_removal_bounds"))
+    if not printed and angle:
+        x, y = bounds.get("x"), bounds.get("y")
+        known = all(isinstance(v, list) and len(v) == 2 and all(map(_numeric, v)) for v in (x, y))
+        printed = [[a, b] for a in x for b in y] if known else None
+    if printed and angle:
+        printed = [to_jaw_frame(p, angle) for p in printed]
     span = (
         [min(p[axis] for p in printed), max(p[axis] for p in printed)]
         if printed
-        else _mapping(op.get("stock_removal_bounds")).get("xy"[axis])
+        else bounds.get("xy"[axis])
     )
     if isinstance(span, list) and len(span) == 2 and all(_numeric(v) for v in span):
         return span
@@ -257,8 +275,8 @@ def _clear_of_jaws(bundle, setup, op, faces, coordinates, debts):
     dia = _length(bundle, tool, "dia", "tools", tool_ref, debts)
     if not _numeric(dia):
         return False
-    axis, (low, high) = faces
-    span = _span(op, coordinates, axis)
+    axis, (low, high), angle = faces
+    span = _span(op, coordinates, axis, angle)
     if (
         span
         and span[0] - dia / 2 > low + CRASH_ZONE_MM
@@ -269,7 +287,7 @@ def _clear_of_jaws(bundle, setup, op, faces, coordinates, debts):
     fixture_ref = hold.get("fixture")
     fixture = resolve(bundle, "workholding", fixture_ref) or {}
     centre = hold.get("jaw_center_along_mm")
-    along = _span(op, coordinates, 1 - axis)
+    along = _span(op, coordinates, 1 - axis, angle)
     width = (
         _length(bundle, fixture, "jaw_width", "workholding", fixture_ref, debts)
         if along and _numeric(centre)

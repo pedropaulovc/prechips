@@ -860,6 +860,19 @@ def _box_shape(box):
     return Part.makeBox(x1 - x0, y1 - y0, z1 - z0, V(x0, y0, z0))
 
 
+def _swivelled(shape, degrees):
+    """A copy of ``shape`` turned ``degrees`` about setup Z (counterclockwise from above)."""
+    turned = shape.copy()
+    turned.rotate(V(0, 0, 0), V(0, 0, 1), degrees)
+    return turned
+
+
+def _turned_xy(point, degrees):
+    """The XY ``point`` turned ``degrees`` about setup Z."""
+    c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+    return [point[0] * c - point[1] * s, point[0] * s + point[1] * c]
+
+
 def _boxes_overlap(a, b):
     return all(a[i] < b[i + 3] - PLANE_TOL and b[i] < a[i + 3] - PLANE_TOL for i in range(3))
 
@@ -4645,6 +4658,7 @@ class _Setup:
         # the fixture obstacle. ``possible`` are (name, box) regions a jaw may also occupy.
         self.fixture = []
         self.fixture_possible = []
+        self.fixture_possible_shapes = []  # each possible region's own solid, for the picture
         self.hold_solids = []  # an authored holding body's placed solids (``_place_solids``)
         self.fixture_ready = False  # the holding itself is placed, so hit counts can be made
         self.fixture_debts = []  # scene-only debts (supports below the seat, poses to check)
@@ -7229,16 +7243,30 @@ class _Setup:
         if reason is None:
             self.fixture_ready = True
             if hold["kind"] == "vise":
+                angle = self._swivel()
                 for side in ("fixed", "moving"):
-                    self._add(side + "_jaw", "jaw", _box_shape(self.jaws[side]), self.jaws[side])
+                    self._add_jaw_box(side + "_jaw", "jaw", self.jaws[side])
                 if self.jaw_bar is not None:
-                    self._add("jaw_bar " + self.hold["jaw_bar"]["name"], "fixture", self.jaw_bar)
+                    self._add(
+                        "jaw_bar " + self.hold["jaw_bar"]["name"],
+                        "fixture",
+                        _swivelled(self.jaw_bar, angle) if angle else self.jaw_bar,
+                    )
                 for side, (solid, *_) in (self.jaw_buttons or {}).items():
                     name = self.hold["jaw_buttons"]["name"]
+                    solid = _swivelled(solid, angle) if angle else solid
                     self._add(f"jaw_buttons {name} {side}", "fixture", solid)
+                # A swivelled jaw's possible strip is a turned box: its setup-frame AABB
+                # bounds it for the box tests, and the picture draws the strip itself.
+                self.fixture_possible_shapes = [
+                    _swivelled(_box_shape(box), angle) if angle else _box_shape(box)
+                    for _, box in self.jaws["possible"]
+                ]
                 self.fixture_possible = [
-                    (("fixed" if fixed else "moving") + "_jaw_possible", box)
-                    for fixed, box in self.jaws["possible"]
+                    (("fixed" if fixed else "moving") + "_jaw_possible", _bbox(shape))
+                    for (fixed, _), shape in zip(
+                        self.jaws["possible"], self.fixture_possible_shapes, strict=True
+                    )
                 ]
             else:
                 reason = f"vise grip-zone facts do not apply to {hold.get('fixture_kind')} holding"
@@ -7280,6 +7308,18 @@ class _Setup:
             component["bbox"] if swept is None else _bbox(component["envelope"])
         )
         self.fixture.append(component)
+        return component
+
+    def _add_jaw_box(self, name, role, box):
+        """Record a vise component built as a jaw-frame box (a jaw, a parallel, a riser):
+        exact as that box with square jaws, turned by the swivel otherwise. ``jaw_bbox``
+        keeps the jaw-frame box for the jaw-opening check."""
+        angle = self._swivel()
+        if not angle:
+            component = self._add(name, role, _box_shape(box), box)
+        else:
+            component = self._add(name, role, _swivelled(_box_shape(box), angle))
+        component["jaw_bbox"] = box
         return component
 
     def _add_local(self, name, role, shape, matrix, swept=None, owner=None):
@@ -7483,11 +7523,13 @@ class _Setup:
         # Components that exist but are not drawn: any of them may interpenetrate.
         self.undrawn = [debt] if debt is not None else []
         self.undrawn.extend(str(item) for item in (*hold.get("debts", []), *hold.get("gaps", [])))
+        angle = self._swivel()
         for index, box in enumerate(parallels or (), start=1):
-            self._add(f"parallel {index}", "parallel", _box_shape(box), box)
+            self._add_jaw_box(f"parallel {index}", "parallel", box)
             for side in ("fixed", "moving") if self.jaws is not None else ():
                 if _boxes_overlap(box, self.jaws[side]):
-                    centre = [_r((box[0] + box[3]) / 2), _r((box[1] + box[4]) / 2)]
+                    middle = _turned_xy([(box[0] + box[3]) / 2, (box[1] + box[4]) / 2], angle)
+                    centre = [_r(middle[0]), _r(middle[1])]
                     self.fixture_debts.append(
                         f"declared parallel centred at {centre} intersects the {side} jaw"
                     )
@@ -7496,9 +7538,11 @@ class _Setup:
             top = self.box[2] - (hold.get("parallels_height_mm") or 0.0)
             along, across, up = riser["size_mm"]
             dx, dy = (along, across) if hold.get("jaws_along") == "x" else (across, along)
-            for index, (x, y) in enumerate(riser["centres_mm"], start=1):
+            for index, centre in enumerate(riser["centres_mm"], start=1):
+                # Declared setup-frame centres; a riser runs along the (swivelled) jaws.
+                x, y = _turned_xy(centre, -angle)
                 box = (x - dx / 2, y - dy / 2, top - up, x + dx / 2, y + dy / 2, top)
-                self._add(f"riser {index} {riser['name']}", "riser", _box_shape(box), box)
+                self._add_jaw_box(f"riser {index} {riser['name']}", "riser", box)
         stop = hold.get("stop")
         if stop:
             self._add_owned(stop["solids"], "fixture", _pose_matrix(stop["pose"]), "stop")
@@ -7631,7 +7675,8 @@ class _Setup:
         axis, lo, hi = self.clamp["c_axis"], self.clamp["lo"], self.clamp["hi"]
         name = "xy"[axis]
         for component in accessories:
-            box = component["bbox"]
+            # The opening is judged in the jaw frame, where a swivelled vise's jaws are square.
+            box = component.get("jaw_bbox", component["bbox"])
             if box[axis] < lo - STOCK_TOL or box[axis + 3] > hi + STOCK_TOL:
                 clashes.append(
                     f"{component['name']} spans {name} {_r(box[axis])}..{_r(box[axis + 3])} mm, "
@@ -7676,7 +7721,34 @@ class _Setup:
             names.add(component["name"])
         return names
 
+    def _swivel(self):
+        """The placed vise's swivel about setup Z in degrees; 0 for square jaws."""
+        hold = self.hold or {}
+        return float(hold.get("jaws_angle_deg", 0.0)) if hold.get("kind") == "vise" else 0.0
+
     def _place(self, hold, facts):
+        """Close the vise jaws on the stock. A swivelled vise is placed in its jaw frame,
+        the stock turned back by the swivel about setup Z so the jaws run along
+        ``jaws_along``; :meth:`_fixture` turns the placed solids forward into the setup
+        frame. A tool stays a vertical cylinder under a turn about Z, so every clearance
+        is judged on the turned solids as on square ones."""
+        claimed = self._claimed()
+        angle = self._swivel()
+        if not angle:
+            return self._place_jaws(hold, facts, claimed)
+        kept = (self.part, self.faces, self.face_boxes, self.box)
+        self.part = _swivelled(self.part, -angle)
+        self.faces = [_swivelled(face, -angle) for face in self.faces]
+        self.face_boxes = [_tolerant_box(face) for face in self.faces]
+        self.box = _bbox(self.part)
+        facts["jaws_angle_deg"] = _r(angle)
+        facts["jaw_frame_stock_bbox_mm"] = [_r(v) for v in self.box]
+        try:
+            return self._place_jaws(hold, facts, claimed)
+        finally:
+            self.part, self.faces, self.face_boxes, self.box = kept
+
+    def _place_jaws(self, hold, facts, claimed):
         along = hold.get("jaws_along")
         if along not in ("x", "y"):
             return f"jaws_along {along!r} is not x or y"
@@ -7812,7 +7884,7 @@ class _Setup:
         facts["parallel_pair"] = all(planar)
         facts["contact_grip_mm"] = grips
         facts["contact_faces"] = contact_faces
-        claimed, reason = self._claimed()
+        claimed, reason = claimed
         if claimed is None:
             facts["reasons"]["claimed_in_jaws"] = reason
         else:
@@ -8065,6 +8137,9 @@ class _Setup:
                     }
                 )
         facts["wall_map"] = {"axis": "y" if c_axis == 1 else "x", "lines": rows}
+        if self._swivel():
+            # Lines and axis are the jaw frame's: the setup frame turned by the swivel.
+            facts["wall_map"]["jaws_angle_deg"] = _r(self._swivel())
         if thinnest is None:
             facts["reasons"]["min_wall_mm"] = (
                 "no sampled clamp line meets material at both jaw contact planes"
@@ -8558,7 +8633,10 @@ class _Setup:
                     f"other {_r(width - extent)} mm of each {_r(width)} mm jaw may lie"
                 )
                 possible = [
-                    (name, _box_shape(box), _COLOURS[name]) for name, box in self.fixture_possible
+                    (name, shape, _COLOURS[name])
+                    for (name, _), shape in zip(
+                        self.fixture_possible, self.fixture_possible_shapes, strict=True
+                    )
                 ]
         debts += self.fixture_debts
         debts += [f"not drawn: {gap}" for gap in self.fixture_gaps]
@@ -9812,6 +9890,9 @@ class _Setup:
         half = [dims["parallels_length_mm"] / 2, dims["parallels_width_mm"] / 2]
         if along == "y":
             half.reverse()
+        # Declared setup-frame centres; the boxes run along the (swivelled) jaws.
+        angle = self._swivel()
+        centres = [_turned_xy(centre, -angle) for centre in centres] if angle else centres
         boxes = [
             (
                 x - half[0],

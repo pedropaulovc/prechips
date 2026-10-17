@@ -25,6 +25,7 @@ from prechips.rules.resolution import (
     resolve,
     uncertain,
 )
+from prechips.rules.swivel import STATED, swivel_angle
 from prechips.rules.tip_endpoints import HOLE_OPS
 
 # Point/hole actions plunge on the spindle axis; every other machine cut needs a direction.
@@ -39,9 +40,9 @@ INDICATORS = frozenset({"dial_test_indicator", "dial_indicator"})
 def align_due(bundle):
     """``{setup id: why}`` for each mill setup that must square its vise's fixed jaw or its
     angle plate's locating face to the table travel: the first setup on its machine that
-    holds the work in one, or one whose fixture, vise jaw direction or plate pose differs
-    from the setup before it on that machine. A setup on another fixture between them took
-    the vise or plate off the table."""
+    holds the work in one, or one whose fixture, vise jaw direction or swivel, or plate
+    pose differs from the setup before it on that machine. A setup on another fixture
+    between them took the vise or plate off the table."""
     due, last = {}, {}
     for setup in bundle.plan["setups"]:
         machine = setup.get("machine")
@@ -51,7 +52,12 @@ def align_due(bundle):
         ref = hold.get("fixture")
         kind = record(resolve(bundle, "workholding", ref)).get("kind")
         # The machine and the fixture are the items they select, however a setup spells them.
-        mounted = (identity(bundle, ref, "workholding"), hold.get("jaws_along"), hold.get("pose"))
+        mounted = (
+            identity(bundle, ref, "workholding"),
+            hold.get("jaws_along"),
+            hold.get("pose"),
+            swivel_angle(hold),
+        )
         key = identity(bundle, machine, "machines")
         before, last[key] = last.get(key), mounted
         if kind not in ALIGNED_FIXTURES:
@@ -60,6 +66,8 @@ def align_due(bundle):
             due[setup["id"]] = "mounted"
         elif kind == "vise" and before[1] != mounted[1]:
             due[setup["id"]] = "jaws turned"
+        elif kind == "vise" and (before[3] != mounted[3] or mounted[3] == UNKNOWN):
+            due[setup["id"]] = "jaws swivelled"
         elif kind == "angle_plate" and before[2] != mounted[2]:
             due[setup["id"]] = "plate moved"
     return due
@@ -100,24 +108,33 @@ def align_indicator(bundle, gauge):
 def align_fields(bundle, hold):
     """The ``hold.align`` declarations, each ``None`` where absent or invalid: an indicator
     that is no inventory dial or test indicator (:func:`align_indicator`), a non-positive
-    limit or sweep length, or an angle plate's ``face`` that names none of its solids. An
-    align block stated ``"unknown"`` leaves each of them unknown."""
+    limit, sweep length or stated tolerance, or an angle plate's ``face`` that names none
+    of its solids. An align block stated ``"unknown"`` leaves each of them unknown. A
+    swivelled vise is set by ``method``: ``indicate_jaw`` needs the indicator, limit and
+    DRO move; a stated method its ``tolerance_deg`` and ``cite``."""
     align = hold.get("align")
     if align is None:
         return {"hold.align": None}
     keys = ["indicator", "limit_mm", "over_mm"]
     if _fixture(bundle, hold).get("kind") == "angle_plate":
         keys.append("face")
+    if swivel_angle(hold) != 0.0 and _fixture(bundle, hold).get("kind") == "vise":
+        method = record(align).get("method", UNKNOWN) if align != UNKNOWN else UNKNOWN
+        keys = ["method", *(["tolerance_deg", "cite"] if method in STATED else keys)]
     if align == UNKNOWN:
         return {f"hold.align.{key}": UNKNOWN for key in keys}
     align = record(align)
     fields = {f"hold.align.{key}": align.get(key) for key in keys}
+    if "hold.align.tolerance_deg" in fields and not fields.get("hold.align.cite"):
+        fields["hold.align.cite"] = None
     if align.get("indicator") is not None:
         fields["hold.align.indicator"] = align_indicator(bundle, align["indicator"])
-    for key in ("limit_mm", "over_mm"):
+    for key in ("limit_mm", "over_mm", "tolerance_deg"):
         value = align.get(key)
-        if value not in (None, UNKNOWN) and not (
-            isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0
+        if (
+            f"hold.align.{key}" in fields
+            and value not in (None, UNKNOWN)
+            and not (isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0)
         ):
             fields[f"hold.align.{key}"] = None
     if align.get("face") not in (None, UNKNOWN) and "hold.align.face" in fields:
@@ -253,11 +270,21 @@ def evaluate(bundle):
         ):
             if key in hold:
                 required[f"hold.{key}"] = hold[key]
+        swivel = swivel_angle(hold)
+        misdeclared = []
+        if "jaws_angle_deg" in hold:
+            if fixture.get("kind", UNKNOWN) not in ("vise", UNKNOWN):
+                misdeclared.append("hold.jaws_angle_deg swivels a vise, not this fixture")
+            else:
+                required["hold.jaws_angle_deg"] = hold["jaws_angle_deg"]
+        if swivel == 0.0 and record(hold.get("align")).get("method") is not None:
+            misdeclared.append("hold.align.method sets a swivel, and this hold declares none")
         if setup["id"] in aligned:
             fields = align_fields(bundle, hold)
             required.update(fields)
-            # A face the plan names and the fixture has, run along neither table axis.
-            if all(value not in (None, UNKNOWN) for value in fields.values()):
+            # A face the plan names and the fixture has, run along neither table axis. A
+            # swivelled jaw line is set from the DRO along it, not swept along one travel.
+            if swivel == 0.0 and all(value not in (None, UNKNOWN) for value in fields.values()):
                 required["hold.align.travel"] = align_travel(bundle, hold) or UNKNOWN
         directions = {}
         for op in setup["ops"]:
@@ -298,7 +325,7 @@ def evaluate(bundle):
                 in ("top_z", "bottom_z", "od_mm", "north_end_z", "south_end_z", "plain_end_z")
             }
         )
-        status = "error" if absent else "unknown" if unresolved else "pass"
+        status = "error" if absent or misdeclared else "unknown" if unresolved else "pass"
         message = (
             (f"{setup['id']}: holding declarations need " + ", ".join(absent + unresolved) + ".")
             if absent or unresolved
@@ -307,6 +334,9 @@ def evaluate(bundle):
                 "this does not approve measured fixture clearance."
             )
         )
+        if misdeclared:
+            numbers["misdeclared"] = misdeclared
+            message = f"{setup['id']}: " + "; ".join(misdeclared) + "."
         face = hold.get("stop_face", UNKNOWN)
         if face != UNKNOWN:
             face_status, numbers["stop_face"] = stop_face(bundle, setup, face)

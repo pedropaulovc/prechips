@@ -851,6 +851,7 @@ supersedes a gap, as does as-stock for `coverage` only. A per-op
 | thin wall under clamp: wall thickness inside the grip zone < `thin_wall_floor_mm` ⇒ `hold.method` must name soft jaws / mandrel / tape / wax | STEP thickness map, plan.hold, policy.numbers | M4 | "1.2 mm wall under the jaw; name soft jaws or a mandrel." |
 | fixture interference: drawn fixture components (jaws, parallels, riser blocks, chuck, head, centre, angle plate / custom solids with `void` bores, clamp straps with studs and heels) never interpenetrate the setup-entry stock or each other beyond contact; vise parallels and riser blocks fit inside the jaw opening closed on the stock | plan.hold (pose, clamps, parallels, riser), inventory fixture `solids`, STEP | M4 | "Riser blocks span 50.8 mm across a 45 mm jaw opening; use narrower blocks." |
 | indexing: for `hold.index = { fixture, angle_deg, positions }` and the feature's `angle_tol_deg` (default: the general angular class): prefer an **exact** representation (direct plate step, or a circle `h` with `angle_deg·R·h/360` an integer, R = `worm_ratio`); otherwise the nearest, and check every position against `angle_tol_deg`. Closure is checked **only for a full pattern**, `positions ≥ 2` with `angle_deg` omitted (step exactly 360/positions; positions × actual step vs 360·k). An authored `angle_deg` with `positions ≥ 2` is an open pattern: every landing is checked, no closure. `positions = 1` is one angular setting without closure; the sheet prints plate, circle, turns and hole *spaces* | plan.hold.index, features.angle_tol_deg / general_tolerances.angular_deg, inventory dividing_head (`worm_ratio`, `direct_index`, `plate_holes`) | M2 | "51.43° × 7: plate B, circle 21, 5 turns + 15 spaces (exact); plate circles not confirmed (?)" |
+| swivel: a vise swivelled about Z (`hold.jaws_angle_deg`) is set by `hold.align.method`; its setting tolerance (derived for `indicate_jaw` from limit, DRO move and measured DRO step, else cited) must fit each walled cut's angle band (`angle_tol_deg` / `general_tolerances.angular_deg`); reports the shift reach·sin(tolerance) | plan.hold, inventory machine `resolution`, features angle bands | M4 | "Swivel set to ±0.0196° holds op 10's ±1° taper." |
 | tiny parts: part-off last below the collet minimum; profile below footprint threshold declares tabs or a plate | plan.ops, inventory, policy | deferred | — |
 
 ### 4.4 Physics proxies (`!` lines only; policy may promote)
@@ -1320,6 +1321,14 @@ sheet.
    mapping by surface/area/bbox, never by imported face ordinal. An absent
    kernel yields one console `?` line and unknown geometry, not fabricated
    passes; named mapping and directional-claim errors remain errors.
+
+   **Swivelled vise (2026-10-17, #300):** `hold.jaws_angle_deg` swivels a mill vise
+   about Z. The kernel places it in its jaw frame and turns the jaws and accessories
+   into the setup frame. `headroom` reads the jaw faces in that frame and `hold_fields`
+   re-sets a changed swivel. The new `swivel` rule holds each walled cut's angle band
+   against the setting tolerance, and `zero_check` refuses an edge pick-up under a
+   swivel. The HOLD prints the swivel-setting step, with a STOP for each unknown field.
+   Pin-indicated work angles and the work's seat angle in the jaws stay open.
 
    **#186 rendering work / PR #198 main-leader cutover — local verification observed:** PR #198 retains tessellation accuracy only. Two explicit capture streams preserve main `425cde40c0f50e6457861c14840da07165d528dd`'s exact ordinary-tolerance samples and edge order in `nominal_outline_mm` for every viewport, layout and anchor input, while `nominal_render_outline_mm` supplies the scale-bound fine samples for outline painting only. Main's exact leader-selection algorithm and accepted endpoints are restored, including all legacy guide-view vertices and the original primary point. P1's subquadratic outline index and the no-floor, fail-closed scale-aware painting bound remain.
    Native-only leader moves, all generic crossing-clearance filters and fallback pools, and their dashed-footprint capture are removed. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR; it is not fixed or waived by #198.
