@@ -499,6 +499,8 @@ def _capability(
                 message = "gauge range or resolution unresolved"
             elif limit is not None and not span[0] <= limit <= span[1]:
                 status, message = "error", "limit check: gauge has no leaf at the MAX limit"
+            elif limit is not None and resolution > limit:
+                status, message = "error", "limit check: gauge resolution exceeds the MAX limit"
             elif limit is not None and tolerance is None:
                 message = "limit check: gauge leaf tolerance unresolved"
             elif limit is not None:
@@ -512,11 +514,6 @@ def _capability(
                         "error",
                         f"limit check: the leaf's ±{tolerance:g} tolerance crosses the MAX "
                         "limit (no leaf at or under the limit less its tolerance)",
-                    )
-                elif resolution > limit:
-                    status, message = (
-                        "error",
-                        "limit check: gauge resolution exceeds the MAX limit",
                     )
                 elif tolerance > 0:
                     # Only a leaf under the limit is safe, and the traveler prints the band

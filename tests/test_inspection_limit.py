@@ -166,3 +166,9 @@ def test_min_only_radius_band_is_not_expressible():
             "features": {"f": {**feature, "radius": [0.2, 1.0]}},
         }
     )
+
+
+def test_coarse_resolution_is_an_error_whatever_the_tolerance():
+    row = finding(bundle([0.1, 1.0], resolution=0.5, leaf_tolerance="unknown"))
+    assert row.status == "error"
+    assert "resolution exceeds the MAX limit" in row.sentence
