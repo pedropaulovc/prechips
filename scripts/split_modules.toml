@@ -47,14 +47,15 @@ Literal unknown is never a numeric default.
     "_numeric_pair", "_unit", "Drawing", "Paths", "Direction", "Dro", "Reference", "Index",
 ]
 "src/prechips/model/stock.py" = [
-    "StockComponent", "Prepared*", "Stock", "StockState",
+    "StockComponent", "Prepared*", "Stock", "StockState", "PROFILED_BLANK", "BAR_ENVELOPE",
+    "profiled", "profiled_blank_errors",
 ]
 "src/prechips/model/holding.py" = [
     "Pose", "ClampPlacement", "PlanCentres", "StickoutFit", "Align", "Hold",
 ]
 "src/prechips/model/zero.py" = ["AxisZero", "Transfer", "ToolTouch", "Zero"]
 "src/prechips/model/operation.py" = [
-    "Bounds", "KeepOut", "Contour", "Guide", "SawPlane", "Operation",
+    "Bounds", "KeepOut", "Contour", "Guide", "SawPlane", "Operation", "SAW_ACTIONS",
 ]
 "src/prechips/model/inspection.py" = [
     "GoNoGo", "_requirement_pairs", "ScopedGoNoGo", "ProcessHold", "Procedure", "Aim",
@@ -62,7 +63,7 @@ Literal unknown is never a numeric default.
 ]
 "src/prechips/model/joints.py" = [
     "JointFeature", "ProcessFeature", "JointInterface", "_FIT_METHODS", "CylindricalJoint",
-    "SurfaceJoint",
+    "SurfaceJoint", "_COMPOUND_FORM", "JointCompound",
 ]
 "src/prechips/model/features.py" = [
     "FrameVector", "Frame", "PlanFrame", "Datum", "MaterialSpec", "GeneralTolerances", "Plane",
@@ -448,6 +449,7 @@ style = "package"
 "src/prechips/kernel/job_ops.py" = [
     "_turning_values", "op_inputs", "_xy", "face_sweep", "tool_paths", "_hand_inputs",
     "_clamp_owner", "raster_keep_out", "table_checkpoints", "saw_plane", "removal_bounds",
+    "scribed_profile",
 ]
 "src/prechips/kernel/job_holds.py" = [
     "_CHUCK_JAWS", "_CHUCK_DIMS", "_ABSENT", "_BLOCK_EDGES", "_positive_length", "_pose",
@@ -458,7 +460,8 @@ style = "package"
 ]
 "src/prechips/kernel/job_engine.py" = [
     "_ENGINE_*", "_engine_hold", "_engine_op", "engine_job", "stock_inputs",
-    "_stock_envelope", "_inspections_after",
+    "_stock_envelope", "_inspections_after", "_profiled_envelope", "_blank_supplies",
+    "_blank_mismatch",
 ]
 
 # --- kernel/render_diagram.py -> kernel/ siblings per picture --------------------------
