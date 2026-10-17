@@ -463,16 +463,20 @@ naming them. Each table is recorded under `arc_table` (its joins under
   the setup frame and nothing holds it at that pose for the other op, before the
   sweep or after it (manual ops aside). An unknown guide,
   fixture, master, axis, sweep, rollers or rail ends, a fixture or master flagged
-  to verify as a whole (as the shop list states it; a flag on a fact the sweep does
-  not read, a picture-only dimension say, does not count), and a `pivot_play`, `rail_form_error`, `roller_runout` or
+  to verify as a whole (as the shop list states it, a selected set member's own flags
+  included; a flag on a fact the sweep does not read, a picture-only dimension say,
+  does not count), and a `pivot_play`, `rail_form_error`, `roller_runout` or
   `radius_limits` without its own complete `measured` record (`rail_radius` is
   read as declared) are unknown, each untrusted fact named in
   `numbers.measurements` with a `measure:` instruction: an undeclared form error
   is never a perfect rail. The cutter goes down at the sweep's first row (its start
   stop) at every level: `start` is `air` only when the cutter there stands wholly
   outside the stock box the setup receives (`level_entry.in_air`, as any entry is
-  proven), the cutter widened by the most the master-set cut (`cut_radius_mm`) stands
-  off the nominal wall the rows assume, else `unproven` and unknown, since nothing
+  proven), at the pose the first stop block sets (`start_xy`: the printed overrun,
+  0.1 mm rounded down, at the radius the stops are measured on, the rough's for a
+  finish run between the rough's stops), the cutter widened by the most the master-set
+  cut (`cut_radius_mm`) stands off the nominal wall the rows assume, else `unproven`
+  and unknown, since nothing
   checks a plunge for a sweep. The traveler prints the recipe only with a known band
   (`band_mm`), a proven cut and a start in air; any unproven cut is debt, whatever
   left it so (a pivot play or rail error too large to bound included).

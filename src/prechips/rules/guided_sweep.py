@@ -171,12 +171,21 @@ def _item_flagged(bundle, category, key):
     not count (resolving an item folds those into its ``verify``): each fact the sweep
     consumes is checked on its own, and one it does not consume (a picture-only dimension,
     a bed height headroom reads) must not leave the cut unproven."""
-    stated = authored(bundle, category, key)
-    return (
-        stated.get("verify") is True
-        or stated.get("verify") == UNKNOWN
-        or stated.get("present") == UNKNOWN
-        or "verify" in str(stated.get("coverage", "")).lower()
+    parent = authored(bundle, category, key)
+    stated = [parent]
+    member = key.partition("/")[2] if isinstance(key, str) else ""
+    if member:
+        # A selected member (``bars/r800``) carries its own flags beside its set's.
+        chosen = record(parent.get("members")).get(member, {})
+        if chosen == UNKNOWN:
+            return True
+        stated.append(record(chosen))
+    return any(
+        item.get("verify") is True
+        or item.get("verify") == UNKNOWN
+        or item.get("present") == UNKNOWN
+        or "verify" in str(item.get("coverage", "")).lower()
+        for item in stated
     )
 
 
@@ -410,7 +419,7 @@ def _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid):
         )
 
 
-def _start_clear(bundle, setup, arc, label, debts, record_, scale):
+def _start_clear(bundle, setup, op, arc, label, debts, record_, scale):
     """The cutter goes down at the sweep's first stop, its first row, at every level: the
     stops lie past the arc's ends so it enters in air. That entry is ``start`` ``"air"``
     only when the cutter there stands wholly outside the stock box the setup receives
@@ -418,23 +427,30 @@ def _start_clear(bundle, setup, arc, label, debts, record_, scale):
     ``"unproven"`` and debt: it would plunge into material, which nothing checks for a
     sweep, so the traveler stops.
 
-    The entry is checked where the traveler puts it: the start end's cutter landmark
-    carried on by the printed ``stop_overrun_mm`` along the cutter's path. The rows stand
-    on the nominal path, but the master sets the real one: the cutter is widened by the
-    most the cut (``cut_radius_mm``, master and guide error) stands off the nominal wall
-    the rows assume. An unproven cut leaves the start unproven too (its own debt names
-    it)."""
+    The entry is checked where the stop block puts it (:func:`_printed_start`, recorded
+    as ``start_xy``): the pose the printed overrun sets, on the rough's path when a finish
+    runs between the rough's stops. The rows stand on the nominal path, but the master
+    sets the real one: the cutter is widened by the most the cut (``cut_radius_mm``,
+    master and guide error) stands off the nominal wall the rows assume. An unproven cut
+    leaves the start unproven too (its own debt names it)."""
     from .level_entry import in_air, stock_box
 
     cut, radius = record_.get("cut_radius_mm"), arc.get("cutter_radius_mm")
     centre = arc["cutter_centre_radius_mm"]
-    record_["start"] = "unproven"
+    record_["start"], record_["start_xy"] = "unproven", UNKNOWN
     if not (_pair(cut) and number(radius) and number(centre)):
         return
     outward = 1 if centre > arc["wall_radius_mm"] else -1
     wall = centre * scale - outward * radius
     reach = radius + max(abs(cut[0] - wall), abs(cut[1] - wall))
-    point = _printed_start(arc, record_, scale)
+    stops = centre * scale
+    leave = op.get("rough_allowance_mm")
+    if arc.get("stage") == "finish" and number(leave) and leave > 0:
+        # The finish runs between the rough's stops, set on the rough's path: the leave
+        # off the line.
+        stops += outward * leave
+    point = _printed_start(arc, record_, stops)
+    record_["start_xy"] = point if point is not None else UNKNOWN
     if point is not None and in_air(stock_box(bundle, setup), point, reach, scale):
         record_["start"] = "air"
         return
@@ -445,19 +461,25 @@ def _start_clear(bundle, setup, arc, label, debts, record_, scale):
     )
 
 
-def _printed_start(arc, record_, scale):
-    """The cutter centre (setup XY, plan units) where the traveler's first stop puts it:
-    the start end's landmark (``ends_cutter_setup_xy[0]``) carried ``stop_overrun_mm`` on
-    along the cutter's path, away from the arc toward the sweep's first row; None when any
-    of those is unknown."""
+def _printed_start(arc, record_, stops_mm):
+    """The cutter centre (setup XY, plan units) where the first stop block puts it. The
+    stop is a fixture pose, set once by the steel-rule overrun the traveler prints at the
+    radius the stops are measured on (``stops_mm``, the cutter-centre radius of the stage
+    that sets them: the rough's, for a finish run between the rough's stops), rounded down
+    to 0.1 mm. That pose's angle past the start end's landmark (``ends_cutter_setup_xy[0]``)
+    is carried on this stage's own cutter-centre radius, toward the sweep's first row;
+    None when any of those is unknown."""
     ends, centre = record_.get("ends_cutter_setup_xy"), arc["centre_setup_xy"]
-    rows, printed = arc["rows"], record_.get("stop_overrun_mm")
+    rows, sweep_deg, span = arc["rows"], record_.get("sweep_deg"), record_.get("span_deg")
     if not (
         isinstance(ends, list)
         and ends
         and _pair(ends[0])
         and _pair(centre)
-        and number(printed)
+        and number(sweep_deg)
+        and number(span)
+        and number(stops_mm)
+        and stops_mm > 0
         and rows
         and _pair(rows[0].get("setup_xy"))
     ):
@@ -466,11 +488,13 @@ def _printed_start(arc, record_, scale):
     reach = math.dist(first, centre)
     if reach <= 0:
         return None
+    over = max(0.0, (sweep_deg - span) / 2)
+    printed = math.floor(math.radians(over) * stops_mm * 10 + 1e-9) / 10
     start = trig.atan2(first[1] - centre[1], first[0] - centre[0])
     sweep = rows[0]["setup_xy"]
     toward = trig.atan2(sweep[1] - centre[1], sweep[0] - centre[0]) - start
     toward = (toward + math.pi) % math.tau - math.pi
-    turn = math.copysign(printed / scale / reach, toward) if printed else 0.0
+    turn = math.copysign(printed / stops_mm, toward) if printed else 0.0
     return [centre[0] + reach * trig.cos(start + turn), centre[1] + reach * trig.sin(start + turn)]
 
 
@@ -639,7 +663,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
             )
     _rotation(arc, label, debts, record_, scale)
     _landmarks(arc, record_, sweep, axis, found, scale)
-    _start_clear(bundle, setup, arc, label, debts, record_, scale)
+    _start_clear(bundle, setup, op, arc, label, debts, record_, scale)
     _radial(arc, record_, axis, label, errors, grid)
     if measurements:
         by_id = {entry["id"]: entry for entry in measurements}

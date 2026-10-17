@@ -904,6 +904,43 @@ def test_the_start_is_proven_where_the_printed_stop_puts_it(tmp_path):
     assert recipe(row)[1]["start"] == "unproven"
 
 
+def test_a_finish_is_proven_at_the_pose_its_roughs_stops_set(tmp_path):
+    # The finish runs between the rough's stops: fixture poses the rough's printed overrun
+    # sets on the rough's own path. The same millimetres turn a different angle on the
+    # finish path, so the finish's entry is proven at the rough stop's angle.
+    plan = guided_plan(
+        tmp_path,
+        target=SEMICIRCLE,
+        inventory=BAR10,
+        master="'bar10'",
+        touch_axis="'+Y'",
+        sweep_deg="220.0",
+        allowance=0.1,
+    )
+    row = coordinates_row(plan, stock_bbox=SWING)
+    (rough_table, rough), (finish_table, finish) = recipe(row, "rough"), recipe(row, "finish")
+
+    def angle(table, point):
+        centre = table["centre_setup_xy"]
+        return math.atan2(point[1] - centre[1], point[0] - centre[0])
+
+    assert angle(finish_table, finish["start_xy"]) == pytest.approx(
+        angle(rough_table, rough["start_xy"]), abs=1e-12
+    )
+
+
+def test_a_flagged_member_of_a_master_set_proves_no_cut(tmp_path):
+    # A set's own verify = false does not clear a selected member flagged to verify.
+    bars = (
+        "[gauges.bars]\nkind = 'setting_bar'\nname = 'setting bars'\nverify = false\n"
+        "[gauges.bars.members.r800]\n"
+        f"radius_limits_mm = {{ value = [800.10, 800.12], {MEASURED} }}\nverify = true\n"
+    )
+    row = guided_row(tmp_path, master="'bars/r800'", inventory=bars)
+    assert row.status == "unknown", row.sentence
+    assert "the touch-off master bars/r800 is flagged to verify" in debts(row)
+
+
 def test_a_guided_sweep_span_is_no_table_stroke(tmp_path):
     # X and Y stay locked while the fixture moves the work: the arc's span is no table
     # travel, so no stroke can be exceeded by it; the swept footprint stays a check.
