@@ -215,6 +215,12 @@ arc's span is no table stroke: `travel` counts no XY span for the op
 (`xy_cutter_bounds_mm` `not_applicable`), only its Z. Each finding names these in `guided_sweep_debts` and in its
 sentence, `op {n} guided sweep: … check: …`, and stays `?` (an established error
 still wins). Follow-ups: [#272](https://github.com/pedropaulovc/prechips/issues/272).
+A trammel op ([#269](https://github.com/pedropaulovc/prechips/issues/269)) owes the
+same two checks, `op {n} guided sweep (trammel): …`, but quotes the exact numbers
+from its pose: the X/Y span the work and pins sweep about the spindle axis, how
+far the pins run out along the rails, the carrier's turn, and how near the
+carriages come to the spindle axis. No table extents or column are modelled, so
+both stay `?`.
 
 For a lathe, `headroom` instead compares stock OD and chuck `body_dia` with
 `envelope.swing_over_bed`, stock OD with `envelope.swing_over_cross_slide`,
