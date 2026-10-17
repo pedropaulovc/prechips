@@ -255,8 +255,8 @@ rules consume comes from a trusted fact, otherwise the finding is `?`:
 
 | Term | Source | Trusted when |
 |---|---|---|
-| tape shear, peel | tape `shear_n_per_cm2`, `peel_n_per_cm` | cited or measured, `test` named, and `pairs` contains the exact pair `{ work = <the stock material's class through cutting-data aliases>, seat = <the holding fixture's material class through the same aliases> }` |
-| vacuum friction | chuck `friction` | the same exact-pair check, for the work and the chuck face |
+| tape shear, peel | tape `shear_n_per_cm2`, `peel_n_per_cm` | cited or measured, `test` named, and `pairs` contains the exact pair `{ work = <the stock material's class through cutting-data aliases>, seat = <the `on` solid's own `material` class through the same aliases> }`. The seat is the selected solid, never the fixture item: a steel fixture with an aluminium pad seats on aluminium. An `on` solid with no `material` leaves the pair `?` |
+| vacuum friction | chuck `friction` | the same exact-pair check, for the work and the `on` solid (the chuck face) |
 | plate flatness f | new `flatness_mm` (`MeasuredLength`) on the `on` fixture solid: the flatness of that solid's **whole** top face, footprint and touch area alike | measured (a stack dimension, as D4); the recipe-A touch point must lie on that face (section 5.2) |
 | touch error e | new policy number `touch_error_mm`, with `numbers_cite` | cited and not flagged by `numbers_verify` |
 | mic error m | the measuring gauge's new `accuracy_mm` plus half its existing `resolution_mm` | both trusted |
@@ -842,6 +842,9 @@ tests request the shared `freecad_kernel` fixture.
 - Peel front: a 5 mm tab cut with a Ø10 cutter gets `L = 5`. A cut to the seat
   keeps `h_k` at the before-op stock height, not zero.
 - A vacuum `area.ref` naming another vacuum fixture than `hold.fixture` is exit 3.
+- Seat material: the pair's seat comes from the `on` solid's `material`. A
+  steel-bodied fixture with an aluminium `on` pad seats on aluminium; an `on`
+  solid with no `material` leaves capacity `?`.
 - Pairs: a value listed for `{ work = steel, seat = aluminium }` qualifies that
   setup, but not steel on steel or aluminium on steel; those leave capacity `?`,
   naming the pair.
@@ -928,7 +931,7 @@ Each phase is its own PR, stacked on the previous one.
 
 | Phase | PR | Contents | Size (est.) |
 |---|---|---|---|
-| 1 | schema | `CitedFact` (+ `test`, `pairs`); solid `flatness_mm`; gauge `accuracy_mm`; `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`, `release`); `vacuum_gauge` `range_kpa` / `resolution_kpa` / `accuracy_kpa`; `hold.area`; `zero.z.at_mm`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
+| 1 | schema | `CitedFact` (+ `test`, `pairs`); solid `flatness_mm` and `material`; gauge `accuracy_mm`; `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`, `release`); `vacuum_gauge` `range_kpa` / `resolution_kpa` / `accuracy_kpa`; `hold.area`; `zero.z.at_mm`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
 | 2 | force | `_cutting_force.py` (endmill milling scope); `[[material]]` `kc1_n_per_mm2` / `mc` / `radial_ratio`; tool `helix_deg` and `helix_hand`; op `ae_mm`; `cutting-data.md`, `rules-physics.md` | ~400 + tests |
 | 3 | kernel | seat-plane sections before and after each op, islands, centroid, polar moment, hull distance; the fixed seal circuit and its opening op; op removed-volume extent per island; the layer drawn from facts; seat check; `ENGINE_SOURCES` cache identity | ~700 + geometry tests |
 | 4 | capacity | `hold_capacity` rule (area provider: force, yaw, lift, overturning), always required for area holds, shared policy factor, pull-test schema, `thin_wall_under_clamp` change; `rules-setup.md` | ~500 + tests |
