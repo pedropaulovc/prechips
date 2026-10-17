@@ -146,6 +146,8 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True,
 
     sweep = arc.get("guided") if isinstance(arc.get("guided"), dict) else {}
     o = operative
+    if sweep.get("guide") == "trammel":
+        return _trammel(arc, sweep, o, start, stop, feed, final)
     guide, kind = sweep.get("guide"), sweep.get("master_kind")
     fixture, master = _text(sweep.get("fixture_name")), _text(sweep.get("master_name"))
     axis = sweep.get("touch_axis")
@@ -325,3 +327,112 @@ def _sweep(arc, sweep, o, holder, move, keys, feed, depths, stops, final):
         f"{_number(_round(path, 1))} mm of cutter travel along the work{pressed}{pace}."
         f"{again}{end}"
     )
+
+
+def _trammel_unresolved(sweep):
+    """What the coordinates rule left unproven for a printable trammel sweep."""
+    missing = []
+    if not _known(sweep.get("pin_radius_mm")) or not _pair(sweep.get("cut_radius_mm")):
+        missing.append("cut radius unproven")
+    if sweep.get("rotation") not in ("clockwise", "counterclockwise"):
+        missing.append("sweep direction unknown")
+    if not (_known(sweep.get("sweep_deg")) and _known(sweep.get("path_mm"))):
+        missing.append("sweep angle unknown")
+    stations, rails = sweep.get("stations_mm"), sweep.get("rails_dir")
+    if not (
+        isinstance(stations, list)
+        and len(stations) == 2
+        and all(map(_pair, stations))
+        and isinstance(rails, list)
+        and len(rails) == 2
+        and all(map(_pair, rails))
+    ):
+        missing.append("pin stations along the rails unknown")
+    return missing
+
+
+def _rail_names(rails):
+    """Each rail named by the setup direction it runs from the spindle axis: the -X rail,
+    the +X rail; by number when both run the same way."""
+    names = []
+    for x, y in rails:
+        if abs(x) >= abs(y):
+            names.append(("+" if x > 0 else "-") + "X")
+        else:
+            names.append(("+" if y > 0 else "-") + "Y")
+    if names[0] == names[1]:
+        return ["rail 1", "rail 2"]
+    return [f"the {name} rail" for name in names]
+
+
+def _trammel(arc, sweep, o, start, stop, feed, final):
+    """The trammel recipe's numbered steps (#269): the pin pair in the carriages, X/Y/Z
+    locked on the rails' crossing, a stop on one rail at the pin's station for each end of
+    the sweep, a dry pass, then the carrier fed by its hand lever from stop to stop."""
+    from prechips.sheet import _number, _text
+
+    missing = _trammel_unresolved(sweep)
+    if missing:
+        return [f"STOP: guided sweep not established ({', '.join(missing)}) — do not run."]
+    fixture, pair = _text(sweep.get("fixture_name")), _text(sweep.get("pin_pair"))
+    names = _rail_names(sweep["rails_dir"])
+    stations = sweep["stations_mm"]
+
+    def mm(value):
+        return _number(_round(value, 1))
+
+    result = [
+        f"{fixture}: the work rides the carrier on its {pair} pin pair "
+        f"({_number(sweep.get('pin_spacing_mm'))} mm apart), one pin in a carriage on each of "
+        f"two rails clamped to the table, {names[0]} and {names[1]}, whose pin-lines cross "
+        f"on the spindle axis at {_number(sweep.get('rail_angle_deg'))}°. The pins, not the "
+        "DRO, set where the cutter cuts.",
+        f"Seat the {pair} pins in the carriages. Check the spindle stands on the rails' "
+        "crossing (the rails' alignment set up for this fixture) and lock X and Y there: "
+        "neither moves for the rest of this op.",
+    ]
+    turn = sweep.get("carrier_turn_deg")
+    overrun = sweep.get("overrun_mm")
+    why = (
+        f" The stops lie {mm(overrun)} mm of cutter travel beyond the arc's ends on purpose, "
+        "so the cutter enters and leaves clear of the arc."
+        if _known(overrun) and overrun > 0
+        else ""
+    )
+    keys = [f" ({key})" if key else "" for key in (start, stop)]
+    result.append(
+        f"Set the sweep's stops, spindle stopped and Z raised: lever the carrier until the "
+        f"pin on {names[0]} stands {mm(stations[0][0])} mm from the spindle axis{keys[0]}, "
+        f"measured with a steel rule to the pin's centre along the rail, and clamp a stop on "
+        f"that rail against its carriage. Do the same at {mm(stations[0][1])} mm for the "
+        f"other end{keys[1]}. The pin on {names[1]} then stands {mm(stations[1][0])} and "
+        f"{mm(stations[1][1])} mm from the spindle axis; if it does not, STOP: the rails or "
+        f"pins are not as set.{why} Then, with the cutter tip just above the work top, lever "
+        "the carrier from stop to stop once: the cutter, its holder and the spindle nose "
+        "must pass clear of every clamp and of the carrier, and neither carriage may reach "
+        "its rail's end."
+    )
+    turning = _TURN.get(arc.get("spindle_rotation"))
+    path = sweep.get("path_mm")
+    pace = ""
+    if _known(feed) and feed > 0 and _known(path):
+        pace = (
+            f", at about the op's {_number(_round(feed, 0))} mm/min feed: "
+            f"{_number(_round(path / feed * 60.0, 0))} s from stop to stop"
+        )
+    end = (
+        " At that stop, unlock Z and raise it until the cutter clears the work and the carrier"
+        + (", then stop the spindle and wait for it to stop." if final else ".")
+    )
+    first = f" ({start})" if start else ""
+    last = f" ({stop})" if stop else ""
+    result.append(
+        f"Lever the carrier against the first stop{first}, start the spindle"
+        f"{f' {turning}' if turning else ''} and set Z {o(arc.get('dro_tip_z'))}, then lock "
+        f"Z. With X, Y and Z locked, move only the carrier by its hand lever to the other "
+        f"stop{last}: the carrier turns {_number(_round(turn, 1))}° "
+        f"{_text(sweep.get('rotation'))} (viewed from above) while both pins slide along "
+        f"their rails, {_number(sweep.get('sweep_deg'))}° and {mm(path)} mm of cutter travel "
+        f"along the work, keeping both pins seated in their carriages{pace}.{end}"
+    )
+    return result
