@@ -32,6 +32,13 @@ face is the exception: a BASIC angle a profile bounds by ``tilt_across``, or a d
 whose feature declares ``tilt_across``. It is the deviation read end to end across that
 length, so it is judged as the linear zone it is (:func:`._profile.tilt_reading`), on
 resolution alone like a zone.
+
+A height from a datum axis (``height_above_pivot``, from the feature's ``height_from``) is
+a linear height, not a form: a CMM, a height gauge over a pin in the datum bore on a
+surface plate, or a profile template carrying its own datum pin reads it. A radius or angle
+gauge reads no height, and a caliper has no reference plane to read it square to the
+datum, only a nearest-point distance. The setup is debt until both the datum
+(``height_from`` naming a manifest feature) and an authored procedure are declared.
 """
 
 from ..findings import Finding
@@ -71,6 +78,8 @@ ZONES = frozenset(
 GEOMETRIC = frozenset({"position_dia", "coaxiality_dia", "angularity_dia", "surface_profile"})
 # The lengths a machine axis read-out measures, along its own axis.
 AXIAL_LENGTHS = frozenset({"length", "depth", "height", "thickness", "station"})
+# The heights read from a datum axis (``height_from``) to a surface.
+DATUM_HEIGHTS = frozenset({"height_above_pivot"})
 # A limit check's gauge kinds: plugs/pins enter a hole; rings/snaps pass over a boss or shaft.
 LIMIT_GAUGES = {
     "internal": frozenset({"pin_gauge", "pin_gauge_set", "plug_gauge"}),
@@ -363,8 +372,12 @@ def _capability(
         profile_frame_known = (
             requirement == "surface_profile" and frame_unresolved(bundle, profile_datums) is None
         )
-        if geometric:
+        datum_height = requirement in DATUM_HEIGHTS
+        height_from = feature.get("height_from", UNKNOWN)
+        if geometric or datum_height:
             nums["inspection_method"] = method or "unknown"
+        if datum_height:
+            nums["height_from"] = height_from
         if requirement == "angularity_dia":
             nums["angularity_datums"] = angularity_datums
         if requirement == "surface_profile":
@@ -375,13 +388,14 @@ def _capability(
             "arc_len",
             "bottom_arc_len",
             "land_angle_deg",
-            "height_above_pivot",
         }
         capable = (
             kind in {"roughness_gauge", "roughness_comparator", "profilometer"}
             if requirement == "finish_ra"
             else kind in {"cmm", "dial_indicator", "dial_test_indicator", "height_gauge"}
             if geometric
+            else kind in {"cmm", "height_gauge", "profile_gauge"}
+            if datum_height
             else kind in {"cmm", "profile_gauge", "radius_gauge", "angle_gauge"}
             if complex_shape
             else requirement in AXIAL_LENGTHS
@@ -417,6 +431,14 @@ def _capability(
             or (requirement == "surface_profile" and not profile_frame_known)
         ):
             message = "geometric gauge capability or datum inspection method unresolved"
+        elif datum_height and not (
+            method_known
+            and height_from in record(bundle.features.get("features"))
+            and height_from != UNKNOWN
+        ):
+            # The datum pin and plate setup the reading stands on: unknown until declared. Only
+            # an exported drawing feature is a datum, never a plan joint or process feature.
+            message = "datum height setup (height_from datum or inspection method) unresolved"
         elif requirement == "finish_ra":
             consumed = ("ra_range" if "ra_range" in gauge else "range_ra",)
             capability = gauge.get("ra_range", gauge.get("range_ra", "unknown"))
