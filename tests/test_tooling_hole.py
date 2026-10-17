@@ -419,3 +419,18 @@ def test_a_pivot_pin_not_parallel_to_the_hole_leaves_the_turn_unknown(tmp_path):
     (fit,) = rows(with_states(load_bundle(plan), ROUTE))["T3:cl_tooling_hole"].numbers["locators"]
     hub = next(entry for entry in fit["clocking"] if entry["locates"] == "pivot_bore")
     assert hub["angle_rad"] == "unknown" and "not parallel" in hub["reason"]
+
+
+def test_a_pin_before_the_ream_that_sizes_its_hole_is_an_error(tmp_path):
+    # Move CL's ream from S1 to T5: T3 locates on a hole still only drill size.
+    plan = bundle_plan(tmp_path)
+    text = plan.read_text(encoding="utf-8")
+    ream = (
+        '\n[[setups.ops]]\nop = 20\ndo = "ream"\nfeature = "cl_tooling_hole"\n'
+        'tool = "reamers-metric/6.5mm"\nholder = "drill-chuck-r8"\nexit_mm = 2.0\n'
+    )
+    assert ream in text
+    plan.write_text(text.replace(ream, "", 1) + ream, "utf-8")  # T5 is the last setup
+    row = rows(with_states(load_bundle(plan), ROUTE))["T3:cl_tooling_hole"]
+    assert row.status == "error"
+    assert "not yet sized to its band" in row.sentence and "T5 op 20" in row.sentence
