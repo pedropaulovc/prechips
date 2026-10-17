@@ -88,8 +88,14 @@ corner past the limit, so the leaf read must be at or under r − t. Outcomes:
   r − t reads the limit, and the traveler prints the band and the gauge, never which
   leaf to use, so the operator would reach for the one at the limit. The evidence
   gives `leaf_max_mm` (r − t).
-- **Pass:** t = 0, the tolerance is omitted (zero) or declared as 0, and resolution
-  ≤ r. A leaf set R0.2–R1.0 with no declared tolerance reads `R0.2 MAX`.
+- **Unknown, no leaf at the limit:** t = 0, but the set brackets r without a leaf
+  of r. A leaf is one of the gauge's listed `sizes_mm`, else a step of
+  `resolution_mm` (the leaf pitch) up from `range_mm[0]`. For example, leaves from
+  R0.15 by 0.1 have no R0.2 leaf. The smaller safe leaf is unnamed on the
+  traveler; `leaf_max_mm` gives it.
+- **Pass:** t = 0 (the tolerance is omitted or declared as 0), resolution ≤ r, and the
+  set has a leaf of r. A leaf set R0.2–R1.0 by 0.1 with no declared tolerance reads
+  `R0.2 MAX`.
 
 Evidence adds `limit_check = "max"`, `limit_mm` (r) and, when declared,
 `leaf_tolerance_mm`, instead of `band_mm`. An unverified gauge stays debt. A two-sided band (R5 ±0.1) and any reading gauge (a CMM) keep the full-span
@@ -158,7 +164,8 @@ Sentence templates:
   - `limit check: gauge leaf tolerance unresolved`
   - `limit check: gauge resolution exceeds the MAX limit`
   - `limit check: only a leaf at or under R{r − t} reads the limit, and the traveler does not name it`
-  - `limit check: a gauge leaf at or under the MAX limit reads go/no-go (not a reading across the band)`
+  - `limit check: the gauge has no R{r} leaf, and the traveler does not name the smaller one that reads the limit`
+  - `limit check: the gauge's leaf at the MAX limit reads go/no-go (not a reading across the band)`
   - `gauge resolution and declared geometric inspection method cover requirement`
   - `geometric gauge capability or datum inspection method unresolved`
   - `no angular gauge capability`

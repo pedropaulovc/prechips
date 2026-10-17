@@ -172,3 +172,18 @@ def test_coarse_resolution_is_an_error_whatever_the_tolerance():
     row = finding(bundle([0.1, 1.0], resolution=0.5, leaf_tolerance="unknown"))
     assert row.status == "error"
     assert "resolution exceeds the MAX limit" in row.sentence
+
+
+def test_a_set_that_brackets_the_limit_without_a_leaf_at_it_is_not_a_pass():
+    # Leaves from R0.15 by 0.1 hold R0.15 and R0.25, never R0.2: the safe R0.15 is unnamed.
+    row = finding(bundle([0.15, 1.0]))
+    assert row.status == "unknown"
+    assert "no R0.2 leaf" in row.sentence
+    assert row.numbers["leaf_max_mm"] == pytest.approx(0.15)
+
+
+@pytest.mark.parametrize(("sizes", "status"), [([0.1, 0.2, 0.5], "pass"), ([0.1, 0.5], "unknown")])
+def test_listed_leaf_sizes_decide_whether_the_limit_leaf_exists(sizes, status):
+    b = bundle([0.1, 0.5])
+    b.inventory["gauges"]["radius-gauge-small"]["sizes_mm"] = sizes
+    assert finding(b).status == status
