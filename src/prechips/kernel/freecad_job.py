@@ -5443,7 +5443,8 @@ class _Setup:
             kept, record = self._kept(spec.get("feature"), stock, subject)
             self.keeps[owner] = record
             if kept is None:
-                return None, f"{owner}: {record['reason']}; {where}"
+                why = record.get("error") or record["reason"]
+                return None, f"{owner}: {why}; {where}"
             if kept is not stock:
                 stock = kept
                 self.stock_states.append(stock)
@@ -5518,9 +5519,35 @@ class _Setup:
                 "that leaves this setup"
             )
         number = carriers[0]
+        try:
+            lost = self._finished_shares(pieces, number)
+        except Exception as exc:  # an OCC boolean failure proves no piece is scrap
+            return refused(f"could not measure the finished material in {where} ({exc})")
         record["kept"] = rows[number - 1]
         record["discarded"] = [row for row in rows if row["piece"] != number]
+        if lost:
+            return None, {**record, "error": "; ".join(lost)}
         return (stock if len(pieces) == 1 else pieces[number - 1]), record
+
+    def _finished_shares(self, pieces, kept):
+        """Why no piece but ``kept`` may be discarded: one line per discarded piece that holds
+        more than ``STOCK_MM3`` of a received component's finished material, naming the
+        component (``stock`` for a single supply). Scrap holds none."""
+        lost = []
+        for component in sorted(self.state["components"]):
+            owned = self.owner.protected[component]
+            if owned.Volume <= HIT_MM3:
+                continue
+            share = self._placed(owned)
+            for number, piece in enumerate(pieces, start=1):
+                volume = 0.0 if number == kept else piece.common(share).Volume
+                if volume > STOCK_MM3:
+                    lost.append(
+                        f"discarding piece {number} would scrap {_r(volume)} mm^3 of "
+                        f"component {component}'s finished material; keep a feature on that "
+                        "piece, or split the work so it holds no finished material"
+                    )
+        return lost
 
     @staticmethod
     def _remove(original, own, groups, held=None):

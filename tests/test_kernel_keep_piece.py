@@ -229,7 +229,8 @@ owner = SimpleNamespace(features={
     "west_top": [0], "east_top": [1], "both_tops": [0, 1], "bridge": [2], "gap": [3],
 })
 owner._declared = lambda: owner.features
-fake = SimpleNamespace(owner=owner, faces=faces)
+fake = SimpleNamespace(owner=owner, faces=faces, state={"components": set()})
+fake._finished_shares = lambda pieces, kept: engine._Setup._finished_shares(fake, pieces, kept)
 out = {}
 for stock_name, stock in {
     "split": Part.makeCompound([west, east]),
@@ -241,6 +242,25 @@ for stock_name, stock in {
             "shape": None if kept is None else [round(v, 6) for v in engine._bbox(kept)],
             **record,
         }
+# Built-up guard: each received component owns one cube's finished material.
+scrap = Part.makeBox(5, 5, 5, V(40, 0, 0))
+built = SimpleNamespace(
+    owner=SimpleNamespace(
+        features=owner.features,
+        _declared=owner._declared,
+        protected={"left": west, "right": east},
+    ),
+    faces=faces,
+    state={"components": {"left", "right"}},
+    _placed=lambda shape: shape,
+)
+built._finished_shares = lambda pieces, kept: engine._Setup._finished_shares(built, pieces, kept)
+for stock_name, stock in {
+    "component": Part.makeCompound([west, east]),
+    "scrap": Part.makeCompound([west, scrap]),
+}.items():
+    kept, record = engine._Setup._kept(built, "west_top", stock, "S1:10")
+    out["built:" + stock_name] = {"shape": None if kept is None else 1, **record}
 with open(target, "w", encoding="utf-8") as stream:
     json.dump(out, stream)
 """
@@ -270,6 +290,17 @@ def test_the_kept_piece_is_the_one_that_carries_the_whole_feature(tmp_path, free
         assert f"feature {feature} spans pieces [1, 2] of the stock after S1:10" in record["reason"]
     assert out["split:gap"]["reason"].startswith("no piece of the stock after S1:10 carries")
     assert "pieces [1, 2] of the stock after S1:10 each carry" in out["overlap:west_top"]["reason"]
+    # Discarding a piece that holds a received component's finished share is an error.
+    refused = out["built:component"]
+    assert refused["shape"] is None and "reason" not in refused
+    assert refused["error"] == (
+        "discarding piece 2 would scrap 1000.0 mm^3 of component right's finished material; "
+        "keep a feature on that piece, or split the work so it holds no finished material"
+    )
+    # Pure scrap holds no finished share: it is discarded as before.
+    scrap = out["built:scrap"]
+    assert scrap["shape"] == 1 and "error" not in scrap
+    assert [row["piece"] for row in scrap["discarded"]] == [2]
 
 
 # --------------------------------------------------------------------------- host side
@@ -390,3 +421,12 @@ def test_the_traveler_tells_the_operator_which_piece_to_keep():
     data = _bundle({"status": "ok", "setups": {}}, ["#1"], keep=False)
     page = render_traveler(data, [], build_report(data, []))
     assert "Keep the piece" not in page
+
+
+def test_a_keep_that_would_scrap_finished_material_is_an_error():
+    row = {"piece": 1, "volume_mm3": 1.0, "bbox_mm": PART_BOX}
+    lost = "discarding piece 2 would scrap 1000.0 mm^3 of component right's finished material"
+    record = {"feature": "south", "after": "S5:60", "kept": row, "discarded": [], "error": lost}
+    kernel = {"status": "ok", "setups": {"S5": {"keeps": {"S5:70": record}}}}
+    [found] = keep_piece.evaluate(_rule_bundle({"keep": "south"}, kernel))
+    assert (found.status, found.sentence) == ("error", f"S5:70: {lost}.")

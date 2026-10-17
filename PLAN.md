@@ -1433,7 +1433,8 @@ sheet.
    setup-entry stock within the keep's own setup, as for any cut). An unknown feature,
    unresolved faces, no carrier, a feature spanning pieces or two carriers is
    `?` stock debt naming what to change, never a guess; without `keep` a held
-   split keeps every piece as before. The new, always required `keep_piece` finding logs each
+   split keeps every piece as before. Discarding a piece that holds any received
+   component's finished share is an error. The new, always required `keep_piece` finding logs each
    discard (volume, bbox, kept piece, op). The keep entries enter the kernel
    job, and so its cache key, only when present. No shipped example uses
    `keep`, so no example report or traveler changed.

@@ -52,6 +52,15 @@ def evaluate(bundle):
         setup_facts = record(record(facts.get("setups")).get(setup["id"]))
         detail = record(record(setup_facts.get("keeps")).get(subject))
         numbers["after"] = detail.get("after", UNKNOWN)
+        if "error" in detail:
+            numbers["kept"] = detail["kept"]
+            numbers["discarded"] = detail["discarded"]
+            findings.append(
+                Finding(
+                    "keep_piece", subject, "error", numbers, cite, f"{subject}: {detail['error']}."
+                )
+            )
+            continue
         if "kept" in detail:
             numbers["kept"] = detail["kept"]
             numbers["discarded"] = detail["discarded"]

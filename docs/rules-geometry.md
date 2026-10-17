@@ -1220,10 +1220,17 @@ stock unknown. The op's own cut stays credited:
 - the feature spans two or more pieces;
 - two pieces each carry it.
 
+A keep never scraps finished material. If a discarded piece would hold more than
+1e-3 mm³ of any received component's finished share (its component-owned
+finished material; `stock` for a single supply), the keep is an **error** naming
+the piece, the component and the volume, and the stock after it is unknown. Scrap
+such as a frame round the part holds none, so it is discarded as before.
+
 Each reason names what to change. The `keep_piece` finding of the keep op (always
 required, so its `?` blocks whatever the policy lists) logs
 the result: `pass` with the kept piece and each discarded piece's volume and
-bbox, or `?` with the reason. A keep that names no feature is `?` even without
+bbox, `✗` when a discarded piece would scrap finished material, or `?` with the
+reason. A keep that names no feature is `?` even without
 the kernel. With no kernel, or with stock already unknown before the keep, the
 row is `?` for that reason.
 The traveler prints the keep on its op's row: "Keep the piece that carries
