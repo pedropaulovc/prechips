@@ -6,8 +6,9 @@
 
 The selection is the union of:
 
-* every changed ``tests/test_*.py`` module, plus each test module that imports
-  a changed test module (``from test_cli import ...``), transitively; the
+* every changed ``tests/test_*.py`` module (a deleted one only through its
+  importers), plus each test module that imports a changed test module
+  (``from test_cli import ...``), transitively; the ``[consumers]`` and
   ``[paths]`` hits below get the same closure;
 * for each changed ``src/prechips`` file, the test modules that executed it,
   from the committed map ``tests/affected_tests.toml`` (``[sources]``,
@@ -131,8 +132,7 @@ def select(changed, config):
             reasons.append(f"{path}: full-suite trigger")
             return FULL, reasons
         if re.fullmatch(r"tests/test_\w+\.py", path):
-            if (ROOT / path).exists():
-                closed.add(path)
+            closed.add(path)  # deleted too: its importers now fail to import it
             reasons.append(f"{path}: changed test module")
             continue
         tokens = [
@@ -141,7 +141,7 @@ def select(changed, config):
             if fnmatch.fnmatchcase(path, pattern)
         ]
         for token in tokens:
-            selected |= consumers(token)
+            closed |= consumers(token)
             reasons.append(f"{path}: every test module naming {token!r}")
         hits = [modules for pattern, modules in paths.items() if fnmatch.fnmatchcase(path, pattern)]
         if not (tokens or hits or path in sources):
