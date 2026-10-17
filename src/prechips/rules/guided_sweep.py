@@ -24,7 +24,7 @@ import math
 from .. import trig
 from ..measurements import length_debt, length_fact, limits_debt, limits_fact, record_debt
 from .coordinates import _JOIN_TOL, _WALL_TOL, _grid, _pair, _samples, dro_grid
-from .resolution import UNKNOWN, identity, number, record, resolve, uncertain
+from .resolution import UNKNOWN, authored, identity, number, record, resolve
 
 METHOD = "guided_sweep"
 # The fixture kind each guide rides on: a swing arm pivots on its pin, a sled on its rail.
@@ -165,6 +165,21 @@ def _flagged(item, fields, category, key, measurements):
             measurements.append(debt)
 
 
+def _item_flagged(bundle, category, key):
+    """Whether the inventory item ``key`` is flagged to verify as a whole, as the shop list
+    states it (its own ``verify``, ``present`` or coverage). A flag on one nested fact does
+    not count (resolving an item folds those into its ``verify``): each fact the sweep
+    consumes is checked on its own, and one it does not consume (a picture-only dimension,
+    a bed height headroom reads) must not leave the cut unproven."""
+    stated = authored(bundle, category, key)
+    return (
+        stated.get("verify") is True
+        or stated.get("verify") == UNKNOWN
+        or stated.get("present") == UNKNOWN
+        or "verify" in str(stated.get("coverage", "")).lower()
+    )
+
+
 def _carrier(bundle, setup, sweep, guide, errors, debts, measurements, record_):
     """The guide fixture's consumed facts (mm) by field, or None when it proves none."""
     reference = sweep.get("fixture", UNKNOWN)
@@ -194,7 +209,7 @@ def _carrier(bundle, setup, sweep, guide, errors, debts, measurements, record_):
             )
         return None
     fields = _GUIDE_FACTS[guide]
-    if uncertain(item):
+    if _item_flagged(bundle, category, key):
         debts.append(f"the sweep fixture {reference} is flagged to verify")
         _flagged(item, [(f, m) for f, m, _ in fields], category, key, measurements)
         return None
@@ -231,7 +246,7 @@ def _master(bundle, sweep, guide, errors, debts, measurements, record_):
             "touch off a master_arc pinned on the sled"
         )
         return None
-    if uncertain(item):
+    if _item_flagged(bundle, category, key):
         debts.append(f"the touch-off master {reference} is flagged to verify")
         _flagged(item, [("radius_limits", True)], category, key, measurements)
         return None
@@ -397,15 +412,26 @@ def _start_clear(bundle, setup, arc, label, debts, record_, scale):
     only when the cutter there stands wholly outside the stock box the setup receives
     (:func:`~.level_entry.in_air`, as the level-entry rule proves any entry); else
     ``"unproven"`` and debt: it would plunge into material, which nothing checks for a
-    sweep, so the traveler stops."""
+    sweep, so the traveler stops.
+
+    The rows stand on the nominal path, but the master sets the real one: the cutter is
+    widened by the most the cut (``cut_radius_mm``, master and guide error) stands off the
+    nominal wall the rows assume. An unproven cut leaves the start unproven too (its own
+    debt names it)."""
     from .level_entry import in_air, stock_box
 
-    rows = arc["rows"]
+    rows, cut, radius = arc["rows"], record_.get("cut_radius_mm"), arc.get("cutter_radius_mm")
+    centre = arc["cutter_centre_radius_mm"]
+    record_["start"] = "unproven"
+    if not (_pair(cut) and number(radius) and number(centre)):
+        return
+    outward = 1 if centre > arc["wall_radius_mm"] else -1
+    wall = centre * scale - outward * radius
+    reach = radius + max(abs(cut[0] - wall), abs(cut[1] - wall))
     point = rows[0].get("dro_xy") if rows else None
-    if in_air(stock_box(bundle, setup), point, arc.get("cutter_radius_mm"), scale):
+    if in_air(stock_box(bundle, setup), point, reach, scale):
         record_["start"] = "air"
         return
-    record_["start"] = "unproven"
     debts.append(
         f"{label}: the sweep's start is not proven clear of the stock the setup receives, "
         "so the cutter would go down into material there; sweep far enough past the arc's "
@@ -517,7 +543,11 @@ def guided(bundle, setup, op, arc, band, label, scale):
         bar = record_.get("master_kind") == "setting_bar"
         play = found["pivot_play"]
         term = _second_order(play, reach)
-        if term is not None:
+        if term is None:
+            debts.append(
+                f"{label}: the pivot play is too large for the cutter's radius to bound the cut"
+            )
+        else:
             widen = (play + term) * (1 if bar else 2)
     elif found is not None and gain is not None:
         form, runout = found["rail_form_error"], found["roller_runout"]
@@ -551,6 +581,10 @@ def guided(bundle, setup, op, arc, band, label, scale):
     if proven:
         shifted = outward * back * scale
         record_["cut_radius_mm"] = [master[0] + shifted - widen, master[1] + shifted + widen]
+    elif not (errors or debts):
+        # Unknown is never a pass: a cut left unproven always names itself, whatever
+        # path left it so.
+        debts.append(f"{label}: the cut radius is unproven")
     if band is None:
         debts.append(f"{label}: its radial band is unknown, so the cut radius is unproven")
     elif number(allowance):

@@ -368,7 +368,8 @@ def test_the_rows_stay_on_the_nominal_path_the_kernel_checks(tmp_path):
         f"radius_limits_mm = {{ value = [810.0, 810.02], {MEASURED} }}\nverify = false\n"
     )
     plan = guided_plan(tmp_path, target=target, master="'r810'", inventory=master)
-    row = coordinates_row(plan, stock_bbox=SWING)
+    # Stock the real R807 path also starts clear of (the start check uses the real path).
+    row = coordinates_row(plan, stock_bbox=[-160.0, -20.0, -10.0, 190.0, 5.0, 0.0])
     assert row.status == "pass", row.sentence
     table, sweep = recipe(row)
     assert sweep["cut_radius_mm"] == pytest.approx([809.98, 810.04])
@@ -571,6 +572,7 @@ def proven(guide="pivot"):
         "touch_feed": "-Y",
         "rotation": "counterclockwise",
         "cut_radius_mm": [800.08, 800.14],
+        "band_mm": [800.0, 800.5],
         "back_off_mm": 0.0,
         "start": "air",
         "sweep_deg": 25.0,
@@ -622,6 +624,7 @@ SWEEP_FACTS = [
     "ends_setup_xy",
     "ends_cutter_setup_xy",
     "start",
+    "band_mm",
 ]
 
 
@@ -781,6 +784,63 @@ def exact_cut_spread(rollers, error, rail, roller, reach):
         centre = min(options, key=lambda p: math.hypot(*p))
         cuts.append(math.dist((reach, 0.0), centre))
     return max(cuts) - min(cuts)
+
+
+def test_the_start_is_cleared_on_the_path_the_master_sets(tmp_path):
+    # The rows stand on the nominal R797 path; an R799.60 master sets the cut 0.4 mm off
+    # it. A stock box the nominal cutter clears by 0.2 mm at the start proves the start in
+    # air for a near-nominal bar, but not for that master: its real cutter may touch it.
+    target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [799.5, 800.5]")
+    low = (
+        "[gauges.low]\nkind = 'setting_bar'\nname = 'R799.6 setting bar'\n"
+        f"radius_limits_mm = {{ value = [799.60, 799.62], {MEASURED} }}\nverify = false\n"
+    )
+    plan = guided_plan(tmp_path / "probe", target=target)
+    table, _ = recipe(coordinates_row(plan, stock_bbox=SWING))
+    x, y = table["rows"][0]["dro_xy"]
+    box = [x - 50.0, -500.0, -10.0, x + 50.0, y - 3.0 - 0.2, 0.0]
+    near = guided_plan(tmp_path / "near", target=target)
+    assert recipe(coordinates_row(near, stock_bbox=box))[1]["start"] == "air"
+    off = guided_plan(tmp_path / "off", target=target, master="'low'", inventory=low)
+    row = coordinates_row(off, stock_bbox=box)
+    assert recipe(row)[1]["start"] == "unproven"
+    assert "the sweep's start is not proven clear of the stock" in debts(row)
+
+
+def test_an_unknown_band_proves_no_cut(tmp_path):
+    # A numeric nominal still computes the master's cut, but without the band nothing
+    # proves it: the recipe stops.
+    target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = 'unknown'")
+    row, printed = traveler_text(tmp_path, target=target)
+    assert row.status == "unknown", row.sentence
+    assert "STOP: guided sweep not established (cut radius unproven" in printed
+    assert "Lock X and Y" not in printed
+
+
+def test_a_pivot_play_too_large_to_bound_is_debt(tmp_path):
+    plan = guided_plan(tmp_path)
+    change(plan.with_name("inventory.toml"), "value = 0.02,", "value = 400.0,")
+    row = coordinates_row(plan, stock_bbox=SWING)
+    assert row.status == "unknown", row.sentence
+    assert "the pivot play is too large for the cutter's radius to bound the cut" in debts(row)
+
+
+def test_a_flagged_fact_the_sweep_does_not_read_leaves_its_cut_proven(tmp_path):
+    # Only the sled's own flag and the facts the sweep consumes count: a flagged bed height
+    # (headroom's to read) does not unprove the cut.
+    plan = guided_plan(tmp_path, "rail")
+    change(
+        plan.with_name("inventory.toml"),
+        "verify = false\n[gauges.bar]",
+        "bed_height_mm = { value = 30.0, verify = true }\nverify = false\n[gauges.bar]",
+    )
+    row = coordinates_row(plan, stock_bbox=SWING)
+    assert row.status == "pass", row.sentence
+    assert _pair_of_numbers(recipe(row)[1]["cut_radius_mm"])
+
+
+def _pair_of_numbers(value):
+    return isinstance(value, list) and len(value) == 2 and all(map(math.isfinite, value))
 
 
 def test_the_rail_bound_holds_for_finite_form_errors():

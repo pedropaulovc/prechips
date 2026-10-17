@@ -61,7 +61,8 @@ def _unresolved(arc, sweep, levels=None):
         and sweep.get("master_kind") in ("setting_bar", "master_arc")
     ):
         missing.append("guide fixture or master unknown")
-    if not _pair(sweep.get("cut_radius_mm")):
+    if not (_pair(sweep.get("cut_radius_mm")) and _pair(sweep.get("band_mm"))):
+        # A computed cut is proven only against a known band.
         missing.append("cut radius unproven")
     if sweep.get("touch_axis") not in _AXES or sweep.get("touch_feed") not in _AXES:
         missing.append("touch axis unknown")
