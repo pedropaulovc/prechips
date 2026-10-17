@@ -233,7 +233,7 @@ record entry can make such a reading pass. Then the gauge must span what it
 measures, which depends on what produces the value:
 
 - a **DRO coordinate** (`align`, and `dro_xy`): the machine's DRO gives the
-  value, and the gauge, a coaxial indicator or edge finder, only centres the
+  value, and the gauge, a coaxial or dial test indicator, only centres the
   element under the spindle. The predicted coordinate must lie inside the
   commissioning setup's machine travel, and the DRO resolution must be no
   coarser than the tolerance or band. `machines.<id>.envelope.travel` is a
@@ -331,12 +331,19 @@ the edge it cuts, and adds one riser-specific field:
 do = "finish_profile"
 fixture_feature = "trammel-jig.riser.inner_edge"   # one op per edge
 inset_mm = 2.0       # each riser edge lies this far inside the part's finished edge
+part_op = "S3:20"    # the part's finishing sweep on this pin pair
 tool = "endmill-14"  # rules check dia == part cutter dia + 2 × inset
 ```
 
 The riser's cutter is **derived, not hard-coded**:
-`dia = part_cutter_dia + 2 × inset_mm`, where the part cutter is the cutter of
-the part setup's `guided_sweep` on the same pin pair. The named tool must match
+`dia = part_cutter_dia + 2 × inset_mm`. The part cutter is the cutter of the
+**finishing** `guided_sweep` that cuts the matching part edge on the same pin
+pair. Each riser edge op names it, `part_op = "S3:20"`, so the binding is never
+inferred. The validator rejects a `part_op` that is not a finishing sweep on the
+same pin pair. If more than one finishing sweep cuts that part edge, they must all
+resolve to the same cutter diameter; otherwise the result is an error naming
+each. Rough sweeps leave stock and do not set the finished edge, so they are not
+consulted. The named tool must match
 within the DRO resolution, or the result is an error naming both diameters. An
 unknown part cutter leaves the check `?`. This keeps the 4 mm figure honest if
 the part cutter ever changes (and that change is a renewal trigger, §3.5).
@@ -1066,6 +1073,9 @@ Also:
   well as the readings.
 - Acceptance order: `hub_size` read between the drill and the ream → error; read
   after the ream → valid.
+- Riser cutter binding: a riser edge op without `part_op`, or with a `part_op`
+  that is a rough sweep or on another pin pair → error; two finishing sweeps on
+  that edge with different cutters → error.
 - Terminal tool: a 9 mm reamer on the 8 mm `hub_hole` → error; the `size`
   prediction is the declared 8.0, never the tool's size.
 - Torque `value_nm = 0` or negative → schema error.
@@ -1273,9 +1283,10 @@ op = 10
 do = "finish_profile"
 fixture_feature = "trammel-jig.riser.inner_edge"   # R802, on the R795 pin pair
 inset_mm = 2.0                     # #270 comment: edges 2 mm inside each finished edge
+part_op = "S3:20"                  # the part's finishing sweep on this pin pair (sketch id)
 tool = "endmill-14"                # derived: part cutter Ø10 + 2 × 2.0
 contour = { method = "guided_sweep", sweep = { guide = "trammel", fixture = "trammel-jig", pins = "inner" } }   # D3: names from #269
-# op 20: fixture_feature = "trammel-jig.riser.outer_edge" (R814), pins = "outer"
+# op 20: fixture_feature = "trammel-jig.riser.outer_edge" (R814), pins = "outer", part_op = the outer finishing sweep
 
 [[commissioning.setups]]           # C4: acceptance readings
 id = "C4"
