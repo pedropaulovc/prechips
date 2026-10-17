@@ -4186,8 +4186,8 @@ class _Job:
                 debts.append(str(joint["process_reason"]))
             if joint.get("reason"):
                 raise _Unknown(joint["reason"])
+            self.unplaced_mouth = None  # set only by this join's own socket mouths
             if joint.get("kind") == "cylindrical":
-                self.unplaced_mouth = None
                 joined = self._cylindrical_join(refs, sources, joint, state)
             elif joint.get("kind") == "surface":
                 joined = self._surface_join(refs, sources, joint)
@@ -4294,8 +4294,8 @@ class _Job:
             if not any(other.isSame(own) for own in everything)
         ]
         # A known feature whose lost material touches an undecided corner is undecided
-        # too, transitively, whatever the order of ``forms``: only those shared pieces are
-        # excused with it, the rest of its loss is still judged by its own band.
+        # too, transitively, whatever the order of ``forms``; its other pieces are still
+        # held to the refusals no undecided corner can undo.
         mines = {
             form["feature"]: [
                 piece
@@ -4304,13 +4304,13 @@ class _Job:
             ]
             for form, _, faces in known
         }
-        undecided = list(deferred)
+        undecided, sharing = list(deferred), {}
         changed = True
         while changed:
             changed = False
             for form, _, _ in known:
                 name = form["feature"]
-                if name in rows:
+                if name in sharing:
                     continue
                 shared = [
                     piece
@@ -4322,18 +4322,24 @@ class _Job:
                 ]
                 if not shared:
                     continue
-                reason = f"{name} shares lost material with an undecided corner"
-                rows[name] = {"status": UNKNOWN, "reason": reason}
-                undecided.append((reason, Part.makeCompound(shared)))
-                deferred.append((reason, Part.makeCompound(shared)))
+                sharing[name] = shared
+                undecided.append((name, Part.makeCompound(mines[name])))
                 changed = True
         admitted = []
         for form, refs, faces in known:
             name = form["feature"]
-            if name in rows:
-                continue
             target = Part.makeCompound(faces)
             mine = mines[name]
+            shared = sharing.get(name, [])
+            # Pieces an undecided corner shares are not this feature's to judge, and a
+            # mouth break that could not be placed may yet change the corner: then only
+            # the refusals no break can undo (reach beyond MAX, a band not starting at 0)
+            # stay certain, and the rest is debt.
+            because = (
+                f"{name} shares lost material with an undecided corner" if shared else None
+            ) or self.unplaced_mouth
+            judged = [piece for piece in mine if not any(piece is own for own in shared)]
+            problem = None
             near = Part.makeCompound(mine) if mine else None
             # Every face must bound lost material: a face a branch carries is not formed.
             carried = [
@@ -4348,13 +4354,13 @@ class _Job:
                 )
             ]
             if carried:
-                raise ValueError(
+                problem = (
                     f"the join does not form {name}: received material already carries or "
                     f"never meets {', '.join(sorted(set(carried)))}"
                 )
             low, high = form["radius_mm"]
             touched, reach = set(), 0.0
-            for piece in mine:
+            for piece in judged:
                 # Vertices too: a corner where faces blend may be the farthest point.
                 corners = [vertex.Point for vertex in piece.Vertexes]
                 reach = max([reach, *(formed.distToShape(Part.Vertex(p))[0] for p in corners)])
@@ -4364,7 +4370,7 @@ class _Job:
                     reach = max([reach, *distances])
                     if all(distance <= STOCK_TOL for distance in distances):
                         continue  # a formed face itself
-                    if not all(
+                    if problem is None and not all(
                         any(_surface_holds(other, point) for other in neighbours)
                         for point, distance in zip(points, distances, strict=True)
                         if distance > STOCK_TOL
@@ -4375,7 +4381,7 @@ class _Job:
                             if mouth.get("size_mm")
                             else ""
                         )
-                        raise ValueError(
+                        problem = (
                             f"the joined corner at {name} is not the sharp corner its "
                             f"neighbouring finished faces meet in{groove}"
                         )
@@ -4385,25 +4391,28 @@ class _Job:
                         for index, branch in enumerate(branches)
                         if side.common(branch).Area > SUPPLY_MM2
                     )
+            if problem is not None and not because:
+                raise ValueError(problem)
             if reach > high + STOCK_TOL:
                 raise ValueError(
                     f"the join at {name} leaves material missing {_r(reach)} mm from its "
                     f"faces, beyond its R{_r(high)} MAX"
                 )
-            if len(touched) < len(branches):
-                raise ValueError(
-                    f"{name} is owned by a single component: its corner does not meet both "
-                    "joined branches"
-                )
-            if low > STOCK_TOL:
+            if mine and low > STOCK_TOL:
                 raise ValueError(
                     f"the joined corner at {name} is sharp, outside its radius band "
                     f"[{_r(low)}, {_r(high)}]"
                 )
-            if self.unplaced_mouth:
-                # Every certain refusal is above: an unplaced mouth break leaves only debt.
-                rows[name] = {"status": UNKNOWN, "reason": self.unplaced_mouth}
-                deferred.append((self.unplaced_mouth, target))
+            if problem is None and judged and len(touched) < len(branches):
+                problem = (
+                    f"{name} is owned by a single component: its corner does not meet both "
+                    "joined branches"
+                )
+            if problem is not None and not because:
+                raise ValueError(problem)
+            if because:
+                rows[name] = {"status": UNKNOWN, "reason": because}
+                deferred.append((because, near if near is not None else target))
                 continue
             self.formed_material[name] = mine[0].multiFuse(mine[1:]) if len(mine) > 1 else mine[0]
             admitted.extend(piece for piece in mine if not any(piece is own for own in admitted))
