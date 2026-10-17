@@ -19,6 +19,11 @@ accept, the drawing check's band as printed, a hold's own band. Otherwise the ga
 accepts work the band rejects. A pair declared ``"unknown"`` (the op's whole ``go_no_go``
 or one requirement's entry) is still a limit check, with sizes nobody has chosen: unknown.
 
+A radius band ``[0, r]`` is a one-sided "R r MAX" limit (sharp allowed): a radius or
+profile gauge reads it go/no-go with its leaf at ``r`` (:func:`max_limit`), so its range
+need only hold ``r`` and its resolution not exceed it. Any other band, and any other
+gauge, is read across the whole band.
+
 A ``dro_scale`` gauge (a machine's own axis read-out) reads a length along that axis
 only, never a diameter or a form.
 
@@ -34,9 +39,11 @@ length, so it is judged as the linear zone it is (:func:`._profile.tilt_reading`
 resolution alone like a zone.
 """
 
+import math
+
 from ..findings import Finding
 from ..joint_features import source_cite
-from ..measurements import length_debt, length_fact, record_debt
+from ..measurements import length_debt, length_fact, length_keys, record_debt
 from ..model import reference_only, tolerance_requirements
 from ._profile import (
     DIAMETERS,
@@ -77,7 +84,40 @@ LIMIT_GAUGES = {
     "external": frozenset({"ring_gauge", "snap_gauge"}),
 }
 EXTERNAL_KINDS = frozenset({"boss", "shaft"})
+# Leaf gauges: each leaf is one radius, so a one-sided limit is read by the leaf at it.
+LEAF_GAUGES = frozenset({"radius_gauge", "profile_gauge"})
+RADII = frozenset({"radius", "bottom_radius"})
 _SEVERITY = {"error": 3, "unknown": 2, "unsupported": 2, "pass": 1}
+
+
+def max_limit(requirement, value):
+    """The MAX of a one-sided radius limit, else None. A radius band ``[0, r]`` can only
+    mean "R r MAX, sharp allowed": a radius has no measured zero to read. Every other band,
+    a two-sided one such as R5 ±0.1 included, is read across its whole span."""
+    if requirement not in RADII or not isinstance(value, list) or len(value) != 2:
+        return None
+    low, high = value
+    return high if number(low) and number(high) and low == 0 and high > 0 else None
+
+
+def on_leaf(gauge, span, resolution, size):
+    """Whether the leaf set has a leaf of ``size``: one of its listed ``sizes_mm``, else a
+    step of ``resolution`` (the leaf pitch) up from ``range_mm[0]``."""
+    sizes = gauge.get("sizes_mm")
+    if isinstance(sizes, list) and sizes and all(map(number, sizes)):
+        return any(same_length(size, leaf) for leaf in sizes)
+    steps = (size - span[0]) / resolution
+    return same_length(span[0] + resolution * round(steps), size)
+
+
+def leaf_tolerance(gauge):
+    """A leaf gauge's ± on each leaf (mm): 0 when the gauge declares none, None when the
+    declared fact is unknown or unverified."""
+    if not length_keys(gauge, "leaf_tolerance", None):
+        return 0.0
+    fact = length_fact(gauge, "leaf_tolerance", require_measured=False)
+    value = fact["value"]
+    return value if fact["verified"] and number(value) and value >= 0 else None
 
 
 def _drawing_band(requirement, value):
@@ -459,7 +499,59 @@ def _capability(
                 status, message = "pass", "gauge resolves the tilt's linear zone across its face"
         elif isinstance(value, list) and len(value) == 2 and all(number(v) for v in value):
             consumed = ("range", "resolution")
-            if isinstance(span, list) and all(number(v) for v in span) and number(resolution):
+            limit = max_limit(requirement, value) if kind in LEAF_GAUGES else None
+            tolerance = 0.0
+            if limit is not None:
+                nums.update(limit_check="max", limit_mm=limit)
+                tolerance = leaf_tolerance(gauge)
+                if length_keys(gauge, "leaf_tolerance", None):
+                    consumed += ("leaf_tolerance",)
+                    nums["leaf_tolerance_mm"] = UNKNOWN if tolerance is None else tolerance
+            if not (isinstance(span, list) and all(number(v) for v in span) and number(resolution)):
+                message = "gauge range or resolution unresolved"
+            elif limit is not None and not span[0] <= limit <= span[1]:
+                status, message = "error", "limit check: gauge has no leaf at the MAX limit"
+            elif limit is not None and resolution > limit:
+                status, message = "error", "limit check: gauge resolution exceeds the MAX limit"
+            elif limit is not None and tolerance is None:
+                message = "limit check: gauge leaf tolerance unresolved"
+            elif limit is not None:
+                # Go/no-go at the limit: a leaf at or under R MAX seats without rocking on a
+                # corner at or under it. A leaf marked L may really be L + t, accepting
+                # corners past the limit, so the leaf read must be one at or under r - t.
+                # Sharp needs no leaf, so the band is never read across.
+                guard = limit - tolerance
+                if guard < span[0]:
+                    status, message = (
+                        "error",
+                        f"limit check: the leaf's ±{tolerance:g} tolerance crosses the MAX "
+                        "limit (no leaf at or under the limit less its tolerance)",
+                    )
+                elif tolerance > 0:
+                    # Only a leaf under the limit is safe, and the traveler prints the band
+                    # and gauge, never which leaf: the operator would reach for the limit's.
+                    nums["leaf_max_mm"] = guard
+                    message = (
+                        f"limit check: only a leaf at or under R{guard:g} reads the limit, "
+                        "and the traveler does not name it"
+                    )
+                elif not on_leaf(gauge, span, resolution, limit):
+                    # The set brackets the limit but no leaf is R MAX: a smaller leaf is
+                    # safe, yet the traveler names no leaf, so the operator has none to use.
+                    nums["leaf_max_mm"] = span[0] + resolution * math.floor(
+                        (limit - span[0]) / resolution + 1e-9
+                    )
+                    message = (
+                        f"limit check: the gauge has no R{limit:g} leaf, and the traveler "
+                        "does not name the smaller one that reads the limit"
+                    )
+                else:
+                    status, message = (
+                        "pass",
+                        "limit check: the gauge's leaf at the MAX limit reads go/no-go "
+                        "(not a reading across the band)",
+                    )
+            else:
                 nums["band_mm"] = value[1] - value[0]
                 if span[0] > value[0] or span[1] < value[1]:
                     status, message = (
@@ -476,8 +568,6 @@ def _capability(
                         "pass",
                         "gauge spans the band at sufficient resolution",
                     )
-            else:
-                message = "gauge range or resolution unresolved"
         elif geometric and number(value):
             consumed = ("resolution",)
             if number(resolution) and resolution <= value and method_known:

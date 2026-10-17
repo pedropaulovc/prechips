@@ -1872,6 +1872,9 @@ InventoryItem = record(
                 "width_in",
                 "resolution_mm",
                 "resolution_in",
+                # A leaf gauge's ± on each leaf's radius (a radius gauge's maker tolerance).
+                "leaf_tolerance_mm",
+                "leaf_tolerance_in",
                 "kerf_mm",
                 "kerf_in",
                 # The tool body past its cutting length (docs/rules-geometry.md#reach).
@@ -2020,6 +2023,8 @@ _TRAVEL_LENGTH_STEMS = frozenset(("x", "y", "z"))
 _INVENTORY_LENGTH_STEMS |= {"body_dia", "body_length", "bore_dia"}
 # Follow/steady rest jaw capacity.
 _INVENTORY_LENGTH_STEMS |= {"capacity_min", "capacity_max"}
+# A radius/profile gauge leaf's own ± tolerance.
+_INVENTORY_LENGTH_STEMS |= {"leaf_tolerance"}
 # Grooving/parting blade front-edge width.
 _INVENTORY_LENGTH_STEMS |= {"blade_width"}
 # Filing buttons' runout and receipt limits: one fact each, in mm or in, never both.

@@ -601,6 +601,10 @@ multi-feature `inspect` op prints as one station card; its `checks`,
 `go_no_go` and `inspection_methods` may be scoped per listed feature
 ([plan](docs/plan.md#operation)), and each feature's row then names its own
 gauge, GO / NO-GO pair and method.
+A radius band `[0, r]` ("R r MAX", sharp allowed) is read as a limit check: a
+radius or profile gauge passes only with a leaf at exactly r and no declared leaf
+tolerance. A safe smaller leaf the traveler does not name is
+[`?`](docs/rules-inspection.md).
 Specifically named procedure blanks remain separate, with a 35 × 10 mm clear
 interior floor. Pre-clamping M acquisition occurs only for explicit
 `measure_before_hold = true` with an authored `measure`; pen room stays in its

@@ -514,6 +514,12 @@ zone band is none), or a number <= 0.
 | `bottom_radius_nominal` | `float \| list[Number]` |
 | `separation` | `float \| list[Number]` |
 
+A `radius` or `bottom_radius` band `[0, r]` is a drawing's "R r MAX" (sharp
+allowed): a radius has no measured zero, so no extra field marks it. Inspection
+reads it as a go/no-go limit check with a radius or profile gauge leaf at r
+([inspection](rules-inspection.md)). A min-only "R r MIN" cannot be written, since
+`inf` is refused.
+
 ## Plane
 
 | Field | Type (also accepts `"unknown"`) |
