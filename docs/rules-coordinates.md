@@ -1165,11 +1165,16 @@ recipes; an unknown action cannot establish the saw-only exemption.
   `radius_per_deg_mm` and `radius_per_spacing` the first-order slopes for reference;
   `pin_lines`: `line_gain × (pin_clearance + rail_offset)`, `line_gain` the
   worst `|g₁| + |g₂|`, exact over the sweep's poses and taken over the crossing
-  angle's measured error too, at its ends and 64 angles each way); `centre_error_mm` is the larger side, and
+  angle's measured error too, at its ends and 64 angles each way; `pin_lines_second`:
+  the offset lines' crossing also slides along the cutter's path by up to
+  `tangent_gain × offset`, which lengthens the radius by at most `x_t² / (2 (R − x_r))`,
+  added above); `centre_error_mm` is the larger side, and
   `cut_radius_mm` is the wall a cutter radius off the pin circle, widened below and
   above by each side's sum, and must lie inside `band_mm`. A master or touch axis, a
   rough stage, a nonpositive pin spacing, pins that do not subtend `α`, a pin inside
   the swept window, tolerances that leave no acute crossing, and a
+  controlling rail (rail 1) whose station turns back within the sweep (its pin circle's
+  diameter reached inside it), so a stop there holds the carrier at two poses, a
   carriage that may leave its `rail_travel` on the fixture at its measured tolerances
   (`station_envelope_mm`), a stop that set off its station could hold the carrier short of
   an arc end (`stops`), and a
@@ -1187,8 +1192,8 @@ records (`open_debts`) stops the card even when no printed value shows it.
 The stops, the start and the rails' travel are proven on the fixture at its measured
 tolerances, not the nominal one: for every corner of the rail angle and pin spacing errors
 and each pin-line off by its pin clearance plus rail offset either way, with each stop set
-at its printed 0.1 mm station off by half a millimetre of rule plus one DRO step either
-way, the carrier's pose is solved exactly from its two pin-on-line constraints
+at its printed 0.1 mm station off by half a millimetre of rule plus one DRO step plus the
+pin's own play along its rail (its `pin_clearance`) either way, the carrier's pose is solved exactly from its two pin-on-line constraints
 (`stop_bands_deg`, the cutter's angle about the arc centre at each stop; `stop_radial_mm`,
 how far it stands off the nominal path there; `stop_stations_mm`, each pin's station).
 

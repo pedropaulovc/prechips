@@ -219,7 +219,10 @@ def test_a_trammel_sweep_locks_every_axis_and_cuts_on_its_pin_circle(tmp_path):
     # Plus one DRO step of margin each way, as on every guided-sweep proof (#258).
     assert sweep["margin_mm"] == pytest.approx(0.001)
     below = terms["radius_below"] + terms["pin_lines"] + sweep["margin_mm"]
-    above = terms["radius_above"] + terms["pin_lines"] + sweep["margin_mm"]
+    # The pin-lines' offset also slides the cutter along the circle: second order, above.
+    assert 0 < terms["pin_lines_second"] < 1e-5
+    above = terms["radius_above"] + terms["pin_lines"] + terms["pin_lines_second"]
+    above += sweep["margin_mm"]
     assert sweep["centre_error_mm"] == pytest.approx(max(below, above))
     wall = sweep["pin_radius_mm"] + 3.0  # an Ø6 cutter inside the concave edge
     assert sweep["cut_radius_mm"] == pytest.approx([wall - below, wall + above], abs=1e-9)
@@ -1101,3 +1104,53 @@ def test_rail_travel_is_checked_over_the_tolerance_envelope(tmp_path):
     row = trammel_row(tmp_path / "tight", inventory=inventory)
     assert row.status == "error"
     assert "on a fixture at its measured tolerances, beyond the rail's" in errors(row)
+
+
+# --- Codex review of ad03afc -----------------------------------------------------------
+
+
+def test_a_controlling_rail_whose_station_turns_back_over_the_sweep_is_an_error(tmp_path):
+    # Pins in the supplementary placement: over a ±30° sweep rail 1's station peaks at
+    # -16.44° and comes back, so one stop station is met at two poses.
+    assert trammel.repeated(163.56, -30.0, 30.0) == pytest.approx(-16.44)
+    assert trammel.repeated(-16.44, -12.5, 12.5) is None
+    row = trammel_row(tmp_path, pins_deg="[163.56, 196.44]", sweep_deg="60.0")
+    assert row.status == "error"
+    assert "cannot tell the sweep's ends apart" in errors(row)
+
+
+def test_a_pins_play_along_its_rail_widens_where_a_stop_holds_the_carrier(tmp_path):
+    # Radial play lets the stopped pin sit along the rail off its carriage's station:
+    # 0.165 mm more play each way is about 0.024° more stop band at 13.9 mm a degree.
+    def width(row):
+        bands = recipe(row)[1]["stop_bands_deg"]
+        return min(band[1] - band[0] for band in bands)
+
+    tight = width(trammel_row(tmp_path / "a"))
+    loose = width(trammel_row(tmp_path / "b", inventory=_with(clearance=0.17)))
+    assert loose - tight > 0.02
+
+
+BROAD = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [770.0, 830.0]")
+
+
+def test_the_cut_bound_holds_large_pin_line_offsets_exactly(tmp_path):
+    # Codex on #278: ±10 mm of pin-line offset moves the radius by more than its radial
+    # projection. The bound now adds the exact second-order term, and the independent
+    # model's walls stay inside it at every corner.
+    inventory = TRAMMEL.replace(
+        "pin_clearance_mm = { value = 0.005", "pin_clearance_mm = { value = 5.0"
+    ).replace("rail_offset_mm = { value = 0.01", "rail_offset_mm = { value = 5.0")
+    row = trammel_row(tmp_path, inventory=inventory, target=BROAD)
+    (table,) = arcs(row, 20)
+    sweep = table["guided"]
+    terms = sweep["error_terms_mm"]
+    assert terms["pin_lines_second"] > 0.5
+    bound = sweep["cut_radius_mm"]
+    walls = [w for ws, _, _ in _simulate(table, 0.001, 0.01, 10.0, steps=100) for w in ws]
+    assert bound[0] - 1e-6 <= min(walls) and max(walls) <= bound[1] + 1e-6
+    # The second-order bound itself: sqrt((R + x_r)² + x_t²) − R − x_r ≤ x_t² / (2 (R − x_r))
+    # for the largest tangential slide the pin-lines allow.
+    r, x_r = sweep["pin_radius_mm"], terms["pin_lines"]
+    x_t = sweep["tangent_gain"] * 10.0
+    assert math.hypot(r + x_r, x_t) - r - x_r <= terms["pin_lines_second"] + 1e-9

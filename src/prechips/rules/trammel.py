@@ -76,6 +76,21 @@ def _wrap(deg):
     return (deg + 180.0) % 360.0 - 180.0
 
 
+# How far (degrees) past the sweep's ends a stop's pose may lie: far more than any stop band.
+STOP_PAD_DEG = 1.0
+
+
+def repeated(pin, lo, hi, pad=STOP_PAD_DEG):
+    """The pose (degrees) inside ``[lo − pad, hi + pad]`` where the pin's station along
+    its rail peaks (the chord from the cutter is the pin circle's diameter), or None: a
+    station that turns back repeats, so a stop at it holds the carrier at two poses."""
+    for k in range(-2, 3):
+        peak = pin - 180.0 + 360.0 * k
+        if lo - pad <= peak <= hi + pad:
+            return peak
+    return None
+
+
 def crossed(pins, lo, hi):
     """The pins the cutter would pass over in the pose window ``[lo, hi]`` (it cannot)."""
     return [a for a in pins if lo - 1e-9 <= _wrap(a) <= hi + 1e-9]
@@ -162,14 +177,15 @@ def rails(centre, heading, r, pins):
     return found
 
 
-def line_gain(directions, heading, lo, hi):
+def line_gain(directions, heading, lo, hi, across=0.0):
     """The most the cutter's radius moves per unit offset of each pin-line, summed over
     both lines, worst case over the pose window: ``max |g₁| + |g₂|`` where ``g = M⁻ᵀ n``,
     ``M`` the lines' unit normals as rows and ``n = u(h + ψ/2)`` the cutter's outward
     radial direction in the table frame. A pin's radial play in its carriage, or a rail's
     pin-line standing off the spindle axis, offsets its line; the cut radius moves by the
     radial part of where the offset lines cross. Exact: each signed sum is a sinusoid in
-    ``ψ/2``. None when the lines are parallel."""
+    ``ψ/2``. ``across`` (degrees) turns the direction projected onto: 90 gives the
+    tangential displacement's gain instead. None when the lines are parallel."""
     normals = [[-d[1], d[0]] for d in directions]
     det = normals[0][0] * normals[1][1] - normals[0][1] * normals[1][0]
     if abs(det) < 1e-12:
@@ -179,7 +195,7 @@ def line_gain(directions, heading, lo, hi):
         [normals[1][1] / det, -normals[1][0] / det],
         [-normals[0][1] / det, normals[0][0] / det],
     ]
-    h = math.radians(heading)
+    h = math.radians(heading + across)
     best = 0.0
     for signs in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
         # Σ σᵢ gᵢ(t) = a cos(h + t) + b sin(h + t): an angle-shifted sinusoid in t.
@@ -449,7 +465,14 @@ def recipe(bundle, setup, op, arc, band, label, scale):
     if window and pinned and _pair(pins):
         heading, lo, hi = window
         hit = crossed(pins, lo, hi)
-        if hit:
+        repeat = repeated(pins[0], lo, hi)
+        if repeat is not None:
+            errors.append(
+                f"{label}: rail 1's pin station peaks at {repeat:g}° inside the sweep and comes "
+                "back to the same stations, so a stop on rail 1 cannot tell the sweep's ends "
+                "apart: place the pins so each runs one way along its rail over the sweep"
+            )
+        elif hit:
             errors.append(
                 f"{label}: the {sweep_deg:g}° sweep carries the cutter over the pin at "
                 f"{hit[0]:g}°: the pins must stand outside the swept window"
@@ -472,17 +495,31 @@ def recipe(bundle, setup, op, arc, band, label, scale):
             # R = D / (2 sin α) falls with α and grows with D, so its exact extremes over
             # the measured tolerances are at the corners, not the first-order slopes.
             nominal = record_["pin_radius_mm"]
+            offset = lines[0] + lines[1]
             parts = {
                 "radius_below": nominal - radius(spacing - give, alpha + error),
                 "radius_above": radius(spacing + give, alpha - error) - nominal,
-                "pin_lines": gain * (lines[0] + lines[1]),
+                "pin_lines": gain * offset,
             }
+            # The cutter stands off the pin circle by x_r radially and x_t along it, so
+            # its distance from the centre is sqrt((R + x_r)² + x_t²): at least R − |x_r|,
+            # at most R + |x_r| + x_t² / (2 (R − |x_r|)), exactly, with R the circle's
+            # least radius. Beyond R the bound is unproven.
+            least = nominal - parts["radius_below"] - parts["pin_lines"]
+            tangent = record_.get("tangent_gain")
+            if not number(tangent) or least <= 0:
+                debts.append(f"{label}: the pin-lines' offset is too large to bound the cut")
+                parts["pin_lines_second"] = "unknown"
+            else:
+                parts["pin_lines_second"] = (tangent * offset) ** 2 / (2 * least)
             record_["error_terms_mm"] = parts
+            second = parts["pin_lines_second"] if number(parts["pin_lines_second"]) else 0.0
             below = parts["radius_below"] + parts["pin_lines"] + margin
-            above = parts["radius_above"] + parts["pin_lines"] + margin
+            above = parts["radius_above"] + parts["pin_lines"] + second + margin
             widen = max(below, above)
             wall = nominal + to_wall * scale
-            record_["cut_radius_mm"] = [wall - below, wall + above]
+            if number(parts["pin_lines_second"]):
+                record_["cut_radius_mm"] = [wall - below, wall + above]
     record_["centre_error_mm"] = widen
     if band is None:
         debts.append(f"{label}: its radial band is unknown, so the cut radius is unproven")
@@ -572,7 +609,9 @@ def _stop_envelope(arc, record_, found, pins, window, scale):
     r_pin, nominal = record_["pin_radius_mm"], arc["cutter_centre_radius_mm"] * scale
     alpha_err, spacing_err = found["rail_angle_error"], found["pin_spacing_error"]
     line = found["pin_clearance"] + found["rail_offset"]
-    error = RULE_READING_MM + record_["margin_mm"]
+    # The stopped carriage meets its block; the pin in it may sit up to its radial play
+    # along the rail either way of the carriage's own station.
+    error = RULE_READING_MM + record_["margin_mm"] + found["pin_clearance"]
     base = [[centre[i] + r_pin * _u(heading + a)[i] for i in range(2)] for a in pins]
     chord = [base[1][i] - base[0][i] for i in range(2)]
     length = math.hypot(*chord)
@@ -644,7 +683,8 @@ def _stops_proof(arc, record_, found, pins, window, label, errors, debts, scale)
         if side * (nearest - end) < 0:
             errors.append(
                 f"{label}: a stop set {RULE_READING_MM + record_['margin_mm']:g} mm off its "
-                "printed rail station, on a fixture at its measured tolerances, could hold "
+                "printed rail station (its pin's play along the rail besides), on a fixture "
+                "at its measured tolerances, could hold "
                 f"the carrier {abs(nearest - end):.3f}° short of the arc's end: sweep farther "
                 "past the arc's ends"
             )
@@ -724,6 +764,10 @@ def _pose(arc, record_, found, pins, window, r_plan, scale, errors, label):
     record_["rail_travel_used_mm"] = [high - low for low, high in ranges]
     gain = _gain_over_angle(directions, heading, lo, hi, found.get("rail_angle_error"))
     record_["line_gain"] = gain if gain is not None else "unknown"
+    # The offset lines' crossing also moves along the cutter's path, which lengthens the
+    # radius at second order (the budget's exact bound needs it).
+    tangent = _gain_over_angle(directions, heading, lo, hi, found.get("rail_angle_error"), 90.0)
+    record_["tangent_gain"] = tangent if tangent is not None else "unknown"
     return gain if gain is not None else "unknown"
 
 
@@ -760,7 +804,7 @@ def _travel(record_, found, label, errors):
 GAIN_SAMPLES = 64
 
 
-def _gain_over_angle(directions, heading, lo, hi, error):
+def _gain_over_angle(directions, heading, lo, hi, error, across=0.0):
     """:func:`line_gain` at its worst over the true crossing angle too: the rails' crossing
     opened or closed by up to the measured ``rail_angle_error`` (degrees). Exact in the pose;
     across the angle, the ends, the nominal and :data:`GAIN_SAMPLES` evenly spaced angles
@@ -778,7 +822,7 @@ def _gain_over_angle(directions, heading, lo, hi, error):
         # middle pose, where the pose model has it.
         half = error * k / GAIN_SAMPLES / 2
         turned = [_turn(directions[0], -half), _turn(directions[1], half)]
-        gain = line_gain(turned, heading, lo, hi)
+        gain = line_gain(turned, heading, lo, hi, across)
         if gain is None:
             return None
         worst = gain if worst is None else max(worst, gain)
