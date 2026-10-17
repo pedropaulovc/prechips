@@ -164,6 +164,14 @@ its last `verify` is an error, because the `verify` would then describe a guide
 that has since moved (torque → verify → set is rejected). A `set` op generates
 no keys, so an adjustment is printed and never recorded as evidence.
 
+**Enough stations.** A `verify` set must have at least two distinct stations,
+and the two farthest apart must span at least half the element's travel in the
+guide's sweep (`stations_mm` within that travel). One point cannot reveal a rail
+rotated about it, and an empty list records nothing. An empty or single-station
+`verify` set, or a span shorter than half the travel, is an error. The guide
+(§4.1) supplies the travel; while it is unknown, the check is `?`. The sketch's
+50…400 stations span 350 of a rail travel of about 350.
+
 Each `verify` station becomes one reading, keyed `"<setup>:<op>/<element>@<station>"` (for
 example `C1:40/rail_a.pin@400`). The prediction is a DRO X/Y pair in the plan's
 `dro` sign convention: the pin centred under the spindle, with the DRO zeroed on
@@ -656,7 +664,12 @@ The kernel builds **planned geometry only**. Recorded readings never enter
 
 - **Fixture as stock, accumulated.** The kernel keeps one **fixture state** per
   commissioned fixture, a set of named solids. It starts as the posed inventory
-  solids, built by the existing `_solids()` path. Commissioning setups run in
+  solids, built by the existing `_solids()` path, **except** every
+  `located_by = "in_situ"` void, which is left out. Today `_solids()` emits each
+  trusted void at its authored `at_mm` and subtracts it before any operation,
+  which would leave a hole at the drawing's spot as well as the one the route
+  cuts. An in-situ void exists only once its route has cut it, at the planned
+  location. Until then the spot is only a mark, with no depth. Commissioning setups run in
   order, and each one reads and updates that state:
   - `stock_in = "fixture.<id>"` takes the whole current state as its work. Its
     result replaces the whole state, so C2's holes stay in it;
@@ -953,6 +966,8 @@ Also:
   commissioning contribution.
 - Riser cutter: matching, mismatched, and unknown part cutter.
 - `batch_qty = 0` or negative → schema error.
+- Stations: a `verify` set with no station, one station, or a span shorter than
+  half the element's travel → error.
 - Read after tightening: an adjusted element (torque or `set`) with no later
   `verify` align → error; torque → verify → set, or a `verify` followed by
   another torque → error; `set` readings generate no record keys.
@@ -983,7 +998,10 @@ Also:
 
 **Kernel (P4)**, with the `freecad_kernel` fixture:
 
-- HUB void cut at the planned apex location, not at the spot `at_mm`.
+- HUB void cut at the planned apex location, not at the spot `at_mm`, and **no**
+  void at the spot: the initial fixture state leaves in-situ voids out, so the
+  commissioned fixture has exactly one HUB hole even when the spot and the
+  planned location differ.
 - The riser band is kept and the offcuts discarded (after #182).
 - Part-setup clash checks see the cut riser **and** C2's holes: the state
   accumulates across C2 (whole fixture) and C3 (riser only), and C3's riser
