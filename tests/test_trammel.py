@@ -205,12 +205,17 @@ def test_a_trammel_sweep_locks_every_axis_and_cuts_on_its_pin_circle(tmp_path):
     assert table["exact_arc"]["radius"] == pytest.approx(sweep["pin_radius_mm"])
     # The error budget: rail angle, spacing and both pin-lines.
     terms = sweep["error_terms_mm"]
-    assert terms["rail_angle"] == pytest.approx(sweep["radius_per_deg_mm"] * 0.001)
-    assert terms["pin_spacing"] == pytest.approx(sweep["radius_per_spacing"] * 0.01)
+    # The radius at the tolerance corners: to first order the 47 mm/° and 1/(2 sin α) slopes.
+    first = sweep["radius_per_deg_mm"] * 0.001 + sweep["radius_per_spacing"] * 0.01
+    assert terms["radius_below"] == pytest.approx(first, rel=1e-3)
+    assert terms["radius_above"] == pytest.approx(first, rel=1e-3)
+    assert terms["radius_above"] > terms["radius_below"]  # R is convex in α
     assert terms["pin_lines"] == pytest.approx(sweep["line_gain"] * 0.015)
-    widen = sum(terms.values())
-    assert sweep["centre_error_mm"] == pytest.approx(widen)
-    assert sweep["cut_radius_mm"] == pytest.approx([800.25 - widen, 800.25 + widen], abs=1e-3)
+    below = terms["radius_below"] + terms["pin_lines"]
+    above = terms["radius_above"] + terms["pin_lines"]
+    assert sweep["centre_error_mm"] == pytest.approx(max(below, above))
+    wall = sweep["pin_radius_mm"] + 3.0  # an Ø6 cutter inside the concave edge
+    assert sweep["cut_radius_mm"] == pytest.approx([wall - below, wall + above], abs=1e-9)
     assert sweep["carrier_turn_deg"] == pytest.approx(12.5)
     low, high = sweep["station_ranges_mm"][0]
     assert 40.0 <= low < high <= 420.0
@@ -690,3 +695,38 @@ def test_a_trammel_flagged_to_verify_owes_every_consumed_fact(tmp_path):
     ids = {entry["id"] for entry in table["measurements"]}
     for stem in ("rail_angle_deg", "rail_angle_error_deg", "rail_travel", "pin_spacing.inner"):
         assert f"fixtures.tram.{stem}" in ids, ids
+
+
+def test_a_large_rail_angle_error_is_bounded_at_its_corners_not_by_the_slope():
+    # Codex on #278: a 1° error on the issue's trammel moves R by 50.11 mm at 15.44°,
+    # more than the 47.02 mm the slope at 16.44° gives.
+    nominal = trammel.radius(450.0, 16.44)
+    assert trammel.radius(450.0, 15.44) - nominal == pytest.approx(50.11, abs=0.01)
+    assert trammel.radius(450.0, 15.44) - nominal > trammel.per_degree(450.0, 16.44)
+
+
+def test_a_nonpositive_pin_spacing_is_an_error(tmp_path):
+    inventory = TRAMMEL.replace(f"value = {SPACING},", "value = 0.0,")
+    row = trammel_row(tmp_path, inventory=inventory)
+    assert row.status == "error"
+    assert "spacing 0 mm is not positive" in errors(row)
+
+
+def test_a_bounded_trammel_is_debt_and_never_reaches_the_kernel_as_an_arc(tmp_path):
+    # A finish method cuts its whole arc: bounds cannot clip it, so the recipe is never
+    # stamped and no exact arc (or chord fragment of one) is handed on.
+    from prechips.inputs import load_bundle
+    from prechips.rules import coordinates
+
+    plan = trammel_plan(tmp_path)
+    text = plan.read_text(encoding="utf-8")
+    bounds = "stock_removal_bounds = { x = [-200.0, 200.0], y = [-50.0, 50.0], z = [-5.0, 5.0] }\n"
+    plan.write_text(
+        text.replace("direction = 'conventional'\n", "direction = 'conventional'\n" + bounds, 1),
+        encoding="utf-8",
+    )
+    bundle = load_bundle(plan)
+    row = next(r for r in coordinates.evaluate(bundle, pre_kernel=True) if r.subject == "S1")
+    assert row.status == "unknown"
+    assert "stock_removal_bounds cannot clip it" in debts(row)
+    assert not any("exact_arc" in table for table in row.numbers.get("arc_table", []))

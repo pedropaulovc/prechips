@@ -1159,12 +1159,15 @@ recipes; an unknown action cannot establish the saw-only exemption.
   pin's `stations_mm` at the sweep's start and end in cutting order and its exact
   `station_ranges_mm`, and `swept_mm`, the exact table-frame footprint of the pins
   and the kernel's stock box about the spindle axis. `error_terms_mm` holds the
-  budget (`rail_angle`: `radius_per_deg_mm × rail_angle_error`; `pin_spacing`:
-  `radius_per_spacing × pin_spacing_error`; `pin_lines`: `line_gain × (pin_clearance
-  + rail_offset)`, `line_gain` the exact worst `|g₁| + |g₂|` over the sweep), summed
-  as `centre_error_mm`; `cut_radius_mm` is the wall a cutter radius off the pin
-  circle, widened by it, and must lie inside `band_mm`. A master or touch axis, a
-  rough stage, pins that do not subtend `α`, a pin inside the swept window and a
+  budget (`radius_below` and `radius_above`: the pin radius at the corners of the
+  measured rail angle and spacing errors, exact since `R` is monotone in both, with
+  `radius_per_deg_mm` and `radius_per_spacing` the first-order slopes for reference;
+  `pin_lines`: `line_gain × (pin_clearance + rail_offset)`, `line_gain` the exact
+  worst `|g₁| + |g₂|` over the sweep); `centre_error_mm` is the larger side, and
+  `cut_radius_mm` is the wall a cutter radius off the pin circle, widened below and
+  above by each side's sum, and must lie inside `band_mm`. A master or touch axis, a
+  rough stage, a nonpositive pin spacing, pins that do not subtend `α`, a pin inside
+  the swept window, tolerances that leave no acute crossing, and a
   carriage beyond `rail_travel` are errors; any unmeasured fixture fact is unknown
   with its `measure:` entry.
 
