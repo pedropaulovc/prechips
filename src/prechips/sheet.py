@@ -74,6 +74,9 @@ from .rules.resolution import (
     uncertain,
 )
 from .rules.resolution import record as _mapping
+from .rules.swivel import STATED as SWIVEL_STATED
+from .rules.swivel import jaw_line_move, swivelled
+from .rules.swivel import setting as swivel_setting
 from .rules.tip_endpoints import (
     FACING,
     SAME_Z,
@@ -1857,6 +1860,7 @@ _TOPICS = {
     "speeds_feeds": "starting speeds / feeds",
     "coverage": "every drawn surface has an op",
     "indexing": "indexing",
+    "swivel": "vise swivel setting",
     "hold_fields": "holding details",
     "centre_support": "tailstock centre",
     "prepared_blank": "squared blank size",
@@ -4294,6 +4298,15 @@ class _Traveler:
                 mount += " with the " + self.reference(hold["chuck"], "fixtures")
             if stated("jaws_along"):
                 mount += f"; jaws along {_text(hold['jaws_along']).upper()}"
+            if "jaws_angle_deg" in hold:
+                angle = hold["jaws_angle_deg"]
+                mount += (
+                    f", swivelled {_number(abs(angle))}° "
+                    + ("counterclockwise" if angle > 0 else "clockwise")
+                    + " seen from above"
+                    if _known(angle)
+                    else ", swivelled by ? (angle unknown)"
+                )
             if stated("fixed_jaw"):
                 mount += f"; fixed jaw {_text(hold['fixed_jaw'])}"
             steps.append(mount + ".")
@@ -4415,6 +4428,8 @@ class _Traveler:
         due = _mapping(self.records.get(("hold_fields", setup["id"]))).get("align_due")
         if due in (None, "not_applicable"):
             return []
+        if swivelled(self.bundle, setup):
+            return self.swivel_step(setup, hold)
         ref = hold.get("fixture")
         kind = _mapping(resolve(self.bundle, "workholding", ref))
         vise = kind.get("kind") == "vise"
@@ -4453,6 +4468,66 @@ class _Traveler:
             f"it; tap the {thing} round until the reading changes no more than "
             f"{_declared(limit)} mm ({_number(round(limit / 25.4, 5))} in) over that length, "
             f"tighten the {thing} to the table and sweep again."
+        ]
+
+    def swivel_step(self, setup, hold):
+        """The step that sets a swivelled vise's jaw line where this setup mounts it or
+        changes its swivel: ``indicate_jaw`` touches the indicator on the fixed jaw at two
+        DRO points along the line; a stated method sets it by its own reference. It closes
+        on the setting tolerance the swivel rule holds the cuts' angle bands against; any
+        value not established is a STOP."""
+        set_by = swivel_setting(self.bundle, setup)
+        line, method, tolerance = set_by["line_deg"], set_by["method"], set_by["tolerance_deg"]
+        gauge = _mapping(hold.get("align")).get("indicator", "unknown")
+        fields = [("the swivel angle", _known(line)), ("the setting method", method != "unknown")]
+        if method == "indicate_jaw":
+            fields += [
+                ("the indicator", align_indicator(self.bundle, gauge) not in (None, "unknown")),
+                ("the DRO move", "over_mm" in set_by),
+                ("the limit", "limit_mm" in set_by),
+            ]
+        fields.append(("the setting tolerance", _known(tolerance)))
+        missing = [name for name, known in fields if not known]
+        if missing:
+            return [
+                "STOP: set the vise swivel — "
+                + ", ".join(missing)
+                + " not established; do not run."
+            ]
+        sense = "counterclockwise" if line > 0 else "clockwise"
+        turn = f"{_number(round(abs(line), 4))}° {sense} from the X travel, seen from above"
+        held = f"Set this way the swivel is within ±{tolerance:.2g}°."
+        if method in SWIVEL_STATED:
+            how = {
+                "graduations": "on the swivel base's graduations",
+                "protractor": "with a bevel protractor between the fixed jaw and a straight "
+                "edge indicated along the X travel",
+                "sine_bar": "with the sine bar between the fixed jaw and a straight edge "
+                "indicated along the X travel",
+            }[method]
+            return [
+                f"Swivel the vise so the fixed jaw runs {turn}, set {how}; tighten the "
+                f"swivel-base nuts and check the setting again the same way. {held}"
+            ]
+        scale = {"mm": 1.0, "in": 25.4}[self.units]
+        decimals = dro_grid(self.bundle, setup)[1]
+        over, limit = set_by["over_mm"], set_by["limit_mm"]
+        dx, dy = (round(v / scale, decimals) for v in jaw_line_move(line, over))
+        start = (
+            ("left" if dx > 0 else "right") if abs(dx) >= abs(dy) else "front" if dy > 0 else "back"
+        )
+        unit = self.units
+        return [
+            f"Swivel the vise so the fixed jaw runs {turn}: loosen the swivel-base nuts and "
+            "rough it in on the base graduations.",
+            f"Set it with the {self.reference(gauge, 'gauges')} held from the spindle head: "
+            f"touch it on the fixed jaw near its {start} end, zero the dial and zero DRO X "
+            "and Y there (this zero only sets the swivel; the work's zero is picked up "
+            f"below). Raise the quill clear of the jaws, move to X {dx:.{decimals}f}, "
+            f"Y {dy:.{decimals}f} {unit} ({_number(over)} mm along the jaw), lower the "
+            "indicator onto the jaw and read; tap the vise round until both points read the "
+            f"same within {_declared(limit)} mm ({_number(round(limit / 25.4, 5))} in), "
+            f"tighten the swivel-base nuts and read both points again. {held}",
         ]
 
     def bench_measures(self, setup):

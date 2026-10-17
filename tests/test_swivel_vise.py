@@ -1,6 +1,7 @@
 """A mill vise swivelled about Z (issue #300): ``jaws_along`` names only the jaw axis
 before any swivel, so an angle written into it is bad input, never silent free text."""
 
+import json
 import math
 
 import pytest
@@ -124,6 +125,16 @@ def channel(tmp_path_factory, freecad_kernel):
 @pytest.fixture
 def engine(tmp_path, freecad_kernel):
     return Engine(tmp_path, freecad_kernel)
+
+
+def test_case_c_a_swivel_angle_loads_and_its_setting_is_checked(tmp_path):
+    result = repro(tmp_path, 'jaws_along = "x"\njaws_angle_deg = 43.77')
+    assert result.returncode == 2, result.stdout + result.stderr
+    report = json.loads((tmp_path / "out" / "report.json").read_text(encoding="utf-8"))
+    (row,) = [f for f in report["findings"] if f["rule"] == "swivel"]
+    # No align block says how the swivel is set: its tolerance, and so the edge, is unknown.
+    assert row["status"] == "unknown" and row["numbers"]["jaws_angle_deg"] == 43.77
+    assert row["numbers"]["tolerance_deg"] == "unknown"
 
 
 def _turned(point, degrees):
