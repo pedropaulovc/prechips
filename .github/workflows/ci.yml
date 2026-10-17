@@ -85,16 +85,23 @@ jobs:
           echo "FREECAD_CMD=$HOME/.cache/prechips-freecad/freecadcmd" >> "$GITHUB_ENV"
           echo "PRECHIPS_KERNEL_CACHE=$RUNNER_TEMP/prechips-kernel-cache" >> "$GITHUB_ENV"
           "$HOME/.cache/prechips-freecad/freecadcmd" --version
+      - name: Digest engine sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          digest="$(uv run python -c 'from prechips.kernel import _engine_digest; print(_engine_digest())')"
+          [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
+          echo "PRECHIPS_ENGINE_DIGEST=$digest" >> "$GITHUB_ENV"
       # The shard index precedes the run id so this shard's own last entry wins;
       # the shared prefix is the fallback (any shard's or a pre-shard entry).
       - name: Restore successful geometry cache
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.PRECHIPS_KERNEL_CACHE }}
-          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-shard${{ matrix.group }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ env.PRECHIPS_ENGINE_DIGEST }}-shard${{ matrix.group }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-shard${{ matrix.group }}-
-            kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-
+            kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ env.PRECHIPS_ENGINE_DIGEST }}-shard${{ matrix.group }}-
+            kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ env.PRECHIPS_ENGINE_DIGEST }}-
       - name: Run test shard with bounded workers
         shell: bash
         run: |
@@ -109,7 +116,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ${{ env.PRECHIPS_KERNEL_CACHE }}
-          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-shard${{ matrix.group }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ env.PRECHIPS_ENGINE_DIGEST }}-shard${{ matrix.group }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Upload test durations and logs
         if: always()
         uses: actions/upload-artifact@v4

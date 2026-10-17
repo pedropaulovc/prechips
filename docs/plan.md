@@ -1537,7 +1537,7 @@ uses the 1898 manual arc method:
    bounds and the existing 3D collision/accessibility backstop. The open
    fallback is not full-part region proof. Internal wall normals/outward
    signs add no user schema, policy knob or tolerance; the shared
-   `kernel/*.py` helper changes the source digest and re-keys every kernel job.
+   engine helper (`kernel/chain_boundary.py`) changes the source digest and re-keys every kernel job.
    Method, stage, full-hole outside-the-line and requested no-web (authored `pitch_mm` no greater than
    the drill diameter) errors are preconditions found before any clip. A bounded
    chain is then clipped at drill granularity: the drill-centre offset arc and
