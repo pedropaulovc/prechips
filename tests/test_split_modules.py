@@ -510,3 +510,46 @@ def test_churn_keeps_two_import_edits_paired_after_the_split(tmp_path, monkeypat
     report = json.loads((tmp_path / "o").read_text())["modules"]["big"]
     # The base commit adds every line (one change); the two import edits stay a pair.
     assert report["pairs_after"] == report["pairs_before"] == 3
+
+
+def test_a_comprehension_iterable_is_read_before_its_target_binds():
+    node = ast.parse("def moved():\n    return [LIMIT for LIMIT in LIMIT]\n").body[0]
+    assert split.free_names(node) == {"LIMIT"}
+
+
+def test_getattr_of_a_moved_name_reads_its_owner_and_a_computed_one_refuses(at, tmp_path):
+    source = "def radius(x):\n    return x\n"
+    rewritten = _importer_case(
+        at,
+        tmp_path,
+        source,
+        '["radius"]',
+        """\
+        from pkg import big
+
+
+        def test():
+            assert getattr(big, "radius")(1) == 1
+        """,
+    )
+    assert 'getattr(big_parts, "radius")' in rewritten
+
+
+def test_getattr_with_a_computed_name_on_the_split_module_refuses(at, tmp_path):
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "from pkg import big\n\nNAME = 'radius'\nFOUND = getattr(big, NAME)\n", encoding="utf-8"
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+    assert not (tmp_path / "src" / "pkg" / "parts.py").exists()
+
+
+def test_importing_a_child_of_the_split_module_as_an_alias_is_not_refused(at, tmp_path):
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    (tmp_path / "src" / "pkg" / "big_child.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "import pkg.big.child as child\nfrom pkg.big import radius\n", encoding="utf-8"
+    )
+    split.main(["apply", "big"])
+    assert (tmp_path / "src" / "pkg" / "parts.py").exists()

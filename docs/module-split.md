@@ -335,6 +335,7 @@ What `apply` does:
    * a name bound twice that would land in two files;
    * a monkeypatched name read from two files, from `monkeypatch.setattr` or from a
      probe's `alias.name = ...`;
+   * a `setattr`, `getattr` or `hasattr` on the split module with a computed name;
    * a file that parses source and that the spec has not classified (section 6);
    * a plain `import prechips.<module>` it cannot rewrite;
    * a `file:line` citation of the module in docs or example data (AGENTS.md cites
@@ -388,6 +389,11 @@ Gaps the prototypes found, to close in the split PRs:
 * **Probe line length**: rewritten probe lines can pass 100 columns (two lines in
   `test_kernel_guard_frames.py`). Ruff does not reflow strings, so they are wrapped by
   hand in that PR.
+* **Patches by computed name (zero_recipe)**: `tests/test_validate_examples.py`
+  patches and reads carry helpers through `forge_carry(monkeypatch, target)`
+  (`getattr`/`setattr(zero_recipe, target)`), and patches `_position`, which four
+  split files read. The script refuses all of these, so that split starts with a hand
+  prep commit that names each patched helper's owning module.
 * **Cold kernel deadline**: the first cold engine snapshot here gave rocker-arm exit 2
   because its kernel job hit the 600 s deadline. Timed alone, the job takes about 500 s
   cold with `PRECHIPS_KERNEL_WORKERS=1` on 4 vCPUs, on `main` as well as on the split.

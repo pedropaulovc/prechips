@@ -285,11 +285,17 @@ def free_names(node):
                 visit(statement, bound)
             return
         if isinstance(n, (ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)):
+            # Each iterable is read before its own targets bind (the first one in the
+            # enclosing scope); conditions and the element see every target bound so far.
             inner = set(bound)
             for generator in n.generators:
+                visit(generator.iter, inner)
                 _targets(generator.target, inner)
-            for child in ast.iter_child_nodes(n):
-                visit(child, inner)
+                for condition in generator.ifs:
+                    visit(condition, inner)
+            for key in ("elt", "key", "value"):
+                if hasattr(n, key):
+                    visit(getattr(n, key), inner)
             return
         if isinstance(n, ast.AnnAssign):
             annotation(n.annotation, bound)
@@ -904,6 +910,16 @@ class Rewriter:
         if not (probe or mentioned):
             return None
         tree = ast.parse(text)
+        before = len(self.refusals)
+        try:
+            return self._rewrite(path, text, tree)
+        finally:
+            where = path.relative_to(ROOT).as_posix()
+            self.refusals[before:] = [
+                r if r.startswith(where) else f"{where}: {r}" for r in self.refusals[before:]
+            ]
+
+    def _rewrite(self, path, text, tree):
         lines = text.splitlines(keepends=True)
         edits = []  # (start offset, end offset, replacement)
         offsets = list(itertools.accumulate([0] + [len(line) for line in lines]))
@@ -932,11 +948,16 @@ class Rewriter:
                     if a.name == self.source and a.asname:
                         aliases.setdefault(id(node), set()).add(a.asname)
                         imports[id(node)] = node
-                    elif a.name == self.source or a.name.startswith(self.source + "."):
+                    elif a.name == self.source or (
+                        a.name.startswith(self.source + ".") and not a.asname
+                    ):
+                        # Binds the top package, so code reaches the split module as
+                        # prechips.<...>.<name>; `import <child> as x` binds only the child.
                         self.refusals.append(f"{path}:{node.lineno} plain `import {a.name}`")
         added = defaultdict(set)  # id(import node) -> import lines to add beside it
         for node, binding in _resolved_uses(tree, aliases):
             edit = self._patch(node, binding, at, added)
+            edit = edit or self._lookup(node, binding, at, added)
             edit = edit or self._attribute(node, binding, at, added)
             if edit:
                 edits.append(edit)
@@ -1069,6 +1090,28 @@ class Rewriter:
         name = f"{local}_{short[-1]}"
         added[id(binding)].add(f"from {short[0]} import {short[-1]} as {name}")
         return name
+
+    def _lookup(self, node, binding, at, added):
+        """``getattr(alias, "name")`` / ``hasattr(alias, "name")`` of a moved name reads
+        the owning module; a computed name cannot be resolved, so it refuses."""
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+            return None
+        if node.func.id not in ("getattr", "hasattr") or len(node.args) < 2:
+            return None
+        first, second = node.args[0], node.args[1]
+        if not (isinstance(first, ast.Name) and binding is not None):
+            return None
+        if not (isinstance(second, ast.Constant) and isinstance(second.value, str)):
+            self.refusals.append(
+                f"line {node.lineno}: {node.func.id}({first.id}, <computed name>) on the split "
+                "module cannot be resolved"
+            )
+            return None
+        module = self.new_module(second.value)
+        if module == self.source:
+            return None
+        local = self._alias_for(first.id, module, added, binding)
+        return at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset), local
 
     def _patch(self, node, binding, at, added):
         if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
