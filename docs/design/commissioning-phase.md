@@ -113,11 +113,17 @@ which replaces `feature` (§2.4).
 | `value_nm` / `value_in_lbf` | `float`, one spelling |
 | `passes` | `list[float]`: fractions of `value`, ascending, ending at 1.0 (`[0.5, 1.0]`) |
 | `sequence` | `str`: printed order (`"centre outward, alternating sides"`) |
-| `wrench` | `str`: the inventory `gauges` item, `kind = "torque_wrench"` |
+| `wrench` | `str`: the inventory `gauges` item, `kind = "torque_wrench"`, with `range_nm` / `range_in_lbf` (a new torque-unit `[least, greatest]` range field, one spelling) |
 | `cite` | `Citations` |
 
 A torque value is a shop/vendor number, never a measured length. It needs a
 citation, or the AGENTS.md example-value comment. Unknown → `?`.
+
+Every pass value (`value × fraction`, so 20 and 40 N·m for `[0.5, 1.0]` of 40)
+must lie inside the wrench's range. A pass value outside it is an error, for
+example a 2–24 N·m wrench named for the 40 N·m step. A wrench with no range, or
+one whose range carries no citation, leaves the step `?`. A trusted `steps`
+entry never overrides either result.
 
 An `align` tolerance is an authored limit, like `Hold.align`'s `limit_mm`, and it
 needs `tolerance_cite`: the part band it protects, a vendor figure, or the
@@ -190,8 +196,15 @@ gauge does. What it must span depends on what produces the value:
 - a **DRO coordinate** (`align`, and `dro_xy`): the machine's DRO gives the
   value, and the gauge, a coaxial indicator or edge finder, only centres the
   element under the spindle. The predicted coordinate must lie inside the
-  commissioning setup's machine travel (`machines.<id>.envelope`), and the DRO
-  resolution must be no coarser than the tolerance or band. The gauge's
+  commissioning setup's machine travel, and the DRO resolution must be no
+  coarser than the tolerance or band. `machines.<id>.envelope.travel` is a
+  stop-to-stop stroke, not a coordinate bound, so the check is collective. On
+  each axis, the span from the least to the greatest coordinate the setup's
+  readings require, including 0 (the zero position itself) and any check-jog
+  position, must be no longer than that axis's stroke. Where the zero sits in the
+  stroke is the operator's choice, so the sheet prints the room the zero needs
+  on each side ("zero X with at least 395.9 of travel toward −X"). A span longer
+  than the stroke is an error, and an unmeasured stroke leaves the reading `?`. The gauge's
   resolution must be no coarser than the tolerance, and its range need only
   cover the centring deviation, at least the tolerance either side. So the
   −395.89 mm target of `rail_a.pin@400` is checked against the table's travel,
@@ -853,8 +866,13 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
 - an asymmetric band `[0.0, 0.015]`: an undersize reading (`d < 0`) fails even
   when `|d|` is within 0.015;
 - a DRO target inside the machine travel with an indicator whose range is far
-  smaller than the coordinate → no gauge error; a target outside the travel →
-  error.
+  smaller than the coordinate → no gauge error;
+- travel span: targets at −400 and +400 on one axis against a 600 stroke →
+  error, although each lies within ±600; the span includes 0;
+- torque: a pass value outside the wrench's range → error; a wrench with no
+  range → `?`;
+- every worked commissioning setup names a machine. A setup without one leaves
+  its machine-dependent findings `?`.
 
 Also:
 
@@ -978,11 +996,14 @@ tolerance_cite = "#270: rail pin within 0.03 of its predicted target"
 op = 30
 do = "torque"
 torque = { fasteners = "rail A T-slot studs", count = 4, value_nm = 40.0, passes = [0.5, 1.0], sequence = "centre outward", wrench = "torque-wrench", cite = "example value (realistic, not a shop measurement)" }
+# gauges.torque-wrench: range_nm = [10.0, 60.0], example value (realistic, not a shop measurement); 20 and 40 N·m lie inside it
 
 # ops 40/50: rail B, likewise
 
 [[commissioning.setups]]           # C2: in-situ locator holes
 id = "C2"
+machine = "PM-30MV"                # every commissioning setup names its machine
+frame = "CT"
 stock_in = "fixture.trammel-jig"
 # hold: carrier locked at the symmetric pose
 [[commissioning.setups.ops]]
@@ -1020,6 +1041,8 @@ fixture_feature = "trammel-jig.dowel_hole"
 
 [[commissioning.setups]]           # C3: the jig cuts its own riser
 id = "C3"
+machine = "PM-30MV"
+frame = "CT"
 stock_in = "fixture.trammel-jig.riser"
 [[commissioning.setups.ops]]
 op = 10
@@ -1032,6 +1055,9 @@ contour = { method = "guided_sweep", sweep = { guide = "trammel", fixture = "tra
 
 [[commissioning.setups]]           # C4: acceptance readings
 id = "C4"
+machine = "PM-30MV"                # dowel_position is a DRO reading: needs the travel and DRO resolution
+frame = "CT"
+stock_in = "fixture.trammel-jig"
 [[commissioning.setups.ops]]
 op = 10
 do = "accept"
