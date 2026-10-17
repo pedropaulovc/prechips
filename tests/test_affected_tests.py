@@ -77,6 +77,15 @@ def test_a_cli_change_selects_every_subprocess_cli_test():
     selected, _ = SELECT(["src/prechips/cli.py"], CONFIG)
     assert SCRIPT["consumers"]("run_cli(") <= set(selected)
     assert "tests/test_input_contracts.py" in selected
+    assert "tests/test_controls.py" in selected  # through test_cli.traveler, no run_cli(
+
+
+def test_a_deleted_helper_module_selects_its_importers():
+    # Selection never checks that a changed test module still exists; deleting
+    # test_arithmetic.py must still run test_tool_resolution.py, which imports it.
+    selected, _ = SELECT(["tests/test_arithmetic.py", "tests/test_gone.py"], CONFIG)
+    assert "tests/test_tool_resolution.py" in selected
+    assert "tests/test_gone.py" not in selected
 
 
 def test_every_engine_source_selects_every_real_kernel_test():
