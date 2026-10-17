@@ -127,8 +127,11 @@ kernel's geometric one (the drawn pin against the cut bore,
 
 - **error:** the hole is `gone` (a waste cut removed it) yet an op or a pin names
   it; a pin stands in a hole no earlier setup of a fully routed stock lineage
-  drills, or that is still `undrilled` on the entering stock; or a pin is larger
-  than the hole's smallest size `lo`;
+  drills, or that is still `undrilled` on the entering stock; a pin locates before
+  the op that sizes the hole to its band has run in its stock lineage (the ream when
+  the hole has one, else the drill, as `sizing` picks: a pin between the rough drill
+  and a later ream sees a drill-size hole); or a pin is larger than the hole's
+  smallest size `lo`;
 - **unknown:** the hole is `partial` or its state is unknown, the kernel is
   unavailable, the lineage is not routed, the band is unknown, or the pin is not
   a cylinder or its size is not accepted (unknown, `verify`, or an incomplete

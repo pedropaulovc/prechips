@@ -183,6 +183,18 @@ def _clocking(bundle, setup, name, fit, detail):
     return rows
 
 
+def _sizing_action(bundle, name):
+    """The action that sizes tooling hole ``name`` to its band: ``ream`` when any op reams
+    it, else ``drill``."""
+    actions = {
+        op.get("do")
+        for setup in bundle.plan["setups"]
+        for op in setup.get("ops", [])
+        if op.get("feature") == name
+    }
+    return "ream" if "ream" in actions else "drill"
+
+
 def _fit(bundle, name, owner, solid):
     """(status, numbers, why) of one pin in tooling hole ``name``."""
     band = bundle.feature_definitions[name].get("dia", UNKNOWN)
@@ -246,6 +258,26 @@ def _evaluate(bundle, setup, name, ops, pins, state, detail):
             )
         elif entry == "undrilled":
             errors.append(f"{name} is not drilled in the stock entering this setup")
+        # The fit is judged against the band, so the op that sizes it (the ream when the
+        # hole has one, else the drill, as ``sizing`` picks) must already have run.
+        sizing = _sizing_action(bundle, name)
+        numbers["sized_by"] = [
+            f"{other['id']} op {op['op']}" for other, op in before if op.get("do") == sizing
+        ]
+        if before and not numbers["sized_by"]:
+            later = [
+                f"{other['id']} op {op['op']}"
+                for other in bundle.plan["setups"]
+                for op in other.get("ops", [])
+                if op.get("feature") == name
+                and op.get("do") == sizing
+                and (other, op) not in before
+            ]
+            why = (
+                f"{name} is not yet sized to its band when this setup locates on it: its "
+                f"{sizing} " + (f"runs later ({', '.join(later)})" if later else "never runs")
+            )
+            (errors if routed else unknown).append(why)
         numbers["locators"] = []
         for owner, solid in pins:
             status, fit, why = _fit(bundle, name, owner, solid)
