@@ -38,7 +38,8 @@ a linear height, not a form: a CMM, a height gauge over a pin in the datum bore 
 surface plate, or a profile template carrying its own datum pin reads it. A radius or angle
 gauge reads no height, and a caliper has no reference plane to read it square to the
 datum, only a nearest-point distance. The setup is debt until both the datum
-(``height_from`` naming a manifest feature) and an authored procedure are declared.
+(``height_from`` naming another exported manifest feature) and an authored procedure are
+declared.
 """
 
 from ..findings import Finding
@@ -216,6 +217,7 @@ def process_holds(bundle, setup, op):
             row,
             limits=(hold.get("go_no_go"), hold["band"]),
             tilt=tilt,
+            name=hold["feature"],
         )
         row.update(gauge_status=capability, gauge_message=reading)
         rows.append(row)
@@ -313,10 +315,20 @@ def procedure_known(method):
     )
 
 
+def _height_datum(bundle, name, feature):
+    """The exported manifest feature ``name``'s ``height_from`` names as its datum, else None:
+    unknown, a plan joint or process feature, or ``name`` itself (no independent datum)."""
+    datum = feature.get("height_from", UNKNOWN)
+    if datum == UNKNOWN or datum == name:
+        return None
+    return datum if datum in record(bundle.features.get("features")) else None
+
+
 def _capability(
-    bundle, feature, requirement, value, gauge_ref, method, nums, limits=None, tilt=None
+    bundle, feature, requirement, value, gauge_ref, method, nums, limits=None, tilt=None, name=None
 ):
-    """``(status, message)`` and consumed debt in ``nums`` for an unresolved capability.
+    """``(status, message)`` and consumed debt in ``nums`` for an unresolved capability of the
+    feature ``name`` (``feature`` its definition).
 
     ``method`` is the op's authored inspection procedure for this check, or None.
 
@@ -431,13 +443,8 @@ def _capability(
             or (requirement == "surface_profile" and not profile_frame_known)
         ):
             message = "geometric gauge capability or datum inspection method unresolved"
-        elif datum_height and not (
-            method_known
-            and height_from in record(bundle.features.get("features"))
-            and height_from != UNKNOWN
-        ):
-            # The datum pin and plate setup the reading stands on: unknown until declared. Only
-            # an exported drawing feature is a datum, never a plan joint or process feature.
+        elif datum_height and not (method_known and _height_datum(bundle, name, feature)):
+            # The datum pin and plate setup the reading stands on: unknown until declared.
             message = "datum height setup (height_from datum or inspection method) unresolved"
         elif requirement == "finish_ra":
             consumed = ("ra_range" if "ra_range" in gauge else "range_ra",)
@@ -640,7 +647,16 @@ def evaluate(bundle):
                 method = op_entry(op, "inspection_methods", name, requirement)
                 limits = (pair, accept)
                 status, message = _capability(
-                    bundle, feature, requirement, value, gauge_ref, method, nums, limits, tilt
+                    bundle,
+                    feature,
+                    requirement,
+                    value,
+                    gauge_ref,
+                    method,
+                    nums,
+                    limits,
+                    tilt,
+                    name=name,
                 )
             # Every other op's GO / NO-GO pair for this requirement also prints the drawing
             # band, so it must accept only that band too.
@@ -664,6 +680,7 @@ def evaluate(bundle):
                     row,
                     (pair, accept),
                     tilt,
+                    name=name,
                 )
                 others.append(row)
             if others:

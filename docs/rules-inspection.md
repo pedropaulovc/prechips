@@ -73,8 +73,9 @@ own datum pin (the rocker's) reads it. A radius or angle gauge reads no height. 
 caliper cannot: the height is taken square to the part's datum direction, which
 needs a reference plane, and a hand-held caliper reads only a nearest-point
 distance that equals the height for special geometry alone. The pin and plate
-setup is part of the reading, so it passes only when `height_from` names a
-manifest feature and `inspection_methods.height_above_pivot` declares a known
+setup is part of the reading, so it passes only when `height_from` names
+another feature of the exported manifest (not the inspected feature itself, and not
+a plan joint or process feature) and `inspection_methods.height_above_pivot` declares a known
 procedure; otherwise it is `unknown` (`datum height setup (height_from datum or
 inspection method) unresolved`), never a pass. The rule does not parse the
 procedure for a pin. Evidence adds `height_from` and `inspection_method`.

@@ -6,6 +6,8 @@ import pytest
 from test_angularity import angularity_bundle, inspection_finding
 from test_cli import SYNTHETIC_KERNEL, copy_examples, run_cli
 
+from prechips.rules import inspection
+
 METHOD = '"Pin gauge in the bore; height gauge on the surface plate over pin top and edge"'
 SETUP_DEBT = "datum height setup (height_from datum or inspection method) unresolved"
 
@@ -48,6 +50,7 @@ def test_gauges_without_a_datum_height_reading_cannot_measure_it(tmp_path, gauge
         {"height_from": None},
         {"height_from": "unknown"},
         {"height_from": "no_such_feature"},
+        {"height_from": "cone"},  # the inspected feature itself: no independent datum
     ],
 )
 def test_undeclared_datum_setup_is_debt_not_a_pass(tmp_path, setup):
@@ -74,6 +77,33 @@ def test_plan_owned_datum_is_not_a_drawing_datum(tmp_path):
     row = inspection_finding(bundle, "height_above_pivot")
     assert row.status == "unknown"
     assert SETUP_DEBT in row.sentence
+
+
+@pytest.mark.parametrize(("height_from", "status"), [("axis", "pass"), ("cone", "unknown")])
+def test_a_process_hold_needs_the_same_independent_datum(tmp_path, height_from, status):
+    bundle = angularity_bundle(
+        tmp_path,
+        requirement="height_above_pivot",
+        band="[8.0, 8.5]",
+        gauge="height_gauge",
+        method=METHOD,
+        datums=None,
+        resolution="0.01",
+        span="[0.0, 300.0]",
+    )
+    bundle.features["features"]["cone"]["height_from"] = height_from
+    op = bundle.plan["setups"][-1]["ops"][-1]
+    op["process_holds"] = [
+        {
+            "feature": "cone",
+            "requirement": "height_above_pivot",
+            "band": [8.1, 8.4],
+            "gauge": "gauge",
+            "reason": "example hold",
+        }
+    ]
+    row = next(r for r in inspection.evaluate(bundle) if r.subject == f"S2:{op['op']}")
+    assert row.numbers["process_holds"][0]["gauge_status"] == status
 
 
 def test_radius_stays_a_form_a_height_gauge_cannot_read(tmp_path):
