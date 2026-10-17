@@ -249,8 +249,10 @@ persistent `PRECHIPS_KERNEL_CACHE`. A split that touches `kernel/` has to run co
 because the engine digest changes. That cold run is what makes the geometry check
 meaningful: the engine itself recomputes every fact.
 
-Observed on `main` (`f5c7414`): all eight runs exit 0 and all four traveler outputs match
-`expected/` exactly.
+Observed on `main` (`f5c7414`): pivot-shaft, rocker-arm and pivot-bracket exit 0 and the
+cone exits 4 (its documented proof stop, see
+[expected consumer CLI exits](../examples/README.md#expected-consumer-cli-exits)), for
+both verbs; all four traveler outputs match `expected/` exactly.
 
 Byte identity covers the checker's outputs, not timing facts or un-pooled booleans. The
 `_POOL` case below shows why the script also needs static guards.
