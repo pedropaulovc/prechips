@@ -5,7 +5,8 @@ import math
 
 import pytest
 from test_cli import ROOT, run_cli
-from test_kernel_geometry import IDENTITY, _op, _setup, _vise, engine, solids  # noqa: F401
+from test_kernel_geometry import IDENTITY, Engine, _op, _setup, _vise
+from test_kernel_rocker_regression import _author
 
 FEATURES = """\
 part = "bar"
@@ -104,6 +105,27 @@ def test_case_b_an_angle_written_into_jaws_along_is_bad_input(along, tmp_path):
     assert "jaws_angle_deg" in result.stderr
 
 
+_CHANNEL = r"""
+import sys
+import FreeCAD, Part
+V = FreeCAD.Vector
+out = sys.argv[sys.argv.index("--") + 1]
+# A 60 x 40 x 20 block with a 30 wide, 10 deep channel along X: two 5 mm rails.
+solid = Part.makeBox(60, 40, 20).cut(Part.makeBox(62, 30, 11, V(-1, 5, 10)))
+solid.exportStep(out + "/channel.step")
+"""
+
+
+@pytest.fixture(scope="module")
+def channel(tmp_path_factory, freecad_kernel):
+    return _author(tmp_path_factory.mktemp("swivel"), _CHANNEL, "channel.step", freecad_kernel)
+
+
+@pytest.fixture
+def engine(tmp_path, freecad_kernel):
+    return Engine(tmp_path, freecad_kernel)
+
+
 def _turned(point, degrees):
     c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
     return [point[0] * c - point[1] * s, point[0] * s + point[1] * c]
@@ -120,12 +142,12 @@ _FACTS = ("width_mm", "contact_grip_mm", "parallel_pair", "claimed_in_jaws", "mi
 
 @pytest.mark.parametrize("angle", [30.0, -43.77])
 def test_a_swivelled_vise_grips_the_turned_work_as_square_jaws_grip_it_unturned(
-    engine, solids, angle
+    engine, channel, angle
 ):
     """The work turned with the jaws is held exactly as square jaws hold it unturned: the
     grip facts match, the holder meets the turned jaws as it met the square ones, and the
     turned parallels stand clear of the jaws as the square ones did."""
-    step = solids["channel"]
+    step = channel
     outer = engine.refs(step, (0, 0, 0), (60, 0, 20))
     channel = engine.refs(step, (0, 5, 10), (60, 35, 20))
     features = {"channel": channel, "outer": outer}
@@ -154,10 +176,10 @@ def test_a_swivelled_vise_grips_the_turned_work_as_square_jaws_grip_it_unturned(
     assert turned_standing["holder_hits"] == standing["holder_hits"] > 0
 
 
-def test_the_swivel_turns_the_jaws_not_the_work(engine, solids):
+def test_the_swivel_turns_the_jaws_not_the_work(engine, channel):
     """Swivelling the jaws under unturned work closes them on the work's extent across
     the turned jaw line, not its square width: the angle reaches the placement."""
-    step = solids["channel"]
+    step = channel
     hold = _vise(12.0)
     hold["jaws_angle_deg"] = 30.0
     setup = engine.run(engine.job(step, setups=[_setup([], hold)]))["setups"]["S1"]
