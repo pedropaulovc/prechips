@@ -114,7 +114,7 @@ corner past the limit, so the leaf read must be at or under r − t. Outcomes:
 The leaves are the gauge's declared `sizes_mm`; a declared empty list means none, so
 no leaf reads the limit (error). Without `sizes_mm`, the leaves are the steps of
 `resolution_mm` (the leaf pitch) up from `range_mm[0]`. A pitch that is not positive
-leaves the check unknown (`gauge range or resolution unresolved`). `leaf_max_mm` is
+is refused at load; a rule that meets one anyway leaves the check unknown (`gauge range or resolution unresolved`). `leaf_max_mm` is
 always one of those leaves: the largest at or under r − t. A `sizes_mm` that is
 unknown, wholly or in part, shows neither a leaf nor its absence, so the check is
 unknown (`gauge leaf sizes unresolved`, or the gauge's own verification debt).

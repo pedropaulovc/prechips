@@ -1111,6 +1111,10 @@ sheet.
    A declared `leaf_tolerance_mm` that crosses the limit is an error. A safe
    smaller leaf the traveler does not name is `?`. Two-sided bands keep the
    full-span rule. Local evidence: `tests/test_inspection_limit.py`.
+   **Non-positive resolution refused ([#315](https://github.com/pedropaulovc/prechips/issues/315)):**
+   a gauge or machine `resolution_mm`/`resolution_in` of 0 or less is bad input
+   at load, and inspection and the prepared-blank form check never read one as
+   sufficient. Local evidence: `tests/test_gauge_resolution.py`.
    Local telemetry/exporter checks are not live farm evidence. **Physical
    `rocker-paper-rehearsal` and §5.2 parented farm telemetry acceptance remain
    pending/unobserved.** The original acceptance criteria remain:
