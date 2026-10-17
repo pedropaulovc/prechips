@@ -218,10 +218,15 @@ gauge does. What it must span depends on what produces the value:
   element under the spindle. The predicted coordinate must lie inside the
   commissioning setup's machine travel, and the DRO resolution must be no
   coarser than the tolerance or band. `machines.<id>.envelope.travel` is a
-  stop-to-stop stroke, not a coordinate bound, so the check is collective. On
-  each axis, the span from the least to the greatest coordinate the setup's
-  readings require, including 0 (the zero position itself) and any check-jog
-  position, must be no longer than that axis's stroke. Where the zero sits in the
+  stop-to-stop stroke, not a coordinate bound, so the check is collective, and it
+  is made in **one frame**. A relational reading's DRO value is relative to its
+  reference (`hub_apex` from the apex pose, `dowel_position` from HUB), so the
+  rules first place every position the setup visits in that setup's frame: the
+  zero, each reference at its predicted position, and each subject at its
+  reference plus the predicted offset. On each axis, the span from the least to
+  the greatest of those absolute positions, check-jog positions included, must be
+  no longer than that axis's stroke. Two ±100 moves from references 800 apart
+  therefore need about 1000 of stroke, not 200. Where the zero sits in the
   stroke is the operator's choice, so the sheet prints the room the zero needs
   on each side ("zero X with at least 395.9 of travel toward −X"). A span longer
   than the stroke is an error, and an unmeasured stroke leaves the reading `?`. The gauge's
@@ -442,8 +447,25 @@ relative to the prediction, and the reading passes only when
 `low ≤ d ≤ high`, both ends inclusive. A symmetric `float` band `b` means
 `[−b, b]`, and an `align` tolerance `t` means `[−t, t]`. One-sided fit bands
 keep their sign. With `hub_size`'s `[0.0, 0.015]` and a predicted 8.000, a
-7.990 reading has `d = −0.010` and fails as undersize; 8.000 to 8.015 passes. A
-`dro_xy` or `align` reading applies the band to each axis separately.
+7.990 reading has `d = −0.010` and fails as undersize. A `dro_xy` or `align`
+reading applies the band to each axis separately.
+
+**Gauge step.** A recorded value only says the true value lies within one gauge
+step of it, and the band check judges that whole interval, not the bare number:
+
+- an indicating gauge or DRO of resolution `r`: `[read − r/2, read + r/2]`;
+- a limit-style pin set read as the largest pin that enters, with step `q`:
+  `[read, read + q)`. The next pin did not enter, so the hole is smaller than
+  `read + q`.
+
+The reading passes when the whole interval lies inside the band, and fails when
+the whole interval lies outside it. Otherwise it is `?`, "indeterminate at this
+gauge step; re-read with a finer gauge". With the sketch's 0.01 mm pins and
+HUB's `[8.000, 8.015]`, a reading of 8.000 passes, because the hole is in
+`[8.000, 8.010)`. A reading of 8.01 is `?`, because the hole is in
+`[8.010, 8.020)` and could be oversize (an 8.019 hole reads 8.01). A reading of
+7.99 fails. A band narrower than one step can never pass, and the validator
+reports it as an error.
 
 A torque step passes only on a trusted `steps` entry. An in-situ drill or ream op
 passes as an op by the ordinary rules. Its **location** is trusted only through
@@ -981,6 +1003,10 @@ Also:
 - Staleness: changing only a commissioning setup's `plan.frames` entry stales
   the record. A changed torque value or wrench stales the torque completion as
   well as the readings.
+- Gauge step: 0.01 pins against `[8.000, 8.015]`: 8.000 → pass; 8.01 → `?`
+  (an 8.019 hole reads 8.01); 7.99 → `✗`. A band narrower than the step → error.
+- Travel frame: two ±100 relational moves from references 800 apart against a
+  600 stroke → error.
 - Gauge coverage: a pin set ending at the predicted size cannot judge a
   `[0.0, 0.015]` band → error; a set reaching one step past each limit → no
   error.
