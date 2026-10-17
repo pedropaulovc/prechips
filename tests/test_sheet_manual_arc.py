@@ -164,7 +164,7 @@ def arc_record(method):
     }
 
 
-def contour_sheet(tmp_path, arc, line=None, scribed=False):
+def contour_sheet(tmp_path, arc, line=None, scribed=False, layout=None):
     method = arc["method"]
     numbers = {
         "arc_table": [arc],
@@ -173,6 +173,8 @@ def contour_sheet(tmp_path, arc, line=None, scribed=False):
     }
     # Laying the arc out is optional: a scribe op before the rough names its line.
     scribe = [{"op": 10, "do": "scribe", "feature": "arc"}] if scribed else []
+    if scribed and layout is not None:
+        scribe[0]["layout"] = layout
     sheet, setup = traveler(
         tmp_path,
         [*scribe, {"op": 20, "do": "rough_profile", "feature": "arc", "tool": "cutter"}],
@@ -182,6 +184,19 @@ def contour_sheet(tmp_path, arc, line=None, scribed=False):
     no_programming(html)
     assert "99.000" not in text(html), "the generic arc profile must not print a second table"
     return html, text(html)
+
+
+def test_an_ends_layout_is_no_line_a_rough_stays_outside(tmp_path):
+    # An ``ends`` layout scribes only the arc's two end marks for a guided sweep's stops:
+    # a chain drill after it stays outside the finished outline, not a scribed line that
+    # does not exist (Codex review of #258 at 90d1e4e).
+    arc = arc_record("chain_drill")
+    arc.update(drill_dia_mm=3.5, pitch_mm=3.2, hole_clear_mm=0.1, break_out="chisel the webs")
+    _, printed = contour_sheet(tmp_path / "ends", arc, scribed=True, layout="ends")
+    assert "every hole outside the finished outline" in printed
+    assert "scribed line" not in printed
+    _, printed = contour_sheet(tmp_path / "trammel", arc, scribed=True, layout="trammel")
+    assert "every hole outside the scribed line" in printed
 
 
 def test_stairs_print_every_corner_and_single_handwheel_axis(tmp_path):

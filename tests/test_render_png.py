@@ -1741,7 +1741,16 @@ def pure_native_outline_render():
         for node in tree.body
         if (
             isinstance(node, (ast.FunctionDef, ast.ClassDef))
-            and node.name in {"_fixture_kind", "_Unknown", "_timed", "run_job"}
+            and node.name
+            in {
+                "_fixture_kind",
+                "_guide_solids",
+                "_guide_components",
+                "_guide_tags",
+                "_Unknown",
+                "_timed",
+                "run_job",
+            }
             or isinstance(node, ast.Assign)
             and any(
                 isinstance(target, ast.Name)

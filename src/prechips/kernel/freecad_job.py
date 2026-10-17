@@ -3449,6 +3449,80 @@ def _fixture_kind(hold):
     return kind if isinstance(kind, str) and kind != UNKNOWN else None
 
 
+def _guide_solids(setup, debts):
+    """[(name, op, solid)] of a setup's render annotation guide rollers (``guides.rollers``:
+    setup XY ``at_mm``, ``dia_mm``, ``z_mm`` table to top, the ``op`` they guide), as
+    setup-frame cylinders (#255). They are fixed to the table while the work turns, so
+    they are drawn only: never fixture components, so no hit test, clash, contact or
+    clearance reads them and ``fixture_ready`` stays as it was. A malformed roller is a
+    picture debt (``debts``, the render debts), not drawn."""
+    drawn = []
+    rollers = ((setup.get("render") or {}).get("guides") or {}).get("rollers") or []
+    for roller in rollers:
+        name = str(roller.get("name", "guide roller"))
+        at, dia, z = roller.get("at_mm"), roller.get("dia_mm"), roller.get("z_mm")
+        ok = (
+            isinstance(at, list)
+            and len(at) == 2
+            and all(map(_number, at))
+            and _number(dia)
+            and dia > 0
+            and isinstance(z, list)
+            and len(z) == 2
+            and all(map(_number, z))
+            and z[1] > z[0]
+        )
+        if not ok:
+            debts.append(f"{name} not drawn: its position or size is malformed")
+            continue
+        solid = Part.makeCylinder(dia / 2, z[1] - z[0], V(at[0], at[1], z[0]))
+        drawn.append((name, roller.get("op"), solid))
+    return drawn
+
+
+def _guide_tags(guides, taken):
+    """``guides`` ((name, op, solid)) with each roller's mesh tag distinct from every name
+    in ``taken`` (the setup's authored and holding solids) and from each other: the
+    picture leaves guide meshes off by tag and the holding evidence skips them by it, so a
+    fixture primitive named like a roller must never go with them."""
+    taken = set(taken)
+    tagged = []
+    for name, op, solid in guides:
+        while name in taken:
+            name += " (guide)"
+        taken.add(name)
+        tagged.append((name, op, solid))
+    return tagged
+
+
+def _guide_components(guides):
+    """One picture component per op's guide rollers (``guides``: (mesh name, op, box)),
+    so each op's rollers are framed, called out or noted off the picture on their own: one
+    op's rollers standing far off never take another op's nearby ones out of the view. The
+    label names the op only when more than one op has rollers in the setup (#255)."""
+    groups = {}
+    for name, op, box in guides:
+        groups.setdefault(op, []).append((name, box))
+    several = len(groups) > 1
+    components = []
+    for op, members in groups.items():
+        boxes = [box for _, box in members]
+        box = [min(b[i] for b in boxes) for i in range(3)] + [
+            max(b[i + 3] for b in boxes) for i in range(3)
+        ]
+        components.append(
+            {
+                "name": f"guide rollers (op {op})" if several else "guide rollers",
+                "label": f"GUIDE ROLLERS (TABLE, OP {op})" if several else "GUIDE ROLLERS (TABLE)",
+                "role": "guide",
+                "box_mm": box,
+                "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                "meshes": [name for name, _ in members],
+            }
+        )
+    return components
+
+
 def _primitive(spec):
     """A fixture-local box (min corner, size) or cylinder (base centre, axis, dia, length)."""
     at = V(*spec["at_mm"])
@@ -3497,6 +3571,7 @@ _COLOURS = {
     "fixture": (120, 104, 136),
     "clamp": (164, 132, 64),
     "rest": (176, 96, 72),
+    "guide": (72, 116, 148),  # a guided sweep's table-side rollers, drawn only
 }
 
 
@@ -8437,6 +8512,15 @@ class _Setup:
                 possible = []
         rests = self._rest_render(debts)
         solids += [(rest[0], jaw, _COLOURS["rest"]) for rest in rests for jaw in rest[1]]
+        # A guided sweep's rollers are fixed to the table while the work turns: drawn at
+        # the setup's (mid-sweep) pose for the operator, never a holding solid (#255).
+        # A malformed roller is a picture debt, never a holding one: it must not turn
+        # fixture_rendered or the holding clearances unknown.
+        guides = _guide_tags(
+            _guide_solids(self.setup, render_debts),
+            {name for name, _, _ in solids} | {name for name, _ in self.fixture_possible},
+        )
+        solids += [(name, shape, _COLOURS["guide"]) for name, _, shape in guides]
         for name, shape, colour in solids + possible:
             mesh(shape, colour, tag=name)
         parallels = any(c["role"] == "parallel" for c in self.fixture)
@@ -8465,6 +8549,10 @@ class _Setup:
                     "box_mm": _union_box([_bbox(jaw) for jaw in jaws]),
                 }
                 for name, jaws, pose, _, _ in rests
+            ]
+            + [
+                {"name": name, "role": "guide_roller", "exact": True, "box_mm": _bbox(shape)}
+                for name, _, shape in guides
             ],
             "debts": debts,
         }
@@ -8582,6 +8670,7 @@ class _Setup:
                     "meshes": [name],
                 }
             )
+        components += _guide_components([(name, op, _bbox(shape)) for name, op, shape in guides])
         if section_view is not None:
             axis, keep, plane = section_view[:3]
             # A solid wholly on the removed near side is not in the section: no callout.
@@ -8688,7 +8777,10 @@ class _Setup:
         details = [c for c in components if c["role"] == "detail"]
         if details:
             scene["fixture_detail_labels"] = details
+        # Neither the possible-jaw strips nor the table-side guide rollers hold the work:
+        # no contact, clearance or blade path is measured against them.
         possible_names = {name for name, _ in self.fixture_possible}
+        possible_names |= {name for name, _, _ in guides}
         held = [(name, shape) for name, shape, _ in solids if name not in possible_names]
         # A saw's cut is its blade's path, not the offcut that falls away.
         blades = self._blade_paths(held)

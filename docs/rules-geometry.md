@@ -977,6 +977,21 @@ protected-leave material never taken): the box is then its removal, as for
 any bounded op. It is not a demonstrated toolpath or measured execution. An
 explicit break-out/chisel phase or schema is tracked in
 [#213](https://github.com/pedropaulovc/prechips/issues/213), not implied here.
+A `guided_sweep` table ([rules-coordinates](rules-coordinates.md), issue
+[#255](https://github.com/pedropaulovc/prechips/issues/255)) is a driven path in
+the work's frame: the setup frame rides the work on its swing arm or sled, so the
+locked cutter traces the printed cutter-centre arc in it, and the kernel credits
+and checks it exactly like any milling table (corridor beside the claimed wall,
+the rows as chords, a cutter cylinder at every row). Its rows span the whole
+declared sweep, so the cutter's run past each arc end is judged too: a run into
+finished material (a tip wall rising at a concave end) is a rule A′ hit the
+coordinates rule cannot see. The carrier's own `solids` (posed by `hold.pose`)
+move with the work and are checked in the same frame. The pivot post or the
+rollers fixed to the table move relative to the work, so they are never
+fixture components: an arc sled's rollers are drawn render-only at the setup's
+mid-sweep pose (see [Renders](#renders)), and no checkpoint, clash, contact or
+clearance reads them. No removal or hit code in `freecad_job.py` knows the
+method.
 **Rule A′** limits every printed table, row by row: a printed
 row is an accessibility error naming the row when its cutter meets the finished
 part or the op's rough leave (its guard), a fixture component, stock outside a
@@ -2302,6 +2317,35 @@ are cut and their contacts show (`render_scene.section`: `axis`, `at_mm`). The e
 own orthographic z-buffer rasterizer, bundled bitmap font and PNG encoder
 use no installed fonts, timestamps or machine-specific metadata. Fresh runs
 and cache hits give identical bytes.
+
+A guided sweep's table-side guide elements
+([#255](https://github.com/pedropaulovc/prechips/issues/255)) are drawn for the
+operator, not modelled as holding. The host sends an arc sled's rollers in the
+setup's render annotation (`guides.rollers`: setup XY axis `at_mm`, `dia_mm` and
+`z_mm` from the table to the roller top), each at the rail radius plus or minus its
+radius (`rail_side`) about the arc centre, at its `rollers_deg` from the cutter's
+radial line, the table at the work's seated bottom (`retained_rail_bottom_z` when
+below `bottom_z`, as `headroom` reads it; an authored but unknown one leaves it
+unknown) less the parallels or support blocks under the work (the height the
+`headroom` stack counts) and the fixture's `bed_height`. The
+kernel draws them as cylinders in the guide colour with one `GUIDE ROLLERS
+(TABLE)` callout per op (`GUIDE ROLLERS (TABLE, OP n)` when more than one op in the
+setup has rollers) and lists them in `render_scene.components` with role
+`guide_roller`; they never join the fixture components, so no checkpoint, clash,
+contact, clearance or `fixture_rendered` verdict reads them, and a malformed roller is
+a picture debt only. The isometric view widens to frame each op's rollers within one
+stock size of the work along each of X, Y and Z; rollers farther off would shrink the
+work unreadably, so they are not drawn in the picture or its holding details and a
+`NOT SHOWN` note gives the setup X/Y/Z span
+they stand in, and
+another op's nearby rollers stay framed. A
+roller fact that is missing or not measured, a sled flagged to verify, a negative bed
+height, an inner roller as wide as the rail's diameter (no inner tangency exists), or
+a support with a negative height, or one
+under the work that is unknown or flagged to verify (item or height, as `headroom`
+leaves that stack unresolved), leaves the rollers undrawn with a `NOT SHOWN` note
+naming each gap (a measured fact with its `measure:` instruction). A swing arm's pivot post stands at the arc centre, far
+off the part, so a note names where it stands instead of drawing it.
 
 Blue-grey is material retained after the setup; amber hatch is the Boolean
 difference between actual entry and derived exit stock. When exit stock is

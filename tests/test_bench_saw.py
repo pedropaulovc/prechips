@@ -83,6 +83,15 @@ def test_saw_shapes_are_exclusive_and_follow_an_earlier_scribe(op, scribe, words
         Plan.model_validate(plan(op, scribe=scribe))
 
 
+def test_an_ends_layout_is_no_line_to_saw_along():
+    # An ``ends`` layout scribes only an arc's two end marks (Codex review of #258 at
+    # 90d1e4e): a saw cut cannot follow it.
+    data = plan(scribed())
+    data["setups"][0]["ops"][0]["layout"] = "ends"
+    with pytest.raises(ValidationError, match="an ends layout: it scribes only the arc's two"):
+        Plan.model_validate(data)
+
+
 def test_a_scribe_later_in_plan_order_is_not_a_line_to_follow():
     data = plan(scribed())
     del data["setups"][1]["stock_in"]
