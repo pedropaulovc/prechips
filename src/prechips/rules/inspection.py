@@ -41,7 +41,7 @@ resolution alone like a zone.
 
 from ..findings import Finding
 from ..joint_features import source_cite
-from ..measurements import length_debt, length_fact, record_debt
+from ..measurements import length_debt, length_fact, length_keys, record_debt
 from ..model import reference_only, tolerance_requirements
 from ._profile import (
     DIAMETERS,
@@ -96,6 +96,16 @@ def max_limit(requirement, value):
         return None
     low, high = value
     return high if number(low) and number(high) and low == 0 and high > 0 else None
+
+
+def leaf_tolerance(gauge):
+    """A leaf gauge's ± on each leaf (mm): 0 when the gauge declares none, None when the
+    declared fact is unknown or unverified."""
+    if not length_keys(gauge, "leaf_tolerance", None):
+        return 0.0
+    fact = length_fact(gauge, "leaf_tolerance", require_measured=False)
+    value = fact["value"]
+    return value if fact["verified"] and number(value) and value >= 0 else None
 
 
 def _drawing_band(requirement, value):
@@ -478,14 +488,30 @@ def _capability(
         elif isinstance(value, list) and len(value) == 2 and all(number(v) for v in value):
             consumed = ("range", "resolution")
             limit = max_limit(requirement, value) if kind in LEAF_GAUGES else None
+            tolerance = 0.0
             if limit is not None:
                 nums.update(limit_check="max", limit_mm=limit)
+                tolerance = leaf_tolerance(gauge)
+                if length_keys(gauge, "leaf_tolerance", None):
+                    consumed += ("leaf_tolerance",)
+                    nums["leaf_tolerance_mm"] = UNKNOWN if tolerance is None else tolerance
             if not (isinstance(span, list) and all(number(v) for v in span) and number(resolution)):
                 message = "gauge range or resolution unresolved"
+            elif limit is not None and tolerance is None:
+                message = "limit check: gauge leaf tolerance unresolved"
             elif limit is not None:
-                # Go/no-go at the limit: the leaf at R MAX seats without rocking on a
-                # corner at or under it. Sharp needs no leaf, so the band is never read.
-                if not span[0] <= limit <= span[1]:
+                # Go/no-go at the limit: a leaf at or under R MAX seats without rocking on a
+                # corner at or under it. A leaf marked L may really be L + t, accepting
+                # corners past the limit, so the leaf read is one at or under r - t. Sharp
+                # needs no leaf, so the band is never read across.
+                guard = limit - tolerance
+                if span[0] <= limit <= span[1] and guard < span[0]:
+                    status, message = (
+                        "error",
+                        f"limit check: the leaf's ±{tolerance:g} tolerance crosses the MAX "
+                        "limit (no leaf at or under the limit less its tolerance)",
+                    )
+                elif not span[0] <= guard <= span[1]:
                     status, message = "error", "limit check: gauge has no leaf at the MAX limit"
                 elif resolution > limit:
                     status, message = (
@@ -495,8 +521,8 @@ def _capability(
                 else:
                     status, message = (
                         "pass",
-                        "limit check: a gauge leaf at the MAX limit reads go/no-go "
-                        "(not a reading across the band)",
+                        "limit check: a gauge leaf at or under the MAX limit, less its "
+                        "tolerance, reads go/no-go (not a reading across the band)",
                     )
             else:
                 nums["band_mm"] = value[1] - value[0]
