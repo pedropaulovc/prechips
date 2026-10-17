@@ -18,17 +18,35 @@ from prechips import kernel
 KERNEL = Path(kernel.__file__).parent
 
 
+def _sources(base, dotted):
+    """Kernel files that importing ``dotted`` from ``base`` loads: each module or package
+    ``__init__`` along the dotted path, flat (``step_faces``) or nested (``engine.job``)."""
+    found = set()
+    directory = base
+    for part in dotted.split("."):
+        for candidate in (directory / f"{part}.py", directory / part / "__init__.py"):
+            if candidate.is_file() and candidate.is_relative_to(KERNEL):
+                found.add(candidate.relative_to(KERNEL).as_posix())
+        directory = directory / part
+    return found
+
+
 def _local_imports(path):
-    """Kernel-package files ``path`` imports, at any depth of its syntax tree."""
-    names = set()
+    """Kernel files ``path`` imports, at any depth of its syntax tree. The engine runs
+    with the kernel directory on ``sys.path``, so absolute names resolve against it."""
+    found = set()
     for node in ast.walk(ast.parse(path.read_bytes())):
         if isinstance(node, ast.Import):
-            names.update(alias.name.split(".")[0] for alias in node.names)
-        if isinstance(node, ast.ImportFrom) and node.level <= 1 and node.module:
-            names.add(node.module.split(".")[0])
-        if isinstance(node, ast.ImportFrom) and node.level == 1 and not node.module:
-            names.update(alias.name for alias in node.names)
-    return {f"{name}.py" for name in names if (KERNEL / f"{name}.py").is_file()}
+            for alias in node.names:
+                found |= _sources(KERNEL, alias.name)
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        base = KERNEL if node.level == 0 else path.parents[node.level - 1]
+        module = node.module or ""
+        found |= _sources(base, module) if module else set()
+        for alias in node.names:
+            found |= _sources(base, f"{module}.{alias.name}".lstrip("."))
+    return found
 
 
 def _engine_closure():
@@ -66,7 +84,7 @@ def _edit(path):
 
 def test_host_only_kernel_edits_keep_the_engine_digest(kernel_copy):
     before = kernel._engine_digest(kernel_copy)
-    host = sorted(path.name for path in kernel_copy.glob("*.py"))
+    host = sorted(path.relative_to(kernel_copy).as_posix() for path in kernel_copy.rglob("*.py"))
     host = [name for name in host if name not in kernel.ENGINE_SOURCES]
     assert "__init__.py" in host and "render_inputs.py" in host
     for name in host:

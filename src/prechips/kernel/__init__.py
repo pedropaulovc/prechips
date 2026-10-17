@@ -1899,7 +1899,8 @@ def _cache_recipe(job):
     return recipe
 
 
-# The sources freecadcmd executes: freecad_job.py and its transitive local imports.
+# The sources freecadcmd executes, relative to this directory: freecad_job.py and its
+# transitive local imports.
 # Host-only modules (this one, render_inputs.py) stay out, so editing them reuses cached
 # geometry; whatever they change in the job already changes its key.
 ENGINE_SOURCES = (
