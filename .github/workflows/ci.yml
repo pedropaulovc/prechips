@@ -129,7 +129,9 @@ jobs:
   # shard passed and the shards together ran the full collection exactly once.
   test:
     needs: test-shard
-    if: always()
+    # Run when a shard failed (to report it), but not when the whole run was
+    # cancelled by a newer push: a cancelled run must not post a red `test`.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Require every shard to pass
