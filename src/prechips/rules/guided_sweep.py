@@ -1168,7 +1168,8 @@ def _trusted_height(bundle, reference, orientation):
     if number(fact["value"]) and not fact["verified"]:
         return None
     height = _height(item, orientation)
-    return height if number(height) else None
+    # A negative height lifts nothing: no true table to stand the rollers on.
+    return height if number(height) and height >= 0 else None
 
 
 # The guide-element facts the setup picture draws a rail's rollers from: (field, words).
@@ -1242,6 +1243,9 @@ def guide_scene(bundle, setup, numbers, scale):
         bed = length_fact(item, "bed_height", require_measured=True)
         if not (bed["verified"] and number(bed["value"])):
             missing.append(measurement_entry(category, key, "bed_height", item=item)["instruction"])
+        elif bed["value"] < 0:
+            # A height below zero puts no table under the bed: no true place for the rollers.
+            missing.append(f"{key}'s bed_height {bed['value']:g} mm is negative")
         # Parallels or support blocks under the work lift it off the fixture's bed, as the
         # headroom stack counts them: the table is that much lower again.
         lift = _support_lift(bundle, setup)

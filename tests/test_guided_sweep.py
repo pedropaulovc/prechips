@@ -657,8 +657,10 @@ def test_retained_rails_below_the_bottom_seat_the_work_the_rollers_stand_below(t
     [
         "height_mm = 12.0\nverify = true\n",
         "height_mm = { value = 12.0, verify = true }\nverify = false\n",
+        # A negative height lifts nothing (Codex review of #267 at c39a7d6).
+        "height_mm = -12.0\nverify = false\n",
     ],
-    ids=["item-flagged", "height-flagged"],
+    ids=["item-flagged", "height-flagged", "height-negative"],
 )
 def test_parallels_not_proven_leave_the_rollers_undrawn(tmp_path, parallels):
     # Headroom leaves a stack on flagged parallels unresolved: the picture draws no rollers
@@ -718,8 +720,14 @@ def test_a_sled_flagged_to_verify_draws_no_rollers(tmp_path):
             ),
             "a Ø1700 mm roller cannot bear inside sled's R850 mm rail",
         ),
+        (
+            # Codex review of #267 at c39a7d6: a measured but negative bed height would
+            # stand the rollers above the seated work.
+            ROLLERS.replace("value = 30.0,", "value = -30.0,"),
+            "sled's bed_height -30 mm is negative",
+        ),
     ],
-    ids=["unmeasured-diameter", "no-rail-side", "inner-roller-wider-than-rail"],
+    ids=["unmeasured-diameter", "no-rail-side", "inner-roller-wider-than-rail", "negative-bed"],
 )
 def test_rollers_the_picture_cannot_place_are_a_note_with_their_measure(tmp_path, rollers, named):
     _, annotation = guide_annotation(tmp_path, rollers=rollers)

@@ -2339,8 +2339,9 @@ work unreadably, so they are not drawn in the picture or its holding details and
 `NOT SHOWN` note gives the setup X/Y/Z span
 they stand in, and
 another op's nearby rollers stay framed. A
-roller fact that is missing or not measured, a sled flagged to verify, an inner
-roller as wide as the rail's diameter (no inner tangency exists), or a support
+roller fact that is missing or not measured, a sled flagged to verify, a negative bed
+height, an inner roller as wide as the rail's diameter (no inner tangency exists), or
+a support with a negative height, or one
 under the work that is unknown or flagged to verify (item or height, as `headroom`
 leaves that stack unresolved), leaves the rollers undrawn with a `NOT SHOWN` note
 naming each gap (a measured fact with its `measure:` instruction). A swing arm's pivot post stands at the arc centre, far
