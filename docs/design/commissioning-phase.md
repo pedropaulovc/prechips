@@ -186,12 +186,12 @@ the spindle axis at the guide's crossing point. It is computed by the guide
 | `quantity` | `"sagitta"` / `"width"` / `"distance"` / `"size"` / `"dro_xy"` / `"z"` |
 | `of` | the commissioned element read: one `str` for a single-subject quantity (`sagitta`, `size`, `z`); exactly two, `[reference, subject]`, for a relational quantity (`distance`, `width`, `dro_xy`). Any other count is an error |
 | `claims` | `list[str]`: the in-situ claims this reading establishes (`"trammel-jig.dowel_hole.position"`, §3.3); empty for a reading that trusts nothing (#11) |
-| `pin` | `str`: the inventory `pin_gauge` a `distance` to a hole is read over. Required for that case and refused for any other reading |
+| `pin` | `str`: the inventory `pin_gauge` a `distance` to a hole is read over. Required for that case and refused for any other reading. A `dro_xy` to a hole centres the indicator on the bore itself, never on a pin, so a pin's fit never enters a position reading |
 | `contact` | `"near"` or `"far"`: the side of the pin the gauge touches. Required with `pin`, refused without it |
 | `chord_mm` / `chord_in` | `float` (`sagitta` only): the nominal chord the sheet prints. The prediction uses the gauge's **measured** chord, not this value (below). The nominal must lie within 1 % of the gauge's `chord_limits`, else it is an error naming both. The nominal must satisfy `0 < chord < 2R` for the edge's predicted radius `R`, else it is an error. Measured `chord_limits` that reach `2R` are uncertainty, not a plan error, and leave the reading `?` (below). An unknown `R` leaves both checks `?` |
 | `band_mm` / `band_in` | `Vector` `[low, high]` relative to the prediction, or a symmetric `float` |
 | `band_cite` | `Citations` |
-| `expect` | optional authored cross-check (above) |
+| `expect_mm` / `expect_in` | optional authored cross-check (above), one spelling. It takes the same shape and unit as the recorded value: a `float` for scalar quantities, `[x, y]` for `dro_xy`. The mismatch test uses the reading's own comparison: the distance from `expect` to the predicted interval (sagitta's included), measured on the component the reading judges (the tangential component for `hub_apex`), must not exceed the tolerance |
 
 Each reading's key is `"<setup>:<op>/<name>"`.
 
@@ -543,12 +543,20 @@ number, like a nominal, and only a recorded reading is evidence.
 
 ### 3.2 Gate on dependent part setups
 
-Each dependent part setup gets one `commissioning` finding that rolls up the
-whole phase:
+Each dependent part setup gets one `commissioning` finding. Its **scope** is:
 
-- any commissioning finding `✗` → the part setup's finding is `✗`, and its sheet
+- the setup's consumed claims (§3.3), each through the readings that list it;
+- the guide prerequisites every dependent setup shares: every `align` reading
+  and every torque step, because each part is cut on that guide;
+- the riser cut and its readings, when the setup holds on the riser.
+
+Readings of claims the setup does not consume are outside its scope. A missing
+dowel reading therefore does not block a setup that never locates on the dowel.
+Within that scope:
+
+- any finding in scope `✗` → the part setup's finding is `✗`, and its sheet
   prints a STOP: "commissioning C failed: <keys>";
-- else any `?` → the part setup's finding is `?`, with every outstanding key
+- else any `?` in scope → the part setup's finding is `?`, with every outstanding key
   listed: "commissioning C not recorded: C1:40/rail_a.pin@50 … C4:10/width";
 - else pass.
 
@@ -609,8 +617,9 @@ split into two claims, each read against what it must match:
   edge, read as a signed `distance` to a swept edge. This ties HUB to the real
   arc, which is why HUB is drilled in situ;
 - `position.tangential`, HUB's placement along the arc, read as a `dro_xy` from
-  the guide's `apex` pose. With the carrier locked at the apex, the HUB pin is
-  centred under the spindle and the DRO is read. The residual
+  the guide's `apex` pose. With the carrier locked at the apex, the coaxial
+  indicator is swept around the HUB **bore** itself, with no pin in it, until
+  it is centred under the spindle, and the DRO is read. The residual
   `read − predicted` (and its uncertainty interval) is projected onto the
   guide's radial/tangential frame at the apex, and only the **tangential**
   component is judged against the band. The X and Y components are never judged
@@ -660,9 +669,9 @@ The trammel's claims and readings (decision D4 adds the dowel's two):
 | `riser.inner_edge.radius` (root), `riser.outer_edge.radius` | `sagitta_inner`, `sagitta_outer` |
 | `riser.outer_edge.location` | `width`, from the inner edge |
 | `hub_hole.position.radial` | `hub_pin_to_edge`, from the outer edge |
-| `hub_hole.position.tangential` | `hub_apex`: `dro_xy` from the guide's apex pose, HUB pin centred under the spindle with the carrier locked at the apex |
+| `hub_hole.position.tangential` | `hub_apex`: `dro_xy` from the guide's apex pose, HUB bore centred under the spindle with a coaxial indicator, carrier locked at the apex |
 | `hub_hole.size` | `hub_size` (largest gauge pin that enters) |
-| `dowel_hole.position` | `dowel_position`: `dro_xy` from the HUB pin to the dowel hole, with a coaxial indicator on each |
+| `dowel_hole.position` | `dowel_position`: `dro_xy` from the HUB bore to the dowel bore, each centred with a coaxial indicator |
 | `dowel_hole.size` | `dowel_fit`: largest gauge pin that enters, predicted from the declared Ø6.0 and banded by the dowel's fit |
 
 ### 3.4 Staleness
@@ -1075,6 +1084,10 @@ Also:
 - Tangential projection: a tangent at 45° to the setup axes with a tangential
   error of 1.2 × band → `✗`, although X and Y are each within the band; a radial
   residual alone does not fail `hub_apex`.
+- Roll-up scope: a missing `dowel_fit` leaves a setup that locates only on HUB
+  unblocked; a missing `align` reading blocks every dependent setup.
+- `expect_mm` shapes: a scalar for scalar quantities and `[x, y]` for `dro_xy`;
+  any other shape → schema error.
 - Spindle zero: `method = "spindle"` with `edge` or `tool` → schema error; alone
   → valid.
 - HUB tangential: a HUB and dowel shifted together along the arc pass the radial
