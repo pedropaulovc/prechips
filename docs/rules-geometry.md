@@ -2241,9 +2241,9 @@ true or unknown makes the floor unknown. Numbers: `min_wall_mm`,
 
 - wall ≥ floor: `minimum wall inside the grip zone meets the shop floor.`
   (`under the strap footprints` for strap holds) (pass)
-- wall < floor and `hold.method` is one of `soft_jaws` / `soft jaws` / `mandrel` / `tape` / `wax` (case-insensitive): `wall is below the shop floor with a named protective holding method.` (pass)
+- wall < floor and `hold.method` is one of `soft_jaws` / `soft jaws` / `mandrel` / `wax` (case-insensitive): `wall is below the shop floor with a named protective holding method.` (pass). Tape is a typed area hold (`hold.area`, [plan](plan.md#hold)); `method = "tape"` is bad input.
 - wall < floor, unknown method: `wall is below the shop floor and protective holding method is unknown.` (unknown)
-- wall < floor, other method: `wall is below the shop floor; name soft jaws, mandrel, tape or wax.` (error)
+- wall < floor, other method: `wall is below the shop floor; name soft jaws, mandrel or wax, or hold it by area (hold.area).` (error)
 - otherwise `grip-zone wall thickness or shop thin-wall floor is unmeasured.` (unknown)
 
 The shipped policy keeps `thin_wall_floor_mm = "unknown"` with

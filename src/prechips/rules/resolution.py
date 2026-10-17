@@ -905,6 +905,9 @@ def coating_process(bundle_or_inventory, reference):
     category, reference, item = select(inventory, reference, "process")
     if item is None:
         return None, None
+    if category == "consumables" and isinstance(item, dict) and item.get("kind") is not None:
+        # A typed consumable (an area hold's tape) holds work; it applies no coating.
+        return None, None
     if category == "consumables" and (item == UNKNOWN or authored(inventory, category, reference)):
         entry = item if isinstance(item, dict) else {}
         products = entry.get("products", UNKNOWN)

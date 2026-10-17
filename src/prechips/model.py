@@ -11,7 +11,9 @@ from pydantic import (
     AfterValidator,
     BaseModel,
     ConfigDict,
+    Discriminator,
     Field,
+    Tag,
     create_model,
     model_serializer,
     model_validator,
@@ -311,6 +313,10 @@ Align = record(
     "Align",
     {**texts("indicator face"), **numbers("limit_mm over_mm"), "cite": Citations},
 )
+# An area hold (docs/design/area-hold.md): ``ref`` names the consumables adhesive_tape,
+# ``on`` the solid of the holding fixture whose posed +z face carries the tape layer.
+# Coverage is the work's footprint.
+AreaHold = record("AreaHold", texts("ref on"))
 Hold = record(
     "Hold",
     {
@@ -358,6 +364,8 @@ Hold = record(
         "jaw_buttons": str,
         # Required where a mill setup mounts or turns a vise or angle plate (hold_fields).
         "align": Align,
+        # An area hold: tape holding the work by its seated footprint.
+        "area": AreaHold,
     },
 )
 # ``measure_before_hold``: a ``measure_then_set`` M read on the part before it is held (a
@@ -371,6 +379,9 @@ AxisZero = record(
         "retouch_after": list[int],
         "after_op": int,
         "measure_before_hold": bool,
+        # Where a Z touch lands, [x, y] in the setup frame: an area hold's recipe A touches
+        # the seat face here, off the work (docs/design/area-hold.md).
+        "at_mm": Annotated[list[Number], Field(min_length=2, max_length=2)],
     },
 )
 # ``keep_clamped``: the hold must not be loosened to realign the work (an indexed setup
@@ -1632,6 +1643,55 @@ class LimitsMeasurement(InputModel):
 
 type MeasuredLimits = LimitPair | LimitsMeasurement
 type MeasuredAngle = Number | LengthMeasurement
+
+
+class CitedFact(InputModel):
+    """A non-length fact (an adhesive's strength, a dwell): a value > 0 qualified only by
+    its own source, a ``cite`` or a complete ``measured`` record, and its own ``verify``
+    (docs/inventory.md "Area holds")."""
+
+    value: Number
+    cite: Citations | Unknown = UNKNOWN
+    measured: Measurement | Unknown = UNKNOWN
+    verify: bool | Unknown = UNKNOWN
+
+    @model_validator(mode="after")
+    def positive(self) -> CitedFact:
+        if self.value != UNKNOWN and self.value <= 0:
+            raise ValueError("A cited fact's value must be > 0, or be unknown.")
+        return self
+
+
+# One interface a coefficient was established on: the work's and the seat's cutting-data
+# material classes, in those roles.
+ContactPair = record("ContactPair", texts("work seat"))
+
+
+class MaterialFact(CitedFact):
+    """A coefficient that belongs to the interfaces it was established on (an adhesive's
+    strength): ``pairs`` lists each exact ``{work, seat}`` pair of cutting-data material
+    classes, and a rule applies the value only to a listed pair."""
+
+    pairs: Annotated[list[ContactPair], Field(min_length=1)] | Unknown = UNKNOWN
+
+    @model_validator(mode="after")
+    def named_pairs(self) -> MaterialFact:
+        for pair in self.pairs if isinstance(self.pairs, list) else ():
+            if any(
+                not isinstance(side, str) or not side.strip() or side.strip() == UNKNOWN
+                for side in (pair.work, pair.seat)
+            ):
+                raise ValueError("A fact's pairs must name both material classes, work and seat.")
+        return self
+
+
+class StrengthFact(MaterialFact):
+    """A strength whose ``test`` names the test method its value comes from (the engine
+    never parses it; a missing, blank or unknown ``test`` is debt)."""
+
+    test: str | Unknown = UNKNOWN
+
+
 EnvelopeTravel = record("EnvelopeTravel", dict.fromkeys(("x", "y", "z"), MeasuredLength))
 MachineEnvelope = record(
     "MachineEnvelope",
@@ -1757,6 +1817,11 @@ FixtureSolid = record(
         "make_ops": MakeOps,
         "measured": Measurement,
         "verify": bool,
+        # An area hold's `on` solid: the flatness of its whole top face (its own measured
+        # record, a stack dimension) and the material its contact face is made of, the
+        # seat side of a strength's {work, seat} pair (docs/design/area-hold.md).
+        "flatness_mm": MeasuredLength,
+        "material": str,
     },
 )
 # One receipt check of a bought-finished item (docs/inventory.md "Purchased tooling"):
@@ -2214,6 +2279,77 @@ def _numeric_pair(band: Any) -> bool:
 # the products on the shelf; an unknown, empty or blank product list leaves it unresolved.
 Consumable = record("Consumable", {"name": str, "products": list[str]})
 
+# How an area hold's tape lets go of the work: a ``solvent`` (its ``agent``) or ``heat``
+# (to ``temp_c``), left ``wait_min`` before the work is rolled off (docs/inventory.md).
+TapeRelease = record(
+    "TapeRelease",
+    {
+        "method": Literal["solvent", "heat"],
+        "agent": str,
+        **numbers("temp_c wait_min"),
+        "cite": Citations,
+    },
+)
+
+
+class AdhesiveTape(InputModel):
+    """Double-sided tape for an area hold (docs/design/area-hold.md): the roll width that
+    bounds seamless footprint coverage, the measured ``[least, greatest]`` layer
+    thickness, its tested shear and peel strengths, the dwell they hold at, and the apply
+    and release instructions the traveler prints."""
+
+    kind: Literal["adhesive_tape"]
+    name: str | Unknown = UNKNOWN
+    products: list[str] | Unknown = UNKNOWN
+    width_mm: MeasuredLength | Unknown = UNKNOWN
+    thickness_mm: MeasuredLimits | Unknown = UNKNOWN
+    shear_n_per_cm2: StrengthFact | Unknown = UNKNOWN
+    peel_n_per_cm: StrengthFact | Unknown = UNKNOWN
+    dwell_min: CitedFact | Unknown = UNKNOWN
+    surface_prep: str | Unknown = UNKNOWN
+    apply: str | Unknown = UNKNOWN
+    release: TapeRelease | Unknown = UNKNOWN
+
+    @model_validator(mode="after")
+    def coherent(self) -> AdhesiveTape:
+        width = self.width_mm
+        width = width.value if isinstance(width, LengthMeasurement) else width
+        if isinstance(width, float) and width <= 0:
+            raise ValueError("An adhesive_tape width_mm must be > 0, or be unknown.")
+        thickness = self.thickness_mm
+        pair = thickness.value if isinstance(thickness, LimitsMeasurement) else thickness
+        if _numeric_pair(pair):
+            _ordered(pair, "adhesive_tape thickness_mm", floor=0.0, inclusive=False)
+        release = self.release
+        if isinstance(release, InputModel):
+            given = release.model_fields_set
+            if release.method == "solvent" and "temp_c" in given:
+                raise ValueError("A solvent release names its agent, not a temp_c.")
+            if release.method == "heat" and "agent" in given:
+                raise ValueError("A heat release names its temp_c, not an agent.")
+            for key in ("temp_c", "wait_min"):
+                value = getattr(release, key)
+                if isinstance(value, float) and value <= 0:
+                    raise ValueError(f"A tape release's {key} must be > 0, or be unknown.")
+        return self
+
+
+def _consumable_kind(value: Any) -> str:
+    """A consumable that states a ``kind`` is typed (only ``adhesive_tape`` exists); a plain
+    shelf entry states none."""
+    if isinstance(value, str):
+        return "unknown"
+    kind = value.get("kind") if isinstance(value, dict) else getattr(value, "kind", None)
+    return "plain" if kind is None else "adhesive_tape"
+
+
+type ConsumableEntry = Annotated[
+    Annotated[Consumable, Tag("plain")]
+    | Annotated[AdhesiveTape, Tag("adhesive_tape")]
+    | Annotated[Unknown, Tag("unknown")],
+    Discriminator(_consumable_kind),
+]
+
 
 class Inventory(InputModel):
     machines: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
@@ -2223,7 +2359,7 @@ class Inventory(InputModel):
     gauges: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     # Outside processes the shop sends work to (a coating vendor): not shop-owned kit.
     services: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
-    consumables: dict[str, Consumable | Unknown] | Unknown = UNKNOWN
+    consumables: dict[str, ConsumableEntry] | Unknown = UNKNOWN
     stock: list[Stock] | Unknown = UNKNOWN
 
     @model_validator(mode="after")

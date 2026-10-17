@@ -214,6 +214,48 @@ def angle_fact(item, field, *, require_measured=True):
     return _fact(item, value, fact, "No numeric angle in degrees is recorded.", require_measured)
 
 
+def cited_fact(item, field, *, tested=False):
+    """A non-length fact (``{value, cite, measured, verify}``) under its own qualifiers only.
+
+    It is trusted when its value is positive and it has a known citation or a complete
+    ``status = "measured"`` record, and its own ``verify`` is not true or unknown. A bare
+    number, a blank or unknown cite and an incomplete, assumed or illustrative measurement
+    are debt; a cite never stands in for a refused measurement. ``tested`` facts (an
+    adhesive's strength) also need a known ``test`` naming their method, never parsed.
+    """
+    from prechips.rules.resolution import _citations, number
+
+    raw = item.get(field, UNKNOWN) if isinstance(item, dict) else UNKNOWN
+    fact = raw if isinstance(raw, dict) and "value" in raw else None
+    value = fact["value"] if fact is not None else raw
+    value = value if number(value) and value > 0 else UNKNOWN
+    cite = _citations(fact.get("cite")) if fact is not None else []
+    measured = fact.get("measured", UNKNOWN) if fact is not None else UNKNOWN
+    status = measured.get("status", "assumed") if isinstance(measured, dict) else UNKNOWN
+    result = {"value": value, "verified": False, "cite": cite, "measurement_status": status}
+    if value == UNKNOWN:
+        return {**result, "reason": f"No positive {field} is recorded."}
+    if fact is None:
+        return {**result, "reason": f"{field} is a bare value with no citation or measurement."}
+    if fact.get("verify") is True or fact.get("verify") == UNKNOWN:
+        return {**result, "reason": "This fact explicitly requires verification."}
+    if measured != UNKNOWN:
+        trusted, reason = _trust({"measured": measured}, True)
+        if not trusted:
+            return {**result, "reason": reason}
+    elif not cite:
+        return {**result, "reason": f"{field} names no citation or measurement."}
+    test = fact.get("test", UNKNOWN)
+    if tested and (not isinstance(test, str) or test.strip() in ("", UNKNOWN)):
+        return {**result, "reason": f"{field} does not name the test method its value is from."}
+    reason = (
+        "This fact is qualified by its own complete shop measurement."
+        if measured != UNKNOWN
+        else "This fact is qualified by its own citation."
+    )
+    return {**result, "verified": True, "reason": reason}
+
+
 def measurement_entry(category, identity, field, *, status=None, item=None, subject=None):
     """Describe one consumed fact; display context never changes its identity or trust.
 
