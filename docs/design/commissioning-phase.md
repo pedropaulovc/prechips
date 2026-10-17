@@ -610,8 +610,13 @@ split into two claims, each read against what it must match:
   arc, which is why HUB is drilled in situ;
 - `position.tangential`, HUB's placement along the arc, read as a `dro_xy` from
   the guide's `apex` pose. With the carrier locked at the apex, the HUB pin is
-  centred under the spindle and the DRO is read; the component along the arc's
-  tangent at the apex is judged against the band. A HUB shifted along the arc,
+  centred under the spindle and the DRO is read. The residual
+  `read − predicted` (and its uncertainty interval) is projected onto the
+  guide's radial/tangential frame at the apex, and only the **tangential**
+  component is judged against the band. The X and Y components are never judged
+  separately, because the tangent is generally rotated from the setup axes (at
+  45°, a tangential error of 1.2 × band shows as about 0.85 × band on each
+  axis). The radial component is left to `hub_pin_to_edge`. A HUB shifted along the arc,
   with the dowel shifted by the same amount, leaves the radial reading and the
   HUB-to-dowel reading unchanged. Its parts would still cut true radii, but each
   would sit off-centre in the carrier's sweep window (±6.5° for the trammel)
@@ -719,9 +724,11 @@ taken against.
 
 - `zero_recipe` and `travel`: commissioning setups are ordinary setups. A
   setup made only of `align` and `torque` ops has no cutting op, so it needs only
-  the zero its readings use: both axes on the spindle axis, `zero.x`/`zero.y`
-  with `edge = "spindle axis"`. That is a new `AxisZero` form, `method = "spindle"`,
-  printed as "zero X and Y here; this is the crossing point".
+  the zero its readings use: both axes on the spindle axis. That is a new
+  `AxisZero` form, `zero.x = { method = "spindle" }` (and the same for `y`). It
+  **replaces** the edge-finding fields: `edge`, `edge_mm`, `from` and `tool` are
+  refused with it, and no other field is required. It is printed as "zero X and
+  Y here; this is the crossing point".
 - `guided_sweep` on the riser: the existing rule, with the trammel guide (#269).
   `headroom`/`travel` debts for the moving fixture apply as on part setups (#272).
 - `inspection`: the `accept` readings are not part requirements, and they never
@@ -1065,6 +1072,11 @@ Also:
 - Read after tightening: an adjusted element (torque or `set`) with no later
   `verify` align → error; torque → verify → set, or a `verify` followed by
   another torque → error; `set` readings generate no record keys.
+- Tangential projection: a tangent at 45° to the setup axes with a tangential
+  error of 1.2 × band → `✗`, although X and Y are each within the band; a radial
+  residual alone does not fail `hub_apex`.
+- Spindle zero: `method = "spindle"` with `edge` or `tool` → schema error; alone
+  → valid.
 - HUB tangential: a HUB and dowel shifted together along the arc pass the radial
   and HUB-to-dowel readings but fail `hub_apex`; a plan without a tangential
   reading for a guide-located hole → uncovered claim, error.
