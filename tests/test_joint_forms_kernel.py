@@ -172,15 +172,12 @@ def test_an_unknown_mouth_break_leaves_the_formed_corner_unknown(engine, solids,
     assert "stock_out_volume_mm3" not in row
 
 
-def test_an_unknown_mouth_break_does_not_excuse_unrelated_lost_material(engine, solids):
-    step = solids["filleted"]
-    job = _forms(engine, step, _root(engine, step), mouth={"reason": "mouth break unknown"})
-    # The spigot owns only z=0..10, so its cap above is finished material, not preparation.
+def _lose_the_cap(engine, step, job):
+    """Face the boss top down to z=15 before the join: finished material lost far from the
+    root. The spigot owns only z=0..10, so its cap is finished material, not preparation."""
     job["joint_features"]["spigot"]["depth_mm"] = 10.0
     job["setups"][1]["ops"][0]["joint_cut"].update(depth_mm=10.0, z_from=0.0, z_to=20.0)
     job["features"]["top"] = engine.refs(step, (-4.9, -4.9, 20), (4.9, 4.9, 20), kind="Plane")
-    # Facing the boss top down to z=15 before the join loses finished material far from
-    # the root: still a certain refusal, never debt the unknown break could explain.
     job["setups"].insert(
         2,
         {
@@ -201,5 +198,33 @@ def test_an_unknown_mouth_break_does_not_excuse_unrelated_lost_material(engine, 
     join = job["setups"][3]
     join["stock_in"][1] = "lost-cap"
     join["joint"].update(spigot_ref="lost-cap", refs=list(join["stock_in"]))
-    row = engine.run(job)["setups"]["join"]
+    return job
+
+
+@pytest.mark.parametrize("undecided", ["mouth", "band"])
+def test_an_undecided_corner_does_not_excuse_unrelated_lost_material(engine, solids, undecided):
+    # Still a certain refusal, never debt the unknown mouth break or band could explain.
+    step = solids["filleted"]
+    refs = _root(engine, step)
+    if undecided == "mouth":
+        job = _forms(engine, step, refs, mouth={"reason": "mouth break unknown"})
+    else:
+        job = _forms(engine, step, refs)
+        job["setups"][2]["joint"]["forms"] = [
+            {"feature": "root", "faces": refs, "reason": "formed feature root radius unknown"}
+        ]
+    row = engine.run(_lose_the_cap(engine, step, job))["setups"]["join"]
     assert "protected finished material missing" in row["assembly_error"], row
+
+
+def test_a_mouth_break_authored_in_air_cannot_be_placed(engine, solids):
+    # The socket cylinder starts 1 mm below the body and ends 1 mm above it: a chamfer
+    # cut at those authored ends would land in air and leave the mouth looking sharp.
+    step = solids["filleted"]
+    job = _forms(engine, step, _root(engine, step), mouth={"kind": "chamfer", "size_mm": 0.25})
+    shifted = {"at_mm": [0, 0, -1.0], "depth_mm": 12.0}
+    job["joint_features"]["socket"].update(shifted)
+    job["setups"][0]["ops"][0]["joint_cut"].update(shifted)
+    row = engine.run(job)["setups"]["join"]
+    assert "assembly_error" not in row, row
+    assert "is not a flat socket face square to its axis" in row["stock_reason"], row

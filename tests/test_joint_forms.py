@@ -209,7 +209,11 @@ def test_forms_request_carries_faces_and_mm_band():
 )
 def test_forms_request_refuses_or_defers_what_it_cannot_admit(feature, outcome):
     b = _manifest(feature) if feature else SimpleNamespace(features={"features": {}})
-    assert outcome in formed(b, "root")
+    request = formed(b, "root")
+    assert outcome in request
+    # An undecided corner keeps its known faces: they bound what its debt can excuse.
+    known = feature and feature.get("faces") == ROOT
+    assert (request.get("faces") == ROOT) == bool(outcome == "reason" and known)
 
 
 def _with_forms(forms):

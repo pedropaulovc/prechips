@@ -2986,22 +2986,38 @@ def _joint_parameters(spec, diameter=None, depth=None, at=None):
     return diameter, depth, V(*at), direction
 
 
-def _mouth_break(spec, diameter, mouth):
+def _mouth_break(socket, spec, diameter, mouth):
     """The material a socket's mouth ``edge_break`` removes at each mouth: the ``at`` end,
     and the far end too when ``thru``. A chamfer of size s is the revolved triangle
     (R, 0), (R + s, 0), (R, s) into the material; a radius is the square corner less the
-    quarter disc of radius s that rounds it."""
+    quarter disc of radius s that rounds it. Each mouth must be a flat socket face square
+    to the axis: the break's annulus full of socket material inside the mouth plane and
+    none outside it. An authored end in air, or a saddle on a curved face, cannot place
+    the break, so the corner it would make is unknown."""
     _, depth, at, axis = _joint_parameters(spec, diameter)
     radius, size = diameter / 2, mouth["size_mm"]
     mouths = [(at, axis)] + ([(at + axis * depth, -axis)] if spec.get("thru") else [])
     cutters = []
     for centre, inward in mouths:
-        bore = Part.makeCylinder(radius, size, centre, inward)
+        annulus = Part.makeCylinder(radius + size, size, centre, inward).cut(
+            Part.makeCylinder(radius, size, centre, inward)
+        )
+        outside = Part.makeCylinder(radius + size, size, centre, -inward).cut(
+            Part.makeCylinder(radius, size, centre, -inward)
+        )
+        if (
+            annulus.Volume - socket.common(annulus).Volume > STOCK_MM3
+            or socket.common(outside).Volume > STOCK_MM3
+        ):
+            raise _Unknown(
+                f"socket mouth at {_r(centre.x)}, {_r(centre.y)}, {_r(centre.z)} mm is not "
+                "a flat socket face square to its axis; its edge_break cannot be placed"
+            )
         if mouth["kind"] == "chamfer":
+            bore = Part.makeCylinder(radius, size, centre, inward)
             ring = Part.makeCone(radius + size, radius, size, centre, inward).cut(bore)
         else:
-            ring = Part.makeCylinder(radius + size, size, centre, inward).cut(bore)
-            ring = ring.cut(Part.makeTorus(radius + size, size, centre + inward * size, inward))
+            ring = annulus.cut(Part.makeTorus(radius + size, size, centre + inward * size, inward))
         cutters.append(ring)
     return cutters[0].multiFuse(cutters[1:]) if len(cutters) > 1 else cutters[0]
 
@@ -4225,10 +4241,11 @@ class _Job:
         faces' neighbouring finished faces meet in: each lost piece touching the faces is
         bounded only by formed faces and the untrimmed surfaces of their neighbours, lies
         within the band's MAX of them, and shares area with both received branches. A
-        sharp corner is radius 0, so the band must start at 0. The branches already carry
-        the socket's declared mouth break, so a broken mouth leaves a groove, which no
-        neighbour surface bounds. Admitted material is no longer lost; anything else
-        raises with its reason."""
+        sharp corner is radius 0, so the band must start at 0. ``lost`` was taken against
+        the join of the socket as made, its declared mouth break cut in, so a broken mouth
+        leaves a groove, which no neighbour surface bounds. A known feature sharing lost
+        material with an undecided one is undecided too. Admitted material is no longer
+        lost; anything else raises with its reason."""
         if not joint.get("forms"):
             return {}, [lost], []
         pieces = list(lost.Solids)
@@ -4243,7 +4260,8 @@ class _Job:
             unmapped = sorted(ref for ref in refs if ref not in self.mapping)
             if unmapped and not form.get("reason"):
                 raise ValueError(f"formed feature {name} names unmapped faces: {unmapped}")
-            faces = [] if form.get("reason") else [self.solid.Faces[self.mapping[r]] for r in refs]
+            # Known faces bound even an undecided feature's corner; unknown ones cannot.
+            faces = [] if unmapped else [self.solid.Faces[self.mapping[r]] for r in refs]
             if reason:
                 rows[name] = {"status": UNKNOWN, "reason": reason}
                 deferred.append((reason, Part.makeCompound(faces) if faces else None))
@@ -4263,6 +4281,16 @@ class _Job:
             name = form["feature"]
             target = Part.makeCompound(faces)
             mine = [piece for piece in pieces if piece.distToShape(target)[0] <= STOCK_TOL]
+            shared = [
+                reason
+                for reason, other in deferred
+                if other is None or any(piece.distToShape(other)[0] <= STOCK_TOL for piece in mine)
+            ]
+            if shared:
+                reason = f"{name} shares lost material with an undecided corner ({shared[0]})"
+                rows[name] = {"status": UNKNOWN, "reason": reason}
+                deferred.append((reason, target))
+                continue
             near = Part.makeCompound(mine) if mine else None
             # Every face must bound lost material: a face a branch carries is not formed.
             carried = [
@@ -4616,7 +4644,7 @@ class _Job:
         # A formed corner is judged on the socket as made: its declared mouth break cut in.
         mouth = joint.get("socket_break") or {}
         if mouth.get("size_mm"):
-            socket = socket.cut(_mouth_break(socket_spec, socket_cut["diameter_mm"], mouth))
+            socket = socket.cut(_mouth_break(socket, socket_spec, socket_cut["diameter_mm"], mouth))
         allowed_overlap = Part.Shape()
         if fit == "interference":
             outer = _joint_cylinder(engagement, spigot_cut["diameter_mm"])
