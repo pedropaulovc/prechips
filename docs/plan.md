@@ -1239,6 +1239,23 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `cut_plane` | `SawPlane` (a straight saw cut only) |
 | `follows` | `str`: `"<setup>:<op>"` of an earlier `scribe` op (a saw that follows its line only; an `ends` layout scribes no line, an error) |
 | `allowance_mm` | `Number` > 0: stock a saw that `follows` a line leaves outside it for the file |
+| `keep` | `str` (a finished feature: after a held split, the piece that carries it stays and every other piece is discarded; see [keep piece](rules-geometry.md#keep-piece)) |
+
+`keep` names the piece that leaves the setup when the work is in pieces, typically
+on the `release` op after the cut that freed the part from its frame:
+
+```toml
+[[setups.ops]]
+op = 70
+do = "release"
+keep = "hub_od"
+```
+
+The kernel applies it to the stock after the last op it models at or before the
+keep op (a `release` is not modelled, so that is the freeing cut), keeps the one
+piece that carries every face of the feature and discards the rest. Later ops,
+later setups' entry stock and their `stock_state` checks then see the kept piece
+only. Without `keep`, a held split keeps every piece, as before.
 
 An `inspect` op may name several features (`feature = ["a", "b"]`): one
 drawing limit split across them, or one inspection station reading several. A

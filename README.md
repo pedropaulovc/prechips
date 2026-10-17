@@ -263,6 +263,13 @@ along a scribed arc the predicted removal follows the curve, offset by the allow
 and child hole operations inherit a missing travel centre from their named
 parent/hole while explicit unknown locations remain debt.
 
+A cut that frees the part from its frame leaves a held split: every pressed piece
+stays in the stock. The op that ends it (usually `release`) takes
+`keep = "<feature>"`, and only the piece carrying that finished feature goes on to
+later setups. Each discarded piece is logged by the
+[`keep_piece`](docs/rules-geometry.md#keep-piece) finding. A keep that cannot pick
+exactly one piece is `?`.
+
 On the lathe, a parting/grooving blade's Z touch names the blade corner it sets
 (the touched face's normal decides it; a scribe touch states it), and every blade
 op row prints Z as that corner's reading. Each toolpost tool's first touch-off in

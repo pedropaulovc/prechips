@@ -672,6 +672,7 @@ not exist.
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default; a rotary-claimed face counts only when the exact union of its rotary window portions covers it (a named-span gap errors, an undecided union is `?`) | features.faces, plan.ops.faces, plan.stock.as_is_faces, kernel rotary_coverage.cut | M4 | "Face 23 (the ear's back) is machined by no valid op." |
 | blank_credit: an as-is face of a profiled blank (a bought laser/waterjet-cut STEP) counts only when it lies on the blank within 1e-3 mm and every band of its owning features holds the vendor's ± t about the nominal (a governed BASIC scalar reads its governing profiles' band; a position zone needs 2√2·t, a profile zone t√2 on each side of its disposition); a face failing either check stays uncovered | plan.stock.blank, plan.stock.as_is_faces, features requirements and nominals, kernel as_is_contact | M4 | "end_faces length 60 ±0.127 exits its band 59.9-60.1 by 0.027 below." |
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence); rotary finishing windows count only when their exact union covers the face, and as-stock never finishes; a claimed hole cap counts only once its complete-form cut's setup leaves it clear of stock | features.finish_ra/faces, plan.ops.faces, kernel rotary_coverage.finish | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
+| keep_piece (always required): an op's `keep` keeps the one piece of the stock after its last kernel-modelled op that carries every face of the feature and discards the rest; an unknown feature, unresolved faces, no carrier, a span or two carriers is `?` and leaves later stock unknown | plan.ops.keep, features.faces, kernel setup `keeps` | M4 | "S5:70: keeps piece 2 (23,416 mm³), which carries hub_od; discards piece 1 (17,161 mm³, bbox [-168, -12.4, -7.497, 168, 25.7, 0.4405])." |
 | joint_assembly (always required): received prepared branches satisfy actual target geometry, overlap/insertion or full internal surface contact, and final-material coverage plus permitted finite fill | STEP final solid, selected stock lineage/output completion, plan.joint_features, plan.setups.joint | M4 | "Join refused: the received branch has lost required finished material." |
 
 **Accessibility pose decision — nearest legal centre (supersedes the
@@ -1423,6 +1424,18 @@ sheet.
    fixture components, so no rule verdict or exit code changes. No shipped
    example uses a guided sweep, so no example picture changed; the blind
    machinist review of an authored sled bundle found no introduced issue.
+
+   **Kept piece after a held split shipped (2026-10-17, #182):** an op's
+   `keep = "<feature>"` (typically the `release` after the cut that frees the
+   part from its frame) keeps the one stock piece that carries every face of
+   that feature and discards the rest, so later ops, the next setups' entry
+   stock and their `stock_state` see the part alone. An unknown feature,
+   unresolved faces, no carrier, a feature spanning pieces or two carriers is
+   `?` stock debt naming what to change, never a guess; without `keep` a held
+   split keeps every piece as before. The new, always required `keep_piece` finding logs each
+   discard (volume, bbox, kept piece, op). The keep entries enter the kernel
+   job, and so its cache key, only when present. No shipped example uses
+   `keep`, so no example report or traveler changed.
 
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a

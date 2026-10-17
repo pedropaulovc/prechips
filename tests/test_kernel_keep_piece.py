@@ -19,6 +19,7 @@ from test_kernel_geometry import ENGINE, Engine, _setup, _vise
 from test_kernel_held_split import solids  # noqa: F401  (solids is a pytest fixture)
 from test_kernel_stock_prefix import _rough
 
+from prechips.findings import is_required
 from prechips.inputs import Bundle
 from prechips.kernel import _cache_recipe, _keeps, engine_job
 from prechips.rules import consistency, keep_piece
@@ -356,5 +357,8 @@ def test_a_keep_is_unknown_while_the_kernel_or_the_stock_before_it_is():
     assert (row.status, row.sentence) == ("unknown", "S5:70: no piece of x.")
 
 
-def test_plans_without_keep_add_no_finding():
+def test_plans_without_keep_add_no_finding_and_a_keep_is_always_required():
     assert keep_piece.evaluate(_rule_bundle({}, {"status": "ok", "setups": {}})) == []
+    absent = {"status": "unknown", "reason": "FreeCAD kernel not found"}
+    [row] = keep_piece.evaluate(_rule_bundle({"keep": "south"}, absent))
+    assert is_required(row, {"required": {}})

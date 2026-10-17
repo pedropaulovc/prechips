@@ -47,8 +47,9 @@ class Finding:
 # hand-finished arc needs, a centre the work rides on must be one the stock already
 # has, and prepared_blank gates the size of the blank a declared preparation hands the
 # first machining setup; bought tooling no receipt check can accept leaves the setup
-# nothing proven to hold or guide the work with: no policy omission can waive them. A
-# not_applicable row never blocks.
+# nothing proven to hold or guide the work with; a keep that cannot pick the piece that
+# leaves a held split leaves every later setup's stock unknown: no policy omission can
+# waive them. A not_applicable row never blocks.
 ALWAYS_REQUIRED = frozenset(
     {
         "joint_fit",
@@ -57,6 +58,7 @@ ALWAYS_REQUIRED = frozenset(
         "centre_support",
         "prepared_blank",
         "purchased_tooling",
+        "keep_piece",
     }
 )
 
