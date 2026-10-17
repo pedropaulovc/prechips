@@ -393,15 +393,16 @@ it does not become a flat-bottomed socket or borrow a CAD profile.
 ## Process features
 
 `[process_features.<id>]` declares stock preparation the route makes and later
-relies on, never a drawing surface: a faced end (`end_face`) or a combined drill
+relies on, never a drawing surface: a faced end (`end_face`), a combined drill
 and countersink centre (`centre_hole`) that a later setup's dead or live centre
-rides in.
+rides in, or a locating hole in the work's own waste (`tooling_hole`) that a later
+setup's fixture pin locates on until a waste cut removes it.
 Identities must not collide with exported or joint features, and nothing may name
 a `plan.process_features.` label as a face reference.
 
 | Field | Meaning |
 |---|---|
-| `kind` | `end_face` or `centre_hole` |
+| `kind` | `end_face`, `centre_hole` or `tooling_hole` |
 | `at` | Point on the stock end, model coordinates (manifest units); a centre's mouth centre, on the entry surface its quill is touched on |
 | `axis` | Unit inward normal of that end, pointing into the kept material (the drilling direction) |
 | `cite` | Nonempty author/source citation |
@@ -410,6 +411,9 @@ a `plan.process_features.` label as a face reference.
 | `drill_length_mm` | `centre_hole` only: pilot length C from the countersink to the tip, point included |
 | `mouth_dia_mm` | `centre_hole` only: countersink diameter at the face; must exceed `drill_dia_mm` |
 | `countersink_angle_deg` | `centre_hole` only: included countersink angle, between 0 and 180 |
+| `dia` | `tooling_hole` only: its `[lo, hi]` size band (manifest units), `lo > 0` |
+| `thru` | `tooling_hole` only: `true` for a hole through the stock |
+| `depth` | `tooling_hole` only: full-diameter depth below `at` (manifest units, > 0) of a blind hole |
 | `note` | Optional text |
 
 A `centre_hole` needs every centre field (each may be `"unknown"` debt); an
@@ -423,6 +427,32 @@ shorter than C; its mouth must lie on the surface the quill is touched on, fed
 along setup -Z ([`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)).
 A mismatch is an error, and any unknown or unaccepted size or tool fact, or an
 unconfirmed tool record, leaves the depth unknown and the centre uncut.
+
+A `tooling_hole` needs `dia` and exactly one of `thru = true` or `depth` (each
+numeric value may be `"unknown"` debt); the other kinds author none of `dia`,
+`thru` and `depth`, and it authors no centre field. Its `at` is the mouth centre
+on the entry surface and `axis` the drilling direction. It resolves as a plain
+`hole` with no drawing requirements, so its ops get the ordinary hole rules:
+[`blind_depth`](rules-operations.md#blind_depth-tip-endpoints) tip endpoints
+(a through hole reads the setup's `stock_state.local_thickness.<id>` and the op's
+`exit_mm`), speeds and feeds, reach, accessibility and headroom, and `sizing`
+judges its finishing tool (the ream when there is one, else the drill) against
+`dia`. Only `drill` and `ream` make it: the ream finishes the band, the drill
+roughs it. A later setup's fixture or clamp solid whose `locates` names it is its
+locating pin ([inventory](inventory.md#kernel-geometry-facts-m4)); the always-required
+[`tooling_hole`](rules-setup.md#tooling_hole) rule judges that pin's fit and
+refuses a setup that names a hole a waste cut has removed.
+
+```toml
+[process_features.cl_tooling_hole]
+kind = "tooling_hole"
+at = [-160.8945, 24.176, 1.25]
+axis = [0.0, 0.0, -1.0]
+dia = [6.010, 6.022] # F7 on 6, sized for the carrier dowel
+thru = true
+note = "tooling hole in the -X end waste; the carrier dowel locates on it; sawn off with the waste"
+cite = ["harmonic-analyzer ch_rocker_arm_tl_oblique_trammel_spec.py CL"]
+```
 
 An `end_face` is any planar face of the stock: a turned end, or one of the six
 faces of a rectangular blank a mill squares before S1. On a rectangular root stock
@@ -465,12 +495,13 @@ part-off. On a mill
 the cutter's periphery (a blank end overhanging the vise; give the op's
 `linear_table` contour an `open_side` so its passes step in from clear air, see
 [rules-coordinates](rules-coordinates.md)). Only `center_drill` prepares a
-`centre_hole`. Such an op names exactly that one
+`centre_hole`, and only `drill` and `ream` a `tooling_hole`. Such an op names exactly that one
 feature and carries no `faces`, `checks` or `missing_requirements`: there is no
 drawing limit to inspect. Process ops resolve through the same rules as other
 cuts (speeds and feeds, reach, accessibility, headroom, tip endpoints, holding and
 the fixture model), and the kernel removes the analytic centre (countersink, pilot
-and drill point) or cuts the face away as a planar slab of the arriving stock so
+and drill point), the tooling hole (its tool's diameter, through or to depth, a
+drill's point below) or cuts the face away as a planar slab of the arriving stock so
 the setup picture and the next setup's entry stock show them. They
 earn no finished STEP coverage and no finish coverage, even when the cut lies on a
 drawing plane, and a process feature is never a drawing-requirements row. A

@@ -109,6 +109,38 @@ the cut countersink and checks it against the setup-entry stock; that check is
 a fixture render debt, not this rule. Its unknown blocks (exit 4) under any
 shop policy; an error always exits 2.
 
+## `tooling_hole`
+
+One subject per setup and plan [`tooling_hole`](plan.md#process-features) the
+setup works (an op names it) or locates on (a drawn solid of `hold.fixture` or of
+a `hold.clamps` member whose inventory `locates` names the hole), as
+`<setup>:<hole>`. A setup that does neither has no row, so a plan without tooling
+holes has none. Always required (`findings.ALWAYS_REQUIRED`): no shop-policy entry
+is needed and none can waive it. It reads the kernel's `tooling_holes` state of the
+hole on the stock entering the setup ([rules-geometry](rules-geometry.md#tooling-holes)).
+
+The pin's fit comes from the hole's `dia` band `[lo, hi]` (to mm) and the pin
+solid's own `dia_mm` under its `measured`/`verify` record: the clearance range is
+`[lo - pin, hi - pin]` mm. Before this rule, a locator's only check was the
+kernel's geometric one (the drawn pin against the cut bore,
+`thin_wall_under_clamp`); no band-based locator fit existed.
+
+- **error:** the hole is `gone` (a waste cut removed it) yet an op or a pin names
+  it; a pin stands in a hole no earlier setup of a fully routed stock lineage
+  drills, or that is still `undrilled` on the entering stock; or a pin is larger
+  than the hole's smallest size `lo`;
+- **unknown:** the hole is `partial` or its state is unknown, the kernel is
+  unavailable, the lineage is not routed, the band is unknown, or the pin is not
+  a cylinder or its size is not accepted (unknown, `verify`, or an incomplete
+  measurement record);
+- **pass:** otherwise, with the clearance range of each pin, or, for a setup that
+  only works the hole, that the entering stock still has it.
+
+Evidence: the hole, its ops in the setup, its entry state, its makers and each
+locator's pin, pin and hole diameters and clearance range. The hole itself earns
+no drawing coverage or finishing credit, and `inspection` has no requirement to
+check on it.
+
 ## `prepared_blank`
 
 One subject, `stock.prepared`; not applicable without a

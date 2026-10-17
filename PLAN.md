@@ -1380,6 +1380,18 @@ sheet.
    `measured.status = "measured"` is a measurement, and every rule's
    measurement debt reaches `tools --measure`).
 
+   **Tooling holes shipped (2026-10-17, #293):** `process_features` kind
+   `tooling_hole` (`at`, `axis`, `dia` band, `thru` or `depth`) is a locating
+   hole in the work's own waste. It resolves as a plain `hole` with no drawing
+   requirement, so its `drill`/`ream` ops get the hole rules (`sizing` judges the
+   finishing ream against the band, `blind_depth`, speeds, reach, accessibility,
+   headroom) and no coverage or finish credit. The kernel cuts the selected tool's
+   diameter through or to depth and reports each hole's state on every setup's
+   entering stock; the always-required `tooling_hole` rule judges a fixture pin
+   whose `locates` names it (clearance `[lo - pin, hi - pin]`, a pin over `lo` is an
+   error) and refuses a setup that names a hole a waste cut removed. Emits no row
+   for plans without tooling holes; example reports are unchanged.
+
    **Mill blank preparation shipped (2026-10-07, round-5 MillPrep):** a
    rectangular root stock's planar `end_face`s are the six blank faces a mill
    squares before S1, made by face ops or (ends overhanging the vise) by
