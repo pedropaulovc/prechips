@@ -474,7 +474,8 @@ vacuum   N_r    = N_i − k · F_z                                  (residual co
                                                                   a push is not credited)
          N_r ≤ 0                                                 → error (the lift alone opens the seat)
          use_xy = k · F_xy / (friction · N_r) + k · M_yaw / (friction · N_r · J_i / A_seal,i)
-         use_ot = k · M_ot / (N_i · d_i)
+         use_ot = k · M_ot / (N_r · d_i)                         (tipping about the nearest hull edge:
+                                                                  k(F_xy·h + F_z·(d + r)) ≤ N·d)
          use    = max(use_xy, use_ot)                            (already factored: pass at use ≤ 1)
          (each over every island under op k, worst op of the setup reported)
 pass     tape use ≤ 1 / k;  vacuum use ≤ 1
@@ -486,7 +487,9 @@ Combined loads are never checked one at a time. Tape's shear and peel act on
 the same adhesive, so their uses add. Vacuum friction is limited by the contact
 load the lift leaves, so the lateral check uses the residual `N_r` after the
 factored lift, with the residual pressure `N_r / A_seal` taken as uniform for
-yaw. Checking `μN` and `N` separately would pass `0.49 μN` lateral with `0.49 N`
+yaw. Overturning uses the same residual: about the nearest hull edge, the lift
+acts at most `d + r` from the edge, and moving its `k·F_z·d` share to the
+restoring side gives `N_r · d`. Checking `μN` and `N` separately would pass `0.49 μN` lateral with `0.49 N`
 lift at k = 2, leaving barely 1× of real margin.
 
 The traveler prints the margin as a factor: `1 / use` for tape, and for vacuum
@@ -756,7 +759,8 @@ tests request the shared `freecad_kernel` fixture.
   fails overturning with a tall cut at its narrow edge.
 - Combined loads: tape with `use_xy` and `use_z` each at 0.3 at k = 2 fails
   (sum 0.6 > 0.5); vacuum with `0.49 μN` lateral and `0.49 N` lift at k = 2
-  fails on the residual load, and `k · F_z ≥ N` is an error.
+  fails on the residual load, and `k · F_z ≥ N` is an error. Overturning with
+  a lift near `N / k` fails, though it would pass against the full `N · d`.
 - Seal circuit: a vacuum fixture without `seal = "laid_cord"` leaves capacity
   `?`; the HOLD prints the cord lay step at `gasket_inset_mm`.
 - Vacuum seal: a through-hole inside S at setup entry gives zero capacity from
@@ -897,7 +901,8 @@ not separately decided by the maintainer:
   carries it, which for vacuum is the sealed area (section 3.3);
 - a credited pull test raises the dwell gate to the test's dwell (section 3.4);
 - combined loads share one capacity: tape adds its shear and peel uses, and
-  vacuum friction uses the contact load left after the factored lift (section 4.3);
+  vacuum friction and overturning use the contact load left after the factored
+  lift (section 4.3);
 - the vacuum seal is a cord laid along the work's outline (`seal = "laid_cord"`);
   other seal circuits are `?` until their groove geometry is recorded (section 2.3);
 - pull tests qualify only by machine-checkable fields that must all match the
