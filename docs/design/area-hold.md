@@ -142,7 +142,7 @@ solids = [ { name = "face", shape = "box", ... } ]    # the chuck body, as for a
 | `seal` | `"laid_cord"` | how the seal circuit is made. `laid_cord`: a gasket cord laid in the chuck's open-grid grooves along the work's outline, `gasket_inset_mm` inside it, at every setup. The HOLD prints the lay step, and the gauge reading proves the circuit closed. Fixed-groove chucks, whose circuit is the groove pattern rather than the work's outline, need their groove geometry recorded and are a follow-up | capacity `?` ("seal circuit not recorded") |
 | `gasket_inset_mm` | `MeasuredLength` | inset of the cord's centreline inside the work outline | sealed area `?` |
 | `friction` | `CitedFact` | static μ of the work on the chuck face | capacity `?` |
-| `gauge` | `str` | inventory gauge read at the chuck: an item of kind `vacuum_gauge` with a trusted `range_kpa` `[lo, hi]` that contains `vacuum_kpa` and a trusted `resolution_kpa` > 0. The HOLD prints the minimum reading rounded **up** to the gauge's resolution | capacity `?` and STOP in place of the gauge row when the gauge is missing, of another kind, or its range or resolution is unknown or does not cover `vacuum_kpa` |
+| `gauge` | `str` | inventory gauge read at the chuck: an item of kind `vacuum_gauge` with trusted `range_kpa` `[lo, hi]`, `resolution_kpa` > 0 and `accuracy_kpa` >= 0. A displayed reading R proves only `R − accuracy_kpa − resolution_kpa / 2`, so the HOLD prints the minimum reading `P = ⌈(vacuum_kpa + accuracy_kpa + resolution_kpa / 2) / resolution_kpa⌉ × resolution_kpa`, and `P` itself must lie inside `range_kpa` | capacity `?` and STOP in place of the gauge row when the gauge is missing, of another kind, its range, resolution or accuracy is unknown, or `P` is outside the range |
 
 Vacuum assumes the work seats metal-to-metal on the chuck face, with the gasket
 in a groove, so the gasket adds no Z term. Raised or compressible gaskets the
@@ -397,9 +397,13 @@ The rejected alternatives are recorded for the history: model B (the
 footprint width as the front) needs a stiffness criterion the inputs don't
 carry.
 
-An unknown helix hand (the free-text `hand` field) is evaluated as a lift. That
-is a bound, not a default: a result that passes as a lift also passes as a
-push. Vacuum's lift capacity is the full normal force, so it rarely governs.
+The axial sense comes from the tool's helix and its cutting hand together,
+never from the cutting hand alone: a helix of the same hand as the cut (right
+helix with right-hand cut, or left with left) evacuates chips up and lifts the
+work; opposite hands push it down. The helix hand is its own tool fact,
+`helix_hand`, separate from the cutting `hand` that selects spindle rotation.
+Either one unknown is evaluated as a lift. That is a bound, not a default: a
+result that passes as a lift also passes as a push. Vacuum's lift capacity is the full normal force, so it rarely governs.
 
 ## 4. Force model, shared with #158
 
@@ -449,7 +453,8 @@ h_max  = fz · sin φ_e  if φ_e ≤ π/2, else fz
 n_e    = ceil(z · φ_e / 2π)              most teeth in the cut at once
 F_t    = n_e · kc1 · ap · h_max^(1 − mc) every engaged tooth at h_max: an upper bound
 F_xy   = F_t · sqrt(1 + k_r²)            lateral, in the seat plane
-F_z    = F_t · tan β                     axial, sense from the helix hand (lift when unknown)
+F_z    = F_t · tan β                     axial: lift when helix_hand equals the cutting hand,
+                                         push when they differ, lift when either is unknown
 ```
 
 The model is a deliberate **upper bound**, not a mean: every engaged tooth is
@@ -461,7 +466,8 @@ with a default:
 |---|---|---|
 | `D`, `z` | resolved tool/member (`dia_mm`, `flutes`) | `?` |
 | `β` | new tool/member `helix_deg` (`CitedFact`: a cited vendor nominal is enough) | `?` |
-| helix hand | existing `hand` text: `"right"` / `"left"` | evaluated as lift (bound) |
+| helix hand | new tool/member `helix_hand`: `"right"` / `"left"`, separate from the cutting `hand` | evaluated as lift (bound) |
+| cutting hand | existing `hand`: `"right"` / `"left"` | evaluated as lift (bound) |
 | `fz` | the op's resolved `chip_load_mm_per_tooth` (`speeds_feeds` resolution, unchanged) | `?` |
 | `ap` | op `doc_mm` (> 0) | `?` |
 | `ae` | new op `ae_mm` (0 < ae ≤ D), else D | the bound D is used |
@@ -750,8 +756,9 @@ tests request the shared `freecad_kernel` fixture.
 
 **Force model** (`_cutting_force.py`)
 - Hand-computed cases: ae = D and ae < D/2 (`h_max = fz·sin φ_e`), z = 2/3/4,
-  the `n_e` ceiling exactly at a tooth boundary, β = 0 (no axial force), left
-  hand (push), unknown hand (lift).
+  the `n_e` ceiling exactly at a tooth boundary, β = 0 (no axial force); every
+  `(helix_hand, hand)` pair: right/right and left/left lift, right/left and
+  left/right push, and either unknown lifts.
 - Each missing input leaves the result `?` naming that input; the ae bound is
   applied and reported as `ae_basis = "bound_full_slot"`.
 - Drill, reamer and tap tools are `?` ("no thrust/torque force model"); an
@@ -770,8 +777,11 @@ tests request the shared `freecad_kernel` fixture.
   keeps `h_k` at the before-op stock height, not zero.
 - A vacuum `area.ref` naming another vacuum fixture than `hold.fixture` is exit 3.
 - Vacuum gauge: a `gauge` of another kind, a range not containing `vacuum_kpa`
-  or an unknown resolution leaves capacity `?`; 80.0 kPa on a 2 kPa gauge prints
-  "at least 80"; 81.0 prints "at least 82".
+  an unknown resolution or accuracy, or a printed minimum outside the range,
+  leaves capacity `?`. On a 2 kPa gauge with 1.0 kPa accuracy, 80.0 kPa prints
+  "at least 82" (80 + 1 + 1 = 82, on the grid; a reading of 82 proves 80) and
+  81.0 prints "at least 84" (83 rounds up). A minimum of 100 on a 0–100 gauge
+  passes; one of 102 is `?`.
 - Combined loads: tape with `use_xy` and `use_z` each at 0.3 at k = 2 fails
   (sum 0.6 > 0.5); vacuum with `0.49 μN` lateral and `0.49 N` lift at k = 2
   fails on the residual load, and `k · F_z ≥ N` is an error. Overturning with
@@ -838,8 +848,8 @@ Each phase is its own PR, stacked on the previous one.
 
 | Phase | PR | Contents | Size (est.) |
 |---|---|---|---|
-| 1 | schema | `CitedFact` (+ `test`); `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`); `vacuum_gauge` `range_kpa` / `resolution_kpa`; `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
-| 2 | force | `_cutting_force.py` (endmill milling scope); `[[material]]` `kc1_n_per_mm2` / `mc` / `radial_ratio`; tool `helix_deg`; op `ae_mm`; `cutting-data.md`, `rules-physics.md` | ~400 + tests |
+| 1 | schema | `CitedFact` (+ `test`); `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`); `vacuum_gauge` `range_kpa` / `resolution_kpa` / `accuracy_kpa`; `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
+| 2 | force | `_cutting_force.py` (endmill milling scope); `[[material]]` `kc1_n_per_mm2` / `mc` / `radial_ratio`; tool `helix_deg` and `helix_hand`; op `ae_mm`; `cutting-data.md`, `rules-physics.md` | ~400 + tests |
 | 3 | kernel | seat-plane sections before and after each op, islands, centroid, polar moment, hull distance; the fixed seal circuit and its opening op; op removed-volume extent per island; the layer drawn from facts; seat check; `ENGINE_SOURCES` cache identity | ~700 + geometry tests |
 | 4 | capacity | `hold_capacity` rule (area provider: force, yaw, lift, overturning), always required for area holds, shared policy factor, pull-test schema, `thin_wall_under_clamp` change; `rules-setup.md` | ~500 + tests |
 | 5 | stack | `area_hold_stack` signed-term intervals, endpoint comparison, recipe A/B detection from `zero.z`, S0A→S0B and raw clean-up rows; `rules-coordinates.md` | ~400 + tests |
@@ -921,9 +931,11 @@ not separately decided by the maintainer:
 - the peel front and its lever are capped by the island's least width, and the
   overturning lever is the highest point the flutes can engage (section 3.3);
 - a vacuum `ref` must be the held fixture (section 2.4);
-- the vacuum gauge must be a `vacuum_gauge` whose range covers `vacuum_kpa` and
-  whose resolution is known; the printed minimum rounds up to that resolution
-  (section 2.3);
+- the vacuum gauge must be a `vacuum_gauge` with known range, resolution and
+  accuracy; the printed minimum adds the accuracy and half a step before
+  rounding up, and must itself lie in the range (section 2.3);
+- the lift sense comes from a separate `helix_hand` together with the cutting
+  `hand` (section 3.4, 4.2);
 - the vacuum seal is a cord laid along the work's outline (`seal = "laid_cord"`);
   other seal circuits are `?` until their groove geometry is recorded (section 2.3);
 - pull tests qualify only by machine-checkable fields that must all match the
