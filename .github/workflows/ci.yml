@@ -129,15 +129,20 @@ jobs:
   # shard passed and the shards together ran the full collection exactly once.
   test:
     needs: test-shard
-    # Run when a shard failed (to report it), but not when the whole run was
-    # cancelled by a newer push: a cancelled run must not post a red `test`.
-    if: ${{ !cancelled() }}
+    # Always runs, even in a cancelled run: a skipped required job counts as
+    # success, so skipping here would let a manually cancelled run satisfy the
+    # gate. A run superseded by a newer push therefore posts a red `test`; the
+    # newer run's result replaces it.
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Require every shard to pass
         shell: bash
         run: |
           echo "test-shard result: ${{ needs.test-shard.result }}"
+          if [ "${{ needs.test-shard.result }}" = cancelled ]; then
+            echo "::error::Shards were cancelled (superseded by a newer push, or cancelled by hand); this run proves nothing."
+          fi
           test "${{ needs.test-shard.result }}" = success
       - uses: actions/checkout@v4
         if: ${{ !cancelled() }}
