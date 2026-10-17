@@ -372,8 +372,11 @@ same combination applies to vacuum overturning with lift. An unknown `r_k`,
 `h_k` or island geometry (no kernel, an unresolved removed volume) leaves the
 finding `?`.
 
-The tape overturning fold uses model A's local front of length D as the lever
-of the tipping couple, capped like the front itself. It is consistent with D2 and is the only tape
+Model A already places the axial load at the nearest free edge, the most
+eccentric position it can take, so moving the cutter toward the centroid can
+only relieve the tape: the `F_z · r_k` part of `M_ot` is the peel the edge front
+already carries. The tape overturning fold adds only the lateral couple, using
+model A's local front of length D as its lever, capped like the front itself. It is consistent with D2 and is the only tape
 overturning claim datasheet facts can make. A pull test (section 3.4) replaces
 `C_z` for both the direct lift and the folded term.
 
@@ -604,11 +607,14 @@ Let P be the point where the zero is touched. For any point x under the cut,
 each term is a signed interval added to the nominal thickness `to_z`:
 
 **Recipe A, Z from the plate.** Touch the plate top beside the work (with paper
-or a gauge block). Printed: `Axis Set Z = −t_nom + paper_mm`. The printed touch
-point P must lie on the `on` solid's top face, the face `flatness_mm` covers,
-and off the work's footprint. A point the kernel cannot place on that face
-(off the plate, on another solid, or inside the footprint) makes the stack row
-an error, because the plate term would no longer be bounded by `f`.
+or a gauge block). Printed: `Axis Set Z = −t_nom + paper_mm`. The touch point
+P is a plan fact: a new `zero.z.at_mm = [x, y]` in the setup frame, which recipe
+A under an area hold requires and the HOLD prints ("touch the plate at X …,
+Y …"). The kernel projects it onto the posed `on` face. It must land on that
+solid's top face, the face `flatness_mm` covers, and off the work's footprint.
+A missing `at_mm` is `?`; a point off the plate, on another solid or inside the
+footprint is an error, because the plate term would no longer be bounded by
+`f`. P is never read from prose.
 
 ```text
 thickness(x) = to_z + (t_nom − t(x)) + (Z_p(P) − Z_p(x)) + e_touch + e_dro
@@ -881,7 +887,7 @@ tests request the shared `freecad_kernel` fixture.
 - The S0A→S0B clean-up row: positive, zero and negative `T_A,lo − T_B,hi`; the
   raw clean-up row with `raw_min − T_A,hi` at both signs.
 - Seat check: a pose written for 0.10 tape with a 0.25 gap is an error.
-- Recipe A touch point: on the `on` face off the footprint passes; off the
+- Recipe A touch point: a missing `zero.z.at_mm` is `?`; on the `on` face off the footprint passes; off the
   plate, on another solid or inside the footprint is an error.
 - Release: an uncited tape or chuck release prints the STOP; a cited one prints
   its steps.
@@ -916,7 +922,7 @@ Each phase is its own PR, stacked on the previous one.
 
 | Phase | PR | Contents | Size (est.) |
 |---|---|---|---|
-| 1 | schema | `CitedFact` (+ `test`, `pairs`); solid `flatness_mm`; gauge `accuracy_mm`; `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`, `release`); `vacuum_gauge` `range_kpa` / `resolution_kpa` / `accuracy_kpa`; `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
+| 1 | schema | `CitedFact` (+ `test`, `pairs`); solid `flatness_mm`; gauge `accuracy_mm`; `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`, `release`); `vacuum_gauge` `range_kpa` / `resolution_kpa` / `accuracy_kpa`; `hold.area`; `zero.z.at_mm`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
 | 2 | force | `_cutting_force.py` (endmill milling scope); `[[material]]` `kc1_n_per_mm2` / `mc` / `radial_ratio`; tool `helix_deg` and `helix_hand`; op `ae_mm`; `cutting-data.md`, `rules-physics.md` | ~400 + tests |
 | 3 | kernel | seat-plane sections before and after each op, islands, centroid, polar moment, hull distance; the fixed seal circuit and its opening op; op removed-volume extent per island; the layer drawn from facts; seat check; `ENGINE_SOURCES` cache identity | ~700 + geometry tests |
 | 4 | capacity | `hold_capacity` rule (area provider: force, yaw, lift, overturning), always required for area holds, shared policy factor, pull-test schema, `thin_wall_under_clamp` change; `rules-setup.md` | ~500 + tests |
@@ -1007,6 +1013,7 @@ not separately decided by the maintainer:
 - the plate's flatness covers its whole top face, and recipe A's touch point
   must lie on it; releases need a cited record, and vacuum gains its own release
   (sections 2.3, 2.7, 5.2, 6.1);
+- recipe A's touch point is a plan field, `zero.z.at_mm`, never prose (section 5.2);
 - recipe B requires `measure_before_hold = true`, since the work cannot be
   miked once taped (section 5.2);
 - a pull test's dwell is a trusted measured fact, and step 7 prints the
