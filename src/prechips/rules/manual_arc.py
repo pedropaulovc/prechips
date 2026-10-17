@@ -289,7 +289,7 @@ def _rough(bundle, op, name):
         if other.get("do") in HAND_FINISH:
             found = []
         method = record(other.get("contour")).get("method")
-        if method in ROUGH_METHODS and _recut_by(bundle, other) is None:
+        if method in ROUGH_METHODS and _recut_by(bundle, other, lineage) is None:
             found.append(f"{sid} op {other.get('op', UNKNOWN)}")
     return " and ".join(found) or None
 

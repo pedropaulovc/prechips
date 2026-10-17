@@ -944,13 +944,14 @@ def saw_station(bundle, setup, op):
     (a known pair that cannot, or a non-saw tool); ``"unknown"`` while the tool or the
     machine is unresolved or unverified (debt never establishes a fit or a mismatch)."""
     tool = saw_tool(bundle, op)
+    if tool == "not_a_saw":
+        # No machine can make a verified non-saw a saw.
+        return "wrong_station"
     machine = record(resolve(bundle, "machines", setup.get("machine")))
     kind = machine.get("kind", UNKNOWN)
     if tool in ("unknown", "unverified") or kind == UNKNOWN or uncertain(machine):
         return "unknown"
-    if tool == "not_a_saw" or kind not in SAW_MACHINES[tool]:
-        return "wrong_station"
-    return "fits"
+    return "fits" if kind in SAW_MACHINES[tool] else "wrong_station"
 
 
 def saw_setup(setup):

@@ -86,7 +86,7 @@ def _saw_assembly(bundle, subject, setup, op, tool, machine, machine_ref):
             (nums["machine_kind"], SAW_MACHINE_KINDS, "machine"),
             (nums["tool_kind"], SAW_TOOL_KINDS, "tool"),
         ):
-            if kind not in accepted:
+            if kind not in accepted and kind != UNKNOWN:
                 problems.append(
                     f"{label} kind {kind} cannot run a saw cut "
                     f"(accepted: {', '.join(sorted(accepted))})"

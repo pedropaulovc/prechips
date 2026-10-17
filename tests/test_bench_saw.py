@@ -255,6 +255,7 @@ IDENTITY_CASES = [
     ({"kind": "bandsaw"}, "manual", True, "bandsaw", "wrong_station"),
     ({"kind": "bandsaw", "verify": True}, "lathe", False, "unverified", "unknown"),
     ({"kind": "endmill"}, "bench", True, "not_a_saw", "wrong_station"),
+    ({"kind": "endmill"}, "unknown", True, "not_a_saw", "wrong_station"),
     ({"kind": "unknown"}, "bench", True, "unknown", "unknown"),
     (None, "bench", True, "unknown", "unknown"),
     ({"kind": "hand_saw"}, "unknown", True, "hand_saw", "unknown"),
@@ -394,6 +395,14 @@ def test_a_saw_to_the_scribed_line_roughs_the_arc_for_the_file():
     )
     stairs["setups"][2]["ops"].append(filed)
     assert _rough(SimpleNamespace(plan=stairs), filed, "arc") is None
+    # A rough on another workpiece after this one does not recut it away from the file.
+    recut = deepcopy(data)
+    filed = recut["setups"][1]["ops"].pop()
+    rough = {"op": 5, "do": "rough_profile", "feature": "arc", "contour": {"method": "stairs"}}
+    recut["setups"][1]["ops"] = [rough]
+    recut["setups"].append({"id": "R2", "stock_in": "stock", "ops": [{**rough, "op": 6}]})
+    recut["setups"].append({"id": "S3", "stock_in": "S2", "ops": [filed]})
+    assert _rough(SimpleNamespace(plan=recut), filed, "arc") == "S2 op 5"
     # A file on another workpiece in between does not take this saw's stock.
     between = deepcopy(data)
     filed = between["setups"][1]["ops"].pop()
