@@ -61,7 +61,7 @@ def git(*args):
 
 def changed_files(base):
     merge_base = git("merge-base", base, "HEAD")[0]
-    tracked = git("diff", "--name-only", merge_base)
+    tracked = git("diff", "--name-only", "--no-renames", merge_base)
     untracked = git("ls-files", "--others", "--exclude-standard")
     return sorted(set(tracked) | set(untracked))
 
