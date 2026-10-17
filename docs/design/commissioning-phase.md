@@ -185,9 +185,23 @@ Each collision is an error naming the duplicated key.
 
 **Gauges.** A reading's gauge (the `align` op's `gauge`, an `accept` op's
 `checks`) must resolve to an inventory `gauges` item, as an inspection check's
-gauge does. Its resolution must be no coarser than the reading's tolerance or
-band, and its range must span the predicted value. An unresolved or untrusted
-gauge leaves the reading `?`; a gauge too coarse for the band is an error.
+gauge does. What it must span depends on what produces the value:
+
+- a **DRO coordinate** (`align`, and `dro_xy`): the machine's DRO gives the
+  value, and the gauge, a coaxial indicator or edge finder, only centres the
+  element under the spindle. The predicted coordinate must lie inside the
+  commissioning setup's machine travel (`machines.<id>.envelope`), and the DRO
+  resolution must be no coarser than the tolerance or band. The gauge's
+  resolution must be no coarser than the tolerance, and its range need only
+  cover the centring deviation, at least the tolerance either side. So the
+  −395.89 mm target of `rail_a.pin@400` is checked against the table's travel,
+  not against the indicator;
+- **every other quantity** (`sagitta`, `width`, `distance`, `size`, `z`): the
+  gauge gives the value, so its range must span the predicted value and its
+  resolution must be no coarser than the band.
+
+An unresolved or untrusted gauge or machine fact leaves the reading `?`. A gauge
+or DRO too coarse for the band, or a target outside the travel, is an error.
 
 ### 2.4 In-situ fixture features
 
@@ -366,8 +380,16 @@ Per reading:
 |---|---|---|
 | unknown (an input fact is missing or untrusted) | any | `?`: the prediction's own `measure:` debts, plus "reading cannot be judged" |
 | known | absent, or an untrusted `Measurement` | `?`: `measure: <key> — <what>, predicted <value> ± <tol>` |
-| known | trusted, `|read − predicted|` within the band | pass |
-| known | trusted, outside the band | `✗`: names the reading, the prediction, the band and the excess |
+| known | trusted, deviation inside the band | pass |
+| known | trusted, deviation outside the band | `✗`: names the reading, the prediction, the band and the excess |
+
+The deviation is **signed**: `d = read − predicted`. A band is `[low, high]`
+relative to the prediction, and the reading passes only when
+`low ≤ d ≤ high`, both ends inclusive. A symmetric `float` band `b` means
+`[−b, b]`, and an `align` tolerance `t` means `[−t, t]`. One-sided fit bands
+keep their sign. With `hub_size`'s `[0.0, 0.015]` and a predicted 8.000, a
+7.990 reading has `d = −0.010` and fails as undersize; 8.000 to 8.015 passes. A
+`dro_xy` or `align` reading applies the band to each axis separately.
 
 A torque step passes only on a trusted `steps` entry. An in-situ drill or ream op
 passes as an op by the ordinary rules. Its **location** is trusted only through
@@ -827,7 +849,12 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
 - `status = "illustrative"`;
 - `verify = true`;
 - incomplete `measured`;
-- in band, exactly at the band edge, and outside the band.
+- in band, exactly at each band edge, and outside the band on either side;
+- an asymmetric band `[0.0, 0.015]`: an undersize reading (`d < 0`) fails even
+  when `|d|` is within 0.015;
+- a DRO target inside the machine travel with an indicator whose range is far
+  smaller than the coordinate → no gauge error; a target outside the travel →
+  error.
 
 Also:
 
