@@ -497,32 +497,40 @@ def _capability(
                     nums["leaf_tolerance_mm"] = UNKNOWN if tolerance is None else tolerance
             if not (isinstance(span, list) and all(number(v) for v in span) and number(resolution)):
                 message = "gauge range or resolution unresolved"
+            elif limit is not None and not span[0] <= limit <= span[1]:
+                status, message = "error", "limit check: gauge has no leaf at the MAX limit"
             elif limit is not None and tolerance is None:
                 message = "limit check: gauge leaf tolerance unresolved"
             elif limit is not None:
                 # Go/no-go at the limit: a leaf at or under R MAX seats without rocking on a
                 # corner at or under it. A leaf marked L may really be L + t, accepting
-                # corners past the limit, so the leaf read is one at or under r - t. Sharp
-                # needs no leaf, so the band is never read across.
+                # corners past the limit, so the leaf read must be one at or under r - t.
+                # Sharp needs no leaf, so the band is never read across.
                 guard = limit - tolerance
-                if span[0] <= limit <= span[1] and guard < span[0]:
+                if guard < span[0]:
                     status, message = (
                         "error",
                         f"limit check: the leaf's ±{tolerance:g} tolerance crosses the MAX "
                         "limit (no leaf at or under the limit less its tolerance)",
                     )
-                elif not span[0] <= guard <= span[1]:
-                    status, message = "error", "limit check: gauge has no leaf at the MAX limit"
                 elif resolution > limit:
                     status, message = (
                         "error",
                         "limit check: gauge resolution exceeds the MAX limit",
                     )
+                elif tolerance > 0:
+                    # Only a leaf under the limit is safe, and the traveler prints the band
+                    # and gauge, never which leaf: the operator would reach for the limit's.
+                    nums["leaf_max_mm"] = guard
+                    message = (
+                        f"limit check: only a leaf at or under R{guard:g} reads the limit, "
+                        "and the traveler does not name it"
+                    )
                 else:
                     status, message = (
                         "pass",
-                        "limit check: a gauge leaf at or under the MAX limit, less its "
-                        "tolerance, reads go/no-go (not a reading across the band)",
+                        "limit check: a gauge leaf at or under the MAX limit reads go/no-go "
+                        "(not a reading across the band)",
                     )
             else:
                 nums["band_mm"] = value[1] - value[0]
