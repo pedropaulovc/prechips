@@ -786,8 +786,9 @@ corner and has no edge there.
 - **Radius or chamfer mouth:** the break leaves a groove round the spigot, neither a
   fillet nor a sharp corner, so the join is refused.
 - **Mouth not on a flat face:** the break can only be placed on a flat socket face
-  square to the axis. An authored end in air, or a saddle on a curved face, leaves the
-  join unknown.
+  square to the axis. An authored end in air, or a saddle on a curved face, turns a
+  formed feature that passes every other check into debt. A thru socket authored past
+  its material is such a case.
 - **Omitted or unknown break:** the formed feature is debt. Lost material at its
   faces withholds the joined stock; loss elsewhere is still refused.
 
@@ -798,7 +799,8 @@ Beyond that, no material may be missing beyond the band's MAX, and the band must
 start at 0. `coverage` credits the faces to the joint only when the last op that
 names the feature and checks its `radius` band, in the joint's setup or a setup
 downstream of it, passes. Without such a check the credit is debt. A [limit
-leaf](rules-inspection.md) at or under the MAX is enough:
+leaf](rules-inspection.md) at or under the MAX is enough when the gauge declares no
+leaf tolerance (or zero):
 
 ```toml
 [setups.joint]

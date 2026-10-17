@@ -275,7 +275,9 @@ hold:
 3. The last op that names the feature and checks its `radius` band, in the joint's
    setup or one downstream of it, passes that check under
    [inspection's](rules-inspection.md) gauge capability rule. A leaf at or under
-   the `[0, r]` limit, less its tolerance, is enough. A check on an op naming another
+   the `[0, r]` limit is enough when the gauge declares no leaf tolerance (or zero).
+   With a positive tolerance the check is unknown until the traveler names the safe
+   leaf. A check on an op naming another
    feature reads that feature, not this one.
 
 If the inspection is missing or not a pass, or the join is unresolved, the credit
@@ -961,10 +963,14 @@ branches:
   far end too when `thru`. A radius or chamfer mouth leaves a groove round the
   spigot that no neighbour surface bounds, so the join is refused (`the socket's
   <kind> <size> mouth break leaves a groove, not a fillet or a sharp corner`). A break
-  is placed only on a flat socket face square to the axis: its annulus must be full
-  of socket material inside the mouth plane and empty outside it. An authored end in
-  air, or a saddle on a curved face, leaves the join unknown. An undeclared or
-  unknown break is debt.
+  is placed only on a flat socket face square to the axis: the material it leaves in
+  its annulus must be present inside the mouth plane, and nothing may lie outside it.
+  A mouth the received socket already shows broken therefore places. The break is
+  cut only after the join's certain checks (fit, overlap, insertion, fill process).
+  A mouth that cannot be placed, such as an authored end in air or a saddle on a
+  curved face, turns a feature that passes every other check into debt. It never
+  hides a refusal, such as a groove at the other mouth. A thru socket authored past
+  its material is such a case. An undeclared or unknown break is debt.
 - No lost point, sampled faces and vertices included, lies farther from the formed
   faces than the band's MAX. Material missing beyond the band stays lost.
 - The corner shares area with both received branches. A corner that one branch
@@ -974,7 +980,9 @@ branches:
 
 Each of these failures refuses the join with its message. An unknown band, units
 or mouth break makes a formed feature debt. So does a known feature whose lost
-material is shared with an undecided one. Lost material left at an undecided
+material is shared with an undecided one, transitively and whatever the order of
+`forms`. Only the shared pieces are excused with it, and the feature's other loss
+is still refused. Lost material left at an undecided
 feature's faces then withholds the joined stock instead of refusing it. Lost
 material elsewhere is still a certain refusal. Two cases withhold the stock for any
 leftover loss: a feature whose faces are unknown, since nothing says where its corner
