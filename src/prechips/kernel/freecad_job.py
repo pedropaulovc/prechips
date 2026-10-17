@@ -5011,7 +5011,8 @@ class _Setup:
         """Each plan tooling hole's state on the stock entering this setup, by name.
 
         The probe is the hole's band in the setup frame over its span (its depth, or through
-        the stock): ``undrilled`` while stock fills its core (half its smallest radius),
+        the stock): ``undrilled`` while stock fills its core (half its smallest radius) in
+        the first 1 mm below the mouth,
         ``gone`` once no stock stands within 1 mm of its largest wall (a waste cut took it),
         ``present`` when its core is clear and that ring is whole stock, else ``partial``
         (cut into, or a span the stock does not fill). Placement it cannot model is
@@ -5048,7 +5049,8 @@ class _Setup:
                 raise _Unknown(f"{spec.get('label')} depth is unknown")
             low, high = 0.0, depth
         base, length = entry + direction * low, high - low
-        core = Part.makeCylinder(band[0] / 4, length, base, direction)
+        # Opened at its mouth: a blind hole's ops may legitimately stop short of ``depth``.
+        core = Part.makeCylinder(band[0] / 4, min(length, 1.0), entry, direction)
         if self.part.common(core).Volume > HIT_MM3:
             return "undrilled"
         ring = Part.makeCylinder(outer, length, base, direction).cut(
@@ -5235,6 +5237,10 @@ class _Setup:
                 exact, led = (self._placed(s[0].fuse(s[1:]).removeSplitter()) for s in (exact, led))
         except _Unknown as exc:
             return None, str(exc)
+        if cut.get("kind") == "tooling_hole":
+            why = self._tooling_mouth(cut, stock if meets is None else meets)
+            if why is not None:
+                return None, why
         # A through tooling hole runs out of the stock by design.
         outside = 0.0 if cut.get("thru") else exact.cut(stock).Volume
         if outside > STOCK_MM3:
@@ -11257,9 +11263,11 @@ class _Setup:
         """(full-diameter length from the mouth, point length, tan(point angle / 2) or None)
         of a tooling hole's tool (``process_cut``) fed from setup-frame ``entry`` along
         ``direction``. A blind hole's body runs the op's ``op_depth_mm``; a through one runs
-        to the far side of ``stock`` near its axis (within the band's largest radius, so an
-        earlier op's bore does not hide it) plus the op's ``exit_mm``, as ``blind_depth``
-        prints it. A drill's point cone runs on below either."""
+        its planned ``through_mm`` (the setup's ``local_thickness`` plus the op's
+        ``exit_mm``), as ``blind_depth`` prints it, never a depth the geometry suggests. A
+        plan that stops short of the far side of ``stock`` near its axis (within the band's
+        largest radius, so an earlier op's bore does not hide it) is not a through hole and
+        leaves the cut unknown. A drill's point cone runs on below either."""
         radius = cut["diameter_mm"] / 2
         angle = cut.get("point_angle_deg")
         slope = math.tan(math.radians(angle / 2)) if _number(angle) else None
@@ -11275,7 +11283,37 @@ class _Setup:
         far = _axis_extent(common, direction)[1] - entry.dot(direction)
         if far <= PLANE_TOL:
             raise _Unknown(f"{cut['label']} stock lies behind its mouth, not along its axis")
-        return far + cut["exit_mm"], point, slope
+        planned = cut["through_mm"]
+        if planned < far - BBOX_TOL:
+            raise _Unknown(
+                f"{cut['label']} planned through exit (local_thickness plus exit_mm, "
+                f"{_r(planned)} from the mouth) stops {_r(far - planned)} short of the far "
+                "side of the stock"
+            )
+        return planned, point, slope
+
+    def _tooling_mouth(self, cut, stock):
+        """Why a tooling hole's mouth is not on the exposed surface of ``stock``, else None.
+
+        The ring just outside the tool (0.5 mm wide, from STOCK_TOL to 0.5 mm below the
+        mouth) must be whole stock: a mouth above the surface, or the surface cut lower
+        than ``at``, leaves air in it. The ring, not the bore, so a second pass in a hole
+        an earlier op opened still finds its mouth."""
+        at, axis = _process_place(cut)
+        entry = self.matrix.multVec(at)
+        direction = (self.matrix.multVec(at + axis) - entry).normalize()
+        radius = cut["diameter_mm"] / 2
+        base, length = entry + direction * STOCK_TOL, 0.5 - STOCK_TOL
+        ring = Part.makeCylinder(radius + 0.5, length, base, direction).cut(
+            Part.makeCylinder(radius, length, base, direction)
+        )
+        air = ring.Volume - stock.common(ring).Volume
+        if air > STOCK_MM3:
+            return (
+                f"{cut['label']} mouth is not on the stock's exposed surface "
+                f"({_r(air)} mm^3 of air in the 0.5 mm ring below it)"
+            )
+        return None
 
     def _tooling_solid(self, cut, stock, lead=0.0):
         """A tooling hole's setup-frame cut in ``stock``: its tool's full-diameter body from

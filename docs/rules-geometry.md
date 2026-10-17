@@ -331,20 +331,25 @@ diameter, over its `depth` or, through, the stock's extent along its axis. Its
 also its accepted `point_angle`) from 1 mm above the mouth along the hole axis,
 which must be setup -Z: a blind hole to the op's full-diameter `depth_mm` (the
 feature's `depth` bounds it, as in
-[`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)), a through hole to
-the far side of the stock near its axis plus the op's `exit_mm`, a drill's point
-cone below either, minus protected finished material; a reamer's accepted `lead`
-runs on below its full diameter for the tool and holder checks. A blind hole
-must lie wholly inside the stock and its mouth may have no stock over it within
-the lead, as for a centre. An unknown tool diameter, point angle or reamer lead,
-an unknown op `depth_mm` in a blind hole, or an unknown `exit_mm` through the
-stock, is a refused input and leaves the cut unknown. The
+[`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)), a through hole
+to the setup's `stock_state.local_thickness.<id>` plus the op's `exit_mm`, a
+drill's point cone below either, minus protected finished material; a reamer's
+accepted `lead` runs on below its full diameter for the tool and holder checks. A
+through plan that stops short of the far side of the stock near the hole's axis
+is not a through hole: its cut stays unknown. A blind hole
+must lie wholly inside the stock. Either way the mouth may have no stock over it
+within the lead, and the 0.5 mm ring just outside the tool, from the mouth to
+0.5 mm below it, must be whole stock (a mouth floating above the surface, or a
+surface cut lower than `at`, leaves air there). An unknown tool diameter, point angle or reamer lead,
+an unknown op `depth_mm` in a blind hole, or an unknown `exit_mm` or
+`local_thickness` through the stock, is a refused input and leaves the cut unknown. The
 op then measures the plain axial tool and holder like any drill or reamer.
 
 Every setup's facts carry `tooling_holes`, each hole's state on the stock entering
 that setup, but only when the plan declares one. The probe runs in the setup
 frame over the hole's span: `undrilled` while stock fills its core (half its
-smallest radius), `gone` once no stock stands within 1 mm of its largest wall,
+smallest radius) in the first 1 mm below the mouth (a blind hole's ops may stop
+short of `depth`), `gone` once no stock stands within 1 mm of its largest wall,
 `present` when its core is clear and that ring is whole stock, else `partial`; an
 unplaceable hole is unknown with a reason. A saw cut or any other waste cut that
 takes the hole's material takes the hole: a later setup sees it `gone`. The

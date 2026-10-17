@@ -278,6 +278,8 @@ def test_the_kernel_job_carries_the_drilled_hole_and_its_exit(tmp_path):
     assert ream["process_cut"]["diameter_mm"] == REAMER
     assert ream["process_cut"]["exit_mm"] == 2.0
     assert ream["process_cut"]["lead_mm"] == 1.0
+    # Through: the authored local thickness plus exit_mm, as blind_depth prints it.
+    assert ream["process_cut"]["through_mm"] == pytest.approx(THICKNESS + 2.0)
     drill = next(op for op in s1["ops"] if op["subject"] == "S1:10")
     assert drill["process_cut"]["point_angle_deg"] > 0
 
@@ -346,3 +348,15 @@ def test_the_issue_route_on_the_real_kernel(tmp_path, freecad_kernel):
     assert found["T3:cl_tooling_hole"].status == "pass"
     assert found["T5:cl_tooling_hole"].status == "error"
     assert found["T5:cr_tooling_hole"].status == "pass"
+
+
+def test_a_through_hole_without_a_planned_thickness_is_not_cut(tmp_path):
+    plan = bundle_plan(tmp_path)
+    plan.write_text(
+        plan.read_text(encoding="utf-8").replace(f"cl_tooling_hole = {THICKNESS}\n", "", 1),
+        encoding="utf-8",
+    )
+    job = kernel.engine_job(prepared_job(load_bundle(plan)))
+    (s1,) = [setup for setup in job["setups"] if setup["id"] == "S1"]
+    ream = next(op for op in s1["ops"] if op["subject"] == "S1:20")
+    assert "local_thickness.cl_tooling_hole is unknown" in ream["process_cut"]["reason"]
