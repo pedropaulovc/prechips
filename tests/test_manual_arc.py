@@ -3192,3 +3192,49 @@ def test_chain_missing_finished_geometry_owes_debt_without_printed_holes(kind):
     assert not actual_errors and actual_debts
     assert any("finished line" in debt for debt in actual_debts)
     assert all(key not in table for key in ("hole_clear_mm", "drill_dia_mm", "stock_left_mm"))
+
+
+SEMICIRCLE = (
+    "kind = 'profile'\nrequirements = ['radius']\nradius = [9.9, 10.1]\n"
+    "radius_nominal = 10.0\narc_centre = [20.0, 10.0, 0.0]\narc = 'upper_semicircle'\n"
+)
+SHORT_CONCAVE = (
+    "kind = 'profile'\nrequirements = ['radius']\nradius = [9.9, 10.1]\n"
+    "radius_nominal = 10.0\narc_centre = [20.0, 10.0, 0.0]\nend = [26.0, 2.0]\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("target", "step"),
+    [(ARC, 180.0), (ARC, 270.0), (ARC, 360.0), (SEMICIRCLE, 200.0)],
+    ids=["full-180", "full-270", "full-360", "semicircle-200"],
+)
+def test_rotary_rows_half_a_turn_or_more_apart_are_an_error(tmp_path, target, step):
+    # Rows that far apart read as the short way round: the cutting order and the table's
+    # turn would come from that chord, not the cut's own sense (#277).
+    row = rotary(tmp_path, step=step, target=target)
+    assert row.status == "error", row.sentence
+    assert "set step_deg under 180" in errors(row)
+    assert not arcs(row, 20)
+
+
+@pytest.mark.parametrize(
+    ("target", "step", "ends"),
+    [
+        (ARC, 30.0, (0.0, 360.0)),
+        (ARC, 179.0, (0.0, 360.0)),
+        (SHORT_CONCAVE, 180.0, None),
+        (SHORT_CONCAVE, 270.0, None),
+    ],
+    ids=["full-30", "full-179", "short-180", "short-270"],
+)
+def test_rotary_rows_under_half_a_turn_apart_keep_the_cut_sense(tmp_path, target, step, ends):
+    # A step of 180 or more on an arc shorter than half a turn leaves only its two ends,
+    # under half a turn apart: the order is still determined.
+    row = rotary(tmp_path, step=step, target=target)
+    assert row.status == "pass", row.sentence
+    (table,) = arcs(row, 20)
+    rows = [r["angle_deg"] for r in table["rows"]]
+    if ends:
+        assert (rows[0], rows[-1]) == ends
+    assert table["rotary"]["rotation"] == ("clockwise" if target == ARC else "counterclockwise")

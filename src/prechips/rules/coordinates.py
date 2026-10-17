@@ -671,6 +671,22 @@ def _samples(start, end, step):
     return list(reversed(values)) if reverse else values
 
 
+def _row_spacing(rows, label, errors):
+    """Consecutive rows half a turn or more apart leave the cutter's path between them
+    undetermined: the chord between two such rows reads as the short way round, so
+    neither the rows' cutting order nor the work's turn can be told from them. An error;
+    rows under half a turn apart fix both. :func:`_samples` never spaces rows wider than
+    ``step_deg``, so a ``step_deg`` under 180 always does, and a wider one only errs when
+    the arc is long enough to leave such a gap."""
+    angles = [row.get("angle_deg") for row in rows]
+    gaps = [abs(b - a) for a, b in itertools.pairwise(angles) if number(a) and number(b)]
+    if gaps and max(gaps) >= 180.0:
+        errors.append(
+            f"{label}: rows {max(gaps):g}° apart, half a turn or more, leave the way the "
+            "work turns between them undetermined; set step_deg under 180°"
+        )
+
+
 def _cross(a, b):
     return a[0] * b[1] - a[1] * b[0]
 
@@ -3831,11 +3847,16 @@ def _rotary(bundle, setup, op, arc, table, band, features, frame, frames, label,
     reading to the stop reading, both rounded inward to the dial's resolution: an arc
     shorter than that leaves no reading inside it, an error. A table flagged to verify is
     a debt, and the setup-entry stock must swing inside the table's ``max_work``.
-    Geometry is plan units, ``scale`` mm per unit."""
+    Rows under half a turn apart (:func:`_row_spacing`) make the rows' order follow the
+    cut's sense and each step's shortest angle the table's true turn; wider rows are an
+    error. Geometry is plan units, ``scale`` mm per unit."""
     if table is None:
         return [f"{label}: rotary_table needs the work held on a rotary table (hold.fixture)"], []
     contour = mapping(op.get("contour"))
     errors, debts = [], []
+    _row_spacing(arc["rows"], label, errors)
+    if errors:
+        return errors, debts
     if table["uncertain"]:
         debts.append(f"{label}: the rotary table {table['id']} is flagged to verify")
     centre = arc["centre_setup_xy"]
