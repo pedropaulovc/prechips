@@ -941,6 +941,13 @@ a contained cone apex or sphere pole) extends the column. A wider back
 countersink is therefore not reserved, and a blind hole's column stops at its
 actual cap rather than running on as an unbounded rod; pins or rods outside
 that span are not reserved hole stock.
+In a built-up plan a column is reserved only inside the ownership regions of the
+components on the op's branch, the regions that divide finished material between
+them (a spigot's full joint cylinder, its socket's space outside that cylinder, a
+surface joint's side): before joining, a bore in another component's region is
+that component's future hole, so the branch's cutters remove the raw stock over it
+and none of it stands as an island or obstacle. A one-piece part, a stock root no
+joint divides and an assembly holding every owner keep each column whole.
 A milling profile op (`profile`, `rough_profile`, `finish_profile`) with no
 `stock_removal_bounds` clears its cutter corridor beside its vertical claimed
 walls and the sweep of the cutter-centre paths the traveler prints for it,
@@ -977,6 +984,21 @@ protected-leave material never taken): the box is then its removal, as for
 any bounded op. It is not a demonstrated toolpath or measured execution. An
 explicit break-out/chisel phase or schema is tracked in
 [#213](https://github.com/pedropaulovc/prechips/issues/213), not implied here.
+A `guided_sweep` table ([rules-coordinates](rules-coordinates.md), issue
+[#255](https://github.com/pedropaulovc/prechips/issues/255)) is a driven path in
+the work's frame: the setup frame rides the work on its swing arm or sled, so the
+locked cutter traces the printed cutter-centre arc in it, and the kernel credits
+and checks it exactly like any milling table (corridor beside the claimed wall,
+the rows as chords, a cutter cylinder at every row). Its rows span the whole
+declared sweep, so the cutter's run past each arc end is judged too: a run into
+finished material (a tip wall rising at a concave end) is a rule A′ hit the
+coordinates rule cannot see. The carrier's own `solids` (posed by `hold.pose`)
+move with the work and are checked in the same frame. The pivot post or the
+rollers fixed to the table move relative to the work, so they are never
+fixture components: an arc sled's rollers are drawn render-only at the setup's
+mid-sweep pose (see [Renders](#renders)), and no checkpoint, clash, contact or
+clearance reads them. No removal or hit code in `freecad_job.py` knows the
+method.
 **Rule A′** limits every printed table, row by row: a printed
 row is an accessibility error naming the row when its cutter meets the finished
 part or the op's rough leave (its guard), a fixture component, stock outside a
@@ -1159,6 +1181,61 @@ line keeps the box removal but leaves the finding `?`; an empty finished target 
 `retained_to_target_mm` unknown. The finding reports `follows`, the declared box,
 `allowance_mm`, `retained_to_target_mm` and the before/after and removed volumes;
 it has no kerf or offcut volume.
+
+### Keep piece
+
+A held split keeps every piece, so a frame filed or cut free of the part stays
+in the in-process stock until an op says which piece leaves the setup. An op's
+`keep = "<feature>"` does that. The host sends the setup's `keep` entries
+(`{subject, feature, after}`) in the kernel job only when there are any, so they
+key the geometry cache and a plan without them sends the same job as before.
+`after` is the last op sent to the kernel at or before the keep op in the
+setup's route. A `release` or other manual op is never sent, so its keep acts
+on the stock that the cut before it leaves. With no such cut it acts on the
+entering stock.
+
+After that op, the stock pass keeps the one piece that carries every face of
+the feature. A piece carries a face when no more of the face than the
+face-signature area tolerance (1e-6 mm² or 1e-6 of its area, whichever is
+larger) lies off it. Every other piece is discarded. The before-op stock of
+later ops in the setup (what their flutes, reach and shank checks meet),
+`stock_out`, the next setups' entry stock (`stock_bbox_mm`, `stock_faces_mm`)
+and so their `stock_state` checks see only the kept piece. Within the keep's
+own setup, holder obstacles, holding and the picture keep the setup-entry
+stock, as they do for every earlier cut, so a dropped offcut can still meet a
+later op's holder there; key the keep to the setup's last cut, usually by
+placing it on the `release`, to avoid that. A keep never
+changes the held-split proof: each piece must still be held while the split
+stands. The kept and discarded pieces are recorded under the setup's `keeps`,
+keyed by the keep op, each with its number, volume (mm³) and bbox (setup frame,
+mm). A one-piece stock keeps that piece and discards nothing.
+
+The keep is never a guess. Each of these leaves no carrier, makes the stock
+after the keep op unknown (`<op>: <reason>`), and leaves every later setup's
+stock unknown. The op's own cut stays credited:
+
+- `keep` is `"unknown"`, or names a feature the part does not have;
+- the feature's faces are unresolved;
+- no piece carries the whole feature;
+- the feature spans two or more pieces;
+- two pieces each carry it.
+
+A keep never scraps finished material. If a discarded piece would hold more than
+1e-3 mm³ of any received component's finished share (its component-owned
+finished material; `stock` for a single supply), the keep is an **error** naming
+the piece, the component and the volume, and the stock after it is unknown. Scrap
+such as a frame round the part holds none, so it is discarded as before.
+
+Each reason names what to change. The `keep_piece` finding of the keep op (always
+required, so its `?` blocks whatever the policy lists) logs
+the result: `pass` with the kept piece and each discarded piece's volume and
+bbox, `✗` when a discarded piece would scrap finished material, or `?` with the
+reason. A keep that names no feature is `?` even without
+the kernel. With no kernel, or with stock already unknown before the keep, the
+row is `?` for that reason.
+The traveler prints the keep on its op's row: "Keep the piece that carries
+<feature>; discard the other piece" (the count of pieces the kernel discarded
+when `keep_piece` passed, else "discard every other piece").
 
 ### Jaw placement
 
@@ -1450,7 +1527,8 @@ anchored fixture component: a fixture body, jaw, parallel, riser, chuck jaw or
 body, dividing head or centre, never a clamp, rest or other stock piece. The
 holding must be placed. `locate`, `none` and an undeclared restraint never
 hold. The op's `split_hold` lists each piece (number, volume, bbox, `held`,
-and the clamp, sample, exit point and support that hold it). Otherwise the
+and the clamp, sample, exit point and support that hold it). A held split keeps
+every piece until a `keep` drops them ([keep piece](#keep-piece)). Otherwise the
 stock reason names the removal that broke the stock ("its own clearance" or
 "lineage band group N"), or the split and each piece with "no press-clamp
 load path to an anchored support", and the op that stopped the stock pass is
@@ -1739,7 +1817,10 @@ Numbers: `sample_count`, `tool_hits`, `holder_hits`, the five inputs, and
 `certain_tool_hits` / `certain_holder_hits` when observed hits are definite
 despite unresolved inputs, poses or undeclared jaw overhang. Unknown stock
 leaves `certain_tool_hits` unknown rather than a certain collision; holder
-minima retain their entry-material evidence. A stopping op's known before-stock
+minima retain their entry-material evidence. In a built-up plan any hit adds
+`hit_owners`: per hit kind, `part` names the branch's components (their stock
+was hit), each finished face ref bounding a hit names every component whose
+finished share holds a positive area of it, and a fixture label names itself. A stopping op's known before-stock
 can establish a zero upper hit bound and independent fixture hits, but not
 certainty for its unresolved own part-material removal.
 
@@ -2302,6 +2383,35 @@ are cut and their contacts show (`render_scene.section`: `axis`, `at_mm`). The e
 own orthographic z-buffer rasterizer, bundled bitmap font and PNG encoder
 use no installed fonts, timestamps or machine-specific metadata. Fresh runs
 and cache hits give identical bytes.
+
+A guided sweep's table-side guide elements
+([#255](https://github.com/pedropaulovc/prechips/issues/255)) are drawn for the
+operator, not modelled as holding. The host sends an arc sled's rollers in the
+setup's render annotation (`guides.rollers`: setup XY axis `at_mm`, `dia_mm` and
+`z_mm` from the table to the roller top), each at the rail radius plus or minus its
+radius (`rail_side`) about the arc centre, at its `rollers_deg` from the cutter's
+radial line, the table at the work's seated bottom (`retained_rail_bottom_z` when
+below `bottom_z`, as `headroom` reads it; an authored but unknown one leaves it
+unknown) less the parallels or support blocks under the work (the height the
+`headroom` stack counts) and the fixture's `bed_height`. The
+kernel draws them as cylinders in the guide colour with one `GUIDE ROLLERS
+(TABLE)` callout per op (`GUIDE ROLLERS (TABLE, OP n)` when more than one op in the
+setup has rollers) and lists them in `render_scene.components` with role
+`guide_roller`; they never join the fixture components, so no checkpoint, clash,
+contact, clearance or `fixture_rendered` verdict reads them, and a malformed roller is
+a picture debt only. The isometric view widens to frame each op's rollers within one
+stock size of the work along each of X, Y and Z; rollers farther off would shrink the
+work unreadably, so they are not drawn in the picture or its holding details and a
+`NOT SHOWN` note gives the setup X/Y/Z span
+they stand in, and
+another op's nearby rollers stay framed. A
+roller fact that is missing or not measured, a sled flagged to verify, a negative bed
+height, an inner roller as wide as the rail's diameter (no inner tangency exists), or
+a support with a negative height, or one
+under the work that is unknown or flagged to verify (item or height, as `headroom`
+leaves that stack unresolved), leaves the rollers undrawn with a `NOT SHOWN` note
+naming each gap (a measured fact with its `measure:` instruction). A swing arm's pivot post stands at the arc centre, far
+off the part, so a note names where it stands instead of drawing it.
 
 Blue-grey is material retained after the setup; amber hatch is the Boolean
 difference between actual entry and derived exit stock. When exit stock is

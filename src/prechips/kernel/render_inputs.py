@@ -263,6 +263,14 @@ def setup_annotations(bundle, setup, numbers):
         "dro_step_mm": dro_grid(bundle, setup)[0] * scale if scale else None,
     }
     result["notes"], result["nothing_removed_note"] = _setup_notes(setup)
+    if scale:
+        # A guided sweep's table-side guide elements, drawn render-only (#255).
+        from prechips.rules.guided_sweep import guide_scene
+
+        guides, guide_notes = guide_scene(bundle, setup, numbers, scale)
+        if guides:
+            result["guides"] = guides
+        result["notes"].extend(guide_notes)
     index = record(hold.get("index"))
     if number(index.get("angle_deg")):
         result["index_deg"] = index["angle_deg"]

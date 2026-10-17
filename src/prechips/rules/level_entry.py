@@ -20,7 +20,10 @@ them and records, per piece the cutter has to go down at:
 An op that plunges and has no known plunge feed (``speeds_feeds.plunge_row``, which has
 none for a tool not declared centre-cutting) is debt, as is a return without a known raise
 Z or with one the stock box puts below the stock top.
-Rotary-table and chain-drill tables are not end-mill paths and are skipped.
+Rotary-table and chain-drill tables are not end-mill paths and are skipped. A guided
+sweep is skipped too: its one entry, the start stop at every level, is proven in air by
+the coordinates rule (:func:`~.guided_sweep.guided`) with :func:`in_air`, or the sweep
+stays unknown and prints no recipe.
 """
 
 from __future__ import annotations
