@@ -972,6 +972,12 @@ class Rewriter:
         added = defaultdict(set)  # id(import node) -> import lines to add beside it
         parents = {id(c): n for n in ast.walk(tree) for c in ast.iter_child_nodes(n)}
         for node, binding in _resolved_uses(tree, aliases):
+            if binding is not None and _keyword_form(node):
+                self.refusals.append(
+                    f"line {node.lineno}: {ast.unparse(node.func)} on the split module names "
+                    "its target by keyword; pass the module and name positionally"
+                )
+                continue
             if binding is not None and isinstance(node, ast.Name) and not _reached(node, parents):
                 edits.append(self._value_use(node, binding, at, added))
                 continue
@@ -1139,6 +1145,9 @@ class Rewriter:
         if not (isinstance(second, ast.Constant) and isinstance(second.value, str)):
             self.refusals.append(f"line {node.lineno}: {call}({first.id}, <computed name>)")
             return None
+        if _dunder(second.value):
+            self._identity(second.value, node.lineno)
+            return None
         module = self.patched_module(second.value)
         if module is None or module == self.source:
             if module is None:
@@ -1155,6 +1164,9 @@ class Rewriter:
             return None
         prefix, _, name = first.value.rpartition(".")
         if prefix != self.source:
+            return None
+        if _dunder(name):
+            self._identity(name, node.lineno)
             return None
         module = self.patched_module(name)
         if module is None or module == self.source:
@@ -1177,6 +1189,9 @@ class Rewriter:
                 f"line {node.lineno}: {node.func.id}({first.id}, <computed name>) on the split "
                 "module cannot be resolved"
             )
+            return None
+        if _dunder(second.value):
+            self._identity(second.value, node.lineno)
             return None
         module = self.new_module(second.value)
         if module == self.source:
@@ -1203,6 +1218,9 @@ class Rewriter:
             prefix, _, name = first.value.rpartition(".")
             if prefix != self.source:
                 return None
+            if _dunder(name):
+                self._identity(name, node.lineno)
+                return None
             module = self.patched_module(name)
             if module is None or module == self.source:
                 return None
@@ -1213,16 +1231,31 @@ class Rewriter:
         if not (isinstance(second, ast.Constant) and isinstance(second.value, str)):
             self.refusals.append(f"monkeypatch of {first.id} with a computed name")
             return None
+        if _dunder(second.value):
+            self._identity(second.value, node.lineno)
+            return None
         module = self.patched_module(second.value)
         if module is None or module == self.source:
             return None
         local = self._alias_for(first.id, module, added, binding)
         return at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset), local
 
+    def _identity(self, name, line):
+        """A module identity attribute (``__name__``, ``__file__``, ``__doc__``…) stays on
+        the module object when the split keeps that object (rest is the source file);
+        a package conversion changes it, so the script refuses."""
+        if self.rest == self.module["source"]:
+            return True
+        self.refusals.append(f"line {line}: {name} of the split module changes with the split")
+        return True
+
     def _attribute(self, node, binding, at, added):
         if not (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)):
             return None
         if binding is None:
+            return None
+        if _dunder(node.attr):
+            self._identity(node.attr, node.lineno)
             return None
         if isinstance(node.ctx, (ast.Store, ast.Del)):
             # A write lands where the name is looked up, as setattr does.
@@ -1327,6 +1360,22 @@ def _parses_source(tree):
             if isinstance(owner, ast.Name) and owner.id in ("ast", "inspect"):
                 return True
     return False
+
+
+def _dunder(name):
+    return name.startswith("__") and name.endswith("__")
+
+
+def _keyword_form(node):
+    """A setattr/delattr/getattr/hasattr call (built-in or monkeypatch) that names its
+    target, attribute or value by keyword, a shape the rewriter does not follow."""
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+    if called not in ("setattr", "delattr", "getattr", "hasattr"):
+        return False
+    return any(k.arg in ("target", "name", "value") for k in node.keywords)
 
 
 def _reached(name, parents):

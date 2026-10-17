@@ -720,3 +720,40 @@ def test_an_alias_imported_in_a_class_body_refuses(at, tmp_path):
     )
     with pytest.raises(SystemExit):
         split.main(["apply", "big"])
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "monkeypatch.setattr(big, name='radius', value=abs)",
+        "monkeypatch.delattr(big, name='radius')",
+    ],
+)
+def test_a_keyword_form_patch_of_the_split_module_refuses(at, tmp_path, call):
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(
+        f"from pkg import big\n\n\ndef test(monkeypatch):\n    {call}\n", encoding="utf-8"
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+
+
+def test_an_identity_attribute_stays_on_a_kept_module_and_refuses_on_a_package(at, tmp_path):
+    rewritten = _importer_case(
+        at,
+        tmp_path,
+        "def radius(x):\n    return x\n",
+        '["radius"]',
+        "from pkg import big\n\nNAME = big.__name__\n",
+    )
+    assert "NAME = big.__name__" in rewritten  # rest is big.py itself: same module object
+
+
+def test_an_identity_attribute_of_a_package_conversion_refuses(at, tmp_path):
+    spec = _spec('["radius"]').replace('rest = "src/pkg/big.py"', 'rest = "src/pkg/big/rule.py"')
+    at("def radius(x):\n    return x\n\n\ndef other():\n    return 1\n", spec)
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "from pkg import big\n\nNAME = big.__name__\n", encoding="utf-8"
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
