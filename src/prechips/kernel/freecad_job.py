@@ -11658,7 +11658,7 @@ class _Setup:
         for it: the branch's cutters remove the raw stock there. A branch with an
         unrestricted component (a one-piece part, a stock root no joint divides) is None.
         """
-        regions = [self.owner.owned_regions.get(name) for name in self.state["components"]]
+        regions = [self.owner.owned_regions.get(name) for name in sorted(self.state["components"])]
         if not regions or any(region is None for region in regions):
             return None
         try:
