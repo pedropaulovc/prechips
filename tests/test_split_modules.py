@@ -163,27 +163,66 @@ def test_an_import_cycle_names_the_symbols_on_each_edge(at):
     assert any("import cycle" in r and "a" in r and "b" in r for r in plan.refusals)
 
 
-def test_a_monkeypatched_name_read_from_two_files_is_refused(at, tmp_path):
+def test_a_patch_of_a_name_two_files_read_patches_both(at, tmp_path):
     source = """\
         def radius(x):
             return x
 
+
         def area(x):
             return radius(x) ** 2
+
 
         def volume(x):
             return radius(x) ** 3
         """
     at(source, _spec('["area"]'))
-    (tmp_path / "tests" / "test_big.py").write_text(
-        "from pkg import big\n\n\ndef test(monkeypatch):\n"
-        '    monkeypatch.setattr(big, "radius", abs)\n',
+    test = tmp_path / "tests" / "test_big.py"
+    test.write_text(
+        textwrap.dedent(
+            """\
+            import pytest
+
+            from pkg import big
+
+
+            def test(monkeypatch):
+                for name in ("radius",):
+                    monkeypatch.setattr(big, name, lambda x: 2)
+                assert big.volume(5) == 8
+                assert big.area(5) == 4
+                assert getattr(big, "area")(1) == 4
+                dunder = "__name__"  # every split file has its own: no single answer
+                with pytest.raises(AttributeError):
+                    getattr(big, dunder)
+            """
+        ),
         encoding="utf-8",
     )
-    with pytest.raises(SystemExit) as stopped:
+    split.main(["apply", "big"])
+    rewritten = test.read_text(encoding="utf-8")
+    assert 'patch_split(monkeypatch, "pkg.big", name, lambda x: 2)' in rewritten
+    helper = (tmp_path / "tests" / "split_patch.py").read_text(encoding="utf-8")
+    assert '"pkg.big": ("pkg.big", "pkg.parts")' in helper
+    process = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(test)],
+        cwd=tmp_path,
+        env={"PYTHONPATH": f"{tmp_path / 'src'}:{tmp_path / 'tests'}", "PATH": "/usr/bin:/bin"},
+        capture_output=True,
+        text=True,
+    )
+    assert process.returncode == 0, process.stdout + process.stderr
+
+
+def test_a_spread_patch_outside_tests_is_refused(at, tmp_path):
+    at("def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x)\n", _spec('["area"]'))
+    (tmp_path / "scripts" / "tool.py").write_text(
+        "from pkg import big\n\n\ndef f(monkeypatch, name):\n"
+        "    monkeypatch.setattr(big, name, abs)\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit):
         split.main(["apply", "big"])
-    assert stopped.value.code == 2
-    assert not (tmp_path / "src" / "pkg" / "parts.py").exists()
 
 
 def test_apply_moves_symbols_and_mixins_and_rewrites_importers_and_patches(at, tmp_path):
@@ -283,9 +322,9 @@ def test_a_lazy_module_import_stays_lazy_and_gets_its_replacement_beside_it(at, 
             return big.radius(2)
         """,
     )
-    assert rewritten.splitlines()[:4] == [
+    # The replacement sits where the alias import was; the alias, now unused, is gone.
+    assert rewritten.splitlines()[:3] == [
         "def lazy():",
-        "    from pkg import big",
         "    from pkg import parts as big_parts",
         "",
     ]
@@ -512,10 +551,10 @@ def test_getattr_of_a_moved_name_reads_its_owner_and_a_computed_one_refuses(at, 
     assert 'getattr(big_parts, "radius")' in rewritten
 
 
-def test_getattr_with_a_computed_name_on_the_split_module_refuses(at, tmp_path):
+def test_hasattr_with_a_computed_name_on_the_split_module_refuses(at, tmp_path):
     at("def radius(x):\n    return x\n", _spec('["radius"]'))
     (tmp_path / "tests" / "test_big.py").write_text(
-        "from pkg import big\n\nNAME = 'radius'\nFOUND = getattr(big, NAME)\n", encoding="utf-8"
+        "from pkg import big\n\nNAME = 'radius'\nFOUND = hasattr(big, NAME)\n", encoding="utf-8"
     )
     with pytest.raises(SystemExit):
         split.main(["apply", "big"])
@@ -901,20 +940,19 @@ def test_a_class_body_with_target_counts_as_a_class_name(at):
     assert any("class-body name DEFAULT" in refusal for refusal in plan.refusals)
 
 
-def test_a_patch_and_a_read_of_the_same_name_in_two_files_refuses(at, tmp_path, capsys):
-    # radius moves to parts.py, but only rest's area() looks it up: the patch would land
-    # in rest while the test's own read of big.radius reads parts.
+def test_a_patch_followed_by_a_read_in_another_file_patches_every_binding_file(at, tmp_path):
+    # radius moves to parts.py, but only rest's area() looks it up: one retargeted patch
+    # would miss the test's later read of big.radius, so it patches every binding file.
     source = "def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x) ** 2\n"
     at(source, _spec('["radius"]'))
-    (tmp_path / "tests" / "test_big.py").write_text(
+    test = tmp_path / "tests" / "test_big.py"
+    test.write_text(
         "from pkg import big\n\n\ndef test(monkeypatch):\n"
         "    monkeypatch.setattr(big, 'radius', abs)\n    assert big.radius(-1) == 1\n",
         encoding="utf-8",
     )
-    with pytest.raises(SystemExit):
-        split.main(["apply", "big"])
-    out = capsys.readouterr()
-    assert "also read here" in out.out + out.err
+    split.main(["apply", "big"])
+    assert "patch_split(monkeypatch" in test.read_text(encoding="utf-8")
 
 
 def test_reading_the_original_before_patching_it_is_not_refused(at, tmp_path):
@@ -950,12 +988,8 @@ def test_a_class_body_match_case_binding_counts_as_a_class_name(at):
     [
         "NAMES = big.__dict__['radius']\n",
         "def test(monkeypatch):\n    monkeypatch.setattr(target='pkg.big.radius', value=abs)\n",
-        (
-            "def test(monkeypatch):\n    monkeypatch.setattr(big, 'radius', abs)\n\n"
-            "    def later():\n        return big.radius(-1)\n\n    assert later() == 1\n"
-        ),
     ],
-    ids=["namespace-dunder", "keyword-dotted-string", "nested-read-after-patch"],
+    ids=["namespace-dunder", "keyword-dotted-string"],
 )
 def test_namespace_dunders_keyword_strings_and_nested_reads_refuse(at, tmp_path, use):
     source = "def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x) ** 2\n"
@@ -989,7 +1023,7 @@ def test_a_unit_reading_its_loader_never_moves(at):
     ],
     ids=["same-line", "helper-module"],
 )
-def test_a_read_after_a_retargeted_patch_on_one_line_or_in_a_helper_refuses(
+def test_a_read_after_a_retargeted_patch_on_one_line_or_in_a_helper_patches_every_file(
     at, tmp_path, helper, test
 ):
     source = "def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x) ** 2\n"
@@ -999,5 +1033,70 @@ def test_a_read_after_a_retargeted_patch_on_one_line_or_in_a_helper_refuses(
     (tmp_path / "tests" / "test_big.py").write_text(
         "from pkg import big\n\n\ndef test(monkeypatch):\n" + test, encoding="utf-8"
     )
+    split.main(["apply", "big"])
+    rewritten = (tmp_path / "tests" / "test_big.py").read_text(encoding="utf-8")
+    assert "patch_split(monkeypatch" in rewritten
+
+
+def test_a_patch_read_in_a_nested_helper_patches_every_binding_file(at, tmp_path):
+    # later() reads big.radius after the patch; patch_split patches the owner too.
+    source = "def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x) ** 2\n"
+    at(source, _spec('["radius"]'))
+    test = tmp_path / "tests" / "test_big.py"
+    test.write_text(
+        "from pkg import big\n\n\ndef test(monkeypatch):\n"
+        "    monkeypatch.setattr(big, 'radius', abs)\n\n"
+        "    def later():\n        return big.radius(-1)\n\n    assert later() == 1\n",
+        encoding="utf-8",
+    )
+    split.main(["apply", "big"])
+    assert "patch_split(monkeypatch" in test.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        "monkeypatch.setattr(big, name, abs, raising=False)",
+        "monkeypatch.setattr(big, name, abs, False)",
+        "monkeypatch.delattr(big, name, False)",
+    ],
+)
+def test_a_spread_patch_passing_raising_refuses(at, tmp_path, call):
+    # raising=False could create the name; after the split no single file owns it.
+    at("def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x)\n", _spec('["area"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(
+        f"from pkg import big\n\n\ndef test(monkeypatch, name):\n    {call}\n",
+        encoding="utf-8",
+    )
     with pytest.raises(SystemExit):
         split.main(["apply", "big"])
+
+
+def test_a_test_binding_a_split_helper_name_refuses(at, tmp_path, capsys):
+    # A local patch_split would capture the generated call instead of the helper.
+    at("def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x)\n", _spec('["area"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "from pkg import big\n\n\ndef test(monkeypatch, name, patch_split):\n"
+        "    monkeypatch.setattr(big, name, abs)\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+    out = capsys.readouterr()
+    assert "patch_split is already bound" in out.out + out.err
+
+
+def test_an_alias_import_that_runs_rest_side_effects_is_not_dropped(at, tmp_path, capsys):
+    # REGISTRY.append runs when the module is imported; once the test's only use moves
+    # to parts.py, dropping `from pkg import big` would stop it running.
+    source = (
+        "REGISTRY = []\nREGISTRY.append('x')\nprint('loaded')\n\n\ndef radius(x):\n    return x\n"
+    )
+    at(source, _spec('["radius"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "from pkg import big\n\n\ndef test():\n    assert big.radius(1) == 1\n", encoding="utf-8"
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+    out = capsys.readouterr()
+    assert "runs top-level statements" in out.out + out.err

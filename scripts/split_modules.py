@@ -958,7 +958,18 @@ class Rewriter:
                 for name in _unit_free(unit):
                     self.lookups[name].add(target)
         self.refusals = []
+        # Lines of statements kept in rest that do something when it is imported (a
+        # bare call, a block, a trailer), as opposed to defining names.
+        self.rest_effects = [
+            unit.start
+            for unit, target in plan.placed
+            if target == self.rest
+            and unit.kind in ("module", "trailer")
+            and not (isinstance(unit.node, ast.Expr) and isinstance(unit.node.value, ast.Constant))
+        ]
         self.hand = []
+        self.helpers = set()
+        self.uses_helper = False
         self.flat = Path(self.module["source"]).stem
         self.readers = defaultdict(set)  # name -> importer files reading it directly
         self._path = None
@@ -969,14 +980,16 @@ class Rewriter:
         target = self.owner.get(name, self.rest)
         return dotted(self.module, target)
 
-    def patched_module(self, name, site=None):
-        """Where a monkeypatch of ``name`` must land: the one file that looks it up. A
-        direct read of the name after the patch at ``site``, in the same function, would
-        reach the owner instead, so that refuses."""
+    def patched_module(self, name, site=None, refuse=True):
+        """Where a monkeypatch of ``name`` must land: the one file that looks it up.
+        ``None`` when several files do, or when the file at ``site`` reads the name
+        directly after the patch in the same function, so the read would reach the owner
+        instead (a refusal unless the caller can patch every binding file)."""
         files = self.lookups.get(name, set())
         if len(files) > 1:
-            names = sorted(Path(f).name for f in files)
-            self.refusals.append(f"monkeypatched {name} is looked up from {names}")
+            if refuse:
+                names = sorted(Path(f).name for f in files)
+                self.refusals.append(f"monkeypatched {name} is looked up from {names}")
             return None
         if files:
             looked = next(iter(files))
@@ -985,10 +998,11 @@ class Rewriter:
                 looked != self.owner.get(name, self.rest)
             ):
                 # The patch lands in the looking file, the later read in the owner.
-                self.refusals.append(
-                    f"monkeypatched {name} is also read here, so the patch and the read "
-                    "would reach different files"
-                )
+                if refuse:
+                    self.refusals.append(
+                        f"monkeypatched {name} is also read here, so the patch and the read "
+                        "would reach different files"
+                    )
                 return None
             return dotted(self.module, looked)
         return self.new_module(name)
@@ -1021,6 +1035,37 @@ class Rewriter:
                 return True
         return False
 
+    def _spread(self, node, at, how, binding=None):
+        """Rewrite a whole ``monkeypatch.setattr``/``getattr`` call into the test helper
+        that patches (or reads) the name in every split file binding it: exactly what
+        one patch of the unsplit module did. Only test files can import that helper."""
+        if self._path.parts[len(ROOT.parts)] != "tests":
+            self.refusals.append(f"line {node.lineno}: a patch spanning split files outside tests/")
+            return None
+        if how == "patch" and _passes_raising(node):
+            # raising=False may create the name, and no one split file is its home.
+            self.refusals.append(
+                f"line {node.lineno}: a patch spanning split files passes raising="
+            )
+            return None
+        segment = lambda n: ast.get_source_segment(self._text, n)  # noqa: E731
+        if how == "patch":
+            args = [segment(node.func.value), repr(self.source)]
+            first = node.args[0]
+            if isinstance(first, ast.Constant):  # "prechips.x.name", value
+                args += [repr(first.value.rpartition(".")[2]), *map(segment, node.args[1:])]
+            else:
+                args += list(map(segment, node.args[1:]))
+            args += [f"{k.arg}={segment(k.value)}" for k in node.keywords]
+            call = f"patch_split({', '.join(args)})"
+        else:
+            call = f"split_attr({repr(self.source)}, {', '.join(map(segment, node.args[1:]))})"
+        self.helpers.add("patch_split" if how == "patch" else "split_attr")
+        if binding is not None:
+            self._consumed[id(binding)] += 1
+        span = at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset)
+        return *span, call
+
     def rewrite(self, path):
         text = path.read_text(encoding="utf-8")
         probe = self.module.get("entry") and "module_from_spec" in text
@@ -1042,10 +1087,11 @@ class Rewriter:
         self._consumed = defaultdict(int)  # alias loads an edit replaced, per alias import
         self._file_reads = _direct_reads(tree, path, self.source)
         self._tree = tree
-        self._path = path
+        self._path, self._text, self.helpers = path, text, set()
         lines = text.splitlines(keepends=True)
         edits = []  # (start offset, end offset, replacement)
         offsets = list(itertools.accumulate([0] + [len(line) for line in lines]))
+        self._offsets = offsets
 
         def at(lineno, col):  # ast columns count UTF-8 bytes
             line = lines[lineno - 1].encode("utf-8")
@@ -1109,6 +1155,7 @@ class Rewriter:
                     "rename one so every use of it means the module"
                 )
         added = defaultdict(set)  # id(import node) -> import lines to add beside it
+        uses = defaultdict(int)  # id(import node) -> loads of its alias that resolve to it
         parents = {id(c): n for n in ast.walk(tree) for c in ast.iter_child_nodes(n)}
         alias_names = set().union(*aliases.values()) if aliases else set()
         for node in (n for n in ast.walk(tree) if isinstance(n, ast.Call)):
@@ -1136,9 +1183,11 @@ class Rewriter:
                     "its target by keyword; pass the module and name positionally"
                 )
                 continue
-            if binding is not None and isinstance(node, ast.Name) and not _reached(node, parents):
-                edits.append(self._value_use(node, binding, at, added))
-                continue
+            if binding is not None and isinstance(node, ast.Name):
+                uses[id(binding)] += 1
+                if not _reached(node, parents):
+                    edits.append(self._value_use(node, binding, at, added))
+                    continue
             edit = self._patch(node, binding, at, added)
             edit = edit or self._lookup(node, binding, at, added)
             edit = edit or self._attribute(node, binding, at, added)
@@ -1146,6 +1195,18 @@ class Rewriter:
                 edits.append(edit)
         for line in set().union(*added.values()) if added else ():
             self._generated_alias_free(tree, line)
+        for key, count in uses.items():
+            if not (count and self._consumed[key] == count):
+                continue
+            if self.rest_effects:
+                # Dropping the import would stop rest's top-level statements running.
+                self.refusals.append(
+                    f"line {imports[key].lineno}: every use of the split module moved, but "
+                    f"{self.rest} runs top-level statements (line {self.rest_effects[0]}) "
+                    "that this import executes; import a name from it or move them"
+                )
+                continue
+            edits.append(self._drop_alias(imports[key], aliases[key], at))
         for key, lines_ in added.items():
             node = imports[key]
             indent = " " * node.col_offset
@@ -1163,6 +1224,16 @@ class Rewriter:
                 )
             elif self.module["source"] in parsers[relative]:
                 self.hand.append(f"{relative} reads {self.module['source']}'s source")
+        if self.helpers:
+            last = max(
+                (n.end_lineno for n in tree.body if isinstance(n, (ast.Import, ast.ImportFrom))),
+                default=0,
+            )
+            for helper in sorted(self.helpers):
+                self._generated_alias_free(tree, f"from split_patch import {helper}")
+            line = f"from split_patch import {', '.join(sorted(self.helpers))}\n"
+            edits.append((offsets[last], offsets[last], line))
+            self.uses_helper = True
         edits = [e for e in edits if e is not None]
         if not edits:
             return None
@@ -1271,6 +1342,31 @@ class Rewriter:
         span = at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset)
         return *span, replacement
 
+    def _drop_alias(self, node, names, at):
+        """The alias import ``node`` without ``names``, whose every use moved to the split
+        files (the repository is lint-clean, so an alias left unused is the split's)."""
+        kept = [a for a in node.names if (a.asname or a.name) not in names]
+        span = at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset)
+        if not kept and self._only_statement(node):
+            return *span, "pass"
+        if not kept:  # the whole statement's lines go
+            return at(node.lineno, 0), self._offsets[node.end_lineno], ""
+        spelled = ", ".join(a.name + (f" as {a.asname}" if a.asname else "") for a in kept)
+        if isinstance(node, ast.Import):
+            return *span, f"import {spelled}"
+        return *span, f"from {'.' * node.level}{node.module or ''} import {spelled}"
+
+    def _only_statement(self, node):
+        for parent in ast.walk(ast.parse(self._text)):
+            for key in ("body", "orelse", "finalbody"):
+                body = getattr(parent, key, None)
+                if isinstance(body, list) and any(
+                    getattr(b, "lineno", None) == node.lineno and type(b) is type(node)
+                    for b in body
+                ):
+                    return len(body) == 1 and not isinstance(parent, ast.Module)
+        return False
+
     def _value_use(self, node, binding, at, added):
         """The alias as a value (in a list, passed to a function, compared with ``is``):
         what it is later asked for cannot be followed. The spec's ``value_uses = "rest"``
@@ -1286,6 +1382,7 @@ class Rewriter:
         if module == self.source:
             return None
         local = self._alias_for(node.id, module, added, binding)
+        self._consumed[id(binding)] += 1
         return at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset), local
 
     def _generated_alias_free(self, tree, line):
@@ -1293,7 +1390,7 @@ class Rewriter:
         the file: an earlier one would be overwritten, a later one would hijack the
         rewritten uses. Only the same import may already bind it."""
         wanted = ast.parse(line).body[0]
-        name = wanted.names[0].asname
+        name = wanted.names[0].asname or wanted.names[0].name
         same = ast.dump(wanted)
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and any(
@@ -1371,6 +1468,8 @@ class Rewriter:
         if not (isinstance(first, ast.Name) and binding is not None):
             return None
         if not (isinstance(second, ast.Constant) and isinstance(second.value, str)):
+            if node.func.id == "getattr" and len(node.args) == 2:
+                return self._spread(node, at, "read", binding)
             self.refusals.append(
                 f"line {node.lineno}: {node.func.id}({first.id}, <computed name>) on the split "
                 "module cannot be resolved"
@@ -1383,6 +1482,7 @@ class Rewriter:
         if module == self.source:
             return None
         local = self._alias_for(first.id, module, added, binding)
+        self._consumed[id(binding)] += 1
         return at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset), local
 
     def _patch(self, node, binding, at, added):
@@ -1407,23 +1507,27 @@ class Rewriter:
             if _dunder(name):
                 self._identity(name, node.lineno)
                 return None
-            module = self.patched_module(name, node)
-            if module is None or module == self.source:
+            module = self.patched_module(name, node, refuse=False)
+            if module is None:
+                return self._spread(node, at, "patch")
+            if module == self.source:
                 return None
             span = at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset)
             return *span, repr(f"{module}.{name}")
         if not (isinstance(first, ast.Name) and binding is not None):
             return None
         if not (isinstance(second, ast.Constant) and isinstance(second.value, str)):
-            self.refusals.append(f"monkeypatch of {first.id} with a computed name")
-            return None
+            return self._spread(node, at, "patch", binding)  # a computed name
         if _dunder(second.value):
             self._identity(second.value, node.lineno)
             return None
-        module = self.patched_module(second.value, node)
-        if module is None or module == self.source:
+        module = self.patched_module(second.value, node, refuse=False)
+        if module is None:
+            return self._spread(node, at, "patch", binding)
+        if module == self.source:
             return None
         local = self._alias_for(first.id, module, added, binding)
+        self._consumed[id(binding)] += 1
         return at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset), local
 
     def _identity(self, name, line):
@@ -1459,6 +1563,7 @@ class Rewriter:
         if module == self.source:
             return None
         local = self._alias_for(node.value.id, module, added, binding)
+        self._consumed[id(binding)] += 1
         value = node.value
         return at(value.lineno, value.col_offset), at(value.end_lineno, value.end_col_offset), local
 
@@ -1541,6 +1646,17 @@ def _direct_reads(tree, path, source):
         elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in imported:
             found[imported[node.id]].append(node)
     return found
+
+
+def _passes_raising(call):
+    """Whether a ``monkeypatch.setattr``/``delattr`` call passes ``raising``, by keyword
+    or as the positional argument after the value (setattr) or name (delattr); a dotted
+    ``"pkg.module.name"`` target takes one positional slot fewer."""
+    if any(k.arg == "raising" for k in call.keywords):
+        return True
+    dotted = isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, str)
+    slots = (3 if call.func.attr == "setattr" else 2) - dotted
+    return len(call.args) > slots
 
 
 def _bound_here(node):
@@ -1713,6 +1829,59 @@ def _resolved_uses(tree, aliases):
     return found
 
 
+HELPER = "tests/split_patch.py"
+_HELPER_TEMPLATE = '''"""Patch or read a name across the files a module was split into.
+
+Written by scripts/split_modules.py; re-running ``apply`` updates ``SPLITS``. Before a
+split, one ``monkeypatch.setattr(module, name, value)`` replaced the only binding every
+caller read. After it, the name is bound in each file that defines or imports it, so
+``patch_split`` replaces it in all of them, which is the same patch.
+"""
+
+import importlib
+
+SPLITS = {splits}
+
+
+def _bindings(source, name):
+    if name.startswith("__") and name.endswith("__"):
+        # Every split file has its own __name__, __dict__…; none is the old module's.
+        raise AttributeError(f"{{name}} of {{source}} has no single split-file binding")
+    modules = [importlib.import_module(m) for m in SPLITS[source]]
+    found = [m for m in modules if name in vars(m)]
+    if not found:
+        raise AttributeError(f"no file split from {{source}} binds {{name!r}}")
+    return found
+
+
+def patch_split(monkeypatch, source, name, value, raising=True):
+    for module in _bindings(source, name):
+        monkeypatch.setattr(module, name, value, raising=raising)
+
+
+def split_attr(source, name):
+    """``name`` from the file that defines it (an importer's binding is the same object)."""
+    modules = _bindings(source, name)
+    for module in modules:
+        value = vars(module)[name]
+        if getattr(value, "__module__", None) == module.__name__:
+            return value
+    return vars(modules[0])[name]
+'''
+
+
+def _helper_source(source, modules):
+    splits = {}
+    path = ROOT / HELPER
+    if path.exists():
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and getattr(node.targets[0], "id", "") == "SPLITS":
+                splits = ast.literal_eval(node.value)
+    splits[source] = tuple(modules)
+    return _HELPER_TEMPLATE.format(splits=repr(dict(sorted(splits.items()))))
+
+
 def _citations(source):
     """``(line citations, other mentions)`` of ``source`` in the repository's prose and
     example data: a ``file:line`` citation would point at moved code, so it refuses."""
@@ -1766,6 +1935,10 @@ def apply(args):
         source.unlink()
     for init, doc in module.get("init", {}).items():
         files[ROOT / init] = f'"""{doc}"""\n'
+    if rewriter.uses_helper:
+        files[ROOT / HELPER] = _helper_source(
+            dotted(module, module["source"]), [dotted(module, f) for f in plan.files()]
+        )
     for path, text in {**files, **rewritten}.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8", newline="\n")
