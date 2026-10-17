@@ -54,7 +54,9 @@ pass, and its printed line stops on the same fact.
 Saw cut-off resolves the selected bandsaw blade and a `mill` / `bench` /
 `bandsaw` machine, or a `hand_saw` and a `bench` / `manual` machine, instead of
 a spindle/holder/shank assembly; a hand saw on any other machine, or a bandsaw
-blade on a `manual` one, is an error. No holder is
+blade on a `manual` one, is an error. A bandsaw blade that follows a scribed
+line needs a `bandsaw` machine whose `saw_modes` include `"vertical"`: other
+machine kinds or modes without it are errors, and undeclared modes stay debt. No holder is
 required; incompatible known machine/tool kinds are errors and unverified
 identities remain debt. A saw naming a groove cannot replace that groove's
 size-setting tool, and a saw does not establish a finished datum.

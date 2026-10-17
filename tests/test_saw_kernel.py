@@ -1,5 +1,6 @@
 """Native planar sawing, conservative target protection and routed retained stock."""
 
+import math
 import subprocess
 from copy import deepcopy
 
@@ -25,6 +26,11 @@ from FreeCAD import Vector as V
 out = sys.argv[sys.argv.index("--") + 1]
 Part.makeBox(6, 6, 6, V(2, 2, 2)).exportStep(out + "/target.step")
 Part.makeBox(2, 2, 6, V(0, 0, 1)).exportStep(out + "/fragment-target.step")
+# A part inside a scribed circle (R4 about X5 Y5) and one outside it (a 10 x 10 plate with
+# an R3 bore about X5 Y5): a saw following the line clears outside, or inside, the circle.
+Part.makeCylinder(4, 6, V(5, 5, 2)).exportStep(out + "/round-target.step")
+plate = Part.makeBox(10, 10, 6, V(0, 0, 2))
+plate.cut(Part.makeCylinder(3, 6, V(5, 5, 2))).exportStep(out + "/bored-target.step")
 """
 
 
@@ -601,11 +607,52 @@ def test_an_unresolved_saw_tool_routes_no_stock(saw_engine, saw_target, op):
     assert "stock_bbox_mm" not in result["setups"]["S2"]
 
 
+def _arc_cut(remove, radius, allowance=0.5, bounds=None):
+    op = _scribed(bounds or {"x": [-1.0, 11.0], "y": [-1.0, 11.0], "z": [-1.0, 11.0]}, allowance)
+    op["scribed_profile"] = {"centre_mm": [5.0, 5.0], "radius_mm": radius, "remove": remove}
+    return op
+
+
+@pytest.mark.parametrize(
+    "target, remove, radius, kept",
+    [
+        ("round-target.step", "outside", 4.0, math.pi * 4.5**2 * 10),
+        ("bored-target.step", "inside", 3.0, 1000 - math.pi * 2.5**2 * 10),
+    ],
+    ids=["part-inside-the-line", "part-outside-the-line"],
+)
+def test_a_saw_follows_a_scribed_arc_its_allowance_outside_it(
+    saw_engine, saw_target, target, remove, radius, kept
+):
+    step = saw_target.parent / target
+    result = _run(saw_engine, step, _arc_cut(remove, radius), machine="bandsaw")
+    detail = result["ops"]["S1:10"]
+    assert "saw_error" not in detail and "saw_reason" not in detail, detail
+    assert detail["retained_to_target_mm"] == pytest.approx(0.5, abs=1e-3)
+    assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(kept, rel=1e-3)
+
+
+@pytest.mark.parametrize(
+    "op, words",
+    [
+        ({**_arc_cut("outside", 4.0), "scribed_profile": {"reason": "layout unknown"}}, "layout"),
+        (_arc_cut("outside", 4.0, allowance="unknown"), "offset scribed arc is unknown"),
+    ],
+    ids=["layout-unknown", "allowance-unknown"],
+)
+def test_an_unknown_scribed_arc_routes_no_stock(saw_engine, saw_target, op, words):
+    step = saw_target.parent / "round-target.step"
+    result = _run(saw_engine, step, op, machine="bandsaw")
+    assert words in result["ops"]["S1:10"]["saw_reason"]
+    assert "stock_bbox_mm" not in result["setups"]["S2"]
+
+
 @pytest.mark.parametrize(
     "tools, machine, marker",
     [
         ({"hacksaw": {"kind": "hand_saw"}}, "bench", "hand_saw"),
-        ({"hacksaw": {"kind": "bandsaw"}}, "bench", "bandsaw"),
+        # A powered blade follows a scribed line only on a vertical bandsaw.
+        ({"hacksaw": {"kind": "bandsaw"}}, "bench", "refused"),
         ({"hacksaw": {"kind": "hand_saw", "verify": True}}, "bench", "unresolved"),
         ({"hacksaw": {"kind": "endmill"}}, "bench", "refused"),
         ({}, "bench", "unresolved"),

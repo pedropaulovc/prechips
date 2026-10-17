@@ -359,7 +359,10 @@ def _saw(subject, op, machine, tool, stock, material, material_class, cutting):
         row_unknown = uncertain(selected)
     low, high = _blade_bounds(machine)
     speed = max(low, min(high, sfm)) if _positive(sfm) and number(low) and number(high) else UNKNOWN
-    feed = descent if _positive(descent) else UNKNOWN
+    # A vertical bandsaw following a scribed line is fed by hand along the line: the row's
+    # descent feed does not apply, and its absence is no debt.
+    hand_fed = "follows" in op
+    feed = "not_applicable" if hand_fed else descent if _positive(descent) else UNKNOWN
     numbers = {
         "material": material,
         "material_class": material_class,
@@ -395,6 +398,9 @@ def _saw(subject, op, machine, tool, stock, material, material_class, cutting):
         "Blade speed/descent feed cannot be certified: the single cited saw_cut row, "
         "blade, material or machine blade-speed range is missing, ambiguous or unverified."
         if unknown
+        else "Blade speed is sourced from the saw_cut row and clamped to the machine's "
+        "blade-speed range; the work is fed by hand along the scribed line."
+        if hand_fed
         else "Blade speed and descent feed are sourced from the saw_cut row; the blade speed "
         "is clamped to the machine's blade-speed range."
     )

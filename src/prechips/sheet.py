@@ -7861,12 +7861,13 @@ class _Traveler:
             f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}"
         )
 
-    def saw_leave(self, op):
-        """The stock a saw that follows a scribed line leaves outside it for the file."""
+    def saw_leave(self, op, purpose="for filing"):
+        """The stock a saw that follows a scribed line leaves outside it: ``for filing`` at
+        the bench, ``outside the line`` on a machine card (a trammel or file takes it)."""
         allowance = op.get("allowance_mm")
         if not _known(allowance):
-            return _Box("STOP: stock to leave for filing not established")
-        return f"leave {self.operative(allowance)} mm for filing"
+            return _Box(f"STOP: stock to leave {purpose} not established")
+        return f"leave {self.operative(allowance)} mm {purpose}"
 
     def hand_saw_step(self, op, numbers):
         """A bench hand-saw card: the straight cut's plane and the side kept, or "saw
@@ -7896,6 +7897,14 @@ class _Traveler:
         if hand_saw(self.bundle, op):
             # A hand saw: no blade speed or machine feed applies.
             return "—", "—", False
+        if op.get("do") in SAW_OPS and "follows" in op:
+            # A vertical bandsaw along a scribed line: the work is fed by hand.
+            speed = numbers.get("blade_speed_sfm")
+            return (
+                (_number(speed) + " sfm") if _known(speed) else "STOP: no blade speed",
+                "by hand along the line",
+                not _known(speed),
+            )
         if op.get("do") in SAW_OPS:
             speed = numbers.get("blade_speed_sfm")
             feed = numbers.get("feed_mm_min")
@@ -8184,7 +8193,7 @@ class _Traveler:
             saw_numbers = self.records.get(("saw_cut", f"{setup['id']}:{op['op']}"), {})
             rest_cells, rest_lines = ([], []) if saw else self.rest_steps(setup, op)
             if scribed:
-                target = [self.saw_leave(op)]
+                target = [self.saw_leave(op, "outside the line")]
             elif saw:
                 target = [
                     "retained edge " + _number(saw_numbers.get("retained_boundary_mm")) + " mm"

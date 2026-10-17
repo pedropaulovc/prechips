@@ -81,6 +81,12 @@ def _saw_assembly(bundle, subject, setup, op, tool, machine, machine_ref):
     }
     problems = []
     station = saw_station(bundle, setup, op)
+    scribed_blade = nums["tool_kind"] == "bandsaw" and "follows" in op
+    if station == "no_vertical_mode":
+        problems.append(
+            f"machine {machine_ref} declares no vertical saw_modes; a bandsaw blade follows a "
+            "scribed line only in vertical mode"
+        )
     if station == "wrong_station":
         for kind, accepted, label in (
             (nums["machine_kind"], SAW_MACHINE_KINDS, "machine"),
@@ -92,6 +98,11 @@ def _saw_assembly(bundle, subject, setup, op, tool, machine, machine_ref):
                     f"(accepted: {', '.join(sorted(accepted))})"
                 )
         pairs = SAW_MACHINES.get(nums["tool_kind"])
+        if not problems and scribed_blade:
+            problems.append(
+                "a bandsaw blade follows a scribed line only on a bandsaw machine in vertical "
+                f"mode, not a {nums['machine_kind']}"
+            )
         if not problems:
             problems.append(
                 f"a {nums['tool_kind']} cuts only on a {' or '.join(sorted(pairs))} machine, "
@@ -99,17 +110,19 @@ def _saw_assembly(bundle, subject, setup, op, tool, machine, machine_ref):
             )
     status = "error" if problems else "unknown" if station == "unknown" else "pass"
     unknown = status == "unknown"
-    blade, station = (
+    blade, place = (
         ("hand saw", "bench or manual station")
         if nums["tool_kind"] == "hand_saw"
+        else ("bandsaw blade", "bandsaw with a declared vertical mode")
+        if scribed_blade
         else ("bandsaw blade", "saw-capable machine")
     )
     message = (
         "; ".join(problems)
         if problems
-        else f"saw assembly needs a resolved, verified {blade} and {station}"
+        else f"saw assembly needs a resolved, verified {blade} and {place}"
         if unknown
-        else f"{blade} on a {station}; no spindle, collet or holder applies"
+        else f"{blade} on a {place}; no spindle, collet or holder applies"
     )
     return Finding(
         "tool_resolves",

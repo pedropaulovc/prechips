@@ -5664,10 +5664,32 @@ class _Setup:
             facts["stock_removal_bounds"] = {
                 axis: [_r(span[i]), _r(span[i + 3])] for i, axis in enumerate("xyz")
             }
+        profile = op.get("scribed_profile")
+        if isinstance(profile, dict):
+            facts["scribed_profile"] = profile
+            if profile.get("reason"):
+                missing.append(str(profile["reason"]))
+            elif facts["allowance_mm"] == UNKNOWN:
+                missing.append("allowance_mm is unknown, so the offset scribed arc is unknown")
         self._saw_machine(op, facts, missing)
         if stock_reason is not None:
             missing.append(str(stock_reason))
         return self._saw_debts(facts, missing)
+
+    @staticmethod
+    def _scribed_region(op, span):
+        """The setup-frame solid a saw that follows a scribed line takes: its declared box,
+        clipped to stay ``allowance_mm`` outside a scribed arc (``scribed_profile``)."""
+        box = _box_shape(span)
+        profile = op.get("scribed_profile")
+        if not isinstance(profile, dict):
+            return box
+        (cx, cy), radius = profile["centre_mm"], profile["radius_mm"]
+        outside = profile["remove"] == "outside"
+        offset = radius + op["allowance_mm"] if outside else radius - op["allowance_mm"]
+        height = span[5] - span[2] + 2.0
+        circle = Part.makeCylinder(max(offset, LIFT), height, V(cx, cy, span[2] - 1.0))
+        return box.cut(circle) if outside else box.common(circle)
 
     def _saw_facts(self, op, stock_reason=None):
         """Saw inputs and debts, without a spindle/holder model or finished-face claims."""
@@ -5744,7 +5766,7 @@ class _Setup:
             if span is None:
                 facts["saw_error"] = f"{why}: the declared saw removes no stock (saw no-op)"
                 return None, facts
-            box = _box_shape(span)
+            box = self._scribed_region(op, span)
             removed = stock.common(box)
             if removed.Volume <= HIT_MM3:
                 facts["saw_error"] = "the declared saw region removes no stock (saw no-op)"

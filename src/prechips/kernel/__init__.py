@@ -306,12 +306,18 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         # names its kind (a hand saw's straight cut also reports the kept piece's length); a
         # known mismatch is refused; any unresolved tool or machine leaves it unrouted.
         station = saw_station(bundle, setup, op)
-        verdict = {"fits": saw_tool(bundle, op), "wrong_station": "refused"}
+        verdict = {
+            "fits": saw_tool(bundle, op),
+            "wrong_station": "refused",
+            "no_vertical_mode": "refused",
+        }
         saw_tool_marker = {"saw_tool": verdict.get(station, "unresolved")}
         if "follows" in op:
             # The scribed line's cut takes only its declared region (unknown extent is
-            # plan-input debt); the blade's kerf locates nothing, so no kerf is consumed.
+            # plan-input debt), clipped to stay its allowance outside a scribed arc; the
+            # blade's kerf locates nothing, so no kerf is consumed.
             bounds = op.get("stock_removal_bounds", UNKNOWN)
+            profile = scribed_profile(bundle, setup, op)
             return {
                 "subject": subject,
                 "do": op["do"],
@@ -324,6 +330,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
                 }
                 if bounds == UNKNOWN
                 else removal_bounds(bounds, units),
+                **({} if profile is None else {"scribed_profile": profile}),
                 **saw_tool_marker,
             }
         tool = measurement_item(bundle, "tools", op.get("tool"))
@@ -844,6 +851,40 @@ def table_checkpoints(subject, tables, op, units):
             "printed checkpoint setup XY or tip Z is unknown: " + ", ".join(unknown[:3]) + more
         )
     return result
+
+
+def scribed_profile(bundle, setup, op):
+    """The scribed arc a saw that ``follows`` it must stay its allowance outside, in the saw
+    setup's axes and mm: ``{"centre_mm", "radius_mm", "remove"}``, ``remove`` the side of the
+    circle the saw takes (``"outside"`` when the part lies inside it, else ``"inside"``);
+    ``{"reason"}`` when the arc's layout in this setup is unknown; None when the scribed
+    feature is no arc (a straight line), whose declared box alone governs."""
+    from prechips.rules.coordinates import arc_layout
+    from prechips.rules.manual_arc import _arc_feature
+
+    sid, _, number_ = str(op["follows"]).partition(":")
+    scribe = next(
+        (
+            other
+            for each in bundle.plan["setups"]
+            if each["id"] == sid
+            for other in each["ops"]
+            if str(other.get("op")) == number_
+        ),
+        None,
+    )
+    name = record(scribe).get("feature")
+    if not _arc_feature(record(bundle.feature_definitions.get(name))):
+        return None
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    layout = arc_layout(bundle, setup, name)
+    if layout is None or scale is None:
+        return {"reason": f"the scribed arc {name}'s layout in setup {setup['id']} is unknown"}
+    return {
+        "centre_mm": [value * scale for value in layout["centre_setup_xy"]],
+        "radius_mm": layout["radius_mm"] * scale,
+        "remove": "outside" if layout["convex"] else "inside",
+    }
 
 
 def saw_plane(plane, units):
@@ -1628,6 +1669,7 @@ _ENGINE_OP = (
     "kerf_mm",
     "follows",
     "allowance_mm",
+    "scribed_profile",
     "saw_tool",
     "feature",
     "faces",
