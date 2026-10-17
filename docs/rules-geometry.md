@@ -297,6 +297,32 @@ states then see the cut centre, and a later setup's hold `centre_hole` seats its
 dead centre in that countersink instead of cutting a seat from
 `centre_hole_dia_mm`.
 
+### Parting face
+
+A lathe `part_off` onto a process `end_face` parts that disc off with the
+turning model's revolved removal (see [Approach models](#approach-models)): it
+sweeps from `to_dia`/2, the axis when omitted, to the stock OD from `to_z` to the
+stock end the disc's outward normal (`-axis`) faces. The kept piece is the side
+the end face's `axis` points into; the remainder, chuck side included, leaves
+the stock, so a later setup receives only the parted piece (with a nonzero
+`to_dia`, the core inside it stays, as for any part-off). The part-off separates
+stock only: a disc that cuts into the finished part (parted short) is a kernel
+reason naming the finished volume it would take, never a cut trimmed round the
+part. Like every process
+op it earns no coverage and no finishing credit. The host first checks the plane
+(`parting_face`, one row per such part-off): mapped into the setup frame, the
+end face's `axis` must lie along setup Z and point to +Z (the exposed end, the
+part the blade separates from the bar), and its `at` must lie on setup Z `to_z`
+within 1e-6 mm. A contradiction is an `error` and an unknown machine kind
+(not known to be a lathe), frame, `at`, `axis`, `to_z` or manifest units is
+`?`. Either is the op's kernel `process_cut` reason, so the kernel cuts nothing
+and the stock after it, and every later setup's stock, is unknown with that
+reason. A `pass` logs the parted plane. A part-off that names a finished drawing
+face gets no row and is judged as before. `cut_to_fit` does not prepare an end
+face: it keeps the chuck side and drops the free end (the pivot-shaft S3
+cut-to-fit), the opposite of a part-off. A part-off leaves one piece, so a
+[`keep`](#keep-piece) after it has only that piece to keep.
+
 
 ## Approach models
 
