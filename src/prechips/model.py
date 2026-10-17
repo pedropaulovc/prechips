@@ -889,6 +889,9 @@ class CylindricalJoint(InputModel):
     process: str
     compound: JointCompound | None = None
     cite: Citations
+    # Exported features whose finished faces the join itself forms (a root fillet the press
+    # leaves sharp); credited only as the kernel and an inspection admit them (#301).
+    forms: list[str] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
@@ -942,6 +945,7 @@ class SurfaceJoint(InputModel):
     process: str
     cite: Citations
     interfaces: Annotated[list[JointInterface], Field(min_length=1)]
+    forms: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def declared_process(self) -> SurfaceJoint:
@@ -1226,6 +1230,7 @@ class Plan(InputModel):
             if setup.id != UNKNOWN
         )
         joined: dict[str, str] = {}
+        formed: dict[str, str] = {}
         for setup in self.setups:
             where = f"Setup {setup.id}"
             refs = setup.stock_in if "stock_in" in setup.model_fields_set else UNKNOWN
@@ -1248,6 +1253,18 @@ class Plan(InputModel):
             joint = setup.joint
             if not declared or joint == UNKNOWN:
                 raise ValueError(f"{where} stock_in array requires a declared joint.")
+            for name in joint.forms:
+                _known_text(name, f"{where} joint forms entry")
+                if name in features:
+                    raise ValueError(
+                        f"{where} joint forms {name!r}, a plan joint feature: a joint forms "
+                        "exported finished faces, never its own transient interface."
+                    )
+                if name in formed:
+                    raise ValueError(
+                        f"{where} joint forms {name!r}, already formed in setup {formed[name]}."
+                    )
+                formed[name] = setup.id
             if not isinstance(joint, CylindricalJoint):
                 continue
             sides = {}

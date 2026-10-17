@@ -263,6 +263,22 @@ nothing. Earning
 nothing leaves the face's obligations open; it is never debt or
 `not_applicable`.
 
+The other exception is a face the join itself forms. A joint's `forms` lists
+exported features whose faces no op cuts because the join leaves them, such as a
+hub-to-strap root fillet `R0.2 MAX` (`radius = [0, 0.2]`) that the press leaves
+sharp. `coverage` credits that feature's faces to the joint only when three things
+hold:
+
+1. The join assembles, with known joined stock.
+2. The kernel admits the joined corner inside the feature's own band (see the
+   [assembly backstop](#transient-joint-preparation-and-assembly)).
+3. A check in the joint's setup or one downstream of it reads the feature's
+   `radius` band and passes, graded as [inspection](rules-inspection.md) grades
+   it. A leaf at the `[0, r]` limit is enough.
+
+If the inspection is missing or not a pass, or the join is unresolved, the credit
+is debt (`?`), never a pass. A refused join credits nothing.
+
 Plan [process features](plan.md#process-features) (a faced `end_face`, a
 `centre_hole`) are analytic stock preparation labelled
 `plan.process_features.<id>`. The kernel adds them as transient faces after
@@ -925,6 +941,30 @@ spigot-owned preparation stock; if a cut loses material that neither received
 branch nor authorized fill supplies, the assembly backstop refuses the join.
 This late check is not permission to discard a shoulder or other finished
 material.
+
+The backstop does not count corner material that a joint's `forms` feature
+admits as lost. The kernel checks each formed feature on the actual joined
+branches:
+
+- Every one of its STEP faces bounds lost finished material. If a received
+  branch already carries a face, or never meets it, the join does not form it.
+- Each lost piece touching those faces is bounded only by the faces and the
+  untrimmed surfaces of their neighbouring finished faces, so the joined corner is
+  the sharp corner where those neighbours meet.
+- No lost point lies farther from the faces than the band's MAX. Material missing
+  beyond the band stays lost.
+- The corner shares area with both received branches. A corner that one branch
+  alone bounds belongs to a single component, which the join did not form.
+- A sharp corner is radius 0, so the band's lower end must be 0. A `[0.1, 0.2]`
+  band refuses it.
+
+Each of these failures refuses the join with its message. An unknown band, unknown
+faces or unknown units make a formed feature debt, and any lost material that is
+left then withholds the joined stock instead of refusing it. The joined setup
+reports `forms.<feature>` with `status = "formed"`, `indices`, `corner = "sharp"`,
+`radius_mm`, `admitted_mm3` and `reach_mm` (the farthest lost point from the
+faces). Later joins keep the admitted material admitted. A joint without `forms`
+runs the backstop unchanged.
 
 For a derivable face footprint, removal is clipped to the authored `to_z`
 endpoint and to material outside the finished solid.
@@ -2010,7 +2050,9 @@ The rule does not certify a floor fillet or bottom radius against the cutter.
 ## `coverage`
 
 One row for the whole part. Every imported face must be in the union of the
-face sets claimed by cutting operations and `stock.as_is_faces`, where a face
+face sets claimed by cutting operations, `stock.as_is_faces` and the faces of
+features a checked joint forms
+([joint-formed faces](#face-identity)), where a face
 claimed through rotary windows counts only when the union of those windows
 covers it. Numbers: `face_count`, `claimed_face_count`, `unclaimed_faces`
 (their references, `null` for an unnamed face) with `unclaimed_indices`,
@@ -2020,10 +2062,11 @@ a rotary-claimed face is not covered (below). Sentences label an unnamed face
 
 - `invalid STEP face reference(s): …` (error)
 - `cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown.` (unknown: any unknown action, unmapped feature, unresolved claim direction or unknown/omitted `as_is_faces`)
+- `<joint> forms <feature>, but no check after the join reads its radius band`, `… but its radius check is not a pass (<inspection message>)` or `… but its joined corner is unresolved (<reason>)` (unknown; joined to any claim debt with `; `). `joint_formed` lists each formed feature's `joint`, `feature`, `kernel` status, `credit` and, when checked, `check` and `check_status`.
 - `rotary window coverage is unresolved for <face> (<reason>); …` (unknown)
 - `faces have no cutting op or as-stock claim: …` (error)
 - `rotary windows leave part of a claimed face uncut: <face> (<area> mm² at <setup> z <lo>..<hi> mm, angle <lo>..<hi>°); …` (error; joined to the previous error with `; ` when both apply)
-- `every imported face is claimed by a cutting op or declared as-stock.` (pass)
+- `every imported face is claimed by a cutting op or declared as-stock.` (pass), or `every imported face is claimed by a cutting op, declared as-stock or formed by a checked joint.` when a joint's credit is used
 - `Imported STEP face inventory is unresolved.` (unknown)
 
 Only supported, direction-valid claims are credited. If every remaining

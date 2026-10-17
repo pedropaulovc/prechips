@@ -1413,6 +1413,15 @@ def _on_surface(face, point, precision):
     return snapped if (snapped - point).Length <= precision else point
 
 
+def _surface_holds(face, point):
+    """Whether ``point`` lies on ``face``'s untrimmed surface, within STOCK_TOL."""
+    try:
+        surface = face.Surface
+        return (surface.value(*surface.parameter(point)) - point).Length <= STOCK_TOL
+    except Exception:
+        return False
+
+
 def _distance(a, b):
     """``a.distToShape(b)``, measured from ``b`` when OCC cannot finish it from ``a``.
 
@@ -3716,6 +3725,7 @@ class _Job:
                 "completed": {},
                 "joined": set(),
                 "consumed": set(),
+                "formed": set(),
             }
             for ref in supplies
         }
@@ -3766,7 +3776,10 @@ class _Job:
                 "completed": runner.completed if runner.stock_out_reason is None else {},
                 "joined": state["joined"],
                 "consumed": state["consumed"],
+                "formed": state["formed"],
             }
+            if sid in self.formed_rows:
+                facts["forms"] = self.formed_rows[sid]
             leaves[sid] = runner.leave_out
             if rotary:
                 self._collect_rotary_portions(runner)
@@ -4058,7 +4071,13 @@ class _Job:
         """Resolve one branch, or join a single component to one independent branch."""
         stock_in = setup.get("stock_in", UNKNOWN)
         refs = stock_in if isinstance(stock_in, list) else [stock_in]
-        state = {"components": set(), "completed": {}, "joined": set(), "consumed": set()}
+        state = {
+            "components": set(),
+            "completed": {},
+            "joined": set(),
+            "consumed": set(),
+            "formed": set(),
+        }
         error = None
         try:
             if isinstance(stock_in, list) and len(refs) != 2:
@@ -4075,6 +4094,7 @@ class _Job:
                 state["completed"].update(upstream["completed"])
                 state["joined"].update(upstream["joined"])
                 state["consumed"].update(upstream["consumed"])
+                state["formed"].update(upstream["formed"])
             if (
                 isinstance(stock_in, list)
                 and sum(len(self.states[ref]["components"]) > 1 for ref in refs) > 1
@@ -4149,7 +4169,14 @@ class _Job:
                     self._component_protection(component, consumed)
                 )
                 protected = protected.cut(pending)
-            missing = protected.cut(joined).Volume
+            # An earlier join's admitted corner stays admitted in every later assembly.
+            for name in sorted(state["formed"]):
+                protected = protected.cut(self.formed_material[name])
+            lost = protected.cut(joined)
+            rows, pieces, unresolved = self._formed(joint, lost, [sources[r][0] for r in refs])
+            missing = sum(piece.Volume for piece in pieces)
+            if missing > STOCK_MM3 and unresolved:
+                raise _Unknown("; ".join(unresolved))
             if missing > STOCK_MM3:
                 raise ValueError(
                     f"assembled outputs leave {_r(missing)} mm^3 "
@@ -4161,12 +4188,123 @@ class _Job:
                 raise _Unknown("; ".join(debts))
             state["joined"].update(state["components"])
             state["consumed"] = consumed
+            state["formed"].update(name for name, row in rows.items() if row["status"] == "formed")
+            if rows:
+                self.formed_rows[setup["id"]] = rows
             return joined, None, state, None
         except _Unknown as exc:
             return None, str(exc), state, None
         except (ValueError, KeyError) as exc:
             error = str(exc)
         return None, error, state, error
+
+    def _formed(self, joint, lost, branches):
+        """``(rows, pieces, unresolved)``: each feature the joint ``forms`` admitted from the
+        ``lost`` finished material, the pieces left lost, and the debts that leave a
+        feature undecided.
+
+        The join forms a feature when every one of its STEP faces bounds lost material (no
+        received branch carries it), and that material is the sharp corner the feature's
+        neighbouring finished faces meet in: each lost piece touching the faces is bounded
+        only by them and by the untrimmed surfaces of their neighbours, lies within the
+        band's MAX of them, and meets both received branches. A sharp corner is radius 0,
+        so the band must start at 0. Admitted material is no longer lost; anything else
+        raises with its reason."""
+        if not joint.get("forms"):
+            return {}, [lost], []
+        pieces = list(lost.Solids)
+        rows, unresolved = {}, []
+        for form in joint["forms"]:
+            name = form["feature"]
+            if form.get("error"):
+                raise ValueError(form["error"])
+            if form.get("reason"):
+                rows[name] = {"status": UNKNOWN, "reason": form["reason"]}
+                unresolved.append(form["reason"])
+                continue
+            refs = form["faces"]
+            unmapped = sorted(ref for ref in refs if ref not in self.mapping)
+            if unmapped:
+                raise ValueError(f"formed feature {name} names unmapped faces: {unmapped}")
+            indices = sorted({self.mapping[ref] for ref in refs})
+            faces = [self.solid.Faces[index] for index in indices]
+            target = Part.makeCompound(faces)
+            mine = [piece for piece in pieces if piece.distToShape(target)[0] <= STOCK_TOL]
+            near = Part.makeCompound(mine) if mine else None
+            # Every face must bound lost material: a face a branch carries is not formed.
+            carried = [
+                ref
+                for ref in refs
+                if near is None
+                or any(
+                    near.distToShape(Part.Vertex(point))[0] > STOCK_TOL
+                    for point, _ in _face_samples(
+                        self.solid.Faces[self.mapping[ref]], 1.0, interior_only=True
+                    )[0]
+                )
+            ]
+            if carried:
+                raise ValueError(
+                    f"the join does not form {name}: received material already carries or "
+                    f"never meets {', '.join(sorted(set(carried)))}"
+                )
+            neighbours = [
+                other
+                for face in faces
+                for edge in face.Edges
+                for other in self.solid.ancestorsOfType(edge, Part.Face)
+                if not any(other.isSame(own) for own in faces)
+            ]
+            low, high = form["radius_mm"]
+            touched, reach = set(), 0.0
+            for side in (side for piece in mine for side in piece.Faces):
+                points = [point for point, _ in _face_samples(side, 1.0)[0]]
+                distances = [target.distToShape(Part.Vertex(point))[0] for point in points]
+                reach = max([reach, *distances])
+                if all(distance <= STOCK_TOL for distance in distances):
+                    continue  # one of the formed faces itself
+                if not all(
+                    any(_surface_holds(other, point) for other in neighbours)
+                    for point, distance in zip(points, distances, strict=True)
+                    if distance > STOCK_TOL
+                ):
+                    raise ValueError(
+                        f"the joined corner at {name} is not the sharp corner its "
+                        "neighbouring finished faces meet in"
+                    )
+                # A branch shares positive area of the corner's faces, not merely an edge.
+                touched.update(
+                    index
+                    for index, branch in enumerate(branches)
+                    if side.common(branch).Area > SUPPLY_MM2
+                )
+            if reach > high + STOCK_TOL:
+                raise ValueError(
+                    f"the join at {name} leaves material missing {_r(reach)} mm from its "
+                    f"faces, beyond its R{_r(high)} MAX"
+                )
+            if len(touched) < len(branches):
+                raise ValueError(
+                    f"{name} is owned by a single component: its corner does not meet both "
+                    "joined branches"
+                )
+            if low > STOCK_TOL:
+                raise ValueError(
+                    f"the joined corner at {name} is sharp, outside its radius band "
+                    f"[{_r(low)}, {_r(high)}]"
+                )
+            volume = sum(piece.Volume for piece in mine)
+            self.formed_material[name] = mine[0].multiFuse(mine[1:]) if len(mine) > 1 else mine[0]
+            pieces = [piece for piece in pieces if not any(piece is own for own in mine)]
+            rows[name] = {
+                "status": "formed",
+                "indices": indices,
+                "corner": "sharp",
+                "radius_mm": [low, high],
+                "admitted_mm3": _r(volume),
+                "reach_mm": _r(reach),
+            }
+        return rows, pieces, unresolved
 
     def _init_process(self, stock):
         """Transient claim faces of the job's process features (module docstring)."""
@@ -4193,6 +4331,8 @@ class _Job:
         self.ownership_errors = {}
         self.joint_setup_errors = {}
         self.cylindrical_joints = {}
+        # Joint-formed features: their admitted corner material and per-setup rows.
+        self.formed_material, self.formed_rows = {}, {}
         self.protected = {
             name: self.solid for state in self.states.values() for name in state["components"]
         }

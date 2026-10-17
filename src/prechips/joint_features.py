@@ -297,6 +297,39 @@ def _owner(refs: list[str], ancestry: dict[str, frozenset[str]], component: str)
     return next(ref for ref in refs if root in ancestry.get(ref, frozenset((ref,))))
 
 
+def formed(bundle, name: str) -> dict:
+    """One feature a joint ``forms``: its STEP face refs and mm ``radius`` band for the
+    kernel to admit the joined corner against. ``error`` is a declaration that can never
+    hold; ``reason`` is debt (unknown faces, band or units)."""
+    feature = bundle.features.get("features", {}).get(name)
+    entry = {"feature": name}
+    if not isinstance(feature, dict):
+        return {**entry, "error": f"joint forms {name!r}, which is not an exported feature"}
+    band = feature.get("radius")
+    requirements = feature.get("requirements")
+    if not (band == UNKNOWN or isinstance(band, list)) or (
+        isinstance(requirements, list) and "radius" not in requirements
+    ):
+        return {
+            **entry,
+            "error": f"joint forms {name!r}, which has no radius band to admit the joined corner",
+        }
+    faces = feature.get("faces")
+    scale = _scale(bundle)
+    missing = [
+        field
+        for field, unknown in (
+            ("faces", not isinstance(faces, list) or not faces or UNKNOWN in faces),
+            ("radius", band == UNKNOWN or UNKNOWN in band),
+            ("units", scale is None),
+        )
+        if unknown
+    ]
+    if missing:
+        return {**entry, "reason": f"formed feature {name} {', '.join(missing)} unknown"}
+    return {**entry, "faces": list(faces), "radius_mm": _scaled(band, scale)}
+
+
 def setup_joint(bundle, setup: dict) -> dict | None:
     """Normalised mm joint descriptor of a two-branch assembly setup, else None.
 
@@ -314,6 +347,8 @@ def setup_joint(bundle, setup: dict) -> dict | None:
     }
     if joint.get("compound") is not None:
         common["compound"] = dict(joint["compound"])
+    if joint.get("forms"):
+        common["forms"] = [formed(bundle, name) for name in joint["forms"]]
     if joint["kind"] == "surface":
         scale = _scale(bundle)
         interfaces, missing = [], []
