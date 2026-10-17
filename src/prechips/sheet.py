@@ -7487,8 +7487,11 @@ class _Traveler:
                 break
             earlier.extend(other.get("ops", []))
         earlier.extend(ops[: index or 0])
+        # An ``ends`` layout scribes only the arc's two end marks (a guided sweep's stops):
+        # no line for the rough to stay outside.
         scribed = feature and any(
-            op.get("do") == "scribe" and op.get("feature") == feature for op in earlier
+            op.get("do") == "scribe" and op.get("layout") != "ends" and op.get("feature") == feature
+            for op in earlier
         )
         return "the scribed line" if scribed else "the finished outline"
 

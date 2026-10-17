@@ -1074,6 +1074,9 @@ class Plan(InputModel):
         line must be on the saw's own workpiece: scribed earlier in the same setup or in a
         setup its ``stock_in`` routing descends from (omitted routing descends from none)."""
         scribes = {}
+        # An ``ends`` layout scribes only an arc's two end marks (a guided sweep's stops): no
+        # line for a saw to follow.
+        end_marks = set()
         routes = {
             "setups": [
                 {"id": setup.id, "stock_in": setup.stock_in}
@@ -1091,7 +1094,9 @@ class Plan(InputModel):
                     stray = sorted(declared & {"follows", "allowance_mm"})
                     if stray:
                         raise ValueError(f"{where}: only a saw cut declares {', '.join(stray)}.")
-                    if op.do == "scribe":
+                    if op.do == "scribe" and op.layout == "ends":
+                        end_marks.add(f"{setup.id}:{op.op}")
+                    elif op.do == "scribe":
                         scribes[f"{setup.id}:{op.op}"] = setup.id
                     continue
                 shapes = [field for field in ("cut_plane", "follows") if field in declared]
@@ -1109,6 +1114,11 @@ class Plan(InputModel):
                             f"{', '.join(stray)} belong to a cut that follows a scribed line."
                         )
                     continue
+                if op.follows in end_marks:
+                    raise ValueError(
+                        f"{where}: follows {op.follows!r}, an ends layout: it scribes only the "
+                        "arc's two end marks, no line for the saw to follow."
+                    )
                 if op.follows not in scribes:
                     raise ValueError(
                         f"{where}: follows {op.follows!r} names no earlier scribe op "

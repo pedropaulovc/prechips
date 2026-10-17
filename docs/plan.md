@@ -1237,7 +1237,7 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `approach` | `"rotary"` |
 | `angle_window_deg` | `[Number, Number]` |
 | `cut_plane` | `SawPlane` (a straight saw cut only) |
-| `follows` | `str`: `"<setup>:<op>"` of an earlier `scribe` op (a saw that follows its line only) |
+| `follows` | `str`: `"<setup>:<op>"` of an earlier `scribe` op (a saw that follows its line only; an `ends` layout scribes no line, an error) |
 | `allowance_mm` | `Number` > 0: stock a saw that `follows` a line leaves outside it for the file |
 
 An `inspect` op may name several features (`feature = ["a", "b"]`): one
