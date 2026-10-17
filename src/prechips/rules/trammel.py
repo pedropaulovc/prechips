@@ -48,12 +48,28 @@ def per_spacing(alpha):
     return 1 / (2 * trig.sin(math.radians(alpha)))
 
 
-def fits(pins, alpha, tol=1e-3):
+# How far (degrees) authored pins may sit off the central angle the measured rail angle
+# gives them: the plan says where the pair sits, the measured α how far apart.
+FIT_TOL = 0.5
+
+
+def fits(pins, alpha, tol=FIT_TOL):
     """Whether pins at ``pins`` degrees on one circle subtend ``alpha`` (or its
     supplement) at every point of it off their arc: their central angle is ``2α`` or
     ``360° − 2α`` (to ``tol`` degrees)."""
-    span = abs(pins[1] - pins[0]) % 360
-    return any(abs(span - want) <= tol for want in (2 * alpha, 360 - 2 * alpha))
+    return seat(pins, alpha, tol) is not None
+
+
+def seat(pins, alpha, tol=FIT_TOL):
+    """The pins' angles as the measured ``alpha`` places them about the authored pair's
+    bisector (its central angle exactly ``2α`` or ``360° − 2α``, whichever the authored
+    span is within ``tol`` of), in the authored order; None when it is neither."""
+    span = pins[1] - pins[0]
+    middle, sign = (pins[0] + pins[1]) / 2, 1 if span >= 0 else -1
+    for half in (alpha, 180 - alpha):
+        if abs(abs(span) % 360 - 2 * half) <= tol:
+            return [middle - sign * half, middle + sign * half]
+    return None
 
 
 def _wrap(deg):
@@ -381,6 +397,10 @@ def recipe(bundle, setup, op, arc, band, label, scale):
             f"{2 * alpha:g}° (or {360 - 2 * alpha:g}°)"
         )
         pinned = False
+    elif number(alpha):
+        # The measured rail angle, not the plan's rounding, sets how far apart they sit.
+        pins = seat(pins, alpha)
+        record_["pins_deg"] = pins
     if pinned:
         r_mm = radius(spacing, alpha)
         record_.update(
@@ -624,3 +644,26 @@ def guide_scene(bundle, guided, op, bottom, lift, scale):
         for index, pin in enumerate(pins, start=1)
     ]
     return {"rails": rails_, "pins": pins_}, []
+
+
+def flagged(item, sweep, category, key, measurements):
+    """Measurement debts for a trammel flagged to verify as a whole, beyond its plain
+    lengths (rules/guided_sweep.py ``_flagged``): the rail angle and its error, the
+    pair's spacing and the rails' travel."""
+    from ..measurements import angle_debt, length_debt, limits_debt, record_debt
+    from .resolution import UNKNOWN
+
+    pair = sweep.get("pin_pair", UNKNOWN)
+    fields = [
+        (angle_debt, "rail_angle_deg"),
+        (angle_debt, "rail_angle_error_deg"),
+        (limits_debt, "rail_travel"),
+    ]
+    if isinstance(pair, str) and pair != UNKNOWN:
+        fields.append((length_debt, ("pin_spacing", pair)))
+    for debt_of, field in fields:
+        debt = debt_of(item, field, category, key, require_measured=True)
+        if debt is None:
+            debt = record_debt(item, category, key, field)
+        if debt:
+            measurements.append(debt)

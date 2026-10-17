@@ -1487,7 +1487,7 @@ A `guided_sweep` contour's `sweep` record ([manual arcs](#manual-arcs), step 4).
 | `rollers_deg` | `Vector` (rail: the two rollers' angles about the arc centre from the cutter's radial line, counterclockwise from above, with the cutter at the arc's middle) |
 | `rail_deg` | `Vector` (rail: the rail's two ends, the same way) |
 | `pin_pair` | `str` (trammel: the key of the carrier's pin pair this pass rides, in the fixture's `pin_spacing` map) |
-| `pins_deg` | `Vector` (trammel: that pair's two pins' angles about the arc centre from the cutter's radial line, the same way; their central angle must be `2α` or `360° − 2α`) |
+| `pins_deg` | `Vector` (trammel: that pair's two pins' angles about the arc centre from the cutter's radial line, the same way; their central angle must be within 0.5° of `2α` or `360° − 2α`, and the measured `α` then places them exactly about the pair's bisector) |
 
 ## Guide
 
@@ -1768,7 +1768,8 @@ uses the 1898 manual arc method:
    do not subtend `α`, a sweep that would carry the cutter over a pin, or a carriage
    leaving its rail's measured `rail_travel` over the sweep are errors. The traveler
    prints the pin pair seated in the carriages, X and Y locked on the rails'
-   crossing, a stop clamped on one rail at each end's exact pin station (the other
+   crossing, a stop clamped on one rail at each end's exact pin station (also read
+   along the rail from where the carriage stands on its near end stop; the other
    rail's stations as a check), a dry pass, and the lever feed from stop to stop with
    the carrier's turn.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
