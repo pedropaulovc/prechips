@@ -941,6 +941,13 @@ a contained cone apex or sphere pole) extends the column. A wider back
 countersink is therefore not reserved, and a blind hole's column stops at its
 actual cap rather than running on as an unbounded rod; pins or rods outside
 that span are not reserved hole stock.
+In a built-up plan a column is reserved only inside the ownership regions of the
+components on the op's branch, the regions that divide finished material between
+them (a spigot's full joint cylinder, its socket's space outside that cylinder, a
+surface joint's side): before joining, a bore in another component's region is
+that component's future hole, so the branch's cutters remove the raw stock over it
+and none of it stands as an island or obstacle. A one-piece part, a stock root no
+joint divides and an assembly holding every owner keep each column whole.
 A milling profile op (`profile`, `rough_profile`, `finish_profile`) with no
 `stock_removal_bounds` clears its cutter corridor beside its vertical claimed
 walls and the sweep of the cutter-centre paths the traveler prints for it,
@@ -1754,7 +1761,10 @@ Numbers: `sample_count`, `tool_hits`, `holder_hits`, the five inputs, and
 `certain_tool_hits` / `certain_holder_hits` when observed hits are definite
 despite unresolved inputs, poses or undeclared jaw overhang. Unknown stock
 leaves `certain_tool_hits` unknown rather than a certain collision; holder
-minima retain their entry-material evidence. A stopping op's known before-stock
+minima retain their entry-material evidence. In a built-up plan any hit adds
+`hit_owners`: per hit kind, `part` names the branch's components (their stock
+was hit), each finished face ref bounding a hit names every component whose
+finished share holds a positive area of it, and a fixture label names itself. A stopping op's known before-stock
 can establish a zero upper hit bound and independent fixture hits, but not
 certainty for its unresolved own part-material removal.
 
