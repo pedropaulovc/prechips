@@ -12,7 +12,15 @@ MEASURED = {"status": "measured", "by": "test", "date": "2026-10-17", "instrumen
 FACE = "#1/ADVANCED_FACE[1]/HAF_HUB_ROOT__P01"
 
 
-def bundle(range_mm, *, band=(0.0, 0.2), kind="radius_gauge", verify=False, resolution=0.1):
+def bundle(
+    range_mm,
+    *,
+    band=(0.0, 0.2),
+    kind="radius_gauge",
+    verify=False,
+    resolution=0.1,
+    leaf_tolerance=None,
+):
     feature = {
         "kind": "fillet",
         "frame": "model",
@@ -43,6 +51,8 @@ def bundle(range_mm, *, band=(0.0, 0.2), kind="radius_gauge", verify=False, reso
         "range_mm": range_mm,
         "resolution_mm": {"value": resolution, "measured": dict(MEASURED)},
     }
+    if leaf_tolerance is not None:
+        gauge["leaf_tolerance_mm"] = leaf_tolerance
     return SimpleNamespace(
         plan=plan,
         inventory={"gauges": {"radius-gauge-small": gauge}},
@@ -66,6 +76,35 @@ def test_leaf_set_starting_at_the_max_limit_passes_as_a_limit_check(kind):
     assert row.numbers["limit_check"] == "max"
     assert row.numbers["limit_mm"] == 0.2
     assert "band_mm" not in row.numbers
+    assert "leaf_tolerance_mm" not in row.numbers
+
+
+def test_leaf_tolerance_crossing_the_limit_is_not_a_clean_pass():
+    # Fuji 272HRMAA's leaves are ±0.01: the R0.2 leaf may be R0.21 and accept a corner
+    # past R0.2 MAX. The set has no leaf at or under R0.19, so the limit is undecided.
+    tolerance = {"value": 0.01, "measured": dict(MEASURED)}
+    row = finding(bundle([0.2, 1.0], leaf_tolerance=tolerance))
+    assert row.status == "error"
+    assert "tolerance crosses the MAX limit" in row.sentence
+    assert row.numbers["leaf_tolerance_mm"] == 0.01
+
+
+def test_a_leaf_under_the_limit_by_its_tolerance_passes():
+    # Leaves R0.1-R1.0 by 0.01 read R0.2 MAX with the R0.19 leaf: at most R0.2.
+    tolerance = {"value": 0.01, "measured": dict(MEASURED)}
+    row = finding(bundle([0.1, 1.0], resolution=0.01, leaf_tolerance=tolerance))
+    assert row.status == "pass", row.sentence
+    assert row.numbers["leaf_tolerance_mm"] == 0.01
+
+
+@pytest.mark.parametrize(
+    "tolerance",
+    ["unknown", {"value": 0.01, "measured": {**MEASURED, "status": "assumed"}}],
+)
+def test_unknown_or_unverified_leaf_tolerance_is_debt(tolerance):
+    row = finding(bundle([0.2, 1.0], leaf_tolerance=tolerance))
+    assert row.status == "unknown"
+    assert row.numbers["leaf_tolerance_mm"] == "unknown"
 
 
 @pytest.mark.parametrize("span", [[0.3, 1.0], [0.05, 0.15]])

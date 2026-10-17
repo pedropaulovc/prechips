@@ -72,11 +72,17 @@ not exceed `high-low`. The exception is a one-sided radius limit: a `radius` or
 `bottom_radius` band `[0, r]` can only mean "R r MAX, sharp allowed", so no new field
 marks it. A `radius_gauge` or `profile_gauge` reads it as a **limit check**, go/no-go
 with its leaf at r: the leaf seats without rocking on a corner at or under r, and a
-sharp corner needs no leaf. Its `range_mm` need only hold the limit (`range_mm[0] ≤ r
-≤ range_mm[1]`; a leaf set R0.2–R1.0 reads `R0.2 MAX`), and its resolution must not
-exceed r. Evidence adds `limit_check = "max"` and `limit_mm` (r) instead of
-`band_mm`. A leaf set that does not reach r is an error; an unverified gauge stays
-debt. A two-sided band (R5 ±0.1) and any reading gauge (a CMM) keep the full-span
+sharp corner needs no leaf. A leaf marked L whose maker tolerance is ±t
+(`leaf_tolerance_mm`, [inventory](inventory.md)) may really be L + t and accept a
+corner past the limit, so the leaf read must be at or under r − t. The gauge passes
+when `range_mm[0] ≤ r − t ≤ range_mm[1]`, so a leaf set R0.2–R1.0 with no declared
+tolerance reads `R0.2 MAX`. Its resolution must not exceed r. With t = 0.01 the same
+set has no leaf at or under R0.19, so the leaf's tolerance crosses the limit and the
+check is not a clean pass: it is an error. An omitted tolerance is zero. A declared one
+that is unknown or not trusted leaves the check unknown, with the tolerance as debt.
+Evidence adds `limit_check = "max"`, `limit_mm` (r) and, when declared,
+`leaf_tolerance_mm`, instead of `band_mm`. A leaf set that does not reach r is an
+error; an unverified gauge stays debt. A two-sided band (R5 ±0.1) and any reading gauge (a CMM) keep the full-span
 rule. The mirror "R MIN" band `[r, inf]` cannot be written, since inputs refuse
 `inf`, so no min-only case exists. A scalar geometric tolerance needs resolution
 at most the tolerance and a known declared method. Non-mm/unknown limits stay unknown.
@@ -138,8 +144,10 @@ Sentence templates:
   - `gauge spans the band at sufficient resolution`
   - `gauge range or resolution unresolved`
   - `limit check: gauge has no leaf at the MAX limit`
+  - `limit check: the leaf's ±{t} tolerance crosses the MAX limit (no leaf at or under the limit less its tolerance)`
+  - `limit check: gauge leaf tolerance unresolved`
   - `limit check: gauge resolution exceeds the MAX limit`
-  - `limit check: a gauge leaf at the MAX limit reads go/no-go (not a reading across the band)`
+  - `limit check: a gauge leaf at or under the MAX limit, less its tolerance, reads go/no-go (not a reading across the band)`
   - `gauge resolution and declared geometric inspection method cover requirement`
   - `geometric gauge capability or datum inspection method unresolved`
   - `no angular gauge capability`
