@@ -59,7 +59,7 @@ HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", re.M)
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 # Module attributes naming the module object itself, which a kept module keeps.
 IDENTITY = {"__name__", "__file__", "__doc__", "__spec__", "__package__", "__loader__"}
-BUILTINS = set(dir(builtins)) | {"__file__", "__name__", "__doc__", "__spec__"}
+BUILTINS = set(dir(builtins)) | IDENTITY
 REWRITE_ROOTS = ("src", "tests", "scripts")
 
 
@@ -571,7 +571,7 @@ def make_plan(module):
             refusals.append(f"{name} is bound more than once, across {sorted(files)}")
     for unit, target in placed:
         # Each file has its own __file__, __name__, __spec__, __package__ and __doc__.
-        located = {"__file__", "__name__", "__spec__", "__package__", "__doc__"}
+        located = set(IDENTITY)
         located &= _unit_free(unit)
         if located and target != module["source"] and unit.kind != "import":
             refusals.append(f"{unit.name} reads {sorted(located)}, which differ in {target}")
@@ -960,6 +960,8 @@ class Rewriter:
         self.refusals = []
         self.hand = []
         self.flat = Path(self.module["source"]).stem
+        self.readers = defaultdict(set)  # name -> importer files reading it directly
+        self._path = None
         self._file_reads = {}  # name -> direct reads (node) in the file being rewritten
         self._tree = None
 
@@ -978,7 +980,10 @@ class Rewriter:
             return None
         if files:
             looked = next(iter(files))
-            if self._read_after(name, site) and looked != self.owner.get(name, self.rest):
+            elsewhere = self.readers.get(name, set()) - {self._path}
+            if (self._read_after(name, site) or (site is not None and elsewhere)) and (
+                looked != self.owner.get(name, self.rest)
+            ):
                 # The patch lands in the looking file, the later read in the owner.
                 self.refusals.append(
                     f"monkeypatched {name} is also read here, so the patch and the read "
@@ -987,6 +992,20 @@ class Rewriter:
                 return None
             return dotted(self.module, looked)
         return self.new_module(name)
+
+    def collect_reads(self, paths):
+        """Which importer files read each name of the split module directly: a patch
+        retargeted away from the name's owner would miss those reads. A ``test_*.py``
+        file's reads run only in its own tests, after any other test's patch is undone,
+        so only code a test can call (``src/``, ``scripts/``, test helpers) counts."""
+        for path in paths:
+            if path.name.startswith("test_"):
+                continue
+            text = path.read_text(encoding="utf-8")
+            if self.source.rsplit(".", 1)[-1] not in text:
+                continue
+            for name in _direct_reads(ast.parse(text), path, self.source):
+                self.readers[name].add(path)
 
     def _read_after(self, name, site):
         if site is None:
@@ -997,7 +1016,8 @@ class Rewriter:
             if id(read) not in inside:
                 continue
             # A nested helper may run after the patch whatever its line.
-            if read.lineno > site.lineno or _scope_of(self._tree, read) is not scope:
+            after = (read.lineno, read.col_offset) > (site.lineno, site.col_offset)
+            if after or _scope_of(self._tree, read) is not scope:
                 return True
         return False
 
@@ -1022,6 +1042,7 @@ class Rewriter:
         self._consumed = defaultdict(int)  # alias loads an edit replaced, per alias import
         self._file_reads = _direct_reads(tree, path, self.source)
         self._tree = tree
+        self._path = path
         lines = text.splitlines(keepends=True)
         edits = []  # (start offset, end offset, replacement)
         offsets = list(itertools.accumulate([0] + [len(line) for line in lines]))
@@ -1624,8 +1645,10 @@ def _module_bindings(tree):
             bound.update((a.asname or a.name).split(".")[0] for a in node.names)
         elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
             bound.add(node.id)
-        elif isinstance(node, ast.ExceptHandler) and node.name:
+        elif isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name:
             bound.add(node.name)
+        elif isinstance(node, ast.MatchMapping) and node.rest:
+            bound.add(node.rest)
         stack.extend(ast.iter_child_nodes(node))
     return bound
 
@@ -1713,13 +1736,17 @@ def apply(args):
     rewriter = Rewriter(plan)
     rewritten = {}
     moved = {ROOT / f for f in plan.files()} | {ROOT / module["source"]}
-    for root in REWRITE_ROOTS:
-        for path in sorted((ROOT / root).rglob("*.py")):
-            if path in moved or "__pycache__" in path.parts:
-                continue
-            text = rewriter.rewrite(path)
-            if text is not None:
-                rewritten[path] = text
+    importers = [
+        path
+        for root in REWRITE_ROOTS
+        for path in sorted((ROOT / root).rglob("*.py"))
+        if path not in moved and "__pycache__" not in path.parts
+    ]
+    rewriter.collect_reads(importers)
+    for path in importers:
+        text = rewriter.rewrite(path)
+        if text is not None:
+            rewritten[path] = text
     cited, mentioned = _citations(module["source"])
     rewriter.refusals += [f"{where} cites {module['source']} by line" for where in cited]
     refusals = plan.refusals + rewriter.refusals
