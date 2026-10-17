@@ -1693,7 +1693,7 @@ sheet.
    heights are 73.3044 mm and 44.9453 mm. These attributed measurements do
    not qualify the inventory's demonstration-fixture parallels, blocks, holders,
    tools or PM-30MV envelope, and do not constitute first-article acceptance.
-6. **M6 — fixture commissioning phase** (#270). **Design only; nothing
+6. **M6 — fixture commissioning phase** (#270). **Design agreed; nothing
    implemented.** A plan-level `commissioning` block holds setups that run once
    per fixture install or batch: alignment readings against computed DRO
    targets, torque steps, in-situ fixture features (`located_by = "in_situ"`),
@@ -1701,7 +1701,8 @@ sheet.
    live in a shop install record; an unrecorded or stale reading is `?` debt
    on every dependent part setup, never a pass. See
    [docs/design/commissioning-phase.md](docs/design/commissioning-phase.md)
-   for schema, rules, kernel, traveler, the P1–P6 plan and open decisions.
+   for schema, rules, kernel, traveler, the P1–P6 plan and the decisions
+   (D3, the guide field names, is deferred to #269).
    Kernel chaining waits on #182; the trammel adapter waits on #269.
 
 ## 9. Decisions from review

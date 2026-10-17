@@ -1,9 +1,10 @@
 # Design: once-per-batch fixture commissioning phase
 
-Status: **proposed, not implemented.** Issue
+Status: **design agreed, not implemented.** Issue
 [#270](https://github.com/pedropaulovc/prechips/issues/270). Nothing in this
 document is shipped behaviour, and no schema, rule or traveler page described
-here exists yet. Section 7 lists the open decisions for review.
+here exists yet. The maintainer decided D1, D2 and D4–D6 on PR #275, and D3 is
+deferred to #269 (section 7).
 
 Motivating case: the oblique-trammel jig for the harmonic-analyzer rocker arm
 ([#269](https://github.com/pedropaulovc/prechips/issues/269)). Its guide is being
@@ -122,9 +123,16 @@ citation, or the AGENTS.md example-value comment. Unknown → `?`.
 
 A reading names *what* is read and *how far off* it may be. The **predicted**
 value is always computed by the rules from the plan's geometry. It is never an
-authored number. An author can add an `expect` for a cross-check; if `expect`
-differs from the prediction by more than half the tolerance, the result is an
-error naming both values, and the prediction is what gets printed.
+authored number. An author can add an optional `expect` as a cross-check only
+(decision D6):
+
+- if `expect` differs from the prediction by more than the reading's tolerance
+  (the `align` op's `tolerance`, or the `accept` reading's band), the result is an
+  error naming both values;
+- the prediction is always what gets printed and what a recorded reading is
+  judged against. `expect` is never the source of the value, and an `expect` on a
+  reading whose prediction is unknown does not stand in for it: the reading
+  stays `?`.
 
 `ReadingSet` (for `align`):
 
@@ -144,8 +152,9 @@ the spindle axis at the guide's crossing point. It is computed by the guide
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `name` | `str`: key within the op (`"sagitta_outer"`) |
-| `quantity` | `"sagitta"` / `"width"` / `"distance"` / `"dro_xy"` / `"z"` |
-| `of` | `str` or `list[str]`: the commissioned features or fixture solids read (`"trammel-jig.riser.outer_edge"`) |
+| `quantity` | `"sagitta"` / `"width"` / `"distance"` / `"size"` / `"dro_xy"` / `"z"` |
+| `of` | `str` or `list[str]`: the commissioned features or fixture solids read (`"trammel-jig.riser.outer_edge"`); for a relative reading, the first entry is the reference |
+| `claims` | `list[str]`: the in-situ claims this reading establishes (`"trammel-jig.dowel_hole.position"`, §3.3); empty for a reading that trusts nothing (#11) |
 | `chord_mm` / `chord_in` | `float` (`sagitta` only) |
 | `band_mm` / `band_in` | `Vector` `[low, high]` relative to the prediction, or a symmetric `float` |
 | `band_cite` | `Citations` |
@@ -172,16 +181,28 @@ located_by = "in_situ"             # "drawing" (default) | "in_situ"
 
 - `located_by = "drawing"` (the default) keeps today's behaviour exactly.
 - `located_by = "in_situ"` means the drawing locates only the spot. The solid's
-  `at_mm` is the spot position, and its finished location is wherever the
-  commissioning op that makes it puts it.
+  `at_mm` is the spot position, and its finished location is wherever its
+  commissioning route puts it.
 
-Every `in_situ` solid must be made by exactly one commissioning op that names it
-as `fixture_feature = "<fixture>.<solid>"`. Zero or two such ops is an error. A
-part setup that relies on an `in_situ` solid that the plan has no commissioning
-op for is an error, not debt: the plan is incomplete.
+**Route.** Each `in_situ` solid is made by a **route**: every commissioning op
+that names it as `fixture_feature = "<fixture>.<solid>"` (or a named part of it,
+`"<fixture>.<solid>.<edge>"`), in plan order. A hole's route is typically spot,
+drill and ream, and the riser's is one sweep per edge. The validator requires:
 
-The op that makes an in-situ hole says where it goes with `locate`, also an enum
-union:
+- at least one op in the route; an `in_situ` solid with none is an error;
+- exactly one `locate` per located element: on the first op of a hole's route,
+  which later ops inherit (a later op with its own `locate` is an error); and on
+  each edge's own sweep for a profile, which is located by its guide pose;
+- every op of one hole's route in the same commissioning setup, so the hole is
+  never re-located between ops. A riser's edges may be cut in one setup or two;
+- the route's last op that sets size is the **terminal** op. Its tool sets the
+  finished size the kernel cuts and the `size` reading predicts (a reamer's size,
+  for HUB), and the route's earlier ops are roughing.
+
+A part setup that relies on an `in_situ` solid that the plan has no route for is
+an error, not debt: the plan is incomplete.
+
+The route's first op says where a hole goes with `locate`, also an enum union:
 
 ```toml
 locate = { from = "guide", pose = "apex", offset_mm = [0.0, "computed"] }
@@ -197,12 +218,12 @@ locate = { from = "trammel-jig.hub_hole", offset_mm = [-292.0, 0.0] }   # by DRO
   earlier feature must be made by an earlier commissioning op.
 
 A commissioning op whose work is a fixture solid that the jig itself cuts (the
-riser) uses a `guided_sweep` contour on the fixture's own guide, plus one
-riser-specific field:
+riser) uses a `guided_sweep` contour on the fixture's own guide. Each sweep names
+the edge it cuts, and adds one riser-specific field:
 
 ```toml
 do = "finish_profile"
-fixture_feature = "trammel-jig.riser"
+fixture_feature = "trammel-jig.riser.inner_edge"   # one op per edge
 inset_mm = 2.0       # each riser edge lies this far inside the part's finished edge
 tool = "endmill-14"  # rules check dia == part cutter dia + 2 × inset
 ```
@@ -240,9 +261,10 @@ Batch quantity: `commissioning.batch_qty` relates to the existing
 - `batch_qty` unknown → `?`;
 - `batch_qty ≥ quantity` → one run;
 - otherwise the traveler prints `runs = ceil(quantity / batch_qty)` and
-  "re-commission every `batch_qty` parts".
+  "re-commission every `batch_qty` parts", and the rule emits a `warn` (decision
+  D5, §3.5).
 
-prechips does not count parts made. The part sheets' meta line prints
+prechips does not count parts made or runs taken. The part sheets' meta line prints
 `qty 20 · after commissioning C (covers 20)`.
 
 ### 2.6 The install record (where readings live)
@@ -254,8 +276,12 @@ plan, like `paths.inventory`.
 ```toml
 # records/trammel-jig.toml: one file per installation; appended by the shop
 fixture = "trammel-jig"
-planned = "<sha256 of the planned commissioning, §3.4>"
 install = "PM-30MV table; rail A in T-slots 2/3, rail B in 3/4"
+
+[planned]                           # one digest per planned input, §3.4; written by the checker
+commissioning = "<sha256>"
+"fixtures.trammel-jig" = "<sha256>"
+"tools.endmill-10" = "<sha256>"     # the part cutter that derives the riser cutter
 
 [readings."C1:20/rail_a.pin@400"]
 value_mm = [-395.884, -57.203]
@@ -283,8 +309,12 @@ Each entry reuses the existing `Measurement` record, so `_trust` in
 `by`/`date`/`instrument` counts. `assumed`, `illustrative`, an omitted status,
 or `verify = true` is debt. `by` is attribution and never affects trust.
 
+This is decision D1.
+
 A missing `record` key, a missing file, or a key with no entry is the **normal
-planned state**: every reading is `?`. A reading in the record whose key the plan
+planned state**: every reading is `?`. The checker prints the current
+`[planned]` table, in the report and on the commissioning sheet, for the shop to
+copy into a new record. It never writes the record itself. A reading in the record whose key the plan
 does not generate is an error (a typo would otherwise silently leave a real
 reading unread).
 
@@ -330,45 +360,93 @@ geometry (§4). Only this roll-up carries the commissioning debt. That keeps one
 missing reading from turning into dozens of duplicate `?` findings, while still
 leaving every dependent part setup with visible debt.
 
-`commissioning` joins `ALWAYS_REQUIRED` (`findings.py`). An uncommissioned plan
-therefore exits 4. A failed reading exits 2. A plan with no `commissioning` record
+`commissioning` joins `ALWAYS_REQUIRED` (`findings.py`; decision D2): no policy
+can waive it. A missing, untrusted or stale reading therefore exits 4. A failed
+reading, or an `expect` mismatch, exits 2. A plan with no `commissioning` record
 emits no finding and keeps today's exit codes. The validator's expected exits for
 an example change only when that example gains a `commissioning` block.
 
 ### 3.3 Which reading trusts which in-situ feature
 
-An in-situ feature is trusted for dependent setups only when every acceptance
-reading whose `of` names it is a pass. A feature that no acceptance reading names
-is not trusted. The validator reports it as an error ("in-situ feature
-trammel-jig.dowel_hole has no acceptance reading"), because nothing would ever
-discharge its debt.
+Trust is granted per **claim**, never per feature as a whole. Naming a feature
+in a reading's `of` trusts nothing by itself.
 
-For the trammel:
+**Claims.** Each in-situ solid has a fixed set of claims, derived from its kind.
+They are not authored:
 
-- the riser is trusted by `sagitta_outer`, `sagitta_inner` and `width`;
-- HUB is trusted by `hub_pin_to_edge`, which ties the hole to the cut arc it
-  exists to match;
-- the dowel hole needs its own reading, either a `distance` from the HUB pin by
-  DRO or a gauge pin over both dowels. The comment on #270 lists only three
-  readings, so this is open decision D4.
+| In-situ element | Claims | Quantities that can establish each claim |
+|---|---|---|
+| hole (a `void` cylinder) | `size`, `position` | `size`: `size`. `position`: `distance` or `dro_xy`, from a reference |
+| swept edge (`<solid>.<edge>`) | `radius`, `location` | `radius`: `sagitta`. `location`: `distance` or `width`, from a reference |
+
+A reading lists the claims it establishes in `claims`. The validator checks
+each listed claim against this table. A `z` reading can establish none of them,
+so `claims = ["…hub_hole.position"]` on a `z` reading is an error, not a
+silent trust.
+
+**Reference chain.** A `position` or `location` claim is relative: the reading's
+first `of` entry is its reference. The references must form a chain that reaches
+a **cut path**, meaning an edge cut by the guide on the same pin pair the part is
+cut by, without a cycle. For the trammel:
+
+- `hub_pin_to_edge` puts HUB's position relative to the outer cut edge, which is
+  what the in-situ HUB exists to match;
+- `width` puts the inner edge relative to the outer edge;
+- `dowel_position` puts the dowel hole relative to HUB.
+
+**Coverage.** The validator requires that every claim of every in-situ solid a
+dependent part setup consumes is listed by at least one compatible reading. A
+missing claim is an error ("in-situ claim trammel-jig.dowel_hole.size has no
+acceptance reading"), because nothing would ever discharge its debt.
+
+**Trust.** A claim is trusted only when every reading that lists it passes. A
+dependent setup's roll-up (§3.2) is a pass only when every consumed claim is
+trusted.
+
+The trammel's claims and readings (decision D4 adds the dowel's two):
+
+| Claim | Reading |
+|---|---|
+| `riser.outer_edge.radius`, `riser.inner_edge.radius` | `sagitta_outer`, `sagitta_inner` |
+| `riser.inner_edge.location` | `width` |
+| `hub_hole.position`, `riser.outer_edge.location` | `hub_pin_to_edge` |
+| `hub_hole.size` | `hub_size` (largest gauge pin that enters) |
+| `dowel_hole.position` | `dowel_position`: distance from the HUB pin to the dowel, read by DRO with a coaxial indicator |
+| `dowel_hole.size` | `dowel_fit`: largest gauge pin that enters, predicted from the terminal reamer and banded by the dowel's fit |
 
 ### 3.4 Staleness
 
-The record's `planned` field holds the SHA-256 of the **planned commissioning**:
-the `commissioning` block, the commissioned fixture's inventory item, every
-inventory fact a prediction consumes, and every part cutter that derives a riser
-cutter. If it differs from the current one, every reading is `?` with: "install
-record no longer matches the plan: <changed inputs>. Re-commission." This
-mirrors the approval record's stale warning and reuses its wording style. A
-record never certifies a plan it was not taken against.
+The record's `[planned]` table holds **one SHA-256 per planned input**, like the
+approval record's `[inputs]`. The inputs are:
+
+- the `commissioning` block;
+- the commissioned fixture's inventory item;
+- every other inventory item a prediction consumes;
+- every part cutter that derives a riser cutter.
+
+The checker computes the same table for the current plan and compares the two:
+
+- a digest that differs names that input as changed;
+- an input in the current table but missing from the record is named as new,
+  because the record was taken without it. This differs from approvals, which
+  skip an omitted input: a commissioning record must cover everything its
+  predictions use;
+- an input only in the record (no longer consumed) is ignored.
+
+Any changed or new input makes every reading `?` with: "install record no longer
+matches the plan: <changed and new inputs> changed. Re-commission." This mirrors
+the approval record's stale warning. A record never certifies a plan it was not
+taken against.
 
 ### 3.5 Renewal triggers the rules can see
 
-- the planned digest changed (§3.4), which covers a part-cutter change, a moved
+- a planned digest changed (§3.4), which covers a part-cutter change, a moved
   rail angle or pin spacing, and a changed riser inset;
-- `scope = "batch"` with `quantity > batch_qty`: a single-run record covers only
-  `batch_qty` parts. This is a `warn`, printed so the shop records each run;
-  prechips does not track runs;
+- `quantity > batch_qty`, for either scope: one run covers only `batch_qty`
+  parts. The traveler prints `runs = ceil(quantity / batch_qty)`, and the rule
+  emits a `warn` naming the run count (decision D5). prechips does not track runs
+  or parts, so the warning stays while the condition holds; it is not debt, and
+  it does not change the exit code;
 - triggers it cannot see (`renew_when`) are printed only.
 
 ### 3.6 Interaction with existing rules
@@ -520,6 +598,9 @@ the derived cutter printed as "Ø14 = part cutter Ø10 + 2 × 2.0 inset".
 | C4:10/sagitta_outer | sagitta over 300 chord | riser outer edge | … | (computed) | ±0.10 | ______ | ☐ |
 | C4:10/width | width | riser | … | (computed) | ±… | ______ | ☐ |
 | C4:10/hub_pin_to_edge | distance | HUB pin → riser edge at apex | … | (computed) | ±… | ______ | ☐ |
+| C4:10/hub_size | size | HUB hole | gauge pins | (reamer size) | fit band | ______ | ☐ |
+| C4:10/dowel_position | distance | HUB pin → dowel hole | coaxial indicator, DRO | (computed) | ±… | ______ | ☐ |
+| C4:10/dowel_fit | size | dowel hole | gauge pins | (reamer size) | fit band | ______ | ☐ |
 
 A closing box reads: "Do not load a part until every ☐ is ticked and entered in
 <record path>."
@@ -604,22 +685,27 @@ Line counts are estimates, excluding tests and docs.
 P1–P3 can ship before #269 and #182 by using a stub guide in tests. Only P4 and
 P5 wait on them.
 
-### Open decisions (for the coordinator and user)
+### Decisions (maintainer, 2026-10-17, on PR #275)
 
-- **D1, record location.** This design uses a separate install-record file
-  (§2.6). The alternative is facts on the inventory fixture item. Recommended:
-  the file.
-- **D2, gate severity.** `commissioning` would join `ALWAYS_REQUIRED`, so every
-  uncommissioned trammel plan exits 4, including the shipped example, until a
-  demonstration record exists. The alternative is policy-required.
-- **D3, guide interface names** (§4.1): these belong to #269.
-- **D4, dowel-hole acceptance reading** (§3.3): the comment on #270 lists only
-  sagitta, width and hub-pin-to-edge. The dowel needs one, or it stays untrusted
-  forever.
-- **D5, batch accounting.** prechips does not count parts or runs. Is printing
-  `runs = ceil(quantity / batch_qty)` and a `warn` enough?
-- **D6, `expect` cross-checks.** Allow authored `expect` at all, or forbid
-  authored predicted values entirely?
+- **D1, record location: decided.** A separate install-record file kept by the
+  shop (§2.6). Re-commissioning stales the first-article approval, and that is
+  intended.
+- **D2, gate severity: decided.** `commissioning` is in `ALWAYS_REQUIRED`. A
+  dependent setup with a missing, untrusted or stale reading exits 4 (§3.2).
+  The example bundle exits 4 until its demonstration record exists.
+- **D3, guide interface names: deferred to #269**, which owns the field names.
+  §4.1 lists only what the phase needs; the example's `kind = "trammel"` and
+  `pins = "inner"` are placeholders.
+- **D4, dowel-hole acceptance: decided.** The in-situ Ø6 dowel hole has its own
+  readings: position from HUB (`dowel_position`) and size/fit (`dowel_fit`),
+  §3.3. HUB gets the matching `hub_size`, because the claim coverage of §3.3
+  requires every claim to be read.
+- **D5, batch accounting: decided.** The traveler prints
+  `runs = ceil(quantity / batch_qty)` and the rule emits a `warn` (§3.5).
+  prechips does not count parts or runs.
+- **D6, authored `expect`: decided.** It is allowed only as an optional
+  cross-check. The engine always computes the prediction, and an `expect` that
+  disagrees beyond the reading's tolerance is an error (§2.3).
 
 ## 8. Test plan
 
@@ -629,8 +715,17 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
 **Schema (P1)**
 
 - `do = "align"`/`"torque"`/`"accept"` in a part setup → error.
-- An in-situ solid with no making op, or with two → error.
+- Routes: a spot/drill/ream route on one hole and one sweep per riser edge are
+  valid. An in-situ solid with no route → error. A second `locate` in one hole's
+  route, or a hole route split across setups → error. The terminal op sets the
+  finished size.
 - `locate.from` naming a feature made later or not at all → error.
+- Claims: a reading listing a claim its quantity cannot establish (a `z` reading
+  claiming a position) → error. A consumed claim no reading lists (drop
+  `dowel_fit`) → error naming the claim. A reference cycle, or a located claim
+  whose chain never reaches a cut path → error.
+- `expect` beyond the tolerance → error; within it → no finding; `expect` on an
+  unknown prediction → still `?`.
 - A `fixture.<id>` `stock_in` in a part setup → error.
 - A record key the plan does not generate → error.
 - A plan without `commissioning` → byte-identical report to today. Freeze one
@@ -648,14 +743,19 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
 
 Also:
 
-- stale `planned` digest → all `?` naming the changed inputs.
+- Staleness, per input: one changed digest → all `?` naming only that input; an
+  input absent from the record → named as new; an input only in the record →
+  ignored.
+- Claim trust: one failed reading leaves only the claims it lists untrusted.
+  The roll-up names them.
 - Roll-up: dependent setups get `?`/`✗`. A setup on a different fixture is
   unaffected.
 - Dependence derived through each of the three paths in §2.5.
 - Exit codes: no record → 4; one bad reading → 2; complete and in band → no
   commissioning contribution.
 - Riser cutter: matching, mismatched, and unknown part cutter.
-- Batch: `quantity > batch_qty` warns for `scope = "batch"`.
+- Batch: `quantity > batch_qty` warns with the run count for both scopes, and
+  the exit code is unchanged.
 
 **Traveler (P3)**
 
@@ -782,9 +882,17 @@ do = "ream"
 fixture_feature = "trammel-jig.hub_hole"
 [[commissioning.setups.ops]]
 op = 40
+do = "spot"
+fixture_feature = "trammel-jig.dowel_hole"
+locate = { from = "trammel-jig.hub_hole", offset_mm = [-292.0, 0.0] }   # example value (realistic)
+[[commissioning.setups.ops]]
+op = 50
 do = "drill"
 fixture_feature = "trammel-jig.dowel_hole"
-locate = { from = "trammel-jig.hub_hole", offset_mm = [-292.0, 0.0] }
+[[commissioning.setups.ops]]
+op = 60
+do = "ream"                        # terminal op: sets the Ø6 size
+fixture_feature = "trammel-jig.dowel_hole"
 
 [[commissioning.setups]]           # C3: the jig cuts its own riser
 id = "C3"
@@ -792,11 +900,11 @@ stock_in = "fixture.trammel-jig.riser"
 [[commissioning.setups.ops]]
 op = 10
 do = "finish_profile"
-fixture_feature = "trammel-jig.riser"
+fixture_feature = "trammel-jig.riser.inner_edge"   # R802, on the R795 pin pair
 inset_mm = 2.0                     # #270 comment: edges 2 mm inside each finished edge
 tool = "endmill-14"                # derived: part cutter Ø10 + 2 × 2.0
-contour = { method = "guided_sweep", sweep = { guide = "trammel", fixture = "trammel-jig", pins = "inner" } }
-# op 20: the same on pins = "outer"
+contour = { method = "guided_sweep", sweep = { guide = "trammel", fixture = "trammel-jig", pins = "inner" } }   # D3: names from #269
+# op 20: fixture_feature = "trammel-jig.riser.outer_edge" (R814), pins = "outer"
 
 [[commissioning.setups]]           # C4: acceptance readings
 id = "C4"
@@ -804,12 +912,16 @@ id = "C4"
 op = 10
 do = "accept"
 readings = [
-  { name = "sagitta_outer", quantity = "sagitta", of = "trammel-jig.riser.outer_edge", chord_mm = 300.0, band_mm = 0.1, band_cite = "#270" },
-  { name = "sagitta_inner", quantity = "sagitta", of = "trammel-jig.riser.inner_edge", chord_mm = 300.0, band_mm = 0.1, band_cite = "#270" },
-  { name = "width", quantity = "width", of = "trammel-jig.riser", band_mm = 0.1, band_cite = "example value (realistic, not a shop measurement)" },
-  { name = "hub_pin_to_edge", quantity = "distance", of = ["trammel-jig.hub_hole", "trammel-jig.riser.outer_edge"], band_mm = 0.05, band_cite = "example value (realistic, not a shop measurement)" },
+  { name = "sagitta_outer", quantity = "sagitta", of = "trammel-jig.riser.outer_edge", chord_mm = 300.0, band_mm = 0.1, band_cite = "#270", claims = ["trammel-jig.riser.outer_edge.radius"] },
+  { name = "sagitta_inner", quantity = "sagitta", of = "trammel-jig.riser.inner_edge", chord_mm = 300.0, band_mm = 0.1, band_cite = "#270", claims = ["trammel-jig.riser.inner_edge.radius"] },
+  { name = "width", quantity = "width", of = ["trammel-jig.riser.outer_edge", "trammel-jig.riser.inner_edge"], band_mm = 0.1, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.riser.inner_edge.location"] },
+  { name = "hub_pin_to_edge", quantity = "distance", of = ["trammel-jig.riser.outer_edge", "trammel-jig.hub_hole"], band_mm = 0.05, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.hub_hole.position", "trammel-jig.riser.outer_edge.location"] },
+  { name = "hub_size", quantity = "size", of = "trammel-jig.hub_hole", band_mm = [0.0, 0.015], band_cite = "example value (realistic, not a shop measurement): 8 H7 slip fit for the hub pin", claims = ["trammel-jig.hub_hole.size"] },
+  # D4: the dowel hole's own readings
+  { name = "dowel_position", quantity = "distance", of = ["trammel-jig.hub_hole", "trammel-jig.dowel_hole"], band_mm = 0.03, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.dowel_hole.position"] },
+  { name = "dowel_fit", quantity = "size", of = "trammel-jig.dowel_hole", band_mm = [0.0, 0.012], band_cite = "example value (realistic, not a shop measurement): 6 H7 for the Ø6 dowel", claims = ["trammel-jig.dowel_hole.size"] },
 ]
-checks = { sagitta_outer = "sagitta-gauge-300", sagitta_inner = "sagitta-gauge-300", width = "calipers", hub_pin_to_edge = "calipers" }
+checks = { sagitta_outer = "sagitta-gauge-300", sagitta_inner = "sagitta-gauge-300", width = "calipers", hub_pin_to_edge = "calipers", hub_size = "gauge-pins", dowel_position = "coax-indicator", dowel_fit = "gauge-pins" }
 ```
 
 The rules compute the predictions. They are not authored:
@@ -821,6 +933,16 @@ The rules compute the predictions. They are not authored:
 - **Width:** `R_outer − R_inner` of the riser edges.
 - **Hub-pin-to-edge:** `|R_edge − ρ_hub|`, where `ρ_hub` is the hub centre's
   distance from the arc centre, taken from `features.toml`.
+- **Dowel position:** the length of the dowel route's `locate` offset (292.0 in
+  the sketch), read as the DRO distance between the HUB pin and the dowel hole.
+- **Hub size and dowel fit:** the terminal reamer's size from the inventory. The
+  band is the fit the pin or dowel needs. An unmeasured reamer size leaves the
+  prediction `?`.
+
+Every claim of §3.3's table is listed by exactly the readings shown there, so
+the coverage check passes. The reference chain runs from the outer cut edge to
+HUB, and from HUB to the dowel; the inner edge hangs off the outer edge through
+`width`.
 
 ### 9.3 State A: record absent (the normal planned state)
 
@@ -839,7 +961,11 @@ The traveler prints C-1…C-4 with empty blanks, ahead of the part sheets.
 ```toml
 # examples/rocker-arm/records/trammel-jig.toml (demonstration fixture)
 fixture = "trammel-jig"
-planned = "<sha256 computed by the checker>"
+
+[planned]                          # copied from the checker's printed table, §3.4
+commissioning = "<sha256 printed by the checker>"
+"fixtures.trammel-jig" = "<sha256 printed by the checker>"
+"tools.endmill-10" = "<sha256 printed by the checker>"
 
 [readings."C1:20/rail_a.pin@400"]
 value_mm = [-395.884, -57.203]     # example value: inside the 0.03 band
