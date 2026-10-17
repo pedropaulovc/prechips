@@ -309,6 +309,8 @@ it would only be a second source of truth.
 Batch quantity: `commissioning.batch_qty` relates to the existing
 `plan.quantity` like this:
 
+- `batch_qty` must be a positive integer: 0 or a negative value is a schema
+  error, so the run count never divides by zero or prints a nonpositive number;
 - `batch_qty` unknown → `?`;
 - `batch_qty ≥ quantity` → one run;
 - otherwise the traveler prints `runs = ceil(quantity / batch_qty)` and
@@ -471,7 +473,9 @@ is a `z` reading listing any position. Neither is ever a silent trust.
 **Two-axis positions.** A hole's `position` is a 2D claim. One `dro_xy` reading
 from a reference covers both axes. A `distance` covers only the direction from
 its reference to the hole, so a hole whose position rests on distances needs
-two, from references whose directions to the hole differ by at least 30°.
+two, from references whose direction **axes** to the hole meet at an acute
+angle of at least 30°. Directions are compared modulo 180°, so two references on
+opposite sides of the hole (180° apart) are collinear and count as one direction.
 Otherwise the claim is uncovered, an error naming it.
 
 There is one exception: a hole located from the guide (`locate.from = "guide"`,
@@ -522,6 +526,10 @@ approval record's `[inputs]`. The inputs are:
 
 - the `commissioning` block;
 - the plan's `dro` block (station targets are in its sign convention);
+- each `plan.frames` entry a commissioning setup uses (`frame = "CT"`): its
+  origin, axes and binding place the guide poses, the in-situ locations and the
+  DRO targets in setup coordinates. A frame exported from the STEP is covered by
+  the features digest;
 - the features file, when a prediction reads it (HUB's offset and the
   hub-pin-to-edge distance read the hub centre);
 - every inventory item a prediction or a derived check consumes: the
@@ -604,14 +612,25 @@ unmeasured makes the dependent prediction unknown.
 The kernel builds **planned geometry only**. Recorded readings never enter
 `engine_job`.
 
-- **Fixture as stock.** A commissioning setup with `stock_in = "fixture.<id>"`
-  or `"fixture.<id>.<solid>"` takes the posed fixture solids (from the existing
-  `_solids()` path) as its work. The in-situ voids are cut at their **planned**
-  location: the `locate` result in setup coordinates, not the spot `at_mm`. The
-  riser is cut by the guided-sweep removal on the riser blank.
+- **Fixture as stock, accumulated.** The kernel keeps one **fixture state** per
+  commissioned fixture, a set of named solids. It starts as the posed inventory
+  solids, built by the existing `_solids()` path. Commissioning setups run in
+  order, and each one reads and updates that state:
+  - `stock_in = "fixture.<id>"` takes the whole current state as its work. Its
+    result replaces the whole state, so C2's holes stay in it;
+  - `stock_in = "fixture.<id>.<solid>"` takes only that solid from the current
+    state. Its result replaces only that solid, and every other solid, C2's
+    holes included, carries over unchanged. The cut riser goes back into the
+    state where the blank was;
+  - a setup that cuts nothing (C1, C4) leaves the state unchanged.
+
+  The in-situ voids are cut at their **planned** location: the `locate` result
+  in setup coordinates, not the spot `at_mm`. The riser is cut by the
+  guided-sweep removal on the riser blank. In the sketch, C4 reads the state
+  after C2 and C3, holes and cut riser together.
 - **Commissioned fixture output.** A new job section,
-  `commissioned[<fixture id>]`, holds the fixture shape after the last
-  commissioning setup. Part setups whose `hold.fixture` is that fixture take
+  `commissioned[<fixture id>]`, holds the accumulated fixture state after the
+  last commissioning setup. Part setups whose `hold.fixture` is that fixture take
   their fixture components from it instead of rebuilding the inventory
   primitives. Clash, contact and clearance checks then see the cut riser and the
   holes where the plan puts them.
@@ -838,7 +857,8 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
   claiming a position) → error. A reading listing a claim of an element it does
   not measure (a `size` of `hub_hole` listing `dowel_hole.size`), or of its own
   reference → error. A hole position resting on one `distance` → uncovered; two
-  distances from references at least 30° apart, or one `dro_xy` → covered; a
+  distances whose direction axes meet at an acute angle of at least 30°, or one
+  `dro_xy` → covered; two references on opposite sides (180°) → uncovered; a
   guide-located hole needs only `position.radial`. A relational reading with
   other than two `of` entries → error.
 - A consumed claim no reading lists (drop `dowel_fit`) → error naming the
@@ -889,6 +909,9 @@ Also:
 - Exit codes: no record → 4; one bad reading → 2; complete and in band → no
   commissioning contribution.
 - Riser cutter: matching, mismatched, and unknown part cutter.
+- `batch_qty = 0` or negative → schema error.
+- Staleness: changing only a commissioning setup's `plan.frames` entry stales
+  the record.
 - Batch: `quantity > batch_qty` warns with the run count for both scopes, and
   the exit code is unchanged.
 
@@ -905,7 +928,9 @@ Also:
 
 - HUB void cut at the planned apex location, not at the spot `at_mm`.
 - The riser band is kept and the offcuts discarded (after #182).
-- Part-setup clash checks see the cut riser.
+- Part-setup clash checks see the cut riser **and** C2's holes: the state
+  accumulates across C2 (whole fixture) and C3 (riser only), and C3's riser
+  result replaces only the blank.
 - The `predicted` verdict and callout.
 - With the function-scoped `kernel_cache`: changing only the record file leaves
   the cache key unchanged and hits.
