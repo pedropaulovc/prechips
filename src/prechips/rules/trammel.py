@@ -68,7 +68,8 @@ def seat(pins, alpha, tol=FIT_TOL):
     middle, sign = (pins[0] + pins[1]) / 2, 1 if span >= 0 else -1
     for half in (alpha, 180 - alpha):
         if abs(abs(span) % 360 - 2 * half) <= tol:
-            return [middle - sign * half, middle + sign * half]
+            # Whole turns name the same pins: every check reads them in (−180°, 180°].
+            return [_wrap(middle - sign * half), _wrap(middle + sign * half)]
     return None
 
 
@@ -84,11 +85,10 @@ def repeated(pin, lo, hi, pad=STOP_PAD_DEG):
     """The pose (degrees) inside ``[lo − pad, hi + pad]`` where the pin's station along
     its rail peaks (the chord from the cutter is the pin circle's diameter), or None: a
     station that turns back repeats, so a stop at it holds the carrier at two poses."""
-    for k in range(-2, 3):
-        peak = pin - 180.0 + 360.0 * k
-        if lo - pad <= peak <= hi + pad:
-            return peak
-    return None
+    # The window lies within half a turn either way of the heading (a sweep is under a
+    # full turn), so the one wrapped peak is the only one that can fall in it.
+    peak = _wrap(pin - 180.0)
+    return peak if lo - pad <= peak <= hi + pad else None
 
 
 def crossed(pins, lo, hi):

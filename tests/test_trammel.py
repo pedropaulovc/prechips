@@ -686,7 +686,7 @@ def test_measured_alpha_seats_the_pins_not_the_plans_rounding(tmp_path):
     assert "do not subtend" not in errors(row)
     _, sweep = recipe(row)
     assert sweep["pins_deg"] == pytest.approx([-16.4412, 16.4412])
-    assert trammel.seat([163.5, 196.5], 16.44) == pytest.approx([163.56, 196.44])
+    assert trammel.seat([163.5, 196.5], 16.44) == pytest.approx([163.56, -163.56])
     assert trammel.seat([-15.0, 15.0], 16.44) is None
 
 
@@ -1154,3 +1154,20 @@ def test_the_cut_bound_holds_large_pin_line_offsets_exactly(tmp_path):
     r, x_r = sweep["pin_radius_mm"], terms["pin_lines"]
     x_t = sweep["tangent_gain"] * 10.0
     assert math.hypot(r + x_r, x_t) - r - x_r <= terms["pin_lines_second"] + 1e-9
+
+
+def test_pin_angles_whole_turns_apart_name_the_same_pins(tmp_path):
+    # Codex round 5: [1243.56, 1276.44] is [163.56, 196.44] three turns on; its station
+    # still turns back over a ±30° sweep, and a plain fixture three turns on cuts exactly
+    # as the plain one does.
+    assert trammel.seat([1243.56, 1276.44], 16.44) == pytest.approx([163.56, -163.56])
+    row = trammel_row(tmp_path / "turned", pins_deg="[1243.56, 1276.44]", sweep_deg="60.0")
+    assert row.status == "error"
+    assert "cannot tell the sweep's ends apart" in errors(row)
+    plain = recipe(trammel_row(tmp_path / "plain"))[1]
+    shifted = recipe(trammel_row(tmp_path / "shifted", pins_deg=f"[{360 - ALPHA}, {360 + ALPHA}]"))[
+        1
+    ]
+    for key in ("cut_radius_mm", "stations_mm", "stop_bands_deg", "station_envelope_mm"):
+        flat = lambda v: [x for item in v for x in (item if isinstance(item, list) else [item])]  # noqa: E731
+        assert flat(shifted[key]) == pytest.approx(flat(plain[key])), key
