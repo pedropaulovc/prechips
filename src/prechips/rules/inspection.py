@@ -432,9 +432,12 @@ def _capability(
         ):
             message = "geometric gauge capability or datum inspection method unresolved"
         elif datum_height and not (
-            method_known and height_from in bundle.feature_definitions and height_from != UNKNOWN
+            method_known
+            and height_from in record(bundle.features.get("features"))
+            and height_from != UNKNOWN
         ):
-            # The datum pin and plate setup the reading stands on: unknown until declared.
+            # The datum pin and plate setup the reading stands on: unknown until declared. Only
+            # an exported drawing feature is a datum, never a plan joint or process feature.
             message = "datum height setup (height_from datum or inspection method) unresolved"
         elif requirement == "finish_ra":
             consumed = ("ra_range" if "ra_range" in gauge else "range_ra",)
