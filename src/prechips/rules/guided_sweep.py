@@ -877,9 +877,16 @@ def guided(bundle, setup, op, arc, band, label, scale):
     if number(back) and back > 0:
         off = _transverse_offset(record_, found, sweep, grid, scale)
         record_["transverse_offset_mm"] = off if off is not None else UNKNOWN
-        touch = arc["cutter_centre_radius_mm"]
-        touch = touch * scale - outward * allowance if number(touch) else UNKNOWN
-        residual = _off_line_backoff(touch, back * scale, off)
+        # The touch puts the cutter's centre where the master is, not on the nominal path:
+        # the residual is taken at the worse of the reaches its radius limits give.
+        cutter = arc.get("cutter_radius_mm")
+        reaches = (
+            [limit + (cutter if convex else -cutter) for limit in master]
+            if master is not None and number(cutter)
+            else []
+        )
+        misses = [_off_line_backoff(touch, back * scale, off) for touch in reaches]
+        residual = max(misses) if misses and None not in misses else None
         record_["transverse_residual_mm"] = residual if residual is not None else UNKNOWN
         if residual is not None and not math.isfinite(residual):
             debts.append(

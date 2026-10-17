@@ -482,7 +482,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   before the touch so a rough's one-axis back-off is radial (`transverse`):
   `bar_centred` (a setting bar centred between its two sides) or `rollers_set` (a
   rail's rollers set from the locked spindle); a rough's cut is widened by how far a
-  back-off then misses its radial move (`transverse_residual_mm`) with the cutter axis
+  back-off then misses its radial move (`transverse_residual_mm`, taken at the worse
+  of the cutter-centre reaches the master's radius limits give at the touch, not the
+  nominal path) with the cutter axis
   beside the line by up to `transverse_offset_mm`: one DRO step plus the pivot play
   (bar), or, on a rail, the sled centre's sideways shift `(|cos a| + |cos b|) / |sin(a
   − b)|` times each contact's error, finite as the cut's own bound: its roller set to

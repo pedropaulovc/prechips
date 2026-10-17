@@ -1080,9 +1080,35 @@ def test_a_rough_on_a_rail_widens_its_cut_by_the_centres_sideways_shift(
     off = rail_transverse_shift(rollers, contact, 850.0)
     assert off > 0.25
     assert sweep["transverse_offset_mm"] == pytest.approx(off)
-    # Backed off from the R797 touch to the rough's R796.7.
-    residual = _off_line_backoff(797.0, 0.3, off)
+    # Backed off 0.3 mm from the touch on the R800.20-800.25 master arc: the cutter's
+    # centre stands at R797.20-797.25 there, not on the nominal R797 path.
+    residual = max(_off_line_backoff(touch, 0.3, off) for touch in (797.20, 797.25))
     assert sweep["transverse_residual_mm"] == pytest.approx(residual)
+
+
+def test_the_back_off_residual_is_taken_at_the_masters_own_reach(tmp_path):
+    # A smaller master puts the cutter's centre nearer the arc's centre at the touch than
+    # the nominal path: an R9.80 bar on a concave R10 touches at R6.80, not R7, and the
+    # off-line back-off misses more there (Codex review of #258 at a006a4f).
+    from prechips.rules.guided_sweep import _off_line_backoff
+
+    small = (
+        "[gauges.bar98]\nkind = 'setting_bar'\nname = 'R9.80 setting bar'\n"
+        f"radius_limits_mm = {{ value = [9.80, 9.82], {MEASURED} }}\nverify = false\n"
+    )
+    plan = guided_plan(
+        tmp_path,
+        target=CONCAVE_R10,
+        inventory=small,
+        master="'bar98'",
+        sweep_deg="221.0",
+        allowance=2.0,
+    )
+    rough = recipe(coordinates_row(plan, stock_bbox=SWING), "rough")[1]
+    off = rough["transverse_offset_mm"]
+    expected = max(_off_line_backoff(touch, 2.0, off) for touch in (6.80, 6.82))
+    assert rough["transverse_residual_mm"] == pytest.approx(expected)
+    assert expected > _off_line_backoff(7.0, 2.0, off)
 
 
 def test_a_back_off_off_the_radial_line_is_carried_into_the_cut():
