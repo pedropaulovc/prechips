@@ -1171,10 +1171,16 @@ recipes; an unknown action cannot establish the saw-only exemption.
   the swept window, tolerances that leave no acute crossing, and a
   carriage beyond `rail_travel`, a stop that set 0.55 mm off its station could hold
   the carrier short of an arc end (`stops`, with each stop's `stop_bands_deg`), and a
-  setup shared with another spindle op are errors; a start not proven clear of the
+  setup shared with another spindle op, or a machine not a mill, are errors; a start not proven clear of the
   stock at every pose the first stop can hold (`start`, proven exactly over that band from
   the arc's true X and Y extremes) and any unmeasured fixture
   fact are unknown, with a `measure:` entry for each fact.
+
+As on every guided sweep ([#258](https://github.com/pedropaulovc/prechips/pull/258)),
+each of the trammel's geometric proofs carries one DRO step of margin (`margin_mm`): the
+cut's widening below and above, the stops' setting error and the start's clearance; an
+unmeasured DRO resolution leaves the margin unproven, as debt. Any error or debt the rule
+records (`open_debts`) stops the card even when no printed value shows it.
 
 #### Trammel operator sequence
 

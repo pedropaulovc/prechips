@@ -389,8 +389,16 @@ TRAMMEL_PRINTED = (
 
 
 def _trammel_unresolved(arc, sweep, levels=None):
-    """What :data:`TRAMMEL_PRINTED` finds unproven, in the operator's words."""
-    return [words for _, check, words in TRAMMEL_PRINTED if not check(arc, sweep, levels)]
+    """What :data:`TRAMMEL_PRINTED` finds unproven, in the operator's words; then, as for
+    every guided sweep, anything else the rule left open (``open_debts``)."""
+    missing = [words for _, check, words in TRAMMEL_PRINTED if not check(arc, sweep, levels)]
+    open_debts = sweep.get("open_debts")
+    if not missing and open_debts != []:
+        first = open_debts[0] if isinstance(open_debts, list) and open_debts else None
+        missing.append(
+            str(first).split(": ", 1)[-1] if first else "the coordinates rule did not prove it"
+        )
+    return missing
 
 
 def _rail_names(rails):
