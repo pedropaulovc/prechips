@@ -228,3 +228,15 @@ def test_a_mouth_break_authored_in_air_cannot_be_placed(engine, solids):
     row = engine.run(job)["setups"]["join"]
     assert "assembly_error" not in row, row
     assert "is not a flat socket face square to its axis" in row["stock_reason"], row
+
+
+def test_a_groove_at_the_root_outranks_a_mouth_in_air_at_the_other_end(engine, solids):
+    # The socket starts 1 mm below the body (that mouth is in air, its break unplaceable)
+    # but ends on the body top at the root: the chamfer there is a certain groove.
+    step = solids["filleted"]
+    job = _forms(engine, step, _root(engine, step), mouth={"kind": "chamfer", "size_mm": 0.25})
+    shifted = {"at_mm": [0, 0, -1.0], "depth_mm": 11.0}
+    job["joint_features"]["socket"].update(shifted)
+    job["setups"][0]["ops"][0]["joint_cut"].update(shifted)
+    row = engine.run(job)["setups"]["join"]
+    assert "mouth break leaves a groove" in row["assembly_error"], row
