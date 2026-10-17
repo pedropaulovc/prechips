@@ -854,3 +854,32 @@ def test_a_mixin_method_using_explicit_super_is_refused(at):
         """
     plan = at(source, _spec('["Engine.run"]'))
     assert any("explicit super(...)" in refusal for refusal in plan.refusals)
+
+
+@pytest.mark.parametrize("binding", ["import math as DEFAULT", "if True:\n        DEFAULT = 1"])
+def test_a_moved_member_reading_a_class_body_import_or_block_name_is_refused(at, binding):
+    source = (
+        f"class Engine:\n    {binding}\n\n    def run(self):\n        return 2\n\n"
+        "    def moved(self, value=DEFAULT):\n        return value\n"
+    )
+    plan = at(source, _spec('["Engine.moved"]'))
+    assert any("class-body name DEFAULT" in refusal for refusal in plan.refusals)
+
+
+@pytest.mark.parametrize(
+    ("rest", "refused"), [("src/pkg/big.py", False), ("src/pkg/big/rule.py", True)]
+)
+def test_a_directly_imported_identity_attribute_stays_on_the_module(at, tmp_path, rest, refused):
+    # `from pkg.big import __name__` reads the module object's identity, never a moved name.
+    spec = _spec('["radius"]').replace('rest = "src/pkg/big.py"', f'rest = "{rest}"')
+    at("def radius(x):\n    return x\n\n\ndef other():\n    return 1\n", spec)
+    test = tmp_path / "tests" / "test_big.py"
+    test.write_text("from pkg.big import __name__ as NAME, radius\n", encoding="utf-8")
+    if refused:
+        with pytest.raises(SystemExit):
+            split.main(["apply", "big"])
+        return
+    split.main(["apply", "big"])
+    rewritten = test.read_text(encoding="utf-8")
+    assert "from pkg.big import __name__ as NAME" in rewritten
+    assert "from pkg.parts import radius" in rewritten

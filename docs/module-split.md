@@ -465,17 +465,18 @@ module that an open PR still edits is split only after that PR lands: as of 2026
 #258/#267/#278 (guided sweep: `sheet.py`, `freecad_job.py`, `model.py`, `coordinates.py`,
 `render_diagram.py`), #279 (`freecad_job.py`), #280 (`coordinates.py`) and #285
 (`kernel/__init__.py` and the engine digest). So the first split is `zero_recipe`,
-the one module no open PR edits, even though its gain is small. The order below applies
-as the others become free.
+the one module no open PR edits, even though its gain is small. Rows 2 to 7 follow as
+their modules become free.
 
 | # | Split | Risk | Why here | Estimate |
 |---|---|---|---|---|
-| 1 | `model` → `model/` | Low: host only, no kernel digest, pydantic covered by the suite | All four feature PRs collide here; open pairs 6 → 3 | 0.5 day |
-| 2 | `kernel/__init__.py` → `job_*.py` | Low–medium: host only but digested, so cache goes cold once | Ships the digest/CI-key change and its tests alone, before any FreeCAD code moves | 1 day |
-| 3 | `rules/coordinates.py` → `coordinates/` | Medium: four monkeypatches, 19 lazy imports | 1,176 → 581 commit pairs | 1 day |
-| 4 | `sheet.py` → `sheet/` | Medium: 10 mixins, 276 cross-mixin calls | Largest commit churn (153); open pairs 6 → 3 | 1.5 days |
-| 5 | `kernel/freecad_job.py` → `kernel/engine/` | High: runs in freecadcmd, `_POOL` prep, probes, cold geometry | 7,750 → 2,867 commit pairs; open pairs 3 → 1 | 2.5 days |
-| 6 | `render_diagram`, `zero_recipe` (optional) | Medium (dual host/FreeCAD imports) / Low | Little gain (1 → 1 and 10 → 10 PR pairs); revisit with fresh `churn` data | 1 day each |
+| 1 | `rules/zero_recipe.py` → `zero_recipe/` | Low: host only, no kernel digest | The only module no open PR edits, so it can go now; small gain (10 → 10 PR pairs here, re-measured in its PR) | 1 day |
+| 2 | `model` → `model/` | Low: host only, no kernel digest, pydantic covered by the suite | All four feature PRs collide here; open pairs 6 → 3 | 0.5 day |
+| 3 | `kernel/__init__.py` → `job_*.py` | Low–medium: host only but digested, so cache goes cold once | Ships the digest/CI-key change and its tests alone, before any FreeCAD code moves | 1 day |
+| 4 | `rules/coordinates.py` → `coordinates/` | Medium: four monkeypatches, 19 lazy imports | 1,176 → 581 commit pairs | 1 day |
+| 5 | `sheet.py` → `sheet/` | Medium: 10 mixins, 276 cross-mixin calls | Largest commit churn (153); open pairs 6 → 3 | 1.5 days |
+| 6 | `kernel/freecad_job.py` → `kernel/engine/` | High: runs in freecadcmd, `_POOL` prep, probes, cold geometry | 7,750 → 2,867 commit pairs; open pairs 3 → 1 | 2.5 days |
+| 7 | `render_diagram` (optional) | Medium: dual host/FreeCAD imports | Little gain (1 → 1 PR pairs); revisit with fresh `churn` data | 1 day |
 
 Each estimate covers running the script on fresh `main` and reaching the clean `plan`.
 It also covers one full suite run (cold when the kernel digest changes), the snapshot

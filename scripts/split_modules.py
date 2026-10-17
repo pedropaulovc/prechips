@@ -367,9 +367,24 @@ def _class_reads(member, cls):
 
 
 def _defined_names(node):
-    """Names a class-body member binds: a def, or an assignment's plain targets."""
+    """Names a class-body statement binds: a def, an import, an assignment's plain
+    targets, or any of those inside an ``if``/``try``/``with``/``for`` block."""
     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
         return [node.name]
+    if isinstance(node, (ast.Import, ast.ImportFrom)):
+        return [(a.asname or a.name).split(".")[0] for a in node.names]
+    if isinstance(node, (ast.If, ast.Try, ast.With, ast.For, ast.While)):
+        found = [
+            n.id for n in ast.walk(getattr(node, "target", ast.Pass())) if isinstance(n, ast.Name)
+        ]
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.stmt):
+                found += _defined_names(child)
+            elif isinstance(child, ast.ExceptHandler):
+                found += [child.name] if child.name else []
+                for statement in child.body:
+                    found += _defined_names(statement)
+        return found
     targets = node.targets if isinstance(node, ast.Assign) else [getattr(node, "target", None)]
     return [n.id for t in targets if t is not None for n in ast.walk(t) if isinstance(n, ast.Name)]
 
@@ -1169,6 +1184,10 @@ class Rewriter:
     def _from_import(self, path, node, at, flat=False):
         groups = defaultdict(list)
         for a in node.names:
+            if _dunder(a.name):  # an identity attribute stays on the module object
+                self._identity(a.name, node.lineno)
+                groups[self.source].append(a)
+                continue
             groups[self.new_module(a.name)].append(a)
         if list(groups) == [self.source]:
             return None
