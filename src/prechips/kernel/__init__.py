@@ -25,6 +25,7 @@ from prechips.measurements import (
     record_debt,
     record_trusted,
 )
+from prechips.model import profiled
 from prechips.rules._envelope import selected_item, tool_projection
 from prechips.rules.geometry_common import (
     TURNING_BLADE_KEYS,
@@ -40,6 +41,8 @@ from prechips.rules.resolution import (
     record,
     resolve,
     rough_leave,
+    saw_station,
+    saw_tool,
     setup_frame,
 )
 
@@ -297,12 +300,46 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
 
     subject = f"{setup['id']}:{op['op']}"
     if op.get("do") in {"saw_cut", "cut_off"}:
+        units = bundle.features.get("units", UNKNOWN)
+        # The host's one saw verdict (rules.resolution.saw_tool/saw_station) decides whether
+        # the kernel may route this cut's stock: a verified saw on a station that carries it
+        # names its kind (a hand saw's straight cut also reports the kept piece's length); a
+        # known mismatch is refused; any unresolved tool or machine leaves it unrouted.
+        station = saw_station(bundle, setup, op)
+        verdict = {
+            "fits": saw_tool(bundle, op),
+            "wrong_station": "refused",
+            "no_vertical_mode": "refused",
+        }
+        saw_tool_marker = {"saw_tool": verdict.get(station, "unresolved")}
+        if "follows" in op:
+            # The scribed line's cut takes only its declared region (unknown extent is
+            # plan-input debt), clipped to stay its allowance outside a scribed arc; the
+            # blade's kerf locates nothing, so no kerf is consumed.
+            bounds = op.get("stock_removal_bounds", UNKNOWN)
+            profile = scribed_profile(bundle, setup, op)
+            return {
+                "subject": subject,
+                "do": op["do"],
+                "follows": op["follows"],
+                "allowance_mm": op.get("allowance_mm", UNKNOWN),
+                "stock_removal_bounds": {
+                    "reason": f"declare stock_removal_bounds for {subject}: the setup-frame "
+                    f"region the saw and its offcut take outside the line {op['follows']} "
+                    "scribed"
+                }
+                if bounds == UNKNOWN
+                else removal_bounds(bounds, units),
+                **({} if profile is None else {"scribed_profile": profile}),
+                **saw_tool_marker,
+            }
         tool = measurement_item(bundle, "tools", op.get("tool"))
         return {
             "subject": subject,
             "do": op["do"],
             "kerf_mm": _accepted_length(tool, "kerf"),
-            "cut_plane": saw_plane(op.get("cut_plane"), bundle.features.get("units", UNKNOWN)),
+            "cut_plane": saw_plane(op.get("cut_plane"), units),
+            **saw_tool_marker,
         }
     if op.get("do") in HAND_FINISH:
         return _hand_inputs(bundle, setup, op, subject, finishing)
@@ -814,6 +851,55 @@ def table_checkpoints(subject, tables, op, units):
             "printed checkpoint setup XY or tip Z is unknown: " + ", ".join(unknown[:3]) + more
         )
     return result
+
+
+def scribed_profile(bundle, setup, op):
+    """The scribed arc a saw that ``follows`` it must stay its allowance outside, in the saw
+    setup's axes and mm: ``{"centre_mm", "radius_mm", "remove"}``, ``remove`` the side of the
+    circle the saw takes (``"outside"`` when the part lies inside it, else ``"inside"``);
+    ``{"reason"}`` when the arc's layout in this setup is unknown; None when the scribed
+    feature is no arc (a straight line), whose declared box alone governs."""
+    from prechips.rules.coordinates import arc_layout, frame_point, model_point
+    from prechips.rules.manual_arc import _arc_feature
+    from prechips.rules.resolution import setup_frame
+
+    sid, _, number_ = str(op["follows"]).partition(":")
+    scribe = next(
+        (
+            other
+            for each in bundle.plan["setups"]
+            if each["id"] == sid
+            for other in each["ops"]
+            if str(other.get("op")) == number_
+        ),
+        None,
+    )
+    name = record(scribe).get("feature")
+    feature = record(bundle.feature_definitions.get(name))
+    if not _arc_feature(feature):
+        return None
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    layout = arc_layout(bundle, setup, name)
+    if layout is None or scale is None:
+        return {"reason": f"the scribed arc {name}'s layout in setup {setup['id']} is unknown"}
+    # The arc lies in its feature frame's XY plane; the kernel clips with a setup-Z
+    # cylinder, so that plane must be the saw setup's XY.
+    source = record(bundle.features.get("frames")).get(feature.get("frame", "model"))
+    base, tip = (
+        frame_point(model_point(point, source), setup_frame(bundle, setup))
+        for point in ([0.0, 0.0, 0.0], [0.0, 0.0, 1.0])
+    )
+    axis = [b - a if number(a) and number(b) else UNKNOWN for a, b in zip(base, tip, strict=True)]
+    if UNKNOWN in axis or math.hypot(axis[0], axis[1]) > 1e-6:
+        return {
+            "reason": f"the scribed arc {name} does not lie in setup {setup['id']}'s XY plane, "
+            "so its offset cannot clip the saw's removal"
+        }
+    return {
+        "centre_mm": [value * scale for value in layout["centre_setup_xy"]],
+        "radius_mm": layout["radius_mm"] * scale,
+        "remove": "outside" if layout["convex"] else "inside",
+    }
 
 
 def saw_plane(plane, units):
@@ -1518,13 +1604,38 @@ def stock_inputs(bundle):
     components = stock.get("components", UNKNOWN)
     if isinstance(components, list) and components:
         return {
-            "components": {component["id"]: _stock_envelope(component) for component in components}
+            "components": {
+                component["id"]: _stock_envelope(bundle, component, f"stock.{component['id']}")
+                for component in components
+            }
         }
-    return _stock_envelope(stock)
+    return _stock_envelope(bundle, stock, "stock")
 
 
-def _stock_envelope(stock):
-    """One box/round supply's explicit dimensions and placement, never a STEP substitute."""
+def _profiled_envelope(bundle, stock, name):
+    """A profiled blank's own STEP solid, authored in model coordinates and bound by its
+    declared digest; its vendor tolerance is host-only (rule ``blank_credit``)."""
+    path = bundle.paths.get(f"{name}.blank")
+    digest = record(stock.get("blank")).get("step_sha256", UNKNOWN)
+    missing = [
+        field
+        for field, value in (("blank.step", path), ("blank.step_sha256", digest))
+        if value in (None, UNKNOWN)
+    ]
+    if missing:
+        return {
+            "reason": "profiled blank "
+            + ", ".join(missing)
+            + " undeclared; in-process stock cannot be derived"
+        }
+    return {"shape": "profiled", "step_path": str(Path(path).resolve()), "step_sha256": digest}
+
+
+def _stock_envelope(bundle, stock, name):
+    """One box/round supply's explicit dimensions and placement, never a STEP substitute;
+    a profiled blank is its own cited STEP."""
+    if profiled(stock):
+        return _profiled_envelope(bundle, stock, name)
     section, dia = stock.get("section_mm", UNKNOWN), stock.get("dia_mm", UNKNOWN)
     if section != UNKNOWN and dia != UNKNOWN:
         return {"reason": "stock declares both section_mm and dia_mm; its envelope is ambiguous"}
@@ -1571,6 +1682,10 @@ _ENGINE_OP = (
     "do",
     "cut_plane",
     "kerf_mm",
+    "follows",
+    "allowance_mm",
+    "scribed_profile",
+    "saw_tool",
     "feature",
     "faces",
     "joint_cut",
@@ -1729,6 +1844,59 @@ def engine_job(job):
             for setup in job["setups"]
         ],
     }
+
+
+def _blank_supplies(stock):
+    """``(supply, spec)`` for each profiled blank the job's stock declares."""
+    if not isinstance(stock, dict):
+        return []
+    components = stock.get("components")
+    pieces = (
+        [(f"stock.{name}", spec) for name, spec in components.items()]
+        if isinstance(components, dict)
+        else [("stock", stock)]
+    )
+    return [
+        (name, spec)
+        for name, spec in pieces
+        if isinstance(spec, dict) and spec.get("shape") == "profiled"
+    ]
+
+
+def _blank_mismatch(job):
+    """Why a profiled blank's STEP bytes are not the ones its declared digest names."""
+    for name, spec in _blank_supplies(job["stock"]):
+        try:
+            actual = hashlib.sha256(Path(spec["step_path"]).read_bytes()).hexdigest()
+        except OSError:
+            return f"Profiled blank {name} STEP bytes became unavailable before geometry."
+        if actual != spec["step_sha256"]:
+            return (
+                f"Profiled blank {name} STEP bytes do not match its step_sha256; the supplied "
+                "stock is unverified."
+            )
+    return None
+
+
+def _cache_recipe(job):
+    """The job as the cache keys it: content digests, never absolute file paths."""
+
+    def bare(spec):
+        if isinstance(spec, dict) and spec.get("shape") == "profiled":
+            return {key: value for key, value in spec.items() if key != "step_path"}
+        return spec
+
+    recipe = {name: value for name, value in job.items() if name != "step_path"}
+    stock = recipe["stock"]
+    components = stock.get("components") if isinstance(stock, dict) else None
+    if isinstance(components, dict):
+        recipe["stock"] = {
+            **stock,
+            "components": {name: bare(spec) for name, spec in components.items()},
+        }
+        return recipe
+    recipe["stock"] = bare(stock)
+    return recipe
 
 
 def _engine_digest():
@@ -1916,15 +2084,22 @@ def _export_timing(active, result, source):
                     pass
 
 
-def run_geometries(bundles):
-    """Prewarm all candidates in one FreeCAD batch, reusing per-job content caches."""
+def run_geometries(bundles, jobs=None):
+    """Prewarm all candidates in one FreeCAD batch, reusing per-job content caches.
+
+    ``jobs``, when given, are the bundles' :func:`build_job` results in order, already
+    built by the caller; otherwise each pending bundle's job is built here."""
     from prechips import telemetry
 
     bundles = list(bundles)
     pending = [bundle for bundle in bundles if getattr(bundle, "kernel", None) is None]
     if not pending:
         return [bundle.kernel for bundle in bundles]
-    prepared = {id(bundle): build_job(bundle) for bundle in pending}
+    built = {} if jobs is None else dict(zip(map(id, bundles), jobs, strict=True))
+    prepared = {
+        id(bundle): built[id(bundle)] if id(bundle) in built else build_job(bundle)
+        for bundle in pending
+    }
     active = telemetry.current()
     with (
         active.span("kernel.geometry", candidates=len(pending)) if active else nullcontext()
@@ -1993,9 +2168,18 @@ def run_geometries(bundles):
                             },
                         )
                         continue
-                    normalized = {name: value for name, value in job.items() if name != "step_path"}
+                    # The key carries each blank's declared digest, so its bytes must
+                    # still be the ones that digest names.
+                    mismatch = _blank_mismatch(job)
+                    if mismatch is not None:
+                        object.__setattr__(
+                            bundle, "kernel", {"status": "unknown", "reason": mismatch}
+                        )
+                        continue
                     key = hashlib.sha256(
-                        _json({"job": normalized, "engine": engine, "kernel": identity}).encode()
+                        _json(
+                            {"job": _cache_recipe(job), "engine": engine, "kernel": identity}
+                        ).encode()
                     ).hexdigest()
                     path = _cache_path(key)
                     cached = _read_cache(path)

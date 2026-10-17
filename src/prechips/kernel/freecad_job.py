@@ -222,6 +222,7 @@ CLIP_CONTACT = "first contact with stock outside stock_removal_bounds"
 STOCK_MM3 = 1e-3  # mm^3: finished material outside the envelope, or a detached stock piece
 TUBE_REL = 1e-3  # pipe volume vs pi r^2 L: a lineage-skin edge tube must be whole
 CONTACT_MM2 = 1e-6  # face/jaw common area that counts as a face inside a jaw
+SUPPLY_MM2 = 1e-6  # as-is face/raw supply common area that makes the supply carry the face
 REACH_BAND = 0.05  # mm beyond the cutter radius in which walls set reach depth
 # Axial ops' radial flute/seat/shank clearance and holder-face clearance (:meth:`_clearances`).
 CLEARANCE_KEYS = ("body_clear_mm", "seat_clear_mm", "shank_clear_mm", "holder_clear_mm")
@@ -260,6 +261,9 @@ ROTARY = "rotary"
 # max_filing_stock_mm off its claimed faces (:meth:`_Setup._hand_removal`).
 HAND = "hand"
 SAW_ACTIONS = {"saw_cut", "cut_off"}
+# The host judges each saw's tool and station (``saw_tool``); a job with no verdict cuts
+# only on the machine kinds a powered saw uses.
+POWERED_SAW_MACHINES = ("mill", "bench", "bandsaw")
 # Facing-type turning actions sweep their claims along +Z (toward the free end).
 AXIAL_TURNING = {"face", "cut_to_fit", "part_off"}
 # Fixture roles that turn with a dividing head's spindle; the head body, tailstock and
@@ -322,6 +326,11 @@ def _hand(op):
 
 def _sawn(op):
     return op.get("do") in SAW_ACTIONS
+
+
+def _scribed_saw(op):
+    """A saw cut that follows a scribed line: it removes its declared region, no plane."""
+    return _sawn(op) and "follows" in op
 
 
 def _op_number(op):
@@ -2140,9 +2149,59 @@ def _stock_vector(stock, key, unit):
     return vector
 
 
+def _blank(stock):
+    """A profiled blank's supplied solid: its own STEP, already in model mm, bound by the
+    declared digest and accepted only as exactly one closed, valid solid."""
+    path, digest = stock.get("step_path"), stock.get("step_sha256")
+    if not isinstance(path, str) or not isinstance(digest, str):
+        raise ValueError("profiled blank STEP path or SHA-256 is not declared")
+    try:
+        with open(path, "rb") as handle:
+            actual = hashlib.sha256(handle.read()).hexdigest()
+    except OSError as exc:
+        raise ValueError(f"profiled blank STEP is unreadable: {exc}") from None
+    if actual != digest.lower():
+        raise ValueError(
+            f"profiled blank STEP SHA-256 mismatch: declares {digest}, file has {actual}"
+        )
+    shape = Part.Shape()
+    shape.read(path)
+    solids = shape.Solids
+    if len(solids) != 1:
+        raise ValueError(f"profiled blank STEP yields {len(solids)} solids, not one")
+    solid = solids[0]
+    if len(shape.Faces) != len(solid.Faces):
+        raise ValueError("profiled blank STEP holds faces outside its single solid")
+    closed = all(shell.isClosed() for shell in solid.Shells)
+    if not closed or not solid.isValid() or not solid.Volume > STOCK_MM3:
+        raise ValueError("profiled blank STEP is not one closed, valid, positive-volume solid")
+    return solid
+
+
+def _profiled_supply(stock, name):
+    """Whether supply ``name`` (``stock`` or ``stock.<id>``) is a profiled blank."""
+    if not isinstance(stock, dict):
+        return False
+    components = stock.get("components")
+    spec = components.get(name.removeprefix("stock.")) if isinstance(components, dict) else stock
+    return isinstance(spec, dict) and spec.get("shape") == "profiled"
+
+
+def _profiled(stock):
+    """Whether the job's supply, or any of its components, is a profiled blank."""
+    if not isinstance(stock, dict):
+        return False
+    components = stock.get("components")
+    pieces = components.values() if isinstance(components, dict) else [stock]
+    return any(isinstance(spec, dict) and spec.get("shape") == "profiled" for spec in pieces)
+
+
 def _envelope(stock):
-    """The authored supplied-stock solid in model mm: a placed box or round bar."""
+    """The authored supplied-stock solid in model mm: a placed box or round bar, or a
+    profiled blank's own STEP."""
     shape = stock.get("shape")
+    if shape == "profiled":
+        return _blank(stock)
     length = _positive(stock, "length_mm")
     if length is None:
         raise ValueError("stock length_mm is not a positive number")
@@ -2154,7 +2213,7 @@ def _envelope(stock):
             raise ValueError("stock dia_mm is not a positive number")
         return Part.makeCylinder(dia / 2, length, origin, axis)
     if shape != "box":
-        raise ValueError(f"stock shape {shape!r} is neither box nor round")
+        raise ValueError(f"stock shape {shape!r} is neither box, round nor profiled")
     section = stock.get("section_mm")
     if not (
         isinstance(section, list)
@@ -3560,8 +3619,19 @@ class _Job:
         setups = job.get("setups", [])
         if not isinstance(setups, list):
             raise ValueError("job setups is not a list")
+        self.as_is_contact = {}
         supplies, (stock, reason) = self._supplies()
         self.raw_supplies = supplies
+        if self.as_is_contact:
+            result["as_is_contact"] = dict(sorted(self.as_is_contact.items()))
+        # Each profiled blank's own box: the traveler's receiving size for a bought blank.
+        blanks = {
+            name: [_r(v) for v in _bbox(solid)]
+            for name, (solid, why) in supplies.items()
+            if why is None and solid is not None and _profiled_supply(job.get("stock"), name)
+        }
+        if blanks:
+            result["blank_bbox_mm"] = dict(sorted(blanks.items()))
         self.states = {
             ref: {
                 "components": {ref.removeprefix("stock.")},
@@ -3797,7 +3867,8 @@ class _Job:
             refs = self.job.get("as_is_faces")
             if isinstance(refs, list) and refs:
                 if reason is None:
-                    joined, reason = self._as_is(joined)
+                    pieces = {name: solid for name, (solid, _) in supplies.items()}
+                    joined, reason = self._as_is(joined, pieces)
                 if reason is not None:
                     return {name: (None, reason) for name in supplies}, (None, reason)
             return supplies, (joined, reason)
@@ -3826,10 +3897,14 @@ class _Job:
                         f"the finished part extends {_r(outside)} mm^3 outside the authored stock "
                         "envelope; in-process stock cannot be derived"
                     )
-        return self._as_is(solid) if complete else (solid, None)
+        return self._as_is(solid, {"stock": solid}) if complete else (solid, None)
 
-    def _as_is(self, solid):
-        """As-stock surfaces belong to the full supply envelope, including joined components."""
+    def _as_is(self, solid, pieces):
+        """As-stock surfaces belong to the full supply envelope, including joined components.
+
+        With a profiled blank among the supplies each listed face is measured instead
+        (:meth:`_as_is_contact`): a face off every supply stays uncredited, never voiding
+        the stock."""
         refs = self.job.get("as_is_faces")
         if isinstance(refs, list):
             unmapped = sorted(
@@ -3840,6 +3915,9 @@ class _Job:
                     "as-is face reference(s) unmapped, so their supplied-stock surfaces cannot "
                     "be checked: " + ", ".join(unmapped)
                 )
+            if _profiled(self.job.get("stock")):
+                self.as_is_contact = {ref: self._as_is_contact(ref, solid, pieces) for ref in refs}
+                return solid, None
             shell = Part.makeCompound(solid.Shells)
             off = []
             for ref in refs:
@@ -3854,6 +3932,32 @@ class _Job:
                     "stock is not that envelope: " + ", ".join(sorted(set(off)))
                 )
         return solid, None
+
+    def _as_is_contact(self, ref, solid, pieces):
+        """Whether one as-is face lies on the joined raw supply's boundary within
+        STOCK_TOL (``max_gap_mm``: its farthest sample's distance), so a face spanning
+        adjacent components counts. ``supplies`` names every raw supply sharing a
+        positive area of the face (the exact face/solid common, SUPPLY_MM2): each one's
+        cut answers for the face however narrow its share, while a neighbour meeting it
+        only along an edge does not. A failed common leaves the contact unknown."""
+        face = self.solid.Faces[self.mapping[ref]]
+        samples, _ = _face_samples(face, 1.0)
+        if not samples:
+            return {"contact": UNKNOWN, "reason": "the face yields no samples"}
+        joined = Part.makeCompound(solid.Shells)
+        gap = max(joined.distToShape(Part.Vertex(point))[0] for point, _ in samples)
+        if gap > STOCK_TOL:
+            return {"contact": "off_supply", "supplies": [], "max_gap_mm": _r(gap)}
+        try:
+            shares = {name: face.common(piece).Area for name, piece in pieces.items()}
+        except Exception as exc:
+            reason = f"the face's share of each raw supply is unresolved ({exc})"
+            return {"contact": UNKNOWN, "max_gap_mm": _r(gap), "reason": reason}
+        carriers = sorted(name for name, area in shares.items() if area > SUPPLY_MM2)
+        if not carriers:
+            reason = "the face lies on the supply but shares no area with any raw supply"
+            return {"contact": UNKNOWN, "max_gap_mm": _r(gap), "reason": reason}
+        return {"contact": "on_supply", "supplies": carriers, "max_gap_mm": _r(gap)}
 
     @staticmethod
     def _joined(refs, sources):
@@ -3919,16 +4023,20 @@ class _Job:
             if not isinstance(process, str) or not process.strip() or process.strip() == UNKNOWN:
                 raise ValueError("joint process must be known nonempty text")
             debts = []
-            if joint.get("method") == "retaining_compound":
-                for field in ("cure_time_min", "surface_prep"):
-                    value = joint.get(field)
-                    if value == UNKNOWN:
-                        debts.append(f"retaining compound {field} is unknown")
-                    elif field == "cure_time_min":
-                        if not _number(value) or value <= 0:
-                            raise ValueError("retaining compound cure_time_min must be positive")
-                    elif not isinstance(value, str) or not value.strip():
-                        raise ValueError(f"retaining compound {field} must be nonempty text")
+            compound = joint.get("compound")
+            if compound is not None and not isinstance(compound, dict):
+                raise ValueError("joint compound must be a product, cure and prep record")
+            # A present block, even an empty one, must carry every fact.
+            fields = ("product", "cure_time_min", "surface_prep") if compound is not None else ()
+            for field in fields:
+                value = compound.get(field)
+                if value == UNKNOWN:
+                    debts.append(f"joint compound {field} is unknown")
+                elif field == "cure_time_min":
+                    if not _number(value) or value <= 0:
+                        raise ValueError("joint compound cure_time_min must be positive")
+                elif not isinstance(value, str) or not value.strip():
+                    raise ValueError(f"joint compound {field} must be nonempty text")
             if joint.get("process_reason"):
                 debts.append(str(joint["process_reason"]))
             if joint.get("reason"):
@@ -4229,10 +4337,15 @@ class _Job:
             or guaranteed[1] > band[1] + 1e-9
         ):
             raise ValueError("socket/spigot fit fails at a worst-case diameter extreme")
-        if (fit == "interference" and joint.get("method") != "press") or (
-            fit == "clearance" and joint.get("method") not in {"silver_braze", "retaining_compound"}
+        method = joint.get("method")
+        if (fit == "interference" and method != "press") or (
+            fit == "clearance" and method not in {"silver_braze", "slip"}
         ):
             raise ValueError("joint method does not match its declared fit")
+        if method == "slip" and joint.get("compound") is None:
+            raise ValueError("a slip joint needs a compound to bond it")
+        if method == "silver_braze" and joint.get("compound") is not None:
+            raise ValueError("a silver_braze joint takes no compound")
         engagement = _joint_engagement(socket_spec, spigot_spec)
         allowed_overlap = Part.Shape()
         if fit == "interference":
@@ -5508,8 +5621,92 @@ class _Setup:
         "stock_volume_after_mm3",
     )
 
+    def _saw_machine(self, op, facts, missing):
+        """The host's saw verdict (``saw_tool``): a refused tool/machine pair is an error,
+        an unresolved one stays debt; with no verdict only a powered saw's stations cut."""
+        machine = self.setup.get("machine_kind")
+        verdict = op.get("saw_tool")
+        if verdict == "refused":
+            facts["saw_error"] = f"the selected saw tool does not cut on machine kind {machine!r}"
+            return
+        if verdict == "unresolved":
+            missing.append("the saw tool or its machine is missing, unverified or not a saw")
+            return
+        if machine in (None, UNKNOWN):
+            missing.append("saw machine kind is unknown")
+        elif verdict is None and machine not in POWERED_SAW_MACHINES:
+            facts["saw_error"] = f"saw action is unsupported on machine kind {machine!r}"
+
+    @staticmethod
+    def _saw_debts(facts, missing):
+        if not missing:
+            return facts
+        facts["saw_reason"] = "; ".join(missing)
+        facts["reason"] = facts["saw_reason"]
+        for key, value in facts.items():
+            if value == UNKNOWN:
+                facts["reasons"].setdefault(key, facts["saw_reason"])
+        return facts
+
+    def _scribed_saw_facts(self, op, stock_reason=None):
+        """A saw that follows a scribed line: its declared removal region and the stock it
+        must leave outside the line, without a blade plane, kerf slab or offcut solid."""
+        facts = {
+            "claimed_indices": [],
+            "follows": op.get("follows", UNKNOWN),
+            "allowance_mm": UNKNOWN,
+            "stock_removal_bounds": UNKNOWN,
+            "retained_to_target_mm": UNKNOWN,
+            **{key: UNKNOWN for key in self._SAW_VOLUMES if not key.startswith(("kerf", "off"))},
+            "reasons": {},
+        }
+        missing = []
+        allowance = op.get("allowance_mm")
+        if _number(allowance) and allowance > 0:
+            facts["allowance_mm"] = float(allowance)
+        else:
+            facts["reasons"]["allowance_mm"] = "allowance_mm is unknown"
+        span, why = _clearing_span(op.get("stock_removal_bounds"))
+        if span is None:
+            missing.append(why)
+        else:
+            facts["stock_removal_bounds"] = {
+                axis: [_r(span[i]), _r(span[i + 3])] for i, axis in enumerate("xyz")
+            }
+        profile = op.get("scribed_profile")
+        if isinstance(profile, dict):
+            facts["scribed_profile"] = profile
+            if profile.get("reason"):
+                missing.append(str(profile["reason"]))
+            elif facts["allowance_mm"] == UNKNOWN:
+                missing.append("allowance_mm is unknown, so the offset scribed arc is unknown")
+        self._saw_machine(op, facts, missing)
+        if stock_reason is not None:
+            missing.append(str(stock_reason))
+        return self._saw_debts(facts, missing)
+
+    @staticmethod
+    def _scribed_region(op, span):
+        """The setup-frame solid a saw that follows a scribed line takes: its declared box,
+        clipped to stay ``allowance_mm`` outside a scribed arc (``scribed_profile``); None
+        when an inward offset leaves no room inside the arc at all."""
+        box = _box_shape(span)
+        profile = op.get("scribed_profile")
+        if not isinstance(profile, dict):
+            return box
+        (cx, cy), radius = profile["centre_mm"], profile["radius_mm"]
+        outside = profile["remove"] == "outside"
+        offset = radius + op["allowance_mm"] if outside else radius - op["allowance_mm"]
+        if offset <= 0:
+            return None
+        height = span[5] - span[2] + 2.0
+        circle = Part.makeCylinder(offset, height, V(cx, cy, span[2] - 1.0))
+        return box.cut(circle) if outside else box.common(circle)
+
     def _saw_facts(self, op, stock_reason=None):
         """Saw inputs and debts, without a spindle/holder model or finished-face claims."""
+        if _scribed_saw(op):
+            return self._scribed_saw_facts(op, stock_reason)
         facts = {
             "claimed_indices": [],
             "kerf_mm": UNKNOWN,
@@ -5547,23 +5744,100 @@ class _Setup:
             if _number(kerf) and kerf > 0:
                 sign = -1 if plane["keep"] == "below" else 1
                 facts["retained_boundary_mm"] = _r(plane["value"] + sign * kerf / 2)
-        machine = self.setup.get("machine_kind")
-        if machine in (None, UNKNOWN):
-            missing.append("saw machine kind is unknown")
-        elif machine not in ("mill", "bench", "bandsaw"):
-            facts["saw_error"] = f"saw action is unsupported on machine kind {machine!r}"
+        self._saw_machine(op, facts, missing)
         if stock_reason is not None:
             missing.append(str(stock_reason))
-        if missing:
-            facts["saw_reason"] = "; ".join(missing)
-            facts["reason"] = facts["saw_reason"]
-            for key, value in facts.items():
-                if value == UNKNOWN:
-                    facts["reasons"][key] = facts["saw_reason"]
-        return facts
+        return self._saw_debts(facts, missing)
+
+    @staticmethod
+    def _saw_split(stock, retained, keep):
+        """Why ``retained`` (``stock`` after one saw, each input solid's share ``keep(solid)``)
+        is unacceptable as pieces, else None.
+
+        Existing separate supplies may remain separate. A cut must not create loose pieces
+        from one connected input solid, even slivers; native material is never filtered
+        away and the volume facts never change."""
+        if len(retained.Solids) <= 1:
+            return None
+        for original in stock.Solids:
+            count = len(keep(original).Solids)
+            if count > 1:
+                return f"saw splits an input stock piece into {count} retained pieces"
+        return None
+
+    def _scribed_saw_stock(self, op, stock):
+        """Remove only the declared region outside the scribed line; the finished target
+        grown by the allowance left for the file must survive it (:meth:`_saw_stock`)."""
+        facts = self._saw_facts(op)
+        facts["stock_volume_before_mm3"] = _r(stock.Volume)
+        facts["reasons"].pop("stock_volume_before_mm3", None)
+        if facts.get("saw_error") or facts.get("saw_reason"):
+            return None, facts
+        try:
+            span, why = _clearing_span(op["stock_removal_bounds"], _bbox(stock))
+            if span is None:
+                facts["saw_error"] = f"{why}: the declared saw removes no stock (saw no-op)"
+                return None, facts
+            box = self._scribed_region(op, span)
+            if box is None:
+                facts["saw_error"] = (
+                    "the allowance leaves no room inside the scribed arc: the saw removes no "
+                    "stock (saw no-op)"
+                )
+                return None, facts
+            removed = stock.common(box)
+            if removed.Volume <= HIT_MM3:
+                facts["saw_error"] = "the declared saw region removes no stock (saw no-op)"
+                return None, facts
+            retained = stock.cut(box)
+            after = retained.Volume
+            facts.update(
+                stock_volume_after_mm3=_r(after),
+                removed_volume_mm3=_r(stock.Volume - after),
+            )
+            if not retained.Solids or after <= HIT_MM3:
+                facts["saw_error"] = "saw leaves no retained stock"
+                return None, facts
+            if not retained.isValid():
+                facts["saw_reason"] = facts["reason"] = "saw retained-stock boolean is invalid"
+                return None, facts
+            split = self._saw_split(stock, retained, lambda original: original.cut(box))
+            if split is not None:
+                facts["saw_error"] = split
+                return None, facts
+            if self.protected.Volume <= HIT_MM3:
+                # No finished material to measure from: the stock is known, the clearance
+                # the file needs is not.
+                facts["reasons"]["retained_to_target_mm"] = (
+                    "this setup's finished target is empty; the stock left for the file is unknown"
+                )
+                return retained, facts
+            target_loss = self.protected.common(removed).Volume
+            if target_loss > HIT_MM3:
+                facts["saw_error"] = (
+                    f"saw removes {_r(target_loss)} mm^3 of finished target material"
+                )
+                return None, facts
+            clearance = _r(removed.distToShape(self.protected)[0])
+            facts["retained_to_target_mm"] = clearance
+            facts["reasons"].pop("retained_to_target_mm", None)
+            allowance = facts["allowance_mm"]
+            if _number(allowance) and clearance < allowance - STOCK_TOL:
+                facts["saw_error"] = (
+                    f"the declared saw region comes within {clearance} mm of the finished "
+                    f"target, inside the {_r(allowance)} mm allowance left for the file"
+                )
+                return None, facts
+            return retained, facts
+        except Exception as exc:
+            reason = f"saw stock boolean failed ({exc})"
+            facts["saw_reason"] = facts["reason"] = reason
+            return None, facts
 
     def _saw_stock(self, op, stock):
         """Keep one side of the blade slab; the kerf and offcut never enter later setups."""
+        if _scribed_saw(op):
+            return self._scribed_saw_stock(op, stock)
         facts = self._saw_facts(op)
         facts["stock_volume_before_mm3"] = _r(stock.Volume)
         facts["reasons"].pop("stock_volume_before_mm3", None)
@@ -5616,19 +5890,17 @@ class _Setup:
                     facts["saw_error"] = (
                         f"saw removes {_r(target_loss)} mm^3 of finished target material"
                     )
-                elif len(retained.Solids) > 1:
-                    # Existing separate supplies may remain separate. A cut must not
-                    # create loose pieces from one connected input solid, even slivers;
-                    # do not filter away native material or change the volume facts.
-                    for original in stock.Solids:
-                        count = len(original.common(keep).Solids)
-                        if count > 1:
-                            facts["saw_error"] = (
-                                f"saw splits an input stock piece into {count} retained pieces"
-                            )
-                            break
+                else:
+                    split = self._saw_split(stock, retained, lambda original: original.common(keep))
+                    if split is not None:
+                        facts["saw_error"] = split
             if facts.get("saw_error") or facts.get("saw_reason"):
                 return None, facts
+            if op.get("saw_tool") == "hand_saw" and len(retained.Solids) == 1:
+                # A bench has no DRO: the hand-saw card gives the kept piece's length. Of
+                # separate retained supplies no one length is the kept piece's, so none.
+                kept = _bbox(retained)
+                facts["retained_length_mm"] = _r(kept[axis + 3] - kept[axis])
             return retained, facts
         except Exception as exc:
             reason = f"saw stock boolean failed ({exc})"
@@ -9177,8 +9449,9 @@ class _Setup:
         """Selected primary cutter's actual silhouette at an illustrative approach pose;
         a turning op whose follow rest is drawn (``rest_z``: op subject -> the cut Z its
         jaws are posed for) shows the tool at that Z, beside the jaws."""
-        # A bench file has no cutter to draw: the primary cutter is the first machine op's.
-        ops = [op for op in self.ops if not _hand(op)]
+        # A bench file, or a hand saw following a scribed line, has no cutter to draw: the
+        # primary cutter is the first machine op's.
+        ops = [op for op in self.ops if not (_hand(op) or _scribed_saw(op))]
         if not ops:
             return None, None
         op = ops[0]

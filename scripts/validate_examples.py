@@ -25,7 +25,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from prechips.findings import ALWAYS_REQUIRED
-from prechips.inputs import load_bundle, operative_definitions
+from prechips.inputs import blank_supplies, load_bundle, operative_definitions
 from prechips.joint_features import LABEL_PREFIX, fit, label, present, setup_span_mm
 from prechips.kernel import run_geometry
 from prechips.measurements import length_debt, record_debt
@@ -156,6 +156,8 @@ GEOMETRY_CASES = (
     ("pocket-reach", "long-reach.toml", "expected/long-reach", 0, None, ("S2",), ()),
     ("sharp-corner", "plan.toml", "expected", 2, "internal_corner_radius", ("S2",), ("S2",)),
     ("unclaimed-face", "plan.toml", "expected", 2, "coverage", ("S2",), ("S2",)),
+    ("profiled-blank", "plan.toml", "expected", 2, "coverage", (), ()),
+    ("profiled-blank", "machined-ends.toml", "expected/machined-ends", 0, None, (), ()),
     (
         "fixture-holds",
         "plan.toml",
@@ -817,6 +819,14 @@ def input_paths(folder: Path, plan: dict, plan_filename: str = "plan.toml") -> d
     if step and step != "unknown":
         base = paths["features"].parent if "step" in features else folder
         paths["step"] = (base / step).resolve()
+    for kind, blank in blank_supplies(plan).items():
+        if blank.get("step", "unknown") != "unknown":
+            paths[kind] = (folder / blank["step"]).resolve()
+            digest = blank.get("step_sha256", "unknown")
+            require(
+                digest in {"unknown", sha256(paths[kind])},
+                f"{folder.name}: {kind} STEP bytes differ from their step_sha256",
+            )
     for path in paths.values():
         require(path.is_relative_to(EXAMPLES), f"input escapes examples: {path}")
     return paths
@@ -1313,9 +1323,12 @@ def check_joint_declarations(plan: dict, features: dict, findings: dict, kernel)
             "violations": result["violations"],
             "missing": result["missing"],
         }
-        if joint["method"] == "retaining_compound":
+        compound = joint.get("compound")
+        if compound is not None:
             expected.update(
-                cure_time_min=joint["cure_time_min"], surface_prep=joint["surface_prep"]
+                product=compound["product"],
+                cure_time_min=compound["cure_time_min"],
+                surface_prep=compound["surface_prep"],
             )
         row = findings["joint_fit", sid]
         require(row["numbers"] == expected, f"{sid}: joint fit evidence differs from the plan")

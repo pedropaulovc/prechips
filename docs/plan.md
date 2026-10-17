@@ -493,13 +493,14 @@ hold's `centre_hole` names the process centre its dead or live centre rides in
 | `as_is_faces` | `list[str]` |
 | `components` | `list[StockComponent]` |
 | `prepared` | `PreparedBlank` ([Prepared blank](#prepared-blank)) |
+| `blank` | `ProfiledBlank` ([Profiled blank](#profiled-blank)) |
 | `cite` | `Citations` |
 
 For a built-up stock candidate, `components` lists the separately authored
 blanks. Each `StockComponent` requires a known, nonempty, unique `id`;
 references match the exact id, with no ASCII character whitelist. It accepts `form`,
-`dia_mm`, `length_mm`, `section_mm`, `origin_mm`, `axis`, `section_axis`, `note`,
-and `cite` with the same types and model-frame pose semantics as root stock.
+`dia_mm`, `length_mm`, `section_mm`, `origin_mm`, `axis`, `section_axis`, `blank`,
+`note`, and `cite` with the same types and model-frame pose semantics as root stock.
 A round blank uses diameter and length; a rectangular blank uses two section
 dimensions and length. These are authored purchase/process choices, not
 confirmed on-hand inventory. Missing dimensions or citations keep comparison
@@ -528,7 +529,9 @@ Incompatible as-is surfaces also keep stock-dependent geometry `?` with a reason
 
 `as_is_faces` lists STEP face references (same forms as a feature's `faces`)
 that stay as supplied stock; the M4 `coverage` rule unites them with the faces
-claimed by cutting operations. An omitted list is unknown, not empty.
+claimed by cutting operations. An omitted list is unknown, not empty. On a
+[profiled blank](#profiled-blank) each listed face is credited only when it is
+supplied as cut within its drawing bands.
 
 Root `construction` declares the candidate route, independently of the
 drawing-side manifest permission. `built_up` is refused unless
@@ -561,11 +564,64 @@ which: rule `prepared_blank` stays unknown.
 `PreparedChecks` names an inventory gauge for `length`, `section_0`,
 `section_1`, `flat`, `square` and `parallel`; `PreparedMethods` gives the written
 `flat`, `square` and `parallel` procedures and `PreparedForm` their limits. An
-unknown `setup` is `BadInput`, as is a prepared blank on round or built-up stock
-(there is no box to trim). Rule `prepared_blank`
+unknown `setup` is `BadInput`, as is a prepared blank on round, built-up or
+profiled stock (there is no box to trim). Rule `prepared_blank`
 ([rules-setup](rules-setup.md#prepared_blank)) checks the size, the stock the
 kernel cut and the checks; the receiving setup's sheet prints them as **CHECK THE
 BLANK**, each form row with its limit and method.
+
+### Profiled blank
+
+A blank bought already profiled (laser-, waterjet- or plasma-cut from plate, for
+example from SendCutSend or OSH Cut) is `form = "profiled_blank"` with a `blank`
+table, on the root stock or on one `stock.components` entry:
+
+| Field | Type (also accepts `"unknown"`) |
+|---|---|
+| `step` | `str`: the blank's STEP, relative to the plan's directory and inside the bundle |
+| `step_sha256` | `str`: lowercase SHA-256 of those bytes |
+| `profile_tolerance_mm` | `float`: the vendor's declared ± cut tolerance, positive |
+| `cite` | `Citations`: the vendor's published tolerance |
+
+```toml
+[stock]
+form = "profiled_blank"
+as_is_faces = ["#119/ADVANCED_FACE[4]/", "#17/ADVANCED_FACE[1]/"]
+
+[stock.blank]
+step = "strap-blank.STEP"
+step_sha256 = "ae8923c2…"
+profile_tolerance_mm = 0.127 # the vendor's posted ±0.005 in
+cite = "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/"
+```
+
+The blank STEP is authored in the **part model's coordinates**: the solid the
+vendor cuts, placed where the finished part sits inside it. It is the supply's
+whole envelope, so a profiled blank declares no `section_mm`, `dia_mm`,
+`length_mm`, `origin_mm`, `axis` or `section_axis`. Any of them, a `blank` under
+another `form`, or a root `blank` beside `components` is bad input (exit 3), and
+so is a prepared blank on it. The loader reads and hashes the STEP like the
+part's: bytes that do not match a known `step_sha256`, or a path outside the
+bundle, are bad input; the report binds it as input `stock.blank` (a
+component's as `stock.<id>.blank`). An unknown `step` or `step_sha256` leaves
+the supply's geometry as named stock debt. The kernel imports the blank as the
+supplied solid and accepts exactly one closed, valid solid that contains the
+finished part; cuts, contact and volume then proceed as for a box or bar.
+The tolerance is a cited vendor value, never a measurement (without a usable
+`cite` it is unknown and credits nothing): it applies to every
+face the plan credits from the blank, the sheet faces included, so declare the
+larger of the vendor's cut tolerance and the plate's thickness tolerance when
+the broad faces are credited. Inventory `stock` cannot hold a profiled blank.
+
+`as_is_faces` still lists the faces the plan leaves as supplied. Each one is
+credited only when the kernel finds it on the blank's boundary and every
+drawing band of its features holds the vendor tolerance about its nominal
+(rule [`blank_credit`](rules-geometry.md#blank_credit)); a face failing either
+check stays uncovered and needs a cutting op, from a blank that leaves
+machining allowance on it (an op cannot restore an undersize face). The
+traveler prints the stock as a profiled blank of the kernel's overall size,
+bought already cut to outline, with the vendor tolerance; the cut file itself is
+bound in the report, not printed for the bench.
 
 ## Dro
 
@@ -653,13 +709,14 @@ more than two references are bad input (exit 3). Shared supply ancestry remains
 forbidden at every step. Each interface identity is consumed only once.
 Joint geometry is in the model frame, regardless of the assembly setup's frame.
 A missing or malformed identity/reference is bad input; unknown numeric
-geometry or retaining-compound process facts withhold the union as named debt.
+geometry or joint-compound process facts withhold the union as named debt.
 
 A cylindrical joint declares `kind = "cylindrical"`, `socket` and `spigot`
 (matching plan joint-feature kinds on the two distinct consumed component
 branches), `fit`, the applicable diametral fit band, `method`, nonempty
-`process` and `cite`. Clearance uses `fit = "clearance"` and `clearance_mm`,
-with `method = "silver_braze"` or `"retaining_compound"`. Interference uses
+`process` and `cite`, plus an optional `compound`. `method` is the assembly
+action. Clearance uses `fit = "clearance"` and `clearance_mm`, with
+`method = "silver_braze"` or `"slip"`. Interference uses
 `fit = "interference"`, `interference_mm` and `method = "press"`.
 All tolerance extremes must satisfy the declared fit:
 
@@ -674,23 +731,30 @@ Both preparation cuts must be completed on the actual selected ancestors,
 remain intact, and have their target geometry verified at assembly. Declaring
 a joint cannot turn untouched blanks into prepared components.
 
-`method = "retaining_compound"` additionally requires `cure_time_min` (positive
-minutes, or literal `"unknown"`) and `surface_prep` (nonempty instructions, or
-literal `"unknown"`). `process` identifies the selected compound/application
-process; `clearance_mm` remains the diametral clearance band in millimetres.
-Missing process fields are bad input; explicitly unknown clearance, cure time
-or prep remains debt and cannot produce assembled stock or a render.
-`process` itself must be known text: the literal `"unknown"` is malformed,
-not an alternative bond process. Known physical refusals remain errors even
-when prep or cure is unknown; a later invalid join does not invalidate an
-earlier independent, valid assembly.
+A retaining compound on the interface is a
+`compound = { product, cure_time_min, surface_prep }` block: `product` names the
+compound (nonempty, or literal `"unknown"`), `cure_time_min` is positive minutes
+(or `"unknown"`) and `surface_prep` nonempty instructions (or `"unknown"`). The
+joint's `cite` covers the compound's data sheet. A `slip` joint requires a
+compound (a slip fit with nothing bonding it is not a joint), a `press` joint
+takes one optionally (a light press with the compound filling the micro-gaps)
+and a `silver_braze` joint takes none. A missing compound field is bad input;
+explicitly unknown fit band, product, cure time or prep remains debt and cannot
+produce assembled stock or a render. The retired `method = "retaining_compound"`
+and the joint-level `cure_time_min`/`surface_prep` fields are bad input whose
+message names this form. `process` itself must be known text: the literal
+`"unknown"` is malformed, not an alternative bond process. Known physical
+refusals remain errors even when prep or cure is unknown; a later invalid join
+does not invalidate an earlier independent, valid assembly.
 The traveler prints the prep, cure time and **do not disturb until cured** before
 later machining, once: on the setup's first `fit` op (the op that bonds), else in
-its "Starts from" line. The process does not model cure kinetics or certify a product:
-cite the author's source/choice for the declared band and cure conditions.
-These fields do not apply to `silver_braze` or `press`; their behavior is unchanged.
-Use the canonical noncutting bench action `do = "fit"`, not an undeclared
-`fit_up` or `bond` cutting action.
+its "Starts from" line; that `fit` op's material / consumable cell names the
+compound's product. A press fit with a compound prints **press in with the
+compound on the interface, then do not disturb until cured**. The process does
+not model cure kinetics or certify a product: cite the author's source/choice for
+the declared band and cure conditions. A joint without a compound prints no prep
+or cure. Use the canonical noncutting bench action `do = "fit"`, not an
+undeclared `fit_up` or `bond` cutting action.
 
 For example (illustrative process choices, not manufacturer specifications):
 
@@ -704,10 +768,9 @@ socket = "crank_socket"
 spigot = "crank_spigot"
 fit = "clearance"
 clearance_mm = [0.02, 0.06]
-method = "retaining_compound"
-process = "AUTHOR'S CHOICE: example Loctite 638-class retaining compound"
-cure_time_min = 1440
-surface_prep = "AUTHOR'S CHOICE: degrease and dry both mating surfaces"
+method = "slip"
+process = "AUTHOR'S CHOICE: applied to both mating surfaces"
+compound = { product = "AUTHOR'S CHOICE: example Loctite 638-class retaining compound", cure_time_min = 1440, surface_prep = "AUTHOR'S CHOICE: degrease and dry both mating surfaces" }
 cite = "AUTHOR'S CHOICE: example clearance band and 24-hour cure before machining"
 [[setups.ops]]
 op = 10
@@ -1170,7 +1233,9 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `stock_removal_bounds` | `Bounds` |
 | `approach` | `"rotary"` |
 | `angle_window_deg` | `[Number, Number]` |
-| `cut_plane` | `SawPlane` (saw cut-off only) |
+| `cut_plane` | `SawPlane` (a straight saw cut only) |
+| `follows` | `str`: `"<setup>:<op>"` of an earlier `scribe` op (a saw that follows its line only) |
+| `allowance_mm` | `Number` > 0: stock a saw that `follows` a line leaves outside it for the file |
 
 An `inspect` op may name several features (`feature = ["a", "b"]`): one
 drawing limit split across them, or one inspection station reading several. A
@@ -1453,6 +1518,11 @@ uses the 1898 manual arc method:
    when the host model has those linked facts; fuller actual closed-boundary
    transport is tracked in
    [#212](https://github.com/pedropaulovc/prechips/issues/212).
+   A gentle arc may instead be hand-sawn outside the line on the bench: a saw
+   op that `follows` the scribe op, with its `allowance_mm` and declared
+   `stock_removal_bounds`
+   ([hand saw](#hand-saw-on-the-bench-straight-or-to-a-scribed-line)), counts
+   as the rough the file finishes.
    No closure is invented: the open fallback uses oriented finite projections,
    real free-end
    caps and shared-concave-vertex sector classification. Conservative ties
@@ -1569,8 +1639,10 @@ The former `method = "arc_table"` is an error.
 ## Saw cut-off
 
 `do = "saw_cut"` and `do = "cut_off"` remove a sacrificial end/slab with a
-`tools.<blade>` whose `kind = "bandsaw"`. The setup machine may be a `mill`,
-`bench` or `bandsaw`; a lathe uses its separate `part_off` action, not this model.
+`tools.<blade>` whose `kind = "bandsaw"` or a hand saw (`kind = "hand_saw"`, a
+hacksaw). A bandsaw blade runs on a `mill`, `bench` or `bandsaw` machine; a hand
+saw only on a `bench` or `manual` one. A lathe uses its separate `part_off`
+action, not this model.
 The operation requires no spindle holder, direction or finished-face claim.
 If a feature is authored it must resolve normally; checks cannot be attached to
 an omitted feature.
@@ -1604,4 +1676,71 @@ sfm and descent feed in mm/min. These starting numbers come only from the cited
 [`saw_cut` cutting-data row](cutting-data.md), never op-level RPM/feed overrides.
 Blade-centre settings, retained edges and sourced blade speed/feed keep their
 own numeric digits; a coarse drawing print class does not round machine settings.
+
+### Hand saw on the bench, straight or to a scribed line
+
+A saw op declares exactly one shape, else the plan is `BadInput`: `cut_plane`
+(a straight cut; `cut_plane = "unknown"` while the plane is undecided), or
+`follows`, the `"<setup>:<op>"` of an earlier `scribe` op whose line the cut
+follows. The line must be on the saw's own workpiece: scribed earlier in the same
+setup, or in a setup the saw setup's `stock_in` routing descends from (a setup with
+omitted routing descends from none). A cut that follows a line also declares `allowance_mm` (positive, the
+stock left outside the line for the file) and `stock_removal_bounds`, the
+setup-frame box the blade and its offcut take; neither belongs on a straight cut.
+Gentle curves (an R800 arc rising about 13 mm over 292 mm) are sawn by hand this
+way, then filed to the line:
+
+```toml
+[[setups.ops]]
+op = 20
+do = "saw_cut"
+tool = "junior-hacksaw"          # inventory kind = "hand_saw"
+follows = "S4:10"                # the scribe op that laid out the line
+allowance_mm = 0.5
+stock_removal_bounds = { x = [-1.0, 293.0], y = [13.5, 20.0], z = [-1.0, 17.0] }
+note = "Saw just outside the scribed line."
+```
+
+The box is the author's declaration of what the cut removes, the same contract
+as a mill op's clearing box: the kernel removes only the stock inside it and does
+not model break-out or chisel work (#213). When the scribed feature is an arc (its
+layout in the saw setup's frame, as the `scribe` card prints it), the box is
+clipped to stay `allowance_mm` outside that arc: outside the circle grown by the
+allowance for a part inside it, inside the circle shrunk by it for a part outside
+it. The removal then follows the curve, as the operator's blade does. A straight
+scribed line keeps the box alone. An arc whose layout in the saw setup is unknown,
+or an unknown allowance on an arc, removes nothing and is `?`. An omitted or
+unknown box removes nothing and is plan-input debt: the `saw_cut` finding is `?`
+with "declare stock_removal_bounds for <setup:op>", and later stock stays unknown.
+The removal must stay at least `allowance_mm` clear of the finished target, else
+`✗`. The following `file_to_line` checks the stock it actually meets against the
+shop's `max_filing_stock_mm`, and counts this saw as the rough it finishes.
+
+A powered bandsaw follows a scribed curve the same way in vertical mode, the work
+fed by hand on its table: a `bandsaw` blade on a `bandsaw` machine whose
+inventory `saw_modes` include `"vertical"`. Modes without `"vertical"` are `✗`;
+undeclared modes, an unverified machine or blade (its kerf included) are `?`; a
+bandsaw blade following a line on a mill or bench is `✗`. Blade speed comes from
+the cited `saw_cut` row as for any bandsaw cut, but there is no descent feed: the
+card prints "by hand along the line" and "leave <allowance> mm outside the line".
+A straight bandsaw cut needs no vertical mode.
+
+```toml
+[[setups.ops]]
+op = 10
+do = "saw_cut"
+tool = "bandsaw-blade-4-6"       # kind = "bandsaw"; machine saw_modes = ["horizontal", "vertical"]
+follows = "S4:20"                # the R816 arc's scribe
+allowance_mm = 1.0               # left for the trammel pass
+stock_removal_bounds = { x = [-150.0, 150.0], y = [-10.0, 6.0], z = [-20.0, 1.0] }
+```
+
+A setup on a `bench`/`manual` machine whose saws all use a verified `hand_saw`
+tool, with otherwise only bench actions (`fit`, `inspect`, `deburr`, `coating`, `scribe`,
+`file_to_line`), is manual bench work: its DRO, zero and headroom screens are
+`not_applicable` and `speeds_feeds` gives the hand saw no blade speed or feed. A
+powered or unresolved blade on a bench machine waives nothing. The traveler
+prints a bench hand saw on the assembly / finishing card: "Hand saw, blade
+centred on Y 87.75 mm; keep the side below it", or "Hand saw outside the line
+scribed in S4 op 10, leave 0.5 mm for filing".
 

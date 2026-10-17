@@ -1,6 +1,6 @@
 # Geometry and workholding rules (M4, FreeCAD kernel)
 
-The nine PLAN §4.2–4.3 kernel rules measure the bound finished STEP faces
+The ten PLAN §4.2–4.3 kernel rules measure the bound finished STEP faces
 against the material present at each authored setup, using FreeCAD's bundled
 OpenCASCADE. They compare sampled intersections and B-rep measurements with
 the selected tools, holders, fixture dimensions and declared pose. This is not
@@ -15,6 +15,7 @@ that carries its own verification debt.
 | `reach` | `setup:op` | PLAN §4.2 reach |
 | `internal_corner_radius` | `setup:op` | PLAN §4.2 internal corner radius |
 | `coverage` | the plan's `part` name | PLAN §4.2 coverage |
+| `blank_credit` | each feature owning an as-is face of a profiled blank (the face reference when no feature owns it) | PLAN §4.2 blank_credit |
 | `finish_coverage` | one subject per manifest feature | PLAN §4.2 finish coverage |
 | `vise` | setup id | PLAN §4.3 vise |
 | `thin_wall_under_clamp` | setup id | PLAN §4.3 thin wall under clamp |
@@ -117,7 +118,12 @@ of the canonical job without its `step_path` (the STEP digest and every
 numeric input are inside), the digest of the engine's own `kernel/*.py`
 sources, and the kernel executable's resolved path and freshly read byte SHA-256.
 Changing a consumed geometry input, the STEP, the engine or the kernel
-executable bytes therefore misses; moving the bundle does not.
+executable bytes therefore misses; moving the bundle does not. A
+[profiled blank](plan.md#profiled-blank) enters the job as its declared
+`step_sha256` without its absolute path: the host re-reads the blank's bytes
+before keying, so new bytes under a new digest miss and bytes changed under a
+stale digest are refused (`unknown`, never a hit on the old key). Its vendor
+tolerance and citation are host-only and never key geometry.
 Host-only action/finishing metadata
 that is not consumed by transient preparation, tool OAL after projection is resolved, protective hold-method text, and the
 item-level `verify` / `present` / `source` flags around a consumed fact (which
@@ -754,14 +760,30 @@ boxes. A missing or withheld entry box leaves travel unresolved. Equality
 with a measured travel limit passes; exceeding it fails.
 
 A machine with inventory `kind = "bench"` or `"manual"` whose non-empty
-operation list contains only `fit`, `inspect`, `deburr` and `coating` needs no DRO or spindle
-screen: `zero_check`, `coordinates` and `headroom` are `not_applicable`.
-Joint geometry and modeled holding still apply. Adding any cutting or unknown
-operation reinstates the normal machine screens.
+operation list contains only `fit`, `inspect`, `deburr`, `coating`, `scribe`,
+`file_to_line` and saw cuts whose tool resolves to a `hand_saw` needs no DRO or
+spindle screen: `zero_check`, `coordinates` and `headroom` are `not_applicable`.
+Joint geometry and modeled holding still apply. Adding any other cutting or
+unknown operation, or a saw with a powered or unresolved blade, reinstates the
+normal machine screens.
 
 The supply needs the positive dimensions and model-frame placement described
-under [plan stock](plan.md#stock). As-is face references do not define a stock
-volume: when supplied, they must map and lie on that envelope. Unknown
+under [plan stock](plan.md#stock), or a [profiled blank](plan.md#profiled-blank)'s
+own STEP: the kernel verifies its digest, imports it in model coordinates and
+accepts exactly one closed, valid, positive-volume solid as the supply, and
+reports each such blank's own box (`blank_bbox_mm`, keyed `stock` or
+`stock.<id>`), the size the traveler prints for receiving it. As-is
+face references do not define a stock volume: when supplied, they must map and
+lie on that envelope. With a profiled blank among the supplies the kernel
+instead measures each as-is face against the joined raw supply's boundary
+(`as_is_contact`: `on_supply` within `STOCK_TOL` = 1e-3 mm, else `off_supply`;
+`max_gap_mm`, its farthest sample's distance; and `supplies`, every raw supply
+sharing a positive area of the face, from the exact face/solid common above
+1e-6 mm², so a face spanning adjacent components counts and answers to each of
+them however narrow its share, while a neighbour meeting it only along an edge
+does not; a failed common leaves the contact `unknown`); a face off the supply is left uncredited by
+[`blank_credit`](#blank_credit) instead of voiding the stock, including a face
+meant for a bar component of a mixed built-up supply. Unknown
 dimensions/placement, incompatible as-is faces, unresolved earlier claims,
 or an unrepresentable removal are named stock debt. Stock-dependent geometry
 for that setup is `?`. Tool hits sampled against this unknown-stock branch
@@ -856,14 +878,17 @@ consumed preparation remains historical provenance, not permission to cut
 through the assembled interface. Shared ancestry still refuses the join, and
 upstream unknown stock cannot become known by adding another component.
 
-For `retaining_compound`, `clearance_mm` is the declared diametral band,
-`process` identifies the selected application, `surface_prep` declares preparation
-instructions, and positive `cure_time_min` declares the wait before disturbing
-the joint or machining it. Explicit unknown clearance, prep or cure time remains
-debt and withholds union/render; absent or malformed required process facts are
-bad input. These are authored process facts, not a chemical cure simulation or
-manufacturer certification. Travelers print **do not disturb until cured**.
-Existing silver-braze and press behavior is unchanged.
+A joint `compound` (required on a `slip` clearance fit, optional on a `press`
+interference fit, refused on `silver_braze`) names its `product`, declares
+`surface_prep` instructions and a positive `cure_time_min`, the wait before
+disturbing the joint or machining it. `joint_fit` reports the fit band with the
+compound's `product`, `cure_time_min` and `surface_prep` whenever one is declared,
+on either fit. Explicit unknown band, product, prep or cure time remains debt and
+withholds union/render; absent or malformed required compound facts are bad input.
+These are authored process facts, not a chemical cure simulation or manufacturer
+certification, and the compound adds no geometry: a bonded press fit joins the
+same stock as a bare one. Travelers print **do not disturb until cured**, after
+**press in with the compound on the interface** for a press fit.
 A known geometric refusal (missing preparation, blocked insertion, overlap or
 lost required material) remains an error even when cure or surface prep is
 unknown. Only a geometrically derivable join becomes process debt; it still
@@ -1074,8 +1099,9 @@ kernel job and does not enlarge an unbounded cut or certify a toolpath
 
 ### Saw cut-off
 
-`saw_cut` and `cut_off` use an authored setup-axis blade-centre `cut_plane`
-and the selected bandsaw blade's positive inventory kerf. Below retains the
+A straight `saw_cut` or `cut_off` uses an authored setup-axis blade-centre
+`cut_plane` and the selected blade's (bandsaw or hand saw) positive inventory
+kerf. Below retains the
 halfspace at or below `plane - kerf/2`; above retains the halfspace at or above
 `plane + kerf/2`. The native Boolean removes the kerf plus the discarded planar
 slab from the **current operation stock**, including earlier removals in that
@@ -1099,6 +1125,31 @@ tool-cylinder model does not model a saw blade. This states a model boundary,
 not certified blade/fixture clearance. Saw cuts provide no finished-face or
 surface-finish coverage credit. Holding, fixture solids and fixture-interference
 screens remain in effect, including on a dedicated bandsaw setup.
+
+### Saw to a scribed line
+
+A saw that `follows` an earlier scribe op's line has no plane: it removes only
+its declared `stock_removal_bounds` box (clipped to the current operation stock,
+plan units scaled to mm) and reads no blade kerf. When the scribed feature is an
+arc, the host sends its layout in the saw setup's frame (`scribed_profile`: centre,
+radius in mm, and which side of the circle the saw takes) and the kernel clips the
+box with a Z-axis cylinder offset by `allowance_mm`: it removes outside `R + a` when
+the part lies inside the circle, inside `R - a` when it lies outside. An arc whose
+layout is unknown, or an arc with an unknown allowance, removes nothing and is a
+`saw_reason`. A straight scribed line keeps the box alone. The kernel does not
+model break-out or chisel removal (#213).
+An omitted or unknown box removes nothing: the saw's `saw_reason` reads "declare
+stock_removal_bounds for <setup:op> …", the `saw_cut` finding is `?`, and the
+stock after it stays unknown for later ops and setups. A box that misses the stock
+is a no-op error; one that removes finished target, leaves no stock or splits one
+input solid into loose pieces is an error, as for a straight cut. The retained
+material between the removed stock and the finished target is reported as
+`retained_to_target_mm` (the minimum distance between the two solids); below the
+op's `allowance_mm` it is an error naming both. An unknown allowance on a straight
+line keeps the box removal but leaves the finding `?`; an empty finished target in that setup leaves
+`retained_to_target_mm` unknown. The finding reports `follows`, the declared box,
+`allowance_mm`, `retained_to_target_mm` and the before/after and removed volumes;
+it has no kerf or offcut volume.
 
 ### Jaw placement
 
@@ -1911,6 +1962,95 @@ genuinely missing claims or known gaps, while `unsupported_faces` /
 `unsupported_indices` separately name possible lathe-model coverage. An
 unsupported-only row's remaining-face list means coverage is not proved; it is
 not an absence-of-operation diagnosis.
+
+With a [profiled blank](plan.md#profiled-blank), an `as_is_faces` face is
+credited only when [`blank_credit`](#blank_credit) credits it. A face it
+refuses (off the blank, or a band the vendor tolerance cannot hold) is listed
+in `as_is_withheld` and stays unclaimed unless an op claims it (the
+`blank_credit` row prints why). An
+undecided credit is `unknown`, never a credit. The cite list then adds
+`blank_credit: profiled-blank as-is faces on the blank and within bands`.
+
+## `blank_credit`
+
+Present only when the plan's stock or a component is a
+[profiled blank](plan.md#profiled-blank) (its `form` or a `blank` table; an
+unknown `blank` keeps the rule, every credit then `unknown`). One row per exported feature owning an
+`as_is_faces` face of a profiled supply, with `faces`: one entry per such face
+(`ref`, the kernel's `contact`, `max_gap_mm` and `supplies`, its `owners`, the
+`profile_tolerance_mm` it answers to, each band check in `requirements`, and
+its `verdict`). A face no exported feature owns is its own row, subject the
+face reference. Ownership is identity, never proximity: a feature owns a face
+when one of its `faces` references maps to the same imported STEP face. A face
+of a bar component in a mixed built-up supply keeps the bar's as-is credit and
+has no row. The cite list adds the kernel contact tolerance, each blank's STEP,
+digest and tolerance, and the blank's citations.
+
+A face is credited when both checks hold:
+
+1. **On the blank.** The kernel's `as_is_contact` puts every sample of the
+   finished face on the blank's boundary within `STOCK_TOL` (1e-3 mm), never
+   within the vendor tolerance: the vendor cuts the blank STEP's surface, so a
+   finished face the blank buries (a chamfer the blank leaves square) is not
+   supplied as cut. `max_gap_mm` shows how far off it lies.
+2. **Within its bands.** Every exported requirement of every owning feature
+   holds the vendor's ± t (`profile_tolerance_mm`, in the manifest's units)
+   about the nominal the blank carries. The tolerance counts only with a usable
+   `blank.cite`: an uncited number is no vendor fact, so every credit it would
+   decide stays `unknown`. The tolerance is read as vendors post
+   it: any cut dimension along X or Y lands within ± t of its nominal.
+   - A two-limit length band `[low, high]` with an exported nominal
+     (`<requirement>_nominal` or `nominal_<requirement>`, as inspection reads
+     it) holds when `low ≤ nominal − t` and `nominal + t ≤ high`; the numbers
+     give `low_margin` and `high_margin`. A one-sided band whose nominal is a
+     limit, such as +0.50/0, never holds, because the cut may land t past that
+     limit: 8.0 ± 0.127 leaves 8.0–8.5 by 0.127 below. Only a blank whose
+     profile (and the finished nominal) sits at least t inside each limit is
+     credited.
+   - Without an exported nominal only a band narrower than 2t is decided
+     (`exceeds`: no centring fits); a wider one stays `unknown`.
+   - A BASIC scalar a surface profile governs reads the band every governing
+     profile gives it about its BASIC value (their intersection, with each
+     profile's disposition, sense and obliquity, as
+     [inspection](rules-inspection.md) reads it), checked as a drawn band; a
+     looser profile never hides a tighter one.
+   - Zones on the face itself combine the X and Y errors into a circle of
+     radius t√2. A `position_dia` zone must be at least 2√2·t wide
+     (`needed_zone`). A `surface_profile` zone w with U on the material-added
+     side (w/2 unstated) must take t√2 on each side: `t√2 ≤ U` and
+     `t√2 ≤ w − U` (`added_margin`, `removed_margin`); an unknown U is `unknown`.
+   - An angle (`*_deg`), `finish_ra`, `coaxiality_dia`, `angularity_dia`, an
+     unrecognised band name, a band with an unknown limit and a scalar with no
+     limits stay `unknown`: a length tolerance does not bound them.
+   - Every other listed requirement is judged too, never dropped: a `process`,
+     `mirror_symmetric` or any value the manifest leaves `"unknown"` is not
+     established by a cut tolerance and stays `unknown`; `thru` and an `at` its
+     own `position_dia` governs add nothing; a `<name>_ref` reference dimension
+     states no limit.
+   - A known-empty `requirements` list has nothing to hold; an unknown list or
+     identity stays `unknown`.
+
+The check does not add the location error of a machined feature a dimension is
+measured from; `inspection` still requires every band to be inspected.
+
+Each distinct verdict is stated once: for the whole feature (`its face …`,
+`each of its <n> faces …`) when its as-is faces share it, else after the face
+references it applies to.
+
+- `<feature>: its face is supplied as cut.` (pass)
+- `… lies <gap> mm off the supplied blank: it is buried in stock, not supplied as cut. Not credited as supplied: cut each refused face with an op, from a blank that leaves machining allowance on it.` (error, check 1)
+- `… is not held by the cut: <feature> <requirement>, cut to <nominal> ±<t>, may measure <lo>-<hi>, outside its <low>-<high> band by <m> below[ and <m> above]` (the supply range the tolerance permits, never a claim about one blank; or `… band <low>-<high> is narrower than the <2t> a ±<t> cut may spread`, `… zone <w> is narrower than the <w'> a ±<t> cut needs`, `… surface_profile <w> (U <u>) leaves <room> on its material-added|removed side …`), then the same `Not credited` sentence (error, check 2)
+
+An op cannot restore an undersize face: a face refused here needs machining
+allowance on the blank (which then buries it, failing check 1 by design) and an
+op that cuts it.
+- `… has undecided credit (<reason>).` (unknown: an unknown vendor tolerance, no measured contact, a requirement the tolerance cannot bound, a band without its nominal, or an exported feature whose faces are unresolved and so might own the face)
+
+A face failing either check is not credited: [`coverage`](#coverage) leaves it
+uncovered until an op cuts it. Supporting a blank deliberately aimed off the
+finished nominal (a one-sided band cut to its middle) needs an authored offset
+and a matching check-1 distance; it is tracked in
+[#256](https://github.com/pedropaulovc/prechips/issues/256).
 
 ## `finish_coverage`
 

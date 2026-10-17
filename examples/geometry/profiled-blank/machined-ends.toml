@@ -1,0 +1,81 @@
+# profiled-blank, passing counterpart (#248 blank_credit). The blank is ordered with 0.5 mm
+# of machining allowance on each square end (strap-blank-ends.STEP, 61 mm long): a blank
+# cut to the finished 60 could already be 59.873, under the 59.9 limit no op can restore.
+# S1 op 10 finishes both ends, op 20 the chamfer. Only the broad faces, R80 arc and bottom
+# edge stay as supplied, each on the blank and within the vendor's +/-0.127 mm. All
+# dimensions are synthetic.
+part = "strap-plate"
+features = "features.toml"
+construction = "one_piece"
+
+[paths]
+inventory = "../inventory.toml"
+policy = "shop-policy.toml"
+cutting_data = "../../cutting-data.toml"
+
+[stock]
+form = "profiled_blank"
+form_verify = false
+note = "Bought laser-cut 2.5 mm plate, cut to the strap outline 61 mm long (0.5 mm machining allowance on each square end) with the chamfer corner left square; the ends and the chamfer are machined here."
+as_is_faces = [
+  "#187/ADVANCED_FACE[7]/",
+  "#174/ADVANCED_FACE[6]/",
+  "#119/ADVANCED_FACE[4]/",
+  "#17/ADVANCED_FACE[1]/",
+]
+
+[stock.blank]
+step = "strap-blank-ends.STEP"
+step_sha256 = "372a9587b44f418211aa994e9653baed07506d4f390713916b82148397f5baf3"
+profile_tolerance_mm = 0.127 # SendCutSend's posted +/-0.005 in cut tolerance (vendor value, not a measurement)
+cite = [
+  "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/ (How to Factor Cut Tolerances into Part Designs: 'For the majority of our materials, our tolerance is +/- .005 in. This means that any given cut feature or perimeter geometry may be +/-.005 in ... in either the X or Y axis'; retrieved 2026-10-16)",
+  "examples/geometry/author_solids.py: strap_blank_ends (synthetic blank outline, 0.5 mm end allowance)",
+]
+
+[[setups]]
+id = "S1"
+machine = "test-mill"
+frame = "A"
+coolant = "none"
+deburr_mm = 0.0
+stock_in = "stock"
+note = "Strap flat; check each square end has stock past the finished 60 +/-0.1 length (the blank carries about 0.5 mm nominal allowance per end), cut both ends to the finished length, then cut the corner chamfer the blank leaves square. Holding remains measurement debt."
+
+hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", clamp = "unknown", fixed_jaw = "unknown" }
+stock_state = { top_z = "unknown", bottom_z = "unknown" }
+
+[[setups.ops]]
+op = 10
+do = "finish_profile"
+feature = "end_faces"
+faces = [
+  "#152/ADVANCED_FACE[5]/",
+  "#88/ADVANCED_FACE[3]/",
+]
+tool = "em-8-std"
+holder = "r8-collet-8mm"
+to_z = 0.0
+direction = "climb"
+
+[[setups.ops]]
+op = 20
+do = "finish_profile"
+feature = "corner_chamfer"
+faces = ["#57/ADVANCED_FACE[2]/"]
+tool = "em-8-std"
+holder = "r8-collet-8mm"
+to_z = 0.0
+direction = "climb"
+
+[[setups.ops]]
+op = 90
+do = "inspect"
+feature = ["strap_faces", "top_arc", "bottom_edge", "end_faces", "corner_chamfer"]
+
+[setups.ops.checks]
+thickness = "unknown"
+radius = "unknown"
+height = "unknown"
+length = "unknown"
+width = "unknown"

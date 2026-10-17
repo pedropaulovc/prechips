@@ -16,8 +16,7 @@ import math
 from typing import Any
 
 from prechips.inputs import BadInput
-from prechips.joint_features import _lineage
-from prechips.model import UNKNOWN
+from prechips.model import UNKNOWN, setup_lineage
 
 LABEL_PREFIX = "plan.process_features."
 # The one public name for plan-authored stock preparation, kept apart from drawing acceptance.
@@ -165,7 +164,7 @@ def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
     if not bounds or not own:
         return bounds
     trimmed = {key: list(span) for key, span in bounds.items()}
-    earlier = _lineage(bundle.plan, setup["id"]) - {setup["id"]}
+    earlier = setup_lineage(bundle.plan, setup["id"]) - {setup["id"]}
     for other in bundle.plan["setups"]:
         if other["id"] not in earlier:
             continue
@@ -312,7 +311,7 @@ def centre_tool(bundle, op: dict) -> dict:
 def makers(bundle, setup: dict, name: str) -> list[tuple[dict, dict]]:
     """The ``(setup, op)`` pairs of earlier setups in ``setup``'s stock lineage that work
     process feature ``name``, in plan order; the setup itself never counts."""
-    earlier = _lineage(bundle.plan, setup["id"]) - {setup["id"]}
+    earlier = setup_lineage(bundle.plan, setup["id"]) - {setup["id"]}
     return [
         (other, op)
         for other in bundle.plan.get("setups", [])

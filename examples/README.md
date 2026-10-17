@@ -433,9 +433,9 @@ sawn top's measured high spot, not from a nominal 87.0.
 The pre-bond sockets and spigots are plan-owned joint features, not invented
 STEP faces. The cone joint gives 0.044–0.076 mm diametral clearance inside its
 declared 0.04–0.08 mm band, and the crank joint 0.064–0.096 mm inside 0.06–0.10 mm.
-Each joint declares `method = "retaining_compound"`, an example Loctite 638-class
-anaerobic compound, solvent surface preparation and a 1440 min room-temperature
-cure. The sleeves seat on the cradle's locating pins under gravity, with no
+Each joint declares `method = "slip"` with a `compound` block: an example Loctite
+638-class anaerobic compound, solvent surface preparation and a 1440 min
+room-temperature cure. The sleeves seat on the cradle's locating pins under gravity, with no
 clamping force on a curing joint. Both running bores are reamed only after cure,
 from datum A/foot B re-indicated on the dividing head. The compound, band and
 cure are illustrative process choices, not a product datasheet claim or a
@@ -525,8 +525,10 @@ uses the STEP global XY bbox and retains only its authored 1 mm Z allowances.
 | `pocket-reach/plan.toml` / `long-reach.toml` | synthetic `pocket-block.STEP` | `reach`: 45 mm floor against a 19 mm flute fails; the 100 mm OAL candidate passes with the holder clear |
 | `sharp-corner/plan.toml` | synthetic `slot-block.STEP` | `internal_corner_radius`: sharp vertical pocket corners against a 1/4 in cutter |
 | `unclaimed-face/plan.toml` | synthetic `step-block.STEP` | `coverage`: one face cut by no op and not declared as-stock |
+| `profiled-blank/plan.toml` / `machined-ends.toml` | synthetic `strap-plate.STEP` and its profiled blank `strap-blank.STEP` | `blank_credit`: the arc, edge and broad faces are supplied as cut; the 60 ±0.1 ends cannot hold the vendor's ±0.127 mm and need an op |
 
-The five installed-kernel candidate exits are **2 / 2 / 0 / 2 / 2**.
+The first five installed-kernel candidate exits are **2 / 2 / 0 / 2 / 2**; the
+profiled-blank pair exits **2 / 0**.
 Block targets are S2; the rocker uses opposed preparation before its S3
 upright target. Each known entry-stock render is bound to its own
 `setup-S<n>.png`; preparation pictures show the raw/intermediate stock,

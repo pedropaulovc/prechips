@@ -1,7 +1,8 @@
 """Resolve selected identities once, then check each cutting assembly.
 
 A saw cut has no spindle, collet or holder: its assembly is a ``bandsaw`` blade on
-a mill, bench or bandsaw machine, and the cut is located by ``cut_plane``. A coating
+a mill, bench or bandsaw machine, or a ``hand_saw`` at a bench or manual station, and the
+cut is located by ``cut_plane`` or the scribed line it ``follows``. A coating
 op has no tool: it names its process, an outside service or in-house consumables. A
 shop-made item's make operation names a ``tools`` key and states its cutting data.
 """
@@ -11,6 +12,7 @@ from ..measurements import length_debt, length_fact
 from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
     MANUAL,
+    SAW_MACHINES,
     SAW_OPS,
     UNKNOWN,
     WORKHOLDING_CATEGORIES,
@@ -27,14 +29,15 @@ from .resolution import (
     record,
     resolve,
     same_length,
+    saw_station,
     select,
     setup_items,
     shop_made_item,
     uncertain,
 )
 
-SAW_MACHINE_KINDS = frozenset({"mill", "bench", "bandsaw"})
-SAW_TOOL_KINDS = frozenset({"bandsaw"})
+SAW_MACHINE_KINDS = frozenset().union(*SAW_MACHINES.values())
+SAW_TOOL_KINDS = frozenset(SAW_MACHINES)
 
 # A cutter shank is ground to a tolerance class below its nominal size: a nominal collet
 # accepts the ISO 286 h6 shaft band, upper deviation 0 and lower deviation -IT6. IT6 in
@@ -68,7 +71,7 @@ def _h6_band(nominal):
     return UNKNOWN
 
 
-def _saw_assembly(subject, op, tool, machine, machine_ref):
+def _saw_assembly(bundle, subject, setup, op, tool, machine, machine_ref):
     nums = {
         "tool": op.get("tool", UNKNOWN),
         "holder": "not_applicable",
@@ -77,30 +80,49 @@ def _saw_assembly(subject, op, tool, machine, machine_ref):
         "tool_kind": (tool or {}).get("kind", UNKNOWN),
     }
     problems = []
-    unknown = tool is None or machine is None
-    if not unknown:
+    station = saw_station(bundle, setup, op)
+    scribed_blade = nums["tool_kind"] == "bandsaw" and "follows" in op
+    if station == "no_vertical_mode":
+        problems.append(
+            f"machine {machine_ref} declares no vertical saw_modes; a bandsaw blade follows a "
+            "scribed line only in vertical mode"
+        )
+    if station == "wrong_station":
         for kind, accepted, label in (
             (nums["machine_kind"], SAW_MACHINE_KINDS, "machine"),
             (nums["tool_kind"], SAW_TOOL_KINDS, "tool"),
         ):
-            if kind == UNKNOWN:
-                unknown = True
-            elif kind not in accepted:
+            if kind not in accepted and kind != UNKNOWN:
                 problems.append(
                     f"{label} kind {kind} cannot run a saw cut "
                     f"(accepted: {', '.join(sorted(accepted))})"
                 )
-        # Unverified identities cannot establish either a fit or a mismatch.
-        if uncertain(tool) or uncertain(machine):
-            unknown = True
-            problems = []
-    status = "error" if problems else "unknown" if unknown else "pass"
+        pairs = SAW_MACHINES.get(nums["tool_kind"])
+        if not problems and scribed_blade:
+            problems.append(
+                "a bandsaw blade follows a scribed line only on a bandsaw machine in vertical "
+                f"mode, not a {nums['machine_kind']}"
+            )
+        if not problems:
+            problems.append(
+                f"a {nums['tool_kind']} cuts only on a {' or '.join(sorted(pairs))} machine, "
+                f"not a {nums['machine_kind']}"
+            )
+    status = "error" if problems else "unknown" if station == "unknown" else "pass"
+    unknown = status == "unknown"
+    blade, place = (
+        ("hand saw", "bench or manual station")
+        if nums["tool_kind"] == "hand_saw"
+        else ("bandsaw blade", "bandsaw with a declared vertical mode")
+        if scribed_blade
+        else ("bandsaw blade", "saw-capable machine")
+    )
     message = (
         "; ".join(problems)
         if problems
-        else "saw assembly needs a resolved, verified bandsaw blade and saw-capable machine"
+        else f"saw assembly needs a resolved, verified {blade} and {place}"
         if unknown
-        else "bandsaw blade on a saw-capable machine; no spindle, collet or holder applies"
+        else f"{blade} on a {place}; no spindle, collet or holder applies"
     )
     return Finding(
         "tool_resolves",
@@ -298,7 +320,9 @@ def evaluate(bundle):
         if op["do"] in SAW_OPS:
             findings.append(
                 _saw_assembly(
+                    bundle,
                     subject,
+                    setup,
                     op,
                     resolve(bundle, "tools", op.get("tool")),
                     resolve(bundle, "machines", setup["machine"]),

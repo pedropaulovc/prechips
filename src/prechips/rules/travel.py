@@ -8,6 +8,7 @@ Saw cuts drive no spindle cutter and are skipped.
 """
 
 from prechips.findings import Finding
+from prechips.model import profiled
 from prechips.rules import tip_endpoints
 from prechips.rules._envelope import (
     _band,
@@ -251,11 +252,16 @@ def evaluate(bundle):
                         "bounding box in the declared setup frame"
                     )
                 else:
+                    # A profiled blank has no bar dimensions to record: its STEP sizes it.
+                    broad = (
+                        ""
+                        if profiled(authored_stock)
+                        else "; for a broad cut record plan.stock.length_mm and "
+                        "section_mm/dia_mm with calipers instead of using a nominal feature width"
+                    )
                     missing.append(
                         f"Measure {label} full feature.bounds x/y/z or point-operation feature.at "
-                        "in its declared frame with calipers, a height gauge or CMM, in mm; "
-                        "for a broad cut record plan.stock.length_mm and section_mm/dia_mm "
-                        "with calipers instead of using a nominal feature width"
+                        "in its declared frame with calipers, a height gauge or CMM, in mm" + broad
                     )
                     authoring_entry(
                         debts,

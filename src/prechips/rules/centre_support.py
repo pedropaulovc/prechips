@@ -27,7 +27,7 @@ interpenetration.
 import re
 
 from prechips.findings import Finding
-from prechips.joint_features import _lineage
+from prechips.model import setup_lineage
 from prechips.process_features import ACTIONS, centre_depth_mm, label, process_of
 from prechips.rules.resolution import (
     UNKNOWN,
@@ -97,7 +97,7 @@ def _centres(bundle, hold):
 
 def _makers(bundle, setup, name):
     """``(earlier (setup, op) pairs, later op labels)`` drilling centre ``name``."""
-    earlier = _lineage(bundle.plan, setup["id"]) - {setup["id"]}
+    earlier = setup_lineage(bundle.plan, setup["id"]) - {setup["id"]}
     before, after = [], []
     for other in bundle.plan["setups"]:
         for op in other["ops"]:
@@ -123,7 +123,7 @@ def _evaluate(bundle, setup, hold, centres):
     made_by = [f"{other['id']} op {op['op']}" for other, op in before]
     # A pass needs every setup the stock passes through routed: one undeclared stock_in
     # anywhere upstream leaves where the work (and any centre) came from unresolved.
-    lineage = _lineage(bundle.plan, setup["id"])
+    lineage = setup_lineage(bundle.plan, setup["id"])
     routed = all("stock_in" in other for other in bundle.plan["setups"] if other["id"] in lineage)
     preparation = {
         made: centre_check(bundle, other, op)

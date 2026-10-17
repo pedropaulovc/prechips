@@ -92,7 +92,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 SCRIPTS_DIR = Path(__file__).resolve().parent
 ROOT = SCRIPTS_DIR.parent
@@ -296,30 +296,35 @@ def discover_sources(
 
 
 class _TravelerMeta(HTMLParser):
+    """Collects the document's own ``<title>`` (the first one) and the report hash.
+
+    Later titles, such as those of the inline SVG setup pictures, are ignored.
+    """
+
     def __init__(self) -> None:
         super().__init__()
         self.title = ""
         self.report_hash: str | None = None
-        self._in_title = False
+        self._title_state: Literal["pending", "open", "done"] = "pending"
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
-        if tag == "title":
-            self._in_title = True
+        if tag == "title" and self._title_state == "pending":
+            self._title_state = "open"
         elif tag == "meta" and values.get("name") == "prechips-report":
             self.report_hash = values.get("content") or None
 
     def handle_endtag(self, tag: str) -> None:
-        if tag == "title":
-            self._in_title = False
+        if tag == "title" and self._title_state == "open":
+            self._title_state = "done"
 
     def handle_data(self, data: str) -> None:
-        if self._in_title:
+        if self._title_state == "open":
             self.title += data
 
 
 def traveler_meta(html: Path) -> tuple[str, str | None]:
-    """Return the traveler's part name (from ``<title>``) and report.json hash."""
+    """Return the part name (from the document's own ``<title>``) and report.json hash."""
     parser = _TravelerMeta()
     parser.feed(html.read_text(encoding="utf-8"))
     title = parser.title.strip()
@@ -348,7 +353,8 @@ def print_traveler_pdf(html: Path, pdf: Path, *, chrome: Path, timeout_s: float 
             "--no-pdf-header-footer",
             "--run-all-compositor-stages-before-draw",
             f"--virtual-time-budget={VIRTUAL_TIME_BUDGET_MS}",
-            f"--print-to-pdf={pdf}",
+            # Chrome may resolve a relative output path against its own directory.
+            f"--print-to-pdf={pdf.resolve()}",
             html.as_uri(),
         ]
         proc = subprocess.run(

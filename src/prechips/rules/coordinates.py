@@ -935,11 +935,12 @@ def dro_nearest(value, grid):
 
 
 def _to_segment(point, a, b):
-    delta = [b[i] - a[i] for i in range(2)]
-    span = delta[0] * delta[0] + delta[1] * delta[1]
-    t = sum((point[i] - a[i]) * delta[i] for i in range(2)) / span if span else 0.0
+    ax, ay = a[0], a[1]
+    dx, dy = b[0] - ax, b[1] - ay
+    span = dx * dx + dy * dy
+    t = ((point[0] - ax) * dx + (point[1] - ay) * dy) / span if span else 0.0
     t = max(0.0, min(1.0, t))
-    return math.dist(point, [a[i] + t * delta[i] for i in range(2)])
+    return math.dist(point, (ax + t * dx, ay + t * dy))
 
 
 def _to_arc(centre, radius, a, b, middle):
@@ -1156,13 +1157,20 @@ def _sweep_vertices(legs, radius, focus=None):
     return points
 
 
-def _material(face, normal, legs, radius):
+def _material(face, normal, legs, radius, limit=None):
     """How far the material on a target surface at ``face`` runs along its unit
     ``normal`` (toward the cutter) before the cut: the ray's first entry into any capsule a
-    cutter of ``radius`` sweeps along ``legs``; None when it meets none."""
-    hits = [_ray_capsule(face, normal, p, q, radius) for p, q in legs]
-    hits = [hit for hit in hits if hit is not None]
-    return min(hits) if hits else None
+    cutter of ``radius`` sweeps along ``legs``; None when it meets none. With ``limit``,
+    the first sweep found within it answers (the least is then within it too)."""
+    best = None
+    for p, q in legs:
+        hit = _ray_capsule(face, normal, p, q, radius)
+        if hit is None:
+            continue
+        if limit is not None and hit <= limit:
+            return hit
+        best = hit if best is None else min(best, hit)
+    return best
 
 
 def _dro_xy(xy, grid, walls, offset):
@@ -1329,7 +1337,7 @@ def _stair(printed, path, normal, locate, walls, cutter, offset, focus=None):
             xy = path(k, t)
             n = normal(k, xy)
             face = [xy[j] - cutter * n[j] for j in range(2)]
-            left = _material(face, n, legs, cutter)
+            left = _material(face, n, legs, cutter, cusp)
             if left is not None and left <= cusp:
                 continue  # raises no cusp, on the surface or not
             if abs(min(wall(face) for wall in walls) - (offset - cutter)) > _JOIN_TOL:
@@ -1506,7 +1514,7 @@ def _stair_angles(start, end, forced, at, centre, outward, cusp, cutter):
                 legs, samples = legs[:-1], [*samples, j]
             if not legs:
                 return False
-            left = (_material(*faces[m], legs, reach) for m in samples)
+            left = (_material(*faces[m], legs, reach, cusp) for m in samples)
             return all(gap is not None and gap <= cusp for gap in left)
 
         i = 0
@@ -3987,16 +3995,19 @@ _NEEDS = {
 }
 
 
-def _recut_by(bundle, op):
+def _recut_by(bundle, op, lineage=None):
     """The last later manual-arc op ("S4 op 27") that cuts all of ``op``'s claimed faces
     again before any file reaches them, else None: then ``op``'s leftover stock is not the
     file's. The last such op hands the faces to the file, so it names the leftover's taker:
     an op between them may claim the faces from the other side (a half-depth rough from
     the opposite face), and the face claim does not compare depth. A claim without
-    ``faces`` is the whole feature."""
+    ``faces`` is the whole feature. Given ``lineage`` (a filing's workpiece setups), work on
+    another stock branch neither recuts nor files the faces."""
     name, faces = op.get("feature"), op.get("faces")
     passed, last = False, None
     for setup in bundle.plan["setups"]:
+        if lineage is not None and setup["id"] not in lineage:
+            continue
         for other in setup["ops"]:
             if other is op:
                 passed = True

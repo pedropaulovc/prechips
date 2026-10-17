@@ -120,6 +120,25 @@ def test_explicit_missing_chrome_is_not_replaced_by_another_browser(tmp_path: Pa
         mr.find_chrome({"PATH": str(tmp_path / "empty")})
 
 
+def test_chrome_prints_to_an_absolute_pdf_path(tmp_path: Path, monkeypatch) -> None:
+    """A relative --report-dir must not leave Chrome resolving the PDF path itself."""
+    seen = []
+
+    def run(command, **_):
+        seen.extend(command)
+        target = next(arg for arg in command if arg.startswith("--print-to-pdf="))
+        Path(target.removeprefix("--print-to-pdf=")).write_bytes(b"%PDF")
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(mr.subprocess, "run", run)
+    html = tmp_path / "traveler.html"
+    html.write_text("<title>p traveler</title>", encoding="utf-8")
+    mr.print_traveler_pdf(html, Path("r") / "traveler.pdf", chrome=Path("chrome.exe"))
+    target = next(arg for arg in seen if arg.startswith("--print-to-pdf="))
+    assert Path(target.removeprefix("--print-to-pdf=")) == tmp_path / "r" / "traveler.pdf"
+
+
 SOURCE_SHA = "ab" * 32
 
 
@@ -244,3 +263,18 @@ def test_claude_may_read_the_handbook_but_must_still_read_every_sheet(tmp_path: 
     skipped = [_read(str(sheets[0])), handbook_read]
     assert not mr.inspection_proven(skipped, images=sheets, references=refs)
     assert mr.inspection_proven([*skipped, _read("sheet-2.png")], images=sheets, references=refs)
+
+
+REPORT_SHA = "cd" * 32
+
+
+def test_traveler_meta_names_the_package_from_the_document_title_only(tmp_path: Path) -> None:
+    html = tmp_path / "traveler.html"
+    html.write_text(
+        '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">'
+        f'<meta name="prechips-report" content="{REPORT_SHA}">'
+        "<title>part-x traveler</title></head><body>"
+        "<svg><title>Setup S1 panel</title></svg></body></html>",
+        encoding="utf-8",
+    )
+    assert mr.traveler_meta(html) == ("part-x", REPORT_SHA)

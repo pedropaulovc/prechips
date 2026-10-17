@@ -1,4 +1,4 @@
-"""Small native boundaries for sequential assemblies and retaining-compound facts."""
+"""Small native boundaries for sequential assemblies and joint-compound facts."""
 
 import copy
 import math
@@ -78,7 +78,14 @@ def _prep(name, spec):
     }
 
 
-def _join(sid, socket, spigot, socket_ref, spigot_ref, *, method="retaining_compound"):
+COMPOUND = {
+    "product": "cited retaining compound",
+    "cure_time_min": 30.0,
+    "surface_prep": "degrease and dry both mating surfaces",
+}
+
+
+def _join(sid, socket, spigot, socket_ref, spigot_ref, *, method="slip"):
     refs = [socket_ref, spigot_ref]
     joint = {
         "kind": "cylindrical",
@@ -94,12 +101,12 @@ def _join(sid, socket, spigot, socket_ref, spigot_ref, *, method="retaining_comp
         "reason": None,
         "fit_error": None,
     }
-    if method == "retaining_compound":
-        joint.update(cure_time_min=30.0, surface_prep="degrease and dry both mating surfaces")
+    if method == "slip":
+        joint["compound"] = dict(COMPOUND)
     return {**_setup(sid, refs), "joint": joint}
 
 
-def _multi_job(engine, step, *, method="retaining_compound"):
+def _multi_job(engine, step, *, method="slip"):
     """Body + hollow sleeve, then that actual assembly + separately prepared shaft."""
     features = {
         "body-socket": _primitive("body-socket", "cylinder_bore", "body", 10, (10, 10.1), 10),
@@ -193,7 +200,7 @@ def test_blocked_socket_end_never_becomes_a_through_joint(engine, multi_solids, 
     assert "stock_out_volume_mm3" not in facts["setups"]["join-shaft"]
 
 
-@pytest.mark.parametrize("debt", ["stock", "clearance", "cure", "surface"])
+@pytest.mark.parametrize("debt", ["stock", "clearance", "product", "cure", "surface"])
 def test_unknown_facts_withhold_both_current_and_downstream_union(engine, multi_solids, debt):
     job = _multi_job(engine, multi_solids["multi"])
     first = job["setups"][-2]["joint"]
@@ -204,8 +211,8 @@ def test_unknown_facts_withhold_both_current_and_downstream_union(engine, multi_
         first.update(band_mm="unknown", reason="authored clearance_mm is unknown")
         reason = "clearance_mm"
     else:
-        field = {"cure": "cure_time_min", "surface": "surface_prep"}[debt]
-        first[field] = "unknown"
+        field = {"product": "product", "cure": "cure_time_min", "surface": "surface_prep"}[debt]
+        first["compound"][field] = "unknown"
         # No serialized reason: the native boundary must independently recognize debt.
         reason = field
     facts = engine.run(job)
@@ -219,6 +226,11 @@ def test_unknown_facts_withhold_both_current_and_downstream_union(engine, multi_
 def test_known_missing_or_malformed_compound_facts_are_native_errors(engine, multi_solids):
     baseline = _multi_job(engine, multi_solids["multi"])
     invalid = [
+        ("compound", {}),
+        ("compound", "Loctite"),
+        ("product", None),
+        ("product", " "),
+        ("product", 12),
         ("cure_time_min", None),
         ("cure_time_min", 0),
         ("cure_time_min", True),
@@ -236,10 +248,11 @@ def test_known_missing_or_malformed_compound_facts_are_native_errors(engine, mul
     for field, value in invalid:
         job = copy.deepcopy(baseline)
         joint = job["setups"][-2]["joint"]
+        target = joint["compound"] if field in COMPOUND else joint
         if value is None:
-            joint.pop(field)
+            target.pop(field)
         else:
-            joint[field] = value
+            target[field] = value
         # An upstream host reason must not conceal a known invalid native process fact.
         joint["reason"] = "some other process fact is unknown"
         jobs.append(job)
@@ -448,9 +461,8 @@ def test_unknown_cure_cannot_conceal_known_geometry_failure(engine, multi_solids
             join["joint"]["band_mm"] = [0.1, 0.3]
             error = "worst-case diameter"
     join["joint"].update(
-        method="retaining_compound",
-        cure_time_min="unknown",
-        surface_prep="degrease and dry",
+        method="slip",
+        compound={**COMPOUND, "cure_time_min": "unknown"},
         process_reason="authored cure_time_min is unknown",
     )
     row = engine.run(job)["setups"][join["id"]]
@@ -458,7 +470,7 @@ def test_unknown_cure_cannot_conceal_known_geometry_failure(engine, multi_solids
     assert "stock_out_volume_mm3" not in row
 
 
-@pytest.mark.parametrize("method", ["retaining_compound", "silver_braze", "press", "weld"])
+@pytest.mark.parametrize("method", ["slip", "silver_braze", "press", "weld"])
 def test_every_native_joint_method_requires_known_process_text(engine, multi_solids, method):
     if method == "weld":
         job = _surface_job(engine, multi_solids["blocks"])
@@ -468,10 +480,8 @@ def test_every_native_joint_method_requires_known_process_text(engine, multi_sol
         job["setups"][0]["joint"]["interfaces"][0]["at_mm"][0] = 20
     else:
         job = _joint_job(engine, multi_solids["joined"], interference=method == "press")
-        if method == "retaining_compound":
-            job["setups"][-1]["joint"].update(
-                method=method, cure_time_min=30, surface_prep="degrease and dry"
-            )
+        if method == "slip":
+            job["setups"][-1]["joint"].update(method=method, compound=dict(COMPOUND))
     joint = job["setups"][-1]["joint"]
     joint.update(
         process="unknown",
@@ -481,6 +491,28 @@ def test_every_native_joint_method_requires_known_process_text(engine, multi_sol
     row = engine.run(job)["setups"]["join"]
     assert "joint process must be known nonempty text" in row["assembly_error"]
     assert "stock_out_volume_mm3" not in row
+
+
+def test_native_join_takes_a_compound_on_a_press_fit_and_matches_it_to_the_method(
+    engine, multi_solids
+):
+    press = _joint_job(engine, multi_solids["joined"], interference=True)
+    bonded, uncured = copy.deepcopy(press), copy.deepcopy(press)
+    bonded["setups"][-1]["joint"]["compound"] = dict(COMPOUND)
+    uncured["setups"][-1]["joint"]["compound"] = {**COMPOUND, "cure_time_min": "unknown"}
+    slip = _joint_job(engine, multi_solids["joined"])
+    slip["setups"][-1]["joint"]["method"] = "slip"
+    braze = _joint_job(engine, multi_solids["joined"])
+    braze["setups"][-1]["joint"]["compound"] = dict(COMPOUND)
+    jobs = [press, bonded, uncured, slip, braze]
+    rows = [facts["setups"]["join"] for facts in engine.run({"jobs": jobs})["results"]]
+    # The compound adds no geometry: a bonded press fit joins exactly the bare one's stock.
+    assert "assembly_error" not in rows[1]
+    assert rows[1]["stock_out_volume_mm3"] == pytest.approx(rows[0]["stock_out_volume_mm3"])
+    assert "joint compound cure_time_min is unknown" in rows[2]["stock_out_reason"]
+    assert "a slip joint needs a compound" in rows[3]["assembly_error"]
+    assert "a silver_braze joint takes no compound" in rows[4]["assembly_error"]
+    assert all("stock_out_volume_mm3" not in row for row in rows[2:])
 
 
 def test_incompatible_fit_does_not_invalidate_correct_component_preparation(engine, multi_solids):

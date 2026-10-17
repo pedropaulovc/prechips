@@ -1,7 +1,7 @@
 # M4 geometry fixtures
 
-Discriminating bundles for the eight geometry rules (`accessibility`, `reach`,
-`internal_corner_radius`, `coverage`, `finish_coverage`, `vise`,
+Discriminating bundles for the nine geometry rules (`accessibility`, `reach`,
+`internal_corner_radius`, `coverage`, `blank_credit`, `finish_coverage`, `vise`,
 `thin_wall_under_clamp`, `fixture_interference`) on the FreeCAD kernel. Every traveler remains
 **PLANNED**. These are authored test processes, not measured shop inventory,
 approved toolpaths or drawing requirements.
@@ -35,6 +35,8 @@ supply itself adds no XY cutter allowance.
 | `pocket-reach/long-reach.toml` | synthetic `pocket-block.STEP` | 0 | same prepared pocket, holder and claims; the 100 mm OAL cutter clears the holder and passes target accessibility and reach |
 | `sharp-corner/plan.toml` | synthetic `slot-block.STEP` | 2 | `internal_corner_radius S2:10` error: sharp claimed corners against the 1/4 in cutter's 3.175 mm radius |
 | `unclaimed-face/plan.toml` | synthetic `step-block.STEP` | 2 | `coverage step-block` error naming `#185/ADVANCED_FACE[6]/`, claimed by no operation and not supplied as-stock |
+| `profiled-blank/plan.toml` | synthetic `strap-plate.STEP` from the profiled blank `strap-blank.STEP` | 2 | `blank_credit end_faces` error: the 60 ±0.1 length cannot hold the vendor's ±0.127 mm, so `coverage strap-plate` errors with both square ends withheld; the broad faces, R80 arc and bottom edge pass `blank_credit` and need no op |
+| `profiled-blank/machined-ends.toml` | `strap-plate.STEP` from `strap-blank-ends.STEP` (0.5 mm on each end) | 0 | S1 op 10 takes the end allowance off both ends; only the in-band faces stay as supplied, so `coverage` and every `blank_credit` row pass |
 | `fixture-holds/plan.toml` | synthetic `fixture-puck.STEP` | 2 | every setup's scene is `modeled` with only exact components: vise + parallels on riser blocks (S1), angle plate + strap (S2), custom nest + strap (S3), dividing head + chuck + dead centre (S4), 4-jaw (S5) and 3-jaw (S6) chucks; `accessibility` errors exactly on S2:10, S3:10 (strap over the top face) and S4:10 (dead centre on it); S1, S5 and S6 clear. `vise S1` errors because a round puck has no parallel gripped pair. `thin_wall_under_clamp` S2/S3 pass on the 20 mm run under each strap footprint; `fixture_interference` passes on every setup |
 | `fixture-holds/clash.toml` | synthetic `fixture-puck.STEP` | 2 | `fixture_interference` errors on S1 (riser blocks turned so their 60 mm edge spans y −30..30 across the y −15..15 jaw opening) and S2 (a stud-and-heel strap's stud enters the puck and the tapped plate where it has no hole) and passes on S3 (the same strap with its stud through the plate's tapped-hole void and the beam's slot void, heel on the plate). S1 and S3 scenes are `modeled`; S2's carries the stud-in-stock debt |
 
@@ -109,6 +111,16 @@ mismatch. The authored dimensions:
 - `slot-block`: 60 × 40 × 20 mm, closed 30 × 12 mm pocket with sharp vertical
   corners, 6 mm deep (floor z = 14). Eleven faces.
 - `step-block`: 60 × 40 × 20 mm with the +X half stepped down 10 mm. Eight faces.
+- `strap-plate`: a 2.5 mm strap 60 mm long, square ends 12 mm high under an R80
+  top arc (crown 17.838 mm), its (60, 0) corner chamfered 4 × 4. Seven faces.
+- `strap-blank-ends`: `strap-blank` with 0.5 mm of machining allowance on each
+  square end (61 mm long, the R80 arc continued), for the route that machines the
+  ends. Six faces.
+- `strap-blank`: the strap's profiled blank, the same outline with that corner
+  left square, in the plate's own model coordinates. Six faces. Its
+  `profile_tolerance_mm = 0.127` is SendCutSend's posted ±0.005 in cut tolerance
+  (cited in the plans), a vendor value and not a measurement. The plans' holding
+  stays measurement debt; their inspect op names `unknown` gauges.
 
 ### Face references
 

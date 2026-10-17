@@ -149,6 +149,28 @@ fact-local verification debt withholds geometry. An example blade's kerf
 follows the examples policy (a demonstration-fixture record or a cited
 catalogue value), never a fabricated shop measurement.
 
+A bandsaw machine may declare `saw_modes = ["horizontal", "vertical"]` (either or
+both). Only a `"vertical"` mode lets its blade follow a scribed line, the work fed
+by hand on the table; undeclared modes leave such a cut `?`, and a straight cut
+needs none.
+
+A hand saw (a hacksaw or junior hacksaw) is `tools.<saw>.kind = "hand_saw"`. It
+cuts only on a `bench` or `manual` machine and needs no `blade_speed_sfm` or
+cutting-data row. A straight hand-saw cut reads the same `kerf_mm` / `kerf_in`
+as a bandsaw blade; a cut that follows a scribed line consumes no kerf (its removal
+is the op's declared box). Any verification debt on the saw, a kerf's included,
+is still its identity's: like its `tool_resolves` listing row, every saw consumer
+then leaves the cut unresolved and the kernel routes no stock for it. A saw whose
+tool resolves to a verified `hand_saw` keeps a bench setup's manual-bench waiver;
+an unverified, unresolved or powered blade does not.
+
+```toml
+[tools.junior-hacksaw]
+kind = "hand_saw"
+name = "junior hacksaw, 32 TPI blade"
+kerf_mm = { value = 0.6, measured = { status = "measured", by = "...", date = "...", instrument = "..." } }
+```
+
 Saw operations need no spindle taper, holder, shank diameter, tool OAL or
 projection. A mill/bench may host the saw operation but must also declare its
 actual blade-speed range for a sourced speed recommendation. The hold resolves
@@ -837,7 +859,10 @@ not proof of geometric validity; rules perform the applicable checks.
 `StockComponent` is a separate authored blank with `form`, `dia_mm`,
 `length_mm`, `section_mm`, `note`, and `cite`; see [plan stock](plan.md#stock).
 Shared inventory accepting this shape does not assert an authored candidate is
-on hand.
+on hand. A [profiled blank](plan.md#profiled-blank) (`form = "profiled_blank"` or
+a `blank` table, on the stock or a component) is one part's supply bound to a STEP
+in that part's bundle: inventory stock refuses it (exit 3); declare it as the
+plan's stock.
 
 ## Source
 
@@ -906,7 +931,8 @@ on hand.
 | `angle_deg` | `float` |
 | `point_angle` | `MeasuredAngle` |
 | `blade_speed_sfm` | `[Number, Number]` (machine blade-speed limits) |
-| `kerf_mm` / `kerf_in` | `MeasuredLength` (selected bandsaw blade) |
+| `saw_modes` | `["horizontal" \| "vertical", ...]` (bandsaw running modes) |
+| `kerf_mm` / `kerf_in` | `MeasuredLength` (selected bandsaw blade or hand saw) |
 | `flute_len` | `MeasuredLength` |
 | `oal` | `MeasuredLength` |
 | `head_in` | `float` |

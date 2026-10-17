@@ -169,12 +169,19 @@ is authoritative. `FREECAD_CMD=/nonexistent uv run pytest -q` exercises the
 kernel-free suite with geometry skips. `PRECHIPS_REQUIRE_KERNEL=1` turns a
 missing kernel into an error; CI sets it and installs the pinned, cached official
 FreeCAD 1.1.0 Linux AppImage so geometry tests cannot silently skip.
-CI runs the full suite with `-n 2 --dist loadscope --durations=0`, caps extra
-native workers with `PRECHIPS_KERNEL_WORKERS=1`, and retains the log and JUnit
-artifact on failure, with complete item durations in JUnit. Geometry
+CI runs the full suite as six `test shard` jobs split by pytest-split over the
+committed `.test_durations` (`duration_based_chunks`), each with `-n 2 --dist
+loadscope --durations=0`, caps extra native workers with
+`PRECHIPS_KERNEL_WORKERS=1`, and retains each shard's log and JUnit artifact on
+failure, with complete item durations in JUnit. The required `test` check passes
+only when every shard passed and `scripts/ci_shards.py check` finds the shards'
+JUnit cases equal to the full collection, each exactly once. Rebuild
+`.test_durations` from one green run's shard JUnit files with
+`uv run scripts/ci_shards.py durations <junit>...`, never from guesses. Geometry
 persistence uses a runner OS/architecture, pinned AppImage SHA-256, engine
 source digest and epoch namespace. Immutable
-per-run save keys publish only on success. Cold/invalidation fixtures stay private.
+per-run, per-shard save keys publish only on success; a shard restores its own
+latest entry first, then the shared prefix. Cold/invalidation fixtures stay private.
 Package validation builds wheel and sdist and exercises installed consumers;
 repository-local imports do not establish artifact completeness.
 Report a runtime improvement only from cold and warm runs of the same

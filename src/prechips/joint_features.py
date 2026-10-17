@@ -13,7 +13,7 @@ from typing import Any
 
 from prechips.inputs import BadInput
 from prechips.measurements import angle_fact, length_fact
-from prechips.model import UNIT_TOLERANCE, UNKNOWN, stock_ancestry
+from prechips.model import UNIT_TOLERANCE, UNKNOWN, setup_lineage, stock_ancestry
 
 LABEL_PREFIX = "plan.joint_features."
 # The one public name for plan-authored preparation, kept apart from drawing acceptance.
@@ -21,6 +21,8 @@ LABEL_PREFIX = "plan.joint_features."
 JOINT_PREP_LABEL = "JOINT PREPARATION — plan only, not a drawing dimension"
 # Absolute physical-length equality (resolution.LENGTH_TOLERANCE_MM): exact fit limits pass.
 LENGTH_TOLERANCE_MM = 1e-6
+# A joint compound's process facts; an unknown one is debt that withholds the join.
+COMPOUND_FIELDS = ("product", "cure_time_min", "surface_prep")
 _STANDARD_KIND = {"cylinder_bore": "hole", "cylinder_spigot": "boss"}
 # Actions whose cut diameter is the cutter's own accepted diameter.
 _TOOL_SIZED = {"drill", "ream", "spot"}
@@ -130,20 +132,6 @@ def setup_span_mm(bundle, name: str, frame: dict) -> tuple[float, float] | None:
     return low, high
 
 
-def _lineage(plan: dict, sid: str) -> set[str]:
-    """The setup and every earlier setup whose output material flows into it."""
-    setups = {setup["id"]: setup for setup in plan.get("setups", [])}
-    seen, pending = set(), [sid]
-    while pending:
-        current = pending.pop()
-        if current in seen or current not in setups:
-            continue
-        seen.add(current)
-        refs = setups[current].get("stock_in")
-        pending.extend(refs if isinstance(refs, list) else [refs] if isinstance(refs, str) else [])
-    return seen
-
-
 def present(bundle, setup: dict, name: str) -> bool:
     """Whether a transient joint feature exists on this setup's in-process material.
 
@@ -155,7 +143,7 @@ def present(bundle, setup: dict, name: str) -> bool:
         return True
     if setup_ancestry(bundle.plan).get(setup["id"]) != {f"stock.{joint['component']}"}:
         return False
-    lineage = _lineage(bundle.plan, setup["id"])
+    lineage = setup_lineage(bundle.plan, setup["id"])
     return any(
         earlier["id"] in lineage and op.get("feature") == name
         for earlier in bundle.plan["setups"]
@@ -234,15 +222,12 @@ def fit(bundle, setup: dict) -> dict:
     ]
     if band == UNKNOWN:
         missing.append(f"setups[{setup['id']}].joint.{joint['fit']}_mm")
-    process_missing = (
-        [
-            f"setups[{setup['id']}].joint.{field}"
-            for field in ("cure_time_min", "surface_prep")
-            if joint.get(field) == UNKNOWN
-        ]
-        if joint["method"] == "retaining_compound"
-        else []
-    )
+    compound = joint.get("compound") or {}
+    process_missing = [
+        f"setups[{setup['id']}].joint.compound.{field}"
+        for field in COMPOUND_FIELDS
+        if compound.get(field) == UNKNOWN
+    ]
     result = {
         "fit": joint["fit"],
         "band_mm": band,
@@ -327,8 +312,8 @@ def setup_joint(bundle, setup: dict) -> dict | None:
         "method": joint["method"],
         "process": joint["process"],
     }
-    if joint["method"] == "retaining_compound":
-        common.update(cure_time_min=joint["cure_time_min"], surface_prep=joint["surface_prep"])
+    if joint.get("compound") is not None:
+        common["compound"] = dict(joint["compound"])
     if joint["kind"] == "surface":
         scale = _scale(bundle)
         interfaces, missing = [], []
@@ -356,7 +341,7 @@ def setup_joint(bundle, setup: dict) -> dict | None:
         }
     ancestry = setup_ancestry(bundle.plan)
     result = fit(bundle, setup)
-    if joint["method"] == "retaining_compound":
+    if joint.get("compound") is not None:
         common["process_reason"] = (
             f"joint process facts unknown: {', '.join(result['process_missing'])}"
             if result["process_missing"]

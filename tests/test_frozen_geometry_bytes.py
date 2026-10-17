@@ -51,6 +51,14 @@ def test_frozen_geometry_bundle_preserves_binary_bytes(source_distribution):
                 known_steps.append(name)
                 path = str(PurePosixPath(name).parent / step)
                 assert hashlib.sha256(files[path]).hexdigest() == manifest["step_sha256"], path
+        elif name.endswith(".toml"):
+            # A plan's profiled blank binds its own STEP bytes by digest.
+            stock = tomllib.loads(raw.decode("utf-8")).get("stock")
+            blank = stock.get("blank") if isinstance(stock, dict) else None
+            if isinstance(blank, dict) and blank.get("step", "unknown") != "unknown":
+                known_steps.append(name)
+                path = str(PurePosixPath(name).parent / blank["step"])
+                assert hashlib.sha256(files[path]).hexdigest() == blank["step_sha256"], path
         elif name.endswith("/report.json"):
             report = json.loads(raw)
             if report.get("renders"):

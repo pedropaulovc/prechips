@@ -31,6 +31,7 @@ from fractions import Fraction
 
 from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact, measurement_entry
+from prechips.model import profiled
 from prechips.rules._bench import manual_bench, not_applicable
 from prechips.rules.resolution import (
     MANUAL,
@@ -115,16 +116,20 @@ def _length(bundle, item, field, slot, reference, debts):
 def _entry_stock(bundle, setup, frame):
     """Setup-frame X/Y extents of the stock this setup receives, never the finished part.
 
-    Only a raw single supply (no stock components; ``stock_in`` absent or ``"stock"``)
-    keeps the authored blank's box.  Any derived or component route (``stock_in`` naming
+    Only a raw single bar supply (no stock components or profiled blank; ``stock_in``
+    absent or ``"stock"``) keeps the authored blank's box.  A profiled blank, or any
+    derived or component route (``stock_in`` naming
     an earlier setup, a ``stock.<component>`` or a joined pair) exists only as the
     already-present successful kernel's setup-entry ``stock_bbox_mm``, in this setup's
     frame: earlier cuts can shrink it inside a blank that would not fit.  Without that
     box the extent stays unknown debt; this rule never starts the kernel.
     """
     components = _mapping(bundle.plan.get("stock")).get("components")
-    if setup.get("stock_in", "stock") == "stock" and not (
-        isinstance(components, list) and components
+    # A profiled blank has no authored box: only the kernel's entry stock sizes it.
+    if (
+        setup.get("stock_in", "stock") == "stock"
+        and not (isinstance(components, list) and components)
+        and not profiled(_mapping(bundle.plan.get("stock")))
     ):
         stock = _mapping(bundle.plan.get("stock"))
         section = stock.get("section_mm", [])

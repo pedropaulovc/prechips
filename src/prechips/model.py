@@ -133,6 +133,54 @@ Dro = record(
 )
 
 
+# A blank bought already profiled (laser-, waterjet- or plasma-cut): the supplied solid is
+# the bundle-relative ``step``, authored in the part model's coordinates and bound by its
+# ``step_sha256``; ``profile_tolerance_mm`` is the vendor's declared ± cut tolerance (a
+# cited vendor value, never a measurement). See docs/plan.md "Profiled blank".
+PROFILED_BLANK = "profiled_blank"
+ProfiledBlank = record(
+    "ProfiledBlank",
+    {**texts("step step_sha256"), **numbers("profile_tolerance_mm"), "cite": Citations},
+)
+# The fields that size or place a box or round bar; a profiled blank's STEP does both.
+BAR_ENVELOPE = ("section_mm", "dia_mm", "length_mm", "origin_mm", "axis", "section_axis")
+
+
+def profiled(piece: Any) -> bool:
+    """Whether a loaded stock or component table is a profiled blank: its form or an
+    authored ``blank`` table (known or ``"unknown"``) says so. Every reader uses this one
+    test, so a form-only blank is never mistaken for bar stock."""
+    return isinstance(piece, dict) and ("blank" in piece or piece.get("form") == PROFILED_BLANK)
+
+
+def profiled_blank_errors(stock: Any, where: str) -> list[str]:
+    """Contradictions in one root stock or component that declares a profiled blank."""
+    fields = getattr(stock, "model_fields_set", set())
+    if "blank" not in fields and getattr(stock, "form", UNKNOWN) != PROFILED_BLANK:
+        return []
+    errors = []
+    if "blank" in fields and stock.form != PROFILED_BLANK:
+        errors.append(f"{where} declares a blank, so its form is {PROFILED_BLANK!r}")
+    bar = [name for name in BAR_ENVELOPE if name in fields]
+    if bar:
+        errors.append(
+            f"{where} is a profiled blank: its STEP is the envelope in model coordinates, "
+            f"so it declares no {', '.join(bar)}"
+        )
+    blank = stock.blank if isinstance(stock.blank, InputModel) else None
+    if blank is None:
+        return errors
+    if blank.step != UNKNOWN and not blank.step.strip():
+        errors.append(f"{where}.blank.step names no file")
+    digest = blank.step_sha256
+    if digest != UNKNOWN and not re.fullmatch(r"[0-9a-f]{64}", digest):
+        errors.append(f"{where}.blank.step_sha256 is not a lowercase SHA-256")
+    tolerance = blank.profile_tolerance_mm
+    if tolerance != UNKNOWN and tolerance <= 0:
+        errors.append(f"{where}.blank.profile_tolerance_mm must be positive")
+    return errors
+
+
 class StockComponent(InputModel):
     id: Annotated[str, Field(min_length=1)]
     form: str | Unknown = UNKNOWN
@@ -143,6 +191,7 @@ class StockComponent(InputModel):
     origin_mm: Vector = UNKNOWN
     axis: Vector = UNKNOWN
     section_axis: Vector = UNKNOWN
+    blank: ProfiledBlank | Unknown = UNKNOWN
     cite: Citations = UNKNOWN
 
     @model_validator(mode="after")
@@ -193,6 +242,7 @@ Stock = record(
         "as_is_faces": list[str],
         "components": list[StockComponent],
         "prepared": PreparedBlank,
+        "blank": ProfiledBlank,
         "cite": Citations,
     },
 )
@@ -615,9 +665,16 @@ Operation = record(
         "angle_window_deg": Annotated[list[Number], Field(min_length=2, max_length=2)],
         # Blade centre plane in setup coordinates; kerf comes only from the selected blade.
         "cut_plane": SawPlane,
+        # A saw cut that follows a scribed line instead: the earlier ``scribe`` op
+        # (``"<setup>:<op>"``), the stock it leaves outside the line for the file, and its
+        # ``stock_removal_bounds``, the region the blade and offcut take.
+        "follows": str,
+        "allowance_mm": float,
     },
     indexed=("do",),
 )
+# The schema cannot import the rules package: rules.resolution.SAW_OPS names the same actions.
+SAW_ACTIONS = frozenset({"saw_cut", "cut_off"})
 type KnownBand = Annotated[list[float], Field(min_length=2, max_length=2)]
 
 
@@ -759,13 +816,40 @@ class JointInterface(InputModel):
 
 
 _FIT_METHODS = {
-    "clearance": {"silver_braze", "retaining_compound"},
+    "clearance": {"silver_braze", "slip"},
     "interference": {"press"},
 }
+_COMPOUND_FORM = (
+    'method = "slip" (clearance) or "press" (interference) with '
+    "compound = { product, cure_time_min, surface_prep }"
+)
+
+
+class JointCompound(InputModel):
+    """A retaining compound on a cylindrical joint's interface; the joint's cite covers
+    its data sheet. Unknown prep or cure is debt that withholds the join."""
+
+    product: str
+    cure_time_min: float | Unknown
+    surface_prep: str
+
+    @model_validator(mode="after")
+    def declared_compound(self) -> JointCompound:
+        if self.product != UNKNOWN:
+            _known_text(self.product, "A joint compound product")
+        if self.cure_time_min != UNKNOWN and self.cure_time_min <= 0:
+            raise ValueError("A joint compound cure_time_min must be positive.")
+        if self.surface_prep != UNKNOWN:
+            _known_text(self.surface_prep, "A joint compound surface_prep")
+        return self
 
 
 class CylindricalJoint(InputModel):
-    """Socket/spigot join of exactly two branches; fit bands are diametral mm."""
+    """Socket/spigot join of exactly two branches; fit bands are diametral mm.
+
+    ``method`` is the assembly action; a retaining ``compound`` on the interface bonds a
+    slip fit and may back up a press fit.
+    """
 
     kind: Literal["cylindrical"]
     socket: str
@@ -773,11 +857,27 @@ class CylindricalJoint(InputModel):
     fit: Literal["clearance", "interference"]
     clearance_mm: KnownBand | Unknown | None = None
     interference_mm: KnownBand | Unknown | None = None
-    method: Literal["silver_braze", "retaining_compound", "press"]
+    method: Literal["silver_braze", "slip", "press"]
     process: str
-    cure_time_min: float | Unknown | None = None
-    surface_prep: str | None = None
+    compound: JointCompound | None = None
     cite: Citations
+
+    @model_validator(mode="before")
+    @classmethod
+    def current_compound_form(cls, values: Any) -> Any:
+        if not isinstance(values, dict):
+            return values
+        if values.get("method") == "retaining_compound":
+            raise ValueError(
+                f'A joint method is no longer "retaining_compound": write {_COMPOUND_FORM}.'
+            )
+        legacy = sorted(key for key in ("cure_time_min", "surface_prep") if key in values)
+        if legacy:
+            raise ValueError(
+                f"A joint's {', '.join(legacy)} moved into its compound block: write "
+                f"{_COMPOUND_FORM}."
+            )
+        return values
 
     @model_validator(mode="after")
     def declared_fit(self) -> CylindricalJoint:
@@ -786,6 +886,13 @@ class CylindricalJoint(InputModel):
             raise ValueError("A joint must cite its fit and process source.")
         if self.method not in _FIT_METHODS[self.fit]:
             raise ValueError(f"A {self.fit} joint cannot be made by {self.method}.")
+        if self.method == "silver_braze" and self.compound is not None:
+            raise ValueError("A silver_braze joint takes no compound: the braze is the bond.")
+        if self.method == "slip" and self.compound is None:
+            raise ValueError(
+                "A slip joint must declare compound = { product, cure_time_min, surface_prep }: "
+                "a slip fit with nothing bonding it is not a joint."
+            )
         band, other = (
             (self.clearance_mm, self.interference_mm)
             if self.fit == "clearance"
@@ -796,17 +903,6 @@ class CylindricalJoint(InputModel):
                 f"A {self.fit} joint must declare {self.fit}_mm and no other fit band."
             )
         _ordered(band, f"{self.fit}_mm", floor=0.0, inclusive=self.fit == "clearance")
-        if self.method == "retaining_compound":
-            if self.cure_time_min is None or self.surface_prep is None:
-                raise ValueError(
-                    "A retaining_compound joint must declare cure_time_min and surface_prep."
-                )
-            if self.cure_time_min != UNKNOWN and self.cure_time_min <= 0:
-                raise ValueError("A retaining_compound cure_time_min must be positive.")
-            if self.surface_prep != UNKNOWN:
-                _known_text(self.surface_prep, "A retaining_compound surface_prep")
-        elif self.cure_time_min is not None or self.surface_prep is not None:
-            raise ValueError("Cure time and surface prep are retaining_compound process facts.")
         return self
 
 
@@ -842,6 +938,21 @@ Setup = record(
     },
     indexed=("machine",),
 )
+
+
+def setup_lineage(plan: dict, sid: str) -> set[str]:
+    """The setup and every earlier setup whose output material flows into it: the one
+    workpiece its ops act on (omitted ``stock_in`` routing descends from none)."""
+    setups = {setup["id"]: setup for setup in plan.get("setups", [])}
+    seen, pending = set(), [sid]
+    while pending:
+        current = pending.pop()
+        if current in seen or current not in setups:
+            continue
+        seen.add(current)
+        refs = setups[current].get("stock_in")
+        pending.extend(refs if isinstance(refs, list) else [refs] if isinstance(refs, str) else [])
+    return seen
 
 
 def stock_ancestry(routes: Any) -> dict[str, frozenset[str]]:
@@ -919,6 +1030,81 @@ class Plan(InputModel):
                             "no stated inspection method (views are keyed by requirement "
                             "alone, so they illustrate a flat inspection_methods entry)."
                         )
+        return self
+
+    @model_validator(mode="after")
+    def profiled_blanks(self) -> Plan:
+        """A profiled blank is one supply's whole envelope: never beside bar dimensions."""
+        if not isinstance(self.stock, Stock):
+            return self
+        components = self.stock.components if isinstance(self.stock.components, list) else []
+        errors = profiled_blank_errors(self.stock, "stock")
+        profiled_root = "blank" in self.stock.model_fields_set or self.stock.form == PROFILED_BLANK
+        if components and profiled_root:
+            errors.append("stock declares components, so each profiled blank is a component's")
+        for component in components:
+            errors.extend(profiled_blank_errors(component, f"stock.components.{component.id}"))
+        if errors:
+            raise ValueError("; ".join(errors) + ".")
+        return self
+
+    @model_validator(mode="after")
+    def saw_shapes(self) -> Plan:
+        """A saw cut is planar (``cut_plane``) or follows an earlier scribe op's line
+        (``follows``, ``allowance_mm``, ``stock_removal_bounds``): exactly one shape. The
+        line must be on the saw's own workpiece: scribed earlier in the same setup or in a
+        setup its ``stock_in`` routing descends from (omitted routing descends from none)."""
+        scribes = {}
+        routes = {
+            "setups": [
+                {"id": setup.id, "stock_in": setup.stock_in}
+                if "stock_in" in setup.model_fields_set
+                else {"id": setup.id}
+                for setup in self.setups
+            ]
+        }
+        for setup in self.setups:
+            lineage = setup_lineage(routes, setup.id)
+            for op in setup.ops if isinstance(setup.ops, list) else ():
+                where = f"Setup {setup.id} op {op.op}"
+                declared = op.model_fields_set
+                if op.do not in SAW_ACTIONS:
+                    stray = sorted(declared & {"follows", "allowance_mm"})
+                    if stray:
+                        raise ValueError(f"{where}: only a saw cut declares {', '.join(stray)}.")
+                    if op.do == "scribe":
+                        scribes[f"{setup.id}:{op.op}"] = setup.id
+                    continue
+                shapes = [field for field in ("cut_plane", "follows") if field in declared]
+                if len(shapes) != 1:
+                    raise ValueError(
+                        f"{where}: a saw cut declares exactly one of cut_plane (a straight cut; "
+                        '"unknown" while its plane is undecided) or follows (an earlier scribe '
+                        "op's line)."
+                    )
+                if shapes == ["cut_plane"]:
+                    stray = sorted(declared & {"allowance_mm", "stock_removal_bounds"})
+                    if stray:
+                        raise ValueError(
+                            f"{where}: a straight saw cut is located by its cut_plane alone; "
+                            f"{', '.join(stray)} belong to a cut that follows a scribed line."
+                        )
+                    continue
+                if op.follows not in scribes:
+                    raise ValueError(
+                        f"{where}: follows {op.follows!r} names no earlier scribe op "
+                        '("<setup>:<op>").'
+                    )
+                if scribes[op.follows] not in lineage:
+                    raise ValueError(
+                        f"{where}: follows {op.follows!r}, a line scribed on another "
+                        "workpiece: the scribe's setup is not upstream of this setup's stock_in."
+                    )
+                if op.allowance_mm != UNKNOWN and op.allowance_mm <= 0:
+                    raise ValueError(
+                        f"{where}: allowance_mm, the stock left outside the line for the file, "
+                        "must be positive."
+                    )
         return self
 
     @model_validator(mode="after")
@@ -1614,6 +1800,8 @@ InventoryItem = record(
         ),
         "point_angle": MeasuredAngle,
         "blade_speed_sfm": Annotated[list[Number], Field(min_length=2, max_length=2)],
+        # A bandsaw's running modes: only a vertical one follows a scribed curve.
+        "saw_modes": Annotated[list[Literal["horizontal", "vertical"]], Field(min_length=1)],
         **dict.fromkeys(
             (
                 "dia",
@@ -2037,6 +2225,21 @@ class Inventory(InputModel):
     services: dict[str, InventoryItem | Unknown] | Unknown = UNKNOWN
     consumables: dict[str, Consumable | Unknown] | Unknown = UNKNOWN
     stock: list[Stock] | Unknown = UNKNOWN
+
+    @model_validator(mode="after")
+    def bar_stock(self) -> Inventory:
+        """A profiled blank is one part's supply, bound to a STEP in that part's bundle."""
+        for index, stock in enumerate(self.stock if isinstance(self.stock, list) else ()):
+            pieces = [stock, *(stock.components if isinstance(stock.components, list) else ())]
+            if any(
+                "blank" in piece.model_fields_set or piece.form == PROFILED_BLANK
+                for piece in pieces
+            ):
+                raise ValueError(
+                    f"inventory stock[{index}] is a profiled blank; declare it as the plan's "
+                    "stock, where its STEP is read and hashed."
+                )
+        return self
 
     @model_validator(mode="before")
     @classmethod

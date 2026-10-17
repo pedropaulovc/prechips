@@ -658,7 +658,7 @@ not exist.
 | datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |
 | turned profile monotone from the chuck unless a grooving op | plan.ops (lathe), features (diameters along Z) | M2 | "Ø8 groove at Z−30 needs a grooving tool." |
 | stick-out: declared stick-out ≤ `stickout_ld_max`·D unless tailstock/steady listed; D is the smallest finished diameter in the unsupported length, from feature diameters along setup Z, not the bar held in the jaws. Unknown exposed profile remains unresolved | plan.setups.hold.stickout_mm, features (diameters along Z), policy.numbers, inventory | M2 | "Ø6 × 40 past the chuck: add the tailstock centre." |
-| joint_fit (always required): worst-case diametral clearance/interference interval lies inside the matching declared band, with collinear finite cylinder engagement; retaining-compound prep and positive cure time must be known | plan.joint_features (component, at, axis, dia, nominal_dia, depth), plan.setups.joint (fit, band, method/process/cite, retaining-compound surface_prep/cure_time_min), features.units | M2 | "Worst-case interference lies outside the declared fit; no union." |
+| joint_fit (always required): worst-case diametral clearance/interference interval lies inside the matching declared band, with collinear finite cylinder engagement; a declared compound's product, prep and positive cure time must be known and are reported on either fit | plan.joint_features (component, at, axis, dia, nominal_dia, depth), plan.setups.joint (fit, band, method/process/cite, compound product/surface_prep/cure_time_min), features.units | M2 | "Worst-case interference lies outside the declared fit; no union." |
 | consistency (one fact, one source): plan text leaves a derived fact to its one source and agrees with a field it names, and two printed surfaces of one fact agree. Restating "same chucking" (the HOLD and `zero.transfer.keep_clamped`), hand tightening in an ordered clamp's note (`tighten` / `torque_nm`, which the HOLD tightening line prints) a height from the jaws in a hold with `jaw_above_parallels_mm` (the HOLD derives the jaw tops and the work top above them, `?` from an unknown or unverified jaw height, parallels or seat) or, unambiguously, a made SHOP-MADE FIXTURE row's whole size in a make note it prints with (the closed grammar `the <row> [to] [Ø] A x B [x C]`, as many edges as the row prints, in any value, unit, spacing or `x` / `×` / `*`, or with an unknown edge, an edge's parenthesis that closes read through its `)` whatever it holds, in a clause holding, the row's own name aside, no feature verb, angle unit, fraction or superscript or subscript digit; ambiguous text makes no claim; the row's Size mm prints it, each row the name denotes its own finding) is an error. `T<n>` and digit flute counts are compared with the setup TOOLS table (`tool_numbers`), NO-GO "pushed through" with `go_no_go`, the setup picture's `CUT <mm> mm` with the CLEARANCE row of an op beside the same holding solid, each as its surface rounds it (an op's row not computed, unknown), `tighten = "hand"` with `torque_nm`, and each `stock_state` height with the one source its declaration names: a `top_z` / `bottom_z` that `top_feature` / `bottom_feature` names with the kernel's height of that face alone (the stock over it while uncut, else within the feature's band; unmeasured, unknown), any other top, seat or rail with the kernel setup-entry stock box. A named seat exempts no rail, and stock below every authored point is wrong unless it is the named seat's own measured face, which the face's band alone then judges. Only the exact token patterns in [rules-setup](docs/rules-setup.md#consistency) are read; other wording is not attributed. A compared fact with a missing field, inventory value, units, band or kernel value, or one the kernel cannot prove, is unknown | plan.setups (hold, clamps, zero, stock_state, notes), plan.ops (note, inspection text, go_no_go), inventory.tools.flutes, inventory.fixtures parallels height and shop-made solids (shape, note, label, supply), policy fixture_make_decimals, features requirement bands, kernel stock_bbox_mm / stock_faces_mm / render_scene closest_cut and cut_clearances | R7 | "A printed fact conflicts with its one source: the lower-side support jack make note gives a made row's size ("the screw Ø6.30 x 13.45"), but its SHOP-MADE FIXTURE table prints that size (screw Ø6.4 × 13.5; solid screw); leave it to the table and drop the restatement …" |
 
 ### 4.2 Setup geometry (on the B-rep — needs the kernel)
@@ -669,6 +669,7 @@ not exist.
 | reach: floor depth below the highest stock the op meets ≤ flute length, else ≤ OAL with the holder cylinder clear of that stock; at any depth the shank past the flutes clears the stock the op leaves (a reamer's own finished bore included); body, shank and holder-face clearances are reported numbers | features.faces, inventory.tools (flute_len, OAL, shank dia, holder dia) | M4 | "The 0.4500 in reamer's Ø10.05 shank clears the Ø11.43 bore it leaves by 0.69 mm; the 3/8 in spotter's chuck face stops 3.2 mm above the Z27.2 crown." |
 | internal corner radius: concave edges ⟂ tool axis between faces one op claims: r ≥ r_tool | features.faces, plan.ops.tool | M4 | "Slot corners are sharp; a 1/4 EM leaves R3.2." |
 | coverage: ⋃ direction-valid faces claimed by ops ∪ faces declared as-stock = all faces; optional op `faces` explicitly overrides the feature default; a rotary-claimed face counts only when the exact union of its rotary window portions covers it (a named-span gap errors, an undecided union is `?`) | features.faces, plan.ops.faces, plan.stock.as_is_faces, kernel rotary_coverage.cut | M4 | "Face 23 (the ear's back) is machined by no valid op." |
+| blank_credit: an as-is face of a profiled blank (a bought laser/waterjet-cut STEP) counts only when it lies on the blank within 1e-3 mm and every band of its owning features holds the vendor's ± t about the nominal (a governed BASIC scalar reads its governing profiles' band; a position zone needs 2√2·t, a profile zone t√2 on each side of its disposition); a face failing either check stays uncovered | plan.stock.blank, plan.stock.as_is_faces, features requirements and nominals, kernel as_is_contact | M4 | "end_faces length 60 ±0.127 exits its band 59.9-60.1 by 0.027 below." |
 | finish coverage: every `finish_ra` face is claimed by a direction-valid finishing cut (nonrough/nonmanual; drill → ream/bore/tap precedence); rotary finishing windows count only when their exact union covers the face, and as-stock never finishes; a claimed hole cap counts only once its complete-form cut's setup leaves it clear of stock | features.finish_ra/faces, plan.ops.faces, kernel rotary_coverage.finish | M4 | "Ra 1.6 on the bore; no finishing op touches it." |
 | joint_assembly (always required): received prepared branches satisfy actual target geometry, overlap/insertion or full internal surface contact, and final-material coverage plus permitted finite fill | STEP final solid, selected stock lineage/output completion, plan.joint_features, plan.setups.joint | M4 | "Join refused: the received branch has lost required finished material." |
 
@@ -1312,7 +1313,8 @@ sheet.
    provenance, labelled divergences and route choices live in the example guide.
 4. **M4 — geometry and workholding local deliverable** (§4.2–4.3).
    Eight sampled B-rep rules execute in a separate FreeCAD process; native
-   saw cut-off makes nine M4 kernel rules in total. STEP
+   saw cut-off and the profiled-blank face credit (`blank_credit`) make ten M4
+   kernel rules in total. STEP
    byte identity and entity/ordinal/label references are checked before
    mapping by surface/area/bbox, never by imported face ordinal. An absent
    kernel yields one console `?` line and unknown geometry, not fabricated
@@ -1339,6 +1341,21 @@ sheet.
    never spindle RPM. Axial/turning-cylinder accessibility is explicitly
    not applicable; saw cuts earn no finished-face coverage. Fixture modeling
    and input debt semantics remain operative.
+
+   **Bench hand saw shipped (2026-10-16, #249):** a `hand_saw` tool on a
+   bench/manual machine keeps the manual-bench waiver and has no blade-speed
+   screen. A saw declares exactly one shape: a straight `cut_plane`, or
+   `follows` an earlier scribe op with `allowance_mm` and
+   `stock_removal_bounds`; the latter removes only its declared box (unknown
+   extent is debt), must stay the allowance clear of the finished target, and
+   roughs the arc for the following `file_to_line`. The traveler prints a
+   hand-saw card. Explicit break-out/chisel removal (#213) stays open.
+
+   **Vertical bandsaw to a scribed curve (2026-10-17, #249):** a bandsaw blade
+   follows a scribed line on a bandsaw whose `saw_modes` include `"vertical"`
+   (undeclared modes are debt), hand-fed with a sourced blade speed and no descent
+   feed. A saw following a scribed arc removes its declared box clipped to the arc
+   offset by `allowance_mm`, so the stock prediction follows the curve.
 
    **Process features shipped (2026-10-06, round-4 ShaftPrep):** plan-owned
    `process_features` (`end_face`, `centre_hole`) are stock preparation the
@@ -1416,6 +1433,17 @@ sheet.
    empty or omitted declarations add no cross-component dependency. Removal
    fragmentation is checked per input solid, so deleting one assembly piece
    cannot mask splitting another.
+   **Profiled blank stock shipped ([#248](https://github.com/pedropaulovc/prechips/issues/248)):**
+   a root stock or component may be a bought laser/waterjet-cut blank, a cited
+   STEP in part-model coordinates bound by its SHA-256, with the vendor's ± cut
+   tolerance. The loader refuses a digest mismatch (exit 3); the kernel imports
+   the blank as the supply and keys its cache on the blank's digest, never its
+   path. As-is faces of a profiled supply are measured face by face, and
+   `blank_credit` credits one only when it lies on the blank and its bands hold
+   the tolerance; refused faces stay uncovered for `coverage`. Local evidence:
+   `examples/geometry/profiled-blank` (exits 2 / 0) and `tests/test_blank_credit.py`.
+   An offset blank aimed mid-band is not yet supported
+   ([#256](https://github.com/pedropaulovc/prechips/issues/256)).
    **Joint-feature engine implemented:** plan-owned finite sockets and spigots
    resolve for operation/dimension rules without modifying the exported
    manifest. Their analytic claims never earn final STEP coverage; a finishing
@@ -1430,12 +1458,13 @@ sheet.
    identities and invalid ancestry are bad input. Each join receives exactly two
    disjoint branches, at most one an existing assembly; sequential assembly plus
    one component is supported. Both-open finite cylindrical sockets accept
-   sleeves without inventing a core. Retaining compound requires an authored
-   clearance band, surface prep and cure time; unknown process facts retain debt,
-   and the traveler instructs do not disturb until cured. Silver braze is unchanged.
+   sleeves without inventing a core. A joint `compound` (product, surface prep,
+   cure time) bonds a slip clearance fit and may back a press interference fit;
+   unknown process facts retain debt, and the traveler instructs do not disturb
+   until cured. Silver braze takes no compound.
    Transient taps/counterbores are named debt, not cylindrical substitutes.
    The built-up cone example is the bonded-sleeve route: three leaf blanks
-   (body, cone sleeve, crank sleeve) and two retaining-compound cylindrical joints.
+   (body, cone sleeve, crank sleeve) and two slip-fit retaining-compound joints.
    Manual-only bench setups have no zero/DRO/headroom screen, and routed mill
    headroom uses the actual setup-entry stock bbox rather than the raw blank.
    Each output subtracts its setup's derivable removals from its selected input.

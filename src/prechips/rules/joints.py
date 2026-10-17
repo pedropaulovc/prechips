@@ -5,7 +5,7 @@ joint can never be waived by an absent shop-policy entry.
 """
 
 from prechips.findings import Finding
-from prechips.joint_features import describe, fit, label
+from prechips.joint_features import COMPOUND_FIELDS, describe, fit, label
 from prechips.rules.resolution import UNKNOWN, _citations, record
 
 
@@ -35,8 +35,9 @@ def evaluate_fit(bundle):
             "violations": result["violations"],
             "missing": result["missing"],
         }
-        if joint["method"] == "retaining_compound":
-            numbers.update(cure_time_min=joint["cure_time_min"], surface_prep=joint["surface_prep"])
+        compound = joint.get("compound")
+        if compound is not None:
+            numbers.update({field: compound[field] for field in COMPOUND_FIELDS})
         cite = [
             "PLAN.md §4.1 joint_fit",
             f"plan.setups.{sid}.joint: fit, diametral band and process",
@@ -52,7 +53,7 @@ def evaluate_fit(bundle):
             message = f"{describe(result['violations'])}; no union"
         elif result["missing"]:
             status = "unknown"
-            facts = "facts" if joint["method"] == "retaining_compound" else "geometry"
+            facts = "facts" if compound is not None else "geometry"
             message = f"joint {facts} unknown ({', '.join(result['missing'])}); no union"
         else:
             status = "pass"

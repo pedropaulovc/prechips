@@ -8,6 +8,13 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request supersedes its older runs: cancel them instead of
+# spending runner time on a head nobody can merge. Each push to main gets its own
+# group (run_id), so merges never queue behind or cancel one another.
+concurrency:
+  group: ci-${{ github.event.pull_request.number && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -20,8 +27,15 @@ jobs:
       - run: uv run ruff check .
       - run: uv run ruff format --check .
 
-  test:
+  test-shard:
+    name: test shard ${{ matrix.group }}/6
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Shards balanced by the committed .test_durations (CI JUnit times);
+        # rebuild it with scripts/ci_shards.py when the balance drifts.
+        group: [1, 2, 3, 4, 5, 6]
     env:
       PRECHIPS_REQUIRE_KERNEL: "1"
       PRECHIPS_REQUIRE_PRINT_BROWSER: "1"
@@ -30,6 +44,7 @@ jobs:
       PRECHIPS_KERNEL_CACHE_EPOCH: "1"
       PYTEST_WORKERS: "2"
       PRECHIPS_KERNEL_WORKERS: "1"
+      SHARD_COUNT: "6"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -70,33 +85,68 @@ jobs:
           echo "FREECAD_CMD=$HOME/.cache/prechips-freecad/freecadcmd" >> "$GITHUB_ENV"
           echo "PRECHIPS_KERNEL_CACHE=$RUNNER_TEMP/prechips-kernel-cache" >> "$GITHUB_ENV"
           "$HOME/.cache/prechips-freecad/freecadcmd" --version
+      # The shard index precedes the run id so this shard's own last entry wins;
+      # the shared prefix is the fallback (any shard's or a pre-shard entry).
       - name: Restore successful geometry cache
         uses: actions/cache/restore@v4
         with:
           path: ${{ env.PRECHIPS_KERNEL_CACHE }}
-          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-shard${{ matrix.group }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
+            kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-shard${{ matrix.group }}-
             kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-
-      - name: Run full test suite with bounded workers
+      - name: Run test shard with bounded workers
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p test-results
           uv run pytest -n "$PYTEST_WORKERS" --dist loadscope --durations=0 \
+            --splits "$SHARD_COUNT" --group "${{ matrix.group }}" \
+            --splitting-algorithm duration_based_chunks \
             --junitxml=test-results/pytest.xml 2>&1 | tee test-results/pytest.log
       - name: Save successful geometry cache
         if: success()
         uses: actions/cache/save@v4
         with:
           path: ${{ env.PRECHIPS_KERNEL_CACHE }}
-          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: kernel-${{ runner.os }}-${{ runner.arch }}-${{ env.FREECAD_SHA256 }}-epoch${{ env.PRECHIPS_KERNEL_CACHE_EPOCH }}-${{ hashFiles('src/prechips/kernel/*.py') }}-shard${{ matrix.group }}-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Upload test durations and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: pytest-${{ runner.os }}-${{ runner.arch }}-shard${{ matrix.group }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: test-results/
           if-no-files-found: warn
+
+  # Branch protection requires a check named "test": it passes only when every
+  # shard passed and the shards together ran the full collection exactly once.
+  test:
+    needs: test-shard
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every shard to pass
+        shell: bash
+        run: |
+          echo "test-shard result: ${{ needs.test-shard.result }}"
+          test "${{ needs.test-shard.result }}" = success
+      - uses: actions/checkout@v4
+        if: ${{ !cancelled() }}
+      - uses: astral-sh/setup-uv@v5
+        if: ${{ !cancelled() }}
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+        if: ${{ !cancelled() }}
+      - uses: actions/download-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          pattern: pytest-${{ runner.os }}-${{ runner.arch }}-shard*-${{ github.run_id }}-${{ github.run_attempt }}
+          path: shard-results
+      - name: Assert shards ran the full collection once
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: uv run scripts/ci_shards.py check shard-results/*/pytest.xml
 
   build:
     runs-on: ubuntu-latest

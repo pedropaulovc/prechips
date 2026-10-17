@@ -253,7 +253,13 @@ Native [saw cut-off](docs/plan.md#saw-cut-off) supports `saw_cut` / `cut_off` on
 mill, bench and bandsaw setups: an explicit blade-centre plane plus inventory
 kerf removes only the discarded stock side. The traveler shows cited blade sfm
 and descent feed, not spindle RPM; cylinder-based accessibility explicitly does
-not apply. Dividing-head headroom uses centre height and the posed axis offset,
+not apply. A [hand saw on the bench](docs/plan.md#hand-saw-on-the-bench-straight-or-to-a-scribed-line)
+(`kind = "hand_saw"` on a bench/manual machine) keeps the manual-bench waiver and
+has no blade speed; it cuts straight on a `cut_plane` or `follows` an earlier
+scribe op's line, removing only its declared `stock_removal_bounds` and leaving
+at least `allowance_mm` outside the line for the file (unknown extent is `?`). A
+bandsaw in vertical mode (`saw_modes`) follows a scribed curve the same way, hand-fed;
+along a scribed arc the predicted removal follows the curve, offset by the allowance. Dividing-head headroom uses centre height and the posed axis offset,
 and child hole operations inherit a missing travel centre from their named
 parent/hole while explicit unknown locations remain debt.
 
@@ -616,6 +622,13 @@ When all component envelopes are known, their union must contain the finished
 STEP; otherwise all component references carry geometry debt.
 A nonempty root `as_is_faces` declaration needs the full joined supply exterior
 and every component envelope known, so it can withhold otherwise-known branches.
+A blank bought already laser-, waterjet- or plasma-cut is a
+[profiled blank](docs/plan.md#profiled-blank): `form = "profiled_blank"` with a
+`blank` table naming its cited, digest-bound STEP (in part-model coordinates)
+and the vendor's ± cut tolerance, on the root stock or a component. The kernel
+uses that solid as the supply; [`blank_credit`](docs/rules-geometry.md#blank_credit)
+credits an as-is face only when it lies on the blank and its drawing bands hold
+the tolerance, so out-of-band faces still need ops.
 Empty or omitted declarations add no cross-component dependency. Removal
 fragmentation is checked per input solid; deleting one piece cannot mask
 splitting another.
@@ -636,12 +649,17 @@ over the face's full area. Declared fit bands must cover the
 worst-case mating diameters, prepared geometry must reach the join along the
 selected stock lineage, and the kernel refuses interference outside the
 permitted fit or missing component-owned finished material at the join.
-Unknown joint dimensions or retaining-compound process facts withhold the union
+A cylindrical joint's `method` is the assembly action (`silver_braze` or `slip`
+for clearance, `press` for interference); a retaining compound on the interface
+is a `compound = { product, cure_time_min, surface_prep }` block, required on a
+slip fit and optional on a press fit.
+Unknown joint dimensions or compound process facts withhold the union
 and its render, rather than assuming a fit or cure. Each assembly step joins
 exactly two disjoint inputs: an existing assembly may receive one new component.
 Finite both-open cylindrical sockets accept turned sleeves; clearance joining
-fills the mating annulus, not a sleeve's intentional bore. Retaining-compound
-travelers state surface prep, cure time and do not disturb until cured.
+fills the mating annulus, not a sleeve's intentional bore. Compound-joint
+travelers state surface prep, cure time and do not disturb until cured; a press
+fit with a compound is pressed in with the compound on the interface.
 Plan-owned `process_features` describe stock preparation a later setup relies
 on — a faced `end_face` or a combined drill and countersink `centre_hole` — and
 are never drawing dimensions or coverage. The kernel cuts them, so the picture

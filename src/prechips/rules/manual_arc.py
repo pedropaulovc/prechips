@@ -3,7 +3,8 @@
 One finding per ``scribe`` or ``file_to_line`` op on an arc feature, subject
 ``<setup>:<op>``. A scribe op prints the line it lays out: the radius about its centre
 in setup coordinates and the arc ends, with dividers, a trammel or a named template. A
-file-to-line op files the stock a ``stairs`` or ``chain_drill`` rough left (at most the
+file-to-line op files the stock a ``stairs`` or ``chain_drill`` rough, or a saw that
+``follows`` the line's scribe op, left (at most the
 shop's ``max_filing_stock_mm``) down to a guide and checks the arc with a radius gauge
 whose range covers it. The guide is either filing buttons, a fixtures kit in the
 setup's hold pinned through a bore on the arc's axis (the hardened button rim is the
@@ -18,6 +19,7 @@ from __future__ import annotations
 
 from prechips.findings import Finding
 from prechips.measurements import length_debt, limits_debt, limits_fact, record_debt
+from prechips.model import setup_lineage
 from prechips.rules._profile import requirement_band
 from prechips.rules.coordinates import (
     _CENTRE_FORMS,
@@ -28,6 +30,7 @@ from prechips.rules.coordinates import (
 )
 from prechips.rules.resolution import (
     HAND_FINISH,
+    SAW_OPS,
     UNKNOWN,
     identity,
     length_mm,
@@ -256,17 +259,37 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
     return record_
 
 
+def _workpiece(bundle, op):
+    """The setups whose material ``op``'s setup works on (:func:`setup_lineage`)."""
+    for setup in bundle.plan["setups"]:
+        if any(other is op for other in setup.get("ops", [])):
+            return setup_lineage(bundle.plan, setup["id"])
+    return set()
+
+
 def _rough(bundle, op, name):
-    """The stairs or chain-drill roughs of ``name`` before ``op`` that leave their stock to
-    this file (no later rough recuts them): "S1 op 30 and S2 op 28", else None."""
+    """The stairs, chain-drill or scribed-line saw roughs of ``name`` before ``op`` that
+    leave their stock to this file (no later rough recuts them): "S1 op 30 and S2 op 28",
+    else None. Only work on the filing's own workpiece counts (:func:`setup_lineage`): a
+    rough, saw or earlier file on another stock branch neither roughs nor files it. A saw
+    roughs ``name`` when it ``follows`` a scribe op laying out its line."""
     found = []
+    lines = set()
+    lineage = _workpiece(bundle, op)
     for sid, other in _earlier(bundle, op):
+        if sid not in lineage:
+            continue
+        if other.get("do") == "scribe" and other.get("feature") == name:
+            lines.add(f"{sid}:{other.get('op', UNKNOWN)}")
+        if other.get("do") in SAW_OPS and other.get("follows") in lines:
+            found.append(f"{sid} op {other.get('op', UNKNOWN)}")
+            continue
         if other.get("feature") != name:
             continue
         if other.get("do") in HAND_FINISH:
             found = []
         method = record(other.get("contour")).get("method")
-        if method in ROUGH_METHODS and _recut_by(bundle, other) is None:
+        if method in ROUGH_METHODS and _recut_by(bundle, other, lineage) is None:
             found.append(f"{sid} op {other.get('op', UNKNOWN)}")
     return " and ".join(found) or None
 
@@ -379,7 +402,10 @@ def evaluate(bundle):
                     debts.append(f"no scribe op lays out {name}'s line before this filing")
                 numbers["rough_op"] = _rough(bundle, op, name)
                 if numbers["rough_op"] is None:
-                    debts.append(f"no stairs or chain_drill op roughs {name} before this filing")
+                    debts.append(
+                        f"no stairs, chain_drill or scribed-line saw op roughs {name} "
+                        "before this filing"
+                    )
                 cap = filing_cap(bundle)
                 numbers["stock_cap_mm"] = cap
                 if not number(cap):

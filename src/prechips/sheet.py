@@ -21,9 +21,10 @@ from . import trig
 from .clamp_labels import clamp_labels
 from .joint_features import JOINT_PREP_LABEL, setup_ancestry
 from .measurements import angle_fact, length_debt, length_fact, measurement_entry, record_trusted
-from .model import TOLERANCE_REQUIREMENTS, reference_only, tolerance_requirements
-from .rules._bench import manual_bench
+from .model import TOLERANCE_REQUIREMENTS, profiled, reference_only, tolerance_requirements
+from .rules._bench import hand_saw, manual_bench
 from .rules._envelope import measurement_item
+from .rules.blank_credit import cited_tolerance
 from .rules.coordinates import (
     CENTRE_OPS,
     OVERSHOOT_NOTE,
@@ -1920,6 +1921,7 @@ _STOCK_FORMS = {
     "flat_bar": "flat bar",
     "rectangular_blank": "rectangular blank",
     "prepared_blank": "prepared blank",
+    "profiled_blank": "profiled blank",
 }
 # Stock / stock-state keys that place solids for the kernel; not bench instructions.
 _PLACEMENT_KEYS = {"origin_mm", "axis", "section_axis", "as_is_faces", "id", "components"}
@@ -2183,6 +2185,27 @@ def _status(finding):
 
 def _field(finding, name, default=None):
     return getattr(finding, "sentence" if name == "message" else name, default)
+
+
+# How a traveler names a joint's assembly action ("Joined by slip fit with ...").
+_JOINED_BY = {"silver_braze": "silver braze", "slip": "slip fit", "press": "press fit"}
+
+
+def _bonding_op(setup, op):
+    """Whether ``op`` is the first ``fit`` op of a compound joint setup: the op that applies
+    the compound, so its consumable cell names it and its note carries prep and cure."""
+    joint = _mapping(setup.get("joint"))
+    fits = [o for o in setup.get("ops", []) if o.get("do") == "fit"]
+    return bool(_mapping(joint.get("compound"))) and bool(fits) and fits[0] is op
+
+
+def _compound_lead(joint, fitted):
+    """Opens a compound joint's "... not disturb until cured" sentence."""
+    if joint["method"] == "press":
+        return "Press in with the compound on the interface, then do"
+    if fitted:
+        return "Do"
+    return "Apply the retaining compound, assemble, then do"
 
 
 def _text(value):
@@ -2950,14 +2973,19 @@ class _Traveler:
         return f"{name}: {JOINT_PREP_LABEL}" if marked else name
 
     def joint_text(self, setup):
-        """How a joint setup joins its two received branches: method, process and the
-        declared fit band; for retaining compound, surface prep and the undisturbed cure
-        too, unless a ``fit`` op does the join: then they print once, on that op
+        """How a joint setup joins its two received branches: method, compound, process and
+        the declared fit band; with a compound, surface prep and the undisturbed cure too,
+        unless a ``fit`` op does the join: then they print once, on that op
         (:meth:`compound_note`), and the arrival line never repeats them."""
         joint = _mapping(setup.get("joint"))
         if not joint:
             return ""
-        text = f" Joined by {_text(joint['method'])} ({self.bench(joint['process'], setup)})"
+        compound = _mapping(joint.get("compound"))
+        method = _JOINED_BY.get(joint["method"]) or _text(joint["method"])
+        text = f" Joined by {method}"
+        if compound:
+            text += f" with {self.compound_product(setup, compound)}"
+        text += f" ({self.bench(joint['process'], setup)})"
         if joint["kind"] == "cylindrical":
             band = joint.get(f"{joint['fit']}_mm")
             limits = " to ".join(map(_number, band)) if isinstance(band, list) else _text(band)
@@ -2972,16 +3000,23 @@ class _Traveler:
             text += f" at {len(joint['interfaces'])} declared interface(s)"
         text += "."
         fitted = any(op.get("do") == "fit" for op in setup.get("ops", []))
-        if joint["method"] == "retaining_compound" and not fitted:
-            text += " " + self.compound_text(
-                setup, joint, "Apply the retaining compound, assemble, then do"
-            )
+        if compound and not fitted:
+            text += " " + self.compound_text(setup, joint, fitted=False)
         return text
 
-    def compound_text(self, setup, joint, lead):
-        """A retaining-compound joint's surface prep and undisturbed cure, an unknown one
-        printed as unknown; ``lead`` opens the cure sentence ("… not disturb until cured")."""
-        prep, cure = joint.get("surface_prep"), joint.get("cure_time_min")
+    def compound_product(self, setup, compound):
+        """The compound's product name, an unknown one printed as unknown."""
+        product = compound.get("product")
+        if not isinstance(product, str) or not product.strip() or product == "unknown":
+            return "compound ? UNKNOWN (not declared)"
+        return self.bench(product, setup).rstrip(".")
+
+    def compound_text(self, setup, joint, *, fitted):
+        """A compound joint's surface prep and undisturbed cure, an unknown one printed as
+        unknown. A press fit is pressed in with the compound on the interface; a slip fit
+        is assembled with it by its ``fit`` op, else as this text says."""
+        compound = _mapping(joint.get("compound"))
+        prep, cure = compound.get("surface_prep"), compound.get("cure_time_min")
         known_prep = isinstance(prep, str) and prep.strip() and prep != "unknown"
         return (
             "Surface prep: "
@@ -2990,7 +3025,7 @@ class _Traveler:
                 if known_prep
                 else "? UNKNOWN (not declared)."
             )
-            + f" {lead} not disturb until cured: "
+            + f" {_compound_lead(joint, fitted)} not disturb until cured: "
             + (
                 f"cure time {_number(cure)} min."
                 if _known(cure)
@@ -2999,18 +3034,11 @@ class _Traveler:
         )
 
     def compound_note(self, setup, op):
-        """The first ``fit`` op of a retaining-compound joint setup carries the joint's
-        surface prep and undisturbed cure (the arrival line then leaves them out)."""
-        joint = _mapping(setup.get("joint"))
-        fits = [o for o in setup.get("ops", []) if o.get("do") == "fit"]
-        if (
-            not joint
-            or joint.get("method") != "retaining_compound"
-            or not fits
-            or fits[0] is not op
-        ):
+        """The first ``fit`` op of a compound joint setup carries the joint's surface prep
+        and undisturbed cure (the arrival line then leaves them out)."""
+        if not _bonding_op(setup, op):
             return None
-        return self.compound_text(setup, joint, "Do")
+        return self.compound_text(setup, setup["joint"], fitted=True)
 
     def joint_debt(self, setup):
         """The joint's own declared facts left unknown: the join is withheld, never assumed."""
@@ -3020,12 +3048,16 @@ class _Traveler:
         missing = []
         if joint["kind"] == "cylindrical" and joint.get(f"{joint['fit']}_mm") == "unknown":
             missing.append(f"{joint['fit']} band")
-        if joint["method"] == "retaining_compound":
-            missing.extend(
-                name
-                for key, name in (("surface_prep", "surface prep"), ("cure_time_min", "cure time"))
-                if joint.get(key) == "unknown"
+        compound = _mapping(joint.get("compound"))
+        missing.extend(
+            name
+            for key, name in (
+                ("product", "compound product"),
+                ("surface_prep", "surface prep"),
+                ("cure_time_min", "cure time"),
             )
+            if compound.get(key) == "unknown"
+        )
         if not missing:
             return ""
         return (
@@ -7848,10 +7880,61 @@ class _Traveler:
             return _Box("STOP: spindle direction not known — the tool's hand is not declared")
         return "REVERSE" if op.get("do") in _AXIAL_OPS and hand == "left" else "FORWARD"
 
+    def saw_setting(self, op):
+        """Where a saw cut runs: a straight cut's blade-centre plane, or the scribed line a
+        cut follows (named by its layout op)."""
+        if "follows" in op:
+            return f"outside the line scribed in {_text(op['follows']).replace(':', ' op ')}"
+        plane = _mapping(op.get("cut_plane"))
+        return (
+            f"blade centre {_text(plane.get('axis')).upper()} "
+            f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}"
+        )
+
+    def saw_leave(self, op, purpose="for filing"):
+        """The stock a saw that follows a scribed line leaves outside it: ``for filing`` at
+        the bench, ``outside the line`` on a machine card (a trammel or file takes it)."""
+        allowance = op.get("allowance_mm")
+        if not _known(allowance):
+            return _Box(f"STOP: stock to leave {purpose} not established")
+        return f"leave {self.operative(allowance)} mm {purpose}"
+
+    def hand_saw_step(self, op, numbers):
+        """A bench hand-saw card: the straight cut's plane and the side kept, or "saw
+        outside the scribed line, leave <allowance> for filing"."""
+        if "follows" in op:
+            separator = "; " if self.saw_leave(op).startswith("STOP") else ", "
+            return f"Hand saw {self.saw_setting(op)}{separator}{self.saw_leave(op)}."
+        plane = _mapping(op.get("cut_plane"))
+        axis = _text(plane.get("axis")).upper()
+        sides = {"above": ("+", "-"), "below": ("-", "+")}.get(plane.get("keep"))
+        if sides is None:
+            return "Hand saw: STOP: side to keep not established."
+        length = numbers.get("retained_length_mm")
+        kept = f" {_number(length)} mm long" if _known(length) else ""
+        edge = numbers.get("retained_boundary_mm")
+        retained = f", retained edge {axis} {_number(edge)} mm" if _known(edge) else ""
+        return (
+            f"Hand saw across the part, keeping the {sides[0]}{axis} piece{kept}; the kerf "
+            f"falls on the {sides[1]}{axis} (waste) side (blade centre {axis} "
+            f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}{retained})."
+        )
+
     def speeds(self, setup, op, saw_table):
         numbers = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
         if op.get("do") in MANUAL:
             return "—", "—", False
+        if hand_saw(self.bundle, op):
+            # A hand saw: no blade speed or machine feed applies.
+            return "—", "—", False
+        if op.get("do") in SAW_OPS and "follows" in op:
+            # A vertical bandsaw along a scribed line: the work is fed by hand.
+            speed = numbers.get("blade_speed_sfm")
+            return (
+                (_number(speed) + " sfm") if _known(speed) else "STOP: no blade speed",
+                "by hand along the line",
+                not _known(speed),
+            )
         if op.get("do") in SAW_OPS:
             speed = numbers.get("blade_speed_sfm")
             feed = numbers.get("feed_mm_min")
@@ -8059,7 +8142,9 @@ class _Traveler:
         rows, inspection_notes, worksheets = [], [], []
         where = {kind: f"{setup['id']} sheet {number}" for kind, number in sheets.items() if number}
         saw_table = any(op.get("do") in SAW_OPS for op in ops)
-        finishing = bool(ops) and all(op.get("do") in MANUAL for op in ops)
+        # A bench of hand steps, hand-saw cuts among them, runs no machine either.
+        bench = manual_bench(self.bundle, setup) is not None
+        finishing = bool(ops) and (bench or all(op.get("do") in MANUAL for op in ops))
         lathe = self.lathe(setup)
         # Each lathe op that runs the spindle turns it one way (:meth:`spindle_turn`). When
         # every one turns it the same known way, the heading says so once and the narrow
@@ -8083,14 +8168,12 @@ class _Traveler:
             saw = op.get("do") in SAW_OPS
             action = self.cut_depths(setup, op, lathe)
             if saw:
-                plane = _mapping(op.get("cut_plane"))
-                action.append(
-                    f"blade centre {_text(plane.get('axis')).upper()} "
-                    f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}"
-                )
+                action.append(self.saw_setting(op))
             reference = op.get("tool")
             if op.get("do") == "coating":
                 tool = self.coating(op)
+            elif manual and reference is None and _bonding_op(setup, op):
+                tool = self.compound_product(setup, setup["joint"]["compound"])
             elif manual and reference is None:
                 tool = "—"
             elif reference in (None, "unknown"):
@@ -8132,11 +8215,18 @@ class _Traveler:
                 "not_applicable" if manual or op.get("do") in _AXIAL_OPS else None,
             )
             direction = self.direction(direction)
+            scribed = saw and "follows" in op
             if saw:
-                direction = "keep " + _text(_mapping(op.get("cut_plane")).get("keep"))
+                direction = (
+                    "outside the line"
+                    if scribed
+                    else "keep " + _text(_mapping(op.get("cut_plane")).get("keep"))
+                )
             saw_numbers = self.records.get(("saw_cut", f"{setup['id']}:{op['op']}"), {})
             rest_cells, rest_lines = ([], []) if saw else self.rest_steps(setup, op)
-            if saw:
+            if scribed:
+                target = [self.saw_leave(op, "outside the line")]
+            elif saw:
                 target = [
                     "retained edge " + _number(saw_numbers.get("retained_boundary_mm")) + " mm"
                 ]
@@ -8237,7 +8327,13 @@ class _Traveler:
             )
             inspection = self.inspection(setup, op, inspection_notes, worksheets, sheets)
             if finishing:
-                cells = (_text(op["op"]), features, tool, instruction or ", ".join(action))
+                step = instruction or ", ".join(action)
+                if saw:
+                    # A hand-saw card: where the blade runs and what it leaves, then the note.
+                    step = " ".join(
+                        filter(None, [self.hand_saw_step(op, saw_numbers), instruction])
+                    )
+                cells = (_text(op["op"]), features, tool, step)
                 rows.append(
                     _Row(
                         (*cells, inspection), boxes, optional_observations=op.get("do") == "coating"
@@ -9421,6 +9517,29 @@ class _Traveler:
         elif stock.get("length_mm") == "unknown":
             dims += " × ? length not set"
         label = _STOCK_FORMS.get(form, _text(form) if form else "stock")
+        if profiled(stock):
+            # A bought profiled blank is sized by its cut file, not by bar dimensions: the
+            # receiving check is the kernel's box of that blank's own solid. The file
+            # itself is bound in the report, never printed for the bench; an unknown blank
+            # or an uncited tolerance prints as debt, never as a vendor fact.
+            blank = _mapping(stock.get("blank"))
+            tolerance, step = cited_tolerance(blank), blank.get("step")
+            box = _mapping(_mapping(self.bundle.kernel).get("blank_bbox_mm")).get(ref)
+            dims = (
+                " × ".join(o(box[i + 3] - box[i]) for i in range(3)) + " overall, "
+                if isinstance(box, list) and len(box) == 6
+                else ""
+            )
+            dims += (
+                "bought already cut to outline"
+                if isinstance(step, str) and step != "unknown"
+                else "bought already cut to outline, ? cut file not set"
+            )
+            dims += (
+                f", vendor cut tolerance ±{tolerance:g} mm"
+                if _known(tolerance)
+                else ", ? vendor cut tolerance not set or not cited"
+            )
         parts.append(f"{label} {dims}".strip())
         # The material itself is printed once, in the job header's material line.
         if stock.get("material") == "unknown":
@@ -9432,7 +9551,15 @@ class _Traveler:
                 self.metadata(key)
                 or key in _PLACEMENT_KEYS
                 or key
-                in {"form", "material", "dia_mm", "section_mm", "length_mm", "drawing_material"}
+                in {
+                    "form",
+                    "material",
+                    "dia_mm",
+                    "section_mm",
+                    "length_mm",
+                    "drawing_material",
+                    "blank",
+                }
                 or value in ("unknown", "not_applicable")
             ):
                 continue

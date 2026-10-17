@@ -2113,7 +2113,7 @@ def test_filing_kit_that_cannot_reach_r_is_an_error(tmp_path, guide, ops, messag
 
 
 def test_filing_without_a_rough_or_an_established_cap_is_unknown(tmp_path):
-    assert "no stairs or chain_drill op roughs target" in " ".join(
+    assert "no stairs, chain_drill or scribed-line saw op roughs target" in " ".join(
         filing(tmp_path / "rough", ops=DRILL_BORE).numbers["debts"]
     )
     plan = scratch(

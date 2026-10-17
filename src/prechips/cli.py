@@ -11,11 +11,13 @@ import re
 import sys
 import tomllib
 import uuid
+from copy import deepcopy
 from pathlib import Path
 
 from prechips import __version__, telemetry
 from prechips.findings import Finding, exit_code
 from prechips.inputs import BadInput, Bundle, load_bundle, load_inventory
+from prechips.model import profiled
 from prechips.report import (
     build_report,
     canonical_bytes,
@@ -140,12 +142,15 @@ def _write_outputs(
             temporary.unlink(missing_ok=True)
 
 
-def _evaluate(bundle: Bundle, tracing: telemetry.Telemetry):
+def _evaluate(bundle: Bundle, job: dict, tracing: telemetry.Telemetry):
+    """Every rule's findings on ``bundle``. Each geometry rule reads the bundle's kernel
+    job (prepared_job): ``job``, built once by the caller, is lent to each rule as a copy."""
     from prechips.rules import RULES, required_coverage
+    from prechips.rules.geometry_common import lend_job
 
     findings = []
     for rule in RULES:
-        with tracing.span(f"rule.{rule.name}.evaluate"):
+        with tracing.span(f"rule.{rule.name}.evaluate"), lend_job(bundle, job):
             rows = rule.evaluate(bundle)
         for finding in rows:
             with tracing.span(
@@ -516,6 +521,8 @@ def _stock_piece_volume(piece: dict, subject: str) -> dict:
         if round_form
         else "section_mm, length_mm"
         if rectangular_form
+        else "blank STEP (a profiled blank's volume is not compared)"
+        if profiled(piece)
         else "form, length_mm (shape unresolved)"
     )
     return {
@@ -694,10 +701,16 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
         destinations = _output_paths(out, names, all_inputs)
     except OSError as exc:
         raise BadInput(f"Cannot check output path: {exc}") from exc
-    from prechips.kernel import run_geometries
+    from prechips.kernel import build_job, run_geometries
 
-    run_geometries(bundles)
-    findings = [_evaluate(bundle, tracing) for bundle in bundles]
+    # One kernel job per bundle serves both the kernel request and every rule: the bundle
+    # does not change in between, and the job does not read the kernel's result.
+    jobs = []
+    for bundle in bundles:
+        with tracing.span("kernel.build_job"):
+            jobs.append(build_job(bundle))
+    run_geometries(bundles, [deepcopy(job) for job in jobs])
+    findings = [_evaluate(bundle, job, tracing) for bundle, job in zip(bundles, jobs, strict=True)]
     try:
         assets = [render_assets(bundle) for bundle in bundles]
         reports = [
