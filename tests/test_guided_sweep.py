@@ -377,6 +377,19 @@ def test_the_rail_is_checked_over_the_travel_the_stops_set(tmp_path, short):
         assert guided["stop_travel_deg"] > sweep
 
 
+def test_the_rail_is_narrowed_by_each_rollers_placement_error(tmp_path):
+    # A roller set to its printed contact (0.1 mm on X and on Y) and the sled's own shift
+    # through the rollers put each contact up to roller_slack_deg off its printed angle:
+    # a rail whose ends just hold the rollers over the stops' travel, but not that slack,
+    # leaves one running off (Codex review of #258 at 0fbfc47).
+    probe = recipe(guided_row(tmp_path / "probe", "rail"))[1]
+    travel, slack = probe["stop_travel_deg"], probe["roller_slack_deg"]
+    assert slack > 0
+    edge = 15.0 + travel / 2 + slack / 2
+    row = guided_row(tmp_path / "tight", "rail", rail_deg=f"[{-edge!r}, {edge!r}]")
+    assert "runs off the rail" in errors(row)
+
+
 def test_a_rail_across_the_half_turn_line_carries_its_rollers(tmp_path):
     # Ends at 160° and -160° are the 40° rail through 180°, behind the arc centre: rollers
     # at ±175° stay on it through the 25° sweep, one at 150° runs off. Ends half a turn

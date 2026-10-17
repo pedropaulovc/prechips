@@ -308,12 +308,14 @@ def _rail(sweep, errors, debts, record_):
     return gain
 
 
-def _rail_coverage(arc, sweep, record_, errors, debts):
+def _rail_coverage(arc, sweep, found, record_, errors, debts):
     """``rail_coverage`` over the travel the printed stops set, not the authored
     ``sweep_deg``: the stops sit on the arc ends' radial strokes, so the fixture turns the
     arc's span plus, at each end, the printed overrun and the stop's placement slop
     (``stop_slop_mm``) measured on the shortest touch reach (``stop_travel_deg``). A sweep
-    short of the arc within its tolerance still travels the whole span."""
+    short of the arc within its tolerance still travels the whole span. Each end of the
+    rail is narrowed further by how far a roller's contact may sit off its printed angle
+    (``roller_slack_deg``, :func:`_roller_slack`)."""
     span, overrun = arc.get("span_deg"), record_.get("stop_overrun_mm")
     slop, reach = record_.get("stop_slop_mm"), record_.get("touch_reach_min_mm")
     if not (number(span) and number(overrun) and number(slop) and number(reach) and reach > 0):
@@ -325,7 +327,37 @@ def _rail_coverage(arc, sweep, record_, errors, debts):
     travel = span + 2 * math.degrees((overrun + slop) / reach)
     record_["stop_travel_deg"] = travel
     rollers, rail = sweep.get("rollers_deg"), sweep.get("rail_deg")
-    record_["rail_coverage"] = _on_rail(rollers, rail, travel, errors, debts)
+    slack = _roller_slack(rollers, found)
+    if slack is None:
+        debts.append(
+            "the rollers' placement error is unbounded, so the rail is not proven to bear on "
+            "both rollers through the sweep"
+        )
+        return
+    record_["roller_slack_deg"] = slack
+    record_["rail_coverage"] = _on_rail(rollers, rail, travel, errors, debts, slack)
+
+
+def _roller_slack(rollers, found):
+    """How far (degrees about the arc centre) a roller's contact on the rail may sit off
+    its printed angle: the roller set to a contact printed to 0.1 mm on X and on Y (the
+    diagonal of two half-steps), plus the sled's own shift through the rollers when each
+    contact errs by that, the rail's form error and half its roller's runout
+    (:func:`_contact_error`), over the rail's radius. None when unknown or unbounded."""
+    found = found or {}
+    form, runout, radius = (
+        found.get(k) for k in ("rail_form_error", "roller_runout", "rail_radius")
+    )
+    if not (_pair(rollers) and number(form) and number(runout) and number(radius) and radius > 0):
+        return None
+    half = ROLLER_PRINT_MM / 2
+    placed = math.hypot(half, half)
+    contact = _contact_error(rollers, placed + form + runout / 2, radius)
+    if contact is None:
+        return None
+    a, b = (math.radians(v) for v in rollers)
+    shift = 2 * contact / abs(trig.sin(a - b))
+    return math.degrees((placed + shift) / radius)
 
 
 def _second_order(shift, radius):
@@ -400,10 +432,11 @@ def _wrap(angle):
     return -((-angle + 180.0) % 360.0 - 180.0)
 
 
-def _on_rail(rollers, rail, sweep_deg, errors, debts):
+def _on_rail(rollers, rail, sweep_deg, errors, debts, slack=0.0):
     """Whether each roller bears on the rail through the whole sweep: ``"proven"``,
     ``"off"`` (an error per roller) or ``"unknown"`` (a debt). A roller must stand within
-    the rail's arc narrowed by half the sweep at both ends. The rail is the shorter arc
+    the rail's arc narrowed at both ends by half the sweep and its own placement ``slack``
+    (degrees). The rail is the shorter arc
     between its two ends (a sled's rail is under half a turn), wherever it lies about the
     centre, across the ±180° line included; ends half a turn apart leave its side
     unknown."""
@@ -414,7 +447,7 @@ def _on_rail(rollers, rail, sweep_deg, errors, debts):
             "side of the arc centre the rail runs is unknown"
         )
         return UNKNOWN
-    middle, reach = rail[0] + turn / 2, abs(turn) / 2 - sweep_deg / 2
+    middle, reach = rail[0] + turn / 2, abs(turn) / 2 - sweep_deg / 2 - slack
     coverage = "proven"
     for angle in rollers:
         if abs(_wrap(angle - middle)) > reach + _JOIN_TOL:
@@ -965,7 +998,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
     _marks(bundle, setup, op, record_, label, debts, scale)
     _start_clear(bundle, setup, arc, label, debts, record_, scale, grid)
     if gain is not None and _pair(sweep.get("rail_deg")):
-        _rail_coverage(arc, sweep, record_, errors, debts)
+        _rail_coverage(arc, sweep, found, record_, errors, debts)
     _radial(arc, record_, axis, label, errors, grid)
     if measurements:
         by_id = {entry["id"]: entry for entry in measurements}

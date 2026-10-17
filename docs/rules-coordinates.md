@@ -472,7 +472,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   the travel the printed stops set (`stop_travel_deg`: the arc's span plus, at each end,
   the printed overrun and the stop's placement slop `stop_slop_mm` on the shortest
   touch reach, so a sweep short of the arc within its tolerance still travels the whole
-  span; each roller within `rail_deg` narrowed by half that travel at both ends;
+  span; each roller within `rail_deg` narrowed at both ends by half that travel and by
+  its placement slack `roller_slack_deg`, its printed contact's 0.1 mm X/Y rounding plus
+  the sled's own shift through the rollers, over the rail radius;
   the rail is the shorter arc between its ends, across the ±180° line too, and ends
   half a turn apart leave its side unknown) and must not lie on one line through the
   centre, else an error; the traveler prints the sweep only once `rail_coverage` is
