@@ -1127,8 +1127,14 @@ screens remain in effect, including on a dedicated bandsaw setup.
 
 A saw that `follows` an earlier scribe op's line has no plane: it removes only
 its declared `stock_removal_bounds` box (clipped to the current operation stock,
-plan units scaled to mm) and reads no blade kerf. The kernel never infers a curved
-kerf from the scribed line and does not model break-out or chisel removal (#213).
+plan units scaled to mm) and reads no blade kerf. When the scribed feature is an
+arc, the host sends its layout in the saw setup's frame (`scribed_profile`: centre,
+radius in mm, and which side of the circle the saw takes) and the kernel clips the
+box with a Z-axis cylinder offset by `allowance_mm`: it removes outside `R + a` when
+the part lies inside the circle, inside `R - a` when it lies outside. An arc whose
+layout is unknown, or an arc with an unknown allowance, removes nothing and is a
+`saw_reason`. A straight scribed line keeps the box alone. The kernel does not
+model break-out or chisel removal (#213).
 An omitted or unknown box removes nothing: the saw's `saw_reason` reads "declare
 stock_removal_bounds for <setup:op> …", the `saw_cut` finding is `?`, and the
 stock after it stays unknown for later ops and setups. A box that misses the stock
@@ -1136,8 +1142,8 @@ is a no-op error; one that removes finished target, leaves no stock or splits on
 input solid into loose pieces is an error, as for a straight cut. The retained
 material between the removed stock and the finished target is reported as
 `retained_to_target_mm` (the minimum distance between the two solids); below the
-op's `allowance_mm` it is an error naming both. An unknown allowance keeps the
-removal but leaves the finding `?`; an empty finished target in that setup leaves
+op's `allowance_mm` it is an error naming both. An unknown allowance on a straight
+line keeps the box removal but leaves the finding `?`; an empty finished target in that setup leaves
 `retained_to_target_mm` unknown. The finding reports `follows`, the declared box,
 `allowance_mm`, `retained_to_target_mm` and the before/after and removed volumes;
 it has no kerf or offcut volume.

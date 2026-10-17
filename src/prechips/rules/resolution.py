@@ -941,8 +941,10 @@ def saw_tool(bundle, op):
 
 def saw_station(bundle, setup, op):
     """Whether a saw op's machine can carry its tool: ``"fits"``; ``"wrong_station"``
-    (a known pair that cannot, or a non-saw tool); ``"unknown"`` while the tool or the
-    machine is unresolved or unverified (debt never establishes a fit or a mismatch)."""
+    (a known pair that cannot, or a non-saw tool); ``"no_vertical_mode"`` (a bandsaw cut
+    that follows a scribed line, on a bandsaw whose ``saw_modes`` lack ``"vertical"``);
+    ``"unknown"`` while the tool or the machine, or such a bandsaw's modes, are unresolved
+    or unverified (debt never establishes a fit or a mismatch)."""
     tool = saw_tool(bundle, op)
     if tool == "not_a_saw":
         # No machine can make a verified non-saw a saw.
@@ -951,7 +953,18 @@ def saw_station(bundle, setup, op):
     kind = machine.get("kind", UNKNOWN)
     if tool in ("unknown", "unverified") or kind == UNKNOWN or uncertain(machine):
         return "unknown"
-    return "fits" if kind in SAW_MACHINES[tool] else "wrong_station"
+    if kind not in SAW_MACHINES[tool]:
+        return "wrong_station"
+    if tool != "bandsaw" or "follows" not in op:
+        return "fits"
+    # A powered blade follows a scribed curve only as a vertical bandsaw, the work fed by
+    # hand on its table.
+    if kind != "bandsaw":
+        return "wrong_station"
+    modes = machine.get("saw_modes", UNKNOWN)
+    if not isinstance(modes, list):
+        return "unknown"
+    return "fits" if "vertical" in modes else "no_vertical_mode"
 
 
 def saw_setup(setup):

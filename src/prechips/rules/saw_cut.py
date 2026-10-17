@@ -43,6 +43,9 @@ _MISMATCH = {
     "not_a_saw": "selected saw tool is not a bandsaw blade or hand saw",
     "hand_saw": "a hand saw cuts only at a bench or manual station",
     "bandsaw": "saw cut-off requires a mill, bench or bandsaw machine",
+    "scribed_bandsaw": "a bandsaw blade follows a scribed line only on a vertical bandsaw",
+    "no_vertical_mode": "the bandsaw declares no vertical saw_modes, so it cannot follow a "
+    "scribed line",
 }
 
 
@@ -98,8 +101,16 @@ def evaluate(bundle):
                 debts.append(debt)
         invalid = []
         missing = []
-        if saw_station(bundle, setup, op) == "wrong_station":
-            invalid.append(_MISMATCH[tool])
+        station = saw_station(bundle, setup, op)
+        if station == "wrong_station":
+            invalid.append(_MISMATCH["scribed_bandsaw" if scribed and tool == "bandsaw" else tool])
+        if station == "no_vertical_mode":
+            invalid.append(_MISMATCH[station])
+        if station == "unknown" and scribed and tool == "bandsaw":
+            missing.append(
+                f"declare the saw_modes of machine {setup.get('machine', UNKNOWN)}: a bandsaw "
+                "blade follows a scribed line only in vertical mode"
+            )
         if not scribed and kerf["verified"] and number(kerf["value"]) and kerf["value"] <= 0:
             invalid.append("blade kerf must be positive")
         if not machine or machine.get("kind", UNKNOWN) == UNKNOWN or uncertain(machine):

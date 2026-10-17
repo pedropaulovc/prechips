@@ -1351,6 +1351,12 @@ sheet.
    roughs the arc for the following `file_to_line`. The traveler prints a
    hand-saw card. Explicit break-out/chisel removal (#213) stays open.
 
+   **Vertical bandsaw to a scribed curve (2026-10-17, #249):** a bandsaw blade
+   follows a scribed line on a bandsaw whose `saw_modes` include `"vertical"`
+   (undeclared modes are debt), hand-fed with a sourced blade speed and no descent
+   feed. A saw following a scribed arc removes its declared box clipped to the arc
+   offset by `allowance_mm`, so the stock prediction follows the curve.
+
    **Process features shipped (2026-10-06, round-4 ShaftPrep):** plan-owned
    `process_features` (`end_face`, `centre_hole`) are stock preparation the
    kernel cuts through transient faces and later stock states carry; they earn

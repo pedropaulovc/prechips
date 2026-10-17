@@ -149,6 +149,11 @@ fact-local verification debt withholds geometry. An example blade's kerf
 follows the examples policy (a demonstration-fixture record or a cited
 catalogue value), never a fabricated shop measurement.
 
+A bandsaw machine may declare `saw_modes = ["horizontal", "vertical"]` (either or
+both). Only a `"vertical"` mode lets its blade follow a scribed line, the work fed
+by hand on the table; undeclared modes leave such a cut `?`, and a straight cut
+needs none.
+
 A hand saw (a hacksaw or junior hacksaw) is `tools.<saw>.kind = "hand_saw"`. It
 cuts only on a `bench` or `manual` machine and needs no `blade_speed_sfm` or
 cutting-data row. A straight hand-saw cut reads the same `kerf_mm` / `kerf_in`
@@ -926,6 +931,7 @@ plan's stock.
 | `angle_deg` | `float` |
 | `point_angle` | `MeasuredAngle` |
 | `blade_speed_sfm` | `[Number, Number]` (machine blade-speed limits) |
+| `saw_modes` | `["horizontal" \| "vertical", ...]` (bandsaw running modes) |
 | `kerf_mm` / `kerf_in` | `MeasuredLength` (selected bandsaw blade or hand saw) |
 | `flute_len` | `MeasuredLength` |
 | `oal` | `MeasuredLength` |

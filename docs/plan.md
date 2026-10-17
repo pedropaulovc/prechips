@@ -1695,15 +1695,38 @@ note = "Saw just outside the scribed line."
 ```
 
 The box is the author's declaration of what the cut removes, the same contract
-as a mill op's clearing box: the kernel removes only the stock inside it, never
-infers a curved kerf from the line, and does not model break-out or chisel work
-(#213). An omitted or unknown box removes nothing and is plan-input debt: the
-`saw_cut` finding is `?` with "declare stock_removal_bounds for <setup:op>", and
-later stock stays unknown. The box must stay at least `allowance_mm` clear of the
-finished target, else `✗`; an unknown allowance is `?`. A box cannot follow a
-curve, so the file may face more than the allowance where the line falls away;
-the following `file_to_line` checks the stock it actually meets against the
+as a mill op's clearing box: the kernel removes only the stock inside it and does
+not model break-out or chisel work (#213). When the scribed feature is an arc (its
+layout in the saw setup's frame, as the `scribe` card prints it), the box is
+clipped to stay `allowance_mm` outside that arc: outside the circle grown by the
+allowance for a part inside it, inside the circle shrunk by it for a part outside
+it. The removal then follows the curve, as the operator's blade does. A straight
+scribed line keeps the box alone. An arc whose layout in the saw setup is unknown,
+or an unknown allowance on an arc, removes nothing and is `?`. An omitted or
+unknown box removes nothing and is plan-input debt: the `saw_cut` finding is `?`
+with "declare stock_removal_bounds for <setup:op>", and later stock stays unknown.
+The removal must stay at least `allowance_mm` clear of the finished target, else
+`✗`. The following `file_to_line` checks the stock it actually meets against the
 shop's `max_filing_stock_mm`, and counts this saw as the rough it finishes.
+
+A powered bandsaw follows a scribed curve the same way in vertical mode, the work
+fed by hand on its table: a `bandsaw` blade on a `bandsaw` machine whose
+inventory `saw_modes` include `"vertical"`. Modes without `"vertical"` are `✗`;
+undeclared modes, an unverified machine or blade (its kerf included) are `?`; a
+bandsaw blade following a line on a mill or bench is `✗`. Blade speed comes from
+the cited `saw_cut` row as for any bandsaw cut, but there is no descent feed: the
+card prints "by hand along the line" and "leave <allowance> mm outside the line".
+A straight bandsaw cut needs no vertical mode.
+
+```toml
+[[setups.ops]]
+op = 10
+do = "saw_cut"
+tool = "bandsaw-blade-4-6"       # kind = "bandsaw"; machine saw_modes = ["horizontal", "vertical"]
+follows = "S4:20"                # the R816 arc's scribe
+allowance_mm = 1.0               # left for the trammel pass
+stock_removal_bounds = { x = [-150.0, 150.0], y = [-10.0, 6.0], z = [-20.0, 1.0] }
+```
 
 A setup on a `bench`/`manual` machine whose saws all use a verified `hand_saw`
 tool, with otherwise only bench actions (`fit`, `inspect`, `deburr`, `coating`, `scribe`,

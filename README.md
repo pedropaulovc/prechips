@@ -257,7 +257,9 @@ not apply. A [hand saw on the bench](docs/plan.md#hand-saw-on-the-bench-straight
 (`kind = "hand_saw"` on a bench/manual machine) keeps the manual-bench waiver and
 has no blade speed; it cuts straight on a `cut_plane` or `follows` an earlier
 scribe op's line, removing only its declared `stock_removal_bounds` and leaving
-at least `allowance_mm` outside the line for the file (unknown extent is `?`). Dividing-head headroom uses centre height and the posed axis offset,
+at least `allowance_mm` outside the line for the file (unknown extent is `?`). A
+bandsaw in vertical mode (`saw_modes`) follows a scribed curve the same way, hand-fed;
+along a scribed arc the predicted removal follows the curve, offset by the allowance. Dividing-head headroom uses centre height and the posed axis offset,
 and child hole operations inherit a missing travel centre from their named
 parent/hole while explicit unknown locations remain debt.
 

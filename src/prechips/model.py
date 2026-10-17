@@ -1761,6 +1761,8 @@ InventoryItem = record(
         ),
         "point_angle": MeasuredAngle,
         "blade_speed_sfm": Annotated[list[Number], Field(min_length=2, max_length=2)],
+        # A bandsaw's running modes: only a vertical one follows a scribed curve.
+        "saw_modes": Annotated[list[Literal["horizontal", "vertical"]], Field(min_length=1)],
         **dict.fromkeys(
             (
                 "dia",
