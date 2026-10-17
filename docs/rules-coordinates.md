@@ -490,7 +490,8 @@ naming them. Each table is recorded under `arc_table` (its joins under
   stage's stops are set, before any rough back-off), the cutter widened by the most the master-set
   cut (`cut_radius_mm`) stands off the nominal wall the rows assume, and by the arc
   that radius range turns the measured overrun through (it is measured along the real
-  path), by half the mark's placement step and by the stop's shift when the stroke's
+  path), by the mark's placement rounding (its X and Y each up to half a step off,
+  the diagonal of the two) and by the stop's shift when the stroke's
   printed angle is off by half its 0.1° step across a cutter radius plus that spread
   (`start_reach_mm`), else `unproven` and unknown, since nothing
   checks a plunge for a sweep. The traveler prints the recipe only with a known band

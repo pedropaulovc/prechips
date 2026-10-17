@@ -793,7 +793,68 @@ def test_the_stop_is_set_by_where_the_stroke_runs_not_its_direction(tmp_path):
     sweep = recipe(row)[1]
     radial = max(abs(c - 800.0) for c in sweep["cut_radius_mm"])
     tilt = (3.0 + radial) * math.tan(math.radians(0.05))
-    assert sweep["start_reach_mm"] >= 3.0 + radial + 0.05 + tilt - 1e-9
+    assert sweep["start_reach_mm"] >= 3.0 + radial + math.hypot(0.05, 0.05) + tilt - 1e-9
+
+
+def test_a_start_proven_in_air_holds_at_the_stop_the_printed_marks_set(tmp_path):
+    # Rebuild the stop the operator sets from what the layout prints: each mark's X and Y
+    # rounded to 0.1 mm on their own, its stroke's angle to 0.1°. With a stock box just
+    # inside the clearance the proof claims, the cutter at that stop must still be in air,
+    # an oblique mark's two roundings included (Codex local round 12: R800, 24.3° sweep).
+    from prechips.rules.level_entry import in_air
+    from prechips.rules.manual_arc import arc_end_marks
+
+    plan = guided_plan(tmp_path)
+    inventory = plan.with_name("inventory.toml")
+    change(inventory, "value = 0.02,", "value = 0.0,")
+    change(inventory, "value = [800.10, 800.12],", "value = [800.0, 800.0],")
+    bundle = load_bundle(plan)
+    setup = bundle.plan["setups"][0]
+    sweep = setup["ops"][1]["contour"]["sweep"]
+    proven = 0
+    for step in range(100):
+        sweep["sweep_deg"] = 24.0 + step * 0.01
+        probe = dataclasses.replace(
+            bundle, kernel={"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
+        )
+        guided = recipe(coordinates.evaluate(probe)[0])[1]
+        assert guided["cut_radius_mm"] == [800.0, 800.0]
+        line = coordinates.arc_layout(probe, setup, "target")
+        start = 0 if guided["marks"]["start"] == "A" else 1
+        x, _ = guided["start_xy"]
+        box = [-500.0, -500.0, -10.0, x - guided["start_reach_mm"] - 0.0015, 0.0, 0.0]
+        box[4] = line["ends_setup_xy"][start][1] + 10.051
+        boxed = dataclasses.replace(
+            bundle, kernel={"status": "ok", "setups": {"S1": {"stock_bbox_mm": box}}}
+        )
+        table, guided = recipe(coordinates.evaluate(boxed)[0])
+        if guided["start"] != "air":
+            continue
+        proven += 1
+        centre = table["centre_setup_xy"]
+        marks, _ = arc_end_marks(boxed, setup, line["ends_setup_xy"], 1.0, centre)
+        mark = marks[start]
+        at = [
+            box[0] + mark["x"] if mark["x_face"].startswith("-") else box[3] - mark["x"],
+            box[1] + mark["y"] if mark["y_face"].startswith("-") else box[4] - mark["y"],
+        ]
+        # The stroke's line, run to where it crosses the R797 cutter path nearest the end.
+        along = [math.cos(math.radians(mark["angle"])), math.sin(math.radians(mark["angle"]))]
+        off = [at[0] - centre[0], at[1] - centre[1]]
+        dot = off[0] * along[0] + off[1] * along[1]
+        root = math.sqrt(dot * dot - (off[0] ** 2 + off[1] ** 2) + 797.0**2)
+        crossings = [[at[k] + t * along[k] for k in (0, 1)] for t in (-dot - root, -dot + root)]
+        end = guided["ends_cutter_setup_xy"][0]
+        cross = min(crossings, key=lambda point: math.dist(point, end))
+        # Then on by the printed overrun, outward, the way the ideal start lies.
+        ideal = math.atan2(guided["start_xy"][1] - centre[1], guided["start_xy"][0] - centre[0])
+        nominal = math.atan2(end[1] - centre[1], end[0] - centre[0])
+        outward = math.copysign(1.0, ideal - nominal)
+        turn = math.atan2(cross[1] - centre[1], cross[0] - centre[0])
+        turn += outward * guided["stop_overrun_mm"] / 797.0
+        real = [centre[0] + 797.0 * math.cos(turn), centre[1] + 797.0 * math.sin(turn)]
+        assert in_air(box, real, 3.0, 1.0), (sweep["sweep_deg"], mark, real, box)
+    assert proven == 100
 
 
 def test_a_back_off_off_the_radial_line_is_carried_into_the_cut():
