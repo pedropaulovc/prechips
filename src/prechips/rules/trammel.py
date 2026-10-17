@@ -499,7 +499,8 @@ def recipe(bundle, setup, op, arc, band, label, scale):
             )
     _rotation(arc, label, debts, record_, scale)
     if window and pinned and number(gain):
-        _stops_proof(arc, record_, pins, window, label, errors, debts)
+        _stops_proof(arc, record_, found, pins, window, label, errors, debts, scale)
+        _travel(record_, found, label, errors)
         _start_clear(bundle, setup, arc, record_, pins, window, label, debts, scale)
     else:
         record_.update(stops="unproven", start="unproven")
@@ -514,54 +515,138 @@ def recipe(bundle, setup, op, arc, band, label, scale):
     return errors, debts
 
 
-def _stop_band(record_, pins, psi):
-    """``[least, greatest]`` pose (degrees from the heading) a stop set on rail 1 for pose
-    ``psi`` can hold, over every pin radius the budget allows and a station off by
-    :data:`STATION_ERROR_MM`; None when it cannot be bounded."""
-    nominal = record_["pin_radius_mm"]
-    terms = record_.get("error_terms_mm") or {}
-    radii = [nominal - terms.get("radius_below", 0.0), nominal + terms.get("radius_above", 0.0)]
-    found = []
-    error = STATION_ERROR_MM + record_.get("margin_mm", 0.0)
-    for r in radii:
-        band = stop_poses(r, pins[0], psi, error)
-        if band is None:
-            return None
-        found.extend(band)
-    return [min(found), max(found)]
+def _carried(pins, rails_, offsets, theta):
+    """(cutter centre in the carrier's frame, both pins' stations along their rails) with
+    the carrier turned ``theta`` degrees: table ``y = Rot(θ) x + t``, the spindle at the
+    table origin, each pin on its rail's pin-line offset by ``offsets[i]`` along the
+    line's normal, ``n_i · (Rot P_i + t) = e_i``; mm. None when the lines are parallel."""
+    normals = [[-r[1], r[0]] for r in rails_]
+    moved = [_turn(p, theta) for p in pins]
+    b = [offsets[i] - sum(normals[i][k] * moved[i][k] for k in range(2)) for i in range(2)]
+    det = normals[0][0] * normals[1][1] - normals[0][1] * normals[1][0]
+    if abs(det) < 1e-12:
+        return None
+    t = [
+        (b[0] * normals[1][1] - b[1] * normals[0][1]) / det,
+        (normals[0][0] * b[1] - normals[1][0] * b[0]) / det,
+    ]
+    stations = [sum(rails_[i][k] * (moved[i][k] + t[k]) for k in range(2)) for i in range(2)]
+    return _turn([-t[0], -t[1]], -theta), stations
 
 
-def _stops_proof(arc, record_, pins, window, label, errors, debts):
+def _stopped(pins, rails_, offsets, target, guess, reach=4.0):
+    """The carrier turn (degrees) at which pin 1 stands at ``target`` mm along rail 1,
+    bracketed within ``reach`` degrees of ``guess`` and found by bisection; None when the
+    bracket holds no such pose."""
+    lo, hi = guess - reach, guess + reach
+    ends = [_carried(pins, rails_, offsets, t) for t in (lo, hi)]
+    if None in ends:
+        return None
+    s_lo, s_hi = (end[1][0] - target for end in ends)
+    if s_lo * s_hi > 0:
+        return None
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        s_mid = _carried(pins, rails_, offsets, mid)[1][0] - target
+        if s_mid * s_lo <= 0:
+            hi = mid
+        else:
+            lo, s_lo = mid, s_mid
+    return (lo + hi) / 2
+
+
+def _stop_envelope(arc, record_, found, pins, window, scale):
+    """Where each stop can hold the carrier on the real fixture (#289): for every corner
+    of the measured tolerances (the rails' crossing opened or closed by its error, the
+    pins' spacing either way, each pin-line off by its pin clearance plus rail offset
+    either way) and a stop set at its printed station (0.1 mm) off by a rule's reading
+    plus one DRO step either way, the carrier's pose is solved from the two pin-on-line
+    constraints. Records per stop ``stop_bands_deg`` (the cutter's angle about the arc
+    centre from the heading, least and greatest), ``stop_radial_mm`` (how far the cutter
+    centre stands off the nominal path there, worst case) and ``stop_stations_mm`` (each
+    pin's least and greatest station at the stops). False when a pose cannot be solved."""
+    import itertools
+
+    heading = window[0]
+    centre = [v * scale for v in arc["centre_setup_xy"]]
+    r_pin, nominal = record_["pin_radius_mm"], arc["cutter_centre_radius_mm"] * scale
+    alpha_err, spacing_err = found["rail_angle_error"], found["pin_spacing_error"]
+    line = found["pin_clearance"] + found["rail_offset"]
+    error = RULE_READING_MM + record_["margin_mm"]
+    base = [[centre[i] + r_pin * _u(heading + a)[i] for i in range(2)] for a in pins]
+    chord = [base[1][i] - base[0][i] for i in range(2)]
+    length = math.hypot(*chord)
+    chord = [v / length for v in chord]
+    r1, r2 = record_["rails_dir"]
+    rows = arc["rows"]
+    poses = [_pose_angle(rows[i]["setup_xy"], arc["centre_setup_xy"], heading) for i in (0, -1)]
+    printed = [round(v, 1) for v in record_["stations_mm"][0]]
+    bands, radial, stations = [], 0.0, [[math.inf, -math.inf], [math.inf, -math.inf]]
+    for psi, target in zip(poses, printed, strict=True):
+        angles = []
+        corners = itertools.product(
+            (-alpha_err, alpha_err),
+            (-spacing_err, spacing_err),
+            (-line, line),
+            (-line, line),
+            (-error, error),
+        )
+        for da, dd, e1, e2, slip in corners:
+            pins_ = [
+                [base[0][i] - dd / 2 * chord[i] for i in range(2)],
+                [base[1][i] + dd / 2 * chord[i] for i in range(2)],
+            ]
+            rails_ = [_turn(r1, -da / 2), _turn(r2, da / 2)]
+            theta = _stopped(pins_, rails_, (e1, e2), target + slip, -psi / 2)
+            if theta is None:
+                return False
+            cutter, at = _carried(pins_, rails_, (e1, e2), theta)
+            bearing = math.degrees(trig.atan2(cutter[1] - centre[1], cutter[0] - centre[0]))
+            angles.append(_wrap(bearing - heading))
+            radial = max(radial, abs(math.dist(cutter, centre) - nominal))
+            for k in range(2):
+                stations[k] = [min(stations[k][0], at[k]), max(stations[k][1], at[k])]
+        bands.append([min(angles), max(angles)])
+    record_.update(stop_bands_deg=bands, stop_radial_mm=radial, stop_stations_mm=stations)
+    return True
+
+
+def _stops_proof(arc, record_, found, pins, window, label, errors, debts, scale):
     """The stops are clamped on rail 1 at the printed stations by a steel rule (``stops``
-    ``"proven"`` only when this holds): set anywhere within :data:`STATION_ERROR_MM` of
-    them, each must still hold the carrier past its arc end, so the cutter reaches the
-    arc's whole span; a stop that could fall short is an error (sweep farther). Records
-    each stop's worst pose band ``stop_bands_deg``."""
+    ``"proven"`` only when this holds): wherever the real fixture and a stop set off its
+    station can hold the carrier (:func:`_stop_envelope`), each stop must still hold it
+    past its arc end, so the cutter reaches the arc's whole span; a stop that could fall
+    short is an error (sweep farther)."""
     heading, lo, hi = window
     centre, rows, ends = arc["centre_setup_xy"], arc["rows"], arc.get("arc_ends_deg")
     record_["stops"] = "unproven"
     if not rows or not isinstance(ends, list):
         debts.append(f"{label}: the sweep's stops are unknown")
         return
+    from .resolution import number
+
+    keys = ("rail_angle_error", "pin_spacing_error", "pin_clearance", "rail_offset")
+    if not all(number(found.get(key)) for key in keys):
+        # Unmeasured tolerances bound no pose: the stops stay unproven (the facts' own
+        # debts name them).
+        return
+    if not _stop_envelope(arc, record_, found, pins, window, scale):
+        debts.append(f"{label}: the stops' poses cannot be bounded from the rail stations")
+        return
     poses = [_pose_angle(rows[i]["setup_xy"], centre, heading) for i in (0, -1)]
-    # The arc's own ends as poses: the rows at the arc ends lie inside the sweep's.
     span = record_.get("span_deg")
     first_side = 1 if poses[0] > poses[1] else -1
     arc_ends = [first_side * span / 2, -first_side * span / 2]
-    bands = [_stop_band(record_, pins, psi) for psi in poses]
-    if any(band is None for band in bands):
-        debts.append(f"{label}: the stops' poses cannot be bounded from the rail stations")
-        return
-    record_["stop_bands_deg"] = bands
+    bands = record_["stop_bands_deg"]
     for band, end, side in zip(bands, arc_ends, (first_side, -first_side), strict=True):
         # The stop's nearest pose to the arc must still lie past that arc end.
         nearest = band[0] if side > 0 else band[1]
         if side * (nearest - end) < 0:
             errors.append(
-                f"{label}: a stop set {STATION_ERROR_MM + record_['margin_mm']:g} mm off its "
-                "printed rail station "
-                f"could hold the carrier {abs(nearest - end):.3f}° short of the arc's end: "
-                "sweep farther past the arc's ends"
+                f"{label}: a stop set {RULE_READING_MM + record_['margin_mm']:g} mm off its "
+                "printed rail station, on a fixture at its measured tolerances, could hold "
+                f"the carrier {abs(nearest - end):.3f}° short of the arc's end: sweep farther "
+                "past the arc's ends"
             )
             return
     record_["stops"] = "proven"
@@ -591,8 +676,8 @@ def _arc_clear(box, centre, r, heading, band, reach, scale):
 
 def _start_clear(bundle, setup, arc, record_, pins, window, label, debts, scale):
     """The cutter goes down at the first stop: ``start`` ``"air"`` only when, at every pose
-    the first stop can hold (:func:`_stops_proof`'s band) and on every cut radius the
-    budget allows, the cutter stands wholly outside the stock box the setup receives
+    the first stop can hold on the real fixture (:func:`_stop_envelope`, its pose band
+    and radial offset), the cutter stands wholly outside the stock box the setup receives
     (:func:`~.level_entry.in_air`), as for every guided sweep; else ``"unproven"`` and
     debt, so the traveler stops."""
     from .level_entry import stock_box
@@ -604,10 +689,8 @@ def _start_clear(bundle, setup, arc, record_, pins, window, label, debts, scale)
     centre = arc["centre_setup_xy"]
     nominal = arc["cutter_centre_radius_mm"] * scale
     if bands and isinstance(cut, list) and isinstance(radius, (int, float)):
-        wall = arc["wall_radius_mm"] * scale
-        # How far the real cutter centre stands off the nominal path, radially.
-        spread = max(abs(cut[0] - wall), abs(cut[1] - wall))
-        reach = radius + spread + record_["margin_mm"]
+        # How far the real cutter centre stands off the nominal path there, radially.
+        reach = radius + record_["stop_radial_mm"] + record_["margin_mm"]
         box = stock_box(bundle, setup)
         clear = _arc_clear(box, centre, nominal / scale, heading, bands[0], reach, scale)
         if clear:
@@ -623,10 +706,8 @@ def _start_clear(bundle, setup, arc, record_, pins, window, label, debts, scale)
 def _pose(arc, record_, found, pins, window, r_plan, scale, errors, label):
     """Record the carrier's motion over the sweep from the exact pose: its turn, each
     pin's station along its rail at the sweep's start and end (in cutting order) and
-    their extremes, which must stay within the rails' measured travel; returns the
+    their extremes (checked against the rails' travel by :func:`_travel`); returns the
     pin-lines' worst radius gain (:func:`line_gain`)."""
-    from .resolution import number
-
     heading, lo, hi = window
     centre, rows = arc["centre_setup_xy"], arc["rows"]
     r_mm = r_plan * scale
@@ -641,19 +722,38 @@ def _pose(arc, record_, found, pins, window, r_plan, scale, errors, label):
     record_["stations_mm"] = stations  # per rail: [at the start, at the end]
     record_["station_ranges_mm"] = ranges
     record_["rail_travel_used_mm"] = [high - low for low, high in ranges]
-    travel = found.get("rail_travel")
-    if isinstance(travel, list) and len(travel) == 2 and all(map(number, travel)):
-        near, far = travel
-        for index, (low, high) in enumerate(ranges, start=1):
-            if low < near - 1e-6 or high > far + 1e-6:
-                errors.append(
-                    f"{label}: pin {index}'s carriage runs {low:.1f} to {high:.1f} mm from the "
-                    f"spindle axis along its rail over the sweep, beyond the rail's "
-                    f"{near:g} to {far:g} mm travel"
-                )
     gain = _gain_over_angle(directions, heading, lo, hi, found.get("rail_angle_error"))
     record_["line_gain"] = gain if gain is not None else "unknown"
     return gain if gain is not None else "unknown"
+
+
+def _travel(record_, found, label, errors):
+    """Each pin's carriage must stay within its rail's measured travel over the sweep on
+    the real fixture: its stations at the stops at every tolerance corner and stop
+    setting (:func:`_stop_envelope`), and the nominal sweep's interior extremes (the
+    station runs monotone between them; a chord through the pin circle's diameter peaks
+    inside, which the nominal range catches), each widened by one DRO step."""
+    from .resolution import number
+
+    travel, envelope = found.get("rail_travel"), record_.get("stop_stations_mm")
+    nominal = record_.get("station_ranges_mm")
+    if not (isinstance(travel, list) and len(travel) == 2 and all(map(number, travel))):
+        return
+    if not (isinstance(envelope, list) and isinstance(nominal, list)):
+        return
+    near, far = travel
+    margin = record_["margin_mm"]
+    used = []
+    for index, (stops, swept) in enumerate(zip(envelope, nominal, strict=True), start=1):
+        low, high = min(stops[0], swept[0]) - margin, max(stops[1], swept[1]) + margin
+        used.append([low, high])
+        if low < near - 1e-6 or high > far + 1e-6:
+            errors.append(
+                f"{label}: pin {index}'s carriage may run {low:.1f} to {high:.1f} mm from the "
+                "spindle axis along its rail over the sweep on a fixture at its measured "
+                f"tolerances, beyond the rail's {near:g} to {far:g} mm travel"
+            )
+    record_["station_envelope_mm"] = used
 
 
 # Rail-angle samples the pin-line gain is maximized over, across the measured error.
