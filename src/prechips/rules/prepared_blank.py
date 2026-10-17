@@ -301,9 +301,11 @@ def _form(bundle, gauge_ref, method, limit, row):
         return "unknown", "the check's gauge is undeclared"
     if gauge.get("kind", UNKNOWN) not in _FORM_GAUGES:
         return "error", f"a {gauge.get('kind', UNKNOWN)} cannot read flatness or squareness"
-    # Only the resolution fact's own trust lets it establish or refute capability.
+    # Only the resolution fact's own trust lets it establish or refute capability; a
+    # step that is not positive reads nothing, so it is never sufficient (#315).
     fact = length_fact(gauge, "resolution", require_measured=False)
-    resolution = fact["value"] if fact["verified"] else UNKNOWN
+    trusted = fact["verified"] and number(fact["value"]) and fact["value"] > 0
+    resolution = fact["value"] if trusted else UNKNOWN
     row["resolution_mm"] = resolution
     if not procedure_known(method):
         return "unknown", "the check's method is unwritten"

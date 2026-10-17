@@ -143,7 +143,10 @@ band's m. A BASIC angle a surface profile bounds by `tilt_across` is read likewi
 ([Surface profiles](#surface-profiles)). An unknown length leaves
 `tilt_across_length = "unknown"` with `tilt_across_reason`, and no angular gauge
 capability.
-Unverified gauge range/resolution cannot prove a dimensional error or pass.
+Unverified gauge range/resolution cannot prove a dimensional error or pass. A
+resolution that is not positive is refused at load
+([inventory](inventory.md)); a rule that meets one anyway reads it as unresolved,
+never as sufficient.
 Roughness capability is unresolved without explicit range evidence. A gauge of a
 roughness kind (e.g. `roughness_comparator`) declares it with the inventory field
 `ra_range = [low_um, high_um]`; the Ra limit must lie inside that range. Without

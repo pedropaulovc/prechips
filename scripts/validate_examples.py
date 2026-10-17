@@ -1613,7 +1613,9 @@ def gauge_resolution(gauge: dict):
     member identity so Entries does not reject that record as an unselected whole set.
     """
     entries = Entries({"gauges": {"selected": {"members": {"resolved": gauge}}}})
-    return tool_length_mm("selected/resolved", "resolution", entries, "gauges")
+    resolution = tool_length_mm("selected/resolved", "resolution", entries, "gauges")
+    # A step that is not positive reads nothing: never a sufficient resolution (#315).
+    return resolution if numeric(resolution) and resolution > 0 else "unknown"
 
 
 def blank_size_check(gauge, band: list, features: dict, row: dict) -> str:
