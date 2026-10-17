@@ -1,4 +1,4 @@
-# Design: typed area hold (adhesive tape or vacuum)
+# Design: typed area hold (adhesive tape)
 
 Status: **design agreed, not implemented.** Issue
 [#295](https://github.com/pedropaulovc/prechips/issues/295), sharing its force
@@ -8,6 +8,11 @@ row described here exists yet. It follows the design-first rule from
 [#289](https://github.com/pedropaulovc/prechips/issues/289): it writes down the
 operator's step sequence, the physical reference behind every printed number,
 and how each step's error reaches the cut or the hold, before any engine code.
+
+**Scope: adhesive tape.** Vacuum chucks were part of the first drafts. The owner
+deferred them on 2026-10-17 (D11), because their seal circuit cannot be derived
+from the work outline without recorded groove geometry. The vacuum model worked
+out so far is kept in [#309](https://github.com/pedropaulovc/prechips/issues/309).
 The maintainer decided all ten open questions on PR #296 (2026-10-17); they are
 recorded as D1–D10 in section 11 and the body follows them.
 
@@ -20,7 +25,7 @@ film tape (0.10 mm) on a skimmed MIC-6 sub-plate.
 
 **Numbers in this document.** Values quoted from #295 or the shop record are
 marked *(shop record)*. Every other number (kc1, mc, the radial-force ratio,
-helix angle, peel, tape lot limits, vacuum level, friction) is **illustrative
+helix angle, peel, tape lot limits) is **illustrative
 arithmetic** chosen to show the formulas working. None is a datasheet figure, a
 measurement or a recommendation, and none may be copied into an inventory.
 
@@ -37,11 +42,11 @@ can only:
 
 Nothing then checks:
 
-1. **Capacity.** Tape shear × area, or vacuum × sealed area × μ, against the
+1. **Capacity.** Tape shear × area against the
    op's lateral cutting force, and lift resistance against the helix's axial
    pull.
-2. **Identity.** Tape product, thickness and dwell, or vacuum level and gasket
-   inset, as typed inventory facts rather than a box solid plus a note.
+2. **Identity.** Tape product, thickness and dwell as typed inventory facts,
+   rather than a box solid plus a note.
 3. **Stack-up.** The tape layer sits between the locating plate and the work,
    so its thickness and the spread of that thickness belong in the Z stack the
    part's thickness band is cut against.
@@ -56,13 +61,11 @@ The only hold-specific output today is
 
 ### 2.1 Where the facts live
 
-Tape is a consumable and a vacuum chuck is equipment, so they live in different
-inventory roots:
+Tape is a consumable, so it lives under `consumables`:
 
 | Hold | Inventory root | `kind` | Why there |
 |---|---|---|---|
 | Double-sided tape | `consumables.<id>` | `adhesive_tape` | It is used up per setup and bought by the roll. Today's `Consumable` is only `{ name, products }`; it becomes a discriminated union of the plain record and the typed tape record. |
-| Vacuum chuck | `fixtures.<id>` | `vacuum` | It is a fixture with a body (`solids`), a gauge and a pump, like any other fixture item. |
 
 Every capacity or stack fact is a **fact-local record**, following the existing
 `LengthMeasurement` / `LimitsMeasurement` pattern:
@@ -73,7 +76,7 @@ Every capacity or stack fact is a **fact-local record**, following the existing
 ```
 
 A new `CitedFact` record (`value`, `cite`, `measured`, `verify`) carries the
-non-length facts (shear, peel, dwell, vacuum, friction). It is trusted when it
+non-length facts (shear, peel, dwell). It is trusted when it
 has a non-blank cite or a complete `measured` record whose `status` is
 `"measured"`, and no `verify = true` / `"unknown"`. A bare number, an empty or
 `"unknown"` cite, an omitted status (`assumed`), `assumed`, `illustrative` or
@@ -117,43 +120,13 @@ release = { method = "solvent", agent = "isopropyl alcohol", wait_min = 5, cite 
 |---|---|---|---|
 | `width_mm` | `MeasuredLength` (a catalogue nominal is enough) | roll width. Footprint coverage is one seamless length, so the footprint's least width (the short side of its minimum-area bounding rectangle) must be at most `width_mm` | capacity `?` ("footprint 60.0 wide, roll 50.0: lay strips", a follow-up under D7) |
 | `thickness_mm` | `LimitsMeasurement` | applied layer thickness, least–greatest | stack check `?`; layer drawn at the midpoint only when the pair is known, otherwise not drawn (render debt) |
-| `shear_n_per_cm2` | `CitedFact` + `test` + `pairs` | shear strength used as lateral and yaw capacity per cm² of contact, for the exact work/seat pairs it was established on (section 2.7) | capacity `?` |
+| `shear_n_per_cm2` | `CitedFact` + `test` + `pairs` | shear strength used as lateral and yaw capacity per cm² of contact, for the exact work/seat pairs it was established on (section 2.6) | capacity `?` |
 | `peel_n_per_cm` | `CitedFact` + `test` + `pairs` | peel resistance per cm of peel front, for the exact work/seat pairs it was established on | lift `?` |
 | `dwell_min` | `CitedFact` | minimum time between applying the work and cutting, at which the two strengths hold. A hard gate (D6): no build-up curve, and nothing is claimed for a shorter dwell | capacity `?`; the traveler prints a STOP in place of the dwell row |
 | `surface_prep`, `apply` | text | printed in the apply step | STOP row in the apply step |
 | `release` | `{ method = "solvent" \| "heat", agent \| temp_c, wait_min, cite }` | printed release step | STOP row in the release step |
 
-### 2.3 Vacuum record
-
-```toml
-[fixtures.vacuum-chuck-12x18]
-kind = "vacuum"
-vacuum_kpa = { value = 80.0, cite = "..." }          # illustrative; gauge vacuum below atmosphere
-seal = "laid_cord"                                  # a gasket cord laid on the work's outline each setup
-gasket_inset_mm = { value = 3.0, measured = { ... } } # work outline to the cord's centreline
-friction = { value = 0.2, pairs = [{ work = "low_carbon_steel", seat = "aluminium" }], cite = "..." }   # illustrative; work on the chuck face, dry
-surface_prep = "Wipe the chuck face and the work underside clean and dry."
-release = { steps = "Close the chuck valve and open the vent; wait until the gauge reads 0; lift the work straight up.", cite = "..." }
-gauge = "chuck-vacuum-gauge"                          # inventory gauge the operator reads
-solids = [ { name = "face", shape = "box", ... } ]    # the chuck body, as for any fixture
-```
-
-| Field | Type | Meaning | Unknown or untrusted |
-|---|---|---|---|
-| `vacuum_kpa` | `CitedFact` | the least gauge vacuum at which capacity is claimed; the operator must read at least this before cutting. A vacuum chuck can only use the atmosphere above it, so `vacuum_kpa` must be below a cited conservative ambient floor, the new policy number `ambient_kpa_min` (the lowest local atmospheric pressure, cited and unflagged) | capacity `?`; STOP in place of the gauge row; `?` too when `ambient_kpa_min` is unknown or `vacuum_kpa ≥ ambient_kpa_min` |
-| `seal` | `"laid_cord"` | how the seal circuit is made. `laid_cord`: a gasket cord laid in the chuck's open-grid grooves along the work's outline, `gasket_inset_mm` inside it, at every setup. The HOLD prints the lay step, and the gauge reading proves the circuit closed. Fixed-groove chucks, whose circuit is the groove pattern rather than the work's outline, need their groove geometry recorded and are a follow-up | capacity `?` ("seal circuit not recorded") |
-| `gasket_inset_mm` | `MeasuredLength` | inset of the cord's centreline inside the work outline | sealed area `?` |
-| `friction` | `CitedFact` + `pairs` | static μ of the work on the chuck face, for the exact work/seat pairs it was established on (section 2.7) | capacity `?` |
-| `surface_prep` | text | printed in the vacuum apply step | STOP row in the apply step |
-| `release` | `{ steps, cite }` | printed vacuum release step (valve, vent, gauge at 0, lift) | STOP row in the release step, also when `cite` is blank or unknown |
-| `gauge` | `str` | inventory gauge read at the chuck: an item of kind `vacuum_gauge` with trusted `range_kpa` `[lo, hi]`, `resolution_kpa` > 0 and `accuracy_kpa` >= 0. A displayed reading R proves only `R − accuracy_kpa − resolution_kpa / 2`, so the HOLD prints the minimum reading `P = ⌈(vacuum_kpa + accuracy_kpa + resolution_kpa / 2) / resolution_kpa⌉ × resolution_kpa`, and `P` itself must lie inside `range_kpa` | capacity `?` and STOP in place of the gauge row when the gauge is missing, of another kind, its range, resolution or accuracy is unknown, or `P` is outside the range |
-
-Vacuum assumes the work seats metal-to-metal on the chuck face, with the gasket
-in a groove, so the gasket adds no Z term. Raised or compressible gaskets the
-work sits on are out of scope (D8). The seal line is fixed at setup entry
-(section 3.1).
-
-### 2.4 How the hold references them
+### 2.3 How the hold references them
 
 `Hold` gains one optional record, `area`:
 
@@ -164,12 +137,9 @@ area = { ref = "tape-3m-444", on = "plate" }
 pose = { origin_mm = [0.0, 6.0, -0.100], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }
 ```
 
-- `ref` names a `consumables` `adhesive_tape` item, or a `fixtures` `vacuum`
-  item. A vacuum `ref` **must** be the same item as `fixture`: the pressure,
-  friction and gauge belong to the chuck whose face `on` names, and a `ref` naming
-  another vacuum fixture is bad input.
+- `ref` names a `consumables` `adhesive_tape` item; anything else is bad input.
 - `on` names the solid of the holding fixture whose posed +z face carries the
-  layer (for tape) or is the chuck face (for vacuum). Exactly one trusted solid
+  layer. Exactly one drawn solid
   must be named; otherwise the input is bad.
 - Coverage is the work's footprint: one seamless length of tape, trimmed to the
   work outline on that face. A footprint wider than the tape's `width_mm` can't
@@ -185,7 +155,7 @@ no `kind` field and forbids extra keys, so that line is bad input today. A
 hold's kind is always the inventory kind of `hold.fixture`, and the migrated
 form below drops it.
 
-### 2.5 What replaces the box solid
+### 2.4 What replaces the box solid
 
 The kernel builds the layer from the typed facts, instead of reading it from
 `solids`:
@@ -203,19 +173,17 @@ The kernel builds the layer from the typed facts, instead of reading it from
   0.090–0.110"); with an unknown pair it is `?`. This replaces the
   interpenetration findings #294 reports against the box solid, and it catches
   a pose written for a different tape.
-- Vacuum draws no layer. The seat check is the existing contact of the stock
-  bottom with the `on` face.
 
-### 2.6 Migration (no compatibility shim)
+### 2.5 Migration (no compatibility shim)
 
 | Today | After | Result for an unmigrated plan |
 |---|---|---|
-| `hold.method = "tape"` or `"vacuum"` (any case) | `hold.area = { ref, on }` | Bad input (exit 3), with a message naming the new form, like the retired `method = "retaining_compound"` (`model.py` `Joint` validator). |
-| tape box solid with `locates = "work underside"` in a fixture's `solids` | deleted; the layer comes from `area` | Not detectable as tape by shape. A fixture that is referenced by an `area` hold and still carries a solid whose `locates` names the work underside is bad input, because two seats are declared. |
+| `hold.method = "tape"` (any case) | `hold.area = { ref, on }` | Bad input (exit 3), with a message naming the new form, like the retired `method = "retaining_compound"` (`model.py` `Joint` validator). |
+| tape box solid with `locates = "work underside"` in a fixture's `solids` | deleted; the layer comes from `area` | Not detectable as tape by shape, and `locates` is prose the engine never parses. A leftover box between the `on` face and the work fails the phase 3 seat check (section 2.4): the gap is no longer inside the tape pair, or the box interpenetrates the drawn layer. |
 | `"tape"` in `thin_wall_under_clamp._PROTECTED` | removed; an area hold with no clamps on the work makes the rule `not_applicable` (no grip zone); clamps that hold the plate to the table are not on the work | `"tape"` in `method` is already bad input (first row). |
 | `"wax"`, `"soft_jaws"`, `"mandrel"` in `_PROTECTED` | unchanged | Wax and CA are also area holds, but they stay in `_PROTECTED` for a later issue (D9). |
 
-The shipped examples use no tape or vacuum hold (`rg tape examples` finds only
+The shipped examples use no tape hold (`rg tape examples` finds only
 "taper" and "tapered"), so nothing in this repository migrates. The consumer
 change is harmonic-analyzer PR #1594's inventory and PR #1595's S0A/S0B holds:
 
@@ -248,7 +216,7 @@ area = { ref = "tape-3m-444", on = "plate" }
 pose = { origin_mm = [0.0, 6.0, -0.100], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0] }  # plate top at -t_nom
 ```
 
-### 2.7 Every uncertainty and coefficient has a source
+### 2.6 Every uncertainty and coefficient has a source
 
 No rule invents a coefficient or an error bound. Each one the capacity and stack
 rules consume comes from a trusted fact, otherwise the finding is `?`:
@@ -256,7 +224,6 @@ rules consume comes from a trusted fact, otherwise the finding is `?`:
 | Term | Source | Trusted when |
 |---|---|---|
 | tape shear, peel | tape `shear_n_per_cm2`, `peel_n_per_cm` | cited or measured, `test` named, and `pairs` contains the exact pair `{ work = <the stock material's class through cutting-data aliases>, seat = <the `on` solid's own `material` class through the same aliases> }`. The seat is the selected solid, never the fixture item: a steel fixture with an aluminium pad seats on aluminium. An `on` solid with no `material` leaves the pair `?` |
-| vacuum friction | chuck `friction` | the same exact-pair check, for the work and the `on` solid (the chuck face) |
 | plate flatness f | new `flatness_mm` (`MeasuredLength`) on the `on` fixture solid: the flatness of that solid's **whole** top face, footprint and touch area alike | measured (a stack dimension, as D4); the recipe-A touch point must lie on that face (section 5.2) |
 | touch error e | new policy number `touch_error_mm`, with `numbers_cite` | cited and not flagged by `numbers_verify` |
 | mic error m | (recipe B only, out of scope under an area hold) the gauge's `accuracy_mm` plus half its `resolution_mm` | not consumed |
@@ -273,7 +240,7 @@ qualifies only that pair. Surface condition (finish, oxide, residual oil) has no
 schema. It is gated instead by the printed `surface_prep` step, which is a STOP
 when missing, and named as residue.
 
-### 2.8 Input domains
+### 2.7 Input domains
 
 Every number the capacity and stack rules consume has a domain, checked before
 it is used. A value outside its domain is debt (`?`), never clamped, and the
@@ -284,14 +251,11 @@ finding names the fact and its domain. One parametrized test per row (section 8)
 | `helix_deg` | finite, `0 ≤ β < 90`; the hand is `helix_hand`, never a sign | `?` (a signed or ≥ 90° value would flip or blow up `tan β`) |
 | `D`, `z`, `fz`, `ap`, `ae` | `D > 0`, integer `z ≥ 1`, `fz > 0`, `ap > 0`, `0 < ae ≤ D` | `?` |
 | `kc1`, `mc`, `radial_ratio` | `kc1 > 0`, `0 ≤ mc < 1`, `radial_ratio ≥ 0` | `?` |
-| shear, peel, `vacuum_kpa`, `dwell_min` | `> 0` (schema) | bad input |
-| `friction` | `0 < μ ≤ 1` | `?` |
+| shear, peel, `dwell_min` | `> 0` (schema) | bad input |
 | tape `thickness_mm` pair | `0 < t_lo ≤ t_hi` (schema) | bad input |
-| `gasket_inset_mm`, `flatness_mm`, `touch_error_mm` | `≥ 0` | `?` |
-| vacuum gauge | kind `vacuum_gauge`; range, resolution and accuracy as section 2.3 | `?` |
+| `flatness_mm`, `touch_error_mm` | `≥ 0` | `?` |
 | pull test `lift_n`, `front_mm`, `thickness_mm`, `dwell_min` | each `> 0` | the test does not qualify (model A) |
 | recipe-A touch disc | the `zero.z` tool's resolved radius `> 0`, or a gauge block's half-width | `?` |
-| `vacuum_kpa` vs ambient | `0 < vacuum_kpa < ambient_kpa_min` (policy, cited, unflagged) | `?` |
 | `k` (`hold_capacity_factor_min`) | `≥ 1` | `?` |
 
 ## 3. Capacity model
@@ -302,7 +266,7 @@ The kernel derives the area. The plan does not author it.
 
 For each op of an area-hold setup, the kernel takes the in-process stock
 **before** and **after** the op and sections each at the seat plane (the layer
-top for tape, the chuck face for vacuum). The section is split into connected
+top). The section is split into connected
 **islands**. The tape layer is laid once, at setup entry, trimmed to the
 setup-entry footprint (D7: footprint coverage only).
 
@@ -311,26 +275,6 @@ tape    A_i = island_i ∩ layer         holes the stock already has are absent 
                                        a hole drilled later leaves tape behind, but no work bears on it
 ```
 
-**Vacuum seals once, at setup entry.** The only seal supported is a
-`seal = "laid_cord"` circuit the operator lays along the setup-entry outline at
-`gasket_inset_mm`, so `S` below is a physical cord the HOLD prints, not an
-assumed groove. The cord stays where it was laid while the cut changes the
-work, so the seal circuit is fixed when the work is seated:
-
-```text
-seal    S   = erode(setup-entry footprint, gasket_inset_mm)
-              empty S (work narrower than 2 × inset), or any through-opening of the
-              setup-entry stock inside S                         → A_seal = 0 from setup entry
-open    an op opens the chamber when its after-op stock has any through-opening
-        inside S, or its cut crosses the seal line S down to the seat plane
-              → A_seal = 0 for that op and every later op of the setup
-vacuum  A_seal = area(S ∩ after-op section) while the chamber is closed
-```
-
-New cut edges never get a seal of their own. A profile that splits the work
-inside the seal opens the chamber, so its islands are not credited
-independently. The rule names the op that opens it.
-
 The capacity for op *k* uses the **smaller** of its before- and after-op values
 for each island, which is the after-op value for any op that only removes
 material. All of the op's force is assumed to act on the island being cut,
@@ -338,7 +282,7 @@ which is conservative because the force goes to whichever island the cutter
 is in.
 
 **Zero capacity needs no force.** When an island under a cutting op has
-`A = 0` (a kept piece cut free with no contact, or an opened vacuum chamber),
+`A = 0` (a kept piece cut free with no contact),
 the finding is an error even if the op's force is unknown: no positive demand
 fits under zero capacity. An offcut with no contact is a loose-offcut `warn`.
 
@@ -349,9 +293,6 @@ tape    lateral  C_xy,i = shear_n_per_cm2 × A_i / 100              (A in mm², 
 tape    lift     C_z,i  = peel_n_per_cm × L_i / 10                 (model A, section 3.4; L_i in mm)
                  L_i    = min(D, w_i)                           (w_i: the island's least width, the short
                                                                   side of its minimum-area bounding rectangle)
-vacuum  normal   N_i    = vacuum_kpa × A_seal,i / 1000             (kPa·mm² → N)
-vacuum  lateral  C_xy,i = friction × N_i
-vacuum  lift     C_z,i  = N_i
 ```
 
 The part's weight is ignored. It is small, it only helps, and adding it would
@@ -360,15 +301,14 @@ need a density fact.
 ### 3.3 Moment capacities
 
 A cutter away from an island's centroid also imposes moments. Comparing only
-total force with `shear × area` or `μN` would pass a long, narrow island that
+total force with `shear × area` would pass a long, narrow island that
 the distributed traction cannot hold against the cutting moment. Each island is
 therefore also checked for yaw (in the seat plane) and overturning (about a
 seat edge):
 
 ```text
-T_i      the traction region: the island's contact area for tape (A_i), the sealed area
-         S ∩ island_i for vacuum. Every lever below is measured from its centroid, the same
-         origin the traction capacity is integrated about.
+T_i      the traction region, the island's contact area A_i. Every lever below is
+         measured from its centroid, the same origin the traction capacity is integrated about.
 c_i      centroid of T_i
 r_k      the farthest distance from c_i to op k's cut on that island
          (the kernel's removed volume of op k, intersected with the island's column)
@@ -376,27 +316,22 @@ h_k      the highest point the cutting force can act above the seat: the before-
          top over the island's column minus the seat Z — the lever of F_xy. Never the deepest
          cut Z, which is zero for a cut to the seat while the flutes engage above it
 J_i      ∫ |ρ| dA over T_i about c_i            (polar first moment, mm³)
-d_i      the least distance from c_i to the convex-hull boundary of T_i
 
 yaw demand            M_yaw  = F_xy · r_k
 tape yaw capacity     C_yaw  = shear_n_per_cm2 / 100 × J_i          (fully developed shear about c_i)
-vacuum yaw capacity   C_yaw  = friction × vacuum_kpa / 1000 × J_i
-overturning demand    M_ot   = F_xy · h_k + F_z · r_k               (lift sense only)
-vacuum overturning    C_ot   = N_i · d_i                            (uniform pressure, tipping about the nearest hull edge)
 tape overturning      folded into lift: F_z,eff = F_z + F_xy · h_k / L_i, checked against C_z,i
 ```
 
 The force and yaw checks combine linearly, because they share the same
 traction: `F_xy / C_xy + M_yaw / C_yaw ≤ 1 / hold_capacity_factor_min`. That is
-conservative; it is a bound that forgoes the interaction curve's benefit. The
-same combination applies to vacuum overturning with lift. An unknown `r_k`,
-`h_k` or island geometry (no kernel, an unresolved removed volume) leaves the
+conservative; it is a bound that forgoes the interaction curve's benefit. An
+unknown `r_k`, `h_k` or island geometry (no kernel, an unresolved removed volume) leaves the
 finding `?`.
 
 Model A already places the axial load at the nearest free edge, the most
 eccentric position it can take, so moving the cutter toward the centroid can
-only relieve the tape: the `F_z · r_k` part of `M_ot` is the peel the edge front
-already carries. The tape overturning fold adds only the lateral couple, using
+only relieve the tape: an axial load's tipping about the centroid is the peel
+the edge front already carries. The tape overturning fold adds only the lateral couple, using
 model A's local front of length D as its lever, capped like the front itself. It is consistent with D2 and is the only tape
 overturning claim datasheet facts can make. A pull test (section 3.4) replaces
 `C_z` for both the direct lift and the folded term.
@@ -460,7 +395,7 @@ helix with right-hand cut, or left with left) evacuates chips up and lifts the
 work; opposite hands push it down. The helix hand is its own tool fact,
 `helix_hand`, separate from the cutting `hand` that selects spindle rotation.
 Either one unknown is evaluated as a lift. That is a bound, not a default: a
-result that passes as a lift also passes as a push. Vacuum's lift capacity is the full normal force, so it rarely governs.
+result that passes as a lift also passes as a push.
 
 ## 4. Force model, shared with #158
 
@@ -490,8 +425,8 @@ by a peripheral chip, so treating a drill's depth as `ap` would be physically
 wrong. For those ops `milling_force` returns `?` ("no thrust/torque force model
 for drill"), and with `hold_capacity` always required (D3) such a setup stops at
 exit 4 until a thrust/torque model is designed (a follow-up issue). Zero
-capacity is still decided without a force (section 3.1), so a drill that opens a
-vacuum chamber is an error for every later cutting op. An endmill used for a
+capacity is still decided without a force (section 3.1), so a drill that cuts a
+kept piece free is an error. An endmill used for a
 counterbore cuts with its end, so it falls under the entry rule below. Noncutting
 actions (`fit`, `inspect`, `release`) are `not_applicable`.
 
@@ -548,38 +483,25 @@ raster can be a full slot, so it is not read as ae.
 
 ```text
 k        = hold_capacity_factor_min
-tape     use_xy = F_xy / C_xy,i + M_yaw / C_yaw,i
-         use_z  = F_z,eff / C_z,i                                (F_z,eff of section 3.3)
-         use    = use_xy + use_z                                 (shear and peel share one bond)
-vacuum   N_r    = N_i − k · F_z                                  (residual contact load, lift sense;
-                                                                  a push is not credited)
-         N_r ≤ 0                                                 → error (the lift alone opens the seat)
-         use_xy = k · F_xy / (friction · N_r) + k · M_yaw / (friction · N_r · J_i / A_seal,i)
-         use_ot = k · M_ot / (N_r · d_i)                         (tipping about the nearest hull edge:
-                                                                  k(F_xy·h + F_z·(d + r)) ≤ N·d)
-         use    = max(use_xy, use_ot)                            (already factored: pass at use ≤ 1)
+use_xy   = F_xy / C_xy,i + M_yaw / C_yaw,i
+use_z    = F_z,eff / C_z,i                                (F_z,eff of section 3.3)
+use      = use_xy + use_z                                 (shear and peel share one bond)
          (each over every island under op k, worst op of the setup reported)
-pass     tape use ≤ 1 / k;  vacuum use ≤ 1
+pass     use ≤ 1 / k
 error    use > 1 / k   with every input known and trusted, or zero capacity under a cutting op
 ?        any input unknown or untrusted, or k unknown or flagged
 ```
 
 Combined loads are never checked one at a time. Tape's shear and peel act on
-the same adhesive, so their uses add. Vacuum friction is limited by the contact
-load the lift leaves, so the lateral check uses the residual `N_r` after the
-factored lift, with the residual pressure `N_r / A_seal` taken as uniform for
-yaw. Overturning uses the same residual: about the nearest hull edge, the lift
-acts at most `d + r` from the edge, and moving its `k·F_z·d` share to the
-restoring side gives `N_r · d`. Checking `μN` and `N` separately would pass `0.49 μN` lateral with `0.49 N`
-lift at k = 2, leaving barely 1× of real margin.
+the same adhesive, so their uses add; checking them one at a time would pass
+two uses of 0.49 each at k = 2, leaving barely 1× of real margin.
 
-The traveler prints the margin as a factor: `1 / use` for tape, and for vacuum
-the largest k at which the factored checks still pass.
+The traveler prints the margin as a factor, `1 / use`.
 
 `hold_capacity_factor_min` is a new `shop-policy.numbers` entry with
 `numbers_cite` and `numbers_verify`, shipped as `"unknown"`, as the other policy
 numbers are. A true or unknown verify flag makes the factor unknown. **Decided
-(D10):** there is one shared factor for tape, vacuum and #158's clamps; a
+(D10):** there is one shared factor for tape (and a later vacuum provider, #309) and #158's clamps; a
 per-provider override can come later if a case needs it.
 
 **Decided (D1): an insufficient margin is a hard `error`**, as a §4.3
@@ -720,7 +642,7 @@ remedy is a tighter measured lot, a different hold or a looser band.
   apply step's "press flat; no daylight under the ends" check.
 - **#294's island** (a 0.25 Ø6.5 island over the hub footprint) is a separate
   kernel defect. Once it is fixed, S0B's entry stock is flat, and the seat check
-  of section 2.5 replaces the interpenetration findings against the tape box.
+  of section 2.4 replaces the interpenetration findings against the tape box.
 
 ## 6. Traveler
 
@@ -737,8 +659,7 @@ that bonds):
   governing op and the strength's `test`;
 - the **release** step prints after the setup's last op, before "Ends with",
   as a numbered noncutting step: the tape's `release` (solvent or heat, then
-  roll off, never pry thin work), or the vacuum chuck's `release` steps (valve,
-  vent, gauge at 0, lift). Each is runnable only with a known, cited record;
+  roll off, never pry thin work), runnable only with a known, cited record;
 - each unknown prints its STOP form in place of the runnable row. It never
   prints a runnable row with `?` in it (#289 proposal 2). A computed margin
   below the policy factor is an error, so it prints the STOP line the sheet
@@ -804,9 +725,7 @@ both endpoints to land inside the band.
 | plate top Z, tape pair, underside range | pose, `thickness_mm` (measured) | pair unmeasured |
 | stack terms and thickness interval | section 5 terms | any term unknown |
 | Axis Set Z | recipe and `t_nom` | `t_nom` unknown |
-| vacuum gauge minimum P | `vacuum_kpa`, `gauge` (`vacuum_gauge`, `range_kpa`, `resolution_kpa`, `accuracy_kpa`) | `vacuum_kpa` untrusted, no gauge, a gauge of another kind, an untrusted range, resolution or accuracy, or a corrected P outside `range_kpa` |
-| vacuum cord lay step and inset | `seal`, `gasket_inset_mm` | seal not `laid_cord`, or inset untrusted |
-| release method, agent or temperature, wait (tape); release steps (vacuum) | tape or chuck `release` | missing, or its `cite` blank or `"unknown"`: a temperature or solvent is never printed without its source |
+| release method, agent or temperature, wait | tape `release` | missing, or its `cite` blank or `"unknown"`: a temperature or solvent is never printed without its source |
 
 ## 7. Operator step sequence and error propagation
 
@@ -815,13 +734,11 @@ both endpoints to land inside the band.
 | 1 | Skims the plate, or checks the skimmed plate (once per install) | table travel | — (fixture fact) | plate flatness f | stack term ±f (both recipes) |
 | 2 | Cleans the plate and the work | — | prep text | residual oil or chips | contact area and shear (residue); chips also add to t(x) |
 | 3 | Lays the tape over the footprint | plate top, work outline | outline 350 × 40 (manifest footprint) | seams, wrinkles, short coverage | area below the derived A (residue); thickness locally outside the pair |
-| 3v | (vacuum, instead of 3) Lays the gasket cord in the grid grooves along the work outline, before the work is seated; step 7 checks it after seating | the work outline | `gasket_inset_mm` | cord off the inset, a gap at the joint | sealed area differs from S; an open joint is caught by the gauge row (step 7) |
-| 4 | Seats the work (tape: and rolls it) | end stop, plate top | stop X from the pose | work bridges instead of conforming | area loss; the stack stops following t(x) (residue; printed "no daylight") |
-| 5 | (tape) Waits the dwell, writing both clock times | the clock | `dwell_min` | dwell cut short | strengths below the cited values; the printed gate is a STOP, so a short dwell is a stopped setup, not a reduced margin (D6) |
+| 4 | Seats the work and rolls it | end stop, plate top | stop X from the pose | work bridges instead of conforming | area loss; the stack stops following t(x) (residue; printed "no daylight") |
+| 5 | Waits the dwell, writing both clock times | the clock | `dwell_min` | dwell cut short | strengths below the cited values; the printed gate is a STOP, so a short dwell is a stopped setup, not a reduced margin (D6) |
 | 6 | Sets Z (recipe A: plate + paper) | plate top at P | `−t_nom + paper` | paper, touch feel, DRO step | touch and DRO terms; the tape mean enters as `t_nom − t(x)` |
-| 7 | (vacuum) Reads the chuck gauge before each op | chuck gauge | the corrected minimum P (section 2.3), never `vacuum_kpa` itself | leak, pump, gauge error and resolution | P already absorbs gauge error, so a reading at P proves `vacuum_kpa`; a reading below P → STOP |
-| 8 | Cuts each op at the printed feed | — | feed from cutting data | feeds faster by hand | F_xy and F_z scale with fz^(1−mc) (residue; covered by the factor) |
-| 9 | Releases (solvent or heat, roll off) | — | release text | prying | bends thin work: the free-state bow is residue, and prying is forbidden in print |
+| 7 | Cuts each op at the printed feed | — | feed from cutting data | feeds faster by hand | F_xy and F_z scale with fz^(1−mc) (residue; covered by the factor) |
+| 8 | Releases (solvent or heat, roll off) | — | release text | prying | bends thin work: the free-state bow is residue, and prying is forbidden in print |
 
 ## 8. Test plan
 
@@ -831,15 +748,16 @@ unit tests inject a synthetic `bundle.kernel` with island sections. Geometry
 tests request the shared `freecad_kernel` fixture.
 
 **Schema and migration (phase 1)**
-- `adhesive_tape` / `vacuum` records parse; unknown keys are rejected; each
+- `adhesive_tape` records parse; unknown keys are rejected; each
   `CitedFact` trust state (cited, measured, bare, assumed, illustrative,
   `verify = true`, blank cite, blank or unknown `test`) resolves to trusted or
   debt as section 2.1 says. `thickness_mm` is trusted only as a measured pair.
 - `static_shear_n_per_cm2` (the pre-decision name) is rejected as an unknown key.
-- `hold.method = "tape"` / `"vacuum"` without `area` is exit 3, naming
-  `hold.area`. An `area` with an unknown `ref`, a `ref` of the wrong kind, or an
-  `on` naming no single solid is exit 3. A fixture still carrying a
-  `locates = "work underside"` solid under an `area` hold is exit 3.
+- `hold.method = "tape"` without `area` is exit 3, naming `hold.area`; a
+  `method` of `"vacuum"` stays plain text, untyped until #309. An `area` with an
+  unknown `ref`, a `ref` that is not an `adhesive_tape`, or an `on` naming no
+  single drawn solid is exit 3. A leftover tape box is caught by the phase 3
+  seat check, not by reading `locates` prose.
 - `"wax"` keeps its `thin_wall_under_clamp` pass (D9).
 
 **Force model** (`_cutting_force.py`)
@@ -856,17 +774,13 @@ tests request the shared `freecad_kernel` fixture.
   coordinates rule leaves unproven are `?` ("no axial-entry force model").
 
 **Capacity and margin** (`hold_capacity`)
-- Tape and vacuum with `use` exactly `1/k` (pass), just above (error), and `k`
+- `use` exactly `1/k` (pass), just above (error), and `k`
   unknown or flagged (`?`).
 - Moments: the same island and force pass with the cutter at the centroid and
-  fail with it at the far end of a long, narrow island (yaw). An asymmetric vacuum
-  island whose sealed area is offset from the island centroid is judged about
-  the seal centroid: a cutter at the island centroid but far from the seal
-  centroid still fails yaw. A vacuum island
-  fails overturning with a tall cut at its narrow edge.
+  fail with it at the far end of a long, narrow island (yaw). A tall cut at a
+  narrow island's edge raises the folded lift `F_z,eff`.
 - Peel front: a 5 mm tab cut with a Ø10 cutter gets `L = 5`. A cut to the seat
   keeps `h_k` at the before-op stock height, not zero.
-- A vacuum `area.ref` naming another vacuum fixture than `hold.fixture` is exit 3.
 - Seat material: the pair's seat comes from the `on` solid's `material`. A
   steel-bodied fixture with an aluminium `on` pad seats on aluminium; an `on`
   solid with no `material` leaves capacity `?`.
@@ -875,23 +789,8 @@ tests request the shared `freecad_kernel` fixture.
   naming the pair.
 - Stack sources: each of `flatness_mm`, `touch_error_mm` and the machine's
   `resolution_mm` missing or untrusted leaves the stack `?`, naming that fact.
-- Vacuum gauge: a `gauge` of another kind, a range not containing `vacuum_kpa`
-  an unknown resolution or accuracy, or a printed minimum outside the range,
-  leaves capacity `?`. On a 2 kPa gauge with 1.0 kPa accuracy, 80.0 kPa prints
-  "at least 82" (80 + 1 + 1 = 82, on the grid; a reading of 82 proves 80) and
-  81.0 prints "at least 84" (83 rounds up). A minimum of 100 on a 0–100 gauge
-  passes; one of 102 is `?`.
 - Combined loads: tape with `use_xy` and `use_z` each at 0.3 at k = 2 fails
-  (sum 0.6 > 0.5); vacuum with `0.49 μN` lateral and `0.49 N` lift at k = 2
-  fails on the residual load, and `k · F_z ≥ N` is an error. Overturning with
-  a lift near `N / k` fails, though it would pass against the full `N · d`.
-- Seal circuit: a vacuum fixture without `seal = "laid_cord"` leaves capacity
-  `?`; the HOLD prints the cord lay step at `gasket_inset_mm`.
-- Vacuum seal: a through-hole inside S at setup entry gives zero capacity from
-  the first op; an op that drills through inside S, or profiles across the seal
-  line, errors from that op on, even with its force unknown; a profile that
-  splits the work inside S does not credit the islands independently; a work
-  narrower than 2 × inset has sealed area 0.
+  (sum 0.6 > 0.5), though each alone would pass.
 - Pull test: a qualifying test raises `C_z` to `lift_n × min(1, L_i / front_mm)` (a
   40 mm end pull credits a Ø9.525 cutter 9.525/40 of it) and the printed dwell
   gate to the test's `dwell_min`; each failed check in
@@ -920,7 +819,7 @@ tests request the shared `freecad_kernel` fixture.
   disc clear of the footprint on the `on` face passes; a centre 1 mm outside the
   footprint with a Ø9.525 tool overlaps it and is an error; off the
   plate, on another solid or inside the footprint is an error.
-- Release: an uncited tape or chuck release prints the STOP; a cited one prints
+- Release: an uncited tape release prints the STOP; a cited one prints
   its steps.
 
 **Operator perturbation**
@@ -933,15 +832,14 @@ tests request the shared `freecad_kernel` fixture.
   and moves the printed underside range. A pair that does not contain the
   pose's gap fails the seat check.
 - *Footprint reduced by the cut:* a setup whose last op leaves a 20 × 20 island
-  passes at op 10 and errors at the island-making op; a vacuum setup errors
-  from the op that drills through inside the seal.
+  passes at op 10 and errors at the island-making op.
 - *Zero a DRO step off:* recipe A with the DRO term at one step; the band
   verdict changes exactly at the step that moves an endpoint past a limit.
 
 **Input domains**
-- One parametrized test per row of section 2.8: a value just inside the domain
+- One parametrized test per row of section 2.7: a value just inside the domain
   is used, and the boundary outside it (`helix_deg` = 90 or −30;
-  `friction` = 1.01; a pull test with `front_mm` = 0;
+  a pull test with `front_mm` = 0;
   `ae` > D; `k` = 0.9) is `?` naming the fact and its domain.
 
 **Printed values**
@@ -959,14 +857,14 @@ Each phase is its own PR, stacked on the previous one.
 
 | Phase | PR | Contents | Size (est.) |
 |---|---|---|---|
-| 1 | schema | `CitedFact` (+ `test`, `pairs`); solid `flatness_mm` and `material`; gauge `accuracy_mm`; `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`, `release`); `vacuum_gauge` `range_kpa` / `resolution_kpa` / `accuracy_kpa`; `hold.area`; `zero.z.at_mm`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
+| 1 | schema | `CitedFact` (+ `test`, `pairs`); solid `flatness_mm` and `material`; `adhesive_tape` consumable variant (with `width_mm`); `hold.area`; `zero.z.at_mm`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
 | 2 | force | `_cutting_force.py` (endmill milling scope); `[[material]]` `kc1_n_per_mm2` / `mc` / `radial_ratio`; tool `helix_deg` and `helix_hand`; op `ae_mm`; `cutting-data.md`, `rules-physics.md` | ~400 + tests |
-| 3 | kernel | seat-plane sections before and after each op, islands, centroid, polar moment, hull distance; the fixed seal circuit and its opening op; op removed-volume extent per island; the layer drawn from facts; seat check; `ENGINE_SOURCES` cache identity | ~700 + geometry tests |
+| 3 | kernel | seat-plane sections before and after each op, islands, centroid, polar moment; op removed-volume extent per island; the layer drawn from facts; seat check; `ENGINE_SOURCES` cache identity | ~700 + geometry tests |
 | 4 | capacity | `hold_capacity` rule (area provider: force, yaw, lift, overturning), always required for area holds, shared policy factor, pull-test schema, `thin_wall_under_clamp` change; `rules-setup.md` | ~500 + tests |
-| 5 | stack | `area_hold_stack` signed-term intervals, endpoint comparison, recipe A/B detection from `zero.z`, S0A→S0B and raw clean-up rows; `rules-coordinates.md` | ~400 + tests |
+| 5 | stack | `area_hold_stack` signed-term intervals, endpoint comparison, recipe A from `zero.z` (B is `?`), S0A→S0B and raw clean-up rows; `rules-coordinates.md` | ~400 + tests |
 | 6 | traveler | apply, dwell gate, capacity, stack and release rows; STOP forms; the example bundle and goldens; blind machinist review | ~600 + goldens |
 | 7 | #158 | clamp provider (`n × μ × preload`, cited) for `hold_capacity` with the shared factor; per-solid clearance listing | separate design note in #158 |
-| — | follow-up | drill-family thrust/torque and axial-entry models; authored tape strips (D7); wax and CA (D9) | separate issues |
+| — | follow-up | vacuum holds (#309, D11); drill-family thrust/torque and axial-entry models; recipe B; authored tape strips (D7); wax and CA (D9) | separate issues |
 
 Phases 1–2 are independent of the kernel. Phase 4 needs 2 and 3, and phase 6
 needs 4 and 5.
@@ -990,11 +888,9 @@ Tape yaw      J     = ∫|ρ| dA over a 350 × 40 rectangle = 1.245e6 mm³
               use   = 85.4/399 + 15 040/37 340 = 0.617 → 1.6×    error at k = 2.0 (illustrative k)
 Tape lift A   F_z,eff = 45.8 + 85.4 × 2.75 / 9.525 = 70.5 N
               C_z     = 4.0 N/cm × 0.9525 cm = 3.8 N → 0.05×    error
-Vacuum (if used instead): S = (350 − 6)(40 − 6) = 116.96 cm² at 80 kPa → N = 936 N,
-                          μ 0.2 → 187 N lateral; yaw and overturning per section 3.3
 Stack (recipe A) about 2.500: tape ±0.010, plate ±0.005, touch ±0.010, DRO ±0.005
                  → 2.470–2.530 vs 2.475–2.525 → error
-Stack (recipe B): tape ±0.020 + …                                   → worse
+Stack (recipe B, out of scope): tape ±0.020 + …                    → worse
 ```
 
 The 133 cm² is the shop record's figure; a plain 350 × 40 rectangle is 140 cm².
@@ -1017,54 +913,41 @@ the illustrative inputs say:
 | D4 | Thickness evidence | The stack check accepts only a measured lot pair; a datasheet tolerance stays `?` (section 2.1). |
 | D5 | Turning deflection | `turning_deflection` keeps its own constant-K_c proxy (section 4.1). |
 | D6 | Shear and dwell | The field is `shear_n_per_cm2`, with a `test` naming the test method. `dwell_min` is a hard gate: a dwell not met is a STOP; no build-up curve (sections 2.2, 6.1). |
-| D7 | Coverage | Phase 1 covers footprint coverage only; authored strips are a follow-up (section 2.4). |
-| D8 | Gaskets | Raised or compressible gaskets are out of scope for now (section 2.3). |
-| D9 | Wax and CA | They stay in `_PROTECTED` for a later issue (section 2.6). |
-| D10 | Margin number | One shared `hold_capacity_factor_min` for tape, vacuum and #158's clamps; a per-provider override can come later if a case needs it (section 4.3). |
+| D7 | Coverage | Phase 1 covers footprint coverage only; authored strips are a follow-up (section 2.3). |
+| D8 | Gaskets | Raised or compressible gaskets are out of scope for now (now part of #309). |
+| D9 | Wax and CA | They stay in `_PROTECTED` for a later issue (section 2.5). |
+| D10 | Margin number | One shared `hold_capacity_factor_min` for tape, a later vacuum provider and #158's clamps; a per-provider override can come later if a case needs it (section 4.3). |
+| D11 | Vacuum (owner, 2026-10-17, after design round 19) | Vacuum holds are deferred: the seal circuit cannot be derived from the work outline without recorded groove geometry, and a cord on a flat face is a compressible gasket (D8). The vacuum model so far is kept in #309. This design and its phases cover adhesive tape only. |
 
 Changes made after the decisions, in answer to the design review on PR #296,
 not separately decided by the maintainer:
 
-- yaw and overturning moment checks, with the linear force/moment interaction
-  (section 3.3);
-- the vacuum seal circuit fixed at setup entry, with any cut that opens it a
-  leak (section 3.1);
-- stack endpoints compared with the band, not the width alone (section 5.3);
-- the force model scoped to end-mill milling, with drill-family ops `?` until
-  a thrust/torque model exists (section 4.1);
-- the S0A clean-up row uses the half-width (section 5.4);
-- every moment lever is measured from the centroid of the traction region that
-  carries it, which for vacuum is the sealed area (section 3.3);
-- a credited pull test raises the dwell gate to the test's dwell (section 3.4);
-- combined loads share one capacity: tape adds its shear and peel uses, and
-  vacuum friction and overturning use the contact load left after the factored
-  lift (section 4.3);
-- the peel front and its lever are capped by the island's least width, and the
-  overturning lever is the highest point the flutes can engage (section 3.3);
-- a vacuum `ref` must be the held fixture (section 2.4);
-- the vacuum gauge must be a `vacuum_gauge` with known range, resolution and
-  accuracy; the printed minimum adds the accuracy and half a step before
-  rounding up, and must itself lie in the range (section 2.3);
-- only proven side entries are computed; a plunge or unproven entry is `?`
-  until an axial-entry model exists (section 4.1);
-- the plate's flatness covers its whole top face, and recipe A's touch point
-  must lie on it; releases need a cited record, and vacuum gains its own release
-  (sections 2.3, 2.7, 5.2, 6.1);
-- recipe A's touch point is a plan field, `zero.z.at_mm`, never prose (section 5.2);
-- every consumed number has a stated domain, checked before use (section 2.8);
-- recipe B (zero from the work top) is out of scope under an area hold and
-  stays `?`: it would need instrument reach facts, and recipe A carries the tape
-  spread once instead of twice (section 5.2);
-- a pull test's dwell is a trusted measured fact, and step 7 prints the
-  corrected minimum P (sections 3.4, 7);
-- strengths and friction apply only to the exact work/seat pairs they were
-  established on, and every stack uncertainty has a named, trusted source
-  (section 2.7);
-- the lift sense comes from a separate `helix_hand` together with the cutting
-  `hand` (section 3.4, 4.2);
-- the vacuum seal is a cord laid along the work's outline (`seal = "laid_cord"`);
-  other seal circuits are `?` until their groove geometry is recorded (section 2.3);
-- pull tests qualify only by machine-checkable fields that must all match the
-  setup (section 3.4);
+- yaw and overturning checks, with the linear force/moment interaction, every
+  lever measured from the traction centroid, the peel front and its lever
+  capped by the island's least width, and the overturning lever taken at the
+  highest point the flutes can engage (section 3.3);
+- combined loads share one capacity: tape adds its shear and peel uses
+  (section 4.3);
+- stack endpoints compared with the band, not the width alone, and both
+  clean-up rows built from interval endpoints (sections 5.3, 5.4);
+- the force model scoped to end-mill milling with proven side entries: drill
+  family, plunge and unproven entries are `?` (section 4.1); the lift sense
+  comes from a separate `helix_hand` together with the cutting `hand`
+  (sections 3.4, 4.2);
+- pull tests qualify only by machine-checkable, trusted, positive fields; their
+  credit scales to the cutter's local front, and a credited test raises the dwell
+  gate to its own dwell (section 3.4);
+- strengths apply only to the exact `{work, seat}` pairs they were established
+  on, with the seat taken from the `on` solid's own `material`; every stack
+  uncertainty has a named, trusted source; every consumed number has a domain
+  (sections 2.6, 2.7);
 - the tape's `width_mm` bounds footprint coverage, so seams are never credited
-  (section 2.4).
+  (section 2.3);
+- releases print only with a cited record (section 6.1);
+- recipe A's touch point is a plan field, `zero.z.at_mm`, and the whole touch
+  disc must land on the measured seat face, clear of the work; recipe B (zero
+  from the work top) is out of scope under an area hold and stays `?`
+  (section 5.2);
+- vacuum: rounds 1–19 also built a vacuum model (fixed seal circuit, residual
+  contact load after lift, gauge error, ambient bound), until the seal geometry
+  problem led to D11. That model is preserved in #309.
