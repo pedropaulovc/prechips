@@ -610,11 +610,15 @@ each term is a signed interval added to the nominal thickness `to_z`:
 or a gauge block). Printed: `Axis Set Z = −t_nom + paper_mm`. The touch point
 P is a plan fact: a new `zero.z.at_mm = [x, y]` in the setup frame, which recipe
 A under an area hold requires and the HOLD prints ("touch the plate at X …,
-Y …"). The kernel projects it onto the posed `on` face. It must land on that
-solid's top face, the face `flatness_mm` covers, and off the work's footprint.
-A missing `at_mm` is `?`; a point off the plate, on another solid or inside the
-footprint is an error, because the plate term would no longer be bounded by
-`f`. P is never read from prose.
+Y …"). The kernel projects it onto the posed `on` face and checks the whole
+touching tool, not just its centre. The disc of the touching tool's resolved
+radius about P (the `zero.z` tool, or the gauge block's half-width when the
+touch is through a block) must lie entirely on that solid's top face, the face
+`flatness_mm` covers, and clear of the work's footprint and the tape layer. A
+missing `at_mm` or an unresolved tool radius is `?`. A disc that overhangs the
+plate, meets another solid or overlaps the footprint is an error, since the
+tool would land on the work or off the measured face. P is never read from
+prose.
 
 ```text
 thickness(x) = to_z + (t_nom − t(x)) + (Z_p(P) − Z_p(x)) + e_touch + e_dro
@@ -887,7 +891,9 @@ tests request the shared `freecad_kernel` fixture.
 - The S0A→S0B clean-up row: positive, zero and negative `T_A,lo − T_B,hi`; the
   raw clean-up row with `raw_min − T_A,hi` at both signs.
 - Seat check: a pose written for 0.10 tape with a 0.25 gap is an error.
-- Recipe A touch point: a missing `zero.z.at_mm` is `?`; on the `on` face off the footprint passes; off the
+- Recipe A touch point: a missing `zero.z.at_mm` or tool radius is `?`; a touch
+  disc clear of the footprint on the `on` face passes; a centre 1 mm outside the
+  footprint with a Ø9.525 tool overlaps it and is an error; off the
   plate, on another solid or inside the footprint is an error.
 - Release: an uncited tape or chuck release prints the STOP; a cited one prints
   its steps.
