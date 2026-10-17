@@ -17,8 +17,8 @@ shift; a horizontal face is unchanged by a turn about Z.
 import math
 
 from prechips.findings import Finding
+from prechips.rules.geometry_common import cutting_action
 from prechips.rules.resolution import (
-    MANUAL,
     SAW_OPS,
     UNKNOWN,
     _citations,
@@ -193,7 +193,8 @@ def evaluate(bundle):
         rows, failed = [], []
         for op in setup.get("ops", []):
             action = op.get("do", UNKNOWN)
-            if action in MANUAL or action in SAW_OPS or _base(action) == "face":
+            # Non-cutting work (manual steps, a datum transfer), saws and facing turn no wall.
+            if cutting_action(op) is False or action in SAW_OPS or _base(action) == "face":
                 continue
             point = action in _POINT
             reach = _reach(bundle, setup, op, memo)
