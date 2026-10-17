@@ -336,6 +336,10 @@ What `apply` does:
    * a monkeypatched name read from two files, from `monkeypatch.setattr` or from a
      probe's `alias.name = ...`;
    * a `setattr`, `getattr` or `hasattr` on the split module with a computed name;
+   * the module alias used as a value (in a list, passed on, compared with `is`), unless
+     the spec says `value_uses = "rest"`. That setting means such a value stands for the
+     module's entry point that `rest` keeps, such as a rule's `evaluate`, and the value
+     is rebound to `rest`. The suite checks the claim;
    * a file that parses source and that the spec has not classified (section 6);
    * a plain `import prechips.<module>` it cannot rewrite;
    * a `file:line` citation of the module in docs or example data (AGENTS.md cites

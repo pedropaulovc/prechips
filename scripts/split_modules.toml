@@ -340,6 +340,9 @@ name = "coordinates"
 source = "src/prechips/rules/coordinates.py"
 rest = "src/prechips/rules/coordinates/rule.py"
 style = "package"
+# Tests list the rule module itself (SCREENS, parametrize, `rule is ...`) and call its
+# evaluate, which stays in rule.py.
+value_uses = "rest"
 init = { "src/prechips/rules/coordinates/__init__.py" = "Printed coordinates: frames, bands, DRO grids and each op family's rows." }
 
 [module.targets]
@@ -404,6 +407,9 @@ name = "zero_recipe"
 source = "src/prechips/rules/zero_recipe.py"
 rest = "src/prechips/rules/zero_recipe/rule.py"
 style = "package"
+# Tests list the rule module itself (SCREENS, parametrize, `rule is ...`) and call its
+# evaluate, which stays in rule.py.
+value_uses = "rest"
 init = { "src/prechips/rules/zero_recipe/__init__.py" = "Zero recipes: finders, touches, carried faces and tool settings." }
 
 [module.targets]

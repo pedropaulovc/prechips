@@ -955,7 +955,11 @@ class Rewriter:
                         # prechips.<...>.<name>; `import <child> as x` binds only the child.
                         self.refusals.append(f"{path}:{node.lineno} plain `import {a.name}`")
         added = defaultdict(set)  # id(import node) -> import lines to add beside it
+        parents = {id(c): n for n in ast.walk(tree) for c in ast.iter_child_nodes(n)}
         for node, binding in _resolved_uses(tree, aliases):
+            if binding is not None and isinstance(node, ast.Name) and not _reached(node, parents):
+                edits.append(self._value_use(node, binding, at, added))
+                continue
             edit = self._patch(node, binding, at, added)
             edit = edit or self._lookup(node, binding, at, added)
             edit = edit or self._attribute(node, binding, at, added)
@@ -1081,6 +1085,23 @@ class Rewriter:
         span = at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset)
         return *span, replacement
 
+    def _value_use(self, node, binding, at, added):
+        """The alias as a value (in a list, passed to a function, compared with ``is``):
+        what it is later asked for cannot be followed. The spec's ``value_uses = "rest"``
+        says such a value stands for the module's entry point, which stays in ``rest``
+        (a rule's ``evaluate``); the suite then checks that claim. Otherwise it refuses."""
+        if self.module.get("value_uses") != "rest":
+            self.refusals.append(
+                f'line {node.lineno}: {node.id} is used as a value; set value_uses = "rest" '
+                "if it stands for the entry point the rest file keeps"
+            )
+            return None
+        module = dotted(self.module, self.rest)
+        if module == self.source:
+            return None
+        local = self._alias_for(node.id, module, added, binding)
+        return at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset), local
+
     def _alias_for(self, local, module, added, binding):
         """The local name of ``module``, imported beside the alias import ``binding``
         (same scope and indentation, so a function-level import stays lazy)."""
@@ -1152,6 +1173,19 @@ class Rewriter:
         return at(value.lineno, value.col_offset), at(value.end_lineno, value.end_col_offset), local
 
 
+def _reached(name, parents):
+    """Whether this load of a module alias is one the rewriter follows: ``alias.attr``,
+    or the module argument of ``setattr``/``getattr``/``hasattr``."""
+    parent = parents.get(id(name))
+    if isinstance(parent, ast.Attribute) and parent.value is name:
+        return True
+    if isinstance(parent, ast.Call) and parent.args and parent.args[0] is name:
+        func = parent.func
+        called = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", None)
+        return called in ("setattr", "getattr", "hasattr")
+    return False
+
+
 def _module_bindings(tree):
     bound = set()
     for node in tree.body:
@@ -1194,6 +1228,8 @@ def _resolved_uses(tree, aliases):
             name = n.value.id
         elif isinstance(n, ast.Call) and n.args and isinstance(n.args[0], ast.Name):
             name = n.args[0].id
+        elif isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load):
+            name = n.id
         binding = None
         if name is not None:
             for scope, bound in reversed(chain):
@@ -1327,7 +1363,8 @@ def touched(base, head, path):
         new_count = 1 if match[4] is None else int(match[4])
         if old_count:
             old.append((int(match[1]), old_count))
-        new.append((int(match[3]), max(new_count, 1)))
+        if new_count:  # a pure deletion has no head-side lines; its old side counts
+            new.append((int(match[3]), new_count))
     sides = []
     for commit, spans in ((head, new), (base, old)):
         blob, found = _units_at(commit, path) if commit != EMPTY_TREE else (None, [])

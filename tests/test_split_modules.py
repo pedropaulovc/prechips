@@ -553,3 +553,63 @@ def test_importing_a_child_of_the_split_module_as_an_alias_is_not_refused(at, tm
     )
     split.main(["apply", "big"])
     assert (tmp_path / "src" / "pkg" / "parts.py").exists()
+
+
+VALUE_SOURCE = "def evaluate(x):\n    return helper(x)\n\n\ndef helper(x):\n    return x\n"
+VALUE_TEST = (
+    "from pkg import big\n\nSCREENS = [big]\n\n\ndef test():\n"
+    "    assert SCREENS[0].evaluate(3) == 3\n"
+)
+
+
+def test_a_module_alias_used_as_a_value_is_refused(at, tmp_path):
+    at(VALUE_SOURCE, _spec('["helper"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(VALUE_TEST, encoding="utf-8")
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+
+
+def test_value_uses_rest_rebinds_a_value_alias_to_the_entry_points_file(at, tmp_path):
+    spec = """\
+        [[module]]
+        name = "big"
+        source = "src/pkg/big.py"
+        rest = "src/pkg/big/rule.py"
+        style = "package"
+        value_uses = "rest"
+        init = { "src/pkg/big/__init__.py" = "Big, split." }
+        [module.targets]
+        "src/pkg/big/parts.py" = ["helper"]
+        """
+    at(VALUE_SOURCE, spec)
+    test = tmp_path / "tests" / "test_big.py"
+    test.write_text(VALUE_TEST, encoding="utf-8")
+    split.main(["apply", "big"])
+    rewritten = test.read_text(encoding="utf-8")
+    assert "SCREENS = [big_rule]" in rewritten
+    process = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(test)],
+        cwd=tmp_path,
+        env={"PYTHONPATH": str(tmp_path / "src"), "PATH": "/usr/bin:/bin"},
+        capture_output=True,
+        text=True,
+    )
+    assert process.returncode == 0, process.stdout + process.stderr
+
+
+def test_churn_never_counts_a_pure_deletion_against_the_symbol_after_it(tmp_path, monkeypatch):
+    base, head = _repo(
+        tmp_path,
+        monkeypatch,
+        [
+            "def a():\n    return 1\n\n\ndef b():\n    return 2\n\n\ndef c():\n    return 3\n",
+            "def a():\n    return 1\n\n\ndef c():\n    return 3\n",
+        ],
+    )
+    names = {
+        unit.name
+        for version, hit in split.touched(base, head, "big.py")
+        for i, unit in enumerate(version)
+        if i in hit
+    }
+    assert names == {"b"}
