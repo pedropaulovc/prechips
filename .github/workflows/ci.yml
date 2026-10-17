@@ -150,12 +150,33 @@ jobs:
       - uses: actions/download-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          pattern: pytest-${{ runner.os }}-${{ runner.arch }}-shard*-${{ github.run_id }}-${{ github.run_attempt }}
+          # Every attempt's artifacts: "Re-run failed jobs" reruns only some shards, and
+          # the others' results live under the attempt that ran them.
+          pattern: pytest-${{ runner.os }}-${{ runner.arch }}-shard*-${{ github.run_id }}-*
           path: shard-results
       - name: Assert shards ran the full collection once
         if: ${{ !cancelled() }}
         shell: bash
-        run: uv run scripts/ci_shards.py check shard-results/*/pytest.xml
+        env:
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          # One result per shard: its latest attempt.
+          declare -A latest
+          for dir in shard-results/pytest-*-shard*-"$RUN_ID"-*; do
+            name=${dir##*/}
+            attempt=${name##*-}
+            shard=${name%-"$RUN_ID"-*}
+            best=${latest[$shard]:-}
+            if [ -z "$best" ] || [ "$attempt" -gt "${best##*-}" ]; then
+              latest[$shard]=$dir
+            fi
+          done
+          files=()
+          for shard in "${!latest[@]}"; do
+            echo "$shard: ${latest[$shard]##*/}"
+            files+=("${latest[$shard]}/pytest.xml")
+          done
+          uv run scripts/ci_shards.py check "${files[@]}"
 
   build:
     runs-on: ubuntu-latest
