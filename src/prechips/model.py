@@ -555,11 +555,6 @@ type KnownPoint3 = Annotated[list[float], Field(min_length=3, max_length=3)]
 UNIT_TOLERANCE = 1e-6
 
 
-def _unit(vector: list[float], what: str) -> None:
-    if abs(math.sqrt(sum(v * v for v in vector)) - 1.0) > UNIT_TOLERANCE:
-        raise ValueError(f"{what} must be a unit vector.")
-
-
 class InspectionAid(InputModel):
     """A gauge, block or holding an inspection sketch draws, in the part model's own
     coordinates (mm): a ``box`` from its least corner ``at_mm`` by ``size_mm`` along its
