@@ -56,6 +56,26 @@ def test_undeclared_datum_setup_is_debt_not_a_pass(tmp_path, setup):
     assert SETUP_DEBT in row.sentence
 
 
+def test_plan_owned_datum_is_not_a_drawing_datum(tmp_path):
+    bundle = angularity_bundle(
+        tmp_path,
+        requirement="height_above_pivot",
+        band="[8.0, 8.5]",
+        gauge="height_gauge",
+        method=METHOD,
+        datums=None,
+        resolution="0.01",
+        span="[0.0, 300.0]",
+    )
+    # A plan joint or process feature is operative, never an exported drawing datum.
+    operative = {**bundle.feature_definitions, "prep_top": {"kind": "face", "requirements": []}}
+    bundle.__dict__["feature_definitions"] = operative
+    bundle.features["features"]["cone"]["height_from"] = "prep_top"
+    row = inspection_finding(bundle, "height_above_pivot")
+    assert row.status == "unknown"
+    assert SETUP_DEBT in row.sentence
+
+
 def test_radius_stays_a_form_a_height_gauge_cannot_read(tmp_path):
     bundle = angularity_bundle(
         tmp_path, requirement="radius", band="[799.49, 800.51]", gauge="height_gauge"
