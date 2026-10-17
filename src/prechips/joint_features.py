@@ -325,9 +325,11 @@ def formed(bundle, name: str) -> dict:
         )
         if unknown
     ]
+    if "faces" not in missing:
+        entry["faces"] = list(faces)  # an undecided corner is still bounded by its faces
     if missing:
         return {**entry, "reason": f"formed feature {name} {', '.join(missing)} unknown"}
-    return {**entry, "faces": list(faces), "radius_mm": _scaled(band, scale)}
+    return {**entry, "radius_mm": _scaled(band, scale)}
 
 
 def mouth_break(bundle, name: str) -> dict:

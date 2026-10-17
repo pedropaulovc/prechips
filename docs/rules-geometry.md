@@ -272,8 +272,8 @@ hold:
 1. The join assembles, with known joined stock.
 2. The kernel admits the joined corner inside the feature's own band (see the
    [assembly backstop](#transient-joint-preparation-and-assembly)).
-3. The last op naming the feature, in the joint's setup or one downstream of it,
-   checks its `radius` band, and that check passes under
+3. The last op that names the feature and checks its `radius` band, in the joint's
+   setup or one downstream of it, passes that check under
    [inspection's](rules-inspection.md) gauge capability rule. A leaf at or under
    the `[0, r]` limit, less its tolerance, is enough. A check on an op naming another
    feature reads that feature, not this one.
@@ -955,12 +955,16 @@ branches:
   untrimmed surfaces of their neighbouring finished faces, so the joined corner is
   the sharp corner where those neighbours meet. Features that share one lost piece
   are judged together.
-- Each component's edge breaks are included. A cylindrical joint's socket mouths
-  carry its declared `edge_break`, cut into the received socket before the join. A
-  radius or chamfer mouth leaves a groove round the spigot that no neighbour
-  surface bounds, so the join is refused (`the socket's <kind> <size> mouth break
-  leaves a groove, not a fillet or a sharp corner`). An undeclared or unknown break
-  is debt.
+- The socket's mouth breaks are included; the spigot runs through the corner with no
+  edge there. A cylindrical joint's socket mouths carry its declared `edge_break`,
+  cut into the received socket before the join. The mouths are the `at` end, and the
+  far end too when `thru`. A radius or chamfer mouth leaves a groove round the
+  spigot that no neighbour surface bounds, so the join is refused (`the socket's
+  <kind> <size> mouth break leaves a groove, not a fillet or a sharp corner`). A break
+  is placed only on a flat socket face square to the axis: its annulus must be full
+  of socket material inside the mouth plane and empty outside it. An authored end in
+  air, or a saddle on a curved face, leaves the join unknown. An undeclared or
+  unknown break is debt.
 - No lost point, sampled faces and vertices included, lies farther from the formed
   faces than the band's MAX. Material missing beyond the band stays lost.
 - The corner shares area with both received branches. A corner that one branch
@@ -969,10 +973,14 @@ branches:
   band refuses it.
 
 Each of these failures refuses the join with its message. An unknown band, units
-or mouth break makes a formed feature debt. Lost material left at its faces then
-withholds the joined stock instead of refusing it. Lost material elsewhere is still
-a certain refusal. Only a feature whose faces are unknown, so that nothing says
-where its corner is, withholds the stock for any leftover loss. The joined setup
+or mouth break makes a formed feature debt. So does a known feature whose lost
+material is shared with an undecided one. Lost material left at an undecided
+feature's faces then withholds the joined stock instead of refusing it. Lost
+material elsewhere is still a certain refusal. Two cases withhold the stock for any
+leftover loss: a feature whose faces are unknown, since nothing says where its corner
+is, and a lost piece that touches an undecided corner, which is excused as a whole
+because no known band bounds it. With no lost material at all, the join assembles
+and the undecided feature's row stays unknown. The joined setup
 reports `forms.<feature>` with `status = "formed"`, `indices`, `corner = "sharp"`,
 `radius_mm`, `admitted_mm3` and `reach_mm` (the farthest lost point from the
 faces). Later joins keep the admitted material admitted. A joint without `forms`

@@ -778,22 +778,26 @@ is a consumer export that the plan does not edit. Rules for `forms`:
 
 The kernel checks the joined corner against the band (see the [assembly
 backstop](rules-geometry.md#transient-joint-preparation-and-assembly)). It judges the
-joined geometry with each component's edge breaks included, so a cylindrical joint
-that forms a feature needs its socket's mouth `edge_break`:
+joined geometry with the socket's mouth breaks included, so a cylindrical joint that
+forms a feature needs its socket's mouth `edge_break`. The spigot runs through the
+corner and has no edge there.
 
 - **Sharp mouth:** the press leaves the sharp corner the band admits.
 - **Radius or chamfer mouth:** the break leaves a groove round the spigot, neither a
   fillet nor a sharp corner, so the join is refused.
-- **Omitted or unknown break:** the corner is debt and the joined stock is
-  withheld.
+- **Mouth not on a flat face:** the break can only be placed on a flat socket face
+  square to the axis. An authored end in air, or a saddle on a curved face, leaves the
+  join unknown.
+- **Omitted or unknown break:** the formed feature is debt. Lost material at its
+  faces withholds the joined stock; loss elsewhere is still refused.
 
 The drawing's general `edge_break_r`/`chamfer_max` is not read for this. That
 allowance is a maximum and does not say what this mouth carries.
 
 Beyond that, no material may be missing beyond the band's MAX, and the band must
-start at 0. `coverage` credits the faces to the joint only after an op naming the
-feature checks its `radius` band, in the joint's setup or a setup downstream of it,
-and that check passes. Without such a check the credit is debt. A [limit
+start at 0. `coverage` credits the faces to the joint only when the last op that
+names the feature and checks its `radius` band, in the joint's setup or a setup
+downstream of it, passes. Without such a check the credit is debt. A [limit
 leaf](rules-inspection.md) at or under the MAX is enough:
 
 ```toml
