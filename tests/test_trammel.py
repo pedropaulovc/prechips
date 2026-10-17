@@ -372,7 +372,7 @@ def test_a_trammel_only_setup_owes_no_xy_pickup_and_no_xy_dro_sign(tmp_path):
     from test_guided_sweep import ZERO_Z
 
     from prechips.inputs import load_bundle
-    from prechips.rules import zero_recipe
+    from prechips.rules.zero_recipe import rule as zero_recipe
     from prechips.sheet import _Traveler
 
     plan = trammel_plan(tmp_path)
@@ -1027,7 +1027,7 @@ def test_an_authored_xy_zero_in_a_trammel_setup_is_an_error(tmp_path):
     from test_guided_sweep import ZERO_Z
 
     from prechips.inputs import load_bundle
-    from prechips.rules import zero_recipe
+    from prechips.rules.zero_recipe import rule as zero_recipe
 
     plan = trammel_plan(tmp_path)
     zero_x = (
