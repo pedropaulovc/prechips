@@ -216,3 +216,30 @@ def test_the_safe_leaf_named_is_a_listed_one(tolerance, expected):
     row = finding(b)
     assert row.status == "unknown"
     assert row.numbers["leaf_max_mm"] == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("sizes", ["unknown", [0.2, "unknown"], ["unknown"]])
+def test_an_unknown_leaf_inventory_is_debt_not_an_absence(sizes):
+    b = bundle([0.2, 1.0])
+    b.inventory["gauges"]["radius-gauge-small"]["sizes_mm"] = sizes
+    row = finding(b)
+    # Never the certain "no leaf" error: a wholly unknown list makes the gauge itself
+    # unverified (resolution's inventory reading), a partly unknown one the leaf sizes.
+    assert row.status == "unknown"
+    assert "no leaf" not in row.sentence
+
+
+def test_the_leaf_is_the_printed_max_not_the_raw_limit():
+    # R0.24 MAX prints "0.0–0.2" at precision 1: the operator checks R0.2, so a set holding
+    # only R0.24 cannot read the printed limit, while one holding R0.2 can.
+    def row(sizes):
+        b = bundle([0.2, 1.0], band=(0.0, 0.24))
+        b.features["precision"] = 1
+        b.inventory["gauges"]["radius-gauge-small"]["sizes_mm"] = sizes
+        return finding(b)
+
+    raw_only = row([0.24, 0.5])
+    assert raw_only.status != "pass"
+    assert raw_only.numbers["limit_mm"] == pytest.approx(0.2)
+    assert raw_only.numbers["drawing_limit_mm"] == pytest.approx(0.24)
+    assert row([0.2, 0.5]).status == "pass"

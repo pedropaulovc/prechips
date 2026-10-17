@@ -100,7 +100,13 @@ The leaves are the gauge's declared `sizes_mm`; a declared empty list means none
 no leaf reads the limit (error). Without `sizes_mm`, the leaves are the steps of
 `resolution_mm` (the leaf pitch) up from `range_mm[0]`. A pitch that is not positive
 leaves the check unknown (`gauge range or resolution unresolved`). `leaf_max_mm` is
-always one of those leaves: the largest at or under r − t.
+always one of those leaves: the largest at or under r − t. A `sizes_mm` that is
+unknown, wholly or in part, shows neither a leaf nor its absence, so the check is
+unknown (`gauge leaf sizes unresolved`, or the gauge's own verification debt).
+
+r is the MAX the traveler prints, the band rounded inward to the drawing's precision:
+`[0, 0.24]` at precision 1 prints `0.0–0.2`, so the leaf read is R0.2, never R0.24.
+When printing moves it, the evidence keeps the drawn limit as `drawing_limit_mm`.
 
 Evidence adds `limit_check = "max"`, `limit_mm` (r) and, when declared,
 `leaf_tolerance_mm`, instead of `band_mm`. An unverified gauge stays debt. A two-sided band (R5 ±0.1) and any reading gauge (a CMM) keep the full-span
@@ -167,6 +173,7 @@ Sentence templates:
   - `limit check: gauge has no leaf at the MAX limit`
   - `limit check: the leaf's ±{t} tolerance crosses the MAX limit (no leaf at or under the limit less its tolerance)`
   - `limit check: gauge leaf tolerance unresolved`
+  - `limit check: gauge leaf sizes unresolved`
   - `limit check: gauge resolution exceeds the MAX limit`
   - `limit check: only a leaf at or under R{r − t} reads the limit, and the traveler does not name it`
   - `limit check: the gauge has no R{r} leaf, and the traveler does not name the smaller one that reads the limit`

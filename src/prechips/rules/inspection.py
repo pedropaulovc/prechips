@@ -100,6 +100,15 @@ def max_limit(requirement, value):
     return high if number(low) and number(high) and low == 0 and high > 0 else None
 
 
+def leaves_unknown(gauge):
+    """Whether the gauge declares its leaf inventory ``sizes_mm`` as unknown, wholly or in
+    part: it then neither shows a leaf nor rules one out."""
+    if "sizes_mm" not in gauge:
+        return False
+    sizes = gauge["sizes_mm"]
+    return not isinstance(sizes, list) or any(not number(leaf) for leaf in sizes)
+
+
 def leaf_under(gauge, span, resolution, size):
     """The largest leaf of the set at or under ``size``, else None. A declared
     ``sizes_mm`` is the leaf inventory, an empty one none at all; without it the leaves
@@ -505,6 +514,12 @@ def _capability(
         elif isinstance(value, list) and len(value) == 2 and all(number(v) for v in value):
             consumed = ("range", "resolution")
             limit = max_limit(requirement, value) if kind in LEAF_GAUGES else None
+            # The operator reads the MAX the traveler prints, rounded inward to the drawing's
+            # precision: the leaf must be that one, never the raw limit.
+            printed = accept[1] if isinstance(accept, list) and len(accept) == 2 else None
+            if limit is not None and number(printed) and printed != limit:
+                nums["drawing_limit_mm"] = limit
+                limit = printed
             tolerance = 0.0
             if limit is not None:
                 nums.update(limit_check="max", limit_mm=limit)
@@ -523,6 +538,9 @@ def _capability(
                 status, message = "error", "limit check: gauge resolution exceeds the MAX limit"
             elif limit is not None and tolerance is None:
                 message = "limit check: gauge leaf tolerance unresolved"
+            elif limit is not None and leaves_unknown(gauge):
+                # An unknown inventory cannot show which leaves exist, nor that none does.
+                message = "limit check: gauge leaf sizes unresolved"
             elif limit is not None:
                 # Go/no-go at the limit: a leaf at or under R MAX seats without rocking on a
                 # corner at or under it. A leaf marked L may really be L + t, accepting
