@@ -52,6 +52,7 @@ GUIDES = (
     "[fixtures.arm]\nkind = 'swing_arm'\nname = 'R800 swing arm'\n"
     f"pivot_play_mm = {{ value = 0.02, {MEASURED} }}\nverify = false\n"
     "[fixtures.sled]\nkind = 'arc_sled'\nname = 'R850 arc sled'\nrail_radius_mm = 850.0\n"
+    "rail_side = 'outer'\n"
     f"rail_form_error_mm = {{ value = 0.05, {MEASURED} }}\n"
     f"roller_runout_mm = {{ value = 0.01, {MEASURED} }}\nverify = false\n"
     "[gauges.bar]\nkind = 'setting_bar'\nname = 'R800 setting bar'\n"
@@ -375,6 +376,40 @@ def test_the_rail_is_checked_over_the_travel_the_stops_set(tmp_path, short):
     assert "the stops let the fixture turn" in errors(row)
     if guided is not None:
         assert guided["stop_travel_deg"] > sweep
+
+
+@pytest.mark.parametrize(
+    ("side", "dia", "orbit", "debt"),
+    [
+        ("outer", None, 850.0, None),
+        (None, None, None, "declare sled's rail_side (outer or inner)"),
+        ("inner", None, None, "the roller diameter of sled is unknown or not measured"),
+        ("inner", 22.0, 839.0, None),
+        ("inner", 1700.0, None, "a Ø1700 mm roller cannot bear inside sled's R850 mm rail"),
+    ],
+    ids=["outer", "no-side", "inner-unmeasured", "inner-measured", "inner-too-wide"],
+)
+def test_the_rail_bound_turns_on_the_rollers_proven_orbit(tmp_path, side, dia, orbit, debt):
+    # The rail's finite terms turn on how far the rollers' centres orbit the arc centre:
+    # at least the rail radius outside it, the rail radius less half a measured roller
+    # diameter inside it. An undeclared side or an unproven inside roller is debt, never a
+    # guessed orbit (Codex review of #258 at 0fbfc47).
+    plan = guided_plan(tmp_path, "rail")
+    inventory = plan.with_name("inventory.toml")
+    change(inventory, "rail_side = 'outer'\n", "" if side is None else f"rail_side = '{side}'\n")
+    if dia is not None:
+        change(
+            inventory,
+            "rail_radius_mm = 850.0\n",
+            f"rail_radius_mm = 850.0\nroller_dia_mm = {{ value = {dia}, {MEASURED} }}\n",
+        )
+    row = coordinates_row(plan, stock_bbox=SWING)
+    if debt is None:
+        assert recipe(row)[1]["roller_orbit_mm"] == pytest.approx(orbit)
+        assert row.status == "pass", row.sentence
+    else:
+        assert debt in debts(row)
+        assert row.status != "pass"
 
 
 def test_the_rail_is_narrowed_by_each_rollers_placement_error(tmp_path):
@@ -1371,11 +1406,14 @@ def _pair_of_numbers(value):
 def test_the_rail_bound_holds_for_finite_form_errors():
     # The linear gain is not a bound for finite errors. An R50 rail on Ø10 rollers at ±70°
     # with a 1 mm form error: exact contact geometry moves the cut 5.913 mm between poses,
-    # past the linear gain's 5.848 mm. Its finite bound does not converge: unresolved.
+    # past the linear gain's 5.848 mm. Outside the rail the rollers' centres orbit at R50
+    # at least, where the finite bound covers it; on a 25 mm orbit (Ø50 rollers inside the
+    # R50 rail) it does not converge: unresolved.
     rollers = [70.0, -70.0]
     assert 2 * roller_gain(rollers) * 1.0 == pytest.approx(5.848, abs=1e-3)
     assert exact_cut_spread(rollers, 1.0, 50.0, 5.0, 797.0) == pytest.approx(5.913, abs=1e-3)
-    assert rail_cut_shift(rollers, 1.0, 50.0, 797.0) is None
+    assert 2 * rail_cut_shift(rollers, 1.0, 50.0, 797.0) >= 5.913
+    assert rail_cut_shift(rollers, 1.0, 25.0, 797.0) is None
     # Where it converges, the bound covers the exact spread, a hair above the linear gain
     # at a real sled's R850.
     for case in ((rollers, 0.5, 100.0, 5.0), ([-15.0, 15.0], 0.055, 850.0, 11.0)):

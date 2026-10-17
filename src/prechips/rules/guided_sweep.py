@@ -240,7 +240,37 @@ def _carrier(bundle, setup, sweep, guide, errors, debts, measurements, record_):
         for field, measured, words in fields
     }
     record_.update({f"{field}_mm": value for field, value in found.items()})
+    if guide == "rail":
+        orbit = _roller_orbit(item, found["rail_radius"], category, key, debts, measurements)
+        found["roller_orbit"] = orbit
+        record_["roller_orbit_mm"] = orbit
     return found
+
+
+def _roller_orbit(item, rail, category, key, debts, measurements):
+    """The rollers' centres' least distance (mm) from the arc centre, the radius the rail
+    bound turns its finite terms on: at least the rail radius for rollers outside the rail
+    (``rail_side = "outer"``), whatever their size; the rail radius less half the measured
+    roller diameter for rollers inside it. UNKNOWN with a debt when the side is undeclared
+    or an inside roller's diameter is unmeasured or no smaller than the rail's."""
+    if not number(rail):
+        return UNKNOWN
+    side = item.get("rail_side")
+    if side == "outer":
+        return rail
+    if side != "inner":
+        debts.append(
+            f"declare {key}'s rail_side (outer or inner): which side the rollers bear on sets "
+            "how far their centres orbit, which the rail's bound turns on"
+        )
+        return UNKNOWN
+    dia = _fact(item, "roller_dia", True, category, key, debts, measurements, "roller diameter")
+    if not number(dia):
+        return UNKNOWN
+    if rail - dia / 2 <= 0:
+        debts.append(f"a Ø{dia:g} mm roller cannot bear inside {key}'s R{rail:g} mm rail")
+        return UNKNOWN
+    return rail - dia / 2
 
 
 def _master(bundle, sweep, guide, errors, debts, measurements, record_):
@@ -345,14 +375,14 @@ def _roller_slack(rollers, found):
     contact errs by that, the rail's form error and half its roller's runout
     (:func:`_contact_error`), over the rail's radius. None when unknown or unbounded."""
     found = found or {}
-    form, runout, radius = (
-        found.get(k) for k in ("rail_form_error", "roller_runout", "rail_radius")
+    form, runout, radius, orbit = (
+        found.get(k) for k in ("rail_form_error", "roller_runout", "rail_radius", "roller_orbit")
     )
     if not (_pair(rollers) and number(form) and number(runout) and number(radius) and radius > 0):
         return None
     half = ROLLER_PRINT_MM / 2
     placed = math.hypot(half, half)
-    contact = _contact_error(rollers, placed + form + runout / 2, radius)
+    contact = _contact_error(rollers, placed + form + runout / 2, orbit)
     if contact is None:
         return None
     a, b = (math.radians(v) for v in rollers)
@@ -369,19 +399,18 @@ def _second_order(shift, radius):
     return shift * shift / (2 * (radius - shift))
 
 
-def rail_cut_shift(rollers, per_contact, rail_radius, cutter_radius):
+def rail_cut_shift(rollers, per_contact, orbit, cutter_radius):
     """The most the cut radius moves at one pose (mm) when each roller contact errs by up
     to ``per_contact`` mm along its radial line: a finite bound, never the linearized gain
     alone. The sled's centre shift ``d`` meets each contact's constraint to within ``q = d²
-    / (2 (ρ - d))`` (:func:`_second_order`), ρ the roller centres' distance from the arc
-    centre, taken as half the rail radius at least (true of any roller outside the rail,
-    and of one inside it no wider than its radius); ``|d| <= 2 (e + q) / |sin(a - b)|``
-    for rollers at ``a`` and ``b``, solved as a fixed point. The cut then moves by the
-    rollers' gain (:func:`roller_gain`) on ``e + q`` plus the cutter's own second-order
-    term at ``cutter_radius`` mm. None when the rollers leave the sled free or no bound
-    converges inside half of either radius."""
+    / (2 (ρ - d))`` (:func:`_second_order`), ρ the roller centres' least distance from the
+    arc centre (``orbit``, :func:`_roller_orbit`); ``|d| <= 2 (e + q) / |sin(a - b)|`` for
+    rollers at ``a`` and ``b``, solved as a fixed point. The cut then moves by the rollers'
+    gain (:func:`roller_gain`) on ``e + q`` plus the cutter's own second-order term at
+    ``cutter_radius`` mm. None when the rollers leave the sled free or no bound converges
+    inside half of either radius."""
     gain = roller_gain(rollers)
-    contact = _contact_error(rollers, per_contact, rail_radius)
+    contact = _contact_error(rollers, per_contact, orbit)
     if gain is None or contact is None:
         return None
     a, b = (math.radians(v) for v in rollers)
@@ -391,11 +420,12 @@ def rail_cut_shift(rollers, per_contact, rail_radius, cutter_radius):
     return gain * contact + term
 
 
-def _contact_error(rollers, per_contact, rail_radius):
+def _contact_error(rollers, per_contact, orbit):
     """``e + q`` (mm): each roller contact's radial error ``e`` (``per_contact``) plus the
-    finite term ``q`` the sled centre's shift leaves at it (:func:`rail_cut_shift`), solved
-    as a fixed point. None when the rollers leave the sled free, ``e`` is unknown or no
-    bound converges inside half the rail radius."""
+    finite term ``q`` the sled centre's shift leaves at it (:func:`rail_cut_shift`) on the
+    rollers' least ``orbit`` about the arc centre, solved as a fixed point. None when the
+    rollers leave the sled free, ``e`` or the orbit is unknown or no bound converges inside
+    half the orbit."""
     a, b = (math.radians(v) for v in rollers)
     spread = abs(trig.sin(a - b))
     if spread < 1e-9 or not (number(per_contact) and per_contact >= 0):
@@ -403,7 +433,7 @@ def _contact_error(rollers, per_contact, rail_radius):
     error = 0.0
     for _ in range(200):
         shift = 2 * (per_contact + error) / spread
-        bound = _second_order(shift, rail_radius / 2 if number(rail_radius) else None)
+        bound = _second_order(shift, orbit if number(orbit) else None)
         if bound is None:
             return None
         settled = bound - error <= 1e-12
@@ -413,14 +443,14 @@ def _contact_error(rollers, per_contact, rail_radius):
     return None
 
 
-def rail_transverse_shift(rollers, per_contact, rail_radius):
+def rail_transverse_shift(rollers, per_contact, orbit):
     """The most the sled's centre stands beside the cutter's radial line (mm) when each
     roller contact errs by up to ``per_contact`` mm along its radial line: the sideways
     part of the shift :func:`roller_gain` measures along the line, ``(|cos a| + |cos b|) /
     |sin(a - b)|`` on the finite contact error (:func:`_contact_error`) for rollers at
-    ``a`` and ``b`` degrees. Rollers close in angle amplify it. None when the rollers
-    leave the sled free or no bound converges."""
-    contact = _contact_error(rollers, per_contact, rail_radius)
+    ``a`` and ``b`` degrees, on the rollers' least ``orbit``. Rollers close in angle
+    amplify it. None when the rollers leave the sled free or no bound converges."""
+    contact = _contact_error(rollers, per_contact, orbit)
     if contact is None:
         return None
     a, b = (math.radians(v) for v in rollers)
@@ -732,7 +762,7 @@ def _transverse_offset(record_, found, sweep, grid, scale):
         return None
     half = ROLLER_PRINT_MM / 2
     contact = math.hypot(half, half) + form + runout / 2
-    return rail_transverse_shift(sweep["rollers_deg"], contact, found.get("rail_radius"))
+    return rail_transverse_shift(sweep["rollers_deg"], contact, found.get("roller_orbit"))
 
 
 def _transverse(record_, guide, label, debts):
@@ -928,11 +958,11 @@ def guided(bundle, setup, op, arc, band, label, scale):
             widen = (play + term) * (1 if bar else 2)
     elif placed and gain is not None:
         form, runout = found["rail_form_error"], found["roller_runout"]
-        if number(form) and number(runout) and number(found["rail_radius"]):
+        if number(form) and number(runout) and number(found.get("roller_orbit")):
             # Each contact errs by the rail's form error plus half its roller's runout, at
             # the touch-off and again at the cut: twice the most one pose moves the cut.
             shift = rail_cut_shift(
-                sweep["rollers_deg"], form + runout / 2, found["rail_radius"], reach
+                sweep["rollers_deg"], form + runout / 2, found["roller_orbit"], reach
             )
             if shift is None:
                 debts.append(

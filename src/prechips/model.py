@@ -1983,6 +1983,11 @@ InventoryItem = record(
             MeasuredLength,
         ),
         **dict.fromkeys(("radius_limits_mm", "radius_limits_in"), MeasuredLimits),
+        # An arc sled's guide rollers: which edge of the sled the rail is (the rollers bear
+        # on it from outside the arc, or from the arc centre's side), and their diameter,
+        # which sets how far an inside roller's centre orbits.
+        **dict.fromkeys(("roller_dia_mm", "roller_dia_in"), MeasuredLength),
+        "rail_side": Literal["outer", "inner"],
         # Follow rest jaw directions about the spindle axis, degrees from the cutting tool.
         "jaw_angles_deg": list[Number],
     },
@@ -2026,7 +2031,7 @@ _INVENTORY_LENGTH_STEMS |= {"pilot_len"}
 _INVENTORY_LENGTH_STEMS |= {"thickness", "spigot_dia", "spigot_length"}
 # Guided-sweep fixtures and masters: one fact each, in mm or in, never both.
 _INVENTORY_LENGTH_STEMS |= {"pivot_play", "rail_radius", "rail_form_error", "roller_runout"}
-_INVENTORY_LENGTH_STEMS |= {"radius_limits"}
+_INVENTORY_LENGTH_STEMS |= {"radius_limits", "roller_dia"}
 
 
 def _inventory_lengths(

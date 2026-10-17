@@ -427,8 +427,10 @@ naming them. Each table is recorded under `arc_table` (its joins under
   `d` adds `d² / (2 (ρ − d))` where a radius `ρ` turns it (the cutter's shortest
   reach, `worst_reach_mm`: the master's radius limits at the touch, less a rough's
   back-off toward the centre, never the nominal path; and for a
-  rail the roller centres', taken as half the rail radius at least, true of any
-  roller outside the rail or inside it and no wider than its radius), solved as a
+  rail the roller centres' least orbit `roller_orbit_mm`: the rail radius for rollers
+  outside it, `rail_side = "outer"`, the rail radius less half the measured
+  `roller_dia` for rollers inside it; an undeclared side, or an inside roller
+  unmeasured or as wide as the rail's diameter, is unknown), solved as a
   fixed point (`rules/guided_sweep.py` `rail_cut_shift`); one that does not converge
   inside half of either radius leaves the cut unknown. Every geometric proof of the
   sweep then carries one explicit safety margin, `margin_mm`, the machine's DRO

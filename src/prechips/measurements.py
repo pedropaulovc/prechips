@@ -476,6 +476,9 @@ def measurement_entry(category, identity, field, *, status=None, item=None, subj
     elif field == "roller_runout":
         description = "guide roller outside-diameter runout about its stud"
         instrument = "dial indicator on the roller, turned by hand"
+    elif field == "roller_dia":
+        description = "guide roller outside diameter"
+        instrument = "micrometer or calipers"
     elif field == "radius_limits":
         description = (
             "setting bar radius limits: the pivot pin's axis to the touch face, seated on the pin"
