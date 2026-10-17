@@ -366,7 +366,7 @@ material_class = "low_carbon_steel"            # the pulled work's cutting-data 
 front_mm = { value = 40.0, measured = { ... } }       # the pulled work's width across the peel front
 thickness_mm = { value = 2.75, measured = { ... } }   # the pulled work's thickness at the pulled end
 lift_n = { value = 60.0, measured = { ... } }         # illustrative: the force that started the peel
-dwell_min = 20                                 # the dwell before the pull
+dwell_min = { value = 20, measured = { ... } }   # the dwell before the pull, recorded with the test
 work = "strap 40 x 2.75 1018, datum-B face down, pulled vertically at one end"   # printed; never parsed
 ```
 
@@ -383,7 +383,7 @@ island *i* at op *k* only when **every** machine-checkable field matches:
 | thickness | the island's least work thickness over the seat (kernel section) is at least `thickness_mm` |
 | footprint | the island is still the setup-entry footprint: no op so far has reduced or split it |
 | dwell | `dwell_min` is at least the tape's `dwell_min`. A credited test also raises the setup's dwell gate to the test's `dwell_min`: the HOLD prints "cut no earlier than" from the test's dwell, so the work is never cut sooner than the bond the test measured |
-| trust | `lift_n`, `front_mm` and `thickness_mm` are trusted measured facts |
+| trust | `lift_n`, `front_mm`, `thickness_mm` and `dwell_min` are trusted measured facts; a bare, assumed or cited test dwell does not qualify, since the dwell gate is set from it |
 
 Then `C_z = lift_n`, unscaled. Any failed check leaves model A in force, and
 the finding names the check that failed; a test never scales to a different
@@ -435,8 +435,19 @@ for drill"), and with `hold_capacity` always required (D3) such a setup stops at
 exit 4 until a thrust/torque model is designed (a follow-up issue). Zero
 capacity is still decided without a force (section 3.1), so a drill that opens a
 vacuum chamber is an error for every later cutting op. An endmill used for a
-counterbore is a milling op, as in `engagement`. Noncutting actions (`fit`,
-`inspect`, `release`) are `not_applicable`.
+counterbore cuts with its end, so it falls under the entry rule below. Noncutting
+actions (`fit`, `inspect`, `release`) are `not_applicable`.
+
+**Side entry only.** The peripheral equations bound a cut whose flutes engage
+from the side. A plunge or a helical ramp also cuts with the tool's end, a
+thrust and torque those equations do not bound. The plan carries no CAM entry
+strategy, so the model reuses the existing plunge decision of the coordinates
+rule ([plunge rows](cutting-data.md#plunge)): an op whose milled path is proven
+to enter from outside the stock or into an already-open region is computed. An
+op that plunges, or whose entry is unproven, returns `?` ("no axial-entry force
+model"). This holds a pocket, slot or closed profile that enters by plunging,
+and an endmill counterbore, at `?` until an axial-entry model is designed (a
+follow-up issue).
 
 ### 4.2 Equations (Kienzle, peripheral milling)
 
@@ -731,7 +742,7 @@ both endpoints to land inside the band.
 | 6 | Sets Z (recipe A: plate + paper) | plate top at P | `−t_nom + paper` | paper, touch feel, DRO step | touch and DRO terms; the tape mean enters as `t_nom − t(x)` |
 | 6′ | Sets Z (recipe B: mic M at P, touch the top) | work top at P | `M + paper` | mic, touch, DRO; t(P) unknown | mic and touch terms; tape term doubled |
 | 6″ | (vacuum) Lays the gasket cord in the grid grooves along the work outline | the work outline | `gasket_inset_mm` | cord off the inset, a gap at the joint | sealed area differs from S; an open joint is caught by the gauge row (step 7) |
-| 7 | (vacuum) Reads the chuck gauge before each op | chuck gauge | `vacuum_kpa` minimum | leak, pump | capacity scales with the reading; below the minimum → STOP |
+| 7 | (vacuum) Reads the chuck gauge before each op | chuck gauge | the corrected minimum P (section 2.3), never `vacuum_kpa` itself | leak, pump, gauge error and resolution | P already absorbs gauge error, so a reading at P proves `vacuum_kpa`; a reading below P → STOP |
 | 8 | Cuts each op at the printed feed | — | feed from cutting data | feeds faster by hand | F_xy and F_z scale with fz^(1−mc) (residue; covered by the factor) |
 | 9 | Releases (solvent or heat, roll off) | — | release text | prying | bends thin work: the free-state bow is residue, and prying is forbidden in print |
 
@@ -761,8 +772,11 @@ tests request the shared `freecad_kernel` fixture.
   left/right push, and either unknown lifts.
 - Each missing input leaves the result `?` naming that input; the ae bound is
   applied and reported as `ae_basis = "bound_full_slot"`.
-- Drill, reamer and tap tools are `?` ("no thrust/torque force model"); an
-  endmill counterbore is computed; noncutting actions are `not_applicable`.
+- Drill, reamer and tap tools are `?` ("no thrust/torque force model");
+  noncutting actions are `not_applicable`.
+- Entry: a face sweep entering from outside the stock is computed; a pocket
+  whose path plunges, an endmill counterbore, and an op whose entry the
+  coordinates rule leaves unproven are `?` ("no axial-entry force model").
 
 **Capacity and margin** (`hold_capacity`)
 - Tape and vacuum with `use` exactly `1/k` (pass), just above (error), and `k`
@@ -855,7 +869,7 @@ Each phase is its own PR, stacked on the previous one.
 | 5 | stack | `area_hold_stack` signed-term intervals, endpoint comparison, recipe A/B detection from `zero.z`, S0A→S0B and raw clean-up rows; `rules-coordinates.md` | ~400 + tests |
 | 6 | traveler | apply, dwell gate, capacity, stack and release rows; STOP forms; the example bundle and goldens; blind machinist review | ~600 + goldens |
 | 7 | #158 | clamp provider (`n × μ × preload`, cited) for `hold_capacity` with the shared factor; per-solid clearance listing | separate design note in #158 |
-| — | follow-up | drill-family thrust/torque model; authored tape strips (D7); wax and CA (D9) | separate issues |
+| — | follow-up | drill-family thrust/torque and axial-entry models; authored tape strips (D7); wax and CA (D9) | separate issues |
 
 Phases 1–2 are independent of the kernel. Phase 4 needs 2 and 3, and phase 6
 needs 4 and 5.
@@ -934,6 +948,10 @@ not separately decided by the maintainer:
 - the vacuum gauge must be a `vacuum_gauge` with known range, resolution and
   accuracy; the printed minimum adds the accuracy and half a step before
   rounding up, and must itself lie in the range (section 2.3);
+- only proven side entries are computed; a plunge or unproven entry is `?`
+  until an axial-entry model exists (section 4.1);
+- a pull test's dwell is a trusted measured fact, and step 7 prints the
+  corrected minimum P (sections 3.4, 7);
 - the lift sense comes from a separate `helix_hand` together with the cutting
   `hand` (section 3.4, 4.2);
 - the vacuum seal is a cord laid along the work's outline (`seal = "laid_cord"`);
