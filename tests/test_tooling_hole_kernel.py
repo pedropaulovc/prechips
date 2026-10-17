@@ -209,3 +209,12 @@ def test_a_spot_starts_the_hole_but_leaves_it_undrilled(engine, part):
     removed = 48000.0 - result["setups"]["T2"]["stock_volume_mm3"]
     assert removed == pytest.approx(math.pi * (1.5 * math.tan(math.radians(30))) ** 2 * 0.5)
     assert states(result)["T2"] == "undrilled"
+
+
+def test_a_blind_ream_lead_does_not_hit_the_stock_left_below_it(engine, part):
+    spec = hole(depth=8.0)
+    stage = setup("T1", [cut_op("T1:10", "ream", 6.016, spec, depth=7.0)])
+    # No vise, so the tool is measured on the stock alone.
+    stage["hold"] = {"kind": "unknown", "reason": "holding is undeclared"}
+    result = run(engine, part, spec, [stage, setup("T2", [])])
+    assert result["ops"]["T1:10"]["min_hits"]["tool"] == 0

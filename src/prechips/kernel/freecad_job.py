@@ -10974,8 +10974,13 @@ class _Setup:
             raise _Unknown(f"{cut['label']} is off the spindle axis the tailstock tool feeds along")
         if cut.get("kind") == "tooling_hole":
             length, point, _ = self._tooling_feed(cut, self.part, entry, feed.normalize())
-            # A reamer's lead runs on below its full diameter.
-            lead = cut.get("lead_mm", 0.0) if _number(cut.get("lead_mm")) else 0.0
+            # Through the stock, a reamer's lead runs on below its full diameter into air or
+            # the fixture under the exit. In a blind hole it is not drawn: as a flat
+            # full-radius end it would hit the stock left below depth_mm, and blind_depth
+            # already keeps depth plus lead inside the hole's bound.
+            lead = cut.get("lead_mm") if _number(cut.get("lead_mm")) else 0.0
+            if not cut.get("thru"):
+                lead = 0.0
             return entry, entry.z - length - point - lead
         return entry, entry.z - cut["depth_mm"]
 

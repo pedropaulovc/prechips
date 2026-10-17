@@ -308,8 +308,10 @@ which must be setup -Z: a blind hole to the op's full-diameter `depth_mm` (the
 feature's `depth` bounds it, as in
 [`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)), a through hole
 to the setup's `stock_state.local_thickness.<id>` plus the op's `exit_mm`, a
-drill's point cone below either, minus protected finished material; a reamer's
-accepted `lead` runs on below its full diameter for the tool and holder checks. A
+drill's point cone below either, minus protected finished material; through
+the stock, a reamer's accepted `lead` runs on below its full diameter for the tool
+and holder checks (in a blind hole it is not drawn, since a flat full-radius end
+would hit the stock left below `depth_mm`; `blind_depth` bounds depth plus lead). A
 through plan that stops short of the far side of the stock near the hole's axis
 is not a through hole: its cut stays unknown. A blind hole
 must lie wholly inside the stock. Either way the mouth may have no stock over it
