@@ -548,6 +548,32 @@ def test_a_sweep_whose_guide_is_unproven_prints_only_a_stop(tmp_path, missing):
     assert "Lock X and Y" not in printed and "stop block" not in printed
 
 
+def test_a_sweep_whose_cut_leaves_the_band_prints_only_a_stop(tmp_path):
+    # A measured bar whose worst-case cut lies outside the band is an error: the
+    # recipe must not tell the operator to make that cut.
+    wide = (
+        "[gauges.wide]\nkind = 'setting_bar'\nname = 'R800 wide bar'\n"
+        f"radius_limits_mm = {{ value = [800.6, 800.7], {MEASURED} }}\nverify = false\n"
+    )
+    row, printed = traveler_text(tmp_path, master="'wide'", inventory=wide)
+    assert row.status == "error", row.sentence
+    assert "outside the R800 to R800.5 mm band" in errors(row)
+    assert "STOP: contour points not computed — do not run." in printed
+    assert "Lock X and Y" not in printed and "stop block" not in printed
+
+
+def test_a_finish_after_a_rejected_rough_prints_no_return_to_an_unprinted_touch(tmp_path):
+    # The finish cut sits on the band's low edge; the rough's 0.0003 leave rounds off the
+    # line to a 0.001 back-off, so only the rough leaves its band. The rejected rough
+    # prints nothing, and the finish stands alone with its own touch-off.
+    target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [800.08, 800.5]")
+    row, printed = traveler_text(tmp_path, allowance=0.0003, target=target)
+    assert row.status == "error", row.sentence
+    assert "op 20 rough: " in errors(row) and "op 20 finish: " not in errors(row)
+    assert "Rough sweep" not in printed and "return it to the touch reading" not in printed
+    assert printed.count("Spindle stopped: bring a flute") == 1
+
+
 ZERO_Z = (
     "[setups.zero.z]\nface = 'top'\nmethod = 'paper'\npaper_mm = 0.05\ntool = 'cutter'\n"
     "check_jog_mm = 10.0\nretouch_after = []\n"
