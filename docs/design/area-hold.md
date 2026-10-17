@@ -100,7 +100,8 @@ which property the margin rests on.
 [consumables.tape-3m-444]
 kind = "adhesive_tape"
 name = "3M 444 double-coated PET film tape"
-products = ["3M 444, 25 mm roll"]
+products = ["3M 444, 50 mm roll"]
+width_mm = 50.0                                    # roll width (illustrative nominal)
 # [least, greatest] over a mic'd sample of the lot on hand (illustrative values).
 thickness_mm = { value = [0.090, 0.110], measured = { status = "measured", by = "...", date = "...", instrument = "0-25 mm micrometer, 0.001" } }
 shear_n_per_cm2 = { value = 3.0, test = "...", cite = "shop record harmonic-analyzer PR #1594" }   # value (shop record)
@@ -114,6 +115,7 @@ release = { method = "solvent", agent = "isopropyl alcohol", wait_min = 5, cite 
 
 | Field | Type | Meaning | Unknown or untrusted |
 |---|---|---|---|
+| `width_mm` | `MeasuredLength` (a catalogue nominal is enough) | roll width. Footprint coverage is one seamless length, so the footprint's least width (the short side of its minimum-area bounding rectangle) must be at most `width_mm` | capacity `?` ("footprint 60.0 wide, roll 50.0: lay strips", a follow-up under D7) |
 | `thickness_mm` | `LimitsMeasurement` | applied layer thickness, least–greatest | stack check `?`; layer drawn at the midpoint only when the pair is known, otherwise not drawn (render debt) |
 | `shear_n_per_cm2` | `CitedFact` + `test` | shear strength used as lateral and yaw capacity per cm² of contact | capacity `?` |
 | `peel_n_per_cm` | `CitedFact` + `test` | peel resistance per cm of peel front | lift `?` |
@@ -161,8 +163,10 @@ pose = { origin_mm = [0.0, 6.0, -0.100], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0
 - `on` names the solid of the holding fixture whose posed +z face carries the
   layer (for tape) or is the chuck face (for vacuum). Exactly one trusted solid
   must be named; otherwise the input is bad.
-- Coverage is the work's footprint: the layer is trimmed to the work outline on
-  that face. Phase 1 supports footprint coverage only (D7); authored strips are
+- Coverage is the work's footprint: one seamless length of tape, trimmed to the
+  work outline on that face. A footprint wider than the tape's `width_mm` can't
+  be covered that way and leaves capacity `?`; the engine never credits area
+  that seams would leave unbonded. Phase 1 supports footprint coverage only (D7); authored strips are
   a follow-up.
 
 `hold.method` stops being the carrier of the hold type. A hold with `area` is
@@ -343,19 +347,35 @@ recorded on the real setup** can claim more:
 
 ```toml
 [consumables.tape-3m-444.pull_tests.thin-part-tape-subplate]   # keyed by the fixture it was tested on
-work = "strap 40 x 2.75 1018, datum-B face down"                 # text, printed; never parsed
-lift_n = { value = 60.0, measured = { status = "measured", by = "...", date = "...", instrument = "spring scale 0-100 N" } }   # illustrative
-dwell_min = 20                                                   # the dwell before the pull; at least the tape's dwell_min
+on = "plate"                                   # the seat solid the test was taped to
+material_class = "low_carbon_steel"            # the pulled work's cutting-data material class
+front_mm = { value = 40.0, measured = { ... } }       # the pulled work's width across the peel front
+thickness_mm = { value = 2.75, measured = { ... } }   # the pulled work's thickness at the pulled end
+lift_n = { value = 60.0, measured = { ... } }         # illustrative: the force that started the peel
+dwell_min = 20                                 # the dwell before the pull
+work = "strap 40 x 2.75 1018, datum-B face down, pulled vertically at one end"   # printed; never parsed
 ```
 
-A pull test keyed by the setup's `hold.fixture`, with a trusted measured
-`lift_n` and a dwell no shorter than the tape's `dwell_min`, replaces `C_z` for
-an op only while the work's seat section is still the setup-entry footprint.
-That is the work the test pulled. Once an op reduces or splits the footprint,
-model A applies again from that op on. The engine cannot check that the test's work
-matches the setup's work: the HOLD prints the test's `work` text beside the
-capacity line so the operator sees what was pulled. Any other pull test, or an
-untrusted one, leaves model A in force. The pull-test schema lands in phase 4
+The test protocol is fixed: tape the work as the HOLD prints, wait the dwell,
+then pull vertically at one end until the peel starts. A test qualifies for
+island *i* at op *k* only when **every** machine-checkable field matches:
+
+| Check | Pass when |
+|---|---|
+| fixture and seat | the key is the setup's `hold.fixture`, and `on` equals `hold.area.on` |
+| tape | the test sits under the tape `hold.area.ref` names |
+| material | `material_class` equals the setup stock's class (through cutting-data `aliases`) |
+| width | the island's least width (the short side of its minimum-area bounding rectangle) is at least `front_mm` |
+| thickness | the island's least work thickness over the seat (kernel section) is at least `thickness_mm` |
+| footprint | the island is still the setup-entry footprint: no op so far has reduced or split it |
+| dwell | `dwell_min` is at least the tape's `dwell_min` |
+| trust | `lift_n`, `front_mm` and `thickness_mm` are trusted measured facts |
+
+Then `C_z = lift_n`, unscaled. Any failed check leaves model A in force, and
+the finding names the check that failed; a test never scales to a different
+work. What no field can carry (surface condition beyond the tape's printed
+prep, a different pull location) stays residue, and the HOLD prints the test's
+`work` text so the operator sees what was pulled. The pull-test schema lands in phase 4
 (section 9), not phase 1. Until the shop pull-tests, the rocker strap stays
 failing or `?`.
 
@@ -605,8 +625,8 @@ The stop and touch positions, and every number other than the shop record's
 HOLD — tape on sub-plate thin-part-tape-subplate (3M 444, lot thickness 0.090–0.110 measured)
   1  Clean the plate top and the strap's datum-B face with isopropyl alcohol; let dry.
      No oil film, no chips.
-  2  Lay 3M 444 over the strap footprint 350 × 40 on the plate; trim to the outline.
-     No seams, wrinkles or overlaps under the strap.
+  2  Lay one length of 3M 444 (50 mm roll) along the strap footprint 350 × 40 on the
+     plate; trim to the outline. No seams, wrinkles or overlaps under the strap.
   3  Peel the liner. Set the strap datum-B face DOWN on the tape against the end stop
      at X −175.0. Roll firmly end to end. Press flat: no daylight under the ends.
   4  Applied at ____:____.   Cut no earlier than ____:____ (dwell ≥ 20 min).
@@ -650,7 +670,8 @@ both endpoints to land inside the band.
 | island area, yaw moment, polar moment | kernel sections, op removed volume | no kernel, or unresolved removed volume |
 | lateral force, axial force | `milling_force` | any input untrusted, or an unsupported tool or action (drill family) |
 | lateral + yaw factor, lift factor | section 4.3 | any of the above |
-| pull-test lift and its work text | `pull_tests.<fixture>` | untrusted (model A is printed instead) |
+| pull-test lift and its work text | `pull_tests.<fixture>` | untrusted or not qualified (model A is printed instead, naming the failed check) |
+| roll width vs footprint | `width_mm`, kernel footprint | width unknown, or footprint wider than the roll |
 | policy factor | `hold_capacity_factor_min` | unknown or flagged |
 | plate top Z, tape pair, underside range | pose, `thickness_mm` (measured) | pair unmeasured |
 | stack terms and thickness interval | section 5 terms | any term unknown |
@@ -712,6 +733,12 @@ tests request the shared `freecad_kernel` fixture.
   line, errors from that op on, even with its force unknown; a profile that
   splits the work inside S does not credit the islands independently; a work
   narrower than 2 × inset has sealed area 0.
+- Pull test: a qualifying test raises `C_z` to `lift_n`; each failed check in
+  the section 3.4 table (another fixture or seat, material class, a narrower or
+  thinner island, a reduced footprint, a shorter dwell, an unmeasured field)
+  falls back to model A and names that check.
+- Coverage: a footprint whose least width equals the roll width passes; 0.1 mm
+  wider leaves capacity `?`.
 - Islands (tape): a profile op that splits the footprint is judged on the
   smallest island under the force. A kept piece cut free with zero area is an
   error with or without a force; an offcut is a loose-offcut warning.
@@ -760,7 +787,7 @@ Each phase is its own PR, stacked on the previous one.
 
 | Phase | PR | Contents | Size (est.) |
 |---|---|---|---|
-| 1 | schema | `CitedFact` (+ `test`); `adhesive_tape` consumable variant; `vacuum` fixture kind; `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
+| 1 | schema | `CitedFact` (+ `test`); `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind; `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
 | 2 | force | `_cutting_force.py` (endmill milling scope); `[[material]]` `kc1_n_per_mm2` / `mc` / `radial_ratio`; tool `helix_deg`; op `ae_mm`; `cutting-data.md`, `rules-physics.md` | ~400 + tests |
 | 3 | kernel | seat-plane sections before and after each op, islands, centroid, polar moment, hull distance; the fixed seal circuit and its opening op; op removed-volume extent per island; the layer drawn from facts; seat check; `ENGINE_SOURCES` cache identity | ~700 + geometry tests |
 | 4 | capacity | `hold_capacity` rule (area provider: force, yaw, lift, overturning), always required for area holds, shared policy factor, pull-test schema, `thin_wall_under_clamp` change; `rules-setup.md` | ~500 + tests |
@@ -833,4 +860,8 @@ not separately decided by the maintainer:
 - stack endpoints compared with the band, not the width alone (section 5.3);
 - the force model scoped to end-mill milling, with drill-family ops `?` until
   a thrust/torque model exists (section 4.1);
-- the S0A clean-up row uses the half-width (section 5.4).
+- the S0A clean-up row uses the half-width (section 5.4);
+- pull tests qualify only by machine-checkable fields that must all match the
+  setup (section 3.4);
+- the tape's `width_mm` bounds footprint coverage, so seams are never credited
+  (section 2.4).
