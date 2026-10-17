@@ -339,6 +339,8 @@ What `apply` does:
    * a monkeypatched name read from two files, from `monkeypatch.setattr` or from a
      probe's `alias.name = ...`;
    * a `setattr`, `getattr` or `hasattr` on the split module with a computed name;
+   * such a call (or a monkeypatch) naming its target, name or value by keyword;
+   * a generated `<alias>_<file>` import name that the importer already binds;
    * the module alias used as a value (in a list, passed on, compared with `is`), unless
      the spec says `value_uses = "rest"`. That setting means such a value stands for the
      module's entry point that `rest` keeps, such as a rule's `evaluate`, and the value

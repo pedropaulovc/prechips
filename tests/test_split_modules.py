@@ -804,3 +804,33 @@ def test_a_moved_member_reading_a_class_body_name_is_refused(at, member):
     name = "moved" if "def" in member else "LIMIT"
     plan = at(source, _spec(f'["Engine.{name}"]'))
     assert any("class-body name DEFAULT" in refusal for refusal in plan.refusals)
+
+
+@pytest.mark.parametrize(
+    "importer",
+    [
+        "from pkg import big\n\nbig_parts = None\nVALUE = big.radius(1)\n",
+        "from pkg import big\n\nVALUE = big.radius(1)\n\n\ndef f(big_parts):\n    return 1\n",
+    ],
+    ids=["earlier", "parameter"],
+)
+def test_a_generated_alias_name_already_bound_refuses(at, tmp_path, importer, capsys):
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(importer, encoding="utf-8")
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+    out = capsys.readouterr()
+    assert "big_parts is already bound" in out.out + out.err
+
+
+def test_an_all_keyword_patch_of_the_split_module_refuses(at, tmp_path, capsys):
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "from pkg import big\n\n\ndef test(monkeypatch):\n"
+        "    monkeypatch.setattr(target=big, name='radius', value=abs)\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+    out = capsys.readouterr()
+    assert "by keyword" in out.out + out.err

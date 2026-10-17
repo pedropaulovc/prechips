@@ -1030,6 +1030,17 @@ class Rewriter:
                 )
         added = defaultdict(set)  # id(import node) -> import lines to add beside it
         parents = {id(c): n for n in ast.walk(tree) for c in ast.iter_child_nodes(n)}
+        alias_names = set().union(*aliases.values()) if aliases else set()
+        for node in ast.walk(tree):
+            # target=alias leaves no positional module argument for the resolver to see.
+            target = next(
+                (k.value for k in getattr(node, "keywords", []) if k.arg == "target"), None
+            )
+            if _keyword_form(node) and isinstance(target, ast.Name) and target.id in alias_names:
+                self.refusals.append(
+                    f"line {node.lineno}: {ast.unparse(node.func)} on the split module names "
+                    "its target by keyword; pass the module and name positionally"
+                )
         for node, binding in _resolved_uses(tree, aliases):
             if binding is not None and _keyword_form(node):
                 self.refusals.append(
@@ -1045,6 +1056,8 @@ class Rewriter:
             edit = edit or self._attribute(node, binding, at, added)
             if edit:
                 edits.append(edit)
+        for line in set().union(*added.values()) if added else ():
+            self._generated_alias_free(tree, line)
         for key, lines_ in added.items():
             node = imports[key]
             indent = " " * node.col_offset
@@ -1182,6 +1195,28 @@ class Rewriter:
             return None
         local = self._alias_for(node.id, module, added, binding)
         return at(node.lineno, node.col_offset), at(node.end_lineno, node.end_col_offset), local
+
+    def _generated_alias_free(self, tree, line):
+        """A generated ``from A import B as N`` must not meet another binding of ``N`` in
+        the file: an earlier one would be overwritten, a later one would hijack the
+        rewritten uses. Only the same import may already bind it."""
+        wanted = ast.parse(line).body[0]
+        name = wanted.names[0].asname
+        same = ast.dump(wanted)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and any(
+                (a.asname or a.name) == name for a in node.names
+            ):
+                kept = [a for a in node.names if (a.asname or a.name) == name]
+                if all(
+                    ast.dump(ast.ImportFrom(node.module, [a], node.level)) == same for a in kept
+                ):
+                    continue
+                self.refusals.append(f"line {node.lineno}: {name} is already bound; rename it")
+            elif name in _bound_here(node):
+                self.refusals.append(
+                    f"line {getattr(node, 'lineno', 0)}: {name} is already bound; rename it"
+                )
 
     def _alias_for(self, local, module, added, binding):
         """The local name of ``module``, imported beside the alias import ``binding``
@@ -1382,6 +1417,23 @@ def _other_bindings(tree, names, alias_import):
             ]
         found += [(name, getattr(node, "lineno", 0)) for name in bound if name in names]
     return found
+
+
+def _bound_here(node):
+    """Names ``node`` itself binds (an import is checked by the caller)."""
+    if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+        return [node.id]
+    if isinstance(node, ast.arg):
+        return [node.arg]
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return [node.name]
+    if isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)):
+        return [node.name] if node.name else []
+    if isinstance(node, (ast.Global, ast.Nonlocal)):
+        return list(node.names)
+    if isinstance(node, ast.Import):
+        return [(a.asname or a.name).split(".")[0] for a in node.names]
+    return []
 
 
 def _imports_alias(node, alias, alias_import):
