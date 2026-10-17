@@ -307,7 +307,7 @@ def formed(bundle, name: str) -> dict:
         return {**entry, "error": f"joint forms {name!r}, which is not an exported feature"}
     band = feature.get("radius")
     requirements = feature.get("requirements")
-    if not (band == UNKNOWN or isinstance(band, list)) or (
+    if not (band == UNKNOWN or isinstance(band, list) and len(band) == 2) or (
         isinstance(requirements, list) and "radius" not in requirements
     ):
         return {
@@ -328,6 +328,22 @@ def formed(bundle, name: str) -> dict:
     if missing:
         return {**entry, "reason": f"formed feature {name} {', '.join(missing)} unknown"}
     return {**entry, "faces": list(faces), "radius_mm": _scaled(band, scale)}
+
+
+def mouth_break(bundle, name: str) -> dict:
+    """A socket's declared mouth ``edge_break`` in mm, for the kernel to cut before it
+    judges a formed corner: ``{"kind": "sharp"}``, ``{"kind", "size_mm"}``, or
+    ``{"reason"}`` when it is undeclared or unknown (a mouth may carry a break up to the
+    drawing's general allowance, which bounds it but does not say what it is)."""
+    declared = bundle.plan["joint_features"][name].get("edge_break", UNKNOWN)
+    if declared == UNKNOWN:
+        return {"reason": f"socket {name} mouth edge_break is not declared"}
+    if declared["kind"] == "sharp":
+        return {"kind": "sharp"}
+    size = _scaled(declared["size"], _scale(bundle))
+    if size == UNKNOWN:
+        return {"reason": f"socket {name} mouth {declared['kind']} size is unknown"}
+    return {"kind": declared["kind"], "size_mm": size}
 
 
 def setup_joint(bundle, setup: dict) -> dict | None:
@@ -383,6 +399,8 @@ def setup_joint(bundle, setup: dict) -> dict | None:
             else None
         )
     features = bundle.plan["joint_features"]
+    if joint.get("forms"):
+        common["socket_break"] = mouth_break(bundle, joint["socket"])
     return {
         **common,
         "socket": joint["socket"],

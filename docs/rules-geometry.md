@@ -272,12 +272,15 @@ hold:
 1. The join assembles, with known joined stock.
 2. The kernel admits the joined corner inside the feature's own band (see the
    [assembly backstop](#transient-joint-preparation-and-assembly)).
-3. A check in the joint's setup or one downstream of it reads the feature's
-   `radius` band and passes, graded as [inspection](rules-inspection.md) grades
-   it. A leaf at the `[0, r]` limit is enough.
+3. The last op naming the feature, in the joint's setup or one downstream of it,
+   checks its `radius` band, and that check passes under
+   [inspection's](rules-inspection.md) gauge capability rule. A leaf at or under
+   the `[0, r]` limit, less its tolerance, is enough. A check on an op naming another
+   feature reads that feature, not this one.
 
 If the inspection is missing or not a pass, or the join is unresolved, the credit
-is debt (`?`), never a pass. A refused join credits nothing.
+is debt (`?`), never a pass. Those faces are then left out of `unclaimed_faces`,
+but any other unclaimed face is still an error. A refused join credits nothing.
 
 Plan [process features](plan.md#process-features) (a faced `end_face`, a
 `centre_hole`) are analytic stock preparation labelled
@@ -948,19 +951,28 @@ branches:
 
 - Every one of its STEP faces bounds lost finished material. If a received
   branch already carries a face, or never meets it, the join does not form it.
-- Each lost piece touching those faces is bounded only by the faces and the
+- Each lost piece touching those faces is bounded only by formed faces and the
   untrimmed surfaces of their neighbouring finished faces, so the joined corner is
-  the sharp corner where those neighbours meet.
-- No lost point lies farther from the faces than the band's MAX. Material missing
-  beyond the band stays lost.
+  the sharp corner where those neighbours meet. Features that share one lost piece
+  are judged together.
+- Each component's edge breaks are included. A cylindrical joint's socket mouths
+  carry its declared `edge_break`, cut into the received socket before the join. A
+  radius or chamfer mouth leaves a groove round the spigot that no neighbour
+  surface bounds, so the join is refused (`the socket's <kind> <size> mouth break
+  leaves a groove, not a fillet or a sharp corner`). An undeclared or unknown break
+  is debt.
+- No lost point, sampled faces and vertices included, lies farther from the formed
+  faces than the band's MAX. Material missing beyond the band stays lost.
 - The corner shares area with both received branches. A corner that one branch
   alone bounds belongs to a single component, which the join did not form.
 - A sharp corner is radius 0, so the band's lower end must be 0. A `[0.1, 0.2]`
   band refuses it.
 
-Each of these failures refuses the join with its message. An unknown band, unknown
-faces or unknown units make a formed feature debt, and any lost material that is
-left then withholds the joined stock instead of refusing it. The joined setup
+Each of these failures refuses the join with its message. An unknown band, units
+or mouth break makes a formed feature debt. Lost material left at its faces then
+withholds the joined stock instead of refusing it. Lost material elsewhere is still
+a certain refusal. Only a feature whose faces are unknown, so that nothing says
+where its corner is, withholds the stock for any leftover loss. The joined setup
 reports `forms.<feature>` with `status = "formed"`, `indices`, `corner = "sharp"`,
 `radius_mm`, `admitted_mm3` and `reach_mm` (the farthest lost point from the
 faces). Later joins keep the admitted material admitted. A joint without `forms`

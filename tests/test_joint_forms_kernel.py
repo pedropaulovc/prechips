@@ -8,7 +8,7 @@ import subprocess
 
 import pytest
 from test_joint_geometry import _bar, _joint_job
-from test_kernel_geometry import Engine
+from test_kernel_geometry import IDENTITY, Engine, _op
 
 _AUTHOR = r"""
 import sys
@@ -72,12 +72,13 @@ def _root(engine, step, z=10.0):
     return engine.refs(step, (-5.2, -5.2, z - 0.25), (5.2, 5.2, z + 0.25), kind="Toroid")
 
 
-def _forms(engine, step, refs, band=(0.0, 0.2), interference=True):
+def _forms(engine, step, refs, band=(0.0, 0.2), interference=True, mouth=None):
+    """The join forming ``refs``; the socket's mouths are stated sharp unless ``mouth``."""
     job = _joint_job(engine, step, interference=interference)
     job["features"]["root"] = refs
-    job["setups"][2]["joint"]["forms"] = [
-        {"feature": "root", "faces": refs, "radius_mm": list(band)}
-    ]
+    joint = job["setups"][2]["joint"]
+    joint["forms"] = [{"feature": "root", "faces": refs, "radius_mm": list(band)}]
+    joint["socket_break"] = mouth or {"kind": "sharp"}
     return job
 
 
@@ -142,3 +143,63 @@ def test_a_single_component_root_is_not_formed_by_the_join(engine, solids):
     job["setups"][1]["ops"][0]["joint_cut"].update(z_from=-1.0, z_to=20.0)
     row = engine.run(job)["setups"]["join"]
     assert "root is owned by a single component" in row["assembly_error"], row
+
+
+@pytest.mark.parametrize("kind", ["chamfer", "radius"])
+def test_a_broken_socket_mouth_leaves_a_groove_the_band_refuses(engine, solids, kind):
+    # The title block allows "R0.25 or chamfer 0.25 MAX" on the strap hole's mouth: pressed,
+    # that break is a groove round the hub, neither a fillet nor a sharp corner.
+    step = solids["filleted"]
+    mouth = {"kind": kind, "size_mm": 0.25}
+    row = engine.run(_forms(engine, step, _root(engine, step), mouth=mouth))["setups"]["join"]
+    error = row["assembly_error"]
+    assert f"the socket's {kind} 0.25 mouth break leaves a groove" in error, row
+    assert "stock_out_volume_mm3" not in row
+
+
+@pytest.mark.parametrize(
+    "mouth",
+    [
+        {"reason": "socket socket mouth edge_break is not declared"},
+        {"reason": "socket socket mouth chamfer size is unknown"},
+    ],
+)
+def test_an_unknown_mouth_break_leaves_the_formed_corner_unknown(engine, solids, mouth):
+    step = solids["filleted"]
+    row = engine.run(_forms(engine, step, _root(engine, step), mouth=mouth))["setups"]["join"]
+    assert "assembly_error" not in row, row
+    assert mouth["reason"] in row["stock_reason"]
+    assert "stock_out_volume_mm3" not in row
+
+
+def test_an_unknown_mouth_break_does_not_excuse_unrelated_lost_material(engine, solids):
+    step = solids["filleted"]
+    job = _forms(engine, step, _root(engine, step), mouth={"reason": "mouth break unknown"})
+    # The spigot owns only z=0..10, so its cap above is finished material, not preparation.
+    job["joint_features"]["spigot"]["depth_mm"] = 10.0
+    job["setups"][1]["ops"][0]["joint_cut"].update(depth_mm=10.0, z_from=0.0, z_to=20.0)
+    job["features"]["top"] = engine.refs(step, (-4.9, -4.9, 20), (4.9, 4.9, 20), kind="Plane")
+    # Facing the boss top down to z=15 before the join loses finished material far from
+    # the root: still a certain refusal, never debt the unknown break could explain.
+    job["setups"].insert(
+        2,
+        {
+            "id": "lost-cap",
+            "stock_in": "spigot-cut",
+            "frame": IDENTITY,
+            "hold": {"reason": "fixture not part of this stock-boundary probe"},
+            "ops": [
+                {
+                    **_op("lost-cap:10", "top", 1, 25, 50),
+                    "do": "face",
+                    "to_z": 15.0,
+                    "stock_removal_bounds": {"x": [-6, 6], "y": [-6, 6], "z": [15, 20]},
+                }
+            ],
+        },
+    )
+    join = job["setups"][3]
+    join["stock_in"][1] = "lost-cap"
+    join["joint"].update(spigot_ref="lost-cap", refs=list(join["stock_in"]))
+    row = engine.run(job)["setups"]["join"]
+    assert "protected finished material missing" in row["assembly_error"], row
