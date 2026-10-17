@@ -273,6 +273,10 @@ def _carrier(bundle, setup, sweep, guide, errors, debts, measurements, record_):
     if _item_flagged(bundle, category, key):
         debts.append(f"the sweep fixture {reference} is flagged to verify")
         _flagged(item, [(f, m) for f, m, _ in fields], category, key, measurements)
+        if guide == "trammel":
+            from .trammel import flagged
+
+            flagged(item, sweep, category, key, measurements)
         return None
     found = {
         field: _fact(item, field, measured, category, key, debts, measurements, words)

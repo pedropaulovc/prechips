@@ -401,6 +401,7 @@ def traveler_text(tmp_path, **kwargs):
 
 def test_the_traveler_prints_the_pins_stops_on_a_rail_and_the_lever_feed(tmp_path):
     row, printed = traveler_text(tmp_path)
+    printed = printed.replace("( ", "(").replace(" )", ")")
     assert row.status == "pass", row.sentence
     _, sweep = recipe(row)
     assert "on its inner pin pair" in printed and "rails' crossing" in printed
@@ -410,8 +411,12 @@ def test_the_traveler_prints_the_pins_stops_on_a_rail_and_the_lever_feed(tmp_pat
     assert "handwheel axis" not in printed
     # Stops on one rail at the pin's exact stations, the other rail's as a check.
     (start, end), (other_start, other_end) = sweep["stations_mm"]
-    assert f"stands {round(start, 1):g} mm from the spindle axis" in printed
+    assert (
+        f"stands {round(start, 1):g} mm from the spindle axis ({round(start - 40.0, 1):g} mm"
+        in printed
+    )
     assert f"Do the same at {round(end, 1):g} mm" in printed
+    assert "from where the carriage stands on the rail's near end stop, 40 mm" in printed
     assert f"{round(other_start, 1):g} and {round(other_end, 1):g} mm" in printed
     assert "lever the carrier from stop to stop once" in printed
     assert "by its hand lever" in printed and "turns 12.5°" in printed
@@ -650,3 +655,38 @@ def test_an_unmeasured_picture_fact_leaves_the_rails_undrawn_with_a_note(tmp_pat
     (note,) = notes
     assert note.startswith("NOT SHOWN: op 20's trammel rails and pins — measure: tram")
     assert "pin diameter" in note and "rail width" in note
+
+
+def test_measured_alpha_seats_the_pins_not_the_plans_rounding(tmp_path):
+    # Re-measuring the rails to 16.4412° keeps the plan's [-16.44, 16.44]: the measured
+    # angle sets how far apart the pins sit, the plan only where the pair sits.
+    inventory = TRAMMEL.replace(f"value = {ALPHA},", "value = 16.4412,")
+    row = trammel_row(tmp_path, inventory=inventory)
+    assert row.status in ("pass", "error"), row.sentence
+    assert "do not subtend" not in errors(row)
+    _, sweep = recipe(row)
+    assert sweep["pins_deg"] == pytest.approx([-16.4412, 16.4412])
+    assert trammel.seat([163.5, 196.5], 16.44) == pytest.approx([163.56, 196.44])
+    assert trammel.seat([-15.0, 15.0], 16.44) is None
+
+
+def test_a_second_pin_pair_gives_a_concentric_radius_on_the_same_rails():
+    # #269: R795 and R821 cutter-centre circles from two pairs, rails unmoved.
+    inner, outer = 450.0, 2 * 821.0 * math.sin(math.radians(16.44))
+    assert trammel.radius(outer, 16.44) == pytest.approx(821.0)
+    r_in, r_out = trammel.radius(inner, 16.44), trammel.radius(outer, 16.44)
+    centre, heading = [0.0, 800.0], -90.0
+    for r in (r_in, r_out):
+        directions = trammel.rails(centre, heading, r, [-16.44, 16.44])
+        # The same pin-line directions: one rail setting serves both pairs.
+        same = trammel.rails(centre, heading, r_in, [-16.44, 16.44])
+        assert [v for d in directions for v in d] == pytest.approx([v for d in same for v in d])
+
+
+def test_a_trammel_flagged_to_verify_owes_every_consumed_fact(tmp_path):
+    row = trammel_row(tmp_path, inventory=TRAMMEL.replace("verify = false", "verify = true"))
+    assert row.status == "unknown"
+    (table,) = arcs(row, 20)
+    ids = {entry["id"] for entry in table["measurements"]}
+    for stem in ("rail_angle_deg", "rail_angle_error_deg", "rail_travel", "pin_spacing.inner"):
+        assert f"fixtures.tram.{stem}" in ids, ids

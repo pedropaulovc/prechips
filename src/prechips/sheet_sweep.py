@@ -400,12 +400,25 @@ def _trammel(arc, sweep, o, start, stop, feed, final):
         else ""
     )
     keys = [f" ({key})" if key else "" for key in (start, stop)]
+    travel = sweep.get("rail_travel_mm")
+    near = travel[0] if _pair(travel) else None
+
+    def read(value):
+        # A rule hooks on the carriage, not the spindle axis: measure the carriage's move
+        # from where it stands against the rail's near end stop.
+        if near is None:
+            return f"{mm(value)} mm from the spindle axis"
+        return (
+            f"{mm(value)} mm from the spindle axis ({mm(value - near)} mm along the rail "
+            f"from where the carriage stands on the rail's near end stop, {mm(near)} mm)"
+        )
+
     result.append(
         f"Set the sweep's stops, spindle stopped and Z raised: lever the carrier until the "
-        f"pin on {names[0]} stands {mm(stations[0][0])} mm from the spindle axis{keys[0]}, "
-        f"measured with a steel rule to the pin's centre along the rail, and clamp a stop on "
-        f"that rail against its carriage. Do the same at {mm(stations[0][1])} mm for the "
-        f"other end{keys[1]}. The pin on {names[1]} then stands {mm(stations[1][0])} and "
+        f"pin on {names[0]} stands {read(stations[0][0])}{keys[0]}, measured with a steel "
+        f"rule along the rail, and clamp a stop on that rail against its carriage. Do the "
+        f"same at {read(stations[0][1])} for the other end{keys[1]}. The pin on {names[1]} "
+        f"then stands {mm(stations[1][0])} and "
         f"{mm(stations[1][1])} mm from the spindle axis; if it does not, STOP: the rails or "
         f"pins are not as set.{why} Then, with the cutter tip just above the work top, lever "
         "the carrier from stop to stop once: the cutter, its holder and the spindle nose "
