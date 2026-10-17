@@ -254,9 +254,11 @@ def evaluate(bundle):
             )
         else:
             status = "pass"
-            message = (
-                f"{setup['id']}: the swivel set to ±{tolerance:.3g}° holds every walled cut's "
-                "angle band."
+            walled = any(row["cut"] == "edge" for row in rows)
+            message = f"{setup['id']}: the swivel set to ±{tolerance:.3g}° " + (
+                "holds every walled cut's angle band."
+                if walled
+                else "turns no walled cut, so it widens no angle band."
             )
         findings.append(
             Finding("swivel", setup["id"], status, numbers, list(dict.fromkeys(cite)), message)

@@ -29,7 +29,7 @@ an earlier cut of unknown action or unsettled as-is faces is unknown.
 
 A mill setup (machine kind `mill`) whose fixture is a `vise` or `angle_plate` needs
 `hold.align` where it mounts or turns that fixture: the first such setup on its
-machine, or one whose fixture, vise `jaws_along` or plate `pose` differs from the
+machine, or one whose fixture, vise `jaws_along` or `jaws_angle_deg`, or plate `pose` differs from the
 setup before it on that machine (a setup on another fixture between them took the vise
 or plate off). Its `indicator` must be an inventory gauge of kind
 `dial_test_indicator` or `dial_indicator`, `limit_mm` and `over_mm` must be
@@ -43,11 +43,21 @@ like any tool or fixture. The face runs
 along the vise's `jaws_along`, or for an angle plate along the longer horizontal
 side of the `face` box solid, carried into the setup frame by `pose`; a run that is
 not X or Y is unknown (`hold.align.travel`). Evidence: `align_due` (`mounted`,
-`jaws turned`, `plate moved` or `not_applicable`). The HOLD prints the squaring step
+`jaws turned`, `jaws swivelled`, `plate moved` or `not_applicable`). The HOLD prints the squaring step
 after the
 mount line: sweep the named indicator along the fixed jaw or locating face over
 `over_mm` of that travel and hold the reading change to `limit_mm`; any part not
 established prints as a STOP.
+
+A swivelled vise (`hold.jaws_angle_deg`) is set by `hold.align.method` instead of
+being squared along a travel: `indicate_jaw` needs the indicator, `limit_mm` and
+`over_mm`; a stated method its positive `tolerance_deg` and `cite`. There is no
+`hold.align.travel`. A `jaws_angle_deg` on a fixture that is not a vise, or an
+`align.method` on a hold with no swivel, is an error (`numbers.misdeclared`). The HOLD
+prints the swivel on the mount line and the swivel-setting step
+([swivelled vise](plan.md#swivelled-vise)); each value it prints that is not
+established (the angle, the method, the indicator, the DRO move, the limit, the setting
+tolerance) prints a STOP.
 
 Templates:
 
@@ -57,6 +67,32 @@ Templates:
 Evidence: hold record, stock stations, coolant, deburr, cut directions and
 missing fields. Citation: PLAN §4.1 hold fields. No invented grip or deburr
 limit appears as a fallback.
+
+## `swivel`
+
+One subject per setup that holds the work in a mill vise with a `jaws_angle_deg`; no row
+otherwise. The setting tolerance δθ comes from `hold.align`
+([swivelled vise](plan.md#swivelled-vise)): derived for `indicate_jaw` as
+asin((`limit_mm` + √2·step) / `over_mm`) with the machine's measured DRO step, or the
+cited `tolerance_deg` of a stated method. Each walled cut (every machining op except
+facing, point/hole actions, saws and manual work) is held against its feature's ± angle
+band: `angle_tol_deg`, else none for a BASIC angle, else
+`general_tolerances.angular_deg`, as [indexing](rules-indexing.md) sources it. A band
+narrower than δθ is an error; an unknown δθ, angle or band is unknown, never a pass.
+Point/hole actions and walled cuts report `reach_mm` (the farthest the printed
+cutter-centre path, else `stock_removal_bounds`, lies from the DRO zero) and
+`shift_mm` = reach·sin δθ: where the swivel error moves that cut, for inspection to
+read. A horizontal face is unchanged by a turn about Z.
+
+Evidence: `jaws_angle_deg`, `line_deg` (the jaw line from setup X), `method`,
+`tolerance_deg`, `limit_mm`/`over_mm`/`dro_step_mm` when derived, `cuts`, `unresolved`,
+`invalid`.
+
+Templates:
+
+- `{setup}: the swivel set to ±{δθ}° holds every walled cut's angle band.`
+- `{setup}: the swivel set to ±{δθ}° does not hold op {op} ({feature}: ±{band}°).`
+- `{setup}: whether the swivel holds its cuts' angle bands is unresolved: {inputs}.`
 
 ## `centre_support`
 
@@ -232,7 +268,10 @@ clear of the jaws only when its cutter (printed cutter-centre path, else
 `stock_removal_bounds`, widened by the cutter radius) stays more than 3 mm
 inside both jaw faces along the clamp axis, or more than 3 mm beyond the jaws'
 ends along the axis they run (the declared `jaw_center_along_mm` ± half the
-vise's accepted `jaw_width`: a blank end overhanging the vise). Other below-jaw
+vise's accepted `jaw_width`: a blank end overhanging the vise). A swivelled vise's
+faces come from the kernel's jaw-frame stock box (`jaw_frame_stock_bbox_mm`) and the
+cutter path is turned into that frame (a `stock_removal_bounds` box by its corners);
+an unknown swivel places no faces. Other below-jaw
 cuts require geometric path checks and therefore remain unknown rather than
 being invented collision errors. Travel screens the stock each setup receives.
 A raw single supply (`stock_in` absent or `"stock"`, with no stock components)
