@@ -4624,6 +4624,7 @@ class _Setup:
         # clamp name -> [(primitive name, solid, declared bearing kind)] declaring locates
         self.clamp_locators = {}
         self.split_holds = {}  # op subject -> per-piece held-split witnesses
+        self.keeps = {}  # keep op subject -> its kept and discarded pieces, or why none is kept
         self.saws = {}
         self.built = None
         self.matrix = None
@@ -4782,6 +4783,8 @@ class _Setup:
         if self.stock_reason is None:
             with _timed(phases, "stock_states"):
                 self.built = self._build()
+            if self.keeps:
+                facts["keeps"] = self.keeps
         ops = {}
         for op in self.ops:
             with _timed(op_clocks, self._subject(op)):
@@ -5353,11 +5356,14 @@ class _Setup:
         band-holding stock, or fails a boolean) stops the pass: its own before-op stock stays
         known and is also its after stock, so its failed clearance is never credited; every
         later op's is unknown for that reason, and no later cut is ever credited to an
-        earlier op.
+        earlier op. A setup's ``keep`` entries (:meth:`_keep_after`) then drop the pieces
+        that do not carry their feature from the stock after their op, so later ops and
+        setups receive only the kept piece; without one every held piece is carried on.
         """
         where = self._where()
         stock, stopped = self.part, None
         self.stock_states = [stock]
+        stock, stopped = self._keep_after(None, stock, where)
         for op in self.ops:
             subject = self._subject(op)
             if stopped is not None:
@@ -5417,7 +5423,131 @@ class _Setup:
                 if stopped is not None:
                     self.stopped_cut = id(op)
                     self.stopped_plan = plan
+                else:
+                    stock, stopped = self._keep_after(subject, stock, where)
         return (None, stopped) if stopped is not None else (stock, None)
+
+    def _keep_after(self, subject, stock, where):
+        """(the stock once every ``keep`` placed after ``subject`` (None: on the entering
+        stock) has dropped its offcuts, or None, and why it cannot be derived).
+
+        Each keep (the setup's ``keep`` entries, route order) keeps the one piece that
+        carries its feature (:meth:`_kept`) and discards every other; ``keeps`` records the
+        kept and discarded pieces, or why none can be kept. A failed keep stops the stock
+        pass after its op without discrediting that op's own cut.
+        """
+        for spec in self.setup.get("keep") or []:
+            if not isinstance(spec, dict) or spec.get("after") != subject:
+                continue
+            owner = spec.get("subject")
+            kept, record = self._kept(spec.get("feature"), stock, subject)
+            self.keeps[owner] = record
+            if kept is None:
+                why = record.get("error") or record["reason"]
+                return None, f"{owner}: {why}; {where}"
+            if kept is not stock:
+                stock = kept
+                self.stock_states.append(stock)
+        return stock, None
+
+    def _kept(self, feature, stock, after):
+        """(the piece of ``stock`` that carries every face of ``feature``, or None, and the
+        keep's facts: feature, kept piece and discarded pieces, or why none is kept).
+
+        A piece carries a face when no more of the face than the face-signature area
+        tolerance lies off it. Exactly one piece must carry the whole feature; one face
+        shared by two pieces, no piece carrying it, an unknown feature or unresolved faces
+        are each a reason, never a guess. Volumes and boxes are in the setup frame.
+        """
+        where = f"the stock after {after}" if after else "the stock entering the setup"
+        record = {"feature": feature, "after": after}
+
+        def refused(why):
+            return None, {**record, "reason": why}
+
+        if not isinstance(feature, str) or feature == UNKNOWN:
+            return refused("keep is unknown; name the finished feature the kept piece carries")
+        indices = self.owner.features.get(feature)
+        # A finished feature of the part only: a plan joint feature is a transient surface.
+        if feature not in self.owner._declared():
+            return refused(
+                f"keep names {feature}, which is not a feature of the part; name the finished "
+                "feature the piece that leaves this setup carries"
+            )
+        if not (isinstance(indices, list) and indices):
+            return refused(
+                f"keep feature {feature} has no resolved faces; resolve its face references so "
+                "the piece that carries it can be found"
+            )
+        carriers, touched = [], set()
+        try:
+            pieces = list(stock.Solids)
+            rows = [
+                {
+                    "piece": number,
+                    "volume_mm3": _r(piece.Volume),
+                    "bbox_mm": [_r(v) for v in _bbox(piece)],
+                }
+                for number, piece in enumerate(pieces, start=1)
+            ]
+            for number, piece in enumerate(pieces, start=1):
+                whole = True
+                for index in indices:
+                    face = self.faces[index]
+                    limit = max(AREA_ABS, face.Area * AREA_REL)
+                    if face.common(piece).Area > limit:
+                        touched.add(number)
+                    if face.cut(piece).Area > limit:
+                        whole = False
+                if whole:
+                    carriers.append(number)
+        except Exception as exc:  # an OCC boolean failure proves no carrier
+            return refused(f"could not measure which piece of {where} carries {feature} ({exc})")
+        if len(carriers) > 1:
+            return refused(
+                f"pieces {carriers} of {where} each carry feature {feature}; name a feature "
+                "only the piece that leaves this setup carries"
+            )
+        if not carriers and len(touched) > 1:
+            return refused(
+                f"feature {feature} spans pieces {sorted(touched)} of {where}; name a feature "
+                "that lies wholly on the piece that leaves this setup"
+            )
+        if not carriers:
+            return refused(
+                f"no piece of {where} carries feature {feature}; name a feature of the part "
+                "that leaves this setup"
+            )
+        number = carriers[0]
+        try:
+            lost = self._finished_shares(pieces, number)
+        except Exception as exc:  # an OCC boolean failure proves no piece is scrap
+            return refused(f"could not measure the finished material in {where} ({exc})")
+        record["kept"] = rows[number - 1]
+        record["discarded"] = [row for row in rows if row["piece"] != number]
+        if lost:
+            return None, {**record, "error": "; ".join(lost)}
+        return (stock if len(pieces) == 1 else pieces[number - 1]), record
+
+    def _finished_shares(self, pieces, kept):
+        """Why no piece but ``kept`` may be discarded: one line per discarded piece that holds
+        more than ``STOCK_MM3`` of a received component's finished material, naming the
+        component (``stock`` for a single supply). Scrap holds none."""
+        lost = []
+        for component in sorted(self.state["components"]):
+            owned = self.owner.protected[component]
+            if owned.Volume <= HIT_MM3:
+                continue
+            share = self._placed(owned)
+            for number, piece in enumerate(pieces, start=1):
+                volume = 0.0 if number == kept else piece.common(share).Volume
+                if volume > STOCK_MM3:
+                    lost.append(
+                        f"discarding piece {number} would scrap {_r(volume)} mm^3 of "
+                        f"component {component}'s finished material; keep a feature on that "
+                        "piece, or split the work so it holds no finished material"
+                    )
+        return lost
 
     @staticmethod
     def _remove(original, own, groups, held=None):
@@ -5430,7 +5560,7 @@ class _Setup:
         with a later piece. More than one piece above ``STOCK_MM3`` is refused unless
         ``held`` (given the pieces, None when every one is held, else why not) keeps them
         all; every kept piece must be valid and hold no more than ``STOCK_MM3`` of the
-        grouped cutting volumes.
+        grouped cutting volumes. Only a ``keep`` (:meth:`_keep_after`) drops a piece.
         """
         rest, applied = original, []
         if own is not None:

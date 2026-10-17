@@ -646,6 +646,9 @@ Operation = record(
         # split across features is read once).
         "feature": str | Annotated[list[str], Field(min_length=2)],
         **texts("tool holder direction note layout"),
+        # The finished feature whose piece stays when the work is in pieces after this op:
+        # every other piece is discarded (the kernel's stock pass; keep_piece reports it).
+        "keep": str,
         "inspection_note": Procedure,
         # A coating op's process: an outside ``services`` entry or in-house ``consumables``.
         "process": str | Annotated[list[str], Field(min_length=1)],

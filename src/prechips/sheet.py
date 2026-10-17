@@ -1865,6 +1865,7 @@ _TOPICS = {
     "construction": "construction",
     "engagement": "cutter engagement",
     "saw_cut": "saw cut",
+    "keep_piece": "kept piece / offcut",
     "purchased_tooling": "purchased tooling receipt check",
 }
 _DIRECTIONS = {
@@ -3033,6 +3034,24 @@ class _Traveler:
                 else "cure time ? min UNKNOWN (not declared)."
             )
         )
+
+    def keep_note(self, setup, op):
+        """An op's ``keep``: which separated piece the operator keeps and that every other
+        is scrap, with the count the kernel discarded when ``keep_piece`` passed."""
+        feature = op.get("keep")
+        if not feature:
+            return None
+        numbers = self.records.get(("keep_piece", f"{setup['id']}:{op['op']}"), {})
+        discarded = numbers.get("discarded") if isinstance(numbers, dict) else None
+        count = len(discarded) if isinstance(discarded, list) else 0
+        scrap = (
+            "discard the other piece"
+            if count == 1
+            else f"discard the other {count} pieces"
+            if count
+            else "discard every other piece"
+        )
+        return f"Keep the piece that carries {self.feature_name(feature)}; {scrap}."
 
     def compound_note(self, setup, op):
         """The first ``fit`` op of a compound joint setup carries the joint's surface prep
@@ -8348,6 +8367,7 @@ class _Traveler:
                         self.bench(note, setup) if note else None,
                         derivation,
                         self.compound_note(setup, op),
+                        self.keep_note(setup, op),
                         self.faced_aim_note(setup, op),
                     ],
                 )
