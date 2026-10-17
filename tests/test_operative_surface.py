@@ -17,7 +17,8 @@ from test_sheet_ops import Markup, content
 
 from prechips.inputs import Bundle
 from prechips.model import Features, Inventory, Plan
-from prechips.rules import coordinates, tip_endpoints, zero_recipe
+from prechips.rules import coordinates, tip_endpoints
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
 from prechips.sheet import _Traveler
 
 NOMINAL = -2.27825
@@ -319,7 +320,7 @@ def turned_from(tmp_path, cut, shaft_xy):
     findings = [
         *coordinates.evaluate(bundle),
         *tip_endpoints.evaluate(bundle),
-        *zero_recipe.evaluate(bundle),
+        *zero_recipe_rule.evaluate(bundle),
     ]
     sheet = _Traveler(bundle, findings, {}, {})
     lathe = bundle.plan["setups"][1]

@@ -2854,7 +2854,8 @@ def formed_z(bundle, setup, op):
     whether it leaves a face at ``to_z`` is (:func:`~.tip_endpoints.forms_face`), or when
     the DRO Z it cuts on was set at an unknown place (:func:`reads_unknown`).
     Coordinates records it as the op's ``dro_to_z``."""
-    from .zero_recipe import blade, blade_readings, reads_unknown, z_readings
+    from .zero_recipe.tool_setting import blade_readings, reads_unknown, z_readings
+    from .zero_recipe.touch import blade
 
     grid = dro_grid(bundle, setup)
     readings = z_readings(bundle, setup)
@@ -4221,7 +4222,7 @@ def evaluate(bundle, *, pre_kernel=False):
         # The corner each blade op's DRO Z reads (the Z touch in effect when it cuts).
         readings = {}
         if lathe:
-            from .zero_recipe import blade_readings
+            from .zero_recipe.tool_setting import blade_readings
 
             readings = blade_readings(bundle, setup)
         blade_unknown = False

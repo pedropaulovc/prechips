@@ -11,8 +11,9 @@ from test_operative_surface import bundle as scratch_bundle
 from test_sheet_ops import Markup, content
 
 from prechips.inputs import load_bundle
-from prechips.rules import coordinates, zero_recipe
+from prechips.rules import coordinates
 from prechips.rules.resolution import setup_frame
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
 from prechips.sheet import render_traveler
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -224,7 +225,7 @@ def _check(bundle, sheets, setup, before, sign, offset):
 @pytest.mark.parametrize("pilot", PILOTS)
 def test_each_transfer_prints_one_shift_and_its_zero_touches_the_printed_top(pilot):
     bundle = load_bundle(ROOT / "examples" / pilot)
-    findings = coordinates.evaluate(bundle) + zero_recipe.evaluate(bundle)
+    findings = coordinates.evaluate(bundle) + zero_recipe_rule.evaluate(bundle)
     sheets = _sheets(render_traveler(bundle, findings, {}))
     setups = {setup["id"]: setup for setup in bundle.plan["setups"]}
     linked = 0
@@ -277,7 +278,7 @@ def test_a_finer_sheets_zs_carry_onto_a_coarser_dro_by_one_shift_or_none(
     tmp_path, top, bottom, offset, linked, arriving
 ):
     bundle = _turned_over(tmp_path, top, bottom, offset)
-    findings = coordinates.evaluate(bundle) + zero_recipe.evaluate(bundle)
+    findings = coordinates.evaluate(bundle) + zero_recipe_rule.evaluate(bundle)
     sheets = _sheets(render_traveler(bundle, findings, {}))
     first, second = bundle.plan["setups"]
     assert _arrival(sheets[second["id"]]) == arriving

@@ -77,7 +77,8 @@ def _operative(row, bundle, setup, face, op):
     ``dro_grid_debt``.
     """
     from .coordinates import UNIT_MM, dro_grid, dro_grid_debt, dro_z
-    from .zero_recipe import _framed, carried_z_reading
+    from .zero_recipe.tool_setting import carried_z_reading
+    from .zero_recipe.touch import _framed
 
     grid = dro_grid(bundle, setup)
     grid_debt = dro_grid_debt(bundle, setup)
@@ -1156,7 +1157,7 @@ def _producer(bundle, setup, value, face, done, source, path=False, debts=None, 
             continue
         if forms is True and number(to_z) and number(value) and abs(to_z - value) > SAME_Z:
             from .coordinates import dro_grid, dro_z
-            from .zero_recipe import blade
+            from .zero_recipe.touch import blade
 
             # A non-blade face also matches where the DRO actually left it. Do not
             # call formed_z here: its touch-readings lookup may itself be resolving

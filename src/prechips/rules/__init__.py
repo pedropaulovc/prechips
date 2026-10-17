@@ -46,8 +46,8 @@ from prechips.rules import (
     turned_profile,
     turning_deflection,
     vise,
-    zero_recipe,
 )
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
 
 
 @dataclass(frozen=True)
@@ -62,7 +62,7 @@ RULES: list[Rule] = [
     Rule("op_chain", op_chain.evaluate),
     Rule("order", op_order.evaluate),
     Rule("speeds_feeds", speeds_feeds.evaluate),
-    Rule("zero_check", zero_recipe.evaluate),
+    Rule("zero_check", zero_recipe_rule.evaluate),
     Rule("coordinates", coordinates.evaluate),
     Rule("manual_arc", manual_arc.evaluate),
     Rule("inspection", inspection.evaluate),

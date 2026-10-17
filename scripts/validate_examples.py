@@ -35,7 +35,6 @@ from prechips.process_features import ANGLE_TOLERANCE_DEG
 from prechips.process_features import LABEL_PREFIX as PROCESS_PREFIX
 from prechips.rules import RULES as CHECKER_RULES
 from prechips.rules import tool_resolves as identity_rule
-from prechips.rules import zero_recipe as zero_rules
 from prechips.rules._bench import BENCH_KINDS, manual_bench
 from prechips.rules.coordinates import (
     CENTRE_OPS,
@@ -80,6 +79,10 @@ from prechips.rules.tip_endpoints import (
 )
 from prechips.rules.tip_endpoints import _covers_xy as covers_xy
 from prechips.rules.turned_profile import AXIAL_KINDS, PROFILE_OPS, RADIUS_TOL_MM
+from prechips.rules.zero_recipe import faces as zero_rules_faces
+from prechips.rules.zero_recipe import rule as zero_rules_rule
+from prechips.rules.zero_recipe import tool_setting as zero_rules_tool_setting
+from prechips.rules.zero_recipe import touch as zero_rules_touch
 
 # Each zero axis's DRO count direction, in the plan's words: counting up along setup +axis
 # (jog polarity +1) or down (-1, a reversed DRO to stop on).
@@ -2874,10 +2877,14 @@ def credited_from_above(own, entries: Entries, setup: dict, touch: dict, face, e
     if "from" in touch:
         if touch["from"] != "+z":
             return False
-        return zero_rules.touch_side(own, setup, touch, face, edge, lathe) == 1 if lathe else mill
+        return (
+            zero_rules_touch.touch_side(own, setup, touch, face, edge, lathe) == 1
+            if lathe
+            else mill
+        )
     if mill:
         return True
-    return lathe and zero_rules.touch_side(own, setup, touch, face, edge, lathe) == 1
+    return lathe and zero_rules_touch.touch_side(own, setup, touch, face, edge, lathe) == 1
 
 
 def safe_down_setting(row: dict, field: str, constraint: dict, grid: tuple, scale) -> None:
@@ -2925,11 +2932,11 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
     (:func:`zero_rows`), with a lathe's tool-setting rows and every row or verdict only
     the checker derives on these inputs (:func:`checker_row`)."""
     status, numbers, _ = zero_rows(setup, own, entries)
-    if zero_rules.lathe_setup(own, setup):
-        numbers["tool_setting"] = zero_rules.tool_setting(
+    if zero_rules_touch.lathe_setup(own, setup):
+        numbers["tool_setting"] = zero_rules_tool_setting.tool_setting(
             own, setup, setup["zero"], numbers["tool_touches"], numbers["derived_touches"]
         )
-    return checker_row(own, zero_rules.evaluate, setup["id"], status, numbers)
+    return checker_row(own, zero_rules_rule.evaluate, setup["id"], status, numbers)
 
 
 def zero_rows(setup: dict, own, entries: Entries) -> tuple:
@@ -2967,17 +2974,17 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
     frame = setup_frame(setup, plan, own.features)
     frame = frame if isinstance(frame, dict) else {}
     # A lathe as the checker resolves the setup's machine: present, lathe kind or type.
-    lathe = zero_rules.lathe_setup(own, setup)
+    lathe = zero_rules_touch.lathe_setup(own, setup)
 
     def ready(ref, slot) -> bool:
         return entries.verified(ref, slot)
 
     zero, ops = setup["zero"], setup["ops"]
     states = list(stock_states(own, setup))
-    tops = [z for z, _ in zero_rules._tops(own, setup, states)]
+    tops = [z for z, _ in zero_rules_faces._tops(own, setup, states)]
     corner_errors, face_errors, face_unknowns = [], [], []
-    blade_corner = zero_rules._corner_recorder(own, setup, lathe, corner_errors)
-    face_check = zero_rules._face_checker(own, setup, face_errors, face_unknowns)
+    blade_corner = zero_rules_tool_setting._corner_recorder(own, setup, lathe, corner_errors)
+    face_check = zero_rules_tool_setting._face_checker(own, setup, face_errors, face_unknowns)
     units_mm = UNIT_MM.get(own.features.get("units"))
     grid = dro_grid(setup, own.features, entries, plan)
     grid_trusted = dro_grid_trusted(setup, own.features, entries, plan)
@@ -2990,7 +2997,7 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
             # The own current-producer proof already requires the selected outward
             # normal to face receiving +Z; unknown survival cannot recover raw credit.
             return 1
-        return zero_rules.touch_side(own, setup, touch, face, edge, lathe)
+        return zero_rules_touch.touch_side(own, setup, touch, face, edge, lathe)
 
     def touch_face(touch, face, edge, done, who, *source):
         """``(stands, credited refs, constraint or None)`` of a Z touch on ``face``: a
@@ -3190,7 +3197,9 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
         x_set = (
             "not_applicable"
             if not lathe
-            else zero_rules.x_touch_set(x_scale, record.get("x_paper_mm", "unknown"), trial_cut)
+            else zero_rules_touch.x_touch_set(
+                x_scale, record.get("x_paper_mm", "unknown"), trial_cut
+            )
             if ready(record.get("gauge"), "gauges")
             else "unknown"
         )
@@ -3211,7 +3220,7 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
         unknown |= "unknown" in (x_set, row["z_axis_set"]) or not ready(
             record.get("tool"), "spindle"
         )
-    derived, missing, changes_unknown, readings, served = zero_rules.tool_changes(
+    derived, missing, changes_unknown, readings, served = zero_rules_tool_setting.tool_changes(
         own, setup, zero, lathe, x_scale, touches
     )
     unknown |= changes_unknown

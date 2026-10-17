@@ -16,7 +16,8 @@ from test_manual_arc import (
 
 from prechips.inputs import load_bundle
 from prechips.measurements import measurement_checklist
-from prechips.rules import tip_endpoints, zero_recipe
+from prechips.rules import tip_endpoints
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
 
 STATUSES = ["measured", "assumed", "illustrative", None]
 
@@ -166,7 +167,7 @@ def zero_plan(tmp_path, tool_facts, *, lathe=False, gauge=False):
 
 
 def zero_row(plan):
-    return zero_recipe.evaluate(load_bundle(plan))[0]
+    return zero_recipe_rule.evaluate(load_bundle(plan))[0]
 
 
 def test_explicit_unknown_tip_does_not_fall_back_to_the_finders_body_diameter(tmp_path):

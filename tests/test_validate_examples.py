@@ -12,6 +12,7 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
+from split_patch import patch_split, split_attr
 from test_cli import copy_examples
 from test_contour_order import carried_entry_bundle
 from test_deep_hole_speed import DEEP, drill_bundle
@@ -52,11 +53,13 @@ from prechips.rules import (
     stickout,
     tip_endpoints,
     tool_resolves,
-    zero_recipe,
 )
 from prechips.rules._bench import manual_bench
 from prechips.rules.resolution import LENGTH_TOLERANCE_MM, inch_sizes, setup_items
 from prechips.rules.tip_endpoints import evaluate as endpoint_findings
+from prechips.rules.zero_recipe import native as zero_recipe_native
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
+from prechips.rules.zero_recipe import tool_setting as zero_recipe_tool_setting
 
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
@@ -431,7 +434,7 @@ def cone_inputs(*, fresh_pure=False, joint_kernel=None):
             },
         )
         derived = [
-            *zero_recipe.evaluate(bundle),
+            *zero_recipe_rule.evaluate(bundle),
             *joints.evaluate_fit(bundle),
             *coordinates.evaluate(bench_bundle),
             *headroom.evaluate(bench_bundle),
@@ -2601,7 +2604,7 @@ def test_zero_oracle_uses_its_own_carried_physical_height_and_typed_setting(case
         data.kernel["setups"][setup["id"]]["render_scene"]["datums"] = []
         z.update(method="measure_then_set", gauge="mic", measure="bench reading", offset_mm=1.0)
         setup["ops"] = setup["ops"][:1]
-    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    finding = zero_recipe_rule.evaluate(data)[-1].to_dict()
     assert finding["status"] == verdict
     entries = VALIDATOR["Entries"](data.inventory)
     own = VALIDATOR["zero_inputs"](
@@ -2631,7 +2634,7 @@ def test_zero_oracle_uses_its_own_carried_physical_height_and_typed_setting(case
     if case == "native-datum":
         for native in own.kernel["setups"].values():
             native["render_scene"]["datums"] = []
-        complete = zero_recipe.evaluate(data)[-1].to_dict()
+        complete = zero_recipe_rule.evaluate(data)[-1].to_dict()
         with pytest.raises(ValueError):
             VALIDATOR["check_zero"](setup, complete, entries, own)
     if case in {"through-drill", "explicit-touch", "listed-retouch"}:
@@ -2673,7 +2676,7 @@ def test_endpoint_zero_oracle_keeps_only_the_primary_contact_without_native_full
     later = VALIDATOR["carried_source_plane"](own, entries, setup, name, 1)
     assert primary["physical"] == pytest.approx(21.01)
     assert "unknown" in later
-    honest = zero_recipe.evaluate(data)[-1].to_dict()
+    honest = zero_recipe_rule.evaluate(data)[-1].to_dict()
     assert honest["status"] == "unknown"
     assert honest["numbers"]["axes"]["z"]["axis_set"] == 21.01
     assert honest["numbers"]["derived_touches"][0]["z_axis_set"] == "unknown"
@@ -2684,8 +2687,8 @@ def test_endpoint_zero_oracle_keeps_only_the_primary_contact_without_native_full
         excluded.append(max(previous, footprint[1]))
         return True
 
-    monkeypatch.setattr(zero_recipe, "_rectangular_spares_plunge", forged_land)
-    forged = zero_recipe.evaluate(data)[-1].to_dict()
+    monkeypatch.setattr(zero_recipe_native, "_rectangular_spares_plunge", forged_land)
+    forged = zero_recipe_rule.evaluate(data)[-1].to_dict()
     assert forged["numbers"]["derived_touches"][0]["z_axis_set"] == 21.01
     with pytest.raises(ValueError):
         VALIDATOR["check_zero"](setup, forged, entries, own)
@@ -2888,8 +2891,8 @@ def forbid_native_survival_helpers(monkeypatch):
         "_carried_face_z",
         "_rectangular_spares_plunge",
     ):
-        monkeypatch.setattr(zero_recipe, helper, forbidden)
-    monkeypatch.setattr(zero_recipe, "op_claims", forbidden)
+        patch_split(monkeypatch, "prechips.rules.zero_recipe", helper, forbidden)
+    monkeypatch.setattr(zero_recipe_native, "op_claims", forbidden)
 
 
 @pytest.mark.parametrize("route", ["current", "receiving", "source", "remount"])
@@ -2943,9 +2946,9 @@ def test_current_native_zero_routes_reject_forced_checker_survival(touch, cut, m
         assert "native_edge_mm" not in row and "setting_residual_mm" not in row
     # Mutate the real shared production cut helper, not merely a supplied verdict.
     # #214 event scheduling is still shared; native survival and emitted operands are not.
-    monkeypatch.setattr(zero_recipe, "_carry_cut", lambda *args, **kwargs: False)
+    monkeypatch.setattr(zero_recipe_native, "_carry_cut", lambda *args, **kwargs: False)
     assert VALIDATOR["zero_rows"](setup, own, entries)[0] == expected
-    forged = zero_recipe.evaluate(data)[-1].to_dict()
+    forged = zero_recipe_rule.evaluate(data)[-1].to_dict()
     if cut == "unknown":
         forged["status"] = "pass"
         forged_row = (
@@ -2974,7 +2977,7 @@ def test_native_unknown_current_survival_decides_no_contradiction_from_its_produ
     row = numbers["tool_touches"][0]
     assert row["edge_mm"] == row["z_axis_set"] == "unknown"
     assert "credited_faces" not in row
-    VALIDATOR["check_zero"](setup, zero_recipe.evaluate(data)[-1].to_dict(), entries, own)
+    VALIDATOR["check_zero"](setup, zero_recipe_rule.evaluate(data)[-1].to_dict(), entries, own)
 
 
 @pytest.mark.parametrize(
@@ -2991,7 +2994,7 @@ def test_an_unresolved_touch_boundary_is_unknown_never_the_initial_plane(boundar
     setup, entries, own = zero_oracle(data)
     # Collapsed to the initial boundary, the upstream plane (before this setup's unknown
     # cut) would print a numeric Axis Set with its native refs.
-    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    finding = zero_recipe_rule.evaluate(data)[-1].to_dict()
     row = finding["numbers"]["tool_touches"][0]
     assert finding["status"] == "unknown"
     assert row["z_axis_set"] == row["edge_mm"] == "unknown"
@@ -3008,7 +3011,7 @@ def test_an_unresolved_primary_z_after_op_is_unknown_never_the_initial_plane(cut
     setup, entries, own = zero_oracle(data)
     # Collapsed to the initial boundary, the carried plane would print 21.01 with its
     # native refs, and with no intervening cut the zero check would pass.
-    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    finding = zero_recipe_rule.evaluate(data)[-1].to_dict()
     axis = finding["numbers"]["axes"]["z"]
     assert finding["status"] == "unknown"
     assert axis["axis_set"] == "unknown" and "credited_faces" not in axis
@@ -3034,9 +3037,9 @@ def test_endpoint_oracle_never_recovers_unknown_current_touch_from_an_original_l
     assert row["entry_from"] == f"{setup['id']} op 5 to_z"
     # Real checker survival is forced safe, while the oracle's own unknown drill
     # footprint must still forbid re-fetching that local producer's numeric Z.
-    monkeypatch.setattr(zero_recipe, "_carry_cut", lambda *args, **kwargs: False)
+    monkeypatch.setattr(zero_recipe_native, "_carry_cut", lambda *args, **kwargs: False)
     monkeypatch.setattr(
-        zero_recipe,
+        zero_recipe_tool_setting,
         "_carried_face_z",
         lambda *args, **kwargs: pytest.fail("endpoint oracle delegated native survival"),
     )
@@ -3084,8 +3087,8 @@ def test_native_touch_boundary_is_derived_from_own_raw_operation_names(record, e
 def test_declared_native_touch_cannot_skip_unknown_cut_via_shared_position_helper(monkeypatch):
     data = native_survival_oracle_bundle()
     setup, entries, own = zero_oracle(data)
-    monkeypatch.setattr(zero_recipe, "_position", lambda *args, **kwargs: 0)
-    monkeypatch.setattr(zero_recipe, "_carry_cut", lambda *args, **kwargs: False)
+    patch_split(monkeypatch, "prechips.rules.zero_recipe", "_position", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(zero_recipe_native, "_carry_cut", lambda *args, **kwargs: False)
     status, numbers, _ = VALIDATOR["zero_rows"](setup, own, entries)
     row = numbers["tool_touches"][0]
     assert status == "unknown" and row["z_axis_set"] == "unknown"
@@ -3121,9 +3124,9 @@ def test_endpoint_oracle_retains_numeric_current_touch_when_own_plane_survives(c
     setup["ops"][-1]["do"] = "drill"
     data.feature_definitions["hole"].update(thru=False, depth=1.0)
     findings = {(f.rule, f.subject): f.to_dict() for f in endpoint_findings(data)}
-    monkeypatch.setattr(zero_recipe, "_carry_cut", lambda *args, **kwargs: False)
+    monkeypatch.setattr(zero_recipe_native, "_carry_cut", lambda *args, **kwargs: False)
     monkeypatch.setattr(
-        zero_recipe,
+        zero_recipe_tool_setting,
         "_carried_face_z",
         lambda *args, **kwargs: pytest.fail("endpoint oracle delegated native survival"),
     )
@@ -3164,12 +3167,12 @@ def test_carried_native_routes_reject_numeric_credit_from_real_forced_safe_cut_h
 ):
     data = native_survival_oracle_bundle(route, "unknown")
     setup, entries, own = zero_oracle(data)
-    monkeypatch.setattr(zero_recipe, "_carry_cut", lambda *args, **kwargs: False)
+    monkeypatch.setattr(zero_recipe_native, "_carry_cut", lambda *args, **kwargs: False)
     status, numbers, _ = VALIDATOR["zero_rows"](setup, own, entries)
     row = numbers["tool_touches"][0]
     assert status == "unknown" and row["z_axis_set"] == "unknown"
     assert "credited_faces" not in row and "native_edge_mm" not in row
-    forged = zero_recipe.evaluate(data)[-1].to_dict()
+    forged = zero_recipe_rule.evaluate(data)[-1].to_dict()
     assert forged["numbers"]["tool_touches"][0]["z_axis_set"] == pytest.approx(21.01)
     forged["status"] = "pass"
     with pytest.raises(ValueError):
@@ -3290,7 +3293,7 @@ def test_oracle_accepts_only_an_unknown_reface_about_another_centre(tmp_path, sh
 
     data, _, _ = refaced_about(tmp_path, shift)
     setup, entries, own = zero_oracle(data)
-    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    finding = zero_recipe_rule.evaluate(data)[-1].to_dict()
     assert finding["status"] == ("pass" if shift == 0.0 else "unknown")
     VALIDATOR["check_zero"](setup, finding, entries, own)
 
@@ -3327,7 +3330,7 @@ def test_zero_oracle_types_a_half_step_carried_contact_down_past_a_resolved_coun
     spot = data.plan["setups"][-1]["ops"][0]
     assert spot["tool"] == "centre/1"
     assert data.inventory["tools"]["centre"]["kind"] == "center_drill_set"
-    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    finding = zero_recipe_rule.evaluate(data)[-1].to_dict()
     assert finding["status"] == "pass", finding
     zero, (touch,) = finding["numbers"]["axes"]["z"], finding["numbers"]["derived_touches"]
     assert zero["edge_mm"] == pytest.approx(21.0055)
@@ -3368,7 +3371,7 @@ def test_zero_oracle_moves_a_carried_plunge_footprint_by_its_dialled_aim():
             "reason": "Synthetic dialled aim moves the carried plunge footprint",
         }
     }
-    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    finding = zero_recipe_rule.evaluate(data)[-1].to_dict()
     assert finding["status"] == "pass", finding
     (touch,) = finding["numbers"]["derived_touches"]
     mouth = 0.15 + 0.05 * math.tan(math.radians(30))
@@ -3398,13 +3401,13 @@ def test_zero_oracle_keeps_a_centre_drill_footprint_on_the_resolved_op_depth(dep
         assert footprint[1] == pytest.approx(0.15 + 0.05 * math.tan(math.radians(30)))
     else:
         assert footprint is None
-    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    finding = zero_recipe_rule.evaluate(data)[-1].to_dict()
     VALIDATOR["check_zero"](setup, copy.deepcopy(finding), entries, own)
 
 
 def forge_carry(monkeypatch, target):
     """Patch one checker carry helper to a plausible wrong answer."""
-    original = getattr(zero_recipe, target)
+    original = split_attr("prechips.rules.zero_recipe", target)
 
     def nearest_setting(*args, **kwargs):
         original(*args, **kwargs)
@@ -3428,7 +3431,7 @@ def forge_carry(monkeypatch, target):
         "_plane_in_frame": raised_plane,
         "_axial_cut_footprint": narrow_footprint,
     }[target]
-    monkeypatch.setattr(zero_recipe, target, forged)
+    patch_split(monkeypatch, "prechips.rules.zero_recipe", target, forged)
 
 
 @pytest.mark.parametrize("target", ["_carried_setting", "_plane_in_frame", "_axial_cut_footprint"])
@@ -3436,10 +3439,10 @@ def test_zero_oracle_derives_a_carried_source_plane_without_the_checkers_carry(m
     # A shared answer would agree with a forged checker; the oracle's own carry does not.
     data = half_step_source_plane()
     setup, entries, own = zero_oracle(data)
-    honest = zero_recipe.evaluate(data)[-1].to_dict()
+    honest = zero_recipe_rule.evaluate(data)[-1].to_dict()
     VALIDATOR["check_zero"](setup, copy.deepcopy(honest), entries, own)
     forge_carry(monkeypatch, target)
-    forged = zero_recipe.evaluate(data)[-1].to_dict()
+    forged = zero_recipe_rule.evaluate(data)[-1].to_dict()
     assert forged != honest
     with pytest.raises(ValueError):
         VALIDATOR["check_zero"](setup, forged, entries, own)
@@ -3565,7 +3568,7 @@ def test_endpoint_oracle_requires_its_own_carried_datum_before_passing(land, end
         pytest.fail("endpoint oracle called a checker surface helper")
 
     for helper in ("face_stands", "_carried_face_z", "_rectangular_spares_plunge"):
-        monkeypatch.setattr(zero_recipe, helper, checker_surface)
+        patch_split(monkeypatch, "prechips.rules.zero_recipe", helper, checker_surface)
     findings["zero_check", receiver["id"]] = {"status": "unknown" if land else "pass"}
     entries = VALIDATOR["Entries"](data.inventory)
 
@@ -3614,7 +3617,7 @@ def test_carried_inch_contact_uses_the_printed_grid_line_without_rounding_a_lowe
     frame["origin"] = [below_in * value for value in frame["z"]]
     setup["zero"]["z"]["edge_mm"] -= below_in
     setup["stock_state"]["entry_z"]["hole"] -= below_in
-    finding = zero_recipe.evaluate(data)[-1].to_dict()
+    finding = zero_recipe_rule.evaluate(data)[-1].to_dict()
     contact = finding["numbers"]["axes"]["z"]
     assert finding["status"] == "pass", finding
     assert contact["axis_set"] == typed
@@ -3754,7 +3757,7 @@ def native_zero(part, setup_id, dro_edit=None, inventory_edit=None):
         dro_edit(bundle.plan["dro"])
     if inventory_edit:
         inventory_edit(bundle.inventory)
-    finding = next(f for f in zero_recipe.evaluate(bundle) if f.subject == setup_id)
+    finding = next(f for f in zero_recipe_rule.evaluate(bundle) if f.subject == setup_id)
     return json.loads(json.dumps(finding.to_dict()))
 
 

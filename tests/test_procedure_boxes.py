@@ -12,7 +12,7 @@ from test_tool_change_touch import DECK, bundle, mill_zero, op
 from prechips.findings import is_required
 from prechips.model import Inventory
 from prechips.rules import purchased_tooling
-from prechips.rules.zero_recipe import evaluate
+from prechips.rules.zero_recipe.rule import evaluate
 from prechips.sheet import _Traveler
 
 FINDER = {

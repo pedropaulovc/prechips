@@ -12,8 +12,9 @@ from test_envelope_m5 import measured
 
 from prechips import kernel
 from prechips.inputs import BadInput, load_bundle
-from prechips.rules import coordinates, zero_recipe
+from prechips.rules import coordinates
 from prechips.rules.resolution import PLAN_FRAMES, setup_frame_ref
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
 
 ROOT = Path(__file__).resolve().parents[1]
 SHAFT = ROOT / "examples" / "pivot-shaft" / "plan.toml"
@@ -197,7 +198,7 @@ def test_unbound_shaft_frame_keeps_model_z_unknown_and_records_the_local_station
     assert found["S3"].status == "unknown"
 
 
-@pytest.mark.parametrize("rule", [coordinates, zero_recipe])
+@pytest.mark.parametrize("rule", [coordinates, zero_recipe_rule])
 def test_unbound_frames_stay_unknown_without_inventing_a_bench_binding(tmp_path, rule):
     path = bundle_path(tmp_path, frames=PLAN_FRAME.replace('"nominal"', '"unknown"'))
     bundle = load_bundle(path)
@@ -216,7 +217,7 @@ def test_unbound_frames_stay_unknown_without_inventing_a_bench_binding(tmp_path,
             "machines": {**bundle.inventory["machines"], "bench": {"kind": "bench"}},
         },
     )
-    if rule is zero_recipe:
+    if rule is zero_recipe_rule:
         zero = {
             axis: {
                 "tool": "indicator",
