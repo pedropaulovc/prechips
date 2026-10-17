@@ -267,7 +267,7 @@ def test_measured_envelope_limits_govern_over_conflicting_legacy_machine_fields(
     assert finding.numbers["spindle_to_table_max_mm"] == 180
     assert finding.numbers["stacks"][0]["margin_mm"] == pytest.approx(-1.4)
     assert finding.numbers["travel_checks"]["x"]["travel_mm"] == 140
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 150
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 100
     assert finding.numbers["measurements"] == []
 
 
@@ -417,22 +417,85 @@ def test_dividing_head_unresolved_work_top_neither_passes_nor_errors(gap, limit)
         assert finding.numbers["sum_mm"] == "unknown"
 
 
-def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_travel():
+def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_table_check():
+    # A 450 mm head against 400 mm X travel is no travel error: travel bounds what the
+    # spindle reaches, and the head's footprint is judged against the table, which has
+    # no inventory facts yet, so that screen stays unknown (#297).
     data = head_bundle()
     data.inventory["machines"]["head"]["length_mm"] = 450
     finding = evaluate(data)[0]
     assert finding.numbers["fixture_verify"] is False
     assert finding.numbers["sum_mm"] == pytest.approx(214)
-    assert finding.numbers["travel_checks"]["x"]["fixture_mm"] == 450
-    assert finding.status == "error"
+    assert "fixture_mm" not in finding.numbers["travel_checks"]["x"]
+    table = finding.numbers["fixture_table_check"]
+    assert table["status"] == "unknown"
+    # The head's length lies along its posed axis, setup X.
+    assert table["footprint_x_mm"] == 450
+    assert "table length/width" in table["missing"]
+    assert finding.status == "pass"
 
 
 def test_part_and_fixture_envelope_must_fit_travel():
     data = bundle()
+    data.plan["stock"]["length_mm"] = 150
     data.inventory["machines"]["mill"]["envelope"]["travel_mm"]["x"] = measured(140)
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["x"]["required_mm"] == 150
+    assert "setup-entry stock exceeds X travel" in finding.sentence
+
+
+def pm30_bundle(vise_width_mm):
+    """#297's repro: a PM 6 in vise on a PM-30MV (Y travel 8.75 in) holding a 100 x 30 part."""
+    data = bundle()
+    data.inventory["machines"]["mill"]["envelope"]["travel_mm"] = {
+        "x": measured(584.2),
+        "y": measured(222.25),
+    }
+    data.inventory["fixtures"]["vise"].update(length_mm=488, width_mm=vise_width_mm)
+    return data
+
+
+@pytest.mark.parametrize("vise_width_mm", [200, 290])
+def test_a_fixture_wider_than_travel_is_no_travel_error(vise_width_mm):
+    finding = evaluate(pm30_bundle(vise_width_mm))[0]
+    assert finding.status == "pass"
+    assert finding.numbers["travel_checks"]["y"]["required_mm"] == 30
+    table = finding.numbers["fixture_table_check"]
+    assert table["status"] == "unknown"
+    assert table["fixture_width_mm"] == vise_width_mm
+    assert table["table_mm"] == "unknown"
+
+
+def test_stock_beyond_travel_errors_while_the_fixture_fits():
+    data = pm30_bundle(200)
+    data.plan["stock"]["section_mm"] = [240, 16]
+    finding = evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.numbers["travel_checks"]["y"]["required_mm"] == 240
+    assert "setup-entry stock exceeds Y travel" in finding.sentence
+
+
+@pytest.mark.parametrize(
+    ("jaws_along", "footprint"),
+    [("x", (290, 488)), ("y", (488, 290)), (None, ("unknown", "unknown"))],
+)
+def test_vise_footprint_turns_with_jaws_along(jaws_along, footprint):
+    data = pm30_bundle(290)
+    hold = data.plan["setups"][0]["hold"]
+    if jaws_along:
+        hold["jaws_along"] = jaws_along
+    table = evaluate(data)[0].numbers["fixture_table_check"]
+    assert (table["footprint_x_mm"], table["footprint_y_mm"]) == footprint
+    assert table["status"] == "unknown"
+
+
+def test_unverified_fixture_size_stays_on_the_table_check_not_the_headroom_row():
+    data = bundle()
+    data.inventory["fixtures"]["vise"]["width_mm"] = "unknown"
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["fixture_table_check"]["footprint_y_mm"] == "unknown"
 
 
 def test_block_orientation_unknown_does_not_guess_shortest_dimension():

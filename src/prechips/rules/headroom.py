@@ -85,6 +85,60 @@ def _head_axis_z(pose):
     return _UNKNOWN
 
 
+def _footprint(fixture, hold, length, width):
+    """(X, Y, basis) of the fixture's ``length`` x ``width`` footprint in the setup frame.
+
+    A vise's ``length`` runs along its screw, across the jaws: ``jaws_along = "x"`` puts
+    it along Y. A posed fixture rotates by its pose (y = z x x): a dividing head's
+    ``length`` lies along its axis (pose z), any other fixture's along pose x, and
+    ``width`` along pose y. Without that pose the footprint stays unknown."""
+    if not (_numeric(length) and _numeric(width)):
+        return _UNKNOWN, _UNKNOWN, "fixture length/width unknown"
+    if fixture.get("kind") == "vise":
+        along = hold.get("jaws_along")
+        if along == "x":
+            return width, length, 'jaws_along = "x": length along Y'
+        if along == "y":
+            return length, width, 'jaws_along = "y": length along X'
+        return _UNKNOWN, _UNKNOWN, "vise jaws_along not declared"
+    pose = _mapping(hold.get("pose"))
+    x, z = pose.get("x"), pose.get("z")
+    if not all(isinstance(v, list) and len(v) == 3 and all(map(_numeric, v)) for v in (x, z)):
+        return _UNKNOWN, _UNKNOWN, "fixture pose not declared"
+    y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]]
+    head = fixture.get("kind") == "dividing_head"
+    along = z if head else x
+    extents = [abs(along[i]) * length + abs(y[i]) * width for i in (0, 1)]
+    return *extents, f"hold.pose: length along pose {'z' if head else 'x'}, width along pose y"
+
+
+def _fixture_table(bundle, setup, fixture, fixture_ref, machine_ref):
+    """The fixture footprint against the machine table: always unknown until the table's
+    extents, allowed overhang and load are inventory facts (#272 item 1, #297). It never
+    errors or passes, and it does not move the headroom row's status."""
+    debts = {}
+    length = _length(bundle, fixture, "length", "workholding", fixture_ref, debts)
+    width = _length(bundle, fixture, "width", "workholding", fixture_ref, debts)
+    x, y, basis = _footprint(fixture, _mapping(setup.get("hold")), length, width)
+    size = f"{x:g} x {y:g} mm" if _numeric(x) and _numeric(y) else "its"
+    return {
+        "status": "unknown",
+        "fixture_length_mm": length,
+        "fixture_width_mm": width,
+        "footprint_x_mm": x,
+        "footprint_y_mm": y,
+        "footprint_basis": basis,
+        "table_mm": _UNKNOWN,
+        "missing": (
+            f"inventory.machines.{machine_ref} has no table length/width (or extension), "
+            "allowed fixture overhang or table load limit facts; check: the fixture's "
+            f"{size} footprint seats on the table within the allowed overhang and the "
+            "fixture plus work weight is within the table load"
+        ),
+        "measurements": [debts[key] for key in sorted(debts)],
+    }
+
+
 def _limit(machine, identity, field, debts, cite):
     """One measured machine envelope fact, with the same checklist id as envelope/travel."""
     result = length_fact(machine, field)
@@ -514,37 +568,23 @@ def evaluate(bundle):
         cite.extend(entry.pop("cite"))
         numbers.update(entry)
         numbers.update({"stock_extent_x_mm": stock_x, "stock_extent_y_mm": stock_y})
+        # Travel is what the spindle must reach over the table: the setup-entry stock, never
+        # the fixture's footprint, which may overhang the travel (#297).
         travels = {}
         for axis, extent in (("x", stock_x), ("y", stock_y)):
             travel = _limit(machine, machine_ref, f"envelope.travel.{axis}", debts, cite)
-            fixture_extent = _length(
-                bundle,
-                fixture,
-                "length" if axis == "x" else "width",
-                "workholding",
-                fixture_ref,
-                consumed,
-            )
-            required = (
-                max(extent, fixture_extent)
-                if _numeric(extent) and _numeric(fixture_extent)
-                else _UNKNOWN
-            )
             travels[axis] = {
                 "travel_mm": travel["value"],
                 "part_mm": extent,
-                "fixture_mm": fixture_extent,
-                "required_mm": required,
+                "required_mm": extent,
             }
-            unknown |= not _numeric(required) or not travel["verified"]
-            if (
-                travel["verified"]
-                and not uncertain(fixture)
-                and _numeric(required)
-                and required > travel["value"]
-            ):
-                errors.append(f"part/fixture envelope exceeds {axis.upper()} travel")
+            unknown |= not _numeric(extent) or not travel["verified"]
+            if travel["verified"] and _numeric(extent) and extent > travel["value"]:
+                errors.append(f"setup-entry stock exceeds {axis.upper()} travel")
         numbers["travel_checks"] = travels
+        numbers["fixture_table_check"] = _fixture_table(
+            bundle, setup, fixture, fixture_ref, machine_ref
+        )
         # A guided sweep moves its fixture under the spindle: the stack and clearance
         # judged at the setup pose do not cover every pose, so it is never a pass (#255).
         from .guided_sweep import unmodelled
@@ -571,7 +611,7 @@ def evaluate(bundle):
                     + swept
                 )
                 if unknown or swept
-                else "measured spindle stack and part/fixture travels fit"
+                else "measured spindle stack and setup-entry stock travels fit"
             )
             + "."
         )
