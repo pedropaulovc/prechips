@@ -22,7 +22,7 @@ from test_manual_arc import ARC, arcs, change, coordinates_row, debts, errors, o
 from prechips.inputs import load_bundle
 from prechips.kernel import build_job, table_checkpoints
 from prechips.rules import coordinates
-from prechips.rules.guided_sweep import roller_gain, swept_angles
+from prechips.rules.guided_sweep import rail_cut_shift, roller_gain, swept_angles
 from prechips.sheet import _Traveler
 
 MEASURED = (
@@ -121,15 +121,18 @@ def test_a_guided_sweep_locks_the_cutter_and_moves_only_the_fixture(tmp_path, gu
     assert band == pytest.approx([800.0, 800.5])
     assert band[0] <= cut[0] <= cut[1] <= band[1]
     if guide == "pivot":
-        # The bar's R800.10-800.12 widened by the beam's 0.02 pivot play.
-        assert sweep["centre_error_mm"] == pytest.approx(0.02)
+        # The bar's R800.10-800.12 widened by the beam's 0.02 pivot play, plus the
+        # cutter's own second-order term at R797: 0.02² / (2 × 796.98).
+        assert sweep["centre_error_mm"] == pytest.approx(0.02 + 0.02**2 / (2 * 796.98))
         assert cut == pytest.approx([800.08, 800.14])
     else:
         # Rollers at ±15°: each contact's 0.05 form error + 0.005 half runout, at the touch
-        # and again at the cut, through a 1/cos 15° gain.
+        # and again at the cut, through a 1/cos 15° gain, plus the finite-geometry terms:
+        # never below the linear bound, and only a hair above it at R850.
         gain = 1 / math.cos(math.radians(15.0))
         assert sweep["roller_gain"] == pytest.approx(gain)
-        assert sweep["centre_error_mm"] == pytest.approx(2 * gain * 0.055)
+        linear = 2 * gain * 0.055
+        assert linear < sweep["centre_error_mm"] < linear + 1e-3
     assert "inventory gauges." + sweep["master"] + ": touch-off master" in row.cite
 
 
@@ -293,7 +296,7 @@ def test_a_master_on_the_swing_arm_moves_with_its_play_at_the_touch_and_the_cut(
     assert row.status == "pass", row.sentence
     _, sweep = recipe(row)
     assert sweep["master_kind"] == "master_arc"
-    assert sweep["centre_error_mm"] == pytest.approx(0.04)
+    assert sweep["centre_error_mm"] == pytest.approx(2 * (0.02 + 0.02**2 / (2 * 796.98)))
     assert sweep["cut_radius_mm"] == pytest.approx([800.16, 800.29])
 
 
@@ -485,11 +488,11 @@ def test_the_kernel_job_carries_the_swept_rows_as_checkpoints(tmp_path):
     assert [v for point in path["xy_mm"] for v in point] == pytest.approx(flat)
 
 
-def traveler_text(tmp_path, guide="pivot", drop="", **kwargs):
+def traveler_text(tmp_path, guide="pivot", drop="", box=SWING, **kwargs):
     plan = guided_plan(tmp_path, guide, **kwargs)
     if drop:
         change(plan.with_name("inventory.toml"), drop, "")
-    kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
+    kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": box}}}
     bundle = dataclasses.replace(load_bundle(plan), kernel=kernel)
     row = next(row for row in coordinates.evaluate(bundle) if row.subject == "S1")
     tools = {("tools", "cutter"): "6 mm endmill"}
@@ -569,6 +572,7 @@ def proven(guide="pivot"):
         "rotation": "counterclockwise",
         "cut_radius_mm": [800.08, 800.14],
         "back_off_mm": 0.0,
+        "start": "air",
         "sweep_deg": 25.0,
         "path_mm": 120.0,
         "overrun_mm": 10.0,
@@ -617,6 +621,7 @@ SWEEP_FACTS = [
     "overrun_mm",
     "ends_setup_xy",
     "ends_cutter_setup_xy",
+    "start",
 ]
 
 
@@ -741,11 +746,65 @@ def test_a_sweep_whose_cut_leaves_the_band_prints_only_a_stop(tmp_path):
     assert "Lock X and Y" not in printed and "stop block" not in printed
 
 
+@pytest.mark.parametrize(
+    "box",
+    [[-500.0, -500.0, -10.0, 500.0, 500.0, 0.0], None],
+    ids=["start-in-the-stock", "stock-not-modelled"],
+)
+def test_a_sweep_start_not_proven_clear_of_the_stock_prints_only_a_stop(tmp_path, box):
+    # The cutter goes down at the first stop at every level: only an entry the stock box
+    # proves in air prints; a start inside it, or no modelled stock, would plunge unchecked.
+    row, printed = traveler_text(tmp_path, box=box)
+    assert row.status == "unknown", row.sentence
+    assert "the sweep's start is not proven clear of the stock" in debts(row)
+    assert "sweep start not proven clear of the stock) — do not run." in printed
+    assert "Lock X and Y" not in printed
+
+
+def exact_cut_spread(rollers, error, rail, roller, reach):
+    """How far the cut radius moves between the worst two poses, by exact contact geometry:
+    the sled centre where both outer rollers (radius ``roller``) touch a rail of radius
+    ``rail`` off by ±``error`` at each contact, the cutter ``reach`` from the true centre on
+    the radial line the rollers' angles are measured from."""
+    rho = rail + roller  # the roller centres' distance from the true centre
+    points = [(rho * math.cos(math.radians(a)), rho * math.sin(math.radians(a))) for a in rollers]
+    cuts = []
+    for signs in ((-1, -1), (-1, 1), (1, -1), (1, 1)):
+        r1, r2 = (rho + s * error for s in signs)
+        (x1, y1), (x2, y2) = points
+        d = math.hypot(x2 - x1, y2 - y1)
+        along = (r1 * r1 - r2 * r2 + d * d) / (2 * d)
+        height = math.sqrt(r1 * r1 - along * along)
+        ux, uy = (x2 - x1) / d, (y2 - y1) / d
+        bx, by = x1 + along * ux, y1 + along * uy
+        options = [(bx - height * uy, by + height * ux), (bx + height * uy, by - height * ux)]
+        centre = min(options, key=lambda p: math.hypot(*p))
+        cuts.append(math.dist((reach, 0.0), centre))
+    return max(cuts) - min(cuts)
+
+
+def test_the_rail_bound_holds_for_finite_form_errors():
+    # The linear gain is not a bound for finite errors. An R50 rail on Ø10 rollers at ±70°
+    # with a 1 mm form error: exact contact geometry moves the cut 5.913 mm between poses,
+    # past the linear gain's 5.848 mm. Its finite bound does not converge: unresolved.
+    rollers = [70.0, -70.0]
+    assert 2 * roller_gain(rollers) * 1.0 == pytest.approx(5.848, abs=1e-3)
+    assert exact_cut_spread(rollers, 1.0, 50.0, 5.0, 797.0) == pytest.approx(5.913, abs=1e-3)
+    assert rail_cut_shift(rollers, 1.0, 50.0, 797.0) is None
+    # Where it converges, the bound covers the exact spread, a hair above the linear gain
+    # at a real sled's R850.
+    for case in ((rollers, 0.5, 100.0, 5.0), ([-15.0, 15.0], 0.055, 850.0, 11.0)):
+        angles, error, rail, roller = case
+        bound = 2 * rail_cut_shift(angles, error, rail, 797.0)
+        assert bound >= exact_cut_spread(angles, error, rail, roller, 797.0)
+        assert bound >= 2 * roller_gain(angles) * error
+
+
 def test_a_finish_after_a_rejected_rough_prints_no_return_to_an_unprinted_touch(tmp_path):
-    # The finish cut sits on the band's low edge; the rough's 0.0003 leave rounds off the
-    # line to a 0.001 back-off, so only the rough leaves its band. The rejected rough
-    # prints nothing, and the finish stands alone with its own touch-off.
-    target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [800.08, 800.5]")
+    # The finish cut (R800.07999975 low) sits just inside the band's R800.0799 edge; the
+    # rough's 0.0003 leave rounds off the line to a 0.001 back-off, so only the rough leaves
+    # its band. The rejected rough prints nothing; the finish stands alone with its touch.
+    target = LONG_ARC.replace("radius = [800.0, 800.5]", "radius = [800.0799, 800.5]")
     row, printed = traveler_text(tmp_path, allowance=0.0003, target=target)
     assert row.status == "error", row.sentence
     assert "op 20 rough: " in errors(row) and "op 20 finish: " not in errors(row)

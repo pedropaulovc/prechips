@@ -273,6 +273,50 @@ def _rail(sweep, sweep_deg, errors, debts, record_):
     return gain
 
 
+def _second_order(shift, radius):
+    """How much more than ``shift`` (mm) a point ``radius`` mm from a centre can change its
+    distance from it when the centre moves ``shift``: at most ``shift² / (2 (radius -
+    shift))``. None when the shift reaches half the radius, where no bound is claimed."""
+    if not (number(radius) and radius > 0 and number(shift)) or shift >= radius / 2:
+        return None
+    return shift * shift / (2 * (radius - shift))
+
+
+def rail_cut_shift(rollers, per_contact, rail_radius, cutter_radius):
+    """The most the cut radius moves at one pose (mm) when each roller contact errs by up
+    to ``per_contact`` mm along its radial line: a finite bound, never the linearized gain
+    alone. The sled's centre shift ``d`` meets each contact's constraint to within ``q = d²
+    / (2 (ρ - d))`` (:func:`_second_order`), ρ the roller centres' distance from the arc
+    centre, taken as half the rail radius at least (true of any roller outside the rail,
+    and of one inside it no wider than its radius); ``|d| <= 2 (e + q) / |sin(a - b)|``
+    for rollers at ``a`` and ``b``, solved as a fixed point. The cut then moves by the
+    rollers' gain (:func:`roller_gain`) on ``e + q`` plus the cutter's own second-order
+    term at ``cutter_radius`` mm. None when the rollers leave the sled free or no bound
+    converges inside half of either radius."""
+    gain = roller_gain(rollers)
+    if gain is None or not (number(per_contact) and per_contact >= 0):
+        return None
+    a, b = (math.radians(v) for v in rollers)
+    spread = abs(trig.sin(a - b))
+    error = 0.0
+    for _ in range(200):
+        shift = 2 * (per_contact + error) / spread
+        bound = _second_order(shift, rail_radius / 2 if number(rail_radius) else None)
+        if bound is None:
+            return None
+        settled = bound - error <= 1e-12
+        error = bound
+        if settled:
+            break
+    else:
+        return None
+    shift = 2 * (per_contact + error) / spread
+    term = _second_order(shift, cutter_radius)
+    if term is None:
+        return None
+    return gain * (per_contact + error) + term
+
+
 def _wrap(angle):
     """``angle`` (degrees) on (-180, 180]."""
     return -((-angle + 180.0) % 360.0 - 180.0)
@@ -345,6 +389,28 @@ def _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid):
             overrun_mm=math.radians(over) * radius * scale,
             path_mm=math.radians(sweep_deg) * radius * scale,
         )
+
+
+def _start_clear(bundle, setup, arc, label, debts, record_, scale):
+    """The cutter goes down at the sweep's first stop, its first row, at every level: the
+    stops lie past the arc's ends so it enters in air. That entry is ``start`` ``"air"``
+    only when the cutter there stands wholly outside the stock box the setup receives
+    (:func:`~.level_entry.in_air`, as the level-entry rule proves any entry); else
+    ``"unproven"`` and debt: it would plunge into material, which nothing checks for a
+    sweep, so the traveler stops."""
+    from .level_entry import in_air, stock_box
+
+    rows = arc["rows"]
+    point = rows[0].get("dro_xy") if rows else None
+    if in_air(stock_box(bundle, setup), point, arc.get("cutter_radius_mm"), scale):
+        record_["start"] = "air"
+        return
+    record_["start"] = "unproven"
+    debts.append(
+        f"{label}: the sweep's start is not proven clear of the stock the setup receives, "
+        "so the cutter would go down into material there; sweep far enough past the arc's "
+        "ends for the cutter to start clear (a longer sweep_deg), with the stock modelled"
+    )
 
 
 def _own_setup(setup, label, errors):
@@ -442,18 +508,32 @@ def guided(bundle, setup, op, arc, band, label, scale):
         record_["touch_feed"] = ("-" if feed < 0 else "+") + "XY"[index]
     # How far the arc centre moves on the guide between the touch-off and the cut.
     widen = UNKNOWN
+    reach = arc["cutter_centre_radius_mm"]
+    reach = reach * scale if number(reach) else UNKNOWN
     if found is not None and guide == "pivot" and number(found["pivot_play"]):
         # A setting bar seated on the pin sets the cutter from the pin's own axis: the
         # beam's play moves the work once, at the cut. A master on the arm moves with the
         # beam at the touch-off too, so its play counts at both.
         bar = record_.get("master_kind") == "setting_bar"
-        widen = found["pivot_play"] * (1 if bar else 2)
+        play = found["pivot_play"]
+        term = _second_order(play, reach)
+        if term is not None:
+            widen = (play + term) * (1 if bar else 2)
     elif found is not None and gain is not None:
         form, runout = found["rail_form_error"], found["roller_runout"]
-        if number(form) and number(runout):
+        if number(form) and number(runout) and number(found["rail_radius"]):
             # Each contact errs by the rail's form error plus half its roller's runout, at
-            # the touch-off and again at the cut: twice that, through the rollers' gain.
-            widen = 2 * gain * (form + runout / 2)
+            # the touch-off and again at the cut: twice the most one pose moves the cut.
+            shift = rail_cut_shift(
+                sweep["rollers_deg"], form + runout / 2, found["rail_radius"], reach
+            )
+            if shift is None:
+                debts.append(
+                    f"{label}: the rail's form error and roller runout are too large for its "
+                    "radius and rollers to bound the cut"
+                )
+            else:
+                widen = 2 * shift
     record_["centre_error_mm"] = widen
     allowance = arc.get("allowance_mm", 0.0)
     outward = 1 if convex else -1
@@ -490,6 +570,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
             )
     _rotation(arc, label, debts, record_, scale)
     _landmarks(arc, record_, sweep, axis, found, scale)
+    _start_clear(bundle, setup, arc, label, debts, record_, scale)
     _radial(arc, record_, axis, label, errors, grid)
     if measurements:
         by_id = {entry["id"]: entry for entry in measurements}

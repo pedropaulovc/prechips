@@ -1660,7 +1660,9 @@ uses the 1898 manual arc method:
    arm's measured `pivot_play` (twice for a master on the arm, which moves with the
    beam at the touch-off too), or, on a rail, `2 × g × (rail_form_error +
    roller_runout / 2)` with the rollers' gain `g = (|sin a| + |sin b|) / |sin(a −
-   b)|` for rollers at `a` and `b`; it must lie inside the radial band (a rough
+   b)|` for rollers at `a` and `b`, each plus its finite-geometry terms (a linear
+   gain alone is no bound; one that does not converge leaves the cut unknown); it
+   must lie inside the radial band (a rough
    stage's moved off the line by its allowance, the cutter backed off that
    allowance along `touch_axis` on the DRO grid, the only handwheel move). The
    rows sample the cutter-centre arc every `step_deg` over the whole sweep, centred
@@ -1676,7 +1678,9 @@ uses the 1898 manual arc method:
    its setup with another spindle op (nothing holds the turning fixture at the setup
    pose for it, before the sweep or after; manual ops aside) are errors; an
    undeclared, unmeasured or flagged guide or master fact (a rail is never
-   perfect), or an unknown guide, axis, sweep, rollers or rail ends, is unknown,
+   perfect), an unknown guide, axis, sweep, rollers or rail ends, or a sweep start
+   not proven clear of the stock the setup receives (the cutter goes down there at
+   every level, in air only), is unknown,
    with a `measure:` instruction for each physical fact. The traveler prints no
    DRO table for it (its contour heading and the op row's pointer name a guided
    sweep): it prints the guide's set-up (the setting bar seated on the pin, or the

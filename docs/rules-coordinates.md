@@ -423,7 +423,12 @@ naming them. Each table is recorded under `arc_table` (its joins under
   `roller_gain = (|sin a| + |sin b|) / |sin(a − b)|` for rollers at `a`, `b`
   degrees from the cutter's radial line: each contact errs at the touch-off and
   again at the cut, and the sled's centre translates by both through the rollers'
-  geometry. It must lie inside the radial band (`band_mm`; a rough stage's moved
+  geometry. Both are finite bounds, not the linear terms alone: each centre shift
+  `d` adds `d² / (2 (ρ − d))` where a radius `ρ` turns it (the cutter's, and for a
+  rail the roller centres', taken as half the rail radius at least, true of any
+  roller outside the rail or inside it and no wider than its radius), solved as a
+  fixed point (`rules/guided_sweep.py` `rail_cut_shift`); one that does not converge
+  inside half of either radius leaves the cut unknown. It must lie inside the radial band (`band_mm`; a rough stage's moved
   off the line by its allowance), else an error. `sweep_deg`, centred on the arc,
   must reach both arc ends (`span_deg`, the cutter-centre span) to within one DRO
   step of cutter travel and stay under a full turn, else an error; a full circle is
@@ -462,7 +467,10 @@ naming them. Each table is recorded under `arc_table` (its joins under
   `radius_limits` without its own complete `measured` record (`rail_radius` is
   read as declared) are unknown, each untrusted fact named in
   `numbers.measurements` with a `measure:` instruction: an undeclared form error
-  is never a perfect rail.
+  is never a perfect rail. The cutter goes down at the sweep's first row (its start
+  stop) at every level: `start` is `air` only when the cutter there stands wholly
+  outside the stock box the setup receives (`level_entry.in_air`, as any entry is
+  proven), else `unproven` and unknown, since nothing checks a plunge for a sweep.
 
 Every manual-arc table is cut in the plan's feature units (`mm` or `in`, else
 unknown) and records its millimetre facts (`*_mm`) in millimetres: the cutter,

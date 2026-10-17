@@ -80,6 +80,10 @@ def _unresolved(arc, sweep, levels=None):
         missing.append("sweep stops unknown")
     if _depths(arc, levels) is None:
         missing.append("cut depth Z unknown")
+    if sweep.get("start") != "air":
+        # The cutter goes down at the first stop at every level: only an entry proven in
+        # air is printed, never a plunge nothing checked.
+        missing.append("sweep start not proven clear of the stock")
     if sweep.get("guide") == "pivot" and not _known(sweep.get("pivot_play_mm")):
         missing.append("pivot play unknown")
     if sweep.get("guide") == "rail":
