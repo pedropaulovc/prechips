@@ -206,7 +206,13 @@ arcs is ordinary inventory:
   contour unknown and names that fact in the measurement checklist. A `rotary_table` contour or an
   indexed chord reads it from `hold.fixture`.
 - Templates and radius gauges are `gauges.<id>` with `kind = "radius_gauge"` or
-  `"profile_gauge"` and the `range_mm` of radii they read.
+  `"profile_gauge"` and the `range_mm` of radii they read. A leaf set may declare
+  `leaf_tolerance_mm`, the maker's ± on each leaf's radius (a fact-local length
+  fact). An `R MAX` limit check then reads a leaf at or under the limit less that
+  tolerance ([inspection](rules-inspection.md)). The traveler does not yet name that
+  leaf, so a positive tolerance leaves the check unknown at best. An omitted
+  tolerance is zero. A declared one that is unknown or not trusted leaves the limit
+  check unknown.
 - A guided sweep's fixture ([plan Manual arcs](plan.md#manual-arcs), step 5) is a
   `fixtures.<id>` the setup holds the work on (`hold.fixture`): a swing arm,
   `kind = "swing_arm"`, turning on a pin at the arc centre, with `pivot_play`
@@ -1042,6 +1048,8 @@ plan's stock.
 | `diameter_in` | `float` |
 | `thickness_in` | `float` |
 | `resolution_in` | `MeasuredLength` (on a machine, as `resolution_mm`) |
+| `leaf_tolerance_mm` | `MeasuredLength` (a radius/profile gauge leaf's ±, read by an `R MAX` limit check) |
+| `leaf_tolerance_in` | `MeasuredLength` |
 | `runout_max_in` | `float` |
 | `grip_mm` | `MeasuredLength` |
 | `max_shank_in` | `float` |
