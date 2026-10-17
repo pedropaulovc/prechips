@@ -1729,7 +1729,8 @@ uses the 1898 manual arc method:
    the touch axis, a rough back-off, the sweep and spindle direction, the sweep angle,
    path or overrun, the stops' landmarks, the cut Z or any axial level, a pivot's play,
    or a rail's rollers, ends, radius or roller positions) prints only a STOP naming
-   them: nothing runnable stands beside it.
+   them: nothing runnable stands beside it. So does any error or debt the rule left on
+   the stage that no printed value shows (a machine not proven a mill, say).
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.

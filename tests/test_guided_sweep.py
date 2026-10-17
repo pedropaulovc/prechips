@@ -641,6 +641,7 @@ def proven(guide="pivot"):
         "stop_overrun_mm": 10.0,
         "ends_setup_xy": [[-146.0, -3.0], [146.0, -3.0]],
         "ends_cutter_setup_xy": [[-145.5, 0.0], [145.5, 0.0]],
+        "open_debts": [],
     }
     if guide == "rail":
         del sweep["pivot_play_mm"]
@@ -689,6 +690,7 @@ SWEEP_FACTS = [
     "band_mm",
     "marks",
     "transverse",
+    "open_debts",
 ]
 
 
@@ -990,6 +992,17 @@ def test_a_guided_sweep_needs_a_mill(tmp_path, kind):
     else:
         assert "setup S1's machine kind is unknown, so no mill is proven" in debts(row)
     assert row.status != "pass"
+
+
+def test_a_debt_no_printed_value_shows_still_stops_the_recipe(tmp_path):
+    # An unknown machine kind leaves every printed value proven, yet the sweep rests on
+    # a mill locking X and Y: the traveler's gate reads the rule's open debts too (Codex
+    # local round 15), so it prints only a STOP.
+    row, printed = traveler_text(tmp_path, drop="kind = 'mill'\n")
+    assert "machine kind is unknown" in debts(row)
+    assert printed.count("STOP: guided sweep not established (") == 1
+    assert "machine kind is unknown, so no mill is proven" in printed
+    assert "With X and Y locked" not in printed and "stop block" not in printed
 
 
 @pytest.mark.parametrize(

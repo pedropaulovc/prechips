@@ -101,6 +101,14 @@ def _unresolved(arc, sweep, levels=None):
         missing.append("pivot play unknown")
     if sweep.get("guide") == "rail":
         missing += _rail_unresolved(sweep)
+    open_debts = sweep.get("open_debts")
+    if not missing and open_debts != []:
+        # The rule left something the sweep rests on unproven that no printed value shows
+        # (the machine being a mill, say): never a runnable recipe.
+        first = open_debts[0] if isinstance(open_debts, list) and open_debts else None
+        missing.append(
+            str(first).split(": ", 1)[-1] if first else "the coordinates rule did not prove it"
+        )
     return missing
 
 

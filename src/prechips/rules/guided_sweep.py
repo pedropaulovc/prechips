@@ -907,6 +907,9 @@ def guided(bundle, setup, op, arc, band, label, scale):
     if measurements:
         by_id = {entry["id"]: entry for entry in measurements}
         arc["measurements"] = [*arc.get("measurements", []), *by_id.values()]
+    # Everything this stage left unproven, whether or not a printed value shows it: the
+    # traveler's gate prints the recipe only when this is known empty.
+    record_["open_debts"] = [*errors, *debts]
     return errors, debts
 
 

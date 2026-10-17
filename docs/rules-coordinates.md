@@ -506,7 +506,10 @@ naming them. Each table is recorded under `arc_table` (its joins under
   (`start_reach_mm`), else `unproven` and unknown, since nothing
   checks a plunge for a sweep. The traveler prints the recipe only with a known band
   (`band_mm`), a proven cut and a start in air; any unproven cut is debt, whatever
-  left it so (a pivot play or rail error too large to bound included).
+  left it so (a pivot play or rail error too large to bound included). The stage
+  records every error and debt it left in `open_debts`, and the traveler prints the
+  recipe only when that is known empty, so a debt no printed value shows still stops
+  it.
 
 Every manual-arc table is cut in the plan's feature units (`mm` or `in`, else
 unknown) and records its millimetre facts (`*_mm`) in millimetres: the cutter,
