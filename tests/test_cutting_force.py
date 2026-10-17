@@ -178,7 +178,8 @@ def test_step_over_is_never_read_as_the_width_of_cut():
         ({"tool": {"flutes": 0}}, "z"),
         ({"tool": {"flutes": [2, 4]}}, "z"),
         ({"tool": {"helix_deg": "unknown"}}, "helix_deg"),
-        ({"tool": {"helix_deg": 30.0}}, "helix_deg"),  # bare: no source
+        # A bare number is rejected at load; the rule still refuses one it is handed.
+        ({"tool": {"helix_deg": 30.0}}, "helix_deg"),
         ({"tool": {"helix_deg": {"value": 30.0}}}, "helix_deg"),
         ({"tool": {"helix_deg": {**HELIX, "verify": True}}}, "helix_deg"),
         ({"tool": {"helix_deg": {"value": -30.0, "cite": "x"}}}, "helix_deg"),
@@ -335,6 +336,7 @@ def test_helix_fields_ae_and_kienzle_coefficients_load():
     "tool",
     [
         {"helix_hand": "cw"},
+        {"helix_deg": 30.0},
         {"helix_deg": {"value": 30.0, "cite": "x", "sign": -1}},
     ],
 )
