@@ -219,8 +219,8 @@ new kinds the commissioning PRs add:
 | Quantity | Compatible gauge kinds |
 |---|---|
 | `align`, `dro_xy` (centring under the spindle) | `dial_test_indicator`, `coax_indicator` (new), `edge_finder` |
-| `sagitta` | `sagitta_gauge` (new: a chord bar with an indicator), or a `dial_test_indicator` on a declared chord fixture |
-| `width`, `distance` | `caliper`, `micrometer`, `height_gauge` |
+| `sagitta` | `sagitta_gauge` (new: a chord bar with an indicator) whose own measured `chord` equals the reading's `chord_mm` within its resolution. A different chord is an error, and an unmeasured chord leaves the reading `?`. A bare indicator is not accepted, because nothing would fix the chord. The gauge is digested like any named gauge (§3.4) |
+| `width`, `distance` | `caliper`, `micrometer`, `height_gauge`. A `distance` to a hole is read over a pin in it: the reading names the `pin` (an inventory `pin_gauge` with a measured diameter) and the `contact` side, `"near"` or `"far"`. The printed target is the predicted centreline offset minus the pin radius (`near`) or plus it (`far`). An untrusted pin diameter leaves the reading `?`, and the pin is digested in `[planned]` |
 | `size` of a hole | `pin_gauge_set`, `bore_gauge` (an external micrometer never measures a bore) |
 | `z` | `height_gauge`, `dial_test_indicator` |
 | torque `steps` | `torque_wrench` |
@@ -400,6 +400,7 @@ features = "<sha256>"
 "gauges.sagitta-gauge-300" = "<sha256>"
 "gauges.calipers" = "<sha256>"
 "gauges.gauge-pins" = "<sha256>"
+"gauges.pin-8" = "<sha256>"          # the HUB pin hub_pin_to_edge reads over
 
 [readings."C1:40/rail_a.pin@400"]
 value_mm = [-395.884, -57.203]
@@ -1042,8 +1043,12 @@ Also:
 - Terminal tool: a 9 mm reamer on the 8 mm `hub_hole` → error; the `size`
   prediction is the declared 8.0, never the tool's size.
 - Torque `value_nm = 0` or negative → schema error.
-- Gauge kind: pin gauges for `sagitta`, or calipers as a centring gauge → error;
-  `sagitta_gauge` / `dial_test_indicator` → valid.
+- Gauge kind: pin gauges for `sagitta`, or calipers as a centring gauge → error.
+  A `sagitta_gauge` whose chord differs from `chord_mm` → error; with an
+  unmeasured chord → `?`; a bare DTI for `sagitta` → error.
+- Pin contact: a `distance` to a hole with no `pin` or `contact` → error; the
+  printed target is the centreline offset ∓ the pin radius; an untrusted pin
+  diameter → `?`.
 - Torque `count = 0` or negative → schema error.
 - DRO interval: a reading inside the band by less than `(r_dro + r_g)/2` → `?`;
   by more → pass.
@@ -1243,7 +1248,7 @@ readings = [
   { name = "sagitta_outer", quantity = "sagitta", of = "trammel-jig.riser.outer_edge", chord_mm = 300.0, band_mm = 0.1, band_cite = "#270", claims = ["trammel-jig.riser.outer_edge.radius"] },
   { name = "sagitta_inner", quantity = "sagitta", of = "trammel-jig.riser.inner_edge", chord_mm = 300.0, band_mm = 0.1, band_cite = "#270", claims = ["trammel-jig.riser.inner_edge.radius"] },
   { name = "width", quantity = "width", of = ["trammel-jig.riser.inner_edge", "trammel-jig.riser.outer_edge"], band_mm = 0.1, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.riser.outer_edge.location"] },
-  { name = "hub_pin_to_edge", quantity = "distance", of = ["trammel-jig.riser.outer_edge", "trammel-jig.hub_hole"], band_mm = 0.05, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.hub_hole.position.radial"] },
+  { name = "hub_pin_to_edge", quantity = "distance", of = ["trammel-jig.riser.outer_edge", "trammel-jig.hub_hole"], pin = "pin-8", contact = "near", band_mm = 0.05, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.hub_hole.position.radial"] },
   { name = "hub_apex", quantity = "dro_xy", of = ["guide.apex", "trammel-jig.hub_hole"], band_mm = 0.05, band_cite = "example value (realistic, not a shop measurement)", claims = ["trammel-jig.hub_hole.position.tangential"] },
   { name = "hub_size", quantity = "size", of = "trammel-jig.hub_hole", band_mm = [0.0, 0.015], band_cite = "example value (realistic, not a shop measurement): 8 H7 slip fit for the hub pin", claims = ["trammel-jig.hub_hole.size"] },
   # D4: the dowel hole's own readings
@@ -1262,7 +1267,10 @@ The rules compute the predictions. They are not authored:
   paths with an Ø14 cutter). #270 quotes 14.12 ± 0.1 for an earlier variant. The
   engine's value replaces it.
 - **Width:** `R_outer − R_inner` of the riser edges.
-- **Hub-pin-to-edge:** the **signed** radial offset `ρ_hub − R_edge`, where
+- **Hub-pin-to-edge:** read with calipers from the edge to the near side of
+  the HUB pin (`pin = "pin-8"`, `contact = "near"`). The rules judge the
+  centreline value, the caliper reading plus the pin's measured radius, as the
+  **signed** radial offset `ρ_hub − R_edge`, where
   `ρ_hub` is the hub centre's distance from the arc centre, taken from
   `features.toml`. It is positive when HUB lies outside the edge (away from the
   arc centre) and negative when it lies inside. The sheet prints which side is
@@ -1318,6 +1326,7 @@ features = "<sha256 printed by the checker>"
 "gauges.sagitta-gauge-300" = "<sha256 printed by the checker>"
 "gauges.calipers" = "<sha256 printed by the checker>"
 "gauges.gauge-pins" = "<sha256 printed by the checker>"
+"gauges.pin-8" = "<sha256 printed by the checker>"
 # every input the checker's table lists for this plan; none missing, so not stale
 
 [readings."C1:40/rail_a.pin@400"]
