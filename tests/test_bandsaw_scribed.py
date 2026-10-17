@@ -147,6 +147,17 @@ def test_an_unplaceable_scribed_arc_is_debt_not_a_box(rocker):
     assert "layout in setup S4 is unknown" in kernel.scribed_profile(data, setup, op)["reason"]
 
 
+def test_an_arc_not_in_the_saw_setups_xy_plane_is_debt(rocker):
+    data, setup, op = _follow(rocker, "S4:10")
+    tilted = deepcopy(data.plan["frames"][setup["frame"]])
+    tilted.update(y=[0.0, 0.0, 1.0], z=[0.0, -1.0, 0.0])
+    data.plan["frames"]["TILT"] = tilted
+    setup["frame"] = "TILT"
+    profile = kernel.scribed_profile(data, setup, op)
+    assert profile is not None
+    assert "does not lie in setup S4's XY plane" in profile.get("reason", ""), profile
+
+
 def test_a_straight_scribed_line_keeps_the_declared_box(rocker):
     data, setup, op = _follow(rocker, "S4:10")
     scribe_op = next(each for each in setup["ops"] if each["op"] == 10)

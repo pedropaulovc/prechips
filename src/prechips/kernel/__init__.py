@@ -859,8 +859,9 @@ def scribed_profile(bundle, setup, op):
     circle the saw takes (``"outside"`` when the part lies inside it, else ``"inside"``);
     ``{"reason"}`` when the arc's layout in this setup is unknown; None when the scribed
     feature is no arc (a straight line), whose declared box alone governs."""
-    from prechips.rules.coordinates import arc_layout
+    from prechips.rules.coordinates import arc_layout, frame_point, model_point
     from prechips.rules.manual_arc import _arc_feature
+    from prechips.rules.resolution import setup_frame
 
     sid, _, number_ = str(op["follows"]).partition(":")
     scribe = next(
@@ -874,12 +875,26 @@ def scribed_profile(bundle, setup, op):
         None,
     )
     name = record(scribe).get("feature")
-    if not _arc_feature(record(bundle.feature_definitions.get(name))):
+    feature = record(bundle.feature_definitions.get(name))
+    if not _arc_feature(feature):
         return None
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     layout = arc_layout(bundle, setup, name)
     if layout is None or scale is None:
         return {"reason": f"the scribed arc {name}'s layout in setup {setup['id']} is unknown"}
+    # The arc lies in its feature frame's XY plane; the kernel clips with a setup-Z
+    # cylinder, so that plane must be the saw setup's XY.
+    source = record(bundle.features.get("frames")).get(feature.get("frame", "model"))
+    base, tip = (
+        frame_point(model_point(point, source), setup_frame(bundle, setup))
+        for point in ([0.0, 0.0, 0.0], [0.0, 0.0, 1.0])
+    )
+    axis = [b - a if number(a) and number(b) else UNKNOWN for a, b in zip(base, tip, strict=True)]
+    if UNKNOWN in axis or math.hypot(axis[0], axis[1]) > 1e-6:
+        return {
+            "reason": f"the scribed arc {name} does not lie in setup {setup['id']}'s XY plane, "
+            "so its offset cannot clip the saw's removal"
+        }
     return {
         "centre_mm": [value * scale for value in layout["centre_setup_xy"]],
         "radius_mm": layout["radius_mm"] * scale,
