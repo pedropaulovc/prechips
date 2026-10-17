@@ -72,7 +72,12 @@ Why a separate list rather than `Setup.phase = "commission" | "part"`:
   meaning for `setups` unchanged.
 
 Commissioning setups otherwise reuse `Setup` unchanged: `machine`, `frame`,
-`hold`, `zero`, `stock_state`, `coolant`, `ops`. Every existing per-op rule
+`hold`, `zero`, `stock_state`, `coolant`, `ops`. One difference: `machine` is
+**required** on every commissioning setup, and omitting it is a schema error.
+Every `align` and `dro_xy` reading is judged against that machine's DRO
+resolution and travel (§2.3), and the block's single installation is on that
+machine. The literal `"unknown"` is accepted and leaves every machine-dependent
+finding `?`. Every existing per-op rule
 (speeds, feeds, tool resolution, Z column, guided sweep, accessibility) applies to
 them as it does to part setups. Their stock comes from a new `stock_in` form
 (§2.4).
@@ -785,6 +790,16 @@ taken against.
 
 ### 3.6 Interaction with existing rules
 
+Where each range check lives, so no reading reaches the record unchecked:
+
+| Check | Against | Where | Failure |
+|---|---|---|---|
+| Every visited DRO position (`align` targets, `dro_xy` subjects with their composed reference chains, zero and check-jogs), at outer extent | the commissioning machine's per-axis stroke, collectively across all setups of the installation | §2.3 DRO coordinate | span longer than the stroke → error; unmeasured stroke → `?` |
+| DRO resolution | the tolerance or band | §2.3 | too coarse → error |
+| Torque pass values (`value × fraction`) | the named wrench's `range_nm` / `range_in_lbf` | §2.2 `torque` | outside → error; no range or uncited range → `?` |
+| Gauge-read quantities | the gauge's range over the acceptance interval plus one step each side | §2.3 | not covered → error |
+| Machine identity | one `machine` per block, named on every setup | §2.1, §2.3 | omitted or two machines → schema error |
+
 - `zero_recipe` and `travel`: commissioning setups are ordinary setups. A
   setup made only of `align` and `torque` ops has no cutting op, so it needs only
   the zero its readings use: both axes on the spindle axis. That is a new
@@ -1161,8 +1176,9 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
   error, although each lies within ±600; the span includes 0;
 - torque: a pass value outside the wrench's range → error; a wrench with no
   range → `?`;
-- every worked commissioning setup names a machine. A setup without one leaves
-  its machine-dependent findings `?`.
+- every worked commissioning setup (C1–C4) names a machine. Omitting `machine`
+  on a commissioning setup is a schema error; `machine = "unknown"` leaves its
+  machine-dependent findings `?`.
 
 Also:
 
