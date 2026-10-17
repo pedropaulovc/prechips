@@ -129,7 +129,8 @@ release = { method = "solvent", agent = "isopropyl alcohol", wait_min = 5, cite 
 [fixtures.vacuum-chuck-12x18]
 kind = "vacuum"
 vacuum_kpa = { value = 80.0, cite = "..." }          # illustrative; gauge vacuum below atmosphere
-gasket_inset_mm = { value = 3.0, measured = { ... } } # work outline to the seal line
+seal = "laid_cord"                                  # a gasket cord laid on the work's outline each setup
+gasket_inset_mm = { value = 3.0, measured = { ... } } # work outline to the cord's centreline
 friction = { value = 0.2, cite = "..." }             # illustrative; work on the chuck face, dry
 gauge = "chuck-vacuum-gauge"                          # inventory gauge the operator reads
 solids = [ { name = "face", shape = "box", ... } ]    # the chuck body, as for any fixture
@@ -138,7 +139,8 @@ solids = [ { name = "face", shape = "box", ... } ]    # the chuck body, as for a
 | Field | Type | Meaning | Unknown or untrusted |
 |---|---|---|---|
 | `vacuum_kpa` | `CitedFact` | the least gauge vacuum at which capacity is claimed; the operator must read at least this before cutting | capacity `?`; STOP in place of the gauge row |
-| `gasket_inset_mm` | `MeasuredLength` | inset of the seal line inside the work outline | sealed area `?` |
+| `seal` | `"laid_cord"` | how the seal circuit is made. `laid_cord`: a gasket cord laid in the chuck's open-grid grooves along the work's outline, `gasket_inset_mm` inside it, at every setup. The HOLD prints the lay step, and the gauge reading proves the circuit closed. Fixed-groove chucks, whose circuit is the groove pattern rather than the work's outline, need their groove geometry recorded and are a follow-up | capacity `?` ("seal circuit not recorded") |
+| `gasket_inset_mm` | `MeasuredLength` | inset of the cord's centreline inside the work outline | sealed area `?` |
 | `friction` | `CitedFact` | static μ of the work on the chuck face | capacity `?` |
 | `gauge` | `str` | inventory gauge read at the chuck | STOP in place of the gauge row |
 
@@ -257,8 +259,11 @@ tape    A_i = island_i ∩ layer         holes the stock already has are absent 
                                        a hole drilled later leaves tape behind, but no work bears on it
 ```
 
-**Vacuum seals once, at setup entry.** The gasket stays in its groove while the
-cut changes the work, so the seal circuit is fixed when the work is seated:
+**Vacuum seals once, at setup entry.** The only seal supported is a
+`seal = "laid_cord"` circuit the operator lays along the setup-entry outline at
+`gasket_inset_mm`, so `S` below is a physical cord the HOLD prints, not an
+assumed groove. The cord stays where it was laid while the cut changes the
+work, so the seal circuit is fixed when the work is seated:
 
 ```text
 seal    S   = erode(setup-entry footprint, gasket_inset_mm)
@@ -462,16 +467,30 @@ raster can be a full slot, so it is not read as ae.
 
 ```text
 k        = hold_capacity_factor_min
-use_xy   = F_xy / C_xy,i + M_yaw / C_yaw,i                       (tape and vacuum)
-use_z    = F_z,eff / C_z,i                                        (tape: F_z,eff of section 3.3)
-         = F_z / C_z,i + M_ot / C_ot,i                            (vacuum)
+tape     use_xy = F_xy / C_xy,i + M_yaw / C_yaw,i
+         use_z  = F_z,eff / C_z,i                                (F_z,eff of section 3.3)
+         use    = use_xy + use_z                                 (shear and peel share one bond)
+vacuum   N_r    = N_i − k · F_z                                  (residual contact load, lift sense;
+                                                                  a push is not credited)
+         N_r ≤ 0                                                 → error (the lift alone opens the seat)
+         use_xy = k · F_xy / (friction · N_r) + k · M_yaw / (friction · N_r · J_i / A_seal,i)
+         use_ot = k · M_ot / (N_i · d_i)
+         use    = max(use_xy, use_ot)                            (already factored: pass at use ≤ 1)
          (each over every island under op k, worst op of the setup reported)
-pass     use ≤ 1 / k   for both use_xy and use_z
+pass     tape use ≤ 1 / k;  vacuum use ≤ 1
 error    use > 1 / k   with every input known and trusted, or zero capacity under a cutting op
 ?        any input unknown or untrusted, or k unknown or flagged
 ```
 
-The traveler prints the margin as a factor, `1 / use`.
+Combined loads are never checked one at a time. Tape's shear and peel act on
+the same adhesive, so their uses add. Vacuum friction is limited by the contact
+load the lift leaves, so the lateral check uses the residual `N_r` after the
+factored lift, with the residual pressure `N_r / A_seal` taken as uniform for
+yaw. Checking `μN` and `N` separately would pass `0.49 μN` lateral with `0.49 N`
+lift at k = 2, leaving barely 1× of real margin.
+
+The traveler prints the margin as a factor: `1 / use` for tape, and for vacuum
+the largest k at which the factored checks still pass.
 
 `hold_capacity_factor_min` is a new `shop-policy.numbers` entry with
 `numbers_cite` and `numbers_verify`, shipped as `"unknown"`, as the other policy
@@ -679,6 +698,7 @@ both endpoints to land inside the band.
 | stack terms and thickness interval | section 5 terms | any term unknown |
 | Axis Set Z | recipe and `t_nom` | `t_nom` unknown |
 | vacuum gauge minimum | `vacuum_kpa`, `gauge` | untrusted, or no gauge |
+| vacuum cord lay step and inset | `seal`, `gasket_inset_mm` | seal not `laid_cord`, or inset untrusted |
 | release method, agent or temperature, wait | `release` | missing |
 
 ## 7. Operator step sequence and error propagation
@@ -692,6 +712,7 @@ both endpoints to land inside the band.
 | 5 | Waits the dwell, writing both clock times | the clock | `dwell_min` | dwell cut short | strengths below the cited values; the printed gate is a STOP, so a short dwell is a stopped setup, not a reduced margin (D6) |
 | 6 | Sets Z (recipe A: plate + paper) | plate top at P | `−t_nom + paper` | paper, touch feel, DRO step | touch and DRO terms; the tape mean enters as `t_nom − t(x)` |
 | 6′ | Sets Z (recipe B: mic M at P, touch the top) | work top at P | `M + paper` | mic, touch, DRO; t(P) unknown | mic and touch terms; tape term doubled |
+| 6″ | (vacuum) Lays the gasket cord in the grid grooves along the work outline | the work outline | `gasket_inset_mm` | cord off the inset, a gap at the joint | sealed area differs from S; an open joint is caught by the gauge row (step 7) |
 | 7 | (vacuum) Reads the chuck gauge before each op | chuck gauge | `vacuum_kpa` minimum | leak, pump | capacity scales with the reading; below the minimum → STOP |
 | 8 | Cuts each op at the printed feed | — | feed from cutting data | feeds faster by hand | F_xy and F_z scale with fz^(1−mc) (residue; covered by the factor) |
 | 9 | Releases (solvent or heat, roll off) | — | release text | prying | bends thin work: the free-state bow is residue, and prying is forbidden in print |
@@ -733,6 +754,11 @@ tests request the shared `freecad_kernel` fixture.
   the seal centroid: a cutter at the island centroid but far from the seal
   centroid still fails yaw. A vacuum island
   fails overturning with a tall cut at its narrow edge.
+- Combined loads: tape with `use_xy` and `use_z` each at 0.3 at k = 2 fails
+  (sum 0.6 > 0.5); vacuum with `0.49 μN` lateral and `0.49 N` lift at k = 2
+  fails on the residual load, and `k · F_z ≥ N` is an error.
+- Seal circuit: a vacuum fixture without `seal = "laid_cord"` leaves capacity
+  `?`; the HOLD prints the cord lay step at `gasket_inset_mm`.
 - Vacuum seal: a through-hole inside S at setup entry gives zero capacity from
   the first op; an op that drills through inside S, or profiles across the seal
   line, errors from that op on, even with its force unknown; a profile that
@@ -793,7 +819,7 @@ Each phase is its own PR, stacked on the previous one.
 
 | Phase | PR | Contents | Size (est.) |
 |---|---|---|---|
-| 1 | schema | `CitedFact` (+ `test`); `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind; `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
+| 1 | schema | `CitedFact` (+ `test`); `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`); `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
 | 2 | force | `_cutting_force.py` (endmill milling scope); `[[material]]` `kc1_n_per_mm2` / `mc` / `radial_ratio`; tool `helix_deg`; op `ae_mm`; `cutting-data.md`, `rules-physics.md` | ~400 + tests |
 | 3 | kernel | seat-plane sections before and after each op, islands, centroid, polar moment, hull distance; the fixed seal circuit and its opening op; op removed-volume extent per island; the layer drawn from facts; seat check; `ENGINE_SOURCES` cache identity | ~700 + geometry tests |
 | 4 | capacity | `hold_capacity` rule (area provider: force, yaw, lift, overturning), always required for area holds, shared policy factor, pull-test schema, `thin_wall_under_clamp` change; `rules-setup.md` | ~500 + tests |
@@ -870,6 +896,10 @@ not separately decided by the maintainer:
 - every moment lever is measured from the centroid of the traction region that
   carries it, which for vacuum is the sealed area (section 3.3);
 - a credited pull test raises the dwell gate to the test's dwell (section 3.4);
+- combined loads share one capacity: tape adds its shear and peel uses, and
+  vacuum friction uses the contact load left after the factored lift (section 4.3);
+- the vacuum seal is a cord laid along the work's outline (`seal = "laid_cord"`);
+  other seal circuits are `?` until their groove geometry is recorded (section 2.3);
 - pull tests qualify only by machine-checkable fields that must all match the
   setup (section 3.4);
 - the tape's `width_mm` bounds footprint coverage, so seams are never credited
