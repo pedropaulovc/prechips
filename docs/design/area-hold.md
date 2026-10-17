@@ -256,6 +256,7 @@ finding names the fact and its domain. One parametrized test per row (section 8)
 | `flatness_mm`, `touch_error_mm` | `≥ 0` | `?` |
 | pull test `lift_n`, `front_mm`, `thickness_mm`, `dwell_min` | each `> 0` | the test does not qualify (model A) |
 | recipe-A touch disc | the `zero.z` tool's resolved radius `> 0`, or a gauge block's half-width | `?` |
+| tape `release.wait_min`, `temp_c` | `> 0` (schema) | bad input |
 | `k` (`hold_capacity_factor_min`) | `≥ 1` | `?` |
 
 ## 3. Capacity model
@@ -291,12 +292,19 @@ fits under zero capacity. An offcut with no contact is a loose-offcut `warn`.
 ```text
 tape    lateral  C_xy,i = shear_n_per_cm2 × A_i / 100              (A in mm², 100 mm²/cm²)
 tape    lift     C_z,i  = peel_n_per_cm × L_i / 10                 (model A, section 3.4; L_i in mm)
-                 L_i    = min(D, w_i)                           (w_i: the island's least width, the short
-                                                                  side of its minimum-area bounding rectangle)
+                 L_i    = min(D, w_i)                           (w_i: the island's local width at the cut:
+                                                                  the least width of island_i within the disc of
+                                                                  radius D about each of op k's cut positions on
+                                                                  it, worst position; a 2 mm neck gives 2)
 ```
 
-The part's weight is ignored. It is small, it only helps, and adding it would
-need a density fact.
+The part's weight is ignored, which is safe only where it can only help: the
+`on` face's posed normal is setup +Z on a vertical-spindle mill (machine kind
+`mill`, setup +Z up), so weight presses the work onto the tape. Any other
+orientation (a horizontal spindle, an angle plate, a seat facing down or
+sideways) leaves the capacity `?` ("area hold orientation not proven:
+weight may load the tape"), because the inputs carry no density to add a
+gravity load.
 
 ### 3.3 Moment capacities
 
@@ -343,7 +351,7 @@ and the reaction pulls the work **up** toward the spindle. Tape resists by
 peel, which starts at a free edge.
 
 **Decided (D2): model A.** The peel front is the cutter Ø at the nearest
-footprint edge, capped by the island's width: `C_z = peel_n_per_cm × min(D, w_i) / 10`.
+footprint edge, capped by the island's local width at the cut: `C_z = peel_n_per_cm × min(D, w_i) / 10`.
 A tab narrower than the cutter has only its own width to peel. Only a **measured pull test
 recorded on the real setup** can claim more:
 
@@ -779,7 +787,8 @@ tests request the shared `freecad_kernel` fixture.
 - Moments: the same island and force pass with the cutter at the centroid and
   fail with it at the far end of a long, narrow island (yaw). A tall cut at a
   narrow island's edge raises the folded lift `F_z,eff`.
-- Peel front: a 5 mm tab cut with a Ø10 cutter gets `L = 5`. A cut to the seat
+- Peel front: a 5 mm tab cut with a Ø10 cutter gets `L = 5`; a dumbbell island
+  with 50 mm ends and a 2 mm neck, cut at the neck, gets `L = 2`. A cut to the seat
   keeps `h_k` at the before-op stock height, not zero.
 - Seat material: the pair's seat comes from the `on` solid's `material`. A
   steel-bodied fixture with an aluminium `on` pad seats on aluminium; an `on`
@@ -803,6 +812,8 @@ tests request the shared `freecad_kernel` fixture.
   smallest island under the force. A kept piece cut free with zero area is an
   error with or without a force; an offcut is a loose-offcut warning.
 - `hold_capacity` is `?` → exit 4 with an empty `[required]` (D3).
+- Orientation: the seat facing setup +Z on a mill passes the orientation gate;
+  a seat on an angle plate (normal along setup X) or on a lathe is `?`.
 - `thin_wall_under_clamp` is `not_applicable` on an area hold with no clamps on
   the work.
 
@@ -948,6 +959,8 @@ not separately decided by the maintainer:
   disc must land on the measured seat face, clear of the work; recipe B (zero
   from the work top) is out of scope under an area hold and stays `?`
   (section 5.2);
+- round 20: the orientation gate (weight ignored only where it helps), the local
+  peel width at the cut, and the release wait domain (sections 3.2, 3.4, 2.7);
 - vacuum: rounds 1–19 also built a vacuum model (fixed seal circuit, residual
   contact load after lift, gauge error, ambient bound), until the seal geometry
   problem led to D11. That model is preserved in #309.
