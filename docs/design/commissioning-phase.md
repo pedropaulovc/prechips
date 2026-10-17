@@ -96,7 +96,7 @@ anywhere else they are an error.
 
 | `do` | Purpose | Fields |
 |---|---|---|
-| `align` | read a guide element against predicted DRO targets | `readings` (a `ReadingSet`, §2.3), `gauge`, `tolerance_mm` / `tolerance_in`, `tolerance_cite` |
+| `align` | read one guide element against predicted DRO targets | `readings` (exactly one `ReadingSet`, §2.3; a second element is a second `align` op), `gauge`, `tolerance_mm` / `tolerance_in`, `tolerance_cite` |
 | `torque` | tighten named fasteners in a stated order | `torque` (`TorqueStep`) |
 | `accept` | acceptance readings on a commissioned fixture feature | `readings` (a list of `Reading`), with `checks` naming the gauge per reading |
 
@@ -205,7 +205,6 @@ rejects:
 
 - two readings with the same `name` in one `accept` op;
 - a station listed twice in one `ReadingSet`;
-- two `ReadingSet`s on the same `element` in one `align` op;
 - two commissioning setups with the same `id` (setup ids are already unique
   across the plan, §2.1).
 
@@ -434,6 +433,18 @@ Why a separate file:
   hash and stales a first-article approval
   ([report-and-telemetry](../report-and-telemetry.md)). **That is intended:** a
   first article approved under one installation says nothing about the next one.
+
+**Entry fields.** A `readings` entry holds the recorded value in one spelling,
+`value_mm` or `value_in`, matching the reading's own unit spelling (`band_mm`
+with `value_mm`); any other combination is a schema error. Its shape follows the
+quantity:
+
+- a `float` for `sagitta`, `width`, `distance` (the signed contact value), `size`
+  and `z`;
+- `[x, y]` for `align` and `dro_xy`.
+
+A `steps` entry (torque) holds no value. Both kinds carry `gauge`, and where
+§2.3 requires them, `machine`, `pin` and `contact`, plus `measured`.
 
 Each entry reuses the existing `Measurement` record, so `_trust` in
 `measurements.py` applies unchanged. Only `status = "measured"` with complete
@@ -1037,6 +1048,8 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
 - A consumed claim no reading lists (drop `dowel_fit`) → error naming the
   claim. A reference cycle, or a relational claim whose chain never reaches the
   root edge → error.
+- Record entry shape: a scalar `value_mm` for a `dro_xy` key, `[x, y]` for a
+  `size` key, or `value_in` where the reading uses `band_mm` → schema error.
 - Duplicate generated keys (a repeated reading name, a repeated station) →
   error. An uncited `align` tolerance or `accept` band → `?`. A reading gauge
   coarser than its band → error; an unresolved gauge → `?`.
