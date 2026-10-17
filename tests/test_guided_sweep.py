@@ -1967,7 +1967,7 @@ def test_a_setup_without_a_guided_sweep_owes_no_sweep_check(tmp_path):
 def test_a_sweep_only_setup_picks_up_no_xy_zero(tmp_path, mixed):
     # Its X and Y come from the touch-off on the master and stay locked: the zero recipe
     # needs only Z, and the DRO ZERO sheet says why. Any other spindle op still needs X/Y.
-    from prechips.rules import zero_recipe
+    from prechips.rules.zero_recipe import rule as zero_recipe_rule
 
     plan = guided_plan(tmp_path)
     if mixed:
@@ -1976,7 +1976,7 @@ def test_a_sweep_only_setup_picks_up_no_xy_zero(tmp_path, mixed):
         plan.write_text(text + drill, encoding="utf-8")
     plan.write_text(plan.read_text(encoding="utf-8") + ZERO_Z, encoding="utf-8")
     bundle = load_bundle(plan)
-    (row,) = [r for r in zero_recipe.evaluate(bundle) if r.subject == "S1"]
+    (row,) = [r for r in zero_recipe_rule.evaluate(bundle) if r.subject == "S1"]
     assert set(row.numbers["axes"]) == {"z"}
     if mixed:
         assert "touch_set" not in row.numbers
@@ -1998,7 +1998,7 @@ def test_a_sweep_only_setup_still_checks_the_dro_sign_its_back_off_moves(
 ):
     # Without an edge pickup the touch feed and rough back-off still move Y by its DRO
     # sign: a reversed axis is the same error, an undeclared one the same debt.
-    from prechips.rules import zero_recipe
+    from prechips.rules.zero_recipe import rule as zero_recipe_rule
 
     plan = guided_plan(tmp_path, allowance=0.3)
     text = plan.read_text(encoding="utf-8")
@@ -2008,7 +2008,7 @@ def test_a_sweep_only_setup_still_checks_the_dro_sign_its_back_off_moves(
         + (f"y = '{direction}'\n" if direction != "unknown" else "")
     )
     plan.write_text(text.replace("[[setups]]", dro + "[[setups]]", 1) + ZERO_Z, encoding="utf-8")
-    (row,) = [r for r in zero_recipe.evaluate(load_bundle(plan)) if r.subject == "S1"]
+    (row,) = [r for r in zero_recipe_rule.evaluate(load_bundle(plan)) if r.subject == "S1"]
     assert row.status == status, row.sentence
 
 

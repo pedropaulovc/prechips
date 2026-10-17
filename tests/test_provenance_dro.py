@@ -11,7 +11,9 @@ import pytest
 
 from prechips.inputs import Bundle
 from prechips.measurements import measurement_checklist
-from prechips.rules import consistency, coordinates, tip_endpoints, zero_recipe
+from prechips.rules import consistency, coordinates, tip_endpoints
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
+from prechips.rules.zero_recipe import tool_setting as zero_recipe_tool_setting
 from prechips.sheet import _Traveler
 
 FRAME = {
@@ -193,7 +195,7 @@ def face_bundle(resolution, stands=7.5):
 
 
 def receiving_zero(data):
-    return next(row for row in zero_recipe.evaluate(data) if row.subject == "S1")
+    return next(row for row in zero_recipe_rule.evaluate(data) if row.subject == "S1")
 
 
 def assert_grid_debt(row, debt_status):
@@ -238,7 +240,7 @@ def test_declared_grid_and_every_judging_consumer_follow_the_trust_status_matrix
 def test_assumed_0005_grid_never_certifies_a_face_standing_at_7497():
     data = face_bundle(fact("assumed"), stands=7.497)
     receiving = data.plan["setups"][1]
-    assert zero_recipe.face_stands(data, receiving, "top", 7.497) == 7.497
+    assert zero_recipe_tool_setting.face_stands(data, receiving, "top", 7.497) == 7.497
     assert coordinates.dro_grid(data, receiving) == (0.005, 3)
     assert_grid_debt(receiving_zero(data), "assumed")
     # Changing only the resolution's provenance reinstates the real off-grid error,

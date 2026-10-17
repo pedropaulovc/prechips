@@ -82,8 +82,8 @@ from .rules.tip_endpoints import (
     stock_states,
     transfer,
 )
-from .rules.zero_recipe import DIRECTIONS as _SIGNS
-from .rules.zero_recipe import FACE_Z_TOL_MM
+from .rules.zero_recipe.touch import DIRECTIONS as _SIGNS
+from .rules.zero_recipe.touch import FACE_Z_TOL_MM
 
 _CSS = (
     files("prechips").joinpath("tokens.css").read_text(encoding="utf-8")

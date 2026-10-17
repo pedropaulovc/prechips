@@ -5,10 +5,11 @@ from types import SimpleNamespace
 import pytest
 
 from prechips import kernel as native_kernel
-from prechips.rules import coordinates, headroom, zero_recipe
+from prechips.rules import coordinates, headroom
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
 
 MEASURED = {"status": "measured", "by": "test", "date": "2026-10-05", "instrument": "steel rule"}
-SCREENS = [zero_recipe, coordinates, headroom]
+SCREENS = [zero_recipe_rule, coordinates, headroom]
 NO_KERNEL = {
     "status": "unknown",
     "kernel_unavailable": True,
