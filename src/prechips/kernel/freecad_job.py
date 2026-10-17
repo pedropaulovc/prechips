@@ -3480,6 +3480,21 @@ def _guide_solids(setup, debts):
     return drawn
 
 
+def _guide_tags(guides, taken):
+    """``guides`` ((name, op, solid)) with each roller's mesh tag distinct from every name
+    in ``taken`` (the setup's authored and holding solids) and from each other: the
+    picture leaves guide meshes off by tag and the holding evidence skips them by it, so a
+    fixture primitive named like a roller must never go with them."""
+    taken = set(taken)
+    tagged = []
+    for name, op, solid in guides:
+        while name in taken:
+            name += " (guide)"
+        taken.add(name)
+        tagged.append((name, op, solid))
+    return tagged
+
+
 def _guide_components(guides):
     """One picture component per op's guide rollers (``guides``: (mesh name, op, box)),
     so each op's rollers are framed, called out or noted off the picture on their own: one
@@ -8501,7 +8516,10 @@ class _Setup:
         # the setup's (mid-sweep) pose for the operator, never a holding solid (#255).
         # A malformed roller is a picture debt, never a holding one: it must not turn
         # fixture_rendered or the holding clearances unknown.
-        guides = _guide_solids(self.setup, render_debts)
+        guides = _guide_tags(
+            _guide_solids(self.setup, render_debts),
+            {name for name, _, _ in solids} | {name for name, _ in self.fixture_possible},
+        )
         solids += [(name, shape, _COLOURS["guide"]) for name, _, shape in guides]
         for name, shape, colour in solids + possible:
             mesh(shape, colour, tag=name)

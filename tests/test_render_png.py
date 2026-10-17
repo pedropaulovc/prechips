@@ -1746,6 +1746,7 @@ def pure_native_outline_render():
                 "_fixture_kind",
                 "_guide_solids",
                 "_guide_components",
+                "_guide_tags",
                 "_Unknown",
                 "_timed",
                 "run_job",

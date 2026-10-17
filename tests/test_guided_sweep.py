@@ -741,8 +741,8 @@ def test_rollers_the_picture_cannot_place_are_a_note_with_their_measure(
     assert note.startswith("NOT SHOWN: op 20's guide rollers") and named in note
 
 
-def guide_components(guides):
-    """The kernel's ``_guide_components`` run without FreeCAD: it builds plain dicts."""
+def engine_function(name):
+    """A plain-Python helper of the kernel job, run without FreeCAD."""
     import ast
     from pathlib import Path
 
@@ -750,12 +750,30 @@ def guide_components(guides):
 
     engine = Path(render_diagram.__file__).with_name("freecad_job.py")
     tree = ast.parse(engine.read_text(encoding="utf-8"))
-    (node,) = [
-        n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "_guide_components"
-    ]
+    (node,) = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == name]
     namespace = {}
     exec(compile(ast.Module(body=[node], type_ignores=[]), str(engine), "exec"), namespace)
-    return namespace["_guide_components"](guides)
+    return namespace[name]
+
+
+def guide_components(guides):
+    """The kernel's ``_guide_components`` run without FreeCAD: it builds plain dicts."""
+    return engine_function("_guide_components")(guides)
+
+
+def test_a_rollers_mesh_tag_never_names_an_authored_solid():
+    # The picture leaves guide meshes off by tag and the holding evidence skips them by it:
+    # a fixture primitive named like a roller must keep its own tag, and the roller takes
+    # another (Codex review of #267 at 496f964).
+    tag = engine_function("_guide_tags")
+    guides = [("guide roller 1 (op 20)", 20, "a"), ("guide roller 2 (op 20)", 20, "b")]
+    tagged = tag(guides, {"guide roller 1 (op 20)", "moving_jaw"})
+    assert [name for name, _, _ in tagged] == [
+        "guide roller 1 (op 20) (guide)",
+        "guide roller 2 (op 20)",
+    ]
+    assert [(op, solid) for _, op, solid in tagged] == [(20, "a"), (20, "b")]
+    assert tag(guides, set()) == guides
 
 
 def test_each_ops_rollers_are_framed_or_noted_on_their_own():
