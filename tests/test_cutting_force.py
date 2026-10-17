@@ -125,6 +125,16 @@ def test_a_tooth_count_on_an_integer_boundary_is_not_rounded_up_by_float_residue
     assert result.inputs["n_e"] == 2
 
 
+def test_a_tooth_count_just_above_an_integer_still_rounds_up():
+    # 2 + 5e-10 teeth is a real offset, not float residue: the bound keeps 3 teeth.
+    diameter = 9.525
+    phi = 2 * math.pi * (2 + 5e-10) / 6
+    ae = diameter * (1 - math.cos(phi)) / 2
+    result = force(bundle(tool={"flutes": 6}, op={"ae_mm": ae}))
+    assert 6 * math.radians(result.inputs["phi_e_deg"]) / (2 * math.pi) > 2 + 1e-10
+    assert result.inputs["n_e"] == 3
+
+
 def test_a_zero_helix_has_no_axial_force():
     result = force(bundle(tool={"helix_deg": {"value": 0.0, "cite": "straight flute"}}))
     assert result.status == "computed"
@@ -188,6 +198,7 @@ def test_step_over_is_never_read_as_the_width_of_cut():
         ({"material": {"verify": True}}, "material"),
         ({"material": {"material_class": "brass"}}, "material"),
         ({"stock": {"material_verify": True}}, "material"),
+        ({"stock": {"material_verify": "unknown"}}, "material"),
         ({"stock": {"material": "mystery"}}, "material"),
     ],
 )
@@ -205,6 +216,27 @@ def test_each_missing_or_out_of_domain_input_is_unknown_naming_it(parts, name):
 def test_every_debt_is_reported_not_only_the_first():
     result = force(bundle(tool={"flutes": 0}, op={"doc_mm": 0}, material={"mc": 2.0}))
     assert [debt.split(":")[0] for debt in result.debts] == ["z", "ap", "mc"]
+
+
+@pytest.mark.parametrize(
+    "parts",
+    [
+        {"tool": {"chart": " ", "chip_load_mm_per_tooth": 0.02}},
+        {"tool": {"chart": [" "], "chip_load_mm_per_tooth": 0.02}},
+    ],
+)
+def test_a_blank_chart_citation_supplies_no_fz(parts):
+    result = force(bundle(**parts))
+    assert result.status == "unknown"
+    assert [debt.split(":")[0] for debt in result.debts] == ["fz"]
+
+
+def test_a_blank_row_citation_supplies_no_fz():
+    data = bundle()
+    for row in data.cutting_data["cut"]:
+        row["cite"] = "  "
+    result = force(data)
+    assert [debt.split(":")[0] for debt in result.debts] == ["fz"]
 
 
 def test_a_cited_chart_on_the_tool_supplies_fz():

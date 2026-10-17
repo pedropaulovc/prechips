@@ -41,8 +41,9 @@ _THRUST_KINDS = DRILL_KINDS | {
     "tap_die_set",
 }
 _HANDS = ("right", "left")
-# A tooth count z·φ_e/2π within this of an integer is that integer (float residue).
-_TOOTH_RESIDUE = 1e-9
+# A tooth count z·φ_e/2π within this relative distance of an integer is that integer
+# (float residue, ~1e-16); any larger offset still rounds up.
+_TOOTH_RESIDUE = 1e-12
 
 type Status = Literal["computed", "unknown", "not_applicable"]
 type Entry = Literal["side", "plunge", "unknown"]
@@ -80,8 +81,8 @@ def _material(bundle, debts):
     """``(kc1, mc, k_r, cite)`` from the stock class's one cited ``[[material]]`` row."""
     stock = mapping(bundle.plan.get("stock"))
     material_class = stock_material_class(bundle)
-    if stock.get("material_verify") is True:
-        debts.append("material: the stock material is flagged material_verify")
+    if stock.get("material_verify", False) is not False:
+        debts.append("material: the stock material's material_verify is not false")
     if material_class == UNKNOWN:
         debts.append("material: the stock material has no cutting-data material class")
         return UNKNOWN, UNKNOWN, UNKNOWN, []
@@ -210,7 +211,9 @@ def milling_force(bundle, op, entry: Entry) -> CuttingForce:
     phi = math.acos(max(-1.0, min(1.0, 1 - 2 * ae / diameter)))
     h_max = fz * math.sin(phi) if phi <= math.pi / 2 else fz
     teeth = flutes * phi / (2 * math.pi)
-    engaged = max(1, math.ceil(teeth - _TOOTH_RESIDUE))
+    nearest = round(teeth)
+    whole = abs(teeth - nearest) <= _TOOTH_RESIDUE * max(1.0, teeth)
+    engaged = max(1, nearest if whole else math.ceil(teeth))
     tangential = engaged * kc1 * ap * h_max ** (1 - mc)
     inputs.update(phi_e_deg=math.degrees(phi), h_max_mm=h_max, n_e=engaged, tangential_n=tangential)
     return CuttingForce(
