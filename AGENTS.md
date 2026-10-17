@@ -169,7 +169,7 @@ is authoritative. `FREECAD_CMD=/nonexistent uv run pytest -q` exercises the
 kernel-free suite with geometry skips. `PRECHIPS_REQUIRE_KERNEL=1` turns a
 missing kernel into an error; CI sets it and installs the pinned, cached official
 FreeCAD 1.1.0 Linux AppImage so geometry tests cannot silently skip.
-CI runs the full suite as four `test shard` jobs split by pytest-split over the
+CI runs the full suite as six `test shard` jobs split by pytest-split over the
 committed `.test_durations` (`duration_based_chunks`), each with `-n 2 --dist
 loadscope --durations=0`, caps extra native workers with
 `PRECHIPS_KERNEL_WORKERS=1`, and retains each shard's log and JUnit artifact on

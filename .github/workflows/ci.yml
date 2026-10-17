@@ -21,14 +21,14 @@ jobs:
       - run: uv run ruff format --check .
 
   test-shard:
-    name: test shard ${{ matrix.group }}/4
+    name: test shard ${{ matrix.group }}/6
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         # Shards balanced by the committed .test_durations (CI JUnit times);
         # rebuild it with scripts/ci_shards.py when the balance drifts.
-        group: [1, 2, 3, 4]
+        group: [1, 2, 3, 4, 5, 6]
     env:
       PRECHIPS_REQUIRE_KERNEL: "1"
       PRECHIPS_REQUIRE_PRINT_BROWSER: "1"
@@ -37,7 +37,7 @@ jobs:
       PRECHIPS_KERNEL_CACHE_EPOCH: "1"
       PYTEST_WORKERS: "2"
       PRECHIPS_KERNEL_WORKERS: "1"
-      SHARD_COUNT: "4"
+      SHARD_COUNT: "6"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
