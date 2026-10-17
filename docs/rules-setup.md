@@ -136,8 +136,18 @@ kernel's geometric one (the drawn pin against the cut bore,
 - **pass:** otherwise, with the clearance range of each pin, or, for a setup that
   only works the hole, that the entering stock still has it.
 
+Each locator also reports, for information only, `clocking`: for every other
+locating cylinder the setup places (any posed fixture or clamp solid with a
+`locates`, such as a HUB pin in the part's bore), the setup-frame distance `L`
+between that pin's axis and the hole's axis, the angle the work may turn on this
+pin about it, `angle_rad = (hi - pin) / L` (the largest diametral clearance over
+that distance), and `max_shift_mm`, the most that turn moves a corner of the
+entering stock's bounding box. An unknown clearance, pose or box leaves the
+number unknown. These numbers never change the row's status; they are there for
+an error budget (such as a trammel's, #278) to add, not judged here.
+
 Evidence: the hole, its ops in the setup, its entry state, its makers and each
-locator's pin, pin and hole diameters and clearance range. The hole itself earns
+locator's pin, pin and hole diameters, clearance range and clocking. The hole itself earns
 no drawing coverage or finishing credit, and `inspection` has no requirement to
 check on it.
 

@@ -15,9 +15,13 @@ lineage or an unavailable kernel is unknown.
 A locating pin's fit is judged from the hole's ``dia`` band and the pin solid's own trusted
 ``dia_mm``: the clearance range is ``[lo - pin, hi - pin]`` mm. A pin larger than the hole's
 smallest size is an error (it does not enter every hole the band allows); an unknown band,
-an untrusted, unmeasured-on-debt or non-cylinder pin is unknown. The kernel's separate
-geometric locator proof (``thin_wall_under_clamp``) still checks the drawn pin in the cut
-bore. The hole earns no drawing coverage or finishing credit (``process_features``).
+an untrusted, unmeasured-on-debt or non-cylinder pin is unknown. Each pin also reports,
+for information only, how far the work may turn on it about every other locating pin of
+the setup (``clocking``): its largest diametral clearance over the distance between the
+two axes, and the most that turn moves a point of the entering stock's bounding box. The
+kernel's separate geometric locator proof (``thin_wall_under_clamp``) still checks the
+drawn pin in the cut bore. The hole earns no drawing coverage or finishing credit
+(``process_features``).
 """
 
 from prechips.findings import Finding
@@ -41,30 +45,130 @@ def _holes(bundle):
 
 
 def _items(bundle, hold):
-    """``(where, item)`` of the hold's fixture and each clamp member."""
+    """``(where, item, pose)`` of the hold's fixture (``hold.pose``) and each clamp member
+    (its own ``pose``); a pose is ``None`` when undeclared."""
     hold = record(hold)
-    references = [("hold.fixture", hold.get("fixture", UNKNOWN))]
+    references = [("hold.fixture", hold.get("fixture", UNKNOWN), hold.get("pose"))]
     clamps = hold.get("clamps", [])
     for index, clamp in enumerate(clamps if isinstance(clamps, list) else [], start=1):
-        references.append((f"hold.clamps[{index}]", record(clamp).get("ref", UNKNOWN)))
-    for where, reference in references:
+        clamp = record(clamp)
+        references.append((f"hold.clamps[{index}]", clamp.get("ref", UNKNOWN), clamp.get("pose")))
+    for where, reference, pose in references:
         if not isinstance(reference, str) or reference == UNKNOWN:
             continue
         item = measurement_item(bundle, "fixtures", reference)
         if item:
-            yield f"{where} {reference}", item
+            yield f"{where} {reference}", item, pose if isinstance(pose, dict) else None
+
+
+def _solids(bundle, setup):
+    """``(owner, solid, pose)`` of every drawn solid the setup's hold places that declares
+    ``locates``."""
+    for owner, item, pose in _items(bundle, setup.get("hold")):
+        solids = record(item).get("solids", [])
+        for solid in solids if isinstance(solids, list) else []:
+            solid = record(solid)
+            locates = solid.get("locates")
+            if isinstance(locates, str) and locates.strip() and solid.get("void") is not True:
+                yield owner, solid, pose
 
 
 def _locators(bundle, setup, holes):
     """hole -> [(owner, solid)] of the setup's drawn solids whose ``locates`` names it."""
     found = {}
-    for owner, item in _items(bundle, setup.get("hold")):
-        solids = record(item).get("solids", [])
-        for solid in solids if isinstance(solids, list) else []:
-            solid = record(solid)
-            if solid.get("locates") in holes and solid.get("void") is not True:
-                found.setdefault(solid["locates"], []).append((owner, solid))
+    for owner, solid, _ in _solids(bundle, setup):
+        if solid["locates"] in holes:
+            found.setdefault(solid["locates"], []).append((owner, solid))
     return found
+
+
+def _vector(value):
+    return isinstance(value, list) and len(value) == 3 and all(map(number, value))
+
+
+def _unit(vector):
+    length = sum(v * v for v in vector) ** 0.5
+    return [v / length for v in vector] if length > 1e-9 else None
+
+
+def _cross(a, b):
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+
+
+def _posed(pose, point):
+    """A fixture-local point (mm) in the setup frame through ``pose``, else None."""
+    pose = record(pose)
+    origin, x, z = (pose.get(key) for key in ("origin_mm", "x", "z"))
+    if not all(_vector(v) for v in (origin, x, z, point)):
+        return None
+    y = _cross(z, x)
+    return [origin[i] + x[i] * point[0] + y[i] * point[1] + z[i] * point[2] for i in range(3)]
+
+
+def _across(point, base, axis):
+    """Distance from ``point`` to the line through ``base`` along unit ``axis``."""
+    offset = [p - b for p, b in zip(point, base, strict=True)]
+    along = sum(o * a for o, a in zip(offset, axis, strict=True))
+    return sum((o - along * a) ** 2 for o, a in zip(offset, axis, strict=True)) ** 0.5
+
+
+def _hole_line(bundle, setup, name):
+    """(setup-frame mouth point, unit axis) of tooling hole ``name``, else None."""
+    from prechips.rules.coordinates import frame_point
+    from prechips.rules.geometry_common import prepared_job
+
+    feature = bundle.plan["process_features"][name]
+    scale = _SCALE.get(bundle.features.get("units", UNKNOWN))
+    at, axis = feature.get("at"), feature.get("axis")
+    frame = next(
+        (row["frame"] for row in prepared_job(bundle)["setups"] if row["id"] == setup["id"]),
+        UNKNOWN,
+    )
+    if scale is None or not (_vector(at) and _vector(axis)) or not isinstance(frame, dict):
+        return None
+    mouth = frame_point([v * scale for v in at], frame)
+    tip = frame_point([(a + d) * scale for a, d in zip(at, axis, strict=True)], frame)
+    if not (_vector(mouth) and _vector(tip)):
+        return None
+    direction = _unit([t - m for t, m in zip(tip, mouth, strict=True)])
+    return (mouth, direction) if direction else None
+
+
+def _clocking(bundle, setup, name, fit, detail):
+    """How far the work may turn on the pin in ``name`` about each other locating pin of the
+    setup: the hole's largest diametral clearance over the distance between the two axes
+    (``angle_rad``), and the most that turn moves a point of the entering stock's bounding
+    box (``max_shift_mm``). Informational: it never changes the finding's status."""
+    line = _hole_line(bundle, setup, name)
+    clearance = fit["clearance_mm"]
+    largest = clearance[1] if isinstance(clearance, list) else UNKNOWN
+    box = detail.get("stock_bbox_mm")
+    corners = (
+        [[box[i], box[j + 1], box[k + 2]] for i in (0, 3) for j in (0, 3) for k in (0, 3)]
+        if isinstance(box, list) and len(box) == 6 and all(map(number, box))
+        else None
+    )
+    rows = []
+    for owner, solid, pose in _solids(bundle, setup):
+        if solid["locates"] == name or solid.get("shape") != "cylinder":
+            continue
+        row = {"about": f"{owner} solid {solid.get('name', UNKNOWN)}", "locates": solid["locates"]}
+        pivot = _posed(pose, solid.get("at_mm")) if pose is not None else None
+        distance = _across(pivot, *line) if pivot is not None and line is not None else None
+        row["distance_mm"] = distance if distance is not None else UNKNOWN
+        angle = (
+            max(largest, 0.0) / distance
+            if number(largest) and distance is not None and distance > 1e-6
+            else UNKNOWN
+        )
+        row["angle_rad"] = angle
+        row["max_shift_mm"] = (
+            angle * max(_across(corner, pivot, line[1]) for corner in corners)
+            if number(angle) and corners is not None
+            else UNKNOWN
+        )
+        rows.append(row)
+    return rows
 
 
 def _fit(bundle, name, owner, solid):
@@ -100,7 +204,7 @@ def _fit(bundle, name, owner, solid):
     )
 
 
-def _evaluate(bundle, setup, name, ops, pins, state):
+def _evaluate(bundle, setup, name, ops, pins, state, detail):
     numbers = {
         "process_feature": label(name),
         "ops": [f"{setup['id']}:{op['op']}" for op in ops],
@@ -133,6 +237,7 @@ def _evaluate(bundle, setup, name, ops, pins, state):
         numbers["locators"] = []
         for owner, solid in pins:
             status, fit, why = _fit(bundle, name, owner, solid)
+            fit["clocking"] = _clocking(bundle, setup, name, fit, detail)
             numbers["locators"].append({**fit, "status": status})
             {"error": errors, "unknown": unknown, "pass": passed}[status].append(why)
     if errors:
@@ -160,20 +265,20 @@ def evaluate(bundle):
             if op.get("feature") in holes:
                 worked.setdefault(op["feature"], []).append(op)
         for name in sorted(set(pins) | set(worked)):
+            detail = record(setup_facts.get(setup["id"]))
             if facts.get("status") != "ok":
                 state = {
                     "state": UNKNOWN,
                     "reason": facts.get("reason", "FreeCAD geometry facts are unavailable"),
                 }
             else:
-                detail = record(setup_facts.get(setup["id"]))
                 state = record(record(detail.get("tooling_holes")).get(name)) or {
                     "state": UNKNOWN,
                     "reason": detail.get("stock_reason")
                     or f"the kernel did not classify {name} on this setup's entry stock",
                 }
             status, numbers, why = _evaluate(
-                bundle, setup, name, worked.get(name, []), pins.get(name, []), state
+                bundle, setup, name, worked.get(name, []), pins.get(name, []), state, detail
             )
             subject = f"{setup['id']}:{name}"
             findings.append(

@@ -6,6 +6,7 @@ clearance hole in the +X ear; T3 locates the work on a dowel in CL and a pin in 
 the -X ear off, CL with it; T5 still names both. Each edge case perturbs that bundle.
 """
 
+import math
 import re
 from dataclasses import replace
 
@@ -24,7 +25,7 @@ MEASURED = (
 )
 # Setup frame TA sits at model [0, 8, 3.52825]; the raw bar is model Z -9.525..9.525.
 TOP, THICKNESS = 9.525 - 3.52825, 19.05
-CL, CR = (-166.0, 12.5), (166.0, 12.5)
+CL, CR, HUB = (-166.0, 12.5), (166.0, 12.5), (0.0, 8.0)
 REAMER = 6.512  # tools.reamers-metric/6.5mm, the hole the kernel cuts
 PIN = 6.495
 
@@ -67,7 +68,8 @@ def bundle_plan(tmp_path, *, pin=PIN, cl_band="[6.500, 6.530]", saw=True, drill_
     inventory.write_text(
         inventory.read_text(encoding="utf-8")
         + dowel("test-cl-dowel", "cl_tooling_hole", pin, gap)
-        + dowel("test-cr-pin", "cr_tooling_hole", 6.35, (7.144 - 6.35) / 2),
+        + dowel("test-cr-pin", "cr_tooling_hole", 6.35, (7.144 - 6.35) / 2)
+        + dowel("test-hub-pin", "pivot_bore", 6.5, 0.0),
         encoding="utf-8",
     )
     text = rocker_s1_alone(plan.read_text(encoding="utf-8"))
@@ -97,6 +99,8 @@ def bundle_plan(tmp_path, *, pin=PIN, cl_band="[6.500, 6.530]", saw=True, drill_
     )
     header = s1.split("[setups.stock_state.entry_z]")[0]
     both = clamp("test-cl-dowel", CL, gap) + clamp("test-cr-pin", CR, (7.144 - 6.35) / 2)
+    # The HUB pin in the pivot bore (model X0 Y8, the TA origin): the pin the dowel clocks.
+    both += clamp("test-hub-pin", HUB, 0.0)
     setups = s1 + ops + "\n" + later(header, "T3", "S1", both)
     if saw:
         setups += (
@@ -360,3 +364,33 @@ def test_a_through_hole_without_a_planned_thickness_is_not_cut(tmp_path):
     (s1,) = [setup for setup in job["setups"] if setup["id"] == "S1"]
     ream = next(op for op in s1["ops"] if op["subject"] == "S1:20")
     assert "local_thickness.cl_tooling_hole is unknown" in ream["process_cut"]["reason"]
+
+
+def test_the_dowel_reports_how_far_its_clearance_lets_the_work_turn_about_hub(tmp_path):
+    bundle = with_states(load_bundle(bundle_plan(tmp_path)), ROUTE)
+    # The entering stock's setup-frame box: the raw bar about the TA origin.
+    box = [-172.5, -33.6, TOP - THICKNESS, 172.5, 42.6, TOP]
+    bundle.kernel["setups"]["T3"]["stock_bbox_mm"] = box
+    row = rows(bundle)["T3:cl_tooling_hole"]
+    assert row.status == "pass"  # informational: the turn never changes the verdict
+    (fit,) = row.numbers["locators"]
+    about = {entry["locates"]: entry for entry in fit["clocking"]}
+    assert set(about) == {"pivot_bore", "cr_tooling_hole"}
+    hub = about["pivot_bore"]
+    distance = math.hypot(CL[0] - HUB[0], CL[1] - HUB[1])
+    assert hub["distance_mm"] == pytest.approx(distance)
+    assert hub["angle_rad"] == pytest.approx((6.53 - PIN) / distance)
+    # The farthest box corner from HUB moves the most.
+    assert hub["max_shift_mm"] == pytest.approx(hub["angle_rad"] * math.hypot(172.5, 42.6))
+
+
+def test_the_turn_is_unknown_while_the_pin_size_is_debt(tmp_path):
+    plan = bundle_plan(tmp_path)
+    inventory = plan.parents[1] / "inventory" / "pedro-shop.toml"
+    text = inventory.read_text(encoding="utf-8")
+    start = text.index("[fixtures.test-cl-dowel]")
+    inventory.write_text(
+        text[:start] + text[start:].replace(MEASURED, "verify = true", 1), encoding="utf-8"
+    )
+    (fit,) = rows(with_states(load_bundle(plan), ROUTE))["T3:cl_tooling_hole"].numbers["locators"]
+    assert {entry["angle_rad"] for entry in fit["clocking"]} == {"unknown"}
