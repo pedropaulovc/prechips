@@ -68,7 +68,17 @@ gauge kinds. An external micrometer does not measure a hole bore (`dia` or `nomi
 incompatibility is an error even if catalog dimensions are unverified.
 
 For a `[low, high]` mm band, gauge range must cover both ends and resolution must
-not exceed `high-low`. A scalar geometric tolerance needs resolution
+not exceed `high-low`. The exception is a one-sided radius limit: a `radius` or
+`bottom_radius` band `[0, r]` can only mean "R r MAX, sharp allowed", so no new field
+marks it. A `radius_gauge` or `profile_gauge` reads it as a **limit check**, go/no-go
+with its leaf at r: the leaf seats without rocking on a corner at or under r, and a
+sharp corner needs no leaf. Its `range_mm` need only hold the limit (`range_mm[0] ≤ r
+≤ range_mm[1]`; a leaf set R0.2–R1.0 reads `R0.2 MAX`), and its resolution must not
+exceed r. Evidence adds `limit_check = "max"` and `limit_mm` (r) instead of
+`band_mm`. A leaf set that does not reach r is an error; an unverified gauge stays
+debt. A two-sided band (R5 ±0.1) and any reading gauge (a CMM) keep the full-span
+rule. The mirror "R MIN" band `[r, inf]` cannot be written, since inputs refuse
+`inf`, so no min-only case exists. A scalar geometric tolerance needs resolution
 at most the tolerance and a known declared method. Non-mm/unknown limits stay unknown.
 An angle band (`*_deg`, degrees) never meets a gauge's millimetre range and
 resolution, and no gauge declares an angular capability: it is `unknown` (`no
@@ -127,6 +137,9 @@ Sentence templates:
   - `gauge resolution exceeds the requirement band`
   - `gauge spans the band at sufficient resolution`
   - `gauge range or resolution unresolved`
+  - `limit check: gauge has no leaf at the MAX limit`
+  - `limit check: gauge resolution exceeds the MAX limit`
+  - `limit check: a gauge leaf at the MAX limit reads go/no-go (not a reading across the band)`
   - `gauge resolution and declared geometric inspection method cover requirement`
   - `geometric gauge capability or datum inspection method unresolved`
   - `no angular gauge capability`
