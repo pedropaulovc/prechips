@@ -339,11 +339,15 @@ What `apply` does:
    * a monkeypatched name read from two files, from `monkeypatch.setattr` or from a
      probe's `alias.name = ...`;
    * a monkeypatch whose landing file differs from the name's owner while the same
-     function reads the name directly after patching it (the read would miss the patch);
+     function reads the name directly after patching it, or a function nested in it reads
+     it at all (the read would miss the patch);
+   * a namespace dunder of the split module (`__dict__`, `__all__`…), which loses the
+     moved names; identity attributes such as `__name__` stay on a kept module;
    * a moved name rebound by a module-level `if`/`try`/`for`/`with` block that stays in
      `rest`;
    * a `setattr`, `getattr` or `hasattr` on the split module with a computed name;
-   * such a call (or a monkeypatch) naming its target, name or value by keyword;
+   * such a call (or a monkeypatch) naming its target, name or value by keyword, the
+     target being a module alias or a dotted `"prechips.<module>.name"` string;
    * a generated `<alias>_<file>` import name that the importer already binds;
    * the module alias used as a value (in a list, passed on, compared with `is`), unless
      the spec says `value_uses = "rest"`. That setting means such a value stands for the

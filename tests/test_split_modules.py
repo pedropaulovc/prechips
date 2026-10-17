@@ -933,3 +933,35 @@ def test_reading_the_original_before_patching_it_is_not_refused(at, tmp_path):
     rewritten = test.read_text(encoding="utf-8")
     assert "original = big_parts.radius" in rewritten
     assert 'monkeypatch.setattr(big, "radius"' in rewritten
+
+
+def test_a_class_body_match_case_binding_counts_as_a_class_name(at):
+    source = (
+        "class Engine:\n    match MODE:\n        case 1:\n            DEFAULT = 1\n\n"
+        "    def run(self):\n        return 2\n\n"
+        "    def moved(self, value=DEFAULT):\n        return value\n"
+    )
+    plan = at(source, _spec('["Engine.moved"]'))
+    assert any("class-body name DEFAULT" in refusal for refusal in plan.refusals)
+
+
+@pytest.mark.parametrize(
+    "use",
+    [
+        "NAMES = big.__dict__['radius']\n",
+        "def test(monkeypatch):\n    monkeypatch.setattr(target='pkg.big.radius', value=abs)\n",
+        (
+            "def test(monkeypatch):\n    monkeypatch.setattr(big, 'radius', abs)\n\n"
+            "    def later():\n        return big.radius(-1)\n\n    assert later() == 1\n"
+        ),
+    ],
+    ids=["namespace-dunder", "keyword-dotted-string", "nested-read-after-patch"],
+)
+def test_namespace_dunders_keyword_strings_and_nested_reads_refuse(at, tmp_path, use):
+    source = "def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x) ** 2\n"
+    at(source, _spec('["radius"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "from pkg import big\n\n\n" + use, encoding="utf-8"
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])

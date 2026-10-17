@@ -57,6 +57,8 @@ EXPAND_LINES = 300  # a class this long is analysed per method (and split into m
 SWEEP = 0.5  # a change touching more than this share of a module's symbols is a sweep
 HUNK = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", re.M)
 EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+# Module attributes naming the module object itself, which a kept module keeps.
+IDENTITY = {"__name__", "__file__", "__doc__", "__spec__", "__package__", "__loader__"}
 BUILTINS = set(dir(builtins)) | {"__file__", "__name__", "__doc__", "__spec__"}
 REWRITE_ROOTS = ("src", "tests", "scripts")
 
@@ -367,28 +369,27 @@ def _class_reads(member, cls):
 
 
 def _defined_names(node):
-    """Names a class-body statement binds: a def, an import, an assignment's plain
-    targets, or any of those inside an ``if``/``try``/``with``/``for`` block."""
-    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-        return [node.name]
-    if isinstance(node, (ast.Import, ast.ImportFrom)):
-        return [(a.asname or a.name).split(".")[0] for a in node.names]
-    if isinstance(node, (ast.If, ast.Try, ast.With, ast.For, ast.While)):
-        bound = [getattr(node, "target", None)]
-        bound += [item.optional_vars for item in getattr(node, "items", [])]
-        found = [
-            n.id for b in bound if b is not None for n in ast.walk(b) if isinstance(n, ast.Name)
-        ]
-        for child in ast.iter_child_nodes(node):
-            if isinstance(child, ast.stmt):
-                found += _defined_names(child)
-            elif isinstance(child, ast.ExceptHandler):
-                found += [child.name] if child.name else []
-                for statement in child.body:
-                    found += _defined_names(statement)
-        return found
-    targets = node.targets if isinstance(node, ast.Assign) else [getattr(node, "target", None)]
-    return [n.id for t in targets if t is not None for n in ast.walk(t) if isinstance(n, ast.Name)]
+    """Names a class-body statement binds in the class scope, however nested in blocks
+    (``if``, ``try``, ``with``, ``for``, ``match``…); function, class and lambda bodies
+    and comprehensions have scopes of their own."""
+    found, stack = [], [node]
+    while stack:
+        n = stack.pop()
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            found.append(n.name)  # its decorators run here, but only read
+            continue
+        if isinstance(n, (ast.Lambda, ast.ListComp, ast.SetComp, ast.GeneratorExp, ast.DictComp)):
+            continue
+        if isinstance(n, (ast.Import, ast.ImportFrom)):
+            found += [(a.asname or a.name).split(".")[0] for a in n.names]
+        elif isinstance(n, ast.Name) and isinstance(n.ctx, (ast.Store, ast.Del)):
+            found.append(n.id)
+        elif isinstance(n, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and n.name:
+            found.append(n.name)
+        elif isinstance(n, ast.MatchMapping) and n.rest:
+            found.append(n.rest)
+        stack.extend(ast.iter_child_nodes(n))
+    return found
 
 
 def _import_bindings(node):
@@ -991,10 +992,14 @@ class Rewriter:
         if site is None:
             return False
         scope = _scope_of(self._tree, site)
-        return any(
-            read.lineno > site.lineno and _scope_of(self._tree, read) is scope
-            for read in self._file_reads.get(name, [])
-        )
+        inside = {id(n) for n in ast.walk(scope)}
+        for read in self._file_reads.get(name, []):
+            if id(read) not in inside:
+                continue
+            # A nested helper may run after the patch whatever its line.
+            if read.lineno > site.lineno or _scope_of(self._tree, read) is not scope:
+                return True
+        return False
 
     def rewrite(self, path):
         text = path.read_text(encoding="utf-8")
@@ -1085,12 +1090,20 @@ class Rewriter:
         added = defaultdict(set)  # id(import node) -> import lines to add beside it
         parents = {id(c): n for n in ast.walk(tree) for c in ast.iter_child_nodes(n)}
         alias_names = set().union(*aliases.values()) if aliases else set()
-        for node in ast.walk(tree):
-            # target=alias leaves no positional module argument for the resolver to see.
-            target = next(
-                (k.value for k in getattr(node, "keywords", []) if k.arg == "target"), None
+        for node in (n for n in ast.walk(tree) if isinstance(n, ast.Call)):
+            # target=alias or target="pkg.big.name" leaves no positional module argument
+            # for the resolver to see; any keyword form naming the split module refuses.
+            values = [*node.args, *(k.value for k in node.keywords)]
+            names_it = any(
+                (isinstance(v, ast.Name) and v.id in alias_names)
+                or (
+                    isinstance(v, ast.Constant)
+                    and isinstance(v.value, str)
+                    and (v.value == self.source or v.value.startswith(self.source + "."))
+                )
+                for v in values
             )
-            if _keyword_form(node) and isinstance(target, ast.Name) and target.id in alias_names:
+            if _keyword_form(node) and names_it:
                 self.refusals.append(
                     f"line {node.lineno}: {ast.unparse(node.func)} on the split module names "
                     "its target by keyword; pass the module and name positionally"
@@ -1396,6 +1409,10 @@ class Rewriter:
         """A module identity attribute (``__name__``, ``__file__``, ``__doc__``…) stays on
         the module object when the split keeps that object (rest is the source file);
         a package conversion changes it, so the script refuses."""
+        if name not in IDENTITY:
+            # __dict__, __all__…: the module's namespace, which loses the moved names.
+            self.refusals.append(f"line {line}: {name} of the split module changes with the split")
+            return True
         if self.rest == self.module["source"]:
             return True
         self.refusals.append(f"line {line}: {name} of the split module changes with the split")
