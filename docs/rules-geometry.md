@@ -52,8 +52,9 @@ hold geometry and cutting dimensions/endpoints), sends every job that is
 not already cached to **one** `freecadcmd.exe <freecad_job.py> -- INPUT_JSON
 OUTPUT_JSON` subprocess as a batch (`compare` therefore spawns one process for
 all its candidates), and memoizes each result on its bundle so the eight rules
-read the same facts. The subprocess has a 600 s limit, reads its input file,
-writes its output file and prints nothing. No network activity is involved;
+read the same facts. The subprocess has a 1200 s runaway guard
+(`kernel.RUNAWAY_GUARD_S`, about twice the heaviest example's measured cold
+batch), reads its input file, writes its output file and prints nothing. No network activity is involved;
 the STEP is the bundle's own file. No process of the run outlives the process
 `FREECAD_CMD` starts, which may be a launcher that runs `freecadcmd` as its
 child (the Linux AppImage's `AppRun` shell does). On POSIX the run gets its own
@@ -100,14 +101,39 @@ The engine itself answers `unknown` for a STEP that imports as anything but
 exactly one valid solid (`STEP import yields <n> solids; the kernel measures
 exactly one part solid.`, `imported solid is not a valid B-rep; booleans on
 it would be unreliable.`), and `error` for an unparseable STEP, a digest
-mismatch it detects itself, or any exception inside a job. A kernel that exits
-nonzero, returns invalid JSON, or returns a result outside the contract yields
-`error` rows naming the failure (`FreeCAD kernel exited <code>: …`,
-`FreeCAD kernel did not return valid JSON: …`, `FreeCAD kernel returned an
-invalid batch result contract.`, `FreeCAD kernel batch returned the wrong
-number of results.`, `FreeCAD kernel job failed: …`, `Cannot identify FreeCAD
-kernel: …`). Those are exit 2 like any other error: an operational kernel
-failure is not an unknown measurement.
+mismatch it detects itself, or any exception inside a job (`<Type>: <message>
+at freecad_job.py:<line> in <function>`).
+
+### Kernel errors
+
+Every `error` result names a specific, non-empty `reason`; the host fills one in
+for an engine error that names none (`FreeCAD kernel reported job <n> as an
+error without a reason`). A batch that ends without a usable result yields
+`error` rows for each of its jobs naming how it ended:
+
+* `FreeCAD kernel exceeded the <s> s runaway guard and was killed`
+  (`kernel.RUNAWAY_GUARD_S`);
+* `FreeCAD kernel exited <code>`, with `: killed by <SIGNAL>` when a negative
+  code or a launcher shell's `128 + N` names a signal (SIGKILL is often the
+  host's out-of-memory killer);
+* `FreeCAD kernel exited 0 without writing its result file`, `… wrote an empty
+  result file`, `… did not return valid JSON: …`, `… returned an invalid batch
+  result contract`;
+* `kernel batch failed: …` or `kernel result is not strict JSON: …`, written by
+  the engine itself when its batch raises or its result holds a NaN.
+
+Each of those reasons goes on to say which phase the engine was in and quote the
+tail (2000 characters) of its stderr, else stdout, or `no stderr or stdout
+output`. The phase comes from the engine's progress trail: every timed span
+(`batch`, `job <n>`, each setup, its phases and ops) appends a flushed
+enter/exit line to `<output>.trail` beside the result file, so a killed engine
+still leaves it. The error's `timing` holds `host_wall_ms` and `trail = {open,
+finished, last_mark_ms}` (open spans, deepest last, and the last 20 finished
+ones, in engine-clock milliseconds). `FreeCAD kernel batch returned the wrong
+number of results.`, `FreeCAD kernel job failed: …` (the launch itself failed)
+and `Cannot identify FreeCAD kernel: …` remain. Errors are exit 2 like any
+other error and are never cached: an operational kernel failure is not an
+unknown measurement.
 
 ### Cache
 
@@ -169,7 +195,7 @@ control flow are those of the engine alone, and a loop's calls it never takes ar
 cancelled when it ends.
 
 No worker outlives the engine, however it ends, including when the host's
-600-second runaway guard kills it (on POSIX with the rest of the run's process
+runaway guard kills it (on POSIX with the rest of the run's process
 group) while a worker is inside a boolean. On Windows
 the engine puts itself in a job object set to kill every process in it when its
 only handle closes, which happens as the engine ends, and starts its workers in it;

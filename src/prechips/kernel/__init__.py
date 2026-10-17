@@ -2072,8 +2072,10 @@ def _await_launcher(process, timeout):
 
 
 # Runaway guard on one FreeCAD batch, in seconds: about twice the heaviest example's cold
-# batch on a 4-vCPU host (docs/rules-geometry.md#kernel-errors).
-RUNAWAY_GUARD_S = 600
+# batch. That is rocker-arm, measured at 525 s cold on a 4-vCPU host with one pool worker
+# (issue #329), and nearly all of it is serial engine CPU, so a slower core stretches it in
+# proportion. The guard stops a runaway; it is not a budget a healthy job should approach.
+RUNAWAY_GUARD_S = 1200
 OUTPUT_TAIL = 2000  # characters of the engine's stderr/stdout an error reason quotes
 
 
@@ -2116,9 +2118,9 @@ def _run_kernel(command):
 
 
 def _exit_text(code):
-    """How the launcher ended: a negative code is the signal that killed it, and a
+    """How the launcher ended: a negative code is the signal that killed it, and on POSIX a
     launcher shell (the AppImage's AppRun) reports a child killed by signal N as 128 + N."""
-    number = -code if code < 0 else code - 128 if code > 128 else None
+    number = -code if code < 0 else code - 128 if code > 128 and os.name == "posix" else None
     try:
         name = signal.Signals(number).name if number is not None else None
     except ValueError:
@@ -2144,7 +2146,7 @@ def _read_trail(path):
     """The engine's progress trail (``freecad_job._mark``): the phases it entered and has
     not left, deepest last, and the last phases it finished, each with engine-clock ms."""
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError:
         return None
     entered, finished = {}, []

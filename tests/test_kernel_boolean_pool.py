@@ -201,7 +201,7 @@ def test_the_hosts_runaway_guard_leaves_no_worker_or_pool_file_behind(
     wait = kernel._await_launcher
 
     def guard(process, timeout):
-        # The host's 600 s guard expiring while the worker is inside its boolean, the real
+        # The host's runaway guard expiring while the worker is inside its boolean, the real
         # wait running until then. The engine is FREECAD_CMD's process or, under a launcher
         # such as the Linux AppImage's AppRun shell, that process's child.
         assert timeout == kernel.RUNAWAY_GUARD_S

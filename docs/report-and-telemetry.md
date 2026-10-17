@@ -864,8 +864,14 @@ counts and provenance (`kernel.timing_source` is `execution`, `cache`, `mixed`,
 or `none` for identified-kernel requests with no usable jobs). `kernel.executed`
 indicates whether a native batch was invoked. Actual fresh batch measurements
 are `kernel.batch.wall_ms` / `kernel.batch.cpu_ms`; a cache-only call has no such
-attributes. The geometry span's own elapsed duration includes host cache lookup
-and subprocess overhead, not just the measured native work.
+attributes. `kernel.batch.host_wall_ms` is the host's own elapsed time for the
+launch, so its excess over `kernel.batch.wall_ms` is FreeCAD start-up and
+result I/O. A failed batch adds `kernel.batch.error` (the reason) and, when the
+engine's progress trail shows a phase still open, `kernel.batch.open_phase`
+(for example `batch/job 0/S2/stock_states`); see
+[kernel errors](rules-geometry.md#kernel-errors). The geometry span's own elapsed
+duration includes host cache lookup and subprocess overhead, not just the
+measured native work.
 
 Collision sampling reuses only exact, immutable query recipes; it does not round
 poses or stop after the first hit. Every placed sample still contributes to the
