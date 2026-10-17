@@ -281,6 +281,14 @@ def test_known_seat_needs_a_drawn_solid_of_a_resolved_fixture(tmp_path, fixture,
         bundle(tmp_path, hold, TAPE + fixture)
 
 
+@pytest.mark.parametrize("fixture", ["subplate", "fixtures.subplate"])
+def test_a_qualified_fixture_resolves_like_a_bare_one(tmp_path, fixture):
+    loaded = bundle(tmp_path, f'fixture = "{fixture}"\narea = {{ ref = "tape", on = "plate" }}')
+    assert loaded.plan["setups"][0]["hold"]["fixture"] == fixture
+    with pytest.raises(BadInput, match="found 0"):
+        bundle(tmp_path, f'fixture = "{fixture}"\narea = {{ ref = "tape", on = "hole" }}')
+
+
 def test_two_solids_of_the_named_seat_are_ambiguous(tmp_path):
     twice = PLATE + (
         '[[fixtures.subplate.solids]]\nname = "plate"\nshape = "box"\n'

@@ -184,8 +184,8 @@ def _area_holds(plan: dict, inventory: dict) -> None:
     tape, ``area.ref`` names an inventory ``adhesive_tape`` consumable, and ``area.on``
     names exactly one drawn solid of the holding fixture. A literal unknown identity stays
     unresolved debt for the rules."""
-    consumables = inventory.get("consumables")
-    fixtures = inventory.get("fixtures")
+    from prechips.rules.resolution import select
+
     for setup in plan["setups"]:
         hold = setup.get("hold")
         if not isinstance(hold, dict):
@@ -201,13 +201,15 @@ def _area_holds(plan: dict, inventory: dict) -> None:
         if not isinstance(area, dict):
             continue
         ref, on = area.get("ref", "unknown"), area.get("on", "unknown")
-        tape = consumables.get(ref) if isinstance(consumables, dict) else None
+        # Every inventory reference resolves through the one selector the rules use, so
+        # a qualified hold.fixture (fixtures.plate) names the same item as a bare one.
+        tape = select(inventory, ref, "consumables")[2] if ref != "unknown" else None
         if ref != "unknown" and not (
             isinstance(tape, dict) and tape.get("kind") == "adhesive_tape"
         ):
             raise BadInput(f"{where}.area.ref {ref!r} is not a consumables adhesive_tape item.")
         fixture = hold.get("fixture", "unknown")
-        item = fixtures.get(fixture) if isinstance(fixtures, dict) else None
+        item = select(inventory, fixture, "workholding")[2] if fixture != "unknown" else None
         # An unresolved fixture or a solids list stated unknown is debt for the rules; a
         # known fixture that draws no solids has no seat to name.
         solids = item.get("solids", []) if isinstance(item, dict) else "unknown"
