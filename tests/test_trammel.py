@@ -262,9 +262,10 @@ def test_an_unmeasured_fixture_fact_is_debt_with_a_measure_line(tmp_path, field)
 
 
 def test_an_assumed_pin_spacing_is_debt_never_a_perfect_fixture(tmp_path):
+    assumed = MEASURED.replace("status = 'measured'", "status = 'assumed'")
     inventory = TRAMMEL.replace(
         f"inner = {{ value = {SPACING}, {MEASURED} }}",
-        f"inner = {{ value = {SPACING}, {MEASURED.replace("status = 'measured'", "status = 'assumed'")} }}",
+        f"inner = {{ value = {SPACING}, {assumed} }}",
     )
     assert inventory != TRAMMEL
     row = trammel_row(tmp_path, inventory=inventory)
