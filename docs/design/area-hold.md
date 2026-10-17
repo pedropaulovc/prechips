@@ -161,7 +161,9 @@ pose = { origin_mm = [0.0, 6.0, -0.100], x = [1.0, 0.0, 0.0], z = [0.0, 0.0, 1.0
 ```
 
 - `ref` names a `consumables` `adhesive_tape` item, or a `fixtures` `vacuum`
-  item (for vacuum it is normally the same item as `fixture`).
+  item. A vacuum `ref` **must** be the same item as `fixture`: the pressure,
+  friction and gauge belong to the chuck whose face `on` names, and a `ref` naming
+  another vacuum fixture is bad input.
 - `on` names the solid of the holding fixture whose posed +z face carries the
   layer (for tape) or is the chuck face (for vacuum). Exactly one trusted solid
   must be named; otherwise the input is bad.
@@ -294,7 +296,9 @@ fits under zero capacity. An offcut with no contact is a loose-offcut `warn`.
 
 ```text
 tape    lateral  C_xy,i = shear_n_per_cm2 × A_i / 100              (A in mm², 100 mm²/cm²)
-tape    lift     C_z,i  = peel_n_per_cm × D / 10                   (model A, section 3.4; D in mm)
+tape    lift     C_z,i  = peel_n_per_cm × L_i / 10                 (model A, section 3.4; L_i in mm)
+                 L_i    = min(D, w_i)                           (w_i: the island's least width, the short
+                                                                  side of its minimum-area bounding rectangle)
 vacuum  normal   N_i    = vacuum_kpa × A_seal,i / 1000             (kPa·mm² → N)
 vacuum  lateral  C_xy,i = friction × N_i
 vacuum  lift     C_z,i  = N_i
@@ -318,7 +322,9 @@ T_i      the traction region: the island's contact area for tape (A_i), the seal
 c_i      centroid of T_i
 r_k      the farthest distance from c_i to op k's cut on that island
          (the kernel's removed volume of op k, intersected with the island's column)
-h_k      the cut's height above the seat (op k's deepest cut Z minus the seat Z) — the lever of F_xy
+h_k      the highest point the cutting force can act above the seat: the before-op stock
+         top over the island's column minus the seat Z — the lever of F_xy. Never the deepest
+         cut Z, which is zero for a cut to the seat while the flutes engage above it
 J_i      ∫ |ρ| dA over T_i about c_i            (polar first moment, mm³)
 d_i      the least distance from c_i to the convex-hull boundary of T_i
 
@@ -327,7 +333,7 @@ tape yaw capacity     C_yaw  = shear_n_per_cm2 / 100 × J_i          (fully deve
 vacuum yaw capacity   C_yaw  = friction × vacuum_kpa / 1000 × J_i
 overturning demand    M_ot   = F_xy · h_k + F_z · r_k               (lift sense only)
 vacuum overturning    C_ot   = N_i · d_i                            (uniform pressure, tipping about the nearest hull edge)
-tape overturning      folded into lift: F_z,eff = F_z + F_xy · h_k / D, checked against C_z,i
+tape overturning      folded into lift: F_z,eff = F_z + F_xy · h_k / L_i, checked against C_z,i
 ```
 
 The force and yaw checks combine linearly, because they share the same
@@ -338,7 +344,7 @@ same combination applies to vacuum overturning with lift. An unknown `r_k`,
 finding `?`.
 
 The tape overturning fold uses model A's local front of length D as the lever
-of the tipping couple. It is consistent with D2 and is the only tape
+of the tipping couple, capped like the front itself. It is consistent with D2 and is the only tape
 overturning claim datasheet facts can make. A pull test (section 3.4) replaces
 `C_z` for both the direct lift and the folded term.
 
@@ -349,7 +355,8 @@ and the reaction pulls the work **up** toward the spindle. Tape resists by
 peel, which starts at a free edge.
 
 **Decided (D2): model A.** The peel front is the cutter Ø at the nearest
-footprint edge: `C_z = peel_n_per_cm × D / 10`. Only a **measured pull test
+footprint edge, capped by the island's width: `C_z = peel_n_per_cm × min(D, w_i) / 10`.
+A tab narrower than the cutter has only its own width to peel. Only a **measured pull test
 recorded on the real setup** can claim more:
 
 ```toml
@@ -757,6 +764,9 @@ tests request the shared `freecad_kernel` fixture.
   the seal centroid: a cutter at the island centroid but far from the seal
   centroid still fails yaw. A vacuum island
   fails overturning with a tall cut at its narrow edge.
+- Peel front: a 5 mm tab cut with a Ø10 cutter gets `L = 5`. A cut to the seat
+  keeps `h_k` at the before-op stock height, not zero.
+- A vacuum `area.ref` naming another vacuum fixture than `hold.fixture` is exit 3.
 - Combined loads: tape with `use_xy` and `use_z` each at 0.3 at k = 2 fails
   (sum 0.6 > 0.5); vacuum with `0.49 μN` lateral and `0.49 N` lift at k = 2
   fails on the residual load, and `k · F_z ≥ N` is an error. Overturning with
@@ -903,6 +913,9 @@ not separately decided by the maintainer:
 - combined loads share one capacity: tape adds its shear and peel uses, and
   vacuum friction and overturning use the contact load left after the factored
   lift (section 4.3);
+- the peel front and its lever are capped by the island's least width, and the
+  overturning lever is the highest point the flutes can engage (section 3.3);
+- a vacuum `ref` must be the held fixture (section 2.4);
 - the vacuum seal is a cord laid along the work's outline (`seal = "laid_cord"`);
   other seal circuits are `?` until their groove geometry is recorded (section 2.3);
 - pull tests qualify only by machine-checkable fields that must all match the
