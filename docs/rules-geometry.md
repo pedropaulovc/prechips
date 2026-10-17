@@ -1226,6 +1226,9 @@ the result: `pass` with the kept piece and each discarded piece's volume and
 bbox, or `?` with the reason. A keep that names no feature is `?` even without
 the kernel. With no kernel, or with stock already unknown before the keep, the
 row is `?` for that reason.
+The traveler prints the keep on its op's row: "Keep the piece that carries
+<feature>; discard the other piece" (the count of pieces the kernel discarded
+when `keep_piece` passed, else "discard every other piece").
 
 ### Jaw placement
 

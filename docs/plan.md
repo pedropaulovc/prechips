@@ -1257,7 +1257,8 @@ piece that carries every face of the feature and discards the rest. Later
 setups' entry stock and their `stock_state` checks then see the kept piece only,
 as do later ops' flutes in the same setup; their holders still see the
 setup-entry stock, as for any cut ([keep piece](rules-geometry.md#keep-piece)).
-Without `keep`, a held split keeps every piece, as before.
+The op's traveler row tells the operator which piece to keep and to discard the
+rest. Without `keep`, a held split keeps every piece, as before.
 
 An `inspect` op may name several features (`feature = ["a", "b"]`): one
 drawing limit split across them, or one inspection station reading several. A

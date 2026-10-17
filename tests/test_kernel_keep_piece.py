@@ -11,7 +11,9 @@ is stock debt with an instruction, never a guess. FreeCAD-backed tests run
 
 import json
 import os
+import re
 import subprocess
+from html import unescape
 from pathlib import Path
 
 import pytest
@@ -22,7 +24,9 @@ from test_kernel_stock_prefix import _rough
 from prechips.findings import is_required
 from prechips.inputs import Bundle
 from prechips.kernel import _cache_recipe, _keeps, engine_job
+from prechips.report import build_report
 from prechips.rules import consistency, keep_piece
+from prechips.sheet import render_traveler
 
 UP = {"x": [1.0, 0.0, 0.0], "z": [0.0, 0.0, 1.0]}
 # The island part (x 5..65, y 5..45, z 0..20) in a blank 1 mm taller than it.
@@ -363,3 +367,26 @@ def test_plans_without_keep_add_no_finding_and_a_keep_is_always_required():
     absent = {"status": "unknown", "reason": "FreeCAD kernel not found"}
     [row] = keep_piece.evaluate(_rule_bundle({"keep": "south"}, absent))
     assert is_required(row, {"required": {}})
+
+
+def test_the_traveler_tells_the_operator_which_piece_to_keep():
+    kept = {"piece": 2, "volume_mm3": 1.0, "bbox_mm": PART_BOX}
+    frame = {"piece": 1, "volume_mm3": 1.0, "bbox_mm": FRAME_BOX}
+    keeps = {"S5:70": {"feature": "south", "after": "S5:60", "kept": kept, "discarded": [frame]}}
+    for record, scrap in (
+        ({"keeps": keeps}, "discard the other piece."),
+        ({"stock_reason": "plan stock is unknown"}, "discard every other piece."),
+    ):
+        data = _bundle({"status": "ok", "setups": {"S5": record}}, ["#1"])
+        rows = keep_piece.evaluate(data)
+        page = re.sub(
+            r"\s+",
+            " ",
+            unescape(
+                re.sub(r"<[^>]+>", " ", render_traveler(data, rows, build_report(data, rows)))
+            ),
+        )
+        assert f"Keep the piece that carries south; {scrap}" in page
+    data = _bundle({"status": "ok", "setups": {}}, ["#1"], keep=False)
+    page = render_traveler(data, [], build_report(data, []))
+    assert "Keep the piece" not in page
