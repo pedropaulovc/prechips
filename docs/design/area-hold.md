@@ -140,7 +140,7 @@ solids = [ { name = "face", shape = "box", ... } ]    # the chuck body, as for a
 
 | Field | Type | Meaning | Unknown or untrusted |
 |---|---|---|---|
-| `vacuum_kpa` | `CitedFact` | the least gauge vacuum at which capacity is claimed; the operator must read at least this before cutting | capacity `?`; STOP in place of the gauge row |
+| `vacuum_kpa` | `CitedFact` | the least gauge vacuum at which capacity is claimed; the operator must read at least this before cutting. A vacuum chuck can only use the atmosphere above it, so `vacuum_kpa` must be below a cited conservative ambient floor, the new policy number `ambient_kpa_min` (the lowest local atmospheric pressure, cited and unflagged) | capacity `?`; STOP in place of the gauge row; `?` too when `ambient_kpa_min` is unknown or `vacuum_kpa ≥ ambient_kpa_min` |
 | `seal` | `"laid_cord"` | how the seal circuit is made. `laid_cord`: a gasket cord laid in the chuck's open-grid grooves along the work's outline, `gasket_inset_mm` inside it, at every setup. The HOLD prints the lay step, and the gauge reading proves the circuit closed. Fixed-groove chucks, whose circuit is the groove pattern rather than the work's outline, need their groove geometry recorded and are a follow-up | capacity `?` ("seal circuit not recorded") |
 | `gasket_inset_mm` | `MeasuredLength` | inset of the cord's centreline inside the work outline | sealed area `?` |
 | `friction` | `CitedFact` + `pairs` | static μ of the work on the chuck face, for the exact work/seat pairs it was established on (section 2.7) | capacity `?` |
@@ -291,6 +291,7 @@ finding names the fact and its domain. One parametrized test per row (section 8)
 | vacuum gauge | kind `vacuum_gauge`; range, resolution and accuracy as section 2.3 | `?` |
 | pull test `lift_n`, `front_mm`, `thickness_mm`, `dwell_min` | each `> 0` | the test does not qualify (model A) |
 | recipe-A touch disc | the `zero.z` tool's resolved radius `> 0`, or a gauge block's half-width | `?` |
+| `vacuum_kpa` vs ambient | `0 < vacuum_kpa < ambient_kpa_min` (policy, cited, unflagged) | `?` |
 | `k` (`hold_capacity_factor_min`) | `≥ 1` | `?` |
 
 ## 3. Capacity model
@@ -437,9 +438,13 @@ island *i* at op *k* only when **every** machine-checkable field matches:
 | dwell | `dwell_min` is at least the tape's `dwell_min`. A credited test also raises the setup's dwell gate to the test's `dwell_min`: the HOLD prints "cut no earlier than" from the test's dwell, so the work is never cut sooner than the bond the test measured |
 | trust | `lift_n`, `front_mm`, `thickness_mm` and `dwell_min` are trusted measured facts; a bare, assumed or cited test dwell does not qualify, since the dwell gate is set from it |
 
-Then `C_z = lift_n`, unscaled. Any failed check leaves model A in force, and
-the finding names the check that failed; a test never scales to a different
-work. What no field can carry (surface condition beyond the tape's printed
+Then the test sets the peel resistance per unit of front, `lift_n / front_mm`,
+and the credit is that resistance over the cutter's own local front:
+`C_z = lift_n × min(1, L_i / front_mm)` with `L_i = min(D, w_i)` from model A. A
+40 mm end pull therefore credits a Ø9.525 cutter with 9.525/40 of its force,
+never the whole end's force, and never more than the pull itself. Any failed
+check leaves model A in force, and the finding names the check that failed; a
+test never scales up to a longer front. What no field can carry (surface condition beyond the tape's printed
 prep, a different pull location) stays residue, and the HOLD prints the test's
 `work` text so the operator sees what was pulled. The pull-test schema lands in phase 4
 (section 9), not phase 1. Until the shop pull-tests, the rocker strap stays
@@ -887,7 +892,8 @@ tests request the shared `freecad_kernel` fixture.
   line, errors from that op on, even with its force unknown; a profile that
   splits the work inside S does not credit the islands independently; a work
   narrower than 2 × inset has sealed area 0.
-- Pull test: a qualifying test raises `C_z` to `lift_n` and the printed dwell
+- Pull test: a qualifying test raises `C_z` to `lift_n × min(1, L_i / front_mm)` (a
+  40 mm end pull credits a Ø9.525 cutter 9.525/40 of it) and the printed dwell
   gate to the test's `dwell_min`; each failed check in
   the section 3.4 table (another fixture or seat, material class, a narrower or
   thinner island, a reduced footprint, a shorter dwell, an unmeasured field)
