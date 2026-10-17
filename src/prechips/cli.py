@@ -146,12 +146,17 @@ def _evaluate(bundle: Bundle, job: dict, tracing: telemetry.Telemetry):
     """Every rule's findings on ``bundle``. Each geometry rule reads the bundle's kernel
     job (prepared_job): ``job``, built once by the caller, is lent to each rule as a copy."""
     from prechips.rules import RULES, required_coverage
-    from prechips.rules.geometry_common import lend_job
+    from prechips.rules.geometry_common import lend_job, lend_rows
 
-    findings = []
+    findings, evaluated = [], {}
     for rule in RULES:
-        with tracing.span(f"rule.{rule.name}.evaluate"), lend_job(bundle, job):
+        with (
+            tracing.span(f"rule.{rule.name}.evaluate"),
+            lend_job(bundle, job),
+            lend_rows(bundle, evaluated),
+        ):
             rows = rule.evaluate(bundle)
+        evaluated[rule.name] = rows
         for finding in rows:
             with tracing.span(
                 f"rule.{rule.name}",
@@ -252,7 +257,7 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
     if args.measure:
         from prechips.kernel import build_job
         from prechips.rules import RULES
-        from prechips.rules.geometry_common import lend_job
+        from prechips.rules.geometry_common import lend_job, lend_rows
 
         plans = args.plan
         if not plans:
@@ -284,8 +289,11 @@ def _tools(args, tracing: telemetry.Telemetry) -> int:
                 },
             )
             # Every geometry rule reuses this one prepared job: the bundle is unchanged.
-            with lend_job(bundle, job):
-                findings = [finding for rule in RULES for finding in rule.evaluate(bundle)]
+            findings, evaluated = [], {}
+            with lend_job(bundle, job), lend_rows(bundle, evaluated):
+                for rule in RULES:
+                    evaluated[rule.name] = rule.evaluate(bundle)
+                    findings.extend(evaluated[rule.name])
             kernel_debts = [
                 entry
                 for subjects in job["measurement_debts"].values()

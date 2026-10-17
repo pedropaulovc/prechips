@@ -62,11 +62,20 @@ def bundle():
                 "binding": "measured",
             }
         },
-        "features": {"target": {"kind": "hole", "dia": [6.3, 6.4]}},
+        "features": {
+            "target": {"kind": "hole", "dia": [6.3, 6.4], "frame": "A", "at": [50, 15, 20]}
+        },
     }
     return SimpleNamespace(
         plan={
-            "stock": {"material": "steel", "length_mm": 100, "section_mm": [30, 20]},
+            "stock": {
+                "material": "steel",
+                "length_mm": 100,
+                "section_mm": [30, 20],
+                "origin_mm": [0, 0, 0],
+                "axis": [1, 0, 0],
+                "section_axis": [0, 1, 0],
+            },
             "setups": [
                 {
                     "id": "S1",
@@ -300,7 +309,9 @@ def test_headroom_names_each_consumed_stack_or_travel_fact(category, identity, f
     assert baseline.numbers["sum_mm"] == 150
     assert baseline.numbers["stacks"][0]["tool_projection_mm"] == 55
     assert baseline.numbers["stacks"][0]["margin_mm"] == 50
-    assert baseline.numbers["travel_checks"]["x"]["required_mm"] == 100
+    # One drilled point: the table needs no X stroke; the 100 mm blank is only evidence.
+    assert baseline.numbers["travel_checks"]["x"]["required_mm"] == 0
+    assert baseline.numbers["travel_checks"]["x"]["part_mm"] == 100
     data.inventory[category][identity][f"{field}_mm"] = fact(value, case)
     data.inventory["tools"]["cutter"]["dia_mm"] = fact(6.35, "illustrative")
     [row] = headroom.evaluate(data)

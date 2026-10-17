@@ -22,7 +22,13 @@ def measured(value):
 def bundle():
     data = SimpleNamespace(
         plan={
-            "stock": {"length_mm": 100, "section_mm": [30, 16]},
+            "stock": {
+                "length_mm": 100,
+                "section_mm": [30, 16],
+                "origin_mm": [0, 0, 0],
+                "axis": [1, 0, 0],
+                "section_axis": [0, 1, 0],
+            },
             "setups": [
                 {
                     "id": "S1",
@@ -72,7 +78,11 @@ def bundle():
             "tools": {"cutter": {"kind": "endmill", "oal_mm": 80}},
             "holders": {"holder": {"kind": "collet", "gauge_len_mm": 30, "grip_mm": 25}},
         },
-        features={"frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}}, "features": {}},
+        features={
+            "units": "mm",
+            "frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}},
+            "features": {},
+        },
         policy={},
         cutting_data={},
     )
@@ -445,7 +455,7 @@ def test_part_and_fixture_envelope_must_fit_travel():
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["x"]["required_mm"] == 150
-    assert "setup-entry stock exceeds X travel" in finding.sentence
+    assert "cutter-centre span exceeds X travel" in finding.sentence
 
 
 def pm30_bundle(vise_width_mm):
@@ -479,7 +489,7 @@ def test_stock_beyond_travel_errors_while_the_fixture_fits():
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["y"]["required_mm"] == 240
-    assert "setup-entry stock exceeds Y travel" in finding.sentence
+    assert "cutter-centre span exceeds Y travel" in finding.sentence
 
 
 @pytest.mark.parametrize(

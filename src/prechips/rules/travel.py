@@ -1,7 +1,11 @@
 """Declared mill operation spans, not a toolpath or stock-position certificate.
 
 Located cutter envelopes are unioned in setup axes. Unlocated broad cuts use
-conservative stock spans without inventing where that stock sits in the frame.
+conservative stock spans without inventing where that stock sits in the frame. Every
+cutter-centre XY the traveler prints for an op (``coordinates.printed_xy``: arc rows,
+join lines, linear-table outlines and face raster passes) is unioned in too, so the
+span never reads less than the printed path (a face raster runs past the stock, #297);
+a printed path only raises the span, it never completes an unresolved axis.
 A child feature (``hole``/``parent``) without its own ``at`` is located at its
 parent's ``at`` in the parent's frame; it inherits no parent bounds.
 Saw cuts drive no spindle cutter and are skipped.
@@ -15,15 +19,18 @@ from prechips.rules._envelope import (
     _known,
     _point,
     authoring_entry,
+    entry_stock,
     fact,
     machine_envelope,
+    raw_supply,
     selected_item,
     spindle_nose_band,
     stock_extents,
     transformed_bounds,
     unknown_sentence,
 )
-from prechips.rules.coordinates import AXES, CENTRE_OPS, located_by
+from prechips.rules.coordinates import AXES, CENTRE_OPS, located_by, printed_xy
+from prechips.rules.geometry_common import rule_rows
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -58,6 +65,11 @@ def evaluate(bundle):
         (row["setup"], row["op"], row["feature"]): row
         for finding in tip_endpoints.evaluate(bundle)
         for row in finding.numbers["endpoints"]
+    }
+    from prechips.rules import coordinates
+
+    printed = {
+        row.subject: row.numbers for row in rule_rows(bundle, "coordinates", coordinates.evaluate)
     }
     findings = []
     for setup in bundle.plan["setups"]:
@@ -96,6 +108,16 @@ def evaluate(bundle):
         target, owner = setup_frame_ref(bundle, setup)
         cite.extend(_input_cite(target, f"{owner}.{setup.get('frame', UNKNOWN)}"))
         stock, stock_cite = stock_extents(bundle, setup)
+        # A broad cut sweeps the stock this setup receives (the same box headroom reads,
+        # placed by the stock's own axes): a routed stock without it is unknown, never the
+        # raw blank or the finished part.
+        entry = entry_stock(bundle, setup, target)
+        if all(_known(entry[axis]) for axis in ("x", "y")):
+            stock = {**stock, "x": entry["x"], "y": entry["y"]}
+            stock_cite = [*entry["cite"], *stock_cite]
+        elif not raw_supply(bundle, setup):
+            stock = {**stock, "x": UNKNOWN, "y": UNKNOWN}
+            stock_cite = [*entry["cite"], *stock_cite]
         authored_stock = record(bundle.plan.get("stock"))
         dimensions = [
             (field, authored_stock.get(field, UNKNOWN)) for field in ("length_mm", "dia_mm")
@@ -242,6 +264,21 @@ def evaluate(bundle):
                 elif not _band(band) or not _known(padding):
                     complete[axis] = False
                     op_xy_complete = False
+            # The printed cutter-centre path is what the table must reach: never less.
+            path = (
+                None if fixture_driven else printed_xy(record(printed.get(setup["id"])), op["op"])
+            )
+            path_bounds = "not_applicable"
+            if path:
+                path_bounds = {
+                    axis: [min(p[i] for p in path), max(p[i] for p in path)]
+                    for i, axis in enumerate(("x", "y"))
+                }
+                for axis, band in path_bounds.items():
+                    _include(bands[axis], band)
+                cite.append(
+                    f"coordinates.{setup['id']}: printed cutter-centre path of op {op['op']}"
+                )
             if fallback:
                 cite.extend(stock_cite)
             if not op_xy_complete:
@@ -295,6 +332,7 @@ def evaluate(bundle):
                     "tip_z_bounds_mm": assembly["tip_band_mm"],
                     "extent_mm": extent,
                     "xy_cutter_bounds_mm": xy,
+                    "printed_xy_bounds_mm": path_bounds,
                     "conservative_stock_spans_mm": stock if fallback else "not_applicable",
                     "tool_radius_mm": radius,
                     "tool_radius_verified": radius_known,

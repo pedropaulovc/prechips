@@ -1334,6 +1334,7 @@
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
         "inventory.machines.test-mill.envelope.spindle_to_table_max",
+        "kernel.setups.S1.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.test-mill.envelope.travel.x",
         "inventory.machines.test-mill.envelope.travel.y"
       ],
@@ -1430,8 +1431,17 @@
           }
         ],
         "stock_bottom_z": 0.0,
-        "stock_extent_x_mm": 20.0,
-        "stock_extent_y_mm": "unknown",
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          -15.0,
+          -15.0,
+          0.0,
+          15.0,
+          15.0,
+          20.0
+        ],
+        "stock_extent_x_mm": 30.0,
+        "stock_extent_y_mm": 30.0,
         "stock_height_mm": 20.0,
         "stock_top_above_jaws_mm": 10.0,
         "stock_top_z": 20.0,
@@ -1440,13 +1450,13 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
-            "part_mm": 20.0,
-            "required_mm": 20.0,
+            "part_mm": 30.0,
+            "required_mm": 30.0,
             "travel_mm": "unknown"
           },
           "y": {
-            "part_mm": "unknown",
-            "required_mm": "unknown",
+            "part_mm": 30.0,
+            "required_mm": 30.0,
             "travel_mm": "unknown"
           }
         }
@@ -2726,6 +2736,7 @@
         "features.features.top.bounds/at",
         "examples/geometry/author_solids.py: fixture_puck (synthetic test specification)",
         "features.frames.model",
+        "kernel.setups.S1.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collet-8mm.gauge_len",
@@ -2849,6 +2860,7 @@
             "holder": "r8-collet-8mm",
             "holder_gauge_len_mm": 60.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               20.0,
@@ -2915,6 +2927,7 @@
         "features.features.top.bounds/at",
         "examples/geometry/author_solids.py: fixture_puck (synthetic test specification)",
         "features.frames.model",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collet-8mm.gauge_len",
@@ -3038,6 +3051,7 @@
             "holder": "r8-collet-8mm",
             "holder_gauge_len_mm": 60.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               20.0,
@@ -3104,6 +3118,7 @@
         "features.features.top.bounds/at",
         "examples/geometry/author_solids.py: fixture_puck (synthetic test specification)",
         "features.frames.model",
+        "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collet-8mm.gauge_len",
@@ -3227,6 +3242,7 @@
             "holder": "r8-collet-8mm",
             "holder_gauge_len_mm": 60.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               20.0,
@@ -3511,7 +3527,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "3aac29a4306d7d288ce861cdbdb7a08c9695a7ddfa743864797d1018e333b268",
+  "hash": "61d03a386e3661191e8122d734bfee4a41fa4a6ad8759c15fa28dd23f3ffbdd9",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

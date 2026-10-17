@@ -1083,12 +1083,12 @@
         "travel_checks": {
           "x": {
             "part_mm": 60.0,
-            "required_mm": 60.0,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "part_mm": 17.838015,
-            "required_mm": 17.838015,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           }
         }
@@ -1735,6 +1735,7 @@
         "examples/geometry/author_solids.py: STRAP chamfer (synthetic test specification)",
         "features.frames.model",
         "inventory.tools.em-8-std.dia",
+        "kernel.setups.S1.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collet-8mm.gauge_len",
@@ -1879,6 +1880,7 @@
             "holder": "r8-collet-8mm",
             "holder_gauge_len_mm": 60.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -2045,7 +2047,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "9288193223a627ae2a6ee4a59fa96e7e06d9835ce50b70ce804ed4dbcbe92a77",
+  "hash": "d2ec55777820b2521b4db14b4e68d50025f4c1604ef0cf71b91e3ddd65d7b911",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

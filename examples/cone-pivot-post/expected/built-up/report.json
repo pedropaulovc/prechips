@@ -8140,12 +8140,12 @@
         "travel_checks": {
           "x": {
             "part_mm": 43.059977,
-            "required_mm": 43.059977,
+            "required_mm": 71.45,
             "travel_mm": 584.1999999999999
           },
           "y": {
             "part_mm": 75.083932,
-            "required_mm": 75.083932,
+            "required_mm": 52.4,
             "travel_mm": 222.25
           }
         }
@@ -8335,12 +8335,12 @@
         "travel_checks": {
           "x": {
             "part_mm": 125.0,
-            "required_mm": 125.0,
+            "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
             "part_mm": 44.45,
-            "required_mm": 44.45,
+            "required_mm": 0.0,
             "travel_mm": 222.25
           }
         },
@@ -8447,12 +8447,12 @@
         "travel_checks": {
           "x": {
             "part_mm": 125.0,
-            "required_mm": 125.0,
+            "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
             "part_mm": 44.45,
-            "required_mm": 44.45,
+            "required_mm": 0.0,
             "travel_mm": 222.25
           }
         },
@@ -8608,12 +8608,12 @@
         "travel_checks": {
           "x": {
             "part_mm": 125.0,
-            "required_mm": 125.0,
+            "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
             "part_mm": 44.45,
-            "required_mm": 44.45,
+            "required_mm": 0.0,
             "travel_mm": 222.25
           }
         },
@@ -8709,12 +8709,12 @@
         "travel_checks": {
           "x": {
             "part_mm": 125.0,
-            "required_mm": 125.0,
+            "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
             "part_mm": 44.45,
-            "required_mm": 44.45,
+            "required_mm": 0.0,
             "travel_mm": 222.25
           }
         },
@@ -21351,6 +21351,7 @@
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10",
         "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395",
+        "coordinates.S11: printed cutter-centre path of op 10",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
         "plan.setups.S11.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -21428,6 +21429,16 @@
             "holder": "r8-collets-lms-4860/3-4in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -35.725,
+                35.725
+              ],
+              "y": [
+                -26.2,
+                26.2
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               59.4,
@@ -21490,6 +21501,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 20,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               84.0,
@@ -21552,6 +21564,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 30,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               84.0,
@@ -21615,6 +21628,7 @@
             "holder": "r8-collets-cone/9-32in",
             "holder_gauge_len_mm": 6.0,
             "op": 40,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -4.146214045104543,
@@ -21678,6 +21692,7 @@
             "holder": "r8-collets-cone/9-32in",
             "holder_gauge_len_mm": 6.0,
             "op": 50,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -4.146214045104543,
@@ -21742,6 +21757,7 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 60,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               79.9802,
@@ -21806,6 +21822,7 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 70,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               79.9802,
@@ -21834,21 +21851,21 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 51.000479509672445,
-            "lower_bound_margin_mm": 533.1995204903275,
-            "margin_mm": 533.1995204903275,
-            "minimum_required_mm": 51.000479509672445,
-            "required_mm": 51.000479509672445,
+            "located_span_mm": 71.45,
+            "lower_bound_margin_mm": 512.7499999999999,
+            "margin_mm": 512.7499999999999,
+            "minimum_required_mm": 71.45,
+            "required_mm": 71.45,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 51.000479509672445,
-            "lower_bound_margin_mm": 171.24952049032754,
-            "margin_mm": 171.24952049032754,
-            "minimum_required_mm": 51.000479509672445,
-            "required_mm": 51.000479509672445,
+            "located_span_mm": 52.4,
+            "lower_bound_margin_mm": 169.85,
+            "margin_mm": 169.85,
+            "minimum_required_mm": 52.4,
+            "required_mm": 52.4,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
@@ -22074,6 +22091,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -21.3753,
@@ -22137,6 +22155,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 20,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -25.638531814471882,
@@ -22200,6 +22219,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 30,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -28.84938074740041,
@@ -22263,6 +22283,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 40,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -23.8,
@@ -22407,6 +22428,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -21.0055,
@@ -22470,6 +22492,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 20,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -24.86303181447188,
@@ -22533,6 +22556,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 30,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -26.646836777209952,
@@ -22596,6 +22620,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 40,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -23.0245,
@@ -22974,6 +22999,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -21.3753,
@@ -23040,6 +23066,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 20,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -75.94481946655434,
@@ -23106,6 +23133,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 30,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -72.08,
@@ -23285,6 +23313,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -23351,6 +23380,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 20,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -25.194685229641046,
@@ -23417,6 +23447,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 30,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -21.074499999999997,
@@ -26569,7 +26600,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "b20d2442818f1af66b2737e597e4ea2a287d6dfc7f45fff861c5bccd2a388516",
+  "hash": "018407319d9b086ab57d70e304365a804b515169570e976c4ac93f2d3bed0651",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

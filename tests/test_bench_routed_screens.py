@@ -136,7 +136,12 @@ def routed_bundle(route, travel_x=170, travel_y=200, entry=None, kernel=None):
     than that entry stock.
     """
     if route == "derived":
-        stock = {"length_mm": 300, "section_mm": [120, 40]}
+        stock = {
+            "length_mm": 300,
+            "section_mm": [120, 40],
+            "axis": [1, 0, 0],
+            "section_axis": [0, 1, 0],
+        }
         setups = [mill_setup("S2", "stock"), mill_setup("S3", "S2")]
     else:
         stock = {"components": [{"id": "post"}, {"id": "base"}]}
@@ -174,7 +179,11 @@ def routed_bundle(route, travel_x=170, travel_y=200, entry=None, kernel=None):
             "tools": {"cutter": {"kind": "endmill", "oal_mm": 80}},
             "holders": {"holder": {"kind": "collet", "gauge_len_mm": 30, "grip_mm": 25}},
         },
-        features={"frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}}, "features": definitions},
+        features={
+            "units": "mm",
+            "frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}},
+            "features": definitions,
+        },
         feature_definitions=definitions,
         policy={},
         kernel=facts if kernel is None else kernel,

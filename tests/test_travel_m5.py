@@ -31,7 +31,14 @@ def bundle():
     }
     data = SimpleNamespace(
         plan={
-            "stock": {"length_mm": 100, "section_mm": [30, 10], "cite": "blank measured"},
+            # Oriented but unplaced: no origin_mm, so no stock position is invented.
+            "stock": {
+                "length_mm": 100,
+                "section_mm": [30, 10],
+                "axis": [1, 0, 0],
+                "section_axis": [0, 1, 0],
+                "cite": "blank measured",
+            },
             "setups": [
                 {
                     "id": "S1",

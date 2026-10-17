@@ -4,6 +4,7 @@ import math
 from itertools import product
 
 from prechips.measurements import angle_fact, length_fact, measurement_entry
+from prechips.model import UNIT_TOLERANCE, profiled
 from prechips.rules import tip_endpoints
 from prechips.rules.coordinates import AXES, frame_axes, frame_point, model_point
 from prechips.rules.resolution import (
@@ -134,6 +135,133 @@ def _supported_extents(extents, setup):
     return extents
 
 
+def _unit3(value):
+    """A declared unit 3-vector, else None."""
+    if not (isinstance(value, list) and len(value) == 3 and all(number(v) for v in value)):
+        return None
+    return value if abs(math.hypot(*value) - 1) <= UNIT_TOLERANCE else None
+
+
+def blank_extents(stock, frame):
+    """Setup-frame X/Y/Z extents of an authored box or round bar, placed as the kernel
+    places its blank: ``length_mm`` along the stock's own ``axis``, a box's
+    ``section_mm`` along ``section_axis`` then ``axis x section_axis``, a round bar's
+    ``dia_mm`` across its axis. An undeclared dimension or placement axis leaves every
+    axis unknown: the bar is never assumed to lie along model X (#297)."""
+    extents = dict.fromkeys(AXES, UNKNOWN)
+    stock = record(stock)
+    length, section, dia = (stock.get(key) for key in ("length_mm", "section_mm", "dia_mm"))
+    axis = _unit3(stock.get("axis"))
+    if not (number(length) and axis):
+        return extents
+    if isinstance(section, list) and len(section) == 2 and all(number(v) for v in section):
+        across = _unit3(stock.get("section_axis"))
+        if (
+            not across
+            or abs(sum(a * b for a, b in zip(axis, across, strict=True))) > UNIT_TOLERANCE
+        ):
+            return extents
+        third = [
+            axis[1] * across[2] - axis[2] * across[1],
+            axis[2] * across[0] - axis[0] * across[2],
+            axis[0] * across[1] - axis[1] * across[0],
+        ]
+        sides = ((axis, length), (across, section[0]), (third, section[1]))
+
+        def along(direction):
+            return sum(
+                abs(sum(a * b for a, b in zip(direction, u, strict=True))) * size
+                for u, size in sides
+            )
+
+    elif number(dia) and section in (None, UNKNOWN):
+
+        def along(direction):
+            cos = sum(a * b for a, b in zip(direction, axis, strict=True))
+            return abs(cos) * length + dia * math.sqrt(max(0.0, 1 - cos * cos))
+
+    else:
+        return extents
+    for name in AXES:
+        direction = frame.get(name)
+        if isinstance(direction, list) and len(direction) == 3 and all(map(number, direction)):
+            extents[name] = along(direction)
+    return extents
+
+
+def raw_supply(bundle, setup):
+    """Whether ``setup`` receives the authored single supply itself (``stock_in`` absent
+    or ``"stock"``; no stock components or profiled blank), not a routed stock."""
+    stock = record(bundle.plan.get("stock"))
+    components = stock.get("components")
+    return (
+        setup.get("stock_in", "stock") == "stock"
+        and not (isinstance(components, list) and components)
+        and not profiled(stock)
+    )
+
+
+def entry_stock(bundle, setup, frame):
+    """Setup-frame X/Y extents of the stock this setup receives, never the finished part.
+
+    The already-present successful kernel's setup-entry ``stock_bbox_mm`` is already in
+    this setup's frame and is read for every stock form: a raw box or round bar placed by
+    its own ``axis``/``section_axis``, a profiled or prepared blank, a component, a joined
+    pair or an earlier setup's output. Without it, only a raw single supply (no stock
+    components or profiled blank; ``stock_in`` absent or ``"stock"``) is sized, from the
+    authored blank placed as the kernel places it (:func:`blank_extents`); any other
+    route stays unknown debt, since earlier cuts can shrink it. This rule never starts
+    the kernel.
+    """
+    sid = setup["id"]
+    facts = record(getattr(bundle, "kernel", None))
+    detail = record(record(facts.get("setups")).get(sid))
+    bbox = detail.get("stock_bbox_mm")
+    if (
+        facts.get("status") == "ok"
+        and isinstance(bbox, list)
+        and len(bbox) == 6
+        and all(number(value) for value in bbox)
+    ):
+        return {
+            "x": bbox[3] - bbox[0],
+            "y": bbox[4] - bbox[1],
+            "stock_entry_basis": "kernel setup-entry stock",
+            "stock_entry_bbox_mm": bbox,
+            "cite": [f"kernel.setups.{sid}.stock_bbox_mm: setup-entry stock in the setup frame"],
+        }
+    stock = record(bundle.plan.get("stock"))
+    if raw_supply(bundle, setup):
+        extents = blank_extents(stock, frame)
+        return {
+            "x": extents["x"],
+            "y": extents["y"],
+            "stock_entry_basis": "authored blank placed by its axis/section_axis",
+            "cite": ["plan.stock: length/section/dia placed by axis/section_axis"],
+        }
+    result = {
+        "x": UNKNOWN,
+        "y": UNKNOWN,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "cite": [f"kernel.setups.{sid}.stock_bbox_mm: setup-entry stock in the setup frame"],
+    }
+    if facts.get("status") != "ok":
+        result["kernel_status"] = facts.get("status", UNKNOWN)
+        if facts.get("kernel_unavailable") is True:
+            result["kernel_unavailable"] = True
+        result["stock_entry_reason"] = facts.get(
+            "reason", "FreeCAD geometry facts are unavailable."
+        )
+        return result
+    result["stock_entry_reason"] = (
+        detail.get("assembly_error")
+        or detail.get("stock_reason")
+        or detail.get("reason")
+        or "the kernel derived no setup-entry stock"
+    )
+    return result
+
+
 def stock_extents(bundle, setup):
     """Use an already-returned STEP bbox, else the authored blank, in setup axes.
 
@@ -174,7 +302,7 @@ def stock_extents(bundle, setup):
     else:
         dimensions = [UNKNOWN] * 3
     extent_cite = [
-        f"plan.stock.section_mm/length_mm/dia_mm; {basis} setup basis",
+        f"plan.stock.section_mm/length_mm/dia_mm/axis/section_axis; {basis} setup basis",
         *_citations(stock.get("cite")),
     ]
     if not all(number(value) for value in dimensions) and bundle.features.get("units") == "mm":
@@ -203,16 +331,7 @@ def stock_extents(bundle, setup):
                     for citation in _citations(feature.get("cite"))
                 ],
             ]
-    extents = {}
-    for axis in AXES:
-        basis = frame.get(axis)
-        extents[axis] = (
-            sum(abs(basis[i]) * dimensions[i] for i in range(3))
-            if isinstance(basis, list)
-            and len(basis) == 3
-            and all(number(v) for v in [*basis, *dimensions])
-            else UNKNOWN
-        )
+    extents = blank_extents(stock, frame)
     extents = _supported_extents(extents, setup)
     if (
         kernel.get("geometry_pending") is True

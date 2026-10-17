@@ -1989,6 +1989,7 @@
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
         "inventory.machines.test-mill.envelope.spindle_to_table_max",
+        "kernel.setups.S1.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.test-mill.envelope.travel.x",
         "inventory.machines.test-mill.envelope.travel.y"
       ],
@@ -2083,8 +2084,17 @@
           }
         ],
         "stock_bottom_z": "unknown",
-        "stock_extent_x_mm": 9.0565,
-        "stock_extent_y_mm": 292.509136,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          -146.254568,
+          0.0,
+          -4.52825,
+          146.254568,
+          29.29464,
+          4.52825
+        ],
+        "stock_extent_x_mm": 292.509136,
+        "stock_extent_y_mm": 29.29464,
         "stock_height_mm": "unknown",
         "stock_top_above_jaws_mm": "not_applicable",
         "stock_top_z": "unknown",
@@ -2093,13 +2103,13 @@
         "tool_oal_mm": "unknown",
         "travel_checks": {
           "x": {
-            "part_mm": 9.0565,
-            "required_mm": 9.0565,
+            "part_mm": 292.509136,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
-            "part_mm": 292.509136,
-            "required_mm": 292.509136,
+            "part_mm": 29.29464,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           }
         }
@@ -2229,12 +2239,12 @@
         "travel_checks": {
           "x": {
             "part_mm": 292.509136,
-            "required_mm": 292.509136,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "part_mm": 29.29464,
-            "required_mm": 29.29464,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           }
         }
@@ -3927,6 +3937,7 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
         "inventory.tools.em-preparation.dia",
+        "kernel.setups.S1.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "plan.setups.S1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -4037,6 +4048,7 @@
             "holder": "unknown",
             "holder_gauge_len_mm": "unknown",
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0.0,
             "tip_z_bounds_mm": "unknown",
             "tool": "em-preparation",
@@ -4103,6 +4115,7 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
         "inventory.tools.em-preparation.dia",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "plan.setups.S2.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -4213,6 +4226,7 @@
             "holder": "unknown",
             "holder_gauge_len_mm": "unknown",
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0.0,
             "tip_z_bounds_mm": "unknown",
             "tool": "em-preparation",
@@ -4280,6 +4294,7 @@
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:42-45",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
+        "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collet-8mm.gauge_len",
@@ -4403,6 +4418,7 @@
             "holder": "r8-collet-8mm",
             "holder_gauge_len_mm": 60.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               8.0,
@@ -4688,7 +4704,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "1f0272da93135d580a994d7b301b0a78f80d50ace5e8500bdcbba6b992b5355c",
+  "hash": "c66d97779f19293b9ecf1680e4e431ff993921e34b907a7b74d86dff31905ad7",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

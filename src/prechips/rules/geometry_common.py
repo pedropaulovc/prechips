@@ -454,6 +454,32 @@ def lend_job(bundle, job):
         _LENT_JOB.reset(token)
 
 
+# Rows a caller already evaluated on this same, unchanged bundle, by rule name: a later
+# rule that reads another rule's rows takes them (:func:`rule_rows`) instead of
+# evaluating that rule again (``coordinates`` is seconds on a long contour).
+_LENT_ROWS = ContextVar("lent_rule_rows", default=None)
+
+
+@contextmanager
+def lend_rows(bundle, rows):
+    """Within the block, :func:`rule_rows` of ``bundle`` reads ``rows`` (``{rule: rows}``),
+    which the caller may fill as it evaluates."""
+    token = _LENT_ROWS.set((bundle, rows))
+    try:
+        yield
+    finally:
+        _LENT_ROWS.reset(token)
+
+
+def rule_rows(bundle, name, evaluate):
+    """Rule ``name``'s rows on ``bundle``: the lent ones (:func:`lend_rows`), else
+    ``evaluate(bundle)``."""
+    lent = _LENT_ROWS.get()
+    if lent is not None and lent[0] is bundle and name in lent[1]:
+        return lent[1][name]
+    return evaluate(bundle)
+
+
 def prepared_job(bundle):
     """``bundle``'s kernel job: a lent one (:func:`lend_job`), else freshly built."""
     from prechips.kernel import build_job
