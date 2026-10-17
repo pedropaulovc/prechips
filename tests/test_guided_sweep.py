@@ -262,7 +262,7 @@ def test_a_full_circle_cannot_be_swept_between_two_stops(tmp_path):
     row, printed = traveler_text(tmp_path, target=ARC, sweep_deg="360.0")
     assert row.status == "error", row.sentence
     assert "a guided sweep cannot cut a full circle" in errors(row)
-    assert "Lock X and Y" not in printed and "stop block" not in printed
+    assert "With X and Y locked" not in printed and "stop block" not in printed
 
 
 # A convex R10 upper semicircle about model (20, 10), 0° to 180°: its middle is +Y of the
@@ -316,13 +316,18 @@ def test_rows_half_a_turn_or_more_apart_are_an_error(tmp_path, step):
 
 def test_a_master_on_the_swing_arm_moves_with_its_play_at_the_touch_and_the_cut(tmp_path):
     # A setting bar seated on the pin is set from the pin's own axis: the play counts once.
-    # A master arc pinned on the arm moves with the beam at the touch-off too: twice.
+    # A master arc pinned on the arm moves with the beam at the touch-off too: twice. But
+    # it gives no radial line to centre the cutter on, so the arm and master arc print only
+    # a STOP, a finish too (a feeler touch would need no line: #288).
     row = guided_row(tmp_path, master="'master'")
-    assert row.status == "pass", row.sentence
+    assert row.status == "unknown", row.sentence
+    assert "a master arc on a swing arm gives no radial line" in debts(row)
     _, sweep = recipe(row)
-    assert sweep["master_kind"] == "master_arc"
+    assert sweep["master_kind"] == "master_arc" and sweep["transverse"] == "unknown"
     assert sweep["centre_error_mm"] == pytest.approx(2 * (0.02 + 0.02**2 / (2 * 796.98)))
     assert sweep["cut_radius_mm"] == pytest.approx([800.16, 800.29])
+    _, printed = traveler_text(tmp_path / "printed", master="'master'")
+    assert "no radial line to centre the cutter on" in printed and "Lock" not in printed
 
 
 def test_the_guide_fixture_must_carry_the_work(tmp_path):
@@ -368,7 +373,7 @@ def test_a_rail_across_the_half_turn_line_carries_its_rollers(tmp_path):
     assert "are half a turn apart" in debts(half)
     # Numeric ends are not proof the rollers bear on the rail: nothing runnable prints.
     assert "rollers not proven on the rail through the sweep) — do not run." in printed
-    assert "Lock X and Y" not in printed
+    assert "With X and Y locked" not in printed
 
 
 def test_a_guided_sweep_takes_a_setup_of_its_own(tmp_path):
@@ -497,7 +502,7 @@ def test_an_unknown_leave_withholds_the_finish(tmp_path):
     row, printed = traveler_text(tmp_path, allowance="'unknown'")
     assert row.status == "unknown", row.sentence
     assert "its rough sweep is not established) — do not run." in printed
-    assert "Lock X and Y" not in printed and "start the spindle" not in printed
+    assert "With X and Y locked" not in printed and "start the spindle" not in printed
 
 
 def test_a_huge_sweep_is_rejected_without_sampling_it(tmp_path):
@@ -546,7 +551,7 @@ def traveler_text(tmp_path, guide="pivot", drop="", box=SWING, **kwargs):
 def test_the_traveler_prints_the_touch_off_and_the_sweep_not_a_dro_table(tmp_path, guide):
     row, printed = traveler_text(tmp_path, guide)
     assert row.status == "pass", row.sentence
-    assert "Lock X and Y" in printed
+    assert "With X and Y locked" in printed
     assert "touch" in printed.lower()
     assert "sweep" in printed.lower()
     assert "25°" in printed
@@ -557,16 +562,23 @@ def test_the_traveler_prints_the_touch_off_and_the_sweep_not_a_dro_table(tmp_pat
     assert "cutter-centre X / Y" not in printed
     # The touch sets the radius anywhere on the master, which is then taken off the path;
     # stops at the arc's ends bound the sweep, and the spindle starts only then.
-    assert "X needs no setting" in printed
+    # The cutter is put on the radial line before the Y touch, so a back-off is radial:
+    # centred between a setting bar's sides, or the rail's rollers set from the locked X.
+    if guide == "pivot":
+        assert "Centre X on R800 setting bar" in printed
+        assert "set X to the middle of the two readings and lock X" in printed
+    else:
+        assert "lock X: it stays locked from here" in printed
+    assert "(X stays locked on the radial line). Lock Y there" in printed
     lift = "remove the setting bar" if guide == "pivot" else "lift R800 master arc off its pins"
     assert lift in printed and "nothing of it may stay in the sweep's path" in printed
     assert "Set the sweep's stops" in printed and "clamp a stop block" in printed
-    # The stops are set at the touch on the layout's scribed arc-end marks, the cutter's
-    # edge over each, then the overrun along the cutter's path: no setup X/Y to find.
+    # The stops are set at the touch on the layout's scribed radial strokes, each run
+    # through the cutter's axis, then the overrun along the cutter's path: no setup X/Y.
     assert "Set the sweep's stops at the touch, X and Y still locked" in printed
     # Numbers print in their own spans: stripped, a space can stand before the bracket.
-    assert "until mark A (op 5" in printed and "until mark B (op 5" in printed
-    assert printed.count("stands under the cutter's edge") == 2
+    assert "the stroke of mark A (op 5" in printed and "the stroke of mark B (op 5" in printed
+    assert printed.count("runs through the cutter's axis") == 2
     assert "reaches the arc's end at X" not in printed
     assert "measured with a steel rule along the cutter's path, outward" in printed
     assert "of cutter travel beyond the arc's ends on purpose" in printed
@@ -576,7 +588,7 @@ def test_the_traveler_prints_the_touch_off_and_the_sweep_not_a_dro_table(tmp_pat
         # The form error is carried in the rule's cut radius, not narrated to the operator.
         assert "rollers fixed in the T-slots at -15° and 15°" in printed
         assert "form error" not in printed
-        assert "set the rollers so each bears on the rail about X" in printed
+        assert "Set the rollers so each bears on the rail about X" in printed
 
 
 def test_the_sweep_names_its_stops_at_the_arc_ends_and_the_rollers_from_the_spindle(tmp_path):
@@ -620,6 +632,7 @@ def proven(guide="pivot"):
         "back_off_mm": 0.0,
         "start": "air",
         "marks": {"op": 5, "start": "A", "end": "B"},
+        "transverse": "bar_centred",
         "sweep_deg": 25.0,
         "path_mm": 120.0,
         "stop_overrun_mm": 10.0,
@@ -636,6 +649,7 @@ def proven(guide="pivot"):
             rail_deg=[-40.0, 40.0],
             rail_radius_mm=850.0,
             rail_coverage="proven",
+            transverse="rollers_set",
             roller_contacts_mm=[[-220.0, 50.0], [220.0, 50.0]],
         )
     return {"stage": "finish", "spindle_rotation": "cw", "dro_tip_z": -1.0, "guided": sweep}
@@ -671,6 +685,7 @@ SWEEP_FACTS = [
     "start",
     "band_mm",
     "marks",
+    "transverse",
 ]
 
 
@@ -688,12 +703,12 @@ def test_every_unknown_fact_the_recipe_prints_stops_it(guide, where, key):
     # Unknown is never a pass: each value the printed recipe reads, made unknown on an
     # otherwise proven sweep, leaves only a STOP, never a runnable touch, lock or sweep.
     arc = proven(guide)
-    assert "Lock X and Y" in printed_steps(arc)
+    assert "With X and Y locked" in printed_steps(arc)
     record = arc if where == "arc" else arc["guided"]
     record[key] = "unknown"
     printed = printed_steps(arc)
     assert printed.startswith("STOP: guided sweep not established ("), printed
-    assert "Lock X and Y" not in printed and "stop block" not in printed
+    assert "With X and Y locked" not in printed and "stop block" not in printed
 
 
 def test_a_rough_back_off_without_its_dro_reading_stops_the_recipe():
@@ -757,10 +772,31 @@ def test_the_layout_scribes_each_arc_end_from_the_stocks_own_faces(tmp_path):
     first = marks[0]
     assert printed.startswith("Layout: blue the work top")
     assert (
-        f"mark A {first['x']:.1f} mm from the {first['x_face']} along X and "
+        f"mark A at {first['x']:.1f} mm from the {first['x_face']} along X and "
         f"{first['y']:.1f} mm from the {first['y_face']} along Y"
     ) in printed
     assert "setup" not in printed.lower()
+    # Each stroke runs along its end's radial line, toward the arc centre.
+    centre = coordinates.arc_layout(bundle, bundle.plan["setups"][0], "target")["centre_setup_xy"]
+    for mark, end in zip(marks, ends, strict=True):
+        toward = math.degrees(math.atan2(centre[1] - end[1], centre[0] - end[0])) % 180.0
+        assert mark["angle"] == pytest.approx(round(toward, 1) % 180.0)
+
+
+def test_a_back_off_off_the_radial_line_is_carried_into_the_cut():
+    # A one-axis back-off is radial only on the radial line: 6 mm beside it, a 2 mm back-off
+    # from a Ø6 cutter's touch on a concave R10 (centre radius 7) misses its radial move by
+    # 0.79 mm one way and 1.21 mm the other. On the line it misses nothing.
+    from prechips.rules.guided_sweep import _off_line_backoff
+
+    assert _off_line_backoff(7.0, 2.0, 6.0) == pytest.approx(
+        max(
+            abs(9.0 - math.hypot(6.0, math.sqrt(13.0) + 2.0)),
+            abs(5.0 - math.hypot(6.0, math.sqrt(13.0) - 2.0)),
+        )
+    )
+    assert _off_line_backoff(7.0, 2.0, 0.0) == 0.0
+    assert _off_line_backoff(7.0, 2.0, None) is None
 
 
 def test_every_stage_measures_its_stops_on_the_touch_path(tmp_path):
@@ -814,7 +850,7 @@ def test_stops_with_no_measurable_marks_stop_the_recipe(tmp_path, case):
     html = _Traveler(bundle, [row], {}, None).contours(bundle.plan["setups"][0], tools)
     printed = " ".join(unescape(re.sub(r"<[^>]+>", " ", html)).split())
     assert row.status == "unknown", row.sentence
-    assert "arc-end marks unknown" in printed and "Lock X and Y" not in printed
+    assert "arc-end marks unknown" in printed and "With X and Y locked" not in printed
 
 
 def test_the_stops_are_set_at_the_touch_before_the_rough_back_off(tmp_path):
@@ -847,7 +883,7 @@ def test_a_sweep_whose_guide_is_unproven_prints_only_a_stop(tmp_path, missing):
     assert row.status == "unknown"
     assert "STOP: guided sweep not established (" in printed
     assert "rollers or rail ends unknown) — do not run." in printed
-    assert "Lock X and Y" not in printed and "stop block" not in printed
+    assert "With X and Y locked" not in printed and "stop block" not in printed
 
 
 def test_a_rail_sweep_with_an_unknown_rail_radius_prints_only_a_stop(tmp_path):
@@ -857,7 +893,7 @@ def test_a_rail_sweep_with_an_unknown_rail_radius_prints_only_a_stop(tmp_path):
     assert row.status == "unknown", row.sentence
     assert "STOP: guided sweep not established (" in printed
     assert "rail radius or roller positions unknown) — do not run." in printed
-    assert "Lock X and Y" not in printed and "stop block" not in printed
+    assert "With X and Y locked" not in printed and "stop block" not in printed
 
 
 def test_a_sweep_whose_cut_leaves_the_band_prints_only_a_stop(tmp_path):
@@ -871,7 +907,7 @@ def test_a_sweep_whose_cut_leaves_the_band_prints_only_a_stop(tmp_path):
     assert row.status == "error", row.sentence
     assert "outside the R800 to R800.5 mm band" in errors(row)
     assert "STOP: contour points not computed — do not run." in printed
-    assert "Lock X and Y" not in printed and "stop block" not in printed
+    assert "With X and Y locked" not in printed and "stop block" not in printed
 
 
 @pytest.mark.parametrize(
@@ -886,7 +922,7 @@ def test_a_sweep_start_not_proven_clear_of_the_stock_prints_only_a_stop(tmp_path
     assert row.status == "unknown", row.sentence
     assert "the sweep's start is not proven clear of the stock" in debts(row)
     assert "sweep start not proven clear of the stock) — do not run." in printed
-    assert "Lock X and Y" not in printed
+    assert "With X and Y locked" not in printed
 
 
 def exact_cut_spread(rollers, error, rail, roller, reach):
@@ -940,7 +976,7 @@ def test_an_unknown_band_proves_no_cut(tmp_path):
     row, printed = traveler_text(tmp_path, target=target)
     assert row.status == "unknown", row.sentence
     assert "STOP: guided sweep not established (cut radius unproven" in printed
-    assert "Lock X and Y" not in printed
+    assert "With X and Y locked" not in printed
 
 
 def test_a_pivot_play_too_large_to_bound_is_debt(tmp_path):
@@ -1007,7 +1043,7 @@ def test_a_finish_after_a_stopped_rough_stops_too(tmp_path):
     row, printed = traveler_text(tmp_path, allowance=0.3, box=box)
     assert "STOP: guided sweep not established (sweep start not proven clear" in printed
     assert "its rough sweep is not established) — do not run." in printed
-    assert "return it to the touch reading" not in printed and "Lock X and Y" not in printed
+    assert "return it to the touch reading" not in printed and "With X and Y locked" not in printed
 
 
 def test_the_start_is_proven_where_the_printed_stop_puts_it(tmp_path):
@@ -1105,7 +1141,7 @@ def test_a_rough_stops_the_spindle_when_its_finish_is_withheld(tmp_path):
     assert recipe(row, "rough")[1]["start"] == "air"
     assert recipe(row, "finish")[1]["start"] == "unproven"
     rough_steps = printed.split("STOP: guided sweep not established")[0]
-    assert "Lock X and Y" in rough_steps
+    assert "With X and Y locked" in rough_steps
     assert rough_steps.rstrip().endswith("then stop the spindle and wait for it to stop.")
 
 

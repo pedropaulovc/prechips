@@ -464,7 +464,16 @@ naming them. Each table is recorded under `arc_table` (its joins under
   bar or master arc, or a setting bar on a rail is an error, and so is a setup that
   runs any other spindle op beside a guided sweep: the fixture turns the work off
   the setup frame and nothing holds it at that pose for the other op, before the
-  sweep or after it (manual ops aside). An unknown guide,
+  sweep or after it (manual ops aside). The cutter is put on the arc's radial line
+  before the touch so a rough's one-axis back-off is radial (`transverse`):
+  `bar_centred` (a setting bar centred between its two sides) or `rollers_set` (a
+  rail's rollers set from the locked spindle); a rough's cut is widened by how far a
+  back-off then misses its radial move with the cutter axis up to one DRO step (bar)
+  or the rollers' 0.1 mm print step (rail) beside the line
+  (`transverse_residual_mm`). A master arc on a swing arm gives no radial line: it is
+  unknown and prints only a STOP, a finish too
+  ([#288](https://github.com/pedropaulovc/prechips/issues/288) would lift it with a
+  feeler touch). An unknown guide,
   fixture, master, axis, sweep, rollers or rail ends, a fixture or master flagged
   to verify as a whole (as the shop list states it, its source provenance and a
   selected set member's own flags
@@ -1043,8 +1052,11 @@ leaves it unknown. The `coordinates` arc tables still read the drawing band only
   gauge whose `range_mm` covers R (a range miss or another kind is an error; an
   unknown range or `verify = true` is unknown). `ends` lays out only the arc's two
   ends, for a guided sweep's stops (its centre is too far off the part to scribe
-  about): `marks` A and B, each measured from the nearer end face along X and the
-  nearer side face along Y of the stock box the setup receives, at 0.1 mm (0.005 in).
+  about): `marks` A and B, each a point measured from the nearer end face along X and
+  the nearer side face along Y of the stock box the setup receives, at 0.1 mm (0.005
+  in), and a short stroke through it toward the arc's centre at `angle` degrees
+  (0.1°) to that side face; the sweep sets each stop with its stroke run through the
+  cutter's axis along the touch axis.
   It needs a rectangular bar (`flat_bar`, `square_bar`, `plate`) that the setup
   receives as the plan's raw stock, its faces (`axis`, `section_axis`) square to the
   setup's X, Y and Z, a modelled stock box and both ends on the stock; else unknown,

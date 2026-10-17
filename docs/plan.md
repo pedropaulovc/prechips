@@ -1481,7 +1481,7 @@ A `guided_sweep` contour's `sweep` record ([manual arcs](#manual-arcs), step 4).
 |---|---|
 | `guide` | `"pivot"` (a swing arm on a pin at the arc centre) or `"rail"` (a sled's arc rail on two rollers) |
 | `fixture` | `str`: the inventory `fixtures` item that carries the work and rides the guide (`kind = "swing_arm"` for a pivot, `"arc_sled"` for a rail); it must be the setup's `hold.fixture` |
-| `master` | `str`: the inventory `gauges` item the stationary cutter is touched to (`kind = "setting_bar"`, pivot only, or `"master_arc"`) |
+| `master` | `str`: the inventory `gauges` item the stationary cutter is touched to (`kind = "setting_bar"`, pivot only, or `"master_arc"`, rail only in practice: a master arc on a swing arm gives no radial line to centre the cutter on, so it prints only a STOP, [#288](https://github.com/pedropaulovc/prechips/issues/288)) |
 | `touch_axis` | `"+X"`, `"-X"`, `"+Y"` or `"-Y"`: the setup axis on the cutter's radial line, and the side of the arc centre the cutter stands on; the setup frame is the work at the sweep's middle pose, so it must point from the arc centre to the arc's middle |
 | `sweep_deg` | `float`: the fixture's whole sweep, centred on the arc; at least the arc's span and under 360 (a full circle cannot be swept: use a rotary table) |
 | `rollers_deg` | `Vector` (rail: the two rollers' angles about the arc centre from the cutter's radial line, counterclockwise from above, with the cutter at the arc's middle) |
@@ -1683,24 +1683,30 @@ uses the 1898 manual arc method:
    every level, in air only), is unknown,
    with a `measure:` instruction for each physical fact. The traveler prints no
    DRO table for it (its contour heading and the op row's pointer name a guided
-   sweep): it prints the guide's set-up (the setting bar seated on the pin, or the
-   rollers' angles and where each bears on the rail as an X/Y offset from the spindle
-   axis), the touch-off (spindle stopped, feeding one axis; the other axis needs no
-   setting, since every point of the master's touch face is at its radius from the
-   centre), the X/Y lock and a blank for the DRO reading at the touch (the setup's
-   zero is never reset), the master taken off the sweep's path, a rough stage's
+   sweep): it prints the guide's set-up, which puts the cutter on the arc's radial line
+   so a rough's one-axis back-off is radial (the setting bar seated on the pin, the
+   other axis centred between the bar's two sides and locked; or, on a rail, the other
+   axis locked first and the rollers set from the spindle at their X/Y offsets, which
+   puts the rail's centre on the spindle's line; a master arc on a swing arm gives no
+   radial line, so it prints only a STOP, a finish too, until a feeler touch lifts it,
+   [#288](https://github.com/pedropaulovc/prechips/issues/288)), the touch-off (spindle
+   stopped, feeding the touch axis only), its lock and a blank for the DRO reading at
+   the touch (the setup's zero is never reset), the master taken off the sweep's path, a rough stage's
    one-axis back-off with the direction the cutter must move (a finish after it
    raises Z, returns to the touch and continues the same numbered steps; when the op
    leaves stock for a rough sweep that does not print runnable, the finish stops
    too), a stop block at each end of the sweep, set at the touch before any back-off
    (X and Y still locked, spindle stopped, Z just clear): the fixture is moved until
-   the arc-end mark an earlier `scribe` op with `layout = "ends"` laid out in the same
-   setup stands under the cutter's edge, then on by the overrun measured along the
-   cutter's path (printed to 0.1 mm rounded down; the start is proven in air at that
-   printed stop). That layout scribes marks A and B on the work top, each measured
-   from the nearer end face and side face of a rectangular bar the setup receives as
-   the plan's raw stock; no such op, or stock without those faces, is unknown and the
-   sweep prints only a STOP. Then a dry pass from stop to stop, then the sweep: spindle started, its
+   the radial stroke of the arc-end mark an earlier `scribe` op with `layout = "ends"`
+   laid out in the same setup lies along the touch axis and, extended, runs through
+   the cutter's axis (whatever radius the master set), then on by the overrun measured
+   along the cutter's path (printed to 0.1 mm rounded down, measured on the touch path;
+   the start is proven in air at that printed stop). That layout scribes marks A and
+   B on the work top, each a point measured from the nearer end face and side face of
+   a rectangular bar the setup receives as the plan's raw stock, square to the setup
+   axes, and a short stroke through it toward the arc's centre at a printed angle to
+   that side face; no such op, or stock without those faces, is unknown and the sweep
+   prints only a STOP. Then a dry pass from stop to stop, then the sweep: spindle started, its
    direction viewed from above, its angle and cutter travel, and the time it takes
    at the op's starting feed; each sweep ends with Z raised clear of the work and the
    fixture, the op's last also stopping the spindle before anyone reaches in. An op

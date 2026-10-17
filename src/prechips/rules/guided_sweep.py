@@ -568,8 +568,9 @@ def _marks(bundle, setup, op, record_, label, debts, scale):
             f"marks {feature}'s ends to set the stops on"
         )
         return
-    ends = (arc_layout(bundle, setup, feature) or {}).get("ends_setup_xy")
-    marks, reason = arc_end_marks(bundle, setup, ends, scale)
+    line = arc_layout(bundle, setup, feature) or {}
+    ends = line.get("ends_setup_xy")
+    marks, reason = arc_end_marks(bundle, setup, ends, scale, line.get("centre_setup_xy"))
     start = record_.get("ends_setup_xy")
     if marks is None or not (isinstance(start, list) and start and _pair(start[0])):
         debts.append(
@@ -578,6 +579,49 @@ def _marks(bundle, setup, op, record_, label, debts, scale):
         return
     first = 0 if math.dist(ends[0], start[0]) <= math.dist(ends[1], start[0]) else 1
     record_["marks"] = {"op": scribe.get("op"), "start": "AB"[first], "end": "AB"[1 - first]}
+
+
+# The rollers' offsets from the spindle print to 0.1 mm: how far the rail's centre may
+# stand off the spindle's radial line once they are set from it.
+ROLLER_PRINT_MM = 0.1
+
+
+def _transverse(record_, guide, label, debts):
+    """How the cutter is put on the arc's radial line before the touch, so a rough's one-
+    axis back-off is radial (``transverse``): ``"bar_centred"``, a setting bar on the pivot
+    pin centred between its two sides; ``"rollers_set"``, the rail's rollers set from the
+    locked spindle, which puts the rail's centre on its line. A master arc on a swing arm
+    gives no radial line to centre on: debt, and the traveler prints only a STOP, a finish
+    too (a feeler touch would need no line, #288)."""
+    kind = record_.get("master_kind")
+    record_["transverse"] = UNKNOWN
+    if guide == "rail":
+        record_["transverse"] = "rollers_set"
+    elif guide == "pivot" and kind == "setting_bar":
+        record_["transverse"] = "bar_centred"
+    elif guide == "pivot" and kind == "master_arc":
+        debts.append(
+            f"{label}: a master arc on a swing arm gives no radial line to centre the cutter "
+            "on before the touch: touch off a setting bar on the pivot pin, or guide the work "
+            "on a rail"
+        )
+
+
+def _off_line_backoff(touch, back, off):
+    """How far a one-axis back-off of ``back`` mm along the touch axis misses the radial
+    move it stands for when the cutter axis stands up to ``off`` mm beside the radial line
+    (``touch``: the touch's cutter-centre radius, mm), worst case either way; None when
+    unknown, infinite when the offset reaches the radius."""
+    if not (number(touch) and number(back) and number(off)):
+        return None
+    if off <= 0:
+        return 0.0
+    if off >= touch:
+        return math.inf
+    along = math.sqrt(touch * touch - off * off)
+    return max(
+        abs((touch + sign * back) - math.hypot(off, along + sign * back)) for sign in (1, -1)
+    )
 
 
 def _own_setup(setup, label, errors):
@@ -718,10 +762,27 @@ def guided(bundle, setup, op, arc, band, label, scale):
             record_["back_off_dro"] = round(outward * side * back, decimals)
     else:
         debts.append(f"{label}: its allowance is unknown, so no back-off is proven")
-    proven = master is not None and number(widen) and number(back)
+    _transverse(record_, guide, label, debts)
+    # A rough's one-axis back-off is radial only on the radial line: the cutter is put on
+    # it to within a residual, which turns a back-off into a slightly shorter radial move.
+    residual = 0.0
+    if number(back) and back > 0:
+        off = {"bar_centred": grid[0] * scale, "rollers_set": ROLLER_PRINT_MM}
+        touch = arc["cutter_centre_radius_mm"]
+        touch = touch * scale - outward * allowance if number(touch) else UNKNOWN
+        residual = _off_line_backoff(touch, back * scale, off.get(record_["transverse"]))
+        record_["transverse_residual_mm"] = residual
+    proven = (
+        master is not None
+        and number(widen)
+        and number(back)
+        and number(residual)
+        and math.isfinite(residual)
+    )
     if proven:
         shifted = outward * back * scale
-        record_["cut_radius_mm"] = [master[0] + shifted - widen, master[1] + shifted + widen]
+        widened = widen + residual
+        record_["cut_radius_mm"] = [master[0] + shifted - widened, master[1] + shifted + widened]
     elif not (errors or debts):
         # Unknown is never a pass: a cut left unproven always names itself, whatever
         # path left it so.

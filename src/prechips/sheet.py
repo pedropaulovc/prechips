@@ -8087,14 +8087,16 @@ class _Traveler:
             return f"Layout: the ends of {feature} are not placed — no marks to scribe."
         decimals = 1 if unit == "mm" else 3
         placed = [
-            f"mark {letter} {mark['x']:.{decimals}f} {unit} from the {mark['x_face']} along X "
-            f"and {mark['y']:.{decimals}f} {unit} from the {mark['y_face']} along Y"
+            f"mark {letter} at {mark['x']:.{decimals}f} {unit} from the {mark['x_face']} along "
+            f"X and {mark['y']:.{decimals}f} {unit} from the {mark['y_face']} along Y, its "
+            f"stroke at {mark['angle']:.1f}° to that edge"
             for letter, mark in zip("AB", marks, strict=True)
         ]
         return (
-            f"Layout: blue the work top and, with a rule and square, scribe a short cross at "
-            f"each end of the {feature}: {placed[0]}; {placed[1]}. The guided sweep sets its "
-            "stops on these marks."
+            f"Layout: blue the work top. At each end of the {feature}, prick a point with a "
+            "rule and square and, with a protractor on the edge named, scribe through it a "
+            f"short stroke toward the arc's centre: {placed[0]}; {placed[1]}. The guided "
+            "sweep sets its stops on these strokes."
         )
 
     def manual_arc_steps(self, op, numbers, proven):

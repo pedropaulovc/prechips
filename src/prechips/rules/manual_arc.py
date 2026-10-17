@@ -83,15 +83,18 @@ def mark_step(scale):
     return {1.0: 0.1, 25.4: 0.005}.get(scale)
 
 
-def arc_end_marks(bundle, setup, ends, scale):
+def arc_end_marks(bundle, setup, ends, scale, centre):
     """``(marks, reason)``: each arc end (``ends``, setup XY in plan units, as
     :func:`~prechips.rules.coordinates.arc_layout` gives them) as a mark the operator
-    scribes on the work top, measured from the nearer end face along X and the nearer side
-    face along Y of the stock the setup receives, at :func:`mark_step`. ``marks`` is a list
-    of ``{"x": dist, "x_face": "-X end" | "+X end", "y": dist, "y_face": "-Y edge" |
-    "+Y edge"}``, or None with the reason no face proves a measurable datum: stock that is
-    not a rectangular bar, a setup that receives worked stock (its faces need not be the
-    bar's own), no modelled stock box, unknown ends or units, or an end off the stock."""
+    scribes on the work top: a point measured from the nearer end face along X and the
+    nearer side face along Y of the stock the setup receives, at :func:`mark_step`, and a
+    short stroke through it along the end's radial line, toward the arc ``centre``, at
+    ``angle`` degrees (0.1°, 0 to 180) to the side faces (which run along X). ``marks``
+    is a list of ``{"x": dist, "x_face": "-X end" | "+X end", "y": dist, "y_face": "-Y
+    edge" | "+Y edge", "angle": deg}``, or None with the reason no face proves a
+    measurable datum: stock that is not a rectangular bar, a setup that receives worked
+    stock (its faces need not be the bar's own), no modelled stock box, unknown ends,
+    centre or units, or an end off the stock."""
     from prechips.rules.level_entry import stock_box
 
     stock = record(bundle.plan.get("stock"))
@@ -124,10 +127,13 @@ def arc_end_marks(bundle, setup, ends, scale):
         and all(isinstance(e, list) and len(e) >= 2 and all(map(number, e[:2])) for e in ends)
     ):
         return None, "the arc's ends are unknown"
+    if not (isinstance(centre, list) and len(centre) >= 2 and all(map(number, centre[:2]))):
+        return None, "the arc's centre is unknown, so no radial stroke marks its ends"
     decimals = 1 if step >= 0.1 else 3
     marks = []
     for end in ends:
-        mark = {}
+        toward = math.degrees(math.atan2(centre[1] - end[1], centre[0] - end[0])) % 180.0
+        mark = {"angle": round(toward, 1) % 180.0}
         for axis, (index, word) in {"x": (0, "end"), "y": (1, "edge")}.items():
             low = end[index] - box[index] / scale
             high = box[index + 3] / scale - end[index]
@@ -465,8 +471,13 @@ def evaluate(bundle):
                 elif how == "ends":
                     # Only the arc's two ends, each measured from the stock's own faces: for a
                     # guided sweep, whose centre is too far off the part to scribe about.
+                    line = layout or {}
                     marks, reason = arc_end_marks(
-                        bundle, setup, (layout or {}).get("ends_setup_xy"), scale
+                        bundle,
+                        setup,
+                        line.get("ends_setup_xy"),
+                        scale,
+                        line.get("centre_setup_xy"),
                     )
                     numbers["marks"] = marks if marks is not None else UNKNOWN
                     if reason:

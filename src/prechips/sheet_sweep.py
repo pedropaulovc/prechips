@@ -79,6 +79,9 @@ def _unresolved(arc, sweep, levels=None):
         # Each stop block is set where the cutter reaches an arc end: without them the
         # sweep has nothing to bound it.
         missing.append("sweep stops unknown")
+    if sweep.get("transverse") not in ("bar_centred", "rollers_set"):
+        # Nothing else puts the cutter on the radial line (a master arc on a swing arm).
+        missing.append("no radial line to centre the cutter on: use a setting bar or a rail")
     marks = sweep.get("marks")
     if not (
         isinstance(marks, dict)
@@ -163,13 +166,18 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True,
             f"{fixture}: the work rides the swing arm, which turns on its pivot pin at the arc "
             f"centre (pivot play {_number(sweep.get('pivot_play_mm'))} mm)."
         )
-        if kind == "setting_bar":
-            result.append(
-                f"Seat {master} on the pivot pin, lying along {_text(axis)} from it toward the "
-                "spindle."
-            )
-        else:
-            result.append(f"Swing the arm until {master}, pinned on it, is under the cutter.")
+        # A setting bar lies along the radial line: centred between its two sides, the
+        # cutter stands on that line, so a later back-off along the touch axis is radial.
+        result.append(
+            f"Seat {master} on the pivot pin, lying along {_text(axis)} from it toward the spindle."
+        )
+        result.append(
+            f"Centre {other} on {master}, spindle stopped, the cutter's flutes level with the "
+            f"bar: touch its -{other} side feeding +{other} only and write the {other} "
+            f"reading, then its +{other} side feeding -{other} only and write that; set "
+            f"{other} to the middle of the two readings and lock {other}. The cutter now "
+            "stands on the bar's centre line, the arc's radial line."
+        )
     else:
         rollers = sweep.get("rollers_deg")
         where = f"at {_number(rollers[0])}° and {_number(rollers[1])}°"
@@ -182,16 +190,19 @@ def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True,
             f"X {_number(_round(x, 1))} Y {_number(_round(y, 1))}"
             for x, y in sweep["roller_contacts_mm"]
         )
+        # Set from the locked spindle, the rollers put the rail's centre on the spindle's
+        # radial line, so a later back-off along the touch axis is radial.
         result.append(
-            "With the spindle over the master's edge where it will touch, set the rollers "
-            f"so each bears on the rail about {places} mm from the spindle axis."
+            f"With the spindle over the master's edge where it will touch, lock {other}: it "
+            f"stays locked from here. Set the rollers so each bears on the rail about {places} "
+            f"mm from the spindle axis: that puts the rail's centre on the spindle's {letter} "
+            "line, the arc's radial line."
         )
         result.append(f"Push the sled until {master}, pinned on it, is under the cutter.")
     result.append(
         f"Spindle stopped: bring a flute of the cutter itself to touch {master}, feeding "
-        f"{_text(approach)} only. {other} needs no setting: every point of the master's touch "
-        f"face stands at its radius from the arc centre. Lock X and Y there and write the DRO "
-        f"{letter} reading at the touch here: ________"
+        f"{_text(approach)} only ({other} stays locked on the radial line). Lock {letter} "
+        f"there and write the DRO {letter} reading at the touch here: ________"
     )
     lift = "remove the setting bar" if kind == "setting_bar" else f"lift {master} off its pins"
     result.append(f"Raise Z only and {lift}: nothing of it may stay in the sweep's path.")
@@ -227,10 +238,13 @@ def _stops(sweep, o, holder, move, start, stop):
         f"clamp and of the {holder}."
     )
     keys = [f" ({key})" if key else "" for key in (start, stop)]
-    # The mark is the arc's end on the work: the cutter's edge over it puts the cutter's
-    # centre on the end's radial line, where the stop's measured overrun begins.
+    # Each mark's stroke lies on its arc end's radial line: run through the cutter's axis,
+    # it puts the cutter's centre on that line, whatever radius the master set, where the
+    # stop's measured overrun begins. The cutter's own radial line is the touch axis.
+    letter = sweep["touch_axis"][1]
     place = [
-        f"mark {marks[side]} (op {marks['op']}) stands under the cutter's edge"
+        f"the stroke of mark {marks[side]} (op {marks['op']}) lies along {letter} and, "
+        "extended, runs through the cutter's axis (lay a straightedge on it)"
         for side in ("start", "end")
     ]
     if overrun > 0:
