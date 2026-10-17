@@ -109,6 +109,7 @@ which replaces `feature` (§2.4).
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `fasteners` | `str`: the fastener group as the fixture names it (`"rail A T-slot studs"`) |
+| `element` | `str`: the guide element those fasteners hold (`"rail_a.pin"`), for the read-after-tightening rule (§2.3) |
 | `count` | `int` |
 | `value_nm` / `value_in_lbf` | `float`, one spelling |
 | `passes` | `list[float]`: fractions of `value`, ascending, ending at 1.0 (`[0.5, 1.0]`) |
@@ -151,9 +152,20 @@ authored number. An author can add an optional `expect` as a cross-check only
 |---|---|
 | `element` | `str`: the guide element read, by the guide's own name (`"rail_a.pin"`) |
 | `stations_mm` | `list[float]`: guide stations (s along the rail, for a trammel) |
+| `role` | `"set"` (printed targets for adjusting the element; no record keys) or `"verify"` (the readings the record must hold) |
 
-Each station becomes one reading, keyed `"<setup>:<op>/<element>@<station>"` (for
-example `C1:20/rail_a.pin@400`). The prediction is a DRO X/Y pair in the plan's
+**Read after tightening.** Tightening can move a rail, so a reading taken before
+the torque says nothing about where the guide ends up. A `TorqueStep` names the
+guide `element` its fasteners hold. For every torqued element, the validator
+requires a `verify` align op on that element after its last torque op, in the
+same setup. A `verify` op on a torqued element with no torque after it is the
+final reading. A `verify` op followed by another torque on the same element is
+an error, because its readings would describe a guide that has since moved. A
+`set` op generates no keys, so a pre-torque adjustment is printed and never
+recorded as evidence.
+
+Each `verify` station becomes one reading, keyed `"<setup>:<op>/<element>@<station>"` (for
+example `C1:40/rail_a.pin@400`). The prediction is a DRO X/Y pair in the plan's
 `dro` sign convention: the pin centred under the spindle, with the DRO zeroed on
 the spindle axis at the guide's crossing point. It is computed by the guide
 (§4.1).
@@ -355,11 +367,13 @@ features = "<sha256>"
 "gauges.calipers" = "<sha256>"
 "gauges.gauge-pins" = "<sha256>"
 
-[readings."C1:20/rail_a.pin@400"]
+[readings."C1:40/rail_a.pin@400"]
 value_mm = [-395.884, -57.203]
+gauge = "coax-indicator"            # must equal the align op's gauge
 measured = { status = "measured", by = "...", date = "2026-...", instrument = "coaxial indicator, gauges.coax" }
 
 [steps."C1:30"]                     # a torque step: done, not a value
+gauge = "torque-wrench"             # must equal the step's wrench
 measured = { status = "measured", by = "...", date = "...", instrument = "gauges.torque-wrench" }
 ```
 
@@ -380,6 +394,15 @@ Each entry reuses the existing `Measurement` record, so `_trust` in
 `measurements.py` applies unchanged. Only `status = "measured"` with complete
 `by`/`date`/`instrument` counts. `assumed`, `illustrative`, an omitted status,
 or `verify = true` is debt. `by` is attribution and never affects trust.
+
+`_trust` does not read `instrument` prose, so it cannot tell which gauge was
+used. Each entry therefore also carries a structured `gauge`: the inventory id
+of what took the reading (or of the wrench, for a `steps` entry). It must equal
+the gauge the plan names for that key: the `align` op's `gauge`, the `accept`
+op's `checks` entry, or the `TorqueStep`'s `wrench`. A missing or different
+`gauge` leaves the entry `?`, naming both ids ("taken with calipers, planned
+gauge-pins"). The capability checks of §2.3 therefore always describe the
+gauge that actually took the reading. `instrument` stays attribution.
 
 This is decision D1.
 
@@ -432,7 +455,7 @@ whole phase:
 - any commissioning finding `✗` → the part setup's finding is `✗`, and its sheet
   prints a STOP: "commissioning C failed: <keys>";
 - else any `?` → the part setup's finding is `?`, with every outstanding key
-  listed: "commissioning C not recorded: C1:20/rail_a.pin@50 … C4:10/width";
+  listed: "commissioning C not recorded: C1:40/rail_a.pin@50 … C4:10/width";
 - else pass.
 
 The part setup's other findings are **unchanged**. They still judge planned
@@ -456,7 +479,7 @@ kind. They are not authored:
 
 | In-situ element | Claims | Quantities that can establish each claim |
 |---|---|---|
-| hole (a `void` cylinder) | `size`, and `position` (`position.radial` when located from the guide, below) | `size`: `size`. `position`: `dro_xy` only. `position.radial`: `distance` to a swept edge |
+| hole (a `void` cylinder) | `size`, and `position` (`position.radial` when located from the guide, below) | `size`: `size`. `position`: `dro_xy` only. `position.radial`: a **signed** radial `distance` to a swept edge (positive away from the arc centre) |
 | swept edge (`<solid>.<edge>`) | `radius`, and `location` unless it is the root edge | `radius`: `sagitta`. `location`: `width` or `distance` |
 
 **Root edge.** The first edge the guide cuts in route order is the **root**. It
@@ -502,8 +525,9 @@ or an element whose relational claim is covered, so that the chain reaches the
 root without a cycle. For the trammel:
 
 - `width` puts the outer edge relative to the root (inner) edge;
-- `hub_pin_to_edge` puts HUB's radial position relative to the outer edge,
-  which is what the in-situ HUB exists to match;
+- `hub_pin_to_edge` puts HUB's radial position relative to the outer edge, as
+  a signed offset (inside or outside the edge), which is what the in-situ HUB
+  exists to match;
 - `dowel_position` puts the dowel hole relative to HUB, in both axes (`dro_xy`).
 
 **Coverage.** The validator requires that every claim of every in-situ element a
@@ -713,9 +737,9 @@ in by hand:
 
 | Key | s (mm) | Predicted X | Predicted Y | ± | Read X | Read Y | ✓ |
 |---|---|---|---|---|---|---|---|
-| C1:20/rail_a.pin@50 | 50 | −49.49 | −7.15 | 0.03 | ______ | ______ | ☐ |
+| C1:40/rail_a.pin@50 | 50 | −49.49 | −7.15 | 0.03 | ______ | ______ | ☐ |
 | … | | | | | | | |
-| C1:20/rail_a.pin@400 | 400 | −395.89 | −57.19 | 0.03 | ______ | ______ | ☐ |
+| C1:40/rail_a.pin@400 | 400 | −395.89 | −57.19 | 0.03 | ______ | ______ | ☐ |
 
 The predicted values shown come from the §9 example geometry. They print to the DRO
 resolution. A `?` prediction prints `?` with
@@ -919,6 +943,13 @@ Also:
   commissioning contribution.
 - Riser cutter: matching, mismatched, and unknown part cutter.
 - `batch_qty = 0` or negative → schema error.
+- Read after tightening: a torqued element with no later `verify` align → error;
+  a `verify` followed by another torque on the same element → error; `set`
+  readings generate no record keys.
+- Gauge binding: a record entry with no `gauge`, or a different gauge from the
+  plan's → `?` naming both.
+- Signed radial: a HUB at the mirror radius `2·R_edge − ρ_hub` reads with the
+  wrong sign → `✗`.
 - Staleness: changing only a commissioning setup's `plan.frames` entry stales
   the record. A changed torque value or wrench stales the torque completion as
   well as the readings.
@@ -1023,20 +1054,28 @@ method = "spindle"
 
 [[commissioning.setups.ops]]
 op = 20
-do = "align"
-readings = { element = "rail_a.pin", stations_mm = [50, 100, 150, 200, 250, 300, 350, 400] }
+do = "align"                       # set: tap the rail to the printed targets; nothing recorded
+readings = { element = "rail_a.pin", stations_mm = [50, 100, 150, 200, 250, 300, 350, 400], role = "set" }
+gauge = "coax-indicator"
+tolerance_mm = 0.03
+tolerance_cite = "#270: rail pin within 0.03 of its predicted target"
+
+[[commissioning.setups.ops]]
+op = 30
+do = "torque"
+torque = { fasteners = "rail A T-slot studs", element = "rail_a.pin", count = 4, value_nm = 40.0, passes = [0.5, 1.0], sequence = "centre outward", wrench = "torque-wrench", cite = "example value (realistic, not a shop measurement)" }
+# gauges.torque-wrench: range_nm = [10.0, 60.0], example value (realistic, not a shop measurement); 20 and 40 N·m lie inside it
+
+[[commissioning.setups.ops]]
+op = 40
+do = "align"                       # verify after torque: these readings go in the record
+readings = { element = "rail_a.pin", stations_mm = [50, 100, 150, 200, 250, 300, 350, 400], role = "verify" }
 gauge = "coax-indicator"
 tolerance_mm = 0.03
 tolerance_cite = "#270: rail pin within 0.03 of its predicted target"
 # predicted @400: (-395.890, -57.191) per #270; the rules compute it from the guide
 
-[[commissioning.setups.ops]]
-op = 30
-do = "torque"
-torque = { fasteners = "rail A T-slot studs", count = 4, value_nm = 40.0, passes = [0.5, 1.0], sequence = "centre outward", wrench = "torque-wrench", cite = "example value (realistic, not a shop measurement)" }
-# gauges.torque-wrench: range_nm = [10.0, 60.0], example value (realistic, not a shop measurement); 20 and 40 N·m lie inside it
-
-# ops 40/50: rail B, likewise
+# ops 50/60/70: rail B, likewise (set, torque, verify)
 
 [[commissioning.setups]]           # C2: in-situ locator holes
 id = "C2"
@@ -1120,8 +1159,13 @@ The rules compute the predictions. They are not authored:
   paths with an Ø14 cutter). #270 quotes 14.12 ± 0.1 for an earlier variant. The
   engine's value replaces it.
 - **Width:** `R_outer − R_inner` of the riser edges.
-- **Hub-pin-to-edge:** `|R_edge − ρ_hub|`, where `ρ_hub` is the hub centre's
-  distance from the arc centre, taken from `features.toml`.
+- **Hub-pin-to-edge:** the **signed** radial offset `ρ_hub − R_edge`, where
+  `ρ_hub` is the hub centre's distance from the arc centre, taken from
+  `features.toml`. It is positive when HUB lies outside the edge (away from the
+  arc centre) and negative when it lies inside. The sheet prints which side is
+  positive, and the shop records the value with its sign. A HUB on the wrong side
+  of the edge therefore reads with the wrong sign and fails the band, instead of
+  matching the mirror position `2·R_edge − ρ_hub`.
 - **Dowel position:** the dowel route's `locate` offset as an X/Y pair
   (`[-292.0, 0.0]` in the sketch), read as the DRO X/Y move from the HUB pin to
   the dowel hole, each centred with the coaxial indicator.
@@ -1140,8 +1184,8 @@ from HUB to the dowel in both axes.
 
 `prechips check` reports:
 
-- `commissioning C1:20/rail_a.pin@400: ? predicted (-395.89, -57.19) ± 0.03 —
-  measure: C1:20/rail_a.pin@400`, and likewise for each row;
+- `commissioning C1:40/rail_a.pin@400: ? predicted (-395.89, -57.19) ± 0.03 —
+  measure: C1:40/rail_a.pin@400`, and likewise for each row;
 - for each dependent part setup (the setups holding on `trammel-jig`):
   `? commissioning C not recorded (N readings)`;
 - exit 4.
@@ -1172,8 +1216,9 @@ features = "<sha256 printed by the checker>"
 "gauges.gauge-pins" = "<sha256 printed by the checker>"
 # every input the checker's table lists for this plan; none missing, so not stale
 
-[readings."C1:20/rail_a.pin@400"]
+[readings."C1:40/rail_a.pin@400"]
 value_mm = [-395.884, -57.203]     # example value: inside the 0.03 band
+gauge = "coax-indicator"
 measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" }
 # ... one entry per generated key ...
 ```
