@@ -10,6 +10,7 @@ import subprocess
 
 import pytest
 from test_kernel_geometry import _op, _vise
+from test_kernel_held_split import solids  # noqa: F401  (a pytest fixture)
 from test_kernel_stock import BOX, PackagedEngine
 
 _AUTHOR = r"""
@@ -218,3 +219,33 @@ def test_a_blind_ream_lead_does_not_hit_the_stock_left_below_it(engine, part):
     stage["hold"] = {"kind": "unknown", "reason": "holding is undeclared"}
     result = run(engine, part, spec, [stage, setup("T2", [])])
     assert result["ops"]["T1:10"]["min_hits"]["tool"] == 0
+
+
+def test_a_keep_that_discards_the_offcut_takes_its_tooling_hole_with_it(
+    tmp_path,
+    freecad_kernel,
+    kernel_cache,
+    solids,  # noqa: F811
+):
+    # #182's island: S5 cuts a ring that frees a frame round the part and its release
+    # keeps the part. A small tooling hole drilled through the frame's -Y rail leaves with
+    # the frame; without the keep the frame and its hole are carried on.
+    from test_kernel_keep_piece import _job
+
+    engine = PackagedEngine(tmp_path, freecad_kernel)
+    spec = {"kind": "tooling_hole", "label": LABEL, "at_mm": [20.0, -3.5, 21.0]}
+    spec.update(axis=[0.0, 0.0, -1.0], dia_mm=[1.0, 1.2], thru=True)
+    drill = cut_op("S5:50", "drill", 1.1, spec, through=21.0)
+    states = {}
+    for keep in ("S5:60", "absent"):
+        job = _job(engine, solids["island"], keep=keep)
+        job["setups"][0]["ops"].insert(0, drill)
+        job["process_features"] = {"cl": spec}
+        result = engine.run(job)
+        assert result["status"] == "ok", result
+        states[keep] = {
+            sid: facts.get("tooling_holes", {}).get("cl", {}).get("state")
+            for sid, facts in result["setups"].items()
+        }
+    assert states["S5:60"] == {"S5": "undrilled", "S6": "gone", "S7": "gone"}
+    assert states["absent"] == {"S5": "undrilled", "S6": "present", "S7": "present"}

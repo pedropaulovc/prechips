@@ -5013,7 +5013,7 @@ class _Setup:
         The probe is the hole's band in the setup frame over its span (its depth, or through
         the stock): ``undrilled`` while stock fills its core (half its smallest radius) in
         the first 1 mm below the mouth,
-        ``gone`` once no stock stands within 1 mm of its largest wall (a waste cut took it),
+        ``gone`` once no stock stands within 0.5 mm of its largest wall (a waste cut took it),
         ``present`` when its core is clear and that ring is whole stock, else ``partial``
         (cut into, or a span the stock does not fill). Placement it cannot model is
         ``unknown`` with ``reason``."""
@@ -5035,7 +5035,7 @@ class _Setup:
             raise _Unknown(f"{spec.get('label')} size is unknown")
         entry = self.matrix.multVec(at)
         direction = (self.matrix.multVec(at + axis) - entry).normalize()
-        outer = band[1] / 2 + 1.0
+        outer = band[1] / 2 + 0.5
         if spec.get("thru"):
             span = self.part.BoundBox.DiagonalLength + 10.0
             probe = Part.makeCylinder(outer, 2 * span, entry - direction * span, direction)
