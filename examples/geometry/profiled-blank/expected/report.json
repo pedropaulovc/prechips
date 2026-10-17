@@ -966,6 +966,17 @@
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
         "cut_tip_above_jaws_mm": {},
         "fixture_height_mm": "not_applicable",
+        "fixture_table_check": {
+          "fixture_length_mm": "unknown",
+          "fixture_width_mm": "unknown",
+          "footprint_basis": "fixture length/width unknown",
+          "footprint_x_mm": "unknown",
+          "footprint_y_mm": "unknown",
+          "measurements": [],
+          "missing": "inventory.machines.test-mill has no table length/width (or extension), allowed fixture overhang or table load limit facts; check: the fixture's its footprint seats on the table within the allowed overhang and the fixture plus work weight is within the table load",
+          "status": "unknown",
+          "table_mm": "unknown"
+        },
         "fixture_verify": "missing",
         "holder_gauge_len_mm": 60.0,
         "insertion_mm": 25,
@@ -1055,15 +1066,13 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
-            "fixture_mm": "unknown",
             "part_mm": 60.0,
-            "required_mm": "unknown",
+            "required_mm": 60.0,
             "travel_mm": "unknown"
           },
           "y": {
-            "fixture_mm": "unknown",
             "part_mm": 17.838015,
-            "required_mm": "unknown",
+            "required_mm": 17.838015,
             "travel_mm": "unknown"
           }
         }
@@ -2020,7 +2029,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "6e4b91149f5f2878589bda8853bbf048f5bb5a4b9575e7fcfcc95b88c2c3081a",
+  "hash": "f894debd3d28a2d2d4a5cc288729f83b8653a70fd6b8d42469816820ab8bf8c2",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
