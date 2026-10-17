@@ -153,7 +153,7 @@ the spindle axis at the guide's crossing point. It is computed by the guide
 |---|---|
 | `name` | `str`: key within the op (`"sagitta_outer"`) |
 | `quantity` | `"sagitta"` / `"width"` / `"distance"` / `"size"` / `"dro_xy"` / `"z"` |
-| `of` | `str` or `list[str]`: the commissioned features or fixture solids read (`"trammel-jig.riser.outer_edge"`); for a relative reading, the first entry is the reference |
+| `of` | the commissioned element read: one `str` for a single-subject quantity (`sagitta`, `size`, `z`); exactly two, `[reference, subject]`, for a relational quantity (`distance`, `width`, `dro_xy`). Any other count is an error |
 | `claims` | `list[str]`: the in-situ claims this reading establishes (`"trammel-jig.dowel_hole.position"`, §3.3); empty for a reading that trusts nothing (#11) |
 | `chord_mm` / `chord_in` | `float` (`sagitta` only) |
 | `band_mm` / `band_in` | `Vector` `[low, high]` relative to the prediction, or a symmetric `float` |
@@ -281,7 +281,12 @@ install = "PM-30MV table; rail A in T-slots 2/3, rail B in 3/4"
 [planned]                           # one digest per planned input, §3.4; written by the checker
 commissioning = "<sha256>"
 "fixtures.trammel-jig" = "<sha256>"
+dro = "<sha256>"
+features = "<sha256>"
 "tools.endmill-10" = "<sha256>"     # the part cutter that derives the riser cutter
+"tools.endmill-14" = "<sha256>"     # the riser cutter
+"tools.reamer-8h7" = "<sha256>"     # terminal reamers: predict the size readings
+"tools.reamer-6h7" = "<sha256>"
 
 [readings."C1:20/rail_a.pin@400"]
 value_mm = [-395.884, -57.203]
@@ -389,9 +394,10 @@ measures:
 
 - a single-subject quantity (`sagitta`, `size`, `z`) has one `of` entry, and may
   list only that element's claims;
-- a relational quantity (`distance`, `width`, `dro_xy`) lists its reference first
-  in `of`. It may list only claims owned by the other entries, never the
-  reference's;
+- a relational quantity (`distance`, `width`, `dro_xy`) has exactly two `of`
+  entries, `[reference, subject]`, because one value measures one relationship.
+  It may list only the subject's claims, never the reference's. A reading with
+  more entries is an error, so one scalar can never cover two holes;
 - each listed claim must also accept the reading's quantity, per the table above.
 
 So a `size` reading of `hub_hole` listing `dowel_hole.size` is an error, and so
@@ -450,9 +456,15 @@ The record's `[planned]` table holds **one SHA-256 per planned input**, like the
 approval record's `[inputs]`. The inputs are:
 
 - the `commissioning` block;
-- the commissioned fixture's inventory item;
-- every other inventory item a prediction consumes;
-- every part cutter that derives a riser cutter.
+- the plan's `dro` block (station targets are in its sign convention);
+- the features file, when a prediction reads it (HUB's offset and the
+  hub-pin-to-edge distance read the hub centre);
+- every inventory item a prediction or a derived check consumes: the
+  commissioned fixture, each terminal tool whose size predicts a `size`
+  reading, the riser cutter and the part cutter it is derived from.
+
+The checker's printed table lists exactly these, so a record copied from it is
+complete.
 
 The checker computes the same table for the current plan and compares the two:
 
@@ -755,7 +767,8 @@ tests use `SYNTHETIC_KERNEL`. All files are temporary.
   not measure (a `size` of `hub_hole` listing `dowel_hole.size`), or of its own
   reference → error. A hole position resting on one `distance` → uncovered; two
   distances from references at least 30° apart, or one `dro_xy` → covered; a
-  guide-located hole needs only `position.radial`.
+  guide-located hole needs only `position.radial`. A relational reading with
+  other than two `of` entries → error.
 - A consumed claim no reading lists (drop `dowel_fit`) → error naming the
   claim. A reference cycle, or a relational claim whose chain never reaches the
   root edge → error.
@@ -780,7 +793,8 @@ Also:
 
 - Staleness, per input: one changed digest → all `?` naming only that input; an
   input absent from the record → named as new; an input only in the record →
-  ignored.
+  ignored. The table the checker prints for the §9 sketch lists every input of
+  §3.4, and a record copied from it is not stale.
 - Claim trust: one failed reading leaves only the claims it lists untrusted.
   The roll-up names them.
 - Roll-up: dependent setups get `?`/`✗`. A setup on a different fixture is
@@ -905,28 +919,34 @@ stock_in = "fixture.trammel-jig"
 [[commissioning.setups.ops]]
 op = 10
 do = "spot"
+tool = "spot-drill-90"            # example inventory id
 fixture_feature = "trammel-jig.hub_hole"
 locate = { from = "guide", pose = "apex", offset_mm = [0.0, "computed"] }
 [[commissioning.setups.ops]]
 op = 20
 do = "drill"
+tool = "drill-7.8"                # example inventory id: 7.8 under the 8 H7 ream
 fixture_feature = "trammel-jig.hub_hole"
 [[commissioning.setups.ops]]
 op = 30
 do = "ream"
+tool = "reamer-8h7"               # terminal: its inventory size predicts hub_size
 fixture_feature = "trammel-jig.hub_hole"
 [[commissioning.setups.ops]]
 op = 40
 do = "spot"
+tool = "spot-drill-90"
 fixture_feature = "trammel-jig.dowel_hole"
 locate = { from = "trammel-jig.hub_hole", offset_mm = [-292.0, 0.0] }   # example value (realistic)
 [[commissioning.setups.ops]]
 op = 50
 do = "drill"
+tool = "drill-5.8"                # example inventory id: 5.8 under the 6 H7 ream
 fixture_feature = "trammel-jig.dowel_hole"
 [[commissioning.setups.ops]]
 op = 60
 do = "ream"                        # terminal op: sets the Ø6 size
+tool = "reamer-6h7"               # its inventory size predicts dowel_fit
 fixture_feature = "trammel-jig.dowel_hole"
 
 [[commissioning.setups]]           # C3: the jig cuts its own riser
@@ -971,7 +991,8 @@ The rules compute the predictions. They are not authored:
 - **Dowel position:** the dowel route's `locate` offset as an X/Y pair
   (`[-292.0, 0.0]` in the sketch), read as the DRO X/Y move from the HUB pin to
   the dowel hole, each centred with the coaxial indicator.
-- **Hub size and dowel fit:** the terminal reamer's size from the inventory. The
+- **Hub size and dowel fit:** the terminal reamer's size (`reamer-8h7`,
+  `reamer-6h7`) from the inventory. The
   band is the fit the pin or dowel needs. An unmeasured reamer size leaves the
   prediction `?`.
 
@@ -1002,7 +1023,13 @@ fixture = "trammel-jig"
 [planned]                          # copied from the checker's printed table, §3.4
 commissioning = "<sha256 printed by the checker>"
 "fixtures.trammel-jig" = "<sha256 printed by the checker>"
+dro = "<sha256 printed by the checker>"
+features = "<sha256 printed by the checker>"
 "tools.endmill-10" = "<sha256 printed by the checker>"
+"tools.endmill-14" = "<sha256 printed by the checker>"
+"tools.reamer-8h7" = "<sha256 printed by the checker>"
+"tools.reamer-6h7" = "<sha256 printed by the checker>"
+# every input the checker's table lists for this plan; none missing, so not stale
 
 [readings."C1:20/rail_a.pin@400"]
 value_mm = [-395.884, -57.203]     # example value: inside the 0.03 band
