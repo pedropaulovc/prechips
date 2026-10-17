@@ -883,3 +883,53 @@ def test_a_directly_imported_identity_attribute_stays_on_the_module(at, tmp_path
     rewritten = test.read_text(encoding="utf-8")
     assert "from pkg.big import __name__ as NAME" in rewritten
     assert "from pkg.parts import radius" in rewritten
+
+
+def test_a_moved_name_rebound_in_module_level_control_flow_is_refused(at):
+    source = "B = 1\nif ENABLED:\n    B = 2\n\n\ndef use():\n    return B\n"
+    plan = at(source, _spec('["B"]'))
+    assert any("B is rebound at module level" in refusal for refusal in plan.refusals)
+
+
+def test_a_class_body_with_target_counts_as_a_class_name(at):
+    source = (
+        "class Engine:\n    with OPEN() as DEFAULT:\n        pass\n\n"
+        "    def run(self):\n        return 2\n\n"
+        "    def moved(self, value=DEFAULT):\n        return value\n"
+    )
+    plan = at(source, _spec('["Engine.moved"]'))
+    assert any("class-body name DEFAULT" in refusal for refusal in plan.refusals)
+
+
+def test_a_patch_and_a_read_of_the_same_name_in_two_files_refuses(at, tmp_path, capsys):
+    # radius moves to parts.py, but only rest's area() looks it up: the patch would land
+    # in rest while the test's own read of big.radius reads parts.
+    source = "def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x) ** 2\n"
+    at(source, _spec('["radius"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(
+        "from pkg import big\n\n\ndef test(monkeypatch):\n"
+        "    monkeypatch.setattr(big, 'radius', abs)\n    assert big.radius(-1) == 1\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+    out = capsys.readouterr()
+    assert "also read here" in out.out + out.err
+
+
+def test_reading_the_original_before_patching_it_is_not_refused(at, tmp_path):
+    # The common wrap: the read takes the original from its owner, the patch lands where
+    # area() looks radius up; both stay right after the split.
+    source = "def radius(x):\n    return x\n\n\ndef area(x):\n    return radius(x) ** 2\n"
+    at(source, _spec('["radius"]'))
+    test = tmp_path / "tests" / "test_big.py"
+    test.write_text(
+        "from pkg import big\n\n\ndef test(monkeypatch):\n    original = big.radius\n"
+        "    monkeypatch.setattr(big, 'radius', lambda x: original(x) + 1)\n"
+        "    assert big.area(1) == 4\n",
+        encoding="utf-8",
+    )
+    split.main(["apply", "big"])
+    rewritten = test.read_text(encoding="utf-8")
+    assert "original = big_parts.radius" in rewritten
+    assert 'monkeypatch.setattr(big, "radius"' in rewritten

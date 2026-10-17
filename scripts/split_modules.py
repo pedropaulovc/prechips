@@ -374,8 +374,10 @@ def _defined_names(node):
     if isinstance(node, (ast.Import, ast.ImportFrom)):
         return [(a.asname or a.name).split(".")[0] for a in node.names]
     if isinstance(node, (ast.If, ast.Try, ast.With, ast.For, ast.While)):
+        bound = [getattr(node, "target", None)]
+        bound += [item.optional_vars for item in getattr(node, "items", [])]
         found = [
-            n.id for n in ast.walk(getattr(node, "target", ast.Pass())) if isinstance(n, ast.Name)
+            n.id for b in bound if b is not None for n in ast.walk(b) if isinstance(n, ast.Name)
         ]
         for child in ast.iter_child_nodes(node):
             if isinstance(child, ast.stmt):
@@ -572,6 +574,17 @@ def make_plan(module):
         located &= _unit_free(unit)
         if located and target != module["source"] and unit.kind != "import":
             refusals.append(f"{unit.name} reads {sorted(located)}, which differ in {target}")
+    placed_at = {n: t for u, t in placed if u.kind in ("def", "head") for n in u.binds}
+    for unit, target in placed:
+        if unit.kind != "module":
+            continue
+        rebound = _module_bindings(ast.Module(body=[unit.node], type_ignores=[]))
+        for name in sorted(rebound):
+            if placed_at.get(name, target) != target:
+                refusals.append(
+                    f"line {unit.start}: {name} is rebound at module level outside its "
+                    f"definition, which moves to {placed_at[name]}"
+                )
     mixins = {}
     for unit, target in placed:
         if unit.kind != "method":
@@ -946,21 +959,42 @@ class Rewriter:
         self.refusals = []
         self.hand = []
         self.flat = Path(self.module["source"]).stem
+        self._file_reads = {}  # name -> direct reads (node) in the file being rewritten
+        self._tree = None
 
     def new_module(self, name):
         target = self.owner.get(name, self.rest)
         return dotted(self.module, target)
 
-    def patched_module(self, name):
-        """Where a monkeypatch of ``name`` must land: the one file that looks it up."""
+    def patched_module(self, name, site=None):
+        """Where a monkeypatch of ``name`` must land: the one file that looks it up. A
+        direct read of the name after the patch at ``site``, in the same function, would
+        reach the owner instead, so that refuses."""
         files = self.lookups.get(name, set())
         if len(files) > 1:
             names = sorted(Path(f).name for f in files)
             self.refusals.append(f"monkeypatched {name} is looked up from {names}")
             return None
         if files:
-            return dotted(self.module, next(iter(files)))
+            looked = next(iter(files))
+            if self._read_after(name, site) and looked != self.owner.get(name, self.rest):
+                # The patch lands in the looking file, the later read in the owner.
+                self.refusals.append(
+                    f"monkeypatched {name} is also read here, so the patch and the read "
+                    "would reach different files"
+                )
+                return None
+            return dotted(self.module, looked)
         return self.new_module(name)
+
+    def _read_after(self, name, site):
+        if site is None:
+            return False
+        scope = _scope_of(self._tree, site)
+        return any(
+            read.lineno > site.lineno and _scope_of(self._tree, read) is scope
+            for read in self._file_reads.get(name, [])
+        )
 
     def rewrite(self, path):
         text = path.read_text(encoding="utf-8")
@@ -981,6 +1015,8 @@ class Rewriter:
 
     def _rewrite(self, path, text, tree):
         self._consumed = defaultdict(int)  # alias loads an edit replaced, per alias import
+        self._file_reads = _direct_reads(tree, path, self.source)
+        self._tree = tree
         lines = text.splitlines(keepends=True)
         edits = []  # (start offset, end offset, replacement)
         offsets = list(itertools.accumulate([0] + [len(line) for line in lines]))
@@ -1264,7 +1300,7 @@ class Rewriter:
         if _dunder(second.value):
             self._identity(second.value, node.lineno)
             return None
-        module = self.patched_module(second.value)
+        module = self.patched_module(second.value, node)
         if module is None or module == self.source:
             if module is None:
                 self._consumed[id(binding)] += 1  # refused; keep the alias count whole
@@ -1284,7 +1320,7 @@ class Rewriter:
         if _dunder(name):
             self._identity(name, node.lineno)
             return None
-        module = self.patched_module(name)
+        module = self.patched_module(name, node)
         if module is None or module == self.source:
             return None
         span = at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset)
@@ -1337,7 +1373,7 @@ class Rewriter:
             if _dunder(name):
                 self._identity(name, node.lineno)
                 return None
-            module = self.patched_module(name)
+            module = self.patched_module(name, node)
             if module is None or module == self.source:
                 return None
             span = at(first.lineno, first.col_offset), at(first.end_lineno, first.end_col_offset)
@@ -1350,7 +1386,7 @@ class Rewriter:
         if _dunder(second.value):
             self._identity(second.value, node.lineno)
             return None
-        module = self.patched_module(second.value)
+        module = self.patched_module(second.value, node)
         if module is None or module == self.source:
             return None
         local = self._alias_for(first.id, module, added, binding)
@@ -1377,7 +1413,7 @@ class Rewriter:
             # A write lands where the name is looked up, as setattr does.
             if self.owner.get(node.attr) in (None, self.rest) and node.attr not in self.lookups:
                 return None
-            module = self.patched_module(node.attr)
+            module = self.patched_module(node.attr, node)
             if module is None:
                 return None
         else:
@@ -1438,6 +1474,34 @@ def _other_bindings(tree, names, alias_import):
                 if not _imports_alias(node, a, alias_import)
             ]
         found += [(name, getattr(node, "lineno", 0)) for name in bound if name in names]
+    return found
+
+
+def _direct_reads(tree, path, source):
+    """``{name: [read node]}`` for names a file reads from ``source`` itself: uses of a
+    ``from source import name`` binding and ``alias.name`` loads through a module alias
+    of ``source``."""
+    aliases, imported, found = set(), {}, defaultdict(list)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            absolute = _absolute(path, node)
+            if absolute == source:
+                imported.update({a.asname or a.name: a.name for a in node.names})
+            for a in node.names:
+                if absolute and f"{absolute}.{a.name}" == source:
+                    aliases.add(a.asname or a.name)
+        elif isinstance(node, ast.Import):
+            aliases.update(a.asname for a in node.names if a.name == source and a.asname)
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.ctx, ast.Load)
+            and isinstance(node.value, ast.Name)
+            and node.value.id in aliases
+        ):
+            found[node.attr].append(node)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in imported:
+            found[imported[node.id]].append(node)
     return found
 
 

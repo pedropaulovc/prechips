@@ -338,6 +338,10 @@ What `apply` does:
    * a name bound twice that would land in two files;
    * a monkeypatched name read from two files, from `monkeypatch.setattr` or from a
      probe's `alias.name = ...`;
+   * a monkeypatch whose landing file differs from the name's owner while the same
+     function reads the name directly after patching it (the read would miss the patch);
+   * a moved name rebound by a module-level `if`/`try`/`for`/`with` block that stays in
+     `rest`;
    * a `setattr`, `getattr` or `hasattr` on the split module with a computed name;
    * such a call (or a monkeypatch) naming its target, name or value by keyword;
    * a generated `<alias>_<file>` import name that the importer already binds;
