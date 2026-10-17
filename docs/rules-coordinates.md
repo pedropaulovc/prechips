@@ -1150,6 +1150,24 @@ saw) is `not_applicable`: its setting is an authored blade-centre `cut_plane`,
 not a spindle XYZ zero. A mixed setup still checks its other machining zero
 recipes; an unknown action cannot establish the saw-only exemption.
 
+- A `guided_sweep` on a `trammel` guide ([#269](https://github.com/pedropaulovc/prechips/issues/269), `rules/trammel.py`)
+  records `guide = "trammel"`, `feed = "lever"` and `locked_axes` X, Y and Z. Its
+  rows move radially onto the pin-defined circle `pin_radius_mm = D / (2 sin α)`
+  (`exact_arc` hands that circle to the kernel; each row's `dro_xy` is its exact
+  XY, since the DRO sets nothing). The exact carrier pose (it turns `−ψ/2` while
+  the cutter runs `ψ` on the circle) gives `carrier_turn_deg`, `rails_dir`, each
+  pin's `stations_mm` at the sweep's start and end in cutting order and its exact
+  `station_ranges_mm`, and `swept_mm`, the exact table-frame footprint of the pins
+  and the kernel's stock box about the spindle axis. `error_terms_mm` holds the
+  budget (`rail_angle`: `radius_per_deg_mm × rail_angle_error`; `pin_spacing`:
+  `radius_per_spacing × pin_spacing_error`; `pin_lines`: `line_gain × (pin_clearance
+  + rail_offset)`, `line_gain` the exact worst `|g₁| + |g₂|` over the sweep), summed
+  as `centre_error_mm`; `cut_radius_mm` is the wall a cutter radius off the pin
+  circle, widened by it, and must lie inside `band_mm`. A master or touch axis, a
+  rough stage, pins that do not subtend `α`, a pin inside the swept window and a
+  carriage beyond `rail_travel` are errors; any unmeasured fixture fact is unknown
+  with its `measure:` entry.
+
 A setup whose every spindle op (one with a `tool`) is a `guided_sweep` needs no X
 or Y recipe ([#255](https://github.com/pedropaulovc/prechips/issues/255)): the
 sweep's touch-off against its master sets them and X/Y stay locked, so an omitted
@@ -1158,7 +1176,10 @@ sweep's touch-off against its master sets them and X/Y stay locked, so an omitte
 keeps its recipe. The touch feed and a rough back-off still move those axes by
 their DRO sign, so a reversed `dro.direction` for them is the same error, and an
 undeclared one the same debt, as under an edge pickup. Any other spindle op in the
-setup still needs both.
+setup still needs both. When every such op is a trammel, nothing moves X or Y at
+all (the rails' crossing fixes the cutter), so no X/Y DRO sign is consumed;
+`touch_set.by` is `"trammel"` (else `"touch"`) and the DRO ZERO sheet says the
+rails' pin-lines cross on the spindle.
 
 EL400 ABS Axis Set, not Preset. Approach side is independent of jog polarity.
 For edge finding, `contact=edge + side*finder_radius`, side -1 from negative
