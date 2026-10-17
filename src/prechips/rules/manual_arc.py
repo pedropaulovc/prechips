@@ -17,6 +17,8 @@ an error; missing kit, limits, layout or rough op is unknown.
 
 from __future__ import annotations
 
+import math
+
 from prechips.findings import Finding
 from prechips.measurements import length_debt, limits_debt, limits_fact, record_debt
 from prechips.model import setup_lineage
@@ -37,6 +39,7 @@ from prechips.rules.resolution import (
     number,
     record,
     resolve,
+    setup_frame,
     uncertain,
 )
 
@@ -46,6 +49,32 @@ BUTTON_KIND = "filing_buttons"
 _TOL = 1e-9
 # Bar stock whose flat end and side faces bound it: the faces a layout measures from.
 RECTANGULAR_STOCK = frozenset({"flat_bar", "square_bar", "plate"})
+
+
+def _square_to(stock, frame):
+    """Whether the bar's faces (normal to its ``axis``, its ``section_axis`` and their
+    cross product, model frame) each stand square to one of ``frame``'s axes: only then are
+    the stock box's sides its own end and side faces. An unknown vector proves nothing."""
+
+    def unit(v):
+        if not (isinstance(v, list) and len(v) == 3 and all(map(number, v))):
+            return None
+        length = math.sqrt(sum(c * c for c in v))
+        return [c / length for c in v] if length > _TOL else None
+
+    axis, section = unit(stock.get("axis")), unit(stock.get("section_axis"))
+    frame_axes = [unit(frame.get(key)) for key in ("x", "y", "z")]
+    if axis is None or section is None or any(f is None for f in frame_axes):
+        return False
+    third = [
+        axis[1] * section[2] - axis[2] * section[1],
+        axis[2] * section[0] - axis[0] * section[2],
+        axis[0] * section[1] - axis[1] * section[0],
+    ]
+    return all(
+        any(abs(sum(a * b for a, b in zip(normal, f, strict=True))) >= 1 - 1e-6 for f in frame_axes)
+        for normal in (axis, section, third)
+    )
 
 
 def mark_step(scale):
@@ -76,6 +105,11 @@ def arc_end_marks(bundle, setup, ends, scale):
         return None, (
             "the setup receives worked stock, whose faces need not be the bar's own to "
             "measure the arc's ends from"
+        )
+    if not _square_to(stock, setup_frame(bundle, setup)):
+        return None, (
+            "the bar's faces are not proven square to the setup's X, Y and Z, so its box "
+            "is no face to measure the arc's ends from"
         )
     step = mark_step(scale)
     box = stock_box(bundle, setup)
@@ -343,7 +377,7 @@ def _rough(bundle, op, name):
     for sid, other in _earlier(bundle, op):
         if sid not in lineage:
             continue
-        if other.get("do") == "scribe" and other.get("feature") == name:
+        if _full_line(other) and other.get("feature") == name:
             lines.add(f"{sid}:{other.get('op', UNKNOWN)}")
         if other.get("do") in SAW_OPS and other.get("follows") in lines:
             found.append(f"{sid} op {other.get('op', UNKNOWN)}")
@@ -358,10 +392,16 @@ def _rough(bundle, op, name):
     return " and ".join(found) or None
 
 
+def _full_line(op):
+    """Whether ``op`` is a scribe that draws the arc's line: an ``ends`` layout marks only
+    its two ends (a guided sweep's stops), so nothing files, saws or roughs to it."""
+    return op.get("do") == "scribe" and op.get("layout") != "ends"
+
+
 def _layout_op(bundle, op, name):
     found = None
     for sid, other in _earlier(bundle, op):
-        if other.get("feature") == name and other.get("do") == "scribe":
+        if other.get("feature") == name and _full_line(other):
             found = f"{sid}:{other.get('op', UNKNOWN)}"
     return found
 

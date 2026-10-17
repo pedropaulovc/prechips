@@ -104,7 +104,12 @@ def guided_plan(
         hold=hold or f"fixture = '{fixture}'",
         target=target,
     )
-    change(plan, "material = 'scratch steel'\n", "material = 'scratch steel'\nform = 'flat_bar'\n")
+    change(
+        plan,
+        "material = 'scratch steel'\n",
+        "material = 'scratch steel'\nform = 'flat_bar'\n"
+        "axis = [1.0, 0.0, 0.0]\nsection_axis = [0.0, 1.0, 0.0]\n",
+    )
     path = plan.with_name("inventory.toml")
     path.write_text(path.read_text(encoding="utf-8") + GUIDES + inventory, encoding="utf-8")
     return plan
@@ -758,13 +763,50 @@ def test_the_layout_scribes_each_arc_end_from_the_stocks_own_faces(tmp_path):
     assert "setup" not in printed.lower()
 
 
-@pytest.mark.parametrize("case", ["no-layout", "round-bar"])
+def test_every_stage_measures_its_stops_on_the_touch_path(tmp_path):
+    # The stops are set once, at the touch, before the rough's back-off: a 2 mm leave on a
+    # concave R10 puts the rough at R5, but its printed overrun is measured at the touch's
+    # R7, the same as the finish's.
+    plan = guided_plan(
+        tmp_path,
+        target=CONCAVE_R10,
+        inventory=BAR10,
+        master="'bar10'",
+        sweep_deg="221.0",
+        allowance=2.0,
+    )
+    row = coordinates_row(plan, stock_bbox=SWING)
+    rough, finish = recipe(row, "rough")[1], recipe(row, "finish")[1]
+    expected = math.floor(math.radians(100.0) * 7.0 * 10) / 10
+    assert rough["stop_overrun_mm"] == finish["stop_overrun_mm"] == expected
+
+
+def test_an_ends_layout_is_no_line_to_file_saw_or_rough_to(tmp_path):
+    from prechips.kernel import scribed_profile
+    from prechips.rules import manual_arc
+
+    bundle = load_bundle(guided_plan(tmp_path))
+    setup = bundle.plan["setups"][0]
+    sweep = setup["ops"][1]
+    assert manual_arc._layout_op(bundle, sweep, "target") is None
+    profile = scribed_profile(bundle, setup, {"follows": "S1:5"})
+    assert "lays out only" in profile["reason"]
+
+
+@pytest.mark.parametrize("case", ["no-layout", "round-bar", "rotated-bar"])
 def test_stops_with_no_measurable_marks_stop_the_recipe(tmp_path, case):
     # The stops sit on scribed arc-end marks: no layout op, or no flat faces of the bar's
     # own to measure them from, leaves only a STOP.
     plan = guided_plan(tmp_path, layout=case != "no-layout")
     if case == "round-bar":
         change(plan, "form = 'flat_bar'\n", "form = 'round_bar'\n")
+    if case == "rotated-bar":
+        # Turned 45° in the setup: its box's sides are no faces of the bar.
+        change(
+            plan,
+            "axis = [1.0, 0.0, 0.0]\nsection_axis = [0.0, 1.0, 0.0]\n",
+            "axis = [0.7071, 0.7071, 0.0]\nsection_axis = [-0.7071, 0.7071, 0.0]\n",
+        )
     kernel = {"status": "ok", "setups": {"S1": {"stock_bbox_mm": SWING}}}
     bundle = dataclasses.replace(load_bundle(plan), kernel=kernel)
     row = next(r for r in coordinates.evaluate(bundle) if r.subject == "S1")

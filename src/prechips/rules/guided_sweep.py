@@ -423,16 +423,12 @@ def _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid):
     over = max(0.0, (sweep_deg - span) / 2)
     if number(radius):
         overrun = math.radians(over) * radius * scale
-        record_.update(
-            overrun_mm=overrun,
-            # What the traveler prints for the operator's steel rule: 0.1 mm, rounded
-            # down, so the swept path never runs past the rows the kernel checked.
-            stop_overrun_mm=math.floor(overrun * 10 + 1e-9) / 10,
-            path_mm=math.radians(sweep_deg) * radius * scale,
-        )
+        # The printed stop overrun (stop_overrun_mm) is measured on the touch path, where
+        # the stops are set: :func:`_start_clear` records it.
+        record_.update(overrun_mm=overrun, path_mm=math.radians(sweep_deg) * radius * scale)
 
 
-def _start_clear(bundle, setup, op, arc, label, debts, record_, scale, grid):
+def _start_clear(bundle, setup, arc, label, debts, record_, scale, grid):
     """The cutter goes down at the sweep's first stop, its first row, at every level: the
     stops lie past the arc's ends so it enters in air. That entry is ``start`` ``"air"``
     only when the cutter there stands wholly outside the stock box the setup receives
@@ -441,8 +437,8 @@ def _start_clear(bundle, setup, op, arc, label, debts, record_, scale, grid):
     sweep, so the traveler stops.
 
     The entry is checked where the stop block puts it (:func:`_printed_start`, recorded
-    as ``start_xy``): the pose the printed overrun sets, on the rough's path when a finish
-    runs between the rough's stops. The rows stand on the nominal path, but the master
+    as ``start_xy``): the pose the printed overrun (``stop_overrun_mm``) sets on the touch
+    path, where every stage's stops are set. The rows stand on the nominal path, but the master
     sets the real one: the cutter is widened by the most the cut (``cut_radius_mm``,
     master and guide error) stands off the nominal wall the rows assume. An unproven cut
     leaves the start unproven too (its own debt names it)."""
@@ -451,19 +447,26 @@ def _start_clear(bundle, setup, op, arc, label, debts, record_, scale, grid):
     cut, radius = record_.get("cut_radius_mm"), arc.get("cutter_radius_mm")
     centre = arc["cutter_centre_radius_mm"]
     record_["start"], record_["start_xy"] = "unproven", UNKNOWN
-    if not (_pair(cut) and number(radius) and number(centre)):
+    record_["stop_overrun_mm"] = UNKNOWN
+    allowance = arc.get("allowance_mm", 0.0)
+    if not (number(radius) and number(centre) and number(allowance)):
         return
     outward = 1 if centre > arc["wall_radius_mm"] else -1
+    # The stops are set at the touch, before any rough back-off: on the touch (finish)
+    # cutter path, the stage's own allowance back onto the line, whatever the stage. The
+    # printed overrun is measured there, 0.1 mm rounded down, so the swept path never runs
+    # past the rows the kernel checked.
+    stops = centre * scale - outward * allowance
+    record_["stop_overrun_mm"] = _printed_overrun(record_, stops)
+    if record_["stop_overrun_mm"] is None:
+        record_["stop_overrun_mm"] = UNKNOWN
+    if not _pair(cut):
+        return
     wall = centre * scale - outward * radius
-    # How far the real path stands off the nominal one, radially.
+    # How far the real path stands off the nominal one, radially; the touch path differs
+    # from a rough's by its back-off, rounded off the line by under one DRO step.
     radial = max(abs(cut[0] - wall), abs(cut[1] - wall))
-    stops, spread = centre * scale, radial
-    leave = op.get("rough_allowance_mm")
-    if arc.get("stage") == "finish" and number(leave) and leave > 0:
-        # The finish runs between the rough's stops, set on the rough's path: the leave
-        # off the line, which the rough's back-off rounds by under one DRO step more.
-        stops += outward * leave
-        spread += grid[0] * scale
+    spread = radial + (grid[0] * scale if allowance > 0 else 0.0)
     point = _printed_start(arc, record_, stops)
     printed = _printed_overrun(record_, stops)
     record_["start_xy"] = point if point is not None else UNKNOWN
@@ -743,7 +746,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
     _rotation(arc, label, debts, record_, scale)
     _landmarks(arc, record_, sweep, axis, found, scale)
     _marks(bundle, setup, op, record_, label, debts, scale)
-    _start_clear(bundle, setup, op, arc, label, debts, record_, scale, grid)
+    _start_clear(bundle, setup, arc, label, debts, record_, scale, grid)
     _radial(arc, record_, axis, label, errors, grid)
     if measurements:
         by_id = {entry["id"]: entry for entry in measurements}

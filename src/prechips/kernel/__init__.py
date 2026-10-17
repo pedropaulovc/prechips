@@ -878,6 +878,9 @@ def scribed_profile(bundle, setup, op):
     feature = record(bundle.feature_definitions.get(name))
     if not _arc_feature(feature):
         return None
+    if record(scribe).get("layout") == "ends":
+        # An ends-only layout marks a guided sweep's stops: no line for a saw to follow.
+        return {"reason": f"the scribe op lays out only {name}'s two ends, not its line"}
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     layout = arc_layout(bundle, setup, name)
     if layout is None or scale is None:

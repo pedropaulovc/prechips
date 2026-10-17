@@ -476,9 +476,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   is never a perfect rail. The cutter goes down at the sweep's first row (its start
   stop) at every level: `start` is `air` only when the cutter there stands wholly
   outside the stock box the setup receives (`level_entry.in_air`, as any entry is
-  proven), at the pose the first stop block sets (`start_xy`: the printed overrun,
-  0.1 mm rounded down, at the radius the stops are measured on, the rough's for a
-  finish run between the rough's stops), the cutter widened by the most the master-set
+  proven), at the pose the first stop block sets (`start_xy`: the printed overrun
+  `stop_overrun_mm`, 0.1 mm rounded down, measured on the touch path where every
+  stage's stops are set, before any rough back-off), the cutter widened by the most the master-set
   cut (`cut_radius_mm`) stands off the nominal wall the rows assume, and by the arc
   that radius range turns the measured overrun through (it is measured along the real
   path; `start_reach_mm`), else `unproven` and unknown, since nothing
@@ -1046,8 +1046,10 @@ leaves it unknown. The `coordinates` arc tables still read the drawing band only
   about): `marks` A and B, each measured from the nearer end face along X and the
   nearer side face along Y of the stock box the setup receives, at 0.1 mm (0.005 in).
   It needs a rectangular bar (`flat_bar`, `square_bar`, `plate`) that the setup
-  receives as the plan's raw stock, a modelled stock box and both ends on the stock;
-  else unknown, since no face of the bar's own would place the marks.
+  receives as the plan's raw stock, its faces (`axis`, `section_axis`) square to the
+  setup's X, Y and Z, a modelled stock box and both ends on the stock; else unknown,
+  since no face of the bar's own would place the marks. An `ends` layout draws no
+  line: no `file_to_line`, rough or saw that follows a scribed line counts it.
 - `file_to_line`: `guide.buttons` names an inventory `fixtures` kit of
   `kind = "filing_buttons"` that the setup holds (`hold.fixture` or a clamp
   `ref`), pinned through `guide.bore`. The bore must be the hole on the arc's
