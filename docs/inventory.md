@@ -826,11 +826,67 @@ not proof of geometric validity; rules perform the applicable checks.
 | `fixtures` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
 | `gauges` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
 | `services` | `dict[str, InventoryItem \| Unknown] \| Unknown` | Optional |
-| `consumables` | `dict[str, Consumable \| Unknown] \| Unknown` | Optional |
+| `consumables` | `dict[str, Consumable \| AdhesiveTape \| Unknown] \| Unknown` | Optional |
 | `stock` | `list[Stock] \| Unknown` | Optional |
 
 `Consumable` fields (each also accepts `"unknown"`): `name: str`,
 `products: list[str]`.
+A consumable that states a `kind` is typed; `adhesive_tape` (below) is the only
+kind. A coating op's `process` never resolves to a typed consumable.
+
+## Area holds
+
+Double-sided tape holds the work by the area of its seated footprint, not by a
+clamp. Its facts are a typed record that a plan's [`hold.area`](plan.md#hold)
+references. The design, including the capacity model and Z stack-up the rules
+will read, is [docs/design/area-hold.md](design/area-hold.md); vacuum holds are
+deferred to [#309](https://github.com/pedropaulovc/prechips/issues/309). The
+schema below is accepted; no rule reads these facts yet.
+
+A `CitedFact` is `{ value, cite, measured, verify }`. `value` is > 0 or
+`"unknown"`. The fact is trusted only by its own qualifiers: a known `cite`, or
+a complete `measured` record whose `status` is `"measured"`, with `verify`
+neither true nor unknown. A bare number, a blank or `"unknown"` cite, and an
+assumed, illustrative or status-less measurement are debt for that fact only.
+A cite never stands in for a refused measurement, and nothing above the fact
+(the item's own `cite`, `source` or `verify`) qualifies it. A strength also
+states a `test` naming the test method its value comes from; a missing, blank
+or `"unknown"` `test` is debt. `test` is printed, never parsed. A strength also
+lists `pairs`, each exact interface it was established on as `{ work, seat }`
+cutting-data material classes (nonempty, both sides named). The capacity rule
+will apply it only to a listed pair, roles included: a value for steel work on
+an aluminium seat never stands for steel on steel.
+
+A fixture solid may state `flatness_mm` (`MeasuredLength`), the flatness of its
+whole top face, and `material`, the material its contact face is made of. An
+area hold's `on` solid needs a measured flatness before its stack can be
+proved, and its `material` is the seat side of a strength's pair.
+
+`consumables.<id>` with `kind = "adhesive_tape"`:
+
+| Field | Type (also accepts `"unknown"`) | Meaning |
+|---|---|---|
+| `name` | `str` | display name |
+| `products` | `list[str]` | what is on the shelf |
+| `width_mm` | `MeasuredLength` (> 0; a catalogue nominal is enough) | roll width. Coverage is one seamless length, so a footprint wider than the roll cannot be credited |
+| `thickness_mm` | `LimitsMeasurement` or `[least, greatest]` | applied layer thickness. Only a measured pair (a mic'd sample of the lot on hand) can clear a thickness band; a datasheet pair is printed but stays debt |
+| `shear_n_per_cm2` | `CitedFact` + `test` + `pairs` | shear strength per cm² of contact |
+| `peel_n_per_cm` | `CitedFact` + `test` + `pairs` | peel resistance per cm of peel front |
+| `dwell_min` | `CitedFact` | minimum time from applying the work to cutting, at which both strengths hold. A hard gate: a dwell not met is a STOP |
+| `surface_prep`, `apply` | `str` | printed apply instructions |
+| `release` | `{ method = "solvent" \| "heat", agent, temp_c, wait_min, cite }` | how the tape lets go: a solvent names its `agent`, heat its `temp_c`; `wait_min` and `temp_c` are > 0; printed only with a known cite |
+
+```toml
+[consumables.tape-film]
+kind = "adhesive_tape"
+name = "double-coated PET film tape"
+width_mm = 50.0
+thickness_mm = { value = [0.090, 0.110], measured = { status = "measured", by = "...", date = "2026-10-11", instrument = "0-25 mm micrometer" } }
+shear_n_per_cm2 = { value = 3.0, test = "...", pairs = [{ work = "low_carbon_steel", seat = "aluminium" }], cite = "..." }
+peel_n_per_cm = { value = 4.0, test = "...", pairs = [{ work = "low_carbon_steel", seat = "aluminium" }], cite = "..." }
+dwell_min = { value = 20, cite = "..." }
+release = { method = "solvent", agent = "isopropyl alcohol", wait_min = 5, cite = "..." }
+```
 
 ## Stock
 

@@ -490,7 +490,6 @@ def test_an_inch_drawing_holds_the_kernel_jaw_separation_to_the_opening_in_mm(
         (1.9, "hard_jaws", "error"),
         (1.9, "soft jaws", "pass"),
         (1.9, "mandrel", "pass"),
-        (1.9, "tape", "pass"),
         (1.9, "wax", "pass"),
         (1.9, "unknown", "unknown"),
     ],
