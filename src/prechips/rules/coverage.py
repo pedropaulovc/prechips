@@ -51,6 +51,19 @@ def _downstream(plan, sid):
     return found
 
 
+def _after_join(setup, op, sid):
+    """Whether ``op`` runs once the joint ``sid`` has formed its corner: any op of a later
+    setup, and in the joint's own setup an op after its first ``fit`` (the op that joins;
+    a setup with none joins on entry). An inspection before the fit reads no joined
+    corner."""
+    if setup["id"] != sid:
+        return True
+    ops = setup["ops"]
+    fits = [index for index, other in enumerate(ops) if other.get("do") == "fit"]
+    position = next(index for index, other in enumerate(ops) if other is op)
+    return not fits or position > fits[0]
+
+
 def joint_formed(bundle, facts):
     """``(credited indices, debts, pending indices, rows)`` for every feature a joint
     ``forms``; ``pending`` are the faces whose credit is debt."""
@@ -86,7 +99,9 @@ def joint_formed(bundle, facts):
             checks = [
                 (s, o)
                 for s, o in operations(bundle, name)
-                if s["id"] in later and op_entry(o, "checks", name, FORMED_REQUIREMENT) is not None
+                if s["id"] in later
+                and _after_join(s, o, sid)
+                and op_entry(o, "checks", name, FORMED_REQUIREMENT) is not None
             ]
             if not checks:
                 debts.append(

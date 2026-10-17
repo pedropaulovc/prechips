@@ -349,3 +349,16 @@ def test_a_spigot_has_no_mouth_break(tmp_path):
     )
     with pytest.raises(BadInput):
         _load(tmp_path, text)
+
+
+def test_an_inspection_before_the_joining_fit_does_not_read_the_formed_corner(monkeypatch):
+    # In the joint's own setup the corner exists only once its first fit joins the parts.
+    b = bundle(inspect=False)
+    joint_setup = b.plan["setups"][2]
+    check = {"op": 5, "do": "inspect", "feature": "hub_root", "checks": {"radius": "radius-gauge"}}
+    joint_setup["ops"].insert(0, check)
+    finding = run(monkeypatch, b, facts())
+    assert finding.status == "unknown"
+    assert "no check after the join" in finding.sentence
+    joint_setup["ops"].append({**check, "op": 20})
+    assert run(monkeypatch, b, facts()).status == "pass"

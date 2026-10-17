@@ -797,8 +797,9 @@ allowance is a maximum and does not say what this mouth carries.
 
 Beyond that, no material may be missing beyond the band's MAX, and the band must
 start at 0. `coverage` credits the faces to the joint only when the last op that
-names the feature and checks its `radius` band, in the joint's setup or a setup
-downstream of it, passes. Without such a check the credit is debt. A [limit
+names the feature and checks its `radius` band passes. That op must run in a setup
+downstream of the joint, or in the joint's own setup after its first `fit`, the op that
+joins. A setup with no `fit` joins on entry. Without such a check the credit is debt. A [limit
 leaf](rules-inspection.md) at or under the MAX is enough when the gauge declares no
 leaf tolerance (or zero):
 

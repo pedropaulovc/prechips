@@ -272,8 +272,9 @@ hold:
 1. The join assembles, with known joined stock.
 2. The kernel admits the joined corner inside the feature's own band (see the
    [assembly backstop](#transient-joint-preparation-and-assembly)).
-3. The last op that names the feature and checks its `radius` band, in the joint's
-   setup or one downstream of it, passes that check under
+3. The last op that names the feature and checks its `radius` band, in a setup
+   downstream of the joint or in the joint's own setup after its first `fit` (the op
+   that joins; a setup with none joins on entry), passes that check under
    [inspection's](rules-inspection.md) gauge capability rule. A leaf at or under
    the `[0, r]` limit is enough when the gauge declares no leaf tolerance (or zero).
    With a positive tolerance the check is unknown until the traveler names the safe
