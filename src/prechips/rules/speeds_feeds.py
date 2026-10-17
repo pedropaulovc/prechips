@@ -274,7 +274,8 @@ def chip_load(bundle, op, tool):
     or unique cutting-data row speeds_feeds starts it from (resolution unchanged). An
     uncited, ambiguous, unverified or non-positive chip load stays unknown with ``why``."""
     _, chip, _, cite, debt = _starting_data(bundle, op, tool, length_mm(tool, "dia"))
-    if cite == UNKNOWN:
+    if not _citations(cite):
+        # A blank or whitespace-only source cites nothing.
         return UNKNOWN, UNKNOWN, "no cited tool chart or unique cutting-data row matches"
     if debt or not _positive(chip):
         return UNKNOWN, UNKNOWN, "the matching chart or row's chip load is unverified or unknown"
