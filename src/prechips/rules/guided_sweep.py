@@ -280,30 +280,57 @@ def _rail(sweep, sweep_deg, errors, debts, record_):
 
 def _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid):
     """Check the declared sweep reaches both arc ends (to within one DRO ``grid`` step of
-    cutter travel: where a sweep stops is a mark, not a dial); record its overrun past
-    each end and the cutter's path along the work, mm."""
+    cutter travel: where a sweep stops is a mark, not a dial) and stays under a full turn;
+    record its overrun past each end and the cutter's path along the work, mm.
+
+    Two stop blocks bound the sweep, one at each end pose. A full circle, or a sweep of a
+    full turn or more, brings the fixture back to its start pose, so no pair of stops
+    bounds it: an error (a full circle is cut on a rotary table)."""
     span, radius = arc.get("span_deg", UNKNOWN), arc["cutter_centre_radius_mm"]
     record_.update(span_deg=span, sweep_deg=sweep_deg)
+    if arc["full_circle"]:
+        errors.append(
+            f"{label}: a guided sweep cannot cut a full circle: its sweep starts and ends at "
+            "one fixture pose, so no pair of stop blocks bounds it; cut it on a rotary_table"
+        )
+        return
     if not number(sweep_deg) or sweep_deg <= 0:
         debts.append(f"{label}: contour.sweep.sweep_deg is unknown")
         return
     if not number(span):
         debts.append(f"{label}: the arc's span is unknown")
         return
-    tolerance = math.degrees(grid[0] / radius) if number(radius) and radius > 0 else 0.0
-    need = 360.0 if arc["full_circle"] else span
-    if sweep_deg < need - tolerance:
+    if sweep_deg >= 360.0:
         errors.append(
-            f"{label}: the {sweep_deg:g}° sweep stops short of the arc: the cutter needs "
-            f"{need:.4f}° to reach "
-            + ("all the way round" if arc["full_circle"] else "both its ends")
+            f"{label}: the {sweep_deg:g}° sweep is a full turn or more: it brings the fixture "
+            "back to its start pose, so no pair of stop blocks bounds it"
         )
         return
-    over = 0.0 if arc["full_circle"] else max(0.0, (sweep_deg - span) / 2)
+    tolerance = math.degrees(grid[0] / radius) if number(radius) and radius > 0 else 0.0
+    if sweep_deg < span - tolerance:
+        errors.append(
+            f"{label}: the {sweep_deg:g}° sweep stops short of the arc: the cutter needs "
+            f"{span:.4f}° to reach both its ends"
+        )
+        return
+    over = max(0.0, (sweep_deg - span) / 2)
     if number(radius):
         record_.update(
             overrun_mm=math.radians(over) * radius * scale,
-            path_mm=math.radians(min(sweep_deg, 360.0)) * radius * scale,
+            path_mm=math.radians(sweep_deg) * radius * scale,
+        )
+
+
+def _row_spacing(contour, label, errors):
+    """Rows half a turn or more apart (``step_deg`` of 180 or more) leave the cutter's
+    path between them undetermined: the chord between two such rows reads as the short
+    way round, so neither the rows' cutting order nor the fixture's turn can be told from
+    them. An error; rows under half a turn apart fix both."""
+    step = contour.get("step_deg")
+    if number(step) and step >= 180.0:
+        errors.append(
+            f"{label}: step_deg {step:g}° puts rows half a turn or more apart, so the way "
+            "the fixture turns between them is not determined; space them under 180°"
         )
 
 
@@ -350,6 +377,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
     gain = _rail(sweep, sweep_deg, errors, debts, record_) if guide == "rail" else None
     grid = dro_grid(bundle, setup)
     _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid)
+    _row_spacing(contour, label, errors)
     axis = sweep.get("touch_axis", UNKNOWN)
     if axis not in TOUCH_AXES:
         debts.append(f"{label}: contour.sweep.touch_axis (the cutter's radial axis) is unknown")
@@ -493,7 +521,9 @@ def _landmarks(arc, record_, sweep, axis, found, scale):
 
 def _rotation(arc, label, debts, record_, scale):
     """The way the fixture turns the work under the cutter, viewed from above: against the
-    cutter's travel about the centre along its rows (their cutting order)."""
+    cutter's travel about the centre along its rows (their cutting order). Rows stand
+    under half a turn apart (:func:`_row_spacing`), so each step's shortest angle is the
+    way the cutter actually goes."""
     points = [row["setup_xy"] for row in arc["rows"]]
     centre = arc["centre_setup_xy"]
     if (

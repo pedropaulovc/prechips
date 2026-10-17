@@ -17,7 +17,7 @@ from html import unescape
 
 import pytest
 from test_kernel_geometry import Engine, _op, _setup, _vise
-from test_manual_arc import arcs, change, coordinates_row, debts, errors, op, scratch
+from test_manual_arc import ARC, arcs, change, coordinates_row, debts, errors, op, scratch
 
 from prechips.inputs import load_bundle
 from prechips.kernel import build_job, table_checkpoints
@@ -68,13 +68,15 @@ def sweep_contour(guide="pivot", **more):
     return f"{{ method = 'guided_sweep', step_deg = 1.0, sweep = {{ {sweep} }} }}"
 
 
-def guided_plan(tmp_path, guide="pivot", *, allowance=None, hold=None, inventory="", **more):
+def guided_plan(
+    tmp_path, guide="pivot", *, allowance=None, hold=None, inventory="", target=LONG_ARC, **more
+):
     fixture = "arm" if guide == "pivot" else "sled"
     plan = scratch(
         tmp_path,
         op(20, "finish_profile", sweep_contour(guide, **more), allowance=allowance),
         hold=hold or f"fixture = '{fixture}'",
-        target=LONG_ARC,
+        target=target,
     )
     path = plan.with_name("inventory.toml")
     path.write_text(path.read_text(encoding="utf-8") + GUIDES + inventory, encoding="utf-8")
@@ -167,6 +169,7 @@ def test_roller_gain_is_the_worst_case_cut_shift_per_contact_error(rollers, gain
         ({"guide": "unknown"}, "unknown", "contour.sweep.guide is neither pivot nor rail"),
         ({"touch_axis": None}, "unknown", "contour.sweep.touch_axis"),
         ({"sweep_deg": None}, "unknown", "contour.sweep.sweep_deg is unknown"),
+        ({"sweep_deg": "360.0"}, "error", "the 360° sweep is a full turn or more"),
     ],
     ids=[
         "short-sweep",
@@ -176,6 +179,7 @@ def test_roller_gain_is_the_worst_case_cut_shift_per_contact_error(rollers, gain
         "no-guide",
         "no-axis",
         "no-sweep",
+        "full-turn",
     ],
 )
 def test_a_pivot_sweep_that_cannot_cut_the_arc_is_an_error_or_debt(tmp_path, more, status, message):
@@ -213,6 +217,64 @@ def test_a_sweep_that_reaches_the_arc_ends_within_a_dro_step_needs_no_overrun(tm
     assert exact.status == "pass", exact.sentence
     _, sweep = recipe(exact)
     assert sweep["overrun_mm"] == 0.0
+
+
+def test_a_full_circle_cannot_be_swept_between_two_stops(tmp_path):
+    # A full circle starts and ends at one fixture pose: no pair of stop blocks bounds the
+    # sweep, so the rule rejects it and the traveler prints nothing to run.
+    row, printed = traveler_text(tmp_path, target=ARC, sweep_deg="360.0")
+    assert row.status == "error", row.sentence
+    assert "a guided sweep cannot cut a full circle" in errors(row)
+    assert "Lock X and Y" not in printed and "stop block" not in printed
+
+
+# A convex R10 upper semicircle about model (20, 10), 0° to 180°: its middle is +Y of the
+# centre, and the R10 setting bar sets a cut inside its band.
+SEMICIRCLE = (
+    "kind = 'profile'\nrequirements = ['radius']\nradius = [9.9, 10.1]\n"
+    "radius_nominal = 10.0\narc_centre = [20.0, 10.0, 0.0]\narc = 'upper_semicircle'\n"
+)
+BAR10 = (
+    "[gauges.bar10]\nkind = 'setting_bar'\nname = 'R10 setting bar'\n"
+    f"radius_limits_mm = {{ value = [10.00, 10.02], {MEASURED} }}\nverify = false\n"
+)
+
+
+def semicircle_row(tmp_path, step, direction="conventional"):
+    plan = guided_plan(
+        tmp_path,
+        target=SEMICIRCLE,
+        inventory=BAR10,
+        master="'bar10'",
+        touch_axis="'+Y'",
+        sweep_deg="180.0",
+    )
+    change(plan, "step_deg = 1.0", f"step_deg = {step}")
+    change(plan, "direction = 'conventional'", f"direction = '{direction}'")
+    return coordinates_row(plan, stock_bbox=SWING)
+
+
+def test_rows_under_half_a_turn_apart_keep_the_sweep_direction(tmp_path):
+    # Rows just under a half turn apart still show which way the cutter goes between
+    # them: the turn follows the cutting order, as with fine rows.
+    def rotation(name, step, direction):
+        _, sweep = recipe(semicircle_row(tmp_path / name, step, direction))
+        return sweep["rotation"]
+
+    fine = rotation("fine", 1.0, "conventional")
+    assert fine in ("clockwise", "counterclockwise")
+    assert rotation("fine-climb", 1.0, "climb") != fine
+    assert rotation("coarse", 179.0, "conventional") == fine
+    assert rotation("coarse-climb", 179.0, "climb") != fine
+
+
+@pytest.mark.parametrize("step", [180.0, 200.0])
+def test_rows_half_a_turn_or_more_apart_are_an_error(tmp_path, step):
+    # The chord between rows half a turn or more apart reads as the short way round: the
+    # rows' order and the fixture's turn cannot be told from it.
+    row = semicircle_row(tmp_path, step)
+    assert row.status == "error", row.sentence
+    assert f"step_deg {step:g}° puts rows half a turn or more apart" in errors(row)
 
 
 def test_a_master_on_the_swing_arm_moves_with_its_play_at_the_touch_and_the_cut(tmp_path):
@@ -450,6 +512,7 @@ def test_the_sweep_is_paced_from_the_ops_feed():
             "sweep_deg": 25.0,
             "path_mm": 120.0,
             "overrun_mm": 10.0,
+            "ends_setup_xy": [[-146.0, -3.0], [146.0, -3.0]],
         },
     }
     printed = " ".join(steps(arc, str, "P1", "P3", feed=60.0))

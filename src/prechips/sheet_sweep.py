@@ -38,6 +38,11 @@ def _unresolved(sweep):
         missing.append("sweep direction unknown")
     if not (_known(sweep.get("sweep_deg")) and _known(sweep.get("path_mm"))):
         missing.append("sweep angle unknown")
+    ends = sweep.get("ends_setup_xy")
+    if not (isinstance(ends, list) and len(ends) == 2 and all(map(_pair, ends))):
+        # Each stop block is set where the cutter reaches an arc end: without them the
+        # sweep has nothing to bound it.
+        missing.append("sweep stops unknown")
     if sweep.get("guide") == "rail" and not (
         _pair(sweep.get("rollers_deg")) and _pair(sweep.get("rail_deg"))
     ):
@@ -146,11 +151,6 @@ def _stops(sweep, o, holder, move, start, stop):
         "to stop once: the cutter, its holder and the spindle nose must pass clear of every "
         f"clamp and of the {holder}."
     )
-    if not (isinstance(ends, list) and len(ends) == 2 and all(map(_pair, ends))):
-        return (
-            f"Set the sweep's stops, spindle stopped and Z raised: {move} the {holder} round "
-            "once and clamp a stop block on the table against it at each end of the sweep." + dry
-        )
     keys = [f" ({key})" if key else "" for key in (start, stop)]
 
     def at(point):

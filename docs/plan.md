@@ -1439,7 +1439,7 @@ path cut in several depth levels) it also sets the raise Z the sheet prints,
 | `method` | `str`: `linear_table`, or a manual-arc method `stairs`, `chain_drill`, `chords`, `rotary_table`, `guided_sweep` |
 | `sweep_frame` | `str` |
 | `open_side` | `str` |
-| `step_deg` | `float` (`rotary_table` and `guided_sweep` row spacing) |
+| `step_deg` | `float` (`rotary_table` and `guided_sweep` row spacing; `guided_sweep` under 180) |
 | `step_mm` | `float` (raster step) |
 | `start_deg` | `float` |
 | `end_deg` | `float` |
@@ -1483,7 +1483,7 @@ A `guided_sweep` contour's `sweep` record ([manual arcs](#manual-arcs), step 4).
 | `fixture` | `str`: the inventory `fixtures` item that carries the work and rides the guide (`kind = "swing_arm"` for a pivot, `"arc_sled"` for a rail); it must be the setup's `hold.fixture` |
 | `master` | `str`: the inventory `gauges` item the stationary cutter is touched to (`kind = "setting_bar"`, pivot only, or `"master_arc"`) |
 | `touch_axis` | `"+X"`, `"-X"`, `"+Y"` or `"-Y"`: the setup axis on the cutter's radial line, and the side of the arc centre the cutter stands on; the setup frame is the work at the sweep's middle pose, so it must point from the arc centre to the arc's middle |
-| `sweep_deg` | `float`: the fixture's whole sweep, centred on the arc; at least the arc's span (360 for a full circle) |
+| `sweep_deg` | `float`: the fixture's whole sweep, centred on the arc; at least the arc's span and under 360 (a full circle cannot be swept: use a rotary table) |
 | `rollers_deg` | `Vector` (rail: the two rollers' angles about the arc centre from the cutter's radial line, counterclockwise from above, with the cutter at the arc's middle) |
 | `rail_deg` | `Vector` (rail: the rail's two ends, the same way) |
 
@@ -1666,7 +1666,10 @@ uses the 1898 manual arc method:
    rows sample the cutter-centre arc every `step_deg` over the whole sweep, centred
    on the arc with its ends kept, so the kernel judges the cutter where the arc
    ends and where the sweep stops. A sweep shorter than the arc (by more than one
-   DRO step of cutter travel), a guide fixture that does not carry the work or of
+   DRO step of cutter travel), a sweep of a full turn or more or a full circle
+   (either starts and ends at one fixture pose, so no pair of stops bounds it), a
+   `step_deg` of 180° or more (rows half a turn apart do not show which way the
+   fixture turns between them), a guide fixture that does not carry the work or of
    the wrong kind, a master that is not a setting bar or master arc, a setting bar
    on a rail, two rollers on one line through the centre, a roller that runs off
    the rail during the sweep, and a worst-case cut outside the band are errors; an
@@ -1692,8 +1695,8 @@ uses the 1898 manual arc method:
    the moving fixture (its swept footprint, the stack at every pose), so a setup with
    a guided sweep is never a pass for either: each owes a `check:` debt
    ([rules-setup](rules-setup.md#headroom), [#272](https://github.com/pedropaulovc/prechips/issues/272)). Any
-   unproven guide, cut radius, axis, direction, angle, rollers or rail ends prints
-   only a STOP naming them.
+   unproven guide, cut radius, axis, direction, angle, stops (the arc's ends on the
+   work), rollers or rail ends prints only a STOP naming them.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.

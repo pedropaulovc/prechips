@@ -426,7 +426,12 @@ naming them. Each table is recorded under `arc_table` (its joins under
   geometry. It must lie inside the radial band (`band_mm`; a rough stage's moved
   off the line by its allowance), else an error. `sweep_deg`, centred on the arc,
   must reach both arc ends (`span_deg`, the cutter-centre span) to within one DRO
-  step of cutter travel, else an error; the rows run `overrun_mm` past each end
+  step of cutter travel and stay under a full turn, else an error; a full circle is
+  an error too (a sweep of a full turn starts and ends at one fixture pose, so no
+  pair of stop blocks bounds it; cut it on a `rotary_table`). `step_deg` must be
+  under 180°, else an error: the chord between rows half a turn or more apart reads
+  as the short way round, so neither their cutting order nor the fixture's turn can
+  be told. The rows run `overrun_mm` past each end
   (`path_mm` of cutter travel along the work), the arc's own ends kept as rows, and
   the kernel judges every one ([rules-geometry](rules-geometry.md)). The fixture
   turns the work `rotation` (viewed from above) against the cutter's travel along
