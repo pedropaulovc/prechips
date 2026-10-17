@@ -104,8 +104,8 @@ products = ["3M 444, 50 mm roll"]
 width_mm = 50.0                                    # roll width (illustrative nominal)
 # [least, greatest] over a mic'd sample of the lot on hand (illustrative values).
 thickness_mm = { value = [0.090, 0.110], measured = { status = "measured", by = "...", date = "...", instrument = "0-25 mm micrometer, 0.001" } }
-shear_n_per_cm2 = { value = 3.0, test = "...", materials = ["low_carbon_steel", "aluminium"], cite = "shop record harmonic-analyzer PR #1594" }   # value (shop record)
-peel_n_per_cm = { value = 4.0, test = "...", materials = ["low_carbon_steel", "aluminium"], cite = "..." }      # illustrative value
+shear_n_per_cm2 = { value = 3.0, test = "...", pairs = [{ work = "low_carbon_steel", seat = "aluminium" }], cite = "shop record harmonic-analyzer PR #1594" }   # value (shop record)
+peel_n_per_cm = { value = 4.0, test = "...", pairs = [{ work = "low_carbon_steel", seat = "aluminium" }], cite = "..." }      # illustrative value
 dwell_min = { value = 20, cite = "..." }           # the dwell the shear and peel are quoted at
 surface_prep = "Clean both faces with isopropyl alcohol; dry; no oil film or chips."
 apply = "Roll firmly end to end with a hand roller."
@@ -117,8 +117,8 @@ release = { method = "solvent", agent = "isopropyl alcohol", wait_min = 5, cite 
 |---|---|---|---|
 | `width_mm` | `MeasuredLength` (a catalogue nominal is enough) | roll width. Footprint coverage is one seamless length, so the footprint's least width (the short side of its minimum-area bounding rectangle) must be at most `width_mm` | capacity `?` ("footprint 60.0 wide, roll 50.0: lay strips", a follow-up under D7) |
 | `thickness_mm` | `LimitsMeasurement` | applied layer thickness, least–greatest | stack check `?`; layer drawn at the midpoint only when the pair is known, otherwise not drawn (render debt) |
-| `shear_n_per_cm2` | `CitedFact` + `test` + `materials` | shear strength used as lateral and yaw capacity per cm² of contact, on the material classes it was established on (section 2.7) | capacity `?` |
-| `peel_n_per_cm` | `CitedFact` + `test` + `materials` | peel resistance per cm of peel front, on the material classes it was established on | lift `?` |
+| `shear_n_per_cm2` | `CitedFact` + `test` + `pairs` | shear strength used as lateral and yaw capacity per cm² of contact, for the exact work/seat pairs it was established on (section 2.7) | capacity `?` |
+| `peel_n_per_cm` | `CitedFact` + `test` + `pairs` | peel resistance per cm of peel front, for the exact work/seat pairs it was established on | lift `?` |
 | `dwell_min` | `CitedFact` | minimum time between applying the work and cutting, at which the two strengths hold. A hard gate (D6): no build-up curve, and nothing is claimed for a shorter dwell | capacity `?`; the traveler prints a STOP in place of the dwell row |
 | `surface_prep`, `apply` | text | printed in the apply step | STOP row in the apply step |
 | `release` | `{ method = "solvent" \| "heat", agent \| temp_c, wait_min, cite }` | printed release step | STOP row in the release step |
@@ -131,7 +131,7 @@ kind = "vacuum"
 vacuum_kpa = { value = 80.0, cite = "..." }          # illustrative; gauge vacuum below atmosphere
 seal = "laid_cord"                                  # a gasket cord laid on the work's outline each setup
 gasket_inset_mm = { value = 3.0, measured = { ... } } # work outline to the cord's centreline
-friction = { value = 0.2, materials = ["low_carbon_steel", "aluminium"], cite = "..." }   # illustrative; work on the chuck face, dry
+friction = { value = 0.2, pairs = [{ work = "low_carbon_steel", seat = "aluminium" }], cite = "..." }   # illustrative; work on the chuck face, dry
 surface_prep = "Wipe the chuck face and the work underside clean and dry."
 gauge = "chuck-vacuum-gauge"                          # inventory gauge the operator reads
 solids = [ { name = "face", shape = "box", ... } ]    # the chuck body, as for any fixture
@@ -142,7 +142,7 @@ solids = [ { name = "face", shape = "box", ... } ]    # the chuck body, as for a
 | `vacuum_kpa` | `CitedFact` | the least gauge vacuum at which capacity is claimed; the operator must read at least this before cutting | capacity `?`; STOP in place of the gauge row |
 | `seal` | `"laid_cord"` | how the seal circuit is made. `laid_cord`: a gasket cord laid in the chuck's open-grid grooves along the work's outline, `gasket_inset_mm` inside it, at every setup. The HOLD prints the lay step, and the gauge reading proves the circuit closed. Fixed-groove chucks, whose circuit is the groove pattern rather than the work's outline, need their groove geometry recorded and are a follow-up | capacity `?` ("seal circuit not recorded") |
 | `gasket_inset_mm` | `MeasuredLength` | inset of the cord's centreline inside the work outline | sealed area `?` |
-| `friction` | `CitedFact` + `materials` | static μ of the work on the chuck face, for the material pair it was established on (section 2.7) | capacity `?` |
+| `friction` | `CitedFact` + `pairs` | static μ of the work on the chuck face, for the exact work/seat pairs it was established on (section 2.7) | capacity `?` |
 | `surface_prep` | text | printed in the vacuum apply step | STOP row in the apply step |
 | `gauge` | `str` | inventory gauge read at the chuck: an item of kind `vacuum_gauge` with trusted `range_kpa` `[lo, hi]`, `resolution_kpa` > 0 and `accuracy_kpa` >= 0. A displayed reading R proves only `R − accuracy_kpa − resolution_kpa / 2`, so the HOLD prints the minimum reading `P = ⌈(vacuum_kpa + accuracy_kpa + resolution_kpa / 2) / resolution_kpa⌉ × resolution_kpa`, and `P` itself must lie inside `range_kpa` | capacity `?` and STOP in place of the gauge row when the gauge is missing, of another kind, its range, resolution or accuracy is unknown, or `P` is outside the range |
 
@@ -253,17 +253,21 @@ rules consume comes from a trusted fact, otherwise the finding is `?`:
 
 | Term | Source | Trusted when |
 |---|---|---|
-| tape shear, peel | tape `shear_n_per_cm2`, `peel_n_per_cm` | cited or measured, `test` named, and `materials` contains both the work's class (the stock material through cutting-data `aliases`) and the seat's class (the holding fixture's `material` through the same aliases) |
-| vacuum friction | chuck `friction` | the same `materials` check, for the work and the chuck face |
+| tape shear, peel | tape `shear_n_per_cm2`, `peel_n_per_cm` | cited or measured, `test` named, and `pairs` contains the exact pair `{ work = <the stock material's class through cutting-data aliases>, seat = <the holding fixture's material class through the same aliases> }` |
+| vacuum friction | chuck `friction` | the same exact-pair check, for the work and the chuck face |
 | plate flatness f | new `flatness_mm` (`MeasuredLength`) on the `on` fixture solid | measured (a stack dimension, as D4) |
 | touch error e | new policy number `touch_error_mm`, with `numbers_cite` | cited and not flagged by `numbers_verify` |
 | mic error m | the measuring gauge's new `accuracy_mm` plus half its existing `resolution_mm` | both trusted |
 | DRO step r | the setup machine's existing `resolution_mm` (the DRO grid) | measured, as the coordinates rules already require |
 
-A strength or coefficient applies only to the material classes it was
-established on. A value for steel on aluminium never stands for brass on
-aluminium; a class missing from `materials` leaves the capacity `?` and names
-the class. Surface condition (finish, oxide, residual oil) has no fact in the
+A strength or coefficient applies only to the exact interfaces it was
+established on. `pairs` records each one as `{ work, seat }`, with roles: a value
+for steel work on an aluminium seat never stands for steel on steel, or for
+aluminium work on a steel seat, even though the same classes appear. A setup
+whose pair is not listed leaves the capacity `?` and names the pair. A tape
+datasheet value usually comes from one test panel bonded on both faces (for
+example `{ work = "stainless_steel", seat = "stainless_steel" }`), and it then
+qualifies only that pair. Surface condition (finish, oxide, residual oil) has no fact in the
 schema. It is gated instead by the printed `surface_prep` step, which is a STOP
 when missing, and named as residue.
 
@@ -609,7 +613,13 @@ terms:         tape  [t_nom − t_hi, t_nom − t_lo]
 ```
 
 **Recipe B, Z from the work top** (`measure_then_set`). Mic the work at P to
-read M, then touch its top at P. Printed: `Axis Set Z = M + paper_mm`.
+read M, then touch its top at P. Printed: `Axis Set Z = M + paper_mm`. A
+micrometer reads across both faces, and the underside is bonded once the work
+is taped, so M must be read **before** the hold. Recipe B under an area hold
+therefore requires `zero.z.measure_before_hold = true`, which prints the
+reading in the HOLD before the apply step. Without it, the stack row is an
+error ("the work's thickness cannot be miked once it is taped: set
+measure_before_hold"), never a printed step the operator cannot do.
 
 ```text
 thickness(x) = to_z + (t(P) − t(x)) + (Z_p(P) − Z_p(x)) + e_mic + e_touch + e_dro
@@ -814,8 +824,9 @@ tests request the shared `freecad_kernel` fixture.
 - Peel front: a 5 mm tab cut with a Ø10 cutter gets `L = 5`. A cut to the seat
   keeps `h_k` at the before-op stock height, not zero.
 - A vacuum `area.ref` naming another vacuum fixture than `hold.fixture` is exit 3.
-- Materials: a tape shear or a chuck friction whose `materials` lacks the
-  work's class or the seat's class leaves capacity `?`, naming the class.
+- Pairs: a value listed for `{ work = steel, seat = aluminium }` qualifies that
+  setup, but not steel on steel or aluminium on steel; those leave capacity `?`,
+  naming the pair.
 - Stack sources: each of `flatness_mm`, `touch_error_mm`, the gauge's
   `accuracy_mm` (recipe B) and the machine's `resolution_mm` missing or
   untrusted leaves the stack `?`, naming that fact.
@@ -853,6 +864,8 @@ tests request the shared `freecad_kernel` fixture.
 **Stack** (`area_hold_stack`)
 - Recipe A and recipe B on the same inputs: B's tape interval is exactly twice
   A's.
+- Recipe B without `measure_before_hold = true` is an error; with it, the HOLD
+  prints the mic reading before the apply step.
 - Endpoints: `to_z` at the band centre with a total width equal to the band
   passes, and 0.001 wider is an error; a narrow stack about an off-centre
   `to_z` that crosses one limit is an error.
@@ -891,7 +904,7 @@ Each phase is its own PR, stacked on the previous one.
 
 | Phase | PR | Contents | Size (est.) |
 |---|---|---|---|
-| 1 | schema | `CitedFact` (+ `test`, `materials`); solid `flatness_mm`; gauge `accuracy_mm`; `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`); `vacuum_gauge` `range_kpa` / `resolution_kpa` / `accuracy_kpa`; `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
+| 1 | schema | `CitedFact` (+ `test`, `pairs`); solid `flatness_mm`; gauge `accuracy_mm`; `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`); `vacuum_gauge` `range_kpa` / `resolution_kpa` / `accuracy_kpa`; `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
 | 2 | force | `_cutting_force.py` (endmill milling scope); `[[material]]` `kc1_n_per_mm2` / `mc` / `radial_ratio`; tool `helix_deg` and `helix_hand`; op `ae_mm`; `cutting-data.md`, `rules-physics.md` | ~400 + tests |
 | 3 | kernel | seat-plane sections before and after each op, islands, centroid, polar moment, hull distance; the fixed seal circuit and its opening op; op removed-volume extent per island; the layer drawn from facts; seat check; `ENGINE_SOURCES` cache identity | ~700 + geometry tests |
 | 4 | capacity | `hold_capacity` rule (area provider: force, yaw, lift, overturning), always required for area holds, shared policy factor, pull-test schema, `thin_wall_under_clamp` change; `rules-setup.md` | ~500 + tests |
@@ -979,9 +992,11 @@ not separately decided by the maintainer:
   rounding up, and must itself lie in the range (section 2.3);
 - only proven side entries are computed; a plunge or unproven entry is `?`
   until an axial-entry model exists (section 4.1);
+- recipe B requires `measure_before_hold = true`, since the work cannot be
+  miked once taped (section 5.2);
 - a pull test's dwell is a trusted measured fact, and step 7 prints the
   corrected minimum P (sections 3.4, 7);
-- strengths and friction apply only to the material classes they were
+- strengths and friction apply only to the exact work/seat pairs they were
   established on, and every stack uncertainty has a named, trusted source
   (section 2.7);
 - the lift sense comes from a separate `helix_hand` together with the cutting
