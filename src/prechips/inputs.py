@@ -182,8 +182,9 @@ _AREA_FORM = 'hold.area = { ref = "<consumables adhesive_tape id>", on = "<fixtu
 def _area_holds(plan: dict, inventory: dict) -> None:
     """An area hold is typed (docs/design/area-hold.md): ``hold.method`` no longer carries
     tape, ``area.ref`` names an inventory ``adhesive_tape`` consumable, and ``area.on``
-    names exactly one drawn solid of the holding fixture. A literal unknown identity stays
-    unresolved debt for the rules."""
+    names exactly one non-void solid of the holding fixture. A literal unknown identity stays
+    unresolved debt for the rules, and so does a named seat the kernel cannot draw (an
+    untrusted or incomplete solid): that is the phase 3 seat check's ``?``, never a pass."""
     from prechips.rules.resolution import select
 
     for setup in plan["setups"]:
@@ -203,9 +204,15 @@ def _area_holds(plan: dict, inventory: dict) -> None:
         ref, on = area.get("ref", "unknown"), area.get("on", "unknown")
         # Every inventory reference resolves through the one selector the rules use, so
         # a qualified hold.fixture (fixtures.plate) names the same item as a bare one.
-        tape = select(inventory, ref, "consumables")[2] if ref != "unknown" else None
+        # A qualified ref keeps its own category, so only a consumables item was
+        # validated as an AdhesiveTape record.
+        category, _, tape = (
+            select(inventory, ref, "consumables") if ref != "unknown" else (None,) * 3
+        )
         if ref != "unknown" and not (
-            isinstance(tape, dict) and tape.get("kind") == "adhesive_tape"
+            category == "consumables"
+            and isinstance(tape, dict)
+            and tape.get("kind") == "adhesive_tape"
         ):
             raise BadInput(f"{where}.area.ref {ref!r} is not a consumables adhesive_tape item.")
         fixture = hold.get("fixture", "unknown")
@@ -222,7 +229,7 @@ def _area_holds(plan: dict, inventory: dict) -> None:
         ]
         if len(named) != 1:
             raise BadInput(
-                f"{where}.area.on {on!r} must name exactly one drawn solid of fixture "
+                f"{where}.area.on {on!r} must name exactly one non-void solid of fixture "
                 f"{fixture!r} (found {len(named)})."
             )
 

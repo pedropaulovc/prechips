@@ -259,7 +259,7 @@ def test_other_methods_and_unknown_area_identities_still_load(tmp_path):
         ('fixture = "subplate"\narea = { ref = "tape", on = "hole" }', r"found 0"),
     ],
 )
-def test_area_reference_must_resolve_to_its_kind_and_one_drawn_solid(tmp_path, hold, match):
+def test_area_reference_must_resolve_to_its_kind_and_one_non_void_solid(tmp_path, hold, match):
     with pytest.raises(BadInput, match=match):
         bundle(tmp_path, hold)
 
@@ -272,7 +272,7 @@ def test_area_reference_must_resolve_to_its_kind_and_one_drawn_solid(tmp_path, h
         ("", None),  # an unresolved fixture is tool_resolves' finding, not a seat error
     ],
 )
-def test_known_seat_needs_a_drawn_solid_of_a_resolved_fixture(tmp_path, fixture, error):
+def test_known_seat_needs_a_solid_of_a_resolved_fixture(tmp_path, fixture, error):
     hold = 'fixture = "subplate"\narea = { ref = "tape", on = "plate" }'
     if error is None:
         bundle(tmp_path, hold, TAPE + fixture)
@@ -287,6 +287,26 @@ def test_a_qualified_fixture_resolves_like_a_bare_one(tmp_path, fixture):
     assert loaded.plan["setups"][0]["hold"]["fixture"] == fixture
     with pytest.raises(BadInput, match="found 0"):
         bundle(tmp_path, f'fixture = "{fixture}"\narea = {{ ref = "tape", on = "hole" }}')
+
+
+@pytest.mark.parametrize("category", ["fixtures", "gauges", "services"])
+def test_a_qualified_ref_outside_consumables_is_not_tape(tmp_path, category):
+    # Another category's item was never validated as an AdhesiveTape, whatever its kind.
+    impostor = f'[{category}.fake]\nkind = "adhesive_tape"\n'
+    with pytest.raises(BadInput, match="not a consumables adhesive_tape"):
+        bundle(
+            tmp_path,
+            f'fixture = "subplate"\narea = {{ ref = "{category}.fake", on = "plate" }}',
+            TAPE + PLATE + impostor,
+        )
+
+
+def test_a_seat_the_kernel_cannot_draw_is_debt_not_bad_input(tmp_path):
+    # verify = true is measurement debt: the seat stays named, and the phase 3 seat check
+    # reads the kernel's drawn primitives, so an undrawn seat is its ?, never a pass.
+    owed = PLATE.replace('name = "plate"\n', 'name = "plate"\nverify = true\n', 1)
+    assert owed != PLATE
+    bundle(tmp_path, 'fixture = "subplate"\narea = { ref = "tape", on = "plate" }', TAPE + owed)
 
 
 def test_two_solids_of_the_named_seat_are_ambiguous(tmp_path):
