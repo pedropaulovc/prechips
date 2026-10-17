@@ -5104,8 +5104,9 @@ class _Setup:
             why = self._tooling_mouth(cut, stock if meets is None else meets)
             if why is not None:
                 return None, why
-        # A through tooling hole runs out of the stock by design.
-        outside = 0.0 if cut.get("thru") else exact.cut(stock).Volume
+        # A through tooling hole's drill or ream runs out of the stock by design; a spot stops.
+        through = cut.get("thru") and cut.get("action") != "spot"
+        outside = 0.0 if through else exact.cut(stock).Volume
         if outside > STOCK_MM3:
             return None, (
                 f"{cut['label']} is not wholly inside the stock it is drilled in "
@@ -10991,6 +10992,9 @@ class _Setup:
         angle = cut.get("point_angle_deg")
         slope = math.tan(math.radians(angle / 2)) if _number(angle) else None
         point = radius / slope if slope else 0.0
+        if cut.get("action") == "spot":
+            # A spot's depth is its tip, even in a through hole (blind_depth).
+            return cut["op_depth_mm"] - point, point, slope
         if not cut.get("thru"):
             return cut["op_depth_mm"], point, slope
         span = stock.BoundBox.DiagonalLength + 10.0
@@ -11036,18 +11040,27 @@ class _Setup:
 
     def _tooling_solid(self, cut, stock, lead=0.0):
         """A tooling hole's setup-frame cut in ``stock``: its tool's full-diameter body from
-        ``lead`` above the mouth to :meth:`_tooling_feed`'s length, a drill's point cone
-        below it."""
+        ``lead`` above the mouth to :meth:`_tooling_feed`'s length, a pointed tool's cone
+        below it. A spot shallower than its point cuts only the part of that cone below the
+        mouth (``lead`` above it)."""
         at, axis = _process_place(cut)
         entry = self.matrix.multVec(at)
         direction = (self.matrix.multVec(at + axis) - entry).normalize()
         length, point, _ = self._tooling_feed(cut, stock, entry, direction)
         radius = cut["diameter_mm"] / 2
-        body = Part.makeCylinder(radius, length + lead, entry - direction * lead, direction)
-        if point <= PLANE_TOL:
-            return body
-        cone = Part.makeCone(radius, 0.0, point, entry + direction * length, direction)
-        return body.fuse(cone).removeSplitter()
+        pieces = []
+        if length + lead > PLANE_TOL:
+            pieces.append(
+                Part.makeCylinder(radius, length + lead, entry - direction * lead, direction)
+            )
+        if point > PLANE_TOL:
+            pieces.append(Part.makeCone(radius, 0.0, point, entry + direction * length, direction))
+        solid = pieces[0] if len(pieces) == 1 else pieces[0].fuse(pieces[1:]).removeSplitter()
+        if length + lead >= -PLANE_TOL:
+            return solid
+        reach = length + point + lead
+        window = Part.makeCylinder(radius, reach, entry - direction * lead, direction)
+        return solid.common(window)
 
     def _axial_facts(self, op, after, entry, tip, slope, tool=None):
         """Centred axial tool (pointed when ``slope``) and holder hits on ``after`` stock.

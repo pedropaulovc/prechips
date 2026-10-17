@@ -32,9 +32,10 @@ ACTIONS = {
         {"face", "rough_face", "finish_face", "profile", "rough_profile", "finish_profile"}
     ),
     "centre_hole": frozenset({"center_drill"}),
-    # A tooling hole is drilled, and reamed when its band needs it: the ream finishes the
-    # band, the drill roughs it (``sizing`` judges the finishing tool against ``dia``).
-    "tooling_hole": frozenset({"drill", "ream"}),
+    # A tooling hole is spotted, drilled and reamed when its band needs it: the ream
+    # finishes the band, the drill roughs it (``sizing`` judges the finishing tool against
+    # ``dia``) and the spot only starts it, cutting its own point.
+    "tooling_hole": frozenset({"spot", "drill", "ream"}),
 }
 _CENTRE_KEYS = ("drill_dia_mm", "drill_length_mm", "mouth_dia_mm", "countersink_angle_deg")
 # The selected combined drill and countersink's own fact behind each centre size

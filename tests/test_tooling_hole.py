@@ -86,14 +86,18 @@ def bundle_plan(tmp_path, *, pin=PIN, cl_band="[6.500, 6.530]", saw=True, drill_
     s1 = s1.rstrip("\n") + f"\n\n[setups.stock_state.entry_z]\ncl_tooling_hole = {TOP}\n"
     s1 += f"cr_tooling_hole = {TOP}\n"
     ops = ""
+    spot = (
+        '\n[[setups.ops]]\nop = {op}\ndo = "spot"\nfeature = "{hole}"\n'
+        'tool = "center-drills-lms-4859/2"\nholder = "drill-chuck-r8"\ndepth_mm = 0.5\n'
+    )
     if drill_cl:
-        ops += (
+        ops += spot.format(op=5, hole="cl_tooling_hole") + (
             '\n[[setups.ops]]\nop = 10\ndo = "drill"\nfeature = "cl_tooling_hole"\n'
             'tool = "drill-index-115/D"\nholder = "drill-chuck-r8"\nexit_mm = 2.0\n'
             '\n[[setups.ops]]\nop = 20\ndo = "ream"\nfeature = "cl_tooling_hole"\n'
             'tool = "reamers-metric/6.5mm"\nholder = "drill-chuck-r8"\nexit_mm = 2.0\n'
         )
-    ops += (
+    ops += spot.format(op=25, hole="cr_tooling_hole") + (
         '\n[[setups.ops]]\nop = 30\ndo = "drill"\nfeature = "cr_tooling_hole"\n'
         'tool = "drill-index-115/9-32in"\nholder = "drill-chuck-r8"\nexit_mm = 2.0\n'
     )
@@ -172,7 +176,7 @@ def test_the_route_locates_on_cl_until_the_saw_takes_it(tmp_path):
     }
     (fit,) = found["T3:cl_tooling_hole"].numbers["locators"]
     assert fit["clearance_mm"] == pytest.approx([6.5 - PIN, 6.53 - PIN])
-    assert found["T3:cl_tooling_hole"].numbers["made_by"] == ["S1 op 10", "S1 op 20"]
+    assert found["T3:cl_tooling_hole"].numbers["made_by"] == ["S1 op 5", "S1 op 10", "S1 op 20"]
     assert "gone" in found["T5:cl_tooling_hole"].sentence
     assert all(is_required(row, {"required": {}}) for row in found.values())
 
@@ -264,12 +268,18 @@ def test_the_hole_earns_no_drawing_coverage_but_its_ops_are_judged(tmp_path):
     assert rows(bundle, "blind_depth")["cl_tooling_hole"].status == "pass"
 
 
-def test_a_spot_does_not_make_a_tooling_hole(tmp_path):
+def test_only_spot_drill_and_ream_make_a_tooling_hole(tmp_path):
     from prechips.process_features import process_operation
 
     bundle = load_bundle(bundle_plan(tmp_path))
-    op = {"op": 5, "do": "spot", "feature": "cl_tooling_hole"}
-    assert "made only by drill or ream, not spot" in process_operation(bundle, op)["reason"]
+    op = {"op": 5, "do": "tap", "feature": "cl_tooling_hole"}
+    assert "made only by drill or ream or spot, not tap" in process_operation(bundle, op)["reason"]
+
+
+def test_the_route_spots_drills_and_reams_as_any_hole_chain(tmp_path):
+    found = rows(with_states(load_bundle(bundle_plan(tmp_path)), ROUTE), "op_chain")
+    assert found["cl_tooling_hole"].status == "pass", found["cl_tooling_hole"].sentence
+    assert found["cr_tooling_hole"].status == "pass", found["cr_tooling_hole"].sentence
 
 
 def test_the_kernel_job_carries_the_drilled_hole_and_its_exit(tmp_path):
@@ -277,6 +287,9 @@ def test_the_kernel_job_carries_the_drilled_hole_and_its_exit(tmp_path):
     job = kernel.engine_job(prepared_job(bundle))
     assert job["process_features"]["cl_tooling_hole"]["thru"] is True
     (s1,) = [setup for setup in job["setups"] if setup["id"] == "S1"]
+    spot = next(op for op in s1["ops"] if op["subject"] == "S1:5")
+    # A spot stops at its own tip, even in a through hole.
+    assert spot["process_cut"]["op_depth_mm"] == 0.5 and "through_mm" not in spot["process_cut"]
     ream = next(op for op in s1["ops"] if op["subject"] == "S1:20")
     assert "hole" not in ream
     assert ream["process_cut"]["diameter_mm"] == REAMER
@@ -394,3 +407,15 @@ def test_the_turn_is_unknown_while_the_pin_size_is_debt(tmp_path):
     )
     (fit,) = rows(with_states(load_bundle(plan), ROUTE))["T3:cl_tooling_hole"].numbers["locators"]
     assert {entry["angle_rad"] for entry in fit["clocking"]} == {"unknown"}
+
+
+def test_a_pivot_pin_not_parallel_to_the_hole_leaves_the_turn_unknown(tmp_path):
+    plan = bundle_plan(tmp_path)
+    inventory = plan.parents[1] / "inventory" / "pedro-shop.toml"
+    text = inventory.read_text(encoding="utf-8")
+    start = text.index("[fixtures.test-hub-pin]")
+    tilted = text[start:].replace("axis = [0.0, 0.0, 1.0]", "axis = [1.0, 0.0, 0.0]", 1)
+    inventory.write_text(text[:start] + tilted, encoding="utf-8")
+    (fit,) = rows(with_states(load_bundle(plan), ROUTE))["T3:cl_tooling_hole"].numbers["locators"]
+    hub = next(entry for entry in fit["clocking"] if entry["locates"] == "pivot_bore")
+    assert hub["angle_rad"] == "unknown" and "not parallel" in hub["reason"]

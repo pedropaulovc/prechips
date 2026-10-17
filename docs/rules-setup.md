@@ -138,8 +138,9 @@ kernel's geometric one (the drawn pin against the cut bore,
 
 Each locator also reports, for information only, `clocking`: for every other
 locating cylinder the setup places (any posed fixture or clamp solid with a
-`locates`, such as a HUB pin in the part's bore), the setup-frame distance `L`
-between that pin's axis and the hole's axis, the angle the work may turn on this
+`locates`, such as a HUB pin in the part's bore) whose posed axis is parallel to
+the hole's (any other leaves its turn unknown, with a reason), the setup-frame
+distance `L` between that pin's axis and the hole's axis, the angle the work may turn on this
 pin about it, `angle_rad = (hi - pin) / L` (the largest diametral clearance over
 that distance), and `max_shift_mm`, the most that turn moves a corner of the
 entering stock's bounding box. An unknown clearance, pose or box leaves the

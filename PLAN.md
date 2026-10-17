@@ -1381,7 +1381,7 @@ sheet.
    **Tooling holes shipped (2026-10-17, #293):** `process_features` kind
    `tooling_hole` (`at`, `axis`, `dia` band, `thru` or `depth`) is a locating
    hole in the work's own waste. It resolves as a plain `hole` with no drawing
-   requirement, so its `drill`/`ream` ops get the hole rules (`sizing` judges the
+   requirement, so its `spot`/`drill`/`ream` ops get the hole rules (`sizing` judges the
    finishing ream against the band, `blind_depth`, speeds, reach, accessibility,
    headroom) and no coverage or finish credit. The kernel cuts the selected tool's
    diameter through or to depth and reports each hole's state on every setup's
