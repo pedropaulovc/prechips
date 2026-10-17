@@ -1365,6 +1365,10 @@ An axis with nothing to derive from is a `missing_touches` row
 another tool's Axis Set scraps the part. An authored tool touch for that tool
 before the op replaces the derivation.
 
+Swivelled vise: under a `jaws_angle_deg` the work's edges stand off the table travel, so
+an X or Y pick-up that is not `from = "indicated"` (an indicated bore centre) is unknown,
+listed in `swivel_unproven_axes` ([swivelled vise](plan.md#swivelled-vise)).
+
 Touched faces: every non-measured Z touch (the zero, a tool touch, a derived
 re-touch or a listed top retouch) sets its Axis Set from the known face height
 in this setup's frame. When an op cut that face under a set Z DRO in this

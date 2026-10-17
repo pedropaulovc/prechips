@@ -857,9 +857,10 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `stickout_mm` | `Number` |
 | `stickout_fit` | `{ measure: str, nominal_mm: Number, add_mm: Number }`: a stickout set from a measured fit-up; `stickout_mm` is the nominal `nominal_mm + add_mm` ([stickout](rules-lathe.md#stickout)) and the operator sets the `measure` reading + `add_mm`. The HOLD table prints `nominal stickout mm` and `set stickout: measured … + N`; the picture dimensions `NOM STICKOUT …` and its notes say it is set as the measured fit-up + N |
 | `jaw_center_along_mm` | `Number` |
+| `jaws_angle_deg` | `Number` strictly between −90 and 90: a vise swivelled on its base about setup +Z, the jaw line's angle from `jaws_along`, counterclockwise positive seen from above; omitted is square jaws, `"unknown"` leaves the jaws unplaced ([swivelled vise](#swivelled-vise)) |
 | `jaw_bar` | `str` (fixtures `round_bar` between the work and the moving jaw) |
 | `jaw_buttons` | `str` (fixtures `jaw_buttons`: one button between each jaw and the work, its spigot in the work's bore) |
-| `align` | `{ indicator: str, limit_mm: Number, over_mm: Number, face: str, cite: str \| list[str] }`: how a mill vise's fixed jaw or angle plate's locating face is squared to the table travel; `indicator` is an inventory `dial_test_indicator` / `dial_indicator` gauge swept `over_mm` along the face, its reading changing no more than `limit_mm`; an angle plate's `face` names the fixture solid whose face is squared. Required where the setup mounts or turns the vise or plate ([hold_fields](rules-setup.md#hold_fields)) |
+| `align` | `{ indicator: str, limit_mm: Number, over_mm: Number, face: str, cite: str \| list[str] }`: how a mill vise's fixed jaw or angle plate's locating face is squared to the table travel; `indicator` is an inventory `dial_test_indicator` / `dial_indicator` gauge swept `over_mm` along the face, its reading changing no more than `limit_mm`; an angle plate's `face` names the fixture solid whose face is squared. Required where the setup mounts or turns the vise or plate ([hold_fields](rules-setup.md#hold_fields)). A swivelled vise adds `method` (`indicate_jaw`, `graduations`, `protractor`, `sine_bar`) and, for a stated method, `tolerance_deg` with its `cite` ([swivelled vise](#swivelled-vise)) |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
 | `parallels_along` | `str` (`x` / `y`; parallels under a non-vise hold) |
 | `riser_up` | `str` (riser dimension standing vertical: `length` / `width` / `height`) |
@@ -983,6 +984,36 @@ choices, while each parallel dimension has its own fact-local trust; the
 inventory item's `verify` does not taint other numeric facts. Omitting the
 optional poses does not block independent `vise` / `thin_wall_under_clamp`
 facts. A selected parallel's missing height still leaves fixture dimensions unknown.
+
+### Swivelled vise
+
+`jaws_angle_deg` swivels the vise on its base about setup +Z: the jaw line runs at that
+angle from `jaws_along` (counterclockwise positive seen from above). `jaws_along` and
+`fixed_jaw` keep naming the jaws before the swivel (`rear` is the +Y jaw of
+`jaws_along = "x"`), and `jaw_center_along_mm` is measured along the swivelled jaw line.
+`parallels_centres_mm` and `riser_centres_mm` stay setup-frame `[X, Y]` centres; the
+parallels and risers run along the swivelled jaws. The plan's setup frame carries the
+work's own pose; the kernel closes the jaws on that work across the swivelled line.
+
+The swivel is set by `hold.align.method`, where the setup mounts the vise or changes its
+swivel:
+
+- `indicate_jaw`: rough the swivel in on the base graduations; touch the `indicator` on
+  the fixed jaw near one end, zero the dial and DRO X/Y; raise the quill, move the
+  printed ΔX = `over_mm`·cos, ΔY = `over_mm`·sin of the jaw line; lower onto the jaw and
+  tap the vise round until the two readings agree within `limit_mm`. The setting
+  tolerance is asin((`limit_mm` + √2·step) / `over_mm`), with the machine's measured
+  DRO `resolution` as the step (each axis set to within a step).
+- `graduations`, `protractor`, `sine_bar`: set by that reference against the fixed jaw,
+  to its stated `tolerance_deg`, which needs a `cite`.
+
+Any unknown input leaves the tolerance unknown; the HOLD prints a STOP for it. The work
+turns with the jaws while the cutter feeds along a table axis, so the
+[`swivel`](rules-setup.md#swivel) rule holds each walled cut's angle band against the
+tolerance and reports the shift L·sin(tolerance) at the cut's reach L from the DRO zero.
+Because the work's edges then stand off the table travel, an X or Y zero is picked up by
+indicating a bore's centre (`from = "indicated"`); an edge touch there is `?`
+([zero_check](rules-coordinates.md)).
 
 `jaw_bar` names a fixtures `round_bar` laid between the work and the moving jaw,
 so a faced reference face seats flat on the fixed jaw while the opposite face is

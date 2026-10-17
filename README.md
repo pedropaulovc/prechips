@@ -459,7 +459,8 @@ own geometry, never import order; invalid or approach-invalid cutting claims are
 Fixture solids come only from explicit inventory dimensions and plan poses:
 a vise's `jaw_height` / `jaw_width` / `jaw_depth` / `opening`, the parallels'
 `height` (plus `length` / `width` for their solids) and riser blocks, with the
-plan's `fixed_jaw` / `jaws_along` / `grip_mm` / `jaw_above_parallels_mm` and
+plan's `fixed_jaw` / `jaws_along` / `grip_mm` / `jaw_above_parallels_mm` (and
+`jaws_angle_deg` for a vise swivelled about Z, placed in its jaw frame) and
 optional authored `jaw_center_along_mm` and `parallels_centres_mm`; a 3- or
 4-jaw chuck's body/bore/jaw dimensions with `hold.pose` and `jaw_clock_deg`
 (a dividing head adds its own authored `solids` and the chuck `hold.chuck`
