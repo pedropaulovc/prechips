@@ -4282,15 +4282,7 @@ class _Job:
                 deferred.append((reason, Part.makeCompound(faces) if faces else None))
                 continue
             known.append((form, refs, faces))
-        everything = [face for _, _, faces in known for face in faces]
-        formed = Part.makeCompound(everything) if everything else None
-        neighbours = [
-            other
-            for face in everything
-            for edge in face.Edges
-            for other in self.solid.ancestorsOfType(edge, Part.Face)
-            if not any(other.isSame(own) for own in everything)
-        ]
+        faces_of = {form["feature"]: faces for form, _, faces in known}
         # A known feature whose lost material touches an undecided corner is undecided
         # too, transitively, whatever the order of ``forms``; its other pieces are still
         # held to the refusals no undecided corner can undo.
@@ -4359,6 +4351,23 @@ class _Job:
             low, high = form["radius_mm"]
             touched, reach = set(), 0.0
             for piece in judged:
+                # A piece is measured only against the features whose faces it touches,
+                # and bounded only by their neighbours: a formed face it never meets
+                # cannot excuse its loss.
+                owners = [
+                    face
+                    for other, pieces_of in mines.items()
+                    if any(piece is own for own in pieces_of)
+                    for face in faces_of[other]
+                ]
+                formed = Part.makeCompound(owners)
+                neighbours = [
+                    other
+                    for face in owners
+                    for edge in face.Edges
+                    for other in self.solid.ancestorsOfType(edge, Part.Face)
+                    if not any(other.isSame(own) for own in owners)
+                ]
                 # Vertices too: a corner where faces blend may be the farthest point.
                 corners = [vertex.Point for vertex in piece.Vertexes]
                 reach = max([reach, *(formed.distToShape(Part.Vertex(p))[0] for p in corners)])

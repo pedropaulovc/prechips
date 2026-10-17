@@ -973,8 +973,11 @@ branches:
   the other, placed mouth included) and a single component are debt. Loss beyond the
   band's MAX and a band not starting at 0 stay certain refusals. An undeclared or
   unknown break is debt.
-- No lost point, sampled faces and vertices included, lies farther from the formed
-  faces than the band's MAX. Material missing beyond the band stays lost.
+- No lost point, sampled faces and vertices included, lies farther than the band's
+  MAX from the faces of the formed features its piece touches. Material missing
+  beyond the band stays lost. Another formed feature's face that the piece never
+  meets, and that face's neighbours, neither shorten that distance nor bound the
+  piece.
 - The corner shares area with both received branches. A corner that one branch
   alone bounds belongs to a single component, which the join did not form.
 - A sharp corner is radius 0, so the band's lower end must be 0. A `[0.1, 0.2]`
