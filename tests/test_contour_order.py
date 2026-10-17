@@ -9,9 +9,12 @@ from test_headroom import coordinate_bundle
 
 from prechips.inputs import load_bundle
 from prechips.model import Contour
-from prechips.rules import coordinates, tip_endpoints, zero_recipe
+from prechips.rules import coordinates, tip_endpoints
 from prechips.rules.resolution import LENGTH_TOLERANCE_MM
 from prechips.rules.tip_endpoints import _producer, operative_z, stock_states
+from prechips.rules.zero_recipe import native as zero_recipe_native
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
+from prechips.rules.zero_recipe import tool_setting as zero_recipe_tool_setting
 
 ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
 BOSS = "kind = 'boss'\nat = [20.0, 10.0, 0.0]\ndia = 20.0\n"
@@ -546,7 +549,7 @@ def zero_after_first_face(bundle, setup, pick_up=False):
         for axis, edge in (("x", "left"), ("y", "front")):
             setup["zero"][axis] = {"edge": edge, "edge_mm": 0.0, "from": f"-{axis}"}
             setup["zero"][axis].update(tool="cutter", check_jog_mm=5.0)
-    return zero_recipe.evaluate(bundle)[0]
+    return zero_recipe_rule.evaluate(bundle)[0]
 
 
 def test_a_face_over_part_of_the_top_never_lowers_the_next_ops_start(tmp_path):
@@ -667,7 +670,7 @@ def zero_on_raw_top(bundle, setup, retouch_after=(), touches=(), side="+z"):
         "retouch_after": list(retouch_after),
     }
     setup["zero"]["tool_touches"] = list(touches)
-    return zero_recipe.evaluate(bundle)[0]
+    return zero_recipe_rule.evaluate(bundle)[0]
 
 
 def named_face_touch(bundle, setup, edge, paper=0.1):
@@ -833,7 +836,9 @@ def test_incidental_disc_metadata_cannot_shrink_a_bounds_free_native_face(tmp_pa
     recipe, row = named_face_touch(bundle, setup, -8.8)
     matched = []
     assert (
-        zero_recipe.face_stands(bundle, setup, "target", -8.8, done=1, credited=matched)
+        zero_recipe_tool_setting.face_stands(
+            bundle, setup, "target", -8.8, done=1, credited=matched
+        )
         == "unknown"
     )
     assert matched == []
@@ -943,7 +948,7 @@ def test_a_native_local_source_must_prove_coverage_without_a_credit_collector(tm
     named_face_touch(bundle, setup, -8.8)
     matched = []
     assert (
-        zero_recipe.face_stands(
+        zero_recipe_tool_setting.face_stands(
             bundle, setup, "target", -8.8, done=1, source=source, credited=matched
         )
         == "unknown"
@@ -1043,7 +1048,9 @@ def test_a_later_xy_overlapping_cut_at_another_floor_leaves_native_contact_unkno
     assert recipe.status == "unknown"
     assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
     assert (
-        zero_recipe.face_stands(bundle, setup, "target", -8.8, done=2, credited=credited)
+        zero_recipe_tool_setting.face_stands(
+            bundle, setup, "target", -8.8, done=2, credited=credited
+        )
         == "unknown"
     )
     assert credited == []
@@ -1060,7 +1067,7 @@ def test_a_named_face_tool_touch_reads_only_a_wholly_faced_plane(tmp_path, boxes
     bundle, setup = left_strip_faced(tmp_path, FACE_ONLY)
     refs = matched_faces(bundle, *boxes)
     recipe, row = named_face_touch(bundle, setup, edge)
-    stands = zero_recipe.face_stands(bundle, setup, "target", edge, done=1)
+    stands = zero_recipe_tool_setting.face_stands(bundle, setup, "target", edge, done=1)
     if boxes == (NEAR,):
         assert stands == -8.8
         assert recipe.status == "pass", recipe.sentence
@@ -1399,7 +1406,9 @@ def test_cross_feature_unknown_face_bounds_leave_current_producer_and_touch_unkn
     assert recipe.status == "unknown"
     assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
     assert (
-        zero_recipe.face_stands(bundle, setup, "target", -8.8, done=1, credited=credited)
+        zero_recipe_tool_setting.face_stands(
+            bundle, setup, "target", -8.8, done=1, credited=credited
+        )
         == "unknown"
     )
     assert credited == []
@@ -2089,7 +2098,7 @@ def test_a_carried_entry_is_native_even_when_the_authored_touch_edge_is_as_cut(
         "unknown": "unknown",
     }[entry]
     assert bundle.inventory["tools"]["centre"]["kind"] == "center_drill_set"
-    contact = zero_recipe.evaluate(bundle)[-1]
+    contact = zero_recipe_rule.evaluate(bundle)[-1]
     assert contact.status == "pass", contact.sentence
     finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
     assert finding.status == verdict, finding.sentence
@@ -2117,7 +2126,9 @@ def test_carried_entry_native_equality_uses_the_physical_length_tolerance(units,
     bundle = carried_entry_bundle(units)
     setup = bundle.plan["setups"][-1]
     scale = {"mm": 1.0, "in": 25.4}[units]
-    nominal = zero_recipe.carried_z_reading(bundle, setup, setup["ops"][0])["native_edge_mm"]
+    nominal = zero_recipe_tool_setting.carried_z_reading(bundle, setup, setup["ops"][0])[
+        "native_edge_mm"
+    ]
     boundary = nominal + side * LENGTH_TOLERANCE_MM / scale
     entry = math.nextafter(boundary, nominal if inside else side * math.inf)
     assert (abs(entry - nominal) * scale <= LENGTH_TOLERANCE_MM) is inside
@@ -2198,7 +2209,7 @@ def test_non_grid_carried_contact_anchors_operation_entry_depth_and_exit_to_its_
         ]
     elif route == "listed-retouch":
         zero.update(face="top", retouch_after=[10])
-    contact = zero_recipe.evaluate(bundle)[-1]
+    contact = zero_recipe_rule.evaluate(bundle)[-1]
     assert contact.status == "pass", contact.sentence
     assert contact.numbers["axes"]["z"]["axis_set"] == typed
     finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
@@ -2288,7 +2299,7 @@ def test_carried_through_exit_is_a_thickness_bound_not_a_translated_opposite_pro
     setup["ops"][1]["exit_mm"] = 0.5
     assert coordinates.formed_z(bundle, source, source["ops"][0]) == north_z
     assert coordinates.formed_z(bundle, source, parting) == south_z
-    contact = zero_recipe.evaluate(bundle)[-1]
+    contact = zero_recipe_rule.evaluate(bundle)[-1]
     assert contact.status == "pass", contact.sentence
     finding = next(row for row in tip_endpoints.evaluate(bundle) if row.subject == "hole")
     assert finding.status == "pass", finding.sentence
@@ -2391,7 +2402,7 @@ def test_a_local_entry_cut_on_a_carried_dro_is_not_shifted_as_an_imported_plane_
             "before_ops": [20],
         }
     ]
-    contact = zero_recipe.evaluate(bundle)[-1]
+    contact = zero_recipe_rule.evaluate(bundle)[-1]
     if pad_claim == "unknown":
         assert contact.status == "unknown"
         assert contact.numbers["tool_touches"][0]["z_axis_set"] == "unknown"
@@ -2483,16 +2494,16 @@ def test_every_ambiguous_current_native_cut_invalidates_root_and_recovery_credit
         bundle.kernel["faces"][0]["fills_bbox"] = False
     debts, credited, carried = [], [], []
     assert (
-        zero_recipe.face_stands(
+        zero_recipe_tool_setting.face_stands(
             bundle, setup, "target", -8.8, done=2, debts=debts, credited=credited, carried=carried
         )
         == "unknown"
     )
     assert debts and credited == carried == []
     errors, unknowns = [], []
-    edge, refs, constraint = zero_recipe._face_checker(bundle, setup, errors, unknowns)(
-        current_face_touch(), "target", -8.8, 2, "the explicit touch"
-    )
+    edge, refs, constraint = zero_recipe_tool_setting._face_checker(
+        bundle, setup, errors, unknowns
+    )(current_face_touch(), "target", -8.8, 2, "the explicit touch")
     assert edge == "unknown" and refs == [] and constraint is False
     assert errors == [] and unknowns
 
@@ -2531,7 +2542,7 @@ def test_a_fresh_current_whole_face_keeps_its_exact_dro_and_paper_setting(
         del bundle.kernel["ops"]
     credited, carried = [], []
     assert (
-        zero_recipe.face_stands(
+        zero_recipe_tool_setting.face_stands(
             bundle, setup, "target", -8.8, done=1, credited=credited, carried=carried
         )
         == -8.8
@@ -2543,7 +2554,7 @@ def test_a_fresh_current_whole_face_keeps_its_exact_dro_and_paper_setting(
     assert row["z_axis_set"] == pytest.approx(-8.7963)
     assert row["credited_faces"] == refs
     assert "native_edge_mm" not in row and "setting_residual_mm" not in row
-    assert zero_recipe.carried_z_reading(bundle, setup, setup["ops"][-1]) is None
+    assert zero_recipe_tool_setting.carried_z_reading(bundle, setup, setup["ops"][-1]) is None
 
 
 @pytest.mark.parametrize("kind", ["column", "removal-box"])
@@ -2562,7 +2573,7 @@ def test_a_provably_xy_disjoint_current_cut_preserves_the_native_touch(tmp_path,
     setup["ops"].insert(1, cut)
     debts, credited = [], []
     assert (
-        zero_recipe.face_stands(
+        zero_recipe_tool_setting.face_stands(
             bundle, setup, "target", -8.8, done=2, debts=debts, credited=credited
         )
         == -8.8
@@ -2593,7 +2604,7 @@ def test_current_rectangular_land_keeps_all_exclusions_without_becoming_a_carrie
     credited, carried = [], []
     done = len(setup["ops"]) - 1
     assert (
-        zero_recipe.face_stands(
+        zero_recipe_tool_setting.face_stands(
             bundle, setup, "target", -8.8, done=done, credited=credited, carried=carried
         )
         == -8.8
@@ -2606,7 +2617,7 @@ def test_current_rectangular_land_keeps_all_exclusions_without_becoming_a_carrie
     assert row["touch_exclusion_dia_mm"] == 0.8 and row["credited_faces"] == refs
     assert row["z_axis_set"] == pytest.approx(-8.7963)
     assert "native_edge_mm" not in row and "setting_residual_mm" not in row
-    assert zero_recipe.carried_z_reading(bundle, setup, last) is None
+    assert zero_recipe_tool_setting.carried_z_reading(bundle, setup, last) is None
     text = paragraphs(_Traveler(bundle, [finding], {}, {}).dro(setup, {}))
     (instruction,) = [line for line in text if "Before op 40" in line and "target" in line]
     assert "touch the face outside Ø0.8 mm" in instruction
@@ -2660,7 +2671,7 @@ def refaced_about(tmp_path, shift):
 def test_a_reface_about_another_centre_cannot_keep_an_earlier_exclusion_radius(tmp_path, shift):
     bundle, receiver, refs = refaced_about(tmp_path, shift)
     credited, carried = [], []
-    standing = zero_recipe.face_stands(
+    standing = zero_recipe_tool_setting.face_stands(
         bundle, receiver, "target", -8.8, done=2, credited=credited, carried=carried
     )
     if shift == 0.0:
@@ -2707,7 +2718,7 @@ def test_a_later_whole_reface_cannot_erase_unknown_current_cut_area(tmp_path, la
     setup["zero"]["tool_touches"] = [touch] if later_setup else [measured, touch]
     debts, credited = [], []
     assert (
-        zero_recipe.face_stands(
+        zero_recipe_tool_setting.face_stands(
             bundle,
             setup,
             "target",
@@ -2719,7 +2730,7 @@ def test_a_later_whole_reface_cannot_erase_unknown_current_cut_area(tmp_path, la
         == "unknown"
     )
     assert debts and credited == []
-    finding = zero_recipe.evaluate(bundle)[-1]
+    finding = zero_recipe_rule.evaluate(bundle)[-1]
     row = finding.numbers["tool_touches"][-1]
     assert finding.status == "unknown", finding.sentence
     assert row["edge_mm"] == row["z_axis_set"] == "unknown"
@@ -2739,7 +2750,7 @@ def test_current_face_survival_stops_at_the_exact_touch_operation_boundary(tmp_p
         else current_face_touch(after=20)
     )
     setup["zero"]["tool_touches"] = [touch]
-    finding = zero_recipe.evaluate(bundle)[0]
+    finding = zero_recipe_rule.evaluate(bundle)[0]
     (row,) = finding.numbers["tool_touches"]
     if placement == "after-cut":
         assert finding.status == "unknown"
@@ -2771,7 +2782,7 @@ def test_an_independent_known_error_still_precedes_unknown_native_area(tmp_path)
     del bundle.inventory["tools"]["drill"]["dia_mm"]
     setup["zero"]["tool_touches"] = [current_face_touch()]
     bundle.plan["dro"]["mode"] = "incremental"
-    finding = zero_recipe.evaluate(bundle)[0]
+    finding = zero_recipe_rule.evaluate(bundle)[0]
     (row,) = finding.numbers["tool_touches"]
     assert finding.status == "error"
     assert row["z_axis_set"] == "unknown" and "credited_faces" not in row
@@ -2781,7 +2792,7 @@ def test_an_explicit_native_producer_source_cannot_look_past_the_touch_boundary(
     bundle, setup, _ = current_native_face_bundle(tmp_path)
     debts, credited = [], []
     assert (
-        zero_recipe.face_stands(
+        zero_recipe_tool_setting.face_stands(
             bundle,
             setup,
             "target",
@@ -2806,7 +2817,7 @@ def test_every_current_native_zero_contact_route_observes_unknown_intervening_cu
     if route == "listed-retouch":
         setup["stock_state"]["top_feature"] = "target"
         setup["zero"]["z"]["retouch_after"] = [20]
-    finding = zero_recipe.evaluate(bundle)[0]
+    finding = zero_recipe_rule.evaluate(bundle)[0]
     assert finding.status == "unknown", finding.sentence
     if route == "listed-retouch":
         (row,) = finding.numbers["retouch"]
@@ -2841,7 +2852,7 @@ def test_an_invalid_native_touch_cannot_recover_numeric_endpoints_from_a_local_e
     del bundle.inventory["tools"]["drill"]["dia_mm"]
     touch = {**current_face_touch(), "tool": "endpoint-drill"}
     setup["zero"]["tool_touches"] = [touch]
-    reading = zero_recipe.carried_z_reading(bundle, setup, final)
+    reading = zero_recipe_tool_setting.carried_z_reading(bundle, setup, final)
     assert reading is not None
     assert reading["edge_mm"] == reading["z_axis_set"] == "unknown"
     before = next(before for cut, before, _ in stock_states(bundle, setup) if cut is final)
@@ -2865,7 +2876,9 @@ def test_current_rectangular_credit_requires_a_remaining_half_mm_square(tmp_path
     bundle.inventory["tools"]["drill"]["dia_mm"] = 1.2
     credited = []
     assert (
-        zero_recipe.face_stands(bundle, setup, "target", -8.8, done=2, credited=credited)
+        zero_recipe_tool_setting.face_stands(
+            bundle, setup, "target", -8.8, done=2, credited=credited
+        )
         == "unknown"
     )
     assert credited == []
@@ -2880,7 +2893,7 @@ def turned_window_plane(ref):
     source = bundle.plan["setups"][1]
     feature = bundle.plan["setups"][-1]["zero"]["z"]["face"]
     bundle.kernel["setups"][source["id"]]["revolved"]["spigot"]["radii_mm"] = [0.5, 0.5]
-    plane = zero_recipe._native_plane_geometry(bundle, source, feature, [ref])
+    plane = zero_recipe_native._native_plane_geometry(bundle, source, feature, [ref])
     assert plane is not None
     return bundle, source, bundle.feature_definitions[feature], plane
 
@@ -2897,10 +2910,10 @@ def test_a_turning_window_wholly_on_the_planes_open_side_spares_it(ref, window, 
     assert plane["normal_z"] == normal
     at_plane, far = window
     cut = op(20, "finish_turn", "spigot", "turner", z_from=far, z_to=at_plane)
-    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is False
+    assert zero_recipe_native._carry_cut(bundle, source, cut, target, plane) is False
     # The same window reaching two tolerances past the plane crosses it.
     crossing = {**cut, "z_to": at_plane - 2 * LENGTH_TOLERANCE_MM * normal}
-    assert zero_recipe._carry_cut(bundle, source, crossing, target, plane) is True
+    assert zero_recipe_native._carry_cut(bundle, source, crossing, target, plane) is True
 
 
 @pytest.mark.parametrize("excluded", ["to_z", "part_off"])
@@ -2912,7 +2925,7 @@ def test_a_cut_outside_the_kernels_window_limited_turning_still_invalidates(excl
         cut = op(20, "finish_turn", "spigot", "turner", z_from=3.0, z_to=0.0, to_z=0.0)
     else:
         cut = op(20, "part_off", "spigot", "turner", z_from=3.0, z_to=0.0)
-    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is True
+    assert zero_recipe_native._carry_cut(bundle, source, cut, target, plane) is True
 
 
 def tilted(frame):
@@ -2932,9 +2945,9 @@ def test_a_turning_window_spares_no_plane_tilted_off_its_axis():
 
     bundle, source, target, plane = turned_window_plane("#1/NORTH")
     cut = op(20, "finish_turn", "spigot", "turner", z_from=20.0, z_to=0.0)
-    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is False
+    assert zero_recipe_native._carry_cut(bundle, source, cut, target, plane) is False
     leaning = {**plane, "frame": tilted(plane["frame"])}
-    assert zero_recipe._carry_cut(bundle, source, cut, target, leaning) is True
+    assert zero_recipe_native._carry_cut(bundle, source, cut, target, leaning) is True
 
 
 @pytest.mark.parametrize(
@@ -2951,7 +2964,7 @@ def test_a_blade_groove_spares_the_plane_only_over_its_whole_known_width(width, 
         blade["blade_width_mm"] = width
     bundle.inventory["tools"]["blade"] = blade
     cut = op(20, "groove", "spigot", "blade", z_from=-73.0, z_to=-72.5)
-    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is not spared
+    assert zero_recipe_native._carry_cut(bundle, source, cut, target, plane) is not spared
 
 
 def test_a_turning_window_spares_the_plane_only_at_its_dialled_ends(monkeypatch):
@@ -2961,10 +2974,10 @@ def test_a_turning_window_spares_the_plane_only_at_its_dialled_ends(monkeypatch)
 
     bundle, source, target, plane = turned_window_plane("#2/SOUTH")
     cut = op(20, "finish_turn", "spigot", "turner", z_from=-80.0, z_to=-72.5)
-    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is False
+    assert zero_recipe_native._carry_cut(bundle, source, cut, target, plane) is False
     # On a 5-unit DRO grid the -72.5 end is dialled up to -70, into the plane's material.
     monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (5.0, 0))
-    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is True
+    assert zero_recipe_native._carry_cut(bundle, source, cut, target, plane) is True
 
 
 def test_a_blade_groove_grows_its_width_from_the_dialled_chuck_side_end(monkeypatch):
@@ -2977,7 +2990,7 @@ def test_a_blade_groove_grows_its_width_from_the_dialled_chuck_side_end(monkeypa
     cut = op(20, "groove", "spigot", "blade", z_from=-73.003, z_to=-72.5)
     # On a 0.001 grid the end stays -73.003: its wall stops at -72.001, short of -72.
     monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (0.001, 3))
-    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is False
+    assert zero_recipe_native._carry_cut(bundle, source, cut, target, plane) is False
     # Dialled up to -73.000 on a 0.005 grid, the blade's far wall reaches -71.998.
     monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (0.005, 3))
-    assert zero_recipe._carry_cut(bundle, source, cut, target, plane) is True
+    assert zero_recipe_native._carry_cut(bundle, source, cut, target, plane) is True

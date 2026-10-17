@@ -18,9 +18,9 @@ from prechips.rules import (
     reach,
     speeds_feeds,
     tool_resolves,
-    zero_recipe,
 )
 from prechips.rules.geometry_common import finishing_subjects
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
 
 ROW = {
     "material_class": "aluminum",
@@ -292,10 +292,10 @@ def test_saw_needs_holding_facts_but_no_holder_or_direction():
 def test_dedicated_saw_setup_has_no_spindle_zero_but_mixed_setup_does():
     data = saw_bundle()
     data.plan["setups"][0]["ops"].append({"op": 20, "do": "inspect"})
-    [row] = zero_recipe.evaluate(data)
+    [row] = zero_recipe_rule.evaluate(data)
     assert row.status == "not_applicable"
     data.plan["setups"][0]["ops"].append({"op": 30, "do": "face", "tool": "blade"})
-    [row] = zero_recipe.evaluate(data)
+    [row] = zero_recipe_rule.evaluate(data)
     assert row.status != "not_applicable"
 
 

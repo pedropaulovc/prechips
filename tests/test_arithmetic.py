@@ -8,7 +8,7 @@ from test_cli import run_cli
 
 from prechips.rules.speeds_feeds import nearest50
 from prechips.rules.tip_endpoints import drill_point_mm
-from prechips.rules.zero_recipe import axis_recipe
+from prechips.rules.zero_recipe.touch import axis_recipe
 
 # A minimal verified one-setup mill bundle: face the top, spot and through-drill h1.
 # Baseline: exit 0 with every required rule passing.

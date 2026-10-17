@@ -11,7 +11,7 @@ from test_envelope_m5 import measured
 from test_kernel_geometry import Engine
 from test_sheet_ops import Markup, content
 
-from prechips.rules.zero_recipe import evaluate
+from prechips.rules.zero_recipe.rule import evaluate
 from prechips.sheet import _Traveler
 
 DRO = {
@@ -1555,7 +1555,7 @@ def test_axial_plunges_leave_a_proven_plane_with_a_cumulative_touch_exclusion(ai
     assert before[20]["touch_exclusion_dia_mm"] == pytest.approx(0.3 + 2 * aim_shift)
     assert before[20]["credited_faces"] == ["#1/NORTH"]
     if aim_shift:
-        from prechips.rules.zero_recipe import _axial_cut_footprint
+        from prechips.rules.zero_recipe.native import _axial_cut_footprint
 
         receiver = data.plan["setups"][-1]
         point, radius = _axial_cut_footprint(data, receiver, receiver["ops"][1])
@@ -1633,7 +1633,7 @@ def test_radial_extrema_never_prove_usable_round_or_holed_touch_land(inner, reac
     receiver["ops"] = [op(10, "drill", "hole", "drill"), op(20, "ream", "hole", "reamer")]
     data.inventory["tools"]["drill"]["dia_mm"] = 2 * reach
     data.inventory["tools"]["reamer"] = {"kind": "reamer", "dia_mm": 0.9}
-    from prechips.rules.zero_recipe import _axial_cut_footprint
+    from prechips.rules.zero_recipe.native import _axial_cut_footprint
 
     point, radius = _axial_cut_footprint(data, receiver, receiver["ops"][0])
     assert point[:2] == [0.0, 0.0]

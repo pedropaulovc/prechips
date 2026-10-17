@@ -10,7 +10,8 @@ from test_sheet_ops import Markup, content
 
 from prechips.findings import exit_code
 from prechips.inputs import load_bundle
-from prechips.rules import inspection, tool_resolves, zero_recipe
+from prechips.rules import inspection, tool_resolves
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
 from prechips.sheet import _Traveler
 
 
@@ -83,7 +84,7 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
     assert authored["dro"]["direction"]["x"] == "right", "the control reverses an authored +X DRO"
     s1 = next(setup for setup in authored["setups"] if setup["id"] == "S1")
     jog = s1["zero"]["x"]["check_jog_mm"]
-    before_bundle, before_rows, baseline = control_rows(plan, zero_recipe)
+    before_bundle, before_rows, baseline = control_rows(plan, zero_recipe_rule)
     row = finding(baseline, "zero_check", "S1")
     assert row["status"] == "pass", row
     before = row["numbers"]["axes"]["x"]
@@ -93,7 +94,7 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
     authored["dro"]["direction"]["x"] = "left"
     assert count == 1 and tomllib.loads(reversed_text) == authored, "only the DRO X sense flips"
     plan.write_text(reversed_text, encoding="utf-8")
-    bundle, rows, reversed_report = control_rows(plan, zero_recipe)
+    bundle, rows, reversed_report = control_rows(plan, zero_recipe_rule)
     row = finding(reversed_report, "zero_check", "S1")
     after = row["numbers"]["axes"]["x"]
     # The touch-off is unchanged; only the reading the authored +X jog produces reverses.

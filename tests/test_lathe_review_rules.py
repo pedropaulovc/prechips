@@ -11,7 +11,9 @@ from test_envelope_m5 import measured
 from test_sheet_ops import Markup, content
 
 from prechips.inputs import Bundle
-from prechips.rules import coordinates, op_chain, zero_recipe
+from prechips.rules import coordinates, op_chain
+from prechips.rules.zero_recipe import rule as zero_recipe_rule
+from prechips.rules.zero_recipe import tool_setting as zero_recipe_tool_setting
 
 
 def _setup(ops, setup_id="S3"):
@@ -925,7 +927,7 @@ def _blade_entry(bundle):
 )
 def test_a_blade_z_touch_sets_the_corner_its_face_normal_gives(ends, edge, corner):
     bundle = _parted({**_FACE_TOUCH, "edge_mm": edge}, ends, -1)
-    [zero] = zero_recipe.evaluate(bundle)
+    [zero] = zero_recipe_rule.evaluate(bundle)
     [touch] = zero.numbers["tool_touches"]
     assert touch["reference_corner"] == corner
     assert zero.status != "error"
@@ -976,7 +978,7 @@ def test_a_blade_op_with_no_kernel_side_for_its_face_stays_unknown():
 )
 def test_a_blade_touch_naming_a_corner_its_face_cannot_give_is_an_error(touch):
     bundle = _parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1)
-    [zero] = zero_recipe.evaluate(bundle)
+    [zero] = zero_recipe_rule.evaluate(bundle)
     assert zero.status == "error"
     [row] = zero.numbers["tool_touches"]
     assert row["reference_corner"] == "unknown" and row["corner_error"]
@@ -986,7 +988,7 @@ def test_a_blade_touch_naming_a_corner_its_face_cannot_give_is_an_error(touch):
 
 def test_an_authored_corner_the_face_agrees_with_is_not_an_error():
     touch = {**_FACE_TOUCH, "corner": "chuck_side", "method": "feed the chuck-side corner in"}
-    [zero] = zero_recipe.evaluate(_parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1))
+    [zero] = zero_recipe_rule.evaluate(_parted(touch, [{"z_mm": 0.0, "normal_z": 1}], -1))
     assert zero.status != "error"
     assert zero.numbers["tool_touches"][0]["corner_from"] == "face normal"
 
@@ -1000,7 +1002,7 @@ def test_a_sleeve_parted_after_a_touch_on_its_far_end_comes_out_full_length():
 
     touch = {"tool": "blade", "z_face": "north", "edge_mm": 21.0055, "paper_mm": 0.0}
     bundle = _parted(touch, [{"z_mm": 21.0055, "normal_z": 1}], -1, -21.0505, "north")
-    [zero] = zero_recipe.evaluate(bundle)
+    [zero] = zero_recipe_rule.evaluate(bundle)
     finding, entry = _blade_entry(bundle)
     corner = entry["blade"]["corner_dro_z"]
     assert corner == pytest.approx(-22.65)
@@ -1081,7 +1083,7 @@ def _traveler(bundle):
     """(zero_check, coordinates, sheet, setup) for a one-setup bundle, records loaded."""
     from prechips.sheet import _Traveler
 
-    [zero] = zero_recipe.evaluate(bundle)
+    [zero] = zero_recipe_rule.evaluate(bundle)
     [finding] = coordinates.evaluate(bundle)
     sheet = _Traveler(bundle, [], {}, None)
     setup = sheet.setup = bundle.plan["setups"][0]
@@ -1151,7 +1153,7 @@ def test_paper_stands_a_blade_off_its_face_on_the_side_it_touches_from(normal, a
     setup = bundle.plan["setups"][0]
     setup["ops"].append({"op": 50, "do": "rough_turn", "feature": "body", "tool": "turner"})
     bundle.inventory["tools"]["turner"] = dict(_AR)
-    [zero] = zero_recipe.evaluate(bundle)
+    [zero] = zero_recipe_rule.evaluate(bundle)
     [row] = zero.numbers["tool_touches"]
     assert row["paper_mm"] == 0.05
     assert row["z_axis_set"] == pytest.approx(axis_set)
@@ -1172,7 +1174,7 @@ def test_paper_stands_a_blade_off_its_face_on_the_side_it_touches_from(normal, a
             "retouch_after": [],
         }
     }
-    [zero] = zero_recipe.evaluate(bundle)
+    [zero] = zero_recipe_rule.evaluate(bundle)
     assert zero.numbers["axes"]["z"]["axis_set"] == pytest.approx(axis_set)
     assert zero.numbers["axes"]["z"]["check_reading"] == pytest.approx(axis_set + 10.0)
 
@@ -1180,10 +1182,10 @@ def test_paper_stands_a_blade_off_its_face_on_the_side_it_touches_from(normal, a
 def test_a_blade_touch_through_paper_with_no_known_side_has_no_axis_set():
     # No face normal and no authored corner: which side the paper is on is unknown.
     touch = {**_FACE_TOUCH, "paper_mm": 0.05}
-    [zero] = zero_recipe.evaluate(_parted(touch, [], -1))
+    [zero] = zero_recipe_rule.evaluate(_parted(touch, [], -1))
     assert zero.numbers["tool_touches"][0]["z_axis_set"] == "unknown"
     # Without paper the side does not matter.
-    [zero] = zero_recipe.evaluate(_parted(_FACE_TOUCH, [], -1))
+    [zero] = zero_recipe_rule.evaluate(_parted(_FACE_TOUCH, [], -1))
     assert zero.numbers["tool_touches"][0]["z_axis_set"] == 0.0
 
 
@@ -1407,7 +1409,7 @@ def test_a_later_setup_zeroed_on_a_blade_face_reads_where_it_stands(do, width, s
     bundle.inventory["tools"]["blade"]["blade_width_mm"] = width
     bundle.plan["setups"][0]["ops"][1]["do"] = do
     bundle = _zeroed_on_the_end(bundle)
-    zeros = {f.subject: f.status for f in zero_recipe.evaluate(bundle)}
+    zeros = {f.subject: f.status for f in zero_recipe_rule.evaluate(bundle)}
     assert zeros == {"S1": "pass", "S2": status}
     if status == "pass":
         assert {f.subject: f.status for f in coordinates.evaluate(bundle)} == {
@@ -1441,7 +1443,7 @@ def test_a_later_setup_zeroed_on_a_turned_shoulder_reads_where_it_stands(fact, t
     bundle.kernel["faces"] = [{"index": 0, "kind": "Cylinder"}]
     bundle = _zeroed_on_the_end(bundle)
     bundle.plan["setups"][1]["zero"]["z"]["edge_mm"] = to_z
-    zeros = {f.subject: f.status for f in zero_recipe.evaluate(bundle)}
+    zeros = {f.subject: f.status for f in zero_recipe_rule.evaluate(bundle)}
     assert zeros == {"S1": "pass", "S2": status}
 
 
@@ -1482,7 +1484,7 @@ def _touched_end(bundle, route):
     else:
         bundle = _zeroed_on_the_end(bundle)
         setup, done = bundle.plan["setups"][1], 0
-    zeros = {f.subject: f.status for f in zero_recipe.evaluate(bundle)}
+    zeros = {f.subject: f.status for f in zero_recipe_rule.evaluate(bundle)}
     return zeros[setup["id"]], operative_z(bundle, setup, -10.0, face="end", done=done)
 
 
@@ -1598,7 +1600,7 @@ def test_a_toolpost_tool_is_one_tool_however_op_and_touch_spell_it(op_spelling, 
         "centre_height": "shim it level with the tailstock point",
         "square_blade": "square it off the chuck face",
     }
-    [finding] = zero_recipe.evaluate(bundle)
+    [finding] = zero_recipe_rule.evaluate(bundle)
     # Each toolpost tool is set once, before its first touch-off.
     assert [
         (row["tool"], row["touch"], row["centre_height"], row["square_blade"])
@@ -1666,22 +1668,22 @@ def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():
     }
     tools = {"blade": _blade(), "turner": dict(_AR)}
     bundle = _lathe(ops, {}, tools, zero=zero)
-    [finding] = zero_recipe.evaluate(bundle)
+    [finding] = zero_recipe_rule.evaluate(bundle)
     # One step per tool, at its first touch-off; only the blade is squared.
     assert finding.numbers["tool_setting"] == [
         {
             "touch": "zero",
             "axis": "x",
             "tool": "turner",
-            "centre_height": zero_recipe.CENTRE_HEIGHT,
+            "centre_height": zero_recipe_tool_setting.CENTRE_HEIGHT,
             "square_blade": "not_applicable",
         },
         {
             "touch": "tool_touches",
             "index": 0,
             "tool": "blade",
-            "centre_height": zero_recipe.CENTRE_HEIGHT,
-            "square_blade": zero_recipe.SQUARE_BLADE,
+            "centre_height": zero_recipe_tool_setting.CENTRE_HEIGHT,
+            "square_blade": zero_recipe_tool_setting.SQUARE_BLADE,
         },
     ]
     # The toolpost's own words say how, and the sheet prints each step before its touch.
@@ -1689,7 +1691,7 @@ def test_each_toolpost_tool_is_set_on_centre_before_its_first_touch_off():
         "centre_height": "shim it level with the tailstock point",
         "square_blade": "square it off the chuck face",
     }
-    [finding] = zero_recipe.evaluate(bundle)
+    [finding] = zero_recipe_rule.evaluate(bundle)
     sheet = _Traveler(bundle, [], {}, None)
     setup = sheet.setup = bundle.plan["setups"][0]
     sheet.records[("zero_check", "S1")] = finding.numbers
