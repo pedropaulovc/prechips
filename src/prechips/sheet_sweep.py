@@ -240,11 +240,12 @@ def _stops(sweep, o, holder, move, start, stop):
     keys = [f" ({key})" if key else "" for key in (start, stop)]
     # Each mark's stroke lies on its arc end's radial line: run through the cutter's axis,
     # it puts the cutter's centre on that line, whatever radius the master set, where the
-    # stop's measured overrun begins. The cutter's own radial line is the touch axis.
-    letter = sweep["touch_axis"][1]
+    # stop's measured overrun begins. Only the point the line passes through counts, never
+    # the stroke's direction: a mark a cutter radius off the axis makes its printed angle's
+    # rounding move the stop by thousandths.
     place = [
-        f"the stroke of mark {marks[side]} (op {marks['op']}) lies along {letter} and, "
-        "extended, runs through the cutter's axis (lay a straightedge on it)"
+        f"the stroke of mark {marks[side]} (op {marks['op']}), extended, runs through the "
+        "cutter's axis (lay a straightedge on it)"
         for side in ("start", "end")
     ]
     if overrun > 0:

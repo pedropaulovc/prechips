@@ -49,6 +49,8 @@ BUTTON_KIND = "filing_buttons"
 _TOL = 1e-9
 # Bar stock whose flat end and side faces bound it: the faces a layout measures from.
 RECTANGULAR_STOCK = frozenset({"flat_bar", "square_bar", "plate"})
+# A layout stroke's angle prints to this step (degrees), for a protractor.
+ANGLE_STEP_DEG = 0.1
 
 
 def _square_to(stock, frame):
@@ -133,7 +135,7 @@ def arc_end_marks(bundle, setup, ends, scale, centre):
     marks = []
     for end in ends:
         toward = math.degrees(math.atan2(centre[1] - end[1], centre[0] - end[0])) % 180.0
-        mark = {"angle": round(toward, 1) % 180.0}
+        mark = {"angle": round(round(toward / ANGLE_STEP_DEG) * ANGLE_STEP_DEG, 1) % 180.0}
         for axis, (index, word) in {"x": (0, "end"), "y": (1, "edge")}.items():
             low = end[index] - box[index] / scale
             high = box[index + 3] / scale - end[index]

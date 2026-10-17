@@ -477,12 +477,16 @@ def _start_clear(bundle, setup, arc, label, debts, record_, scale, grid):
         # angle lies within printed / (stops ± spread): the cutter there stands off the
         # nominal point by the radial spread plus that much arc at its own real radius.
         swing = printed * spread / (stops * (stops - spread))
-        # The stop is set on a scribed mark printed at mark_step: up to half a step off.
-        from .manual_arc import mark_step
+        # The stop is set on a scribed mark printed at mark_step: its point up to half a
+        # step off. Its stroke's angle prints to 0.1°: the stroke run through the cutter's
+        # axis, about a cutter radius (plus the radial spread) from the mark, moves the
+        # stop by that distance times the half-step's angle.
+        from .manual_arc import ANGLE_STEP_DEG, mark_step
 
         step = mark_step(scale)
         rounding = step * scale / 2 if step is not None else math.inf
-        reach = radius + radial + (centre * scale + radial) * swing + rounding
+        tilt = (radius + radial) * math.tan(math.radians(ANGLE_STEP_DEG / 2))
+        reach = radius + radial + (centre * scale + radial) * swing + rounding + tilt
         record_["start_reach_mm"] = reach
     if point is not None and in_air(stock_box(bundle, setup), point, reach, scale):
         record_["start"] = "air"

@@ -783,6 +783,19 @@ def test_the_layout_scribes_each_arc_end_from_the_stocks_own_faces(tmp_path):
         assert mark["angle"] == pytest.approx(round(toward, 1) % 180.0)
 
 
+def test_the_stop_is_set_by_where_the_stroke_runs_not_its_direction(tmp_path):
+    # Aligning the stroke's direction with the touch axis would turn its 0.1° print step
+    # into a turn of the work about the far centre; only the point it runs through counts,
+    # a cutter radius off the mark, so the angle's rounding moves the stop by thousandths,
+    # which the start bound carries.
+    row, printed = traveler_text(tmp_path)
+    assert "runs through the cutter's axis" in printed and "lies along" not in printed
+    sweep = recipe(row)[1]
+    radial = max(abs(c - 800.0) for c in sweep["cut_radius_mm"])
+    tilt = (3.0 + radial) * math.tan(math.radians(0.05))
+    assert sweep["start_reach_mm"] >= 3.0 + radial + 0.05 + tilt - 1e-9
+
+
 def test_a_back_off_off_the_radial_line_is_carried_into_the_cut():
     # A one-axis back-off is radial only on the radial line: 6 mm beside it, a 2 mm back-off
     # from a Ø6 cutter's touch on a concave R10 (centre radius 7) misses its radial move by
