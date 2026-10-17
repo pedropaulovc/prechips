@@ -1152,6 +1152,14 @@ def _vise_inputs(bundle, hold, fixture, result):
     centre = hold.get("jaw_center_along_mm", UNKNOWN)
     if number(centre):
         result["jaw_center_along_mm"] = centre
+    # A swivel turns the jaws about setup Z; none (or 0) leaves today's square jaws and
+    # their engine input unchanged, while a stated-unknown angle leaves them unplaced.
+    swivel = hold.get("jaws_angle_deg")
+    if swivel == UNKNOWN:
+        missing.append("jaws_angle_deg")
+        result["jaws_angle_deg"] = UNKNOWN
+    elif number(swivel) and swivel != 0:
+        result["jaws_angle_deg"] = swivel
     for key in ("jaw_height", "jaw_width", "jaw_depth", "opening"):
         value = _accepted_length(fixture, key)
         if number(value) and value > 0:
@@ -1832,6 +1840,7 @@ _ENGINE_HOLD = (
     "jaws_along",
     "jaw_above_parallels_mm",
     "jaw_center_along_mm",
+    "jaws_angle_deg",
     "parallels_centres_mm",
     "jaw_height_mm",
     "jaw_width_mm",
@@ -1891,6 +1900,8 @@ def _engine_hold(hold):
             {key: hold[key] for key in _ENGINE_HOLD if key in hold and hold[key] != UNKNOWN}
         )
         missing = [key for key in _ENGINE_HOLD_REQUIRED if key not in result]
+        if hold.get("jaws_angle_deg") == UNKNOWN:
+            missing.append("jaws_angle_deg")
         if missing:
             result["reason"] = "Fixture pose/dimensions unmeasured or unavailable: " + ", ".join(
                 missing
