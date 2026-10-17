@@ -61,7 +61,8 @@ Literal unknown is never a numeric default.
 ]
 "src/prechips/model/zero.py" = ["AxisZero", "Transfer", "ToolTouch", "Zero"]
 "src/prechips/model/operation.py" = [
-    "Bounds", "KeepOut", "Contour", "Guide", "SawPlane", "Operation", "SAW_ACTIONS",
+    "Bounds", "KeepOut", "Contour", "Guide", "GuidedSweep", "SawPlane", "Operation",
+    "SAW_ACTIONS",
 ]
 "src/prechips/model/inspection.py" = [
     "GoNoGo", "_requirement_pairs", "ScopedGoNoGo", "ProcessHold", "Procedure", "Aim",
@@ -403,7 +404,7 @@ init = { "src/prechips/rules/coordinates/__init__.py" = "Printed coordinates: fr
     "_chain_preconditions", "_manual",
 ]
 "src/prechips/rules/coordinates/rotary.py" = [
-    "_rotate", "_turn", "_reading", "_towards", "_chords", "rotary_table", "_made_before",
+    "_row_spacing", "_rotate", "_turn", "_reading", "_towards", "_chords", "rotary_table", "_made_before",
     "arc_layout", "_swing", "_rotary",
 ]
 

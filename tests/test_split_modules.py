@@ -757,3 +757,35 @@ def test_an_identity_attribute_of_a_package_conversion_refuses(at, tmp_path):
     )
     with pytest.raises(SystemExit):
         split.main(["apply", "big"])
+
+
+@pytest.mark.parametrize(
+    "importer",
+    [
+        "from pkg.big import *\n\nVALUE = radius(1)\n",
+        (
+            "try:\n    from pkg import big\nexcept ImportError:\n    import pkg.big as big\n\n"
+            "VALUE = big.radius(1)\n"
+        ),
+    ],
+    ids=["star", "conditional"],
+)
+def test_star_and_repeated_alias_imports_of_the_split_module_refuse(at, tmp_path, importer, capsys):
+    # A star import binds whatever the rest exports; a second import of the alias would
+    # not get the replacement import added beside the first.
+    at("def radius(x):\n    return x\n", _spec('["radius"]'))
+    (tmp_path / "tests" / "test_big.py").write_text(importer, encoding="utf-8")
+    with pytest.raises(SystemExit):
+        split.main(["apply", "big"])
+    out = capsys.readouterr()
+    assert "star import" in out.out + out.err or "more than once" in out.out + out.err
+
+
+@pytest.mark.parametrize(
+    ("member", "name"),
+    [("def __hidden(self):\n        return 1", "__hidden"), ("__slot = 1", "__slot")],
+)
+def test_a_name_mangled_member_moved_to_a_mixin_is_refused(at, member, name):
+    source = f"class Engine:\n    def run(self):\n        return 2\n\n    {member}\n"
+    plan = at(source, _spec(f'["Engine.{name}"]'))
+    assert any("name-mangled member" in refusal for refusal in plan.refusals)

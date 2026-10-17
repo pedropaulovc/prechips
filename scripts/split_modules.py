@@ -326,6 +326,9 @@ def _self_calls(node):
 
 def _mixin_hazards(node):
     found = []
+    for name in _defined_names(node):
+        if name.startswith("__") and not name.endswith("__"):
+            found.append(f"name-mangled member {name}")
     for n in ast.walk(node):
         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "super":
             if not n.args:
@@ -335,6 +338,14 @@ def _mixin_hazards(node):
         elif isinstance(n, ast.Attribute) and n.attr.startswith("__") and not n.attr.endswith("__"):
             found.append(f"name-mangled {n.attr}")
     return found
+
+
+def _defined_names(node):
+    """Names a class-body member binds: a def, or an assignment's plain targets."""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return [node.name]
+    targets = node.targets if isinstance(node, ast.Assign) else [getattr(node, "target", None)]
+    return [n.id for t in targets if t is not None for n in ast.walk(t) if isinstance(n, ast.Name)]
 
 
 def _import_bindings(node):
@@ -940,6 +951,14 @@ class Rewriter:
                     edits.append(self._from_import(path, node, at, flat=True))
                 elif absolute == self.source:
                     edits.append(self._from_import(path, node, at))
+                from_source = absolute == self.source or (
+                    flat and not node.level and node.module == flat
+                )
+                if from_source and any(a.name == "*" for a in node.names):
+                    self.refusals.append(
+                        f"{path}:{node.lineno} star import of the split module; "
+                        "import its names explicitly"
+                    )
                 elif absolute:
                     for a in node.names:
                         if f"{absolute}.{a.name}" == self.source:
@@ -961,6 +980,16 @@ class Rewriter:
                 self.refusals.append(
                     f"line {node.lineno}: the split module is imported in a class body; "
                     "move the import out of the class"
+                )
+        bound_by = defaultdict(list)  # (scope, alias name) -> alias import lines
+        for key, names in aliases.items():
+            for name in names:
+                bound_by[(id(_scope_of(tree, imports[key])), name)].append(imports[key].lineno)
+        for (_, name), lines_at in bound_by.items():
+            if len(lines_at) > 1:
+                self.refusals.append(
+                    f"lines {', '.join(map(str, sorted(lines_at)))}: {name} imports the split "
+                    "module more than once in one scope; keep one import"
                 )
         for key, names in aliases.items():
             scope = _scope_of(tree, imports[key])

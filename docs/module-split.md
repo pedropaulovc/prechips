@@ -328,10 +328,10 @@ What `apply` does:
    annotations, quoted annotations and decorators included.
 3. It refuses, before writing anything:
    * an import cycle between the new files (it names the symbols on each edge);
-   * a star import;
+   * a star import, in the module or of it in an importer;
    * module state written under `global` and read from another file;
-   * a moved method that uses zero-argument `super()`, `__class__` or a name-mangled
-     `self.__x` (mixins would change their meaning);
+   * a moved member that uses zero-argument `super()`, `__class__` or a name-mangled
+     `self.__x`, or is itself named `__x` (mixins would change their meaning);
    * a symbol that reads `__file__`, `__name__`, `__spec__`, `__package__` or `__doc__`
      and would move to another file (each file has its own);
    * a name bound twice that would land in two files;
@@ -344,7 +344,9 @@ What `apply` does:
      is rebound to `rest`. The suite checks the claim;
    * a file that parses, compiles or executes source and that the spec has not
      classified (section 6);
-   * a plain `import prechips.<module>` it cannot rewrite;
+   * a plain `import prechips.<module>` it cannot rewrite, or a module alias imported
+     twice in one scope (as in `try`/`except`), since the replacement import goes beside
+     only one of them;
    * a `file:line` citation of the module in docs or example data (AGENTS.md cites
      Python by line).
 4. It writes each target: a docstring from the spec, `from __future__ import annotations`
