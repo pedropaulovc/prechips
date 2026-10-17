@@ -28,7 +28,8 @@ drill outside the line, bench filing to buttons or a template checked with a
 radius gauge, or chords / a rotary table, or a guided sweep on a pivot or arc
 rail fixture under a locked cutter, #255, or on an oblique trammel whose pin pair
 rides two rails crossing at the spindle, #269, its error budget from measured
-fixture tolerances and its kernel sweep the exact pin circle); the MDI/`contouring` path and
+fixture tolerances, its stops and start proven for a novice's rule reading, and its
+kernel sweep the exact arc); the MDI/`contouring` path and
 `arc_table` are removed. Shipped straight joins support stairs and chain drilling:
 finite drill legs retain exact endpoints and nominal equal spacing within pitch
 (DRO snapping may shift printed spacing); after method/stage/full-hole/

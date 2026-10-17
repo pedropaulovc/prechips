@@ -1913,8 +1913,10 @@ uses the 1898 manual arc method:
    centre is virtual and moves in the table frame while the carrier turns half the
    swept angle and translates. A second pin pair gives a concentric radius without
    moving the rails. X, Y and Z are locked and the carrier is fed by its hand lever:
-   no handwheel moves, so a rough stage (no back-off exists) is an error. The rows
-   run on the pin-defined circle and the kernel sweeps that exact arc. The cut is
+   no handwheel moves, so a rough stage (no back-off exists) is an error. As for every
+   guided sweep, the rows stay on the drawing's nominal cutter-centre arc (the kernel
+   sweeps that exact arc, not its chords) and the band check judges where the pins
+   put the real cut. The cut is
    `R` less or plus the cutter radius, widened by the error budget: `R` itself at the
    corners of the measured `rail_angle_error` and `pin_spacing_error` (it falls with `α`
    and grows with `D`, so `R(D − δD, α + δα)` and `R(D + δD, α − δα)` bound it exactly;
@@ -1925,12 +1927,20 @@ uses the 1898 manual arc method:
    budget bounds the cut radius; where the part's centre sits on the carrier is its
    locator's ([#270](https://github.com/pedropaulovc/prechips/issues/270)). Pins that
    do not subtend `α`, a sweep that would carry the cutter over a pin, or a carriage
-   leaving its rail's measured `rail_travel` over the sweep are errors. The traveler
+   leaving its rail's measured `rail_travel` over the sweep are errors, and the sweep
+   takes a setup of its own. Each stop is clamped by steel rule at a printed rail
+   station; set anywhere within 0.55 mm of it (the 0.1 mm print rounding plus half a
+   millimetre of rule), it must still hold the carrier past its arc end (else an
+   error: sweep farther), and at every pose the first stop can hold the cutter must go
+   down clear of the stock (else debt). The full operator sequence, what each printed
+   number is measured from and how its error reaches the cut, is in
+   [rules-coordinates](rules-coordinates.md#trammel-operator-sequence). The traveler
    prints the pin pair seated in the carriages, X and Y locked on the rails'
    crossing, a stop clamped on one rail at each end's exact pin station (also read
    along the rail from where the carriage stands on its near end stop; the other
    rail's stations as a check), a dry pass, and the lever feed from stop to stop with
-   the carrier's turn.
+   the carrier's turn, once per axial level when the op steps down. Every value the card
+   prints is in one gate: any unproven one prints only a STOP naming it.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.

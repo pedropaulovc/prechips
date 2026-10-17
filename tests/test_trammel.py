@@ -196,13 +196,16 @@ def test_a_trammel_sweep_locks_every_axis_and_cuts_on_its_pin_circle(tmp_path):
     assert sweep["guide"] == "trammel" and sweep["feed"] == "lever"
     assert sweep["locked_axes"] == ["X", "Y", "Z"] and sweep["moves"] == "fixture"
     assert sweep["pin_radius_mm"] == pytest.approx(797.25, abs=1e-3)
-    # The rows run on the pin-defined circle, not the drawing's R797.
+    # The rows stay on the drawing's R797 path, as every guided sweep's do: the kernel
+    # judges that path against the nominal part, and the band check judges where the pins
+    # actually put the cut (R797.25 here, 0.25 mm off it).
     for r in table["rows"]:
-        assert math.dist(r["setup_xy"], table["centre_setup_xy"]) == pytest.approx(
-            sweep["pin_radius_mm"]
-        )
+        assert math.dist(r["setup_xy"], table["centre_setup_xy"]) == pytest.approx(797.0)
         assert r["dro_xy"] == r["setup_xy"]
-    assert table["exact_arc"]["radius"] == pytest.approx(sweep["pin_radius_mm"])
+    assert table["exact_arc"]["radius"] == pytest.approx(797.0)
+    # The stops set by a steel rule still hold the carrier past both arc ends, and the
+    # cutter goes down clear of the stock.
+    assert sweep["stops"] == "proven" and sweep["start"] == "air"
     # The error budget: rail angle, spacing and both pin-lines.
     terms = sweep["error_terms_mm"]
     # The radius at the tolerance corners: to first order the 47 mm/° and 1/(2 sin α) slopes.
@@ -434,7 +437,8 @@ def test_an_unproven_trammel_prints_only_a_stop(tmp_path):
     )
     row, printed = traveler_text(tmp_path, inventory=inventory + "\n")
     assert row.status == "unknown"
-    assert "STOP: guided sweep not established (cut radius unproven" in printed
+    assert "STOP: guided sweep not established (" in printed
+    assert "cut radius unproven" in printed
     assert "hand lever" not in printed
 
 
@@ -730,3 +734,249 @@ def test_a_bounded_trammel_is_debt_and_never_reaches_the_kernel_as_an_arc(tmp_pa
     assert row.status == "unknown"
     assert "stock_removal_bounds cannot clip it" in debts(row)
     assert not any("exact_arc" in table for table in row.numbers.get("arc_table", []))
+
+
+# --- one gate for every printed value (#289) ------------------------------------------
+
+
+def established_card(tmp_path):
+    """The passing trammel's arc table and its printed card."""
+    from prechips.sheet_sweep import steps
+
+    row = trammel_row(tmp_path)
+    (table,) = arcs(row, 20)
+    card = steps(table, lambda v: f"{v:.3f}", "A", "B", feed=100.0)
+    assert not card[0].startswith("STOP"), card
+    return table, card
+
+
+def _blank(table, field):
+    """``table`` with ``field`` of the trammel card unknown, as the rule leaves it."""
+    import copy
+
+    table = copy.deepcopy(table)
+    sweep = table["guided"]
+    if field == "stage":
+        table["stage"] = "rough"
+    elif field == "depths":
+        table["dro_tip_z"] = "unknown"
+    elif field == "spindle_rotation":
+        table["spindle_rotation"] = "unknown"
+    elif field in ("stops", "start"):
+        sweep[field] = "unproven"
+    else:
+        sweep[field] = "unknown"
+    return table
+
+
+def _gate_fields():
+    from prechips.sheet_sweep import TRAMMEL_PRINTED
+
+    return [field for field, _, _ in TRAMMEL_PRINTED]
+
+
+@pytest.mark.parametrize("field", _gate_fields())
+def test_each_printed_trammel_value_unknown_prints_only_a_stop(tmp_path, field):
+    from prechips.sheet_sweep import TRAMMEL_PRINTED, established, steps
+
+    table, _ = established_card(tmp_path)
+    blank = _blank(table, field)
+    (words,) = [w for f, _, w in TRAMMEL_PRINTED if f == field]
+    card = steps(blank, lambda v: f"{v:.3f}", "A", "B", feed=100.0)
+    assert len(card) == 1 and card[0].startswith("STOP: guided sweep not established")
+    assert words in card[0]
+    assert not established(blank)
+
+
+def test_the_trammel_card_reads_nothing_the_gate_does_not_check():
+    # Structural: every record value the card's text reads is a gate field, so no future
+    # printed number can bypass the STOP.
+    import ast
+    import inspect
+
+    from prechips import sheet_sweep
+
+    tree = ast.parse(inspect.getsource(sheet_sweep._trammel))
+    read = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
+            key = node.slice
+            if node.value.id in ("sweep", "arc") and isinstance(key, ast.Constant):
+                read.add(key.value)
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id in ("sweep", "arc")
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+        ):
+            read.add(node.args[0].value)
+        if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "_depths":
+            read.add("depths")
+    assert read, "the card reads no record value"
+    assert read <= set(_gate_fields()), read - set(_gate_fields())
+
+
+# --- operator perturbation (#289) ------------------------------------------------------
+#
+# An independent model of the real fixture, not the rule's own formulas: the true rail
+# angle and pin spacing at either end of their measured tolerance, each rail's pin-line
+# offset by the pin clearance plus the rail offset either way, and the operator's stops
+# set from the printed 0.1 mm stations with a steel rule read to half a millimetre either
+# way. The carrier's pose is solved from the two pin-on-line constraints at each carrier
+# rotation, and the cutter (on the spindle axis) is read back in the carrier's frame. The
+# Z the DRO sets does not enter the radius; no angle the card prints is set by the
+# operator (the rails are aligned once, the stops by rail station), so their rounding
+# reaches the cut only through the stations.
+
+TOOL_RADIUS = 3.0  # the scratch bundle's Ø6 cutter, inside the concave edge
+RULE = 0.55  # the printed 0.1 mm station's rounding plus half a millimetre of rule
+
+
+def _rot(v, deg):
+    t = math.radians(deg)
+    return [v[0] * math.cos(t) - v[1] * math.sin(t), v[0] * math.sin(t) + v[1] * math.cos(t)]
+
+
+def _carried(pins, rails_, offsets, theta):
+    """(cutter in the carrier's frame, pin 1's station on rail 1) with the carrier turned
+    ``theta`` degrees: table ``y = Rot(theta) x + t``, the spindle at the table origin, and
+    each pin on its rail's offset pin-line, ``n_i . (Rot P_i + t) = e_i``."""
+    normals = [[-r[1], r[0]] for r in rails_]
+    moved = [_rot(p, theta) for p in pins]
+    b = [offsets[i] - sum(normals[i][k] * moved[i][k] for k in range(2)) for i in range(2)]
+    det = normals[0][0] * normals[1][1] - normals[0][1] * normals[1][0]
+    t = [
+        (b[0] * normals[1][1] - b[1] * normals[0][1]) / det,
+        (normals[0][0] * b[1] - normals[1][0] * b[0]) / det,
+    ]
+    station1 = sum(rails_[0][k] * (moved[0][k] + t[k]) for k in range(2))
+    return _rot([-t[0], -t[1]], -theta), station1
+
+
+def _stopped(pins, rails_, offsets, target):
+    """The carrier turn at which pin 1 stands at ``target`` on rail 1 (bisection)."""
+    lo, hi = -20.0, 20.0
+    s_lo = _carried(pins, rails_, offsets, lo)[1]
+    for _ in range(80):
+        mid = (lo + hi) / 2
+        s_mid = _carried(pins, rails_, offsets, mid)[1]
+        if (s_mid - target) * (s_lo - target) <= 0:
+            hi = mid
+        else:
+            lo, s_lo = mid, s_mid
+    return (lo + hi) / 2
+
+
+def _simulate(table, angle_err, spacing_err, line_err, steps=400):
+    """Every worst-case fixture and stop setting the printed card allows: yields (walls
+    along the sweep, the cutter's angles about the arc centre at both stops, the cutter at
+    the first stop), the carrier's frame being the setup frame, mm."""
+    import itertools
+
+    sweep = table["guided"]
+    centre, middle = table["centre_setup_xy"], table["arc_mid_setup_xy"]
+    heading = math.degrees(math.atan2(middle[1] - centre[1], middle[0] - centre[0]))
+    r_pin = sweep["pin_radius_mm"]
+    pins = [
+        [centre[i] + r_pin * _rot([1.0, 0.0], heading + a)[i] for i in range(2)]
+        for a in sweep["pins_deg"]
+    ]
+    chord = [pins[1][i] - pins[0][i] for i in range(2)]
+    chord = [v / math.hypot(*chord) for v in chord]
+    r1, r2 = sweep["rails_dir"]
+    printed = [round(s, 1) for s in sweep["stations_mm"][0]]
+    corners = itertools.product(
+        (-angle_err, angle_err),
+        (-spacing_err, spacing_err),
+        (-1, 1),
+        (-line_err, line_err),
+        (-line_err, line_err),
+        (-RULE, RULE),
+        (-RULE, RULE),
+    )
+    for da, dd, turn, e1, e2, d0, d1 in corners:
+        grow = dd / 2
+        true_pins = [
+            [pins[0][i] - grow * chord[i] for i in range(2)],
+            [pins[1][i] + grow * chord[i] for i in range(2)],
+        ]
+        rails_ = [r1, _rot(r2, turn * da)]  # the crossing angle off by da either way
+        offsets = (e1, e2)
+        first = _stopped(true_pins, rails_, offsets, printed[0] + d0)
+        last = _stopped(true_pins, rails_, offsets, printed[1] + d1)
+        walls = [
+            math.dist(
+                _carried(true_pins, rails_, offsets, first + (last - first) * k / steps)[0], centre
+            )
+            + TOOL_RADIUS
+            for k in range(steps + 1)
+        ]
+        angles = []
+        for theta in (first, last):
+            x = _carried(true_pins, rails_, offsets, theta)[0]
+            bearing = math.degrees(math.atan2(x[1] - centre[1], x[0] - centre[0]))
+            angles.append((bearing - heading + 180) % 360 - 180)
+        yield walls, angles, _carried(true_pins, rails_, offsets, first)[0]
+
+
+def _clear(point, box=SWING, radius=TOOL_RADIUS, tol=1e-6):
+    return any(
+        point[a] + radius <= box[a] - tol or point[a] - radius >= box[a + 3] + tol for a in range(2)
+    )
+
+
+def _with(clearance=0.005, angle_err=0.001):
+    inventory = TRAMMEL.replace(
+        "pin_clearance_mm = { value = 0.005", f"pin_clearance_mm = {{ value = {clearance}"
+    )
+    return inventory.replace(
+        "rail_angle_error_deg = { value = 0.001", f"rail_angle_error_deg = {{ value = {angle_err}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("clearance", "angle_err"),
+    [(0.005, 0.001), (0.17, 0.001), (0.005, 0.004)],
+    ids=["as-built", "pin-clearance-at-its-limit", "rail-angle-error-at-its-limit"],
+)
+def test_the_novice_worst_case_cuts_in_band_wherever_the_card_runs(tmp_path, clearance, angle_err):
+    # Each fixture the card prints runnable for, at every worst-case corner of it and of
+    # the operator's stops, cuts inside the band, reaches both arc ends and goes down in
+    # air; and the rule's own cut bound encloses every wall the model finds.
+    from prechips.sheet_sweep import established
+
+    row = trammel_row(tmp_path, inventory=_with(clearance, angle_err))
+    (table,) = arcs(row, 20)
+    sweep = table["guided"]
+    assert row.status == "pass" and established(table), row.sentence
+    low, high = sweep["band_mm"]
+    bound, span = sweep["cut_radius_mm"], sweep["span_deg"]
+    for walls, angles, start in _simulate(table, angle_err, 0.01, clearance + 0.01):
+        assert low - 1e-6 <= min(walls) and max(walls) <= high + 1e-6
+        assert bound[0] - 1e-6 <= min(walls) and max(walls) <= bound[1] + 1e-6
+        assert min(angles) <= -span / 2 and max(angles) >= span / 2
+        assert _clear(start)
+
+
+def test_a_fixture_whose_worst_case_leaves_the_band_prints_only_a_stop(tmp_path):
+    # Pin clearance past the budget's room: the model finds a wall outside the band, and
+    # the card never prints it runnable.
+    row, printed = traveler_text(tmp_path, inventory=_with(clearance=0.25))
+    assert row.status == "error"
+    assert "STOP: contour points not computed — do not run." in printed
+    assert "hand lever" not in printed
+    # The rule withholds that op's rows; the model runs on the as-built pose with that play.
+    (table,) = arcs(trammel_row(tmp_path / "as-built"), 20)
+    worst = max(max(walls) for walls, _, _ in _simulate(table, 0.001, 0.01, 0.26))
+    assert worst > table["guided"]["band_mm"][1]
+
+
+def test_stops_too_close_to_the_arc_ends_for_a_rule_are_an_error(tmp_path):
+    # A sweep only 0.03° past each end (0.4 mm of station): a stop half a millimetre off
+    # could hold the carrier short of the arc, so the rule refuses it.
+    row = trammel_row(tmp_path, sweep_deg="21.06")
+    assert row.status == "error"
+    assert "short of the arc's end" in errors(row)
