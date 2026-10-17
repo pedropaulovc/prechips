@@ -142,7 +142,7 @@ solids = [ { name = "face", shape = "box", ... } ]    # the chuck body, as for a
 | `seal` | `"laid_cord"` | how the seal circuit is made. `laid_cord`: a gasket cord laid in the chuck's open-grid grooves along the work's outline, `gasket_inset_mm` inside it, at every setup. The HOLD prints the lay step, and the gauge reading proves the circuit closed. Fixed-groove chucks, whose circuit is the groove pattern rather than the work's outline, need their groove geometry recorded and are a follow-up | capacity `?` ("seal circuit not recorded") |
 | `gasket_inset_mm` | `MeasuredLength` | inset of the cord's centreline inside the work outline | sealed area `?` |
 | `friction` | `CitedFact` | static μ of the work on the chuck face | capacity `?` |
-| `gauge` | `str` | inventory gauge read at the chuck | STOP in place of the gauge row |
+| `gauge` | `str` | inventory gauge read at the chuck: an item of kind `vacuum_gauge` with a trusted `range_kpa` `[lo, hi]` that contains `vacuum_kpa` and a trusted `resolution_kpa` > 0. The HOLD prints the minimum reading rounded **up** to the gauge's resolution | capacity `?` and STOP in place of the gauge row when the gauge is missing, of another kind, or its range or resolution is unknown or does not cover `vacuum_kpa` |
 
 Vacuum assumes the work seats metal-to-metal on the chuck face, with the gasket
 in a groove, so the gasket adds no Z term. Raised or compressible gaskets the
@@ -600,8 +600,10 @@ Both endpoints are compared, never the width alone. A 0.040-wide stack about
 error.
 
 So **yes, the spread alone can make a band unprovable.** With recipe A, that
-happens whenever `t_hi − t_lo` is at least the band width (for any `to_z`);
-with recipe B, whenever `2(t_hi − t_lo)` is. No zero recipe recovers it. The
+happens whenever `t_hi − t_lo` is greater than the band width (for any `to_z`);
+with recipe B, whenever `2(t_hi − t_lo)` is. A spread exactly as wide as the
+band, with every other term zero and `to_z` at the band centre, lands both
+endpoints on the inclusive limits and passes. No zero recipe recovers it. The
 remedy is a tighter measured lot, a different hold or a looser band.
 
 ### 5.4 Interaction with S0A/S0B (#294)
@@ -707,7 +709,7 @@ both endpoints to land inside the band.
 | plate top Z, tape pair, underside range | pose, `thickness_mm` (measured) | pair unmeasured |
 | stack terms and thickness interval | section 5 terms | any term unknown |
 | Axis Set Z | recipe and `t_nom` | `t_nom` unknown |
-| vacuum gauge minimum | `vacuum_kpa`, `gauge` | untrusted, or no gauge |
+| vacuum gauge minimum | `vacuum_kpa`, `gauge` (`vacuum_gauge`, `range_kpa`, `resolution_kpa`) | untrusted, no gauge, a gauge of another kind, or a range or resolution that does not cover `vacuum_kpa` |
 | vacuum cord lay step and inset | `seal`, `gasket_inset_mm` | seal not `laid_cord`, or inset untrusted |
 | release method, agent or temperature, wait | `release` | missing |
 
@@ -767,6 +769,9 @@ tests request the shared `freecad_kernel` fixture.
 - Peel front: a 5 mm tab cut with a Ø10 cutter gets `L = 5`. A cut to the seat
   keeps `h_k` at the before-op stock height, not zero.
 - A vacuum `area.ref` naming another vacuum fixture than `hold.fixture` is exit 3.
+- Vacuum gauge: a `gauge` of another kind, a range not containing `vacuum_kpa`
+  or an unknown resolution leaves capacity `?`; 80.0 kPa on a 2 kPa gauge prints
+  "at least 80"; 81.0 prints "at least 82".
 - Combined loads: tape with `use_xy` and `use_z` each at 0.3 at k = 2 fails
   (sum 0.6 > 0.5); vacuum with `0.49 μN` lateral and `0.49 N` lift at k = 2
   fails on the residual load, and `k · F_z ≥ N` is an error. Overturning with
@@ -833,7 +838,7 @@ Each phase is its own PR, stacked on the previous one.
 
 | Phase | PR | Contents | Size (est.) |
 |---|---|---|---|
-| 1 | schema | `CitedFact` (+ `test`); `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`); `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
+| 1 | schema | `CitedFact` (+ `test`); `adhesive_tape` consumable variant (with `width_mm`); `vacuum` fixture kind (with `seal`); `vacuum_gauge` `range_kpa` / `resolution_kpa`; `hold.area`; migration errors; `inventory.md` / `plan.md` tables. No rule reads the new facts yet | ~350 lines + tests |
 | 2 | force | `_cutting_force.py` (endmill milling scope); `[[material]]` `kc1_n_per_mm2` / `mc` / `radial_ratio`; tool `helix_deg`; op `ae_mm`; `cutting-data.md`, `rules-physics.md` | ~400 + tests |
 | 3 | kernel | seat-plane sections before and after each op, islands, centroid, polar moment, hull distance; the fixed seal circuit and its opening op; op removed-volume extent per island; the layer drawn from facts; seat check; `ENGINE_SOURCES` cache identity | ~700 + geometry tests |
 | 4 | capacity | `hold_capacity` rule (area provider: force, yaw, lift, overturning), always required for area holds, shared policy factor, pull-test schema, `thin_wall_under_clamp` change; `rules-setup.md` | ~500 + tests |
@@ -916,6 +921,9 @@ not separately decided by the maintainer:
 - the peel front and its lever are capped by the island's least width, and the
   overturning lever is the highest point the flutes can engage (section 3.3);
 - a vacuum `ref` must be the held fixture (section 2.4);
+- the vacuum gauge must be a `vacuum_gauge` whose range covers `vacuum_kpa` and
+  whose resolution is known; the printed minimum rounds up to that resolution
+  (section 2.3);
 - the vacuum seal is a cord laid along the work's outline (`seal = "laid_cord"`);
   other seal circuits are `?` until their groove geometry is recorded (section 2.3);
 - pull tests qualify only by machine-checkable fields that must all match the
