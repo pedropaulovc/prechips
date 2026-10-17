@@ -695,6 +695,11 @@ unresolved. A tailstock drill chuck or a rest is not a centre. The centre depth
 is the Machinery's Handbook Table 6 drill length plus the countersink to the mouth,
 printed as a tailstock-quill depth, and only for the selected centre drill's
 own accepted D, C, angle, body and point with the mouth on the touched end.
+A `tooling_hole` is a locating hole drilled (and reamed) in the work's own waste:
+its ops are judged as plain hole ops, the kernel cuts it, a later setup's fixture
+or clamp pin whose `locates` names it gets a band fit check, and a setup that
+still names it after a waste cut took it is an error (`tooling_hole`, always
+required where a setup works or locates on one).
 A mill route squares a sawn rectangular bar the same way: each blank face is
 an `end_face` that a face op cuts flat, or a side-milling profile cuts on an end
 overhanging the vise. The kernel removes each as a planar slab, so later pictures
