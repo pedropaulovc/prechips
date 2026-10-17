@@ -328,7 +328,8 @@ cut-to-fit), the opposite of a part-off. A part-off leaves one piece, so a
 A `tooling_hole`'s transient claim is its reversed wall at the band's largest
 diameter, over its `depth` or, through, the stock's extent along its axis. Its
 `drill` or `ream` op removes the selected tool's own accepted diameter (a drill
-also its accepted `point_angle`) from 1 mm above the mouth along the hole axis,
+also its accepted `point_angle`) from 1 mm above the mouth along the hole axis
+(a `spot` only its pointed tip, down to its own `depth_mm`, through hole or not),
 which must be setup -Z: a blind hole to the op's full-diameter `depth_mm` (the
 feature's `depth` bounds it, as in
 [`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)), a through hole

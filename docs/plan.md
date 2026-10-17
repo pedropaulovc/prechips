@@ -437,8 +437,9 @@ on the entry surface and `axis` the drilling direction. It resolves as a plain
 (a through hole reads the setup's `stock_state.local_thickness.<id>` and the op's
 `exit_mm`), speeds and feeds, reach, accessibility and headroom, and `sizing`
 judges its finishing tool (the ream when there is one, else the drill) against
-`dia`. Only `drill` and `ream` make it: the ream finishes the band, the drill
-roughs it. A later setup's fixture or clamp solid whose `locates` names it is its
+`dia`. Only `spot`, `drill` and `ream` make it: the ream finishes the band, the
+drill roughs it and the spot only starts it (its point, to its own `depth_mm`), so
+the hole chain is the one [`op_chain`](rules-operations.md) asks of any hole. A later setup's fixture or clamp solid whose `locates` names it is its
 locating pin ([inventory](inventory.md#kernel-geometry-facts-m4)); the always-required
 [`tooling_hole`](rules-setup.md#tooling_hole) rule judges that pin's fit and
 refuses a setup that names a hole a waste cut has removed.
@@ -495,7 +496,7 @@ part-off. On a mill
 the cutter's periphery (a blank end overhanging the vise; give the op's
 `linear_table` contour an `open_side` so its passes step in from clear air, see
 [rules-coordinates](rules-coordinates.md)). Only `center_drill` prepares a
-`centre_hole`, and only `drill` and `ream` a `tooling_hole`. Such an op names exactly that one
+`centre_hole`, and only `spot`, `drill` and `ream` a `tooling_hole`. Such an op names exactly that one
 feature and carries no `faces`, `checks` or `missing_requirements`: there is no
 drawing limit to inspect. Process ops resolve through the same rules as other
 cuts (speeds and feeds, reach, accessibility, headroom, tip endpoints, holding and

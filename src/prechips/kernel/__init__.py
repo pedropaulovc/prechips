@@ -540,14 +540,14 @@ def _tooling_inputs(bundle, setup, op, cut):
             "refused": True,
             "reason": f"{cut['label']}: the {op.get('do')} tool diameter is unknown",
         }
-    if op.get("do") == "drill":
+    if op.get("do") in {"drill", "spot"}:
         angle = _accepted_angle(tool, "point_angle")
         result["point_angle_deg"] = angle
         if not (number(angle) and 0 < angle < 180):
             return {
                 **result,
                 "refused": True,
-                "reason": f"{cut['label']}: the drill point angle is unknown",
+                "reason": f"{cut['label']}: the {op.get('do')} point angle is unknown",
             }
     if op.get("do") == "ream":
         # The lead below the full diameter reaches deeper, as blind_depth prints the tip.
@@ -559,9 +559,9 @@ def _tooling_inputs(bundle, setup, op, cut):
                 "refused": True,
                 "reason": f"{cut['label']}: the reamer lead is unknown",
             }
-    if not cut.get("thru"):
-        # As blind_depth: the op's depth_mm is the full-diameter depth below the mouth; the
-        # feature's depth only bounds it.
+    if not cut.get("thru") or op.get("do") == "spot":
+        # As blind_depth: the op's depth_mm is the full-diameter depth below the mouth (a
+        # spot's: its tip, even in a through hole); the feature's depth only bounds it.
         depth = op.get("depth_mm", UNKNOWN)
         result["op_depth_mm"] = depth
         if not (number(depth) and depth > 0):
@@ -569,7 +569,7 @@ def _tooling_inputs(bundle, setup, op, cut):
                 **result,
                 "reason": f"{cut['label']}: op {op['op']} depth_mm in the blind hole is unknown",
             }
-    if cut.get("thru"):
+    if cut.get("thru") and op.get("do") != "spot":
         # As blind_depth: the authored local thickness plus the exit allowance, never the
         # far side the geometry suggests.
         allowance = op.get("exit_mm", UNKNOWN)

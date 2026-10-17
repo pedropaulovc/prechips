@@ -95,14 +95,16 @@ def _cross(a, b):
     return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
 
 
-def _posed(pose, point):
-    """A fixture-local point (mm) in the setup frame through ``pose``, else None."""
+def _posed(pose, point, direction=False):
+    """A fixture-local point (mm), or with ``direction`` a vector, in the setup frame
+    through ``pose``, else None."""
     pose = record(pose)
     origin, x, z = (pose.get(key) for key in ("origin_mm", "x", "z"))
     if not all(_vector(v) for v in (origin, x, z, point)):
         return None
     y = _cross(z, x)
-    return [origin[i] + x[i] * point[0] + y[i] * point[1] + z[i] * point[2] for i in range(3)]
+    base = [0.0, 0.0, 0.0] if direction else origin
+    return [base[i] + x[i] * point[0] + y[i] * point[1] + z[i] * point[2] for i in range(3)]
 
 
 def _across(point, base, axis):
@@ -154,7 +156,17 @@ def _clocking(bundle, setup, name, fit, detail):
             continue
         row = {"about": f"{owner} solid {solid.get('name', UNKNOWN)}", "locates": solid["locates"]}
         pivot = _posed(pose, solid.get("at_mm")) if pose is not None else None
-        distance = _across(pivot, *line) if pivot is not None and line is not None else None
+        turned = _posed(pose, solid.get("axis"), direction=True) if pose is not None else None
+        turned = _unit(turned) if turned is not None else None
+        # Only a pivot pin parallel to the hole turns the work in the hole's plane.
+        parallel = (
+            turned is not None
+            and line is not None
+            and abs(abs(sum(a * b for a, b in zip(turned, line[1], strict=True))) - 1.0) <= 1e-6
+        )
+        if turned is not None and line is not None and not parallel:
+            row["reason"] = "its axis is not parallel to the hole's, so the turn is unknown"
+        distance = _across(pivot, *line) if pivot is not None and parallel else None
         row["distance_mm"] = distance if distance is not None else UNKNOWN
         angle = (
             max(largest, 0.0) / distance

@@ -58,11 +58,13 @@ def cut_op(subject, action, diameter, spec, exit_mm=1.0, through=20.0, depth=Non
     op = _op(subject, "cl", diameter / 2, 30.0, 60.0)
     op["do"] = action
     cut = {"process_feature": "cl", "action": action, **spec, "diameter_mm": diameter}
-    if action == "drill":
-        cut["point_angle_deg"] = 118.0
+    if action in ("drill", "spot"):
+        cut["point_angle_deg"] = 118.0 if action == "drill" else 60.0
     if action == "ream":
         cut["lead_mm"] = 1.0
-    if spec.get("thru"):
+    if action == "spot":
+        cut["op_depth_mm"] = depth
+    elif spec.get("thru"):
         # The setup's authored local thickness plus the exit allowance.
         cut["exit_mm"] = exit_mm
         cut["through_mm"] = through + exit_mm
@@ -196,3 +198,14 @@ def test_a_mouth_above_the_stock_is_not_cut(engine, part):
     ops = [cut_op("T1:10", "ream", 6.016, spec, through=22.0)]
     result = run(engine, part, spec, [setup("T1", ops), setup("T2", [])])
     assert "mouth is not on the stock's exposed surface" in result["ops"]["T1:10"]["reason"]
+
+
+def test_a_spot_starts_the_hole_but_leaves_it_undrilled(engine, part):
+    spec = hole()
+    ops = [cut_op("T1:10", "spot", 6.35, spec, depth=1.5)]
+    result = run(engine, part, spec, [setup("T1", ops), setup("T2", [])])
+    assert LABEL not in str(result["ops"]["T1:10"].get("reason")), result["ops"]["T1:10"]
+    # The 60° cone to 1.5 deep: radius 1.5 tan 30° at the mouth.
+    removed = 48000.0 - result["setups"]["T2"]["stock_volume_mm3"]
+    assert removed == pytest.approx(math.pi * (1.5 * math.tan(math.radians(30))) ** 2 * 0.5)
+    assert states(result)["T2"] == "undrilled"
