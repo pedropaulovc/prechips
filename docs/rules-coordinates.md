@@ -424,7 +424,9 @@ naming them. Each table is recorded under `arc_table` (its joins under
   degrees from the cutter's radial line: each contact errs at the touch-off and
   again at the cut, and the sled's centre translates by both through the rollers'
   geometry. Both are finite bounds, not the linear terms alone: each centre shift
-  `d` adds `d² / (2 (ρ − d))` where a radius `ρ` turns it (the cutter's, and for a
+  `d` adds `d² / (2 (ρ − d))` where a radius `ρ` turns it (the cutter's shortest
+  reach, `worst_reach_mm`: the master's radius limits at the touch, less a rough's
+  back-off toward the centre, never the nominal path; and for a
   rail the roller centres', taken as half the rail radius at least, true of any
   roller outside the rail or inside it and no wider than its radius), solved as a
   fixed point (`rules/guided_sweep.py` `rail_cut_shift`); one that does not converge
@@ -467,7 +469,10 @@ naming them. Each table is recorded under `arc_table` (its joins under
   a touch or back-off along any other axis is not radial. On a rail,
   `roller_contacts_mm` are where each roller bears on the rail, as setup X/Y offsets
   from the spindle axis at the touch. On a rail, both rollers must bear on the rail through
-  the whole sweep (each within `rail_deg` narrowed by half the sweep at both ends;
+  the travel the printed stops set (`stop_travel_deg`: the arc's span plus, at each end,
+  the printed overrun and the stop's placement slop `stop_slop_mm` on the shortest
+  touch reach, so a sweep short of the arc within its tolerance still travels the whole
+  span; each roller within `rail_deg` narrowed by half that travel at both ends;
   the rail is the shorter arc between its ends, across the ±180° line too, and ends
   half a turn apart leave its side unknown) and must not lie on one line through the
   centre, else an error; the traveler prints the sweep only once `rail_coverage` is

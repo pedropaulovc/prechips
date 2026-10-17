@@ -360,6 +360,23 @@ def test_a_roller_that_runs_off_the_rail_during_the_sweep_is_an_error(tmp_path):
     assert "runs off the rail" in errors(row)
 
 
+@pytest.mark.parametrize("short", [False, True])
+def test_the_rail_is_checked_over_the_travel_the_stops_set(tmp_path, short):
+    # The stops sit on the arc ends' strokes plus the printed overrun and their placement
+    # slop, so the fixture turns past the authored angle: a sweep a hair short of the 21°
+    # arc still travels the whole span (Codex review of #258 at 6e14cbb). A rail whose
+    # ends just hold the rollers over the authored angle no longer covers that travel.
+    step = math.degrees(0.001 / 797.0)
+    sweep = 21.0 - 0.5 * step if short else 25.0
+    edge = 15.0 + sweep / 2
+    row = guided_row(tmp_path, "rail", sweep_deg=f"{sweep!r}", rail_deg=f"[{-edge!r}, {edge!r}]")
+    guided = recipe(row)[1] if arcs(row, 20) else None
+    assert "runs off the rail" in errors(row)
+    assert "the stops let the fixture turn" in errors(row)
+    if guided is not None:
+        assert guided["stop_travel_deg"] > sweep
+
+
 def test_a_rail_across_the_half_turn_line_carries_its_rollers(tmp_path):
     # Ends at 160° and -160° are the 40° rail through 180°, behind the arc centre: rollers
     # at ±175° stay on it through the 25° sweep, one at 150° runs off. Ends half a turn
@@ -1109,6 +1126,10 @@ def test_the_back_off_residual_is_taken_at_the_masters_own_reach(tmp_path):
     expected = max(_off_line_backoff(touch, 2.0, off) for touch in (6.80, 6.82))
     assert rough["transverse_residual_mm"] == pytest.approx(expected)
     assert expected > _off_line_backoff(7.0, 2.0, off)
+    # The guide's finite terms too are taken at the shortest reach, the rough's cut 2 mm
+    # in from the R6.80 touch, not the nominal R7 (Codex review of #258 at 6e14cbb).
+    assert rough["worst_reach_mm"] == pytest.approx(4.80)
+    assert rough["centre_error_mm"] == pytest.approx(0.02 + 0.02**2 / (2 * (4.80 - 0.02)))
 
 
 def test_a_back_off_off_the_radial_line_is_carried_into_the_cut():
@@ -1220,7 +1241,8 @@ def test_a_rail_sweep_with_an_unknown_rail_radius_prints_only_a_stop(tmp_path):
     row, printed = traveler_text(tmp_path, "rail", drop="rail_radius_mm = 850.0\n")
     assert row.status == "unknown", row.sentence
     assert "STOP: guided sweep not established (" in printed
-    assert "rail radius or roller positions unknown) — do not run." in printed
+    # With no radius there is no proven cut, so no start and no stop travel either.
+    assert "rail radius or roller positions unknown, rollers not proven on the rail" in printed
     assert "With X and Y locked" not in printed and "stop block" not in printed
 
 

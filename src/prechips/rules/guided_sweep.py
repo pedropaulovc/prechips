@@ -283,10 +283,10 @@ def _master(bundle, sweep, guide, errors, debts, measurements, record_):
     return fact["value"]
 
 
-def _rail(sweep, sweep_deg, errors, debts, record_):
-    """The rollers' gain on the cut (:func:`roller_gain`), or None when unproven; the rail
-    must bear on both rollers through the whole sweep, recorded as ``rail_coverage``
-    (``"proven"``, ``"off"`` or ``"unknown"``)."""
+def _rail(sweep, errors, debts, record_):
+    """The rollers' gain on the cut (:func:`roller_gain`), or None when unproven. Whether
+    the rail bears on both rollers through the travel the printed stops set is checked
+    once they are placed (:func:`_rail_coverage`)."""
     rollers, rail = sweep.get("rollers_deg", UNKNOWN), sweep.get("rail_deg", UNKNOWN)
     record_.update(rollers_deg=rollers, rail_deg=rail, rail_coverage=UNKNOWN)
     if not _pair(rollers):
@@ -305,9 +305,27 @@ def _rail(sweep, sweep_deg, errors, debts, record_):
             "contour.sweep.rail_deg (the rail's ends) is unknown, so the rail is not proven "
             "to bear on both rollers through the sweep"
         )
-    elif number(sweep_deg):
-        record_["rail_coverage"] = _on_rail(rollers, rail, sweep_deg, errors, debts)
     return gain
+
+
+def _rail_coverage(arc, sweep, record_, errors, debts):
+    """``rail_coverage`` over the travel the printed stops set, not the authored
+    ``sweep_deg``: the stops sit on the arc ends' radial strokes, so the fixture turns the
+    arc's span plus, at each end, the printed overrun and the stop's placement slop
+    (``stop_slop_mm``) measured on the shortest touch reach (``stop_travel_deg``). A sweep
+    short of the arc within its tolerance still travels the whole span."""
+    span, overrun = arc.get("span_deg"), record_.get("stop_overrun_mm")
+    slop, reach = record_.get("stop_slop_mm"), record_.get("touch_reach_min_mm")
+    if not (number(span) and number(overrun) and number(slop) and number(reach) and reach > 0):
+        debts.append(
+            "the travel the stops set is unknown, so the rail is not proven to bear on both "
+            "rollers through it"
+        )
+        return
+    travel = span + 2 * math.degrees((overrun + slop) / reach)
+    record_["stop_travel_deg"] = travel
+    rollers, rail = sweep.get("rollers_deg"), sweep.get("rail_deg")
+    record_["rail_coverage"] = _on_rail(rollers, rail, travel, errors, debts)
 
 
 def _second_order(shift, radius):
@@ -402,7 +420,7 @@ def _on_rail(rollers, rail, sweep_deg, errors, debts):
         if abs(_wrap(angle - middle)) > reach + _JOIN_TOL:
             errors.append(
                 f"the roller at {angle:g}° runs off the rail (ends {rail[0]:g}° to "
-                f"{rail[1]:g}°) during the {sweep_deg:g}° sweep"
+                f"{rail[1]:g}°) during the {sweep_deg:.3f}° the stops let the fixture turn"
             )
             coverage = "off"
     return coverage
@@ -449,6 +467,16 @@ def _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid):
         # The printed stop overrun (stop_overrun_mm) is measured on the touch path, where
         # the stops are set: :func:`_start_clear` records it.
         record_.update(overrun_mm=overrun, path_mm=math.radians(sweep_deg) * radius * scale)
+
+
+def _touch_reaches(arc, master, convex):
+    """The cutter-centre reaches (mm) the master's radius limits give at the touch: each
+    limit plus the cutter's radius on a convex arc, less it on a concave one; [] when
+    unknown."""
+    cutter = arc.get("cutter_radius_mm")
+    if master is None or not number(cutter):
+        return []
+    return [limit + (cutter if convex else -cutter) for limit in master]
 
 
 def _margin(bundle, setup, arc, label, debts, record_, scale, grid):
@@ -538,6 +566,8 @@ def _start_clear(bundle, setup, arc, label, debts, record_, scale, grid):
         reach = radius + radial + (centre * scale + radial) * swing + rounding + tilt
         reach += record_["margin_mm"]
         record_["start_reach_mm"] = reach
+        # How far the stop itself may sit off its stroke along the path.
+        record_["stop_slop_mm"] = rounding + tilt + record_["margin_mm"]
     if point is not None and in_air(stock_box(bundle, setup), point, reach, scale):
         record_["start"] = "air"
         return
@@ -809,7 +839,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
     found = _carrier(bundle, setup, sweep, guide, errors, debts, measurements, record_)
     master = _master(bundle, sweep, guide, errors, debts, measurements, record_)
     sweep_deg = sweep.get("sweep_deg", UNKNOWN)
-    gain = _rail(sweep, sweep_deg, errors, debts, record_) if guide == "rail" else None
+    gain = _rail(sweep, errors, debts, record_) if guide == "rail" else None
     grid = dro_grid(bundle, setup)
     _margin(bundle, setup, arc, label, debts, record_, scale, grid)
     _sweep_span(arc, sweep_deg, label, errors, debts, record_, scale, grid)
@@ -825,11 +855,32 @@ def guided(bundle, setup, op, arc, band, label, scale):
         index, side = TOUCH_AXES[axis]
         feed = -side if convex else side
         record_["touch_feed"] = ("-" if feed < 0 else "+") + "XY"[index]
+    allowance = arc.get("allowance_mm", 0.0)
+    outward = 1 if convex else -1
+    back = UNKNOWN
+    if number(allowance):
+        step, decimals = grid
+        back = _grid(allowance / scale, step, decimals, True) if allowance > 0 else 0.0
+        record_["back_off_mm"] = back * scale
+        if axis in TOUCH_AXES and back:
+            index, side = TOUCH_AXES[axis]
+            record_["back_off_dro"] = round(outward * side * back, decimals)
+    else:
+        debts.append(f"{label}: its allowance is unknown, so no back-off is proven")
+    # The cutter's centre stands where the master puts it at the touch, and the rough's
+    # back-off from there at the cut: the guide's finite terms are worst at the shortest of
+    # those reaches, not the nominal path's.
+    touches = _touch_reaches(arc, master, convex)
+    record_["touch_reach_min_mm"] = min(touches) if touches else UNKNOWN
+    cuts = [t + outward * back * scale for t in touches] if number(back) else []
+    reach = min(touches + cuts) if touches and cuts else UNKNOWN
+    record_["worst_reach_mm"] = reach
     # How far the arc centre moves on the guide between the touch-off and the cut.
     widen = UNKNOWN
-    reach = arc["cutter_centre_radius_mm"]
-    reach = reach * scale if number(reach) else UNKNOWN
-    if found is not None and guide == "pivot" and number(found["pivot_play"]):
+    # With no master or back-off to place the cutter by, the cut stays unproven; their own
+    # debts say why.
+    placed = number(reach) and found is not None
+    if placed and guide == "pivot" and number(found["pivot_play"]):
         # A setting bar seated on the pin sets the cutter from the pin's own axis: the
         # beam's play moves the work once, at the cut. A master on the arm moves with the
         # beam at the touch-off too, so its play counts at both.
@@ -842,7 +893,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
             )
         else:
             widen = (play + term) * (1 if bar else 2)
-    elif found is not None and gain is not None:
+    elif placed and gain is not None:
         form, runout = found["rail_form_error"], found["roller_runout"]
         if number(form) and number(runout) and number(found["rail_radius"]):
             # Each contact errs by the rail's form error plus half its roller's runout, at
@@ -858,18 +909,6 @@ def guided(bundle, setup, op, arc, band, label, scale):
             else:
                 widen = 2 * shift
     record_["centre_error_mm"] = widen
-    allowance = arc.get("allowance_mm", 0.0)
-    outward = 1 if convex else -1
-    back = UNKNOWN
-    if number(allowance):
-        step, decimals = grid
-        back = _grid(allowance / scale, step, decimals, True) if allowance > 0 else 0.0
-        record_["back_off_mm"] = back * scale
-        if axis in TOUCH_AXES and back:
-            index, side = TOUCH_AXES[axis]
-            record_["back_off_dro"] = round(outward * side * back, decimals)
-    else:
-        debts.append(f"{label}: its allowance is unknown, so no back-off is proven")
     _transverse(record_, guide, label, debts)
     # A rough's one-axis back-off is radial only on the radial line: the cutter is put on
     # it to within a residual, which turns a back-off into a slightly shorter radial move.
@@ -879,13 +918,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
         record_["transverse_offset_mm"] = off if off is not None else UNKNOWN
         # The touch puts the cutter's centre where the master is, not on the nominal path:
         # the residual is taken at the worse of the reaches its radius limits give.
-        cutter = arc.get("cutter_radius_mm")
-        reaches = (
-            [limit + (cutter if convex else -cutter) for limit in master]
-            if master is not None and number(cutter)
-            else []
-        )
-        misses = [_off_line_backoff(touch, back * scale, off) for touch in reaches]
+        misses = [_off_line_backoff(touch, back * scale, off) for touch in touches]
         residual = max(misses) if misses and None not in misses else None
         record_["transverse_residual_mm"] = residual if residual is not None else UNKNOWN
         if residual is not None and not math.isfinite(residual):
@@ -931,6 +964,8 @@ def guided(bundle, setup, op, arc, band, label, scale):
     _landmarks(arc, record_, sweep, axis, found, scale)
     _marks(bundle, setup, op, record_, label, debts, scale)
     _start_clear(bundle, setup, arc, label, debts, record_, scale, grid)
+    if gain is not None and _pair(sweep.get("rail_deg")):
+        _rail_coverage(arc, sweep, record_, errors, debts)
     _radial(arc, record_, axis, label, errors, grid)
     if measurements:
         by_id = {entry["id"]: entry for entry in measurements}

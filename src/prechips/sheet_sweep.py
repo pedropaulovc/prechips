@@ -123,13 +123,14 @@ def _rail_unresolved(sweep):
     the operator sets each roller from the spindle, which the rail's radius places."""
     if not (_pair(sweep.get("rollers_deg")) and _pair(sweep.get("rail_deg"))):
         return ["rollers or rail ends unknown"]
+    missing = []
+    if not (_known(sweep.get("rail_radius_mm")) and _points(sweep.get("roller_contacts_mm"))):
+        missing.append("rail radius or roller positions unknown")
     if sweep.get("rail_coverage") != "proven":
         # Numeric ends are not proof: the rule must have shown both rollers bear on the
-        # rail through the whole sweep.
-        return ["rollers not proven on the rail through the sweep"]
-    if not (_known(sweep.get("rail_radius_mm")) and _points(sweep.get("roller_contacts_mm"))):
-        return ["rail radius or roller positions unknown"]
-    return []
+        # rail through the travel the stops set.
+        missing.append("rollers not proven on the rail through the sweep")
+    return missing
 
 
 def steps(arc, operative, start, stop, after_rough=False, feed=None, final=True, levels=None):
