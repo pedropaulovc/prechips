@@ -317,11 +317,27 @@ Align = record(
 # ``on`` the solid of the holding fixture whose posed +z face carries the tape layer.
 # Coverage is the work's footprint.
 AreaHold = record("AreaHold", texts("ref on"))
+
+
+JAW_AXES = ("x", "y", "not_applicable")
+
+
+def _jaw_axis(value: str) -> str:
+    if value not in (*JAW_AXES, UNKNOWN):
+        raise ValueError(
+            f"jaws_along {value!r} is not a jaw axis: it is the jaw length axis before any "
+            'swivel, "x", "y" or "not_applicable"; a vise swivelled about Z states its angle '
+            "in jaws_angle_deg."
+        )
+    return value
+
+
 Hold = record(
     "Hold",
     {
+        "jaws_along": Annotated[str, AfterValidator(_jaw_axis)],
         **texts(
-            "fixture jaws_along fixed_jaw parallels support support_orientation "
+            "fixture fixed_jaw parallels support support_orientation "
             "grip_on stop clamp note centre_lubrication riser method orientation locator "
             "release jaw_protection locate chuck riser_up riser_along parallels_along"
         ),

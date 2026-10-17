@@ -963,7 +963,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `fixture` | `str` |
-| `jaws_along` | `str` |
+| `jaws_along` | `"x"` / `"y"` / `"not_applicable"`: the vise jaw length axis; any other text is bad input (exit 3) |
 | `fixed_jaw` | `str` |
 | `parallels` | `str` |
 | `supports` | `str \| list[str \| Reference]` |
