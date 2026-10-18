@@ -577,13 +577,14 @@ grid step is unknown). The raster record carries `run_axis`, `area_ends`, the
 pass `ends`, `clearance_mm` (the cutter radius they run past the area) and a
 pocket's `entry_pass`. The traveler prints the pass ends in the raster table; the
 note above it says to lift to the raster's lift Z after each pass and names an end
-(by its side), or the entry pass on its open side, in air only when it stands a cutter
+(by its role in the printed pass direction: "each pass enters from air at -X", "leaves
+into air at +X"), or the entry pass on its open side, in air only when it stands a cutter
 radius outside the stock the kernel modelled entering the setup (its
 `stock_bbox_mm`, which holds every op's stock); the op's `stock_removal_bounds`
 is what it may remove, not where stock ends, so it proves neither air nor
 material and an unproven end carries no claim. A `keep_out` splits passes into
-pieces that also start and stop between the outer `ends`; the note then names
-those as the outer ends and says every pass runs in and out clear only
+pieces that also start and stop between the outer `ends`; the note then says so
+and says every pass runs in and out clear only
 when each emitted piece's start and end is proven so, stage by stage. A closed
 outline's rows are on the grid too: each vertex is the nearest grid point at
 least its offset outside

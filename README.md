@@ -564,7 +564,8 @@ and outline rows that run past the stock are labelled cutter clearance only when
 the cutter stands a radius outside the stock the kernel modelled entering the
 setup; a raster's pass ends print in its table, and its note (the lift after each
 pass, with no pass count, stepover, stage or order the table and op row already
-give) names an end in air, by its side, only on that proof (an op's removal box
+give) names an end in air, by its role in the printed pass direction (each
+pass enters from air at that end, or leaves into air at it), only on that proof (an op's removal box
 never proves an end in air or in material); every
 pass is said to run in and out clear only when each emitted piece's start and
 end is, so pieces a keep-out splits are proven one by one. A
