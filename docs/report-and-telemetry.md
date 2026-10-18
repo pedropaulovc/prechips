@@ -815,9 +815,13 @@ The native batch response has `timing = {wall_ms, cpu_ms}`. Each job result has
 its own top-level `timing = {wall_ms, cpu_ms, phases, setups}`. The job's
 `phases` holds its work before the first setup: `step_import` (reading and
 digesting the STEP, parsing it and importing its one valid solid),
-`face_binding` (face signatures, STEP face references, declared features and
-faced aims) and `stock_prep` (stock supplies, blank boxes, joints and the process
-model), each present once that step starts. `setups` maps setup ids to
+`face_binding` (face signatures, STEP face references, declared features,
+faced aims and the result's face facts) and `stock_prep` (stock supplies, blank
+boxes, joints, the process model and the stock facts), each present once that
+step starts, plus `cross_setup` (checks between setups, such as a printed
+checkpoint against a later setup's contacts, and rotary coverage) after the last
+setup. With the setups, which include assembling the stock each one holds, they
+cover all of the job's work. `setups` maps setup ids to
 `{wall_ms, cpu_ms, phases, ops}`. A setup's `phases` holds measured `fixture`,
 `chuck_walls` (radial clamp-wall sampling), `stock_states` (the one op-order
 pass deriving each op's before-op stock), `render`, `stock_output` (final

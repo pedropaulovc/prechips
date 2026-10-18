@@ -3804,33 +3804,33 @@ class _Job:
             # ``faces`` and ``bbox_mm`` describe the STEP as exported; every setup cuts the part
             # the plan's faced aims make.
             self.solid, aimed_facts = _aimed_solid(solid, aimed, mapping, self.labels)
-        result = {
-            "status": "ok",
-            "bbox_mm": [_r(v) for v in _bbox(solid)],
-            "faces": [
-                {
-                    "ref": refs_by_index.get(index),
-                    "index": index,
-                    "kind": kind,
-                    "bbox_mm": [_r(v) for v in box],
-                    "area_mm2": _r(area),
-                    "fills_bbox": _fills_bbox(face),
-                }
-                for index, ((kind, area, box), face) in enumerate(
-                    zip(signatures, solid.Faces, strict=True)
-                )
-            ],
-            "mapping": dict(sorted(mapping.items())),
-            "mapping_errors": dict(sorted(errors.items())),
-            "features": self.features,
-            "ops": {},
-            "setups": {},
-        }
-        if aimed_facts:
-            result["aimed_faces"] = aimed_facts
-        setups = job.get("setups", [])
-        if not isinstance(setups, list):
-            raise ValueError("job setups is not a list")
+            result = {
+                "status": "ok",
+                "bbox_mm": [_r(v) for v in _bbox(solid)],
+                "faces": [
+                    {
+                        "ref": refs_by_index.get(index),
+                        "index": index,
+                        "kind": kind,
+                        "bbox_mm": [_r(v) for v in box],
+                        "area_mm2": _r(area),
+                        "fills_bbox": _fills_bbox(face),
+                    }
+                    for index, ((kind, area, box), face) in enumerate(
+                        zip(signatures, solid.Faces, strict=True)
+                    )
+                ],
+                "mapping": dict(sorted(mapping.items())),
+                "mapping_errors": dict(sorted(errors.items())),
+                "features": self.features,
+                "ops": {},
+                "setups": {},
+            }
+            if aimed_facts:
+                result["aimed_faces"] = aimed_facts
+            setups = job.get("setups", [])
+            if not isinstance(setups, list):
+                raise ValueError("job setups is not a list")
         with _timed(phases, "stock_prep"):
             self.as_is_contact = {}
             supplies, (stock, reason) = self._supplies()
@@ -3857,38 +3857,39 @@ class _Job:
             }
             self._init_joints()
             self._init_process(stock if reason is None else None)
-        result["transient_faces"] = [
-            {"index": len(signatures) + index, "label": self.labels[len(signatures) + index]}
-            for index in range(len(self.synthetic_faces))
-        ]
-        result["stock"] = (
-            {"bbox_mm": [_r(v) for v in _bbox(stock)], "volume_mm3": _r(stock.Volume)}
-            if reason is None
-            else {"reason": reason}
-        )
-        outputs = dict(supplies)
-        leaves = dict.fromkeys(outputs, 0.0)  # largest known rough leave each lineage carries
-        rotary = any(
-            _rotary(op)
-            for setup in setups
-            if isinstance(setup, dict)
-            for op in setup.get("ops", [])
-            if isinstance(op, dict)
-        )
-        self.rotary_portions = {"cut": {}, "finish": {}} if rotary else None
+            result["transient_faces"] = [
+                {"index": len(signatures) + index, "label": self.labels[len(signatures) + index]}
+                for index in range(len(self.synthetic_faces))
+            ]
+            result["stock"] = (
+                {"bbox_mm": [_r(v) for v in _bbox(stock)], "volume_mm3": _r(stock.Volume)}
+                if reason is None
+                else {"reason": reason}
+            )
+            outputs = dict(supplies)
+            leaves = dict.fromkeys(outputs, 0.0)  # largest known rough leave each lineage carries
+            rotary = any(
+                _rotary(op)
+                for setup in setups
+                if isinstance(setup, dict)
+                for op in setup.get("ops", [])
+                if isinstance(op, dict)
+            )
+            self.rotary_portions = {"cut": {}, "finish": {}} if rotary else None
         # Setup id -> the earlier setups its stock descends from; each setup's runner.
         lineage, runners = {}, []
         for setup in setups:
-            held, held_reason, state, assembly_error = self._held(setup, outputs)
-            if held_reason is None:
-                box = _bbox(held)
-                self.sweep_mm = 2 * math.dist(box[:3], box[3:]) + 10
-            stock_in = setup.get("stock_in") if isinstance(setup, dict) else None
-            refs = stock_in if isinstance(stock_in, list) else [stock_in]
-            leave = max([0.0] + [leaves.get(ref, 0.0) for ref in refs if isinstance(ref, str)])
-            runner = _Setup(self, setup, held, held_reason, state, leave)
             clocks = self.timing["setups"] if self.timing is not None else None
+            # The setup's span includes assembling the stock it holds.
             with _timed(clocks, str(setup.get("id"))) as setup_clocks:
+                held, held_reason, state, assembly_error = self._held(setup, outputs)
+                if held_reason is None:
+                    box = _bbox(held)
+                    self.sweep_mm = 2 * math.dist(box[:3], box[3:]) + 10
+                stock_in = setup.get("stock_in") if isinstance(setup, dict) else None
+                refs = stock_in if isinstance(stock_in, list) else [stock_in]
+                leave = max([0.0] + [leaves.get(ref, 0.0) for ref in refs if isinstance(ref, str)])
+                runner = _Setup(self, setup, held, held_reason, state, leave)
                 runner.timing = setup_clocks
                 facts, ops = runner.run()
             if assembly_error is not None:
@@ -3916,16 +3917,17 @@ class _Job:
                 for up in (ref, *lineage[ref])
             }
             runners.append((sid, runner))
-        for sid, runner in runners:
-            # Rule A′: a printed checkpoint must not remove stock a later setup contacts.
-            runner._finish_checkpoints(
-                [later for later_sid, later in runners if sid in lineage[later_sid]]
-            )
-        if rotary:
-            result["rotary_coverage"] = {
-                category: self._rotary_coverage(portions)
-                for category, portions in self.rotary_portions.items()
-            }
+        with _timed(phases, "cross_setup"):
+            for sid, runner in runners:
+                # Rule A′: a printed checkpoint must not remove stock a later setup contacts.
+                runner._finish_checkpoints(
+                    [later for later_sid, later in runners if sid in lineage[later_sid]]
+                )
+            if rotary:
+                result["rotary_coverage"] = {
+                    category: self._rotary_coverage(portions)
+                    for category, portions in self.rotary_portions.items()
+                }
         return result
 
     def _collect_rotary_portions(self, runner):

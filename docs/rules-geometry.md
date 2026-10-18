@@ -125,8 +125,8 @@ error without a reason`). A batch that ends without a usable result yields
 Each of those reasons goes on to say which phase the engine was in and quote the
 tail (2000 characters) of its stderr, else stdout, or `no stderr or stdout
 output`. The phase comes from the engine's progress trail: every timed span
-(`batch`, `job <n>`, the job's `step_import`, `face_binding` and `stock_prep`
-phases, each setup, its phases and ops) appends a flushed
+(`batch`, `job <n>`, the job's `step_import`, `face_binding`, `stock_prep` and
+`cross_setup` phases, each setup, its phases and ops) appends a flushed
 enter/exit line to `<output>.trail` beside the result file, so a killed engine
 still leaves it. The error's `timing` holds `host_wall_ms` and `trail = {open,
 finished, last_mark_ms}` (open spans, deepest last, and the last 20 finished
