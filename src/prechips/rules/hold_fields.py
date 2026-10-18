@@ -13,17 +13,21 @@ import math
 
 from prechips.findings import Finding
 from prechips.model import HAND_FEEDING, setup_lineage
+from prechips.rules.level_entry import stock_box
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    _citations,
     hand_fed,
     identity,
     known_refs,
+    number,
     op_feature,
     owns_feature,
     record,
     resolve,
+    same_length,
     uncertain,
 )
 from prechips.rules.swivel import STATED, swivel_angle
@@ -32,6 +36,10 @@ from prechips.rules.tip_endpoints import HOLE_OPS
 # Point/hole actions plunge on the spindle axis; every other machine cut needs a direction.
 _POINT = HOLE_OPS | {"center", "center_drill"}
 STOCK_END = "stock_end"
+# The shop's finger-to-blade clearance for work fed by hand on a saw table, and the
+# largest gap (mm) between the blade positions the check samples along its path.
+MIN_HAND_FEED = "min_hand_feed_mm"
+HAND_FEED_STEP_MM = 1.0
 # Fixtures whose locating face must be squared to the table travel when mounted or turned.
 ALIGNED_FIXTURES = frozenset({"vise", "angle_plate"})
 # Gauges that can be swept along a jaw or plate face.
@@ -214,6 +222,154 @@ def stop_face(bundle, setup, name):
     return "error", {**facts, "on_arriving_stock": False}
 
 
+def hand_feed_minimum(bundle):
+    """``(value, cite)``: the shop policy ``numbers.min_hand_feed_mm``, how close (mm) the
+    operator's fingers may come to the blade while feeding the work by hand, with its
+    usable citations; the value is unknown when absent, not positive, without a usable
+    citation or not explicitly verified (``numbers_verify`` false for it)."""
+    value = record(bundle.policy.get("numbers")).get(MIN_HAND_FEED, UNKNOWN)
+    verify = bundle.policy.get("numbers_verify", False)
+    if isinstance(verify, dict):
+        verify = verify.get(MIN_HAND_FEED, False)
+    cite = _citations(record(bundle.policy.get("numbers_cite")).get(MIN_HAND_FEED))
+    known = number(value) and value > 0 and verify is False and bool(cite)
+    return (value if known else UNKNOWN), cite
+
+
+def blade_paths(bundle, setup):
+    """Each hand-fed saw op's blade path in the setup's X/Y (mm) as ``(centre, radius,
+    span)``: the scribed arc offset by the op's ``allowance_mm`` to the side the saw
+    removes, run only within ``span`` (``[x0, y0, z0, x1, y1, z1]``), its declared
+    ``stock_removal_bounds``, where the kernel clips its cut. None when any op's line is
+    not an arc the kernel places or its removal bounds are not a numeric box."""
+    from prechips.kernel import removal_bounds, scribed_profile
+
+    paths = []
+    for op in setup.get("ops") or []:
+        if op.get("do") not in SAW_OPS:
+            continue
+        profile = record(scribed_profile(bundle, setup, op))
+        allowance = op.get("allowance_mm")
+        centre, radius = profile.get("centre_mm"), profile.get("radius_mm")
+        bounds = removal_bounds(op.get("stock_removal_bounds"), bundle.features.get("units"))
+        if not (isinstance(centre, list) and number(radius) and number(allowance)):
+            return None
+        if "reason" in bounds:
+            return None
+        sign = -1.0 if profile.get("remove") == "inside" else 1.0
+        span = [*(bounds[axis][0] for axis in "xyz"), *(bounds[axis][1] for axis in "xyz")]
+        paths.append((centre[:2], radius + sign * allowance, span))
+    return paths or None
+
+
+def _segment_range(centre, a, b):
+    """``[nearest, farthest]`` distance from ``centre`` to the segment ``a``-``b``."""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    span = dx * dx + dy * dy
+    t = 0.0 if span == 0 else ((centre[0] - a[0]) * dx + (centre[1] - a[1]) * dy) / span
+    t = min(1.0, max(0.0, t))
+    near = math.dist(centre, (a[0] + t * dx, a[1] + t * dy))
+    return near, max(math.dist(centre, a), math.dist(centre, b))
+
+
+def _reach(blade, box):
+    """``(low, high)``: bounds on the farthest work from the blade at ``blade``. The entry
+    box is tight, so some work lies on each of its four sides: the farthest work is at
+    least the largest of the sides' nearest distances, and at most the farthest corner."""
+    corners = [(box[0], box[1]), (box[3], box[1]), (box[3], box[4]), (box[0], box[4])]
+    sides = zip(corners, corners[1:] + corners[:1], strict=True)
+    low = max(_segment_range(blade, a, b)[0] for a, b in sides)
+    return low, max(math.dist(blade, corner) for corner in corners)
+
+
+def _overlap(box, span):
+    """The X/Y overlap ``[x0, y0, x1, y1]`` of a setup-entry box and a removal span, or
+    None when they do not meet in X, Y or Z (a span wholly above or below the work cuts
+    nothing)."""
+    low = [max(box[axis], span[axis]) for axis in range(3)]
+    high = [min(box[axis + 3], span[axis + 3]) for axis in range(3)]
+    if any(lo > hi for lo, hi in zip(low, high, strict=True)):
+        return None
+    return [low[0], low[1], high[0], high[1]]
+
+
+def _along(centre, radius, window):
+    """Blade positions on the circle ``centre``/``radius`` inside ``window``'s X/Y, at most
+    :data:`HAND_FEED_STEP_MM` apart: over the whole circle when its centre is in the box,
+    else over the angles the box spans as seen from the centre (less than a half turn).
+    ``window`` is ``[x0, y0, x1, y1]``."""
+    box = [window[0], window[1], None, window[2], window[3]]
+    corners = [(box[0], box[1]), (box[3], box[1]), (box[3], box[4]), (box[0], box[4])]
+    inside = box[0] <= centre[0] <= box[3] and box[1] <= centre[1] <= box[4]
+    middle = math.atan2((box[1] + box[4]) / 2 - centre[1], (box[0] + box[3]) / 2 - centre[0])
+    turns = [
+        math.remainder(math.atan2(y - centre[1], x - centre[0]) - middle, 2 * math.pi)
+        for x, y in corners
+    ]
+    start, end = (-math.pi, math.pi) if inside else (min(turns), max(turns))
+    count = max(1, math.ceil((end - start) * radius / HAND_FEED_STEP_MM))
+    points = []
+    for index in range(count + 1):
+        angle = middle + start + (end - start) * index / count
+        point = (centre[0] + radius * math.cos(angle), centre[1] + radius * math.sin(angle))
+        if box[0] <= point[0] <= box[3] and box[1] <= point[1] <= box[4]:
+            points.append(point)
+    return points
+
+
+def hand_feed(bundle, setup):
+    """``(status, numbers, why)`` for a hand-fed setup's work against the shop's hand-feed
+    minimum. The blade moves along its path through the work (:func:`blade_paths`); at
+    every blade position the operator needs work at least ``min_hand_feed_mm`` from the
+    blade to hold. Only the kernel's setup-entry stock box is known, so the farthest work
+    is bounded (:func:`_reach`): every position's lower bound reaching the minimum (less
+    one sampling step) passes, any position whose upper bound falls short is an
+    error, and anything between, an unknown minimum, stock or blade path is debt."""
+    minimum, cite = hand_feed_minimum(bundle)
+    box, paths = stock_box(bundle, setup), blade_paths(bundle, setup)
+    numbers = {"min_hand_feed_mm": minimum, "hand_feed_cite": cite}
+    if minimum == UNKNOWN:
+        return "unknown", numbers, f"the shop policy sets no cited, verified {MIN_HAND_FEED}"
+    if box is None:
+        return "unknown", numbers, "the kernel gave no setup-entry stock to size the work"
+    if paths is None:
+        return "unknown", numbers, "the blade path is known only along a scribed arc"
+    if len(paths) > 1:
+        # Only the setup-entry stock is boxed: a later cut works a piece an earlier one cut.
+        return "unknown", numbers, "a cut after the first works stock the kernel does not box"
+    # The blade runs where both the work and the op's declared removal box are.
+    positions = [
+        point
+        for centre, radius, span in paths
+        if (window := _overlap(box, span)) is not None
+        for point in _along(centre, radius, window)
+    ]
+    if not positions:
+        return "unknown", numbers, "the blade path does not cross the entry stock"
+    reaches = [_reach(point, box) for point in positions]
+    # A path point between samples, or past the last one, is within a step of a sample.
+    low = min(reach[0] for reach in reaches) - HAND_FEED_STEP_MM
+    high = min(reach[1] for reach in reaches)
+    numbers.update(hand_fed_reach_mm=[round(max(low, 0.0), 3), round(high, 3)])
+    if high < minimum and not same_length(high, minimum):
+        return (
+            "error",
+            numbers,
+            f"at one point of the cut no part of the work is more than {high:.3f} mm from "
+            f"the blade, under the shop's {minimum:g} mm hand-feed minimum: fingers would "
+            "come closer than that to the blade",
+        )
+    if low < minimum and not same_length(low, minimum):
+        return (
+            "unknown",
+            numbers,
+            f"the entry stock box shows only that some work stays {max(low, 0.0):.3f} to "
+            f"{high:.3f} mm from the blade, so the {minimum:g} mm hand-feed minimum is "
+            "not established",
+        )
+    return "pass", numbers, ""
+
+
 def evaluate(bundle):
     findings = []
     aligned = align_due(bundle)
@@ -355,6 +511,9 @@ def evaluate(bundle):
                 "this does not approve measured fixture clearance."
             )
         )
+        if scope == "admitted":
+            feed_status, feed_numbers, feed_why = hand_feed(bundle, setup)
+            numbers.update(feed_numbers)
         if misdeclared:
             numbers["misdeclared"] = misdeclared
             message = f"{setup['id']}: " + "; ".join(misdeclared) + "."
@@ -370,6 +529,22 @@ def evaluate(bundle):
                 f"{setup['id']}: the work is fed by hand on the saw table, sawn on the waste "
                 "side of the scribed line; no fixture, stop, grip or clamp applies. Coolant, "
                 "deburr and stock state are declared."
+            )
+        if scope == "admitted" and feed_status == "pass" and status == "pass":
+            message = message.removesuffix(".") + (
+                f"; work stays at least {feed_numbers['hand_fed_reach_mm'][0]:.3f} mm from "
+                f"the blade along the whole cut, the shop's "
+                f"{feed_numbers['min_hand_feed_mm']:g} mm hand-feed minimum or more."
+            )
+        if scope == "admitted" and feed_status == "error":
+            status = "error"
+            message = f"{setup['id']}: {feed_why}." + (
+                "" if not (absent or unresolved) else " " + message
+            )
+        elif scope == "admitted" and feed_status == "unknown" and status == "pass":
+            status, message = (
+                "unknown",
+                f"{setup['id']}: the hand-feed minimum is unresolved: {feed_why}.",
             )
         face = hold.get("stop_face", UNKNOWN)
         if face != UNKNOWN:

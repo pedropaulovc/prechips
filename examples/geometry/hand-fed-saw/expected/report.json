@@ -238,7 +238,7 @@
           },
           "shop_policy": {
             "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
-            "sha256": "a56c7e7837169ed24ece5cecfaf5debe65c5a508c2eb6520e4e4496873f5dd00"
+            "sha256": "0c3304c248652c8719de4f4aeb1c94176cac2b4957d4b171cd0aed504d565f30"
           },
           "step": {
             "path": "examples/geometry/hand-fed-saw/rocker-arm.STEP",
@@ -1076,13 +1076,20 @@
       "cite": [
         "PLAN.md §4.1 hold fields"
       ],
-      "message": "S2: the work is fed by hand on the saw table, sawn on the waste side of the scribed line; no fixture, stop, grip or clamp applies. Coolant, deburr and stock state are declared.",
+      "message": "S2: the work is fed by hand on the saw table, sawn on the waste side of the scribed line; no fixture, stop, grip or clamp applies. Coolant, deburr and stock state are declared; work stays at least 145.255 mm from the blade along the whole cut, the shop's 76.2 mm hand-feed minimum or more.",
       "numbers": {
         "align_due": "not_applicable",
         "coolant": "none: dry cut",
         "cut_directions": {},
         "deburr_mm": 0.0,
         "fixture": "not_applicable",
+        "hand_fed_reach_mm": [
+          145.255,
+          147.177
+        ],
+        "hand_feed_cite": [
+          "Penn State Origin Labs, Safety Operating Procedures, Vertical Band Saw (Hammer N4400), 2023-11-13, https://originlabs.psu.edu/wp-content/uploads/2023/11/SAFETY-OPERATING-PROCEDURES-Vertical-Bandsaw.pdf: 'If your cut will require your fingers to get within 3 inches of the blade, use a push stick to complete your cut.' (a woodworking lab's procedure, adopted as this example shop's rule)"
+        ],
         "hold": {
           "end_support": "push_aid",
           "feed_from": "-X",
@@ -1092,6 +1099,7 @@
           "push_aid": "test-push-stick"
         },
         "hold_scope": "admitted",
+        "min_hand_feed_mm": 76.2,
         "missing": [],
         "stock_bottom_z": -8.0565,
         "stock_top_z": 1.0
@@ -2857,7 +2865,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "0776b2f2ad7a472bd68c8b6448465d487a47b052a07a8d231bb13531bb23e4df",
+  "hash": "166005b4ae1b3a5d31b5f3d55e817c31b36a4d15501266be3c2bc3cea9673e06",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2885,7 +2893,7 @@
     },
     "shop_policy": {
       "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
-      "sha256": "a56c7e7837169ed24ece5cecfaf5debe65c5a508c2eb6520e4e4496873f5dd00"
+      "sha256": "0c3304c248652c8719de4f4aeb1c94176cac2b4957d4b171cd0aed504d565f30"
     },
     "step": {
       "path": "examples/geometry/hand-fed-saw/rocker-arm.STEP",

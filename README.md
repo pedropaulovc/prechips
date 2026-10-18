@@ -270,7 +270,10 @@ bandsaw in vertical mode (`saw_modes`) follows a scribed curve the same way, han
 the upper guide height, the push aid, the start end and the end-of-cut support, each
 undeclared one a STOP; the traveler HOLD says the work is fed by hand on the saw table
 and the picture draws the blade line with arrows the way the work moves, toward the
-start end, the push aid behind the trailing end);
+start end, the push aid behind the trailing end; the shop policy's cited
+`min_hand_feed_mm` finger-to-blade clearance must be reachable at every blade position
+along the arc, judged from the kernel's entry stock: short work is `✗`, an unknown
+minimum, stock or path is `?`);
 along a scribed arc the predicted removal follows the curve, offset by the allowance.
 Every saw cut also gets a [`saw_teeth`](docs/rules-geometry.md#saw-teeth-in-the-work)
 row: the blade's cited `tpi` (its coarse end for a variable pitch) times the

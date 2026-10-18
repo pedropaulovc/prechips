@@ -32,7 +32,17 @@ FEEDING = {
 BUNDLE = ROOT / "examples" / "geometry" / "hand-fed-saw"
 
 
-def hand_fed_bundle(op=None, **machine):
+MINIMUM = 76.2  # a 3 in finger-to-blade clearance
+
+
+def entry_box(length, width=20.0):
+    """A setup-entry stock box ``length`` long in X, ``width`` in Y, 2.5 thick."""
+    return [0.0, 0.0, 0.0, length, width, 2.5]
+
+
+def hand_fed_bundle(op=None, minimum=MINIMUM, box=None, **machine):
+    """A hand-fed vertical bandsaw setup S2, its shop hand-feed minimum cited and verified
+    and the kernel's setup-entry stock 300 x 20 mm unless given."""
     bundle = bandsaw_bundle(op=op, blade_speed_sfm=[80, 200], **machine)
     setup = bundle.plan["setups"][0]
     setup.update(
@@ -42,6 +52,12 @@ def hand_fed_bundle(op=None, **machine):
         stock_state={"top_z": 2.5, "bottom_z": 0.0},
     )
     bundle.inventory["fixtures"] = {"push-stick": {"kind": "push_stick", "name": "push stick"}}
+    bundle.policy.update(
+        numbers={"min_hand_feed_mm": minimum},
+        numbers_cite={"min_hand_feed_mm": ["test shop hand-feed rule"]},
+        numbers_verify={"min_hand_feed_mm": False},
+    )
+    bundle.kernel["setups"] = {"S2": {"stock_bbox_mm": entry_box(300.0) if box is None else box}}
     return bundle
 
 
@@ -58,7 +74,8 @@ def row(rule, bundle, subject="S2"):
 # ------------------------------------------------------------------ admitted: decided
 
 
-def test_a_hand_fed_vertical_saw_cut_owes_no_holding_declaration():
+def test_a_hand_fed_vertical_saw_cut_owes_no_holding_declaration(monkeypatch):
+    straight(monkeypatch, y=18.0)  # a blade path the hand-feed minimum can judge
     bundle = hand_fed_bundle()
     assert hand_fed(bundle, bundle.plan["setups"][0]) == ("admitted", "")
     finding = row(hold_fields, bundle)
@@ -627,3 +644,204 @@ def test_feed_arrows_outside_the_removal_bounds_are_left_off_not_a_crash():
     drawn = scene(bundle)
     assert [p.get("arrows_only") for p in drawn["paths"]] == [None, None]
     assert any("waste_xy" in path for path in drawn["paths"])
+
+
+# ------------------------------------------- the hand-feed minimum (#343): policy gate
+
+# A blade path so flat it runs straight through the work: the arc about a centre 1e5 mm off.
+FAR = 1e5
+
+
+def straight(monkeypatch, x=None, y=None):
+    """Make the kernel's scribed arc for every saw op a near-straight line at setup ``x``
+    (running along Y) or ``y`` (running along X), with no allowance."""
+
+    def profile(bundle, setup, op):
+        if x is not None:
+            return {"centre_mm": [x + FAR, 10.0], "radius_mm": FAR, "remove": "outside"}
+        return {"centre_mm": [150.0, y + FAR], "radius_mm": FAR, "remove": "outside"}
+
+    monkeypatch.setattr(kernel, "scribed_profile", profile)
+
+
+def feed_bundle(minimum=MINIMUM, box=None, feed_from="-X"):
+    """``feed_from`` must name an end of the line: ``-Y`` for a :func:`straight` ``x``
+    path, which runs along Y (#342's feed_from check)."""
+    bundle = hand_fed_bundle(minimum=minimum, box=box)
+    bundle.plan["setups"][0]["hold"]["feed_from"] = feed_from
+    op = bundle.plan["setups"][0]["ops"][0]
+    # The saw may run anywhere over the work.
+    op.update(
+        allowance_mm=0.0,
+        stock_removal_bounds={"x": [-1.0, 301.0], "y": [-1.0, 91.0], "z": [-1.0, 3.5]},
+    )
+    return bundle
+
+
+def test_a_cut_along_a_long_work_keeps_work_beyond_the_minimum(monkeypatch):
+    # 300 x 20 mm, sawn along y = 18: mid-cut the ends are still 150 mm from the blade.
+    straight(monkeypatch, y=18.0)
+    finding = row(hold_fields, feed_bundle())
+    assert finding.status == "pass", finding.sentence
+    low, high = finding.numbers["hand_fed_reach_mm"]
+    assert 148.0 < low <= 150.0 and high > 150.0
+    assert finding.numbers["hand_feed_cite"] == ["test shop hand-feed rule"]
+
+
+def test_a_cut_across_a_short_work_brings_the_fingers_to_the_blade(monkeypatch):
+    # Codex's case: 100 x 20 mm sawn across its middle; no work is more than ~54 mm away.
+    straight(monkeypatch, x=50.0)
+    finding = row(hold_fields, feed_bundle(box=entry_box(100.0), feed_from="-Y"))
+    assert finding.status == "error"
+    assert finding.numbers["hand_fed_reach_mm"][1] == pytest.approx(math.hypot(50, 10), abs=0.6)
+    assert "76.2 mm hand-feed minimum" in finding.sentence
+
+
+def test_a_box_too_loose_to_decide_is_debt(monkeypatch):
+    # 120 x 20 sawn across its middle: the corners are 61 mm off, the sides only 60.
+    straight(monkeypatch, x=60.0)
+    bundle = feed_bundle(minimum=60.5, box=entry_box(120.0), feed_from="-Y")
+    finding = row(hold_fields, bundle)
+    assert finding.status == "unknown"
+    assert "not established" in finding.sentence
+
+
+def _reach(monkeypatch, minimum, **path):
+    straight(monkeypatch, **path)
+    box = entry_box(100.0) if "x" in path else None
+    feed = "-Y" if "x" in path else "-X"
+    return row(hold_fields, feed_bundle(minimum=minimum, box=box, feed_from=feed))
+
+
+@pytest.mark.parametrize("delta, status", [(1e-3, "error"), (-1e-3, "not-error")])
+def test_the_error_boundary_is_the_farthest_corner(monkeypatch, delta, status):
+    high = _reach(monkeypatch, 1.0, x=50.0).numbers["hand_fed_reach_mm"][1]
+    finding = _reach(monkeypatch, high + delta, x=50.0)
+    assert (finding.status == "error") == (status == "error")
+
+
+@pytest.mark.parametrize("delta, status", [(-1e-3, "pass"), (1e-3, "unknown")])
+def test_the_pass_boundary_is_the_nearest_side_less_a_step(monkeypatch, delta, status):
+    low = _reach(monkeypatch, 1.0, y=18.0).numbers["hand_fed_reach_mm"][0]
+    assert _reach(monkeypatch, low + delta, y=18.0).status == status
+
+
+@pytest.mark.parametrize(
+    "policy",
+    [
+        {"numbers": {}},
+        {"numbers": {"min_hand_feed_mm": "unknown"}},
+        {"numbers_cite": {}},
+        {"numbers_cite": {"min_hand_feed_mm": "unknown"}},
+        {"numbers_cite": {"min_hand_feed_mm": ["", "unknown"]}},
+        {"numbers_verify": {"min_hand_feed_mm": True}},
+        {"numbers_verify": {"min_hand_feed_mm": "unknown"}},
+        {"numbers": {"min_hand_feed_mm": 0.0}},
+    ],
+    ids=[
+        "absent",
+        "unknown",
+        "uncited",
+        "cite-unknown",
+        "cite-blank",
+        "flagged",
+        "verify-unknown",
+        "zero",
+    ],
+)
+def test_an_unestablished_hand_feed_minimum_is_debt(monkeypatch, policy):
+    straight(monkeypatch, x=5.0)
+    bundle = feed_bundle(box=entry_box(10.0, 10.0), feed_from="-Y")
+    bundle.policy.update(policy)
+    finding = row(hold_fields, bundle)
+    assert finding.status == "unknown"
+    assert finding.numbers["min_hand_feed_mm"] == "unknown"
+    assert "min_hand_feed_mm" in finding.sentence
+
+
+@pytest.mark.parametrize(
+    "kernel_facts",
+    [
+        {"status": "ok", "setups": {}},
+        {"status": "ok", "setups": {"S2": {"stock_bbox_mm": "unknown"}}},
+        {"status": "unknown", "kernel_unavailable": True, "reason": "no FreeCAD"},
+    ],
+    ids=["no-entry-stock", "unknown-box", "kernel-unavailable"],
+)
+def test_an_unknown_work_size_is_debt(monkeypatch, kernel_facts):
+    straight(monkeypatch, y=18.0)
+    bundle = feed_bundle()
+    bundle.kernel.clear()
+    bundle.kernel.update(kernel_facts)
+    finding = row(hold_fields, bundle)
+    assert finding.status == "unknown"
+    assert "setup-entry stock" in finding.sentence
+
+
+def test_an_unplaced_blade_path_is_debt():
+    # No scribed arc the kernel places (here, no feature geometry): the path is unknown.
+    finding = row(hold_fields, feed_bundle())
+    assert finding.status == "unknown"
+    assert "blade path" in finding.sentence
+
+
+def test_a_fixture_hold_reads_no_hand_feed_minimum():
+    bundle = hand_fed_bundle(box=entry_box(10.0, 10.0))
+    bundle.plan["setups"][0]["hold"] = {"fixture": "unknown"}
+    assert "min_hand_feed_mm" not in row(hold_fields, bundle).numbers
+
+
+def test_the_example_work_clears_its_cited_minimum(freecad_kernel):
+    bundle = load_bundle(BUNDLE / "plan.toml")
+    kernel.run_geometry(bundle)
+    finding = row(hold_fields, bundle)
+    assert finding.status == "pass", finding.sentence
+    assert finding.numbers["hand_fed_reach_mm"][0] >= 76.2
+
+
+def test_only_the_declared_removal_span_is_judged(monkeypatch):
+    # 300 x 20 sawn along y = 18 but only x 0..40 is declared: the blade never reaches the
+    # middle, so the work beyond x = 40 stays at least 260 mm off (150 over the whole run).
+    straight(monkeypatch, y=18.0)
+    bundle = feed_bundle()
+    bounds = bundle.plan["setups"][0]["ops"][0]["stock_removal_bounds"]
+    bounds["x"] = [0.0, 40.0]
+    finding = row(hold_fields, bundle)
+    assert finding.status == "pass"
+    assert finding.numbers["hand_fed_reach_mm"][0] > 250.0
+
+
+def test_removal_bounds_outside_the_work_leave_the_minimum_unknown(monkeypatch):
+    straight(monkeypatch, y=18.0)
+    bundle = feed_bundle()
+    bundle.plan["setups"][0]["ops"][0]["stock_removal_bounds"]["x"] = [400.0, 500.0]
+    finding = row(hold_fields, bundle)
+    assert finding.status == "unknown"
+    assert "does not cross" in finding.sentence
+
+
+def test_unknown_removal_bounds_leave_the_minimum_unknown(monkeypatch):
+    straight(monkeypatch, y=18.0)
+    bundle = feed_bundle()
+    bundle.plan["setups"][0]["ops"][0]["stock_removal_bounds"] = "unknown"
+    assert row(hold_fields, bundle).status == "unknown"
+
+
+def test_a_second_hand_fed_cut_leaves_the_minimum_unknown(monkeypatch):
+    # The second cut works whatever the first left: only the entry stock is boxed.
+    straight(monkeypatch, y=18.0)
+    bundle = feed_bundle()
+    ops = bundle.plan["setups"][0]["ops"]
+    ops.append({**ops[0], "op": 30})
+    finding = row(hold_fields, bundle)
+    assert finding.status == "unknown"
+    assert "kernel does not box" in finding.sentence
+
+
+def test_removal_bounds_above_the_work_leave_the_minimum_unknown(monkeypatch):
+    straight(monkeypatch, y=18.0)
+    bundle = feed_bundle()
+    bundle.plan["setups"][0]["ops"][0]["stock_removal_bounds"]["z"] = [10.0, 20.0]
+    finding = row(hold_fields, bundle)
+    assert finding.status == "unknown"
+    assert "does not cross" in finding.sentence
