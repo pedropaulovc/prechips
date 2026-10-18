@@ -91,7 +91,7 @@ def test_the_hold_prints_the_hand_fed_line_and_no_stop():
     steps, _ = _Traveler(bundle, findings, {}, None).hold(setup)
     text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", steps))
     assert "fed by hand on the saw table" in text.lower()
-    assert "outside the line scribed in S1 op 10" in text
+    assert "on the waste side of the line scribed in S1 op 10" in text
     assert "STOP" not in text
 
 
@@ -348,9 +348,9 @@ def test_the_picture_draws_the_saw_path_from_the_declared_end_beside_the_scribed
     saw, line = paths
     assert saw["op"] == "10" and saw["directed"] is True and saw["feed"] is True
     assert line["dashed"] is True and "directed" not in line
-    assert saw["xy"][0][0] < saw["xy"][-1][0]  # feed_from = "-X": it starts at -X
+    assert saw["xy"][0][0] > saw["xy"][-1][0]  # feed_from = "-X": the work moves to -X
     keys = [key["label"] for key in waypoints]
-    assert keys == ["START", "SAW PATH, LEAVE 0.450 MM MIN", "SCRIBED LINE", "WASTE"]
+    assert keys == ["START", "SAW PATH (WASTE SIDE), LEAVE 0.450 MM MIN", "SCRIBED LINE", "WASTE"]
     assert all(key["plain"] for key in waypoints)
     # The R800 top edge's saw removes inside the circle: the WASTE key points that way.
     assert waypoints[-1]["xy"][1] > waypoints[1]["xy"][1]
@@ -361,12 +361,12 @@ def test_lines_too_close_to_print_apart_draw_as_the_one_scribed_line_with_the_le
     paths, waypoints = view(scene(bundle), merged=True)
     (line,) = paths
     assert line["directed"] is True and line["feed"] is True and "dashed" not in line
-    assert line["xy"][0][0] < line["xy"][-1][0]  # fed from -X along the line itself
+    assert line["xy"][0][0] > line["xy"][-1][0]  # the work moves to -X along the line
     keys = [key["label"] for key in waypoints]
     assert keys == [
         "START",
-        "SCRIBED LINE: SAW ALONG IT",
-        "WASTE: SAW 0.450 MM MIN OUTSIDE THE LINE",
+        "SCRIBED LINE: SAW ON ITS WASTE SIDE",
+        "WASTE: LEAVE 0.450 MM MIN OUTSIDE THE LINE",
     ]
 
 
@@ -404,8 +404,36 @@ def test_the_picture_draws_the_saw_table_blade_and_push_aid():
     assert boxes["push aid"]["stock_mm"][0][0] == ("max", 0.0)
     assert boxes["band op 10"]["box_mm"][5] == pytest.approx(1.0 + 6.0)  # top + guide
     (feed,) = scene(bundle)["feed_lines"]
-    assert feed["label"] == "FEED: SAW PATH (OP 10)"
-    assert feed["xyz"][0][0] < feed["xyz"][-1][0] and feed["xyz"][0][2] == 1.0
+    assert feed["label"] == "WORK FEED INTO THE BLADE (OP 10)"
+    assert feed["xyz"][0][2] == 1.0
+
+
+@pytest.mark.parametrize(("feed_from", "sign", "trailing"), [("-X", -1, "max"), ("+X", 1, "min")])
+def test_the_feed_arrows_push_aid_and_hold_all_follow_the_declared_start_end(
+    feed_from, sign, trailing
+):
+    # The cut starts at the feed_from end, so the work moves toward feed_from into the
+    # stationary blade, and the push aid stands behind the opposite, trailing end.
+    bundle = load_bundle(BUNDLE / "plan.toml")
+    setup = bundle.plan["setups"][1]
+    setup["hold"]["feed_from"] = feed_from
+    drawn = scene(bundle)
+    (feed,) = drawn["feed_lines"]
+    paths, waypoints = view(drawn, merged=True)
+    for xy in (feed["xyz"], paths[0]["xy"]):
+        assert (xy[-1][0] - xy[0][0]) * sign > 0  # arrows run the way the work moves
+    start = next(key["xy"] for key in waypoints if key["label"] == "START")
+    saw = view(drawn, merged=False)[0][0]["xy"]
+    assert start == saw[-1]  # the arrows end where the blade enters
+    boxes = {box["name"]: box for box in drawn["boxes"]}
+    assert [trailing, 0.0] in map(list, boxes["push aid"]["stock_mm"][0])
+    blade = boxes["band op 10"]["box_mm"]
+    assert blade[0] < start[0] < blade[3]
+    steps, _ = _Traveler(bundle, [], {}, None).hold(setup)
+    assert (
+        f"Start the cut at the {feed_from} end of the line: feed the work toward {feed_from}"
+        in steps
+    )
 
 
 def test_an_undeclared_feed_end_draws_no_arrows_start_band_or_push_aid():

@@ -2102,7 +2102,7 @@ inventory `saw_modes` include `"vertical"`. Modes without `"vertical"` are `✗`
 undeclared modes, an unverified machine or blade (its kerf included) are `?`; a
 bandsaw blade following a line on a mill or bench is `✗`. Blade speed comes from
 the cited `saw_cut` row as for any bandsaw cut, but there is no descent feed: the
-card prints "by hand along the line" and "leave <allowance> mm outside the line".
+card prints "by hand, on the waste side of the line" and "leave at least <allowance> mm outside the line".
 A straight bandsaw cut needs no vertical mode.
 
 ```toml
@@ -2150,20 +2150,26 @@ a hand saw, a horizontal-only bandsaw, another machine kind, no saw cut) is
 Admitted, `hold_fields` asks no fixture field (coolant, deburr and stock Z remain),
 `stock_diameter`, `vise`, `thin_wall_under_clamp` and `fixture_interference` are
 `not_applicable`, and the kernel draws no fixture and owes no fixture measurement.
-The traveler HOLD prints "Fed by hand on the saw table, sawing outside the line
-scribed in S1 op 10; no vise or clamp holds the work.", then one line for each
+The traveler HOLD prints "Fed by hand on the saw table, sawing on the waste side of
+the line scribed in S1 op 10, at least 0.450 mm outside it; no vise or clamp holds the
+work.", then one line for each
 feeding declaration (the guide height, the push aid, the end the cut starts from and
 the end-of-cut support), and the STOCK AND ROUTE table's holding cell says "fed by hand
 on the saw table" from the same resolution. The holding picture draws, render-only
 (never hit-tested), the saw table under the work, the blade standing at the cut start
 up to the declared guide height and the push aid behind the work's trailing end, each
-called out. The op's profile sketch draws the saw path (the scribed arc offset by the
-allowance, within the op's `stock_removal_bounds`) with feed arrows from the declared
-`feed_from` end, the scribed line dashed beside it, and keys for the START, the SAW
+called out. All three come from the same `feed_from` the HOLD prints. The cut starts at
+the `feed_from` end, so the work moves toward `feed_from`: that end leads into the
+stationary blade, the push aid stands behind the opposite, trailing end, and every feed
+arrow points the way the work moves, from the trailing end toward the START. The holding
+picture draws the saw path on the work's top face with those arrows ("WORK FEED INTO
+THE BLADE"). The op's profile sketch draws the saw path (the scribed arc offset by the
+allowance, within the op's `stock_removal_bounds`) with the same feed arrows, the
+scribed line dashed beside it, and keys for the START, the SAW
 PATH with its minimum leave, the SCRIBED LINE and the WASTE side. When the two lines
 print too close to tell apart (the example's 0.45 mm on a 290 mm arc), it draws the
-scribed line alone, fed along and keyed "SCRIBED LINE: SAW ALONG IT", with "WASTE:
-SAW 0.450 MM MIN OUTSIDE THE LINE" on the waste side. An undeclared
+scribed line alone, with the feed arrows, keyed "SCRIBED LINE: SAW ON ITS WASTE SIDE",
+with "WASTE: LEAVE 0.450 MM MIN OUTSIDE THE LINE" on the waste side. An undeclared
 `feed_from` draws no arrows, START, blade or push aid. The saw card states the
 allowance as a minimum: "leave at least 0.450 mm outside the line, the scribed line
 still showing", as every saw that follows a line does. No minimum workpiece size
@@ -2178,6 +2184,6 @@ tool, with otherwise only bench actions (`fit`, `inspect`, `deburr`, `coating`, 
 `not_applicable` and `speeds_feeds` gives the hand saw no blade speed or feed. A
 powered or unresolved blade on a bench machine waives nothing. The traveler
 prints a bench hand saw on the assembly / finishing card: "Hand saw, blade
-centred on Y 87.75 mm; keep the side below it", or "Hand saw outside the line
+centred on Y 87.75 mm; keep the side below it", or "Hand saw on the waste side of the line
 scribed in S4 op 10, leave 0.5 mm for filing".
 

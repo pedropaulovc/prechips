@@ -304,17 +304,25 @@ def hand_fed_scene(bundle, setup, scale):
         name = str(op["op"])
         pair = f"hand-fed op {name}"
         fed = start is not None
+        # saw and line run from the start end, where the blade enters. The work moves the
+        # other way, its start end leading into the stationary blade and the push aid
+        # behind its trailing end, so the arrows run from the trailing end to the start.
+        moves = [saw[::-1], line[::-1]] if fed else [saw, line]
         scene["paths"] += [
-            {"op": name, "xy": saw, "directed": fed, "feed": True, **_view(pair, "apart")},
+            {"op": name, "xy": moves[0], "directed": fed, "feed": True, **_view(pair, "apart")},
             {"op": name, "xy": line, "dashed": True, **_view(pair, "apart")},
             # Too close to print apart: the one line the operator follows, fed along.
-            {"op": name, "xy": line, "directed": fed, "feed": True, **_view(pair, "merged")},
+            {"op": name, "xy": moves[1], "directed": fed, "feed": True, **_view(pair, "merged")},
         ]
         if start is not None and number(state.get("top_z")):
-            # The holding picture's feed: the saw path on the work's top face, arrowed.
+            # The holding picture's feed: the saw path on the work's top face, arrowed the
+            # way the work moves.
             top = state["top_z"] * scale
             scene["feed_lines"].append(
-                {"label": f"FEED: SAW PATH (OP {name})", "xyz": [[x, y, top] for x, y in saw]}
+                {
+                    "label": f"WORK FEED INTO THE BLADE (OP {name})",
+                    "xyz": [[x, y, top] for x, y in moves[0]],
+                }
             )
         middle = saw[len(saw) // 2]
         reach = math.dist(middle, centre)
@@ -325,12 +333,16 @@ def hand_fed_scene(bundle, setup, scale):
         waste = [round(v, 6) for v in waste]
         leave_text = _mm_text(leave)
         keys = [
-            ("SAW PATH, LEAVE " + leave_text + " MM MIN", middle, _view(pair, "apart")),
+            (
+                "SAW PATH (WASTE SIDE), LEAVE " + leave_text + " MM MIN",
+                middle,
+                _view(pair, "apart"),
+            ),
             ("SCRIBED LINE", line[len(line) // 2], _view(pair, "apart")),
             ("WASTE", waste, _view(pair, "apart")),
-            ("SCRIBED LINE: SAW ALONG IT", line[len(line) // 2], _view(pair, "merged")),
+            ("SCRIBED LINE: SAW ON ITS WASTE SIDE", line[len(line) // 2], _view(pair, "merged")),
             (
-                "WASTE: SAW " + leave_text + " MM MIN OUTSIDE THE LINE",
+                "WASTE: LEAVE " + leave_text + " MM MIN OUTSIDE THE LINE",
                 waste,
                 _view(pair, "merged"),
             ),

@@ -59,7 +59,7 @@ _KEY_ROOM_PX = 2 * _BADGE_HEIGHT
 _ORIENTATION_PX = 70
 # The legend a path sketch prints once it has drawn a direction arrow.
 _ARROWS = "ARROWS: POINT ORDER"
-_FEED_ARROWS = "ARROWS: FEED DIRECTION"
+_FEED_ARROWS = "ARROWS: WORK FEED INTO THE BLADE"
 # A raster of at most this many passes draws and labels every pass; a longer one is a band
 # with its first and last pass.
 _EVERY_PASS = 8

@@ -4326,6 +4326,11 @@ class _Traveler:
             # Nothing clamps the work: the operator feeds it into the blade on the table.
             lines = [
                 self.saw_setting(op)
+                + (
+                    f", at least {self.operative(op['allowance_mm'])} mm outside it"
+                    if _known(op.get("allowance_mm"))
+                    else ""
+                )
                 for op in setup.get("ops", [])
                 if op.get("do") in SAW_OPS and "follows" in op
             ]
@@ -4489,8 +4494,9 @@ class _Traveler:
             f"Push aid: {self.reference(push, 'fixtures')}."
             if push != UNKNOWN
             else "STOP: push aid not declared — do not run.",
-            f"Start the cut at the {start} end of the line and feed the work into the blade "
-            "along it, as the arrow in the picture runs."
+            f"Start the cut at the {start} end of the line: feed the work toward {start} into "
+            "the blade, sawing on the waste side of the line, its trailing end behind, as "
+            "the arrows in the picture run."
             if start in _FEED_ENDS
             else "STOP: end of the line the cut starts from not declared — do not run.",
             _END_SUPPORT[end]
@@ -8076,10 +8082,12 @@ class _Traveler:
         return "REVERSE" if op.get("do") in _AXIAL_OPS and hand == "left" else "FORWARD"
 
     def saw_setting(self, op):
-        """Where a saw cut runs: a straight cut's blade-centre plane, or the scribed line a
-        cut follows (named by its layout op)."""
+        """Where a saw cut runs: a straight cut's blade-centre plane, or the waste side of
+        the scribed line a cut follows (named by its layout op), never on or along it."""
         if "follows" in op:
-            return f"outside the line scribed in {_text(op['follows']).replace(':', ' op ')}"
+            return "on the waste side of the line scribed in " + _text(op["follows"]).replace(
+                ":", " op "
+            )
         plane = _mapping(op.get("cut_plane"))
         return (
             f"blade centre {_text(plane.get('axis')).upper()} "
@@ -8128,11 +8136,11 @@ class _Traveler:
             # A hand saw: no blade speed or machine feed applies.
             return "—", "—", False
         if op.get("do") in SAW_OPS and "follows" in op:
-            # A vertical bandsaw along a scribed line: the work is fed by hand.
+            # A vertical bandsaw following a scribed line: the work is fed by hand.
             speed = numbers.get("blade_speed_sfm")
             return (
                 (_number(speed) + " sfm") if _known(speed) else "STOP: no blade speed",
-                "by hand along the line",
+                "by hand, on the waste side of the line",
                 not _known(speed),
             )
         if op.get("do") in SAW_OPS:
@@ -8443,7 +8451,7 @@ class _Traveler:
             scribed = saw and "follows" in op
             if saw:
                 direction = (
-                    "outside the line"
+                    "waste side of the line"
                     if scribed
                     else "keep " + _text(_mapping(op.get("cut_plane")).get("keep"))
                 )
