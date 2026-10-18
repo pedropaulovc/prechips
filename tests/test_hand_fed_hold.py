@@ -263,7 +263,8 @@ def test_compare_lists_no_unknown_fixture_for_a_hand_fed_setup(example):
     )
     result = run_cli("compare", plan, "--json")
     assert result.returncode in (0, 2, 4), result.stderr
-    assert json.loads(result.stdout)[0]["fixtures"] == ["test-bench"]
+    # No unknown primary fixture for the hand-fed setup; its push aid is still listed.
+    assert sorted(json.loads(result.stdout)[0]["fixtures"]) == ["test-bench", "test-push-stick"]
 
 
 # ------------------------------------- declared feeding (machinist review of #342, 17e665d)

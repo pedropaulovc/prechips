@@ -578,12 +578,10 @@ def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
         if net_volume > stock_volume:
             raise BadInput(f"{plan_label}: sourced net volume exceeds authored stock volume.")
         waste = (stock_volume - net_volume) / stock_volume
-    # An admitted hand-fed hold (the work fed by hand on the saw table) needs no fixture.
-    holds = [
-        record(setup.get("hold"))
-        for setup in bundle.plan["setups"]
-        if hand_fed(bundle, setup)[0] != "admitted"
-    ]
+    holds = [record(setup.get("hold")) for setup in bundle.plan["setups"]]
+    # An admitted hand-fed hold (the work fed by hand on the saw table) needs no primary
+    # fixture; its push aid is still holding equipment.
+    unheld = [hand_fed(bundle, setup)[0] == "admitted" for setup in bundle.plan["setups"]]
     # Each holding item is the (category, key) it selects (identity), however the hold
     # spells it: two spellings of one item are one entry, and one key in two categories
     # is two items. A hold's align block names a gauge, not holding.
@@ -595,8 +593,8 @@ def _comparison_row(bundle: Bundle, report: dict, plan_label: str) -> dict:
         )
     }
     unknown_fixture = False
-    for hold in holds:
-        if hold.get("fixture", "unknown") == "unknown":
+    for hold, hand_fed_hold in zip(holds, unheld, strict=True):
+        if hold.get("fixture", "unknown") == "unknown" and not hand_fed_hold:
             unknown_fixture = True
         for key in ("parallels", "support", "supports", "riser"):
             if hold.get(key) == "unknown":

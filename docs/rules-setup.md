@@ -23,9 +23,11 @@ all holding dimensions or certify the fixture was physically installed.
 A hand-fed hold (`hold.kind = "hand_fed"`, a vertical bandsaw cut along a scribed
 line, [plan Saw cut-off](plan.md#hand-fed-on-the-saw-table)) needs no fixture, stop,
 grip, clamp or fixed-jaw field: coolant, deburr and the stock's top/bottom Z remain
-required. While the saw's blade, machine or `saw_modes` are unresolved the hold is
-unknown (`hold.kind` listed as missing, with the reason); a setup out of that scope
-never loads (exit 3). `stock_diameter`, `vise`, `thin_wall_under_clamp` and
+required, and so does its declared feeding (`hold.guide_above_mm`, `hold.push_aid`,
+`hold.feed_from`, `hold.end_support`), each undeclared one listed as missing and
+unknown. While the saw's blade, machine or `saw_modes` are unresolved the hold is
+unknown, with `hand_fed_scope` listed as missing and the reason (`hold.kind` only when
+the kind itself is stated `"unknown"`); a setup out of that scope never loads (exit 3). `stock_diameter`, `vise`, `thin_wall_under_clamp` and
 `fixture_interference` are `not_applicable` for an admitted hand-fed hold.
 
 A declared `hold.stop_face` must be on the stock the setup receives:
