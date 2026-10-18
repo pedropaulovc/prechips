@@ -4288,6 +4288,10 @@ class _Job:
                     self._component_protection(component, consumed)
                 )
                 protected = protected.cut(pending)
+            # A corner a later join forms belongs to no branch before it.
+            for sid, corner in self.formed_corners.items():
+                if sid != setup["id"] and setup["id"] in self.joint_ancestors[sid]:
+                    protected = protected.cut(corner)
             # An earlier join's admitted corner stays admitted in every later assembly.
             for name in sorted(state["formed"]):
                 protected = protected.cut(self.formed_material[name])
@@ -4667,6 +4671,21 @@ class _Job:
                     for ref in setup["stock_in"]:
                         for name in roots.get(ref, set()):
                             self.ownership_errors[name] = str(exc)
+        # The corner a later join forms is finished material of neither branch before it:
+        # each branch's cuts may take it like any other stock, and the join judges it.
+        self.formed_corners = {}
+        for setup in self.job["setups"]:
+            joint = setup.get("joint")
+            if not isinstance(joint, dict) or setup["id"] in self.joint_setup_errors:
+                continue
+            corners = [self._corner(form) for form in joint.get("forms") or ()]
+            corners = [corner for corner in corners if corner is not None]
+            if not corners:
+                continue
+            corner = corners[0].multiFuse(corners[1:]) if len(corners) > 1 else corners[0]
+            self.formed_corners[setup["id"]] = corner
+            for name in roots.get(setup["id"], set()):
+                self.protected[name] = self.protected[name].cut(corner)
         for setup in self.job["setups"]:
             for op in setup.get("ops", []):
                 cut = op.get("joint_cut")
@@ -4680,6 +4699,51 @@ class _Job:
         self.features.update(
             {name: self.joint_indices.get(name, UNKNOWN) for name in self.joint_features}
         )
+
+    def _corner(self, form):
+        """The finished material a ``forms`` feature fills in the sharp corner its
+        neighbouring faces meet in, or None to withhold nothing.
+
+        The corner is the finished solid less the solid with the feature's faces removed
+        and their neighbours extended (defeaturing). Only a known feature whose band starts
+        at 0 has one, and only a corner the join could admit: the defeatured solid valid,
+        one solid, adding no material (a concave root, not a convex blend), every corner
+        piece touching the feature's faces and every sampled point of it within the band's
+        MAX of them. Anything else, or a kernel failure, withholds nothing: the branches
+        keep the material as finished, as before, and the join judges what they carry."""
+        refs = form.get("faces") or []
+        band = form.get("radius_mm")
+        if (
+            form.get("error")
+            or form.get("reason")
+            or not refs
+            or any(ref not in self.mapping for ref in refs)
+            or not isinstance(band, list)
+            or band[0] > STOCK_TOL
+        ):
+            return None
+        faces = [self.solid.Faces[self.mapping[ref]] for ref in refs]
+        try:
+            sharp = self.solid.defeaturing(faces)
+            if sharp.isNull() or not sharp.isValid() or len(sharp.Solids) != 1:
+                return None
+            if sharp.cut(self.solid).Volume > STOCK_MM3:
+                return None
+            corner = self.solid.cut(sharp)
+            if corner.isNull() or corner.Volume <= STOCK_MM3:
+                return None
+            formed = Part.makeCompound(faces)
+            for piece in corner.Solids:
+                if piece.distToShape(formed)[0] > STOCK_TOL:
+                    return None
+                points = [vertex.Point for vertex in piece.Vertexes]
+                for side in piece.Faces:
+                    points.extend(point for point, _ in _face_samples(side, 1.0)[0])
+                if any(formed.distToShape(Part.Vertex(p))[0] > band[1] + STOCK_TOL for p in points):
+                    return None
+        except Part.OCCError:
+            return None
+        return corner
 
     def _add_joint_faces(self, spec, target):
         indices = []
