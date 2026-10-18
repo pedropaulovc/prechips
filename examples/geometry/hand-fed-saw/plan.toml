@@ -68,6 +68,10 @@ note = "Saw the crescent of waste off above the top edge in vertical mode, just 
 [setups.hold]
 kind = "hand_fed"
 note = "bar flat on the saw table, scribed face up"
+guide_above_mm = 6.0 # AUTHOR'S CHOICE: the 1/4 in top of the 1/8-1/4 in guard height Northeastern University Makerspaces' bandsaw guide gives (https://makerspaces.northeastern.edu/create/library/bandsaw/)
+push_aid = "test-push-stick"
+feed_from = "-X" # AUTHOR'S CHOICE: start at the -X tip and saw toward the rod-hole end
+end_support = "push_aid" # Penn State Origin Labs vertical band saw procedure: "ALWAYS use a push stick when nearing the end of your cut."
 
 [setups.stock_state]
 top_z = 1.0

@@ -9,7 +9,15 @@ import math
 from prechips.clamp_labels import clamp_labels
 from prechips.rules.coordinates import dro_grid, row_id
 from prechips.rules.geometry_common import cutting_action
-from prechips.rules.resolution import LENGTH_TOLERANCE_MM, number, op_feature, record, resolve
+from prechips.rules.resolution import (
+    LENGTH_TOLERANCE_MM,
+    SAW_OPS,
+    hand_fed,
+    number,
+    op_feature,
+    record,
+    resolve,
+)
 from prechips.sheet import tool_label
 
 
@@ -213,6 +221,67 @@ def _fit_add(hold):
     return add if stated and number(add) else None
 
 
+# Spacing (mm) of the points a drawn blade line runs through.
+_BLADE_STEP_MM = 2.0
+# The feed end a hand-fed hold declares: the axis and the sign of its start end.
+_FEED_END = {"+X": (0, 1), "-X": (0, -1), "+Y": (1, 1), "-Y": (1, -1)}
+
+
+def blade_paths(bundle, setup):
+    """The blade line of each hand-fed cut, as a picture path in the setup's X/Y (mm): the
+    scribed arc offset by ``allowance_mm`` to the side the saw removes, within the op's
+    ``stock_removal_bounds``, where the kernel cuts. It runs from the end the hold's
+    ``feed_from`` declares, drawn with feed arrows; undeclared, it has no arrows. Nothing
+    for a hold that is not an admitted hand-fed one or a line the kernel cannot place."""
+    from prechips.kernel import removal_bounds, scribed_profile
+
+    if hand_fed(bundle, setup)[0] != "admitted":
+        return []
+    start = _FEED_END.get(record(setup.get("hold")).get("feed_from"))
+    paths = []
+    for op in setup.get("ops") or []:
+        if op.get("do") not in SAW_OPS or "follows" not in op:
+            continue
+        profile = record(scribed_profile(bundle, setup, op))
+        bounds = removal_bounds(op.get("stock_removal_bounds"), bundle.features.get("units"))
+        centre, radius = profile.get("centre_mm"), profile.get("radius_mm")
+        allowance = op.get("allowance_mm")
+        if "reason" in bounds or not (
+            isinstance(centre, list) and number(radius) and number(allowance)
+        ):
+            continue
+        radius += -allowance if profile.get("remove") == "inside" else allowance
+        points = _arc_in(centre, radius, bounds["x"], bounds["y"])
+        if len(points) < 2:
+            continue
+        if start is not None and (points[-1][start[0]] - points[0][start[0]]) * start[1] > 0:
+            points.reverse()
+        paths.append({"op": str(op["op"]), "xy": points, "directed": start is not None})
+    return paths
+
+
+def _arc_in(centre, radius, xs, ys):
+    """Points along the circle ``centre``/``radius``, at most :data:`_BLADE_STEP_MM` apart,
+    inside the box ``xs`` x ``ys``, in angle order (over the angles the box spans as seen
+    from the centre, or the whole turn when the centre is inside it)."""
+    corners = [(x, y) for x in xs for y in ys]
+    middle = math.atan2(sum(ys) / 2 - centre[1], sum(xs) / 2 - centre[0])
+    inside = xs[0] <= centre[0] <= xs[1] and ys[0] <= centre[1] <= ys[1]
+    turns = [
+        math.remainder(math.atan2(y - centre[1], x - centre[0]) - middle, 2 * math.pi)
+        for x, y in corners
+    ]
+    low, high = (-math.pi, math.pi) if inside else (min(turns), max(turns))
+    count = max(1, math.ceil((high - low) * radius / _BLADE_STEP_MM))
+    points = []
+    for index in range(count + 1):
+        angle = middle + low + (high - low) * index / count
+        x, y = centre[0] + radius * math.cos(angle), centre[1] + radius * math.sin(angle)
+        if xs[0] <= x <= xs[1] and ys[0] <= y <= ys[1]:
+            points.append([round(x, 6), round(y, 6)])
+    return points
+
+
 def setup_annotations(bundle, setup, numbers):
     scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
     hold, state = record(setup.get("hold")), record(setup.get("stock_state"))
@@ -277,6 +346,8 @@ def setup_annotations(bundle, setup, numbers):
     result["paths"], result["waypoints"] = (
         contour_annotations(numbers, scale, setup["id"]) if scale else ([], [])
     )
+    # A hand-fed cut's blade line, with its feed arrows, where no contour is drawn (#335).
+    result["paths"] += blade_paths(bundle, setup)
     result["axial_paths"] = []
     for contour in numbers.get("contours", []):
         rows = contour.get("rows", [])

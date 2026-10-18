@@ -110,7 +110,7 @@ def test_the_vertical_bandsaw_card_names_the_line_and_the_stock_to_leave():
     text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
     assert "outside the line scribed in S1 op 10" in text
     assert "by hand along the line" in text
-    assert "leave 0.500 mm outside the line" in text
+    assert "leave at least 0.500 mm outside the line, the scribed line still showing" in text
     assert "STOP: no feed" not in text
 
 

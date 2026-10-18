@@ -230,11 +230,11 @@
           },
           "inventory": {
             "path": "examples/geometry/hand-fed-saw/inventory.toml",
-            "sha256": "b973c5d9d00c91829a881b5acaf6acf6d6f2ea041fb628cf8142a04ae8de11eb"
+            "sha256": "1f0c8b109607aa1d6ec5f3df7468a6451a126043a274e0183a7c98249278ad15"
           },
           "plan": {
             "path": "examples/geometry/hand-fed-saw/plan.toml",
-            "sha256": "2e06f5c1d70c8572b025089bac463b343942bc977fe1677b176c5607a2f035f3"
+            "sha256": "7c99ca3b5b64d05e365671408507d5d86653aaa2f26fa7b9e34056fdb749b855"
           },
           "shop_policy": {
             "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -1084,8 +1084,12 @@
         "deburr_mm": 0.0,
         "fixture": "not_applicable",
         "hold": {
+          "end_support": "push_aid",
+          "feed_from": "-X",
+          "guide_above_mm": 6.0,
           "kind": "hand_fed",
-          "note": "bar flat on the saw table, scribed face up"
+          "note": "bar flat on the saw table, scribed face up",
+          "push_aid": "test-push-stick"
         },
         "hold_scope": "admitted",
         "missing": [],
@@ -2545,6 +2549,23 @@
         "inventory selected identity/declared member coverage",
         "PLAN.md §3.3"
       ],
+      "message": "test-push-stick: listed inventory identity resolves.",
+      "numbers": {
+        "category": "fixtures",
+        "kind": "push_stick",
+        "present": true,
+        "reference": "test-push-stick",
+        "verified": true
+      },
+      "rule": "tool_resolves",
+      "status": "pass",
+      "subject": "test-push-stick"
+    },
+    {
+      "cite": [
+        "inventory selected identity/declared member coverage",
+        "PLAN.md §3.3"
+      ],
       "message": "test-r800-template: listed inventory identity resolves.",
       "numbers": {
         "category": "gauges",
@@ -2810,7 +2831,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "762e8ffb2a525edd083b614a72c80a423002e16a3fedeebff98cb45085e13948",
+  "hash": "0014a9834a4ec54ad81a77e8d7c530943e9c8a1541337129c330fabaf6bc1fd6",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2822,11 +2843,11 @@
     },
     "inventory": {
       "path": "examples/geometry/hand-fed-saw/inventory.toml",
-      "sha256": "b973c5d9d00c91829a881b5acaf6acf6d6f2ea041fb628cf8142a04ae8de11eb"
+      "sha256": "1f0c8b109607aa1d6ec5f3df7468a6451a126043a274e0183a7c98249278ad15"
     },
     "plan": {
       "path": "examples/geometry/hand-fed-saw/plan.toml",
-      "sha256": "2e06f5c1d70c8572b025089bac463b343942bc977fe1677b176c5607a2f035f3"
+      "sha256": "7c99ca3b5b64d05e365671408507d5d86653aaa2f26fa7b9e34056fdb749b855"
     },
     "render:S1": {
       "path": "setup-S1.png",
@@ -2834,7 +2855,7 @@
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "fd5702e037e533513c34e0f071c756611f248f2c2aeb2c6025db65a8bcd9b2b6"
+      "sha256": "03cf8f0059373afe17bcc44a53ee50f22a2267884541c397376b7409796b6403"
     },
     "shop_policy": {
       "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -2903,7 +2924,7 @@
         "fixture_kind": "hand_fed",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1484,
+        "height_px": 2464,
         "jaw_front_oblique": false,
         "jaws": "absent",
         "legend": [
@@ -2919,6 +2940,12 @@
             "label": "SETUP S2  /  ISOMETRIC VIEW",
             "role": "setup",
             "top_px": 0
+          },
+          {
+            "height_px": 980,
+            "label": "PROFILE SKETCH / XY",
+            "role": "path_detail",
+            "top_px": 1484
           }
         ],
         "render_debts": [],
@@ -2960,13 +2987,14 @@
         "shows": [
           "holding",
           "setup axes and zero",
-          "material removed this setup (amber hatch)"
+          "material removed this setup (amber hatch)",
+          "profile sketch keyed to the coordinate rows"
         ],
         "view": "isometric",
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "fd5702e037e533513c34e0f071c756611f248f2c2aeb2c6025db65a8bcd9b2b6"
+      "sha256": "03cf8f0059373afe17bcc44a53ee50f22a2267884541c397376b7409796b6403"
     }
   },
   "rules_version": "m5-rev12",

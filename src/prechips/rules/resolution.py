@@ -414,7 +414,7 @@ def projection_holder(bundle_or_inventory, tool, holder):
 
 
 # The hold's item slots after its fixture, in the order the HOLD uses them: each a fixture.
-_HOLD_ITEMS = ("chuck", "parallels", "riser", "jaw_bar", "jaw_buttons", "support")
+_HOLD_ITEMS = ("chuck", "parallels", "riser", "jaw_bar", "jaw_buttons", "support", "push_aid")
 # A ``hold.clamp`` is prose unless it is a slug (``toe-clamps``): then it names a fixture.
 _CLAMP_SLUG = re.compile(r"[\w]+(?:-[\w]+)+")
 

@@ -974,7 +974,11 @@ for collet/chuck capacity, not the unsupported-section diameter.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
-| `kind` | `"hand_fed"`: the work is fed by hand on a vertical bandsaw's table along a scribed line; omitted for a fixture hold. A hand-fed hold declares only `note` beside it ([hand-fed](#hand-fed-on-the-saw-table)) |
+| `kind` | `"hand_fed"`: the work is fed by hand on a vertical bandsaw's table along a scribed line; omitted for a fixture hold. A hand-fed hold declares only `note` and its feeding (the four rows below) beside it ([hand-fed](#hand-fed-on-the-saw-table)) |
+| `guide_above_mm` | `Number` (positive, hand-fed only): the upper blade guide's height above the top of the work |
+| `push_aid` | `str` (hand-fed only): the inventory `fixtures` item (a push stick) that feeds the work near the blade |
+| `feed_from` | `"+X" \| "-X" \| "+Y" \| "-Y"` (hand-fed only): the end of the line the cut starts from, in the setup frame |
+| `end_support` | `"push_aid" \| "outfeed_table"` (hand-fed only): how the end of the cut is supported |
 | `fixture` | `str` |
 | `jaws_along` | `"x"` / `"y"` / `"not_applicable"`: the vise jaw length axis; any other text is bad input (exit 3) |
 | `fixed_jaw` | `str` |
@@ -2120,10 +2124,18 @@ nothing clamps the work. Such a setup declares
 [setups.hold]
 kind = "hand_fed"
 note = "bar flat on the saw table, scribed face up"   # optional
+guide_above_mm = 6.0          # upper blade guide above the top of the work
+push_aid = "push-stick"       # an inventory fixtures item
+feed_from = "-X"              # the end of the line the cut starts from
+end_support = "push_aid"      # or "outfeed_table": how the end of the cut is supported
 ```
 
 and nothing else in its hold: a `fixture`, `stop`, `grip_mm`, `clamp`,
-`fixed_jaw` or any other hold field beside `kind = "hand_fed"` is `BadInput`. It
+`fixed_jaw` or any other hold field beside `kind = "hand_fed"` is `BadInput`, and so
+is a feeding field on any other hold, or a `guide_above_mm` that is not positive.
+How the work is fed is the plan's to declare, never assumed: each undeclared feeding
+field is `?` debt in `hold_fields` and prints a STOP in the HOLD; the push aid must be
+in the inventory like any hold item. It
 is a `kind` rather than a reserved `fixture` name because `fixture` is an
 inventory reference every rule resolves by key; an absent `kind` is the ordinary
 fixture hold. The hold is admitted only when every op of the setup is a `scribe`,
@@ -2139,7 +2151,14 @@ Admitted, `hold_fields` asks no fixture field (coolant, deburr and stock Z remai
 `stock_diameter`, `vise`, `thin_wall_under_clamp` and `fixture_interference` are
 `not_applicable`, and the kernel draws no fixture and owes no fixture measurement.
 The traveler HOLD prints "Fed by hand on the saw table, sawing outside the line
-scribed in S1 op 10; no vise or clamp holds the work." No minimum workpiece size
+scribed in S1 op 10; no vise or clamp holds the work.", then one line for each
+feeding declaration (the guide height, the push aid, the end the cut starts from and
+the end-of-cut support), and the STOCK AND ROUTE table's holding cell says "fed by hand
+on the saw table" from the same resolution. The picture adds the blade line (the
+scribed arc offset by the allowance, within the op's `stock_removal_bounds`) as an
+op sketch, with feed arrows from the declared `feed_from` end. The saw card states the
+allowance as a minimum: "leave at least 0.450 mm outside the line, the scribed line
+still showing", as every saw that follows a line does. No minimum workpiece size
 or hand-clearance limit is checked: none is sourced, so none is invented
 ([#343](https://github.com/pedropaulovc/prechips/issues/343)).
 [`examples/geometry/hand-fed-saw`](../examples/geometry/hand-fed-saw/plan.toml)

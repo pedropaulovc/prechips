@@ -12,7 +12,7 @@ it runs along is the vise's ``jaws_along``, or the plate face's run (:func:`alig
 import math
 
 from prechips.findings import Finding
-from prechips.model import setup_lineage
+from prechips.model import HAND_FEEDING, setup_lineage
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -239,6 +239,10 @@ def evaluate(bundle):
             # A stated hand-fed kind whose saw is unresolved owes that scope, not the kind.
             key = "hold.kind" if hold.get("kind") == UNKNOWN else "hand_fed_scope"
             required = {key: UNKNOWN} if scope == "unresolved" else {}
+            # How the work is fed is declared, never assumed: an undeclared setting is debt.
+            required.update(
+                {f"hold.{name}": hold.get(name, UNKNOWN) for name in sorted(HAND_FEEDING)}
+            )
         required.update(coolant=setup.get("coolant"), deburr_mm=setup.get("deburr_mm"))
         fixture_ref = hold.get("fixture")
         fixture = resolve(bundle, "workholding", fixture_ref) or {}

@@ -351,6 +351,8 @@ def _swivel_angle(value: float) -> float:
     return value
 
 
+# The feeding a hand-fed hold declares (Plan.hand_fed_holds).
+HAND_FEEDING = frozenset({"guide_above_mm", "push_aid", "end_support", "feed_from"})
 Hold = record(
     "Hold",
     {
@@ -359,6 +361,13 @@ Hold = record(
         # for work fed by hand on a vertical bandsaw's table along a scribed line, which
         # declares nothing else but a note (Plan.hand_fed_holds, docs/plan.md Saw cut-off).
         "kind": Literal["hand_fed"],
+        # A hand-fed cut's declared feeding: the upper blade guide's height above the work,
+        # the push aid (an inventory fixture) that keeps the hands off the blade, how the
+        # end of the cut is supported, and the end of the line the cut starts from.
+        "guide_above_mm": Number,
+        "push_aid": str,
+        "end_support": Literal["push_aid", "outfeed_table"],
+        "feed_from": Literal["+X", "-X", "+Y", "-Y"],
         **texts(
             "fixture fixed_jaw parallels support support_orientation "
             "grip_on stop clamp note centre_lubrication riser method orientation locator "
@@ -1176,14 +1185,29 @@ class Plan(InputModel):
 
     @model_validator(mode="after")
     def hand_fed_holds(self) -> Plan:
-        """A hand-fed hold clamps nothing: it declares no fixture, stop, grip, clamp, jaw or
-        other holding field, only its note. Its scope (a vertical bandsaw cut along a
-        scribed line) needs the inventory and is checked at load."""
+        """A hand-fed hold clamps nothing: beside its note and feeding declarations it
+        declares no fixture, stop, grip, clamp, jaw or other holding field, and only it
+        declares feeding. Its scope (a vertical bandsaw cut along a scribed line) needs the
+        inventory and is checked at load."""
         for setup in self.setups:
             hold = setup.hold
-            if not isinstance(hold, Hold) or hold.kind != "hand_fed":
+            if not isinstance(hold, Hold):
                 continue
-            stray = sorted(hold.model_fields_set - {"kind", "note"})
+            feeding = hold.model_fields_set & HAND_FEEDING
+            if hold.kind != "hand_fed":
+                if feeding:
+                    raise ValueError(
+                        f'Setup {setup.id}: only a hand-fed hold (hold.kind = "hand_fed") '
+                        f"declares {', '.join(sorted(feeding))}."
+                    )
+                continue
+            guide = hold.guide_above_mm
+            if "guide_above_mm" in feeding and guide != UNKNOWN and guide <= 0:
+                raise ValueError(
+                    f"Setup {setup.id}: hold.guide_above_mm, the upper blade guide's height "
+                    "above the work, must be positive."
+                )
+            stray = sorted(hold.model_fields_set - {"kind", "note"} - HAND_FEEDING)
             if stray:
                 raise ValueError(
                     f'Setup {setup.id}: a hand-fed hold (hold.kind = "hand_fed") is fed by '

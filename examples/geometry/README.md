@@ -65,8 +65,13 @@ the work fed by hand on the saw table (S2, `hold.kind = "hand_fed"`). Its
 `features.toml` and `rocker-arm.STEP` are byte copies of `../../rocker-arm/` (the
 consumer-generated manifest with the patches `../README.md` documents), so the top
 edge carries its source `arc_centre` and `end`. The bar supply is the
-`rocker-jaw-occluded` bbox supply. Its own `inventory.toml` (bandsaw with
-`saw_modes`, blade, bench, R800 scribing template) and `shop-policy.toml` (requiring
+`rocker-jaw-occluded` bbox supply. The hold declares its feeding: the upper guide
+6 mm above the work (the 1/4 in end of Northeastern University Makerspaces' 1/8-1/4 in
+guard height), a push stick, the cut starting at the -X tip and the push stick taking
+the end of the cut (Penn State Origin Labs' vertical band saw procedure). Its own
+`inventory.toml` (bandsaw with `saw_modes`, a 10/14 TPI 12.7 x 0.64 mm blade for the
+9.06 mm bar per Erko's tooth-selection chart, a push stick, bench, R800 scribing
+template) and `shop-policy.toml` (requiring
 only the S2 hold, collet/chuck and saw rows) are synthetic; the blade kerf is a
 marked demonstration fixture, not a measurement.
 

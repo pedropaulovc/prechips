@@ -12,6 +12,7 @@ from test_cli import ROOT, copy_examples, run_cli
 
 from prechips import kernel
 from prechips.inputs import BadInput, load_bundle
+from prechips.kernel.render_inputs import blade_paths
 from prechips.model import Plan
 from prechips.rules import fixture_interference, hold_fields, stock_diameter, thin_wall_under_clamp
 from prechips.rules import vise as vise_rule
@@ -19,6 +20,12 @@ from prechips.rules.resolution import hand_fed
 from prechips.sheet import _Traveler
 
 HAND_FED = {"kind": "hand_fed", "note": "flat on the saw table"}
+FEEDING = {
+    "guide_above_mm": 6.0,
+    "push_aid": "push-stick",
+    "feed_from": "-X",
+    "end_support": "push_aid",
+}
 BUNDLE = ROOT / "examples" / "geometry" / "hand-fed-saw"
 
 
@@ -26,12 +33,19 @@ def hand_fed_bundle(op=None, **machine):
     bundle = bandsaw_bundle(op=op, blade_speed_sfm=[80, 200], **machine)
     setup = bundle.plan["setups"][0]
     setup.update(
-        hold=dict(HAND_FED),
+        hold={**HAND_FED, **FEEDING},
         coolant="none: dry cut",
         deburr_mm=0.0,
         stock_state={"top_z": 2.5, "bottom_z": 0.0},
     )
+    bundle.inventory["fixtures"] = {"push-stick": {"kind": "push_stick", "name": "push stick"}}
     return bundle
+
+
+def hold_text(bundle):
+    setup = bundle.plan["setups"][0]
+    steps, _ = _Traveler(bundle, hold_fields.evaluate(bundle), {}, None).hold(setup)
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", steps))
 
 
 def row(rule, bundle, subject="S2"):
@@ -250,3 +264,81 @@ def test_compare_lists_no_unknown_fixture_for_a_hand_fed_setup(example):
     result = run_cli("compare", plan, "--json")
     assert result.returncode in (0, 2, 4), result.stderr
     assert json.loads(result.stdout)[0]["fixtures"] == ["test-bench"]
+
+
+# ------------------------------------- declared feeding (machinist review of #342, 17e665d)
+
+
+def test_the_hold_prints_each_declared_feeding_step():
+    text = hold_text(hand_fed_bundle())
+    assert "Upper blade guide: 6.000 mm above the top of the work." in text
+    assert "Push aid: push stick." in text
+    assert "Start the cut at the -X end of the line" in text
+    assert "End of the cut: finish it with the push aid" in text
+    assert "STOP" not in text
+
+
+@pytest.mark.parametrize("field", sorted(FEEDING))
+def test_an_undeclared_feeding_step_is_debt_that_stops(field):
+    bundle = hand_fed_bundle()
+    del bundle.plan["setups"][0]["hold"][field]
+    finding = row(hold_fields, bundle)
+    assert finding.status == "unknown"
+    assert f"hold.{field}" in finding.numbers["missing"]
+    assert "STOP" in hold_text(bundle)
+
+
+@pytest.mark.parametrize("field, value", sorted(FEEDING.items()))
+def test_only_a_hand_fed_hold_declares_feeding(field, value):
+    data = plan(scribed())
+    data["setups"][1]["hold"] = {"fixture": "vise", field: value}
+    with pytest.raises(ValidationError, match="only a hand-fed hold"):
+        Plan.model_validate(data)
+
+
+@pytest.mark.parametrize("guide", [0.0, -1.0])
+def test_the_upper_guide_height_is_positive(guide):
+    data = plan(scribed())
+    data["setups"][1]["hold"] = {**HAND_FED, "guide_above_mm": guide}
+    with pytest.raises(ValidationError, match="must be positive"):
+        Plan.model_validate(data)
+
+
+def route_cell(bundle, sid):
+    html = _Traveler(bundle, [], {}, None).header(bundle.plan["setups"])
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
+    match = re.search(rf"{sid} part as it arrives from Setup \S+ \S+ (.+?) (?:DRAWING|S\d)", text)
+    return match.group(1) if match else text
+
+
+def test_the_route_row_and_the_hold_agree_on_a_hand_fed_setup():
+    bundle = load_bundle(BUNDLE / "plan.toml")
+    setup = bundle.plan["setups"][1]
+    steps, _ = _Traveler(bundle, [], {}, None).hold(setup)
+    assert "Fed by hand on the saw table" in steps
+    assert route_cell(bundle, "S2") == "fed by hand on the saw table"
+
+
+def test_an_unresolved_hand_fed_setup_stops_in_the_route_and_the_hold(example):
+    inventory = example / "inventory.toml"
+    text = inventory.read_text(encoding="utf-8")
+    inventory.write_text(text.replace('saw_modes = ["horizontal", "vertical"]\n', ""), "utf-8")
+    bundle = load_bundle(example / "plan.toml")
+    steps, _ = _Traveler(bundle, [], {}, None).hold(bundle.plan["setups"][1])
+    assert "STOP" in steps and "Fed by hand" not in steps
+    assert route_cell(bundle, "S2").startswith("STOP")
+
+
+def test_the_picture_draws_the_blade_line_from_the_declared_end():
+    bundle = load_bundle(BUNDLE / "plan.toml")
+    (path,) = blade_paths(bundle, bundle.plan["setups"][1])
+    assert path["op"] == "10" and path["directed"] is True
+    assert path["xy"][0][0] < path["xy"][-1][0]  # feed_from = "-X": it starts at -X
+    bundle.plan["setups"][1]["hold"].pop("feed_from")
+    (path,) = blade_paths(bundle, bundle.plan["setups"][1])
+    assert path["directed"] is False
+
+
+def test_a_fixture_hold_draws_no_blade_line():
+    bundle = load_bundle(BUNDLE / "plan.toml")
+    assert blade_paths(bundle, bundle.plan["setups"][0]) == []

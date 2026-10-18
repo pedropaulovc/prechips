@@ -1935,6 +1935,12 @@ _STOCK_FORMS = {
 }
 # Stock / stock-state keys that place solids for the kernel; not bench instructions.
 _PLACEMENT_KEYS = {"origin_mm", "axis", "section_axis", "as_is_faces", "id", "components"}
+# A hand-fed cut's declared start end and end-of-cut support, as the HOLD prints them.
+_FEED_ENDS = frozenset({"+X", "-X", "+Y", "-Y"})
+_END_SUPPORT = {
+    "push_aid": "End of the cut: finish it with the push aid, never the hands.",
+    "outfeed_table": "End of the cut: the outfeed table carries the work off the blade.",
+}
 # A ``hold.clamps`` label's role word in the HOLD text (see clamp_labels).
 _CLAMP_ROLES = {"C": "clamp", "LOC": "locator", "SUP": "support"}
 # Machine kinds whose top a shop-made fixture's base stands on, in shop words.
@@ -4328,6 +4334,7 @@ class _Traveler:
                 + " and ".join(dict.fromkeys(lines))
                 + "; no vise or clamp holds the work."
             )
+            steps.extend(self.feeding(hold))
         elif fixture == "unknown":
             steps.append("STOP: holding not chosen — do not run.")
         else:
@@ -4458,6 +4465,38 @@ class _Traveler:
             "<h2>HOLD</h2>" + _list(steps),
             below + self.indexing(setup),
         )
+
+    def route_holding(self, setup):
+        """The STOCK AND ROUTE table's holding cell: the one hand-fed resolution the HOLD
+        prints (:func:`hand_fed`), else the fixture, else a STOP."""
+        hold = _mapping(setup.get("hold"))
+        scope = hand_fed(self.bundle, setup)[0]
+        if scope == "admitted":
+            return "fed by hand on the saw table"
+        if scope != "fixture" or hold.get("fixture", "unknown") == "unknown":
+            return "STOP: not chosen"
+        return self.reference(hold["fixture"], "workholding")
+
+    def feeding(self, hold):
+        """A hand-fed cut's declared feeding (``guide_above_mm``, ``push_aid``,
+        ``feed_from``, ``end_support``), one step each; an undeclared one is a STOP."""
+        guide, push = hold.get("guide_above_mm"), hold.get("push_aid", UNKNOWN)
+        start, end = hold.get("feed_from"), hold.get("end_support")
+        return [
+            f"Upper blade guide: {self.operative(guide)} mm above the top of the work."
+            if _known(guide)
+            else "STOP: upper blade-guide height not declared — do not run.",
+            f"Push aid: {self.reference(push, 'fixtures')}."
+            if push != UNKNOWN
+            else "STOP: push aid not declared — do not run.",
+            f"Start the cut at the {start} end of the line and feed the work into the blade "
+            "along it, as the arrow in the picture runs."
+            if start in _FEED_ENDS
+            else "STOP: end of the line the cut starts from not declared — do not run.",
+            _END_SUPPORT[end]
+            if end in _END_SUPPORT
+            else "STOP: how the end of the cut is supported not declared — do not run.",
+        ]
 
     def align_step(self, setup, hold):
         """The step that squares a vise's fixed jaw, or an angle plate's locating face, to
@@ -8053,7 +8092,12 @@ class _Traveler:
         allowance = op.get("allowance_mm")
         if not _known(allowance):
             return _Box(f"STOP: stock to leave {purpose} not established")
-        return f"leave {self.operative(allowance)} mm {purpose}"
+        # A minimum: the saw may leave more for the file, never less, and the scribed line
+        # still showing along the cut is how the operator sees that it did.
+        return (
+            f"leave at least {self.operative(allowance)} mm {purpose}, the scribed line still "
+            "showing"
+        )
 
     def hand_saw_step(self, op, numbers):
         """A bench hand-saw card: the straight cut's plane and the side kept, or "saw
@@ -10312,9 +10356,7 @@ class _Traveler:
                     s["id"],
                     self.arrival(s),
                     self.reference(s.get("machine"), "machines"),
-                    "STOP: not chosen"
-                    if _mapping(s.get("hold")).get("fixture", "unknown") == "unknown"
-                    else self.reference(s["hold"]["fixture"], "workholding"),
+                    self.route_holding(s),
                 )
                 for s in setups
             ],
