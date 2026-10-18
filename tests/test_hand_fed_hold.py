@@ -2,6 +2,7 @@
 (#335)."""
 
 import json
+import math
 import re
 
 import pytest
@@ -12,6 +13,7 @@ from test_cli import ROOT, copy_examples, run_cli
 
 from prechips import kernel
 from prechips.inputs import BadInput, load_bundle
+from prechips.kernel import render_diagram
 from prechips.kernel.render_inputs import hand_fed_scene
 from prechips.model import Plan
 from prechips.rules import fixture_interference, hold_fields, stock_diameter, thin_wall_under_clamp
@@ -334,18 +336,63 @@ def scene(bundle, sid=1):
     return hand_fed_scene(bundle, bundle.plan["setups"][sid], 1.0)
 
 
+def view(drawn, merged):
+    """The sketch items a panel draws with the scene's pair ``merged`` or apart."""
+    pairs = {item["pair"] for item in drawn["paths"] if "pair" in item} if merged else set()
+    return render_diagram._paired_view(drawn["paths"], drawn["waypoints"], pairs)
+
+
 def test_the_picture_draws_the_saw_path_from_the_declared_end_beside_the_scribed_line():
     bundle = load_bundle(BUNDLE / "plan.toml")
-    drawn = scene(bundle)
-    saw, line = drawn["paths"]
+    paths, waypoints = view(scene(bundle), merged=False)
+    saw, line = paths
     assert saw["op"] == "10" and saw["directed"] is True and saw["feed"] is True
     assert line["dashed"] is True and "directed" not in line
     assert saw["xy"][0][0] < saw["xy"][-1][0]  # feed_from = "-X": it starts at -X
-    keys = [key["label"] for key in drawn["waypoints"]]
+    keys = [key["label"] for key in waypoints]
     assert keys == ["START", "SAW PATH, LEAVE 0.450 MM MIN", "SCRIBED LINE", "WASTE"]
-    assert all(key["plain"] for key in drawn["waypoints"])
+    assert all(key["plain"] for key in waypoints)
     # The R800 top edge's saw removes inside the circle: the WASTE key points that way.
-    assert drawn["waypoints"][-1]["xy"][1] > drawn["waypoints"][1]["xy"][1]
+    assert waypoints[-1]["xy"][1] > waypoints[1]["xy"][1]
+
+
+def test_lines_too_close_to_print_apart_draw_as_the_one_scribed_line_with_the_leave_stated():
+    bundle = load_bundle(BUNDLE / "plan.toml")
+    paths, waypoints = view(scene(bundle), merged=True)
+    (line,) = paths
+    assert line["directed"] is True and line["feed"] is True and "dashed" not in line
+    assert line["xy"][0][0] < line["xy"][-1][0]  # fed from -X along the line itself
+    keys = [key["label"] for key in waypoints]
+    assert keys == [
+        "START",
+        "SCRIBED LINE: SAW ALONG IT",
+        "WASTE: SAW 0.450 MM MIN OUTSIDE THE LINE",
+    ]
+
+
+def offset_arc(gap, span=290.0):
+    """Two concentric R800 arcs ``gap`` mm apart across ``span`` mm, as a sketch pair."""
+    arcs = [
+        [[x, math.sqrt((800 + r) ** 2 - x * x)] for x in range(-int(span / 2), int(span / 2), 5)]
+        for r in (0.0, gap)
+    ]
+    return [{"op": "10", "xy": xy, "pair": "p", "pair_view": "apart"} for xy in arcs]
+
+
+@pytest.mark.parametrize(
+    ("gap", "width", "merged"),
+    [
+        (0.45, 700, {"p"}),  # the example: under a pixel apart at the panel's scale
+        (2.5, 700, {"p"}),  # just under the 8 px resolution at about 2.2 px/mm
+        (4.5, 700, set()),  # just over it
+        (4.5, 300, {"p"}),  # the same lines in a narrower panel
+    ],
+)
+def test_a_sketch_pair_merges_only_when_its_curves_print_too_close(gap, width, merged):
+    paths = offset_arc(gap)
+    points = [p for path in paths for p in path["xy"]]
+    project = render_diagram._width_projector(width, points)
+    assert render_diagram._merged_pairs(paths, project) == merged
 
 
 def test_the_picture_draws_the_saw_table_blade_and_push_aid():

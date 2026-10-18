@@ -240,7 +240,10 @@ def hand_fed_scene(bundle, setup, scale):
     saw path, the scribed arc offset by ``allowance_mm`` to the side the saw removes,
     within the op's ``stock_removal_bounds``, run from the hold's ``feed_from`` end with
     feed arrows; the scribed line itself dashed), plain ``waypoints`` keys (START, SAW
-    PATH with its minimum leave, SCRIBED LINE, WASTE) and render-only ``boxes`` (the saw
+    PATH with its minimum leave, SCRIBED LINE, WASTE), each cut's items a sketch ``pair``
+    whose ``merged`` view (the scribed line alone, fed along, its WASTE key stating the
+    minimum leave) draws when the two lines print too close to tell apart, and
+    render-only ``boxes`` (the saw
     table under the work, the band standing at the cut start up to the upper guide, the
     push aid behind the work's trailing end). Empty for a hold that is not an admitted
     hand-fed one; a cut whose line the kernel cannot place draws nothing."""
@@ -296,10 +299,16 @@ def hand_fed_scene(bundle, setup, scale):
             continue
         if start is not None and (saw[-1][start[0]] - saw[0][start[0]]) * start[1] > 0:
             saw.reverse()
+        if start is not None and (line[-1][start[0]] - line[0][start[0]]) * start[1] > 0:
+            line.reverse()
         name = str(op["op"])
+        pair = f"hand-fed op {name}"
+        fed = start is not None
         scene["paths"] += [
-            {"op": name, "xy": saw, "directed": start is not None, "feed": True},
-            {"op": name, "xy": line, "dashed": True},
+            {"op": name, "xy": saw, "directed": fed, "feed": True, **_view(pair, "apart")},
+            {"op": name, "xy": line, "dashed": True, **_view(pair, "apart")},
+            # Too close to print apart: the one line the operator follows, fed along.
+            {"op": name, "xy": line, "directed": fed, "feed": True, **_view(pair, "merged")},
         ]
         if start is not None and number(state.get("top_z")):
             # The holding picture's feed: the saw path on the work's top face, arrowed.
@@ -313,15 +322,24 @@ def hand_fed_scene(bundle, setup, scale):
             centre[i] + (middle[i] - centre[i]) * (reach + sign * _WASTE_KEY_MM) / reach
             for i in (0, 1)
         ]
+        waste = [round(v, 6) for v in waste]
+        leave_text = _mm_text(leave)
         keys = [
-            ("SAW PATH, LEAVE " + _mm_text(leave) + " MM MIN", middle),
-            ("SCRIBED LINE", line[len(line) // 2]),
-            ("WASTE", [round(v, 6) for v in waste]),
+            ("SAW PATH, LEAVE " + leave_text + " MM MIN", middle, _view(pair, "apart")),
+            ("SCRIBED LINE", line[len(line) // 2], _view(pair, "apart")),
+            ("WASTE", waste, _view(pair, "apart")),
+            ("SCRIBED LINE: SAW ALONG IT", line[len(line) // 2], _view(pair, "merged")),
+            (
+                "WASTE: SAW " + leave_text + " MM MIN OUTSIDE THE LINE",
+                waste,
+                _view(pair, "merged"),
+            ),
         ]
         if start is not None:
-            keys.insert(0, ("START", saw[0]))
+            keys.insert(0, ("START", saw[0], {}))
         scene["waypoints"] += [
-            {"label": label, "op": name, "xy": xy, "plain": True} for label, xy in keys
+            {"label": label, "op": name, "xy": xy, "plain": True, **view}
+            for label, xy, view in keys
         ]
         if start is not None and number(state.get("top_z")) and number(state.get("bottom_z")):
             # The band stands at the cut start, from the table to the upper guide.
@@ -346,6 +364,12 @@ def hand_fed_scene(bundle, setup, scale):
                 }
             )
     return scene
+
+
+def _view(pair, view):
+    """A sketch item's place in ``pair``: drawn in its ``"apart"`` view, or in its
+    ``"merged"`` one when the pair's curves print too close to tell apart."""
+    return {"pair": pair, "pair_view": view}
 
 
 def _mm_text(value):

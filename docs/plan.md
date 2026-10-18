@@ -2160,7 +2160,10 @@ up to the declared guide height and the push aid behind the work's trailing end,
 called out. The op's profile sketch draws the saw path (the scribed arc offset by the
 allowance, within the op's `stock_removal_bounds`) with feed arrows from the declared
 `feed_from` end, the scribed line dashed beside it, and keys for the START, the SAW
-PATH with its minimum leave, the SCRIBED LINE and the WASTE side. An undeclared
+PATH with its minimum leave, the SCRIBED LINE and the WASTE side. When the two lines
+print too close to tell apart (the example's 0.45 mm on a 290 mm arc), it draws the
+scribed line alone, fed along and keyed "SCRIBED LINE: SAW ALONG IT", with "WASTE:
+SAW 0.450 MM MIN OUTSIDE THE LINE" on the waste side. An undeclared
 `feed_from` draws no arrows, START, blade or push aid. The saw card states the
 allowance as a minimum: "leave at least 0.450 mm outside the line, the scribed line
 still showing", as every saw that follows a line does. No minimum workpiece size

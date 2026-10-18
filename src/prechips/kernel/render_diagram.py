@@ -59,13 +59,15 @@ _KEY_ROOM_PX = 2 * _BADGE_HEIGHT
 _ORIENTATION_PX = 70
 # The legend a path sketch prints once it has drawn a direction arrow.
 _ARROWS = "ARROWS: POINT ORDER"
-_FEED_ARROWS = "ARROWS: FEED DIRECTION ALONG THE SAW PATH"
+_FEED_ARROWS = "ARROWS: FEED DIRECTION"
 # A raster of at most this many passes draws and labels every pass; a longer one is a band
 # with its first and last pass.
 _EVERY_PASS = 8
 # The least height a profile sketch's plot keeps between its key rows; a picture whose
 # sketches cannot all keep it grows taller.
 _SKETCH_PLOT_MIN = 30
+# Two paired sketch curves closer than this (px) print as one line (:func:`_paired_view`).
+_SKETCH_RESOLVE_PX = 8.0
 _SKETCH_SPAN_EPSILON_MM = 1e-9
 # Finished-outline chords stay within half a pixel at the largest possible profile-sketch
 # scale. A one-op band may use the full page width and grow to this height.
@@ -700,6 +702,73 @@ def _segment_distance(point, a, b):
     t = 0.0 if not length else ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / length
     t = min(1.0, max(0.0, t))
     return math.dist(point, (a[0] + t * dx, a[1] + t * dy))
+
+
+def _curve_gap(first, second, project):
+    """The least pixel distance, under ``project``, from a point of polyline ``first`` to
+    polyline ``second`` (or between their points when either is a single point)."""
+    a = [project(p) for p in first]
+    b = [project(p) for p in second]
+    segments = list(zip(b, b[1:], strict=False)) or [(b[0], b[0])]
+    return min(_segment_distance(point, *segment) for point in a for segment in segments)
+
+
+def _merged_pairs(paths, project):
+    """The ``pair`` names whose ``pair_view = "apart"`` curves come closer than
+    :data:`_SKETCH_RESOLVE_PX` under ``project``: drawn side by side they would print as
+    one line under colliding keys (#335)."""
+    curves = defaultdict(list)
+    for path in paths:
+        if path.get("pair_view") == "apart" and path.get("xy"):
+            curves[path.get("pair")].append(path["xy"])
+    return {
+        pair
+        for pair, group in curves.items()
+        if any(
+            _curve_gap(a, b, project) < _SKETCH_RESOLVE_PX
+            for index, a in enumerate(group)
+            for b in group[index + 1 :]
+        )
+    }
+
+
+def _paired_view(paths, waypoints, merged):
+    """``(paths, waypoints)`` with one view of each ``pair`` kept: its ``"apart"`` items
+    (its curves side by side under their own keys), or, for a pair in ``merged``
+    (:func:`_merged_pairs`), its ``"merged"`` items (one curve, its keys stating the gap).
+    Items without a pair always draw."""
+
+    def kept(item):
+        view = item.get("pair_view")
+        return view is None or (view == "merged") == (item.get("pair") in merged)
+
+    return [p for p in paths if kept(p)], [w for w in waypoints if kept(w)]
+
+
+def _width_projector(width, points):
+    """The scale-only projector of a ``width``-wide sketch of ``points`` at the most its
+    width allows (:meth:`_Diagram._sketch_bands`): a pair unresolved here is unresolved
+    however the plot is laid out."""
+    xmin, _, xmax, _ = _bounds(points)
+    factor = (width - 72) / max(xmax - xmin, _SKETCH_SPAN_EPSILON_MM)
+    return lambda p: (p[0] * factor, p[1] * factor)
+
+
+def _panel_items(op, paths, waypoints, width):
+    """One ``width``-wide operation panel's items: ``(every path, every waypoint, merged
+    pairs, drawn paths, drawn waypoints, drawn points)``, the drawn ones with one view of
+    each pair (:func:`_paired_view`) chosen at the scale the panel's width allows."""
+    every_path = [p for p in paths if str(p.get("op", "")) == op]
+    every_waypoint = [p for p in waypoints if str(p.get("op", "")) == op]
+    points = [p for path in every_path for p in path["xy"]]
+    points.extend(p["xy"] for p in every_waypoint)
+    if not points:
+        return every_path, every_waypoint, set(), [], [], []
+    merged = _merged_pairs(every_path, _width_projector(width, points))
+    drawn_paths, drawn_waypoints = _paired_view(every_path, every_waypoint, merged)
+    drawn = [p for path in drawn_paths for p in path["xy"]]
+    drawn.extend(p["xy"] for p in drawn_waypoints)
+    return every_path, every_waypoint, merged, drawn_paths, drawn_waypoints, drawn
 
 
 def _keys_crowd(points, scale):
@@ -2477,10 +2546,9 @@ class _Diagram:
                 width=1,
             )
             _text(c, x + 8, y + 5, f"OP {op}", colour)
-            op_paths = [p for p in paths if str(p.get("op", "")) == op]
-            op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
-            points = [p for path in op_paths for p in path["xy"]]
-            points.extend(p["xy"] for p in op_waypoints)
+            every_path, every_waypoint, merged, op_paths, op_waypoints, points = _panel_items(
+                op, paths, waypoints, width
+            )
             if not points:
                 continue
             project, plot, badges = self._sketch_plot(
@@ -2488,6 +2556,10 @@ class _Diagram:
                 points,
                 _sketch_keys(op_paths, op_waypoints),
             )
+            # The plot may draw smaller than its width allows: a pair it brings too close
+            # together merges there too (that view has no more keys than it budgeted).
+            merged |= _merged_pairs(every_path, project)
+            op_paths, op_waypoints = _paired_view(every_path, every_waypoint, merged)
             if self.nominal:
                 self._nominal_overlay(project, plot, faint=True)
             labels = []
@@ -2523,10 +2595,7 @@ class _Diagram:
         title_band = _TEXT_HEIGHT + 22
         needs = [title_band + _SKETCH_PLOT_MIN + 12] * rows
         for index, op in enumerate(ops):
-            op_paths = [p for p in paths if str(p.get("op", "")) == op]
-            op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
-            points = [p for path in op_paths for p in path["xy"]]
-            points.extend(p["xy"] for p in op_waypoints)
+            _, _, _, op_paths, op_waypoints, points = _panel_items(op, paths, waypoints, width)
             if not points:
                 continue
             need = title_band + self._sketch_need(

@@ -2649,7 +2649,14 @@ hit-tests it; a malformed box, or a stock-anchored one without entry stock, is a
 picture debt only. The op's profile sketch draws a path marked `dashed` (the scribed
 line) dashed with no arrows, prints a waypoint marked `plain` as written (START, SAW
 PATH, SCRIBED LINE, WASTE) instead of a P number, and names the arrows of a `feed`
-path as the feed direction along the saw path.
+path as the feed direction. Paths and waypoints may belong to a sketch `pair` with a
+`pair_view` of `apart` or `merged`. When any two of a pair's `apart` curves come
+closer than 8 px at the scale the panel draws them, they would print as one line
+under colliding keys. The panel then draws the pair's `merged` items instead, and
+otherwise its `apart` ones. A hand-fed cut's saw path sits only the allowance
+(0.45 mm in the example) off a long scribed arc, so its sketch draws one curve: the
+scribed line, fed along, keyed "SCRIBED LINE: SAW ALONG IT", and "WASTE: SAW
+0.450 MM MIN OUTSIDE THE LINE" on the waste side.
 
 A guided sweep's table-side guide elements
 ([#255](https://github.com/pedropaulovc/prechips/issues/255)) are drawn for the

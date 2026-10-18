@@ -2831,7 +2831,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "6bd8c7eb2ebe97d71c4239c3e9be6a2d351d7b9d479981a653675469a7c2675c",
+  "hash": "3f0a337d163132619de355f49a3b852b221d47fde0eafea6a13e538563597abe",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2855,7 +2855,7 @@
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "d7efa77c1091259fca90e264b21104b36ed749159dfc8b14ce5d6bfcf1bac88c"
+      "sha256": "b244893a27eda79bbc04a6991b403c08995f68547c75b530a653d3cb396488ea"
     },
     "shop_policy": {
       "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -3044,6 +3044,8 @@
           {
             "label": "SAW PATH, LEAVE 0.450 MM MIN",
             "op": "10",
+            "pair": "hand-fed op 10",
+            "pair_view": "apart",
             "plain": true,
             "xy": [
               0.99604,
@@ -3053,6 +3055,8 @@
           {
             "label": "SCRIBED LINE",
             "op": "10",
+            "pair": "hand-fed op 10",
+            "pair_view": "apart",
             "plain": true,
             "xy": [
               0.996601,
@@ -3062,6 +3066,30 @@
           {
             "label": "WASTE",
             "op": "10",
+            "pair": "hand-fed op 10",
+            "pair_view": "apart",
+            "plain": true,
+            "xy": [
+              0.988565,
+              14.450615
+            ]
+          },
+          {
+            "label": "SCRIBED LINE: SAW ALONG IT",
+            "op": "10",
+            "pair": "hand-fed op 10",
+            "pair_view": "merged",
+            "plain": true,
+            "xy": [
+              0.996601,
+              8.000621
+            ]
+          },
+          {
+            "label": "WASTE: SAW 0.450 MM MIN OUTSIDE THE LINE",
+            "op": "10",
+            "pair": "hand-fed op 10",
+            "pair_view": "merged",
             "plain": true,
             "xy": [
               0.988565,
@@ -3071,7 +3099,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "d7efa77c1091259fca90e264b21104b36ed749159dfc8b14ce5d6bfcf1bac88c"
+      "sha256": "b244893a27eda79bbc04a6991b403c08995f68547c75b530a653d3cb396488ea"
     }
   },
   "rules_version": "m5-rev12",
