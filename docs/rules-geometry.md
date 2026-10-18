@@ -21,6 +21,7 @@ that carries its own verification debt.
 | `thin_wall_under_clamp` | setup id | PLAN §4.3 thin wall under clamp |
 | `fixture_interference` | setup id | PLAN §4.3 fixture interference |
 | `saw_cut` | `setup:op` for saw cut-off | PLAN §4.2 saw cut-off |
+| `saw_teeth` | `setup:op` for each saw cut | [saw teeth in the work](#saw-teeth-in-the-work) |
 
 The citation list of every geometry finding starts with that PLAN row, adds
 `kernel: STEP SHA-256 <digest>; FreeCAD B-rep measurements` when the manifest
@@ -1373,6 +1374,32 @@ line keeps the box removal but leaves the finding `?`; an empty finished target 
 `retained_to_target_mm` unknown. The finding reports `follows`, the declared box,
 `allowance_mm`, `retained_to_target_mm` and the before/after and removed volumes;
 it has no kerf or offcut volume.
+
+### Saw teeth in the work
+
+A blade with too few teeth in the work straddles it: the teeth strip and the
+blade grabs, and a hand-fed cut is held only by hand. Each saw cut gets a
+`saw_teeth` row: the thickness the blade crosses times the blade's coarsest pitch
+(`tools.<blade>.tpi`, the low end of a variable `[coarse, fine]` range) is the
+teeth in the work, and fewer than the shop policy's `saw_min_teeth_in_work` is an
+error naming the finest pitch the cut needs (`minimum × 25.4 / thickness` TPI).
+The comparison is plain `≥`: exactly the minimum passes.
+
+The kernel reports the thickness the blade crosses as `cut_thickness_mm`. A cut
+that `follows` a scribed line runs its blade along setup Z (a vertical bandsaw or
+a bench saw), so it crosses the Z span of the stock inside its removed region. A
+straight cut's blade travel within its plane is not modelled, so it crosses the
+section's thinnest in-plane extent (`cut_thickness_axis`), the worst case. Both
+are bounding-box extents: a hollow or open section (tube, angle, channel) is
+overstated, so the check certifies solid sections only.
+
+An unknown or uncited pitch, an absent, uncited or flagged policy minimum, or a
+thickness the kernel could not derive (no stock, a refused or unresolved cut)
+leaves the row `?` with that reason, never a pass. A cut the `saw_cut` row
+refuses or leaves unresolved never passes on its pitch alone; too few teeth on it
+are still an error. A missing kernel is kernel debt, as for every geometry row.
+The row reports `tpi` as declared, `tpi_coarse`, `cut_thickness_mm`,
+`cut_thickness_axis`, `teeth_in_work` and `saw_min_teeth_in_work`.
 
 ### Keep piece
 

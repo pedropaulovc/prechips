@@ -337,7 +337,7 @@ def test_shared_inventory_uses_exact_demo_markers_and_preserves_real_vise_readin
     plans = {filename: tomllib.loads((ROOT / "examples" / filename).read_text(encoding="utf-8"))}
     found = VALIDATOR["check_example_measurements"](inventory, plans)
     assert len(found["real"]) == 6
-    assert len(found["demo"]) == 817
+    assert len(found["demo"]) == 818
     assert len(found["assumed"]) == 2
     for path, fact in VALIDATOR["example_measurement_records"](inventory):
         measurement = fact["measured"]

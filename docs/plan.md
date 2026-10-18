@@ -1986,6 +1986,12 @@ it: below retains `coordinate <= value - kerf/2`; above retains
 not Y ≤ 87.75 mm. The kernel removes the kerf and the discarded offcut, checks
 that no finished target is removed, and hands the retained stock to later setups.
 
+Every saw cut also needs enough teeth in the work: the blade's inventory `tpi`
+at its coarse end, times the thickness the blade crosses, must reach the shop
+policy's `saw_min_teeth_in_work`
+([saw teeth in the work](rules-geometry.md#saw-teeth-in-the-work)). A 4/6 TPI
+blade puts 0.39 teeth in a 2.5 mm strap, an error; a 32 TPI blade puts 3.15.
+
 An all-saw setup (possibly with manual inspection/deburring) needs no `zero`
 recipe or mill envelope; `zero_check`, `headroom`, `envelope` and `travel` state
 why they are not applicable. Mixed setups still check their other machining ops.

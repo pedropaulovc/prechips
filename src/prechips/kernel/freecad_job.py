@@ -6552,6 +6552,7 @@ class _Setup:
             "allowance_mm": UNKNOWN,
             "stock_removal_bounds": UNKNOWN,
             "retained_to_target_mm": UNKNOWN,
+            "cut_thickness_mm": UNKNOWN,
             **{key: UNKNOWN for key in self._SAW_VOLUMES if not key.startswith(("kerf", "off"))},
             "reasons": {},
         }
@@ -6607,6 +6608,8 @@ class _Setup:
             "kerf_mm": UNKNOWN,
             "cut_plane": UNKNOWN,
             "retained_boundary_mm": UNKNOWN,
+            "cut_thickness_mm": UNKNOWN,
+            "cut_thickness_axis": UNKNOWN,
             **{key: UNKNOWN for key in self._SAW_VOLUMES},
             "reasons": {},
         }
@@ -6684,6 +6687,11 @@ class _Setup:
             if removed.Volume <= HIT_MM3:
                 facts["saw_error"] = "the declared saw region removes no stock (saw no-op)"
                 return None, facts
+            # A blade following a scribed line on a vertical bandsaw or at the bench runs
+            # along setup Z: it crosses the stock's Z span inside the removed region.
+            region = _bbox(removed)
+            facts["cut_thickness_mm"] = _r(region[5] - region[2])
+            facts["reasons"].pop("cut_thickness_mm", None)
             retained = stock.cut(box)
             after = retained.Volume
             facts.update(
@@ -6747,11 +6755,21 @@ class _Setup:
             bounds = [value - 1.0 for value in box[:3]] + [value + 1.0 for value in box[3:]]
             slab = list(bounds)
             slab[axis], slab[axis + 3] = low, high
-            kerf_volume = stock.common(_box_shape(slab)).Volume
+            section = stock.common(_box_shape(slab))
+            kerf_volume = section.Volume
             facts["kerf_volume_mm3"] = _r(kerf_volume)
             if kerf_volume <= HIT_MM3:
                 facts["saw_error"] = "off-stock blade slab removes no stock (saw no-op)"
                 return None, facts
+            # The blade's travel within the plane is not modelled: its thinnest in-plane
+            # extent of the section is the worst case for teeth in the work.
+            extent = _bbox(section)
+            spans = {i: extent[i + 3] - extent[i] for i in range(3) if i != axis}
+            across = min(spans, key=spans.get)
+            facts["cut_thickness_mm"] = _r(spans[across])
+            facts["cut_thickness_axis"] = "xyz"[across]
+            facts["reasons"].pop("cut_thickness_mm", None)
+            facts["reasons"].pop("cut_thickness_axis", None)
             boundary = low if plane["keep"] == "below" else high
             empty = boundary <= box[axis] if plane["keep"] == "below" else boundary >= box[axis + 3]
             if empty:

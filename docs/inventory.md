@@ -149,6 +149,16 @@ fact-local verification debt withholds geometry. An example blade's kerf
 follows the examples policy (a demonstration-fixture record or a cited
 catalogue value), never a fabricated shop measurement.
 
+Every saw blade, a bandsaw blade or a hand saw, declares its tooth pitch as
+`tpi = { value, cite, measured, verify }`: teeth per inch, one number for a
+constant pitch or `[coarse, fine]` for a variable-pitch blade (a 4/6 TPI blade is
+`[4, 6]`). Pitch is stated only as `tpi`, never `pitch_mm` (rejected), because
+blade catalogues sell by TPI. Like `helix_deg`, a cited catalogue value is
+enough; a bare number is bad input, and an absent, uncited or flagged pitch is
+debt that leaves the [teeth-in-the-work check](rules-geometry.md#saw-teeth-in-the-work)
+`?`, never a pass. A variable-pitch blade is judged at its coarse end, where the
+fewest teeth are in the work.
+
 A bandsaw machine may declare `saw_modes = ["horizontal", "vertical"]` (either or
 both). Only a `"vertical"` mode lets its blade follow a scribed line, the work fed
 by hand on the table; undeclared modes leave such a cut `?`, and a straight cut
@@ -169,6 +179,7 @@ an unverified, unresolved or powered blade does not.
 kind = "hand_saw"
 name = "junior hacksaw, 32 TPI blade"
 kerf_mm = { value = 0.6, measured = { status = "measured", by = "...", date = "...", instrument = "..." } }
+tpi = { value = 32, cite = "blade maker's catalogue: 32 TPI" }
 ```
 
 Saw operations need no spindle taper, holder, shank diameter, tool OAL or
@@ -1029,6 +1040,7 @@ plan's stock.
 | `blade_speed_sfm` | `[Number, Number]` (machine blade-speed limits) |
 | `saw_modes` | `["horizontal" \| "vertical", ...]` (bandsaw running modes) |
 | `kerf_mm` / `kerf_in` | `MeasuredLength` (selected bandsaw blade or hand saw) |
+| `tpi` | `{ value, cite, measured, verify }`: a saw blade's teeth per inch, a number or a variable pitch `[coarse, fine]`, each > 0 (a bare number is bad input; uncited or flagged is debt) |
 | `flute_len` | `MeasuredLength` |
 | `oal` | `MeasuredLength` |
 | `head_in` | `float` |

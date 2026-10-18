@@ -1871,6 +1871,7 @@ _TOPICS = {
     "construction": "construction",
     "engagement": "cutter engagement",
     "saw_cut": "saw cut",
+    "saw_teeth": "saw teeth in the work",
     "keep_piece": "kept piece / offcut",
     "purchased_tooling": "purchased tooling receipt check",
 }

@@ -729,3 +729,23 @@ def test_bench_hand_saw_to_the_line_verdict_follows_its_declared_region(
     if status == "pass":
         assert finding.numbers["retained_to_target_mm"] == pytest.approx(0.5)
         assert bundle.kernel["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(850.0)
+
+
+def test_a_saw_reports_the_thickness_its_blade_crosses(saw_engine, saw_target):
+    """A straight cut crosses its section's thinnest in-plane extent; a cut that follows a
+    scribed line crosses the stock's Z span inside its removed region (#336)."""
+    flat = {**BOX, "section_mm": [10.0, 9.0]}
+
+    def run(op, machine):
+        setups = [_setup(op, machine=machine), _setup(sid="S2")]
+        return saw_engine.run(saw_engine.job(saw_target, setups=setups, stock=flat))
+
+    straight = run(_saw(), "bandsaw")["ops"]["S1:10"]
+    assert "saw_error" not in straight and "saw_reason" not in straight, straight
+    assert straight["cut_thickness_mm"] == pytest.approx(9.0)
+    assert straight["cut_thickness_axis"] == "z"
+    scribed = run(_scribed(_beyond(8.5)), "bench")["ops"]["S1:10"]
+    assert "saw_error" not in scribed and "saw_reason" not in scribed, scribed
+    assert scribed["cut_thickness_mm"] == pytest.approx(9.0)
+    unknown = run(_scribed(None), "bench")["ops"]["S1:10"]
+    assert unknown["cut_thickness_mm"] == "unknown"

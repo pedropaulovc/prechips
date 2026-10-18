@@ -267,6 +267,24 @@ def cited_fact(item, field, *, tested=False, domain=None):
     return {**result, "verified": True, "reason": reason}
 
 
+def tooth_pitch_fact(item):
+    """A saw's ``tpi`` under ``cited_fact``'s trust, at its coarse (worst-case) end.
+
+    A variable-pitch ``[coarse, fine]`` blade puts the fewest teeth in the work at its
+    coarse pitch, so ``value`` is the range's low end; ``declared`` keeps the authored
+    value for display.
+    """
+    raw = item.get("tpi", UNKNOWN) if isinstance(item, dict) else UNKNOWN
+    fact = raw if isinstance(raw, dict) and "value" in raw else None
+    declared = fact["value"] if fact is not None else raw
+    if fact is not None and isinstance(declared, list) and declared:
+        coarse = declared[0]
+        if all(isinstance(value, (int, float)) for value in declared):
+            coarse = min(declared)
+        item = {"tpi": {**fact, "value": coarse}}
+    return {**cited_fact(item, "tpi"), "declared": declared}
+
+
 def measurement_entry(category, identity, field, *, status=None, item=None, subject=None):
     """Describe one consumed fact; display context never changes its identity or trust.
 
