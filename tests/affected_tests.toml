@@ -1,7 +1,7 @@
 # Local test selection for scripts/affected_tests.py. CI always runs the full suite.
 #
 # keepers: always run when anything outside `ignore` changed. The golden
-# examples compare every pilot's CLI output byte for byte, so they guard every
+# examples compare every example's CLI output byte for byte, so they guard every
 # source change end to end, including code the CLI reaches only through FreeCAD.
 keepers = ["tests/test_examples.py"]
 
@@ -93,6 +93,7 @@ ignore = [
     "tests/test_chain_drill_speed.py",
     "tests/test_coordinates_dro_consumption.py",
     "tests/test_example_provenance_comments.py",
+    "tests/test_examples.py",
     "tests/test_sheet_touch_exclusion.py",
     "tests/test_validate_examples.py",
 ]
