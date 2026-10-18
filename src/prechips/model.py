@@ -1813,6 +1813,23 @@ class CitedFact(CitedNumber):
         return self
 
 
+class ToothPitch(CitedNumber):
+    """A saw blade's teeth per inch: one constant pitch, or a variable-pitch blade's
+    ``[coarse, fine]`` range (a 4/6 blade is ``[4, 6]``), qualified like a cited number
+    (docs/inventory.md "Bandsaw machines and blades")."""
+
+    value: Number | Annotated[list[float], Field(min_length=2, max_length=2)]
+
+    @model_validator(mode="after")
+    def positive(self) -> ToothPitch:
+        values = self.value if isinstance(self.value, list) else [self.value]
+        if any(value != UNKNOWN and value <= 0 for value in values):
+            raise ValueError("A tooth pitch tpi must be > 0, or be unknown.")
+        if isinstance(self.value, list) and self.value[0] >= self.value[1]:
+            raise ValueError("A variable tooth pitch is [coarse, fine] teeth per inch, lo < hi.")
+        return self
+
+
 # One interface a coefficient was established on: the work's and the seat's cutting-data
 # material classes, in those roles.
 ContactPair = record("ContactPair", texts("work seat"))
@@ -2115,6 +2132,9 @@ InventoryItem = record(
         # (docs/inventory.md "Helix"); the force model reads both.
         "helix_deg": CitedNumber,
         "helix_hand": Literal["right", "left"],
+        # A bandsaw blade's or hand saw's teeth per inch; never pitch_mm (docs/inventory.md
+        # "Bandsaw machines and blades").
+        "tpi": ToothPitch,
         "source": str | Source,
         "cite": Citations,
         "sizes": list[str | int | float],

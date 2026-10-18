@@ -5,8 +5,10 @@ scribe op's line removes only its declared ``stock_removal_bounds`` and must lea
 its ``allowance_mm`` of stock between that region and the finished target for the file.
 """
 
+import math
+
 from prechips.findings import Finding
-from prechips.measurements import length_debt, length_fact
+from prechips.measurements import length_debt, length_fact, tooth_pitch_fact
 from prechips.rules.geometry_common import (
     kernel_measurement_debts,
     prepared_job,
@@ -16,6 +18,7 @@ from prechips.rules.geometry_common import (
 from prechips.rules.resolution import (
     SAW_OPS,
     UNKNOWN,
+    _citations,
     number,
     operations,
     record,
@@ -163,4 +166,125 @@ def evaluate(bundle):
                 job = prepared_job(bundle)
             debts.extend(kernel_measurement_debts(job, setup, op, stock=True))
         findings.append(with_measurement_debts(finding, debts))
+    return findings
+
+
+MM_PER_INCH = 25.4
+_MIN_TEETH = "saw_min_teeth_in_work"
+
+
+def min_teeth(bundle):
+    """(the shop policy ``numbers.saw_min_teeth_in_work``, its citations): unknown when
+    absent, not positive, uncited or not explicitly verified (``numbers_verify`` false)."""
+    minimum = record(bundle.policy.get("numbers")).get(_MIN_TEETH, UNKNOWN)
+    verify = bundle.policy.get("numbers_verify", False)
+    if isinstance(verify, dict):
+        verify = verify.get(_MIN_TEETH, False)
+    cited = _citations(record(bundle.policy.get("numbers_cite")).get(_MIN_TEETH))
+    known = number(minimum) and minimum > 0 and verify is False and bool(cited)
+    return (minimum if known else UNKNOWN), cited
+
+
+def evaluate_teeth(bundle):
+    """Teeth in the work: the thickness the blade crosses times the blade's coarsest
+    pitch must reach the shop's minimum, or the teeth straddle the work and strip."""
+    from prechips.kernel import run_geometry
+
+    cuts = [(setup, op) for setup, op in operations(bundle) if op.get("do") in SAW_OPS]
+    if not cuts:
+        return []
+    facts = run_geometry(bundle)
+    minimum, policy_cite = min_teeth(bundle)
+    findings = []
+    for setup, op in cuts:
+        subject = f"{setup['id']}:{op['op']}"
+        tool = op.get("tool", UNKNOWN)
+        pitch = tooth_pitch_fact(record(resolve(bundle, "tools", tool)))
+        detail = record(record(facts.get("ops")).get(subject))
+        thickness = detail.get("cut_thickness_mm", UNKNOWN)
+        coarse = pitch["value"] if pitch["verified"] else UNKNOWN
+        numbers = {
+            "operation": op["do"],
+            "tool": tool,
+            "tpi": pitch["declared"],
+            "tpi_coarse": coarse,
+            "cut_thickness_mm": thickness,
+            "cut_thickness_axis": "z"
+            if "follows" in op
+            else detail.get("cut_thickness_axis", UNKNOWN),
+            "teeth_in_work": UNKNOWN,
+            _MIN_TEETH: minimum,
+        }
+        cite = [
+            f"inventory.tools.{tool}.tpi",
+            *pitch["cite"],
+            f"shop-policy.numbers.{_MIN_TEETH}",
+            *policy_cite,
+            "docs/rules-geometry.md: saw teeth in the work",
+        ]
+        blocked = unavailable(bundle, "saw_teeth", subject, facts, cite)
+        if blocked is not None:
+            findings.append(blocked)
+            continue
+        missing = []
+        if tool == UNKNOWN:
+            missing.append("select a saw blade for this op: its tooth pitch is unknown")
+        elif coarse == UNKNOWN:
+            missing.append(
+                f"declare tools.{tool}.tpi with its citation: {pitch['reason'].rstrip('.')}"
+            )
+        if minimum == UNKNOWN:
+            missing.append(f"the shop policy sets no cited, verified numbers.{_MIN_TEETH}")
+        if not number(thickness) or thickness <= 0:
+            reason = record(detail.get("reasons")).get("cut_thickness_mm")
+            reason = reason or detail.get("saw_reason") or detail.get("saw_error")
+            missing.append(
+                "the thickness the blade crosses is unknown" + (f" ({reason})" if reason else "")
+            )
+        if missing:
+            message = "; ".join(missing)
+            findings.append(
+                Finding("saw_teeth", subject, UNKNOWN, numbers, cite, f"{subject}: {message}.")
+            )
+            continue
+        teeth = thickness / MM_PER_INCH * coarse
+        short = teeth < minimum - 1e-9
+        # A count short of the minimum is shown rounded down, so it never prints as the
+        # minimum it fails (2.995 teeth is 2.99, not 3.00).
+        shown = math.floor(teeth * 100) / 100 if short else round(teeth, 2)
+        numbers["teeth_in_work"] = shown
+        declared = pitch["declared"]
+        blade = (
+            f"the {declared[0]:g}/{declared[1]:g} variable-pitch blade at its {coarse:g} TPI "
+            "coarse end"
+            if isinstance(declared, list)
+            else f"the {coarse:g} TPI blade"
+        )
+        if short:
+            # Rounded up: a printed pitch below the one needed would still fail.
+            finer = math.ceil(minimum * MM_PER_INCH / thickness * 10 - 1e-9) / 10
+            coarsest = "whose coarse end is " if isinstance(declared, list) else "of "
+            status = "error"
+            message = (
+                f"{shown:.2f} teeth of {blade} are in the "
+                f"{thickness:.2f} mm the blade crosses, fewer than the shop's {minimum:g}; "
+                f"the teeth straddle the work and strip: choose a blade {coarsest}at least "
+                f"{finer:.1f} TPI"
+            )
+        elif detail.get("saw_error") or detail.get("saw_reason"):
+            # Never pass a refused or unresolved cut on its pitch alone.
+            status = UNKNOWN
+            message = (
+                f"{shown:.2f} teeth would be in the work, but the saw cut itself is "
+                f"unresolved ({detail.get('saw_error') or detail.get('saw_reason')})"
+            )
+        else:
+            status = "pass"
+            message = (
+                f"{shown:.2f} teeth of {blade} are in the "
+                f"{thickness:.2f} mm the blade crosses, at least the shop's {minimum:g}"
+            )
+        findings.append(
+            Finding("saw_teeth", subject, status, numbers, cite, f"{subject}: {message}.")
+        )
     return findings

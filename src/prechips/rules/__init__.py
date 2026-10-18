@@ -103,6 +103,7 @@ GEOMETRY_RULES = [
     Rule("vise", vise.evaluate),
     Rule("thin_wall_under_clamp", thin_wall_under_clamp.evaluate),
     Rule("saw_cut", saw_cut.evaluate),
+    Rule("saw_teeth", saw_cut.evaluate_teeth),
     Rule("keep_piece", keep_piece.evaluate),
     Rule("fixture_interference", fixture_interference.evaluate),
     Rule("joint_assembly", joints.evaluate_assembly),

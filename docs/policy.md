@@ -82,7 +82,10 @@ The datum rule consumes `refixture_budget_mm`; M2 stick-out consumes
 `stickout_ld_max`, multiplied by the smallest finished diameter in the unsupported
 length (feature diameters along setup Z), not held bar OD; the M4
 `thin_wall_under_clamp` rule consumes `thin_wall_floor_mm` as the minimum
-grip-zone wall the kernel's measurement must meet. See PLAN §4.1,
+grip-zone wall the kernel's measurement must meet; `saw_teeth` consumes
+`saw_min_teeth_in_work`, the fewest teeth of a saw blade's coarsest pitch allowed
+in the thickness the blade crosses (a common shop rule is 3), a positive, cited,
+explicitly unflagged number; anything else leaves the row `?`. See PLAN §4.1,
 [lathe rules](rules-lathe.md) and [geometry rules](rules-geometry.md). A true
 or unknown verification flag prevents any of them from certifying a measured
 threshold. The shipped numbers remain `"unknown"`
@@ -95,9 +98,10 @@ falls back to the DRO grid the fixture is made on (the shop's mill, else the
 setup's machine). Every printed value lies on that grid
 ([inventory](inventory.md)). It is a print precision, never a
 pass condition. Other number names are not read by any rule.
-The nine geometry rule names (`accessibility`, `reach`,
+The ten geometry rule names (`accessibility`, `reach`,
 `internal_corner_radius`, `coverage`, `finish_coverage`, `vise`,
-`thin_wall_under_clamp`, `fixture_interference`, `saw_cut`) may be required.
+`thin_wall_under_clamp`, `fixture_interference`, `saw_cut`, `saw_teeth`) may be
+required.
 Use explicit `setup:op` subjects for a route's saw cuts. Saw cylinder checks are
 not applicable, but a required `saw_cut` remains unresolved when its kerf,
 plane or stock cannot be derived. A missing FreeCAD kernel yields exit 4

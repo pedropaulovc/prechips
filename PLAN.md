@@ -1381,6 +1381,14 @@ sheet.
    feed. A saw following a scribed arc removes its declared box clipped to the arc
    offset by `allowance_mm`, so the stock prediction follows the curve.
 
+   **Saw teeth in the work (2026-10-18, #336):** saw blades declare a cited
+   `tpi` (a number or a variable `[coarse, fine]` pitch); a `saw_teeth` row per
+   saw cut multiplies the coarse pitch by the kernel's `cut_thickness_mm` (the
+   stock's Z span for a scribed cut, the section's thinnest in-plane extent for
+   a straight one) and errors below the policy's `saw_min_teeth_in_work`.
+   Unknown pitch, minimum or thickness is debt, and a hollow, open, split or
+   stepped section leaves the thickness unknown.
+
    **Process features shipped (2026-10-06, round-4 ShaftPrep):** plan-owned
    `process_features` (`end_face`, `centre_hole`) are stock preparation the
    kernel cuts through transient faces and later stock states carry; they earn

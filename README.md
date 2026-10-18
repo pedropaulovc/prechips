@@ -266,7 +266,11 @@ has no blade speed; it cuts straight on a `cut_plane` or `follows` an earlier
 scribe op's line, removing only its declared `stock_removal_bounds` and leaving
 at least `allowance_mm` outside the line for the file (unknown extent is `?`). A
 bandsaw in vertical mode (`saw_modes`) follows a scribed curve the same way, hand-fed;
-along a scribed arc the predicted removal follows the curve, offset by the allowance. Dividing-head headroom uses centre height and the posed axis offset,
+along a scribed arc the predicted removal follows the curve, offset by the allowance.
+Every saw cut also gets a [`saw_teeth`](docs/rules-geometry.md#saw-teeth-in-the-work)
+row: the blade's cited `tpi` (its coarse end for a variable pitch) times the
+thickness the blade crosses must reach the policy's `saw_min_teeth_in_work`;
+an unknown pitch or minimum is `?`. Dividing-head headroom uses centre height and the posed axis offset,
 and child hole operations inherit a missing travel centre from their named
 parent/hole while explicit unknown locations remain debt.
 

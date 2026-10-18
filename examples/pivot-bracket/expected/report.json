@@ -1408,7 +1408,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
+            "sha256": "a8e328f3fed387b92b81160cd87e6e9d9532e8d70318c6b10c68b84c075bf1ed"
           },
           "plan": {
             "path": "examples/pivot-bracket/plan.toml",
@@ -1416,7 +1416,7 @@
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
-            "sha256": "131383b5005a3a689ab0a8b55a002c231f06433bfcf0a8234ef4030a2bd363e0"
+            "sha256": "383236cece90d5741c9f1bd03f3348d10fb21f39ba3ca34f05a4cd87ba3c49f8"
           },
           "step": {
             "path": "examples/pivot-bracket/pivot-bracket.STEP",
@@ -22971,7 +22971,7 @@
       "subject": "S5"
     }
   ],
-  "hash": "ef5a07a4b734549e88fd91e5f583c62db3b82409cc8824da0e76ca194c3038d2",
+  "hash": "5220b949f3f134e9b0fea36bf23eefd0ac28563e5cede5148e62ac24bced3576",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -22983,7 +22983,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "6e17784d18ecf7539e975bf58f6faf77b57770c25c6cd6c9b43bab67716e87da"
+      "sha256": "a8e328f3fed387b92b81160cd87e6e9d9532e8d70318c6b10c68b84c075bf1ed"
     },
     "plan": {
       "path": "examples/pivot-bracket/plan.toml",
@@ -23039,7 +23039,7 @@
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
-      "sha256": "131383b5005a3a689ab0a8b55a002c231f06433bfcf0a8234ef4030a2bd363e0"
+      "sha256": "383236cece90d5741c9f1bd03f3348d10fb21f39ba3ca34f05a4cd87ba3c49f8"
     },
     "step": {
       "path": "examples/pivot-bracket/pivot-bracket.STEP",
