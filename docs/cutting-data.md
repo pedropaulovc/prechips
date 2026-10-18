@@ -216,9 +216,15 @@ An end mill plunges when fed down its own axis into material, including a
 milled path descending at a depth level the stock box does not prove clear.
 See [coordinates](rules-coordinates.md#coordinates).
 
-Only a centre-cutting end mill can receive a plunge feed. Its inventory record
-must declare `center_cutting = true`; `false` prohibits feeding down, while an
-absent or unknown declaration leaves capability unproven, regardless of row data.
+Outside drilling operations, plunges are supported only for centre-cutting end mills.
+The inventory record must declare `center_cutting = true`; `false` prohibits feeding down, while
+an absent or unknown declaration leaves capability unproven, regardless of row data.
+
+The checker does not currently enforce the end-mill kind on this lookup:
+any other tool with `center_cutting = true`, including a drill used in a milled
+path, can receive the same feed. This is a [known checker defect](https://github.com/pedropaulovc/prechips/issues/359),
+not support for plunging with other tool kinds. Do not use that result to authorize
+an unsupported entry.
 
 Plunge selection uses stock material class (through `aliases`), tool `material`
 and tool diameter in mm within inclusive `diameter_range`, without an operation

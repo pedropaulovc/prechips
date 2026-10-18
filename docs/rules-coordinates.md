@@ -1412,8 +1412,10 @@ levels returns to an entry (an unknown level count claims no return between leve
 the DRO grid (a raster's lift), and `raise_clear` is true only when the stock box
 proves it above the stock (unknown without a box; the sheet then claims nothing
 about it). An op with any plunge carries `plunge_mm_rev` (the cited `[[plunge]]`
-feed, see [cutting data](cutting-data.md#plunge), which only a tool declared
-`center_cutting = true` has) and, when unknown, `plunge_reason`. Fixture and clamp
+feed) and, when unknown, `plunge_reason`. Outside drilling operations, plunges
+are supported only for centre-cutting end mills with `center_cutting = true`; see
+[cutting data](cutting-data.md#plunge) for selection and the known gap in tool-kind
+enforcement. Fixture and clamp
 heights are not in the box: a raise Z is never
 claimed clear of them.
 

@@ -4,7 +4,7 @@ prechips checks an authored manual-machining plan against a feature manifest, sh
 
 Geometry checks use a local FreeCAD kernel. The checker does not generate toolpaths or certify a physical setup, finished part or machining process.
 
-Start with the [quickstart](docs/manual/quickstart.md), or use the [documentation index](docs/README.md) to find a task or reference.
+Start with the [quickstart](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/quickstart.md), or use the [documentation index](https://github.com/pedropaulovc/prechips/blob/main/docs/README.md) to find a task or reference.
 
 ## Install and check
 
@@ -15,7 +15,7 @@ uv sync --locked
 uv run prechips --help
 ```
 
-The [quickstart](docs/manual/quickstart.md) covers FreeCAD discovery and your first result. The [development guide](docs/internals/development.md) covers tests, native fixtures, package validation and contributor review.
+The [quickstart](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/quickstart.md) covers FreeCAD discovery and your first result. The [development guide](https://github.com/pedropaulovc/prechips/blob/main/docs/internals/development.md) covers tests, native fixtures, package validation and contributor review.
 
 ## Run the examples
 
@@ -28,7 +28,7 @@ uv run prechips traveler examples/pivot-bracket/plan.toml --out out/pivot-bracke
 uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-pivot-post
 ```
 
-Read the [worked tutorial](docs/manual/tutorial.md) for the input-to-sheet workflow and the [input/output demonstration](docs/manual/demo.md) for actual excerpts. The [example guide](examples/README.md) owns each bundle's provenance, demonstration-value disclosures and expected exit. Outputs can still be written when the checker exits 2 or 4.
+Read the [worked tutorial](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/tutorial.md) for the input-to-sheet workflow and the [input/output demonstration](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/demo.md) for actual excerpts. The [example guide](https://github.com/pedropaulovc/prechips/blob/main/examples/README.md) owns each bundle's provenance, demonstration-value disclosures and expected exit. Outputs can still be written when the checker exits 2 or 4.
 
 Example values exercise the rules; they are not measurements to copy into a real shop inventory. An exit-0 report is eligible for approval. Without a valid first-article approval record, the printable sheet remains PLANNED.
 
@@ -42,29 +42,29 @@ Example values exercise the rules; they are not measurements to copy into a real
 | `prechips compare` | Side-by-side findings for authored candidates. |
 | `prechips explain` | Evidence from selected findings in a saved report. |
 
-Use the [CLI catalog](docs/reference/cli.md) for arguments, flags, path precedence, output streams and exit codes. The [Python callable catalog](docs/reference/python-api.md) describes importable implementation functions and their support boundary.
+Use the [CLI catalog](https://github.com/pedropaulovc/prechips/blob/main/docs/reference/cli.md) for arguments, flags, path precedence, output streams and exit codes. The [Python callable catalog](https://github.com/pedropaulovc/prechips/blob/main/docs/reference/python-api.md) describes importable implementation functions and their support boundary.
 
 ## Formats, rules and readiness
 
-The [documentation index](docs/README.md#look-up-an-interface) links the five input formats, rule families and output contracts. Use [troubleshooting](docs/manual/troubleshooting.md) to resolve an input error or unresolved finding, and the [FAQ](docs/manual/faq.md) for product capabilities and limits.
+The [documentation index](https://github.com/pedropaulovc/prechips/blob/main/docs/README.md#look-up-an-interface) links the five input formats, rule families and output contracts. Use [troubleshooting](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/troubleshooting.md) to resolve an input error or unresolved finding, and the [FAQ](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/faq.md) for product capabilities and limits.
 
-The literal `"unknown"` is unresolved debt. A source citation, vendor nominal, declared procedure or generated picture does not establish a physical measurement. Approval cannot waive rule errors or required unresolved findings. See [eligibility and approval](docs/report-and-telemetry.md#eligibility-and-approval).
+The literal `"unknown"` is unresolved debt. A source citation, vendor nominal, declared procedure or generated picture does not establish a physical measurement. Approval cannot waive rule errors or required unresolved findings. See [eligibility and approval](https://github.com/pedropaulovc/prechips/blob/main/docs/report-and-telemetry.md#eligibility-and-approval).
 
 ## Geometry on the FreeCAD kernel
 
-The [geometry reference](docs/rules-geometry.md) defines face identity, stock evolution, prescribed approach models, sampled workholding and collision screens, caches and renders. Its [limits](docs/rules-geometry.md#limits) explain what these measurements cannot establish. The [architecture guide](docs/internals/architecture.md) describes the host/native boundary.
+The [geometry reference](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-geometry.md) defines face identity, stock evolution, prescribed approach models, sampled workholding and collision screens, caches and renders. Its [limits](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-geometry.md#limits) explain what these measurements cannot establish. The [architecture guide](https://github.com/pedropaulovc/prechips/blob/main/docs/internals/architecture.md) describes the host/native boundary.
 
-A missing kernel leaves applicable geometry unresolved and produces exit 4 unless a rule error takes precedence with exit 2. A valid explicit `FREECAD_CMD` can select an installation; an invalid override prevents fallback discovery. See [FreeCAD troubleshooting](docs/manual/troubleshooting.md#freecad-is-installed-but-geometry-says-the-kernel-is-unavailable).
+A missing kernel leaves applicable geometry unresolved and produces exit 4 unless a rule error takes precedence with exit 2. A valid explicit `FREECAD_CMD` can select an installation; an invalid override prevents fallback discovery. See [FreeCAD troubleshooting](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/troubleshooting.md#freecad-is-installed-but-geometry-says-the-kernel-is-unavailable).
 
 ## Machinist review of a traveler (dev tool)
 
-The [development guide](docs/internals/development.md) describes the blind printed-page review, handbook references and contributor commands. This hosted-model review is separate from the offline product checks and from physical paper acceptance.
+The [development guide](https://github.com/pedropaulovc/prechips/blob/main/docs/internals/development.md) describes the blind printed-page review, handbook references and contributor commands. This hosted-model review is separate from the offline product checks and from physical paper acceptance.
 
 ## Limits
 
 Passing the checker does not prove a continuous cutter path, dynamic stability, real clamping, tool condition, operator execution or finished dimensions. Generated reports and PDFs do not establish physical paper rehearsal, first-article machining or parented live farm telemetry acceptance.
 
-[PLAN.md](PLAN.md) records delivery and acceptance status. The [example guide](examples/README.md#print-and-native-acceptance-limits) records the limits of the bundled evidence. Internal proposals are separate from the shipped input and rule contracts.
+[PLAN.md](https://github.com/pedropaulovc/prechips/blob/main/PLAN.md) records delivery and acceptance status. The [example guide](https://github.com/pedropaulovc/prechips/blob/main/examples/README.md#print-and-native-acceptance-limits) records the limits of the bundled evidence. Internal proposals are separate from the shipped input and rule contracts.
 
 ## DRO reference
 
@@ -74,4 +74,4 @@ The zero recipe uses the Electronica EL400 Direction §6.2 and ABS Axis Set §7.
 - [Changing read direction](https://www.dropros.com/documents/400%20ScaleDirection.pdf)
 - [Bolt-hole circle](https://www.dropros.com/documents/EL400BoltHole.pdf), [linear hole pattern](https://www.dropros.com/documents/EL400AngleHole.pdf) and [arc](https://www.dropros.com/documents/EL400Arc.pdf)
 
-The consumer is [harmonic-analyzer](https://github.com/pedropaulovc/harmonic-analyzer). The shop uses the [el400 emulator](https://github.com/pedropaulovc/el400). A printed recipe does not certify the emulator or a physical touch-off. See the [DRO and print surfaces](examples/README.md#dro-and-print-surfaces) and the [zero-check reference](docs/rules-coordinates.md#zero_check) for the checker and printing boundaries.
+The consumer is [harmonic-analyzer](https://github.com/pedropaulovc/harmonic-analyzer). The shop uses the [el400 emulator](https://github.com/pedropaulovc/el400). A printed recipe does not certify the emulator or a physical touch-off. See the [DRO and print surfaces](https://github.com/pedropaulovc/prechips/blob/main/examples/README.md#dro-and-print-surfaces) and the [zero-check reference](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-coordinates.md#zero_check) for the checker and printing boundaries.

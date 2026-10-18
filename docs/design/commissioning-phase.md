@@ -626,7 +626,7 @@ judge a value against itself. Missing evidence cannot become a pass.
 Each dependent part setup gets one finding covering:
 
 - the setup's consumed claims (§3.3), each through the readings that list it,
-  plus the claims and readings of each one's reference chain back to the root;
+  plus the claims and readings in each reference chain back to its root;
 - the guide prerequisites for the guide elements the setup uses: the `align`
   readings and torque steps of each element its sweeps ride, or that locate an
   in-situ claim it consumes. On the trammel every sweep rides both rails, so
@@ -714,10 +714,12 @@ A guide pose (`"guide.apex"`) may be a relational reference, like the root
 edge: the guide defines it. The dowel then fixes the part's rotation about HUB,
 and its own position (two axes, from HUB) is a claim.
 
-A relational reference must be the root edge or an element with covered
-relational claims. Its chain must reach the root without a cycle. For the trammel:
+A relational reference must be the root edge, a guide-defined pose
+(`guide.apex` for the trammel), or an element whose own relational claims are
+covered. A chain of element references must reach one of those roots without a
+cycle. For the trammel:
 
-- `width` puts the outer edge relative to the root (inner) edge;
+- `width` puts the outer edge relative to the root edge (the inner edge);
 - `hub_pin_to_edge` puts HUB's radial position relative to the outer edge, as
   a signed offset (inside or outside the edge), which is what the in-situ HUB
   exists to match;
@@ -729,9 +731,10 @@ trammel-jig.dowel_hole.size has no acceptance reading", because no future
 record could clear it.
 
 Trust requires every listed reading to pass and, for relational claims, the
-reference's claims to be trusted recursively back to the root. The roll-up
-includes both consumed claims and their full reference chains. A setup that
-locates only on the dowel is still blocked by missing HUB position evidence.
+reference's claims to be trusted recursively back to its root (the root edge or
+a guide-defined pose). The roll-up includes both consumed claims and their full
+reference chains. A setup that locates only on the dowel is still blocked by
+missing HUB position evidence.
 
 Readings must describe final geometry. Within one `accept` operation, use
 `readings` array order; a pin reading must follow its hole-size reading.

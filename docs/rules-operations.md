@@ -709,7 +709,8 @@ A non-lathe end-mill contour operation also reports `plunge_mm_rev` from the
 one matching cited `[[plunge]]` row, selected by material class, tool material
 and tool diameter. It needs `center_cutting = true`; another declaration
 supplies no plunge feed. `plunge_mm_min = RPM * plunge_mm_rev`, with
-`plunge_reason` when unknown. See [plunge data](cutting-data.md#plunge).
+`plunge_reason` when unknown. See [plunge data](cutting-data.md#plunge) for
+the supported tool kinds and the known gap in kind enforcement.
 
 This extra feed does not change the `speeds_feeds` verdict. The coordinates
 rule's `level_paths` decides whether the operation plunges, and makes a

@@ -101,7 +101,7 @@ Local tests, rendered PDFs and generated reports do not establish physical paper
 
 ## Maintain navigation and links
 
-Add each page to the documentation hub and link it from the relevant task or reference page. Use relative Markdown links for repository pages. Prefer descriptive link text over "click here."
+Add each page to the documentation hub and link it from the relevant task or reference page. Use relative Markdown links for repository pages, except in the packaged root README: use absolute GitHub URLs there so navigation also works from PyPI and copied descriptions. See [PyPA's README guidance](https://packaging.python.org/en/latest/guides/making-a-pypi-friendly-readme/) for the package-description renderer and supported formats. Prefer descriptive link text over "click here."
 
 Preserve meaningful incoming anchors when rewriting. If a heading changes its slug, update incoming links in the repository or retain an explicit anchor. Check local file and fragment targets after the rewrite. Do not move a large reference merely to make the folder tree look uniform.
 

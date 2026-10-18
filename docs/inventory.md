@@ -1375,7 +1375,7 @@ permits one authored spelling, not simultaneous copies.
 | Field | Type or meaning |
 |---|---|
 | `hand` | `str`, cutting hand; separate from `helix_hand` |
-| `center_cutting` | `bool` |
+| `center_cutting` | `bool`; see [plunge data](cutting-data.md#plunge) for the supported end-mill use and known gap in tool-kind enforcement |
 | `chart` | `str`, cutting-data citation |
 | `angle_deg` | `float`, including centre-seat angle |
 | `point_angle` | `MeasuredAngle`, drill-point included angle |
