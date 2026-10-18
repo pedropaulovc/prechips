@@ -5,6 +5,8 @@ scribe op's line removes only its declared ``stock_removal_bounds`` and must lea
 its ``allowance_mm`` of stock between that region and the finished target for the file.
 """
 
+import math
+
 from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact, tooth_pitch_fact
 from prechips.rules.geometry_common import (
@@ -225,7 +227,9 @@ def evaluate_teeth(bundle):
             findings.append(blocked)
             continue
         missing = []
-        if coarse == UNKNOWN:
+        if tool == UNKNOWN:
+            missing.append("select a saw blade for this op: its tooth pitch is unknown")
+        elif coarse == UNKNOWN:
             missing.append(
                 f"declare tools.{tool}.tpi with its citation: {pitch['reason'].rstrip('.')}"
             )
@@ -253,12 +257,14 @@ def evaluate_teeth(bundle):
             else f"the {coarse:g} TPI blade"
         )
         if teeth < minimum - 1e-9:
-            finer = minimum * MM_PER_INCH / thickness
+            # Rounded up: a printed pitch below the one needed would still fail.
+            finer = math.ceil(minimum * MM_PER_INCH / thickness * 10 - 1e-9) / 10
+            coarsest = "whose coarse end is " if isinstance(declared, list) else "of "
             status = "error"
             message = (
                 f"{teeth:.2f} teeth of {blade} are in the "
                 f"{thickness:.2f} mm the blade crosses, fewer than the shop's {minimum:g}; "
-                f"the teeth straddle the work and strip: choose a blade of at least "
+                f"the teeth straddle the work and strip: choose a blade {coarsest}at least "
                 f"{finer:.1f} TPI"
             )
         elif detail.get("saw_error") or detail.get("saw_reason"):

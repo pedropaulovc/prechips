@@ -1,5 +1,7 @@
 """A saw blade needs its policy minimum of teeth in the thickness it crosses (#336)."""
 
+import html
+import re
 from pathlib import Path
 
 import pytest
@@ -8,6 +10,7 @@ from pydantic import ValidationError
 from prechips.inputs import Bundle
 from prechips.model import Inventory
 from prechips.rules.saw_cut import evaluate_teeth
+from prechips.sheet import _Traveler
 
 CITE = "vendor blade catalogue"
 
@@ -64,7 +67,22 @@ def test_a_4_6_blade_on_a_2_5_mm_strap_is_an_error_with_numbers():
     assert finding.numbers["teeth_in_work"] == pytest.approx(0.39)
     assert finding.numbers["saw_min_teeth_in_work"] == 3
     # The fix names the pitch that would put the minimum in the work: 3 x 25.4 / 2.5.
-    assert "30.5 TPI" in finding.sentence
+    assert "coarse end is at least 30.5 TPI" in finding.sentence
+
+
+def test_the_printed_fix_rounds_the_needed_pitch_up():
+    # 3 x 25.4 / 18.4 = 4.141 TPI: 4.1 would still put fewer than 3 teeth in the work.
+    finding = teeth(bundle(tpi=4, thickness=18.4))
+    assert finding.status == "error"
+    assert "a blade of at least 4.2 TPI" in finding.sentence
+
+
+def test_an_op_without_a_saw_tool_asks_for_one():
+    data = bundle(thickness=50.0)
+    del data.plan["setups"][0]["ops"][0]["tool"]
+    finding = teeth(data)
+    assert finding.status == "unknown"
+    assert "select a saw blade" in finding.sentence
 
 
 def test_a_24_tpi_blade_passes_where_it_puts_three_teeth_in_the_work():
@@ -162,3 +180,13 @@ def test_tpi_schema_rejects_pitch_mm_and_a_bare_number():
     Inventory.model_validate(
         {"tools": {"b": {"kind": "hand_saw", "tpi": {"value": 32, "cite": CITE}}}}
     )
+
+
+def test_the_op_row_prints_too_few_teeth_as_a_stop():
+    data = bundle()
+    finding = teeth(data)
+    setup = data.plan["setups"][0]
+    page, _, _, _ = _Traveler(data, [finding], {}, None).operations(setup, {}, {"notes": 2})
+    text = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", page)).split())
+    assert "STOP: 0.39 teeth" in text
+    assert "coarse end is at least 30.5 TPI" in text

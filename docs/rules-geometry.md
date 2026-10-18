@@ -1382,7 +1382,8 @@ blade grabs, and a hand-fed cut is held only by hand. Each saw cut gets a
 `saw_teeth` row: the thickness the blade crosses times the blade's coarsest pitch
 (`tools.<blade>.tpi`, the low end of a variable `[coarse, fine]` range) is the
 teeth in the work, and fewer than the shop policy's `saw_min_teeth_in_work` is an
-error naming the finest pitch the cut needs (`minimum × 25.4 / thickness` TPI).
+error naming the coarsest pitch the cut allows (`minimum × 25.4 / thickness` TPI,
+rounded up to 0.1 so the printed pitch is enough).
 The comparison is plain `≥`: exactly the minimum passes.
 
 The kernel reports the thickness the blade crosses as `cut_thickness_mm`. A cut
