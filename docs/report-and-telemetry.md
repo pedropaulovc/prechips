@@ -820,8 +820,9 @@ faced aims and the result's face facts) and `stock_prep` (stock supplies, blank
 boxes, joints, the process model and the stock facts), each present once that
 step starts, plus `cross_setup` (checks between setups, such as a printed
 checkpoint against a later setup's contacts, and rotary coverage) after the last
-setup. With the setups, which include assembling the stock each one holds, they
-cover all of the job's work. `setups` maps setup ids to
+setup. With the setups, each of whose spans covers all of that setup's work (holding
+its stock, running it and recording its results), they cover all of the job's
+work. `setups` maps setup ids to
 `{wall_ms, cpu_ms, phases, ops}`. A setup's `phases` holds measured `fixture`,
 `chuck_walls` (radial clamp-wall sampling), `stock_states` (the one op-order
 pass deriving each op's before-op stock), `render`, `stock_output` (final

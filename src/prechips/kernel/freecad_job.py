@@ -3751,8 +3751,8 @@ class _Job:
 
     def run(self):
         job = self.job
-        # Job-level phases before the first setup, on the timing record and the progress
-        # trail, so a kill during STEP import or face binding names that step.
+        # Job-level phases around the setups, on the timing record and the progress trail:
+        # with the setup spans they cover all job work, so a kill anywhere names its step.
         phases = self.timing.setdefault("phases", {}) if self.timing is not None else None
         with _timed(phases, "step_import"):
             path, digest = job.get("step_path"), job.get("step_sha256")
@@ -3880,7 +3880,7 @@ class _Job:
         lineage, runners = {}, []
         for setup in setups:
             clocks = self.timing["setups"] if self.timing is not None else None
-            # The setup's span includes assembling the stock it holds.
+            # The setup's span covers all of its work: the stock it holds, its run and its results.
             with _timed(clocks, str(setup.get("id"))) as setup_clocks:
                 held, held_reason, state, assembly_error = self._held(setup, outputs)
                 if held_reason is None:
@@ -3892,31 +3892,31 @@ class _Job:
                 runner = _Setup(self, setup, held, held_reason, state, leave)
                 runner.timing = setup_clocks
                 facts, ops = runner.run()
-            if assembly_error is not None:
-                facts["assembly_error"] = assembly_error
-            sid = str(setup.get("id"))
-            result["setups"][sid] = facts
-            result["ops"].update(ops)
-            outputs[sid] = runner.stock_out, runner.stock_out_reason
-            self.states[sid] = {
-                "components": state["components"],
-                "completed": runner.completed if runner.stock_out_reason is None else {},
-                "joined": state["joined"],
-                "consumed": state["consumed"],
-                "formed": state["formed"],
-            }
-            if sid in self.formed_rows:
-                facts["forms"] = self.formed_rows[sid]
-            leaves[sid] = runner.leave_out
-            if rotary:
-                self._collect_rotary_portions(runner)
-            lineage[sid] = {
-                up
-                for ref in refs
-                if isinstance(ref, str) and ref in lineage
-                for up in (ref, *lineage[ref])
-            }
-            runners.append((sid, runner))
+                if assembly_error is not None:
+                    facts["assembly_error"] = assembly_error
+                sid = str(setup.get("id"))
+                result["setups"][sid] = facts
+                result["ops"].update(ops)
+                outputs[sid] = runner.stock_out, runner.stock_out_reason
+                self.states[sid] = {
+                    "components": state["components"],
+                    "completed": runner.completed if runner.stock_out_reason is None else {},
+                    "joined": state["joined"],
+                    "consumed": state["consumed"],
+                    "formed": state["formed"],
+                }
+                if sid in self.formed_rows:
+                    facts["forms"] = self.formed_rows[sid]
+                leaves[sid] = runner.leave_out
+                if rotary:
+                    self._collect_rotary_portions(runner)
+                lineage[sid] = {
+                    up
+                    for ref in refs
+                    if isinstance(ref, str) and ref in lineage
+                    for up in (ref, *lineage[ref])
+                }
+                runners.append((sid, runner))
         with _timed(phases, "cross_setup"):
             for sid, runner in runners:
                 # Rule A′: a printed checkpoint must not remove stock a later setup contacts.
