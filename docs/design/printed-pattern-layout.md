@@ -148,8 +148,8 @@ inputs, like the traveler, and the traveler run writes it beside
 | Registration circles | each `register.holes` hole as a circle at the pin set's nominal diameter `P_n`, with a centre crosshair | the kernel (hole axis on the `on` plane) and the pin set |
 | Keep side | a short "KEEP" label and hatching on the waste side of each followed line | the saw's `remove` side (§2.5) |
 | Check bars | one bar per axis (D3), each with end ticks, its nominal length and its accept window; the post-glue bars placed inside the `on` face's outline, the pre-glue bars along the sheet margin | `scale_check` |
-| Line stations | each station's tick on the line, its X and its pin-to-line window (§4.8) | the rule |
-| Title block | part name; `STEP sha256` (full); plan revision; setup and op; engine digest; sheet size; the scale statement `SCALE 1:1 — PRINT AT 100 % / ACTUAL SIZE — NO FIT TO PAGE`; the pattern file's own SHA-256 is not printed on itself (it cannot be), the traveler carries it | bundle identity |
+| Line stations | each station's tick on the line, and from each pin it is read from a printed dimension line, pin edge to tick, labelled with its window (§4.8), so the calipers lie along the printed line and the measuring direction is on the paper | the rule |
+| Title block | the match code in large type (below), which the operator compares with the traveler; then the full identities for audit: part name, `STEP sha256`, plan revision, setup and op, engine digest; sheet size; the scale statement `SCALE 1:1 — PRINT AT 100 % / ACTUAL SIZE — NO FIT TO PAGE`; the pattern file's own SHA-256 is not printed on itself (it cannot be), the traveler carries it | bundle identity |
 
 **Format.** A one-page vector PDF whose page box is exactly the declared
 `sheet` (tabloid 279.4 × 431.8, A3 297 × 420), zero margins, user unit
@@ -173,9 +173,14 @@ digest joins the traveler's identity, and the kernel cache key gains the op's
 feature list and `on` face, so a changed STEP or plan re-runs the geometry.
 
 **How the traveler references it.** The T2A row names the file
-`pattern-T2A-10.pdf` and the first 12 hex of its SHA-256. The operator checks
-the title block's plan revision and STEP digest against the traveler's front
-sheet. A traveler run without a kernel writes no pattern: the row is a STOP
+`pattern-T2A-10.pdf` and one short **match code** (six characters from an
+unambiguous alphabet, printed as `K7Q-4MD`). The print's title block carries
+the same code in large type, and the operator compares the two. The code is
+derived from the SHA-256 of the drawing content before the title block is
+stamped (a file cannot carry its own hash), so any change to the geometry,
+bars, stations or identities changes it. Full identities live on the title
+block (STEP digest, plan revision, engine digest) and in `report.json` (those
+plus the finished file's SHA-256). The traveler prints no truncated hash. A traveler run without a kernel writes no pattern: the row is a STOP
 and the exit is 4, as for any missing kernel fact.
 
 **The printing consumable.** What the engine cannot generate is how a given
@@ -208,14 +213,14 @@ products = ["3M Super 77, 16.75 oz can"]
 surface_prep = "Wipe the face with isopropyl alcohol; dry; no oil film or chips."
 apply = "Spray a light coat on the back of the print only, from about 200 mm; wait the tack time; lay it on over the pins and smooth from the pins outward with a dry cloth."
 tack_s = { value = 30, cite = "..." }          # wait between spraying and laying on
-removal = { method = "solvent", agent = "...", wait_min = 2, cite = "..." }
+removal = { method = "solvent", agent = "<consumables id>", wait_min = 2, cite = "..." }
 ```
 
 | Field | Type | Unknown or untrusted |
 |---|---|---|
 | `surface_prep`, `apply` | text | STOP on that step |
 | `tack_s` | `CitedFact` | STOP on the glue step |
-| `removal` | `{ method = "solvent" \| "peel" \| "heat", agent \| temp_c, wait_min, cite }` (the area hold's release record, generalized) | STOP on the removal op |
+| `removal` | `{ method = "solvent" \| "peel" \| "heat", agent \| temp_c, wait_min, cite }` (the area hold's release record, generalized); `agent` names a `consumables` item, whose `name` the row prints | STOP on the removal op, including an agent that is not in the consumables inventory |
 
 Both new kinds join `ConsumableEntry`. `model._consumable_kind` today returns
 `"adhesive_tape"` for *any* stated `kind`, so it becomes a lookup over the
@@ -516,8 +521,8 @@ features and print no centre). In `sheet.manual_arc_steps`, the scribe branch
 for this layout prints the pattern instead of a centre and radius:
 
 ```text
-Layout: glue the 1:1 print pattern-T2A-10.pdf (SHA-256 3f9a1d07c21e…,
-STEP 6cd4ab60…, plan v40) on the strap top face; lines used: top edge R800,
+Layout: glue the 1:1 print pattern-T2A-10.pdf (match code K7Q-4MD) on the
+strap top face; lines used: top edge R800,
 bottom edge R816, east and west end lands.
 ```
 
@@ -533,7 +538,7 @@ row and adds it to the setup's STOP list; no partial recipe prints.
 
 | # | Printed or consumed value | Proven by | STOP form |
 |---|---|---|---|
-| G1 | pattern file name and SHA-256; title block STEP digest and plan revision | the kernel returned every listed feature's edges on the `on` plane and every registration hole's axis; the PDF was written | `STOP: pattern not generated — <reason>` (no kernel: exit 4) |
+| G1 | pattern file name and match code (the title block and `report.json` carry the full identities) | the kernel returned every listed feature's edges on the `on` plane and every registration hole's axis; the PDF was written | `STOP: pattern not generated — <reason>` (no kernel: exit 4) |
 | G2 | sheet and "actual size, one sheet" | `sheet` known; outline plus bars fit it | `STOP: print does not fit one <sheet> sheet` |
 | G3 | each check bar: axis, `length_mm`, accept window | `scale_check` entry; bar fits the sheet; post-glue bar inside the `on` face | `STOP: check bar <axis> not established` |
 | G4 | the gauge that reads the bars | gauge resolves, range covers `length_mm`, `mpe_mm` cited | `STOP: scale check gauge not established` |
@@ -552,8 +557,13 @@ row and adds it to the setup's STOP list; no partial recipe prints.
 
 ## 7. Traveler mock-up: T2 (for the blind machinist read)
 
-The values are this document's illustrative ones, not shop facts. T2A is a
-bench setup, so it prints the ASSEMBLY / FINISHING table (step, feature,
+The values are this document's illustrative ones, not shop facts. The
+example inventory has no solvent consumable, so T3's removal row shows the
+STOP it prints until one is recorded. The bandsaw's hold and blade pitch are
+not specified here: T2B prints the hand-fed hold line of
+[#335](https://github.com/pedropaulovc/prechips/issues/335) and the blade
+TPI fact of [#336](https://github.com/pedropaulovc/prechips/issues/336)
+(implemented in #341). T2A is a bench setup, so it prints the ASSEMBLY / FINISHING table (step, feature,
 material / consumable, action, inspection). T2B is the bandsaw's machine
 card.
 
@@ -562,14 +572,14 @@ SETUP T2A — fitting bench — ASSEMBLY / FINISHING
 Stock in: strap blank from T1, both faces faced, pivot bore and two tooling holes drilled.
 
 Step 10 | top edge, bottom edge, east and west end lands
-  Consumable: pattern-T2A-10.pdf (made with this traveler; SHA-256
-              3f9a1d07c21e…), printed on tabloid laser paper;
+  Consumable: pattern-T2A-10.pdf, match code K7Q-4MD (made with this
+              traveler), printed on tabloid laser paper;
               3M Super 77 spray adhesive
   Action:
    a. Print pattern-T2A-10.pdf on one tabloid sheet at ACTUAL SIZE (100 %).
-      Turn off "fit to page" and any "shrink" option. Check the title block:
-      STEP 6cd4ab60f57b…, plan v40, SCALE 1:1, the same as this traveler's
-      front sheet.
+      Turn off "fit to page" and any "shrink" option. The title block must
+      show match code K7Q-4MD and SCALE 1:1. Another code: wrong print,
+      do not use.
    b. Before gluing, with the 18 in calipers, on the sheet margin:
       bar X 299.85–300.15; bar Y 199.85–200.15; diagonal 360.41–360.71.
       On the strap outline: bar X 299.85–300.15; bar Y 29.95–30.05.
@@ -584,8 +594,12 @@ Step 10 | top edge, bottom edge, east and west end lands
    f. At each pin, with the loupe: the pin's edge is inside the printed
       circle's line all the way round. If not: peel the print off, reprint,
       go back to c.
-   g. Pins still in. At each station tick, read with the calipers' jaw tips
-      from the near edge of each named pin to where the tick crosses the line:
+   g. Pins still in. At each station the print shows a dimension line from
+      a pin to the tick on the outline; it runs straight from the pin's
+      centre to the point where the tick crosses the outline. Lay the
+      calipers' outside-jaw tips along that printed line: one tip against
+      the side of the pin that faces the station, the other on the point
+      where the tick crosses the outline. Read:
         station           from pivot pin     from tooling pin
         top    X -140     139.20–139.74      21.23–21.77 (west)
         top    X    0       5.73–6.27        —  (pivot only; Y direction)
@@ -597,6 +611,11 @@ Step 10 | top edge, bottom edge, east and west end lands
    h. Pull the pins.
 
 SETUP T2B — 4x6 bandsaw, VERTICAL mode
+Stock: 1018 strap, 2.5 thick, print glued on top.
+Hold: [the hand-fed hold line from #335: table, guide height, hand position]
+Blade: [the blade line with its TPI and teeth in the 2.5 mm work, #336/#341]
+Lay the strap flat on the table, print up. Keep the side of each line
+marked KEEP; the hatched side is waste.
 Op | Feature     | Tool        | Speed    | Feed                    | Action
 10 | top edge    | 1/2 in blade| 165 sfm  | by hand along the line  | Just before cutting: read check bar X
    |             |             |          |                         | on the strap: 299.85–300.15; bar Y:
@@ -611,9 +630,14 @@ Op | Feature     | Tool        | Speed    | Feed                    | Action
 
 SETUP T3 — first bench step
 Step 5 | strap top face
-  Action: Remove the print: <removal agent>, wait 2 min, peel; wipe the face
-          clean. Nothing of the paper or glue may stay on the face the jig
-          sits on.
+  Action: STOP: print removal not established — the adhesive record names
+          no removal agent in the consumables inventory — do not run T3.
+
+  (With a cited removal record whose agent is a consumables item, the row
+  prints that item's name, the wait, "peel the paper off; wipe the adhesive
+  left on the face off with a rag wet with <the same item>; wipe the face
+  with isopropyl alcohol; dry", and "the face must feel clean, not tacky".
+  No removal text is ever printed from a placeholder.)
 ```
 
 With following error 0.5 instead of 0.3 (§10), T2B's rows print instead:
@@ -781,6 +805,17 @@ round), no re-review was requested:
   D2. The print is now generated from the bundle's STEP, so a wrong outline
   is a generator defect, caught by the round-trip tests (§8.4). The stations
   still catch a printer path that does not render the file faithfully.
+
+Blind machinist read of §7 (coordinator, on `cf281b8`): five findings applied
+to the design, all addressed in the next commit. The removal agent is now
+taken from the consumables inventory or printed as a STOP; the example
+inventory has none, so the mock-up shows the STOP. Truncated hashes are
+replaced by one match code printed on both the traveler and the print, with
+full identities on the title block and in `report.json`. Each station
+reading names its edges and direction: the side of the pin facing the
+station, along a printed dimension line from the pin centre. T2B references
+#335's hand-fed hold line and #336's blade TPI fact, and names the keep
+side.
 
 Not re-reviewed: the D2 rework (§2.2, §8.4, phase 3b) and the station
 geometry (two pins, normal-direction bound). The §10 arithmetic leaves out
