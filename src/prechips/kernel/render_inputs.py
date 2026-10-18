@@ -237,16 +237,15 @@ _WASTE_KEY_MM = 6.0
 
 def hand_fed_scene(bundle, setup, scale):
     """What a hand-fed cut's picture draws beside the work (#335): ``paths`` (each cut's
-    saw path, the scribed arc offset by ``allowance_mm`` to the side the saw removes,
-    within the op's ``stock_removal_bounds``, run from the hold's ``feed_from`` end with
-    feed arrows; the scribed line itself dashed), plain ``waypoints`` keys (START, SAW
-    PATH with its minimum leave, SCRIBED LINE, WASTE), each cut's items a sketch ``pair``
-    whose ``merged`` view (the scribed line alone, fed along, its WASTE key stating the
-    minimum leave) draws when the two lines print too close to tell apart, and
-    render-only ``boxes`` (the saw
-    table under the work, the band standing at the cut start up to the upper guide, the
-    push aid behind the work's trailing end). Empty for a hold that is not an admitted
-    hand-fed one; a cut whose line the kernel cannot place draws nothing."""
+    scribed line, within the op's ``stock_removal_bounds``, arrowed the way the work moves
+    from the hold's ``feed_from``, its ``waste_xy`` a point on the side the saw removes so
+    the sketch shades that waste of the entry blank), ``feed_lines`` (the saw path, the
+    scribed arc offset by ``allowance_mm`` into the waste, on the work's top face), plain
+    ``waypoints`` keys (START, SCRIBED LINE, WASTE with the minimum leave, KEEP) and
+    render-only ``boxes`` (the saw table under the work, the band standing at the cut
+    start up to the upper guide, the push aid behind the work's trailing end). Empty for a
+    hold that is not an admitted hand-fed one; a cut whose line the kernel cannot place
+    draws nothing."""
     from prechips.kernel import removal_bounds, scribed_profile
 
     scene = {"paths": [], "waypoints": [], "boxes": [], "feed_lines": []}
@@ -302,56 +301,46 @@ def hand_fed_scene(bundle, setup, scale):
         if start is not None and (line[-1][start[0]] - line[0][start[0]]) * start[1] > 0:
             line.reverse()
         name = str(op["op"])
-        pair = f"hand-fed op {name}"
         fed = start is not None
         # saw and line run from the start end, where the blade enters. The work moves the
         # other way, its start end leading into the stationary blade and the push aid
         # behind its trailing end, so the arrows run from the trailing end to the start.
-        moves = [saw[::-1], line[::-1]] if fed else [saw, line]
-        scene["paths"] += [
-            {"op": name, "xy": moves[0], "directed": fed, "feed": True, **_view(pair, "apart")},
-            {"op": name, "xy": line, "dashed": True, **_view(pair, "apart")},
-            # Too close to print apart: the one line the operator follows, fed along.
-            {"op": name, "xy": moves[1], "directed": fed, "feed": True, **_view(pair, "merged")},
-        ]
-        if start is not None and number(state.get("top_z")):
+        moving = line[::-1] if fed else line
+        middle = line[len(line) // 2]
+        reach = math.dist(middle, centre)
+        waste, keep = (
+            [
+                round(
+                    centre[i] + (middle[i] - centre[i]) * (reach + side * _WASTE_KEY_MM) / reach, 6
+                )
+                for i in (0, 1)
+            ]
+            for side in (sign, -sign)
+        )
+        # The sketch: the scribed line, the one heavy line, bounding the waste it cuts off
+        # the entry blank (shaded, its outline thin); no separate saw path is drawn.
+        scene["paths"].append(
+            {"op": name, "xy": moving, "directed": fed, "feed": True, "waste_xy": waste}
+        )
+        if fed and number(state.get("top_z")):
             # The holding picture's feed: the saw path on the work's top face, arrowed the
             # way the work moves.
             top = state["top_z"] * scale
             scene["feed_lines"].append(
                 {
                     "label": f"WORK FEED INTO THE BLADE (OP {name})",
-                    "xyz": [[x, y, top] for x, y in moves[0]],
+                    "xyz": [[x, y, top] for x, y in saw[::-1]],
                 }
             )
-        middle = saw[len(saw) // 2]
-        reach = math.dist(middle, centre)
-        waste = [
-            centre[i] + (middle[i] - centre[i]) * (reach + sign * _WASTE_KEY_MM) / reach
-            for i in (0, 1)
-        ]
-        waste = [round(v, 6) for v in waste]
-        leave_text = _mm_text(leave)
         keys = [
-            (
-                "SAW PATH (WASTE SIDE), LEAVE " + leave_text + " MM MIN",
-                middle,
-                _view(pair, "apart"),
-            ),
-            ("SCRIBED LINE", line[len(line) // 2], _view(pair, "apart")),
-            ("WASTE", waste, _view(pair, "apart")),
-            ("SCRIBED LINE: SAW ON ITS WASTE SIDE", line[len(line) // 2], _view(pair, "merged")),
-            (
-                "WASTE: LEAVE " + leave_text + " MM MIN OUTSIDE THE LINE",
-                waste,
-                _view(pair, "merged"),
-            ),
+            ("SCRIBED LINE", middle),
+            ("WASTE: SAW HERE, " + _mm_text(leave) + " MM MIN OFF THE LINE", waste),
+            ("KEEP", keep),
         ]
-        if start is not None:
-            keys.insert(0, ("START", saw[0], {}))
+        if fed:
+            keys.insert(0, ("START", line[0]))
         scene["waypoints"] += [
-            {"label": label, "op": name, "xy": xy, "plain": True, **view}
-            for label, xy, view in keys
+            {"label": label, "op": name, "xy": xy, "plain": True} for label, xy in keys
         ]
         if start is not None and number(state.get("top_z")) and number(state.get("bottom_z")):
             # The band stands at the cut start, from the table to the upper guide.
@@ -376,12 +365,6 @@ def hand_fed_scene(bundle, setup, scale):
                 }
             )
     return scene
-
-
-def _view(pair, view):
-    """A sketch item's place in ``pair``: drawn in its ``"apart"`` view, or in its
-    ``"merged"`` one when the pair's curves print too close to tell apart."""
-    return {"pair": pair, "pair_view": view}
 
 
 def _mm_text(value):

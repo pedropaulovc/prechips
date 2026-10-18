@@ -2,7 +2,6 @@
 (#335)."""
 
 import json
-import math
 import re
 
 import pytest
@@ -91,7 +90,7 @@ def test_the_hold_prints_the_hand_fed_line_and_no_stop():
     steps, _ = _Traveler(bundle, findings, {}, None).hold(setup)
     text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", steps))
     assert "fed by hand on the saw table" in text.lower()
-    assert "on the waste side of the line scribed in S1 op 10" in text
+    assert "guided by the line scribed in S1 op 10" in text
     assert "STOP" not in text
 
 
@@ -336,63 +335,66 @@ def scene(bundle, sid=1):
     return hand_fed_scene(bundle, bundle.plan["setups"][sid], 1.0)
 
 
-def view(drawn, merged):
-    """The sketch items a panel draws with the scene's pair ``merged`` or apart."""
-    pairs = {item["pair"] for item in drawn["paths"] if "pair" in item} if merged else set()
-    return render_diagram._paired_view(drawn["paths"], drawn["waypoints"], pairs)
+def keys(drawn):
+    return {key["label"]: key["xy"] for key in drawn["waypoints"]}
 
 
-def test_the_picture_draws_the_saw_path_from_the_declared_end_beside_the_scribed_line():
+def test_the_sketch_draws_the_one_scribed_line_with_its_waste_keep_and_minimum_leave():
     bundle = load_bundle(BUNDLE / "plan.toml")
-    paths, waypoints = view(scene(bundle), merged=False)
-    saw, line = paths
-    assert saw["op"] == "10" and saw["directed"] is True and saw["feed"] is True
-    assert line["dashed"] is True and "directed" not in line
-    assert saw["xy"][0][0] > saw["xy"][-1][0]  # feed_from = "-X": the work moves to -X
-    keys = [key["label"] for key in waypoints]
-    assert keys == ["START", "SAW PATH (WASTE SIDE), LEAVE 0.450 MM MIN", "SCRIBED LINE", "WASTE"]
-    assert all(key["plain"] for key in waypoints)
-    # The R800 top edge's saw removes inside the circle: the WASTE key points that way.
-    assert waypoints[-1]["xy"][1] > waypoints[1]["xy"][1]
-
-
-def test_lines_too_close_to_print_apart_draw_as_the_one_scribed_line_with_the_leave_stated():
-    bundle = load_bundle(BUNDLE / "plan.toml")
-    paths, waypoints = view(scene(bundle), merged=True)
-    (line,) = paths
-    assert line["directed"] is True and line["feed"] is True and "dashed" not in line
-    assert line["xy"][0][0] > line["xy"][-1][0]  # the work moves to -X along the line
-    keys = [key["label"] for key in waypoints]
-    assert keys == [
+    drawn = scene(bundle)
+    (line,) = drawn["paths"]  # no separate saw path
+    assert line["op"] == "10" and line["directed"] is True and line["feed"] is True
+    assert line["xy"][0][0] > line["xy"][-1][0]  # feed_from = "-X": the work moves to -X
+    assert list(keys(drawn)) == [
         "START",
-        "SCRIBED LINE: SAW ON ITS WASTE SIDE",
-        "WASTE: LEAVE 0.450 MM MIN OUTSIDE THE LINE",
+        "SCRIBED LINE",
+        "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE",
+        "KEEP",
     ]
+    assert all(key["plain"] for key in drawn["waypoints"])
+    # The R800 top edge's saw removes inside the circle (+Y here): waste above, keep below.
+    labelled = keys(drawn)
+    assert line["waste_xy"] == labelled["WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE"]
+    assert labelled["KEEP"][1] < labelled["SCRIBED LINE"][1] < line["waste_xy"][1]
 
 
-def offset_arc(gap, span=290.0):
-    """Two concentric R800 arcs ``gap`` mm apart across ``span`` mm, as a sketch pair."""
-    arcs = [
-        [[x, math.sqrt((800 + r) ** 2 - x * x)] for x in range(-int(span / 2), int(span / 2), 5)]
-        for r in (0.0, gap)
-    ]
-    return [{"op": "10", "xy": xy, "pair": "p", "pair_view": "apart"} for xy in arcs]
+# The example's entry blank in the setup frame T (zero 8 mm up the bar's Y).
+BLANK = [-146.254568, -8.0, -8.0565, 146.254568, 21.29464, 1.0]
 
 
-@pytest.mark.parametrize(
-    ("gap", "width", "merged"),
-    [
-        (0.45, 700, {"p"}),  # the example: under a pixel apart at the panel's scale
-        (2.5, 700, {"p"}),  # just under the 8 px resolution at about 2.2 px/mm
-        (4.5, 700, set()),  # just over it
-        (4.5, 300, {"p"}),  # the same lines in a narrower panel
-    ],
-)
-def test_a_sketch_pair_merges_only_when_its_curves_print_too_close(gap, width, merged):
-    paths = offset_arc(gap)
-    points = [p for path in paths for p in path["xy"]]
-    project = render_diagram._width_projector(width, points)
-    assert render_diagram._merged_pairs(paths, project) == merged
+def on_rim(point, box, tol=1e-6):
+    x, y = point
+    x0, y0, _, x1, y1, _ = box
+    inside = x0 - tol <= x <= x1 + tol and y0 - tol <= y <= y1 + tol
+    return inside and min(abs(x - x0), abs(x - x1), abs(y - y0), abs(y - y1)) <= tol
+
+
+def test_the_shaded_waste_is_bounded_by_the_blank_outline_and_the_scribed_arc():
+    bundle = load_bundle(BUNDLE / "plan.toml")
+    drawn = scene(bundle)
+    (line,) = drawn["paths"]
+    region = render_diagram._waste_region(line["xy"], BLANK, line["waste_xy"])
+    assert region
+    arc = {tuple(point) for point in line["xy"]}
+    # Every vertex is on the scribed arc or on the blank's outline, and both bound it.
+    assert all(tuple(v) in arc or on_rim(v, BLANK) for v in region)
+    assert sum(tuple(v) in arc for v in region) > 100
+    # The arc leaves the blank through its top face: that edge closes the crescent.
+    closing = [v for v in region if tuple(v) not in arc]
+    assert len(closing) == 2 and all(v[1] == pytest.approx(BLANK[4]) for v in closing)
+    assert render_diagram._contains(region, line["waste_xy"])
+    assert not render_diagram._contains(region, keys(drawn)["KEEP"])
+
+
+def test_a_line_that_does_not_cross_the_blank_shades_nothing():
+    arc = [[x, 5.0 + x * x / 1600] for x in range(-50, 51, 5)]  # ends inside the blank
+    assert render_diagram._waste_region(arc, BLANK, [0.0, 15.0]) is None
+    full = [[x, 5.0] for x in range(-200, 201, 5)]  # crosses it: the side above is waste
+    region = render_diagram._waste_region(full, BLANK, [0.0, 15.0])
+    assert sorted(region) == sorted(
+        [(BLANK[0], 5.0), *[(x, 5.0) for x in range(-145, 146, 5)], (BLANK[3], 5.0)]
+        + [(BLANK[3], BLANK[4]), (BLANK[0], BLANK[4])]
+    )
 
 
 def test_the_picture_draws_the_saw_table_blade_and_push_aid():
@@ -419,12 +421,11 @@ def test_the_feed_arrows_push_aid_and_hold_all_follow_the_declared_start_end(
     setup["hold"]["feed_from"] = feed_from
     drawn = scene(bundle)
     (feed,) = drawn["feed_lines"]
-    paths, waypoints = view(drawn, merged=True)
-    for xy in (feed["xyz"], paths[0]["xy"]):
+    (line,) = drawn["paths"]
+    for xy in (feed["xyz"], line["xy"]):
         assert (xy[-1][0] - xy[0][0]) * sign > 0  # arrows run the way the work moves
-    start = next(key["xy"] for key in waypoints if key["label"] == "START")
-    saw = view(drawn, merged=False)[0][0]["xy"]
-    assert start == saw[-1]  # the arrows end where the blade enters
+    start = keys(drawn)["START"]
+    assert start == line["xy"][-1]  # the arrows end where the blade enters
     boxes = {box["name"]: box for box in drawn["boxes"]}
     assert [trailing, 0.0] in map(list, boxes["push aid"]["stock_mm"][0])
     blade = boxes["band op 10"]["box_mm"]

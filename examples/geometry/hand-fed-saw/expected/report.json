@@ -2831,7 +2831,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "9ff1b8cf968a450fec0627fe7a0806f41030f42990badc053406106d64bf8d2c",
+  "hash": "7fc4027840f8a5b3ff9f1db8fbad8aada764341bb75a3fe21d3af4fa5e91312e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2855,7 +2855,7 @@
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "ce12799ad21ab88f33bcb38cc66054c927d1576b939d8d7ac2a52bc64f8056cf"
+      "sha256": "1667ac8a719fa026699c563f69999904ae8f747654d0c301b588dfd4c5e8ed06"
     },
     "shop_policy": {
       "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -3037,26 +3037,13 @@
             "op": "10",
             "plain": true,
             "xy": [
-              -145.60098,
-              21.819005
-            ]
-          },
-          {
-            "label": "SAW PATH (WASTE SIDE), LEAVE 0.450 MM MIN",
-            "op": "10",
-            "pair": "hand-fed op 10",
-            "pair_view": "apart",
-            "plain": true,
-            "xy": [
-              0.99604,
-              8.45062
+              -145.682927,
+              21.376529
             ]
           },
           {
             "label": "SCRIBED LINE",
             "op": "10",
-            "pair": "hand-fed op 10",
-            "pair_view": "apart",
             "plain": true,
             "xy": [
               0.996601,
@@ -3064,42 +3051,27 @@
             ]
           },
           {
-            "label": "WASTE",
+            "label": "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE",
             "op": "10",
-            "pair": "hand-fed op 10",
-            "pair_view": "apart",
             "plain": true,
             "xy": [
-              0.988565,
-              14.450615
+              0.989126,
+              14.000616
             ]
           },
           {
-            "label": "SCRIBED LINE: SAW ON ITS WASTE SIDE",
+            "label": "KEEP",
             "op": "10",
-            "pair": "hand-fed op 10",
-            "pair_view": "merged",
             "plain": true,
             "xy": [
-              0.996601,
-              8.000621
-            ]
-          },
-          {
-            "label": "WASTE: LEAVE 0.450 MM MIN OUTSIDE THE LINE",
-            "op": "10",
-            "pair": "hand-fed op 10",
-            "pair_view": "merged",
-            "plain": true,
-            "xy": [
-              0.988565,
-              14.450615
+              1.004076,
+              2.000626
             ]
           }
         ],
         "width_px": 1600
       },
-      "sha256": "ce12799ad21ab88f33bcb38cc66054c927d1576b939d8d7ac2a52bc64f8056cf"
+      "sha256": "1667ac8a719fa026699c563f69999904ae8f747654d0c301b588dfd4c5e8ed06"
     }
   },
   "rules_version": "m5-rev12",

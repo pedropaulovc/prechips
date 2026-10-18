@@ -428,12 +428,12 @@ def test_a_saw_to_the_scribed_line_roughs_the_arc_for_the_file():
     [
         (
             scribed(),
-            "Hand saw on the waste side of the line scribed in S1 op 10, leave at least "
-            "0.500 mm for filing, the scribed line still showing.",
+            "Hand saw guided by the line scribed in S1 op 10, leave at least 0.500 mm on "
+            "the waste side of the scribed line for filing.",
         ),
         (
             scribed(allowance_mm="unknown"),
-            "STOP: stock to leave for filing not established",
+            "STOP: stock to leave on the waste side for filing not established",
         ),
         (
             saw(cut_plane=dict(PLANE)),

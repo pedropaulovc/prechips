@@ -66,8 +66,6 @@ _EVERY_PASS = 8
 # The least height a profile sketch's plot keeps between its key rows; a picture whose
 # sketches cannot all keep it grows taller.
 _SKETCH_PLOT_MIN = 30
-# Two paired sketch curves closer than this (px) print as one line (:func:`_paired_view`).
-_SKETCH_RESOLVE_PX = 8.0
 _SKETCH_SPAN_EPSILON_MM = 1e-9
 # Finished-outline chords stay within half a pixel at the largest possible profile-sketch
 # scale. A one-op band may use the full page width and grow to this height.
@@ -704,71 +702,99 @@ def _segment_distance(point, a, b):
     return math.dist(point, (a[0] + t * dx, a[1] + t * dy))
 
 
-def _curve_gap(first, second, project):
-    """The least pixel distance, under ``project``, from a point of polyline ``first`` to
-    polyline ``second`` (or between their points when either is a single point)."""
-    a = [project(p) for p in first]
-    b = [project(p) for p in second]
-    segments = list(zip(b, b[1:], strict=False)) or [(b[0], b[0])]
-    return min(_segment_distance(point, *segment) for point in a for segment in segments)
+def _panel_items(op, paths, waypoints, stock=None):
+    """One operation panel's ``(paths, waypoints, drawn points)``. A panel that shades a
+    path's waste (``waste_xy``) also draws the entry ``stock`` box's XY outline, so its
+    corners are drawn points too."""
+    op_paths = [p for p in paths if str(p.get("op", "")) == op]
+    op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
+    points = [p for path in op_paths for p in path["xy"]]
+    points.extend(p["xy"] for p in op_waypoints)
+    if points and stock and any("waste_xy" in path for path in op_paths):
+        points.extend(_stock_outline(stock)[:4])
+    return op_paths, op_waypoints, points
 
 
-def _merged_pairs(paths, project):
-    """The ``pair`` names whose ``pair_view = "apart"`` curves come closer than
-    :data:`_SKETCH_RESOLVE_PX` under ``project``: drawn side by side they would print as
-    one line under colliding keys (#335)."""
-    curves = defaultdict(list)
-    for path in paths:
-        if path.get("pair_view") == "apart" and path.get("xy"):
-            curves[path.get("pair")].append(path["xy"])
-    return {
-        pair
-        for pair, group in curves.items()
-        if any(
-            _curve_gap(a, b, project) < _SKETCH_RESOLVE_PX
-            for index, a in enumerate(group)
-            for b in group[index + 1 :]
+def _stock_outline(stock):
+    """The XY outline of the stock box ``stock`` (``[x0, y0, z0, x1, y1, z1]``), closed,
+    counter-clockwise from its least corner."""
+    x0, y0, _, x1, y1, _ = stock
+    return [(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)]
+
+
+def _rim(rect, point):
+    """Where ``point`` (on the boundary of ``rect`` ``(x0, y0, x1, y1)``) lies along that
+    boundary, walked counter-clockwise from the least corner."""
+    x0, y0, x1, y1 = rect
+    w, h = x1 - x0, y1 - y0
+    x, y = point
+    sides = [
+        (abs(y - y0), x - x0),
+        (abs(x - x1), w + y - y0),
+        (abs(y - y1), w + h + x1 - x),
+        (abs(x - x0), 2 * w + h + y1 - y),
+    ]
+    return min(sides)[1] % (2 * (w + h))
+
+
+def _crossing(inside, outside, rect):
+    """Where the segment from ``inside`` to ``outside`` leaves ``rect``."""
+    x0, y0, x1, y1 = rect
+    (ax, ay), (bx, by) = inside, outside
+    t = 1.0
+    for low, high, a, b in ((x0, x1, ax, bx), (y0, y1, ay, by)):
+        if b < low:
+            t = min(t, (low - a) / (b - a))
+        elif b > high:
+            t = min(t, (high - a) / (b - a))
+    return (ax + (bx - ax) * t, ay + (by - ay) * t)
+
+
+def _contains(polygon, point):
+    """Whether ``point`` lies inside ``polygon`` (even-odd rule)."""
+    x, y = point
+    inside = False
+    for (ax, ay), (bx, by) in zip(polygon, polygon[1:] + polygon[:1], strict=True):
+        if (ay > y) != (by > y) and x < ax + (bx - ax) * (y - ay) / (by - ay):
+            inside = not inside
+    return inside
+
+
+def _waste_region(line, stock, waste):
+    """The polygon of the stock box ``stock``'s XY rectangle that the open polyline
+    ``line`` cuts off on the side of the point ``waste`` (#335): ``line``'s run inside the
+    rectangle, closed by the rectangle's boundary walked the way that holds ``waste``.
+    None when ``line`` does not cross the rectangle from boundary to boundary in one run,
+    or ``waste`` lies in neither part: an undelimited region is never shaded."""
+    x0, y0, _, x1, y1, _ = stock
+    rect = (x0, y0, x1, y1)
+    inside = [x0 <= x <= x1 and y0 <= y <= y1 for x, y in line]
+    if True not in inside:
+        return None
+    first = inside.index(True)
+    last = len(inside) - 1 - inside[::-1].index(True)
+    if first == 0 or last == len(line) - 1 or not all(inside[first : last + 1]):
+        return None
+    run = [
+        _crossing(line[first], line[first - 1], rect),
+        *map(tuple, line[first : last + 1]),
+        _crossing(line[last], line[last + 1], rect),
+    ]
+    perimeter = 2 * (x1 - x0 + y1 - y0)
+    corners = [(_rim(rect, c), c) for c in _stock_outline(stock)[:4]]
+    start, end = _rim(rect, run[0]), _rim(rect, run[-1])
+    for sign in (1, -1):
+        # Walk the boundary from the run's end back to its start, one way, then the other.
+        span = (sign * (start - end)) % perimeter
+        walk = sorted(
+            ((sign * (t - end)) % perimeter, corner)
+            for t, corner in corners
+            if 0 < (sign * (t - end)) % perimeter < span
         )
-    }
-
-
-def _paired_view(paths, waypoints, merged):
-    """``(paths, waypoints)`` with one view of each ``pair`` kept: its ``"apart"`` items
-    (its curves side by side under their own keys), or, for a pair in ``merged``
-    (:func:`_merged_pairs`), its ``"merged"`` items (one curve, its keys stating the gap).
-    Items without a pair always draw."""
-
-    def kept(item):
-        view = item.get("pair_view")
-        return view is None or (view == "merged") == (item.get("pair") in merged)
-
-    return [p for p in paths if kept(p)], [w for w in waypoints if kept(w)]
-
-
-def _width_projector(width, points):
-    """The scale-only projector of a ``width``-wide sketch of ``points`` at the most its
-    width allows (:meth:`_Diagram._sketch_bands`): a pair unresolved here is unresolved
-    however the plot is laid out."""
-    xmin, _, xmax, _ = _bounds(points)
-    factor = (width - 72) / max(xmax - xmin, _SKETCH_SPAN_EPSILON_MM)
-    return lambda p: (p[0] * factor, p[1] * factor)
-
-
-def _panel_items(op, paths, waypoints, width):
-    """One ``width``-wide operation panel's items: ``(every path, every waypoint, merged
-    pairs, drawn paths, drawn waypoints, drawn points)``, the drawn ones with one view of
-    each pair (:func:`_paired_view`) chosen at the scale the panel's width allows."""
-    every_path = [p for p in paths if str(p.get("op", "")) == op]
-    every_waypoint = [p for p in waypoints if str(p.get("op", "")) == op]
-    points = [p for path in every_path for p in path["xy"]]
-    points.extend(p["xy"] for p in every_waypoint)
-    if not points:
-        return every_path, every_waypoint, set(), [], [], []
-    merged = _merged_pairs(every_path, _width_projector(width, points))
-    drawn_paths, drawn_waypoints = _paired_view(every_path, every_waypoint, merged)
-    drawn = [p for path in drawn_paths for p in path["xy"]]
-    drawn.extend(p["xy"] for p in drawn_waypoints)
-    return every_path, every_waypoint, merged, drawn_paths, drawn_waypoints, drawn
+        polygon = run + [corner for _, corner in walk]
+        if _contains(polygon, waste):
+            return polygon
+    return None
 
 
 def _keys_crowd(points, scale):
@@ -2546,9 +2572,8 @@ class _Diagram:
                 width=1,
             )
             _text(c, x + 8, y + 5, f"OP {op}", colour)
-            every_path, every_waypoint, merged, op_paths, op_waypoints, points = _panel_items(
-                op, paths, waypoints, width
-            )
+            stock = self.spec.get("stock_box")
+            op_paths, op_waypoints, points = _panel_items(op, paths, waypoints, stock)
             if not points:
                 continue
             project, plot, badges = self._sketch_plot(
@@ -2556,15 +2581,21 @@ class _Diagram:
                 points,
                 _sketch_keys(op_paths, op_waypoints),
             )
-            # The plot may draw smaller than its width allows: a pair it brings too close
-            # together merges there too (that view has no more keys than it budgeted).
-            merged |= _merged_pairs(every_path, project)
-            op_paths, op_waypoints = _paired_view(every_path, every_waypoint, merged)
             if self.nominal:
                 self._nominal_overlay(project, plot, faint=True)
             labels = []
             op_paths = self._raster_band(op_paths, project, colour, labels)
             direction_keys = {0, len(op_paths) // 2, len(op_paths) - 1}
+            for path in op_paths:
+                if "waste_xy" not in path or not stock:
+                    continue
+                # The waste the line cuts off the entry blank, shaded, then the blank's
+                # outline thin: the keep side stays unshaded.
+                region = _waste_region(path["xy"], stock, path["waste_xy"])
+                if region:
+                    tint = tuple(int(255 - (255 - channel) * 0.22) for channel in colour)
+                    c.polygon([project(p) for p in region], tint)
+                _outline(c, [project(p) for p in _stock_outline(stock)[:4]], _INK, width=1)
             for path_index, path in enumerate(op_paths):
                 if path.get("dashed") is True:
                     # A line the cut follows, not a travelled path: dashed, no arrows.
@@ -2575,7 +2606,8 @@ class _Diagram:
                 self._ordered_path(
                     [project(p) for p in path["xy"]],
                     colour,
-                    width=2,
+                    # A line bounding a shaded waste is the one heavier line.
+                    width=3 if "waste_xy" in path else 2,
                     arrows=directed and path_index in direction_keys,
                 )
             self._waypoint_badges(
@@ -2595,7 +2627,9 @@ class _Diagram:
         title_band = _TEXT_HEIGHT + 22
         needs = [title_band + _SKETCH_PLOT_MIN + 12] * rows
         for index, op in enumerate(ops):
-            _, _, _, op_paths, op_waypoints, points = _panel_items(op, paths, waypoints, width)
+            op_paths, op_waypoints, points = _panel_items(
+                op, paths, waypoints, self.spec.get("stock_box")
+            )
             if not points:
                 continue
             need = title_band + self._sketch_need(

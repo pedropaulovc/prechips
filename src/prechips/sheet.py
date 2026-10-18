@@ -4326,11 +4326,6 @@ class _Traveler:
             # Nothing clamps the work: the operator feeds it into the blade on the table.
             lines = [
                 self.saw_setting(op)
-                + (
-                    f", at least {self.operative(op['allowance_mm'])} mm outside it"
-                    if _known(op.get("allowance_mm"))
-                    else ""
-                )
                 for op in setup.get("ops", [])
                 if op.get("do") in SAW_OPS and "follows" in op
             ]
@@ -4495,8 +4490,7 @@ class _Traveler:
             if push != UNKNOWN
             else "STOP: push aid not declared — do not run.",
             f"Start the cut at the {start} end of the line: feed the work toward {start} into "
-            "the blade, sawing on the waste side of the line, its trailing end behind, as "
-            "the arrows in the picture run."
+            "the blade, its trailing end behind, as the arrows in the picture run."
             if start in _FEED_ENDS
             else "STOP: end of the line the cut starts from not declared — do not run.",
             _END_SUPPORT[end]
@@ -8082,30 +8076,38 @@ class _Traveler:
         return "REVERSE" if op.get("do") in _AXIAL_OPS and hand == "left" else "FORWARD"
 
     def saw_setting(self, op):
-        """Where a saw cut runs: a straight cut's blade-centre plane, or the waste side of
-        the scribed line a cut follows (named by its layout op), never on or along it."""
+        """Where a saw cut runs: a straight cut's blade-centre plane, or the scribed line
+        that guides a cut (named by its layout op). Which side of it the saw takes is said
+        once, in the cut's target (:meth:`saw_leave`)."""
         if "follows" in op:
-            return "on the waste side of the line scribed in " + _text(op["follows"]).replace(
-                ":", " op "
-            )
+            return "guided by the line scribed in " + _text(op["follows"]).replace(":", " op ")
         plane = _mapping(op.get("cut_plane"))
         return (
             f"blade centre {_text(plane.get('axis')).upper()} "
             f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}"
         )
 
-    def saw_leave(self, op, purpose="for filing"):
-        """The stock a saw that follows a scribed line leaves outside it: ``for filing`` at
-        the bench, ``outside the line`` on a machine card (a trammel or file takes it)."""
+    def saw_leave(self, op, purpose=" for filing"):
+        """The stock a saw that follows a scribed line leaves on its waste side: ``for
+        filing`` at the bench, nothing more on a machine card (a trammel or file takes
+        it). The one place a line-following cut names the waste side."""
         allowance = op.get("allowance_mm")
         if not _known(allowance):
-            return _Box(f"STOP: stock to leave {purpose} not established")
-        # A minimum: the saw may leave more for the file, never less, and the scribed line
-        # still showing along the cut is how the operator sees that it did.
+            return _Box(f"STOP: stock to leave on the waste side{purpose} not established")
+        # A minimum: the saw may leave more for the file, never less.
         return (
-            f"leave at least {self.operative(allowance)} mm {purpose}, the scribed line still "
-            "showing"
+            f"leave at least {self.operative(allowance)} mm on the waste side of the scribed "
+            f"line{purpose}"
         )
+
+    def feed_direction(self, setup):
+        """The way the work moves past a hand-fed blade: from its trailing end toward the
+        ``feed_from`` end the cut starts at, as the HOLD and the picture's arrows say."""
+        start = _mapping(setup.get("hold")).get("feed_from")
+        if start not in _FEED_ENDS:
+            return _Box("STOP: feed direction not declared")
+        trailing = ("-" if start[0] == "+" else "+") + start[1]
+        return f"feed from {trailing} toward {start}"
 
     def hand_saw_step(self, op, numbers):
         """A bench hand-saw card: the straight cut's plane and the side kept, or "saw
@@ -8140,7 +8142,7 @@ class _Traveler:
             speed = numbers.get("blade_speed_sfm")
             return (
                 (_number(speed) + " sfm") if _known(speed) else "STOP: no blade speed",
-                "by hand, on the waste side of the line",
+                "by hand",
                 not _known(speed),
             )
         if op.get("do") in SAW_OPS:
@@ -8451,14 +8453,14 @@ class _Traveler:
             scribed = saw and "follows" in op
             if saw:
                 direction = (
-                    "waste side of the line"
+                    self.feed_direction(setup)
                     if scribed
                     else "keep " + _text(_mapping(op.get("cut_plane")).get("keep"))
                 )
             saw_numbers = self.records.get(("saw_cut", f"{setup['id']}:{op['op']}"), {})
             rest_cells, rest_lines = ([], []) if saw else self.rest_steps(setup, op)
             if scribed:
-                target = [self.saw_leave(op, "outside the line")]
+                target = [self.saw_leave(op, "")]
             elif saw:
                 target = [
                     "retained edge " + _number(saw_numbers.get("retained_boundary_mm")) + " mm"

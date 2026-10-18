@@ -2646,18 +2646,18 @@ setup-frame box) or `stock_mm` (per axis, two `[anchor, offset]` ends, `anchor` 
 `min`, `mid` or `max` of the setup-entry stock box). The kernel draws each as a box with
 its own callout, lists it in `render_scene.components` with role `scene`, and never
 hit-tests it; a malformed box, or a stock-anchored one without entry stock, is a
-picture debt only. The op's profile sketch draws a path marked `dashed` (the scribed
-line) dashed with no arrows, prints a waypoint marked `plain` as written (START, SAW
-PATH, SCRIBED LINE, WASTE) instead of a P number, and names the arrows of a `feed`
-path "ARROWS: WORK FEED INTO THE BLADE": they run the way the work moves, from its
-trailing end toward the START where the blade enters. Paths and waypoints may belong to a sketch `pair` with a
-`pair_view` of `apart` or `merged`. When any two of a pair's `apart` curves come
-closer than 8 px at the scale the panel draws them, they would print as one line
-under colliding keys. The panel then draws the pair's `merged` items instead, and
-otherwise its `apart` ones. A hand-fed cut's saw path sits only the allowance
-(0.45 mm in the example) off a long scribed arc, so its sketch draws one curve: the
-scribed line with the feed arrows, keyed "SCRIBED LINE: SAW ON ITS WASTE SIDE", and
-"WASTE: LEAVE 0.450 MM MIN OUTSIDE THE LINE" on the waste side.
+picture debt only. The op's profile sketch prints a waypoint marked `plain` as written
+(START, SCRIBED LINE, WASTE, KEEP) instead of a P number, and names the arrows of a
+`feed` path "ARROWS: WORK FEED INTO THE BLADE": they run the way the work moves, from
+its trailing end toward the START where the blade enters. A path with a `waste_xy`
+point is a line that cuts waste off the setup-entry blank: the sketch draws the
+blank's XY outline (`stock_box`) as a thin line, the path as the one heavier line, and
+shades the part of the blank the path cuts off on `waste_xy`'s side, its run inside the
+blank closed by the blank's outline. A path that does not cross the blank from edge to
+edge, or a `waste_xy` in neither part, shades nothing. The hand-fed sketch sends only
+the scribed line this way (no separate saw path: the 0.45 mm leave is not visible on a
+290 mm arc), keyed START, SCRIBED LINE, "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE"
+and KEEP.
 
 A guided sweep's table-side guide elements
 ([#255](https://github.com/pedropaulovc/prechips/issues/255)) are drawn for the
