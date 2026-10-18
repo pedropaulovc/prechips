@@ -577,20 +577,35 @@ row and adds it to the setup's STOP list; no partial recipe prints.
 
 The values are this document's illustrative ones, not shop facts. The
 example inventory has no solvent consumable, so T3's removal row shows the
-STOP it prints until one is recorded. The bandsaw's hold and blade pitch are
-not specified here: T2B prints the hand-fed hold line of
-[#335](https://github.com/pedropaulovc/prechips/issues/335) and the blade
-TPI fact of [#336](https://github.com/pedropaulovc/prechips/issues/336)
-(implemented in #341). T2A is a bench setup, so it prints the ASSEMBLY / FINISHING table (step, feature,
+STOP it prints until one is recorded. T2B's HOLD line is the output shape
+of the hand-fed hold in #342 (`hold.kind = "hand_fed"`, for #335), with "the
+line scribed in S1 op 10" replaced by the printed line it follows. The blade
+is a 32 TPI blade (mock-up value): with #341's `saw_teeth` (for #336), 32 TPI
+puts 3.15 teeth in the 2.5 mm strap. That meets the example minimum of 3, so
+no row prints. A 24 TPI blade gives 2.36 teeth, and the row prints #341's STOP
+("2.36 teeth … fewer than the shop's 3; … choose a blade whose coarse end is
+at least 30.5 TPI"). The pictures are ASCII sketches of what the setup
+pictures (§5.1) draw. T2A is a bench setup, so it prints the ASSEMBLY / FINISHING table (step, feature,
 material / consumable, action, inspection). T2B is the bandsaw's machine
 card.
 
 ```text
 SETUP T2A — fitting bench — ASSEMBLY / FINISHING
 Stock in: strap blank from T1, both faces faced, pivot bore and two tooling holes drilled.
-[Setup picture T2A: top view of the strap, with the print's outline over it,
- the three gauge pins standing in the pivot bore and the tooling holes, the
- X and Y bars on the strap, KEEP inside the outline and the waste hatched]
+SETUP PICTURE T2A — top view, print glued on the strap top face (not to scale)
+
+      +Y
+       ^   //////////// waste (hatched) //////////////////////////////
+       |  /  ______________ printed top edge R800 _______________     /
+       | / (o)            K E E P                               (o)  /
+       |/  west pin     ___________ X bar 300 ___________   east pin/
+       |   \___________(O)_________________________________________/
+       |      printed bottom edge R816   pivot pin       Y bar 30 |
+       |  //////////// waste (hatched) //////////////////////////////
+       +----------------------------------------------------------> +X
+   (o) gauge pin in a tooling hole   (O) gauge pin in the pivot bore
+   The print reads right way up with +X to the right; KEEP lies between
+   the two printed edges.
 
 Step 10 | top edge, bottom edge, east and west end lands
   Consumable: pattern-T2A-10.pdf, match code K7Q-4MD (made with this
@@ -633,21 +648,33 @@ Step 10 | top edge, bottom edge, east and west end lands
 
 SETUP T2B — 4x6 bandsaw, VERTICAL mode
 Stock: 1018 strap, 2.5 thick, print glued on top.
-Hold: [the hand-fed hold line from #335: table, guide height, hand position]
-Blade: [the blade line with its TPI and teeth in the 2.5 mm work, #336/#341]
+HOLD: Fed by hand on the saw table, sawing outside the printed top edge
+      (T2A step 10); no vise or clamp holds the work.
 Lay the strap flat on the table, print up. Keep the side of each line
 marked KEEP; the hatched side is waste.
-[Setup picture T2B: the strap flat on the saw table, print up, the blade
- entering the waste side outside the printed top edge, a feed arrow along the
- line, KEEP toward the operator's guiding hand, the waste offcut beyond]
+
+SETUP PICTURE T2B — top view of the saw table, op 10 (not to scale)
+   fed by hand on the saw table
+
+          blade (teeth toward you)
+               |
+      waste    |/////////// offcut ////////////
+   ____________|__________________________________
+   1.0 outside  \    printed top edge R800        \
+   the line      \          K E E P                \  strap, print up
+                  \________________________________\
+                     <==== feed: push the strap past the blade,
+                           guiding hand on the KEEP side
+
+Blade: 1/2 in x 32 TPI bandsaw blade (3.15 teeth in the 2.5 mm strap).
 Op | Feature     | Tool        | Speed    | Feed                    | Action
-10 | top edge    | 1/2 in blade| 165 sfm  | by hand along the line  | Just before cutting: read check bar X
+10 | top edge    | 32 TPI blade| 165 sfm  | by hand along the line  | Just before cutting: read check bar X
    |             |             |          |                         | on the strap: 299.85–300.15; bar Y:
    |             |             |          |                         | 29.95–30.05. Outside: STOP, re-glue.
    |             |             |          |                         | Saw outside the printed top edge
    |             |             |          |                         | (T2A step 10); leave 1.0 mm outside
    |             |             |          |                         | the line. Leaves 0.12–1.88 mm for T3.
-20 | bottom edge | 1/2 in blade| 165 sfm  | by hand along the line  | Saw outside the printed bottom edge
+20 | bottom edge | 32 TPI blade| 165 sfm  | by hand along the line  | Saw outside the printed bottom edge
    |             |             |          |                         | (T2A step 10); leave 1.0 mm outside
    |             |             |          |                         | the line. Leaves 0.12–1.88 mm for T3.
 30 | east land   | ...         |          |                         | ...
@@ -844,9 +871,10 @@ side.
 Blind machinist read round 2 (on `ab8f8df`): none of the round 1 findings
 came back. Two still applied, and both are addressed in the next commit:
 setup pictures for T2A and T2B (§5.1, drawn into the mock-up as picture
-captions), and the removal note moved out of the printed block. The
-bracketed T2B hold and blade lines stay as references to #335 and #336/#341.
-Their gates cover those rows once they print.
+captions), and the removal note moved out of the printed block. After the coordinator's
+note, the bracketed T2B hold and blade lines were replaced by the output
+shapes of #342 (the hand-fed HOLD line) and #341 (the blade's TPI and its
+teeth-in-the-work STOP), and the pictures became sketches in the mock-up.
 
 Not re-reviewed: the D2 rework (§2.2, §8.4, phase 3b) and the station
 geometry (two pins, normal-direction bound). The §10 arithmetic leaves out
