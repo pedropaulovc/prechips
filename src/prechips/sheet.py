@@ -5847,7 +5847,18 @@ class _Traveler:
         travel = numbers.get("travel_checks", {})
         for axis in ("x", "y"):
             record = _mapping(travel.get(axis))
-            if record and not _known(record.get("required_mm")):
+            lower = record.get("minimum_required_mm")
+            if record and not _known(record.get("required_mm")) and _known(lower):
+                # A stock span is only a lower bound: the cutter's approach and exit past
+                # the stock are undeclared, so the need is never read as fitting (#297).
+                lines.append(
+                    f"{axis.upper()} travel: needs at least {o(lower)} "
+                    f"({_text(record.get('basis'))}; the cutter's approach and exit are not "
+                    f"declared) of {o(record.get('travel_mm'))}"
+                    f"{machine_marks(('envelope', 'travel', axis))}: ? not computed — declare "
+                    "the cut's X/Y extent."
+                )
+            elif record and not _known(record.get("required_mm")):
                 missing.append(
                     f"{axis.upper()} travel{machine_marks(('envelope', 'travel', axis))}"
                 )
@@ -5860,6 +5871,22 @@ class _Traveler:
                     f"{o(record.get('travel_mm'))}{machine_marks(('envelope', 'travel', axis))}: "
                     f"{fits(record.get('required_mm'), record.get('travel_mm'))}."
                 )
+        # The fixture's seating on the table stays ? while the table facts are JOB
+        # measurements: the line cites them, never "fits" (#297).
+        table = self.records.get(("fixture_table", setup["id"]), {})
+        if table:
+            refs = " ".join(
+                ref
+                for entry in table.get("measurements", [])
+                if (ref := self.measurement_reference(entry))
+            )
+            x, y = table.get("footprint_x_mm"), table.get("footprint_y_mm")
+            size = f"{o(x)} x {o(y)} mm " if _known(x) and _known(y) else ""
+            lines.append(
+                f"Fixture on the table: ? not checked{' — record ' + refs if refs else ''}; "
+                f"check: its {size}footprint seats on the table within the allowed overhang "
+                "and the fixture plus work weight is within the table load."
+            )
         rows = self.clearance_rows(setup, numbers, tool_numbers or {})
         if any(not _known(s.get("margin_mm")) for s in numbers.get("stacks", [])):
             missing.append("tool stickout and headroom")

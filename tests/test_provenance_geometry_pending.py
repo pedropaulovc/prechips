@@ -120,7 +120,10 @@ def test_typed_pending_geometry_preserves_real_authored_z_shop_and_grid_measurem
     ids = {entry["id"] for entry in measurement_checklist(rows)}
     assert {Z_GEOMETRY, BED_HEIGHT, DRO_RESOLUTION} <= ids
     assert SUPPORTED_HEIGHT not in ids
-    assert XY_GEOMETRY not in ids
+    # The stock-sized broad cut owes its X/Y extent as plan input (its approach and exit
+    # are undeclared, #297), never a request to measure the pending geometry.
+    (xy,) = [entry for entry in measurement_checklist(rows) if entry["id"] == XY_GEOMETRY]
+    assert xy["instruction"].startswith("author:")
     assert all(
         "Geometry pending" in row.sentence for row in rows if row.rule in {"envelope", "travel"}
     )

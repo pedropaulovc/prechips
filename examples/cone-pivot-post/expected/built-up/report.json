@@ -7746,14 +7746,63 @@
           {
             "category": "machines",
             "cite": [
-              "inventory.machines.PM-30MV.table"
+              "inventory.machines.PM-30MV.table.load"
             ],
             "field": [
-              "table"
+              "table",
+              "load"
             ],
-            "id": "machines.PM-30MV.table",
+            "id": "machines.PM-30MV.table.load",
             "identity": "PM-30MV",
-            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "instruction": "measure: PM-30MV table load limit, fixture plus work, machine manual, kg",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "kg"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.overhang"
+            ],
+            "field": [
+              "table",
+              "overhang"
+            ],
+            "id": "machines.PM-30MV.table.overhang",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV allowed fixture overhang past a table edge, machine manual or shop rule, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.x"
+            ],
+            "field": [
+              "table",
+              "x"
+            ],
+            "id": "machines.PM-30MV.table.x",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table length along X, with any extension, steel rule or tape, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.y"
+            ],
+            "field": [
+              "table",
+              "y"
+            ],
+            "id": "machines.PM-30MV.table.y",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table width along Y, with any extension, steel rule or tape, mm",
             "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
@@ -7837,14 +7886,63 @@
           {
             "category": "machines",
             "cite": [
-              "inventory.machines.PM-30MV.table"
+              "inventory.machines.PM-30MV.table.load"
             ],
             "field": [
-              "table"
+              "table",
+              "load"
             ],
-            "id": "machines.PM-30MV.table",
+            "id": "machines.PM-30MV.table.load",
             "identity": "PM-30MV",
-            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "instruction": "measure: PM-30MV table load limit, fixture plus work, machine manual, kg",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "kg"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.overhang"
+            ],
+            "field": [
+              "table",
+              "overhang"
+            ],
+            "id": "machines.PM-30MV.table.overhang",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV allowed fixture overhang past a table edge, machine manual or shop rule, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.x"
+            ],
+            "field": [
+              "table",
+              "x"
+            ],
+            "id": "machines.PM-30MV.table.x",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table length along X, with any extension, steel rule or tape, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.y"
+            ],
+            "field": [
+              "table",
+              "y"
+            ],
+            "id": "machines.PM-30MV.table.y",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table width along Y, with any extension, steel rule or tape, mm",
             "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
@@ -7880,14 +7978,63 @@
           {
             "category": "machines",
             "cite": [
-              "inventory.machines.PM-30MV.table"
+              "inventory.machines.PM-30MV.table.load"
             ],
             "field": [
-              "table"
+              "table",
+              "load"
             ],
-            "id": "machines.PM-30MV.table",
+            "id": "machines.PM-30MV.table.load",
             "identity": "PM-30MV",
-            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "instruction": "measure: PM-30MV table load limit, fixture plus work, machine manual, kg",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "kg"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.overhang"
+            ],
+            "field": [
+              "table",
+              "overhang"
+            ],
+            "id": "machines.PM-30MV.table.overhang",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV allowed fixture overhang past a table edge, machine manual or shop rule, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.x"
+            ],
+            "field": [
+              "table",
+              "x"
+            ],
+            "id": "machines.PM-30MV.table.x",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table length along X, with any extension, steel rule or tape, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.y"
+            ],
+            "field": [
+              "table",
+              "y"
+            ],
+            "id": "machines.PM-30MV.table.y",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table width along Y, with any extension, steel rule or tape, mm",
             "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
@@ -7983,14 +8130,63 @@
           {
             "category": "machines",
             "cite": [
-              "inventory.machines.PM-30MV.table"
+              "inventory.machines.PM-30MV.table.load"
             ],
             "field": [
-              "table"
+              "table",
+              "load"
             ],
-            "id": "machines.PM-30MV.table",
+            "id": "machines.PM-30MV.table.load",
             "identity": "PM-30MV",
-            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "instruction": "measure: PM-30MV table load limit, fixture plus work, machine manual, kg",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "kg"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.overhang"
+            ],
+            "field": [
+              "table",
+              "overhang"
+            ],
+            "id": "machines.PM-30MV.table.overhang",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV allowed fixture overhang past a table edge, machine manual or shop rule, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.x"
+            ],
+            "field": [
+              "table",
+              "x"
+            ],
+            "id": "machines.PM-30MV.table.x",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table length along X, with any extension, steel rule or tape, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.y"
+            ],
+            "field": [
+              "table",
+              "y"
+            ],
+            "id": "machines.PM-30MV.table.y",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table width along Y, with any extension, steel rule or tape, mm",
             "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
@@ -8026,14 +8222,63 @@
           {
             "category": "machines",
             "cite": [
-              "inventory.machines.PM-30MV.table"
+              "inventory.machines.PM-30MV.table.load"
             ],
             "field": [
-              "table"
+              "table",
+              "load"
             ],
-            "id": "machines.PM-30MV.table",
+            "id": "machines.PM-30MV.table.load",
             "identity": "PM-30MV",
-            "instruction": "measure: PM-30MV table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "instruction": "measure: PM-30MV table load limit, fixture plus work, machine manual, kg",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "kg"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.overhang"
+            ],
+            "field": [
+              "table",
+              "overhang"
+            ],
+            "id": "machines.PM-30MV.table.overhang",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV allowed fixture overhang past a table edge, machine manual or shop rule, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.x"
+            ],
+            "field": [
+              "table",
+              "x"
+            ],
+            "id": "machines.PM-30MV.table.x",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table length along X, with any extension, steel rule or tape, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.PM-30MV.table.y"
+            ],
+            "field": [
+              "table",
+              "y"
+            ],
+            "id": "machines.PM-30MV.table.y",
+            "identity": "PM-30MV",
+            "instruction": "measure: PM-30MV table width along Y, with any extension, steel rule or tape, mm",
             "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
@@ -8220,12 +8465,14 @@
         "travel_checks": {
           "x": {
             "basis": "cutter-centre path",
+            "minimum_required_mm": 71.45,
             "part_mm": 43.059977,
             "required_mm": 71.45,
             "travel_mm": 584.1999999999999
           },
           "y": {
             "basis": "cutter-centre path",
+            "minimum_required_mm": 52.4,
             "part_mm": 75.083932,
             "required_mm": 52.4,
             "travel_mm": 222.25
@@ -8416,13 +8663,15 @@
         "tool_oal_mm": 150.0,
         "travel_checks": {
           "x": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 125.0,
             "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 44.45,
             "required_mm": 0.0,
             "travel_mm": 222.25
@@ -8530,13 +8779,15 @@
         "tool_oal_mm": 150.0,
         "travel_checks": {
           "x": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 125.0,
             "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 44.45,
             "required_mm": 0.0,
             "travel_mm": 222.25
@@ -8693,13 +8944,15 @@
         "tool_oal_mm": 177.8,
         "travel_checks": {
           "x": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 125.0,
             "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 44.45,
             "required_mm": 0.0,
             "travel_mm": 222.25
@@ -8796,13 +9049,15 @@
         "tool_oal_mm": 177.8,
         "travel_checks": {
           "x": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 125.0,
             "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 44.45,
             "required_mm": 0.0,
             "travel_mm": 222.25
@@ -21540,12 +21795,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -25.500239754836223,
-                25.500239754836223
+                -35.725,
+                35.725
               ],
               "y": [
-                -25.500239754836223,
-                25.500239754836223
+                -26.2,
+                26.2
               ]
             },
             "z_bounds_mm": [
@@ -21963,7 +22218,7 @@
             "travel_verified": true
           },
           "z": {
-            "basis": "cutter-centre path",
+            "basis": "unknown",
             "located_span_mm": 107.6,
             "lower_bound_margin_mm": 247.99999999999997,
             "margin_mm": 247.99999999999997,
@@ -22408,7 +22663,7 @@
         ],
         "travel_checks": {
           "x": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 584.1999999999999,
             "margin_mm": 584.1999999999999,
@@ -22419,7 +22674,7 @@
             "travel_verified": true
           },
           "y": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 222.25,
             "margin_mm": 222.25,
@@ -22430,7 +22685,7 @@
             "travel_verified": true
           },
           "z": {
-            "basis": "cutter-centre path",
+            "basis": "unknown",
             "located_span_mm": 140.6003,
             "lower_bound_margin_mm": 214.99969999999996,
             "margin_mm": 214.99969999999996,
@@ -22748,7 +23003,7 @@
         ],
         "travel_checks": {
           "x": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 584.1999999999999,
             "margin_mm": 584.1999999999999,
@@ -22759,7 +23014,7 @@
             "travel_verified": true
           },
           "y": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 222.25,
             "margin_mm": 222.25,
@@ -22770,7 +23025,7 @@
             "travel_verified": true
           },
           "z": {
-            "basis": "cutter-centre path",
+            "basis": "unknown",
             "located_span_mm": 140.2305,
             "lower_bound_margin_mm": 215.36949999999996,
             "margin_mm": 215.36949999999996,
@@ -23270,7 +23525,7 @@
         ],
         "travel_checks": {
           "x": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 584.1999999999999,
             "margin_mm": 584.1999999999999,
@@ -23281,7 +23536,7 @@
             "travel_verified": true
           },
           "y": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 222.25,
             "margin_mm": 222.25,
@@ -23292,7 +23547,7 @@
             "travel_verified": true
           },
           "z": {
-            "basis": "cutter-centre path",
+            "basis": "unknown",
             "located_span_mm": 121.37669999999999,
             "lower_bound_margin_mm": 234.2233,
             "margin_mm": "unknown",
@@ -23587,7 +23842,7 @@
         ],
         "travel_checks": {
           "x": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 584.1999999999999,
             "margin_mm": 584.1999999999999,
@@ -23598,7 +23853,7 @@
             "travel_verified": true
           },
           "y": {
-            "basis": "cutter-centre path",
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 222.25,
             "margin_mm": 222.25,
@@ -23609,7 +23864,7 @@
             "travel_verified": true
           },
           "z": {
-            "basis": "cutter-centre path",
+            "basis": "unknown",
             "located_span_mm": 131.2525,
             "lower_bound_margin_mm": 224.34749999999997,
             "margin_mm": "unknown",
@@ -26714,7 +26969,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "050b6ef56d01c7e3ccb777caa7d7389f7a24e62eca2c8bb563f78bf71c4c0e12",
+  "hash": "8184af412a64439ee6bc58f537345de77d3b2f559ef64a19aef86266ef9ad9cb",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

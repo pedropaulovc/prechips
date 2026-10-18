@@ -1890,14 +1890,63 @@
           {
             "category": "machines",
             "cite": [
-              "inventory.machines.test-mill.table"
+              "inventory.machines.test-mill.table.load"
             ],
             "field": [
-              "table"
+              "table",
+              "load"
             ],
-            "id": "machines.test-mill.table",
+            "id": "machines.test-mill.table.load",
             "identity": "test-mill",
-            "instruction": "measure: test-mill table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "instruction": "measure: test-mill table load limit, fixture plus work, machine manual, kg",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "kg"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.overhang"
+            ],
+            "field": [
+              "table",
+              "overhang"
+            ],
+            "id": "machines.test-mill.table.overhang",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill allowed fixture overhang past a table edge, machine manual or shop rule, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.x"
+            ],
+            "field": [
+              "table",
+              "x"
+            ],
+            "id": "machines.test-mill.table.x",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table length along X, with any extension, steel rule or tape, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.y"
+            ],
+            "field": [
+              "table",
+              "y"
+            ],
+            "id": "machines.test-mill.table.y",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table width along Y, with any extension, steel rule or tape, mm",
             "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
@@ -1933,14 +1982,63 @@
           {
             "category": "machines",
             "cite": [
-              "inventory.machines.test-mill.table"
+              "inventory.machines.test-mill.table.load"
             ],
             "field": [
-              "table"
+              "table",
+              "load"
             ],
-            "id": "machines.test-mill.table",
+            "id": "machines.test-mill.table.load",
             "identity": "test-mill",
-            "instruction": "measure: test-mill table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "instruction": "measure: test-mill table load limit, fixture plus work, machine manual, kg",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "kg"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.overhang"
+            ],
+            "field": [
+              "table",
+              "overhang"
+            ],
+            "id": "machines.test-mill.table.overhang",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill allowed fixture overhang past a table edge, machine manual or shop rule, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.x"
+            ],
+            "field": [
+              "table",
+              "x"
+            ],
+            "id": "machines.test-mill.table.x",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table length along X, with any extension, steel rule or tape, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.y"
+            ],
+            "field": [
+              "table",
+              "y"
+            ],
+            "id": "machines.test-mill.table.y",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table width along Y, with any extension, steel rule or tape, mm",
             "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
@@ -2006,14 +2104,63 @@
           {
             "category": "machines",
             "cite": [
-              "inventory.machines.test-mill.table"
+              "inventory.machines.test-mill.table.load"
             ],
             "field": [
-              "table"
+              "table",
+              "load"
             ],
-            "id": "machines.test-mill.table",
+            "id": "machines.test-mill.table.load",
             "identity": "test-mill",
-            "instruction": "measure: test-mill table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "instruction": "measure: test-mill table load limit, fixture plus work, machine manual, kg",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "kg"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.overhang"
+            ],
+            "field": [
+              "table",
+              "overhang"
+            ],
+            "id": "machines.test-mill.table.overhang",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill allowed fixture overhang past a table edge, machine manual or shop rule, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.x"
+            ],
+            "field": [
+              "table",
+              "x"
+            ],
+            "id": "machines.test-mill.table.x",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table length along X, with any extension, steel rule or tape, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.y"
+            ],
+            "field": [
+              "table",
+              "y"
+            ],
+            "id": "machines.test-mill.table.y",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table width along Y, with any extension, steel rule or tape, mm",
             "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
@@ -2151,12 +2298,14 @@
         "travel_checks": {
           "x": {
             "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 292.509136,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 29.29464,
             "required_mm": "unknown",
             "travel_mm": "unknown"
@@ -2288,12 +2437,14 @@
         "travel_checks": {
           "x": {
             "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 292.509136,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 29.29464,
             "required_mm": "unknown",
             "travel_mm": "unknown"
@@ -2425,14 +2576,16 @@
         "travel_checks": {
           "x": {
             "basis": "stock span",
+            "minimum_required_mm": 292.509136,
             "part_mm": 292.509136,
-            "required_mm": 292.509136,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "basis": "stock span",
+            "minimum_required_mm": 7.0565,
             "part_mm": 7.0565,
-            "required_mm": 7.0565,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           }
         }
@@ -4366,7 +4519,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S3: declared operation travel remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S3.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
+      "message": "S3: declared operation travel remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Author plan.setups.S3.ops.10 feature.bounds x/y in its declared frame (or a contour the traveler prints as a cutter-centre path): the stock span is only a lower bound and does not include the cutter's approach and exit; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S3.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
       "numbers": {
         "measurements": [
           {
@@ -4442,6 +4595,14 @@
           },
           {
             "cite": [
+              "features.features.strap_datum_b.bounds; plan.setups.S3.ops"
+            ],
+            "id": "plan.setups.S3.ops.10.xy_geometry",
+            "instruction": "author: Author plan.setups.S3.ops.10 feature.bounds x/y in its declared frame (or a contour the traveler prints as a cutter-centre path): the stock span is only a lower bound and does not include the cutter's approach and exit",
+            "units": "mm"
+          },
+          {
+            "cite": [
               "plan.setups.S3.ops.10"
             ],
             "id": "plan.setups.S3.ops.10.z_geometry",
@@ -4505,8 +4666,8 @@
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
             "minimum_required_mm": 292.509136,
-            "required_mm": 292.509136,
-            "required_verified": true,
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
@@ -4516,8 +4677,8 @@
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
             "minimum_required_mm": 7.0565,
-            "required_mm": 7.0565,
-            "required_verified": true,
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
@@ -4766,7 +4927,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "46ad85c66fa86693379cdb9c5feadcd0283a4b7f4d1cbd101f704fbc82f508b5",
+  "hash": "f08ff68f476e265b9d186645212e4a1343bbb3c42bfdc9e4b3145a1ee376a83f",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

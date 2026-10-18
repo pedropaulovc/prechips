@@ -80,8 +80,15 @@ def bundle():
         },
         features={
             "units": "mm",
-            "frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}},
-            "features": {},
+            "frames": {"A": {"origin": [0, 0, 0], "x": [1, 0, 0], "y": [0, 1, 0], "z": [0, 0, 1]}},
+            # The faced top's declared extent: the cut's X/Y the table must reach.
+            "features": {
+                "top": {
+                    "kind": "face",
+                    "frame": "A",
+                    "bounds": {"x": [0, 100], "y": [0, 30], "z": [-1, 0]},
+                }
+            },
         },
         policy={},
         cutting_data={},
@@ -451,6 +458,7 @@ def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_table_check():
 def test_part_and_fixture_envelope_must_fit_travel():
     data = bundle()
     data.plan["stock"]["length_mm"] = 150
+    data.features["features"]["top"]["bounds"]["x"] = [0, 150]
     data.inventory["machines"]["mill"]["envelope"]["travel_mm"]["x"] = measured(140)
     finding = evaluate(data)[0]
     assert finding.status == "error"
@@ -486,6 +494,7 @@ def test_a_fixture_wider_than_travel_is_no_travel_error(vise_width_mm):
 def test_stock_beyond_travel_errors_while_the_fixture_fits():
     data = pm30_bundle(200)
     data.plan["stock"]["section_mm"] = [240, 16]
+    data.features["features"]["top"]["bounds"]["y"] = [0, 240]
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["y"]["required_mm"] == 240
@@ -536,10 +545,18 @@ def test_the_table_check_never_passes_or_errors_and_skips_non_table_setups():
         "allowed fixture overhang",
         "table load limit",
     ]
-    # Its debt is one job-level checklist entry per machine, not a per-setup box.
-    [entry] = [e for e in row.numbers["measurements"] if e["id"] == "machines.mill.table"]
-    assert entry["instruction"].startswith("measure: mill table X/Y extents")
-    assert "allowed fixture overhang" in entry["instruction"]
+    # Its debt is job-level checklist entries per machine, one per quantity and unit.
+    table = {
+        e["id"]: e["units"]
+        for e in row.numbers["measurements"]
+        if e["id"].startswith("machines.mill.table.")
+    }
+    assert table == {
+        "machines.mill.table.x": "mm",
+        "machines.mill.table.y": "mm",
+        "machines.mill.table.overhang": "mm",
+        "machines.mill.table.load": "kg",
+    }
     data.inventory["machines"]["mill"]["kind"] = "lathe"
     assert fixture_table.evaluate(data)[0].status == "not_applicable"
 
@@ -576,7 +593,9 @@ def test_inch_envelope_and_holder_dimensions_convert_once():
 def test_structural_unknown_cannot_certify_physical_envelope(section):
     data = bundle()
     if section == "stock":
+        # A broad cut sized only by the stock: an unknown stock leaves its reach unknown.
         data.plan["stock"] = "unknown"
+        del data.features["features"]["top"]["bounds"]
     elif section in {"hold", "stock_state"}:
         data.plan["setups"][0][section] = "unknown"
     elif section == "envelope":

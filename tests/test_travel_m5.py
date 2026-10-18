@@ -315,9 +315,13 @@ def test_broad_incomplete_extent_uses_stock_not_tiny_nominal_feature(action, ext
     machine(data)["envelope"]["travel_mm"]["x"] = measured(200)
     finding = evaluate(data)[0]
     padding = 6.8 if action == "rough_profile" else 0
-    assert finding.status == "pass"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == pytest.approx(100 + padding)
-    assert finding.numbers["travel_checks"]["y"]["required_mm"] == pytest.approx(30 + padding)
+    # The stock span, not the tiny feature, bounds the cut from below; it is no cutter
+    # path, so its approach and exit stay plan-input debt, never a pass (#297).
+    assert finding.status == "unknown"
+    x, y = (finding.numbers["travel_checks"][axis] for axis in ("x", "y"))
+    assert x["minimum_required_mm"] == pytest.approx(100 + padding)
+    assert y["minimum_required_mm"] == pytest.approx(30 + padding)
+    assert (x["required_mm"], x["basis"]) == ("unknown", "stock span")
     assert finding.numbers["operations"][0]["conservative_stock_spans_mm"]["x"] == 100
 
 
@@ -327,8 +331,8 @@ def test_unlocated_stock_scalar_is_not_placed_at_invented_origin():
     add_hole(data, "remote", [1000, 0, 0], 20)
     machine(data)["envelope"]["travel_mm"]["x"] = measured(110)
     finding = evaluate(data)[0]
-    assert finding.status == "pass"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 106
+    assert finding.status == "unknown"
+    assert finding.numbers["travel_checks"]["x"]["minimum_required_mm"] == 106
 
 
 def test_stock_fallback_also_keeps_separated_known_feature_centres():
@@ -339,7 +343,7 @@ def test_stock_fallback_also_keeps_separated_known_feature_centres():
     machine(data)["envelope"]["travel_mm"]["x"] = measured(152)
     finding = evaluate(data)[0]
     assert finding.status == "error"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 153
+    assert finding.numbers["travel_checks"]["x"]["minimum_required_mm"] == 153
 
 
 def test_rough_allowance_expands_each_side_only_for_rough_cut():
@@ -552,9 +556,9 @@ def test_authored_stock_spans_transform_into_setup_axes_without_stock_position()
     data.features["features"]["outline"].pop("bounds")
     data.features["frames"]["A"].update(x=[0, 1, 0], y=[0, 0, 1], z=[1, 0, 0])
     finding = evaluate(data)[0]
-    assert finding.status == "pass"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 36
-    assert finding.numbers["travel_checks"]["y"]["required_mm"] == 16
+    assert finding.status == "unknown"
+    assert finding.numbers["travel_checks"]["x"]["minimum_required_mm"] == 36
+    assert finding.numbers["travel_checks"]["y"]["minimum_required_mm"] == 16
 
 
 def test_already_present_kernel_bbox_can_supply_scalar_stock_extent_without_calling_kernel():
@@ -563,9 +567,9 @@ def test_already_present_kernel_bbox_can_supply_scalar_stock_extent_without_call
     data.plan["stock"] = "unknown"
     data.kernel = {"status": "ok", "bbox_mm": [100, 200, -10, 140, 220, 0]}
     finding = evaluate(data)[0]
-    assert finding.status == "pass"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 46
-    assert finding.numbers["travel_checks"]["y"]["required_mm"] == 26
+    assert finding.status == "unknown"
+    assert finding.numbers["travel_checks"]["x"]["minimum_required_mm"] == 46
+    assert finding.numbers["travel_checks"]["y"]["minimum_required_mm"] == 26
 
 
 def test_inch_travel_converts_once_and_compares_with_declared_mm_span():
@@ -712,7 +716,7 @@ def test_known_axis_scalar_excess_can_fail_with_other_axis_geometry_unknown():
     machine(data)["envelope"]["travel_mm"]["x"] = measured(105)
     finding = evaluate(data)[0]
     assert finding.status == "error"
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 106
+    assert finding.numbers["travel_checks"]["x"]["minimum_required_mm"] == 106
     assert finding.numbers["travel_checks"]["y"]["required_mm"] == "unknown"
 
 

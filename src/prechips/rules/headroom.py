@@ -464,6 +464,7 @@ def evaluate(bundle):
                 "travel_mm": travel["value"],
                 "part_mm": extent,
                 "required_mm": required,
+                "minimum_required_mm": check.get("minimum_required_mm", _UNKNOWN),
                 "basis": check.get("basis", _UNKNOWN),
             }
             unknown |= not _numeric(required) or not travel["verified"]

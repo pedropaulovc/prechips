@@ -309,13 +309,23 @@ def measurement_entry(category, identity, field, *, status=None, item=None, subj
     if field.startswith("envelope.travel."):
         description = f"{field.rsplit('.', 1)[-1].upper()} safe usable travel, stop-to-stop"
         instrument = "calibrated DRO or indicator"
-    elif field == "table" and category == "machines":
-        # Not an inventory fact yet (#272 item 1): what fixture_table needs to judge seating.
-        description = (
-            "table X/Y extents (and any extension), allowed fixture overhang past them, "
-            "and table load limit"
-        )
-        instrument = "steel rule or tape, and the machine manual for the load limit"
+    elif field.startswith("table.") and category == "machines":
+        # Not inventory facts yet (#272 item 1): what fixture_table needs to judge seating,
+        # one record per quantity in its own unit.
+        description, instrument, units = {
+            "table.x": ("table length along X, with any extension", "steel rule or tape", "mm"),
+            "table.y": ("table width along Y, with any extension", "steel rule or tape", "mm"),
+            "table.overhang": (
+                "allowed fixture overhang past a table edge",
+                "machine manual or shop rule",
+                "mm",
+            ),
+            "table.load": (
+                "table load limit, fixture plus work",
+                "machine manual",
+                "kg",
+            ),
+        }.get(field, (description, instrument, units))
     elif field == "envelope.spindle_to_table_max":
         description = "spindle nose to table at full Z-up"
         instrument = "steel rule or height gauge"

@@ -332,7 +332,16 @@ def test_fixture_footprint_debt_is_the_table_checks_not_headrooms(field, value, 
     assert row == baseline and row.status == "pass"
     [table] = fixture_table.evaluate(data)
     # Beside the job-level table facts every mill setup's row owes.
-    assert_debts(table, {f"fixtures.vise.{field}": case, "machines.mill.table": "missing"})
+    assert table.status == "unknown"
+    entries = {entry["id"]: entry for entry in table.numbers["measurements"]}
+    assert entries[f"fixtures.vise.{field}"]["status"] == case
+    # Beside the job-level table facts every mill setup's row owes, each in its own unit.
+    assert {key: entry["units"] for key, entry in entries.items() if ".table." in key} == {
+        "machines.mill.table.x": "mm",
+        "machines.mill.table.y": "mm",
+        "machines.mill.table.overhang": "mm",
+        "machines.mill.table.load": "kg",
+    }
 
 
 def test_headroom_names_selected_projection_not_the_unused_grip_and_keeps_m5_debt():

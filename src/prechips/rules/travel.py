@@ -1,11 +1,12 @@
 """Declared mill operation spans, not a toolpath or stock-position certificate.
 
 Located cutter envelopes are unioned in setup axes. Unlocated broad cuts use
-conservative stock spans without inventing where that stock sits in the frame. Every
-cutter-centre XY the traveler prints for an op (``coordinates.printed_xy``: arc rows,
-join lines, linear-table outlines and face raster passes) is unioned in too, so the
-span never reads less than the printed path (a face raster runs past the stock, #297);
-a printed path only raises the span, it never completes an unresolved axis.
+conservative stock spans without inventing where that stock sits in the frame; such a
+span is only a lower bound (the cutter's approach and exit past the stock are undeclared
+plan input), never a pass. An op whose cutter-centre XY the traveler prints
+(``coordinates.printed_xy``: arc rows, join lines, linear-table outlines and face raster
+passes) is that printed path, approach and exit included, instead of its declared extent
+(#297). Each X/Y axis names its basis: the path, the declared extent or the stock span.
 A child feature (``hole``/``parent``) without its own ``at`` is located at its
 parent's ``at`` in the parent's frame; it inherits no parent bounds.
 Saw cuts drive no spindle cutter and are skipped.
@@ -58,6 +59,23 @@ def _span(bands):
     return max(band[1] for band in bands) - min(band[0] for band in bands) if bands else UNKNOWN
 
 
+def _basis(axis, minimum_required, located_span, sourced):
+    """What an axis's span is the stroke of: the printed ``cutter-centre path``, the
+    ``declared cut extent`` (feature bounds or centres, the cutter radius on a profile),
+    both, or a broad cut's ``stock span`` (a lower bound whose approach and exit are
+    undeclared)."""
+    if not _known(minimum_required) or axis not in sourced:
+        return UNKNOWN
+    if not (_known(located_span) and same_length(located_span, minimum_required)):
+        return "stock span"
+    governing = [
+        name
+        for name, found in sourced[axis].items()
+        if found and same_length(_span(found), located_span)
+    ]
+    return governing[0] if len(governing) == 1 else "cutter-centre path and declared cut extent"
+
+
 def evaluate(bundle):
     features = bundle.feature_definitions
     frames = record(bundle.features.get("frames"))
@@ -103,6 +121,7 @@ def evaluate(bundle):
             continue
         debts, missing, errors, operations = {}, [], [], []
         bands = {axis: [] for axis in AXES}
+        sourced = {axis: {"cutter-centre path": [], "declared cut extent": []} for axis in "xy"}
         scalar_spans = {axis: [] for axis in AXES}
         complete = {axis: True for axis in AXES}
         target, owner = setup_frame_ref(bundle, setup)
@@ -235,12 +254,32 @@ def evaluate(bundle):
             fixture_driven = record(op.get("contour")).get("method") == "guided_sweep"
             if fixture_driven:
                 xy = {"x": "not_applicable", "y": "not_applicable"}
-            for axis in () if fixture_driven else ("x", "y"):
+            # A printed cutter-centre path is the op's XY motion, approach and exit
+            # included: what the table must reach. It replaces the declared extent.
+            path = (
+                None if fixture_driven else printed_xy(record(printed.get(setup["id"])), op["op"])
+            )
+            path_bounds = "not_applicable"
+            stock_only = False
+            if path:
+                path_bounds = {
+                    axis: [min(p[i] for p in path), max(p[i] for p in path)]
+                    for i, axis in enumerate(("x", "y"))
+                }
+                xy = dict(path_bounds)
+                for axis, band in path_bounds.items():
+                    _include(bands[axis], band)
+                    _include(sourced[axis]["cutter-centre path"], band)
+                cite.append(
+                    f"coordinates.{setup['id']}: printed cutter-centre path of op {op['op']}"
+                )
+            for axis in () if fixture_driven or path else ("x", "y"):
                 band = record(extent).get(axis)
                 located = record(point).get(axis) if fallback else band
                 if path_known and _band(located) and _known(padding):
                     xy[axis] = [located[0] - padding, located[1] + padding]
                     _include(bands[axis], xy[axis])
+                    _include(sourced[axis]["declared cut extent"], xy[axis])
                 else:
                     xy[axis] = UNKNOWN
                 if fallback:
@@ -257,28 +296,15 @@ def evaluate(bundle):
                         and _known(padding)
                         and not invalid_stock
                     ):
+                        # A lower bound only: a stock span is no cutter path, and the
+                        # cutter's approach and exit past it are undeclared plan input.
                         scalar_spans[axis].append(span + 2 * padding)
-                    else:
-                        complete[axis] = False
-                        op_xy_complete = False
+                        stock_only = True
+                    complete[axis] = False
+                    op_xy_complete = False
                 elif not _band(band) or not _known(padding):
                     complete[axis] = False
                     op_xy_complete = False
-            # The printed cutter-centre path is what the table must reach: never less.
-            path = (
-                None if fixture_driven else printed_xy(record(printed.get(setup["id"])), op["op"])
-            )
-            path_bounds = "not_applicable"
-            if path:
-                path_bounds = {
-                    axis: [min(p[i] for p in path), max(p[i] for p in path)]
-                    for i, axis in enumerate(("x", "y"))
-                }
-                for axis, band in path_bounds.items():
-                    _include(bands[axis], band)
-                cite.append(
-                    f"coordinates.{setup['id']}: printed cutter-centre path of op {op['op']}"
-                )
             if fallback:
                 cite.extend(stock_cite)
             if not op_xy_complete:
@@ -292,6 +318,21 @@ def evaluate(bundle):
                     missing.append(
                         f"Geometry pending: {label} broad-cut XY spans need the kernel "
                         "bounding box in the declared setup frame"
+                    )
+                # A stock-sized broad cut owes its X/Y extent whether or not the stock box
+                # is computed yet: the same plan-input debt in both modes.
+                if stock_only or geometry_pending:
+                    missing.append(
+                        f"Author {label} feature.bounds x/y in its declared frame (or a "
+                        "contour the traveler prints as a cutter-centre path): the stock span "
+                        "is only a lower bound and does not include the cutter's approach and "
+                        "exit"
+                    )
+                    authoring_entry(
+                        debts,
+                        f"{label}.xy_geometry",
+                        missing[-1],
+                        f"features.features.{name}.bounds; plan.setups.{setup['id']}.ops",
                     )
                 else:
                     # A profiled blank has no bar dimensions to record: its STEP sizes it.
@@ -359,15 +400,7 @@ def evaluate(bundle):
                 candidates.append(located_span)
             minimum_required = max(candidates) if candidates else UNKNOWN
             required = minimum_required if complete[axis] else UNKNOWN
-            # What the span is the stroke of: the cutter-centre path (located extents and
-            # printed paths), or a broad cut's stock span where no located path reaches it.
-            basis = (
-                UNKNOWN
-                if not _known(minimum_required)
-                else "cutter-centre path"
-                if _known(located_span) and located_span >= minimum_required
-                else "stock span"
-            )
+            basis = _basis(axis, minimum_required, located_span, sourced)
             verified = travel["verified"] and _known(travel["value"]) and travel["value"] >= 0
             if travel["verified"] and not verified:
                 missing.append(

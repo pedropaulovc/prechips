@@ -1018,14 +1018,63 @@
           {
             "category": "machines",
             "cite": [
-              "inventory.machines.test-mill.table"
+              "inventory.machines.test-mill.table.load"
             ],
             "field": [
-              "table"
+              "table",
+              "load"
             ],
-            "id": "machines.test-mill.table",
+            "id": "machines.test-mill.table.load",
             "identity": "test-mill",
-            "instruction": "measure: test-mill table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "instruction": "measure: test-mill table load limit, fixture plus work, machine manual, kg",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "kg"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.overhang"
+            ],
+            "field": [
+              "table",
+              "overhang"
+            ],
+            "id": "machines.test-mill.table.overhang",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill allowed fixture overhang past a table edge, machine manual or shop rule, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.x"
+            ],
+            "field": [
+              "table",
+              "x"
+            ],
+            "id": "machines.test-mill.table.x",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table length along X, with any extension, steel rule or tape, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.y"
+            ],
+            "field": [
+              "table",
+              "y"
+            ],
+            "id": "machines.test-mill.table.y",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table width along Y, with any extension, steel rule or tape, mm",
             "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
@@ -1091,14 +1140,63 @@
           {
             "category": "machines",
             "cite": [
-              "inventory.machines.test-mill.table"
+              "inventory.machines.test-mill.table.load"
             ],
             "field": [
-              "table"
+              "table",
+              "load"
             ],
-            "id": "machines.test-mill.table",
+            "id": "machines.test-mill.table.load",
             "identity": "test-mill",
-            "instruction": "measure: test-mill table X/Y extents (and any extension), allowed fixture overhang past them, and table load limit, steel rule or tape, and the machine manual for the load limit, mm",
+            "instruction": "measure: test-mill table load limit, fixture plus work, machine manual, kg",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "kg"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.overhang"
+            ],
+            "field": [
+              "table",
+              "overhang"
+            ],
+            "id": "machines.test-mill.table.overhang",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill allowed fixture overhang past a table edge, machine manual or shop rule, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.x"
+            ],
+            "field": [
+              "table",
+              "x"
+            ],
+            "id": "machines.test-mill.table.x",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table length along X, with any extension, steel rule or tape, mm",
+            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
+          {
+            "category": "machines",
+            "cite": [
+              "inventory.machines.test-mill.table.y"
+            ],
+            "field": [
+              "table",
+              "y"
+            ],
+            "id": "machines.test-mill.table.y",
+            "identity": "test-mill",
+            "instruction": "measure: test-mill table width along Y, with any extension, steel rule or tape, mm",
             "reason": "The machine table's extents, allowed overhang and load are not recorded.",
             "status": "missing",
             "units": "mm"
@@ -1236,12 +1334,14 @@
         "travel_checks": {
           "x": {
             "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 60.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 40.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
@@ -1375,12 +1475,14 @@
         "travel_checks": {
           "x": {
             "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 60.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
             "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 40.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
@@ -2715,7 +2817,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "4881d3d31e422bd9e8f98b0c51d00a6ad07a6d149ff2a85d283d16f60b401812",
+  "hash": "58013116e4a49545276d134ec77c8f7f0b5280bbe4f3774a2869de0362e190aa",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

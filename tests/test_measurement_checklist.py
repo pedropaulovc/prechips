@@ -476,5 +476,7 @@ def test_human_checklist_and_angle_units_match_the_current_measurement_debt(tmp_
             assert entry["units"] == "identity"
         elif entry["id"].endswith(".point_angle"):
             assert entry["units"] == "degrees"
+        elif entry["id"].endswith(".table.load"):
+            assert entry["units"] == "kg"
         else:
             assert entry["units"] == "mm"

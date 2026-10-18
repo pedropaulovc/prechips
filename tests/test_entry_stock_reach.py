@@ -124,6 +124,7 @@ def test_the_travel_span_covers_the_printed_cutter_path_and_headroom_needs_it():
         "travel_mm": 400,
         "part_mm": 100,
         "required_mm": 124,
+        "minimum_required_mm": 124,
         "basis": "cutter-centre path",
     }
     # The printed path reaching past the travel is an error on both rows.
@@ -133,21 +134,44 @@ def test_the_travel_span_covers_the_printed_cutter_path_and_headroom_needs_it():
         assert headroom.evaluate(data)[0].status == "error"
 
 
-def test_a_printed_path_raises_but_never_completes_an_unresolved_span():
+def test_a_printed_path_is_the_ops_motion_even_where_the_stock_is_unplaced():
+    # The printed cutter-centre path, approach and exit included, is what the table runs.
     data = bundle()
     data.plan["stock"].pop("axis")
+    del data.features["features"]["top"]["bounds"]
     with lend_rows(data, printed((-12, 5), (112, 5))):
         [span] = travel.evaluate(data)
         [row] = headroom.evaluate(data)
     x = span.numbers["travel_checks"]["x"]
-    assert x["required_mm"] == "unknown"
-    assert x["minimum_required_mm"] == 124
+    assert (x["required_mm"], x["basis"]) == (124, "cutter-centre path")
+    assert row.numbers["travel_checks"]["x"]["required_mm"] == 124
+
+
+def test_a_printed_path_replaces_the_declared_extent_and_is_the_label():
+    # pivot-bracket P4: the declared face spans the 31.75 mm section, the path 26.2 mm.
+    data = bundle()
+    with lend_rows(data, printed((10, 2), (90, 28.2))):
+        [span] = travel.evaluate(data)
+    y = span.numbers["travel_checks"]["y"]
+    assert (y["required_mm"], y["basis"]) == (pytest.approx(26.2), "cutter-centre path")
+
+
+def test_each_axis_names_the_basis_that_set_it():
+    data = bundle()
+    [span] = travel.evaluate(data)
+    x = span.numbers["travel_checks"]["x"]
+    assert (x["required_mm"], x["basis"]) == (100, "declared cut extent")
+    # Without a declared extent or printed path the stock span is only a lower bound:
+    # the cutter's approach and exit past it are undeclared plan input, never a pass.
+    del data.features["features"]["top"]["bounds"]
+    [span] = travel.evaluate(data)
+    [row] = headroom.evaluate(data)
+    x = span.numbers["travel_checks"]["x"]
+    assert (x["required_mm"], x["minimum_required_mm"], x["basis"]) == (
+        "unknown",
+        100,
+        "stock span",
+    )
+    assert any("approach and" in entry["instruction"] for entry in span.numbers["measurements"])
     assert row.status == "unknown"
-    assert row.numbers["travel_checks"]["x"]["required_mm"] == "unknown"
-
-
-def test_a_broad_cut_without_a_printed_path_needs_its_stock_span_and_says_so():
-    [span] = travel.evaluate(bundle())
-    [row] = headroom.evaluate(bundle())
-    assert span.numbers["travel_checks"]["x"]["required_mm"] == 100
     assert row.numbers["travel_checks"]["x"]["basis"] == "stock span"

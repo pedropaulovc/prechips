@@ -316,9 +316,11 @@ rule's own cutter-centre span for the setup (`required_mm`) against the measured
 travel, with the entry stock as `part_mm`: what the table must reach, never the
 fixture's footprint, so a vise or sub-plate wider than an axis's travel is not an
 error. The traveler's CLEARANCE `X/Y travel: needs … (basis)` prints that span
-with its basis, so it never reads less than the printed cutter-centre path:
-`cutter-centre path` when located extents or printed paths set it, `stock span` when a
-broad cut's stock span (no located path reaching it) does. An unresolved span is `?`; a span
+with the basis that set it: `cutter-centre path` (an op's printed path, which is its
+X/Y motion, approach and exit included), `declared cut extent` (feature bounds or
+centres, the cutter radius on a profile) or both. A broad cut sized only by its
+stock span is a lower bound, printed `needs at least … (stock span; the cutter's
+approach and exit are not declared) … ? not computed`, never "fits". An unresolved span is `?`; a span
 whose (lower bound) exceeds the measured travel is an error on both rows. No
 separate radial tip envelope is computed.
 
@@ -389,11 +391,13 @@ load. None of these is an inventory fact yet
 setup's row is `?`. It never errors or passes. `numbers.missing` names the
 table facts to add, and the sentence ends in a `check:`: the fixture's footprint
 seats on the table within its allowed overhang, and the fixture plus work weight
-is within the table load. Its debt is one `machines.<id>.table` measurement entry
-(`measure:` the table's X/Y extents and any extension, the allowed overhang and the
-load limit). The traveler lists it once in the JOB MEASUREMENT REGISTER, naming the
-setups that owe it, and prints no per-setup "Not verified" box or decision-input
-STOP for it.
+is within the table load. Its debt is four job-level measurements, each in its own
+unit: `machines.<id>.table.x` and `.y` (table length and width with any extension,
+mm), `.overhang` (allowed fixture overhang past a table edge, mm) and `.load` (table
+load limit, fixture plus work, kg). The traveler lists them once in the JOB
+MEASUREMENT REGISTER, naming the setups that owe them. Each mill setup's CLEARANCE
+prints `Fixture on the table: ? not checked — record ?M…; check: …` citing them,
+never "fits", and no per-setup "Not verified" box or decision-input STOP.
 
 Evidence is the fixture's accepted `length`/`width`, with its footprint in setup
 X/Y (`footprint_x_mm`/`footprint_y_mm`, `footprint_basis`). A vise's `length` runs
@@ -478,11 +482,14 @@ Broad face/profile/pocket operations without complete extents use a
 conservative stock-span screen without inventing a stock origin: the setup-entry
 stock `headroom` reads (the kernel's entry box, else a raw blank placed by its
 own `axis`/`section_axis`); a routed stock without that box is unknown, never the
-raw blank. Every cutter-centre XY the traveler prints for an operation
-(`coordinates`' arc rows, join lines, linear-table outlines and face raster passes,
-`printed_xy_bounds_mm`) is unioned into the span, so the span never reads less than
-the printed path (a face raster runs past the stock); a printed path only raises
-the span and never completes an unresolved axis. Z is the
+raw blank. That stock span is only a lower bound: the cutter's approach and exit
+past the stock are undeclared plan input, so the axis stays unknown (an exceeded lower
+bound still errors) with an `author:` debt naming the op's `feature.bounds`. An
+operation whose cutter-centre XY the traveler prints (`coordinates`' arc rows, join
+lines, linear-table outlines and face raster passes, `printed_xy_bounds_mm`) is that
+printed path, approach and exit included, instead of its declared extent. Each X/Y
+check names its `basis`: `cutter-centre path`, `declared cut extent`, both, or
+`stock span`. Z is the
 union of each operation's **spindle-nose** positions, `tip + holder gauge +
 tool projection`, not the cutter-tip span: a long facing tool and a short
 pocketing tool in one setup need the stroke between their nose extremes, and

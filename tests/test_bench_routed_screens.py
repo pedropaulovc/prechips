@@ -198,7 +198,9 @@ def row_for(data, sid="S3"):
 @pytest.mark.parametrize(
     "travel_x,travel_y,status",
     [
-        (170, 90, "pass"),
+        # The entry box is a broad cut's stock span: a lower bound (its approach and
+        # exit are undeclared), so fitting it is ? and exceeding it an error (#297).
+        (170, 90, "unknown"),
         (169.9, 90, "error"),
         (170, 89.9, "error"),
     ],
@@ -207,8 +209,8 @@ def test_routed_travel_screen_uses_setup_entry_stock_box(route, travel_x, travel
     row = row_for(routed_bundle(route, travel_x, travel_y))
     assert row.status == status
     checks = row.numbers["travel_checks"]
-    assert checks["x"]["required_mm"] == 170
-    assert checks["y"]["required_mm"] == 90
+    assert checks["x"]["minimum_required_mm"] == 170
+    assert checks["y"]["minimum_required_mm"] == 90
 
 
 def test_raw_blank_outside_travel_does_not_fail_its_reduced_derived_entry():
@@ -216,8 +218,8 @@ def test_raw_blank_outside_travel_does_not_fail_its_reduced_derived_entry():
     # The raw supply's own setup still screens the authored blank, which cannot fit.
     raw = row_for(data, "S2")
     assert raw.status == "error"
-    assert raw.numbers["travel_checks"]["x"]["required_mm"] == 300
-    assert row_for(data).status == "pass"
+    assert raw.numbers["travel_checks"]["x"]["minimum_required_mm"] == 300
+    assert row_for(data).status == "unknown"
 
 
 @pytest.mark.parametrize("route", ROUTES)
