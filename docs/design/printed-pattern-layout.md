@@ -530,6 +530,24 @@ bottom edge R816, east and west end lands.
 "outside the printed top edge (T2A op 10)" in place of "outside the line
 scribed in T2A op 10".
 
+### 5.1 Setup pictures
+
+Each setup gets a picture, drawn from the same kernel geometry as the print
+and through the existing setup-picture path:
+
+- **The pattern setup (T2A):** a top view of the `on` face with the
+  generated outline over it; each registration pin standing in its hole; the
+  bars that lie on the work; the KEEP side and the hatched waste. It shows the
+  print's orientation on the work, so a print laid on the strap upside down or
+  end for end is visibly wrong before gluing.
+- **Each saw that follows the print (T2B):** the work on the saw's table, the
+  followed line, the kept and waste sides, the blade where it enters the
+  waste, and a feed arrow along the line. The table and support come from the
+  #335 hold line once it prints.
+
+A picture whose geometry is unknown is not drawn; the row's STOP stands. The
+pictures join the paired main-versus-PR picture review in phase 5.
+
 ## 6. Unknown-value gate
 
 The pattern op and each follower print runnable steps only when **every**
@@ -570,6 +588,9 @@ card.
 ```text
 SETUP T2A — fitting bench — ASSEMBLY / FINISHING
 Stock in: strap blank from T1, both faces faced, pivot bore and two tooling holes drilled.
+[Setup picture T2A: top view of the strap, with the print's outline over it,
+ the three gauge pins standing in the pivot bore and the tooling holes, the
+ X and Y bars on the strap, KEEP inside the outline and the waste hatched]
 
 Step 10 | top edge, bottom edge, east and west end lands
   Consumable: pattern-T2A-10.pdf, match code K7Q-4MD (made with this
@@ -616,6 +637,9 @@ Hold: [the hand-fed hold line from #335: table, guide height, hand position]
 Blade: [the blade line with its TPI and teeth in the 2.5 mm work, #336/#341]
 Lay the strap flat on the table, print up. Keep the side of each line
 marked KEEP; the hatched side is waste.
+[Setup picture T2B: the strap flat on the saw table, print up, the blade
+ entering the waste side outside the printed top edge, a feed arrow along the
+ line, KEEP toward the operator's guiding hand, the waste offcut beyond]
 Op | Feature     | Tool        | Speed    | Feed                    | Action
 10 | top edge    | 1/2 in blade| 165 sfm  | by hand along the line  | Just before cutting: read check bar X
    |             |             |          |                         | on the strap: 299.85–300.15; bar Y:
@@ -632,13 +656,13 @@ SETUP T3 — first bench step
 Step 5 | strap top face
   Action: STOP: print removal not established — the adhesive record names
           no removal agent in the consumables inventory — do not run T3.
-
-  (With a cited removal record whose agent is a consumables item, the row
-  prints that item's name, the wait, "peel the paper off; wipe the adhesive
-  left on the face off with a rag wet with <the same item>; wipe the face
-  with isopropyl alcohol; dry", and "the face must feel clean, not tacky".
-  No removal text is ever printed from a placeholder.)
 ```
+
+With a cited removal record whose agent is a consumables item, T3 step 5
+prints that item's name, the wait, "peel the paper off; wipe the adhesive left
+on the face off with a rag wet with" the same item, "wipe the face with
+isopropyl alcohol; dry", and "the face must feel clean, not tacky". No removal
+text is ever printed from a placeholder.
 
 With following error 0.5 instead of 0.3 (§10), T2B's rows print instead:
 
@@ -730,7 +754,7 @@ sample, or the traveler prints a STOP.** Never a pass with stock outside.
 | 3 | Kernel: `scribed_profile` reads the saw's `feature`; each listed feature's edges on the `on` plane as exact arcs and lines, hole axes, sampled line points for the stack; sheet-fit and bar-on-face checks; cache key gains features and `on` | 1 |
 | 3b | Pattern writer: deterministic one-page vector PDF (§2.2) from phase 3's geometry; §8.4 tests | 3 |
 | 4 | Rule `printed_pattern`: layout, follower and removal findings; §8.1 and §8.2 tests | 2, 3 |
-| 5 | Traveler rows, the pattern file beside the traveler, STOP forms, machinist review on the affected bundle | 3b, 4 |
+| 5 | Traveler rows, the pattern file beside the traveler, the setup pictures (§5.1), STOP forms, machinist review on the affected bundle | 3b, 4 |
 | 6 | `file_to_line` to a printed line (stack against the drawing band) | 4 |
 
 No shipped example uses a print; the consumer change is harmonic-analyzer
@@ -816,6 +840,13 @@ reading names its edges and direction: the side of the pin facing the
 station, along a printed dimension line from the pin centre. T2B references
 #335's hand-fed hold line and #336's blade TPI fact, and names the keep
 side.
+
+Blind machinist read round 2 (on `ab8f8df`): none of the round 1 findings
+came back. Two still applied, and both are addressed in the next commit:
+setup pictures for T2A and T2B (§5.1, drawn into the mock-up as picture
+captions), and the removal note moved out of the printed block. The
+bracketed T2B hold and blade lines stay as references to #335 and #336/#341.
+Their gates cover those rows once they print.
 
 Not re-reviewed: the D2 rework (§2.2, §8.4, phase 3b) and the station
 geometry (two pins, normal-direction bound). The §10 arithmetic leaves out
