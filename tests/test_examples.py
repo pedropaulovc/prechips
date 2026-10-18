@@ -1,7 +1,26 @@
 """Frozen bundles must be reproduced, not consumed, by the real CLI."""
 
+import runpy
+from pathlib import Path
+
 import pytest
 from test_cli import copy_examples, traveler
+
+ROOT = Path(__file__).resolve().parents[1]
+GOLDEN_FILES = {"report.json", "traveler.html"}
+# (bundle under examples/, plan, expected directory under the bundle, exit code)
+PILOT_CASES = (
+    ("pivot-shaft", "plan.toml", "expected", 0),
+    ("rocker-arm", "plan.toml", "expected", 0),
+    ("pivot-bracket", "plan.toml", "expected", 0),
+    ("cone-pivot-post", "built-up.toml", "expected/built-up", 4),
+)
+GEOMETRY_GOLDEN_CASES = tuple(
+    (f"geometry/{part}", plan, expected, exit_code)
+    for part, plan, expected, exit_code, *_ in runpy.run_path(
+        str(ROOT / "scripts" / "validate_examples.py")
+    )["GEOMETRY_CASES"]
+)
 
 
 def _assert_bundle_bytes_equal(actual, expected, comparison):
@@ -41,15 +60,19 @@ def _assert_bundle_bytes_equal(actual, expected, comparison):
             )
 
 
-@pytest.mark.parametrize(
-    ("part", "plan_filename", "expected_subdir", "exit_code"),
-    [
-        ("pivot-shaft", "plan.toml", "expected", 0),
-        ("rocker-arm", "plan.toml", "expected", 0),
-        ("pivot-bracket", "plan.toml", "expected", 0),
-        ("cone-pivot-post", "built-up.toml", "expected/built-up", 4),
-    ],
-)
+def _outputs(out):
+    return {path.name: path.read_bytes() for path in out.iterdir() if path.is_file()}
+
+
+def _golden(expected):
+    return {
+        path.name: path.read_bytes()
+        for path in expected.iterdir()
+        if path.is_file() and (path.name in GOLDEN_FILES or path.suffix == ".png")
+    }
+
+
+@pytest.mark.parametrize(("part", "plan_filename", "expected_subdir", "exit_code"), PILOT_CASES)
 def test_examples_match_reference_bytes_and_repeat(
     tmp_path,
     pilot_kernel_cache,
@@ -67,13 +90,44 @@ def test_examples_match_reference_bytes_and_repeat(
         result, report, html = traveler(bundle / plan_filename, out)
         assert result.returncode == exit_code, result.stderr
         assert report["expected_exit"] == exit_code
-        outputs.append({path.name: path.read_bytes() for path in out.iterdir() if path.is_file()})
+        outputs.append(_outputs(out))
     _assert_bundle_bytes_equal(outputs[1], outputs[0], "run-1 vs run-0")
-    expected = bundle / expected_subdir
-    reference = {
-        path.name: path.read_bytes()
-        for path in expected.iterdir()
-        if path.is_file()
-        and (path.name in {"report.json", "traveler.html"} or path.suffix == ".png")
+    _assert_bundle_bytes_equal(outputs[0], _golden(bundle / expected_subdir), "run-0 vs golden")
+
+
+@pytest.mark.parametrize(
+    ("part", "plan_filename", "expected_subdir", "exit_code"), GEOMETRY_GOLDEN_CASES
+)
+def test_geometry_examples_match_reference_bytes(
+    tmp_path,
+    pilot_kernel_cache,
+    part,
+    plan_filename,
+    expected_subdir,
+    exit_code,
+):
+    """One run each: the pilots above already pin repeat-run determinism."""
+    bundle = copy_examples(tmp_path) / part
+    pilot_kernel_cache(bundle / plan_filename)
+    out = tmp_path / "out"
+    result, report, _ = traveler(bundle / plan_filename, out)
+    assert result.returncode == exit_code, result.stderr
+    assert report["expected_exit"] == exit_code
+    _assert_bundle_bytes_equal(_outputs(out), _golden(bundle / expected_subdir), "run vs golden")
+
+
+def test_every_example_golden_is_byte_compared():
+    """A new example's golden needs a case above, or it can drift while CI stays green."""
+    examples = ROOT / "examples"
+    covered = {
+        examples / part / expected
+        for part, _, expected, _ in (*PILOT_CASES, *GEOMETRY_GOLDEN_CASES)
     }
-    _assert_bundle_bytes_equal(outputs[0], reference, "run-0 vs golden")
+    goldens = {
+        path.parent
+        for name in GOLDEN_FILES
+        for path in examples.rglob(name)
+        if any(part.startswith("expected") for part in path.relative_to(examples).parts)
+    }
+    uncovered = sorted(golden.relative_to(ROOT).as_posix() for golden in goldens - covered)
+    assert uncovered == [], f"no byte-compare case in tests/test_examples.py for {uncovered}"
