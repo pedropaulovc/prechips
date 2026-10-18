@@ -8745,7 +8745,8 @@ class _Traveler:
         operator entering and leaving each pass: a cutter a radius past the stock the setup
         receives (:meth:`stock_clear`) meets none. Nothing else proves an end clear or in
         material, so an end inside that box, or any end without it, carries no claim either
-        way. The table prints the ends; this names an end by its side only. The passes run in
+        way. The table prints the ends; this names an in-air end by its role in the printed
+        pass direction (where each pass enters or leaves), not its value. The passes run in
         and out clear only when every emitted piece's start and end is proven so: a keep-out
         splits passes into pieces that also start and stop between the outer ends. A pocket's
         first pass enters from air only when it stands a radius outside that box on the open
@@ -8771,22 +8772,22 @@ class _Traveler:
             return ""
         # The outer ends are every piece's ends only when no keep-out split a pass.
         whole = bool(points) and all(min(abs(p[run] - end) for end in ends) <= 1e-9 for p in points)
-        ends_name = "pass ends" if whole else "outer pass ends"
         low, high = sorted(ends)
         air = [s for v, s in ((low, -1), (high, 1)) if clear(run, v, radius, s)]
         every = bool(points) and all(any(clear(i, p[i], radius) for i in range(2)) for p in points)
         text = ""
-        if len(air) == 2:
-            text += f"; {ends_name} both in air, a cutter radius past the stock"
-        elif air:
-            side = "-" if air[0] < 0 else "+"
-            text += f"; the {side}{axis} {ends_name[:-1]} is in air, a cutter radius past the stock"
+        if air:
+            text += "; " + self._raster_air_ends(pieces if points else [], run, axis, air, whole)
+            text += ", a cutter radius past the stock"
         if every and air:
             text += " — every pass runs in and out clear"
         elif every:
             text += "; every pass runs in and out clear, a cutter radius past the stock"
         elif air and not whole:
-            text += "; split passes also start and stop between them, not proven clear"
+            text += (
+                "; a keep-out splits passes into pieces that also start and stop between,"
+                " not proven clear"
+            )
         entry, side = raster.get("entry_pass"), str(raster.get("open_side", "")).upper()
         across = 1 - run
         if (
@@ -8800,6 +8801,39 @@ class _Traveler:
                 f"{side} side"
             )
         return text
+
+    @staticmethod
+    def _raster_air_ends(pieces, run, axis, air, whole):
+        """The in-air ``air`` ends (-1 low, +1 high along the ``run`` axis) named by their
+        role in the printed pass direction: every emitted piece of a one-way raster runs the
+        same way, so the end it starts from is where each pass enters and the other where it
+        leaves. A keep-out splits passes into pieces the table numbers as passes, some of
+        which start or stop at the keep-out, so a split raster names only its outer ends,
+        by the side the feed enters or leaves. Pieces with no single direction name the ends
+        by their side only."""
+        senses = {(b[run] > a[run]) - (b[run] < a[run]) for a, b in pieces}
+        if len(senses) != 1 or 0 in senses:
+            if len(air) == 2:
+                return "pass ends both in air"
+            return f"the {'-' if air[0] < 0 else '+'}{axis} pass end is in air"
+        (start,) = senses
+        start = -start  # a pass running toward +axis enters from the -axis end
+        sign = {-1: "-", 1: "+"}
+        if not whole:
+            roles = {start: "enters", -start: "leaves"}
+            if len(air) == 2:
+                return (
+                    f"the outer {sign[start]}{axis} and {sign[-start]}{axis} ends, where the "
+                    "feed enters and leaves, are in air"
+                )
+            return f"the outer {sign[air[0]]}{axis} end, where the feed {roles[air[0]]}, is in air"
+        roles = []
+        if start in air:
+            roles.append(f"each pass enters from air at {sign[start]}{axis}")
+        if -start in air:
+            leaves = f"leaves into air at {sign[-start]}{axis}"
+            roles.append(leaves if roles else "each pass " + leaves)
+        return " and ".join(roles)
 
     def outline_clearance(self, setup, profile, part):
         """A cutter-centre outline's rows whose cutter stands wholly outside the stock the

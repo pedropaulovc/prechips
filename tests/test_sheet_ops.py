@@ -482,7 +482,7 @@ def raster_note(bundle, units="mm", removal=None, records=None):
     if removal is not None:
         op["stock_removal_bounds"] = removal
     (note,) = raster_notes(sheet.contours({"id": "S1", "ops": [op]}, T1))
-    # The table prints the pass ends: the note names an end by its side only.
+    # The table prints the pass ends: the note names an end by its role, not its value.
     assert "13.765" not in note
     return note
 
@@ -532,11 +532,50 @@ def test_raster_ends_are_in_air_only_a_cutter_radius_past_the_kernel_entry_stock
     claimed = [
         end
         for end, side in (("-13.765", "-X"), ("13.765", "+X"))
-        if re.search(rf"both in air|{re.escape(side)} pass end is in air", note)
+        if re.search(rf"(enters from|leaves into) air at {re.escape(side)}\b", note)
     ]
     if "pass 1" in note:
         claimed.append("pass 1")
     assert claimed == air and bool(AIR.search(note)) is bool(air)
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize(
+    ("box_mm", "low", "high"),
+    [
+        ([-9.0, 5.77, -5.0, 9.0, 30.0, 5.0], True, True),
+        ([-9.0, 5.77, -5.0, 9.01, 30.0, 5.0], True, False),
+        ([-9.01, 5.77, -5.0, 9.0, 30.0, 5.0], False, True),
+    ],
+)
+def test_an_in_air_pass_end_is_named_by_where_each_pass_enters_or_leaves(
+    box_mm, low, high, reverse
+):
+    """Issue #348: the note says whether an in-air end is each pass's entry or its exit,
+    read from the printed pass direction, so a -X end in air is an entry for passes fed
+    -X to +X and an exit for passes fed +X to -X."""
+    records = contour_records(None)
+    profile = records[("coordinates", "S1")]["profiles"][0]
+    if reverse:
+        profile["cutter_centre"] = [piece[::-1] for piece in profile["cutter_centre"]]
+    note = raster_note(kernel_stock(box_mm), removal={"x": [-9.0, 9.0]}, records=records)
+    start, finish = ("+X", "-X") if reverse else ("-X", "+X")
+    in_air = {"-X": low, "+X": high}
+    assert (f"enters from air at {start}" in note) is in_air[start]
+    assert (f"leaves into air at {finish}" in note) is in_air[finish]
+    assert f"enters from air at {finish}" not in note
+    assert f"leaves into air at {start}" not in note
+    assert "each pass" in note
+
+
+def test_pass_ends_without_a_printed_direction_name_no_entry_or_exit():
+    records = contour_records(None)
+    # The second pass runs back the other way: no one direction says which end enters.
+    profile = records[("coordinates", "S1")]["profiles"][0]
+    profile["cutter_centre"][1].reverse()
+    note = raster_note(kernel_stock([-9.0, 5.77, -5.0, 9.0, 30.0, 5.0]), records=records)
+    assert "pass ends both in air" in note
+    assert "enters from air at" not in note and "leaves into air" not in note
 
 
 @pytest.mark.parametrize(("entry", "air"), [(40.0, True), (34.0, False)])
@@ -607,7 +646,14 @@ def test_every_pass_runs_in_and_out_clear_only_when_every_emitted_piece_end_is_p
     (note,) = face_notes(box_mm, profile)
     assert bool(EVERY.search(note)) is every
     # The outer X -3 / 23 ends stay proven in air, and no inner end is named as such.
-    assert "both in air" in note and not MATERIAL.search(note)
+    # A split raster's numbered pieces do not all start and stop there: only the outer
+    # ends are named, by where the feed enters and leaves (Codex on #351).
+    named = (
+        "the outer -X and +X ends, where the feed enters and leaves"
+        if keep_out
+        else "each pass enters from air at -X and leaves into air at +X"
+    )
+    assert named in note and not MATERIAL.search(note)
     assert not any(f"{value:.3f}" in note for value in inner)
 
 
@@ -617,7 +663,8 @@ def test_a_stage_whose_pieces_prove_less_does_not_share_the_op_raster_claim():
     assert len(notes) == 2 and EVERY.search(notes[0])
     # The split finish stage states its own outer ends without the rough stage's every-pass
     # claim, and each table names its stage.
-    assert "outer pass ends both in air" in notes[1] and not EVERY.search(notes[1])
+    assert "the outer -X and +X ends, where the feed enters and leaves" in notes[1]
+    assert "each pass enters" not in notes[1] and not EVERY.search(notes[1])
     assert notes[0].startswith("Rough: lift") and notes[1].startswith("Finish: lift")
 
 
