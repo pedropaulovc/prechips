@@ -976,8 +976,18 @@ proposed part setups' fixture clearance stays `?`.
 
 ### 5.1 Placement
 
-The proposed renderer places commissioning once after the job page and before
-the first part setup, regardless of quantity. Add to STOCK AND ROUTE:
+The proposed renderer places one set of commissioning instructions after the
+job page and before the first part setup, regardless of quantity.
+
+Generate route descriptions, meta lines and headings from `scope` and the
+declared coverage `batch_qty`. For `scope = "install"`, say that one run
+covers the install until a renewal trigger, for at most `batch_qty` parts.
+For `scope = "batch"`, say that commissioning repeats every `batch_qty` parts.
+The [batch-quantity and run-count rules](#25-per-part-setups-referencing-the-phase)
+and renewal triggers apply to both scopes.
+
+The labels in sections 5.1 and 5.2 show the 20-part, install-scoped example.
+Add to STOCK AND ROUTE:
 "Commissioning C (once per install, covers 20) before the first part."
 
 The commissioning pages have:
@@ -1064,7 +1074,7 @@ readings, such as stock top from the M5 stack, stand-out and sweep equality,
 printed with a band and blank. Share `Reading`, prediction plumbing and table
 rendering instead of implementing them twice. #11 adds predictions for readings
 taken on each part; they remain traveler checks, not install-record entries.
-Commissioning readings have installation lifetime and are recorded. The proposed
+Commissioning readings have install or batch lifetime and are recorded. The proposed
 renderer uses `recorded: "install" | "per_part"` to distinguish them.
 
 ### 6.2 #134 (shop-made fixtures as their own parts)
