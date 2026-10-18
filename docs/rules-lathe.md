@@ -193,7 +193,8 @@ and stick-out used to locate the exposed geometry.
 ## `stock_diameter`
 
 Checks `hold.fixture` when it selects a collet/collet set, `collet_chuck`, or
-chuck. It uses the held OD and fallback/unknown semantics described above, not
+chuck. An admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table) has no
+collet or chuck and is `not_applicable`. It uses the held OD and fallback/unknown semantics described above, not
 the finished exposed diameter D used by `stickout`.
 
 Only actual declared gripping capacities are used:

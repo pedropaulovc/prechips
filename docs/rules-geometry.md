@@ -2441,7 +2441,9 @@ separately. The error sentence never labels those candidates as having no cut.
 ## `vise`
 
 One row per setup. Non-vise holding (`kind` ≠ `vise`) is `not_applicable`
-(`{setup}: vise has no vise grip-zone facts for {kind} holding.`); unknown
+(`{setup}: vise has no vise grip-zone facts for {kind} holding.`), as is an
+admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table) (`hold.kind =
+"hand_fed"`: the work is fed by hand on the saw table, nothing holds it); unknown
 holding identity or any missing pose/dimension is `unknown` with the job's
 reason. With the jaws placed the kernel reports `width_mm` (part extent
 between the inner jaw planes), `jaw_separation_mm` (how far the jaws stand apart
@@ -2475,7 +2477,9 @@ parallels were installed, the part was seated, or the vise torqued.
 
 ## `thin_wall_under_clamp`
 
-One row per setup. Holding other than a vise, a chuck (a lathe `chuck_3jaw` /
+One row per setup. An admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table)
+clamps nothing, so it is `not_applicable` (`{setup}: the work is fed by hand on the
+saw table; no fixture, jaw or clamp holds it.`). Holding other than a vise, a chuck (a lathe `chuck_3jaw` /
 `chuck_4jaw`, or a `dividing_head` that names its `hold.chuck`) or a
 posed-solids fixture with `clamps` is `unsupported` (`{setup}:
 thin_wall_under_clamp has no vise grip-zone facts for {kind} holding.`), as
@@ -2581,7 +2585,10 @@ The shipped policy keeps `thin_wall_floor_mm = "unknown"` with
 ## `fixture_interference`
 
 One row per setup, for every holding kind the kernel draws (vise, chucks,
-dividing head, dead centre, angle plate, custom fixture, clamps). With the
+dividing head, dead centre, angle plate, custom fixture, clamps). An admitted
+[hand-fed hold](plan.md#hand-fed-on-the-saw-table) draws nothing and is
+`not_applicable`; a hand-fed hold whose scope is unresolved keeps the unknown
+holding row. With the
 fixture's components placed on the setup-entry stock, the kernel checks:
 
 1. every drawn component against the entry stock;
