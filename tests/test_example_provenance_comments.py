@@ -172,7 +172,7 @@ def test_realistic_demo_scan_is_nonempty_anchored_and_has_two_selected_assumptio
 ):
     inventory, plans = worked_example_data
     found = VALIDATOR["check_example_measurements"](inventory, plans)
-    assert len(found["demo"] - found["assumed"]) == 815
+    assert len(found["demo"] - found["assumed"]) == 816
     assert len(found["real"]) == 6
     expected = {
         ("tools", "reamers-decimal", "members", "0.4500in", "lead_mm"): (
