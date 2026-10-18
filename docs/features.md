@@ -167,9 +167,9 @@ unresolved and cannot inherit the title-block general angular tolerance.
 An explicit value, numeric or `"unknown"`, is authoritative. Non-BASIC features
 retain the general-angle fallback. The cone export puts the 12.5182° BASIC
 relationship on `crank_bore` as `land_angle_nominal_deg`, with Ø0.10 angularity
-to A/B but no `angle_tol_deg`. HA computes `CRANK_BORE_ANGLE_LIMIT_DEG` ≈ 0.0795°
-(`cad/scripts/cone_pivot_post_spec.py:373`) but omits it from the export.
-The exporter must supply that allowance or explain why it is not an indexing
+to A/B but no `angle_tol_deg`. harmonic-analyzer (HA) computes
+`CRANK_BORE_ANGLE_LIMIT_DEG` ≈ 0.0795° (`cad/scripts/cone_pivot_post_spec.py:373`)
+but omits it from the export. The exporter must supply that allowance or explain why it is not an indexing
 landing allowance. Prechips neither derives it from the bare FCF nor inherits
 the title-block ±1°. This is export debt, not an absent source.
 

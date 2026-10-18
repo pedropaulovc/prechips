@@ -76,10 +76,17 @@ stop fixture, support-list strings and `{ref = ...}` records, support blocks,
 and `hold.index.fixture` (including machine identities such as `BS-0`).
 The summary also includes `clamp`, `stop`, `locator` and `jaw_protection` values
 that resolve to inventory fixtures even without selected-reference spelling.
-Alignment gauges and non-fixture prose are not fixture requirements.
-Explicit `none` and `not_applicable` are not fixtures. Unknown primary fixtures
-or explicitly unknown support/index references remain unknown; missing optional
-supports are not invented. Each identity is the `(category, key)` the reference
+Alignment gauges and non-fixture prose are not fixture requirements. The summary
+also includes tools named by make operations of shop-made workholding items.
+These tool identities follow the same bare-key or category-qualified display
+rules as holding items.
+
+Explicit `none` and `not_applicable` are not fixtures. A missing or unknown
+primary fixture adds `unknown`, except for an admitted fixtureless hand-fed hold.
+Explicitly unknown `parallels`, `riser`, `support` or `supports` also add
+`unknown`, as do unknown support-list entries/references and an index declaration
+whose fixture is omitted or unknown. Missing optional supports are not invented.
+Each identity is the `(category, key)` the reference
 selects, so two spellings of one item list it once. It lists by key alone,
 unless another listed item has the same key in another category (a
 `holders.holder` collet and a `fixtures.holder` plate); then each prints as
@@ -153,10 +160,14 @@ non-first candidates, and refuses input/output collisions and escaping output
 symlinks. Output replacement is staged and attempts to restore prior bytes if a
 write fails. A second filesystem failure during rollback can prevent restoration;
 the staged backup then preserves the prior bytes. Do not assume every filesystem
-refusal leaves the previous output in its original location.
+refusal leaves the previous output in its original location. If restoration
+itself raises an `OSError`, the current source lets that exception propagate
+before converting the original write failure to `BadInput`. The CLI's
+`BadInput` handler therefore does not turn this second failure into exit 3.
 
-Exit precedence is `3 > 2 > 4 > 0`. An invalid candidate, input or output prevents
-comparison writes (3). Otherwise any rule error wins (2), then any candidate
+For handled input/output failures and evaluated candidates, exit precedence is
+`3 > 2 > 4 > 0`. Invalid candidates or inputs fail before comparison writes;
+handled output refusals return 3. Otherwise any rule error wins (2), then any candidate
 with required unresolved findings (4), otherwise 0. Waste is informational, not
 an additional shop-required rule: an unknown waste ratio alone does not change
 a candidate's readiness exit. Comparison is not an approval artifact.

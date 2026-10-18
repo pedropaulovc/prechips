@@ -70,6 +70,7 @@ A single setting must supply its angle or remain unknown. There is no separate
 plate landings. It requires a verified dividing-head identity and must not
 declare `positions` or `angle_deg`; either field is an error in this branch.
 An unknown rotation, fixture kind or verification state remains unresolved.
+Any known `rotation` value other than `"continuous"` is an error.
 With known valid inputs the finding passes without computing landings or closure.
 The setup sheet prints a separate continuous-rotation instruction.
 
@@ -183,7 +184,8 @@ Typical finding sentences:
 - `S3: Indexing remains tentative: features.features.crank_bore.angle_tol_deg, inventory.machines.BS-0.verify.`
 
 For implementation and contributor checks, see the
-[development guide](internals/development.md). The rule implementation is
+[development guide](internals/development.md) and
+`tests/test_indexing_m2.py`. The rule implementation is
 [`indexing.py`](../src/prechips/rules/indexing.py); setup-sheet formatting belongs
 to [`sheet.py`](../src/prechips/sheet.py). Neither arithmetic nor a rendered
 instruction establishes that a physical dividing head has been verified.

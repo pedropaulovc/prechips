@@ -112,7 +112,7 @@ responsibility.
 Evidence includes transformed intervals (each with its `source`), the swept
 constant-diameter segments, increase stations, matching grooving operations,
 unresolved geometry and its reasons.
-Citations identify PLAN §4.1 turned profile (line 540), the §8 spindle
+Citations identify PLAN §4.1 turned profile, the §8 spindle
 convention, the authored feature dimensions/frames, the kernel's revolved facts
 when used, and plan grooving operations.
 This is not a cutter-envelope or complete feature-coverage proof.
@@ -252,7 +252,7 @@ fixtures outside the supported kinds and declared-capacity branches are
 
 Evidence names the fixture, held diameter/source, normalized listed sizes,
 normalized ranges and selected-member diameter when applicable. Citation:
-PLAN §4.3 collet/chuck (line 558), the declared stock-state/stock diameter and
+PLAN §4.3 collet/chuck, the declared stock-state/stock diameter and
 selected inventory capacity fields. This does not check jaws, clamping force,
 runout or interference.
 

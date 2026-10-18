@@ -18,10 +18,10 @@ For input fields, see the [inventory reference](inventory.md) and
 
 ### Selected identities and assembled tools
 
-Subjects: every selected inventory reference plus each nonmanual cutting
-assembly `setup:op`. References include machine, tool, holder, gauges (with a hold's
-`align.indicator`), fixture, parallels and supports, including declared member
-references. Missing named
+Subjects include every selected inventory reference, each nonmanual cutting
+assembly `setup:op`, and each `coating` operation. References include machine,
+tool, holder, gauges (with a hold's `align.indicator`), fixture, parallels and
+supports, including declared member references. Missing named
 items are errors; unknown categories or unverified identities are unknown.
 Compatibility compares spindle taper or lathe toolpost series to holder
 interface; a lathe's spindle-axis action (`spot`, `drill`, `ream`, `tap`,
@@ -79,6 +79,12 @@ required; incompatible known machine/tool kinds are errors and unverified
 identities remain debt. A saw naming a groove cannot replace that groove's
 size-setting tool, and a saw does not establish a finished datum.
 
+A coating operation resolves its `process` to an outside `services` item or
+in-house `consumables`. An unlisted process is an error. An unknown process or
+unverified identity stays unknown; known listed processes pass. Coating sequence
+and stock-lineage coverage are separate
+[`finish_route`](rules-inspection.md#finish_route) checks.
+
 ### Nominal collet fit
 
 A tool shank in a holder with one nominal capacity (`capacity_mm` /
@@ -94,7 +100,8 @@ pass. Only h6 is applied; no collet or policy entry changes the class.
 
 ### Finding messages and evidence
 
-The following templates use placeholders for the subject and current values.
+These representative templates use placeholders for the subject and current
+values. They do not list every identity, saw-assembly or coating message.
 Where several violations apply, the message joins them with semicolons.
 
 - `{ref}: not listed in the inventory.`

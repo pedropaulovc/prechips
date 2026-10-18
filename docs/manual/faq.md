@@ -18,13 +18,13 @@ Some geometry rules evaluate declared cuts, tool envelopes, clearance samples or
 
 No. A report checks consistency and supported constraints in the supplied inputs. It cannot certify the actual setup, cutter condition, clamping distortion, chatter, operator execution, final dimensions or correctness of the CAD and authored facts. A modeled fixture image does not prove the physical fixture matches it.
 
-The machinist must check the real setup and follow the applicable inspection and first-article process. Tests, example output and rendered sheets do not establish physical acceptance. See the [report and approval contract](../report-and-telemetry.md).
+The machinist must check the real setup and follow the applicable inspection and first-article process. Tests, example output and rendered sheets do not establish physical acceptance. See the [report and approval contract](../report-and-telemetry.md#eligibility-and-approval).
 
 ## Can I run it offline?
 
 Yes, once the Python environment and any required native software are installed locally. Checks read local inputs. Citation strings are evidence pointers; prechips does not fetch the cited source to validate it during a check.
 
-Optional OTLP trace and log export sends telemetry to configured endpoints. Remove OTLP endpoint settings when you need a run without that export. Installing dependencies can also require network access. These are separate from the local checking workflow. See [telemetry configuration](../report-and-telemetry.md) and [installation prerequisites](quickstart.md).
+Optional OTLP trace and log export sends telemetry to configured endpoints. Remove OTLP endpoint settings when you need a run without that export. Installing dependencies can also require network access. These are separate from the local checking workflow. See [telemetry configuration](../report-and-telemetry.md#telemetry-and-console) and [installation prerequisites](quickstart.md).
 
 ## Do I need FreeCAD?
 
@@ -48,22 +48,22 @@ Required warnings, unknowns and unsupported results prevent readiness. Errors ta
 
 Checking and approval are separate. A report marked `checked` has exit 0 under the readiness rules. The sheet remains `PLANNED` until a supplied approval record matches that report's hash, records actual first-article evidence and refers to a checked report.
 
-Approval cannot waive unresolved required checks. Input or bound-output changes can invalidate an earlier approval. Follow the [approval contract](../report-and-telemetry.md); do not record first-article evidence merely to change a demonstration's status.
+Approval cannot waive unresolved required checks. Input or bound-output changes can invalidate an earlier approval. Follow the [approval contract](../report-and-telemetry.md#eligibility-and-approval); do not record first-article evidence merely to change a demonstration's status.
 
 ## Does a matching report hash prove the inputs are true?
 
 No. The hash binds canonical report content, including input digests and returned render digests. It helps identify the exact evidence used and detects content changes when a saved report is explained. It does not verify that an author measured a value correctly, selected the right drawing revision or exported the correct part.
 
-Use `explain` to inspect an unchanged saved report. It validates the report hash and selected finding structure without rerunning geometry. See [saved-report troubleshooting](troubleshooting.md#explain-refuses-a-saved-report-or-finds-no-matching-row) and the [report format](../report-and-telemetry.md).
+Use `explain` to inspect an unchanged saved report. It validates the report hash and selected finding structure without rerunning geometry. See [saved-report troubleshooting](troubleshooting.md#explain-refuses-a-saved-report-or-finds-no-matching-row) and the [report format](../report-and-telemetry.md#canonical-report).
 
 ## Can I import prechips from Python?
 
 Yes. The implementation is Python and has importable functions for loading inputs, evaluating rules and building reports. Importability does not promise a stable public SDK. Use the actual callables and side-effect boundaries in the [Python API catalog](../reference/python-api.md), and review compatibility when upgrading.
 
-For an automated command workflow, the [CLI catalog](../reference/cli.md) documents the five verbs, machine-readable output and exit codes. Direct library calls do not automatically reproduce every CLI step, such as native geometry execution, output-safety handling or approval processing.
+For an automated command workflow, the [CLI catalog](../reference/cli.md) documents the five verbs, machine-readable output and exit codes. Direct library calls can start native geometry. They do not automatically reproduce every CLI step, such as complete registry evaluation with required coverage, output-safety handling or approval processing.
 
 ## Why did a command produce files and still fail?
 
 A valid plan can produce a useful planning report and sheet while its findings prevent readiness. Exit 2 means an error finding; exit 4 means unresolved readiness. Bad input and handled output errors use exit 3. Files from an earlier run may remain after a refused run, so file existence alone is insufficient.
 
-Use a dedicated output directory, check the process exit and inspect the current report. The [output troubleshooting steps](troubleshooting.md#the-output-destination-is-refused-or-a-previous-sheet-disappears) explain replacement and stale-file removal. The [CLI reference](../reference/cli.md) owns the complete exit and output contract.
+Use a dedicated output directory, check the process exit and inspect the current report. The [output troubleshooting steps](troubleshooting.md#the-output-destination-is-refused-or-a-previous-sheet-disappears) explain replacement and stale-file removal. The [CLI streams and errors reference](../reference/cli.md#streams-and-errors) and [output-safety reference](../reference/cli.md#output-safety-and-environment) own the complete exit and output contract.

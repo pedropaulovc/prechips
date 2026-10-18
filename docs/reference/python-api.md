@@ -147,7 +147,7 @@ run_geometry(bundle)
 | --- | --- | --- |
 | `discover_kernel()` | `Path`, executable-path string, or `None` | Inspect `FREECAD_CMD`, the per-user FreeCAD 1.1 installation and `PATH` in the [documented order](cli.md#output-safety-and-environment). No subprocess is started. An unavailable explicit override returns `None` without another installation fallback. |
 | `build_job(bundle)` | Version-1 job `dict` | Resolve current authored inputs into the millimetre native request, including explicit unresolved values and measurement debts. Uses pre-kernel coordinates; does not execute FreeCAD or read/write its cache. Operative files were validated by the loader. Unexpected invalid-state errors propagate. |
-| `run_geometries(bundles, jobs=None)` | List of result dictionaries in bundle order | Materialize the iterable, prepare pending bundles and batch uncached work in one FreeCAD invocation. Optional `jobs` must correspond one-for-one to the bundles; a length mismatch raises `ValueError`. Populate each bundle's `kernel` memo, including unavailable results. Read environment/assets/cache, create temporary job files, and write successful cache entries. Existing non-`None` memos are reused. |
+| `run_geometries(bundles, jobs=None)` | List of result dictionaries in bundle order | Materialize the iterable, prepare pending bundles and batch uncached work in one FreeCAD invocation. When any bundle lacks a kernel memo, optional `jobs` must correspond one-for-one to all bundles; a length mismatch then raises `ValueError`. If every bundle already has a non-`None` memo, return those memos without examining `jobs`. Pending work can read environment/assets/cache, create temporary job files, write successful cache entries and populate each bundle's memo, including unavailable results. |
 | `run_geometry(bundle)` | One kernel result `dict` | Call `run_geometries([bundle])[0]`; the same memo, file, subprocess and cache behavior applies. |
 
 Missing FreeCAD is returned as `status: "unknown"` with `kernel_unavailable: true`. Missing/unverified geometry facts remain unresolved. Handled native execution/identification failures become `status: "error"` result dictionaries with a reason rather than a `BadInput` exception or a checker exit integer. Rule evaluation interprets those results. Other implementation errors can still propagate.
@@ -220,7 +220,7 @@ Side effects depend on the verb: file loading, native execution/cache, stdout/st
 
 ## Host-only example
 
-From the repository root, run the following code with `uv run python` in your chosen Python input mode. It loads the shipped shaft bundle and prints its operative file identities as canonical JSON. It writes no files and does not discover or execute FreeCAD.
+From the repository root, create `out/docs-smoke/` if it does not exist and save the following code as `out/docs-smoke/show-inputs.py`. The script loads the shipped shaft bundle and prints its operative file identities as canonical JSON. Running it writes no files and does not discover or execute FreeCAD.
 
 ```python
 from pathlib import Path
@@ -230,6 +230,12 @@ from prechips.report import canonical_bytes
 
 bundle = load_bundle(Path("examples/pivot-shaft/plan.toml"))
 print(canonical_bytes(bundle.input_records).decode("utf-8"), end="")
+```
+
+Run it from the repository root:
+
+```sh
+uv run python out/docs-smoke/show-inputs.py
 ```
 
 The output contains actual paths and digests from the files read on that run. It contains no kernel result or readiness verdict. Inventory/policy environment fallbacks still follow loader precedence. With missing or inconsistent inputs the example raises `BadInput`; do not replace those failures with invented records. Use the [quickstart](../manual/quickstart.md) for a complete check and the [CLI reference](cli.md) for output and exit handling.

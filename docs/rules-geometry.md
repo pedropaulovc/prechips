@@ -71,7 +71,7 @@ they add `kernel: STEP SHA-256 <digest>; FreeCAD B-rep measurements`, followed
 by the relevant owners:
 
 - The feature: exported `features.<name>: faces and requirements`,
-  author-owned `plan.joint_features.<name>`, or
+  author-owned `plan.joint_features.<id>: analytic transient cylinder`, or
   `plan.process_features.<name>: STOCK PREPARATION — plan only, not a drawing
   dimension`, with its citations.
 - The setup: `plan.setups.<id>: frame and hold`, resolved fixture and
@@ -82,10 +82,16 @@ by the relevant owners:
 `thin_wall_under_clamp` also cites
 `shop-policy.numbers.thin_wall_floor_mm`. `joint_assembly` adds its joint
 declaration and citations. The keep and saw rules use narrower evidence lists:
-`keep_piece` cites the operation's `.keep`, its feature and this reference;
-`saw_cut` cites the cut-plane and kerf facts or the scribed-line declaration;
-`saw_teeth` cites blade pitch and the policy minimum. The kernel itself
-reports measurements only. The host constructs citations.
+
+- `keep_piece` cites the operation's `.keep`, its feature and
+  `docs/rules-geometry.md: keep piece`.
+- `saw_cut` cites the cut-plane and kerf facts with
+  `docs/rules-geometry.md: saw cut-off`, or the scribed-line declaration with
+  `docs/rules-geometry.md: saw to a scribed line`.
+- `saw_teeth` cites blade pitch, the policy minimum and
+  `docs/rules-geometry.md: saw teeth in the work`.
+
+The kernel reports measurements only. The host constructs citations.
 
 Drill-kind `rough_profile` / `chain_drill` operations use drilling starting
 data without changing their geometric face claims or kernel removal contract.
@@ -135,7 +141,10 @@ Some scope decisions precede availability. In particular, `accessibility`,
 `reach` and `internal_corner_radius` stay `not_applicable` for saw operations
 because their tool-cylinder model never applies to a blade. Rules with no
 applicable subject can emit no findings, and an invalid `keep` can name its
-feature debt without calling the kernel.
+feature debt without calling the kernel. `saw_cut` checks known station
+mismatches, a verified nonpositive kerf on a straight cut and any reported
+native `saw_error` before accepting a kernel-unavailable finding. Those
+certain errors remain `error` even when kernel facts are unavailable.
 
 An emitted `kernel_unavailable` flag forces exit 4 unless an error already
 requires exit 2. This applies even when policy does not require the rule. The
@@ -350,9 +359,10 @@ does a face lying wholly in the band (a rim along three sides).
 
 ### Joint targets and final-face credit
 
-Plan-owned joint cylinders are separate analytic targets, labelled with their
-`plan.joint_features.<id>` provenance. They are never assigned synthetic STEP
-entity references and never enter final face, source, as-is, coverage or corner
+Plan-owned joint cylinders are separate analytic targets with
+`plan.joint_features.<id>: analytic transient cylinder` provenance. They are
+never assigned synthetic STEP entity references and never enter final face,
+source, as-is, coverage or corner
 mappings. Dimensional and operation consumers use the resolved feature mapping;
 final `coverage` and `finish_coverage` still iterate only the original manifest.
 Neither transient completion nor joint filler proves a final surface was cut.
@@ -1088,11 +1098,14 @@ policy cannot waive an incompatible or unresolved joint.
 
 | Result | Condition |
 |---|---|
-| `error` | `assembly_error` names a refused join. |
-| `unknown` | The kernel is unavailable, `stock_reason` names unresolved joined stock, or the kernel returns no joined `stock_bbox_mm`. |
+| `error` | The kernel job returns `status = "error"`; the row carries that failure reason. |
+| `error` | Usable kernel facts contain `assembly_error`: `join refused: …`. |
+| `unknown` | Kernel facts have any other non-`ok` status, such as missing FreeCAD or an unbound STEP. |
+| `unknown` | Usable kernel facts contain `stock_reason` (`joined stock unknown: …`) or no joined `stock_bbox_mm` (`the kernel derived no joined stock`). |
 | `pass` | Prepared branches, physical fit and declared fill derive joined stock. |
 
-The row reports `joint`, `stock_in`, `completed_joint_features` and, when the
+With usable kernel facts, the row reports `joint`, `stock_in`,
+`completed_joint_features` and, when the
 joint declares them, `forms`. Correct the named preparation, fit, insertion,
 ownership or process fact before relying on a downstream stock route. A
 passing join does not establish chemical cure or physical assembly acceptance.
@@ -1515,8 +1528,12 @@ The `saw_cut` finding reports the normalized plane, kerf, retained boundary and
 before/after, kerf, offcut and removed volumes in mm/mm³. A cut into the finished
 target, an empty retained piece or an off-stock/no-op blade is an error, never
 clipped back to the target to fabricate a pass. Tangent contact with no target
-volume removed is permitted. Missing/unverified kerf, cut-plane or upstream
-stock remains named `?`; absence of FreeCAD remains kernel debt.
+volume removed is permitted. A known saw-station mismatch, including a
+scribed bandsaw without vertical mode, or a verified kerf ≤ 0 on a straight
+cut is an `error` even without FreeCAD. Any reported native `saw_error` also
+takes precedence over unavailable kernel facts. Otherwise a missing or
+unverified kerf, cut-plane or upstream stock remains named `?`, and missing
+FreeCAD remains kernel debt.
 Splitting one connected input stock solid into several retained pieces is also
 an error: detached pieces are not silently routed as held stock, including tiny
 retained slivers. Independently supplied components already disconnected before
@@ -1855,10 +1872,9 @@ coordinate tie-break. A diagonal is not rejected by a one-step circular
 cutoff. Ends and junctions may back off inward along the true curve until a
 safe grid point exists; a junction's shared point is one fixed DRO point
 across its tables. A backed-off end hole has no one-step distance guarantee
-from the true bound intersection. The shipped rocker trial kept its ends
-within one step; that observation does not define the placement boundary. A hole with no
-such grid candidate after its full search and back-off is never placed in
-finished material; it leaves the clip unknown, as below. A fractional
+from the true bound intersection. A hole with no grid candidate after its full
+search and back-off is never placed in finished material; it leaves the clip
+unknown, as below. A fractional
 swept-chord intersection never becomes a hole. The chain's `checkpoint_clips`
 entry carries `regeneration = "true_curve"`, `pieces` of `generated` points
 (`exact_xy`, the nominal point on the true offset curve the hole was generated
@@ -2256,36 +2272,49 @@ from the circle's centre until the cutter edge touches it. The stock an island
 keeps (a later op's rough leave on a boss) still meets the flute and holder at
 every other pose. An op that authors `keep_out` without mapped circles or split
 passes, or without a cutter radius, leaves its cut and accessibility unknown.
-A rough or finish face raster at a cutter-diameter step around a boss retains
-the island and the cusps between its piece ends over the boss height. Their
-volume follows what the printed strips miss, while each pose clears. A finish
-pocket claiming the boss wall inside its keep-out leaves the rough allowance
-there, just as a floor-only claim does. Unmapped circles or passes leave both
-the cut and accessibility unknown.
+The [keep-out regression tests](../tests/test_kernel_keep_out.py) cover a
+rough and finish face raster at a cutter-diameter step around an authored
+boss. Both retain the island and the cusps between their piece ends over the
+boss height, with zero tool hits at their poses. The expected retained volume
+comes from an independent strip integration of what the printed pieces miss,
+not from the kernel's removal calculation. A finish pocket that also claims
+the boss wall inside its keep-out leaves the same rough allowance as a
+floor-only claim. Unmapped circles or passes leave the cut and accessibility
+unknown in those test cases.
 
 ### Boundary cases and reported evidence
 
-A plate-top sample within one cutter radius of a boss stands at its nearest
-legal centre and clears. The same applies to samples
-near an R10 or exactly cutter-sized circular pocket wall, an arc/chord corner,
-a fillet corner of the cutter's radius and the walls of a groove exactly two
-radii wide, while a cutter wider than its circle or groove, or a sharp
-concave corner sample with no legal centre within `rho`, reports the real wall
-hit; a plate sample past both walls of a square island's convex corner moves
-straight away from the corner and clears; equal candidates break to the face
-centroid; beside a B-spline wall, an outside sample whose native closest point
-is a vertex and a sample on a straight edge take their certified bounds, while
-a spline boundary, a strictly interior sample, a vertex boundary, a projection
-inside a spline whose native tolerance exceeds 1e-7 mm and a bound blocked by
-a second obstacle (a farther clear supported axis notwithstanding) leave only
-that floor's pose undefined and keep another face's certain hits; an offset
-cutter tangent to
-its claimed side wall clears while the sample-centred mutant intersects the
-wall; a Ø10 cutter
-in a 6 mm through-groove hits the opposite wall; dimensioned jaws occlude the
-holder only when they stand high enough. The legal-centre convention
-above changes the prescribed pose, not the obstacle solid. There is no pose
-search, and unresolved pose or exclusion facts remain debt rather than clearance.
+Kernel regression tests cover these fixture-specific distinctions:
+
+- In the [boss and jaw cases](../tests/test_kernel_geometry.py), a plate-top
+  sample within a cutter radius of the boss uses its nearest legal centre and
+  clears. Dimensioned jaws occlude the holder only when they stand high enough.
+- The [curved-floor cases](../tests/test_kernel_curved_floor_poses.py) cover an
+  R10 circular pocket, an exactly cutter-sized circle and a groove exactly two
+  cutter radii wide. They clear at their prescribed poses. Sharp arc/chord and
+  arc/arc corners that have no covering legal centre report wall hits, as do
+  cutters wider than their circle or groove. A sample past both walls of a
+  square island's convex corner moves straight away from that corner and clears.
+- The [planar legal-centre cases](../tests/test_kernel_planar_legal_centres.py)
+  include a fillet corner equal to the cutter radius that clears, a sharp
+  concave corner without a legal centre within `rho` that hits, and equal
+  candidates that use the face centroid.
+- In that file's spline cases, an outside sample whose native closest point is a
+  vertex and a sample on a straight edge are accepted through their certified bounds.
+  A spline boundary, strictly interior sample, vertex boundary, projection
+  inside a spline whose native tolerance exceeds 1e-7 mm, or bound blocked by
+  a second obstacle leaves that floor's pose undefined. A farther clear
+  supported axis does not replace the bound, and another face's certain hits
+  remain.
+- The [face-local cutter cases](../tests/test_kernel_region_geometry.py)
+  require a cutter tangent to its claimed side wall to clear. This guards
+  against a sample-centred cutter mutation in place of the normal-offset
+  pose. A Ø10 cutter in the authored 6 mm through-groove hits the opposite wall.
+
+These tests distinguish the prescribed poses without establishing clearance
+for arbitrary geometry. The legal-centre convention changes the pose, not the
+obstacle solid. There is no pose search, and unresolved pose or exclusion facts
+remain debt rather than clearance.
 Numbers: `sample_count`, `tool_hits`, `holder_hits`, the five inputs, and
 `certain_tool_hits` / `certain_holder_hits` when observed hits are definite
 despite unresolved inputs, poses or undeclared jaw overhang. Unknown stock
@@ -2714,7 +2743,9 @@ separately. The error sentence never labels those candidates as having no cut.
 
 ### Scope and contact facts
 
-The rule emits one row per setup. Non-vise holding (`kind` ≠ `vise`) is
+The rule emits one row per setup. With usable kernel facts, a refused join
+(`assembly_error`) produces an `error` naming that refusal before holding
+applicability is considered. Otherwise non-vise holding (`kind` ≠ `vise`) is
 `not_applicable` (`{setup}: vise has no vise grip-zone facts for {kind} holding.`).
 An admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table) is also
 `not_applicable` (`hold.kind = "hand_fed"`: the work is fed by hand on the saw
@@ -2756,7 +2787,9 @@ parallels were installed, the part was seated, or the vise torqued.
 
 ### Applicability
 
-The rule emits one row per setup. An admitted
+The rule emits one row per setup. With usable kernel facts, a refused join
+(`assembly_error`) produces an `error` naming that refusal before holding
+applicability is considered. Otherwise an admitted
 [hand-fed hold](plan.md#hand-fed-on-the-saw-table) clamps nothing, so it is
 `not_applicable` (`{setup}: the work is fed by hand on the saw table; no fixture,
 jaw or clamp holds it.`). Holding other than a vise, a chuck (a lathe `chuck_3jaw` /
@@ -2878,9 +2911,12 @@ unknown or flagged floor in your policy remains unresolved.
 
 The rule emits one row per setup for holding kinds the kernel draws: vise,
 chucks, dividing head, dead centre, angle plate, custom fixture and clamps.
-An admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table) draws nothing
-and is `not_applicable`. An unresolved hand-fed scope keeps the unknown holding
-row. With fixture components placed on setup-entry stock, the kernel checks:
+With usable kernel facts, a refused join (`assembly_error`) produces an
+`error` naming that refusal before holding applicability is considered.
+Otherwise an admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table) draws
+nothing and is `not_applicable`. An unresolved hand-fed scope keeps the
+unknown holding row. With fixture components placed on setup-entry stock,
+the kernel checks:
 
 1. every drawn component against the entry stock;
 2. every pair of drawn components from different owners. An owner is one
@@ -3437,9 +3473,8 @@ report and captioned is in
   accepted height, length and width facts. Missing pose inputs leave an
   envelope or part-only render with named debts.
   The example vise records jaw dimensions and opening in measurement
-  records. Its item-level `verify = true` is identity debt for declared-input
-  rules, not a geometry veto. The shared example parallels declare width,
-  and the rocker preparation setups, S1 and S2 declare their centres.
+  records. The shared example parallels declare width, and the rocker
+  preparation setups, S1 and S2 declare their centres.
   See [example provenance](../examples/README.md) before treating any such
   record as a shop measurement. Chucks, heads, centres, clamps and authored
   solids use the same fact-local trust rule: required dimensions and poses

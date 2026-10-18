@@ -1,11 +1,32 @@
 # Module split plan
 
-Status: **design only**. Nothing is moved by the PR that adds this page. Each split
-below is its own later PR, made by re-running `scripts/split_modules.py` on the latest
-`main` after the in-flight feature PRs (#251, #253, #254, #258, #263) land and the
-coordinator says go.
+This internal design records the evidence and constraints for splitting large modules
+without changing their behavior. It is partly implemented:
+[`rules/zero_recipe/`](../src/prechips/rules/zero_recipe/) is already a package.
+The other layouts below remain proposals, not a map of the current source tree.
 
-Seven modules are touched by almost every feature PR:
+Use [architecture](internals/architecture.md) for current module ownership and
+[development](internals/development.md) for contributor checks. The
+[CLI catalog](reference/cli.md) and [Python catalog](reference/python-api.md) describe
+the interfaces consumers can use.
+
+The measurements, collision list, prototypes and scheduling estimates below are a
+historical snapshot at `f5c7414`, unless a section explicitly identifies a later
+change. They are not fresh counts or current PR status. Before another split,
+rerun the read-only `churn` and `plan` modes of `scripts/split_modules.py`
+against the intended base and review the spec. `apply` writes source; use it
+only in the isolated refactor workflow described below.
+
+## Current status and navigation
+
+- [Evidence](#evidence) records why the split was proposed.
+- [Recommended layout](#recommended-layout) describes the target, not the current tree.
+- [Hard constraints](#hard-constraints-and-how-each-is-verified) define behavior preservation.
+- [The split script](#the-split-script) covers rewriting, refusals and known seams.
+- [Sequence and estimates](#sequence-and-estimates) retains the original scheduling rationale.
+- [Open review notes](#open-review-notes) retains unresolved design constraints.
+
+The original analysis identified seven frequently edited modules:
 
 | Module | Lines | Largest unit |
 |---|---:|---|
@@ -17,38 +38,39 @@ Seven modules are touched by almost every feature PR:
 | `src/prechips/model.py` | 2,103 | `InventoryItem`, 177 lines |
 | `src/prechips/kernel/__init__.py` | 2,074 | `op_inputs`, 190 lines |
 
-`rules/manual_arc.py` (407 lines) is also named in the collision list. Of the five
-in-flight PRs, only #254 changes it, so it is not split (see
-[What is not split](#what-is-not-split)).
+The snapshot also named `rules/manual_arc.py` (407 lines). Only #254 among the five
+then-open PRs changed it, so the proposed split excluded it
+(see [What is not split](#what-is-not-split)).
 
 ## Evidence
 
-All numbers below come from `uv run scripts/split_modules.py churn` on `main` at
-`f5c7414`, so anyone can re-run them. The analysis:
+The evidence came from `uv run scripts/split_modules.py churn` on `main` at
+`f5c7414`. Reproducing that snapshot requires that revision; running the command on
+current code produces a new analysis. The script:
 
-* maps every hunk of every change to the top-level symbol it touches. Classes of 300 or
-  more lines are mapped per method (`_Setup._render`). A change is either a merged PR
-  (first-parent history since 2026-09-01: 28 changes) or a non-merge commit (673), plus
-  the five in-flight branches diffed against their merge base;
-* sets *sweeps* aside: changes that touch more than half of a module's symbols
-  (formatting, renames, the initial integrations #8/#22/#120). There are 39–41 per
-  module at commit level, which would otherwise make every symbol look equally hot;
-* counts the **pairs of changes that edit the same file**, before the split and after the
-  split the spec describes. Two changes that share no file cannot conflict textually.
+* maps each changed hunk to its top-level symbol, or to a method for classes of 300
+  or more lines (`_Setup._render`). The population was first-parent history since
+  2026-09-01: 28 merged PRs and 673 non-merge commits, plus the five then-open
+  branches diffed against their merge bases;
+* excludes sweeps that touch more than half a module's symbols, such as formatting,
+  renames and initial integrations #8/#22/#120. There were 39 to 41 sweeps per module
+  at commit level; including them would make most symbols appear equally hot;
+* counts pairs of changes that edit the same file before and after the proposed
+  split. Changes that share no file cannot conflict textually.
 
 ### Where the in-flight PRs collide today
 
 | PR | `model.py` | `sheet.py` | `freecad_job.py` | `kernel/__init__.py` |
 |---|---|---|---|---|
-| #251 joint compound | `CylindricalJoint`, new `JointCompound` | `operations`, `joint_text`, `compound_*` | `_Job._held`, `_Job._cylindrical_join` | – |
+| #251 joint compound | `CylindricalJoint`, new `JointCompound` | `operations`, `joint_text`, `compound_*` | `_Job._held`, `_Job._cylindrical_join` | none |
 | #253 profiled blank | `Plan`, `Stock`, `StockComponent`, `Inventory`, new `ProfiledBlank` | `stock_line`, `_STOCK_FORMS` | `_Job.run`, `_Job._supplies`, `_envelope`, new `_profiled*` | `run_geometries`, `stock_inputs`, `_stock_envelope` |
 | #254 bench saw | `Plan`, `Operation`, `SAW_ACTIONS` | `operations`, `speeds`, new `saw_*` | `_Setup._saw_*`, `_Setup._render_tool` | `op_inputs`, `_ENGINE_OP` |
-| #258 guided sweep | `InventoryItem`, `Contour`, new `GuidedSweep` | `operations`, `contours`, `dro`, `__init__` | – | – |
-| #263 build job once | – | – | – | `run_geometries` |
+| #258 guided sweep | `InventoryItem`, `Contour`, new `GuidedSweep` | `operations`, `contours`, `dro`, `__init__` | none | none |
+| #263 build job once | none | none | none | `run_geometries` |
 
-Most collisions are between *different* symbols of the same file. Only a few are real
-same-symbol overlaps: `Plan` (#253, #254), `_Traveler.operations` (#251, #254, #258) and
-`run_geometries` (#253, #263). No split removes those.
+Most snapshot collisions involved different symbols in one file. The same-symbol
+overlaps were `Plan` (#253, #254), `_Traveler.operations` (#251, #254, #258) and
+`run_geometries` (#253, #263). Moving files cannot remove those overlaps.
 
 ### Hot symbols (non-sweep commits since 2026-09-01)
 
@@ -64,59 +86,59 @@ same-symbol overlaps: `Plan` (#253, #254), `_Traveler.operations` (#251, #254, #
 
 ### Call graph and cycles
 
-* The repository has **no import cycle between modules at top level**. It has 233
-  function-level imports that keep it that way (`zero_recipe` 53, `tip_endpoints` 41,
-  `kernel` 30, `cli` 22, `coordinates` 19). The split keeps every such import where it
-  is and rewrites the ones that name a moved symbol.
-* Inside each module the symbols are tightly coupled. `plan` reports the references that
-  would cross files: 305 for `model`, 438 for `sheet` (plus 276 `self.` calls between
-  `_Traveler` mixins) and 1,276 for `freecad_job` (plus 184 between `_Setup`/`_Job`
-  mixins). Every split is a DAG of imports: shared helpers sink to a `common` file and
-  nothing imports upward. The script refuses a cycle and names the symbols that cause
-  it. Getting each spec below to "no refusal" took that loop: for example `_stadium`
-  moved into `engine/sections.py`, and `_text` moved into `sheet/common.py`.
+* The snapshot had no top-level import cycle between modules. Its 233
+  function-level imports helped avoid cycles (`zero_recipe` 53, `tip_endpoints` 41,
+  `kernel` 30, `cli` 22, `coordinates` 19). A split must preserve those import
+  locations and rewrite references to moved symbols.
+* The proposed boundaries crossed 305 references in `model`, 438 in `sheet`
+  (plus 276 `self.` calls between `_Traveler` mixins), and 1,276 in `freecad_job`
+  (plus 184 between `_Setup`/`_Job` mixins). Each split must remain an import DAG:
+  shared helpers belong in a lower-level `common` module, with no upward import.
+  The script refuses cycles and names the responsible symbols. During prototype
+  design, that check moved `_stadium` to `engine/sections.py` and `_text` to
+  `sheet/common.py`.
 
 ## Options evaluated
 
-Each row is a spec entry in `scripts/split_modules.toml`; alternatives are
-`[[variant]]` entries. "PR pairs" counts merged PRs since 2026-09-01; "commit pairs"
-counts non-merge commits; "open pairs" counts the five in-flight PRs. Each is shown as
-before → after.
+Each option was a spec entry in `scripts/split_modules.toml`; alternatives used
+`[[variant]]` entries. "PR pairs" counts merged PRs since 2026-09-01, "commit pairs"
+counts non-merge commits, and "open pairs" counts the five then-open PRs. Each cell
+shows before → after. These are snapshot comparisons, not current forecasts.
 
 | Module / option | Files | Largest file (lines) | PR pairs | Commit pairs | Open pairs |
 |---|---:|---:|---|---|---|
-| **model: per input family, plan by concern** | 12 | 608 | 55 → 33 | 1,891 → 692 | 6 → 3 |
+| model: per input family, plan by concern (selected) | 12 | 608 | 55 → 33 | 1,891 → 692 | 6 → 3 |
 | model: per input family only (task's sketch) | 5 | 830 | 55 → 43 | 1,891 → 993 | 6 → 6 |
-| **sheet: per traveler card (mixins)** | 18 | 1,516 | 91 → 52 | 11,628 → 4,526 | 6 → 3 |
+| sheet: per traveler card, mixins (selected) | 18 | 1,516 | 91 → 52 | 11,628 → 4,526 | 6 → 3 |
 | sheet: helpers and literals only, `_Traveler` whole | 9 | 7,078 | 91 → 91 | 11,628 → 10,231 | 6 → 6 |
-| **freecad_job: per job stage and op kind (mixins)** | 21 | 1,474 | 36 → 17 | 7,750 → 2,867 | 3 → 1 |
+| freecad_job: per job stage and op kind, mixins (selected) | 21 | 1,474 | 36 → 17 | 7,750 → 2,867 | 3 → 1 |
 | freecad_job: helpers only, `_Job`/`_Setup` whole | 15 | 9,653 | 36 → 17 | 7,750 → 6,252 | 3 → 1 |
-| **coordinates: per printed-coordinate family** | 11 | 877 | 10 → 6 | 1,176 → 581 | 0 → 0 |
-| **kernel: job-input families beside the run seam** | 5 | 609 | 21 → 16 | 1,275 → 710 | 3 → 2 |
+| coordinates: per printed-coordinate family (selected) | 11 | 877 | 10 → 6 | 1,176 → 581 | 0 → 0 |
+| kernel: job-input families beside the run seam (selected) | 5 | 609 | 21 → 16 | 1,275 → 710 | 3 → 2 |
 | render_diagram: per picture | 7 | 1,834 | 1 → 1 | 1,035 → 836 | 0 → 0 |
 | zero_recipe: per zero source | 5 | 1,157 | 10 → 10 | 1,431 → 999 | 0 → 0 |
 
-What the numbers say:
+The snapshot supported these choices:
 
-* **Splitting the two giant classes is what pays.** Moving helpers out of `sheet.py`
-  and leaving `_Traveler` whole changes nothing (91 → 91). Splitting its methods into
-  card mixins removes 61% of commit pairs. For `freecad_job`, the PR-level numbers tie
-  (the 28 merged PRs are too coarse), but at commit level the mixin split removes 63%
-  of pairs where helpers-only removes 19%.
-* **`model` per input family alone is not enough.** Most feature PRs edit the plan
-  schema, so that file stays shared by every open pair. Splitting the plan by concern
-  (stock, holding, zero, operation, inspection, joints) halves the open pairs. The
-  family-only variant also has an import cycle (`features` needs `Bounds` from the plan).
-* **A split cannot help a hot dispatch function.** The open pairs that remain all run
-  through one function: `_Traveler.operations`, `Plan` (its cross-field validators),
-  `run_geometries`, `coordinates.evaluate` and `zero_recipe.evaluate`. Those need a
-  per-op registry refactor by hand (see [Beyond the mechanical split](#beyond-the-mechanical-split)).
-  That is also why `zero_recipe` (10 → 10) and `render_diagram` (1 → 1) gain little.
+* Splitting `_Traveler` into card mixins removed 61% of commit pairs. Moving only
+  helpers left all 91 PR pairs. For `freecad_job`, both options tied at PR level,
+  where the 28 merged PRs were too coarse to distinguish them. At commit level,
+  mixins removed 63% of pairs and helpers alone removed 19%.
+* Splitting `model` only by input family left the plan schema shared by every open
+  pair. Splitting the plan by concern (stock, holding, zero, operation, inspection,
+  joints) halved the open pairs. The family-only variant also introduced a cycle:
+  `features` needed `Bounds` from the plan.
+* Shared dispatch functions remained shared: `_Traveler.operations`, `Plan`
+  cross-field validators, `run_geometries`, `coordinates.evaluate` and
+  `zero_recipe.evaluate`. They need a separate
+  [registry refactor](#beyond-the-mechanical-split). This also explains the small
+  PR-pair gains for `zero_recipe` (10 → 10) and `render_diagram` (1 → 1).
 
 ## Recommended layout
 
-New features should land in new or small files: a new op adds a card mixin, an engine
-mixin, a schema module and an op-inputs entry, not a hunk in a 10k-line file.
+The proposed layout gives a new operation a card mixin, an engine mixin, a schema
+module and an op-inputs entry, reducing edits to the large shared files. This is a
+target layout fragment, not an executable command or a current directory listing:
 
 ```
 src/prechips/model/              plan.py (Plan, Setup) · common.py · stock.py · holding.py · zero.py
@@ -138,55 +160,60 @@ src/prechips/kernel/engine/      runs only inside freecadcmd; freecad_job.py kee
                                  saw · removal · sweeps · holes · milling · turning · rotary
 ```
 
-The full symbol-to-file mapping is the spec, not this page.
+The spec owns the complete symbol-to-file mapping.
 
-Package choices:
+The package design has three constraints:
 
-* `model`, `sheet` and `coordinates` become packages. Their `__init__.py` holds only a
-  docstring; no re-exports, so a new schema class or card never edits a shared import
-  list. The script rewrites every importer to the owning module, relative imports
-  (`from .model import X` → `from .model.stock import X`) included. `rest` is a leaf
-  module (`model/plan.py`, `sheet/traveler.py`, `coordinates/rule.py`), never
-  `__init__`: an `__init__` that imports its own submodules, which import it back,
-  would be a cycle.
-* The `kernel/__init__.py` split keeps its new files as flat siblings: they are host
-  code, already inside today's `kernel/*.py` digest.
-* `render_diagram` is imported by the host (`prechips.kernel.render_diagram`) and by
-  freecadcmd (`render_diagram`), so its split uses the dual import it already uses for
-  `render_png` (`try: from .x import …` / `except ImportError: from x import …`).
+* Proposed `model`, `sheet` and `coordinates` packages have docstring-only
+  `__init__.py` files, with no re-exports. Adding a class or card therefore does
+  not edit a shared import list. The script rewrites every importer to the owning
+  module, including relative imports
+  (`from .model import X` → `from .model.stock import X`). `rest` is a leaf
+  (`model/plan.py`, `sheet/traveler.py`, `coordinates/rule.py`), never `__init__`.
+  An `__init__` that imports submodules which import it back would create a cycle.
+* Proposed `job_*.py` siblings of `kernel/__init__.py` are host code. Under the
+  current explicit `ENGINE_SOURCES` contract they must stay out of the engine
+  digest; changes they make to job content are covered by the job key.
+* `render_diagram` runs on the host (`prechips.kernel.render_diagram`) and in
+  freecadcmd (`render_diagram`). Its proposed split must retain the existing dual
+  import pattern used for `render_png`
+  (`try: from .x import …` / `except ImportError: from x import …`).
 
 ## Hard constraints and how each is verified
 
 ### 1. `freecad_job.py` stays a single script path inside freecadcmd
 
-`kernel/__init__.py::_execute` runs `freecadcmd <kernel>/freecad_job.py -- IN OUT`, and
-`freecad_job._pool` starts workers with the same path. Both stay as they are: the entry
-script keeps its name, its `sys.path.insert(0, <kernel dir>)`, `main()`, `_pool()` and
-`_POOL_FUNCTIONS`. Everything else moves into `kernel/engine/`, which the entry imports
-by absolute name (`from engine.job import run`) because the kernel directory is on
-`sys.path`. Inside the package, modules import each other the same way
-(`from engine.common import LIFT`).
+`kernel/__init__.py::_execute` runs
+`freecadcmd <kernel>/freecad_job.py -- IN OUT`, and `freecad_job._pool` starts
+workers through that same path. A split must preserve the
+entry script's name, `sys.path.insert(0, <kernel dir>)`, `main()`, `_pool()` and
+`_POOL_FUNCTIONS`. The proposed `kernel/engine/` package holds the remaining code.
+The entry imports it by absolute name (`from engine.job import run`), with the kernel
+directory on `sys.path`; package modules use imports such as
+`from engine.common import LIFT`.
 
-Prototyped against the pinned FreeCAD 1.1.0 AppImage (SHA-256 `ef85f171…e2f0`,
-extracted, `freecadcmd` → `AppRun freecadcmd`):
+The historical prototype used the pinned FreeCAD 1.1.0 AppImage
+(SHA-256 `ef85f171…e2f0`, extracted, `freecadcmd` → `AppRun freecadcmd`):
 
 * a probe with a flat sibling, a subpackage with absolute and relative imports, and a
   mixin across subpackage files ran under freecadcmd and made `Part` solids in each;
-* freecadcmd 1.1 on Linux runs the script with **`__name__` equal to its stem**
-  (`entry`, not `__main__`) and registers it in `sys.modules` under both. That is why
-  `freecad_job.py` ends with `if __name__ in {"__main__", "freecad_job"}`. One
-  consequence: an engine module that imported `freecad_job` would get the
-  *half-initialised* entry. The script refuses any import from a split file to the
-  entry (and the DAG rule refuses it as a cycle anyway);
+* freecadcmd 1.1 on Linux ran the script with `__name__` equal to its stem
+  (`entry`, not `__main__`) and registered both names in `sys.modules`. This is why
+  `freecad_job.py` ends with `if __name__ in {"__main__", "freecad_job"}`. An engine
+  module importing `freecad_job` would receive the half-initialized entry.
+  The split script must refuse imports back to the entry; the DAG check also
+  rejects that cycle;
 * none of the candidate names (`engine`, `job`, `setup`, `common`, `fixtures`, …)
   matches any of the 1,358 modules the AppImage's interpreter can import, so the
   subpackage shadows nothing there;
-* the real split (below) ran the full kernel-required test suite under that AppImage.
+* the split prototype below exercised the kernel-required test suite under that
+  AppImage. Its recorded failures remain part of the evidence.
 
-Not exercised: Windows FreeCAD 1.1 (`C:\Program Files\FreeCAD 1.1\bin\freecadcmd.exe`),
-which may bundle other packages. The first `freecad_job` split PR adds a
-kernel-required test that runs under the discovered freecadcmd, so it also runs on
-Windows wherever the suite runs there:
+That prototype did not exercise Windows FreeCAD 1.1 at the illustrative path
+`C:\Program Files\FreeCAD 1.1\bin\freecadcmd.exe`; this path is not an automatic
+discovery claim. Windows may bundle different packages. The proposed engine split
+therefore requires a kernel test under the discovered launcher. This Python fragment
+specifies the test's intent; it has no implementation body and is not runnable:
 
 ```python
 def test_engine_imports_shadow_nothing_in_freecad(freecad_kernel, tmp_path):
@@ -195,87 +222,87 @@ def test_engine_imports_shadow_nothing_in_freecad(freecad_kernel, tmp_path):
     # importlib.util.find_spec(name) is None; also record __name__ of the script.
 ```
 
-There is also a static host test: no file under `kernel/engine/` imports `freecad_job`,
-and every module the entry imports, transitively, resolves to a file under `kernel/`,
-the stdlib, `FreeCAD` or `Part`.
+The split also requires a static host test: no `kernel/engine/` file may import
+`freecad_job`, and every transitive entry import must resolve under `kernel/`, in the
+stdlib, or to `FreeCAD` or `Part`.
 
 ### 2. Every engine source file stays in both digests
 
-#285 (merged after this plan was written) made the digest explicit:
-`kernel/__init__.py` hashes the files named in `ENGINE_SOURCES` (`freecad_job.py` and
-the five modules it imports), and CI keys the geometry cache on the
-`PRECHIPS_ENGINE_DIGEST` they produce. `tests/test_engine_digest.py` already pins the
-constraint this section asked for. `ENGINE_SOURCES` must equal the set of kernel files
-reachable from `freecad_job.py`'s imports at any depth (`engine.job`-style nested
-names included). Every listed file's edit must move the digest, and a host-only
-kernel edit must not.
+The current engine digest contract, introduced by #285 after the original analysis,
+is explicit. `kernel/__init__.py` hashes the names and bytes in `ENGINE_SOURCES`:
+`freecad_job.py` and its five transitive local imports. CI keys the geometry cache
+with the resulting `PRECHIPS_ENGINE_DIGEST`. `tests/test_engine_digest.py` pins the
+boundary. The listed set must match all local files reachable from the entry,
+including future nested names such as `engine.job`. Editing a listed file must
+change the digest; editing host-only kernel code must not.
 
-What remains for the splits:
+Future splits must preserve that boundary:
 
-* **`freecad_job`**: `apply` must add each new `kernel/engine/*.py` file (and
-  `engine/__init__.py`) to `ENGINE_SOURCES` in the same mechanical commit; the script
-  will do this from the spec's file list. If one is missing, the
-  `test_engine_sources_cover_every_module_the_engine_imports` check fails.
-* **`kernel/__init__.py`**: the new `job_*.py` files are host-only. They stay out of
-  `ENGINE_SOURCES`, and `test_host_only_kernel_edits_keep_the_engine_digest` keeps them
-  out. `ENGINE_SOURCES` and `_engine_digest` stay in `__init__.py` (the spec does not
-  move them).
-* **`render_diagram`**: its new files are imported by the engine, so each joins
-  `ENGINE_SOURCES` in the same way as the `freecad_job` files.
-* **Splits outside `kernel/`** (`zero_recipe`, `coordinates`, `model`, `sheet`) do not
-  change the engine digest at all.
+* A `freecad_job` split must add every new `kernel/engine/*.py` file and
+  `engine/__init__.py` to `ENGINE_SOURCES` in the same mechanical commit, using the
+  spec's file list. Missing files must fail
+  `test_engine_sources_cover_every_module_the_engine_imports`.
+* A `kernel/__init__.py` split must keep host-only `job_*.py` files outside
+  `ENGINE_SOURCES`, as pinned by
+  `test_host_only_kernel_edits_keep_the_engine_digest`. The proposed spec leaves
+  `ENGINE_SOURCES` and `_engine_digest` in `__init__.py`.
+* A `render_diagram` split must add its engine-imported files in the same commit.
+* Splits outside `kernel/` (`zero_recipe`, `coordinates`, `model`, `sheet`) do not
+  change the engine digest.
 
 ### 3. Reports and travelers stay byte-identical
 
 `uv run scripts/split_modules.py snapshot OUT` runs `prechips check` and
-`prechips traveler` on all four bundles. It records each exit code and the SHA-256 of
-every output file in `OUT/manifest.json`, compares each traveler directory byte for byte
-with the bundle's `expected/`, and with `--against` compares against an earlier
-manifest (the one from `main`). Every split PR records both manifests, using a
-persistent `PRECHIPS_KERNEL_CACHE`. A split that touches `kernel/` has to run cold,
-because the engine digest changes. That cold run is what makes the geometry check
-meaningful: the engine itself recomputes every fact.
+`prechips traveler` on all four bundles. It records exits and output-file SHA-256
+values in `OUT/manifest.json`, compares each traveler directory byte for byte with
+the bundle's `expected/`, and uses `--against` to compare with an earlier manifest.
+Each split PR must retain both manifests and use a persistent
+`PRECHIPS_KERNEL_CACHE`. An engine-source split changes the digest, so its cold
+snapshot must recompute geometry rather than reuse the old engine's cache.
 
-Observed on `main` (`f5c7414`): pivot-shaft, rocker-arm and pivot-bracket exit 0 and the
-cone exits 4 (its documented proof stop, see
-[expected consumer CLI exits](../examples/README.md#expected-consumer-cli-exits)), for
-both verbs; all four traveler outputs match `expected/` exactly.
+At `f5c7414`, pivot-shaft, rocker-arm and pivot-bracket exited 0 and the cone
+exited 4 for both verbs. The cone's stop was documented under
+[expected consumer CLI exits](../examples/README.md#expected-consumer-cli-exits).
+All four traveler outputs matched `expected/` exactly. These are historical results,
+not the expected exits of every current checkout.
 
-Byte identity covers the checker's outputs, not timing facts or un-pooled booleans. The
-`_POOL` case below shows why the script also needs static guards.
+Output identity does not establish unchanged timing or pooled boolean execution.
+The `_POOL` case below requires a static guard as well.
 
-The traveler's printed content is byte-identical, so the blind machinist review in
-AGENTS.md (required "after a change to what the traveler prints") is not triggered. A
-split PR whose traveler bytes differ is wrong by definition and is not shipped.
+A mechanical split must not change printed bytes. AGENTS.md requires blind
+machinist review "after a change to what the traveler prints"; byte-identical
+output does not trigger that requirement. A split PR whose traveler bytes differ
+violates this contract and MUST NOT SHIP. Investigation or a completed review
+does not waive byte identity for a mechanical split.
 
 ### 4. Public CLI, schema and LF endings
 
-The CLI (`cli.py`, entry point `prechips.cli:main`) is not split; only its imports are
-rewritten. The schema is the TOML each input accepts. The pydantic classes keep their
-names, fields and validators and only change module, and pydantic resolves postponed
-annotations in the *defining* module. So the script's free-name analysis counts
-annotation names, including quoted ones: a moved model imports every type its fields
-name. The snapshot and the suite's schema tests cover acceptance and error text. The
-script writes files with `newline="\n"`, and `ruff format` then normalises blank lines.
+The proposed splits leave the CLI (`cli.py`, entry point `prechips.cli:main`) intact
+apart from imports. Accepted TOML is the schema contract. Pydantic classes retain
+their names, fields and validators while changing modules. Because Pydantic resolves
+postponed annotations in the defining module, the script's free-name analysis must
+include quoted annotations and import every field type in its new owner. Snapshot
+and schema checks cover acceptance and error text. The script writes LF with
+`newline="\n"`; `ruff format` normalizes blank lines.
 
 ### 5. Wheel and sdist ship the new packages
 
-`uv_build` packages all of `src/prechips/`, subpackages included. The split PR extends
-`tests/test_cli.py::test_installed_artifact_console_script_matches_module`, which the CI
-`build` job runs on both the wheel and the sdist, to compare the installed
-distribution's `prechips/**` file list (`importlib.metadata.distribution("prechips").files`)
-with `src/prechips/**` (`*.py` and `tokens.css`). A missing `model/stock.py` or
-`kernel/engine/setup.py` then fails packaging CI, not a user's first run.
+`uv_build` includes `src/prechips/` subpackages. A split PR must extend
+`tests/test_cli.py::test_installed_artifact_console_script_matches_module` so CI's
+wheel and sdist checks compare
+`importlib.metadata.distribution("prechips").files` with the source `prechips/**`
+file list (`*.py` and `tokens.css`). A missing proposed `model/stock.py` or
+`kernel/engine/setup.py` must fail packaging checks before distribution.
 
 ### 6. Seams that tests patch or probe
 
-* **`monkeypatch.setattr`** (103 calls; for example `kernel._execute`,
-  `coordinates._printed`, `"prechips.sheet.stock_states"`) patches the module the code
-  *looks the name up in*. The script rewrites each patch to the single split file that
-  reads the name. It refuses when two files read it: the `sheet` prototype first found
-  `stock_states` read by both `_Traveler` and `dro`, and that turned out to be a scope
-  bug in the script. The rewritten patch reads `"prechips.sheet.dro.stock_states"`.
-* **In-kernel probes**: test string literals that load `freecad_job.py` with
+* The snapshot contained 103 `monkeypatch.setattr` calls, including
+  `kernel._execute`, `coordinates._printed` and `"prechips.sheet.stock_states"`.
+  A patch must target the module where the caller looks up the name. The script
+  rewrites to that file and refuses an ambiguous target. In the sheet prototype,
+  `stock_states` appeared to have two readers because of a scope-analysis bug;
+  after correction its target was `"prechips.sheet.dro.stock_states"`.
+* In-kernel probes are test string literals that load `freecad_job.py` with
   `importlib.util.module_from_spec`. The path comes from whatever variable the test
   uses: `KERNEL_SOURCE`, `ENGINE`, `CULLED_ENGINE`, `POOL_PROBE_ENGINE`, or a fixture.
   The script finds probes by that loader, not by the variable. It rewrites a read
@@ -285,19 +312,19 @@ with `src/prechips/**` (`*.py` and `tokens.css`). A missing `model/stock.py` or
   that line's indentation. A write `alias.name = ...` is rewritten like a monkeypatch,
   to the one file that looks the name up, and refused if more than one file does. It
   edits the literal's source text, so raw strings keep their backslashes.
-* **Tests that parse, compile or execute source** (`ast.parse`, `inspect.getsource`,
-  built-in `compile`/`exec`, also inside probe scripts) may rebuild code from
-  the module's own AST. `test_kernel_checkpoints.py` and `test_render_png.py` both do this
-  to `freecad_job.py`. The script cannot port that, so every file that parses source is
-  listed once in the spec's `[parses_source]` table with the modules whose source it
-  reads. An unlisted file is refused, and a reader of the module being split is printed
-  as `UPDATE BY HAND`, for a hand commit in that PR.
+* Tests using `ast.parse`, `inspect.getsource`, built-in `compile` or `exec`
+  (including probe scripts) may reconstruct functions from module source.
+  `test_kernel_checkpoints.py` and `test_render_png.py` did this for
+  `freecad_job.py`. The script cannot port those readers automatically.
+  The spec must classify every such file in `[parses_source]` and name its source
+  modules. Unlisted readers are refused; affected classified readers are reported
+  as `UPDATE BY HAND` for a separate hand edit in the split PR.
 
 ## The split script
 
-`scripts/split_modules.py` with the spec in `scripts/split_modules.toml`. The spec lists,
-per module, the target files and fnmatch patterns over symbol names (`Class.method`
-for methods of a split class); anything no pattern names stays in `rest`.
+`scripts/split_modules.py` reads `scripts/split_modules.toml`. For each module the
+spec names target files and fnmatch patterns over symbols (`Class.method` for split
+classes). Unmatched symbols stay in `rest`. Command syntax:
 
 ```
 uv run scripts/split_modules.py churn [--by pr|commit] [--ref BRANCH ...] [--json OUT]
@@ -306,7 +333,7 @@ uv run scripts/split_modules.py apply NAME                  # writes the split
 uv run scripts/split_modules.py snapshot OUT [--against M]  # byte-identity check
 ```
 
-What `apply` does:
+The `apply` operation follows this sequence:
 
 1. It parses the module into units: each top-level statement with its leading comments
    and decorators, and the methods of every class of 300 or more lines. Trailers such
@@ -362,7 +389,8 @@ What `apply` does:
 
 ### Prototype results
 
-Each split ran in a throwaway worktree on `main` at `f5c7414`. Nothing was committed.
+The following results were recorded in throwaway worktrees at `f5c7414`; no split
+was committed by those prototype runs. They do not establish current validation.
 
 | Split | Result |
 |---|---|
@@ -370,9 +398,9 @@ Each split ran in a throwaway worktree on `main` at `f5c7414`. Nothing was commi
 | `sheet` (mixins) | `apply`: 18 files, 10 `_Traveler` mixins, the `stock_states` monkeypatches retargeted to `sheet.dro`. Ruff clean. The pivot-shaft traveler is byte-identical to `expected/`. |
 | `freecad_job` (FreeCAD) | `apply` after one hand prep commit (`_POOL` holder, below): 21 engine files, 14 mixins, 6 probe test files rewritten. Under the pinned AppImage with a fresh `PRECHIPS_KERNEL_CACHE` that only the split engine filled, the snapshot manifest is identical to `main`'s and all four travelers equal `expected/`. Cold rocker-arm `check`: `main` 537 s, split 501 s, reports byte-identical. Full suite of that first prototype: 9,115 passed, 11 failed, 297 errors, 83 skipped. Every failure traced to a test seam the first script did not handle: probes loading the entry through `ENGINE`/`CULLED_ENGINE`/a fixture, probe fragments, two tests that rebuild code from `freecad_job.py`'s AST, and probes that patch `_culled_common`/`_face_samples`. The fixed script now rewrites the first two and refuses the rest: `_culled_common` is read from 2 files and `_face_samples` from 8. So the engine split needs hand prep before `apply` (below); it is not mechanical yet. |
 
-Gaps the prototypes found, to close in the split PRs:
+The prototypes identified these preparation and hand-edit requirements:
 
-* **`_POOL` (freecad_job)**: `main()` assigns it under `global` and `_ahead()`/`run`
+* `_POOL` in `freecad_job`: `main()` assigns it under `global`, and `_ahead()`/`run`
   read it. Split naively, the readers would see `None` forever and every boolean would
   run un-pooled with byte-identical output. Only the `pool_answers` timing fact would
   show it. The script refuses this. A hand prep commit, first in that PR and still inside
@@ -380,23 +408,24 @@ Gaps the prototypes found, to close in the split PRs:
   set by `main` as `_POOL["pool"] = ...`). The spec then moves `_POOL` and `_ahead` into
   `engine/pool.py`, which therefore does not exist before `apply` (it refuses an
   existing target).
-* **Probe patches of shared engine functions (freecad_job)**: `test_kernel_pose_reuse.py`
+* Shared engine probe patches: `test_kernel_pose_reuse.py`
   replaces `engine._culled_common`, read after the split by `engine/cull.py` and the
   entry's `_POOL_FUNCTIONS`. `test_kernel_region_geometry.py` replaces
   `engine._face_samples`, read by 8 engine files. A hand prep commit makes those probes
   patch each reading module (or makes the callers read the function through one
   module) before `apply`.
-* **AST-reading tests (freecad_job)**: `pure_chain_regeneration` and `stock_dispatch` in
+* AST-reading tests: `pure_chain_regeneration` and `stock_dispatch` in
   `test_kernel_checkpoints.py`, and `test_render_png.py`, rebuild functions from
   `freecad_job.py`'s AST. In that PR they read the engine files that now hold those
   functions (a hand commit after the mechanical one).
-* **Dead duplicate (model)**: `model.py` defines `_unit` twice (lines 489 and 636); the
-  first is shadowed and never runs. The split keeps both in `model/common.py` in order
-  (the script refuses to separate them). Deleting the dead one is a separate fix.
-* **Probe line length**: rewritten probe lines can pass 100 columns (two lines in
+* Historical duplicate in `model`: the snapshot's `model.py` defined `_unit` twice
+  (lines 489 and 636). The first definition was shadowed and never ran. The prototype
+  kept both in `model/common.py` in source order; the script refused to separate
+  them. Deleting the dead definition was outside the mechanical move.
+* Probe line length: rewritten probe lines can pass 100 columns (two lines in
   `test_kernel_guard_frames.py`). Ruff does not reflow strings, so they are wrapped by
   hand in that PR.
-* **Patches by computed name (zero_recipe)**: `tests/test_validate_examples.py`
+* Computed-name patches in `zero_recipe`: `tests/test_validate_examples.py`
   patches and reads carry helpers through `forge_carry(monkeypatch, target)`
   (`getattr`/`setattr(zero_recipe, target)`), and patches `_position`, which four
   split files read. No hand prep: a patch the script cannot land in one file (a
@@ -406,21 +435,23 @@ Gaps the prototypes found, to close in the split PRs:
   `tests/split_patch.py`. It patches the name in every split file that binds it, which
   is what one patch of the unsplit module did; `split_attr` reads it the same way.
   Outside `tests/` such a patch still refuses.
-* **Cold kernel deadline**: the first cold engine snapshot here gave rocker-arm exit 2
+* Cold kernel deadline: the first cold engine snapshot gave rocker-arm exit 2
   because its kernel job hit the 600 s deadline. Timed alone, the job takes about 500 s
   cold with `PRECHIPS_KERNEL_WORKERS=1` on 4 vCPUs, on `main` as well as on the split.
   So a split PR runs its cold snapshot with nothing else on the machine, and checks
   any timeout against `main` cold before calling it a regression.
-* **Prose paths**: `AGENTS.md`, `examples/README.md` and five `docs/` pages name
-  `src/prechips/model.py`; `examples/geometry/README.md` and `docs/rules-geometry.md`
-  name `freecad_job.py`. These are updated by hand in each split PR, as AGENTS.md
-  requires.
+* Prose paths: snapshot references in `AGENTS.md`, `examples/README.md` and five
+  `docs/` pages named `src/prechips/model.py`; `examples/geometry/README.md` and
+  `docs/rules-geometry.md` named `freecad_job.py`. Each future split must find and
+  update affected prose references by hand, as AGENTS.md requires.
 
 ### Re-running at merge time
 
-A split PR is one **mechanical commit**: the output of `apply` on its base, with no hand
-edits. It is preceded by any hand **prep** commits (like `_POOL`) and followed by a hand
-**docs** commit. When `main` moves, the split PR is never conflict-resolved. Instead:
+Keep the generated move in one mechanical commit, with no hand edits. Put hand
+preparation such as `_POOL` before it and documentation changes after it. When the
+base advances, regenerate the split instead of resolving conflicts in moved code.
+The historical shell recipe below is schematic: placeholders must be replaced and
+branch-changing commands belong only in a disposable or otherwise safe worktree.
 
 ```sh
 git fetch origin main && git checkout -B refactor/split-model origin/main
@@ -433,12 +464,13 @@ git commit -m "model: split per input family (mechanical, scripts/split_modules.
 git cherry-pick <docs commit>
 ```
 
-If `apply` refuses (for example a new feature added a cycle or a `global`), the spec or
-a prep commit changes; the moved code is never edited by hand. A new symbol that no
-pattern names stays in `rest`, so `plan` after a rebase lists what to classify.
+If `apply` refuses a cycle, `global` or another unsupported shape, change the spec or
+add a preparation commit. Do not hand-edit the generated move. Unmatched new symbols
+stay in `rest`; inspect `plan` after updating the base to classify them.
 
-A feature branch opened before a split lands can port its change without hand-merging
-the moved code:
+A feature branch opened before the split can be transformed in the same layout
+before replaying its change. This historical shell fragment also changes branches
+and creates commits; it is not a command to run in an active shared checkout:
 
 ```sh
 base=$(git merge-base origin/main feature)
@@ -450,73 +482,78 @@ s1=$(git commit-tree "$tree" -p "$s0" -m "feature, in the split layout")
 git checkout -B feature-split "$s1" && git rebase --onto origin/main "$s0"
 ```
 
-S₁ is a child of S₀, so S₀..S₁ is exactly the feature's change in the split layout. The
-rebase replays only that one commit, never the unsplit feature commits, and the only
-conflicts left are real same-symbol ones. Use the same spec and script revision that
-main's split commit used. Checked on a throwaway clone with the `model` split: a branch
-that edited `Policy` in `model.py` came out as a 2-line change to `model/policy.py`
-on top of the split main.
+S₁ is a child of S₀, so S₀..S₁ contains only the feature's change in the split
+layout. The rebase replays that change, not the unsplit feature commits; remaining
+conflicts are same-symbol overlaps. Use the script and spec revision from main's
+split commit. In the recorded throwaway-clone experiment, editing `Policy` in
+`model.py` produced a 2-line change to `model/policy.py` above the split base.
 
 ## Sequence and estimates
 
-One module per PR, stacked on this plan, each re-run by the script on the latest
-`origin/main`. #251, #253, #254 and #263 have landed since this evidence was taken. A
-module that an open PR still edits is split only after that PR lands: as of 2026-10-17,
-#258/#267/#278 (guided sweep: `sheet.py`, `freecad_job.py`, `model.py`, `coordinates.py`,
+The original schedule used one module per PR, rerunning the script on the latest
+`origin/main` after feature work stopped editing that module. By its 2026-10-17
+schedule update, #251, #253, #254 and #263 had landed; it still listed #258/#267/#278
+(guided sweep: `sheet.py`, `freecad_job.py`, `model.py`, `coordinates.py`,
 `render_diagram.py`), #279 (`freecad_job.py`), #280 (`coordinates.py`) and #285
-(`kernel/__init__.py` and the engine digest). So the first split is `zero_recipe`,
-the one module no open PR edits, even though its gain is small. Rows 2 to 7 follow as
-their modules become free.
+(`kernel/__init__.py` and engine digest) as scheduling constraints. These are
+historical branch states. `zero_recipe` was chosen first because no listed open PR
+edited it, despite its small measured gain; that split has since shipped.
+
+The original estimates below are retained for rationale, not as delivery promises.
+Row 3 predates the explicit digest boundary: a host-only split now stays outside
+`ENGINE_SOURCES` and does not by itself make the geometry cache cold.
 
 | # | Split | Risk | Why here | Estimate |
 |---|---|---|---|---|
-| 1 | `rules/zero_recipe.py` → `zero_recipe/` | Low: host only, no kernel digest | The only module no open PR edits, so it can go now; small gain (10 → 10 PR pairs here, re-measured in its PR) | 1 day |
+| 1 | `rules/zero_recipe.py` → `zero_recipe/` (shipped) | Low: host only, no kernel digest | Chosen first because no then-open PR edited it; small gain (10 → 10 PR pairs here, re-measured in its PR) | 1 day |
 | 2 | `model` → `model/` | Low: host only, no kernel digest, pydantic covered by the suite | All four feature PRs collide here; open pairs 6 → 3 | 0.5 day |
-| 3 | `kernel/__init__.py` → `job_*.py` | Low–medium: host only but digested, so cache goes cold once | Ships the digest/CI-key change and its tests alone, before any FreeCAD code moves | 1 day |
+| 3 | `kernel/__init__.py` → `job_*.py` | Low to medium: host-only; keep outside `ENGINE_SOURCES` | Originally paired with the digest/CI-key change; that explicit boundary has since shipped | 1 day |
 | 4 | `rules/coordinates.py` → `coordinates/` | Medium: four monkeypatches, 19 lazy imports | 1,176 → 581 commit pairs | 1 day |
 | 5 | `sheet.py` → `sheet/` | Medium: 10 mixins, 276 cross-mixin calls | Largest commit churn (153); open pairs 6 → 3 | 1.5 days |
 | 6 | `kernel/freecad_job.py` → `kernel/engine/` | High: runs in freecadcmd, `_POOL` prep, probes, cold geometry | 7,750 → 2,867 commit pairs; open pairs 3 → 1 | 2.5 days |
 | 7 | `render_diagram` (optional) | Medium: dual host/FreeCAD imports | Little gain (1 → 1 PR pairs); revisit with fresh `churn` data | 1 day |
 
-Each estimate covers running the script on fresh `main` and reaching the clean `plan`.
-It also covers one full suite run (cold when the kernel digest changes), the snapshot
-against `main`, the prose updates and review rounds.
+Each historical estimate included regenerating on fresh `main`, resolving `plan`
+refusals, a full suite run (cold for engine-source changes), a snapshot against the
+base, prose updates and review rounds.
 
 ## Beyond the mechanical split
 
-The remaining shared files are dispatch points that every new op edits:
-`_Traveler.operations` (270 lines), `_Setup.__init__`/`run`, `Plan` validators,
-`coordinates.evaluate`, `zero_recipe.evaluate`, `op_inputs` and `_ENGINE_OP`. A split
-moves them intact. Turning each into a per-op registry (an op kind maps to its card
-method, engine handler and input builder) is a behaviour-preserving refactor, but not a
-mechanical one, so it is proposed separately, after the splits, one dispatcher per PR,
-verified by the same snapshot.
+The snapshot's dispatch points were `_Traveler.operations` (270 lines),
+`_Setup.__init__`/`run`, `Plan` validators, `coordinates.evaluate`,
+`zero_recipe.evaluate`, `op_inputs` and `_ENGINE_OP`. Mechanical movement leaves
+their shared edits intact. A per-operation registry could map an operation kind to
+its card method, engine handler and input builder, but that is a separate
+behavior-preserving refactor. Reassess the current owners first; change one
+dispatcher per PR and require the same output snapshot.
 
 ## What is not split
 
-`rules/manual_arc.py` (407 lines, 15 commits since 2026-09-01, one of the five open PRs)
-is small and cohesive. Splitting it would add files without removing a collision.
+The snapshot's `rules/manual_arc.py` was cohesive: 407 lines, 15 commits since
+2026-09-01 and one of the five open PRs. A split would add files without removing
+a collision in that population. Revisit only with new evidence.
 
 ## Open review notes
 
-Codex reviewed this plan over 15 rounds; the owner stopped the rounds there. Every
-finding where `apply` would write a broken tree or wrong code is fixed, each with a
-test in `tests/test_split_modules.py`. These notes stay open:
+Review of the original plan stopped after 15 Codex rounds at the owner's request.
+Reported cases that could generate a broken tree received refusal handling and
+tests in `tests/test_split_modules.py`. The remaining constraints are:
 
-* **The rewriter refuses what it does not model.** Later rounds kept naming rarer
-  shapes (match captures, keyword-only patch calls, reads in nested helpers, namespace
-  dunders). Each now refuses, and none occurs in the repository: a dry-run `apply` of
-  every non-engine module triggers no refusal beyond the documented prep. A shape not
-  yet listed would pass the script, so every split PR keeps its own gates: the
-  byte-identical snapshot, the full suite with the kernel, and the validator. A new
-  shape found that way gets a refusal and a test in the script, not a hand fix in
-  the split.
-* **`model[family-only]` has an import cycle** (`features` needs `Bounds` from the
-  plan). It is a compared option, not the applied layout, so its spec is left as is.
-* **`freecad_job` still refuses on `_POOL`.** The engine split starts with the hand
-  prep commit described above.
-* **Package `__init__.py` files stay empty.** Re-exporting a split module's entry point
-  (for example `zero_recipe.evaluate`) would keep old import paths working for code
-  outside the repository, but it widens the package's name surface that the empty
-  `__init__` keeps one-way. The supported interface is the `prechips` CLI. Whether to
-  add re-exports is the owner's call, raised on #311.
+* The rewriter can refuse only shapes it models. Review added refusals for match
+  captures, keyword-only patch calls, nested-helper reads and namespace dunders.
+  The recorded non-engine dry runs found none beyond the documented preparation.
+  An unrecognized shape could still pass, so every split needs its own byte-identical
+  snapshot, kernel-enabled suite and example validator. Add a refusal and regression
+  test when a new shape is found; do not hand-fix generated movement.
+* The compared `model[family-only]` option has a cycle because `features` needs
+  `Bounds` from the plan. It was not the selected layout.
+* The engine prototype refused `_POOL`; its proposed split still requires the
+  preparation described above. Prototype results do not mean the engine split shipped.
+* The package design keeps `__init__.py` docstring-only, as the shipped
+  [`zero_recipe/__init__.py`](../src/prechips/rules/zero_recipe/__init__.py) does.
+  Re-exporting a moved entry point, such as the former `zero_recipe.evaluate`,
+  would preserve old external paths but widen the namespace and shared import
+  surface. The supported interface is the `prechips` CLI. Whether to add
+  re-exports remains the owner's call, raised on #311; this plan does not
+  authorize compatibility shims. Consult the
+  [Python support boundary](reference/python-api.md) for current consumer guidance.

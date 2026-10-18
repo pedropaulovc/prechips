@@ -94,7 +94,7 @@ Missing, vendor-only, `assumed` or `illustrative` values produce `?` and exit 4
 when required. A measured envelope/travel violation always yields exit 2.
 Mill-only envelope/travel rows are `not_applicable` on a lathe.
 See [measured setup screens](rules-setup.md#m5-measured-inventory-screens) and
-the [measurement checklist command](reference/cli.md) for the debt behind reports.
+[`prechips tools --measure`](reference/cli.md#measurement-checklist) for the debt behind reports.
 
 No policy field selects a collet shank class. `tool_resolves` accepts a tool shank
 in a single nominal collet capacity on the ISO 286 h6 band (ISO 286-1:2010
@@ -105,8 +105,15 @@ Table 1 IT6). Policy cannot widen it to h7 or explicit limits. See
 
 `numbers` maps names to finite numeric values or `"unknown"`. `numbers_cite`
 supplies matching citations; `numbers_verify` maps names to booleans or unknown.
-A true or unknown verification flag prevents a value from certifying a measured
-threshold.
+For rule thresholds, a per-entry true or `"unknown"` verification flag withholds
+the value; an omitted entry defaults to false.
+
+A whole-map `numbers_verify = "unknown"` is not handled uniformly. Most
+threshold consumers withhold their value, but `stickout` converts the non-map
+to an empty map and defaults `stickout_ld_max` verification to false. A positive,
+cited ratio can therefore remain a known limit in that case. To withhold that
+ratio, set its individual verification entry to true or `"unknown"`; do not rely
+on a whole-map unknown. The discrepancy is tracked in [issue #358](https://github.com/pedropaulovc/prechips/issues/358). The print-only fields have their own behavior below.
 
 | Number | Consumer and meaning |
 | --- | --- |
@@ -117,6 +124,7 @@ threshold.
 | `min_hand_feed_mm` | Finger-to-blade clearance for `hold_fields` on a [hand-fed saw](plan.md#hand-fed-on-the-saw-table). Each blade position along each cut's scribed arc is compared with how far that cut's stock reaches from the blade |
 | `max_filing_stock_mm` | Maximum stock a rough stair or drilled chain may leave for filing; must be nonnegative, cited and unflagged. Missing, negative, uncited or flagged values leave the filing limit unknown |
 | `fixture_make_decimals` | Whole decimal places for printing shop-made fixture sizes and positions; never a pass condition |
+| `near_jaw_mm` | Print-only distance threshold, in mm, for a boxed jaw-clearance line on lathe operation rows. Absent or unknown values fall back to 3 mm. The sheet does not consult citations or verification flags for this field; it is never a pass condition |
 
 For `min_hand_feed_mm`, absent, uncited or flagged values produce `?`; work that
 cannot reach the clearance produces `✗`. For `max_filing_stock_mm`, exceeding
@@ -124,14 +132,23 @@ the known cap produces an error; an unknown cap leaves filing debt. See
 [coordinates](rules-coordinates.md), [lathe rules](rules-lathe.md) and
 [geometry rules](rules-geometry.md).
 
-The shipped numbers remain `"unknown"` rather than copying unsourced shop
-folklore. Required physics warnings yield exit 4 through the existing gate;
-proxy warnings do not invent hard physical limits.
+The shipped [example policy](../examples/shop-policy.toml) supplies seven cited
+illustrative values with false verification entries. Applicable rules treat
+its numeric limits as known thresholds for the examples; the fixture-precision
+and jaw-clearance print settings also take effect. These are not measured shop
+safety limits. An illustrative citation does not make a threshold unresolved.
+Do not copy these values into a real shop policy. Replace them with independently
+established shop values, and flag unresolved rule thresholds rather than treating
+the example limits as shop evidence.
 
-`fixture_make_decimals` prints a fit that locates the part at drawing precision
-instead. An absent, unknown or flagged precision falls back to the DRO grid of
-the fixture-making machine (the shop's mill, else the setup machine). Every
-printed value lies on that grid. See [inventory](inventory.md).
+Required physics warnings yield exit 4 through the existing gate; proxy warnings
+do not invent hard physical limits.
+
+A fit that locates the part prints at drawing precision instead of
+`fixture_make_decimals`. For other fixture sizes and positions, an absent,
+unknown or flagged precision falls back to the DRO grid of the fixture-making
+machine (the shop's mill, else the setup machine). Every printed value lies on
+that grid. See [inventory](inventory.md).
 
 ## Geometry requirements
 

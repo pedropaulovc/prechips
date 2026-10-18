@@ -1105,8 +1105,6 @@ separate [CLI](docs/reference/cli.md) and
 [Python callable](docs/reference/python-api.md) catalogs, and
 [architecture/development guides](docs/internals/architecture.md).
 The [style guide](docs/style-guide.md) defines page structures and verification.
-This documentation work changes no checker, schema, example or printed-template
-behavior and does not close physical or live-farm acceptance.
 
 0. **M0 — kernel spike** (§6). Done 2026-10-03, two rounds.
 1. **M1 — local implementation deliverable completed.** Five strict TOML

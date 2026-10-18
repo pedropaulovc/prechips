@@ -11,8 +11,7 @@ prechips [--json] [--verbose] traveler PLAN [--inventory TOML] [--policy TOML]
     [--cutting-data TOML] [--out DIR] [--approval TOML] [--json] [--verbose]
 prechips [--json] [--verbose] check PLAN [--inventory TOML] [--policy TOML]
     [--cutting-data TOML] [--out DIR] [--approval TOML] [--json] [--verbose]
-prechips [--json] [--verbose] tools [QUERY] [--inventory TOML]
-    [--measure [--plan TOML ...]] [--json] [--verbose]
+prechips [--json] [--verbose] tools [QUERY] [--inventory TOML] [--measure [--plan TOML ...]] [--json] [--verbose]
 prechips [--json] [--verbose] compare PLAN [PLAN ...] [--inventory TOML]
     [--policy TOML] [--cutting-data TOML] [--out DIR] [--json] [--verbose]
 prechips [--json] [--verbose] explain REPORT RULE[:SUBJECT] [--json] [--verbose]
@@ -146,7 +145,7 @@ Plan labels are relative to the candidates' common plan-directory root. Cross-vo
 
 Waste is `(stock_volume_mm3 - net_volume_mm3) / stock_volume_mm3`. Only explicitly shaped round or rectangular blanks with adequate dimensions contribute known stock volume. Component stock must be nonempty to be counted. A profiled blank's volume is unresolved here. Net volume needs both a numeric manifest value and its citation. Missing evidence remains `"unknown"`; the command does not estimate a finished part from a bounding box. Invalid/nonpositive stock dimensions, invalid net volume or net volume greater than stock are bad input (exit 3). See the [comparison rules](../rules-comparison.md).
 
-Construction permission is evaluated by the rules, including the drawing's explicit permission for a built-up route. Missing or unknown permission is not permission. The returned status is 2 if any candidate has a rule error, otherwise 4 if any candidate is unresolved, otherwise 0. Bad input/output errors return 3 and prevent a new comparison from being committed.
+Construction permission is evaluated by the rules, including the drawing's explicit permission for a built-up route. Missing or unknown permission is not permission. The returned status is 2 if any candidate's evaluation exit is 2, otherwise 4 if any candidate's exit is 4, otherwise 0. Optional unresolved findings alone do not make a candidate exit 4. Bad input/output errors return 3 and prevent a new comparison from being committed.
 
 ## `explain`
 
@@ -190,6 +189,6 @@ Geometry discovery uses, in order:
 
 `PRECHIPS_KERNEL_CACHE` selects the geometry-cache directory. Otherwise it is `prechips/geometry` under `LOCALAPPDATA`, or under `~/.cache` when `LOCALAPPDATA` is absent. These environment paths are interpreted by the host process; relative paths use its working directory. Cache results are memoized per bundle, and only successful geometry results are stored for reuse. The [geometry reference](../rules-geometry.md) describes native limits and worker settings.
 
-Checks make no collector connection unless an explicit standard OTLP endpoint enables export. `OTEL_EXPORTER_OTLP_ENDPOINT` and per-signal `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`/`OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` configure that optional output. Signal-specific protocol/timeout settings override common ones. A malformed protocol or timeout warns once and disables exporters without changing the report or checker exit. See [telemetry configuration](../report-and-telemetry.md#telemetry-and-console) for transport, headers, context and acceptance details.
+Checks make no collector connection unless an explicit standard OTLP endpoint enables export. `OTEL_EXPORTER_OTLP_ENDPOINT` and per-signal `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`/`OTEL_EXPORTER_OTLP_LOGS_ENDPOINT` configure that optional output. Signal-specific protocol/timeout settings override common ones. When an OTLP endpoint is configured, a malformed effective protocol or timeout warns once and disables both exporters without changing the report or checker exit. See [telemetry configuration](../report-and-telemetry.md#telemetry-and-console) for transport, headers, context and acceptance details.
 
 Implementation: [parser and command orchestration](../../src/prechips/cli.py), [bundle loader](../../src/prechips/inputs.py), [readiness gate](../../src/prechips/findings.py), [kernel host](../../src/prechips/kernel/__init__.py).

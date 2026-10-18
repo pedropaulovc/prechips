@@ -108,11 +108,10 @@ Run the prescribed full validation/package gate when the change requires it:
 
 ```sh
 uv sync --locked
+uv run pytest
+uv run scripts/validate_examples.py
 uv run ruff check .
 uv run ruff format --check .
-uv run pytest -q
-uv run python scripts/validate_examples.py
-uv build
 ```
 
 The example validator must also run locally when examples, goldens or printed setup-sheet content change. Its exit 0 means the authored fixture contracts were satisfied; the checker commands it runs can correctly return 2 or 4. It checks actual bundle/report/native/render/sheet behavior and does not certify machining. Current expected candidate exits belong to [expected consumer CLI exits](../../examples/README.md#expected-consumer-cli-exits), not to a contributor's recollection of an older run.
@@ -127,7 +126,7 @@ uv run prechips traveler examples/pivot-shaft/plan.toml --out out/development/pi
 
 Inspect the report's actual exit/verification, generated HTML and every returned PNG. Expected nonzero evaluation exits still produce usable outputs. Do not change authored measurements, policy or checks to manufacture exit 0. Remove incidental working reports rather than committing scratch output. Follow [output safety](../report-and-telemetry.md#output-safety) when retaining or regenerating sheets.
 
-`uv build` produces a wheel and source distribution under `dist/`. Repository imports alone do not show that these artifacts contain the required package resources or entry points. The CI build job exercises each artifact outside the checkout with `tests/test_cli.py::test_installed_artifact_console_script_matches_module`. For a local artifact check, set `PRECHIPS_INSTALLED_ARTIFACT` to the absolute path of the built artifact, then run:
+Then run `uv build` to produce a wheel and source distribution under `dist/`. Repository imports alone do not show that these artifacts contain the required package resources or entry points. The CI build job exercises each artifact outside the checkout with `tests/test_cli.py::test_installed_artifact_console_script_matches_module`. For a local artifact check, set `PRECHIPS_INSTALLED_ARTIFACT` to the absolute path of the built artifact, then run:
 
 ```sh
 uv run pytest tests/test_cli.py::test_installed_artifact_console_script_matches_module
@@ -147,13 +146,13 @@ After changing layout, wording, pictures or tables, review every affected exampl
 
 Choose a different model family from the author or last editor of the plan or sheet code. Claude-authored work uses `--reviewer codex`; Codex/GPT-authored work uses `--reviewer claude`. A same-family `CLEAR` is not the gate. The reviewer CLI must be available and authenticated. Defaults are `gpt-6-astra` at low effort for Codex and `claude-fable-5-1` at medium effort for Claude; `--model` and `--effort` override them.
 
-Use the input form you have. These are alternatives; PDF/PNG filenames refer to already prepared input pages. `--report-dir` explicitly keeps review output in the scratch tree:
+Use the input form you have. These are alternatives. The `--traveler` example uses the output from [Run the examples](../../README.md#run-the-examples); PDF/PNG filenames refer to already prepared input pages. Reports default to `out/machinist-review/`; `--report-dir DIR` selects another destination.
 
 ```sh
-uv run scripts/machinist_review.py --reviewer codex --traveler out/development/pivot-shaft --report-dir out/development/machinist-review
-uv run scripts/machinist_review.py --reviewer claude --bundle examples/rocker-arm/plan.toml --report-dir out/development/machinist-review
-uv run scripts/machinist_review.py --reviewer codex --pdf printed-traveler.pdf --report-dir out/development/machinist-review
-uv run scripts/machinist_review.py --reviewer codex --png page-1.png --png page-2.png --report-dir out/development/machinist-review
+uv run scripts/machinist_review.py --reviewer codex --traveler out/pivot-shaft
+uv run scripts/machinist_review.py --reviewer claude --bundle examples/rocker-arm/plan.toml
+uv run scripts/machinist_review.py --reviewer codex --pdf printed-traveler.pdf
+uv run scripts/machinist_review.py --reviewer codex --png page-1.png --png page-2.png
 ```
 
 `--traveler` accepts a folder or HTML file. It prints to Letter PDF with headless Chrome/Edge, allows the duplex-padding script to run and rasterizes every page at 300 dpi with pypdfium2. Generated traveler/bundle reviews reject odd page counts. `--bundle` first runs the real traveler command in a staging directory, inheriting `FREECAD_CMD` and `PRECHIPS_KERNEL_CACHE`, then prints that result. Input options repeat; `--jobs` controls parallel package reviews, while printing is prepared serially.
@@ -179,6 +178,48 @@ The official FreeCAD 1.1.0 Linux AppImage is version/SHA-256 pinned, cached and 
 Shard logs and JUnit results are retained even on failure. The required `test` check demands successful shards and uses `scripts/ci_shards.py check` to compare their JUnit cases with the full collection exactly once. Rebuild `.test_durations` from measured green-run JUnit evidence with `scripts/ci_shards.py durations`, not guessed times. A count match alone does not establish the correctness of a new test oracle or complete coverage of a changed safety boundary.
 
 The build job separately builds and exercises wheel/sdist consumers. Release is defined in [release.yml](../../.github/workflows/release.yml): a `v*` tag must match `uv version --short`; the workflow builds and publishes to PyPI through OIDC in the `pypi` environment. Update package metadata and obtain the required reviews/validation before releasing. Do not merge a PR or enable auto-merge without Pedro's explicit confirmation.
+
+## Check local telemetry
+
+Use a separately running local collector to check trace/log export and correlation. This procedure does not install or deploy a collector, and it is guidance rather than a recorded live result. If you use the consumer's Aspire dashboard, `http://127.0.0.1:18890` is its UI address, not an OTLP endpoint.
+
+1. Obtain the collector's actual trace and log OTLP addresses, supported protocols and any required authentication/TLS configuration. Use the collector configuration, not its dashboard URL, to get these values.
+2. Open a fresh PowerShell session in the repository root. Keep the following environment changes in that session and close it when finished. If a real launcher task supplies `TRACEPARENT` and optional `TRACESTATE`, inherit them unchanged. Do not invent a parent value or trace id as evidence. A standalone run without inherited task context can check local export, but cannot demonstrate launcher parentage.
+3. Enter the actual configuration when prompted. Each protocol must be `grpc` or `http/protobuf`. Do not continue with empty values or unresolved example placeholders.
+
+   ```powershell
+   $env:OTEL_SERVICE_NAMESPACE = Read-Host 'Service namespace for this local run'
+   $env:OTEL_EXPORTER_OTLP_TRACES_ENDPOINT = Read-Host 'Actual collector traces OTLP endpoint'
+   $env:OTEL_EXPORTER_OTLP_LOGS_ENDPOINT = Read-Host 'Actual collector logs OTLP endpoint'
+   $env:OTEL_EXPORTER_OTLP_TRACES_PROTOCOL = Read-Host 'Traces protocol: grpc or http/protobuf'
+   $env:OTEL_EXPORTER_OTLP_LOGS_PROTOCOL = Read-Host 'Logs protocol: grpc or http/protobuf'
+   ```
+
+   The exporter also uses standard OTLP header/TLS variables. Use actual collector credentials only when required, and do not copy them into shared command transcripts. Signal-specific endpoint/protocol/timeout settings override common settings; timeout values are milliseconds. Confirm that inherited header/TLS/timeout settings match this collector. The [telemetry variable contract](../report-and-telemetry.md#telemetry-and-console) defines the complete precedence and supported transports. Without an endpoint, that signal has no exporter or missing-collector warning.
+
+4. Run a real check into a scratch directory and record its actual exit:
+
+   ```powershell
+   uv run prechips check examples/rocker-arm/plan.toml --out out/development/telemetry-local
+   $checkExit = $LASTEXITCODE
+   $checkExit
+   ```
+
+   A completed evaluation can return 0, 2 or 4 and still write a report. Do not alter inputs to force a preferred exit. Inspect the report and the collector, rather than treating the command's exit as proof of export.
+
+5. In the collector/dashboard, find this invocation's `prechips.check` root span. If the launcher supplied real context, verify that it continues that trace and names the actual task span as its parent. Without inherited context, expect an unparented application root and make no launcher-correlation claim. Inspect child `input.load`, `rule.<name>.evaluate`, per-finding `rule.<name>` and `output.write` spans. Finding spans/log records should carry `rule`, `subject`, `status`, `numbers` and `cite`; the corresponding finding logs must share their trace/span context. After the process returns, confirm that the root has ended and its trace and log records reached the collector.
+6. Check the handled error path by deliberately omitting the required plan argument:
+
+   ```powershell
+   uv run prechips check --out out/development/telemetry-local-bad-input
+   $badInputExit = $LASTEXITCODE
+   $badInputExit
+   ```
+
+   Expect exit 3, usage and a `Bad input` diagnostic. This parser-error run does not load a bundle or write report artifacts, so it should not have input/rule/output work spans. Confirm instead that its `prechips.check` root ends and its correlated error log arrives after the process returns. The CLI flushes trace and log providers in its exit cleanup on both completed evaluations and handled bad input; collector delivery must still be observed.
+7. Close the dedicated PowerShell session so its local endpoint/protocol settings cannot leak into later work. Record the actual command exits, observed span/log identities and collector evidence without credentials.
+
+Local export/correlation checks do not establish the [pending live farm acceptance](#report-acceptance-honestly). That requires the authorized consumer subprocess, real inherited farm task context and the existing Azure Monitor Agent/App Insights path.
 
 ## Report acceptance honestly
 

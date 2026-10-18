@@ -31,7 +31,7 @@ cutting_data = "../cutting-data.toml"
 
 Those paths are relative to the plan directory. The plan's `features = "features.toml"` resolves there too. The manifest names `pivot-shaft.STEP` and its SHA-256 digest; STEP is an adjacent geometry asset, not another authored process plan. Prechips checks the asset's bytes against that digest.
 
-For this run, you do not need shop-file flags. If you later use them, explicit CLI overrides take precedence over known plan paths. CLI paths are relative to your working directory. See [input selection in the CLI catalog](../reference/cli.md) for environment fallbacks and containment rules.
+For this run, you do not need shop-file flags. If you later use them, explicit CLI overrides take precedence over known plan paths. CLI paths are relative to your working directory. See [input selection in the CLI catalog](../reference/cli.md#bundle-paths-and-overrides) for environment fallbacks and containment rules.
 
 ## 2. Follow the preparation into the next setup
 
@@ -97,7 +97,7 @@ When reading other findings, distinguish these states:
 | `not_applicable` | The rule explicitly does not apply to this subject. This differs from lacking enough facts to decide. |
 | `info` | Informational output; it does not itself block eligibility. |
 
-A missing FreeCAD kernel also makes the run unresolved. Error exit `2` takes precedence over unresolved exit `4`. The [rule references](../README.md) explain the inputs and limits of each check; the [CLI catalog](../reference/cli.md) defines all command exits.
+A missing FreeCAD kernel also makes the run unresolved. Error exit `2` takes precedence over unresolved exit `4`. The [rule references](../README.md) explain the inputs and limits of each check; the [CLI exit reference](../reference/cli.md#streams-and-errors) defines all command exits.
 
 ## 5. Investigate measurement debt
 
@@ -131,6 +131,6 @@ The setup sheet is the document the operator reads and writes on. The report kee
 
 Use the browser's print preview for the whole HTML file on Letter portrait paper. Keep JavaScript enabled so the layout inserts blank backs and starts each logical setup section on a front side; print the whole file double-sided. If scripts are disabled, print single-sided. Check the preview rather than assuming that one setup occupies one physical sheet. The CLI has not generated a PDF for you. See the [generated-sheet reference](../report-and-telemetry.md#generated-traveler) for the print contract.
 
-Approval requires separate first-article evidence bound to the eligible report; it cannot waive required unresolved checks. A generated report or printed sheet does not certify the physical setup, prevent every collision or simulate the operator's motion path.
+[Approval](../report-and-telemetry.md#eligibility-and-approval) requires separate first-article evidence bound to the eligible report; it cannot waive required unresolved checks. A generated report or printed sheet does not certify the physical setup, prevent every collision or simulate the operator's motion path.
 
 Return to the [documentation home](../README.md) for other tasks. Use the [CLI catalog](../reference/cli.md) for flags and the [Python callable catalog](../reference/python-api.md) if you need to call implementation functions from code.

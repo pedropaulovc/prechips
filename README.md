@@ -22,7 +22,10 @@ The [quickstart](docs/manual/quickstart.md) covers FreeCAD discovery and your fi
 From the repository root:
 
 ```sh
-uv run prechips traveler examples/pivot-shaft/plan.toml --out out/docs-smoke/pivot-shaft
+uv run prechips traveler examples/pivot-shaft/plan.toml --out out/pivot-shaft
+uv run prechips traveler examples/rocker-arm/plan.toml --out out/rocker-arm
+uv run prechips traveler examples/pivot-bracket/plan.toml --out out/pivot-bracket
+uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-pivot-post
 ```
 
 Read the [worked tutorial](docs/manual/tutorial.md) for the input-to-sheet workflow and the [input/output demonstration](docs/manual/demo.md) for actual excerpts. The [example guide](examples/README.md) owns each bundle's provenance, demonstration-value disclosures and expected exit. Outputs can still be written when the checker exits 2 or 4.
@@ -51,7 +54,7 @@ The literal `"unknown"` is unresolved debt. A source citation, vendor nominal, d
 
 The [geometry reference](docs/rules-geometry.md) defines face identity, stock evolution, prescribed approach models, sampled workholding and collision screens, caches and renders. Its [limits](docs/rules-geometry.md#limits) explain what these measurements cannot establish. The [architecture guide](docs/internals/architecture.md) describes the host/native boundary.
 
-A missing kernel leaves required geometry unresolved and produces exit 4. A valid explicit `FREECAD_CMD` can select an installation; an invalid override prevents fallback discovery. See [FreeCAD troubleshooting](docs/manual/troubleshooting.md).
+A missing kernel leaves applicable geometry unresolved and produces exit 4 unless a rule error takes precedence with exit 2. A valid explicit `FREECAD_CMD` can select an installation; an invalid override prevents fallback discovery. See [FreeCAD troubleshooting](docs/manual/troubleshooting.md#freecad-is-installed-but-geometry-says-the-kernel-is-unavailable).
 
 ## Machinist review of a traveler (dev tool)
 
@@ -65,4 +68,10 @@ Passing the checker does not prove a continuous cutter path, dynamic stability, 
 
 ## DRO reference
 
-The [DRO and print references](examples/README.md#dro-and-print-surfaces) identify the EL400 manual and emulator relationship. The [zero-check reference](docs/rules-coordinates.md#zero_check) defines what prechips checks. A printed recipe does not certify the emulator or a physical touch-off.
+The zero recipe uses the Electronica EL400 Direction §6.2 and ABS Axis Set §7.4 functions. Preset §8.1 is not a zero-setting command.
+
+- [EL400 Operation Manual](https://www.dropros.com/documents/EL400%20OpManual.pdf)
+- [Changing read direction](https://www.dropros.com/documents/400%20ScaleDirection.pdf)
+- [Bolt-hole circle](https://www.dropros.com/documents/EL400BoltHole.pdf), [linear hole pattern](https://www.dropros.com/documents/EL400AngleHole.pdf) and [arc](https://www.dropros.com/documents/EL400Arc.pdf)
+
+The consumer is [harmonic-analyzer](https://github.com/pedropaulovc/harmonic-analyzer). The shop uses the [el400 emulator](https://github.com/pedropaulovc/el400). A printed recipe does not certify the emulator or a physical touch-off. See the [DRO and print surfaces](examples/README.md#dro-and-print-surfaces) and the [zero-check reference](docs/rules-coordinates.md#zero_check) for the checker and printing boundaries.

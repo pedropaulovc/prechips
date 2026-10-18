@@ -6,38 +6,32 @@ Prechips checks an authored machining plan against a feature manifest, shop inpu
 
 ## Application data flow
 
-```text
-plan + manifest + inventory + policy + cutting data + referenced STEP assets
-    |
-    v
-inputs.load_bundle: validate, resolve, contain and hash source bytes
-    |
-    v
-Bundle: original documents + operative feature definitions + input records
-    |
-    v
-kernel.build_job: explicit native inputs, pre-kernel coordinates, measurement debt
-    |
-    v
-kernel.run_geometries: discovery -> memo/cache -> FreeCAD batch -> kernel facts
-    |
-    v
-cli._evaluate: RULES -> bundle binding -> required subject coverage
-    |
-    v
-report.render_assets + report.build_report: image binding, readiness, canonical hash
-    |                                      |
-    |                                      +-> compare: candidate rows -> compare.json
-    v
-optional approval check -> sheet.render_traveler (traveler only)
-    |
-    v
-CLI output transaction: report.json, HTML and returned images, stale-output removal
+```mermaid
+flowchart TD
+    inputs["plan + manifest + inventory + policy + cutting data + referenced STEP assets"]
+    load["inputs.load_bundle: validate, resolve, contain and hash source bytes"]
+    bundle["Bundle: original documents + operative feature definitions + input records"]
+    job["kernel.build_job: explicit native inputs, pre-kernel coordinates, measurement debt"]
+    geometry["kernel.run_geometries: discovery, memo/cache, FreeCAD batch, kernel facts"]
+    evaluate["cli._evaluate: RULES, bundle binding, required subject coverage"]
+    report["report.render_assets + report.build_report: image binding, readiness, canonical hash"]
+    comparison["compare: candidate rows"]
+    compareOutput["CLI output transaction: compare.json"]
+    approval["Optional approval check for check and traveler"]
+    checkOutput["CLI output transaction: report.json, stale sheet/image removal"]
+    sheet["sheet.render_traveler: traveler only"]
+    travelerOutput["CLI output transaction: report.json, HTML and returned images, stale-output removal"]
+
+    inputs --> load --> bundle --> job --> geometry --> evaluate --> report
+    report -->|"compare"| comparison --> compareOutput
+    report -->|"check or traveler"| approval
+    approval -->|"check"| checkOutput
+    approval -->|"traveler"| sheet --> travelerOutput
 ```
 
 [`cli.py`](../../src/prechips/cli.py) owns this orchestration. It loads every candidate and checks output targets before starting native evaluation. One prepared job per bundle feeds both the native request and geometry-rule consumers. The CLI lends copies through scoped contexts and shares already evaluated rule rows, so consumers use the same preparation without mutating the original request or repeating expensive coordinate work.
 
-`check`, `traveler` and `compare` use this evaluation path. `check` omits HTML/image creation and removes stale sheet output. `compare` binds each candidate independently, then writes its candidate array instead of individual reports. `tools` searches inventory; its measurement mode prepares inputs and evaluates rules on the host with an explicit unresolved, not-requested geometry state. `explain` reads a saved report, validates its hash and selected rows, and never reruns the bundle. The [CLI catalog](../reference/cli.md) owns flags, streams, outputs and exits.
+`check`, `traveler` and `compare` use this evaluation path. `check` computes and binds returned render assets in its report but writes no HTML or image files, and removes stale sheet output. `compare` binds each candidate independently, then writes its candidate array instead of individual reports. `tools` searches inventory; its measurement mode prepares inputs and evaluates rules on the host with an explicit unresolved, not-requested geometry state. `explain` reads a saved report, validates its hash and selected rows, and never reruns the bundle. The [CLI catalog](../reference/cli.md) owns flags, streams, outputs and exits.
 
 ## Module responsibilities
 

@@ -98,8 +98,9 @@ procedure; otherwise it is `unknown` (`datum height setup (height_from datum or
 inspection method) unresolved`), never a pass. The rule does not parse the
 procedure for a pin. Evidence adds `height_from` and `inspection_method`.
 Other dimensions use the capable dimensional gauge kinds. For `dia` and
-`nominal_dia`, the current implementation rejects an external micrometer on
-`hole`, `thread`, and `threaded_hole` features. That exclusion does not currently
+`nominal_dia`, the current implementation rejects gauge kinds `micrometer` and
+`micrometer_set` on `hole`, `thread`, and `threaded_hole` features.
+That exclusion does not currently
 include `counterbore`; a pass must not be interpreted as proof that an external
 micrometer can reach an internal surface. Type incompatibility is an error even
 if catalogue dimensions are unverified.
