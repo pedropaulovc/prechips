@@ -984,6 +984,65 @@ def saw_setup(setup):
     return bool(cutting) and all(action in SAW_OPS for action in cutting)
 
 
+HAND_FED = "hand_fed"
+# Hand work beside a hand-fed saw cut: marking the line, breaking the sawn edge, looking at
+# it. Filing to the line holds the work in a vise, so it is a setup of its own.
+HAND_FED_ACTIONS = frozenset({"scribe", "deburr", "inspect"})
+
+
+def hand_fed(bundle_or_inventory, setup):
+    """``(scope, why)`` for a setup's ``hold.kind``. ``scope`` is ``"fixture"`` for an
+    ordinary hold (``why`` empty); for ``kind = "hand_fed"`` (the work fed by hand on a
+    vertical bandsaw's table, along a scribed line) it is ``"admitted"`` when every op is
+    a scribe, deburr or inspect action or a ``follows`` saw cut whose verified bandsaw
+    blade runs on a bandsaw with a vertical ``saw_modes`` (:func:`saw_station`);
+    ``"unresolved"`` while an op's action, blade, machine or modes are unknown or
+    unverified; ``"refused"`` with the reason when any op is known to be out of that
+    scope. A ``kind`` stated unknown is ``"unresolved"``: debt never decides the hold."""
+    kind = record(setup.get("hold")).get("kind")
+    if kind is None:
+        return "fixture", ""
+    if kind == UNKNOWN:
+        return "unresolved", "hold.kind is unknown"
+    ops = [record(op) for op in setup.get("ops") or []]
+    refused, unresolved = [], []
+    for op in ops:
+        where = f"op {op.get('op', UNKNOWN)}"
+        action = op.get("do", UNKNOWN)
+        if action in HAND_FED_ACTIONS:
+            continue
+        if action == UNKNOWN:
+            unresolved.append(f"{where}'s action is unknown")
+            continue
+        if action not in SAW_OPS:
+            refused.append(f"{where} is {action}, not a saw cut along a scribed line")
+            continue
+        if "follows" not in op:
+            refused.append(
+                f"{where} is a straight saw cut (cut_plane), not one along a scribed line"
+            )
+            continue
+        tool, station = (
+            saw_tool(bundle_or_inventory, op),
+            saw_station(bundle_or_inventory, setup, op),
+        )
+        if tool in (UNKNOWN, "unverified") or (tool == "bandsaw" and station == UNKNOWN):
+            unresolved.append(f"{where}'s blade, machine or saw_modes are unresolved")
+        elif tool != "bandsaw":
+            refused.append(f"{where}'s tool is a {tool.replace('_', ' ')}, not a bandsaw blade")
+        elif station == "no_vertical_mode":
+            refused.append(f"machine {setup.get('machine')} declares no vertical saw_modes")
+        elif station != "fits":
+            refused.append(f"machine {setup.get('machine')} is not a bandsaw")
+    if not any(op.get("do") in SAW_OPS or op.get("do") == UNKNOWN for op in ops):
+        refused.append("the setup has no saw cut")
+    if refused:
+        return "refused", "; ".join(dict.fromkeys(refused))
+    if unresolved:
+        return "unresolved", "; ".join(unresolved)
+    return "admitted", ""
+
+
 def candidate_refs(inventory):
     """Enumerate declared identities/coverage, never hypothetical purchases."""
     for category in ("machines", "fixtures", "holders", "tools", "gauges"):

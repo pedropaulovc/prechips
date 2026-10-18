@@ -34,7 +34,9 @@ from prechips.rules.geometry_common import (
     TURNING_TOOL_KEYS,
 )
 from prechips.rules.resolution import (
+    HAND_FED,
     HAND_FINISH,
+    hand_fed,
     identity,
     number,
     op_feature,
@@ -1529,6 +1531,10 @@ def _supports_inputs(bundle, setup, hold, result, debts, gaps):
 @_collect_debts
 def hold_inputs(bundle, setup):
     hold = record(setup.get("hold"))
+    if hand_fed(bundle, setup)[0] == "admitted":
+        # Fed by hand on the saw table: nothing holds the work, so nothing is drawn or owed.
+        reason = "The work is fed by hand on the saw table; no fixture holds it."
+        return {"kind": HAND_FED, "method": UNKNOWN, "reason": reason, "debts": [], "gaps": []}
     fixture = measurement_item(bundle, "workholding", hold.get("fixture"))
     kind = record(fixture).get("kind", UNKNOWN)
     result = {"kind": kind, "method": hold.get("method", UNKNOWN)}

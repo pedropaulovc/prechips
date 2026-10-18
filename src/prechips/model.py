@@ -355,6 +355,10 @@ Hold = record(
     "Hold",
     {
         "jaws_along": Annotated[str, AfterValidator(_jaw_axis)],
+        # How the work is held: omitted for a fixture hold (the fields below); "hand_fed"
+        # for work fed by hand on a vertical bandsaw's table along a scribed line, which
+        # declares nothing else but a note (Plan.hand_fed_holds, docs/plan.md Saw cut-off).
+        "kind": Literal["hand_fed"],
         **texts(
             "fixture fixed_jaw parallels support support_orientation "
             "grip_on stop clamp note centre_lubrication riser method orientation locator "
@@ -1168,6 +1172,23 @@ class Plan(InputModel):
             errors.extend(profiled_blank_errors(component, f"stock.components.{component.id}"))
         if errors:
             raise ValueError("; ".join(errors) + ".")
+        return self
+
+    @model_validator(mode="after")
+    def hand_fed_holds(self) -> Plan:
+        """A hand-fed hold clamps nothing: it declares no fixture, stop, grip, clamp, jaw or
+        other holding field, only its note. Its scope (a vertical bandsaw cut along a
+        scribed line) needs the inventory and is checked at load."""
+        for setup in self.setups:
+            hold = setup.hold
+            if not isinstance(hold, Hold) or hold.kind != "hand_fed":
+                continue
+            stray = sorted(hold.model_fields_set - {"kind", "note"})
+            if stray:
+                raise ValueError(
+                    f'Setup {setup.id}: a hand-fed hold (hold.kind = "hand_fed") is fed by '
+                    f"hand on the saw table and declares no {', '.join(stray)}."
+                )
         return self
 
     @model_validator(mode="after")

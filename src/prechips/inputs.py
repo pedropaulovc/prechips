@@ -234,6 +234,22 @@ def _area_holds(plan: dict, inventory: dict) -> None:
             )
 
 
+def _hand_fed_holds(plan: dict, inventory: dict) -> None:
+    """A hand-fed hold (``hold.kind = "hand_fed"``) is only the work fed by hand on a
+    vertical bandsaw's table along a scribed line (:func:`hand_fed`): a setup known to be
+    anything else is ``BadInput``. A scope its inventory leaves unresolved stays debt for
+    the rules."""
+    from prechips.rules.resolution import hand_fed
+
+    for setup in plan["setups"]:
+        scope, why = hand_fed(inventory, setup)
+        if scope == "refused":
+            raise BadInput(
+                f"{setup['id']}: a hand-fed hold covers only a saw cut along a scribed line "
+                f"on a bandsaw in vertical mode (with scribe, deburr or inspect beside it): {why}."
+            )
+
+
 def blank_supplies(plan: dict) -> dict[str, dict]:
     """Each declared profiled blank keyed by its input kind: ``stock.blank`` for the root
     stock, ``stock.<id>.blank`` for a component."""
@@ -513,6 +529,7 @@ def load_bundle(
                 paths[field], hashes[field] = path, digest
     _blank_assets(plan, plan_path.parent, root, paths, hashes)
     _area_holds(plan, resolved["inventory"])
+    _hand_fed_holds(plan, resolved["inventory"])
     step_digest = features.get("step_sha256", "unknown")
     if step_digest != "unknown":
         if len(step_digest) != 64 or any(char not in "0123456789abcdef" for char in step_digest):

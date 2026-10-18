@@ -17,6 +17,7 @@ from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    hand_fed,
     identity,
     known_refs,
     op_feature,
@@ -225,18 +226,23 @@ def evaluate(bundle):
         state = state if isinstance(state, dict) else {}
         machine = record(resolve(bundle, "machines", setup["machine"]))
         lathe = machine.get("kind") == "lathe"
+        # A hand-fed hold clamps nothing: no fixture field applies, and an unresolved scope
+        # leaves the hold itself unknown.
+        scope, why = hand_fed(bundle, setup)
         required = {
             "hold.fixture": hold.get("fixture"),
             "hold.stop": hold.get("stop"),
             "hold.grip_mm": hold.get("grip_mm"),
             "hold.clamp": hold.get("clamp"),
-            "coolant": setup.get("coolant"),
-            "deburr_mm": setup.get("deburr_mm"),
         }
+        if scope != "fixture":
+            required = {"hold.kind": UNKNOWN} if scope == "unresolved" else {}
+        required.update(coolant=setup.get("coolant"), deburr_mm=setup.get("deburr_mm"))
         fixture_ref = hold.get("fixture")
         fixture = resolve(bundle, "workholding", fixture_ref) or {}
-        if fixture.get("kind") == "vise" or (
-            not lathe and hold.get("fixed_jaw") != "not_applicable"
+        if scope == "fixture" and (
+            fixture.get("kind") == "vise"
+            or (not lathe and hold.get("fixed_jaw") != "not_applicable")
         ):
             required["hold.fixed_jaw"] = hold.get("fixed_jaw")
         if lathe:
@@ -308,7 +314,7 @@ def evaluate(bundle):
         absent = [key for key, value in required.items() if value is None or value == ""]
         unresolved = [key for key, value in required.items() if value == "unknown"]
         numbers = {
-            "fixture": hold.get("fixture", "unknown"),
+            "fixture": hold.get("fixture", "unknown") if scope == "fixture" else "not_applicable",
             "hold": dict(hold),
             "coolant": setup.get("coolant", "unknown"),
             "deburr_mm": setup.get("deburr_mm", "unknown"),
@@ -317,6 +323,8 @@ def evaluate(bundle):
             # Why this setup squares its vise or angle plate first, else not_applicable.
             "align_due": aligned.get(setup["id"], "not_applicable"),
         }
+        if scope != "fixture":
+            numbers["hold_scope"] = scope
         numbers.update(
             {
                 f"stock_{key}": value
@@ -337,6 +345,17 @@ def evaluate(bundle):
         if misdeclared:
             numbers["misdeclared"] = misdeclared
             message = f"{setup['id']}: " + "; ".join(misdeclared) + "."
+        elif scope == "refused":
+            # Load refuses it (exit 3); a bundle built past that still never passes.
+            status, message = "error", f"{setup['id']}: the hand-fed hold does not apply: {why}."
+        elif why:
+            message = message.removesuffix(".") + f" (hand-fed scope: {why})."
+        elif scope == "admitted" and status == "pass":
+            message = (
+                f"{setup['id']}: the work is fed by hand on the saw table along the scribed "
+                "line; no fixture, stop, grip or clamp applies. Coolant, deburr and stock "
+                "state are declared."
+            )
         face = hold.get("stop_face", UNKNOWN)
         if face != UNKNOWN:
             face_status, numbers["stop_face"] = stop_face(bundle, setup, face)

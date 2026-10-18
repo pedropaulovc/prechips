@@ -39,6 +39,7 @@ from .rules.geometry_common import TURNING, approach
 from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
+    HAND_FED,
     HAND_FINISH,
     LENGTH_TOLERANCE_MM,
     MAKE_OP_FIELDS,
@@ -51,6 +52,7 @@ from .rules.resolution import (
     authored_names,
     coating_process,
     drawing_precision,
+    hand_fed,
     identity,
     jaw_top_z,
     length_mm,
@@ -4311,7 +4313,19 @@ class _Traveler:
 
         fixture = hold.get("fixture", "unknown")
         uses = self.shop_made_uses(setup)
-        if fixture == "unknown":
+        if hold.get("kind") == HAND_FED:
+            # Nothing clamps the work: the operator feeds it into the blade on the table.
+            lines = [
+                self.saw_setting(op)
+                for op in setup.get("ops", [])
+                if op.get("do") in SAW_OPS and "follows" in op
+            ]
+            steps.append(
+                "Fed by hand on the saw table, sawing "
+                + " and ".join(dict.fromkeys(lines))
+                + "; no vise or clamp holds the work."
+            )
+        elif fixture == "unknown":
             steps.append("STOP: holding not chosen — do not run.")
         else:
             mount = "Mount the " + self.reference(fixture, "workholding")
@@ -9641,10 +9655,19 @@ class _Traveler:
         if not render:
             return ""
         scene = _mapping(render.get("scene"))
-        fixture = self.reference(_mapping(setup.get("hold")).get("fixture"), "workholding")
+        hold = _mapping(setup.get("hold"))
+        fixture = self.reference(hold.get("fixture"), "workholding")
         caption = [f"Setup {setup['id']} — {self.arrival(setup)}, held in the {fixture}."]
+        debts = scene.get("debts") or []
+        unheld = hand_fed(self.bundle, setup)[0] == "admitted"
+        if unheld:
+            # Nothing holds the work, so no fixture is missing from the picture.
+            caption = [
+                f"Setup {setup['id']} — {self.arrival(setup)}, fed by hand on the saw table."
+            ]
+            debts = [debt for debt in debts if not str(debt).startswith("fixture not drawn:")]
         lines = []
-        for debt in scene.get("debts") or []:
+        for debt in debts:
             text = re.sub(r"^(?:fixture )?not drawn:\s*", "", str(debt))
             text = re.sub(
                 r"(?i)^fixture pose/dimensions unmeasured or unavailable:\s*(.+)$",
@@ -9655,7 +9678,7 @@ class _Traveler:
             text = re.sub(r"'([^']+)' has no fixture solid model", r"\1 (no 3D model)", text)
             lines.append("NOT SHOWN: " + text)
         lines.extend(str(debt) for debt in scene.get("render_debts") or [])
-        if render.get("fixture") != "modeled" and not lines:
+        if render.get("fixture") != "modeled" and not lines and not unheld:
             lines.append("NOT SHOWN: part of the holding is not modelled.")
         width, height = scene["width_px"], scene["height_px"]
         panels = scene["print_panels"]

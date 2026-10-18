@@ -1,0 +1,24 @@
+# hand-fed-saw fixture policy (#335): the hand-fed hold is under test. hold_fields,
+# stock_diameter and the saw cut must report the S2 saw setup. S1's unknown holding and the
+# arm the fixture does not make remain displayed debt; these selectors waive no errors.
+revision = 6
+
+[required]
+hold_fields = "S2"
+stock_diameter = "S2"
+saw_cut = "S2:10"
+
+[numbers]
+refixture_budget_mm = "unknown"
+thin_wall_floor_mm = "unknown"
+stickout_ld_max = "unknown"
+
+[numbers_cite]
+refixture_budget_mm = "unknown"
+thin_wall_floor_mm = "unknown"
+stickout_ld_max = "unknown"
+
+[numbers_verify]
+refixture_budget_mm = true
+thin_wall_floor_mm = true
+stickout_ld_max = true

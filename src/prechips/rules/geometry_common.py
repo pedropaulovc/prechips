@@ -9,6 +9,7 @@ from prechips.findings import Finding
 from prechips.rules.datum_consistency import _cuts
 from prechips.rules.resolution import (
     COMPLETE_FORM,
+    HAND_FED,
     HAND_FINISH,
     MANUAL,
     SAW_OPS,
@@ -724,6 +725,16 @@ def setup_contexts(bundle, rule):
                     {},
                     cite,
                     f"{subject}: {detail['assembly_error']}.",
+                )
+            elif inputs["kind"] == HAND_FED:
+                blocked = Finding(
+                    rule,
+                    subject,
+                    "not_applicable",
+                    {"hold_kind": HAND_FED},
+                    cite,
+                    f"{subject}: the work is fed by hand on the saw table; no fixture, jaw or "
+                    "clamp holds it.",
                 )
             elif inputs["kind"] == UNKNOWN:
                 blocked = Finding(
