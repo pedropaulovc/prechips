@@ -107,6 +107,14 @@ def test_teeth_just_below_the_minimum_fail_and_at_or_above_it_pass(thickness, st
     assert teeth(bundle(tpi=24, thickness=thickness)).status == status
 
 
+def test_a_count_just_short_of_the_minimum_never_prints_as_the_minimum():
+    # 3.17 / 25.4 x 24 = 2.995 teeth: shown as 2.99, never the 3.00 it fails.
+    finding = teeth(bundle(tpi=24, thickness=3.17))
+    assert finding.status == "error"
+    assert finding.numbers["teeth_in_work"] == 2.99
+    assert finding.sentence.startswith("S1:10: 2.99 teeth")
+
+
 @pytest.mark.parametrize(
     "tpi",
     [None, "unknown", {"value": [4, 6]}, {"value": 24, "cite": CITE, "verify": True}],

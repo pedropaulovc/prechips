@@ -248,7 +248,11 @@ def evaluate_teeth(bundle):
             )
             continue
         teeth = thickness / MM_PER_INCH * coarse
-        numbers["teeth_in_work"] = round(teeth, 2)
+        short = teeth < minimum - 1e-9
+        # A count short of the minimum is shown rounded down, so it never prints as the
+        # minimum it fails (2.995 teeth is 2.99, not 3.00).
+        shown = math.floor(teeth * 100) / 100 if short else round(teeth, 2)
+        numbers["teeth_in_work"] = shown
         declared = pitch["declared"]
         blade = (
             f"the {declared[0]:g}/{declared[1]:g} variable-pitch blade at its {coarse:g} TPI "
@@ -256,13 +260,13 @@ def evaluate_teeth(bundle):
             if isinstance(declared, list)
             else f"the {coarse:g} TPI blade"
         )
-        if teeth < minimum - 1e-9:
+        if short:
             # Rounded up: a printed pitch below the one needed would still fail.
             finer = math.ceil(minimum * MM_PER_INCH / thickness * 10 - 1e-9) / 10
             coarsest = "whose coarse end is " if isinstance(declared, list) else "of "
             status = "error"
             message = (
-                f"{teeth:.2f} teeth of {blade} are in the "
+                f"{shown:.2f} teeth of {blade} are in the "
                 f"{thickness:.2f} mm the blade crosses, fewer than the shop's {minimum:g}; "
                 f"the teeth straddle the work and strip: choose a blade {coarsest}at least "
                 f"{finer:.1f} TPI"
@@ -271,13 +275,13 @@ def evaluate_teeth(bundle):
             # Never pass a refused or unresolved cut on its pitch alone.
             status = UNKNOWN
             message = (
-                f"{teeth:.2f} teeth would be in the work, but the saw cut itself is "
+                f"{shown:.2f} teeth would be in the work, but the saw cut itself is "
                 f"unresolved ({detail.get('saw_error') or detail.get('saw_reason')})"
             )
         else:
             status = "pass"
             message = (
-                f"{teeth:.2f} teeth of {blade} are in the "
+                f"{shown:.2f} teeth of {blade} are in the "
                 f"{thickness:.2f} mm the blade crosses, at least the shop's {minimum:g}"
             )
         findings.append(
