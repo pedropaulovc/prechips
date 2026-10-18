@@ -930,6 +930,77 @@ def _turned_xy(point, degrees):
     return [point[0] * c - point[1] * s, point[0] * s + point[1] * c]
 
 
+# A blade section's area may fall this fraction short of its convex hull's before the
+# section counts as open (an angle, a channel): its bounding box then overstates it.
+SECTION_HULL_SHORTFALL = 0.01
+
+
+def _hull_area(points):
+    """The area of the 2D convex hull of ``points`` (Andrew's monotone chain)."""
+    points = sorted(set(points))
+    if len(points) < 3:
+        return 0.0
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+    chains = []
+    for ordered in (points, points[::-1]):
+        chain = []
+        for point in ordered:
+            while len(chain) >= 2 and cross(chain[-2], chain[-1], point) <= 0:
+                chain.pop()
+            chain.append(point)
+        chains.extend(chain[:-1])
+    pairs = zip(chains, chains[1:] + chains[:1], strict=True)
+    return abs(sum(a[0] * b[1] - b[0] * a[1] for a, b in pairs)) / 2
+
+
+def _solid_section(section, axis, sides):
+    """Why the stock a straight blade crosses is not one solid, convex piece on the first
+    kerf face in ``sides`` (coordinates on ``axis``) that meets stock, else None: across a
+    hollow, open or split section the bounding box overstates the material in the work
+    (docs/rules-geometry.md#saw-teeth-in-the-work)."""
+
+    def on(face, at):
+        box = _bbox(face)
+        return abs(box[axis] - at) <= STOCK_TOL and abs(box[axis + 3] - at) <= STOCK_TOL
+
+    faces = next(
+        (found for at in sides if (found := [face for face in section.Faces if on(face, at)])), []
+    )
+    if len(faces) != 1:
+        return f"the stock at the blade is {len(faces)} separate pieces"
+    (face,) = faces
+    if len(face.Wires) > 1:
+        return "the section at the blade is hollow"
+    others = [i for i in range(3) if i != axis]
+    points = [
+        (round(point[others[0]], 6), round(point[others[1]], 6))
+        for edge in face.OuterWire.Edges
+        for point in edge.discretize(Deflection=FLAT_CHORD * 100)
+    ]
+    if face.Area < _hull_area(points) * (1 - SECTION_HULL_SHORTFALL):
+        return "the section at the blade is an open profile (not convex)"
+    return None
+
+
+def _uniform_thickness(region):
+    """Why ``region`` (the stock a blade along setup Z takes) is not one uniform Z
+    thickness, else None: a stepped, pocketed or hollow region is thinner somewhere than
+    its Z span."""
+    box = _bbox(region)
+    span = box[5] - box[2]
+    top = sum(
+        face.Area
+        for face in region.Faces
+        if abs(_bbox(face)[2] - box[5]) <= STOCK_TOL and abs(_bbox(face)[5] - box[5]) <= STOCK_TOL
+    )
+    if abs(top * span - region.Volume) > SECTION_HULL_SHORTFALL * region.Volume:
+        return "the stock the blade takes is not one uniform thickness"
+    return None
+
+
 def _boxes_overlap(a, b):
     return all(a[i] < b[i + 3] - PLANE_TOL and b[i] < a[i + 3] - PLANE_TOL for i in range(3))
 
@@ -6689,9 +6760,13 @@ class _Setup:
                 return None, facts
             # A blade following a scribed line on a vertical bandsaw or at the bench runs
             # along setup Z: it crosses the stock's Z span inside the removed region.
-            region = _bbox(removed)
-            facts["cut_thickness_mm"] = _r(region[5] - region[2])
-            facts["reasons"].pop("cut_thickness_mm", None)
+            uneven = _uniform_thickness(removed)
+            if uneven is None:
+                region = _bbox(removed)
+                facts["cut_thickness_mm"] = _r(region[5] - region[2])
+                facts["reasons"].pop("cut_thickness_mm", None)
+            else:
+                facts["reasons"]["cut_thickness_mm"] = uneven
             retained = stock.cut(box)
             after = retained.Volume
             facts.update(
@@ -6763,13 +6838,17 @@ class _Setup:
                 return None, facts
             # The blade's travel within the plane is not modelled: its thinnest in-plane
             # extent of the section is the worst case for teeth in the work.
-            extent = _bbox(section)
-            spans = {i: extent[i + 3] - extent[i] for i in range(3) if i != axis}
-            across = min(spans, key=spans.get)
-            facts["cut_thickness_mm"] = _r(spans[across])
-            facts["cut_thickness_axis"] = "xyz"[across]
-            facts["reasons"].pop("cut_thickness_mm", None)
-            facts["reasons"].pop("cut_thickness_axis", None)
+            hollow = _solid_section(section, axis, (low, high))
+            if hollow is None:
+                extent = _bbox(section)
+                spans = {i: extent[i + 3] - extent[i] for i in range(3) if i != axis}
+                across = min(spans, key=spans.get)
+                facts["cut_thickness_mm"] = _r(spans[across])
+                facts["cut_thickness_axis"] = "xyz"[across]
+                facts["reasons"].pop("cut_thickness_mm", None)
+                facts["reasons"].pop("cut_thickness_axis", None)
+            else:
+                facts["reasons"]["cut_thickness_mm"] = hollow
             boundary = low if plane["keep"] == "below" else high
             empty = boundary <= box[axis] if plane["keep"] == "below" else boundary >= box[axis + 3]
             if empty:

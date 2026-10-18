@@ -1383,7 +1383,8 @@ sheet.
    saw cut multiplies the coarse pitch by the kernel's `cut_thickness_mm` (the
    stock's Z span for a scribed cut, the section's thinnest in-plane extent for
    a straight one) and errors below the policy's `saw_min_teeth_in_work`.
-   Unknown pitch, minimum or thickness is debt.
+   Unknown pitch, minimum or thickness is debt, and a hollow, open, split or
+   stepped section leaves the thickness unknown.
 
    **Process features shipped (2026-10-06, round-4 ShaftPrep):** plan-owned
    `process_features` (`end_face`, `centre_hole`) are stock preparation the

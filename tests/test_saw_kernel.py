@@ -6,7 +6,7 @@ from copy import deepcopy
 
 import pytest
 from test_kernel_geometry import IDENTITY, _op
-from test_kernel_stock import PackagedEngine, _bundle
+from test_kernel_stock import PART, PackagedEngine, _bundle
 
 from prechips import kernel
 from prechips.rules import fixture_interference, thin_wall_under_clamp, vise
@@ -31,6 +31,16 @@ Part.makeBox(2, 2, 6, V(0, 0, 1)).exportStep(out + "/fragment-target.step")
 Part.makeCylinder(4, 6, V(5, 5, 2)).exportStep(out + "/round-target.step")
 plate = Part.makeBox(10, 10, 6, V(0, 0, 2))
 plate.cut(Part.makeCylinder(3, 6, V(5, 5, 2))).exportStep(out + "/bored-target.step")
+# Sections a blade's bounding box overstates (#336): a square tube along X, an angle along
+# X and a plate stepped down from 6 to 2 mm thick past X 5.
+outer = Part.makeBox(10, 10, 10)
+outer.cut(Part.makeBox(10, 6, 6, V(0, 2, 2))).exportStep(out + "/tube.step")
+Part.makeBox(10, 10, 2).fuse(Part.makeBox(10, 2, 10)).removeSplitter().exportStep(
+    out + "/angle.step"
+)
+Part.makeBox(5, 10, 6).fuse(Part.makeBox(5, 10, 2, V(5, 0, 0))).removeSplitter().exportStep(
+    out + "/stepped.step"
+)
 """
 
 
@@ -749,3 +759,23 @@ def test_a_saw_reports_the_thickness_its_blade_crosses(saw_engine, saw_target):
     assert scribed["cut_thickness_mm"] == pytest.approx(9.0)
     unknown = run(_scribed(None), "bench")["ops"]["S1:10"]
     assert unknown["cut_thickness_mm"] == "unknown"
+
+
+@pytest.mark.parametrize(
+    "solid, op, words",
+    [
+        ("tube", _saw("x", 5.0), "hollow"),
+        ("angle", _saw("x", 5.0), "open profile"),
+        ("stepped", _scribed({"x": [-1.0, 11.0], "y": [8.0, 11.0], "z": [-1.0, 11.0]}), "uniform"),
+    ],
+)
+def test_a_section_its_bounding_box_overstates_leaves_the_thickness_unknown(
+    saw_engine, saw_target, solid, op, words
+):
+    """A hollow, open or stepped section is thinner where the teeth meet it than its
+    bounding box: the thickness stays unknown, never the box's span (#336)."""
+    target = saw_target.with_name(f"{solid}.step")
+    setups = [_setup(op, machine="bench" if "follows" in op else "bandsaw"), _setup(sid="S2")]
+    detail = saw_engine.run(saw_engine.job(target, setups=setups, stock=PART))["ops"]["S1:10"]
+    assert detail["cut_thickness_mm"] == "unknown", detail
+    assert words in detail["reasons"]["cut_thickness_mm"]

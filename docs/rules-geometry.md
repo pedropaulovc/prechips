@@ -1391,8 +1391,13 @@ that `follows` a scribed line runs its blade along setup Z (a vertical bandsaw o
 a bench saw), so it crosses the Z span of the stock inside its removed region. A
 straight cut's blade travel within its plane is not modelled, so it crosses the
 section's thinnest in-plane extent (`cut_thickness_axis`), the worst case. Both
-are bounding-box extents: a hollow or open section (tube, angle, channel) is
-overstated, so the check certifies solid sections only.
+are bounding-box extents, so they are reported only where the box is the
+material: a straight cut's section at the kerf face must be one piece, with no
+hole, and convex (its area within 1% of its convex hull's), and a scribed cut's
+removed stock must be one uniform Z thickness (its top area times its Z span
+within 1% of its volume). A hollow, open or split section (tube, angle, channel,
+stepped plate) leaves the thickness unknown with that reason, never the box's
+span.
 
 An unknown or uncited pitch, an absent, uncited or flagged policy minimum, or a
 thickness the kernel could not derive (no stock, a refused or unresolved cut)
