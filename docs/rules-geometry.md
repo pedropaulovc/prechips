@@ -2654,7 +2654,11 @@ point is a line that cuts waste off the setup-entry blank: the sketch draws the
 blank's XY outline (`stock_box`) as a thin line, the path as the one heavier line, and
 shades the part of the blank the path cuts off on `waste_xy`'s side, its run inside the
 blank closed by the blank's outline. A path that does not cross the blank from edge to
-edge, or a `waste_xy` in neither part, shades nothing. The hand-fed sketch sends only
+edge, or a `waste_xy` in neither part, shades nothing. The blank, the line and every
+other sketch item go through the panel's one XY transform from their setup-frame
+coordinates: nothing is fitted to the box. A path marked `arrows_only` draws only its
+direction arrows, clipped to the blank's outline, never a line: the hand-fed sketch
+puts its feed arrows 3 mm into the waste beside the scribed line. The hand-fed sketch sends only
 the scribed line this way (no separate saw path: the 0.45 mm leave is not visible on a
 290 mm arc), keyed START, SCRIBED LINE, "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE"
 and KEEP.

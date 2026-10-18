@@ -234,7 +234,7 @@
           },
           "plan": {
             "path": "examples/geometry/hand-fed-saw/plan.toml",
-            "sha256": "7c99ca3b5b64d05e365671408507d5d86653aaa2f26fa7b9e34056fdb749b855"
+            "sha256": "ce7677eba5f75830ef35697be4555223645e39bbe2904d70af06e8445d86ccad"
           },
           "shop_policy": {
             "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -2831,7 +2831,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "7fc4027840f8a5b3ff9f1db8fbad8aada764341bb75a3fe21d3af4fa5e91312e",
+  "hash": "94e0b2cf4dec2b90c51a165af6d8a6705cb83133412681dc4e6ab84b0f50142f",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2847,7 +2847,7 @@
     },
     "plan": {
       "path": "examples/geometry/hand-fed-saw/plan.toml",
-      "sha256": "7c99ca3b5b64d05e365671408507d5d86653aaa2f26fa7b9e34056fdb749b855"
+      "sha256": "ce7677eba5f75830ef35697be4555223645e39bbe2904d70af06e8445d86ccad"
     },
     "render:S1": {
       "path": "setup-S1.png",
@@ -2855,7 +2855,7 @@
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "1667ac8a719fa026699c563f69999904ae8f747654d0c301b588dfd4c5e8ed06"
+      "sha256": "02b7d0084d11604c1216abae4297ffd6f11ef8a3f455efb689562be58cb6529b"
     },
     "shop_policy": {
       "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -3071,7 +3071,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "1667ac8a719fa026699c563f69999904ae8f747654d0c301b588dfd4c5e8ed06"
+      "sha256": "02b7d0084d11604c1216abae4297ffd6f11ef8a3f455efb689562be58cb6529b"
     }
   },
   "rules_version": "m5-rev12",

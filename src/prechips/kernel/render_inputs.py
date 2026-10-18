@@ -233,6 +233,8 @@ _BAND_MM = (12.7, 0.64)
 _PUSH_MM = (120.0, 24.0, 12.0)
 # How far past the saw path the WASTE key points into the offcut (mm).
 _WASTE_KEY_MM = 6.0
+# How far into the waste the sketch's feed arrows stand off the scribed line (mm).
+_ARROWS_OFF_MM = 3.0
 
 
 def hand_fed_scene(bundle, setup, scale):
@@ -318,10 +320,16 @@ def hand_fed_scene(bundle, setup, scale):
             for side in (sign, -sign)
         )
         # The sketch: the scribed line, the one heavy line, bounding the waste it cuts off
-        # the entry blank (shaded, its outline thin); no separate saw path is drawn.
-        scene["paths"].append(
-            {"op": name, "xy": moving, "directed": fed, "feed": True, "waste_xy": waste}
-        )
+        # the entry blank (shaded, its outline thin); no separate saw path is drawn. The
+        # feed arrows stand alone in the waste a few mm off the line, never on it.
+        scene["paths"].append({"op": name, "xy": moving, "waste_xy": waste})
+        if fed:
+            beside = _arc_in(centre, radius + sign * _ARROWS_OFF_MM, bounds["x"], bounds["y"])
+            if (beside[-1][start[0]] - beside[0][start[0]]) * start[1] < 0:
+                beside.reverse()
+            scene["paths"].append(
+                {"op": name, "xy": beside, "directed": True, "feed": True, "arrows_only": True}
+            )
         if fed and number(state.get("top_z")):
             # The holding picture's feed: the saw path on the work's top face, arrowed the
             # way the work moves.

@@ -2603,12 +2603,22 @@ class _Diagram:
                     continue
                 directed = path.get("directed") is True
                 self.feed_arrows = self.feed_arrows or (directed and path.get("feed") is True)
+                # Arrows alone (``arrows_only``) mark a direction beside a drawn line, inside
+                # the stock's outline, never as a second line.
+                only = path.get("arrows_only") is True
+                inside = None
+                if only and stock:
+                    corners = [project(p) for p in _stock_outline(stock)[:4]]
+                    xs, ys = [p[0] for p in corners], [p[1] for p in corners]
+                    inside = (min(xs), min(ys), max(xs), max(ys))
                 self._ordered_path(
                     [project(p) for p in path["xy"]],
                     colour,
                     # A line bounding a shaded waste is the one heavier line.
                     width=3 if "waste_xy" in path else 2,
-                    arrows=directed and path_index in direction_keys,
+                    arrows=directed and (only or path_index in direction_keys),
+                    clip=inside,
+                    line=not only,
                 )
             self._waypoint_badges(
                 op_waypoints + labels,
@@ -2680,8 +2690,9 @@ class _Diagram:
         labels.extend({"label": label, "xy": xy} for label, xy in _sketch_keys(raster, []))
         return [p for p in paths if not p.get("raster")]
 
-    def _ordered_path(self, pixels, colour, width=3, arrows=True, clip=None):
-        """Space direction keys by travelled distance, not by tessellation chords."""
+    def _ordered_path(self, pixels, colour, width=3, arrows=True, clip=None, line=True):
+        """Space direction keys by travelled distance, not by tessellation chords. Without
+        ``line`` only the direction arrows are drawn along the path."""
         c = self.canvas
         runs = []
         previous = None
@@ -2694,7 +2705,8 @@ class _Diagram:
             length = math.dist(a, b)
             if length <= 1e-9:
                 continue
-            c.line(a, b, colour, width=width)
+            if line:
+                c.line(a, b, colour, width=width)
             if not arrows:
                 continue
             if previous is None or math.dist(previous, a) > 1e-6:

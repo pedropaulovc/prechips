@@ -2,6 +2,7 @@
 (#335)."""
 
 import json
+import math
 import re
 
 import pytest
@@ -342,9 +343,15 @@ def keys(drawn):
 def test_the_sketch_draws_the_one_scribed_line_with_its_waste_keep_and_minimum_leave():
     bundle = load_bundle(BUNDLE / "plan.toml")
     drawn = scene(bundle)
-    (line,) = drawn["paths"]  # no separate saw path
-    assert line["op"] == "10" and line["directed"] is True and line["feed"] is True
-    assert line["xy"][0][0] > line["xy"][-1][0]  # feed_from = "-X": the work moves to -X
+    line, arrows = drawn["paths"]  # no separate saw path: the line and its feed arrows
+    assert line["op"] == "10" and "directed" not in line and "waste_xy" in line
+    assert arrows["arrows_only"] is True and arrows["directed"] is True and arrows["feed"]
+    assert arrows["xy"][0][0] > arrows["xy"][-1][0]  # feed_from = "-X": work moves to -X
+    # The arrows stand in the waste, 3 mm off the line (inside the R800 circle here).
+    setup = bundle.plan["setups"][1]
+    profile = kernel.scribed_profile(bundle, setup, setup["ops"][0])
+    centre, radius = profile["centre_mm"], profile["radius_mm"]
+    assert {round(math.dist(p, centre) - radius, 3) for p in arrows["xy"]} == {-3.0}
     assert list(keys(drawn)) == [
         "START",
         "SCRIBED LINE",
@@ -372,7 +379,7 @@ def on_rim(point, box, tol=1e-6):
 def test_the_shaded_waste_is_bounded_by_the_blank_outline_and_the_scribed_arc():
     bundle = load_bundle(BUNDLE / "plan.toml")
     drawn = scene(bundle)
-    (line,) = drawn["paths"]
+    line = next(path for path in drawn["paths"] if "waste_xy" in path)
     region = render_diagram._waste_region(line["xy"], BLANK, line["waste_xy"])
     assert region
     arc = {tuple(point) for point in line["xy"]}
@@ -384,6 +391,52 @@ def test_the_shaded_waste_is_bounded_by_the_blank_outline_and_the_scribed_arc():
     assert len(closing) == 2 and all(v[1] == pytest.approx(BLANK[4]) for v in closing)
     assert render_diagram._contains(region, line["waste_xy"])
     assert not render_diagram._contains(region, keys(drawn)["KEEP"])
+
+
+def test_the_sketch_maps_the_blank_and_the_scribed_arc_through_one_transform(freecad_kernel):
+    # The blank and the arc are drawn from their real setup-frame coordinates through the
+    # one sketch projector: the arc is never fitted to the box.
+    bundle = load_bundle(BUNDLE / "plan.toml")
+    kernel.run_geometry(bundle)
+    blank = bundle.kernel["setups"]["S2"]["stock_bbox_mm"]
+    assert blank == pytest.approx(BLANK)  # the kernel's S2 entry stock, setup frame T
+    setup = bundle.plan["setups"][1]
+    profile = kernel.scribed_profile(bundle, setup, setup["ops"][0])
+    (cx, cy), radius = profile["centre_mm"], profile["radius_mm"]
+    line = next(path for path in scene(bundle)["paths"] if "waste_xy" in path)
+    points = [*map(tuple, line["xy"]), *render_diagram._stock_outline(blank)[:4]]
+    scale = 2.0
+    project = render_diagram._xy_projector(render_diagram._bounds(points), (0, 0), (scale, scale))
+
+    def model_y(pixel_y):
+        return blank[4] - (pixel_y - project((0, blank[4]))[1]) / scale
+
+    # The arc's low point and its ends where it meets the blank's top face land at the Y
+    # values S1 prints: low point X 0.000, Y 8.000; ends X +/-145.240, Y 21.295.
+    low = min(line["xy"], key=lambda p: p[1])
+    assert low[0] == pytest.approx(0.0, abs=1.0)
+    assert model_y(project(low)[1]) == pytest.approx(8.000, abs=0.001)
+    top = project((0, blank[4]))[1]
+    pixels = [project(p) for p in line["xy"]]
+    crossings = [
+        a[0] + (b[0] - a[0]) * (top - a[1]) / (b[1] - a[1])
+        for a, b in zip(pixels, pixels[1:], strict=False)
+        if (a[1] - top) * (b[1] - top) < 0
+    ]
+    ends = sorted(project((0, 0))[0] + (x - project((0, 0))[0]) for x in crossings)
+    assert [(x - project((0, 0))[0]) / scale for x in ends] == pytest.approx(
+        [-145.240, 145.240], abs=0.01
+    )
+    assert model_y(top) == pytest.approx(21.295, abs=0.001)
+    # The shaded waste's area is the model's: the blank above the arc, from end to end.
+    region = render_diagram._waste_region(line["xy"], blank, line["waste_xy"])
+    area = 0.5 * abs(
+        sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(region, region[1:] + region[:1], strict=True))
+    )
+    half = math.sqrt(radius**2 - (cy - blank[4]) ** 2)  # where the arc meets the top face
+    under = half * math.sqrt(radius**2 - half**2) + radius**2 * math.asin(half / radius)
+    model = 2 * half * (blank[4] - cy) + under
+    assert cx == pytest.approx(0.0, abs=1e-6) and area == pytest.approx(model, rel=0.002)
 
 
 def test_a_line_that_does_not_cross_the_blank_shades_nothing():
@@ -421,11 +474,12 @@ def test_the_feed_arrows_push_aid_and_hold_all_follow_the_declared_start_end(
     setup["hold"]["feed_from"] = feed_from
     drawn = scene(bundle)
     (feed,) = drawn["feed_lines"]
-    (line,) = drawn["paths"]
-    for xy in (feed["xyz"], line["xy"]):
+    line, arrows = drawn["paths"]
+    for xy in (feed["xyz"], arrows["xy"]):
         assert (xy[-1][0] - xy[0][0]) * sign > 0  # arrows run the way the work moves
     start = keys(drawn)["START"]
-    assert start == line["xy"][-1]  # the arrows end where the blade enters
+    # START is the line's end the arrows run toward, where the blade enters.
+    assert start == line["xy"][-1] and (start[0] - arrows["xy"][-1][0]) * sign > -2.0
     boxes = {box["name"]: box for box in drawn["boxes"]}
     assert [trailing, 0.0] in map(list, boxes["push aid"]["stock_mm"][0])
     blade = boxes["band op 10"]["box_mm"]
@@ -441,7 +495,7 @@ def test_an_undeclared_feed_end_draws_no_arrows_start_band_or_push_aid():
     bundle = load_bundle(BUNDLE / "plan.toml")
     bundle.plan["setups"][1]["hold"].pop("feed_from")
     drawn = scene(bundle)
-    assert drawn["paths"][0]["directed"] is False
+    assert [path.get("directed") for path in drawn["paths"]] == [None]  # no arrows
     assert "START" not in [key["label"] for key in drawn["waypoints"]]
     assert [box["name"] for box in drawn["boxes"]] == ["saw table"]
     assert drawn["feed_lines"] == []

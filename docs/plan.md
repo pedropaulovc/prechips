@@ -2166,8 +2166,10 @@ arrow points the way the work moves, from the trailing end toward the START. The
 picture draws the saw path (the scribed arc offset by the allowance into the waste) on
 the work's top face with those arrows ("WORK FEED INTO THE BLADE"). The op's profile
 sketch draws the setup-entry blank's outline as a thin line and the scribed line,
-within the op's `stock_removal_bounds`, as the one heavier line with the same feed
-arrows; it shades the waste crescent between them and leaves the keep side unshaded,
+within the op's `stock_removal_bounds`, as the one heavier line, both from their real
+setup-frame coordinates through the one sketch transform; it shades the waste the line
+cuts off the blank, puts the same feed arrows alone in that waste 3 mm off the line
+(never on it, never as a second line) and leaves the keep side unshaded,
 keyed START, SCRIBED LINE, "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE" and KEEP. No
 separate saw path is drawn there: 0.45 mm is not visible on a 290 mm arc. An undeclared
 `feed_from` draws no arrows, START, blade or push aid. The saw card states the
