@@ -6863,6 +6863,8 @@ class _Setup:
         facts = self._saw_facts(op)
         facts["stock_volume_before_mm3"] = _r(stock.Volume)
         facts["reasons"].pop("stock_volume_before_mm3", None)
+        # The stock this saw works, after any earlier cut: a later cut's own box (#347).
+        facts["stock_bbox_before_mm"] = [_r(v) for v in _bbox(stock)]
         if facts.get("saw_error") or facts.get("saw_reason"):
             return None, facts
         try:
@@ -6942,6 +6944,8 @@ class _Setup:
         facts = self._saw_facts(op)
         facts["stock_volume_before_mm3"] = _r(stock.Volume)
         facts["reasons"].pop("stock_volume_before_mm3", None)
+        # The stock this saw works, after any earlier cut: a later cut's own box (#347).
+        facts["stock_bbox_before_mm"] = [_r(v) for v in _bbox(stock)]
         if facts.get("saw_error") or facts.get("saw_reason"):
             return None, facts
         try:

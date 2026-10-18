@@ -1384,7 +1384,9 @@ op's `allowance_mm` it is an error naming both. An unknown allowance on a straig
 line keeps the box removal but leaves the finding `?`; an empty finished target in that setup leaves
 `retained_to_target_mm` unknown. The finding reports `follows`, the declared box,
 `allowance_mm`, `retained_to_target_mm` and the before/after and removed volumes;
-it has no kerf or offcut volume.
+it has no kerf or offcut volume. Every saw op's kernel facts also carry
+`stock_bbox_before_mm`, the setup-frame box of the stock that op cuts after any
+earlier cut ([#347](https://github.com/pedropaulovc/prechips/issues/347)).
 
 ### Saw teeth in the work
 

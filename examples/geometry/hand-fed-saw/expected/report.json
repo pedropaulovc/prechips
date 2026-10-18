@@ -1083,6 +1083,12 @@
         "cut_directions": {},
         "deburr_mm": 0.0,
         "fixture": "not_applicable",
+        "hand_fed_reach_by_op": {
+          "10": [
+            145.255,
+            147.177
+          ]
+        },
         "hand_fed_reach_mm": [
           145.255,
           147.177
@@ -2675,6 +2681,7 @@
         "operations": [],
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2685,6 +2692,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2695,6 +2703,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2865,7 +2874,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "166005b4ae1b3a5d31b5f3d55e817c31b36a4d15501266be3c2bc3cea9673e06",
+  "hash": "b7610f9e41f4159db9b1e51beb5b964b9bf3fb5d1effcd430e816788215a5be5",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -3040,6 +3049,14 @@
               "radius_mm": 800.0,
               "remove": "inside"
             },
+            "stock_bbox_before_mm": [
+              -146.254568,
+              -8.0,
+              -8.0565,
+              146.254568,
+              21.29464,
+              1.0
+            ],
             "stock_removal_bounds": {
               "x": [
                 -147.5,

@@ -827,15 +827,94 @@ def test_unknown_removal_bounds_leave_the_minimum_unknown(monkeypatch):
     assert row(hold_fields, bundle).status == "unknown"
 
 
-def test_a_second_hand_fed_cut_leaves_the_minimum_unknown(monkeypatch):
-    # The second cut works whatever the first left: only the entry stock is boxed.
+def two_cuts(monkeypatch, second_box):
+    """A hand-fed setup sawing along Y 18 twice: op 20 on the 300 x 20 entry stock, op 30
+    on what op 20 left, the kernel boxing op 30's stock as ``second_box`` (None: no box)."""
     straight(monkeypatch, y=18.0)
     bundle = feed_bundle()
     ops = bundle.plan["setups"][0]["ops"]
     ops.append({**ops[0], "op": 30})
-    finding = row(hold_fields, bundle)
+    if second_box is not None:
+        bundle.kernel["ops"]["S2:30"] = {"stock_bbox_before_mm": second_box}
+    return bundle
+
+
+def test_a_second_cut_on_stock_still_long_enough_passes(monkeypatch):
+    finding = row(hold_fields, two_cuts(monkeypatch, entry_box(200.0)))
+    assert finding.status == "pass", finding.sentence
+    by_op = finding.numbers["hand_fed_reach_by_op"]
+    assert set(by_op) == {"20", "30"}
+    # Each cut is judged on its own stock: op 30's 200 mm piece reaches less than op 20's.
+    assert by_op["30"][1] < by_op["20"][1] and by_op["30"][0] >= MINIMUM
+
+
+def test_a_second_cut_fails_on_its_own_smaller_stock(monkeypatch):
+    # Op 30 saws a 100 mm piece: mid-cut no work is more than ~53 mm from the blade.
+    finding = row(hold_fields, two_cuts(monkeypatch, entry_box(100.0)))
+    assert finding.status == "error"
+    assert finding.numbers["hand_fed_reach_by_op"]["20"][0] >= MINIMUM  # op 20 alone passes
+    assert finding.numbers["hand_fed_reach_mm"][1] == pytest.approx(math.hypot(50, 18), abs=0.6)
+    assert "op 30's cut" in finding.sentence and "76.2 mm hand-feed minimum" in finding.sentence
+
+
+def test_a_later_cut_the_kernel_does_not_box_leaves_the_minimum_unknown(monkeypatch):
+    # Never the entry stock for a cut after the first: it works what the first left.
+    finding = row(hold_fields, two_cuts(monkeypatch, None))
     assert finding.status == "unknown"
-    assert "kernel does not box" in finding.sentence
+    assert "op 30 works stock the kernel does not box" in finding.sentence
+
+
+def test_a_known_short_cut_stays_an_error_beside_a_later_unboxed_cut(monkeypatch):
+    # Op 20 works a 100 mm entry piece (no work past ~53 mm mid-cut); op 30's stock is
+    # not boxed. The known shortfall wins: never downgraded to debt (Codex round 1).
+    straight(monkeypatch, y=18.0)
+    bundle = feed_bundle(box=entry_box(100.0))
+    ops = bundle.plan["setups"][0]["ops"]
+    ops.append({**ops[0], "op": 30})
+    finding = row(hold_fields, bundle)
+    assert finding.status == "error"
+    assert set(finding.numbers["hand_fed_reach_by_op"]) == {"20"}
+    assert "op 20's cut" in finding.sentence
+
+
+def test_a_known_short_cut_stays_an_error_beside_a_later_unplaced_path(monkeypatch):
+    # Op 30's removal bounds are unknown, so its path cannot be placed; op 20 still fails
+    # on its 100 mm piece, and that known shortfall wins (Codex round 2).
+    straight(monkeypatch, y=18.0)
+    bundle = feed_bundle(box=entry_box(100.0))
+    ops = bundle.plan["setups"][0]["ops"]
+    ops.append({**ops[0], "op": 30, "stock_removal_bounds": "unknown"})
+    bundle.kernel["ops"]["S2:30"] = {"stock_bbox_before_mm": entry_box(100.0)}
+    finding = row(hold_fields, bundle)
+    assert finding.status == "error"
+    assert set(finding.numbers["hand_fed_reach_by_op"]) == {"20"}
+    # Without op 20's shortfall, op 30's unplaced path is the debt it reports.
+    bundle = feed_bundle()
+    ops = bundle.plan["setups"][0]["ops"]
+    ops.append({**ops[0], "op": 30, "stock_removal_bounds": "unknown"})
+    finding = row(hold_fields, bundle)
+    assert finding.status == "unknown" and "op 30's stock_removal_bounds" in finding.sentence
+
+
+def test_the_kernel_boxes_each_saw_cut_on_the_stock_before_it(example, freecad_kernel):
+    # Two hand-fed cuts along the same line: op 10 saws its -X half, op 20 the +X half.
+    edit(
+        example,
+        "stock_removal_bounds = { x = [-147.5, 147.5], y = [7.0, 22.5], z = [-9.0, 2.0] }",
+        "stock_removal_bounds = { x = [-147.5, 0.0], y = [7.0, 22.5], z = [-9.0, 2.0] }\n\n"
+        '[[setups.ops]]\nop = 20\ndo = "saw_cut"\ntool = "test-bandsaw-blade"\n'
+        'follows = "S1:10"\nallowance_mm = 0.45\n'
+        "stock_removal_bounds = { x = [0.0, 147.5], y = [7.0, 22.5], z = [-9.0, 2.0] }",
+    )
+    bundle = load_bundle(example / "plan.toml")
+    kernel.run_geometry(bundle)
+    first, second = bundle.kernel["ops"]["S2:10"], bundle.kernel["ops"]["S2:20"]
+    assert first["stock_bbox_before_mm"] == bundle.kernel["setups"]["S2"]["stock_bbox_mm"]
+    # Op 20 starts from what op 10 left: its volume and a box inside op 10's.
+    assert second["stock_volume_before_mm3"] == pytest.approx(first["stock_volume_after_mm3"])
+    assert second["stock_volume_before_mm3"] < first["stock_volume_before_mm3"]
+    low, high = first["stock_bbox_before_mm"], second["stock_bbox_before_mm"]
+    assert all(high[i] >= low[i] - 1e-6 and high[i + 3] <= low[i + 3] + 1e-6 for i in range(3))
 
 
 def test_removal_bounds_above_the_work_leave_the_minimum_unknown(monkeypatch):
