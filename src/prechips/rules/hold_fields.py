@@ -346,37 +346,39 @@ def hand_feed(bundle, setup):
         return "unknown", numbers, f"the shop policy sets no cited, verified {MIN_HAND_FEED}"
     if paths is None:
         return "unknown", numbers, "the blade path is known only along a scribed arc"
-    cuts = {}
+    # Judge every cut that can be judged: one cut's unknown stock never hides another
+    # cut's known shortfall.
+    cuts, debts = {}, []
     for index, (op, centre, radius, span) in enumerate(paths):
         box = cut_box(bundle, setup, op, index == 0)
         if box is None:
-            return (
-                "unknown",
-                numbers,
-                (
-                    "the kernel gave no setup-entry stock to size the work"
-                    if index == 0
-                    else f"op {op} works stock the kernel does not box"
-                ),
+            debts.append(
+                "the kernel gave no setup-entry stock to size the work"
+                if index == 0
+                else f"op {op} works stock the kernel does not box"
             )
+            continue
         # The blade runs where both the work and the op's declared removal box are.
         window = _overlap(box, span)
         positions = [] if window is None else _along(centre, radius, window)
         if not positions:
-            return "unknown", numbers, f"op {op}'s blade path does not cross its stock"
+            debts.append(f"op {op}'s blade path does not cross its stock")
+            continue
         reaches = [_reach(point, box) for point in positions]
         # A path point between samples, or past the last one, is within a step of a sample.
         cuts[op] = (
             min(reach[0] for reach in reaches) - HAND_FEED_STEP_MM,
             min(reach[1] for reach in reaches),
         )
+    if not cuts:
+        return "unknown", numbers, debts[0]
     numbers["hand_fed_reach_by_op"] = {
         op: [round(max(low, 0.0), 3), round(high, 3)] for op, (low, high) in cuts.items()
     }
     worst = min(cuts, key=lambda op: cuts[op][1])
     low, high = min(low for low, _ in cuts.values()), cuts[worst][1]
     numbers.update(hand_fed_reach_mm=[round(max(low, 0.0), 3), round(high, 3)])
-    which = f"op {worst}'s cut" if len(cuts) > 1 else "the cut"
+    which = f"op {worst}'s cut" if len(paths) > 1 else "the cut"
     if high < minimum and not same_length(high, minimum):
         return (
             "error",
@@ -385,6 +387,8 @@ def hand_feed(bundle, setup):
             f"the blade, under the shop's {minimum:g} mm hand-feed minimum: fingers would "
             "come closer than that to the blade",
         )
+    if debts:
+        return "unknown", numbers, debts[0]
     if low < minimum and not same_length(low, minimum):
         return (
             "unknown",

@@ -864,6 +864,19 @@ def test_a_later_cut_the_kernel_does_not_box_leaves_the_minimum_unknown(monkeypa
     assert "op 30 works stock the kernel does not box" in finding.sentence
 
 
+def test_a_known_short_cut_stays_an_error_beside_a_later_unboxed_cut(monkeypatch):
+    # Op 20 works a 100 mm entry piece (no work past ~53 mm mid-cut); op 30's stock is
+    # not boxed. The known shortfall wins: never downgraded to debt (Codex round 1).
+    straight(monkeypatch, y=18.0)
+    bundle = feed_bundle(box=entry_box(100.0))
+    ops = bundle.plan["setups"][0]["ops"]
+    ops.append({**ops[0], "op": 30})
+    finding = row(hold_fields, bundle)
+    assert finding.status == "error"
+    assert set(finding.numbers["hand_fed_reach_by_op"]) == {"20"}
+    assert "op 20's cut" in finding.sentence
+
+
 def test_the_kernel_boxes_each_saw_cut_on_the_stock_before_it(example, freecad_kernel):
     # Two hand-fed cuts along the same line: op 10 saws its -X half, op 20 the +X half.
     edit(
