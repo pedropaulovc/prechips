@@ -2893,7 +2893,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "1eaef230b1159f7f31de0ad455eaeb9fb6fa74da4920f98e199f84a0cae3a728"
+            "sha256": "23f0e2fe88026065a154f27f3578924548355466acdd3e9a425e98e4ce8a7757"
           },
           "plan": {
             "path": "examples/cone-pivot-post/built-up.toml",
@@ -2901,7 +2901,7 @@
           },
           "shop_policy": {
             "path": "examples/shop-policy.toml",
-            "sha256": "131383b5005a3a689ab0a8b55a002c231f06433bfcf0a8234ef4030a2bd363e0"
+            "sha256": "383236cece90d5741c9f1bd03f3348d10fb21f39ba3ca34f05a4cd87ba3c49f8"
           },
           "step": {
             "path": "examples/cone-pivot-post/cone-pivot-post.STEP",
@@ -15079,6 +15079,32 @@
     },
     {
       "cite": [
+        "inventory.tools.bandsaw-blade-4-6.tpi",
+        "Machinery's Handbook 27th ed. p.1138 chart: 4/6 variable pitch for solid round, 1-3/4 in length of cut",
+        "shop-policy.numbers.saw_min_teeth_in_work",
+        "example value: the common rule of at least 3 teeth in the work, as Starrett's 'Sawing Starts With the Material' states it (no fewer than 3 teeth in the material at all times), https://www.starrett.com/news-events/sawing-starts-with-the-material",
+        "docs/rules-geometry.md: saw teeth in the work"
+      ],
+      "message": "S10:10: 6.73 teeth of the 4/6 variable-pitch blade at its 4 TPI coarse end are in the 42.75 mm the blade crosses, at least the shop's 3.",
+      "numbers": {
+        "cut_thickness_axis": "y",
+        "cut_thickness_mm": 42.7506,
+        "operation": "saw_cut",
+        "saw_min_teeth_in_work": 3.0,
+        "teeth_in_work": 6.73,
+        "tool": "bandsaw-blade-4-6",
+        "tpi": [
+          4.0,
+          6.0
+        ],
+        "tpi_coarse": 4.0
+      },
+      "rule": "saw_teeth",
+      "status": "pass",
+      "subject": "S10:10"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 sizing",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:29-29",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_1pl.display",
@@ -26380,7 +26406,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "94feed3f4b64f2b01e2d6c5b396f3b84f3364b3359b8ace6b50b3f412f5bc093",
+  "hash": "5a19aeafcac8b9984d87dfaee7723c1926500f457ed37c128472250dfcd57369",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26392,7 +26418,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "1eaef230b1159f7f31de0ad455eaeb9fb6fa74da4920f98e199f84a0cae3a728"
+      "sha256": "23f0e2fe88026065a154f27f3578924548355466acdd3e9a425e98e4ce8a7757"
     },
     "plan": {
       "path": "examples/cone-pivot-post/built-up.toml",
@@ -26452,7 +26478,7 @@
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
-      "sha256": "131383b5005a3a689ab0a8b55a002c231f06433bfcf0a8234ef4030a2bd363e0"
+      "sha256": "383236cece90d5741c9f1bd03f3348d10fb21f39ba3ca34f05a4cd87ba3c49f8"
     },
     "step": {
       "path": "examples/cone-pivot-post/cone-pivot-post.STEP",
@@ -26692,6 +26718,8 @@
               "keep": "above",
               "value": -1.75
             },
+            "cut_thickness_axis": "y",
+            "cut_thickness_mm": 42.7506,
             "kerf_mm": 1.5,
             "kerf_volume_mm3": 2153.106788,
             "offcut_volume_mm3": 55883.877977,
