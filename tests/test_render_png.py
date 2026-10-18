@@ -626,6 +626,24 @@ def test_round_stock_prints_its_diameter_not_a_bounding_box(round_dia, printed):
     assert "STOCK Z 100 mm" in diagram.dimensions
 
 
+def test_a_swivelled_stock_prints_its_own_size_and_names_the_box_its_footprint():
+    """#300: on a swivelled vise the setup-frame box is the turned stock's footprint on the
+    table, never its size: the stock prints along and across the jaws, and the box and its
+    X dimension say footprint."""
+    spec = {
+        "setup_id": "S2",
+        "view": "plan",
+        "stock_box": [0, -50, 0, 88.33, 0, 25.4],
+        "swivel": {"deg": -30.0, "along_mm": 80.0, "across_mm": 38.1},
+    }
+    diagram, _ = _composed_diagram([], spec)
+    texts = " ".join(box[0] for box in diagram.canvas.text_boxes)
+    assert "STOCK ALONG / ACROSS THE JAWS 80 / 38.1" in texts, texts
+    assert "SWIVELLED FOOTPRINT X 88.33" in texts and "STOCK BOX" not in texts
+    assert "SWIVELLED FOOTPRINT X 88.33 mm" in diagram.dimensions
+    assert "STOCK X 88.33 mm" not in diagram.dimensions
+
+
 def test_arc_apex_below_its_ends_keys_below_and_no_leader_grazes_another_point():
     diagram = _Diagram([], {"view": "plan", "stock_box": [0, 0, 0, 10, 10, 1]})
     # A semicircle sagging below its ends, keyed end, apex, end as the table lists it.
@@ -1750,6 +1768,7 @@ def pure_native_outline_render():
                 "_guide_solids",
                 "_guide_components",
                 "_guide_tags",
+                "_swivel_label",
                 "_Unknown",
                 "_timed",
                 "_mark",

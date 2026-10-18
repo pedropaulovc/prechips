@@ -75,8 +75,8 @@ from .rules.resolution import (
 )
 from .rules.resolution import record as _mapping
 from .rules.swivel import STATED as SWIVEL_STATED
-from .rules.swivel import jaw_line_move, swivel_angle, swivelled
 from .rules.swivel import setting as swivel_setting
+from .rules.swivel import swivel_angle, swivelled
 from .rules.tip_endpoints import (
     FACING,
     SAME_Z,
@@ -4530,10 +4530,10 @@ class _Traveler:
                 f"Swivel the vise so the fixed jaw runs {turn}, set {how}; tighten the "
                 f"swivel-base nuts and check the setting again the same way. {held}"
             ]
-        scale = {"mm": 1.0, "in": 25.4}[self.units]
         decimals = dro_grid(self.bundle, setup)[1]
         over, limit = set_by["over_mm"], set_by["limit_mm"]
-        dx, dy = (round(v / scale, decimals) for v in jaw_line_move(line, over))
+        # The rule's own move, on the DRO grid: the one its tolerance budgets for.
+        dx, dy = set_by["move_dro"]
         start = (
             ("left" if dx > 0 else "right") if abs(dx) >= abs(dy) else "front" if dy > 0 else "back"
         )

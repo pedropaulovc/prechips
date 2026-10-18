@@ -1134,10 +1134,14 @@ swivel:
 
 - `indicate_jaw`: rough the swivel in on the base graduations; touch the `indicator` on
   the fixed jaw near one end, zero the dial and DRO X/Y; raise the quill, move the
-  printed ΔX = `over_mm`·cos, ΔY = `over_mm`·sin of the jaw line; lower onto the jaw and
-  tap the vise round until the two readings agree within `limit_mm`. The setting
-  tolerance is asin((`limit_mm` + √2·step) / `over_mm`), with the machine's measured
-  DRO `resolution` as the step (each axis set to within a step).
+  printed ΔX = `over_mm`·cos, ΔY = `over_mm`·sin of the jaw line, each rounded to the
+  machine's measured DRO `resolution` (the step) so the operator can dial it; lower onto
+  the jaw and tap the vise round until the two readings agree within `limit_mm`. The
+  setting tolerance is the dialled move's angle off the jaw line plus
+  asin((`limit_mm` + √2·step/2) / L), L the dialled move's length and each axis
+  displayed to within half a step.
+- The setup picture labels a swivelled stock by its own size along and across the jaws,
+  and its setup-frame box as the swivelled footprint.
 - `graduations`, `protractor`, `sine_bar`: set by that reference against the fixed jaw,
   to its stated `tolerance_deg`, which needs a `cite`.
 

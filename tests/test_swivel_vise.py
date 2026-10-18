@@ -181,6 +181,13 @@ def test_a_swivelled_vise_grips_the_turned_work_as_square_jaws_grip_it_unturned(
     for scene in (held["render_scene"], turned_held["render_scene"]):
         assert scene["jaws"] == scene["parallels"] == "exact"
     assert turned_held["fixture_clashes"] == held["fixture_clashes"] == []
+    # The picture prints the stock's own size along and across the jaws, not its footprint.
+    assert turned_held["render_scene"]["swivel"] == {
+        "deg": angle,
+        "along_mm": 60.0,
+        "across_mm": 40.0,
+    }
+    assert "swivel" not in held["render_scene"]
     standing, turned_standing = plain["ops"]["S1:10"], turned["ops"]["S1:10"]
     assert standing["obstacles"]["holder"] == ["fixed_jaw", "moving_jaw"]
     assert turned_standing["obstacles"]["holder"] == standing["obstacles"]["holder"]

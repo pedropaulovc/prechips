@@ -104,8 +104,18 @@ def bundle(*setups, resolution=STEP, band=1.0, general=None, registered=True):
     )
 
 
-def derived(limit=0.02, over=100.0, step=STEP):
-    return math.degrees(math.asin((limit + math.sqrt(2) * step) / over))
+def dialled(angle=ANGLE, over=100.0, step=STEP):
+    """The printed DRO move along the jaw line: each axis on the DRO grid."""
+    return [round(over * f(math.radians(angle)) / step) * step for f in (math.cos, math.sin)]
+
+
+def derived(angle=ANGLE, limit=0.02, over=100.0, step=STEP):
+    """The dialled move's angle off the jaw line plus what the reading allows across it,
+    with each axis displayed to within half a step."""
+    move = dialled(angle, over, step)
+    rounding = abs(math.degrees(math.atan2(move[1], move[0])) - angle)
+    reading = limit + math.sqrt(2) * step / 2
+    return rounding + math.degrees(math.asin(reading / math.hypot(*move)))
 
 
 # ---------------------------------------------------------------- setting tolerance
@@ -197,15 +207,16 @@ def test_facing_and_holes_carry_no_angle_band_and_square_vises_no_finding():
 
 def _accepted_errors(line, limit, over, step):
     """Every jaw-angle error (degrees) an operator following the printed indicate_jaw step
-    accepts: the jaw truly at ``line + e``, the table set to the printed move within a DRO
-    step on each axis, the indicator reading at P2 within ``limit`` of P1."""
+    accepts: the jaw truly at ``line + e``, the table at the printed (on-grid) move with
+    each axis anywhere its display rounds to it, half a step either way, and the indicator
+    reading at P2 within ``limit`` of P1."""
     accepted = []
+    target = dialled(line, over, step)
     for e in (i * 1e-4 for i in range(-1000, 1001)):
         a = math.radians(line + e)
         normal = (-math.sin(a), math.cos(a))
-        target = (over * math.cos(math.radians(line)), over * math.sin(math.radians(line)))
-        for ex in (-step, 0.0, step):
-            for ey in (-step, 0.0, step):
+        for ex in (-step / 2, 0.0, step / 2):
+            for ey in (-step / 2, 0.0, step / 2):
                 reading = normal[0] * (target[0] + ex) + normal[1] * (target[1] + ey)
                 if abs(reading) <= limit:
                     accepted.append(e)
@@ -222,6 +233,7 @@ def test_an_operator_at_the_edge_of_the_setting_keeps_the_cut_in_band_or_gets_a_
     data = bundle(setup(angle=angle, ops=[taper()]), band=band)
     (row,) = swivel.evaluate(data)
     tolerance = row.numbers["tolerance_deg"]
+    assert tolerance == pytest.approx(derived(angle))
     worst = max(map(abs, _accepted_errors(angle, 0.02, 100.0, STEP)))
     assert worst <= tolerance
     if row.status == "pass":
@@ -334,8 +346,11 @@ def test_the_hold_prints_the_swivel_and_the_indicated_setting_step():
     text = hold_text(data, "V1")
     assert "swivelled 43.77° clockwise seen from above" in text
     assert "fixed jaw runs 43.77° clockwise from the X travel" in text
-    dx, dy = (100.0 * f(math.radians(ANGLE)) for f in (math.cos, math.sin))
+    dx, dy = dialled()
     assert f"X {dx:.3f}, Y {dy:.3f} mm" in text
+    # A move the operator can dial: on the 0.005 mm DRO grid, never 100 cos θ unrounded.
+    for value in (dx, dy):
+        assert abs(value / STEP - round(value / STEP)) < 1e-9
     assert "zero DRO X and Y there" in text and "work's zero is picked up below" in text
     assert "0.02 mm" in text and f"±{derived():.2g}°" in text
     assert "Swivel" not in hold_text(data, "V2")

@@ -904,6 +904,19 @@ def _box_shape(box):
     return Part.makeBox(x1 - x0, y1 - y0, z1 - z0, V(x0, y0, z0))
 
 
+def _swivel_label(setup):
+    """A placed swivelled vise's picture facts: its angle and the stock's own extents along
+    and across the swivelled jaws (its jaw-frame box), else None. The setup-frame stock box
+    is then its footprint on the swivelled table, not its size."""
+    box = getattr(setup, "jaw_frame_box", None)
+    if box is None:
+        return None
+    sizes = [box[i + 3] - box[i] for i in range(3)]
+    along = 0 if setup.hold.get("jaws_along") == "x" else 1
+    angle = float(setup.hold["jaws_angle_deg"])
+    return {"deg": angle, "along_mm": sizes[along], "across_mm": sizes[1 - along]}
+
+
 def _swivelled(shape, degrees):
     """A copy of ``shape`` turned ``degrees`` about setup Z (counterclockwise from above)."""
     turned = shape.copy()
@@ -5033,6 +5046,7 @@ class _Setup:
         self.fixture = []
         self.fixture_possible = []
         self.fixture_possible_shapes = []  # each possible region's own solid, for the picture
+        self.jaw_frame_box = None  # a swivelled vise's stock box in its jaw frame
         self.hold_solids = []  # an authored holding body's placed solids (``_place_solids``)
         self.fixture_ready = False  # the holding itself is placed, so hit counts can be made
         self.fixture_debts = []  # scene-only debts (supports below the seat, poses to check)
@@ -8312,6 +8326,7 @@ class _Setup:
         self.box = _bbox(self.part)
         facts["jaws_angle_deg"] = _r(angle)
         facts["jaw_frame_stock_bbox_mm"] = [_r(v) for v in self.box]
+        self.jaw_frame_box = self.box
         try:
             return self._place_jaws(hold, facts, claimed)
         finally:
@@ -9262,6 +9277,9 @@ class _Setup:
             ],
             "debts": debts,
         }
+        swivel = _swivel_label(self)
+        if swivel is not None:
+            scene["swivel"] = {key: _r(value) for key, value in swivel.items()}
         annotation = self.setup.get("render", {})
         # The tool is drawn at the cut Z its op's follow rest is drawn for, beside the jaws.
         tool, tool_debt = self._render_tool(
@@ -9404,6 +9422,7 @@ class _Setup:
             "view": view,
             "stock_box": list(self.box),
             "stock_round_dia_mm": self._round_stock_dia(lathe),
+            "swivel": _swivel_label(self),
             "components": components,
             "zero_mm": [0.0, 0.0, 0.0],
             "jaw_front_z_mm": jaw_z,

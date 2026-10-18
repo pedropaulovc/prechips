@@ -73,7 +73,9 @@ limit appears as a fallback.
 One subject per setup that holds the work in a mill vise with a `jaws_angle_deg`; no row
 otherwise. The setting tolerance δθ comes from `hold.align`
 ([swivelled vise](plan.md#swivelled-vise)): derived for `indicate_jaw` as
-asin((`limit_mm` + √2·step) / `over_mm`) with the machine's measured DRO step, or the
+the dialled (DRO-grid) move's angle off the jaw line plus
+asin((`limit_mm` + √2·step/2) / L), L that move's length and step the machine's
+measured DRO resolution, or the
 cited `tolerance_deg` of a stated method. A setup that keeps the vise as an earlier one
 on the same machine set it (not `align_due`) inherits that setup's `hold.align`
 (`set_in`), even when it declares an align of its own: the traveler prints a setting

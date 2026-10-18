@@ -2,9 +2,10 @@
 
 The jaw frame is the setup frame turned by the swivel: there the jaws run along
 ``jaws_along`` as square jaws do. The swivel is set to within a setting tolerance δθ
-(:func:`setting`): ``indicate_jaw`` derives it as asin((limit + √2·step) / move) from
-the indicator limit, the DRO move along the jaw line and the machine's measured DRO
-step; a stated method (``graduations``, ``protractor``, ``sine_bar``) cites it.
+(:func:`setting`): ``indicate_jaw`` derives it from the indicator limit, the printed DRO
+move along the jaw line (dialled on the machine's measured DRO grid, so its rounding
+off the line counts) and half a DRO step of display on each axis; a stated method
+(``graduations``, ``protractor``, ``sine_bar``) cites it.
 Unknown is never a pass.
 
 The work turns with the jaws while the cutter feeds along a table axis, so an edge the
@@ -151,21 +152,32 @@ def setting(bundle, setup):
     if debt is not None or scale is None:
         result["unresolved"].append(debt or "feature units are not mm or in")
     else:
-        result["dro_step_mm"] = dro_grid(bundle, setup)[0] * scale
+        step, decimals = dro_grid(bundle, setup)
+        result["dro_step_mm"] = step * scale
         result["cite"].append(f"inventory.machines.{setup.get('machine')}.resolution")
     line = result["line_deg"]
     if result["unresolved"] or result["invalid"] or line == UNKNOWN:
         return result
-    # The indicator reads the jaw's offset across its line at P2, over_mm·sin(error) plus
-    # where the DRO really stands: ΔX and ΔY are each set to within a step, which project
-    # onto the jaw's normal by |sin| and |cos| of its line, at most √2 steps whatever the
-    # error turns it to. The reading agrees with P1 within limit_mm, so the error is at
-    # most asin((limit + √2·step) / over).
-    reading = result["limit_mm"] + math.sqrt(2.0) * result["dro_step_mm"]
-    if reading >= result["over_mm"]:
+    # The printed move is one the operator can dial: ΔX and ΔY on the DRO grid, so the
+    # line from P1 to the printed P2 runs ``rounding_deg`` off the jaw line it stands for.
+    move = [
+        round(round(v / scale / step) * step, decimals)
+        for v in jaw_line_move(line, result["over_mm"])
+    ]
+    length = math.hypot(*move) * scale
+    result["move_dro"] = move
+    off = math.degrees(math.atan2(move[1], move[0])) - line
+    result["rounding_deg"] = abs((off + 180.0) % 360.0 - 180.0)
+    # The indicator reads the jaw's offset across that line at P2, length·sin(error) plus
+    # where the DRO really stands: a display shows each axis to within half a step, which
+    # project onto the jaw's normal by |sin| and |cos| of its line, at most √2·step/2
+    # whatever the error turns it to. The reading agrees with P1 within limit_mm, so the
+    # jaw is at most rounding + asin((limit + √2·step/2) / length) off its printed line.
+    reading = result["limit_mm"] + math.sqrt(2.0) * result["dro_step_mm"] / 2
+    if reading >= length:
         result["invalid"].append(f"{aligned}.align.over_mm must exceed the indicator limit")
         return result
-    result["tolerance_deg"] = math.degrees(math.asin(reading / result["over_mm"]))
+    result["tolerance_deg"] = result["rounding_deg"] + math.degrees(math.asin(reading / length))
     return result
 
 

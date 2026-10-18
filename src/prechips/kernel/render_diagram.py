@@ -1723,9 +1723,16 @@ class _Diagram:
         # Round stock is its diameter (the stock dimension gives its length); a bounding box
         # describes only prismatic stock.
         round_dia = self.spec.get("stock_round_dia_mm")
+        # A swivelled vise turns the stock on the table: its own size runs along and across
+        # the jaws, and the setup-frame box is only its footprint there.
+        swivel = self.spec.get("swivel")
         stock_text = (
             f"STOCK Ø {_mm(round_dia)} mm"
             if round_dia is not None
+            else f"STOCK ALONG / ACROSS THE JAWS {_mm(swivel['along_mm'])}  /  "
+            f"{_mm(swivel['across_mm'])}  /  Z {_mm(sizes[2])} mm; SWIVELLED FOOTPRINT "
+            f"X {_mm(sizes[0])}  /  Y {_mm(sizes[1])} mm"
+            if swivel
             else f"STOCK BOX: X {_mm(sizes[0])}  /  Y {_mm(sizes[1])}  /  Z {_mm(sizes[2])} mm"
         )
         summary = _wrap(c, stock_text, 1536)
@@ -1746,7 +1753,11 @@ class _Diagram:
         a, b = c.project(first), c.project(second)
         c.line(a, (a[0], y), _MUTED, width=2, dashed=True)
         c.line(b, (b[0], y), _MUTED, width=2, dashed=True)
-        label = f"STOCK {'XYZ'[axis]} {_mm(sizes[axis])} mm"
+        label = (
+            f"SWIVELLED FOOTPRINT {'XYZ'[axis]} {_mm(sizes[axis])} mm"
+            if swivel and axis < 2
+            else f"STOCK {'XYZ'[axis]} {_mm(sizes[axis])} mm"
+        )
         dimensions = [(label, (a[0], y), (b[0], y), _INK)]
         jaw = self.spec.get("jaw_front_z_mm")
         jaw_marker = None
