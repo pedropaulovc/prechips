@@ -177,9 +177,10 @@ Rules must compute predicted readings from geometry. The author specifies what
 to read and its permitted deviation, never the prediction itself. D6 permits
 optional `expect` only as a cross-check:
 
-- if `expect` differs from the prediction by more than the reading's tolerance
-  (the `align` op's `tolerance`, or the `accept` reading's band), the result is an
-  error naming both values;
+- the `expect` cross-check must respect the reading's signed deviation limits (the
+  `align` op's `tolerance`, or the `accept` reading's band); a mismatch is an
+  error naming both values. Section 10 leaves the interval-comparison details
+  open; unsigned distance alone cannot establish agreement with a signed band;
 - the prediction is always what gets printed and what a recorded reading is
   judged against. `expect` is never the source of the value, and an `expect` on a
   reading whose prediction is unknown does not stand in for it: the reading
@@ -226,7 +227,7 @@ the spindle axis at the guide's crossing point. It is computed by the guide
 | `chord_mm` / `chord_in` | `float` (`sagitta` only): nominal chord printed on the sheet. Compute the prediction from the gauge's measured chord instead. Nominal must be within 1 % of `chord_limits` and satisfy `0 < chord < 2R`, otherwise error naming the values. Measured limits reaching `2R` are uncertainty, leaving `?`, not a plan error. Unknown `R` leaves both checks `?`. |
 | `band_mm` / `band_in` | `Vector` `[low, high]` relative to the prediction, with `low < high` and `low ≤ 0 ≤ high` (the prediction itself is acceptable), or a symmetric `float` greater than 0. Anything else is a schema error |
 | `band_cite` | `Citations` |
-| `expect_mm` / `expect_in` | optional authored cross-check (above), one spelling. It takes the same shape and unit as the recorded value: a `float` for scalar quantities, `[x, y]` for `dro_xy`. The mismatch test uses the reading's own comparison: the distance from `expect` to the predicted interval (sagitta's included), measured on the component the reading judges (the tangential component for `hub_apex`), must not exceed the tolerance |
+| `expect_mm` / `expect_in` | optional authored cross-check (above), one spelling. It takes the same shape and unit as the recorded value: a `float` for scalar quantities, `[x, y]` for `dro_xy`. The mismatch test must compare the signed deviation of `expect` from the predicted interval (sagitta's included) against the reading's band, on the component the reading judges (the tangential component for `hub_apex`). Section 10 retains the unresolved interval-comparison details |
 
 Each reading's key is `"<setup>:<op>/<name>"`.
 
@@ -328,10 +329,13 @@ produces the value:
   not against the indicator;
 - For every other quantity (`sagitta`, `width`, `distance`, `size`, `z`), the
   gauge supplies the value. Its range must cover the complete acceptance
-  interval, `[predicted + low, predicted + high]`, plus one resolution step
-  beyond each end, so that a value past either limit reads as past it rather
-  than as the gauge's last step. Its resolution must be no coarser than the
-  band. For a limit-style gauge (a pin set read as the largest pin that enters),
+  interval, `[predicted + low, predicted + high]`, expressed as magnitudes for
+  signed distances, plus one resolution step beyond each end of that required
+  interval, so that a value past either limit reads as past it rather than as
+  the gauge's last step. Targets, recorded distances and acceptance bands
+  retain their signs; only gauge range coverage uses magnitudes. Its resolution
+  must be no coarser than the band. For a limit-style gauge (a pin set read as
+  the largest pin that enters),
   the set must hold a pin at or below the low limit, a pin at or above the high
   limit, and one past each. A pin set ending at 8.000 therefore cannot judge
   HUB's `[8.000, 8.015]`: an oversized hole would still read 8.000.
@@ -820,7 +824,7 @@ the cutting/sweep travel extent finding in [open review notes](#10-open-review-n
 | Every visited DRO position (`align` targets, `dro_xy` subjects with their composed reference chains, zero and check-jogs), at outer extent | the commissioning machine's per-axis stroke, collectively across all setups of the installation | §2.3 DRO coordinate | span longer than the stroke → error; unmeasured stroke → `?` |
 | DRO resolution | the tolerance or band | §2.3 | too coarse → error |
 | Torque pass values (`value × fraction`) | the named wrench's `range_nm` / `range_in_lbf` | §2.2 `torque` | outside → error; no range or uncited range → `?` |
-| Gauge-read quantities | the gauge's range over the acceptance interval plus one step each side | §2.3 | not covered → error |
+| Gauge-read quantities | the gauge's range over the acceptance interval (magnitudes for signed distances) plus one step each side | §2.3 | not covered → error |
 | Machine identity | one `machine` per block, named on every setup | §2.1, §2.3 | omitted or two machines → schema error |
 
 - `zero_recipe` and `travel`: commissioning setups are ordinary setups. A
@@ -1149,8 +1153,8 @@ P5 needs the actual guide adapter. Test doubles are not shipped implementations.
 - D5, batch accounting: print `runs = ceil(quantity / batch_qty)` and warn
   (§3.5). Do not imply that prechips counts parts or runs.
 - D6, `expect`: optional cross-check only. Compute predictions independently;
-  mismatch beyond the reading's tolerance is an error (§2.3). The unresolved
-  signed/asymmetric-band refinement remains in §10.
+  a mismatch with the reading's signed deviation limits is an error (§2.3).
+  The interval-comparison details for signed/asymmetric bands remain open in §10.
 
 ## 8. Test plan
 
@@ -1182,8 +1186,10 @@ CLI tests should use `SYNTHETIC_KERNEL`, and all files should be temporary.
 - Duplicate generated keys (a repeated reading name, a repeated station) →
   error. An uncited `align` tolerance or `accept` band → `?`. A reading gauge
   coarser than its band → error; an unresolved gauge → `?`.
-- `expect` beyond the tolerance → error; within it → no finding; `expect` on an
-  unknown prediction → still `?`.
+- `expect` cross-checks must respect the signed band. Reject a value whose
+  whole signed deviation interval lies on the excluded side of a one-sided band;
+  interval-comparison details remain open in §10. `expect` on an unknown
+  prediction → still `?`.
 - A `fixture.<id>` `stock_in` in a part setup → error.
 - A record key the plan does not generate → error.
 - A plan without `commissioning` → byte-identical report to today. Freeze one
@@ -1283,7 +1289,8 @@ Additional rule cases:
   chord → `?`; the prediction uses the measured chord limits, and for `R = 100`
   limits reaching 200 → `?`.
 - Pin range: a caliper covering `[0, 150]` judges a −3.2 contact target (inside
-  the edge); a target beyond its range in magnitude → error.
+  the edge), provided the complete magnitude interval and the resolution-step
+  margins fit; a target beyond its range in magnitude → error.
 - Pin contact: a `distance` to a hole with no `pin` or `contact` → error; the
   near target is `o − sign(o)·r` and the far target `o + sign(o)·r`, tested for
   a hole outside the edge (positive `o`) and one inside it (negative `o`); an
@@ -1647,7 +1654,7 @@ implementation requirements, even where the body now calls attention to them:
   ([r4301068266](https://github.com/pedropaulovc/prechips/pull/275#discussion_r4301068266)).
 - §2.3 `expect` cross-check: compare the signed expect-minus-prediction interval
   against `[low, high]` rather than an unsigned distance, so asymmetric bands
-  keep their direction
+  keep their direction. The exact interval-containment criterion remains open
   ([r4301068269](https://github.com/pedropaulovc/prechips/pull/275#discussion_r4301068269)).
 - §2.3 `align` verify sets: require at least one qualifying `verify` set for every guide
   element a dependent sweep uses, even when no `set` or torque op was authored
@@ -1656,3 +1663,6 @@ implementation requirements, even where the body now calls attention to them:
   tool extents (and relevant stock bounds) in the installation-wide travel
   union, not only DRO readings, zero and check-jogs
   ([r4303120943](https://github.com/pedropaulovc/prechips/pull/275#discussion_r4303120943)).
+
+The sign convention for a distance reading without a pin, and gauge-range
+coverage when its acceptance interval includes zero, still need to be defined.

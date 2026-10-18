@@ -58,7 +58,7 @@ The output directory contains:
 
 Image numbering follows setup order: the authored setups `S0`, `S1`, `S2` and `S3` map to image files `setup-S1.png`, `setup-S2.png`, `setup-S3.png` and `setup-S4.png`. These files are not PDFs. The command can replace existing generated files in this output directory; it leaves the example inputs in place.
 
-Without FreeCAD, geometry-dependent findings remain unresolved and no native setup images are produced. This returns `4` unless a rule error takes precedence and returns `2`. Invalid input or an output-write failure returns `3`. Use the [CLI exit reference](../reference/cli.md#streams-and-errors) for the full exit contract and the [output-safety reference](../report-and-telemetry.md#output-safety) for write guarantees.
+Without FreeCAD, geometry-dependent findings remain unresolved and no native setup images are produced. This returns `4` unless a rule error takes precedence and returns `2`. Invalid input or a handled output-path/write failure returns `3`. Use the [CLI exit reference](../reference/cli.md#streams-and-errors) for the full exit contract and the [output-safety reference](../report-and-telemetry.md#output-safety) for write guarantees.
 
 ## 4. Read the result before printing
 

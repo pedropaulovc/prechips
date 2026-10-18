@@ -1103,7 +1103,8 @@ sheet.
 Documentation is organized into a [task-based manual](docs/README.md),
 separate [CLI](docs/reference/cli.md) and
 [Python callable](docs/reference/python-api.md) catalogs, and
-[architecture/development guides](docs/internals/architecture.md).
+[architecture](docs/internals/architecture.md) and
+[development](docs/internals/development.md) guides.
 The [style guide](docs/style-guide.md) defines page structures and verification.
 
 0. **M0 — kernel spike** (§6). Done 2026-10-03, two rounds.
