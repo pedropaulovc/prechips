@@ -230,7 +230,7 @@
           },
           "inventory": {
             "path": "examples/geometry/hand-fed-saw/inventory.toml",
-            "sha256": "1f0c8b109607aa1d6ec5f3df7468a6451a126043a274e0183a7c98249278ad15"
+            "sha256": "b8ce71440c5db89ade5ca7497c90ff20e792766aa0122c590d9b72ac0d75b8fd"
           },
           "plan": {
             "path": "examples/geometry/hand-fed-saw/plan.toml",
@@ -238,7 +238,7 @@
           },
           "shop_policy": {
             "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
-            "sha256": "817f5aa0755292a3a050a8fd52079915c1192c5253db869011f252a668e5422b"
+            "sha256": "a56c7e7837169ed24ece5cecfaf5debe65c5a508c2eb6520e4e4496873f5dd00"
           },
           "step": {
             "path": "examples/geometry/hand-fed-saw/rocker-arm.STEP",
@@ -1837,6 +1837,32 @@
     },
     {
       "cite": [
+        "inventory.tools.test-bandsaw-blade.tpi",
+        "Erko-tools Bimetal bandsaw blades, Choose the teeth per inch (https://docs.rs-online.com/7589/A700000012806837.pdf p.1): full material, variable teeth, below 10 mm: 10/14 TPI",
+        "shop-policy.numbers.saw_min_teeth_in_work",
+        "example value: the common rule of at least 3 teeth in the work, as Starrett's 'Sawing Starts With the Material' states it (no fewer than 3 teeth in the material at all times), https://www.starrett.com/news-events/sawing-starts-with-the-material",
+        "docs/rules-geometry.md: saw teeth in the work"
+      ],
+      "message": "S2:10: 3.57 teeth of the 10/14 variable-pitch blade at its 10 TPI coarse end are in the 9.06 mm the blade crosses, at least the shop's 3.",
+      "numbers": {
+        "cut_thickness_axis": "z",
+        "cut_thickness_mm": 9.0565,
+        "operation": "saw_cut",
+        "saw_min_teeth_in_work": 3.0,
+        "teeth_in_work": 3.57,
+        "tool": "test-bandsaw-blade",
+        "tpi": [
+          10.0,
+          14.0
+        ],
+        "tpi_coarse": 10.0
+      },
+      "rule": "saw_teeth",
+      "status": "pass",
+      "subject": "S2:10"
+    },
+    {
+      "cite": [
         "PLAN.md §4.1 sizing",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:117-117",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:121-121",
@@ -2831,7 +2857,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "e4cdd5a62f0da1c657bfb3d29f84b832c40eabef1a1beba24d97b388bbc26a18",
+  "hash": "549063cf1e9f89203c95183cda4e8a25280c0de0f4c11ecb2924aa53af1d1d5f",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2843,7 +2869,7 @@
     },
     "inventory": {
       "path": "examples/geometry/hand-fed-saw/inventory.toml",
-      "sha256": "1f0c8b109607aa1d6ec5f3df7468a6451a126043a274e0183a7c98249278ad15"
+      "sha256": "b8ce71440c5db89ade5ca7497c90ff20e792766aa0122c590d9b72ac0d75b8fd"
     },
     "plan": {
       "path": "examples/geometry/hand-fed-saw/plan.toml",
@@ -2859,7 +2885,7 @@
     },
     "shop_policy": {
       "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
-      "sha256": "817f5aa0755292a3a050a8fd52079915c1192c5253db869011f252a668e5422b"
+      "sha256": "a56c7e7837169ed24ece5cecfaf5debe65c5a508c2eb6520e4e4496873f5dd00"
     },
     "step": {
       "path": "examples/geometry/hand-fed-saw/rocker-arm.STEP",
@@ -2993,6 +3019,7 @@
           {
             "allowance_mm": 0.45,
             "claimed_indices": [],
+            "cut_thickness_mm": 9.0565,
             "follows": "S1:10",
             "reasons": {},
             "removed_volume_mm3": 22175.352997,

@@ -30,6 +30,7 @@ name = "10/14 pitch bi-metal blade, 12.7 x 0.64 mm"
 kind = "bandsaw"
 material = "M42"
 kerf_mm = { value = 1.0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+tpi = { value = [10, 14], cite = "Erko-tools Bimetal bandsaw blades, Choose the teeth per inch (https://docs.rs-online.com/7589/A700000012806837.pdf p.1): full material, variable teeth, below 10 mm: 10/14 TPI", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 verify = false
 
 # The push aid that keeps the hands off the blade at the end of the hand-fed cut.
