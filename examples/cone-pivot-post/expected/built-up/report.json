@@ -26406,7 +26406,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "5a19aeafcac8b9984d87dfaee7723c1926500f457ed37c128472250dfcd57369",
+  "hash": "beed4bafbbee3b7becae55b5722cb2b175a511fa83bc06865f82e3c809919169",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26726,6 +26726,14 @@
             "reasons": {},
             "removed_volume_mm3": 58036.984765,
             "retained_boundary_mm": -1.0,
+            "stock_bbox_before_mm": [
+              -39.0,
+              -22.225,
+              -23.25248,
+              86.0,
+              22.225,
+              51.831452
+            ],
             "stock_volume_after_mm3": 121424.463873,
             "stock_volume_before_mm3": 179461.448638,
             "subject": "S10:10"

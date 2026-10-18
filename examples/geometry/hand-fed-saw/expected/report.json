@@ -2681,6 +2681,7 @@
         "operations": [],
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2691,6 +2692,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2701,6 +2703,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2871,7 +2874,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "30b5043926d24d8ae369d025fd712745d7b2d64b902ed203e21bc1c270c05bb2",
+  "hash": "b7610f9e41f4159db9b1e51beb5b964b9bf3fb5d1effcd430e816788215a5be5",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
