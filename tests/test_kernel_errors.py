@@ -5,12 +5,15 @@ Whatever ends that run, the runaway guard, a signal, an exit without a result fi
 empty or non-JSON result, or an engine error that names no reason, the result is
 ``status: "error"`` with a specific, non-empty reason, and the engine's progress trail
 says which phase it was in. ``_run_kernel`` is faked here, so no FreeCAD is needed, except
-for the last test, which runs the real engine.
+for the last tests, which run the real engine, one of them killed inside its STEP import
+(issue #332).
 """
 
 import hashlib
 import json
+import os
 import subprocess
+import time
 from copy import deepcopy
 from pathlib import Path
 
@@ -190,6 +193,39 @@ def test_the_real_engine_names_a_failed_job_and_leaves_its_trail(tmp_path, freec
     assert [(mark["at"], mark["event"]) for mark in marks] == [
         ("batch", "enter"),
         ("batch/job 0", "enter"),
+        ("batch/job 0/step_import", "enter"),
+        ("batch/job 0/step_import", "exit"),
         ("batch/job 0", "exit"),
         ("batch", "exit"),
     ]
+    assert result["timing"]["phases"].keys() == {"step_import"}
+
+
+@pytest.mark.skipif(os.name != "posix", reason="a FIFO STEP blocks the engine's read")
+def test_a_guard_kill_during_step_import_names_the_step(tmp_path, freecad_kernel, monkeypatch):
+    # A FIFO with no writer holds the engine inside its STEP read; the guard fires only once
+    # the trail shows that step entered, so the kill lands there however slowly FreeCAD starts.
+    step = tmp_path / "part.STEP"
+    os.mkfifo(step)
+    wait = kernel._await_launcher
+
+    def guard(process, timeout):
+        trail = Path(process.args[-1] + ".trail")
+        deadline = time.monotonic() + 300
+        while "step_import" not in (trail.read_text() if trail.exists() else ""):
+            try:
+                wait(process, 0.1)
+            except subprocess.TimeoutExpired:
+                pass
+            else:
+                pytest.fail("the engine ended before it entered its STEP import")
+            assert time.monotonic() < deadline, "the engine never entered its STEP import"
+        raise subprocess.TimeoutExpired(process.args, timeout)
+
+    monkeypatch.setattr(kernel, "_await_launcher", guard)
+    job = {"version": 1, "step_path": str(step), "step_sha256": "0" * 64}
+    result = kernel._execute(Path(freecad_kernel), {"jobs": [job], "timing": True})
+    assert result["status"] == "error"
+    assert "runaway guard" in result["reason"]
+    assert "the engine was in batch/job 0/step_import" in result["reason"]
+    assert result["timing"]["trail"]["open"][-1]["at"] == "batch/job 0/step_import"

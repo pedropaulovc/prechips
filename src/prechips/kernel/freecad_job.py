@@ -3751,173 +3751,183 @@ class _Job:
 
     def run(self):
         job = self.job
-        path, digest = job.get("step_path"), job.get("step_sha256")
-        if not isinstance(path, str) or path == UNKNOWN:
-            raise _Unknown("STEP path is unknown.")
-        if not isinstance(digest, str) or digest == UNKNOWN:
-            raise _Unknown("STEP SHA-256 is unknown; face references cannot be bound to the file.")
-        with open(path, "rb") as handle:
-            data = handle.read()
-        actual = hashlib.sha256(data).hexdigest()
-        if actual != digest.lower():
-            raise ValueError(f"STEP SHA-256 mismatch: job declares {digest}, file has {actual}")
-        try:
-            step = StepFile(data.decode("latin-1"))
-        except StepError as exc:
-            raise ValueError(f"STEP is not parseable: {exc}") from None
-        shape = Part.Shape()
-        shape.read(path)
-        solids = shape.Solids
-        if len(solids) != 1:
-            raise _Unknown(
-                f"STEP import yields {len(solids)} solids; "
-                "the kernel measures exactly one part solid."
-            )
-        solid = solids[0]
-        if len(shape.Faces) != len(solid.Faces):
-            raise _Unknown("STEP import holds faces outside its single solid.")
-        if not solid.isValid():
-            raise _Unknown(
-                "imported solid is not a valid B-rep; booleans on it would be unreliable."
-            )
-        self.solid = solid
-        signatures = [_signature(face) for face in solid.Faces]
-        mapping, errors = _map_faces(step, signatures)
-        refs_by_index = {index: ref for ref, index in mapping.items()}
-        self.labels = [
-            refs_by_index.get(index, f"imported face index {index}")
-            for index in range(len(signatures))
-        ]
-        mapping, errors = self._job_refs(step, mapping, errors)
-        self.mapping, self.errors = mapping, errors
-        self.features = {name: self._feature(value) for name, value in self._declared().items()}
-        aimed = job.get("aimed_faces", [])
-        if not isinstance(aimed, list):
-            raise ValueError("job aimed_faces is not a list")
-        # ``faces`` and ``bbox_mm`` describe the STEP as exported; every setup cuts the part
-        # the plan's faced aims make.
-        self.solid, aimed_facts = _aimed_solid(solid, aimed, mapping, self.labels)
-        result = {
-            "status": "ok",
-            "bbox_mm": [_r(v) for v in _bbox(solid)],
-            "faces": [
-                {
-                    "ref": refs_by_index.get(index),
-                    "index": index,
-                    "kind": kind,
-                    "bbox_mm": [_r(v) for v in box],
-                    "area_mm2": _r(area),
-                    "fills_bbox": _fills_bbox(face),
-                }
-                for index, ((kind, area, box), face) in enumerate(
-                    zip(signatures, solid.Faces, strict=True)
+        # Job-level phases around the setups, on the timing record and the progress trail:
+        # with the setup spans they cover all job work, so a kill anywhere names its step.
+        phases = self.timing.setdefault("phases", {}) if self.timing is not None else None
+        with _timed(phases, "step_import"):
+            path, digest = job.get("step_path"), job.get("step_sha256")
+            if not isinstance(path, str) or path == UNKNOWN:
+                raise _Unknown("STEP path is unknown.")
+            if not isinstance(digest, str) or digest == UNKNOWN:
+                raise _Unknown(
+                    "STEP SHA-256 is unknown; face references cannot be bound to the file."
                 )
-            ],
-            "mapping": dict(sorted(mapping.items())),
-            "mapping_errors": dict(sorted(errors.items())),
-            "features": self.features,
-            "ops": {},
-            "setups": {},
-        }
-        if aimed_facts:
-            result["aimed_faces"] = aimed_facts
-        setups = job.get("setups", [])
-        if not isinstance(setups, list):
-            raise ValueError("job setups is not a list")
-        self.as_is_contact = {}
-        supplies, (stock, reason) = self._supplies()
-        self.raw_supplies = supplies
-        if self.as_is_contact:
-            result["as_is_contact"] = dict(sorted(self.as_is_contact.items()))
-        # Each profiled blank's own box: the traveler's receiving size for a bought blank.
-        blanks = {
-            name: [_r(v) for v in _bbox(solid)]
-            for name, (solid, why) in supplies.items()
-            if why is None and solid is not None and _profiled_supply(job.get("stock"), name)
-        }
-        if blanks:
-            result["blank_bbox_mm"] = dict(sorted(blanks.items()))
-        self.states = {
-            ref: {
-                "components": {ref.removeprefix("stock.")},
-                "completed": {},
-                "joined": set(),
-                "consumed": set(),
-                "formed": set(),
+            with open(path, "rb") as handle:
+                data = handle.read()
+            actual = hashlib.sha256(data).hexdigest()
+            if actual != digest.lower():
+                raise ValueError(f"STEP SHA-256 mismatch: job declares {digest}, file has {actual}")
+            try:
+                step = StepFile(data.decode("latin-1"))
+            except StepError as exc:
+                raise ValueError(f"STEP is not parseable: {exc}") from None
+            shape = Part.Shape()
+            shape.read(path)
+            solids = shape.Solids
+            if len(solids) != 1:
+                raise _Unknown(
+                    f"STEP import yields {len(solids)} solids; "
+                    "the kernel measures exactly one part solid."
+                )
+            solid = solids[0]
+            if len(shape.Faces) != len(solid.Faces):
+                raise _Unknown("STEP import holds faces outside its single solid.")
+            if not solid.isValid():
+                raise _Unknown(
+                    "imported solid is not a valid B-rep; booleans on it would be unreliable."
+                )
+            self.solid = solid
+        with _timed(phases, "face_binding"):
+            signatures = [_signature(face) for face in solid.Faces]
+            mapping, errors = _map_faces(step, signatures)
+            refs_by_index = {index: ref for ref, index in mapping.items()}
+            self.labels = [
+                refs_by_index.get(index, f"imported face index {index}")
+                for index in range(len(signatures))
+            ]
+            mapping, errors = self._job_refs(step, mapping, errors)
+            self.mapping, self.errors = mapping, errors
+            self.features = {name: self._feature(value) for name, value in self._declared().items()}
+            aimed = job.get("aimed_faces", [])
+            if not isinstance(aimed, list):
+                raise ValueError("job aimed_faces is not a list")
+            # ``faces`` and ``bbox_mm`` describe the STEP as exported; every setup cuts the part
+            # the plan's faced aims make.
+            self.solid, aimed_facts = _aimed_solid(solid, aimed, mapping, self.labels)
+            result = {
+                "status": "ok",
+                "bbox_mm": [_r(v) for v in _bbox(solid)],
+                "faces": [
+                    {
+                        "ref": refs_by_index.get(index),
+                        "index": index,
+                        "kind": kind,
+                        "bbox_mm": [_r(v) for v in box],
+                        "area_mm2": _r(area),
+                        "fills_bbox": _fills_bbox(face),
+                    }
+                    for index, ((kind, area, box), face) in enumerate(
+                        zip(signatures, solid.Faces, strict=True)
+                    )
+                ],
+                "mapping": dict(sorted(mapping.items())),
+                "mapping_errors": dict(sorted(errors.items())),
+                "features": self.features,
+                "ops": {},
+                "setups": {},
             }
-            for ref in supplies
-        }
-        self._init_joints()
-        self._init_process(stock if reason is None else None)
-        result["transient_faces"] = [
-            {"index": len(signatures) + index, "label": self.labels[len(signatures) + index]}
-            for index in range(len(self.synthetic_faces))
-        ]
-        result["stock"] = (
-            {"bbox_mm": [_r(v) for v in _bbox(stock)], "volume_mm3": _r(stock.Volume)}
-            if reason is None
-            else {"reason": reason}
-        )
-        outputs = dict(supplies)
-        leaves = dict.fromkeys(outputs, 0.0)  # largest known rough leave each lineage carries
-        rotary = any(
-            _rotary(op)
-            for setup in setups
-            if isinstance(setup, dict)
-            for op in setup.get("ops", [])
-            if isinstance(op, dict)
-        )
-        self.rotary_portions = {"cut": {}, "finish": {}} if rotary else None
+            if aimed_facts:
+                result["aimed_faces"] = aimed_facts
+            setups = job.get("setups", [])
+            if not isinstance(setups, list):
+                raise ValueError("job setups is not a list")
+        with _timed(phases, "stock_prep"):
+            self.as_is_contact = {}
+            supplies, (stock, reason) = self._supplies()
+            self.raw_supplies = supplies
+            if self.as_is_contact:
+                result["as_is_contact"] = dict(sorted(self.as_is_contact.items()))
+            # Each profiled blank's own box: the traveler's receiving size for a bought blank.
+            blanks = {
+                name: [_r(v) for v in _bbox(solid)]
+                for name, (solid, why) in supplies.items()
+                if why is None and solid is not None and _profiled_supply(job.get("stock"), name)
+            }
+            if blanks:
+                result["blank_bbox_mm"] = dict(sorted(blanks.items()))
+            self.states = {
+                ref: {
+                    "components": {ref.removeprefix("stock.")},
+                    "completed": {},
+                    "joined": set(),
+                    "consumed": set(),
+                    "formed": set(),
+                }
+                for ref in supplies
+            }
+            self._init_joints()
+            self._init_process(stock if reason is None else None)
+            result["transient_faces"] = [
+                {"index": len(signatures) + index, "label": self.labels[len(signatures) + index]}
+                for index in range(len(self.synthetic_faces))
+            ]
+            result["stock"] = (
+                {"bbox_mm": [_r(v) for v in _bbox(stock)], "volume_mm3": _r(stock.Volume)}
+                if reason is None
+                else {"reason": reason}
+            )
+            outputs = dict(supplies)
+            leaves = dict.fromkeys(outputs, 0.0)  # largest known rough leave each lineage carries
+            rotary = any(
+                _rotary(op)
+                for setup in setups
+                if isinstance(setup, dict)
+                for op in setup.get("ops", [])
+                if isinstance(op, dict)
+            )
+            self.rotary_portions = {"cut": {}, "finish": {}} if rotary else None
         # Setup id -> the earlier setups its stock descends from; each setup's runner.
         lineage, runners = {}, []
         for setup in setups:
-            held, held_reason, state, assembly_error = self._held(setup, outputs)
-            if held_reason is None:
-                box = _bbox(held)
-                self.sweep_mm = 2 * math.dist(box[:3], box[3:]) + 10
-            stock_in = setup.get("stock_in") if isinstance(setup, dict) else None
-            refs = stock_in if isinstance(stock_in, list) else [stock_in]
-            leave = max([0.0] + [leaves.get(ref, 0.0) for ref in refs if isinstance(ref, str)])
-            runner = _Setup(self, setup, held, held_reason, state, leave)
             clocks = self.timing["setups"] if self.timing is not None else None
+            # The setup's span covers all of its work: the stock it holds, its run and its results.
             with _timed(clocks, str(setup.get("id"))) as setup_clocks:
+                held, held_reason, state, assembly_error = self._held(setup, outputs)
+                if held_reason is None:
+                    box = _bbox(held)
+                    self.sweep_mm = 2 * math.dist(box[:3], box[3:]) + 10
+                stock_in = setup.get("stock_in") if isinstance(setup, dict) else None
+                refs = stock_in if isinstance(stock_in, list) else [stock_in]
+                leave = max([0.0] + [leaves.get(ref, 0.0) for ref in refs if isinstance(ref, str)])
+                runner = _Setup(self, setup, held, held_reason, state, leave)
                 runner.timing = setup_clocks
                 facts, ops = runner.run()
-            if assembly_error is not None:
-                facts["assembly_error"] = assembly_error
-            sid = str(setup.get("id"))
-            result["setups"][sid] = facts
-            result["ops"].update(ops)
-            outputs[sid] = runner.stock_out, runner.stock_out_reason
-            self.states[sid] = {
-                "components": state["components"],
-                "completed": runner.completed if runner.stock_out_reason is None else {},
-                "joined": state["joined"],
-                "consumed": state["consumed"],
-                "formed": state["formed"],
-            }
-            if sid in self.formed_rows:
-                facts["forms"] = self.formed_rows[sid]
-            leaves[sid] = runner.leave_out
+                if assembly_error is not None:
+                    facts["assembly_error"] = assembly_error
+                sid = str(setup.get("id"))
+                result["setups"][sid] = facts
+                result["ops"].update(ops)
+                outputs[sid] = runner.stock_out, runner.stock_out_reason
+                self.states[sid] = {
+                    "components": state["components"],
+                    "completed": runner.completed if runner.stock_out_reason is None else {},
+                    "joined": state["joined"],
+                    "consumed": state["consumed"],
+                    "formed": state["formed"],
+                }
+                if sid in self.formed_rows:
+                    facts["forms"] = self.formed_rows[sid]
+                leaves[sid] = runner.leave_out
+                if rotary:
+                    self._collect_rotary_portions(runner)
+                lineage[sid] = {
+                    up
+                    for ref in refs
+                    if isinstance(ref, str) and ref in lineage
+                    for up in (ref, *lineage[ref])
+                }
+                runners.append((sid, runner))
+        with _timed(phases, "cross_setup"):
+            for sid, runner in runners:
+                # Rule A′: a printed checkpoint must not remove stock a later setup contacts.
+                runner._finish_checkpoints(
+                    [later for later_sid, later in runners if sid in lineage[later_sid]]
+                )
             if rotary:
-                self._collect_rotary_portions(runner)
-            lineage[sid] = {
-                up
-                for ref in refs
-                if isinstance(ref, str) and ref in lineage
-                for up in (ref, *lineage[ref])
-            }
-            runners.append((sid, runner))
-        for sid, runner in runners:
-            # Rule A′: a printed checkpoint must not remove stock a later setup contacts.
-            runner._finish_checkpoints(
-                [later for later_sid, later in runners if sid in lineage[later_sid]]
-            )
-        if rotary:
-            result["rotary_coverage"] = {
-                category: self._rotary_coverage(portions)
-                for category, portions in self.rotary_portions.items()
-            }
+                result["rotary_coverage"] = {
+                    category: self._rotary_coverage(portions)
+                    for category, portions in self.rotary_portions.items()
+                }
         return result
 
     def _collect_rotary_portions(self, runner):
