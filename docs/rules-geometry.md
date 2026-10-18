@@ -2441,7 +2441,9 @@ separately. The error sentence never labels those candidates as having no cut.
 ## `vise`
 
 One row per setup. Non-vise holding (`kind` ≠ `vise`) is `not_applicable`
-(`{setup}: vise has no vise grip-zone facts for {kind} holding.`); unknown
+(`{setup}: vise has no vise grip-zone facts for {kind} holding.`), as is an
+admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table) (`hold.kind =
+"hand_fed"`: the work is fed by hand on the saw table, nothing holds it); unknown
 holding identity or any missing pose/dimension is `unknown` with the job's
 reason. With the jaws placed the kernel reports `width_mm` (part extent
 between the inner jaw planes), `jaw_separation_mm` (how far the jaws stand apart
@@ -2475,7 +2477,9 @@ parallels were installed, the part was seated, or the vise torqued.
 
 ## `thin_wall_under_clamp`
 
-One row per setup. Holding other than a vise, a chuck (a lathe `chuck_3jaw` /
+One row per setup. An admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table)
+clamps nothing, so it is `not_applicable` (`{setup}: the work is fed by hand on the
+saw table; no fixture, jaw or clamp holds it.`). Holding other than a vise, a chuck (a lathe `chuck_3jaw` /
 `chuck_4jaw`, or a `dividing_head` that names its `hold.chuck`) or a
 posed-solids fixture with `clamps` is `unsupported` (`{setup}:
 thin_wall_under_clamp has no vise grip-zone facts for {kind} holding.`), as
@@ -2581,7 +2585,10 @@ The shipped policy keeps `thin_wall_floor_mm = "unknown"` with
 ## `fixture_interference`
 
 One row per setup, for every holding kind the kernel draws (vise, chucks,
-dividing head, dead centre, angle plate, custom fixture, clamps). With the
+dividing head, dead centre, angle plate, custom fixture, clamps). An admitted
+[hand-fed hold](plan.md#hand-fed-on-the-saw-table) draws nothing and is
+`not_applicable`; a hand-fed hold whose scope is unresolved keeps the unknown
+holding row. With the
 fixture's components placed on the setup-entry stock, the kernel checks:
 
 1. every drawn component against the entry stock;
@@ -2631,6 +2638,35 @@ are cut and their contacts show (`render_scene.section`: `axis`, `at_mm`). The e
 own orthographic z-buffer rasterizer, bundled bitmap font and PNG encoder
 use no installed fonts, timestamps or machine-specific metadata. Fresh runs
 and cache hits give identical bytes.
+
+A hand-fed cut's saw side ([#335](https://github.com/pedropaulovc/prechips/issues/335))
+is drawn the same way, render-only: the host sends `guides.boxes`, each a `name`, a
+`label`, a `colour` (`saw_table`, `saw_blade` or `push_aid`) and either `box_mm` (a
+setup-frame box) or `stock_mm` (per axis, two `[anchor, offset]` ends, `anchor` the
+`min`, `mid` or `max` of the setup-entry stock box). The kernel draws each as a box with
+its own callout, lists it in `render_scene.components` with role `scene`, and never
+hit-tests it; a malformed box, or a stock-anchored one without entry stock, is a
+picture debt only. The op's profile sketch prints a waypoint marked `plain` as written
+(SCRIBED LINE, WASTE, KEEP) instead of a P number, and names the arrows of a `feed`
+path "ARROWS: WORK FEED INTO THE BLADE": they run the way the work moves, from its
+trailing end toward where the blade enters. A path with a `waste_xy`
+point is a line that cuts waste off the setup-entry blank: the sketch draws the
+blank's XY outline (`stock_box`) as a thin line, the path as the one heavier line, and
+shades the part of the blank the path cuts off on `waste_xy`'s side, its run inside the
+blank closed by the blank's outline. A path that does not cross the blank from edge to
+edge, or a `waste_xy` in neither part, shades nothing. The blank, the line and every
+other sketch item go through the panel's one XY transform from their setup-frame
+coordinates: nothing is fitted to the box. A path marked `arrows_only` draws only its
+direction arrows, clipped to the blank's outline, never a line: the hand-fed sketch
+puts its feed arrows 3 mm into the waste beside the scribed line. A `hidden` path is not
+drawn; with `ends` (two labels) the sketch keys where it enters and leaves the blank's
+outline (its own end points where it starts or stops inside), drawn with its
+`end_marker` (`square` or `cross`; a dot when absent): the hand-fed sketch keys its saw
+path's crossings ENTER and LEAVE with crosses and the scribed line's own ends LINE END
+with hollow squares. The hand-fed sketch draws only the scribed line this way (no
+separate saw path: the 0.45 mm leave is not visible on a 290 mm arc), keyed SCRIBED
+LINE, "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE" and KEEP; a `feed_from` that is
+undeclared or names no end of the line draws no arrows, ENTER or LEAVE.
 
 A guided sweep's table-side guide elements
 ([#255](https://github.com/pedropaulovc/prechips/issues/255)) are drawn for the

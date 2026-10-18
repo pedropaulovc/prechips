@@ -23,6 +23,7 @@ _WHITE = (255, 255, 255)
 _BLUE = (35, 83, 147)
 _GREEN = (24, 91, 58)
 _AMBER = (172, 111, 16)
+_FEED = (170, 52, 44)  # a hand-fed cut's saw path and feed arrows over the work (#335)
 _AMBER_LIGHT = (252, 235, 190)
 _NOMINAL_FAINT = (173, 193, 218)
 _FIXTURE = (120, 98, 76)
@@ -58,6 +59,7 @@ _KEY_ROOM_PX = 2 * _BADGE_HEIGHT
 _ORIENTATION_PX = 70
 # The legend a path sketch prints once it has drawn a direction arrow.
 _ARROWS = "ARROWS: POINT ORDER"
+_FEED_ARROWS = "ARROWS: WORK FEED INTO THE BLADE"
 # A raster of at most this many passes draws and labels every pass; a longer one is a band
 # with its first and last pass.
 _EVERY_PASS = 8
@@ -608,14 +610,22 @@ def _band_cells(points, widths, plot, exclusion):
     return centres
 
 
+def _key_label(item, prefix="P"):
+    """A waypoint's printed key: its ``P`` number, or a ``plain`` label as written (a
+    hand-fed cut's START, SAW PATH, SCRIBED LINE and WASTE keys, #335)."""
+    label = _plain(item["label"])
+    if item.get("plain") or not prefix or label.upper().startswith(prefix):
+        return label
+    return prefix + label
+
+
 def _sketch_keys(paths, waypoints):
     """The profile sketch's keys for one operation's ``paths`` and ``waypoints``, as
     ``[(label, xy)]`` in sketch XY: each point's P key and each labelled raster pass's
     (:meth:`_Diagram._raster_band`), where the sketch prints them."""
     keys = []
     for item in waypoints:
-        label = _plain(item["label"])
-        keys.append((label if label.upper().startswith("P") else "P" + label, item["xy"]))
+        keys.append((_key_label(item), item["xy"]))
     raster = [path for path in paths if path.get("raster")]
     numbers = _labelled_passes([path["raster"]["pass"] for path in raster])
     for path in sorted(raster, key=lambda p: p["raster"]["pass"]):
@@ -690,6 +700,140 @@ def _segment_distance(point, a, b):
     t = 0.0 if not length else ((point[0] - a[0]) * dx + (point[1] - a[1]) * dy) / length
     t = min(1.0, max(0.0, t))
     return math.dist(point, (a[0] + t * dx, a[1] + t * dy))
+
+
+def _panel_items(op, paths, waypoints, stock=None):
+    """One operation panel's ``(paths, waypoints, drawn points)``. A panel that shades a
+    path's waste (``waste_xy``) also draws the entry ``stock`` box's XY outline, so its
+    corners are drawn points too."""
+    op_paths = [p for p in paths if str(p.get("op", "")) == op]
+    op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
+    op_waypoints += [
+        {"label": label, "op": op, "xy": xy, "plain": True, "marker": path.get("end_marker")}
+        for path in op_paths
+        if len(path.get("ends") or []) == 2 and len(path["xy"]) >= 2
+        for label, xy in zip(path["ends"], _path_ends(path["xy"], stock), strict=True)
+    ]
+    points = [p for path in op_paths for p in path["xy"]]
+    points.extend(p["xy"] for p in op_waypoints)
+    if points and stock and any("waste_xy" in path for path in op_paths):
+        points.extend(_stock_outline(stock)[:4])
+    return op_paths, op_waypoints, points
+
+
+def _path_ends(line, stock):
+    """Where a path enters and leaves the stock box ``stock``'s XY outline (#335): at each
+    end, the crossing of its first (last) run inside the box with the outline, else its
+    own end point (inside the box, or with no box)."""
+    if not stock:
+        return [tuple(line[0]), tuple(line[-1])]
+    x0, y0, _, x1, y1, _ = stock
+    rect = (x0, y0, x1, y1)
+    inside = [x0 <= x <= x1 and y0 <= y <= y1 for x, y in line]
+    if True not in inside:
+        return [tuple(line[0]), tuple(line[-1])]
+    first = inside.index(True)
+    last = len(inside) - 1 - inside[::-1].index(True)
+    start = _crossing(line[first], line[first - 1], rect) if first else tuple(line[0])
+    end = _crossing(line[last], line[last + 1], rect) if last < len(line) - 1 else tuple(line[-1])
+    return [start, end]
+
+
+def _point_marker(canvas, point, colour, marker=None):
+    """A sketch key's point: a dot, or a hollow ``square`` (a line's own end) or a
+    ``cross`` (where a cut meets the stock's outline), so two kinds of point near each
+    other are never mistaken for one another (#335)."""
+    x, y = point
+    if marker == "square":
+        _outline(canvas, [(x - 5, y - 5), (x + 5, y - 5), (x + 5, y + 5), (x - 5, y + 5)], colour)
+        return
+    if marker == "cross":
+        canvas.line((x - 6, y - 6), (x + 6, y + 6), colour, width=3)
+        canvas.line((x - 6, y + 6), (x + 6, y - 6), colour, width=3)
+        return
+    canvas.circle(x, y, 3, fill=colour)
+
+
+def _stock_outline(stock):
+    """The XY outline of the stock box ``stock`` (``[x0, y0, z0, x1, y1, z1]``), closed,
+    counter-clockwise from its least corner."""
+    x0, y0, _, x1, y1, _ = stock
+    return [(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)]
+
+
+def _rim(rect, point):
+    """Where ``point`` (on the boundary of ``rect`` ``(x0, y0, x1, y1)``) lies along that
+    boundary, walked counter-clockwise from the least corner."""
+    x0, y0, x1, y1 = rect
+    w, h = x1 - x0, y1 - y0
+    x, y = point
+    sides = [
+        (abs(y - y0), x - x0),
+        (abs(x - x1), w + y - y0),
+        (abs(y - y1), w + h + x1 - x),
+        (abs(x - x0), 2 * w + h + y1 - y),
+    ]
+    return min(sides)[1] % (2 * (w + h))
+
+
+def _crossing(inside, outside, rect):
+    """Where the segment from ``inside`` to ``outside`` leaves ``rect``."""
+    x0, y0, x1, y1 = rect
+    (ax, ay), (bx, by) = inside, outside
+    t = 1.0
+    for low, high, a, b in ((x0, x1, ax, bx), (y0, y1, ay, by)):
+        if b < low:
+            t = min(t, (low - a) / (b - a))
+        elif b > high:
+            t = min(t, (high - a) / (b - a))
+    return (ax + (bx - ax) * t, ay + (by - ay) * t)
+
+
+def _contains(polygon, point):
+    """Whether ``point`` lies inside ``polygon`` (even-odd rule)."""
+    x, y = point
+    inside = False
+    for (ax, ay), (bx, by) in zip(polygon, polygon[1:] + polygon[:1], strict=True):
+        if (ay > y) != (by > y) and x < ax + (bx - ax) * (y - ay) / (by - ay):
+            inside = not inside
+    return inside
+
+
+def _waste_region(line, stock, waste):
+    """The polygon of the stock box ``stock``'s XY rectangle that the open polyline
+    ``line`` cuts off on the side of the point ``waste`` (#335): ``line``'s run inside the
+    rectangle, closed by the rectangle's boundary walked the way that holds ``waste``.
+    None when ``line`` does not cross the rectangle from boundary to boundary in one run,
+    or ``waste`` lies in neither part: an undelimited region is never shaded."""
+    x0, y0, _, x1, y1, _ = stock
+    rect = (x0, y0, x1, y1)
+    inside = [x0 <= x <= x1 and y0 <= y <= y1 for x, y in line]
+    if True not in inside:
+        return None
+    first = inside.index(True)
+    last = len(inside) - 1 - inside[::-1].index(True)
+    if first == 0 or last == len(line) - 1 or not all(inside[first : last + 1]):
+        return None
+    run = [
+        _crossing(line[first], line[first - 1], rect),
+        *map(tuple, line[first : last + 1]),
+        _crossing(line[last], line[last + 1], rect),
+    ]
+    perimeter = 2 * (x1 - x0 + y1 - y0)
+    corners = [(_rim(rect, c), c) for c in _stock_outline(stock)[:4]]
+    start, end = _rim(rect, run[0]), _rim(rect, run[-1])
+    for sign in (1, -1):
+        # Walk the boundary from the run's end back to its start, one way, then the other.
+        span = (sign * (start - end)) % perimeter
+        walk = sorted(
+            ((sign * (t - end)) % perimeter, corner)
+            for t, corner in corners
+            if 0 < (sign * (t - end)) % perimeter < span
+        )
+        polygon = run + [corner for _, corner in walk]
+        if _contains(polygon, waste):
+            return polygon
+    return None
 
 
 def _keys_crowd(points, scale):
@@ -1002,6 +1146,7 @@ class _Diagram:
         # Direction arrows drawn so far: a legend claims "ARROWS" only once one is drawn.
         self.arrows_drawn = 0
         self.returns_drawn = 0
+        self.feed_arrows = False
         self.inset_overflow = 0
         self.width_overflow = 0
         self.shoulders = (
@@ -1312,6 +1457,20 @@ class _Diagram:
             self.legend_ends.append(len(wrapped))
         return wrapped
 
+    def _feed_lines(self):
+        """A hand-fed cut's saw path drawn over the work with its feed arrows, called out
+        along its drawn line (``feed_lines``: setup-frame ``xyz`` points in feed order and a
+        ``label``, #335). It is a picture of the feed, never a holding solid."""
+        c = self.canvas
+        for line in self.spec.get("feed_lines", []):
+            pixels = [c.project(point) for point in line["xyz"]]
+            if len(pixels) < 2:
+                continue
+            self._ordered_path(pixels, _FEED, width=3, arrows=True)
+            self.callouts.append(
+                _Callout(line["label"], [pixels[len(pixels) // 2]], _FEED, along=tuple(pixels))
+            )
+
     def render(self):
         self._header()
         self._context()
@@ -1326,6 +1485,7 @@ class _Diagram:
                 )
             )
         self._components()
+        self._feed_lines()
         self._origin_datums_tool()
         first_measurement = len(self.canvas.text_boxes)
         self._measurements()
@@ -2421,7 +2581,9 @@ class _Diagram:
         """Name only the direction arrows and lifted returns actually drawn."""
         row = top
         if self.arrows_drawn > arrows_before:
-            _text(self.canvas, left, row, _ARROWS, _MUTED)
+            # A hand-fed saw path's arrows are the way the work is fed past the blade.
+            legend = _FEED_ARROWS if getattr(self, "feed_arrows", False) else _ARROWS
+            _text(self.canvas, left, row, legend, _MUTED)
             row -= _LEADING
         if self.returns_drawn:
             _text(self.canvas, left, row, _RETURNS, _MUTED)
@@ -2449,10 +2611,8 @@ class _Diagram:
                 width=1,
             )
             _text(c, x + 8, y + 5, f"OP {op}", colour)
-            op_paths = [p for p in paths if str(p.get("op", "")) == op]
-            op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
-            points = [p for path in op_paths for p in path["xy"]]
-            points.extend(p["xy"] for p in op_waypoints)
+            stock = self.spec.get("stock_box")
+            op_paths, op_waypoints, points = _panel_items(op, paths, waypoints, stock)
             if not points:
                 continue
             project, plot, badges = self._sketch_plot(
@@ -2465,13 +2625,42 @@ class _Diagram:
             labels = []
             op_paths = self._raster_band(op_paths, project, colour, labels)
             direction_keys = {0, len(op_paths) // 2, len(op_paths) - 1}
+            for path in op_paths:
+                if "waste_xy" not in path or not stock:
+                    continue
+                # The waste the line cuts off the entry blank, shaded, then the blank's
+                # outline thin: the keep side stays unshaded.
+                region = _waste_region(path["xy"], stock, path["waste_xy"])
+                if region:
+                    tint = tuple(int(255 - (255 - channel) * 0.22) for channel in colour)
+                    c.polygon([project(p) for p in region], tint)
+                _outline(c, [project(p) for p in _stock_outline(stock)[:4]], _INK, width=1)
             for path_index, path in enumerate(op_paths):
+                if path.get("hidden") is True:
+                    # Only its ends are keyed (``ends``): where the cut meets the outline.
+                    continue
+                if path.get("dashed") is True:
+                    # A line the cut follows, not a travelled path: dashed, no arrows.
+                    _dashed(c, [path["xy"]], project, colour)
+                    continue
                 directed = path.get("directed") is True
+                self.feed_arrows = self.feed_arrows or (directed and path.get("feed") is True)
+                # Arrows alone (``arrows_only``) mark a direction beside a drawn line, inside
+                # the stock's outline, never as a second line.
+                only = path.get("arrows_only") is True
+                inside = None
+                if only and stock:
+                    corners = [project(p) for p in _stock_outline(stock)[:4]]
+                    xs, ys = [p[0] for p in corners], [p[1] for p in corners]
+                    inside = (min(xs), min(ys), max(xs), max(ys))
                 self._ordered_path(
                     [project(p) for p in path["xy"]],
                     colour,
-                    width=2,
-                    arrows=directed and path_index in direction_keys,
+                    # A line bounding a shaded waste is the one heavier line.
+                    width=3 if "waste_xy" in path else 2,
+                    arrows=directed and (only or path_index in direction_keys),
+                    clip=inside,
+                    line=not only,
                 )
             self._waypoint_badges(
                 op_waypoints + labels,
@@ -2490,10 +2679,9 @@ class _Diagram:
         title_band = _TEXT_HEIGHT + 22
         needs = [title_band + _SKETCH_PLOT_MIN + 12] * rows
         for index, op in enumerate(ops):
-            op_paths = [p for p in paths if str(p.get("op", "")) == op]
-            op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
-            points = [p for path in op_paths for p in path["xy"]]
-            points.extend(p["xy"] for p in op_waypoints)
+            op_paths, op_waypoints, points = _panel_items(
+                op, paths, waypoints, self.spec.get("stock_box")
+            )
             if not points:
                 continue
             need = title_band + self._sketch_need(
@@ -2544,8 +2732,9 @@ class _Diagram:
         labels.extend({"label": label, "xy": xy} for label, xy in _sketch_keys(raster, []))
         return [p for p in paths if not p.get("raster")]
 
-    def _ordered_path(self, pixels, colour, width=3, arrows=True, clip=None):
-        """Space direction keys by travelled distance, not by tessellation chords."""
+    def _ordered_path(self, pixels, colour, width=3, arrows=True, clip=None, line=True):
+        """Space direction keys by travelled distance, not by tessellation chords. Without
+        ``line`` only the direction arrows are drawn along the path."""
         c = self.canvas
         runs = []
         previous = None
@@ -2558,7 +2747,8 @@ class _Diagram:
             length = math.dist(a, b)
             if length <= 1e-9:
                 continue
-            c.line(a, b, colour, width=width)
+            if line:
+                c.line(a, b, colour, width=width)
             if not arrows:
                 continue
             if previous is None or math.dist(previous, a) > 1e-6:
@@ -2607,11 +2797,7 @@ class _Diagram:
             return []
         c = self.canvas
         left, top, right, bottom = plot
-        labels = [_plain(item["label"]) for item in waypoints]
-        labels = [
-            prefix + label if prefix and not label.upper().startswith(prefix) else label
-            for label in labels
-        ]
+        labels = [_key_label(item, prefix) for item in waypoints]
         points = [project(item["xy"]) for item in waypoints]
         if exclusion is not None:
             available = _band_cells(
@@ -2622,12 +2808,13 @@ class _Diagram:
             available, cells = self._grid_cells(points, labels, plot, perimeter)
         if getattr(self, "inset_overflow", 0) > 0 or getattr(self, "width_overflow", 0) > 0:
             return []
-        placed = []
+        placed, markers = [], {}
         for item, label, point, cell in zip(waypoints, labels, points, cells, strict=True):
             badge, outline = available[cell], item.get("outline")
             end = _nearest_on_outline(outline, badge) if outline else point
             placed.append((badge, label, end, item.get("colour", colour), bool(outline)))
-        for badge, label, point, point_colour, hidden in placed:
+            markers[len(placed) - 1] = item.get("marker")
+        for index, (badge, label, point, point_colour, hidden) in enumerate(placed):
             if point_colour == _CONTACT:
                 c.line(point, badge, _WHITE, width=6)
                 c.circle(*point, 6 if hidden else 5, fill=_WHITE)
@@ -2636,7 +2823,7 @@ class _Diagram:
                 c.circle(*point, 4, fill=_WHITE, outline=point_colour)
                 self.hidden_leaders.append((label, [point, badge]))
                 continue
-            c.circle(*point, 3, fill=point_colour)
+            _point_marker(c, point, point_colour, markers[index])
             self.leaders.append((label, [point, badge]))
         for badge, label, _, badge_colour, _ in placed:
             _badge(c, badge, label, badge_colour)

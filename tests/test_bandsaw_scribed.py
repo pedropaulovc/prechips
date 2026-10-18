@@ -108,9 +108,10 @@ def test_the_vertical_bandsaw_card_names_the_line_and_the_stock_to_leave():
     setup = bundle.plan["setups"][0]
     html, _, _, _ = _Traveler(bundle, findings, {}, None).operations(setup, {}, {"notes": 2})
     text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", html))
-    assert "outside the line scribed in S1 op 10" in text
-    assert "by hand along the line" in text
-    assert "leave 0.500 mm outside the line" in text
+    assert "guided by the line scribed in S1 op 10" in text
+    assert "leave at least 0.500 mm on the waste side of the scribed line" in text
+    # The waste side is said once, in the target; the feed cell only says by hand.
+    assert text.count("waste side") == 1
     assert "STOP: no feed" not in text
 
 

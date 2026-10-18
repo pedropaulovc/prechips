@@ -5,6 +5,7 @@ from .resolution import (
     UNKNOWN,
     authored,
     fraction,
+    hand_fed,
     inch_sizes,
     inventory_record,
     number,
@@ -131,7 +132,12 @@ def evaluate(bundle):
                 for low, high in ranges
             )
         )
-        if kind in (UNKNOWN, "accessory") or not item:
+        if hand_fed(bundle, setup)[0] == "admitted":
+            status, message = (
+                "not_applicable",
+                "the work is fed by hand on the saw table; no collet or chuck holds it",
+            )
+        elif kind in (UNKNOWN, "accessory") or not item:
             status, message = "unknown", "selected collet/chuck identity is unresolved"
         elif not relevant:
             status, message = "not_applicable", "selected fixture is not a collet/chuck"

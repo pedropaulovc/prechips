@@ -1,0 +1,50 @@
+# Synthetic test shop for the hand-fed-saw fixture (#335). Every number here is an authored
+# test specification; none is a measurement of Pedro's shop
+# (../../inventory/pedro-shop.toml), a vendor catalogue fact or a purchase. verify = false
+# means "specified by the fixture author", never "measured". Do not copy these items into a
+# real inventory.
+stock = []
+
+# The vertical bandsaw the hand-fed cut runs on: its vertical mode is what admits a cut
+# along a scribed line, the work fed by hand on its table.
+[machines.test-bandsaw]
+kind = "bandsaw"
+make = "synthetic test specification"
+saw_modes = ["horizontal", "vertical"]
+# source: synthetic test specification; basis: the 80/120/200 ft/min belt steps of a 4 x 6 in saw
+blade_speed_sfm = [80, 200]
+note = "4 x 6 in horizontal/vertical metal-cutting bandsaw; in vertical mode its table carries the work."
+verify = false
+
+[machines.test-bench]
+kind = "bench"
+note = "Layout and filing bench with a surface plate; no spindle, DRO or cutting axes."
+verify = false
+
+# 10/14 pitch for the 9.06 mm bar: about 3.6 to 5 teeth in the cut. Erko-tools "Bimetal
+# bandsaw blades, Choose the teeth per inch" (https://docs.rs-online.com/7589/A700000012806837.pdf
+# p.1): full material, variable teeth, below 10 mm: 10/14 TPI; its STD-K band (p.6) comes
+# in 12.7 x 0.64 mm with 10/14T, the 1/2 in band a 4 x 6 in saw takes.
+[tools.test-bandsaw-blade]
+name = "10/14 pitch bi-metal blade, 12.7 x 0.64 mm"
+kind = "bandsaw"
+material = "M42"
+kerf_mm = { value = 1.0, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+tpi = { value = [10, 14], cite = "Erko-tools Bimetal bandsaw blades, Choose the teeth per inch (https://docs.rs-online.com/7589/A700000012806837.pdf p.1): full material, variable teeth, below 10 mm: 10/14 TPI", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+verify = false
+
+# The push aid that keeps the hands off the blade at the end of the hand-fed cut.
+[fixtures.test-push-stick]
+kind = "push_stick"
+name = "push stick"
+note = "Notched hardwood push stick, 300 mm long, its heel notch hooked over the trailing end of the work."
+verify = false
+
+# The template the rocker's R800 top edge is scribed from.
+[gauges.test-r800-template]
+kind = "profile_gauge"
+note = "1.5 mm gauge-plate cut-out of the rocker's R800 top edge, its edge on the nominal radius."
+# source: synthetic test specification; basis: the one radius its edge is cut to
+range_mm = [800.0, 800.0]
+resolution_mm = { value = 0.05, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+verify = false

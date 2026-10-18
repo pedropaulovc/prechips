@@ -39,6 +39,7 @@ from .rules.geometry_common import TURNING, approach
 from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
+    HAND_FED,
     HAND_FINISH,
     LENGTH_TOLERANCE_MM,
     MAKE_OP_FIELDS,
@@ -51,6 +52,7 @@ from .rules.resolution import (
     authored_names,
     coating_process,
     drawing_precision,
+    hand_fed,
     identity,
     jaw_top_z,
     length_mm,
@@ -1933,6 +1935,15 @@ _STOCK_FORMS = {
 }
 # Stock / stock-state keys that place solids for the kernel; not bench instructions.
 _PLACEMENT_KEYS = {"origin_mm", "axis", "section_axis", "as_is_faces", "id", "components"}
+# A hand-fed cut's declared start end and end-of-cut support, as the HOLD prints them.
+_FEED_ENDS = frozenset({"+X", "-X", "+Y", "-Y"})
+# A coordinate in authored prose: an axis letter then a number or a +/- span, not the
+# "x" of a "70 x 50" size (#335).
+_PROSE_COORDINATE = re.compile(r"(?i)(?<!\d )(?<!\d)\b[xyz]\s*(?:\+/\s*-|±|[-+−]?\d)")
+_END_SUPPORT = {
+    "push_aid": "End of the cut: finish it with the push aid, never the hands.",
+    "outfeed_table": "End of the cut: the outfeed table carries the work off the blade.",
+}
 # A ``hold.clamps`` label's role word in the HOLD text (see clamp_labels).
 _CLAMP_ROLES = {"C": "clamp", "LOC": "locator", "SUP": "support"}
 # Machine kinds whose top a shop-made fixture's base stands on, in shop words.
@@ -4128,6 +4139,19 @@ class _Traveler:
     def zero_name(self, setup):
         return f"Setup {setup['id']} zero"
 
+    def frame_tag(self, setup=None):
+        """`` (from Setup <id> zero)`` after an op row's setup-frame coordinates when the
+        job page also prints model (STEP) coordinates, in the plan's stock note, so a
+        reader never compares numbers from two frames unnamed (#335); "" otherwise."""
+        setup = setup or self.setup
+        note = _mapping(self.plan.get("stock")).get("note")
+        if setup is None or not (isinstance(note, str) and _PROSE_COORDINATE.search(note)):
+            return ""
+        if re.search(r"(?i)\bsetup \S+ zero\b", note):
+            # The note already names the setup frame its coordinates are in.
+            return ""
+        return f" (from {self.zero_name(setup)})"
+
     def bench(self, text, setup=None):
         """Plan / rule prose in shop words: no ids, files, hashes or long decimals.
         Registered bare names replace whole reference tokens, never a word's substring."""
@@ -4311,7 +4335,23 @@ class _Traveler:
 
         fixture = hold.get("fixture", "unknown")
         uses = self.shop_made_uses(setup)
-        if fixture == "unknown":
+        scope, why = hand_fed(self.bundle, setup)
+        if hold.get("kind") == HAND_FED and scope != "admitted":
+            steps.append(f"STOP: hand-fed holding not established ({why}) — do not run.")
+        elif hold.get("kind") == HAND_FED:
+            # Nothing clamps the work: the operator feeds it into the blade on the table.
+            lines = [
+                self.saw_setting(op)
+                for op in setup.get("ops", [])
+                if op.get("do") in SAW_OPS and "follows" in op
+            ]
+            steps.append(
+                "Fed by hand on the saw table, sawing "
+                + " and ".join(dict.fromkeys(lines))
+                + "; no vise or clamp holds the work."
+            )
+            steps.extend(self.feeding(hold, setup))
+        elif fixture == "unknown":
             steps.append("STOP: holding not chosen — do not run.")
         else:
             mount = "Mount the " + self.reference(fixture, "workholding")
@@ -4441,6 +4481,43 @@ class _Traveler:
             "<h2>HOLD</h2>" + _list(steps),
             below + self.indexing(setup),
         )
+
+    def route_holding(self, setup):
+        """The STOCK AND ROUTE table's holding cell: the one hand-fed resolution the HOLD
+        prints (:func:`hand_fed`), else the fixture, else a STOP."""
+        hold = _mapping(setup.get("hold"))
+        scope = hand_fed(self.bundle, setup)[0]
+        if scope == "admitted":
+            return "fed by hand on the saw table"
+        if scope != "fixture" or hold.get("fixture", "unknown") == "unknown":
+            return "STOP: not chosen"
+        return self.reference(hold["fixture"], "workholding")
+
+    def feeding(self, hold, setup):
+        """A hand-fed cut's declared feeding (``guide_above_mm``, ``push_aid``,
+        ``feed_from``, ``end_support``), one step each; an undeclared one is a STOP."""
+        from prechips.kernel import feed_from_ambiguity
+
+        guide, push = hold.get("guide_above_mm"), hold.get("push_aid", UNKNOWN)
+        start, end = hold.get("feed_from"), hold.get("end_support")
+        ambiguity = feed_from_ambiguity(self.bundle, setup)
+        return [
+            f"Upper blade guide: {self.operative(guide)} mm above the top of the work."
+            if _known(guide)
+            else "STOP: upper blade-guide height not declared — do not run.",
+            f"Push aid: {self.reference(push, 'fixtures')}."
+            if push != UNKNOWN
+            else "STOP: push aid not declared — do not run.",
+            f"Start the cut at the {start} end of the line: feed the work toward {start} into "
+            "the blade, its trailing end behind, as the arrows in the picture run."
+            if start in _FEED_ENDS and not ambiguity
+            else f"STOP: {ambiguity} — do not run."
+            if ambiguity
+            else "STOP: end of the line the cut starts from not declared — do not run.",
+            _END_SUPPORT[end]
+            if end in _END_SUPPORT
+            else "STOP: how the end of the cut is supported not declared — do not run.",
+        ]
 
     def align_step(self, setup, hold):
         """The step that squares a vise's fixed jaw, or an angle plate's locating face, to
@@ -7409,7 +7486,7 @@ class _Traveler:
         if not (_known(x) and _known(y)):
             return [_Box("STOP: hole X/Y not set")]
         o = self.operative
-        return [f"tool axis X {o(x)}, Y {o(y)}"]
+        return [f"tool axis X {o(x)}, Y {o(y)}{self.frame_tag(setup)}"]
 
     def dro_to_z(self, setup, op):
         """The depth the DRO shows for ``op``: the ``dro_to_z`` coordinates checked (rounded
@@ -8020,30 +8097,85 @@ class _Traveler:
         return "REVERSE" if op.get("do") in _AXIAL_OPS and hand == "left" else "FORWARD"
 
     def saw_setting(self, op):
-        """Where a saw cut runs: a straight cut's blade-centre plane, or the scribed line a
-        cut follows (named by its layout op)."""
+        """Where a saw cut runs: a straight cut's blade-centre plane, or the scribed line
+        that guides a cut (named by its layout op). Which side of it the saw takes is said
+        once, in the cut's target (:meth:`saw_leave`)."""
         if "follows" in op:
-            return f"outside the line scribed in {_text(op['follows']).replace(':', ' op ')}"
+            return "guided by the line scribed in " + _text(op["follows"]).replace(":", " op ")
         plane = _mapping(op.get("cut_plane"))
         return (
             f"blade centre {_text(plane.get('axis')).upper()} "
             f"{_number(plane.get('value'))} {self.bundle.features.get('units', '?')}"
         )
 
-    def saw_leave(self, op, purpose="for filing"):
-        """The stock a saw that follows a scribed line leaves outside it: ``for filing`` at
-        the bench, ``outside the line`` on a machine card (a trammel or file takes it)."""
+    def saw_leave(self, op, purpose=" for filing"):
+        """The stock a saw that follows a scribed line leaves on its waste side: ``for
+        filing`` at the bench, nothing more on a machine card (a trammel or file takes
+        it). The one place a line-following cut names the waste side."""
         allowance = op.get("allowance_mm")
         if not _known(allowance):
-            return _Box(f"STOP: stock to leave {purpose} not established")
-        return f"leave {self.operative(allowance)} mm {purpose}"
+            return _Box(f"STOP: stock to leave on the waste side{purpose} not established")
+        # A minimum: the saw may leave more for the file, never less.
+        return (
+            f"leave at least {self.operative(allowance)} mm on the waste side of the scribed "
+            f"line{purpose}"
+        )
 
-    def hand_saw_step(self, op, numbers):
+    def feed_direction(self, setup):
+        """The way the work moves past a hand-fed blade: from its trailing end toward the
+        ``feed_from`` end the cut starts at, as the HOLD and the picture's arrows say."""
+        from prechips.kernel import feed_from_ambiguity
+
+        start = _mapping(setup.get("hold")).get("feed_from")
+        if start not in _FEED_ENDS:
+            return _Box("STOP: feed direction not declared")
+        ambiguity = feed_from_ambiguity(self.bundle, setup)
+        if ambiguity:
+            return _Box(f"STOP: {ambiguity}")
+        trailing = ("-" if start[0] == "+" else "+") + start[1]
+        return f"feed from {trailing} toward {start}"
+
+    def saw_ends(self, setup, op):
+        """Where a saw that follows a scribed line running to the blank's outline enters
+        and leaves it (#335): where the cut, the line offset by the allowance into the
+        waste, meets the outline (:func:`prechips.kernel.saw_crossings`), in the setup
+        frame; "" when the line stays inside the blank or its crossings are unknown."""
+        from prechips.kernel import saw_crossings
+
+        if "follows" not in op:
+            return ""
+        crossings = saw_crossings(self.bundle, setup, op) or []
+        if not crossings:
+            return ""
+        o, allowance = self.operative, self.operative(op["allowance_mm"])
+        faces = list(dict.fromkeys(c["face"] for c in crossings))
+        # Every number and face printed comes from the crossings themselves: the cut (the
+        # line offset by the allowance into the waste) meeting the blank's outline.
+        where = f"where the cut, {allowance} mm off the scribed line on the waste side, meets " + (
+            "the " + faces[0] + " face" if len(faces) == 1 else "the blank's sides"
+        )
+        points = [
+            f"X {o(c['xy'][0])}, Y {o(c['xy'][1])}" + ("" if len(faces) == 1 else f" ({c['face']})")
+            for c in crossings
+        ]
+        on = f" on the {faces[0]} face" if len(faces) == 1 else ""
+        frame = self.frame_tag(setup)
+        from prechips.kernel import feed_from_ambiguity
+
+        fed = _mapping(setup.get("hold")).get("feed_from") in _FEED_ENDS
+        if len(points) == 2 and fed and not feed_from_ambiguity(self.bundle, setup):
+            return f"Enter at {points[0]} and leave at {points[1]}{on}{frame}: {where}."
+        return f"Cut through at {' and '.join(points)}{on}{frame}: {where}."
+
+    def hand_saw_step(self, op, numbers, setup=None):
         """A bench hand-saw card: the straight cut's plane and the side kept, or "saw
         outside the scribed line, leave <allowance> for filing"."""
         if "follows" in op:
             separator = "; " if self.saw_leave(op).startswith("STOP") else ", "
-            return f"Hand saw {self.saw_setting(op)}{separator}{self.saw_leave(op)}."
+            ends = self.saw_ends(setup, op) if setup else ""
+            return f"Hand saw {self.saw_setting(op)}{separator}{self.saw_leave(op)}." + (
+                " " + ends if ends else ""
+            )
         plane = _mapping(op.get("cut_plane"))
         axis = _text(plane.get("axis")).upper()
         sides = {"above": ("+", "-"), "below": ("-", "+")}.get(plane.get("keep"))
@@ -8067,11 +8199,11 @@ class _Traveler:
             # A hand saw: no blade speed or machine feed applies.
             return "—", "—", False
         if op.get("do") in SAW_OPS and "follows" in op:
-            # A vertical bandsaw along a scribed line: the work is fed by hand.
+            # A vertical bandsaw following a scribed line: the work is fed by hand.
             speed = numbers.get("blade_speed_sfm")
             return (
                 (_number(speed) + " sfm") if _known(speed) else "STOP: no blade speed",
-                "by hand along the line",
+                "by hand",
                 not _known(speed),
             )
         if op.get("do") in SAW_OPS:
@@ -8241,7 +8373,7 @@ class _Traveler:
             )
             line = (
                 f"Layout: blue the part; scribe R{_number(numbers.get('radius_mm'))} mm "
-                f"about the centre X {o(centre[0])}, Y {o(centre[1])}"
+                f"about the centre X {o(centre[0])}, Y {o(centre[1])}{self.frame_tag()}"
             )
             if axis:
                 line += f", on the axis of {self.feature_name(axis)}"
@@ -8250,7 +8382,7 @@ class _Traveler:
             if isinstance(ends, list) and len(ends) == 2:
                 line += (
                     f"; arc ends X {o(ends[0][0])}, Y {o(ends[0][1])} and "
-                    f"X {o(ends[1][0])}, Y {o(ends[1][1])}"
+                    f"X {o(ends[1][0])}, Y {o(ends[1][1])}{self.frame_tag()}"
                 )
             elif ends is None:
                 line += "; scribe the full circle"
@@ -8382,14 +8514,15 @@ class _Traveler:
             scribed = saw and "follows" in op
             if saw:
                 direction = (
-                    "outside the line"
+                    self.feed_direction(setup)
                     if scribed
                     else "keep " + _text(_mapping(op.get("cut_plane")).get("keep"))
                 )
             saw_numbers = self.records.get(("saw_cut", f"{setup['id']}:{op['op']}"), {})
             rest_cells, rest_lines = ([], []) if saw else self.rest_steps(setup, op)
             if scribed:
-                target = [self.saw_leave(op, "outside the line")]
+                target = [self.saw_leave(op, ""), self.saw_ends(setup, op)]
+                target = [part for part in target if part]
             elif saw:
                 target = [
                     "retained edge " + _number(saw_numbers.get("retained_boundary_mm")) + " mm"
@@ -8497,7 +8630,7 @@ class _Traveler:
                 if saw:
                     # A hand-saw card: where the blade runs and what it leaves, then the note.
                     step = " ".join(
-                        filter(None, [self.hand_saw_step(op, saw_numbers), instruction])
+                        filter(None, [self.hand_saw_step(op, saw_numbers, setup), instruction])
                     )
                 cells = (_text(op["op"]), features, tool, step)
                 rows.append(
@@ -9004,7 +9137,7 @@ class _Traveler:
             centre = arc.get("centre_setup_xy") or ["unknown", "unknown"]
             description = (
                 f"Cutter-centre arc R{o(arc.get('cutter_centre_radius_mm'))} "
-                f"about X {o(centre[0])}, Y {o(centre[1])}"
+                f"about X {o(centre[0])}, Y {o(centre[1])}{self.frame_tag(setup)}"
             )
             rows = []
             after = None
@@ -9675,10 +9808,19 @@ class _Traveler:
         if not render:
             return ""
         scene = _mapping(render.get("scene"))
-        fixture = self.reference(_mapping(setup.get("hold")).get("fixture"), "workholding")
+        hold = _mapping(setup.get("hold"))
+        fixture = self.reference(hold.get("fixture"), "workholding")
         caption = [f"Setup {setup['id']} — {self.arrival(setup)}, held in the {fixture}."]
+        debts = scene.get("debts") or []
+        unheld = hand_fed(self.bundle, setup)[0] == "admitted"
+        if unheld:
+            # Nothing holds the work, so no fixture is missing from the picture.
+            caption = [
+                f"Setup {setup['id']} — {self.arrival(setup)}, fed by hand on the saw table."
+            ]
+            debts = [debt for debt in debts if not str(debt).startswith("fixture not drawn:")]
         lines = []
-        for debt in scene.get("debts") or []:
+        for debt in debts:
             text = re.sub(r"^(?:fixture )?not drawn:\s*", "", str(debt))
             text = re.sub(
                 r"(?i)^fixture pose/dimensions unmeasured or unavailable:\s*(.+)$",
@@ -9689,7 +9831,7 @@ class _Traveler:
             text = re.sub(r"'([^']+)' has no fixture solid model", r"\1 (no 3D model)", text)
             lines.append("NOT SHOWN: " + text)
         lines.extend(str(debt) for debt in scene.get("render_debts") or [])
-        if render.get("fixture") != "modeled" and not lines:
+        if render.get("fixture") != "modeled" and not lines and not unheld:
             lines.append("NOT SHOWN: part of the holding is not modelled.")
         width, height = scene["width_px"], scene["height_px"]
         panels = scene["print_panels"]
@@ -10320,9 +10462,7 @@ class _Traveler:
                     s["id"],
                     self.arrival(s),
                     self.reference(s.get("machine"), "machines"),
-                    "STOP: not chosen"
-                    if _mapping(s.get("hold")).get("fixture", "unknown") == "unknown"
-                    else self.reference(s["hold"]["fixture"], "workholding"),
+                    self.route_holding(s),
                 )
                 for s in setups
             ],

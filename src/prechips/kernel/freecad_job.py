@@ -3799,6 +3799,50 @@ def _guide_solids(setup, debts):
     return drawn
 
 
+_SCENE_ANCHORS = ("min", "mid", "max")
+
+
+def _scene_boxes(setup, stock, debts):
+    """[(name, label, colour key, solid)] of a setup's render-only scene boxes
+    (``guides.boxes``): what stands beside the work without holding it, such as a hand-fed
+    cut's saw table, blade and push aid (#335). Each is ``box_mm`` in the setup frame or
+    ``stock_mm``, three ``[[anchor, offset], [anchor, offset]]`` spans (``anchor`` the
+    ``min``/``mid``/``max`` of the entry stock ``stock`` along that axis). Like the guide
+    rollers they are drawn only: never fixture components, so no hit test, clash, contact
+    or clearance reads them. A malformed box, or a stock-anchored one without the stock,
+    is a picture debt (``debts``), not drawn."""
+    drawn = []
+    boxes = ((setup.get("render") or {}).get("guides") or {}).get("boxes") or []
+    for spec in boxes:
+        name = str(spec.get("name", "scene box"))
+        box = spec.get("box_mm")
+        spans = spec.get("stock_mm")
+        if spans is not None and stock is not None and isinstance(spans, list) and len(spans) == 3:
+            try:
+                box = [
+                    stock[axis] * (1 - f) + stock[axis + 3] * f + offset
+                    for end in (0, 1)
+                    for axis, span in enumerate(spans)
+                    for f, offset in [
+                        ({"min": 0.0, "mid": 0.5, "max": 1.0}[span[end][0]], span[end][1])
+                    ]
+                ]
+            except (KeyError, IndexError, TypeError):
+                box = None
+        ok = (
+            isinstance(box, list)
+            and len(box) == 6
+            and all(map(_number, box))
+            and all(box[i + 3] > box[i] for i in range(3))
+            and spec.get("colour") in _COLOURS
+        )
+        if not ok:
+            debts.append(f"{name} not drawn: its position or size is unknown or malformed")
+            continue
+        drawn.append((name, str(spec.get("label", name)).upper(), spec["colour"], _box_shape(box)))
+    return drawn
+
+
 def _guide_tags(guides, taken):
     """``guides`` ((name, op, solid[, group key])) with each guide element's mesh tag distinct
     from every name in ``taken`` (the setup's authored and holding solids) and from each
@@ -3895,6 +3939,9 @@ _COLOURS = {
     "clamp": (164, 132, 64),
     "rest": (176, 96, 72),
     "guide": (72, 116, 148),  # a guided sweep's table-side rollers, drawn only
+    "saw_table": (196, 200, 204),  # a hand-fed cut's saw table, drawn only
+    "saw_blade": (170, 52, 44),  # a hand-fed cut's blade at the cut start, drawn only
+    "push_aid": (156, 118, 66),  # a hand-fed cut's push aid, drawn only
 }
 
 
@@ -9581,6 +9628,15 @@ class _Setup:
         )
         roles = {key: role for key, _, _, role in _GUIDE_GROUPS}
         solids += [(name, shape, _COLOURS["guide"]) for name, _, shape, _ in guides]
+        # A hand-fed cut's saw table, blade and push aid: drawn only, never holding (#335).
+        taken = {name for name, _, _ in solids} | {name for name, _ in self.fixture_possible}
+        boxes = _scene_boxes(self.setup, self.box, render_debts)
+        tags = _guide_tags([(name, None, shape) for name, _, _, shape in boxes], taken)
+        scene_boxes = [
+            (tag, label, colour, shape)
+            for (tag, _, _), (_, label, colour, shape) in zip(tags, boxes, strict=True)
+        ]
+        solids += [(name, shape, _COLOURS[colour]) for name, _, colour, shape in scene_boxes]
         for name, shape, colour in solids + possible:
             mesh(shape, colour, tag=name)
         parallels = any(c["role"] == "parallel" for c in self.fixture)
@@ -9613,6 +9669,10 @@ class _Setup:
             + [
                 {"name": name, "role": roles[group], "exact": True, "box_mm": _bbox(shape)}
                 for name, _, shape, group in guides
+            ]
+            + [
+                {"name": name, "role": "scene", "exact": True, "box_mm": _bbox(shape)}
+                for name, _, _, shape in scene_boxes
             ],
             "debts": debts,
         }
@@ -9736,6 +9796,18 @@ class _Setup:
         components += _guide_components(
             [(name, op, _bbox(shape), group) for name, op, shape, group in guides]
         )
+        for name, label, _, shape in scene_boxes:
+            box = list(_bbox(shape))
+            components.append(
+                {
+                    "name": name,
+                    "label": label,
+                    "role": "guide",
+                    "box_mm": box,
+                    "center_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                    "meshes": [name],
+                }
+            )
         if section_view is not None:
             axis, keep, plane = section_view[:3]
             # A solid wholly on the removed near side is not in the section: no callout.
@@ -9776,6 +9848,7 @@ class _Setup:
             "primary_tool": tool,
             "paths": sketch,
             "axial_paths": annotation.get("axial_paths", []),
+            "feed_lines": annotation.get("feed_lines", []),
             "waypoints": waypoints,
             "fixed_jaw_label": annotation.get("fixed_jaw_label"),
             "holding_name": annotation.get("holding_name"),
@@ -9847,6 +9920,7 @@ class _Setup:
         # no contact, clearance or blade path is measured against them.
         possible_names = {name for name, _ in self.fixture_possible}
         possible_names |= {name for name, *_ in guides}
+        possible_names |= {name for name, _, _, _ in scene_boxes}
         held = [(name, shape) for name, shape, _ in solids if name not in possible_names]
         # A saw's cut is its blade's path, not the offcut that falls away.
         blades = self._blade_paths(held)

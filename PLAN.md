@@ -1388,6 +1388,11 @@ sheet.
    a straight one) and errors below the policy's `saw_min_teeth_in_work`.
    Unknown pitch, minimum or thickness is debt, and a hollow, open, split or
    stepped section leaves the thickness unknown.
+   **Hand-fed hold (2026-10-18, #335):** `hold.kind = "hand_fed"` declares a
+   vertical bandsaw cut along a scribed line fed by hand on the saw table: no
+   fixture field is owed and the collet/chuck and fixture screens are not
+   applicable. Any other setup with it is `BadInput`; unresolved saw identities
+   keep it `?`. No hand-feed size or safety minimum is checked (#343).
 
    **Process features shipped (2026-10-06, round-4 ShaftPrep):** plan-owned
    `process_features` (`end_face`, `centre_hole`) are stock preparation the

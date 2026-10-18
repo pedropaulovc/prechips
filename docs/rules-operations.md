@@ -496,7 +496,7 @@ kind. It is judged per operation from the selected tool, not the action, so a
 hand saw beside a powered cut in the same setup still has none, while a bandsaw
 blade or an unresolved or unverified tool keeps this blade-speed screen. A bandsaw
 cut that `follows` a scribed line (vertical mode) keeps its sourced, clamped blade
-speed but has no descent feed: the work is fed by hand along the line, so
+speed but has no descent feed: the work is fed by hand, so
 `feed_mm_min` is `not_applicable` and its absence is no debt.
 See [cutting data](cutting-data.md) and [native saw geometry](rules-geometry.md#saw-cut-off).
 

@@ -161,6 +161,8 @@ GEOMETRY_CASES = (
     ("unclaimed-face", "plan.toml", "expected", 2, "coverage", ("S2",), ("S2",)),
     ("profiled-blank", "plan.toml", "expected", 2, "coverage", (), ()),
     ("profiled-blank", "machined-ends.toml", "expected/machined-ends", 0, None, (), ()),
+    # The hand-fed saw setup's required rows pass; the arm it does not make keeps errors.
+    ("hand-fed-saw", "plan.toml", "expected", 2, None, (), ()),
     (
         "fixture-holds",
         "plan.toml",

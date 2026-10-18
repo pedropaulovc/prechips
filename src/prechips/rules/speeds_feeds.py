@@ -413,7 +413,7 @@ def _saw(subject, op, machine, tool, stock, material, material_class, cutting):
         "blade, material or machine blade-speed range is missing, ambiguous or unverified."
         if unknown
         else "Blade speed is sourced from the saw_cut row and clamped to the machine's "
-        "blade-speed range; the work is fed by hand along the scribed line."
+        "blade-speed range; the work is fed by hand, sawn on the waste side of the scribed line."
         if hand_fed
         else "Blade speed and descent feed are sourced from the saw_cut row; the blade speed "
         "is clamped to the machine's blade-speed range."

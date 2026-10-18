@@ -265,7 +265,12 @@ not apply. A [hand saw on the bench](docs/plan.md#hand-saw-on-the-bench-straight
 has no blade speed; it cuts straight on a `cut_plane` or `follows` an earlier
 scribe op's line, removing only its declared `stock_removal_bounds` and leaving
 at least `allowance_mm` outside the line for the file (unknown extent is `?`). A
-bandsaw in vertical mode (`saw_modes`) follows a scribed curve the same way, hand-fed;
+bandsaw in vertical mode (`saw_modes`) follows a scribed curve the same way, hand-fed
+(`hold.kind = "hand_fed"`: no fixture, stop, grip or clamp is owed; the plan declares
+the upper guide height, the push aid, the start end and the end-of-cut support, each
+undeclared one a STOP; the traveler HOLD says the work is fed by hand on the saw table
+and the picture draws the blade line with arrows the way the work moves, toward the
+start end, the push aid behind the trailing end);
 along a scribed arc the predicted removal follows the curve, offset by the allowance.
 Every saw cut also gets a [`saw_teeth`](docs/rules-geometry.md#saw-teeth-in-the-work)
 row: the blade's cited `tpi` (its coarse end for a variable pitch) times the

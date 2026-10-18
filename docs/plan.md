@@ -974,6 +974,11 @@ for collet/chuck capacity, not the unsupported-section diameter.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
+| `kind` | `"hand_fed"`: the work is fed by hand on a vertical bandsaw's table along a scribed line; omitted for a fixture hold. A hand-fed hold declares only `note` and its feeding (the four rows below) beside it ([hand-fed](#hand-fed-on-the-saw-table)) |
+| `guide_above_mm` | `Number` (positive, hand-fed only): the upper blade guide's height above the top of the work |
+| `push_aid` | `str` (hand-fed only): the inventory `fixtures` item (a push stick) that feeds the work near the blade |
+| `feed_from` | `"+X" \| "-X" \| "+Y" \| "-Y"` (hand-fed only): the end of the line the cut starts from, in the setup frame |
+| `end_support` | `"push_aid" \| "outfeed_table"` (hand-fed only): how the end of the cut is supported |
 | `fixture` | `str` |
 | `jaws_along` | `"x"` / `"y"` / `"not_applicable"`: the vise jaw length axis; any other text is bad input (exit 3) |
 | `fixed_jaw` | `str` |
@@ -2043,7 +2048,8 @@ why they are not applicable. Mixed setups still check their other machining ops.
 Holding declarations, `stock_state.top_z/bottom_z`, the bound frame and routing
 remain operative. Use an ordinary declared fixture (for example a saw vise with
 the usual jaw/parallels fields) to obtain a modeled fixture; a bandsaw machine
-identity does not invent integral-vise geometry.
+identity does not invent integral-vise geometry. The one exception is a cut fed by
+hand along a scribed line ([hand-fed](#hand-fed-on-the-saw-table)).
 
 The traveler prints blade-centre setting, retained edge in mm, blade speed in
 sfm and descent feed in mm/min. These starting numbers come only from the cited
@@ -2096,7 +2102,9 @@ inventory `saw_modes` include `"vertical"`. Modes without `"vertical"` are `✗`
 undeclared modes, an unverified machine or blade (its kerf included) are `?`; a
 bandsaw blade following a line on a mill or bench is `✗`. Blade speed comes from
 the cited `saw_cut` row as for any bandsaw cut, but there is no descent feed: the
-card prints "by hand along the line" and "leave <allowance> mm outside the line".
+card's feed cell prints "by hand", its direction cell the hold's feed ("feed from +X
+toward -X") and its target "leave at least <allowance> mm on the waste side of the
+scribed line", the one place it names the waste side.
 A straight bandsaw cut needs no vertical mode.
 
 ```toml
@@ -2109,12 +2117,96 @@ allowance_mm = 1.0               # left for the trammel pass
 stock_removal_bounds = { x = [-150.0, 150.0], y = [-10.0, 6.0], z = [-20.0, 1.0] }
 ```
 
+### Hand-fed on the saw table
+
+A vertical bandsaw cut along a scribed line is fed by hand on the saw table:
+nothing clamps the work. Such a setup declares
+
+```toml
+[setups.hold]
+kind = "hand_fed"
+note = "bar flat on the saw table, scribed face up"   # optional
+guide_above_mm = 6.0          # upper blade guide above the top of the work
+push_aid = "push-stick"       # an inventory fixtures item
+feed_from = "-X"              # the end of the line the cut starts from
+end_support = "push_aid"      # or "outfeed_table": how the end of the cut is supported
+```
+
+and nothing else in its hold: a `fixture`, `stop`, `grip_mm`, `clamp`,
+`fixed_jaw` or any other hold field beside `kind = "hand_fed"` is `BadInput`, and so
+is a feeding field on any other hold, or a `guide_above_mm` that is not positive.
+How the work is fed is the plan's to declare, never assumed: each undeclared feeding
+field is `?` debt in `hold_fields` and prints a STOP in the HOLD; the push aid must be
+in the inventory like any hold item. It
+is a `kind` rather than a reserved `fixture` name because `fixture` is an
+inventory reference every rule resolves by key; an absent `kind` is the ordinary
+fixture hold. The hold is admitted only when every op of the setup is a `scribe`,
+`deburr` or `inspect` action or a `saw_cut`/`cut_off` that `follows` a scribed line
+with a verified `bandsaw` blade on a `bandsaw` machine whose `saw_modes` include
+`"vertical"`. Filing to the line holds the work in a vise, so it is a setup of its
+own. A setup known to be anything else (a milling op, a straight `cut_plane` cut,
+a hand saw, a horizontal-only bandsaw, another machine kind, no saw cut) is
+`BadInput`, exit 3, naming why. An unresolved blade, machine or `saw_modes` (or
+`kind = "unknown"`) loads, and the hold stays `?` until it is resolved.
+
+Admitted, `hold_fields` asks no fixture field (coolant, deburr and stock Z remain),
+`stock_diameter`, `vise`, `thin_wall_under_clamp` and `fixture_interference` are
+`not_applicable`, and the kernel draws no fixture and owes no fixture measurement.
+The traveler HOLD prints "Fed by hand on the saw table, sawing guided by the line
+scribed in S1 op 10; no vise or clamp holds the work.", then one line for each
+feeding declaration (the guide height, the push aid, the end the cut starts from and
+the end-of-cut support), and the STOCK AND ROUTE table's holding cell says "fed by hand
+on the saw table" from the same resolution. The holding picture draws, render-only
+(never hit-tested), the saw table under the work, the blade standing at the cut start
+up to the declared guide height and the push aid behind the work's trailing end, each
+called out. All three come from the same `feed_from` the HOLD prints. The cut starts at
+the `feed_from` end, so the work moves toward `feed_from`: that end leads into the
+stationary blade, the push aid stands behind the opposite, trailing end, and every feed
+arrow points the way the work moves, from the trailing end toward where the blade
+enters. The holding
+picture draws the saw path (the scribed arc offset by the allowance into the waste) on
+the work's top face with those arrows ("WORK FEED INTO THE BLADE"). The op's profile
+sketch draws the setup-entry blank's outline as a thin line and the scribed line,
+within the op's `stock_removal_bounds`, as the one heavier line, both from their real
+setup-frame coordinates through the one sketch transform; it shades the waste the line
+cuts off the blank, puts the same feed arrows alone in that waste 3 mm off the line
+(never on it, never as a second line) and leaves the keep side unshaded,
+keyed SCRIBED LINE, "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE" and KEEP, the line's
+own ends LINE END (hollow squares) and, with a declared `feed_from`, the cut's ENTER and
+LEAVE (crosses). No separate saw path is drawn there: 0.45 mm is not visible on a
+290 mm arc. An undeclared `feed_from` draws no arrows, ENTER, LEAVE, blade or push aid,
+and neither does one that names no end of a cut's line: an axis along which the line's
+two ends lie less than 1 mm apart (`+Y` on a symmetric top arc). That `feed_from` is `?`
+in `hold_fields`, and the HOLD and the op's direction cell print a STOP naming why. The saw card states the
+allowance as a minimum, once, in its target: "leave at least 0.450 mm on the waste side
+of the scribed line", as every saw that follows a line does; its direction cell gives
+the feed ("feed from +X toward -X"). A line that runs to the setup-entry blank's
+outline leaves no waste at its ends, so the target adds where the cut enters and leaves:
+where the saw path (the line offset by the allowance into the waste) crosses the
+kernel's entry box, within the op's `stock_removal_bounds`, in the setup frame, entry
+first from `feed_from`, every number and face printed from those crossings: "Enter at
+X -142.741, Y 21.295 and leave at X 142.741, Y 21.295 on the +Y face (from Setup S2
+zero): where the cut, 0.450 mm off the scribed line on the waste side, meets the +Y
+face." The points lie inward of the line's own ends (X ±145.240): the cut meets the face
+there. A bench hand saw prints "Cut through at ...". A line that stays inside the
+blank, or crossings the kernel cannot place, add nothing. The sketch keys the same
+points ENTER and LEAVE with crosses, and the scribed line's own ends LINE END with
+hollow squares, so the two are never confused. When the job page prints model (STEP)
+coordinates in the plan's stock note without naming a setup zero, every op row that
+prints setup-frame coordinates (layout centre and arc ends, entry and exit points, a
+hole's tool axis, a manual arc's centre) names its frame: "(from Setup S2 zero)". No minimum workpiece size
+or hand-clearance limit is checked: none is sourced, so none is invented
+([#343](https://github.com/pedropaulovc/prechips/issues/343)).
+[`examples/geometry/hand-fed-saw`](../examples/geometry/hand-fed-saw/plan.toml)
+exercises it.
+
 A setup on a `bench`/`manual` machine whose saws all use a verified `hand_saw`
 tool, with otherwise only bench actions (`fit`, `inspect`, `deburr`, `coating`, `scribe`,
 `file_to_line`), is manual bench work: its DRO, zero and headroom screens are
 `not_applicable` and `speeds_feeds` gives the hand saw no blade speed or feed. A
 powered or unresolved blade on a bench machine waives nothing. The traveler
 prints a bench hand saw on the assembly / finishing card: "Hand saw, blade
-centred on Y 87.75 mm; keep the side below it", or "Hand saw outside the line
-scribed in S4 op 10, leave 0.5 mm for filing".
+centred on Y 87.75 mm; keep the side below it", or "Hand saw guided by the line
+scribed in S4 op 10, leave at least 0.5 mm on the waste side of the scribed line for
+filing".
 

@@ -34,7 +34,10 @@ from prechips.rules.geometry_common import (
     TURNING_TOOL_KEYS,
 )
 from prechips.rules.resolution import (
+    HAND_FED,
     HAND_FINISH,
+    SAW_OPS,
+    hand_fed,
     identity,
     number,
     op_feature,
@@ -1019,6 +1022,103 @@ def saw_plane(plane, units):
     return {"axis": plane["axis"], "value": plane["value"] * scale, "keep": plane["keep"]}
 
 
+# Line ends closer than this along a hand-fed hold's feed_from axis do not tell its start
+# end apart (#335).
+FEED_ENDS_MIN_MM = 1.0
+
+
+def feed_from_ambiguity(bundle, setup):
+    """Why the hold's declared ``feed_from`` does not tell a hand-fed cut's line ends
+    apart (#335), else "": each saw that follows a scribed arc must have its two ends at
+    least :data:`FEED_ENDS_MIN_MM` apart along that axis, or "start at the -Y end" names
+    no end (a symmetric arc's ends lie level). A line the kernel cannot place, or an
+    undeclared ``feed_from``, is not ambiguous here: its own debt stands."""
+    from prechips.kernel.render_inputs import _arc_in
+
+    start = record(setup.get("hold")).get("feed_from")
+    if not (isinstance(start, str) and len(start) == 2 and start[1] in "XY"):
+        return ""
+    axis = "XY".index(start[1])
+    for op in setup.get("ops") or []:
+        if op.get("do") not in SAW_OPS or "follows" not in op:
+            continue
+        profile = record(scribed_profile(bundle, setup, op))
+        bounds = removal_bounds(op.get("stock_removal_bounds"), bundle.features.get("units"))
+        centre, radius = profile.get("centre_mm"), profile.get("radius_mm")
+        if "reason" in bounds or not (isinstance(centre, list) and number(radius)):
+            continue
+        line = _arc_in(centre, radius, bounds["x"], bounds["y"])
+        if len(line) < 2:
+            continue
+        gap = abs(line[-1][axis] - line[0][axis])
+        if gap < FEED_ENDS_MIN_MM:
+            return (
+                f"feed_from {start} names no end of op {op['op']}'s line: its ends lie "
+                f"{gap:.3f} mm apart along {start[1]}"
+            )
+    return ""
+
+
+def saw_crossings(bundle, setup, op):
+    """Where a saw that follows a scribed arc crosses the setup-entry blank's XY outline
+    (#335): the saw path, the arc offset by ``allowance_mm`` into the waste, meets the
+    blank's sides there, so a cut whose line runs to the blank enters and leaves through
+    them at least the allowance outside the line's ends. ``[{"face", "xy"}]`` in setup-frame
+    mm along the arc from the ``hold.feed_from`` end when declared (``face`` the side's
+    ``"+X"``/``"-X"``/``"+Y"``/``"-Y"``), within the op's ``stock_removal_bounds``; empty when
+    the path stays inside the blank; None when the arc, allowance, bounds or the kernel's
+    entry box is unknown."""
+    profile = record(scribed_profile(bundle, setup, op))
+    bounds = removal_bounds(op.get("stock_removal_bounds"), bundle.features.get("units"))
+    detail = record(record(record(getattr(bundle, "kernel", None)).get("setups")).get(setup["id"]))
+    box = detail.get("stock_bbox_mm")
+    centre, radius = profile.get("centre_mm"), profile.get("radius_mm")
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    allowance = op.get("allowance_mm")
+    if (
+        "reason" in bounds
+        or not (isinstance(box, list) and len(box) == 6 and all(map(number, box)))
+        or not (isinstance(centre, list) and number(radius) and number(allowance) and scale)
+    ):
+        return None
+    reach = radius + (-1.0 if profile.get("remove") == "inside" else 1.0) * allowance * scale
+    x0, y0, x1, y1 = box[0], box[1], box[3], box[4]
+    xs, ys = bounds["x"], bounds["y"]
+    found = []
+    for axis, value, face in ((0, x0, "-X"), (0, x1, "+X"), (1, y0, "-Y"), (1, y1, "+Y")):
+        other = 1 - axis
+        offset = value - centre[axis]
+        if abs(offset) > reach:
+            continue
+        half = math.sqrt(reach**2 - offset**2)
+        for along in (centre[other] - half, centre[other] + half):
+            xy = [value, along] if axis == 0 else [along, value]
+            low, high = (y0, y1) if axis == 0 else (x0, x1)
+            if not low <= along <= high:
+                continue
+            if not (xs[0] <= xy[0] <= xs[1] and ys[0] <= xy[1] <= ys[1]):
+                continue
+            found.append({"face": face, "xy": [round(xy[0], 6), round(xy[1], 6)]})
+    # Order along the arc: by angle about the centre, measured from the crossings' mean
+    # direction so an arc spanning the +/-180 degree seam still sorts in order.
+    middle = math.atan2(
+        sum(c["xy"][1] - centre[1] for c in found), sum(c["xy"][0] - centre[0] for c in found)
+    )
+    found.sort(
+        key=lambda c: math.remainder(
+            math.atan2(c["xy"][1] - centre[1], c["xy"][0] - centre[0]) - middle, 2 * math.pi
+        )
+    )
+    start = record(setup.get("hold")).get("feed_from")
+    if feed_from_ambiguity(bundle, setup):
+        start = None
+    if isinstance(start, str) and len(start) == 2 and found:
+        index, sign = (0 if start[1] == "X" else 1), (1 if start[0] == "+" else -1)
+        if (found[-1]["xy"][index] - found[0]["xy"][index]) * sign > 0:
+            found.reverse()
+    return found
+
+
 def removal_bounds(bounds, units):
     """An op's declared setup-frame clearing box in mm, or why it is not one."""
     scale = {"mm": 1.0, "in": 25.4}.get(units)
@@ -1529,6 +1629,10 @@ def _supports_inputs(bundle, setup, hold, result, debts, gaps):
 @_collect_debts
 def hold_inputs(bundle, setup):
     hold = record(setup.get("hold"))
+    if hand_fed(bundle, setup)[0] == "admitted":
+        # Fed by hand on the saw table: nothing holds the work, so nothing is drawn or owed.
+        reason = "The work is fed by hand on the saw table; no fixture holds it."
+        return {"kind": HAND_FED, "method": UNKNOWN, "reason": reason, "debts": [], "gaps": []}
     fixture = measurement_item(bundle, "workholding", hold.get("fixture"))
     kind = record(fixture).get("kind", UNKNOWN)
     result = {"kind": kind, "method": hold.get("method", UNKNOWN)}
