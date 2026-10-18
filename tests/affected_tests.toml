@@ -677,6 +677,7 @@ ignore = [
     "tests/test_geometry_examples.py",
     "tests/test_geometry_rules.py",
     "tests/test_guided_sweep.py",
+    "tests/test_hand_fed_hold.py",
     "tests/test_hand_finish.py",
     "tests/test_headroom.py",
     "tests/test_input_contracts.py",

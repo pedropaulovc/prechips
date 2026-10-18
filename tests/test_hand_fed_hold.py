@@ -12,7 +12,7 @@ from test_cli import ROOT, copy_examples, run_cli
 
 from prechips import kernel
 from prechips.inputs import BadInput, load_bundle
-from prechips.kernel.render_inputs import blade_paths
+from prechips.kernel.render_inputs import hand_fed_scene
 from prechips.model import Plan
 from prechips.rules import fixture_interference, hold_fields, stock_diameter, thin_wall_under_clamp
 from prechips.rules import vise as vise_rule
@@ -330,16 +330,43 @@ def test_an_unresolved_hand_fed_setup_stops_in_the_route_and_the_hold(example):
     assert route_cell(bundle, "S2").startswith("STOP")
 
 
-def test_the_picture_draws_the_blade_line_from_the_declared_end():
+def scene(bundle, sid=1):
+    return hand_fed_scene(bundle, bundle.plan["setups"][sid], 1.0)
+
+
+def test_the_picture_draws_the_saw_path_from_the_declared_end_beside_the_scribed_line():
     bundle = load_bundle(BUNDLE / "plan.toml")
-    (path,) = blade_paths(bundle, bundle.plan["setups"][1])
-    assert path["op"] == "10" and path["directed"] is True
-    assert path["xy"][0][0] < path["xy"][-1][0]  # feed_from = "-X": it starts at -X
+    drawn = scene(bundle)
+    saw, line = drawn["paths"]
+    assert saw["op"] == "10" and saw["directed"] is True and saw["feed"] is True
+    assert line["dashed"] is True and "directed" not in line
+    assert saw["xy"][0][0] < saw["xy"][-1][0]  # feed_from = "-X": it starts at -X
+    keys = [key["label"] for key in drawn["waypoints"]]
+    assert keys == ["START", "SAW PATH, LEAVE 0.450 MM MIN", "SCRIBED LINE", "WASTE"]
+    assert all(key["plain"] for key in drawn["waypoints"])
+    # The R800 top edge's saw removes inside the circle: the WASTE key points that way.
+    assert drawn["waypoints"][-1]["xy"][1] > drawn["waypoints"][1]["xy"][1]
+
+
+def test_the_picture_draws_the_saw_table_blade_and_push_aid():
+    bundle = load_bundle(BUNDLE / "plan.toml")
+    boxes = {box["name"]: box for box in scene(bundle)["boxes"]}
+    assert set(boxes) == {"saw table", "push aid", "band op 10"}
+    assert boxes["push aid"]["label"] == "PUSH STICK (TRAILING END)"
+    # Fed from -X, the work trails at its +X end: the push aid stands past the max X.
+    assert boxes["push aid"]["stock_mm"][0][0] == ("max", 0.0)
+    assert boxes["band op 10"]["box_mm"][5] == pytest.approx(1.0 + 6.0)  # top + guide
+
+
+def test_an_undeclared_feed_end_draws_no_arrows_start_band_or_push_aid():
+    bundle = load_bundle(BUNDLE / "plan.toml")
     bundle.plan["setups"][1]["hold"].pop("feed_from")
-    (path,) = blade_paths(bundle, bundle.plan["setups"][1])
-    assert path["directed"] is False
+    drawn = scene(bundle)
+    assert drawn["paths"][0]["directed"] is False
+    assert "START" not in [key["label"] for key in drawn["waypoints"]]
+    assert [box["name"] for box in drawn["boxes"]] == ["saw table"]
 
 
-def test_a_fixture_hold_draws_no_blade_line():
+def test_a_fixture_hold_draws_no_hand_fed_scene():
     bundle = load_bundle(BUNDLE / "plan.toml")
-    assert blade_paths(bundle, bundle.plan["setups"][0]) == []
+    assert scene(bundle, 0) == {"paths": [], "waypoints": [], "boxes": []}

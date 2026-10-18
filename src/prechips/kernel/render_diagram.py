@@ -58,6 +58,7 @@ _KEY_ROOM_PX = 2 * _BADGE_HEIGHT
 _ORIENTATION_PX = 70
 # The legend a path sketch prints once it has drawn a direction arrow.
 _ARROWS = "ARROWS: POINT ORDER"
+_FEED_ARROWS = "ARROWS: FEED DIRECTION ALONG THE SAW PATH"
 # A raster of at most this many passes draws and labels every pass; a longer one is a band
 # with its first and last pass.
 _EVERY_PASS = 8
@@ -608,14 +609,22 @@ def _band_cells(points, widths, plot, exclusion):
     return centres
 
 
+def _key_label(item, prefix="P"):
+    """A waypoint's printed key: its ``P`` number, or a ``plain`` label as written (a
+    hand-fed cut's START, SAW PATH, SCRIBED LINE and WASTE keys, #335)."""
+    label = _plain(item["label"])
+    if item.get("plain") or not prefix or label.upper().startswith(prefix):
+        return label
+    return prefix + label
+
+
 def _sketch_keys(paths, waypoints):
     """The profile sketch's keys for one operation's ``paths`` and ``waypoints``, as
     ``[(label, xy)]`` in sketch XY: each point's P key and each labelled raster pass's
     (:meth:`_Diagram._raster_band`), where the sketch prints them."""
     keys = []
     for item in waypoints:
-        label = _plain(item["label"])
-        keys.append((label if label.upper().startswith("P") else "P" + label, item["xy"]))
+        keys.append((_key_label(item), item["xy"]))
     raster = [path for path in paths if path.get("raster")]
     numbers = _labelled_passes([path["raster"]["pass"] for path in raster])
     for path in sorted(raster, key=lambda p: p["raster"]["pass"]):
@@ -1002,6 +1011,7 @@ class _Diagram:
         # Direction arrows drawn so far: a legend claims "ARROWS" only once one is drawn.
         self.arrows_drawn = 0
         self.returns_drawn = 0
+        self.feed_arrows = False
         self.inset_overflow = 0
         self.width_overflow = 0
         self.shoulders = (
@@ -2421,7 +2431,9 @@ class _Diagram:
         """Name only the direction arrows and lifted returns actually drawn."""
         row = top
         if self.arrows_drawn > arrows_before:
-            _text(self.canvas, left, row, _ARROWS, _MUTED)
+            # A hand-fed saw path's arrows are the way the work is fed past the blade.
+            legend = _FEED_ARROWS if getattr(self, "feed_arrows", False) else _ARROWS
+            _text(self.canvas, left, row, legend, _MUTED)
             row -= _LEADING
         if self.returns_drawn:
             _text(self.canvas, left, row, _RETURNS, _MUTED)
@@ -2466,7 +2478,12 @@ class _Diagram:
             op_paths = self._raster_band(op_paths, project, colour, labels)
             direction_keys = {0, len(op_paths) // 2, len(op_paths) - 1}
             for path_index, path in enumerate(op_paths):
+                if path.get("dashed") is True:
+                    # A line the cut follows, not a travelled path: dashed, no arrows.
+                    _dashed(c, [path["xy"]], project, colour)
+                    continue
                 directed = path.get("directed") is True
+                self.feed_arrows = self.feed_arrows or (directed and path.get("feed") is True)
                 self._ordered_path(
                     [project(p) for p in path["xy"]],
                     colour,
@@ -2607,11 +2624,7 @@ class _Diagram:
             return []
         c = self.canvas
         left, top, right, bottom = plot
-        labels = [_plain(item["label"]) for item in waypoints]
-        labels = [
-            prefix + label if prefix and not label.upper().startswith(prefix) else label
-            for label in labels
-        ]
+        labels = [_key_label(item, prefix) for item in waypoints]
         points = [project(item["xy"]) for item in waypoints]
         if exclusion is not None:
             available = _band_cells(

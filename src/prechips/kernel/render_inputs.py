@@ -225,20 +225,58 @@ def _fit_add(hold):
 _BLADE_STEP_MM = 2.0
 # The feed end a hand-fed hold declares: the axis and the sign of its start end.
 _FEED_END = {"+X": (0, 1), "-X": (0, -1), "+Y": (1, 1), "-Y": (1, -1)}
+# How a hand-fed cut's saw table, blade and push aid are drawn (picture only, #335): the
+# table's margin round the work and thickness, a 1/2 in band's depth and thickness, and
+# the drawn length, width and height of the push aid behind the work's trailing end.
+_TABLE_MARGIN_MM, _TABLE_MM = 25.0, 6.0
+_BAND_MM = (12.7, 0.64)
+_PUSH_MM = (120.0, 24.0, 12.0)
+# How far past the saw path the WASTE key points into the offcut (mm).
+_WASTE_KEY_MM = 6.0
 
 
-def blade_paths(bundle, setup):
-    """The blade line of each hand-fed cut, as a picture path in the setup's X/Y (mm): the
-    scribed arc offset by ``allowance_mm`` to the side the saw removes, within the op's
-    ``stock_removal_bounds``, where the kernel cuts. It runs from the end the hold's
-    ``feed_from`` declares, drawn with feed arrows; undeclared, it has no arrows. Nothing
-    for a hold that is not an admitted hand-fed one or a line the kernel cannot place."""
+def hand_fed_scene(bundle, setup, scale):
+    """What a hand-fed cut's picture draws beside the work (#335): ``paths`` (each cut's
+    saw path, the scribed arc offset by ``allowance_mm`` to the side the saw removes,
+    within the op's ``stock_removal_bounds``, run from the hold's ``feed_from`` end with
+    feed arrows; the scribed line itself dashed), plain ``waypoints`` keys (START, SAW
+    PATH with its minimum leave, SCRIBED LINE, WASTE) and render-only ``boxes`` (the saw
+    table under the work, the band standing at the cut start up to the upper guide, the
+    push aid behind the work's trailing end). Empty for a hold that is not an admitted
+    hand-fed one; a cut whose line the kernel cannot place draws nothing."""
     from prechips.kernel import removal_bounds, scribed_profile
 
+    scene = {"paths": [], "waypoints": [], "boxes": []}
     if hand_fed(bundle, setup)[0] != "admitted":
-        return []
-    start = _FEED_END.get(record(setup.get("hold")).get("feed_from"))
-    paths = []
+        return scene
+    hold, state = record(setup.get("hold")), record(setup.get("stock_state"))
+    start = _FEED_END.get(hold.get("feed_from"))
+    margin = [["min", -_TABLE_MARGIN_MM], ["max", _TABLE_MARGIN_MM]]
+    scene["boxes"].append(
+        {
+            "name": "saw table",
+            "label": "SAW TABLE",
+            "colour": "saw_table",
+            "stock_mm": [margin, margin, [["min", -_TABLE_MM], ["min", 0.0]]],
+        }
+    )
+    push = hold.get("push_aid")
+    if start is not None and isinstance(push, str) and push != "unknown":
+        # The blade starts at the feed_from end, so the work's other end trails.
+        axis, sign = start
+        trail = ("max", 0.0) if sign < 0 else ("min", 0.0)
+        far = ("max", _PUSH_MM[0]) if sign < 0 else ("min", -_PUSH_MM[0])
+        along = [trail, far] if sign < 0 else [far, trail]
+        across = [("mid", -_PUSH_MM[1] / 2), ("mid", _PUSH_MM[1] / 2)]
+        spans = [along, across] if axis == 0 else [across, along]
+        scene["boxes"].append(
+            {
+                "name": "push aid",
+                "label": f"{_tool_name(bundle, push)} (TRAILING END)",
+                "colour": "push_aid",
+                "stock_mm": [*spans, [("min", 0.0), ("min", _PUSH_MM[2])]],
+            }
+        )
     for op in setup.get("ops") or []:
         if op.get("do") not in SAW_OPS or "follows" not in op:
             continue
@@ -247,17 +285,70 @@ def blade_paths(bundle, setup):
         centre, radius = profile.get("centre_mm"), profile.get("radius_mm")
         allowance = op.get("allowance_mm")
         if "reason" in bounds or not (
-            isinstance(centre, list) and number(radius) and number(allowance)
+            isinstance(centre, list) and number(radius) and number(allowance) and scale
         ):
             continue
-        radius += -allowance if profile.get("remove") == "inside" else allowance
-        points = _arc_in(centre, radius, bounds["x"], bounds["y"])
-        if len(points) < 2:
+        sign = -1.0 if profile.get("remove") == "inside" else 1.0
+        leave = allowance * scale
+        saw = _arc_in(centre, radius + sign * leave, bounds["x"], bounds["y"])
+        line = _arc_in(centre, radius, bounds["x"], bounds["y"])
+        if len(saw) < 2 or len(line) < 2:
             continue
-        if start is not None and (points[-1][start[0]] - points[0][start[0]]) * start[1] > 0:
-            points.reverse()
-        paths.append({"op": str(op["op"]), "xy": points, "directed": start is not None})
-    return paths
+        if start is not None and (saw[-1][start[0]] - saw[0][start[0]]) * start[1] > 0:
+            saw.reverse()
+        name = str(op["op"])
+        scene["paths"] += [
+            {"op": name, "xy": saw, "directed": start is not None, "feed": True},
+            {"op": name, "xy": line, "dashed": True},
+        ]
+        middle = saw[len(saw) // 2]
+        reach = math.dist(middle, centre)
+        waste = [
+            centre[i] + (middle[i] - centre[i]) * (reach + sign * _WASTE_KEY_MM) / reach
+            for i in (0, 1)
+        ]
+        keys = [
+            ("SAW PATH, LEAVE " + _mm_text(leave) + " MM MIN", middle),
+            ("SCRIBED LINE", line[len(line) // 2]),
+            ("WASTE", [round(v, 6) for v in waste]),
+        ]
+        if start is not None:
+            keys.insert(0, ("START", saw[0]))
+        scene["waypoints"] += [
+            {"label": label, "op": name, "xy": xy, "plain": True} for label, xy in keys
+        ]
+        if start is not None and number(state.get("top_z")) and number(state.get("bottom_z")):
+            # The band stands at the cut start, from the table to the upper guide.
+            guide = hold.get("guide_above_mm")
+            top = state["top_z"] * scale + (guide if number(guide) else 0.0)
+            depth, thick = _BAND_MM
+            x, y = saw[0]
+            half = (depth / 2, thick / 2) if start[0] == 0 else (thick / 2, depth / 2)
+            scene["boxes"].append(
+                {
+                    "name": f"band op {name}",
+                    "label": f"BLADE AT CUT START (OP {name})",
+                    "colour": "saw_blade",
+                    "box_mm": [
+                        x - half[0],
+                        y - half[1],
+                        state["bottom_z"] * scale - _TABLE_MM,
+                        x + half[0],
+                        y + half[1],
+                        top,
+                    ],
+                }
+            )
+    return scene
+
+
+def _mm_text(value):
+    return f"{value:.3f}"
+
+
+def _tool_name(bundle, reference):
+    item = record(resolve(bundle, "fixtures", reference))
+    return str(item.get("name", reference)).upper()
 
 
 def _arc_in(centre, radius, xs, ys):
@@ -346,8 +437,12 @@ def setup_annotations(bundle, setup, numbers):
     result["paths"], result["waypoints"] = (
         contour_annotations(numbers, scale, setup["id"]) if scale else ([], [])
     )
-    # A hand-fed cut's blade line, with its feed arrows, where no contour is drawn (#335).
-    result["paths"] += blade_paths(bundle, setup)
+    # A hand-fed cut's saw path, scribed line, keys and saw-side scene (#335).
+    scene = hand_fed_scene(bundle, setup, scale)
+    result["paths"] += scene["paths"]
+    result["waypoints"] += scene["waypoints"]
+    if scene["boxes"]:
+        result.setdefault("guides", {})["boxes"] = scene["boxes"]
     result["axial_paths"] = []
     for contour in numbers.get("contours", []):
         rows = contour.get("rows", [])

@@ -2831,7 +2831,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "0014a9834a4ec54ad81a77e8d7c530943e9c8a1541337129c330fabaf6bc1fd6",
+  "hash": "d5c5ccfb9390c41bda348def7f8ce96b58a86395c9d8c2c9acfd42fef35107ca",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2855,7 +2855,7 @@
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "03cf8f0059373afe17bcc44a53ee50f22a2267884541c397376b7409796b6403"
+      "sha256": "e542dabda790645aa7cf2223ab5f8fe5cd83d44f63a722c3c11beceaaba32dce"
     },
     "shop_policy": {
       "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -2916,7 +2916,47 @@
       "path": "setup-S2.png",
       "scene": {
         "closest_cut": null,
-        "components": [],
+        "components": [
+          {
+            "box_mm": [
+              -171.25456810000003,
+              -33.00000010000003,
+              -14.056500100000028,
+              171.25456810000003,
+              46.29464010000003,
+              -8.056499899999972
+            ],
+            "exact": true,
+            "name": "saw table",
+            "role": "scene"
+          },
+          {
+            "box_mm": [
+              146.25456789999998,
+              -5.352680100000028,
+              -8.056500100000028,
+              266.25456810000003,
+              18.64732010000003,
+              3.9435001000000285
+            ],
+            "exact": true,
+            "name": "push aid",
+            "role": "scene"
+          },
+          {
+            "box_mm": [
+              -151.9509801,
+              21.49900489999997,
+              -14.056500100000028,
+              -139.25097989999998,
+              22.13900510000003,
+              7.000000100000029
+            ],
+            "exact": true,
+            "name": "band op 10",
+            "role": "scene"
+          }
+        ],
         "cut_clearances": [],
         "debts": [
           "fixture not drawn: The work is fed by hand on the saw table; no fixture holds it."
@@ -2991,10 +3031,47 @@
           "profile sketch keyed to the coordinate rows"
         ],
         "view": "isometric",
-        "waypoints": [],
+        "waypoints": [
+          {
+            "label": "START",
+            "op": "10",
+            "plain": true,
+            "xy": [
+              -145.60098,
+              21.819005
+            ]
+          },
+          {
+            "label": "SAW PATH, LEAVE 0.450 MM MIN",
+            "op": "10",
+            "plain": true,
+            "xy": [
+              0.99604,
+              8.45062
+            ]
+          },
+          {
+            "label": "SCRIBED LINE",
+            "op": "10",
+            "plain": true,
+            "xy": [
+              0.996601,
+              8.000621
+            ]
+          },
+          {
+            "label": "WASTE",
+            "op": "10",
+            "plain": true,
+            "xy": [
+              0.988565,
+              14.450615
+            ]
+          }
+        ],
         "width_px": 1600
       },
-      "sha256": "03cf8f0059373afe17bcc44a53ee50f22a2267884541c397376b7409796b6403"
+      "sha256": "e542dabda790645aa7cf2223ab5f8fe5cd83d44f63a722c3c11beceaaba32dce"
     }
   },
   "rules_version": "m5-rev12",

@@ -2639,6 +2639,18 @@ own orthographic z-buffer rasterizer, bundled bitmap font and PNG encoder
 use no installed fonts, timestamps or machine-specific metadata. Fresh runs
 and cache hits give identical bytes.
 
+A hand-fed cut's saw side ([#335](https://github.com/pedropaulovc/prechips/issues/335))
+is drawn the same way, render-only: the host sends `guides.boxes`, each a `name`, a
+`label`, a `colour` (`saw_table`, `saw_blade` or `push_aid`) and either `box_mm` (a
+setup-frame box) or `stock_mm` (per axis, two `[anchor, offset]` ends, `anchor` the
+`min`, `mid` or `max` of the setup-entry stock box). The kernel draws each as a box with
+its own callout, lists it in `render_scene.components` with role `scene`, and never
+hit-tests it; a malformed box, or a stock-anchored one without entry stock, is a
+picture debt only. The op's profile sketch draws a path marked `dashed` (the scribed
+line) dashed with no arrows, prints a waypoint marked `plain` as written (START, SAW
+PATH, SCRIBED LINE, WASTE) instead of a P number, and names the arrows of a `feed`
+path as the feed direction along the saw path.
+
 A guided sweep's table-side guide elements
 ([#255](https://github.com/pedropaulovc/prechips/issues/255)) are drawn for the
 operator, not modelled as holding. The host sends an arc sled's rollers in the

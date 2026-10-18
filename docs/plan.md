@@ -2154,9 +2154,14 @@ The traveler HOLD prints "Fed by hand on the saw table, sawing outside the line
 scribed in S1 op 10; no vise or clamp holds the work.", then one line for each
 feeding declaration (the guide height, the push aid, the end the cut starts from and
 the end-of-cut support), and the STOCK AND ROUTE table's holding cell says "fed by hand
-on the saw table" from the same resolution. The picture adds the blade line (the
-scribed arc offset by the allowance, within the op's `stock_removal_bounds`) as an
-op sketch, with feed arrows from the declared `feed_from` end. The saw card states the
+on the saw table" from the same resolution. The holding picture draws, render-only
+(never hit-tested), the saw table under the work, the blade standing at the cut start
+up to the declared guide height and the push aid behind the work's trailing end, each
+called out. The op's profile sketch draws the saw path (the scribed arc offset by the
+allowance, within the op's `stock_removal_bounds`) with feed arrows from the declared
+`feed_from` end, the scribed line dashed beside it, and keys for the START, the SAW
+PATH with its minimum leave, the SCRIBED LINE and the WASTE side. An undeclared
+`feed_from` draws no arrows, START, blade or push aid. The saw card states the
 allowance as a minimum: "leave at least 0.450 mm outside the line, the scribed line
 still showing", as every saw that follows a line does. No minimum workpiece size
 or hand-clearance limit is checked: none is sourced, so none is invented
