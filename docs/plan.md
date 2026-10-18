@@ -2201,21 +2201,25 @@ The work must be big enough to feed by hand
 `numbers.min_hand_feed_mm` is how close its safety procedure lets the operator's
 fingers come to the blade (for example a vertical band saw procedure's "if your cut
 will require your fingers to get within 3 inches of the blade, use a push stick",
-76.2 mm). `hold_fields` follows the blade along its path through the work: the
-scribed arc offset by `allowance_mm`, sampled at most 1 mm apart where the kernel's
-setup-entry stock box (setup X/Y, the table plane) and the op's declared
-`stock_removal_bounds` overlap: the kernel cuts nowhere else. At each blade position the
+76.2 mm). `hold_fields` follows the blade along each cut's path through the work: the
+scribed arc offset by `allowance_mm`, sampled at most 1 mm apart where that cut's own
+stock box (setup X/Y, the table plane) and the op's declared `stock_removal_bounds`
+overlap: the kernel cuts nowhere else. A cut's stock box is the kernel's
+`stock_bbox_before_mm` for that saw op, the stock left by every earlier cut
+([#347](https://github.com/pedropaulovc/prechips/issues/347)); the setup's first saw
+cut may fall back to the setup-entry box. At each blade position the
 operator needs work at least the minimum away to hold. The box is tight, so some
 work lies on each of its sides (a lower bound on the farthest work: the largest of
 the sides' nearest distances) and none lies past its farthest corner (an upper
 bound). Every position's lower bound reaching the minimum, less the 1 mm step, is a
 pass; a position whose upper bound falls short is `✗` naming both numbers; anything
 between is `?`. A minimum that is absent, not positive, without a usable citation or
-not verified (`numbers_verify` false), an entry stock the kernel did not derive, or
-a blade path it does not place (a straight scribed line, removal bounds that are not
-a numeric box or do not meet the work in X, Y and Z) is `?`, and so is a setup with
-more than one hand-fed cut: only the setup-entry stock is boxed, and a later cut works
-what an earlier one left. The check does not
+not verified (`numbers_verify` false), a cut's stock the kernel did not box (a later
+cut never borrows the entry box: it works what an earlier one left), or a blade path
+it does not place (a straight scribed line, removal bounds that are not a numeric box
+or do not meet that cut's stock in X, Y and Z) is `?`. The finding records each cut's
+bounds (`hand_fed_reach_by_op`) and the worst over all cuts (`hand_fed_reach_mm`); a
+failing cut is named. The check does not
 place the hands or plan a push stick.
 [`examples/geometry/hand-fed-saw`](../examples/geometry/hand-fed-saw/plan.toml)
 exercises it.

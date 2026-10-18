@@ -30,9 +30,11 @@ unknown, with `hand_fed_scope` listed as missing and the reason (`hold.kind` onl
 the kind itself is stated `"unknown"`); a setup out of that scope never loads (exit 3). `stock_diameter`, `vise`, `thin_wall_under_clamp` and
 `fixture_interference` are `not_applicable` for an admitted hand-fed hold. Its work
 must reach the shop policy's `min_hand_feed_mm` finger-to-blade clearance from the
-blade at every position along its scribed arc, judged from the kernel's setup-entry
-stock box: work that cannot reach it is `✗`, a box too loose to decide, an absent,
-uncited or flagged minimum, an unknown entry stock or an unplaced path is `?`
+blade at every position along each cut's scribed arc, judged from the stock box that
+cut works (the kernel's `stock_bbox_before_mm` for the saw op; the setup-entry box for
+the first cut): work that cannot reach it is `✗` naming the cut, a box too loose to
+decide, an absent, uncited or flagged minimum, a cut's stock the kernel did not box
+or an unplaced path is `?`
 ([plan](plan.md#hand-fed-on-the-saw-table)).
 
 A declared `hold.stop_face` must be on the stock the setup receives:

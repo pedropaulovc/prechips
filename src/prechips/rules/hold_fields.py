@@ -237,9 +237,9 @@ def hand_feed_minimum(bundle):
 
 
 def blade_paths(bundle, setup):
-    """Each hand-fed saw op's blade path in the setup's X/Y (mm) as ``(centre, radius,
-    span)``: the scribed arc offset by the op's ``allowance_mm`` to the side the saw
-    removes, run only within ``span`` (``[x0, y0, z0, x1, y1, z1]``), its declared
+    """Each hand-fed saw op's blade path in the setup's X/Y (mm) as ``(op, centre, radius,
+    span)``, in op order: the scribed arc offset by the op's ``allowance_mm`` to the side
+    the saw removes, run only within ``span`` (``[x0, y0, z0, x1, y1, z1]``), its declared
     ``stock_removal_bounds``, where the kernel clips its cut. None when any op's line is
     not an arc the kernel places or its removal bounds are not a numeric box."""
     from prechips.kernel import removal_bounds, scribed_profile
@@ -258,7 +258,7 @@ def blade_paths(bundle, setup):
             return None
         sign = -1.0 if profile.get("remove") == "inside" else 1.0
         span = [*(bounds[axis][0] for axis in "xyz"), *(bounds[axis][1] for axis in "xyz")]
-        paths.append((centre[:2], radius + sign * allowance, span))
+        paths.append((str(op["op"]), centre[:2], radius + sign * allowance, span))
     return paths or None
 
 
@@ -317,45 +317,71 @@ def _along(centre, radius, window):
     return points
 
 
+def cut_box(bundle, setup, op, first):
+    """The stock box (mm, setup frame) hand-fed saw ``op`` cuts (#347): the kernel's
+    ``stock_bbox_before_mm`` for it, what the earlier cuts left, else for the setup's
+    first saw cut its setup-entry box; None when the kernel boxes neither."""
+    kernel = record(getattr(bundle, "kernel", None))
+    ops = record(kernel.get("ops")) if kernel.get("status") == "ok" else {}
+    facts = record(ops.get(f"{setup['id']}:{op}"))
+    box = facts.get("stock_bbox_before_mm")
+    if isinstance(box, list) and len(box) == 6 and all(number(v) for v in box):
+        return box
+    return stock_box(bundle, setup) if first else None
+
+
 def hand_feed(bundle, setup):
     """``(status, numbers, why)`` for a hand-fed setup's work against the shop's hand-feed
-    minimum. The blade moves along its path through the work (:func:`blade_paths`); at
-    every blade position the operator needs work at least ``min_hand_feed_mm`` from the
-    blade to hold. Only the kernel's setup-entry stock box is known, so the farthest work
-    is bounded (:func:`_reach`): every position's lower bound reaching the minimum (less
-    one sampling step) passes, any position whose upper bound falls short is an
-    error, and anything between, an unknown minimum, stock or blade path is debt."""
+    minimum. The blade moves along each cut's path through the work (:func:`blade_paths`);
+    at every blade position the operator needs work at least ``min_hand_feed_mm`` from
+    the blade to hold. Each cut works the stock its own pre-cut box bounds
+    (:func:`cut_box`, #347), so the farthest work is bounded (:func:`_reach`): every
+    position's lower bound reaching the minimum (less one sampling step) passes, any
+    position whose upper bound falls short is an error, and anything between, an unknown
+    minimum, box or blade path is debt."""
     minimum, cite = hand_feed_minimum(bundle)
-    box, paths = stock_box(bundle, setup), blade_paths(bundle, setup)
+    paths = blade_paths(bundle, setup)
     numbers = {"min_hand_feed_mm": minimum, "hand_feed_cite": cite}
     if minimum == UNKNOWN:
         return "unknown", numbers, f"the shop policy sets no cited, verified {MIN_HAND_FEED}"
-    if box is None:
-        return "unknown", numbers, "the kernel gave no setup-entry stock to size the work"
     if paths is None:
         return "unknown", numbers, "the blade path is known only along a scribed arc"
-    if len(paths) > 1:
-        # Only the setup-entry stock is boxed: a later cut works a piece an earlier one cut.
-        return "unknown", numbers, "a cut after the first works stock the kernel does not box"
-    # The blade runs where both the work and the op's declared removal box are.
-    positions = [
-        point
-        for centre, radius, span in paths
-        if (window := _overlap(box, span)) is not None
-        for point in _along(centre, radius, window)
-    ]
-    if not positions:
-        return "unknown", numbers, "the blade path does not cross the entry stock"
-    reaches = [_reach(point, box) for point in positions]
-    # A path point between samples, or past the last one, is within a step of a sample.
-    low = min(reach[0] for reach in reaches) - HAND_FEED_STEP_MM
-    high = min(reach[1] for reach in reaches)
+    cuts = {}
+    for index, (op, centre, radius, span) in enumerate(paths):
+        box = cut_box(bundle, setup, op, index == 0)
+        if box is None:
+            return (
+                "unknown",
+                numbers,
+                (
+                    "the kernel gave no setup-entry stock to size the work"
+                    if index == 0
+                    else f"op {op} works stock the kernel does not box"
+                ),
+            )
+        # The blade runs where both the work and the op's declared removal box are.
+        window = _overlap(box, span)
+        positions = [] if window is None else _along(centre, radius, window)
+        if not positions:
+            return "unknown", numbers, f"op {op}'s blade path does not cross its stock"
+        reaches = [_reach(point, box) for point in positions]
+        # A path point between samples, or past the last one, is within a step of a sample.
+        cuts[op] = (
+            min(reach[0] for reach in reaches) - HAND_FEED_STEP_MM,
+            min(reach[1] for reach in reaches),
+        )
+    numbers["hand_fed_reach_by_op"] = {
+        op: [round(max(low, 0.0), 3), round(high, 3)] for op, (low, high) in cuts.items()
+    }
+    worst = min(cuts, key=lambda op: cuts[op][1])
+    low, high = min(low for low, _ in cuts.values()), cuts[worst][1]
     numbers.update(hand_fed_reach_mm=[round(max(low, 0.0), 3), round(high, 3)])
+    which = f"op {worst}'s cut" if len(cuts) > 1 else "the cut"
     if high < minimum and not same_length(high, minimum):
         return (
             "error",
             numbers,
-            f"at one point of the cut no part of the work is more than {high:.3f} mm from "
+            f"at one point of {which} no part of the work is more than {high:.3f} mm from "
             f"the blade, under the shop's {minimum:g} mm hand-feed minimum: fingers would "
             "come closer than that to the blade",
         )
@@ -363,7 +389,7 @@ def hand_feed(bundle, setup):
         return (
             "unknown",
             numbers,
-            f"the entry stock box shows only that some work stays {max(low, 0.0):.3f} to "
+            f"the stock box shows only that some work stays {max(low, 0.0):.3f} to "
             f"{high:.3f} mm from the blade, so the {minimum:g} mm hand-feed minimum is "
             "not established",
         )
