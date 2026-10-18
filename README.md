@@ -422,8 +422,9 @@ render-only from the sled's measured `roller_dia`, `roller_height` and
 `bed_height` and its `rail_side` (a missing fact is a `NOT SHOWN` note with its
 `measure:` instruction), a trammel's rails, pins and carrier plate likewise, and
 notes where a swing arm's pivot post stands, off the picture. A trammel op runs
-on its rails' commissioning (#270): an unnamed install record or unmeasured dowel
-reading is debt. No traveler prints MDI, G-code or a continuous circle;
+on its make document and its rails' commissioning (#270), built and set outside
+the traveler: an unnamed drawing, install record or unmeasured dowel reading is
+debt. No traveler prints MDI, G-code or a continuous circle;
 the former `arc_table` method and machine `contouring` are gone.
 Drawing dimensions retain their declared precision; when no precision is
 declared, known values still print their own digits rather than `?`. Operative

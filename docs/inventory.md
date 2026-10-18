@@ -252,11 +252,14 @@ arcs is ordinary inventory:
   `measured` record: a bare, assumed or undeclared one is debt with a `measure:`
   line, never a perfect fixture. Its rails are aligned once per install, not per
   part ([#270](https://github.com/pedropaulovc/prechips/issues/270)), and a
-  trammel op runs only on that commissioning: `commissioning_record` names where
+  trammel op runs only on that commissioning. It is built and commissioned
+  outside the traveler, to the drawing or document `make_document = { id,
+  revision, cite }` names; the traveler never prints the build. `commissioning_record` names where
   the install record is kept, and `dowel_reading` (measured) is the largest miss
   a dowel in a carriage read against its predicted station targets along each
-  rail. Either missing is debt and the card prints only a STOP; the card prints
-  both as its pointer to how the rails were set. For the setup picture only it
+  rail. Any of the three missing (a `make_document` without its id, revision or
+  cite included) is debt and the card prints only a STOP; the card prints them as
+  its pointer to how the trammel was built and its rails set. For the setup picture only it
   also declares `pin_dia`, `rail_width`, `rail_height` and `bed_height`, each
   measured; the rails and pins are then drawn render-only, else a picture note
   names each missing fact. `carrier_length` (along its pins' chord),
@@ -1165,6 +1168,7 @@ plan's stock.
 | `rail_travel_mm` / `rail_travel_in` | `MeasuredLimits` (`trammel`: a pin's nearest and farthest station along its rail from the spindle axis; measured) |
 | `pin_dia_mm` / `pin_dia_in`, `rail_width_mm` / `rail_width_in`, `rail_height_mm` / `rail_height_in` | `MeasuredLength` (`trammel`: for the setup picture only; measured) |
 | `carrier_length_mm` / `carrier_length_in`, `carrier_width_mm` / `carrier_width_in`, `carrier_thickness_mm` / `carrier_thickness_in` | `MeasuredLength` (`trammel`: the carrier plate, for the setup picture only; measured) |
+| `make_document` | `{ id, revision, cite }` (`trammel`: the drawing or document it is built and commissioned to, outside the traveler) |
 | `commissioning_record` | `str` (`trammel`: where the install record of its rails' alignment is kept) |
 | `dowel_reading_mm` / `dowel_reading_in` | `MeasuredLength` (`trammel`: commissioning, the largest miss a dowel in a carriage read against its predicted stations; measured) |
 | `leadscrew` | `LeadScrew` |

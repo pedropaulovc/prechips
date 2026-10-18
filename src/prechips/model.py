@@ -1913,6 +1913,9 @@ MakeOp = record(
     {**texts("hold tool feed cite"), "rpm": float | LimitPair, "doc_mm": float},
 )
 MakeOps = Annotated[list[MakeOp], Field(min_length=1)]
+# The drawing or document a fixture built outside the traveler is made and commissioned
+# to: its id, its revision and where it is cited from (a trammel, #269/#270).
+MakeDocument = record("MakeDocument", texts("id revision cite"))
 FixtureSolid = record(
     "FixtureSolid",
     {
@@ -2155,6 +2158,7 @@ InventoryItem = record(
         # where the install record is kept, and the largest miss a dowel in a carriage
         # read against its predicted station targets when the rails were aligned.
         "commissioning_record": str,
+        "make_document": MakeDocument,
         **dict.fromkeys(("dowel_reading_mm", "dowel_reading_in"), MeasuredLength),
         **dict.fromkeys(
             ("carrier_length_mm", "carrier_length_in", "carrier_width_mm", "carrier_width_in")

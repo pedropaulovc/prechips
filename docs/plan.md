@@ -1935,7 +1935,8 @@ uses the 1898 manual arc method:
    down clear of the stock (else debt). The full operator sequence, what each printed
    number is measured from and how its error reaches the cut, is in
    [rules-coordinates](rules-coordinates.md#trammel-operator-sequence). The traveler
-   prints where the trammel's commissioning record is kept and its dowel reading
+   prints the drawing or document the trammel is built and commissioned to, outside
+   the traveler (`make_document`), where its commissioning record is kept and its dowel reading
    against the predicted stations (no commissioning is debt: the card is a STOP), the
    pin pair seated in the carriages, X and Y locked on the rails'
    crossing, a stop clamped on one rail at each end's exact pin station (also read

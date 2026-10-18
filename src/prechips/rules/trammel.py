@@ -283,6 +283,19 @@ def _facts(bundle, setup, sweep, errors, debts, measurements, record_):
     # The rails are aligned once per install, not per part (#270): this op runs on that
     # commissioning, named by where its install record is kept and by the dowel reading
     # taken against the predicted station targets. Without them the op is not runnable.
+    # It is built and commissioned outside the traveler, to a cited drawing or document.
+    document = item.get("make_document") if isinstance(item.get("make_document"), dict) else {}
+    made = {
+        part: document.get(part).strip()
+        for part in ("id", "revision", "cite")
+        if isinstance(document.get(part), str) and document.get(part).strip() not in ("", UNKNOWN)
+    }
+    if len(made) < 3:
+        debts.append(
+            f"the make document of {key} is unknown: name the drawing or document it is built "
+            "and commissioned to, with its revision and cite, as make_document = { id, "
+            "revision, cite }"
+        )
     named = item.get("commissioning_record")
     named = named.strip() if isinstance(named, str) and named.strip() != UNKNOWN else ""
     if not named:
@@ -311,6 +324,9 @@ def _facts(bundle, setup, sweep, errors, debts, measurements, record_):
             "pin_pair": pair,
             "pin_spacing_mm": found["pin_spacing"],
             "rail_travel_mm": found["rail_travel"],
+            "make_document": {"id": made["id"], "revision": made["revision"]}
+            if len(made) == 3
+            else UNKNOWN,
             "commissioning_record": named or UNKNOWN,
             "dowel_reading_mm": reading,
         }

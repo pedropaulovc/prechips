@@ -20,6 +20,7 @@ ALPHA = 16.44
 # The concave R800 strap edge cut by an Ø6 cutter on the R797.25 pin circle: the wall at
 # R800.25, mid-band.
 SPACING = round(2 * 797.25 * math.sin(math.radians(ALPHA)), 4)
+DOCUMENT = "make_document = { id = 'TR-800', revision = 'B', cite = 'shop drawing TR-800 rev B' }\n"
 TRAMMEL = (
     "[fixtures.tram]\nkind = 'trammel'\nname = 'R800 trammel'\n"
     f"rail_angle_deg = {{ value = {ALPHA}, {MEASURED} }}\n"
@@ -29,7 +30,8 @@ TRAMMEL = (
     f"pin_clearance_mm = {{ value = 0.005, {MEASURED} }}\n"
     f"rail_offset_mm = {{ value = 0.01, {MEASURED} }}\n"
     f"rail_travel_mm = {{ value = [40.0, 420.0], {MEASURED} }}\n"
-    "commissioning_record = 'trammel install log, sheet 1'\n"
+    + DOCUMENT
+    + "commissioning_record = 'trammel install log, sheet 1'\n"
     f"dowel_reading_mm = {{ value = 0.02, {MEASURED} }}\n"
     "verify = false\n"
 )
@@ -447,14 +449,48 @@ def test_the_traveler_prints_the_pins_stops_on_a_rail_and_the_lever_feed(tmp_pat
     # The rails' alignment is the commissioning's, named, not this card's.
     assert "neither builds nor aligns the trammel" in printed
     assert "kept in trammel install log, sheet 1" in printed and "within 0.02 mm" in printed
+    # The helper turns each reading's markup into a space: TR-800 prints as "TR- 800".
+    assert "built and commissioned to TR- 800 rev B, outside this traveler" in printed
 
 
-def test_an_uncommissioned_trammel_is_debt_and_prints_only_a_stop(tmp_path):
-    inventory = TRAMMEL.replace("commissioning_record = 'trammel install log, sheet 1'\n", "")
-    row, printed = traveler_text(tmp_path, inventory=inventory)
+@pytest.mark.parametrize(
+    ("line", "replacement", "debt", "words"),
+    [
+        (
+            "commissioning_record = 'trammel install log, sheet 1'\n",
+            "",
+            "the commissioning record of tram is unknown: commission the trammel",
+            "trammel commissioning record unknown",
+        ),
+        (
+            DOCUMENT,
+            "",
+            "the make document of tram is unknown: name the drawing or document",
+            "trammel make document unknown",
+        ),
+        (
+            "revision = 'B', ",
+            "",
+            "the make document of tram is unknown",
+            "trammel make document unknown",
+        ),
+        (
+            "cite = 'shop drawing TR-800 rev B'",
+            "cite = 'unknown'",
+            "the make document of tram is unknown",
+            "trammel make document unknown",
+        ),
+    ],
+    ids=["no-commissioning-record", "no-make-document", "no-revision", "uncited"],
+)
+def test_an_uncommissioned_or_undocumented_trammel_is_debt_and_prints_only_a_stop(
+    tmp_path, line, replacement, debt, words
+):
+    assert line in TRAMMEL
+    row, printed = traveler_text(tmp_path, inventory=TRAMMEL.replace(line, replacement))
     assert row.status == "unknown"
-    assert "the commissioning record of tram is unknown: commission the trammel" in debts(row)
-    assert "STOP: guided sweep not established (trammel commissioning record unknown)" in printed
+    assert debt in debts(row)
+    assert f"STOP: guided sweep not established ({words})" in printed
     assert "hand lever" not in printed
 
 

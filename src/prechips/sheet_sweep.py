@@ -357,6 +357,15 @@ TRAMMEL_PRINTED = (
     ("stations_mm", lambda a, s, _: _pairs(s.get("stations_mm")), "pin stations unknown"),
     ("rail_travel_mm", lambda a, s, _: _pair(s.get("rail_travel_mm")), "rail travel unknown"),
     (
+        "make_document",
+        lambda a, s, _: (
+            isinstance(s.get("make_document"), dict)
+            and _named(s["make_document"].get("id"))
+            and _named(s["make_document"].get("revision"))
+        ),
+        "trammel make document unknown",
+    ),
+    (
         "commissioning_record",
         lambda a, s, _: _named(s.get("commissioning_record")),
         "trammel commissioning record unknown",
@@ -448,8 +457,11 @@ def _trammel(arc, sweep, o, start, stop, feed, final, levels=None):
         f"{names[0]} and {names[1]}, whose pin-lines cross on the spindle axis at "
         f"{_number(sweep.get('rail_angle_deg'))}° to each other. The pins, not the DRO, set "
         "where the cutter cuts.",
-        f"This op neither builds nor aligns the trammel: it runs on its commissioning, kept "
-        f"in {_text(sweep.get('commissioning_record'))}, where a dowel in each carriage read "
+        f"This op neither builds nor aligns the trammel: it is built and commissioned to "
+        f"{_text(sweep['make_document']['id'])} rev "
+        f"{_text(sweep['make_document']['revision'])}, outside this traveler, and runs on its "
+        f"commissioning, kept in {_text(sweep.get('commissioning_record'))}, where a dowel in "
+        "each carriage read "
         f"within {_number(sweep.get('dowel_reading_mm'))} mm of its predicted stations along "
         "its rail. If the rails have been moved or their studs loosened since, STOP: "
         "recommission them before this op.",

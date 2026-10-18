@@ -1183,8 +1183,10 @@ recipes; an unknown action cannot establish the saw-only exemption.
   the arc's true X and Y extremes) and any unmeasured fixture
   fact are unknown, with a `measure:` entry for each fact. So is a trammel with no
   commissioning ([#270](https://github.com/pedropaulovc/prechips/issues/270)): an
-  unknown `commissioning_record` or an unmeasured `dowel_reading`, the rails'
-  alignment this op runs on; a negative reading is an error.
+  unknown `make_document` (its id, revision or cite), the drawing it is built and
+  commissioned to outside the traveler, or an unknown `commissioning_record` or
+  unmeasured `dowel_reading`, the rails' alignment this op runs on; a negative
+  reading is an error.
 
 As on every guided sweep ([#258](https://github.com/pedropaulovc/prechips/pull/258)),
 each of the trammel's geometric proofs carries one DRO step of margin (`margin_mm`): the
@@ -1209,7 +1211,7 @@ its error reaches the cut. Every value printed here is in the card's one gate
 
 | Step | Printed | Measured from / set by | Its error reaches the cut as | Bounded by |
 |---|---|---|---|---|
-| 0. Rails aligned (once per install, [#270](https://github.com/pedropaulovc/prechips/issues/270)) | rail angle `α` (information); where the install record is kept (`commissioning_record`) and its dowel reading against the predicted stations, as the card's pointer; a STOP to recommission if the rails moved | the commissioning readings that put both pin-lines through the spindle axis | the rails' crossing angle: radius `R(D, α)`; a pin-line off the spindle axis: about 1:1 | the measured `rail_angle_error` at its corners; `rail_offset` through `line_gain` |
+| 0. Rails aligned (once per install, [#270](https://github.com/pedropaulovc/prechips/issues/270)) | rail angle `α` (information); the make document's id and revision it is built and commissioned to; where the install record is kept (`commissioning_record`) and its dowel reading against the predicted stations, as the card's pointer; a STOP to recommission if the rails moved | the commissioning readings that put both pin-lines through the spindle axis | the rails' crossing angle: radius `R(D, α)`; a pin-line off the spindle axis: about 1:1 | the measured `rail_angle_error` at its corners; `rail_offset` through `line_gain` |
 | 1. Seat the pin pair | pair name, spacing `D` (information) | the carrier's drilled pin holes | spacing: radius `R(D, α)`; a pin's play in its carriage: about 1:1 | `pin_spacing_error` at its corners; `pin_clearance` through `line_gain` |
 | 2. Lock X and Y on the rails' crossing | none (no X/Y pickup, no DRO sign) | the spindle left where step 0 aligned the rails | moving X/Y offsets both pin-lines: radial about 1:1 | the card forbids moving them; the zero owes no X/Y |
 | 3. Clamp the stops on rail 1 | each end's pin station, 0.1 mm, from the spindle axis and along the rail from the carriage's near end stop (`rail_travel` near limit) | a steel rule from that end-stop position | a stop off by up to 0.55 mm holds the carrier at another pose (`stop_bands_deg`, the exact inverse of the station); it never moves the radius | an error unless the worst stop, on the fixture at its tolerances, still holds past its arc end; debt unless the cutter goes down in air at every pose the first stop can hold |
