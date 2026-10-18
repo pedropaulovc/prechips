@@ -1,6 +1,6 @@
 # Design: printed 1:1 paper pattern as a layout line
 
-Status: **design proposed, not implemented.** Issue
+Status: **owner decided D1–D7 (2026-10-18); Q8–Q9 open; not implemented.** Issue
 [#344](https://github.com/pedropaulovc/prechips/issues/344). None of this
 document is shipped behaviour: no schema, rule, kernel output or traveler row
 described here exists yet. It follows the design-first rule from
@@ -39,7 +39,7 @@ Where each deliverable of the #344 design task lives:
 | 4. Unknown-value gate and one test per printed field | §6, §8.1 |
 | 5. Operator-perturbation tests | §8.2 |
 | 6. T2 traveler mock-up for the blind machinist read | §7 |
-| 7. Open questions for the owner | §11 |
+| 7. Decisions and open questions | §11 |
 
 ## 1. Problem
 
@@ -71,7 +71,7 @@ So T2 stays out of the consumer plan.
 
 ### 2.1 Op shape: a `scribe` with `layout = "printed_pattern"`
 
-**Recommended (Q1):** keep `do = "scribe"` and add one layout kind,
+**Decided (D1):** keep `do = "scribe"` and add one layout kind,
 `layout = "printed_pattern"`. "Layout" already is the enum for *how* the line
 gets onto the work. Reusing `scribe` keeps the code paths that make a line
 followable unchanged: `Plan.saw_shapes` registers it as a followable scribe,
@@ -90,13 +90,17 @@ do = "scribe"
 layout = "printed_pattern"
 feature = ["top_edge", "profile_outer", "end_land_east", "end_land_west"]
 on = "strap_top_face"                       # the face the print is glued to
-pattern = "strap-outline-print-1to1"        # consumables, kind = "printed_pattern"
+pattern = "tabloid-laser-paper"            # consumables, kind = "printed_pattern" (printer and paper)
 adhesive = "spray-adhesive-3m-super-77"     # consumables, kind = "spray_adhesive"
-scale_check = [
-  { axis = "x", length_mm = 300.0, gauge = "calipers-18in", tolerance_mm = 0.15 },
-  { axis = "y", length_mm = 30.0,  gauge = "calipers-18in", tolerance_mm = 0.05 },
+scale_check = [   # at = "margin": read before gluing only; at = "work": read before gluing and again before the cut
+  { at = "margin", axis = "x",  length_mm = 300.0, gauge = "calipers-18in", tolerance_mm = 0.15 },
+  { at = "margin", axis = "y",  length_mm = 200.0, gauge = "calipers-18in", tolerance_mm = 0.15 },
+  { at = "margin", axis = "xy", length_mm = 360.555, gauge = "calipers-18in", tolerance_mm = 0.15 },   # Q9
+  { at = "work",   axis = "x",  length_mm = 300.0, gauge = "calipers-18in", tolerance_mm = 0.15 },
+  { at = "work",   axis = "y",  length_mm = 30.0,  gauge = "calipers-18in", tolerance_mm = 0.05 },
 ]
 register = { kind = "pins", holes = ["pivot_bore", "tool_hole_east", "tool_hole_west"], pins = "gauge-pins" }
+station_check = { gauge = "calipers-18in", tolerance_mm = 0.40 }   # line stations, §4.8
 
 [[setups.ops]]            # T2B, bandsaw vertical
 op = 10
@@ -117,37 +121,82 @@ Fields new on `Operation` for this layout, all forbidden on any other op:
 | Field | Type | Meaning |
 |---|---|---|
 | `layout` | gains `"printed_pattern"` | the line comes from a glued print |
-| `feature` | `str` or list (min 1) | the lines the plan uses from the print; each must be in the pattern's `export.features` |
+| `feature` | `str` or list (min 1) | the lines the plan uses from the print; each is drawn from the bundle STEP onto the generated print (§2.2) |
 | `on` | `str` | the manifest face the print is glued to; drives the removal gate (§2.6) |
-| `pattern` | `str` | a `consumables` item of kind `printed_pattern` |
+| `pattern` | `str` | a `consumables` item of kind `printed_pattern`: the printer and paper the generated PDF is printed on |
 | `adhesive` | `str` | a `consumables` item of kind `spray_adhesive` |
-| `scale_check` | list of `{ axis = "x" \| "y", length_mm, gauge, tolerance_mm }`, min 1 | a printed check bar, the gauge that reads it and the accepted error |
+| `scale_check` | list of `{ at = "margin" \| "work", axis = "x" \| "y" \| "xy", length_mm, gauge, tolerance_mm }`, min 1 | a printed check bar, where it is printed, the gauge that reads it and the accepted error; the generator draws each one |
 | `register` | `{ kind = "pins", holes, pins }` or `{ kind = "edges", edges }` | how the print is located on the work (§4.3) |
+| `station_check` | `{ gauge, tolerance_mm }` | the gauge and tolerance for the pin-to-line stations (§4.8) |
 
 The issue's free-text `locate` is replaced by the typed `register`; its prose
 stays available as `note`.
 
-### 2.2 Pattern consumable
+### 2.2 The generated print and the printing consumable
+
+**Decided (D2):** prechips generates the print from the bundle's own STEP.
+No external export is accepted. The print is deterministic output from the
+inputs, like the traveler, and the traveler run writes it beside
+`traveler.html`.
+
+**The artifact.** For each `printed_pattern` op, the traveler run writes
+`pattern-<setup>-<op>.pdf`:
+
+| Element | Content | From |
+|---|---|---|
+| Outline | each `feature` the op lists, at 1:1: the edges of its STEP faces where they meet the `on` face's plane, in the `on` face's frame | the kernel, on the bundle STEP |
+| Registration circles | each `register.holes` hole as a circle at the pin set's nominal diameter `P_n`, with a centre crosshair | the kernel (hole axis on the `on` plane) and the pin set |
+| Keep side | a short "KEEP" label and hatching on the waste side of each followed line | the saw's `remove` side (§2.5) |
+| Check bars | one bar per axis (D3), each with end ticks, its nominal length and its accept window; the post-glue bars placed inside the `on` face's outline, the pre-glue bars along the sheet margin | `scale_check` |
+| Line stations | each station's tick on the line, its X and its pin-to-line window (§4.8) | the rule |
+| Title block | part name; `STEP sha256` (full); plan revision; setup and op; engine digest; sheet size; the scale statement `SCALE 1:1 — PRINT AT 100 % / ACTUAL SIZE — NO FIT TO PAGE`; the pattern file's own SHA-256 is not printed on itself (it cannot be), the traveler carries it | bundle identity |
+
+**Format.** A one-page vector PDF whose page box is exactly the declared
+`sheet` (tabloid 279.4 × 431.8, A3 297 × 420), zero margins, user unit
+1 pt = 25.4/72 mm, strokes at one generator constant width, text in a
+standard base-14 font (no embedding). `/ViewerPreferences` carries
+`/PrintScaling /None`, which some print dialogs honour; the printed
+instruction and the check bars are what the shop relies on. Arcs are cubic
+Béziers split until each segment's radial deviation from the true arc is
+under 0.001 mm (computed, not assumed); straight edges are lines.
+
+**Writer.** Host Python writes the PDF directly (a few hundred lines: page,
+paths, text). The kernel supplies only the geometry: for each listed feature,
+its boundary edges on the `on` plane as exact arcs and lines in the `on`
+face's frame. The print browser is not used, because a browser print adds
+its own margins and scale.
+
+**Determinism.** The same STEP bytes, features, plan, policy, inventory and
+engine give byte-identical PDF output: no timestamp, a fixed `/ID` derived
+from the content, sorted dictionaries and fixed number formatting. The pattern
+digest joins the traveler's identity, and the kernel cache key gains the op's
+feature list and `on` face, so a changed STEP or plan re-runs the geometry.
+
+**How the traveler references it.** The T2A row names the file
+`pattern-T2A-10.pdf` and the first 12 hex of its SHA-256. The operator checks
+the title block's plan revision and STEP digest against the traveler's front
+sheet. A traveler run without a kernel writes no pattern: the row is a STOP
+and the exit is 4, as for any missing kernel fact.
+
+**The printing consumable.** What the engine cannot generate is how a given
+printer and paper render the file. That stays a consumable:
 
 ```toml
-[consumables.strap-outline-print-1to1]
+[consumables.tabloid-laser-paper]
 kind = "printed_pattern"
-name = "Rocker strap outline, 1:1 print"
-export = { file = "patterns/strap-outline.pdf", sha256 = "<64 hex>", features = ["top_edge", "profile_outer", "end_land_east", "end_land_west", "tool_hole_east", "tool_hole_west", "pivot_bore"], cite = "harmonic-analyzer <export task and commit>" }
-scale = "1:1"
-sheet = "tabloid"            # one sheet; phase 1 refuses tiled prints (Q6)
-# greatest printed stroke width over the outline, bars and circles, read on a print from this export
+name = "Tabloid laser prints, office printer"
+products = ["11 x 17 in 24 lb laser paper"]
+sheet = "tabloid"            # one sheet; tiled prints are refused (D6)
+# greatest printed stroke width of the generator's lines, read on a print from this printer
 line_width_mm = { value = 0.20, measured = { status = "measured", by = "...", date = "...", instrument = "10x measuring loupe, 0.05 mm reticle" } }
 ```
 
 | Field | Type | Meaning | Unknown or untrusted |
 |---|---|---|---|
-| `export.file`, `export.sha256` | path in the bundle, 64-hex digest | the file the operator prints. The engine hashes the bundle's own file and compares, as it does for the STEP; a mismatch is bad input (exit 3), a missing file is `?` | STOP on the print step |
-| `export.features` | list of manifest feature names | the lines the export draws. Not geometry the engine can check: the pins (§4.3) and the check bars (§4.2) are what catch a wrong or rescaled export at the bench | a plan `feature` not listed is bad input |
-| `export.cite` | citations | where the export came from | STOP on the print step |
-| `scale` | `Literal["1:1"]` | the only scale; anything else is bad input | — |
-| `sheet` | enum `"letter" \| "a4" \| "tabloid" \| "a3"` | the paper the export is laid out on; the engine checks that the outline plus the bars fit it | STOP on the print step |
-| `line_width_mm` | `MeasuredLength` (greatest width) | printed stroke width `w`. The export's stroke weight is not the printed width (toner spreads), so only a measurement on a print qualifies; a cite to the export's stroke weight stays debt | stack `?` → STOP on the follower (§4.4) |
+| `sheet` | enum `"letter" \| "a4" \| "tabloid" \| "a3"` | the page box the generator lays out on; the rule checks the outline, bars, stations and title block fit it | STOP on the print step |
+| `line_width_mm` | `MeasuredLength` (greatest width) | printed stroke width `w`. The generator's stroke constant is not the printed width (toner spreads), so only a measurement on a print qualifies | stack `?` → STOP on the follower (§4.4) |
+
+The scale is not a field: the generator writes only 1:1.
 
 ### 2.3 Adhesive consumable
 
@@ -214,17 +263,18 @@ In order, with the error each step introduces (§4 gives the arithmetic):
 
 | # | Step | Where | Error it introduces |
 |---|---|---|---|
-| 1 | **Print.** Print `export.file` (the traveler shows its name and first 12 hex of its SHA-256; check them) at *actual size / 100 %*, no fit-to-page, on one `sheet`. | office | printer scale, anisotropic: `ε_x`, `ε_y` |
+| 1 | **Print.** Print the generated `pattern-<setup>-<op>.pdf` (the traveler shows its name and first 12 hex of its SHA-256; check them, and check the title block's plan revision and STEP digest against the traveler's front sheet) at *actual size / 100 %*, no fit-to-page, on one `sheet`. | office | printer scale, anisotropic: `ε_x`, `ε_y` |
 | 2 | **Check scale before gluing.** Read every check bar with the named gauge. Accept only inside `length_mm ± tolerance_mm`; otherwise reprint, never glue. | bench | bounds `ε` per axis (§4.2) |
 | 3 | **Prepare the surface.** The adhesive's `surface_prep` on the `on` face. | bench | none modelled; a dirty face lets the print lift (STOP if no text) |
 | 4 | **Set the pins.** A gauge pin of the declared size in each registration hole, standing proud of the face. | bench | pin-in-hole clearance |
 | 5 | **Glue.** The adhesive's `apply`: spray the back of the print, wait `tack_s`, lay it on over the pins so each pin pierces its printed crosshair, smooth from the pins outward. | bench | paper movement while smoothing (bounded by step 7) |
-| 6 | **Check registration.** At each pin, the pin's edge must lie inside the printed circle's line all round (loupe). Any pin whose edge leaves the line: peel, discard, reprint. Then pull the pins. | bench | bounds registration (§4.3) |
+| 6 | **Check registration.** At each pin, the pin's edge must lie inside the printed circle's line all round (loupe). Any pin whose edge leaves the line: peel, discard, reprint. | bench | bounds registration (§4.3) |
+| 6a | **Check the line stations.** With the pivot pin still in, read with the calipers from the pin to the printed line at each station the traveler lists, and accept only inside each station's window. Any station outside: peel, discard, reprint. Then pull the pins. | bench | catches a printer path that is not affine, and local distortion, at the stations (§4.8) |
 | 7 | **Check scale again, on the work.** Re-read the bars that lie on the work. Same acceptance. This is the reading the stack uses: it includes stretch from the adhesive and the smoothing. | bench, immediately before the saw | bounds `ε` after gluing |
 | 8 | **Saw to the line.** For each printed line: saw outside it, leaving `allowance_mm` between the line and the blade's near side; feed by hand along the line. | bandsaw, vertical | following error `f` |
 | 9 | **Remove the print** before any op that locates on, clamps on or measures from the `on` face: the adhesive's `removal`. | bench | none once the face is clean |
 
-Step 7 is the design's answer to paper stretch and adhesive creep (Q4). No
+Step 7 is the design's answer to paper stretch and adhesive creep (D4). No
 cited magnitude for paper hygroexpansion under a spray adhesive was found for
 this document; rather than guess one, the stack uses a measurement taken after
 gluing and immediately before the cut. What remains unmodelled is drift
@@ -296,8 +346,20 @@ s(p) = hypot(ε_x · dx, ε_y · dy)
   `o` as the hole that gives each point the least bound.
 - **Printers scale each axis differently.** One bar proves one axis. An axis
   with no bar leaves `ε` unknown on it, and the stack `?`, unless every line
-  point has zero offset on that axis (never, for an arc). Q3 asks whether to
-  require a bar per axis or credit only the bar's axis.
+  point has zero offset on that axis (never, for an arc). D3 requires one bar
+  per axis.
+- **Skew.** An X and a Y bar together do not bound shear: a sheet fed at a
+  slant can read both bars in tolerance while its axes are not square. The
+  formula above holds for an affine print only when a third, diagonal bar
+  (`axis = "xy"`) is also read; with the three, the print's 2×2 linear map is
+  bounded and `s(p)` uses that bound. Without a diagonal bar the stack is `?`.
+  The diagonal is read before gluing only, as the diagonal of a rectangle on
+  the sheet margin whose sides are the X and Y bars (for example 300 × 200):
+  a diagonal on a 40 mm strap runs at under 6° and barely sees shear. Shear
+  added by smoothing on the work is what the stations (§4.8) catch.
+- **Non-affine distortion** (local stretch or a wrinkle smoothed flat) is not
+  bounded by any set of bars. The line stations (§4.8) measure it where they
+  are; between stations it is residue the owner decides on (Q8).
 - **The post-glue reading governs.** Both readings (§3 steps 2 and 7) use the
   same acceptance; the stack uses step 7's bars, which must lie on the work.
   On a 40 mm blank a Y bar is at most about 30 mm, so its reading error `w`
@@ -347,8 +409,8 @@ no source either, and is not offered.
 The line is a band of width `w` centred on the true outline. "Saw 1 mm
 outside the line" may be read from either edge of the band, so the stack
 carries `±w/2`. The same `w` enters the bar readings (§4.2) and the
-registration check (§4.3). It must be measured on a print from this export;
-the export's stroke weight is not evidence.
+registration check (§4.3). It must be measured on a print from the shop's printer;
+the generator's stroke constant is not evidence.
 
 ### 4.5 Following error
 
@@ -364,7 +426,7 @@ file = { value = ..., cite = "..." }
 
 Each entry is a `CitedFact`. A trial cut (saw along a printed test line,
 measure the offset at intervals) is a measurement and qualifies. Missing or
-uncited, the follower is `?` (Q5). The method is derived from the op: a
+uncited, the follower is `?` (D5). The method is derived from the op: a
 `saw_cut` on a bandsaw in vertical mode is `bandsaw_vertical`, a hand-saw op
 `hand_saw`.
 
@@ -374,10 +436,54 @@ assumes.
 
 ### 4.6 Named residue (not modelled)
 
+- Non-affine distortion between line stations (§4.8, Q8).
 - Paper drift during the cut, after step 7's reading.
 - Print lifting at the line under the blade, if the adhesive lets go locally.
   Step 7's reading does not see it; the operator stops and re-glues.
 - Hole wall damage from the pins (gauge pins are not driven).
+
+### 4.8 Line stations: measuring the printed line itself
+
+The digest, bars and pins prove the print's bytes, its scale and where it
+sits; none of them proves that the printed arc is the manifest's arc. A PDF
+whose bars and hole circles are right but whose top edge is R790 passes all
+three. So the glued line is measured directly.
+
+The rule chooses stations on each followed line: both ends and the midpoint
+at least, and more until no two neighbours are farther apart than
+`station_spacing_mm` (Q8). Each station is a short tick printed across the
+line. For each station the rule prints two nominal distances: the straight
+distance from the near edge of each of two registration pins (the pivot pin
+and the nearer tooling-hole pin) to the point where the tick crosses the line,
+read with the calipers' jaw tips. One distance from one pin proves the point
+only along that pin's radial direction, which near the strap's ends runs
+almost along the line; two pins at an angle fix the point in the plane. Each
+window is
+
+```text
+nominal ± (k_station − m − w/2)
+```
+
+where `k_station` is the station tolerance the plan sets
+(`station_check = { gauge, tolerance_mm }` on the pattern op) and the reading
+error `m + w/2` is taken out of it, so an accepted reading proves the line
+within `k_station` of the nominal along each pin's direction. The stack
+needs the station's displacement along the line's normal. One pin whose
+direction lies within 30° of that normal proves it alone, to
+`k_station / cos φ` (φ the angle between them), as the pivot pin does at the
+strap's midpoint. Otherwise the rule uses two pins and the bound
+`k_station / sin θ` on the whole displacement, θ the angle between the two
+pin directions at the station; a station where neither works is not offered. A window that
+the reading error swallows (`k_station ≤ m + w/2`) is bad input.
+
+At a station the stack's `s(p) + r(p)` is replaced by that bound when it is
+smaller. Between stations the bound stays `s(p) + r(p)` from the bars and
+pins; that bound assumes the print is affine. With the print generated from
+the STEP (D2), a wrong outline is a generator defect, caught by the generator
+tests (§8.4) rather than at the bench; the stations still catch a printer or
+paper path that does not render the file faithfully. Three stations on an arc
+fix its circle, so a print whose arc has the wrong radius or centre fails at
+least one station. Distortion between stations is the residue Q8 decides.
 
 ### 4.7 Every assumed magnitude has a source
 
@@ -397,8 +503,8 @@ assumes.
 
 A new rule module, `printed_pattern`, owns this layout:
 
-- **Layout finding**, subject `<setup>:<op>` of the pattern op: export digest,
-  sheet fit, bars on the work, pins and holes, adhesive record. Its numbers
+- **Layout finding**, subject `<setup>:<op>` of the pattern op: the generated
+  print's geometry (from the kernel) and digest, sheet fit, bars on the work, pins and holes, adhesive record. Its numbers
   carry every value §6 lists, so the traveler reads them and never computes.
 - **Follower finding**, subject `<setup>:<op>` of each saw that follows it:
   the stack terms, `stock_min`, `stock_max`, the cap and the verdict.
@@ -410,9 +516,9 @@ features and print no centre). In `sheet.manual_arc_steps`, the scribe branch
 for this layout prints the pattern instead of a centre and radius:
 
 ```text
-Layout: glue the 1:1 print "Rocker strap outline, 1:1 print"
-(strap-outline.pdf, SHA-256 3f9a…c21e) on the strap top face; lines used:
-top edge R800, bottom edge R816, east and west end lands.
+Layout: glue the 1:1 print pattern-T2A-10.pdf (SHA-256 3f9a1d07c21e…,
+STEP 6cd4ab60…, plan v40) on the strap top face; lines used: top edge R800,
+bottom edge R816, east and west end lands.
 ```
 
 `sheet.saw_setting` for a saw that follows a print reads
@@ -427,9 +533,9 @@ row and adds it to the setup's STOP list; no partial recipe prints.
 
 | # | Printed or consumed value | Proven by | STOP form |
 |---|---|---|---|
-| G1 | export file name and SHA-256 | bundle file hashes to `export.sha256`; `export.cite` known | `STOP: print source not established — <reason>` |
+| G1 | pattern file name and SHA-256; title block STEP digest and plan revision | the kernel returned every listed feature's edges on the `on` plane and every registration hole's axis; the PDF was written | `STOP: pattern not generated — <reason>` (no kernel: exit 4) |
 | G2 | sheet and "actual size, one sheet" | `sheet` known; outline plus bars fit it | `STOP: print does not fit one <sheet> sheet` |
-| G3 | each check bar: axis, `length_mm`, accept window | `scale_check` entry; bar on the export; post-glue bar inside the `on` face | `STOP: check bar <axis> not established` |
+| G3 | each check bar: axis, `length_mm`, accept window | `scale_check` entry; bar fits the sheet; post-glue bar inside the `on` face | `STOP: check bar <axis> not established` |
 | G4 | the gauge that reads the bars | gauge resolves, range covers `length_mm`, `mpe_mm` cited | `STOP: scale check gauge not established` |
 | G5 | surface prep text | adhesive `surface_prep` known | `STOP: surface preparation not established` |
 | G6 | adhesive product, apply text, tack time | `products`, `apply`, `tack_s` cited | `STOP: adhesive application not established` |
@@ -441,6 +547,8 @@ row and adds it to the setup's STOP list; no partial recipe prints.
 | G12 | finisher cap (consumed) | cap resolves | `STOP: stock the finishing op takes is not established` |
 | G13 | removal method, agent, wait | adhesive `removal` cited | `STOP: print removal not established` |
 | G14 | blade speed | existing `speeds_feeds` | existing `STOP: no blade speed` |
+| G15 | each line station: X, nominal pin-to-line distance, window | `station_check` known; window wider than the reading error; stations cover each followed line at `station_spacing_mm` | `STOP: printed line stations not established` |
+| G16 | diagonal bar | a `scale_check` with `axis = "xy"` | `STOP: print skew not checked` |
 
 ## 7. Traveler mock-up: T2 (for the blind machinist read)
 
@@ -454,14 +562,18 @@ SETUP T2A — fitting bench — ASSEMBLY / FINISHING
 Stock in: strap blank from T1, both faces faced, pivot bore and two tooling holes drilled.
 
 Step 10 | top edge, bottom edge, east and west end lands
-  Consumable: Rocker strap outline, 1:1 print (strap-outline.pdf,
-              SHA-256 3f9a1d07c21e…); 3M Super 77 spray adhesive
+  Consumable: pattern-T2A-10.pdf (made with this traveler; SHA-256
+              3f9a1d07c21e…), printed on tabloid laser paper;
+              3M Super 77 spray adhesive
   Action:
-   a. Print strap-outline.pdf on one tabloid sheet at ACTUAL SIZE (100 %).
-      Turn off "fit to page". Check the file name and SHA-256 above.
-   b. Before gluing: read check bar X with 18 in calipers. Accept
-      299.85–300.15 mm. Read check bar Y. Accept 29.95–30.05 mm.
-      Outside either: reprint. Do not glue.
+   a. Print pattern-T2A-10.pdf on one tabloid sheet at ACTUAL SIZE (100 %).
+      Turn off "fit to page" and any "shrink" option. Check the title block:
+      STEP 6cd4ab60f57b…, plan v40, SCALE 1:1, the same as this traveler's
+      front sheet.
+   b. Before gluing, with the 18 in calipers, on the sheet margin:
+      bar X 299.85–300.15; bar Y 199.85–200.15; diagonal 360.41–360.71.
+      On the strap outline: bar X 299.85–300.15; bar Y 29.95–30.05.
+      Outside any: reprint. Do not glue.
    c. Wipe the strap top face with isopropyl alcohol; let it dry.
    d. Stand a Ø3.990–4.000 gauge pin in the pivot bore and in each
       tooling hole.
@@ -472,7 +584,17 @@ Step 10 | top edge, bottom edge, east and west end lands
    f. At each pin, with the loupe: the pin's edge is inside the printed
       circle's line all the way round. If not: peel the print off, reprint,
       go back to c.
-   g. Pull the pins.
+   g. Pins still in. At each station tick, read with the calipers' jaw tips
+      from the near edge of each named pin to where the tick crosses the line:
+        station           from pivot pin     from tooling pin
+        top    X -140     139.20–139.74      21.23–21.77 (west)
+        top    X    0       5.73–6.27        —  (pivot only; Y direction)
+        top    X +140     139.20–139.74      21.23–21.77 (east)
+        bottom X -130     127.75–128.29      28.24–28.78 (west)
+        bottom X    0       5.73–6.27        —
+        bottom X +130     127.75–128.29      28.24–28.78 (east)
+      Outside any window: peel the print off, reprint, go back to c.
+   h. Pull the pins.
 
 SETUP T2B — 4x6 bandsaw, VERTICAL mode
 Op | Feature     | Tool        | Speed    | Feed                    | Action
@@ -541,6 +663,8 @@ sample, or the traveler prints a STOP.** Never a pass with stock outside.
 | `test_scale_off_by_tolerance` | print scaled so the post-glue bar reads `L + t` (and `L − t`), each axis | with the §10 inputs, pass and stock in band; with `t` raised until `stock_min ≤ 0`, STOP |
 | `test_registration_off_by_hole_clearance` | each pin shifted to the far side of its hole (`(H_max − P_min)/2`) and the print rotated by the worst pair combination | pass and in band; with an oversize hole, STOP |
 | `test_line_followed_at_far_edge` | the operator references the line's inner edge (`−w/2`) with the following error at its full value toward the part | pass and in band with `f = 0.3`; STOP with `f = 0.5` |
+| `test_wrong_print_fails_a_station` | a print whose top edge renders at R790 (and, separately, its centre shifted 0.5) with correct bars and circles | the oracle's station reading falls outside its window, so the traveler's accept test rejects it; never a pass |
+| `test_skew_needs_diagonal_bar` | a sheared print whose X and Y bars both read in tolerance | without a diagonal bar: `?` and the G16 STOP; with it, the shear is bounded and the stack holds against the oracle |
 | `test_perturbations_combined` | all three at once, worst sign | the stack's `stock_min` equals the oracle's least stock within 1e-6 |
 
 ### 8.3 Schema and validator tests
@@ -555,15 +679,34 @@ sample, or the traveler prints a STOP.** Never a pass with stock outside.
 - `remove_pattern` naming a non-pattern op, or one on another workpiece:
   bad input. An op clamping the `on` face before the removal: `error`.
 
+### 8.4 Pattern generator tests
+
+- **Geometry round trip:** parse the written PDF's paths back (a small test
+  parser for the generator's own subset) and compare every outline path with
+  the kernel's edges for the listed features: deviation under 0.001 mm,
+  including the Bézier split on R800.
+- **Determinism:** two runs on the same inputs write byte-identical files;
+  changing the STEP bytes, the plan revision, the feature list or `on`
+  changes the digest and the title block.
+- **Page box and scale:** the page box is exactly the declared sheet; the
+  check bars' tick spacing in PDF units is `length_mm × 72/25.4`; the title
+  block carries the full STEP digest, the plan revision and the scale
+  statement.
+- **No kernel:** with `FREECAD_CMD` set to a nonexistent path, no PDF is
+  written, G1 prints its STOP and the exit is 4.
+- Real-geometry tests request the shared `freecad_kernel` fixture; unit tests
+  inject a synthetic `bundle.kernel` result.
+
 ## 9. Phased implementation plan
 
 | Phase | Content | Depends on |
 |---|---|---|
 | 1 | Schema: the two consumable kinds and the discriminator fix, `mpe_mm`, op fields, validators, `remove_pattern`; §8.3 tests | — |
-| 2 | Policy `line_following_mm`; export digest check; docs (inventory, plan, policy, rules-operations) | 1 |
-| 3 | Kernel: `scribed_profile` reads the saw's `feature`; sampled line points and hole positions in setup coordinates for the stack; sheet-fit and bar-on-face checks | 1 |
+| 2 | Policy `line_following_mm`; docs (inventory, plan, policy, rules-operations) | 1 |
+| 3 | Kernel: `scribed_profile` reads the saw's `feature`; each listed feature's edges on the `on` plane as exact arcs and lines, hole axes, sampled line points for the stack; sheet-fit and bar-on-face checks; cache key gains features and `on` | 1 |
+| 3b | Pattern writer: deterministic one-page vector PDF (§2.2) from phase 3's geometry; §8.4 tests | 3 |
 | 4 | Rule `printed_pattern`: layout, follower and removal findings; §8.1 and §8.2 tests | 2, 3 |
-| 5 | Traveler rows, STOP forms, machinist review on the affected bundle | 4 |
+| 5 | Traveler rows, the pattern file beside the traveler, STOP forms, machinist review on the affected bundle | 3b, 4 |
 | 6 | `file_to_line` to a printed line (stack against the drawing band) | 4 |
 
 No shipped example uses a print; the consumer change is harmonic-analyzer
@@ -602,21 +745,44 @@ Read honestly, the illustrative inputs say:
 - whether +1 closes is decided by the following error, which today has no
   source at all. Until the shop records a trial cut, T2B prints a STOP.
 
-## 11. Open questions for the owner
+## 11. Decisions and open questions
 
-Each is also asked in the PR and mirrored there as a comment; the recommended
-option is first.
+**Decisions (owner, 2026-10-18, on PR #346, recorded by the coordinator).**
+The body above follows them.
+
+| # | Question | Decision |
+|---|---|---|
+| D1 | Op shape | `do = "scribe"`, `layout = "printed_pattern"` (§2.1). |
+| D2 | Pattern source | prechips generates the print from the bundle's STEP: a deterministic 1:1 vector PDF with check bars, title block (STEP digest, plan revision, scale statement) and the print-at-100 % instruction, referenced by the traveler (§2.2). No external export. |
+| D3 | Check bars | One bar per axis (§4.2). |
+| D4 | Stretch and creep | Bars read before gluing and re-read on the work right before the cut; the stack uses the re-read (§3 step 7). |
+| D5 | Following error | Policy `line_following_mm.<method>`, cited or trial-measured; missing is `?` debt (§4.5). |
+| D6 | Sheet | One tabloid or A3 sheet; tiling refused (§2.2). |
+| D7 | Removal | A gated `remove_pattern` op (§2.6). |
+
+**Still open** (raised by the Codex review after the questions were asked;
+each is mirrored as a PR comment):
 
 | # | Question | Options (recommended first) |
 |---|---|---|
-| Q1 | Op shape | **`do = "scribe"`, `layout = "printed_pattern"`**: reuses `follows`, `_full_line`, `scribed_profile`; or a new `do = "apply_pattern"`: honest name, every followable-line site gains a second action |
-| Q2 | Pattern source | **External export identified by bundle path + SHA-256 + cite** (the consumer's outline export); or prechips generates the print from the bundle's STEP (identity is the STEP digest; larger kernel work, later phase) |
-| Q3 | Check bars | **One bar per axis, both read before and after gluing**; or credit only the bar's axis and STOP on any line point with an offset on the other |
-| Q4 | Paper stretch and adhesive creep | **Re-read the bars on the work immediately before the cut; the stack uses that reading**; or a cited hygroexpansion magnitude; or always STOP |
-| Q5 | Following error | **Policy `line_following_mm.<method>`, cited or from a recorded trial cut**; or a fixed fraction of `allowance_mm` (no source, so not recommended) |
-| Q6 | Sheet | **One sheet (tabloid / A3) only; tiled prints refused in phase 1**; or tiled Letter with tile registration marks (the tile-joint error has no source) |
-| Q7 | Removal | **Explicit `remove_pattern` op, required before any op that locates on, clamps on or measures from the glued face**; or a printed note in the next setup with no gate |
+| Q8 | Distortion between line stations | **Stations at a policy `pattern_station_spacing_mm` (cited or set by the owner); between them the affine bound from bars and pins stands, named as residue**; or treat any point off a station as `?` (every print STOPs); or require a cited non-affine paper distortion bound |
+| Q9 | Skew | **Add a diagonal bar, read before gluing on the sheet margin, beside D3's per-axis bars** (it bounds the printer's shear, which per-axis bars cannot); or per-axis bars only, with shear left to the stations |
 
 ## 12. Open review notes
 
-None yet.
+Codex review round 1 (on `66bf57e`, before D1–D7) raised two P1 findings.
+Both are addressed in the commits after it. Per the design-PR rule (one
+round), no re-review was requested:
+
+- *Bound nonuniform print distortion* (§4.2, §4.8): a diagonal bar bounds the
+  printer's skew (G16, Q9), and the line stations measure distortion at each
+  station from two pins. Distortion between stations is named residue (Q8).
+- *Verify the exported outline geometry* (§2.2, §4.8): mostly answered by
+  D2. The print is now generated from the bundle's STEP, so a wrong outline
+  is a generator defect, caught by the round-trip tests (§8.4). The stations
+  still catch a printer path that does not render the file faithfully.
+
+Not re-reviewed: the D2 rework (§2.2, §8.4, phase 3b) and the station
+geometry (two pins, normal-direction bound). The §10 arithmetic leaves out
+the diagonal bar and the station windows; both can only tighten the bound at
+a station, never loosen it elsewhere.
