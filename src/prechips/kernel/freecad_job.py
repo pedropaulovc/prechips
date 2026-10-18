@@ -4763,7 +4763,8 @@ class _Job:
         whose exported band admits the spigot's (:meth:`_band_admits`), the skin from the
         face down to the band's MIN radius, within the spigot's axial span. A clearance land
         turned below a boss drawn at basic loses only that skin, which is not finished
-        material lost; anything deeper still is."""
+        material lost; anything deeper still is. A kernel failure on any face withholds
+        the whole skin: the backstop then counts it lost, as before, never less."""
         declared = spec.get("dia_mm")
         if not isinstance(declared, list) or len(declared) != 2 or not _number(declared[0]):
             return None
