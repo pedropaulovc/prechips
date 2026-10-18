@@ -1,6 +1,7 @@
 """A hand-fed hold: a vertical bandsaw cut along a scribed line, nothing clamping the work
 (#335)."""
 
+import json
 import re
 
 import pytest
@@ -207,3 +208,45 @@ def test_an_unclaimed_hold_kind_never_borrows_the_hand_fed_waiver():
     bundle.plan["setups"][0]["hold"] = {"fixture": "unknown"}
     assert hand_fed(bundle, bundle.plan["setups"][0]) == ("fixture", "")
     assert row(stock_diameter, bundle).status == "unknown"
+
+
+# ------------------------------- a known machine refuses whatever the blade's debt (review)
+
+
+@pytest.mark.parametrize(
+    "machine, words",
+    [({"kind": "mill"}, "is a mill"), ({"modes": ("horizontal",)}, "no vertical saw_modes")],
+    ids=["mill", "horizontal-only"],
+)
+def test_a_known_machine_out_of_scope_is_refused_with_an_unverified_blade(machine, words):
+    bundle = hand_fed_bundle(**machine)
+    bundle.inventory["tools"]["hacksaw"]["verify"] = True
+    scope, why = hand_fed(bundle, bundle.plan["setups"][0])
+    assert scope == "refused" and words in why
+
+
+def test_an_unresolved_hand_fed_hold_prints_a_stop_not_the_hand_fed_line():
+    bundle = hand_fed_bundle(verify=True)
+    setup = bundle.plan["setups"][0]
+    steps, _ = _Traveler(bundle, hold_fields.evaluate(bundle), {}, None).hold(setup)
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", steps))
+    assert "STOP" in text
+    assert "fed by hand on the saw table" not in text.lower()
+
+
+def test_an_unresolved_hand_fed_scope_is_owed_as_the_scope_not_the_kind():
+    finding = row(hold_fields, hand_fed_bundle(verify=True))
+    assert finding.numbers["missing"] == ["hand_fed_scope"]
+
+
+def test_compare_lists_no_unknown_fixture_for_a_hand_fed_setup(example):
+    plan = edit(
+        example,
+        'hold = { fixture = "unknown", stop = "unknown", grip_mm = "unknown", '
+        'clamp = "unknown", fixed_jaw = "unknown" }',
+        'hold = { fixture = "test-bench", stop = "unknown", grip_mm = "unknown", '
+        'clamp = "unknown", fixed_jaw = "unknown" }',
+    )
+    result = run_cli("compare", plan, "--json")
+    assert result.returncode in (0, 2, 4), result.stderr
+    assert json.loads(result.stdout)[0]["fixtures"] == ["test-bench"]

@@ -1006,6 +1006,16 @@ def hand_fed(bundle_or_inventory, setup):
         return "unresolved", "hold.kind is unknown"
     ops = [record(op) for op in setup.get("ops") or []]
     refused, unresolved = [], []
+    # The machine is known out of scope whatever the blade: a verified non-bandsaw, or a
+    # verified bandsaw whose declared modes lack "vertical".
+    reference = setup.get("machine")
+    machine = record(resolve(bundle_or_inventory, "machines", reference))
+    machine_kind, modes = machine.get("kind", UNKNOWN), machine.get("saw_modes", UNKNOWN)
+    if machine_kind != UNKNOWN and not uncertain(machine):
+        if machine_kind != "bandsaw":
+            refused.append(f"machine {reference} is a {machine_kind}, not a bandsaw")
+        elif isinstance(modes, list) and "vertical" not in modes:
+            refused.append(f"machine {reference} declares no vertical saw_modes")
     for op in ops:
         where = f"op {op.get('op', UNKNOWN)}"
         action = op.get("do", UNKNOWN)
@@ -1030,10 +1040,8 @@ def hand_fed(bundle_or_inventory, setup):
             unresolved.append(f"{where}'s blade, machine or saw_modes are unresolved")
         elif tool != "bandsaw":
             refused.append(f"{where}'s tool is a {tool.replace('_', ' ')}, not a bandsaw blade")
-        elif station == "no_vertical_mode":
-            refused.append(f"machine {setup.get('machine')} declares no vertical saw_modes")
-        elif station != "fits":
-            refused.append(f"machine {setup.get('machine')} is not a bandsaw")
+        elif station not in ("fits", "no_vertical_mode", "wrong_station"):
+            unresolved.append(f"{where}'s machine or saw_modes are unresolved")
     if not any(op.get("do") in SAW_OPS or op.get("do") == UNKNOWN for op in ops):
         refused.append("the setup has no saw cut")
     if refused:

@@ -236,7 +236,9 @@ def evaluate(bundle):
             "hold.clamp": hold.get("clamp"),
         }
         if scope != "fixture":
-            required = {"hold.kind": UNKNOWN} if scope == "unresolved" else {}
+            # A stated hand-fed kind whose saw is unresolved owes that scope, not the kind.
+            key = "hold.kind" if hold.get("kind") == UNKNOWN else "hand_fed_scope"
+            required = {key: UNKNOWN} if scope == "unresolved" else {}
         required.update(coolant=setup.get("coolant"), deburr_mm=setup.get("deburr_mm"))
         fixture_ref = hold.get("fixture")
         fixture = resolve(bundle, "workholding", fixture_ref) or {}

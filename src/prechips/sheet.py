@@ -4313,7 +4313,10 @@ class _Traveler:
 
         fixture = hold.get("fixture", "unknown")
         uses = self.shop_made_uses(setup)
-        if hold.get("kind") == HAND_FED:
+        scope, why = hand_fed(self.bundle, setup)
+        if hold.get("kind") == HAND_FED and scope != "admitted":
+            steps.append(f"STOP: hand-fed holding not established ({why}) — do not run.")
+        elif hold.get("kind") == HAND_FED:
             # Nothing clamps the work: the operator feeds it into the blade on the table.
             lines = [
                 self.saw_setting(op)
