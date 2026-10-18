@@ -1772,29 +1772,29 @@ def test_fixture_and_blank_check_keep_intrinsic_width_inside_print_and_screen(
             assert node["rects"][0]["right"] <= container["right"] + 0.1, node
 
 
+def _png_chunk(kind, data):
+    return (
+        struct.pack(">I", len(data))
+        + kind
+        + data
+        + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    )
+
+
 def _inspection_asset(tmp_path, titles=("Datum A seated", "Read opposite face"), heights=None):
     """An injected kernel's canonical RGB8 PNG and exact authored view-band sidecar."""
     heights = heights or [1250] * len(titles)
     assert len(titles) == len(heights)
     width, height = 1600, sum(heights)
-
-    def chunk(kind, data):
-        return (
-            struct.pack(">I", len(data))
-            + kind
-            + data
-            + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
-        )
-
     pixels = b"".join(
         (b"\x00" + bytes((40 + ordinal * 30, 100, 180)) * width) * band_height
         for ordinal, band_height in enumerate(heights)
     )
     png = (
         b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
-        + chunk(b"IDAT", zlib.compress(pixels))
-        + chunk(b"IEND", b"")
+        + _png_chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        + _png_chunk(b"IDAT", zlib.compress(pixels))
+        + _png_chunk(b"IEND", b"")
     )
     path = tmp_path / "inspection-source.png"
     path.write_bytes(png)
@@ -2740,6 +2740,17 @@ def test_a_padded_box_ending_at_a_page_edge_keeps_the_sheet_count_and_fronts(tmp
         '<!DOCTYPE html>\n<html lang="en"><head><meta charset="utf-8"><title>fixture-puck'
         f"</title><style>{_CSS}</style><script>{_DUPLEX_JS}</script></head>{body}</html>"
     )
+    # The setup pictures' <image> elements are sized by their own attributes, so any
+    # PNG lays out the same. A dangling href hangs headless Chrome 155's print job
+    # (it timed out after 300 s on CI), so each one names a real file.
+    pixel = (
+        b"\x89PNG\r\n\x1a\n"
+        + _png_chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0))
+        + _png_chunk(b"IDAT", zlib.compress(b"\x00\xff\xff\xff"))
+        + _png_chunk(b"IEND", b"")
+    )
+    for name in sorted(set(re.findall(r'<image href="([^"]+\.png)"', body))):
+        (tmp_path / name).write_bytes(pixel)
     pages = printed_pages(html, tmp_path)
     # A sheet starts on a printed page that is neither blank nor a "(continued)" page.
     fronts = [
