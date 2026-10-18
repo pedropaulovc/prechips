@@ -120,7 +120,7 @@ EXAMPLE_MEASUREMENT = {
     "date": "2026-10-11",
     "instrument": "example fixture (no physical measurement)",
 }
-EXAMPLE_DEMO_FACT_COUNT = 817
+EXAMPLE_DEMO_FACT_COUNT = 818
 REAL_PEDRO_FACTS = {
     ("fixtures", "vise-pm-6", "jaw_width_in"): (
         6.247,

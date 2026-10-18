@@ -21,6 +21,7 @@ stickout_ld_max = 4.0        # example: unsupported stickout limit, length / dia
 fixture_make_decimals = 1    # example: decimals a shop-made fixture is made and set to
 near_jaw_mm = 10.0           # example: a lathe cut ending this close to the spinning jaws carries its clearance on the op row
 max_filing_stock_mm = 0.5    # EngManualArc example: most radial stock a rough stair or chain drill leaves for the bench file
+saw_min_teeth_in_work = 3    # example: fewest saw teeth in the thickness the blade crosses
 
 [numbers_cite]
 refixture_budget_mm = "illustrative example value (plausible hobby-shop vise re-seat repeatability), not measured"
@@ -29,6 +30,7 @@ stickout_ld_max = "illustrative example value (common 4:1 unsupported turning ru
 fixture_make_decimals = "AUTHOR'S CHOICE: shop-made fixtures are made and set to 0.1 mm; a fit that locates the part prints at drawing precision"
 near_jaw_mm = "AUTHOR'S CHOICE: illustrative example value (plausible hobby-lathe hand-feed margin before spinning jaws), not measured"
 max_filing_stock_mm = "AUTHOR'S CHOICE: illustrative example value (plausible radial stock a hand file takes down to a scribed line on steel after rough stairs or a chain drill), not measured"
+saw_min_teeth_in_work = "example value: the common rule of at least 3 teeth in the work, as Starrett's 'Sawing Starts With the Material' states it (no fewer than 3 teeth in the material at all times), https://www.starrett.com/news-events/sawing-starts-with-the-material"
 
 [numbers_verify]
 refixture_budget_mm = false
@@ -37,3 +39,4 @@ stickout_ld_max = false
 fixture_make_decimals = false
 near_jaw_mm = false
 max_filing_stock_mm = false
+saw_min_teeth_in_work = false

@@ -261,6 +261,7 @@ kind = "bandsaw"
 material = "M42"
 note = "illustrative example item: 64-1/2 x 1/2 x 0.025 in bi-metal M42 blade, 4/6 variable pitch (Machinery's Handbook 27th ed. p.1138 chart: solid round, 1-3/4 in length of cut)"
 kerf_mm = { value = 1.5, measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
+tpi = { value = [4, 6], cite = "Machinery's Handbook 27th ed. p.1138 chart: 4/6 variable pitch for solid round, 1-3/4 in length of cut", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }
 # --- end cone-pivot-post additions ---
 
 [tools.endmills-tin-10pc]
