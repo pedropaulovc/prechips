@@ -1935,11 +1935,14 @@ uses the 1898 manual arc method:
    down clear of the stock (else debt). The full operator sequence, what each printed
    number is measured from and how its error reaches the cut, is in
    [rules-coordinates](rules-coordinates.md#trammel-operator-sequence). The traveler
-   prints the pin pair seated in the carriages, X and Y locked on the rails'
+   prints where the trammel's commissioning record is kept and its dowel reading
+   against the predicted stations (no commissioning is debt: the card is a STOP), the
+   pin pair seated in the carriages, X and Y locked on the rails'
    crossing, a stop clamped on one rail at each end's exact pin station (also read
    along the rail from where the carriage stands on its near end stop; the other
    rail's stations as a check), a dry pass, and the lever feed from stop to stop with
-   the carrier's turn, once per axial level when the op steps down. Every value the card
+   the cutter's sweep angle and travel and the carrier's own turn, each named, once per
+   axial level when the op steps down. Every value the card
    prints is in one gate: any unproven one prints only a STOP naming it.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 

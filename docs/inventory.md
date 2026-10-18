@@ -250,10 +250,20 @@ arcs is ordinary inventory:
   `rail_travel` (`[nearest, farthest]` pin station along a rail from the spindle
   axis, the carriages on their end stops). Each must carry its own complete
   `measured` record: a bare, assumed or undeclared one is debt with a `measure:`
-  line, never a perfect fixture. For the setup picture only it also declares
-  `pin_dia`, `rail_width`, `rail_height` and `bed_height`, each measured; the
-  rails and pins are then drawn render-only, else a picture note names each
-  missing fact.
+  line, never a perfect fixture. Its rails are aligned once per install, not per
+  part ([#270](https://github.com/pedropaulovc/prechips/issues/270)), and a
+  trammel op runs only on that commissioning: `commissioning_record` names where
+  the install record is kept, and `dowel_reading` (measured) is the largest miss
+  a dowel in a carriage read against its predicted station targets along each
+  rail. Either missing is debt and the card prints only a STOP; the card prints
+  both as its pointer to how the rails were set. For the setup picture only it
+  also declares `pin_dia`, `rail_width`, `rail_height` and `bed_height`, each
+  measured; the rails and pins are then drawn render-only, else a picture note
+  names each missing fact. `carrier_length` (along its pins' chord),
+  `carrier_width` and `carrier_thickness`, each measured, draw the carrier plate
+  the work sits on: no fact places the plate off its pins' chord, so it is drawn
+  centred on it, its top at the work's seat; a missing one leaves only the
+  carrier undrawn, with its own note.
 - A guided sweep's master is a `gauges.<id>` with `kind = "setting_bar"` (seated
   on the swing arm's pivot pin; pivot guides only) or `kind = "master_arc"` (a
   template edge pinned on the arm or sled), with `radius_limits` (`_mm` or `_in`),
@@ -1154,6 +1164,9 @@ plan's stock.
 | `rail_offset_mm` / `rail_offset_in` | `MeasuredLength` (`trammel`: the most a rail's pin-line stands off the spindle axis; measured) |
 | `rail_travel_mm` / `rail_travel_in` | `MeasuredLimits` (`trammel`: a pin's nearest and farthest station along its rail from the spindle axis; measured) |
 | `pin_dia_mm` / `pin_dia_in`, `rail_width_mm` / `rail_width_in`, `rail_height_mm` / `rail_height_in` | `MeasuredLength` (`trammel`: for the setup picture only; measured) |
+| `carrier_length_mm` / `carrier_length_in`, `carrier_width_mm` / `carrier_width_in`, `carrier_thickness_mm` / `carrier_thickness_in` | `MeasuredLength` (`trammel`: the carrier plate, for the setup picture only; measured) |
+| `commissioning_record` | `str` (`trammel`: where the install record of its rails' alignment is kept) |
+| `dowel_reading_mm` / `dowel_reading_in` | `MeasuredLength` (`trammel`: commissioning, the largest miss a dowel in a carriage read against its predicted stations; measured) |
 | `leadscrew` | `LeadScrew` |
 | `capacity_in` | `float \| list[Number] \| Capacity` |
 | `tailstock` | `Tailstock` |

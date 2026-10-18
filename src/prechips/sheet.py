@@ -5688,6 +5688,12 @@ class _Traveler:
             missing.append("tool stickout and headroom")
         if missing:
             lines.append(unknown + "; ".join(missing) + ".")
+        # A guided sweep moves its fixture under the spindle: each fit above holds at the
+        # setup pose only, so the sweep's own debt prints beside them, never a bare pass.
+        lines.extend(
+            f"? Not proven over the sweep — {debt}."
+            for debt in numbers.get("guided_sweep_debts", [])
+        )
         debts = [entry for entry in numbers.get("measurements", []) if entry.get("id") in consumed]
         if debts:
             lines.extend(self.measurement_lines(debts))

@@ -3611,6 +3611,7 @@ _GUIDE_GROUPS = (
     ("rollers", "guide rollers", "GUIDE ROLLERS (TABLE)", "guide_roller"),
     ("rails", "trammel rails", "TRAMMEL RAILS (TABLE)", "guide_rail"),
     ("pins", "carrier pins", "CARRIER PINS", "guide_pin"),
+    ("carriers", "trammel carrier", "TRAMMEL CARRIER", "guide_carrier"),
 )
 
 
@@ -3618,8 +3619,8 @@ def _guide_solids(setup, debts):
     """[(name, op, solid, group key)] of a setup's render annotation guide elements (each
     naming the ``op`` it guides), in setup frame (#255, #269): ``guides.rollers`` and
     ``guides.pins`` cylinders (setup XY axis ``at_mm``, ``dia_mm``, ``z_mm`` bottom to
-    top) and ``guides.rails`` boxes (``from_mm`` to ``to_mm`` along the rail's centre
-    line, ``width_mm``, ``z_mm``). They are fixed to
+    top) and ``guides.rails`` and ``guides.carriers`` boxes (``from_mm`` to ``to_mm``
+    along the box's centre line, ``width_mm``, ``z_mm``). They are fixed to
     the table, or ride the carrier under the work, so they are drawn only: never fixture
     components, so no hit test, clash, contact or clearance reads them and
     ``fixture_ready`` stays as it was. A malformed element is a picture debt (``debts``,
@@ -3635,7 +3636,7 @@ def _guide_solids(setup, debts):
             name = str(element.get("name", key.rstrip("s")))
             z = element.get("z_mm")
             ok = pair(z) and z[1] > z[0]
-            if key == "rails":
+            if key in ("rails", "carriers"):
                 ends, width = (
                     (element.get("from_mm"), element.get("to_mm")),
                     element.get("width_mm"),
@@ -3650,7 +3651,7 @@ def _guide_solids(setup, debts):
             if not ok:
                 debts.append(f"{name} not drawn: its position or size is malformed")
                 continue
-            if key == "rails":
+            if key in ("rails", "carriers"):
                 run = b - a
                 box = Part.makeBox(run.Length, width, z[1] - z[0], V(0, -width / 2, z[0]))
                 box.rotate(V(0, 0, 0), V(0, 0, 1), math.degrees(math.atan2(run.y, run.x)))

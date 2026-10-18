@@ -242,7 +242,7 @@ def _angle(item, field, category, key, debts, measurements, words):
 def _facts(bundle, setup, sweep, errors, debts, measurements, record_):
     """The trammel fixture's consumed facts by field (mm and degrees), or None when it
     proves none: the setup's hold must be it, of ``kind = "trammel"``."""
-    from ..measurements import limits_debt, limits_fact
+    from ..measurements import length_debt, length_fact, limits_debt, limits_fact
     from .guided_sweep import _carrier, _fact
     from .resolution import UNKNOWN, identity, number, resolve
 
@@ -280,6 +280,30 @@ def _facts(bundle, setup, sweep, errors, debts, measurements, record_):
         debt = limits_debt(item, "rail_travel", category, key, require_measured=True)
         if debt:
             measurements.append(debt)
+    # The rails are aligned once per install, not per part (#270): this op runs on that
+    # commissioning, named by where its install record is kept and by the dowel reading
+    # taken against the predicted station targets. Without them the op is not runnable.
+    named = item.get("commissioning_record")
+    named = named.strip() if isinstance(named, str) and named.strip() != UNKNOWN else ""
+    if not named:
+        debts.append(
+            f"the commissioning record of {key} is unknown: commission the trammel (align "
+            "its rails against their predicted stations) and name where its install record "
+            "is kept as commissioning_record"
+        )
+    dowel = length_fact(item, "dowel_reading", require_measured=True)
+    reading = dowel["value"] if dowel["verified"] and number(dowel["value"]) else UNKNOWN
+    if number(reading) and reading < 0:
+        errors.append(
+            f"the commissioning dowel reading {reading:g} mm of {key} is negative: a miss "
+            "against a predicted station is a distance"
+        )
+        reading = UNKNOWN
+    elif not number(reading):
+        debts.append(f"the commissioning dowel reading of {key} is unknown or not measured")
+        debt = length_debt(item, "dowel_reading", category, key, require_measured=True)
+        if debt:
+            measurements.append(debt)
     record_.update(
         {
             "rail_angle_deg": found["rail_angle"],
@@ -287,6 +311,8 @@ def _facts(bundle, setup, sweep, errors, debts, measurements, record_):
             "pin_pair": pair,
             "pin_spacing_mm": found["pin_spacing"],
             "rail_travel_mm": found["rail_travel"],
+            "commissioning_record": named or UNKNOWN,
+            "dowel_reading_mm": reading,
         }
     )
     alpha = found["rail_angle"]
@@ -864,7 +890,7 @@ def unmodelled(op, fixture, guided, rule):
     name = f"op {op.get('op', UNKNOWN)} guided sweep (trammel)"
     swept, ranges = guided.get("swept_mm"), guided.get("station_ranges_mm")
     turn = guided.get("carrier_turn_deg")
-    turning = f", turning {turn:g}°" if number(turn) else ""
+    turning = f", the carrier turning {turn:g}° in all," if number(turn) else ""
     if rule == "travel":
         where = ""
         if isinstance(swept, dict):
@@ -876,7 +902,7 @@ def unmodelled(op, fixture, guided, rule):
             )
         if isinstance(ranges, list):
             far = max(high for _, high in ranges)
-            where += f", and its pins run out to {far:.0f} mm along the rails"
+            where += f", and its pins run out to {far:.0f} mm from the spindle axis along the rails"
         return (
             f"{name}: the swept footprint of {fixture} is not checked against the table, "
             f"column or way covers{where}; check: with Z raised and the spindle stopped, "
@@ -906,7 +932,8 @@ _PICTURE_FACTS = (
 
 
 def guide_scene(bundle, guided, op, bottom, lift, scale):
-    """({"rails": [...], "pins": [...]}, picture notes) for one trammel op's ``guided`` record:
+    """({"rails": [...], "pins": [...], "carriers": [...]}, picture notes) for one trammel
+    op's ``guided`` record:
     drawn render-only at the sweep's middle pose (the setup frame), never hit-tested
     (rules/guided_sweep.py :func:`guide_scene`). Each rail is a box along its pin-line from
     the spindle axis, over its measured ``rail_travel`` stations, standing ``rail_height``
@@ -914,7 +941,8 @@ def guide_scene(bundle, guided, op, bottom, lift, scale):
     ``bed_height``); each pin a cylinder of ``pin_dia`` at its place on the carrier, from
     the rail tops to the work's seat. ``lift`` is the supports' height under the work (None:
     unknown). A missing or unmeasured fact leaves them undrawn, named in a note with its
-    ``measure:`` instruction."""
+    ``measure:`` instruction. The carrier plate is drawn as :func:`_carrier_scene` says, or
+    named in its own note."""
     from ..measurements import length_fact, limits_fact, measurement_entry
     from .coordinates import _pair
     from .resolution import identity, number, resolve
@@ -976,13 +1004,61 @@ def guide_scene(bundle, guided, op, bottom, lift, scale):
         }
         for index, pin in enumerate(pins, start=1)
     ]
-    return {"rails": rails_, "pins": pins_}, []
+    carriers, notes = _carrier_scene(item, category, key, op, pins_, top, bottom * scale - lift)
+    return {"rails": rails_, "pins": pins_, **carriers}, notes
+
+
+# The carrier plate's facts the setup picture draws it from: its length along its pins'
+# chord, its width across it and its thickness under the work.
+_CARRIER_FACTS = (
+    ("carrier_length", "carrier length"),
+    ("carrier_width", "carrier width"),
+    ("carrier_thickness", "carrier thickness"),
+)
+
+
+def _carrier_scene(item, category, key, op, pins, top, seat):
+    """({"carriers": [box]}, []) or ({}, [note]): the carrier plate the work sits on, drawn
+    render-only as a box centred on its pins' chord, ``carrier_length`` along it and
+    ``carrier_width`` across, its top at the work's ``seat`` and ``carrier_thickness``
+    deep, so the pins show between it and the rail tops (``top``). No fact places the plate
+    off the chord's middle; a missing or contradicting fact names itself in the note."""
+    from ..measurements import length_fact, measurement_entry
+    from .resolution import number
+
+    values, missing = {}, []
+    for field, _ in _CARRIER_FACTS:
+        fact = length_fact(item, field, require_measured=True)
+        if fact["verified"] and number(fact["value"]) and fact["value"] > 0:
+            values[field] = fact["value"]
+        else:
+            missing.append(measurement_entry(category, key, field, item=item)["instruction"])
+    (x1, y1), (x2, y2) = (pin["at_mm"] for pin in pins)
+    chord = math.hypot(x2 - x1, y2 - y1)
+    if not missing and values["carrier_length"] <= chord:
+        missing.append(f"{key}'s carrier_length does not reach across its pins")
+    if not missing and seat - values["carrier_thickness"] <= top:
+        missing.append(f"{key}'s carrier_thickness leaves no room above its rails")
+    if missing:
+        return {}, [f"NOT SHOWN: op {op}'s trammel carrier — " + "; ".join(missing) + "."]
+    middle = [(x1 + x2) / 2, (y1 + y2) / 2]
+    along = [(x2 - x1) / chord, (y2 - y1) / chord]
+    half = values["carrier_length"] / 2
+    carrier = {
+        "name": f"trammel carrier (op {op})",
+        "op": op,
+        "from_mm": [middle[i] - half * along[i] for i in range(2)],
+        "to_mm": [middle[i] + half * along[i] for i in range(2)],
+        "width_mm": values["carrier_width"],
+        "z_mm": [seat - values["carrier_thickness"], seat],
+    }
+    return {"carriers": [carrier]}, []
 
 
 def flagged(item, sweep, category, key, measurements):
     """Measurement debts for a trammel flagged to verify as a whole, beyond its plain
     lengths (rules/guided_sweep.py ``_flagged``): the rail angle and its error, the
-    pair's spacing and the rails' travel."""
+    pair's spacing, the rails' travel and the commissioning dowel reading."""
     from ..measurements import angle_debt, length_debt, limits_debt, record_debt
     from .resolution import UNKNOWN
 
@@ -991,6 +1067,7 @@ def flagged(item, sweep, category, key, measurements):
         (angle_debt, "rail_angle_deg"),
         (angle_debt, "rail_angle_error_deg"),
         (limits_debt, "rail_travel"),
+        (length_debt, "dowel_reading"),
     ]
     if isinstance(pair, str) and pair != UNKNOWN:
         fields.append((length_debt, ("pin_spacing", pair)))

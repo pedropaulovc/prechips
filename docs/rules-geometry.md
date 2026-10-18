@@ -2596,6 +2596,11 @@ rail tops to the work's seat) are drawn the same way, render-only, with `TRAMMEL
 RAILS (TABLE)` and `CARRIER PINS` callouts (per op, as the rollers') and roles `guide_rail` and `guide_pin`;
 a missing or unmeasured `pin_dia`, `rail_width`, `rail_height`, `bed_height` or
 `rail_travel`, or an unknown support height, leaves them undrawn with a `NOT SHOWN` note.
+The carrier plate (`guides.carriers`, a box centred on its pins' chord, `carrier_length`
+along it and `carrier_width` across, from `carrier_thickness` below the work's seat up
+to it) is drawn the same way with a `TRAMMEL CARRIER` callout and role `guide_carrier`;
+a missing or unmeasured carrier fact, a plate shorter than its pins' chord or one too
+thick to clear the rail tops leaves only the carrier undrawn, with its own note.
 
 Blue-grey is material retained after the setup; amber hatch is the Boolean
 difference between actual entry and derived exit stock. When exit stock is

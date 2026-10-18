@@ -2150,7 +2150,17 @@ InventoryItem = record(
         # spacing on the carrier (keyed by pair name) and its error; a pin's radial play in
         # its carriage; how far a rail's pin-line may stand off the spindle axis; a pin's
         # usable stations along its rail from the spindle axis; and, for the setup picture
-        # only, the pins' diameter and the rails' width and height.
+        # only, the pins' diameter, the rails' width and height and the carrier plate's
+        # length (along its pins' chord), width and thickness. Its commissioning (#270):
+        # where the install record is kept, and the largest miss a dowel in a carriage
+        # read against its predicted station targets when the rails were aligned.
+        "commissioning_record": str,
+        **dict.fromkeys(("dowel_reading_mm", "dowel_reading_in"), MeasuredLength),
+        **dict.fromkeys(
+            ("carrier_length_mm", "carrier_length_in", "carrier_width_mm", "carrier_width_in")
+            + ("carrier_thickness_mm", "carrier_thickness_in"),
+            MeasuredLength,
+        ),
         **dict.fromkeys(("rail_angle_deg", "rail_angle_error_deg"), MeasuredAngle),
         **dict.fromkeys(("pin_spacing_mm", "pin_spacing_in"), ProjectionMap),
         **dict.fromkeys(
@@ -2209,6 +2219,8 @@ _INVENTORY_LENGTH_STEMS |= {"pivot_play", "rail_radius", "rail_form_error", "rol
 _INVENTORY_LENGTH_STEMS |= {"radius_limits", "roller_dia", "roller_height"}
 _INVENTORY_LENGTH_STEMS |= {"pin_spacing", "pin_spacing_error", "pin_clearance", "rail_offset"}
 _INVENTORY_LENGTH_STEMS |= {"rail_travel", "pin_dia", "rail_width", "rail_height"}
+_INVENTORY_LENGTH_STEMS |= {"dowel_reading", "carrier_length", "carrier_width"}
+_INVENTORY_LENGTH_STEMS |= {"carrier_thickness"}
 
 
 def _inventory_lengths(

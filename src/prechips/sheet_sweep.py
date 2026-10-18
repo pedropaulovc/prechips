@@ -357,6 +357,16 @@ TRAMMEL_PRINTED = (
     ("stations_mm", lambda a, s, _: _pairs(s.get("stations_mm")), "pin stations unknown"),
     ("rail_travel_mm", lambda a, s, _: _pair(s.get("rail_travel_mm")), "rail travel unknown"),
     (
+        "commissioning_record",
+        lambda a, s, _: _named(s.get("commissioning_record")),
+        "trammel commissioning record unknown",
+    ),
+    (
+        "dowel_reading_mm",
+        lambda a, s, _: _known(s.get("dowel_reading_mm")) and s["dowel_reading_mm"] >= 0,
+        "trammel commissioning dowel reading unknown",
+    ),
+    (
         "stops",
         lambda a, s, _: s.get("stops") == "proven",
         "stops not proven to hold the carrier past the arc's ends",
@@ -433,19 +443,24 @@ def _trammel(arc, sweep, o, start, stop, feed, final, levels=None):
 
     result = [
         f"{fixture}: the work rides the carrier on its {pair} pin pair "
-        f"({_number(sweep.get('pin_spacing_mm'))} mm apart), one pin in a carriage on each of "
-        f"two rails clamped to the table, {names[0]} and {names[1]}, whose pin-lines cross "
-        f"on the spindle axis at {_number(sweep.get('rail_angle_deg'))}°. The pins, not the "
-        "DRO, set where the cutter cuts.",
+        f"({_number(sweep.get('pin_spacing_mm'))} mm apart on the carrier, pin centre to pin "
+        f"centre), one pin in a carriage on each of two rails clamped to the table, "
+        f"{names[0]} and {names[1]}, whose pin-lines cross on the spindle axis at "
+        f"{_number(sweep.get('rail_angle_deg'))}° to each other. The pins, not the DRO, set "
+        "where the cutter cuts.",
+        f"This op neither builds nor aligns the trammel: it runs on its commissioning, kept "
+        f"in {_text(sweep.get('commissioning_record'))}, where a dowel in each carriage read "
+        f"within {_number(sweep.get('dowel_reading_mm'))} mm of its predicted stations along "
+        "its rail. If the rails have been moved or their studs loosened since, STOP: "
+        "recommission them before this op.",
         f"Seat the {pair} pins in the carriages. Check the spindle stands on the rails' "
-        "crossing (the rails' alignment set up for this fixture) and lock X and Y there: "
-        "neither moves for the rest of this op.",
+        "crossing and lock X and Y there: neither moves for the rest of this op.",
     ]
     turn = sweep.get("carrier_turn_deg")
     overrun = sweep.get("overrun_mm")
     why = (
-        f" The stops lie {mm(overrun)} mm of cutter travel beyond the arc's ends on purpose, "
-        "so the cutter enters and leaves clear of the arc."
+        f" The stops lie {mm(overrun)} mm of cutter travel beyond each end of the arc on "
+        "purpose, so the cutter enters and leaves clear of the arc."
         if overrun > 0
         else ""
     )
@@ -500,9 +515,11 @@ def _trammel(arc, sweep, o, start, stop, feed, final, levels=None):
         f"Lever the carrier against the first stop{first}, start the spindle"
         f" {turning} and set Z {o(depths[0])}, then lock "
         f"Z. With X, Y and Z locked, move only the carrier by its hand lever to the other "
-        f"stop{last}: the carrier turns {_number(_round(turn, 1))}° "
-        f"{_text(sweep.get('rotation'))} (viewed from above) while both pins slide along "
-        f"their rails, {_number(sweep.get('sweep_deg'))}° and {mm(path)} mm of cutter travel "
-        f"along the work, keeping both pins seated in their carriages{pace}.{again}{end}"
+        f"stop{last}: the cutter sweeps {_number(sweep.get('sweep_deg'))}° of arc about the "
+        f"arc's centre, {mm(path)} mm of cutter travel along the work, while the carrier "
+        f"itself turns {_number(_round(turn, 1))}° in all, "
+        f"{_number(_round(turn / 2, 2))}° each side of the sweep's middle, "
+        f"{_text(sweep.get('rotation'))} (viewed from above), and both pins slide along their "
+        f"rails, kept seated in their carriages{pace}.{again}{end}"
     )
     return result

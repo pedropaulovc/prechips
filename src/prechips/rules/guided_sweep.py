@@ -1224,7 +1224,8 @@ _ROLLER_FACTS = (("roller_dia", "roller diameter"), ("roller_height", "roller he
 
 
 def guide_scene(bundle, setup, numbers, scale):
-    """(``{"rollers": [...], "rails": [...], "pins": [...]}`` (the groups present) or None,
+    """(``{"rollers": [...], "rails": [...], "pins": [...], "carriers": [...]}`` (the groups
+    present) or None,
     picture notes) for ``setup``'s guided sweeps, from
     its coordinates ``numbers``; ``scale`` is mm per plan unit.
 

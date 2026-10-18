@@ -566,6 +566,21 @@ def measurement_entry(category, identity, field, *, status=None, item=None, subj
     elif field in ("rail_width", "rail_height"):
         description = f"trammel rail {field.removeprefix('rail_')} on the table"
         instrument = "calipers or height gauge"
+    elif field == "dowel_reading":
+        description = (
+            "trammel commissioning: the largest miss a dowel in a carriage reads against its "
+            "predicted station targets along each rail, once the rails are aligned and their "
+            "studs torqued, kept with the install record"
+        )
+        instrument = (
+            "indicator in the spindle on a dowel in each carriage at stations along its rail"
+        )
+    elif field in ("carrier_length", "carrier_width", "carrier_thickness"):
+        along = {"carrier_length": "along its pins' chord", "carrier_width": "across it"}
+        description = f"trammel carrier plate {field.removeprefix('carrier_')}" + (
+            f", {along[field]}" if field in along else ""
+        )
+        instrument = "steel rule or calipers"
     elif field == "radius_limits":
         description = (
             "setting bar radius limits: the pivot pin's axis to the touch face, seated on the pin"

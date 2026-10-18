@@ -29,6 +29,8 @@ TRAMMEL = (
     f"pin_clearance_mm = {{ value = 0.005, {MEASURED} }}\n"
     f"rail_offset_mm = {{ value = 0.01, {MEASURED} }}\n"
     f"rail_travel_mm = {{ value = [40.0, 420.0], {MEASURED} }}\n"
+    "commissioning_record = 'trammel install log, sheet 1'\n"
+    f"dowel_reading_mm = {{ value = 0.02, {MEASURED} }}\n"
     "verify = false\n"
 )
 
@@ -255,6 +257,7 @@ def test_a_rail_angle_error_beyond_the_band_is_an_error(tmp_path):
         "pin_clearance_mm",
         "rail_offset_mm",
         "rail_travel_mm",
+        "dowel_reading_mm",
     ],
 )
 def test_an_unmeasured_fixture_fact_is_debt_with_a_measure_line(tmp_path, field):
@@ -268,7 +271,7 @@ def test_an_unmeasured_fixture_fact_is_debt_with_a_measure_line(tmp_path, field)
     assert row.status == "unknown", row.sentence
     stem = field.removesuffix("_mm").removesuffix("_in")
     table, sweep = recipe(row)
-    if field != "rail_travel_mm":  # the travel bounds the carriages, not the radius
+    if field not in ("rail_travel_mm", "dowel_reading_mm"):  # neither bounds the radius
         assert sweep["cut_radius_mm"] == "unknown"
     ids = [entry["id"] for entry in table["measurements"]]
     assert f"fixtures.tram.{stem}" in ids
@@ -434,8 +437,43 @@ def test_the_traveler_prints_the_pins_stops_on_a_rail_and_the_lever_feed(tmp_pat
     assert "from where the carriage stands on the rail's near end stop, 40 mm" in printed
     assert f"{round(other_start, 1):g} and {round(other_end, 1):g} mm" in printed
     assert "lever the carrier from stop to stop once" in printed
-    assert "by its hand lever" in printed and "turns 12.5°" in printed
+    assert "by its hand lever" in printed
+    # Each number names its motion: the cutter's sweep about the arc's centre and its
+    # travel along the work, apart from the carrier's own (smaller) turn.
+    assert "the cutter sweeps 25° of arc about the arc's centre" in printed
+    assert f"{round(sweep['path_mm'], 1):g} mm of cutter travel along the work" in printed
+    assert "the carrier itself turns 12.5° in all, 6.25° each side of the sweep's middle" in printed
     assert "stop the spindle" in printed
+    # The rails' alignment is the commissioning's, named, not this card's.
+    assert "neither builds nor aligns the trammel" in printed
+    assert "kept in trammel install log, sheet 1" in printed and "within 0.02 mm" in printed
+
+
+def test_an_uncommissioned_trammel_is_debt_and_prints_only_a_stop(tmp_path):
+    inventory = TRAMMEL.replace("commissioning_record = 'trammel install log, sheet 1'\n", "")
+    row, printed = traveler_text(tmp_path, inventory=inventory)
+    assert row.status == "unknown"
+    assert "the commissioning record of tram is unknown: commission the trammel" in debts(row)
+    assert "STOP: guided sweep not established (trammel commissioning record unknown)" in printed
+    assert "hand lever" not in printed
+
+
+def test_the_clearance_box_names_the_sweep_it_cannot_prove(tmp_path):
+    import dataclasses
+    import re
+
+    from prechips.inputs import load_bundle
+    from prechips.rules import headroom
+    from prechips.sheet import _Traveler
+
+    bundle = load_bundle(trammel_plan(tmp_path))
+    rows = [row for row in headroom.evaluate(bundle) if row.subject == "S1"]
+    assert rows and rows[0].status != "pass"
+    bundle = dataclasses.replace(bundle, kernel={"status": "ok", "setups": {}})
+    html = _Traveler(bundle, rows, {}, None).clearance(bundle.plan["setups"][0]) or ""
+    box = " ".join(re.sub(r"<[^>]+>", "", html).split())
+    assert "? Not proven over the sweep — op 20 guided sweep (trammel)" in box
+    assert "stop to stop, the carrier turning 12.5° in all, clears the spindle nose" in box
 
 
 def test_an_unproven_trammel_prints_only_a_stop(tmp_path):
@@ -601,8 +639,8 @@ def test_the_kernel_clears_the_pin_circle_and_judges_the_run_past_its_ends(
 
 
 def test_trammel_rails_and_pins_are_drawn_but_never_hit_tested(tmp_path, freecad_kernel, plates):
-    # A rail and a pin placed right through the stock and the cutter's rows: drawn, but
-    # no holding solid, so every verdict matches the same job without them.
+    # A rail, a pin and the carrier placed right through the stock and the cutter's rows:
+    # drawn, but no holding solid, so every verdict matches the same job without them.
     rail = {
         "name": "trammel rail T",
         "from_mm": [-100.0, 20.0],
@@ -611,13 +649,15 @@ def test_trammel_rails_and_pins_are_drawn_but_never_hit_tested(tmp_path, freecad
         "z_mm": [-5.0, 9.0],
     }
     pin = {"name": "carrier pin T", "at_mm": [0.0, 20.0], "dia_mm": 8.0, "z_mm": [-5.0, 9.0]}
+    carrier = {**rail, "name": "trammel carrier T", "width_mm": 60.0, "z_mm": [-2.0, 6.0]}
     broken = {**rail, "name": "trammel rail X", "to_mm": [-100.0, 20.0]}
-    render = {"guides": {"rails": [rail, broken], "pins": [pin]}}
+    render = {"guides": {"rails": [rail, broken], "pins": [pin], "carriers": [carrier]}}
     _, plain = trammel_run(tmp_path / "plain", freecad_kernel, plates["open"])
     _, drawn = trammel_run(tmp_path / "drawn", freecad_kernel, plates["open"], render)
     scene = drawn["setups"]["S1"]["render_scene"]
     roles = {c["name"]: c.get("role") for c in scene["components"]}
     assert roles["trammel rail T"] == "guide_rail" and roles["carrier pin T"] == "guide_pin"
+    assert roles["trammel carrier T"] == "guide_carrier"
     assert "trammel rail X" not in roles
     assert any(debt.startswith("trammel rail X not drawn") for debt in scene["render_debts"])
     assert not any("trammel" in debt or "carrier pin" in debt for debt in scene["debts"])
@@ -635,6 +675,9 @@ PICTURE = (
     f"rail_width_mm = {{ value = 15.0, {MEASURED} }}\n"
     f"rail_height_mm = {{ value = 24.0, {MEASURED} }}\n"
     f"bed_height_mm = {{ value = 40.0, {MEASURED} }}\n"
+    f"carrier_length_mm = {{ value = 520.0, {MEASURED} }}\n"
+    f"carrier_width_mm = {{ value = 160.0, {MEASURED} }}\n"
+    f"carrier_thickness_mm = {{ value = 12.0, {MEASURED} }}\n"
 )
 
 
@@ -667,6 +710,39 @@ def test_the_setup_picture_draws_the_rails_and_pins_where_the_pose_puts_them(tmp
         assert math.dist(at, spindle) == pytest.approx(
             trammel.station(sweep["pin_radius_mm"], ALPHA, 0.0)
         )
+
+
+def test_the_setup_picture_draws_the_carrier_on_its_pins_under_the_work(tmp_path):
+    row, (drawn, notes) = scene(
+        tmp_path, TRAMMEL.replace("verify = false\n", PICTURE + "verify = false\n")
+    )
+    assert notes == []
+    (carrier,) = drawn["carriers"]
+    first, second = (pin["at_mm"] for pin in drawn["pins"])
+    ends = carrier["from_mm"], carrier["to_mm"]
+    # Centred on the pins' chord, along it, its stated length and width.
+    middle = [(first[i] + second[i]) / 2 for i in range(2)]
+    assert [(ends[0][i] + ends[1][i]) / 2 for i in range(2)] == pytest.approx(middle)
+    assert math.dist(*ends) == pytest.approx(520.0) and carrier["width_mm"] == 160.0
+    chord = [second[i] - first[i] for i in range(2)]
+    run = [ends[1][i] - ends[0][i] for i in range(2)]
+    assert chord[0] * run[1] - chord[1] * run[0] == pytest.approx(0.0, abs=1e-6)
+    # Its top is the work's seat; the pins show between its bottom and the rail tops.
+    (pin, _), rail = drawn["pins"], drawn["rails"][0]
+    assert carrier["z_mm"][1] == pytest.approx(pin["z_mm"][1])
+    assert carrier["z_mm"][1] - carrier["z_mm"][0] == pytest.approx(12.0)
+    assert carrier["z_mm"][0] > rail["z_mm"][1]
+
+
+def test_an_unmeasured_carrier_fact_leaves_only_the_carrier_undrawn(tmp_path):
+    picture = PICTURE.replace("carrier_width_mm", "# carrier_width_mm")
+    _, (drawn, notes) = scene(
+        tmp_path, TRAMMEL.replace("verify = false\n", picture + "verify = false\n")
+    )
+    assert drawn["rails"] and drawn["pins"] and "carriers" not in drawn
+    (note,) = notes
+    assert note.startswith("NOT SHOWN: op 20's trammel carrier — measure: tram")
+    assert "carrier plate width" in note
 
 
 def test_an_unmeasured_picture_fact_leaves_the_rails_undrawn_with_a_note(tmp_path):
