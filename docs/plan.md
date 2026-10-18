@@ -2175,7 +2175,15 @@ separate saw path is drawn there: 0.45 mm is not visible on a 290 mm arc. An und
 `feed_from` draws no arrows, START, blade or push aid. The saw card states the
 allowance as a minimum, once, in its target: "leave at least 0.450 mm on the waste side
 of the scribed line", as every saw that follows a line does; its direction cell gives
-the feed ("feed from +X toward -X"). No minimum workpiece size
+the feed ("feed from +X toward -X"). A line that runs to the setup-entry blank's
+outline leaves no waste at its ends, so the target adds where the cut enters and leaves:
+where the saw path (the line offset by the allowance into the waste) crosses the
+kernel's entry box, within the op's `stock_removal_bounds`, in the setup frame, entry
+first from `feed_from`: "Enter through the +Y face at X -142.741, Y 21.295 and leave
+through the +Y face at X 142.741, Y 21.295, at least 0.450 mm outside each end of the
+line." A bench hand saw prints "Cut in through ... and out through ...". A line that
+stays inside the blank, or crossings the kernel cannot place, add nothing; the sketch
+keys the same points ENTER and LEAVE. No minimum workpiece size
 or hand-clearance limit is checked: none is sourced, so none is invented
 ([#343](https://github.com/pedropaulovc/prechips/issues/343)).
 [`examples/geometry/hand-fed-saw`](../examples/geometry/hand-fed-saw/plan.toml)

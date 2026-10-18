@@ -324,6 +324,11 @@ def hand_fed_scene(bundle, setup, scale):
         # feed arrows stand alone in the waste a few mm off the line, never on it.
         scene["paths"].append({"op": name, "xy": moving, "waste_xy": waste})
         if fed:
+            # The saw path itself is not drawn: the sketch keys where it enters and leaves
+            # the blank's outline, at least the allowance outside each end of the line.
+            scene["paths"].append(
+                {"op": name, "xy": saw, "hidden": True, "ends": ["ENTER", "LEAVE"]}
+            )
             beside = _arc_in(centre, radius + sign * _ARROWS_OFF_MM, bounds["x"], bounds["y"])
             if (beside[-1][start[0]] - beside[0][start[0]]) * start[1] < 0:
                 beside.reverse()
@@ -345,8 +350,6 @@ def hand_fed_scene(bundle, setup, scale):
             ("WASTE: SAW HERE, " + _mm_text(leave) + " MM MIN OFF THE LINE", waste),
             ("KEEP", keep),
         ]
-        if fed:
-            keys.insert(0, ("START", line[0]))
         scene["waypoints"] += [
             {"label": label, "op": name, "xy": xy, "plain": True} for label, xy in keys
         ]

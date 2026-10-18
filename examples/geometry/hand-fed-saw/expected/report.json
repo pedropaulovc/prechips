@@ -234,7 +234,7 @@
           },
           "plan": {
             "path": "examples/geometry/hand-fed-saw/plan.toml",
-            "sha256": "ce7677eba5f75830ef35697be4555223645e39bbe2904d70af06e8445d86ccad"
+            "sha256": "7c99ca3b5b64d05e365671408507d5d86653aaa2f26fa7b9e34056fdb749b855"
           },
           "shop_policy": {
             "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -2831,7 +2831,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "94e0b2cf4dec2b90c51a165af6d8a6705cb83133412681dc4e6ab84b0f50142f",
+  "hash": "e4cdd5a62f0da1c657bfb3d29f84b832c40eabef1a1beba24d97b388bbc26a18",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2847,7 +2847,7 @@
     },
     "plan": {
       "path": "examples/geometry/hand-fed-saw/plan.toml",
-      "sha256": "ce7677eba5f75830ef35697be4555223645e39bbe2904d70af06e8445d86ccad"
+      "sha256": "7c99ca3b5b64d05e365671408507d5d86653aaa2f26fa7b9e34056fdb749b855"
     },
     "render:S1": {
       "path": "setup-S1.png",
@@ -2855,7 +2855,7 @@
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "02b7d0084d11604c1216abae4297ffd6f11ef8a3f455efb689562be58cb6529b"
+      "sha256": "57aea24c8ebb6bcc2fbf34fe3574ebedcdc3b116500e8fff40d2c62eff98c7b0"
     },
     "shop_policy": {
       "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -3033,15 +3033,6 @@
         "view": "isometric",
         "waypoints": [
           {
-            "label": "START",
-            "op": "10",
-            "plain": true,
-            "xy": [
-              -145.682927,
-              21.376529
-            ]
-          },
-          {
             "label": "SCRIBED LINE",
             "op": "10",
             "plain": true,
@@ -3071,7 +3062,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "02b7d0084d11604c1216abae4297ffd6f11ef8a3f455efb689562be58cb6529b"
+      "sha256": "57aea24c8ebb6bcc2fbf34fe3574ebedcdc3b116500e8fff40d2c62eff98c7b0"
     }
   },
   "rules_version": "m5-rev12",

@@ -8109,12 +8109,48 @@ class _Traveler:
         trailing = ("-" if start[0] == "+" else "+") + start[1]
         return f"feed from {trailing} toward {start}"
 
-    def hand_saw_step(self, op, numbers):
+    def saw_ends(self, setup, op):
+        """Where a saw that follows a scribed line running to the blank's outline enters
+        and leaves it (#335): through that side, at least the allowance outside each end
+        of the line (:func:`prechips.kernel.saw_crossings`), in the setup frame; "" when the
+        line stays inside the blank or its crossings are unknown."""
+        from prechips.kernel import saw_crossings
+
+        if "follows" not in op:
+            return ""
+        crossings = saw_crossings(self.bundle, setup, op) or []
+        if not crossings:
+            return ""
+        at = [
+            f"the {c['face']} face at X {self.operative(c['xy'][0])}, "
+            f"Y {self.operative(c['xy'][1])}"
+            for c in crossings
+        ]
+        allowance = self.operative(op["allowance_mm"])
+        if len(at) != 2:
+            return (
+                f"Cut through {' and '.join(at)}, at least {allowance} mm outside the end of "
+                "the line."
+            )
+        verbs = (
+            ("Enter through", "leave through")
+            if _mapping(setup.get("hold")).get("feed_from") in _FEED_ENDS
+            else ("Cut in through", "out through")
+        )
+        return (
+            f"{verbs[0]} {at[0]} and {verbs[1]} {at[1]}, at least {allowance} mm outside "
+            "each end of the line."
+        )
+
+    def hand_saw_step(self, op, numbers, setup=None):
         """A bench hand-saw card: the straight cut's plane and the side kept, or "saw
         outside the scribed line, leave <allowance> for filing"."""
         if "follows" in op:
             separator = "; " if self.saw_leave(op).startswith("STOP") else ", "
-            return f"Hand saw {self.saw_setting(op)}{separator}{self.saw_leave(op)}."
+            ends = self.saw_ends(setup, op) if setup else ""
+            return f"Hand saw {self.saw_setting(op)}{separator}{self.saw_leave(op)}." + (
+                " " + ends if ends else ""
+            )
         plane = _mapping(op.get("cut_plane"))
         axis = _text(plane.get("axis")).upper()
         sides = {"above": ("+", "-"), "below": ("-", "+")}.get(plane.get("keep"))
@@ -8460,7 +8496,8 @@ class _Traveler:
             saw_numbers = self.records.get(("saw_cut", f"{setup['id']}:{op['op']}"), {})
             rest_cells, rest_lines = ([], []) if saw else self.rest_steps(setup, op)
             if scribed:
-                target = [self.saw_leave(op, "")]
+                target = [self.saw_leave(op, ""), self.saw_ends(setup, op)]
+                target = [part for part in target if part]
             elif saw:
                 target = [
                     "retained edge " + _number(saw_numbers.get("retained_boundary_mm")) + " mm"
@@ -8568,7 +8605,7 @@ class _Traveler:
                 if saw:
                     # A hand-saw card: where the blade runs and what it leaves, then the note.
                     step = " ".join(
-                        filter(None, [self.hand_saw_step(op, saw_numbers), instruction])
+                        filter(None, [self.hand_saw_step(op, saw_numbers, setup), instruction])
                     )
                 cells = (_text(op["op"]), features, tool, step)
                 rows.append(

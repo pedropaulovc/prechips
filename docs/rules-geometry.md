@@ -2658,7 +2658,10 @@ edge, or a `waste_xy` in neither part, shades nothing. The blank, the line and e
 other sketch item go through the panel's one XY transform from their setup-frame
 coordinates: nothing is fitted to the box. A path marked `arrows_only` draws only its
 direction arrows, clipped to the blank's outline, never a line: the hand-fed sketch
-puts its feed arrows 3 mm into the waste beside the scribed line. The hand-fed sketch sends only
+puts its feed arrows 3 mm into the waste beside the scribed line. A `hidden` path is not
+drawn; with `ends` (two labels) the sketch keys where it enters and leaves the blank's
+outline (its own end points where it starts or stops inside): the hand-fed sketch keys
+its saw path's crossings ENTER and LEAVE. The hand-fed sketch sends only
 the scribed line this way (no separate saw path: the 0.45 mm leave is not visible on a
 290 mm arc), keyed START, SCRIBED LINE, "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE"
 and KEEP.

@@ -1,6 +1,7 @@
 """A hand-fed hold: a vertical bandsaw cut along a scribed line, nothing clamping the work
 (#335)."""
 
+import dataclasses
 import json
 import math
 import re
@@ -343,7 +344,9 @@ def keys(drawn):
 def test_the_sketch_draws_the_one_scribed_line_with_its_waste_keep_and_minimum_leave():
     bundle = load_bundle(BUNDLE / "plan.toml")
     drawn = scene(bundle)
-    line, arrows = drawn["paths"]  # no separate saw path: the line and its feed arrows
+    # No drawn saw path: the line, the saw path hidden but for its keyed ends, the arrows.
+    line, saw, arrows = drawn["paths"]
+    assert saw["hidden"] is True and saw["ends"] == ["ENTER", "LEAVE"]
     assert line["op"] == "10" and "directed" not in line and "waste_xy" in line
     assert arrows["arrows_only"] is True and arrows["directed"] is True and arrows["feed"]
     assert arrows["xy"][0][0] > arrows["xy"][-1][0]  # feed_from = "-X": work moves to -X
@@ -353,7 +356,6 @@ def test_the_sketch_draws_the_one_scribed_line_with_its_waste_keep_and_minimum_l
     centre, radius = profile["centre_mm"], profile["radius_mm"]
     assert {round(math.dist(p, centre) - radius, 3) for p in arrows["xy"]} == {-3.0}
     assert list(keys(drawn)) == [
-        "START",
         "SCRIBED LINE",
         "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE",
         "KEEP",
@@ -439,6 +441,43 @@ def test_the_sketch_maps_the_blank_and_the_scribed_arc_through_one_transform(fre
     assert cx == pytest.approx(0.0, abs=1e-6) and area == pytest.approx(model, rel=0.002)
 
 
+def entry_bundle(top=BLANK[4], feed_from="-X"):
+    bundle = load_bundle(BUNDLE / "plan.toml")
+    bundle.plan["setups"][1]["hold"]["feed_from"] = feed_from
+    box = [*BLANK[:4], top, BLANK[5]]
+    return dataclasses.replace(bundle, kernel={"setups": {"S2": {"stock_bbox_mm": box}}})
+
+
+@pytest.mark.parametrize("feed_from", ["-X", "+X"])
+def test_a_line_running_to_the_blank_enters_and_leaves_its_allowance_outside(feed_from):
+    bundle = entry_bundle(feed_from=feed_from)
+    setup = bundle.plan["setups"][1]
+    crossings = kernel.saw_crossings(bundle, setup, setup["ops"][0])
+    # The saw path, 0.450 mm inside the R800 circle, meets the blank's +Y face.
+    half = math.sqrt((800 - 0.45) ** 2 - (808 - BLANK[4]) ** 2)
+    first = -half if feed_from == "-X" else half
+    assert [c["face"] for c in crossings] == ["+Y", "+Y"]
+    assert [c["xy"][0] for c in crossings] == pytest.approx([first, -first], abs=1e-6)
+    steps = _Traveler(bundle, [], {}, None).saw_ends(setup, setup["ops"][0])
+    x = f"{abs(first):.3f}"
+    near, far = ("-" + x, x) if feed_from == "-X" else (x, "-" + x)
+    assert steps == (
+        f"Enter through the +Y face at X {near}, Y 21.295 and leave through the +Y face at "
+        f"X {far}, Y 21.295, at least 0.450 mm outside each end of the line."
+    )
+
+
+def test_a_line_inside_the_blank_or_without_kernel_facts_gets_no_entry_rule():
+    bundle = entry_bundle(top=40.0)
+    setup = bundle.plan["setups"][1]
+    # Cut only the middle 200 mm of the taller blank: the line never reaches its outline.
+    setup["ops"][0]["stock_removal_bounds"]["x"] = [-100.0, 100.0]
+    assert kernel.saw_crossings(bundle, setup, setup["ops"][0]) == []
+    assert _Traveler(bundle, [], {}, None).saw_ends(setup, setup["ops"][0]) == ""
+    bundle = load_bundle(BUNDLE / "plan.toml")  # no kernel run
+    assert kernel.saw_crossings(bundle, setup, setup["ops"][0]) is None
+
+
 def test_a_line_that_does_not_cross_the_blank_shades_nothing():
     arc = [[x, 5.0 + x * x / 1600] for x in range(-50, 51, 5)]  # ends inside the blank
     assert render_diagram._waste_region(arc, BLANK, [0.0, 15.0]) is None
@@ -474,12 +513,15 @@ def test_the_feed_arrows_push_aid_and_hold_all_follow_the_declared_start_end(
     setup["hold"]["feed_from"] = feed_from
     drawn = scene(bundle)
     (feed,) = drawn["feed_lines"]
-    line, arrows = drawn["paths"]
+    line, saw, arrows = drawn["paths"]
     for xy in (feed["xyz"], arrows["xy"]):
         assert (xy[-1][0] - xy[0][0]) * sign > 0  # arrows run the way the work moves
-    start = keys(drawn)["START"]
-    # START is the line's end the arrows run toward, where the blade enters.
-    assert start == line["xy"][-1] and (start[0] - arrows["xy"][-1][0]) * sign > -2.0
+    # The sketch keys ENTER where the saw path crosses the blank at the feed_from end,
+    # the end the arrows run toward, and LEAVE at the other.
+    *_, waypoints, _ = render_diagram._panel_items("10", drawn["paths"], [], BLANK)
+    marked = {key["label"]: key["xy"] for key in waypoints}
+    start, leave = marked["ENTER"], marked["LEAVE"]
+    assert (start[0] - leave[0]) * sign > 0 and start[1] == pytest.approx(BLANK[4])
     boxes = {box["name"]: box for box in drawn["boxes"]}
     assert [trailing, 0.0] in map(list, boxes["push aid"]["stock_mm"][0])
     blade = boxes["band op 10"]["box_mm"]
@@ -496,7 +538,7 @@ def test_an_undeclared_feed_end_draws_no_arrows_start_band_or_push_aid():
     bundle.plan["setups"][1]["hold"].pop("feed_from")
     drawn = scene(bundle)
     assert [path.get("directed") for path in drawn["paths"]] == [None]  # no arrows
-    assert "START" not in [key["label"] for key in drawn["waypoints"]]
+    assert not any("ends" in path for path in drawn["paths"])  # no ENTER or LEAVE
     assert [box["name"] for box in drawn["boxes"]] == ["saw table"]
     assert drawn["feed_lines"] == []
 

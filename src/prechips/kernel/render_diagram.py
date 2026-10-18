@@ -708,11 +708,35 @@ def _panel_items(op, paths, waypoints, stock=None):
     corners are drawn points too."""
     op_paths = [p for p in paths if str(p.get("op", "")) == op]
     op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
+    op_waypoints += [
+        {"label": label, "op": op, "xy": xy, "plain": True}
+        for path in op_paths
+        if len(path.get("ends") or []) == 2 and len(path["xy"]) >= 2
+        for label, xy in zip(path["ends"], _path_ends(path["xy"], stock), strict=True)
+    ]
     points = [p for path in op_paths for p in path["xy"]]
     points.extend(p["xy"] for p in op_waypoints)
     if points and stock and any("waste_xy" in path for path in op_paths):
         points.extend(_stock_outline(stock)[:4])
     return op_paths, op_waypoints, points
+
+
+def _path_ends(line, stock):
+    """Where a path enters and leaves the stock box ``stock``'s XY outline (#335): at each
+    end, the crossing of its first (last) run inside the box with the outline, else its
+    own end point (inside the box, or with no box)."""
+    if not stock:
+        return [tuple(line[0]), tuple(line[-1])]
+    x0, y0, _, x1, y1, _ = stock
+    rect = (x0, y0, x1, y1)
+    inside = [x0 <= x <= x1 and y0 <= y <= y1 for x, y in line]
+    if True not in inside:
+        return [tuple(line[0]), tuple(line[-1])]
+    first = inside.index(True)
+    last = len(inside) - 1 - inside[::-1].index(True)
+    start = _crossing(line[first], line[first - 1], rect) if first else tuple(line[0])
+    end = _crossing(line[last], line[last + 1], rect) if last < len(line) - 1 else tuple(line[-1])
+    return [start, end]
 
 
 def _stock_outline(stock):
@@ -2597,6 +2621,9 @@ class _Diagram:
                     c.polygon([project(p) for p in region], tint)
                 _outline(c, [project(p) for p in _stock_outline(stock)[:4]], _INK, width=1)
             for path_index, path in enumerate(op_paths):
+                if path.get("hidden") is True:
+                    # Only its ends are keyed (``ends``): where the cut meets the outline.
+                    continue
                 if path.get("dashed") is True:
                     # A line the cut follows, not a travelled path: dashed, no arrows.
                     _dashed(c, [path["xy"]], project, colour)
