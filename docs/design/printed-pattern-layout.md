@@ -577,9 +577,15 @@ row and adds it to the setup's STOP list; no partial recipe prints.
 
 The values are this document's illustrative ones, not shop facts. The
 example inventory has no solvent consumable, so T3's removal row shows the
-STOP it prints until one is recorded. T2B's HOLD line is the output shape
-of the hand-fed hold in #342 (`hold.kind = "hand_fed"`, for #335), with "the
-line scribed in S1 op 10" replaced by the printed line it follows. The blade
+STOP it prints until one is recorded. T2B's HOLD block is the output of the
+hand-fed hold in #342 (`hold.kind = "hand_fed"`, for #335): the HOLD line,
+upper blade guide (`guide_above_mm`), push aid (`push_aid`), start end and
+feed direction (`feed_from`) and end-of-cut support (`end_support`), with
+"the line scribed in S1 op 10" replaced by the printed line it follows. This
+design adds no hold fields of its own: a saw that follows a print declares
+the same hand-fed hold, and those rows come from #342's rule and sheet code,
+so they stay in sync with it. The guide height, push aid and `feed_from`
+values shown are mock-up values. The blade
 is a 32 TPI blade (mock-up value): with #341's `saw_teeth` (for #336), 32 TPI
 puts 3.15 teeth in the 2.5 mm strap. That meets the example minimum of 3, so
 no row prints. A 24 TPI blade gives 2.36 teeth, and the row prints #341's STOP
@@ -650,21 +656,27 @@ SETUP T2B — 4x6 bandsaw, VERTICAL mode
 Stock: 1018 strap, 2.5 thick, print glued on top.
 HOLD: Fed by hand on the saw table, sawing outside the printed top edge
       (T2A step 10); no vise or clamp holds the work.
-Lay the strap flat on the table, print up. Keep the side of each line
-marked KEEP; the hatched side is waste.
+      Upper blade guide: 6.000 mm above the top of the work.
+      Push aid: push stick.
+      Start the cut at the -X end of the line and feed the work into the
+      blade along it, as the arrow in the picture runs.
+      End of the cut: finish it with the push aid, never the hands.
+      Note: strap flat on the saw table, print up. Keep the side of each
+      line marked KEEP; the hatched side is waste.
 
 SETUP PICTURE T2B — top view of the saw table, op 10 (not to scale)
    fed by hand on the saw table
 
-          blade (teeth toward you)
-               |
-      waste    |/////////// offcut ////////////
-   ____________|__________________________________
-   1.0 outside  \    printed top edge R800        \
-   the line      \          K E E P                \  strap, print up
-                  \________________________________\
-                     <==== feed: push the strap past the blade,
-                           guiding hand on the KEEP side
+                            blade (teeth toward the -X end)
+                                 |
+      ////////// offcut //////////|//////////
+   _______________________________|_____________________
+   \  printed top edge R800      1.0 outside the line   \
+    \              K E E P                                \ ==[push stick]
+     \____________________________________________________\
+   -X end                                              +X end
+      feed  ====>  start at the -X end, feed along the line;
+                   finish the last of the cut with the push stick, never the hands
 
 Blade: 1/2 in x 32 TPI bandsaw blade (3.15 teeth in the 2.5 mm strap).
 Op | Feature     | Tool        | Speed    | Feed                    | Action
@@ -871,8 +883,11 @@ side.
 Blind machinist read round 2 (on `ab8f8df`): none of the round 1 findings
 came back. Two still applied, and both are addressed in the next commit:
 setup pictures for T2A and T2B (§5.1, drawn into the mock-up as picture
-captions), and the removal note moved out of the printed block. After the coordinator's
-note, the bracketed T2B hold and blade lines were replaced by the output
+captions), and the removal note moved out of the printed block. Round 3 (on `a46b0a9`)
+left one blocker: no hand-safe end of cut. T2B now prints #342's current
+hand-fed HOLD block (guide height, push aid, `feed_from`, `end_support`), and
+the sketch draws the push stick finishing the cut. After the coordinator's
+round 2 note, the bracketed T2B hold and blade lines were replaced by the output
 shapes of #342 (the hand-fed HOLD line) and #341 (the blade's TPI and its
 teeth-in-the-work STOP), and the pictures became sketches in the mock-up.
 
