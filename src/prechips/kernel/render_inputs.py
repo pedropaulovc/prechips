@@ -254,7 +254,10 @@ def hand_fed_scene(bundle, setup, scale):
     if hand_fed(bundle, setup)[0] != "admitted":
         return scene
     hold, state = record(setup.get("hold")), record(setup.get("stock_state"))
-    start = _FEED_END.get(hold.get("feed_from"))
+    from prechips.kernel import feed_from_ambiguity
+
+    # A feed_from that names no end of a line draws no feed, blade or push aid.
+    start = None if feed_from_ambiguity(bundle, setup) else _FEED_END.get(hold.get("feed_from"))
     margin = [["min", -_TABLE_MARGIN_MM], ["max", _TABLE_MARGIN_MM]]
     scene["boxes"].append(
         {
@@ -344,11 +347,13 @@ def hand_fed_scene(bundle, setup, scale):
                 }
             )
             beside = _arc_in(centre, radius + sign * _ARROWS_OFF_MM, bounds["x"], bounds["y"])
-            if (beside[-1][start[0]] - beside[0][start[0]]) * start[1] < 0:
+            # The arrows' offset can leave the op's removal bounds: then none are drawn.
+            if len(beside) >= 2 and (beside[-1][start[0]] - beside[0][start[0]]) * start[1] < 0:
                 beside.reverse()
-            scene["paths"].append(
-                {"op": name, "xy": beside, "directed": True, "feed": True, "arrows_only": True}
-            )
+            if len(beside) >= 2:
+                scene["paths"].append(
+                    {"op": name, "xy": beside, "directed": True, "feed": True, "arrows_only": True}
+                )
         if fed and number(state.get("top_z")):
             # The holding picture's feed: the saw path on the work's top face, arrowed the
             # way the work moves.

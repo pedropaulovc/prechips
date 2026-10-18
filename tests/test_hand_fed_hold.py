@@ -589,3 +589,41 @@ def test_an_undeclared_feed_end_draws_no_arrows_start_band_or_push_aid():
 def test_a_fixture_hold_draws_no_hand_fed_scene():
     bundle = load_bundle(BUNDLE / "plan.toml")
     assert scene(bundle, 0) == {"paths": [], "waypoints": [], "boxes": [], "feed_lines": []}
+
+
+# ------------------------------------------- a feed end that names no end (Codex round 3)
+
+
+@pytest.mark.parametrize("feed_from", ["+Y", "-Y"])
+def test_a_feed_end_level_with_both_line_ends_is_unresolved(feed_from):
+    # The R800 top arc's two ends lie level in Y: "start at the +Y end" names neither.
+    bundle = entry_bundle(feed_from=feed_from)
+    setup = bundle.plan["setups"][1]
+    assert "names no end" in kernel.feed_from_ambiguity(bundle, setup)
+    drawn = scene(bundle)
+    assert not any(path.get("directed") for path in drawn["paths"])
+    assert not any("ENTER" in path.get("ends", []) for path in drawn["paths"])
+    assert [box["name"] for box in drawn["boxes"]] == ["saw table"]
+    traveler = _Traveler(bundle, [], {}, None)
+    steps, _ = traveler.hold(setup)
+    assert "STOP: feed_from" in steps and "Start the cut" not in steps
+    assert str(traveler.feed_direction(setup)).startswith("STOP: feed_from")
+    assert traveler.saw_ends(setup, setup["ops"][0]).startswith("Cut through at")
+    finding = row(hold_fields, bundle)
+    assert finding.status == "unknown" and "hold.feed_from" in finding.numbers["missing"]
+    assert "names no end" in finding.sentence
+
+
+def test_an_x_feed_end_names_an_end_of_the_same_arc():
+    bundle = entry_bundle(feed_from="-X")
+    assert kernel.feed_from_ambiguity(bundle, bundle.plan["setups"][1]) == ""
+
+
+def test_feed_arrows_outside_the_removal_bounds_are_left_off_not_a_crash():
+    bundle = load_bundle(BUNDLE / "plan.toml")
+    op = bundle.plan["setups"][1]["ops"][0]
+    # The line (Y 8.0..8.25) and the saw path fit; the arrows, 3 mm into the waste, do not.
+    op["stock_removal_bounds"] = {"x": [-20.0, 20.0], "y": [7.0, 9.5], "z": [-9.0, 2.0]}
+    drawn = scene(bundle)
+    assert [p.get("arrows_only") for p in drawn["paths"]] == [None, None]
+    assert any("waste_xy" in path for path in drawn["paths"])

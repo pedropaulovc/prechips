@@ -2162,7 +2162,8 @@ up to the declared guide height and the push aid behind the work's trailing end,
 called out. All three come from the same `feed_from` the HOLD prints. The cut starts at
 the `feed_from` end, so the work moves toward `feed_from`: that end leads into the
 stationary blade, the push aid stands behind the opposite, trailing end, and every feed
-arrow points the way the work moves, from the trailing end toward the START. The holding
+arrow points the way the work moves, from the trailing end toward where the blade
+enters. The holding
 picture draws the saw path (the scribed arc offset by the allowance into the waste) on
 the work's top face with those arrows ("WORK FEED INTO THE BLADE"). The op's profile
 sketch draws the setup-entry blank's outline as a thin line and the scribed line,
@@ -2170,9 +2171,13 @@ within the op's `stock_removal_bounds`, as the one heavier line, both from their
 setup-frame coordinates through the one sketch transform; it shades the waste the line
 cuts off the blank, puts the same feed arrows alone in that waste 3 mm off the line
 (never on it, never as a second line) and leaves the keep side unshaded,
-keyed START, SCRIBED LINE, "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE" and KEEP. No
-separate saw path is drawn there: 0.45 mm is not visible on a 290 mm arc. An undeclared
-`feed_from` draws no arrows, START, blade or push aid. The saw card states the
+keyed SCRIBED LINE, "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE" and KEEP, the line's
+own ends LINE END (hollow squares) and, with a declared `feed_from`, the cut's ENTER and
+LEAVE (crosses). No separate saw path is drawn there: 0.45 mm is not visible on a
+290 mm arc. An undeclared `feed_from` draws no arrows, ENTER, LEAVE, blade or push aid,
+and neither does one that names no end of a cut's line: an axis along which the line's
+two ends lie less than 1 mm apart (`+Y` on a symmetric top arc). That `feed_from` is `?`
+in `hold_fields`, and the HOLD and the op's direction cell print a STOP naming why. The saw card states the
 allowance as a minimum, once, in its target: "leave at least 0.450 mm on the waste side
 of the scribed line", as every saw that follows a line does; its direction cell gives
 the feed ("feed from +X toward -X"). A line that runs to the setup-entry blank's

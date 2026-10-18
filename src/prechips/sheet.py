@@ -4350,7 +4350,7 @@ class _Traveler:
                 + " and ".join(dict.fromkeys(lines))
                 + "; no vise or clamp holds the work."
             )
-            steps.extend(self.feeding(hold))
+            steps.extend(self.feeding(hold, setup))
         elif fixture == "unknown":
             steps.append("STOP: holding not chosen — do not run.")
         else:
@@ -4493,11 +4493,14 @@ class _Traveler:
             return "STOP: not chosen"
         return self.reference(hold["fixture"], "workholding")
 
-    def feeding(self, hold):
+    def feeding(self, hold, setup):
         """A hand-fed cut's declared feeding (``guide_above_mm``, ``push_aid``,
         ``feed_from``, ``end_support``), one step each; an undeclared one is a STOP."""
+        from prechips.kernel import feed_from_ambiguity
+
         guide, push = hold.get("guide_above_mm"), hold.get("push_aid", UNKNOWN)
         start, end = hold.get("feed_from"), hold.get("end_support")
+        ambiguity = feed_from_ambiguity(self.bundle, setup)
         return [
             f"Upper blade guide: {self.operative(guide)} mm above the top of the work."
             if _known(guide)
@@ -4507,7 +4510,9 @@ class _Traveler:
             else "STOP: push aid not declared — do not run.",
             f"Start the cut at the {start} end of the line: feed the work toward {start} into "
             "the blade, its trailing end behind, as the arrows in the picture run."
-            if start in _FEED_ENDS
+            if start in _FEED_ENDS and not ambiguity
+            else f"STOP: {ambiguity} — do not run."
+            if ambiguity
             else "STOP: end of the line the cut starts from not declared — do not run.",
             _END_SUPPORT[end]
             if end in _END_SUPPORT
@@ -8119,9 +8124,14 @@ class _Traveler:
     def feed_direction(self, setup):
         """The way the work moves past a hand-fed blade: from its trailing end toward the
         ``feed_from`` end the cut starts at, as the HOLD and the picture's arrows say."""
+        from prechips.kernel import feed_from_ambiguity
+
         start = _mapping(setup.get("hold")).get("feed_from")
         if start not in _FEED_ENDS:
             return _Box("STOP: feed direction not declared")
+        ambiguity = feed_from_ambiguity(self.bundle, setup)
+        if ambiguity:
+            return _Box(f"STOP: {ambiguity}")
         trailing = ("-" if start[0] == "+" else "+") + start[1]
         return f"feed from {trailing} toward {start}"
 
@@ -8150,7 +8160,10 @@ class _Traveler:
         ]
         on = f" on the {faces[0]} face" if len(faces) == 1 else ""
         frame = self.frame_tag(setup)
-        if len(points) == 2 and _mapping(setup.get("hold")).get("feed_from") in _FEED_ENDS:
+        from prechips.kernel import feed_from_ambiguity
+
+        fed = _mapping(setup.get("hold")).get("feed_from") in _FEED_ENDS
+        if len(points) == 2 and fed and not feed_from_ambiguity(self.bundle, setup):
             return f"Enter at {points[0]} and leave at {points[1]}{on}{frame}: {where}."
         return f"Cut through at {' and '.join(points)}{on}{frame}: {where}."
 

@@ -36,6 +36,7 @@ from prechips.rules.geometry_common import (
 from prechips.rules.resolution import (
     HAND_FED,
     HAND_FINISH,
+    SAW_OPS,
     hand_fed,
     identity,
     number,
@@ -1021,6 +1022,43 @@ def saw_plane(plane, units):
     return {"axis": plane["axis"], "value": plane["value"] * scale, "keep": plane["keep"]}
 
 
+# Line ends closer than this along a hand-fed hold's feed_from axis do not tell its start
+# end apart (#335).
+FEED_ENDS_MIN_MM = 1.0
+
+
+def feed_from_ambiguity(bundle, setup):
+    """Why the hold's declared ``feed_from`` does not tell a hand-fed cut's line ends
+    apart (#335), else "": each saw that follows a scribed arc must have its two ends at
+    least :data:`FEED_ENDS_MIN_MM` apart along that axis, or "start at the -Y end" names
+    no end (a symmetric arc's ends lie level). A line the kernel cannot place, or an
+    undeclared ``feed_from``, is not ambiguous here: its own debt stands."""
+    from prechips.kernel.render_inputs import _arc_in
+
+    start = record(setup.get("hold")).get("feed_from")
+    if not (isinstance(start, str) and len(start) == 2 and start[1] in "XY"):
+        return ""
+    axis = "XY".index(start[1])
+    for op in setup.get("ops") or []:
+        if op.get("do") not in SAW_OPS or "follows" not in op:
+            continue
+        profile = record(scribed_profile(bundle, setup, op))
+        bounds = removal_bounds(op.get("stock_removal_bounds"), bundle.features.get("units"))
+        centre, radius = profile.get("centre_mm"), profile.get("radius_mm")
+        if "reason" in bounds or not (isinstance(centre, list) and number(radius)):
+            continue
+        line = _arc_in(centre, radius, bounds["x"], bounds["y"])
+        if len(line) < 2:
+            continue
+        gap = abs(line[-1][axis] - line[0][axis])
+        if gap < FEED_ENDS_MIN_MM:
+            return (
+                f"feed_from {start} names no end of op {op['op']}'s line: its ends lie "
+                f"{gap:.3f} mm apart along {start[1]}"
+            )
+    return ""
+
+
 def saw_crossings(bundle, setup, op):
     """Where a saw that follows a scribed arc crosses the setup-entry blank's XY outline
     (#335): the saw path, the arc offset by ``allowance_mm`` into the waste, meets the
@@ -1072,6 +1110,8 @@ def saw_crossings(bundle, setup, op):
         )
     )
     start = record(setup.get("hold")).get("feed_from")
+    if feed_from_ambiguity(bundle, setup):
+        start = None
     if isinstance(start, str) and len(start) == 2 and found:
         index, sign = (0 if start[1] == "X" else 1), (1 if start[0] == "+" else -1)
         if (found[-1]["xy"][index] - found[0]["xy"][index]) * sign > 0:

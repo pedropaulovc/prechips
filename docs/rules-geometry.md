@@ -2647,9 +2647,9 @@ setup-frame box) or `stock_mm` (per axis, two `[anchor, offset]` ends, `anchor` 
 its own callout, lists it in `render_scene.components` with role `scene`, and never
 hit-tests it; a malformed box, or a stock-anchored one without entry stock, is a
 picture debt only. The op's profile sketch prints a waypoint marked `plain` as written
-(START, SCRIBED LINE, WASTE, KEEP) instead of a P number, and names the arrows of a
-`feed` path "ARROWS: WORK FEED INTO THE BLADE": they run the way the work moves, from
-its trailing end toward the START where the blade enters. A path with a `waste_xy`
+(SCRIBED LINE, WASTE, KEEP) instead of a P number, and names the arrows of a `feed`
+path "ARROWS: WORK FEED INTO THE BLADE": they run the way the work moves, from its
+trailing end toward where the blade enters. A path with a `waste_xy`
 point is a line that cuts waste off the setup-entry blank: the sketch draws the
 blank's XY outline (`stock_box`) as a thin line, the path as the one heavier line, and
 shades the part of the blank the path cuts off on `waste_xy`'s side, its run inside the
@@ -2663,10 +2663,10 @@ drawn; with `ends` (two labels) the sketch keys where it enters and leaves the b
 outline (its own end points where it starts or stops inside), drawn with its
 `end_marker` (`square` or `cross`; a dot when absent): the hand-fed sketch keys its saw
 path's crossings ENTER and LEAVE with crosses and the scribed line's own ends LINE END
-with hollow squares. The hand-fed sketch sends only
-the scribed line this way (no separate saw path: the 0.45 mm leave is not visible on a
-290 mm arc), keyed START, SCRIBED LINE, "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE"
-and KEEP.
+with hollow squares. The hand-fed sketch draws only the scribed line this way (no
+separate saw path: the 0.45 mm leave is not visible on a 290 mm arc), keyed SCRIBED
+LINE, "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE" and KEEP; a `feed_from` that is
+undeclared or names no end of the line draws no arrows, ENTER or LEAVE.
 
 A guided sweep's table-side guide elements
 ([#255](https://github.com/pedropaulovc/prechips/issues/255)) are drawn for the

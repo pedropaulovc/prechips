@@ -229,6 +229,7 @@ def evaluate(bundle):
         # A hand-fed hold clamps nothing: no fixture field applies, and an unresolved scope
         # leaves the hold itself unknown.
         scope, why = hand_fed(bundle, setup)
+        ambiguity = ""
         required = {
             "hold.fixture": hold.get("fixture"),
             "hold.stop": hold.get("stop"),
@@ -243,6 +244,12 @@ def evaluate(bundle):
             required.update(
                 {f"hold.{name}": hold.get(name, UNKNOWN) for name in sorted(HAND_FEEDING)}
             )
+            # A feed_from that names no end of a line is no declaration at all.
+            from prechips.kernel import feed_from_ambiguity
+
+            ambiguity = feed_from_ambiguity(bundle, setup)
+            if ambiguity:
+                required["hold.feed_from"] = UNKNOWN
         required.update(coolant=setup.get("coolant"), deburr_mm=setup.get("deburr_mm"))
         fixture_ref = hold.get("fixture")
         fixture = resolve(bundle, "workholding", fixture_ref) or {}
@@ -356,6 +363,8 @@ def evaluate(bundle):
             status, message = "error", f"{setup['id']}: the hand-fed hold does not apply: {why}."
         elif why:
             message = message.removesuffix(".") + f" (hand-fed scope: {why})."
+        elif ambiguity:
+            message = message.removesuffix(".") + f" ({ambiguity})."
         elif scope == "admitted" and status == "pass":
             message = (
                 f"{setup['id']}: the work is fed by hand on the saw table, sawn on the waste "
