@@ -991,6 +991,21 @@ def _uniform_thickness(region):
     its Z span."""
     box = _bbox(region)
     span = box[5] - box[2]
+    # An extrusion along Z has only vertical sides and flat caps on its top and bottom
+    # planes: a horizontal face anywhere between them is a step, pocket or void.
+    for face in region.Faces:
+        u0, u1, v0, v1 = face.ParameterRange
+        tilts = [
+            abs(face.normalAt(u0 + (u1 - u0) * a, v0 + (v1 - v0) * b).z)
+            for a in (0.1, 0.5, 0.9)
+            for b in (0.1, 0.5, 0.9)
+        ]
+        if all(tilt <= 1e-6 for tilt in tilts):
+            continue
+        low, high = _bbox(face)[2], _bbox(face)[5]
+        capped = any(abs(low - z) <= STOCK_TOL and abs(high - z) <= STOCK_TOL for z in box[2::3])
+        if not (capped and all(tilt >= 1 - 1e-6 for tilt in tilts)):
+            return "the stock the blade takes is not one uniform thickness"
     top = sum(
         face.Area
         for face in region.Faces

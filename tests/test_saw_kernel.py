@@ -41,6 +41,12 @@ Part.makeBox(10, 10, 2).fuse(Part.makeBox(10, 2, 10)).removeSplitter().exportSte
 Part.makeBox(5, 10, 6).fuse(Part.makeBox(5, 10, 2, V(5, 0, 0))).removeSplitter().exportStep(
     out + "/stepped.step"
 )
+# Codex's balanced case: half full height, a quarter only in the lower half and a quarter
+# only in the upper half, so top area x Z span still equals the volume.
+balanced = Part.makeBox(5, 10, 6).fuse(Part.makeBox(5, 5, 3, V(5, 0, 0)))
+balanced.fuse(Part.makeBox(5, 5, 3, V(5, 5, 3))).removeSplitter().exportStep(
+    out + "/balanced.step"
+)
 """
 
 
@@ -767,6 +773,11 @@ def test_a_saw_reports_the_thickness_its_blade_crosses(saw_engine, saw_target):
         ("tube", _saw("x", 5.0), "hollow"),
         ("angle", _saw("x", 5.0), "open profile"),
         ("stepped", _scribed({"x": [-1.0, 11.0], "y": [8.0, 11.0], "z": [-1.0, 11.0]}), "uniform"),
+        (
+            "balanced",
+            _scribed({"x": [-1.0, 11.0], "y": [-1.0, 11.0], "z": [-1.0, 11.0]}),
+            "uniform",
+        ),
     ],
 )
 def test_a_section_its_bounding_box_overstates_leaves_the_thickness_unknown(
