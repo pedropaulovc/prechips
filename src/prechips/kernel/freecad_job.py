@@ -2997,6 +2997,30 @@ def _leave(op):
     return None, f"rough_allowance_mm {value!r} is not a known nonnegative leave"
 
 
+def _on_axis(face, at, axis):
+    """Whether cylinder ``face`` turns about the line through ``at`` along unit ``axis``
+    within ``PLANE_TOL`` wherever it lies, its material inside it (an outward face).
+    Distance to a line is convex along another line, so both ends of the span bound it."""
+    surface = face.Surface
+
+    def off_axis(point):
+        offset = point - at
+        return (offset - axis * offset.dot(axis)).Length
+
+    own = V(surface.Axis).normalize()
+    mid = (face.BoundBox.Center - surface.Center).dot(own)
+    half = face.BoundBox.DiagonalLength / 2
+    ends = (surface.Center + own * (mid - half), surface.Center + own * (mid + half))
+    if any(off_axis(end) > PLANE_TOL for end in ends):
+        return False
+    point = _inner_point(face)
+    if point is None:
+        return False
+    outward = point - at
+    outward = outward - axis * outward.dot(axis)
+    return _normal_at(face, point).dot(outward) > 0
+
+
 def _inner_point(face):
     """A point exactly on ``face`` (not on its boundary when avoidable), or None."""
     u0, u1, v0, v1 = face.ParameterRange
@@ -4298,6 +4322,14 @@ class _Job:
                     self._component_protection(component, consumed)
                 )
                 protected = protected.cut(pending)
+            # This or an earlier join's spigot may finish its skin anywhere in its band.
+            for sid, skin in self.band_skins.items():
+                if sid in self.joint_ancestors[setup["id"]]:
+                    protected = protected.cut(skin)
+            # A corner a later join forms belongs to no branch before it.
+            for sid, corner in self.formed_corners.items():
+                if sid != setup["id"] and setup["id"] in self.joint_ancestors[sid]:
+                    protected = protected.cut(corner)
             # An earlier join's admitted corner stays admitted in every later assembly.
             for name in sorted(state["formed"]):
                 protected = protected.cut(self.formed_material[name])
@@ -4677,6 +4709,33 @@ class _Job:
                     for ref in setup["stock_in"]:
                         for name in roots.get(ref, set()):
                             self.ownership_errors[name] = str(exc)
+        # Finished face index -> the exported features naming it (:meth:`_band_admits`).
+        self.face_features = {}
+        for feature, refs in self.job.get("features", {}).items():
+            for ref in refs if isinstance(refs, list) else ():
+                if isinstance(ref, str) and ref in self.mapping:
+                    self.face_features.setdefault(self.mapping[ref], set()).add(feature)
+        # A spigot's band skin below basic is not finished material the join loses.
+        self.band_skins = {}
+        for sid, joint in self.cylindrical_joints.items():
+            skin = self._band_skin(self.joint_features[joint["spigot"]])
+            if skin is not None:
+                self.band_skins[sid] = skin
+        # The corner a later join forms is finished material of neither branch before it:
+        # each branch's cuts may take it like any other stock, and the join judges it.
+        self.formed_corners = {}
+        for setup in self.job["setups"]:
+            joint = setup.get("joint")
+            if not isinstance(joint, dict) or setup["id"] in self.joint_setup_errors:
+                continue
+            corners = [self._corner(form) for form in joint.get("forms") or ()]
+            corners = [corner for corner in corners if corner is not None]
+            if not corners:
+                continue
+            corner = corners[0].multiFuse(corners[1:]) if len(corners) > 1 else corners[0]
+            self.formed_corners[setup["id"]] = corner
+            for name in roots.get(setup["id"], set()):
+                self.protected[name] = self.protected[name].cut(corner)
         for setup in self.job["setups"]:
             for op in setup.get("ops", []):
                 cut = op.get("joint_cut")
@@ -4690,6 +4749,103 @@ class _Job:
         self.features.update(
             {name: self.joint_indices.get(name, UNKNOWN) for name in self.joint_features}
         )
+
+    def _band_admits(self, index, declared, diameter):
+        """Whether every exported feature naming finished face ``index`` has a known ``dia``
+        band (``job.dia_bands``) holding both a fit feature's ``declared`` band and the
+        face's own ``diameter``: the face is then that fit's surface at any size its band
+        admits, not only at the model's basic size. A face no such feature names never is."""
+        names = self.face_features.get(index)
+        if not names or not isinstance(declared, list) or len(declared) != 2:
+            return False
+        bands = self.job.get("dia_bands") or {}
+        low, high = min(declared[0], diameter), max(declared[1], diameter)
+        return all(
+            name in bands
+            and bands[name][0] - PLANE_TOL <= low
+            and high <= bands[name][1] + PLANE_TOL
+            for name in names
+        )
+
+    def _band_skin(self, spec):
+        """The finished material a spigot's declared band may leave off below the model's
+        basic size, or None: under each outward finished cylinder face on the spigot axis
+        whose exported band admits the spigot's (:meth:`_band_admits`), the skin from the
+        face down to the band's MIN radius, within the spigot's axial span. A clearance land
+        turned below a boss drawn at basic loses only that skin, which is not finished
+        material lost; anything deeper still is. A kernel failure on any face withholds
+        the whole skin: the backstop then counts it lost, as before, never less."""
+        declared = spec.get("dia_mm")
+        if not isinstance(declared, list) or len(declared) != 2 or not _number(declared[0]):
+            return None
+        low = declared[0] / 2
+        try:
+            at, axis = V(*spec["at_mm"]), V(*spec["axis"]).normalize()
+            span = _joint_cylinder(
+                spec, 4 * math.dist(_bbox(self.solid)[:3], _bbox(self.solid)[3:]) + 10
+            )
+            pieces = []
+            for index, face in enumerate(self.solid.Faces):
+                surface = face.Surface
+                if not isinstance(surface, Part.Cylinder) or surface.Radius <= low + PLANE_TOL:
+                    continue
+                if not _on_axis(face, at, axis) or not self._band_admits(
+                    index, declared, 2 * surface.Radius
+                ):
+                    continue
+                skin = face.makeOffsetShape(low - surface.Radius, 1e-7, fill=True).common(span)
+                if skin.Volume > HIT_MM3:
+                    pieces.append(skin)
+        except (_Unknown, ValueError, Part.OCCError):
+            return None
+        if not pieces:
+            return None
+        return pieces[0].multiFuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
+
+    def _corner(self, form):
+        """The finished material a ``forms`` feature fills in the sharp corner its
+        neighbouring faces meet in, or None to withhold nothing.
+
+        The corner is the finished solid less the solid with the feature's faces removed
+        and their neighbours extended (defeaturing). Only a known feature whose band starts
+        at 0 has one, and only a corner the join could admit: the defeatured solid valid,
+        one solid, adding no material (a concave root, not a convex blend), every corner
+        piece touching the feature's faces and every sampled point of it within the band's
+        MAX of them. Anything else, or a kernel failure, withholds nothing: the branches
+        keep the material as finished, as before, and the join judges what they carry."""
+        refs = form.get("faces") or []
+        band = form.get("radius_mm")
+        if (
+            form.get("error")
+            or form.get("reason")
+            or not refs
+            or any(ref not in self.mapping for ref in refs)
+            or not isinstance(band, list)
+            or band[0] > STOCK_TOL
+        ):
+            return None
+        faces = [self.solid.Faces[self.mapping[ref]] for ref in refs]
+        try:
+            sharp = self.solid.defeaturing(faces)
+            if sharp.isNull() or not sharp.isValid() or len(sharp.Solids) != 1:
+                return None
+            if sharp.cut(self.solid).Volume > STOCK_MM3:
+                return None
+            corner = self.solid.cut(sharp)
+            if corner.isNull() or corner.Volume <= STOCK_MM3:
+                return None
+            formed = Part.makeCompound(faces)
+            for piece in corner.Solids:
+                if piece.distToShape(formed)[0] > STOCK_TOL:
+                    return None
+                points = [vertex.Point for vertex in piece.Vertexes]
+                for side in piece.Faces:
+                    points.extend(point for point, _ in _face_samples(side, 1.0)[0])
+                if any(formed.distToShape(Part.Vertex(p))[0] > band[1] + STOCK_TOL for p in points):
+                    return None
+        except Part.OCCError:
+            return None
+        return corner
 
     def _add_joint_faces(self, spec, target):
         indices = []
@@ -5721,8 +5877,16 @@ class _Setup:
         material and on ``after``, the stock :meth:`_build` accepted for this op. Rough,
         unknown, stopped or rejected cuts never reach here or record nothing; a failed
         boolean withholds the whole certificate. Transient joint faces are never candidates.
+
+        A fit's band need not hold the model's basic size (an r6 land over a hub OD drawn
+        at basic): a face on the spigot axis at another radius is the same turned surface
+        when every exported feature naming it has a known ``dia`` band holding both the
+        spigot's declared band and the face's own diameter (:meth:`_Job._band_admits`).
+        Its full area must then lie in the cut window at its own radius; the face carried
+        radially onto the turned radius must lie on ``after``; and the inner of the two
+        must lie in the owned finished material.
         """
-        _, spec, _ = self._joint_check(op)
+        name, spec, _ = self._joint_check(op)
         if spec["kind"] != "cylinder_spigot" or not (
             spec.get("finishing") and spec.get("completes")
         ):
@@ -5732,49 +5896,49 @@ class _Setup:
             return
         at = self.matrix.multVec(V(*spec["at_mm"]))
         axis = (self.matrix.multVec(V(*spec["at_mm"]) + V(*spec["axis"])) - at).normalize()
+        declared = self.owner.joint_features[name].get("dia_mm")
 
-        def off_axis(point):
-            offset = point - at
-            return (offset - axis * offset.dot(axis)).Length
+        def shell(at_radius):
+            """A cylinder surface over the finite cut window, thickened by STOCK_TOL."""
+            return self._placed(
+                _joint_cylinder(spec, 2 * (at_radius + STOCK_TOL)).cut(
+                    _joint_cylinder(spec, 2 * (at_radius - STOCK_TOL))
+                )
+            )
 
         certified = []
         try:
-            # The turned surface over the finite cut window, thickened by STOCK_TOL each way.
-            band = self._placed(
-                _joint_cylinder(spec, 2 * (radius + STOCK_TOL)).cut(
-                    _joint_cylinder(spec, 2 * (radius - STOCK_TOL))
-                )
-            )
-            box = _bbox(band)
+            band = shell(radius)
             for index in range(len(self.finished.Faces)):
                 face, bounds = self.faces[index], self.face_boxes[index]
                 surface = face.Surface
-                if (
-                    not isinstance(surface, Part.Cylinder)
-                    or abs(surface.Radius - radius) > PLANE_TOL
-                    or not all(
-                        box[k] - STOCK_TOL <= bounds[k] and bounds[k + 3] <= box[k + 3] + STOCK_TOL
-                        for k in range(3)
-                    )
+                if not isinstance(surface, Part.Cylinder):
+                    continue
+                sized = abs(surface.Radius - radius) <= PLANE_TOL
+                if not sized and not self.owner._band_admits(index, declared, 2 * surface.Radius):
+                    continue
+                window = band if sized else shell(surface.Radius)
+                box = _bbox(window)
+                if not all(
+                    box[k] - STOCK_TOL <= bounds[k] and bounds[k + 3] <= box[k + 3] + STOCK_TOL
+                    for k in range(3)
                 ):
                     continue
-                # The face's axis must be the spigot axis wherever the face lies: distance to
-                # a line is convex along another line, so both ends of the span bound it.
-                own = V(surface.Axis).normalize()
-                mid = (face.BoundBox.Center - surface.Center).dot(own)
-                half = face.BoundBox.DiagonalLength / 2
-                ends = (surface.Center + own * (mid - half), surface.Center + own * (mid + half))
-                if any(off_axis(end) > PLANE_TOL for end in ends):
-                    continue
-                point = _inner_point(face)
-                if point is None:
-                    continue
-                outward = point - at
-                outward = outward - axis * outward.dot(axis)
-                if _normal_at(face, point).dot(outward) <= 0:
-                    continue  # Material outside the face: not a turned spigot surface.
+                if not _on_axis(face, at, axis):
+                    continue  # Another axis, or material outside: not the turned surface.
                 limit = max(AREA_ABS, face.Area * AREA_REL)
-                if all(face.cut(shape).Area <= limit for shape in (band, self.protected, after)):
+                turned = face if sized else face.makeOffsetShape(radius - surface.Radius, 1e-7)
+                # The owned finished material reaches the radially inner of the two.
+                inner = turned if surface.Radius > radius else face
+                if all(
+                    shape.cut(within).Area <= limit
+                    for shape, within in (
+                        (face, window),
+                        (inner, self.protected),
+                        (turned, band),
+                        (turned, after),
+                    )
+                ):
                     certified.append(index)
         except Part.OCCError:
             return

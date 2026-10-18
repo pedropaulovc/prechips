@@ -242,3 +242,99 @@ def test_a_groove_at_the_root_is_refused_beside_a_mouth_in_air(engine, solids):
     job["setups"][0]["ops"][0]["joint_cut"].update(shifted)
     row = engine.run(job)["setups"]["join"]
     assert "beyond its R0.2 MAX" in row["assembly_error"], row
+
+
+def _face_the_body(engine, step, job, bore_first=False):
+    """A body blank 1 mm proud of the finished top, faced down to it in its own
+    branch before the join (#334): the faced top is datum B, the strap face the root meets.
+
+    ``bore_first`` bores the socket from that proud top before facing (identity frame,
+    entering at the root side), so the bore reaches the corner too."""
+    job["stock"]["components"]["body"] = _bar(20, 11)
+    job["features"]["top"] = engine.refs(step, (-10, -10, 10), (10, 10, 10), kind="Plane")
+    face = {
+        "id": "body-face",
+        "stock_in": "stock.body",
+        "frame": IDENTITY,
+        "hold": {"reason": "fixture not part of this stock-boundary probe"},
+        "ops": [
+            {
+                **_op("body-face:10", "top", 6, 25, 50),
+                "do": "face",
+                "to_z": 10.0,
+                "stock_removal_bounds": {"x": [-11, 11], "y": [-11, 11], "z": [10, 11]},
+            }
+        ],
+    }
+    socket_cut = job["setups"][0]
+    if bore_first:
+        socket_cut["frame"] = IDENTITY
+        face["stock_in"] = "socket-cut"
+        job["setups"].insert(1, face)
+        received = "body-face"
+    else:
+        socket_cut["stock_in"] = "body-face"
+        job["setups"].insert(0, face)
+        received = "socket-cut"
+    join = job["setups"][3]
+    join["stock_in"][0] = received
+    join["joint"].update(socket_ref=received, refs=list(join["stock_in"]))
+    return job
+
+
+@pytest.mark.parametrize("interference", [False, True])
+def test_the_socket_branch_faces_off_the_corner_the_join_forms(engine, solids, interference):
+    # The corner the press leaves sharp is no branch's finished material: the facing takes
+    # it with the rest of the proud stock, and the join forms the root it would have carried.
+    step = solids["filleted"]
+    job = _face_the_body(
+        engine, step, _forms(engine, step, _root(engine, step), interference=interference)
+    )
+    facts = engine.run(job)
+    faced = facts["setups"]["body-face"]
+    assert faced["stock_out_bbox_mm"][5] == pytest.approx(10.0, abs=1e-3), faced
+    assert "protected" not in str(facts["ops"]["body-face:10"]), facts["ops"]["body-face:10"]
+    row = facts["setups"]["join"]
+    assert "assembly_error" not in row, row
+    # Only the corner went: the joined part is the sharp-cornered finished part.
+    assert row["stock_out_volume_mm3"] == pytest.approx(JOINED_MM3, abs=1e-3)
+    assert row["forms"]["root"]["status"] == "formed"
+    assert row["forms"]["root"]["admitted_mm3"] == pytest.approx(0.2667, abs=1e-3)
+
+
+def test_a_bore_through_the_proud_corner_removes_no_finished_material(engine, solids):
+    # The clearance socket (Ø10) is wider than the spigot's Ø9.8 column: bored from the
+    # proud top, it runs through the root's corner ring before the facing.
+    step = solids["filleted"]
+    job = _forms(engine, step, _root(engine, step))
+    facts = engine.run(_face_the_body(engine, step, job, bore_first=True))
+    assert "socket-cut:10" not in facts.get("joint_errors", {}), facts["ops"]["socket-cut:10"]
+    assert "protected" not in str(facts["ops"]["socket-cut:10"]), facts["ops"]["socket-cut:10"]
+    row = facts["setups"]["join"]
+    assert "assembly_error" not in row, row
+    assert row["forms"]["root"]["status"] == "formed"
+
+
+@pytest.mark.parametrize(("high", "formed"), [(0.08, False), (0.09, True)])
+def test_the_corner_withheld_before_the_join_is_bounded_by_the_band(engine, solids, high, formed):
+    # The sharp corner lies 0.2(√2 − 1) = 0.0828 mm from the R0.2 fillet: a MAX just short
+    # of it withholds nothing and the join is refused; just past it the root is formed.
+    step = solids["filleted"]
+    job = _forms(engine, step, _root(engine, step), band=(0.0, high))
+    row = engine.run(_face_the_body(engine, step, job))["setups"]["join"]
+    if formed:
+        assert "assembly_error" not in row, row
+        assert row["forms"]["root"]["status"] == "formed"
+        return
+    assert "assembly_error" in row, row
+    assert "stock_out_volume_mm3" not in row
+
+
+def test_a_face_named_formed_that_a_branch_carries_withholds_nothing(engine, solids):
+    # The body top is datum B, which the facing cuts: naming it formed cannot hand the
+    # body's own material to the join.
+    step = solids["filleted"]
+    top = engine.refs(step, (-10, -10, 10), (10, 10, 10), kind="Plane")
+    job = _face_the_body(engine, step, _forms(engine, step, top))
+    facts = engine.run(job)
+    assert "the join does not form root" in facts["setups"]["join"]["assembly_error"]

@@ -282,11 +282,29 @@ itself: its radius and axis match the turned diameter and spigot axis within
 1e-6 mm over the face's whole extent, so a cut that leaves stock even below the
 0.001 mm stock tolerance earns nothing. Its full area must lie inside the op's
 finite cut window, inside that component's owned finished material and on the
-accepted after-op stock. Only those faces earn `coverage`, and
+accepted after-op stock.
+
+A fit's band need not hold the model's basic size. An r6 land
+(`dia = [10.223, 10.234]`) is turned over a hub OD the model draws at basic Ø10.20,
+whose own band is `[9.69, 10.71]`. The size is then judged by the declared bands,
+not by the model's radius. A face on the spigot axis at another radius is
+certified when every exported feature naming it has a known `dia` band (a `dia`
+requirement and known units) that holds both the spigot's declared `dia` band and
+the face's own diameter. The axis and the cylinder shape still match within
+1e-6 mm. The face's full area must lie inside the cut window at its own radius and
+inside the owned finished material. The face carried radially onto the turned
+radius must lie on the accepted after-op stock. A land whose band runs past the
+exported band, even by 0.0001 mm, certifies nothing, and neither does a face no
+exported feature with a known `dia` band names. The rule runs both ways. A clearance land
+turned below a boss drawn at basic (`dia = [9.7, 9.8]` under Ø9.8) certifies the
+face the same way, with the turned surface inside the owned finished material.
+The join's backstop does not count the skin it takes as lost: the finished
+material under such a face, down to the land's MIN radius and within the spigot's
+axial span. Material under the MIN is still protected and still lost. Only those faces earn `coverage`, and
 `finish_coverage` too when the op is a finishing cut. A rough, unknown,
 stopped or rejected cut, a face outside or only partly inside the window, a
-face at another diameter or about another axis and any transient index earn
-nothing. Earning
+face at another diameter its exported band does not admit, a face about another
+axis and any transient index earn nothing. Earning
 nothing leaves the face's obligations open; it is never debt or
 `not_applicable`.
 
@@ -967,7 +985,15 @@ Assembly rechecks actual received target geometry.
 
 Finished-material protection is component-owned before joining. The spigot's
 share is the final solid inside its full cylinder; the socket's share excludes
-that spigot-owned region. A raw boss may overlap the body's final coordinates:
+that spigot-owned region. Neither share holds the corner a later joint
+[forms](plan.md#assembly-joints). That corner is the finished solid less the same
+solid with the formed feature's faces removed and their neighbours extended
+(defeaturing). It is withheld only when the feature is known, mapped and its band
+starts at 0, the sharp solid adds no material, and every sampled point of the
+corner lies within the band's MAX of the feature's faces. An earlier join on either
+branch withholds it from its backstop too. A strap faced or reamed before the press
+therefore takes the R0.2 root's ring like any other stock and arrives with a plain
+face, and the join judges the real lost corner as below. A raw boss may overlap the body's final coordinates:
 its sacrificial turning annulus is not yet body material. Conversely, socket
 removal into socket-owned finished material outside derived finite engagement
 is forbidden. This protection applies to every cut on those branches, not

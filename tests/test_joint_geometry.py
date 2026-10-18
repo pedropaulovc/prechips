@@ -259,6 +259,120 @@ def test_accepted_spigot_turn_certifies_no_face_outside_its_exact_cut(engine, jo
     assert detail["certified_indices"] == []
 
 
+def _land_over_basic(engine, step, exported):
+    """An r6-style land turned to Ø9.83 [9.82, 9.84] over a boss drawn at basic Ø9.8 (#337),
+    the exposed boss exported as ``outer`` with its own ``exported`` dia band (None: no
+    band); a land whose band excludes the model's basic size."""
+    job = _joint_job(engine, step)
+    land = {"nominal_dia_mm": 9.83, "dia_mm": [9.82, 9.84]}
+    job["joint_features"]["spigot"].update(land)
+    job["setups"][1]["ops"][0]["joint_cut"].update(land, diameter_mm=9.83)
+    job["features"]["outer"] = engine.refs(step, (-4.9, -4.9, 10), (4.9, 4.9, 20), kind="Cylinder")
+    if exported is not None:
+        job["dia_bands"] = {"outer": list(exported)}
+    return job
+
+
+@pytest.mark.parametrize(
+    ("exported", "certified"),
+    [
+        ((9.7, 9.9), True),  # the drawing's band holds the land's
+        ((9.8, 9.84), True),  # just inside: the land's MAX is the drawing's MAX
+        ((9.8, 9.8399), False),  # just outside: the land may finish over the drawing's MAX
+        ((9.821, 9.9), False),  # the drawing's MIN is over basic: the face's own size fails
+        (None, False),  # no exported dia band: size is judged at the model's radius only
+    ],
+)
+def test_a_land_over_basic_certifies_the_face_its_exported_band_admits(
+    engine, joint_solids, exported, certified
+):
+    step = joint_solids["joined"]
+    facts = engine.run(_land_over_basic(engine, step, exported))
+    detail = facts["ops"]["spigot-cut:10"]
+    assert "joint_error" not in detail, detail
+    assert "stock_out_volume_mm3" in facts["setups"]["spigot-cut"]
+    assert detail["certified_indices"] == (_exposed_boss(engine, step) if certified else [])
+
+
+def _land_under_basic(engine, step, exported):
+    """A clearance land turned to Ø9.75 [9.7, 9.8] under a boss drawn at basic Ø9.8: the
+    mirror of :func:`_land_over_basic`, its band holding the basic size at its MAX."""
+    job = _joint_job(engine, step)
+    land = {"nominal_dia_mm": 9.75, "dia_mm": [9.7, 9.8]}
+    job["joint_features"]["spigot"].update(land)
+    job["setups"][1]["ops"][0]["joint_cut"].update(land, diameter_mm=9.75)
+    job["features"]["outer"] = engine.refs(step, (-4.9, -4.9, 10), (4.9, 4.9, 20), kind="Cylinder")
+    if exported is not None:
+        job["dia_bands"] = {"outer": list(exported)}
+    return job
+
+
+@pytest.mark.parametrize(
+    ("exported", "admitted"),
+    [
+        ((9.6, 9.9), True),  # the drawing's band holds the land's
+        ((9.7, 9.9), True),  # just inside: the land's MIN is the drawing's MIN
+        ((9.7001, 9.9), False),  # just outside: the land may finish under the drawing's MIN
+        (None, False),  # no exported dia band: the skin below basic is lost finished material
+    ],
+)
+def test_a_land_under_basic_loses_only_the_skin_its_exported_band_admits(
+    engine, joint_solids, exported, admitted
+):
+    step = joint_solids["joined"]
+    facts = engine.run(_land_under_basic(engine, step, exported))
+    detail = facts["ops"]["spigot-cut:10"]
+    assert "joint_error" not in detail, detail
+    row = facts["setups"]["join"]
+    if not admitted:
+        # The 0.025 mm skin over z=10..20: π(4.9² − 4.875²)·10.
+        assert "leave 7.677" in row["assembly_error"], row
+        assert detail["certified_indices"] == []
+        return
+    assert "assembly_error" not in row, row
+    assert row["stock_out_volume_mm3"] == pytest.approx(
+        math.pi * (100 * 10 + 4.875**2 * 10), abs=1e-3
+    )
+    assert detail["certified_indices"] == _exposed_boss(engine, step)
+
+
+def test_a_land_under_basic_still_cannot_turn_past_its_own_band(engine, joint_solids):
+    # The skin is free only down to the land's MIN: a rough pass at Ø9.7 under a land
+    # declared [9.75, 9.8] (no finishing band check) still takes owned finished material.
+    step = joint_solids["joined"]
+    job = _land_under_basic(engine, step, (9.6, 9.9))
+    land = {"nominal_dia_mm": 9.75, "dia_mm": [9.75, 9.8]}
+    job["joint_features"]["spigot"].update(land)
+    setup = job["setups"][1]
+    setup["ops"][0]["joint_cut"].update(land, diameter_mm=9.75)
+    deeper = copy.deepcopy(setup["ops"][0])
+    deeper.update(subject="spigot-cut:20", do="rough_turn", finishing=False)
+    deeper["joint_cut"].update(
+        action="rough_turn", finishing=False, completes=False, diameter_mm=9.7
+    )
+    setup["ops"].append(deeper)
+    facts = engine.run(job)
+    assert "protected finished material" in facts["ops"]["spigot-cut:20"]["joint_error"]
+    assert "stock_out_volume_mm3" not in facts["setups"]["join"]
+
+
+@pytest.mark.parametrize("case", ["off_axis", "partial_face"])
+def test_a_band_admitted_land_still_needs_the_axis_and_window(engine, joint_solids, case):
+    step = joint_solids["joined"]
+    job = _land_over_basic(engine, step, (9.7, 9.9))
+    cut = job["setups"][1]["ops"][0]["joint_cut"]
+    if case == "off_axis":
+        off = {"at_mm": [0.0005, 0, 0]}
+        job["joint_features"]["spigot"].update(off)
+        job["setups"][1]["frame"] = {**IDENTITY, "origin": [0.0005, 0, 0]}
+        cut.update(off)
+    else:
+        cut.update(z_from=0.0, z_to=15.0)
+    detail = engine.run(job)["ops"]["spigot-cut:10"]
+    assert "joint_error" not in detail, detail
+    assert detail["certified_indices"] == []
+
+
 @pytest.mark.parametrize("case", ["unknown", "rough", "rejected", "stopped"])
 def test_unknown_rough_rejected_or_stopped_spigot_turn_certifies_nothing(
     engine, joint_solids, case

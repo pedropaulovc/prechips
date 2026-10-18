@@ -514,6 +514,11 @@ zone band is none), or a number <= 0.
 | `bottom_radius_nominal` | `float \| list[Number]` |
 | `separation` | `float \| list[Number]` |
 
+A feature's `dia` band, when `dia` is in its known `requirements`, is also the
+size a finishing fit land may certify the feature's face at
+([face identity](rules-geometry.md#face-identity)): a land whose declared band lies
+inside it covers a face the model draws at basic.
+
 A `radius` or `bottom_radius` band `[0, r]` is a drawing's "R r MAX" (sharp
 allowed): a radius has no measured zero, so no extra field marks it. Inspection
 reads it as a go/no-go limit check with a radius or profile gauge leaf at r
