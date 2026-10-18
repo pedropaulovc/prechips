@@ -2831,7 +2831,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "d5c5ccfb9390c41bda348def7f8ce96b58a86395c9d8c2c9acfd42fef35107ca",
+  "hash": "6bd8c7eb2ebe97d71c4239c3e9be6a2d351d7b9d479981a653675469a7c2675c",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2855,7 +2855,7 @@
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "e542dabda790645aa7cf2223ab5f8fe5cd83d44f63a722c3c11beceaaba32dce"
+      "sha256": "d7efa77c1091259fca90e264b21104b36ed749159dfc8b14ce5d6bfcf1bac88c"
     },
     "shop_policy": {
       "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -3071,7 +3071,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "e542dabda790645aa7cf2223ab5f8fe5cd83d44f63a722c3c11beceaaba32dce"
+      "sha256": "d7efa77c1091259fca90e264b21104b36ed749159dfc8b14ce5d6bfcf1bac88c"
     }
   },
   "rules_version": "m5-rev12",

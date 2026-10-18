@@ -23,6 +23,7 @@ _WHITE = (255, 255, 255)
 _BLUE = (35, 83, 147)
 _GREEN = (24, 91, 58)
 _AMBER = (172, 111, 16)
+_FEED = (170, 52, 44)  # a hand-fed cut's saw path and feed arrows over the work (#335)
 _AMBER_LIGHT = (252, 235, 190)
 _NOMINAL_FAINT = (173, 193, 218)
 _FIXTURE = (120, 98, 76)
@@ -1322,6 +1323,20 @@ class _Diagram:
             self.legend_ends.append(len(wrapped))
         return wrapped
 
+    def _feed_lines(self):
+        """A hand-fed cut's saw path drawn over the work with its feed arrows, called out
+        along its drawn line (``feed_lines``: setup-frame ``xyz`` points in feed order and a
+        ``label``, #335). It is a picture of the feed, never a holding solid."""
+        c = self.canvas
+        for line in self.spec.get("feed_lines", []):
+            pixels = [c.project(point) for point in line["xyz"]]
+            if len(pixels) < 2:
+                continue
+            self._ordered_path(pixels, _FEED, width=3, arrows=True)
+            self.callouts.append(
+                _Callout(line["label"], [pixels[len(pixels) // 2]], _FEED, along=tuple(pixels))
+            )
+
     def render(self):
         self._header()
         self._context()
@@ -1336,6 +1351,7 @@ class _Diagram:
                 )
             )
         self._components()
+        self._feed_lines()
         self._origin_datums_tool()
         first_measurement = len(self.canvas.text_boxes)
         self._measurements()

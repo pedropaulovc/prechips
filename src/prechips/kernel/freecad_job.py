@@ -9848,6 +9848,7 @@ class _Setup:
             "primary_tool": tool,
             "paths": sketch,
             "axial_paths": annotation.get("axial_paths", []),
+            "feed_lines": annotation.get("feed_lines", []),
             "waypoints": waypoints,
             "fixed_jaw_label": annotation.get("fixed_jaw_label"),
             "holding_name": annotation.get("holding_name"),

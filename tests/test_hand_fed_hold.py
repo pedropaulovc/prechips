@@ -356,6 +356,9 @@ def test_the_picture_draws_the_saw_table_blade_and_push_aid():
     # Fed from -X, the work trails at its +X end: the push aid stands past the max X.
     assert boxes["push aid"]["stock_mm"][0][0] == ("max", 0.0)
     assert boxes["band op 10"]["box_mm"][5] == pytest.approx(1.0 + 6.0)  # top + guide
+    (feed,) = scene(bundle)["feed_lines"]
+    assert feed["label"] == "FEED: SAW PATH (OP 10)"
+    assert feed["xyz"][0][0] < feed["xyz"][-1][0] and feed["xyz"][0][2] == 1.0
 
 
 def test_an_undeclared_feed_end_draws_no_arrows_start_band_or_push_aid():
@@ -365,8 +368,9 @@ def test_an_undeclared_feed_end_draws_no_arrows_start_band_or_push_aid():
     assert drawn["paths"][0]["directed"] is False
     assert "START" not in [key["label"] for key in drawn["waypoints"]]
     assert [box["name"] for box in drawn["boxes"]] == ["saw table"]
+    assert drawn["feed_lines"] == []
 
 
 def test_a_fixture_hold_draws_no_hand_fed_scene():
     bundle = load_bundle(BUNDLE / "plan.toml")
-    assert scene(bundle, 0) == {"paths": [], "waypoints": [], "boxes": []}
+    assert scene(bundle, 0) == {"paths": [], "waypoints": [], "boxes": [], "feed_lines": []}

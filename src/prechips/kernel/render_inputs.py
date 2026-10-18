@@ -246,7 +246,7 @@ def hand_fed_scene(bundle, setup, scale):
     hand-fed one; a cut whose line the kernel cannot place draws nothing."""
     from prechips.kernel import removal_bounds, scribed_profile
 
-    scene = {"paths": [], "waypoints": [], "boxes": []}
+    scene = {"paths": [], "waypoints": [], "boxes": [], "feed_lines": []}
     if hand_fed(bundle, setup)[0] != "admitted":
         return scene
     hold, state = record(setup.get("hold")), record(setup.get("stock_state"))
@@ -301,6 +301,12 @@ def hand_fed_scene(bundle, setup, scale):
             {"op": name, "xy": saw, "directed": start is not None, "feed": True},
             {"op": name, "xy": line, "dashed": True},
         ]
+        if start is not None and number(state.get("top_z")):
+            # The holding picture's feed: the saw path on the work's top face, arrowed.
+            top = state["top_z"] * scale
+            scene["feed_lines"].append(
+                {"label": f"FEED: SAW PATH (OP {name})", "xyz": [[x, y, top] for x, y in saw]}
+            )
         middle = saw[len(saw) // 2]
         reach = math.dist(middle, centre)
         waste = [
@@ -443,6 +449,8 @@ def setup_annotations(bundle, setup, numbers):
     result["waypoints"] += scene["waypoints"]
     if scene["boxes"]:
         result.setdefault("guides", {})["boxes"] = scene["boxes"]
+    if scene["feed_lines"]:
+        result["feed_lines"] = scene["feed_lines"]
     result["axial_paths"] = []
     for contour in numbers.get("contours", []):
         rows = contour.get("rows", [])
