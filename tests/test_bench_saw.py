@@ -428,8 +428,8 @@ def test_a_saw_to_the_scribed_line_roughs_the_arc_for_the_file():
     [
         (
             scribed(),
-            "Hand saw on the waste side of the line scribed in S1 op 10, leave at least 0.500 mm for filing, "
-            "the scribed line still showing.",
+            "Hand saw on the waste side of the line scribed in S1 op 10, leave at least "
+            "0.500 mm for filing, the scribed line still showing.",
         ),
         (
             scribed(allowance_mm="unknown"),

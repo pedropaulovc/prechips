@@ -358,9 +358,9 @@ def evaluate(bundle):
             message = message.removesuffix(".") + f" (hand-fed scope: {why})."
         elif scope == "admitted" and status == "pass":
             message = (
-                f"{setup['id']}: the work is fed by hand on the saw table along the scribed "
-                "line; no fixture, stop, grip or clamp applies. Coolant, deburr and stock "
-                "state are declared."
+                f"{setup['id']}: the work is fed by hand on the saw table, sawn on the waste "
+                "side of the scribed line; no fixture, stop, grip or clamp applies. Coolant, "
+                "deburr and stock state are declared."
             )
         face = hold.get("stop_face", UNKNOWN)
         if face != UNKNOWN:
