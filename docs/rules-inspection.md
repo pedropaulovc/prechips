@@ -1,6 +1,20 @@
 # Inspection rule
 
+Use this reference to diagnose requirement checks, gauge capability, process
+holds and finish routing. Inspection findings check the authored method and
+equipment against exported limits; they do not record a measured part result.
+
+The main domains are [`inspection`](#inspection),
+[GO / NO-GO pairs](#go--no-go-limit-checks), [process holds](#process-holds),
+[`finish_route`](#finish_route), [angularity](#angularity), and
+[surface profiles](#surface-profiles). For authoring fields, see the
+[plan](plan.md), [features](features.md), and [inventory](inventory.md)
+references. Use [troubleshooting](manual/troubleshooting.md) to work through
+unresolved checks.
+
 ## `inspection`
+
+### Subjects and requirement ownership
 
 Subjects are `feature:requirement` for every requirements-listed two-element
 numeric-or-unknown `[low, high]` band, even outside the named tolerance set, plus
@@ -22,6 +36,8 @@ the tolerance set do not get invented defaults: the author must explicitly
 declare the requirement and its limits.
 An explicitly unknown kind or finishing action produces unknown for each
 requirement (or the bare feature if there are none), not not-applicable.
+
+### Check timing and scope
 
 The check must occur on or after the last relevant finishing cut, not merely on
 an earlier pilot. The rule ignores rough operations, spot, deburr, coating and
@@ -59,6 +75,8 @@ check is after cutting the scribe-to-face target but before S3:20 doming:
 measure the cut face while recutting is still possible, then follow the
 existing forward instruction to verify the cylinder end after doming.
 
+### Gauge kinds and datum methods
+
 Gauge kinds must suit the requirement. Roughness needs a roughness gauge,
 comparator or profilometer; position/coaxiality/angularity needs CMM, indicator or height
 gauge. Both scalar and banded geometric requirements additionally need a known,
@@ -79,37 +97,33 @@ a plan joint or process feature) and `inspection_methods.height_above_pivot` dec
 procedure; otherwise it is `unknown` (`datum height setup (height_from datum or
 inspection method) unresolved`), never a pass. The rule does not parse the
 procedure for a pin. Evidence adds `height_from` and `inspection_method`.
-Other dimensions use the capable dimensional gauge kinds. An external micrometer does not measure a hole bore (`dia` or `nominal_dia`). Type
-incompatibility is an error even if catalog dimensions are unverified.
+Other dimensions use the capable dimensional gauge kinds. For `dia` and
+`nominal_dia`, the current implementation rejects an external micrometer on
+`hole`, `thread`, and `threaded_hole` features. That exclusion does not currently
+include `counterbore`; a pass must not be interpreted as proof that an external
+micrometer can reach an internal surface. Type incompatibility is an error even
+if catalogue dimensions are unverified.
+
+### Banded dimensions and radius MAX leaves
 
 For a `[low, high]` mm band, gauge range must cover both ends and resolution must
 not exceed `high-low`. The exception is a one-sided radius limit: a `radius` or
 `bottom_radius` band `[0, r]` can only mean "R r MAX, sharp allowed", so no new field
-marks it. A `radius_gauge` or `profile_gauge` reads it as a **limit check**, go/no-go
+marks it. A `radius_gauge` or `profile_gauge` reads it as a limit check, go/no-go
 with its leaf at r: the leaf seats without rocking on a corner at or under r, and a
 sharp corner needs no leaf. A leaf marked L whose maker tolerance is ±t
 (`leaf_tolerance_mm`, [inventory](inventory.md)) may really be L + t and accept a
-corner past the limit, so the leaf read must be at or under r − t. Outcomes:
+corner past the limit, so the leaf read must be at or under r − t.
 
-- **Error, no leaf:** `range_mm` does not hold r (`range_mm[0] ≤ r ≤ range_mm[1]`
-  fails), whatever the tolerance.
-- **Error, tolerance crosses the limit:** no leaf lies at or under r − t. With
-  t = 0.01, a leaf set R0.2–R1.0 has no leaf at or under R0.19, so the check is not a
-  clean pass.
-- **Error, resolution:** the gauge's resolution exceeds r, whatever the tolerance.
-- **Unknown, tolerance:** the declared tolerance is unknown or not trusted. The
-  tolerance is listed as debt.
-- **Unknown, leaf not named:** t > 0 and a safe leaf exists. Only a leaf at or under
-  r − t reads the limit, and the traveler prints the band and the gauge, never which
-  leaf to use, so the operator would reach for the one at the limit. The evidence
-  gives `leaf_max_mm` (r − t).
-- **Unknown, no leaf at the limit:** t = 0, but the set brackets r without a leaf
-  of r. For example, leaves from R0.15 by 0.1 have no R0.2 leaf. The smaller safe
-  leaf is unnamed on the traveler; `leaf_max_mm` gives it.
-
-- **Pass:** t = 0 (the tolerance is omitted or declared as 0), resolution ≤ r, and the
-  set has a leaf of r. A leaf set R0.2–R1.0 by 0.1 with no declared tolerance reads
-  `R0.2 MAX`.
+| Status | Condition |
+| --- | --- |
+| `error` | `range_mm` does not contain r, regardless of tolerance. |
+| `error` | No leaf lies at or under r − t. With t = 0.01, an R0.2 to R1.0 set has no leaf at or under R0.19. |
+| `error` | Gauge resolution exceeds r, regardless of tolerance. |
+| `unknown` | The declared leaf tolerance is unknown or untrusted; it remains measurement debt. |
+| `unknown` | t > 0 and a safe leaf exists, but the setup sheet does not name the smaller leaf. Evidence supplies `leaf_max_mm` (r − t). |
+| `unknown` | t = 0 and the set brackets r without a leaf at r. For example, R0.15 leaves at 0.1 steps have no R0.2 leaf; the smaller safe leaf is not named on the sheet. |
+| `pass` | t = 0, resolution ≤ r, and a leaf at r exists. Tolerance may be omitted or declared zero. An R0.2 to R1.0 set at 0.1 steps with no declared tolerance reads `R0.2 MAX`. |
 
 The leaves are the gauge's declared `sizes_mm`; a declared empty list means none, so
 no leaf reads the limit (error). Without `sizes_mm`, the leaves are the steps of
@@ -128,6 +142,9 @@ Evidence adds `limit_check = "max"`, `limit_mm` (r) and, when declared,
 rule. The mirror "R MIN" band `[r, inf]` cannot be written, since inputs refuse
 `inf`, so no min-only case exists. A scalar geometric tolerance needs resolution
 at most the tolerance and a known declared method. Non-mm/unknown limits stay unknown.
+
+### Angular and roughness capability
+
 An angle band (`*_deg`, degrees) never meets a gauge's millimetre range and
 resolution, and no gauge declares an angular capability: it is `unknown` (`no
 angular gauge capability`) unless it is read across a face. A drawn band whose
@@ -153,13 +170,15 @@ roughness kind (e.g. `roughness_comparator`) declares it with the inventory fiel
 `ra_range` (or with an unverified item) finish_ra stays unknown. Scalar dimensions
 without an implemented capability branch stay unknown.
 
+### Exported nominal targets
+
 A numeric requirement band must contain any explicitly exported numeric
 `<requirement>_nominal` or `nominal_<requirement>`, inclusively. A contradiction is
 an exporter-fact error regardless of gauge verification or unknown inspection
 applicability. The error records the exact nominal field/value and exported
 limits; no absolute-value/sign correction or nominal/reference inference is made.
 An in-band, unknown or absent nominal leaves normal inspection evidence unchanged.
-This contract assumes those nominal fields are **acceptance-band targets**,
+This contract assumes those nominal fields are acceptance-band targets,
 not a fit system's reference basic size. A g6/p6-type fit band can legitimately
 exclude its basic size; the checker does not interpret fit-class offsets and
 such a basic size must not be exported as an in-band target under these names.
@@ -167,7 +186,9 @@ Reference geometry is not acceptance evidence. Supporting displaced fit-class
 basic sizes needs separately identified semantics, not a sign change or a
 nominal-band exception guessed from the numbers.
 
-Sentence templates:
+### Finding messages and evidence
+
+The placeholders below identify the current subject and values.
 
 - `{feature}: no tolerance requirement to inspect.`
 - `{feature}: inspection applicability or finishing action is explicitly unknown.`
@@ -222,6 +243,8 @@ resolution and band width where available. Citations: PLAN §4.1 inspection,
 feature requirement manifest and inventory range/resolution/verification. A pin
 size check is not a position check; a declared gauge is not first-article data.
 
+### Printed inspection records
+
 One full-width freeform readings/observations area stays below each real
 requirement with its known owner(s), usable authored limits, gauge, units and
 method reference. Equal printed bands alone do not establish shared physical
@@ -236,7 +259,15 @@ to the original requirement's note or worksheet. Continuations retain applicable
 context without duplicating figures or reading/result fields. Moving a figure
 whole changes no inspection method, evidence, unknown or acceptance decision.
 
+To resolve a missing check, add it at or after the relevant finishing cut. To
+resolve capability debt, identify and verify a suitable gauge and declare the
+required datum procedure. Missing drawing limits need an export correction or an
+explicit unresolved `missing_requirements` check, not an inferred nominal band.
+
 ## GO / NO-GO limit checks
+
+Only the requirement named exactly `dia` supports GO / NO-GO pairs. Other
+requirement names, including `nominal_dia`, remain `unknown` for this method.
 
 An op's `go_no_go = { <requirement> = { go = <mm>, no_go = <mm> } }` states the two
 sizes its `checks[<requirement>]` gauge uses; every key needs its `checks` entry
@@ -247,10 +278,10 @@ the NO-GO size must not, so the gauge accepts the sizes between them. For a hole
 (`hole`, `counterbore`, `thread`, `threaded_hole`) the gauge must be a pin, pin set or plug and
 GO >= low limit, NO-GO <= high limit, GO < NO-GO. A boss or shaft is the mirror: a
 ring or snap gauge with NO-GO >= low limit, GO <= high limit, NO-GO < GO. Any
-other feature kind is `unknown`. A drawing check is judged against the band **as
-the traveler prints it**, rounded inward at the drawing precision (the rocker rod
-hole `[1.994, 2.094]` at 2 places prints, and is gauged as, 2.00–2.09). A pair
-outside the band is `error`: it accepts work the band rejects. Both sizes must be
+other feature kind is `unknown`. A drawing check is judged against the band as
+the traveler prints it, rounded inward at the drawing precision (the rocker rod
+hole `[1.994, 2.094]` at 2 places prints, and is gauged as, 2.00 to 2.09).
+A pair outside the band is `error`: it accepts work the band rejects. Both sizes must be
 listed in the gauge's `sizes_mm`: a size not in the list is `error`, a gauge with
 no `sizes_mm` is `unknown`, and an unverified gauge is `unknown`. A declared pair
 replaces the span/resolution test for that check. The final check's pair grades
@@ -259,9 +290,9 @@ band is graded the same way, recorded under `other_go_no_go`, and the worse stat
 wins. Evidence adds `go_mm`, `no_go_mm`, `accept_band` and, when missing,
 `absent_sizes_mm`. The op row prints `<band>: <gauge>, GO <go> enters, NO-GO <no_go>
 does not` (`passes over` for a boss or shaft), at the gauge's digits. A pair declared
-`"unknown"` — the op's whole `go_no_go = "unknown"` (every requirement it checks) or one
-entry `go_no_go = { <requirement> = "unknown" }` — is still a limit check, on the final
-or an earlier op: `unknown` (`the GO / NO-GO pair is explicitly unknown`), never the
+`"unknown"` (the op's whole `go_no_go = "unknown"` for every requirement it checks,
+or one entry `go_no_go = { <requirement> = "unknown" }`) remains a limit check on
+the final or an earlier op: `unknown` (`the GO / NO-GO pair is explicitly unknown`), never the
 span/resolution test. Its row is flagged `?` and prints `GO / NO-GO sizes not set`.
 
 ## Process holds
@@ -295,7 +326,7 @@ limit)`. The band prints with the
 most decimals among its own limits, the drawing precision (none for a REF span) and
 one gauge step in mm: a 0.001 mm or a 0.0001 in
 (0.00254 mm) gauge reads 3 places, not the five of the inch conversion. The job page
-gathers every hold in **PROCESS HOLDS — in-process limits, not drawing limits**:
+gathers every hold under the heading `PROCESS HOLDS — in-process limits, not drawing limits`:
 setup / op, hold, gauge, the drawing's own limit and why.
 
 ## `finish_route`
@@ -316,6 +347,10 @@ outside `services` item or in-house `consumables` is checked per op by
 `tool_resolves`: absent is `unknown`, unlisted is `error`, and a consumables
 entry whose product list is unknown, empty, or has a blank or `"unknown"`
 product is `unknown`.
+
+Resolve an uncovered cut by correcting the actual coating sequence or stock
+lineage. A service identity alone does not show that coating follows the last
+cut on every component.
 
 ## Angularity
 
@@ -345,7 +380,7 @@ semantics.
 ## Surface profiles
 
 A drawing SURFACE PROFILE ([features](features.md#surface-profiles),
-harmonic-analyzer #1544) is two things to this rule. The zone itself,
+harmonic-analyzer #1544) creates two inspection obligations. The zone itself,
 `feature:surface_profile`, is a geometric zone [0, t] inspected like
 `position_dia`: it needs a requirement-keyed `checks.surface_profile` gauge of a
 geometric kind (`cmm`, `dial_indicator`, `dial_test_indicator`, `height_gauge`),

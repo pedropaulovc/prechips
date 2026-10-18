@@ -1,12 +1,22 @@
 # Tools and sizing rules
 
+Use `tool_resolves` to diagnose inventory identities and assembled tool fit, and
+`sizing` to check the selected finishing tool against a feature's limits. A
+resolved identity does not establish a dimensional fit.
+
 Findings use `pass`, `error`, `warn`, `info`, `unknown`, `unsupported`, or
-`not_applicable`. The report preserves exact numbers and citations; the sheet
-uses drawing precision and plain sentences, not rule ids. Placeholders below
-stand for the current subject/values; semicolon-joined clauses preserve every
-observed violation. Unknown or unverified geometry cannot establish a fit.
+`not_applicable`. The report preserves exact numbers and citations; the setup
+sheet uses drawing precision and plain sentences, without rule IDs. Unknown or
+unverified geometry cannot establish a fit.
+
+For input fields, see the [inventory reference](inventory.md) and
+[feature reference](features.md). For help resolving a stopped plan, see
+[troubleshooting](manual/troubleshooting.md). The
+[report reference](report-and-telemetry.md) defines readiness and approval.
 
 ## `tool_resolves`
+
+### Selected identities and assembled tools
 
 Subjects: every selected inventory reference plus each nonmanual cutting
 assembly `setup:op`. References include machine, tool, holder, gauges (with a hold's
@@ -30,16 +40,24 @@ unknown, naming that record: the identity is not read past an unmeasured
 diameter claim. A bare nominal catalogue `dia` or a pure identity row is
 unchanged.
 
-An inventory item named in prose as `<category>.<key>[/<member>]` (a plan note
-or cite, a make note, record check or `how`, or make operation `hold` or `cite`
-of a shop-made item a setup uses, and each record's `gauge` as
-`gauges.<gauge>`; docs/inventory.md; in a make operation's `hold` or `cite`,
-anywhere outside a link or path, never inside one) is a subject
-of its own, `<category>.<key>`, with `named_in` listing where. It passes when
-the item is listed and verified; missing or unverified, it is unknown (never a
-pass, and never printed as the bare key: the traveler prints `? <key>`). A
-whole set is named by its key; a member must resolve as a member, read whole
+### References named in prose
+
+Inventory names in prose are checked separately from selected tool assemblies.
+An item written as `<category>.<key>[/<member>]` becomes its own subject,
+`<category>.<key>`, with `named_in` listing its locations. Recognized locations
+include plan notes and citations; a shop-made item's make notes, record checks
+and `how`; and its make-operation `hold` and `cite` when a setup uses that item.
+Record `gauge` values are read as `gauges.<gauge>`. In a make operation's `hold`
+or `cite`, names count outside links and paths, never inside them. See the
+[inventory reference](inventory.md) for these authoring fields.
+
+A prose reference passes when the item is listed and verified. A missing or
+unverified item is `unknown`, not an error or pass. The setup sheet prints
+`? <key>` instead of presenting the bare key as resolved. A whole set is named
+by its key; a member must resolve as a whole member
 (`tools.drills/#61` is unknown on a `#1-60` index, never the index itself).
+
+### Shop-made tooling and saws
 
 Each make operation (`make_ops`, docs/inventory.md) of a shop-made item a
 setup holds with is a subject of its own, `<category>.<key> make op <n>`
@@ -61,6 +79,8 @@ required; incompatible known machine/tool kinds are errors and unverified
 identities remain debt. A saw naming a groove cannot replace that groove's
 size-setting tool, and a saw does not establish a finished datum.
 
+### Nominal collet fit
+
 A tool shank in a holder with one nominal capacity (`capacity_mm` /
 `capacity_in` as a single collet size, not a `[low, high]` range or a
 `max_shank`) fits when it is inside the ISO 286 h6
@@ -72,7 +92,10 @@ below the band, is `tool shank does not match selected collet`. A nominal
 size above 500 mm, past the table, leaves an undersize shank unknown, never a
 pass. Only h6 is applied; no collet or policy entry changes the class.
 
-Sentence templates:
+### Finding messages and evidence
+
+The following templates use placeholders for the subject and current values.
+Where several violations apply, the message joins them with semicolons.
 
 - `{ref}: not listed in the inventory.`
 - `{ref}: listed; presence or catalogue identity needs verification.`
@@ -102,7 +125,14 @@ or spindle/holder/shank fields and PLAN §4.1, plus `ISO 286-1:2010 Table 1 IT6`
 when the band is read. Resolver conversions use exactly
 25.4 mm/in with declared units; no network catalog lookup occurs.
 
+To resolve an identity finding, list the intended item or select an existing
+one, then verify its presence and catalogue identity. For assembly debt, supply
+the measured shank and selected machine/holder facts. A known mismatch needs a
+compatible selection; verifying the same incompatible dimensions does not fix it.
+
 ## `sizing`
+
+### Finishing-tool selection and limits
 
 Subject: every manifest feature. Hole/counterbore selected finishing tool is
 counterbore, ream when route/process requests reaming, otherwise drill. Only a
@@ -117,7 +147,10 @@ Grooves compare selected nose radius to the feature's own
 CAD-sharp corners; equality passes: 0.25 admits a 0.25 mm nose, 0.26 errors), and
 radial reach to `(stock.dia_mm - groove low diameter)/2`. A missing allowance
 stays unknown; `edge_break` is never borrowed. These are explicit design
-checks, not M2 turned-profile machinability or swept geometry proof.
+checks; they do not prove [turned-profile feasibility](rules-lathe.md#turned_profile)
+or swept geometry.
+
+### Finding messages and evidence
 
 Sentence templates (each prefixed `{feature}: ` and ending `.`):
 
@@ -138,3 +171,8 @@ nose/reach, design corner maximum and required radial reach. Citations combine
 PLAN §4.1, manifest citations, explicit tool size/25.4 conversion, and the
 stock-reference radial-reach equation. Nominal identity is labelled as such
 when unverified; it is not silently promoted to measured size.
+
+To resolve sizing debt, identify the finishing operation and verify the selected
+tool's controlling diameter or groove geometry. If that tool lies outside the
+drawing band, select an appropriate tool or correct a demonstrated input error.
+The rule does not choose a replacement or justify changing the drawing limit.
