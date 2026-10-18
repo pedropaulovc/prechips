@@ -39,6 +39,7 @@ supply itself adds no XY cutter allowance.
 | `profiled-blank/machined-ends.toml` | `strap-plate.STEP` from `strap-blank-ends.STEP` (0.5 mm on each end) | 0 | S1 op 10 takes the end allowance off both ends; only the in-band faces stay as supplied, so `coverage` and every `blank_credit` row pass |
 | `fixture-holds/plan.toml` | synthetic `fixture-puck.STEP` | 2 | every setup's scene is `modeled` with only exact components: vise + parallels on riser blocks (S1), angle plate + strap (S2), custom nest + strap (S3), dividing head + chuck + dead centre (S4), 4-jaw (S5) and 3-jaw (S6) chucks; `accessibility` errors exactly on S2:10, S3:10 (strap over the top face) and S4:10 (dead centre on it); S1, S5 and S6 clear. `vise S1` errors because a round puck has no parallel gripped pair. `thin_wall_under_clamp` S2/S3 pass on the 20 mm run under each strap footprint; `fixture_interference` passes on every setup |
 | `fixture-holds/clash.toml` | synthetic `fixture-puck.STEP` | 2 | `fixture_interference` errors on S1 (riser blocks turned so their 60 mm edge spans y −30..30 across the y −15..15 jaw opening) and S2 (a stud-and-heel strap's stud enters the puck and the tapped plate where it has no hole) and passes on S3 (the same strap with its stud through the plate's tapped-hole void and the beam's slot void, heel on the plate). S1 and S3 scenes are `modeled`; S2's carries the stud-in-stock debt |
+| `hand-fed-saw/plan.toml` | real v40 `rocker-arm.STEP` (copy of `../../rocker-arm/`) | 2 | the S2 hand-fed saw setup (#335): `hold_fields S2` pass with no fixture field, `stock_diameter`, `vise`, `thin_wall_under_clamp` and `fixture_interference` S2 `not_applicable`, `saw_cut S2:10` pass. The rest of the arm is not made, so coverage, inspection and op-chain errors remain |
 
 The short/long pocket pair differs only in the target cutter. Its target
 claims the vertical pocket walls and corners, while preparation claims the
@@ -57,6 +58,17 @@ none is a measurement of the shop's own chucks, head or clamps.
 `test-tapped-plate` and `test-clamp-kit/stud-strap` items exercise `void`
 primitives: the plate's tapped hole cuts the floor, and the strap's slot
 names `cuts = ["beam"]` so its stud, in the same assembly, stays whole.
+
+`hand-fed-saw` scribes the rocker's R800 top edge from a template on the bench (S1)
+and saws the crescent of waste above it 0.45 mm outside the line on a vertical bandsaw,
+the work fed by hand on the saw table (S2, `hold.kind = "hand_fed"`). Its
+`features.toml` and `rocker-arm.STEP` are byte copies of `../../rocker-arm/` (the
+consumer-generated manifest with the patches `../README.md` documents), so the top
+edge carries its source `arc_centre` and `end`. The bar supply is the
+`rocker-jaw-occluded` bbox supply. Its own `inventory.toml` (bandsaw with
+`saw_modes`, blade, bench, R800 scribing template) and `shop-policy.toml` (requiring
+only the S2 hold, collet/chuck and saw rows) are synthetic; the blade kerf is a
+marked demonstration fixture, not a measurement.
 
 ## Shared inputs
 

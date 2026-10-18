@@ -974,6 +974,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
+| `kind` | `"hand_fed"`: the work is fed by hand on a vertical bandsaw's table along a scribed line; omitted for a fixture hold. A hand-fed hold declares only `note` beside it ([hand-fed](#hand-fed-on-the-saw-table)) |
 | `fixture` | `str` |
 | `jaws_along` | `"x"` / `"y"` / `"not_applicable"`: the vise jaw length axis; any other text is bad input (exit 3) |
 | `fixed_jaw` | `str` |
@@ -2043,7 +2044,8 @@ why they are not applicable. Mixed setups still check their other machining ops.
 Holding declarations, `stock_state.top_z/bottom_z`, the bound frame and routing
 remain operative. Use an ordinary declared fixture (for example a saw vise with
 the usual jaw/parallels fields) to obtain a modeled fixture; a bandsaw machine
-identity does not invent integral-vise geometry.
+identity does not invent integral-vise geometry. The one exception is a cut fed by
+hand along a scribed line ([hand-fed](#hand-fed-on-the-saw-table)).
 
 The traveler prints blade-centre setting, retained edge in mm, blade speed in
 sfm and descent feed in mm/min. These starting numbers come only from the cited
@@ -2108,6 +2110,40 @@ follows = "S4:20"                # the R816 arc's scribe
 allowance_mm = 1.0               # left for the trammel pass
 stock_removal_bounds = { x = [-150.0, 150.0], y = [-10.0, 6.0], z = [-20.0, 1.0] }
 ```
+
+### Hand-fed on the saw table
+
+A vertical bandsaw cut along a scribed line is fed by hand on the saw table:
+nothing clamps the work. Such a setup declares
+
+```toml
+[setups.hold]
+kind = "hand_fed"
+note = "bar flat on the saw table, scribed face up"   # optional
+```
+
+and nothing else in its hold: a `fixture`, `stop`, `grip_mm`, `clamp`,
+`fixed_jaw` or any other hold field beside `kind = "hand_fed"` is `BadInput`. It
+is a `kind` rather than a reserved `fixture` name because `fixture` is an
+inventory reference every rule resolves by key; an absent `kind` is the ordinary
+fixture hold. The hold is admitted only when every op of the setup is a `scribe`,
+`deburr` or `inspect` action or a `saw_cut`/`cut_off` that `follows` a scribed line
+with a verified `bandsaw` blade on a `bandsaw` machine whose `saw_modes` include
+`"vertical"`. Filing to the line holds the work in a vise, so it is a setup of its
+own. A setup known to be anything else (a milling op, a straight `cut_plane` cut,
+a hand saw, a horizontal-only bandsaw, another machine kind, no saw cut) is
+`BadInput`, exit 3, naming why. An unresolved blade, machine or `saw_modes` (or
+`kind = "unknown"`) loads, and the hold stays `?` until it is resolved.
+
+Admitted, `hold_fields` asks no fixture field (coolant, deburr and stock Z remain),
+`stock_diameter`, `vise`, `thin_wall_under_clamp` and `fixture_interference` are
+`not_applicable`, and the kernel draws no fixture and owes no fixture measurement.
+The traveler HOLD prints "Fed by hand on the saw table, sawing outside the line
+scribed in S1 op 10; no vise or clamp holds the work." No minimum workpiece size
+or hand-clearance limit is checked: none is sourced, so none is invented
+([#343](https://github.com/pedropaulovc/prechips/issues/343)).
+[`examples/geometry/hand-fed-saw`](../examples/geometry/hand-fed-saw/plan.toml)
+exercises it.
 
 A setup on a `bench`/`manual` machine whose saws all use a verified `hand_saw`
 tool, with otherwise only bench actions (`fit`, `inspect`, `deburr`, `coating`, `scribe`,

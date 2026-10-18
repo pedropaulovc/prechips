@@ -185,7 +185,9 @@ tpi = { value = 32, cite = "blade maker's catalogue: 32 TPI" }
 Saw operations need no spindle taper, holder, shank diameter, tool OAL or
 projection. A mill/bench may host the saw operation but must also declare its
 actual blade-speed range for a sourced speed recommendation. The hold resolves
-an ordinary fixture; no machine identity silently supplies an integral vise.
+an ordinary fixture; no machine identity silently supplies an integral vise. The
+one hold without a fixture is a cut fed by hand on a vertical bandsaw's table along
+a scribed line, `hold.kind = "hand_fed"` ([plan](plan.md#hand-fed-on-the-saw-table)).
 See [plan saw cut-off](plan.md#saw-cut-off) for the plane and keep-side contract.
 
 
