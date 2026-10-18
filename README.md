@@ -412,14 +412,19 @@ it. `chords` (sagitta proven inside the band, ends on the DRO grid) and a
 finish arcs on the mill, and a `guided_sweep` (#255), in a setup of its own, finishes an arc whose centre
 is too far off the part for a table: the cutter is touched to a measured master
 and locked while a swing arm on a pivot, or a sled whose rail bears on two
-rollers, sweeps the work under it; the master's radius limits widened by the
+rollers, sweeps the work under it, or (an oblique trammel, #269) a carrier's pin
+pair rides two straight rails crossing at the spindle and the pins set the
+radius `D / (2 sin α)`; the master's radius limits widened by the
 measured pivot play, or the rail's form error and roller runout through the
 rollers' geometry, must hold the band, and an unmeasured guide is debt, never a
 perfect rail. The setup picture draws an arc sled's table-side rollers
 render-only from the sled's measured `roller_dia`, `roller_height` and
 `bed_height` and its `rail_side` (a missing fact is a `NOT SHOWN` note with its
-`measure:` instruction), and notes where a swing arm's pivot post stands, off
-the picture. No traveler prints MDI, G-code or a continuous circle;
+`measure:` instruction), a trammel's rails, pins and carrier plate likewise, and
+notes where a swing arm's pivot post stands, off the picture. A trammel op runs
+on its make document and its rails' commissioning (#270), built and set outside
+the traveler: an unnamed drawing, install record or unmeasured dowel reading is
+debt. No traveler prints MDI, G-code or a continuous circle;
 the former `arc_table` method and machine `contouring` are gone.
 Drawing dimensions retain their declared precision; when no precision is
 declared, known values still print their own digits rather than `?`. Operative

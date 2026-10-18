@@ -1787,6 +1787,7 @@ def pure_native_outline_render():
                     "_TRAIL",
                     "_TRAIL_PATH",
                     "_TRAIL_START",
+                    "_GUIDE_GROUPS",
                 }
                 for target in node.targets
             )

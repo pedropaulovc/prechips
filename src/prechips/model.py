@@ -471,15 +471,19 @@ KeepOut = record("KeepOut", {"at": Vector, **numbers("dia_mm")})
 # along ``touch_axis`` and locked; the fixture turns ``sweep_deg`` about the centre. A rail's
 # ``rollers_deg`` and ``rail_deg`` (its ends) are degrees about the arc centre from the
 # cutter's radial line, counterclockwise from above, with the cutter at the arc's middle.
+# A ``trammel`` carrier rides its ``pin_pair`` on two table rails whose pin-lines cross at
+# the spindle axis (#269): no master or touch axis, the pins set the radius; ``pins_deg``
+# are that pair's angles about the arc centre, the same way.
 GuidedSweep = record(
     "GuidedSweep",
     {
-        "guide": Literal["pivot", "rail"],
-        **texts("fixture master"),
+        "guide": Literal["pivot", "rail", "trammel"],
+        **texts("fixture master pin_pair"),
         "touch_axis": Literal["+X", "-X", "+Y", "-Y"],
         **numbers("sweep_deg"),
         "rollers_deg": Vector,
         "rail_deg": Vector,
+        "pins_deg": Vector,
     },
 )
 # A manual-mill arc method (docs/plan.md): ``stairs`` and ``chain_drill`` rough outside the
@@ -1947,6 +1951,9 @@ MakeOp = record(
     {**texts("hold tool feed cite"), "rpm": float | LimitPair, "doc_mm": float},
 )
 MakeOps = Annotated[list[MakeOp], Field(min_length=1)]
+# The drawing or document a fixture built outside the traveler is made and commissioned
+# to: its id, its revision and where it is cited from (a trammel, #269/#270).
+MakeDocument = record("MakeDocument", texts("id revision cite"))
 FixtureSolid = record(
     "FixtureSolid",
     {
@@ -2179,6 +2186,33 @@ InventoryItem = record(
         # Their top above the table, as the setup picture draws them (render-only).
         **dict.fromkeys(("roller_height_mm", "roller_height_in"), MeasuredLength),
         "rail_side": Literal["outer", "inner"],
+        # An oblique trammel (docs/inventory.md "Guided-sweep fixtures", #269): the angle
+        # its two rails' pin-lines cross at, and how far it may be off; each pin pair's
+        # spacing on the carrier (keyed by pair name) and its error; a pin's radial play in
+        # its carriage; how far a rail's pin-line may stand off the spindle axis; a pin's
+        # usable stations along its rail from the spindle axis; and, for the setup picture
+        # only, the pins' diameter, the rails' width and height and the carrier plate's
+        # length (along its pins' chord), width and thickness. Its commissioning (#270):
+        # where the install record is kept, and the largest miss a dowel in a carriage
+        # read against its predicted station targets when the rails were aligned.
+        "commissioning_record": str,
+        "make_document": MakeDocument,
+        **dict.fromkeys(("dowel_reading_mm", "dowel_reading_in"), MeasuredLength),
+        **dict.fromkeys(
+            ("carrier_length_mm", "carrier_length_in", "carrier_width_mm", "carrier_width_in")
+            + ("carrier_thickness_mm", "carrier_thickness_in"),
+            MeasuredLength,
+        ),
+        **dict.fromkeys(("rail_angle_deg", "rail_angle_error_deg"), MeasuredAngle),
+        **dict.fromkeys(("pin_spacing_mm", "pin_spacing_in"), ProjectionMap),
+        **dict.fromkeys(
+            ("pin_spacing_error_mm", "pin_spacing_error_in", "pin_clearance_mm")
+            + ("pin_clearance_in", "rail_offset_mm", "rail_offset_in")
+            + ("pin_dia_mm", "pin_dia_in", "rail_width_mm", "rail_width_in")
+            + ("rail_height_mm", "rail_height_in"),
+            MeasuredLength,
+        ),
+        **dict.fromkeys(("rail_travel_mm", "rail_travel_in"), MeasuredLimits),
         # Follow rest jaw directions about the spindle axis, degrees from the cutting tool.
         "jaw_angles_deg": list[Number],
     },
@@ -2225,6 +2259,10 @@ _INVENTORY_LENGTH_STEMS |= {"thickness", "spigot_dia", "spigot_length"}
 # Guided-sweep fixtures and masters: one fact each, in mm or in, never both.
 _INVENTORY_LENGTH_STEMS |= {"pivot_play", "rail_radius", "rail_form_error", "roller_runout"}
 _INVENTORY_LENGTH_STEMS |= {"radius_limits", "roller_dia", "roller_height"}
+_INVENTORY_LENGTH_STEMS |= {"pin_spacing", "pin_spacing_error", "pin_clearance", "rail_offset"}
+_INVENTORY_LENGTH_STEMS |= {"rail_travel", "pin_dia", "rail_width", "rail_height"}
+_INVENTORY_LENGTH_STEMS |= {"dowel_reading", "carrier_length", "carrier_width"}
+_INVENTORY_LENGTH_STEMS |= {"carrier_thickness"}
 
 
 def _inventory_lengths(

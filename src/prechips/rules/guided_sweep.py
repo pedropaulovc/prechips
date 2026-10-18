@@ -27,8 +27,9 @@ from .coordinates import _JOIN_TOL, _WALL_TOL, _grid, _pair, _samples, dro_grid,
 from .resolution import UNKNOWN, authored, identity, number, record, resolve, uncertain
 
 METHOD = "guided_sweep"
-# The fixture kind each guide rides on: a swing arm pivots on its pin, a sled on its rail.
-FIXTURE_KINDS = {"pivot": "swing_arm", "rail": "arc_sled"}
+# The fixture kind each guide rides on: a swing arm pivots on its pin, a sled on its rail,
+# a trammel carrier on its pins in two straight rails (rules/trammel.py, #269).
+FIXTURE_KINDS = {"pivot": "swing_arm", "rail": "arc_sled", "trammel": "trammel"}
 MASTER_KINDS = frozenset({"setting_bar", "master_arc"})
 # (setup axis index, sign): which axis lies on the cutter's radial line, and on which side
 # of the arc centre the cutter stands.
@@ -40,6 +41,11 @@ _GUIDE_FACTS = {
         ("rail_radius", False, "rail radius"),
         ("rail_form_error", True, "rail form error"),
         ("roller_runout", True, "roller runout"),
+    ),
+    "trammel": (
+        ("pin_spacing_error", True, "pin spacing error"),
+        ("pin_clearance", True, "pin clearance"),
+        ("rail_offset", True, "rail offset"),
     ),
 }
 
@@ -60,14 +66,25 @@ def touch_set(setup):
     return swept
 
 
+def trammel_set(setup):
+    """Whether every guided sweep of a :func:`touch_set` setup is a trammel (#269): its
+    rails fix the cut, so no handwheel moves X or Y at all, not even to touch off or back
+    off, and no X/Y DRO sign is consumed."""
+    ops = [record(op) for op in setup.get("ops") or [] if "tool" in record(op)]
+    return bool(ops) and all(
+        record(record(op.get("contour")).get("sweep")).get("guide") == "trammel" for op in ops
+    )
+
+
 def unmodelled(bundle, setup, rule):
     """The ``check:`` debts ``rule`` (``"travel"`` or ``"headroom"``) owes for each guided
     sweep op in ``setup``: what neither models while the fixture moves, so the finding is
     unknown, never a pass. ``travel``: the fixture's swept footprint (a swing arm's pivot
     post, possibly on a table extension, or a sled pushed along its rollers) against the
     table, column and way covers. ``headroom``: the spindle stack and fixture clearance,
-    judged at the setup pose only, at every pose of the sweep."""
-    debts = []
+    judged at the setup pose only, at every pose of the sweep. A trammel's debt carries
+    its exact swept footprint and rail stations (rules/trammel.py)."""
+    debts, records = [], None
     for op in setup.get("ops") or []:
         op = record(op)
         contour = record(op.get("contour"))
@@ -77,6 +94,12 @@ def unmodelled(bundle, setup, rule):
         fixture = sweep.get("fixture", UNKNOWN)
         angle = sweep.get("sweep_deg", UNKNOWN)
         turn = f"{angle:g}°" if number(angle) else "its whole sweep"
+        if sweep.get("guide") == "trammel":
+            from .trammel import unmodelled as trammel_unmodelled
+
+            records = trammel_records(bundle, setup) if records is None else records
+            debts.append(trammel_unmodelled(op, fixture, records.get(op.get("op")), rule))
+            continue
         if rule == "travel":
             what = (
                 "the pivot post at the arc centre, on the table or a table extension, and the "
@@ -97,6 +120,22 @@ def unmodelled(bundle, setup, rule):
                 "at every pose"
             )
     return debts
+
+
+def trammel_records(bundle, setup):
+    """{op: its trammel ``guided`` record} from the coordinates rule for ``setup``: the
+    footprint and stations the travel and headroom debts quote."""
+    from .coordinates import evaluate
+
+    found = {}
+    for row in evaluate(bundle):
+        if row.subject != setup["id"]:
+            continue
+        for arc in row.numbers.get("arc_table") or []:
+            guided = arc.get("guided")
+            if isinstance(guided, dict) and guided.get("guide") == "trammel":
+                found.setdefault(arc.get("op"), guided)
+    return found
 
 
 def swept_angles(start, end, step, sweep, full):
@@ -234,6 +273,10 @@ def _carrier(bundle, setup, sweep, guide, errors, debts, measurements, record_):
     if _item_flagged(bundle, category, key):
         debts.append(f"the sweep fixture {reference} is flagged to verify")
         _flagged(item, [(f, m) for f, m, _ in fields], category, key, measurements)
+        if guide == "trammel":
+            from .trammel import flagged
+
+            flagged(item, sweep, category, key, measurements)
         return None
     found = {
         field: _fact(item, field, measured, category, key, debts, measurements, words)
@@ -877,6 +920,10 @@ def guided(bundle, setup, op, arc, band, label, scale):
     sweep = record(contour.get("sweep"))
     errors, debts, measurements = [], [], []
     guide = sweep.get("guide", UNKNOWN)
+    if guide == "trammel":
+        from .trammel import recipe
+
+        return recipe(bundle, setup, op, arc, band, label, scale)
     convex = arc["cutter_centre_radius_mm"] > arc["wall_radius_mm"]
     record_ = {
         "guide": guide,
@@ -898,7 +945,7 @@ def guided(bundle, setup, op, arc, band, label, scale):
     }
     arc["guided"] = record_
     if guide not in FIXTURE_KINDS:
-        debts.append(f"{label}: contour.sweep.guide is neither pivot nor rail")
+        debts.append(f"{label}: contour.sweep.guide is neither pivot, rail nor trammel")
     found = _carrier(bundle, setup, sweep, guide, errors, debts, measurements, record_)
     master = _master(bundle, sweep, guide, errors, debts, measurements, record_)
     sweep_deg = sweep.get("sweep_deg", UNKNOWN)
@@ -1177,7 +1224,9 @@ _ROLLER_FACTS = (("roller_dia", "roller diameter"), ("roller_height", "roller he
 
 
 def guide_scene(bundle, setup, numbers, scale):
-    """(``{"rollers": [...]}`` or None, picture notes) for ``setup``'s guided sweeps, from
+    """(``{"rollers": [...], "rails": [...], "pins": [...], "carriers": [...]}`` (the groups
+    present) or None,
+    picture notes) for ``setup``'s guided sweeps, from
     its coordinates ``numbers``; ``scale`` is mm per plan unit.
 
     The rollers and the pivot post are fixed to the table while the work turns, so they
@@ -1192,7 +1241,7 @@ def guide_scene(bundle, setup, numbers, scale):
     rollers undrawn, named in a note with its ``measure:`` instruction."""
     from ..measurements import measurement_entry
 
-    rollers, notes, seen = [], [], set()
+    rollers, notes, seen, found = [], [], set(), {}
     # The work sits on its lowest authored bottom: retained rails below ``bottom_z`` when
     # declared, as the headroom stack and the jaw seat read it; an authored but unknown
     # one leaves the seat unknown.
@@ -1222,6 +1271,15 @@ def guide_scene(bundle, setup, numbers, scale):
                 f"{centre[0]:.{decimals}f} Y {centre[1]:.{decimals}f}, {reach:.{decimals}f} "
                 f"{units} from the cutter at the arc's middle."
             )
+            continue
+        if sweep.get("guide") == "trammel":
+            from .trammel import guide_scene as trammel_scene
+
+            lift = _support_lift(bundle, setup)
+            drawn, note = trammel_scene(bundle, sweep, op, bottom, lift, scale)
+            for key, elements in drawn.items():
+                found.setdefault(key, []).extend(elements)
+            notes.extend(note)
             continue
         if sweep.get("guide") != "rail":
             continue
@@ -1284,4 +1342,6 @@ def guide_scene(bundle, setup, numbers, scale):
                     "z_mm": [table, table + values["roller_height"]],
                 }
             )
-    return ({"rollers": rollers} if rollers else None), notes
+    if rollers:
+        found["rollers"] = rollers
+    return (found or None), notes

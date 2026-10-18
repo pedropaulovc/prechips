@@ -1190,7 +1190,13 @@ rollers fixed to the table move relative to the work, so they are never
 fixture components: an arc sled's rollers are drawn render-only at the setup's
 mid-sweep pose (see [Renders](#renders)), and no checkpoint, clash, contact or
 clearance reads them. No removal or hit code in `freecad_job.py` knows the
-method.
+method. A trammel's table ([#269](https://github.com/pedropaulovc/prechips/issues/269))
+is the same driven path in the carrier's frame, its rows on the nominal arc like every
+guided sweep's, except that they all lie on one exact circle: its checkpoint path carries `exact_arc_mm`
+(setup centre and radius), and the run-out and the tool envelope sweep the cutter,
+shank and holder along the true arc through the rows (an annular sector with round
+ends), not their chords, so its removal is exact; a sweep of only two rows takes the
+circle's point between them as the arc's middle. A clipped piece drops the arc.
 **Rule A′** limits every printed table, row by row: a printed
 row is an accessibility error naming the row when its cutter meets the finished
 part or the op's rough leave (its guard), a fixture component, stock outside a
@@ -2620,7 +2626,19 @@ a support with a negative height, or one
 under the work that is unknown or flagged to verify (item or height, as `headroom`
 leaves that stack unresolved), leaves the rollers undrawn with a `NOT SHOWN` note
 naming each gap (a measured fact with its `measure:` instruction). A swing arm's pivot post stands at the arc centre, far
-off the part, so a note names where it stands instead of drawing it.
+off the part, so a note names where it stands instead of drawing it. A trammel's
+rails (`guides.rails`: `from_mm`/`to_mm` along each rail's centre line from the
+spindle axis over its measured `rail_travel`, `width_mm`, `z_mm` table to rail top)
+and carrier pins (`guides.pins`, cylinders at their places on the carrier from the
+rail tops to the work's seat) are drawn the same way, render-only, with `TRAMMEL
+RAILS (TABLE)` and `CARRIER PINS` callouts (per op, as the rollers') and roles `guide_rail` and `guide_pin`;
+a missing or unmeasured `pin_dia`, `rail_width`, `rail_height`, `bed_height` or
+`rail_travel`, or an unknown support height, leaves them undrawn with a `NOT SHOWN` note.
+The carrier plate (`guides.carriers`, a box centred on its pins' chord, `carrier_length`
+along it and `carrier_width` across, from `carrier_thickness` below the work's seat up
+to it) is drawn the same way with a `TRAMMEL CARRIER` callout and role `guide_carrier`;
+a missing or unmeasured carrier fact, a plate shorter than its pins' chord or one too
+thick to clear the rail tops leaves only the carrier undrawn, with its own note.
 
 Blue-grey is material retained after the setup; amber hatch is the Boolean
 difference between actual entry and derived exit stock. When exit stock is

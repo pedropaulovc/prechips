@@ -1683,13 +1683,15 @@ A `guided_sweep` contour's `sweep` record ([manual arcs](#manual-arcs), step 4).
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
-| `guide` | `"pivot"` (a swing arm on a pin at the arc centre) or `"rail"` (a sled's arc rail on two rollers) |
-| `fixture` | `str`: the inventory `fixtures` item that carries the work and rides the guide (`kind = "swing_arm"` for a pivot, `"arc_sled"` for a rail); it must be the setup's `hold.fixture` |
-| `master` | `str`: the inventory `gauges` item the stationary cutter is touched to (`kind = "setting_bar"`, pivot only, or `"master_arc"`, rail only in practice: a master arc on a swing arm gives no radial line to centre the cutter on, so it prints only a STOP, [#288](https://github.com/pedropaulovc/prechips/issues/288)) |
+| `guide` | `"pivot"` (a swing arm on a pin at the arc centre), `"rail"` (a sled's arc rail on two rollers) or `"trammel"` (a carrier's pin pair in two straight rails crossing at the spindle axis, [#269](https://github.com/pedropaulovc/prechips/issues/269)) |
+| `fixture` | `str`: the inventory `fixtures` item that carries the work and rides the guide (`kind = "swing_arm"` for a pivot, `"arc_sled"` for a rail, `"trammel"` for a trammel); it must be the setup's `hold.fixture` |
+| `master` | `str`: the inventory `gauges` item the stationary cutter is touched to (`kind = "setting_bar"`, pivot only, or `"master_arc"`, rail only in practice: a master arc on a swing arm gives no radial line to centre the cutter on, so it prints only a STOP, [#288](https://github.com/pedropaulovc/prechips/issues/288)); a trammel has none, and naming one is an error |
 | `touch_axis` | `"+X"`, `"-X"`, `"+Y"` or `"-Y"`: the setup axis on the cutter's radial line, and the side of the arc centre the cutter stands on; the setup frame is the work at the sweep's middle pose, so it must point from the arc centre to the arc's middle |
 | `sweep_deg` | `float`: the fixture's whole sweep, centred on the arc; at least the arc's span and under 360 (a full circle cannot be swept: use a rotary table) |
 | `rollers_deg` | `Vector` (rail: the two rollers' angles about the arc centre from the cutter's radial line, counterclockwise from above, with the cutter at the arc's middle) |
 | `rail_deg` | `Vector` (rail: the rail's two ends, the same way) |
+| `pin_pair` | `str` (trammel: the key of the carrier's pin pair this pass rides, in the fixture's `pin_spacing` map) |
+| `pins_deg` | `Vector` (trammel: that pair's two pins' angles about the arc centre from the cutter's radial line, the same way; their central angle must be within 0.5° of `2α` or `360° − 2α`, and the measured `α` then places them exactly about the pair's bisector) |
 
 ## Guide
 
@@ -1947,6 +1949,49 @@ uses the 1898 manual arc method:
    or a rail's rollers, ends, radius or roller positions) prints only a STOP naming
    them: nothing runnable stands beside it. So does any error or debt the rule left on
    the stage that no printed value shows (a machine not proven a mill, say).
+
+   An **oblique trammel** (`guide = "trammel"`, inventory `kind = "trammel"`,
+   [#269](https://github.com/pedropaulovc/prechips/issues/269)) needs no master: the
+   carrier rides one pin of its `pin_pair` in a carriage on each of two straight
+   rails clamped to the table, their pin-lines crossing at the spindle axis at the
+   measured rail angle `α`. The pins subtend `α` at the cutter at every pose, so in
+   the carrier's frame the cutter centre runs on the circle through both pins, of
+   radius `R = D / (2 sin α)` for the pair's measured spacing `D`; that circle's
+   centre is virtual and moves in the table frame while the carrier turns half the
+   swept angle and translates. A second pin pair gives a concentric radius without
+   moving the rails. X, Y and Z are locked and the carrier is fed by its hand lever:
+   no handwheel moves, so a rough stage (no back-off exists) is an error. As for every
+   guided sweep, the rows stay on the drawing's nominal cutter-centre arc (the kernel
+   sweeps that exact arc, not its chords) and the band check judges where the pins
+   put the real cut. The cut is
+   `R` less or plus the cutter radius, widened by the error budget: `R` itself at the
+   corners of the measured `rail_angle_error` and `pin_spacing_error` (it falls with `α`
+   and grows with `D`, so `R(D − δD, α + δα)` and `R(D + δD, α − δα)` bound it exactly;
+   to first order `∂R/∂α = D cos α / (2 sin² α)`, about 47 mm per degree for
+   `D = 450`, `α = 16.44°`, and `1 / (2 sin α)` per mm of spacing), plus each
+   pin-line's offset (`pin_clearance` plus `rail_offset`) through its exact
+   worst radius gain over the sweep (about 1:1); it must lie inside the band. The
+   budget bounds the cut radius; where the part's centre sits on the carrier is its
+   locator's ([#270](https://github.com/pedropaulovc/prechips/issues/270)). Pins that
+   do not subtend `α`, a sweep that would carry the cutter over a pin, or a carriage
+   leaving its rail's measured `rail_travel` over the sweep are errors, and the sweep
+   takes a setup of its own. Each stop is clamped by steel rule at a printed rail
+   station; set anywhere within 0.55 mm of it (the 0.1 mm print rounding plus half a
+   millimetre of rule), it must still hold the carrier past its arc end (else an
+   error: sweep farther), and at every pose the first stop can hold the cutter must go
+   down clear of the stock (else debt). The full operator sequence, what each printed
+   number is measured from and how its error reaches the cut, is in
+   [rules-coordinates](rules-coordinates.md#trammel-operator-sequence). The traveler
+   prints the drawing or document the trammel is built and commissioned to, outside
+   the traveler (`make_document`), where its commissioning record is kept and its dowel reading
+   against the predicted stations (no commissioning is debt: the card is a STOP), the
+   pin pair seated in the carriages, X and Y locked on the rails'
+   crossing, a stop clamped on one rail at each end's exact pin station (also read
+   along the rail from where the carriage stands on its near end stop; the other
+   rail's stations as a check), a dry pass, and the lever feed from stop to stop with
+   the cutter's sweep angle and travel and the carrier's own turn, each named, once per
+   axial level when the op steps down. Every value the card
+   prints is in one gate: any unproven one prints only a STOP naming it.
    Manual-arc features are cut in `mm` or `in`; other units are unknown.
 
 The former `method = "arc_table"` is an error.

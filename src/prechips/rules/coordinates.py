@@ -2940,6 +2940,9 @@ def checkpoints(subject, numbers, op):
                     "stepped": "stair_cusp_mm" in table,
                     "method": table.get("method"),
                     "chain_geometry": table.get("chain_geometry"),
+                    # A trammel's cutter-centre circle (plan units): the kernel sweeps the
+                    # cutter along it exactly, not along the rows' chords (#269).
+                    "exact_arc": table.get("exact_arc"),
                 }
             )
     return result

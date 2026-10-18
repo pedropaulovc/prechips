@@ -5765,6 +5765,12 @@ class _Traveler:
             missing.append("tool stickout and headroom")
         if missing:
             lines.append(unknown + "; ".join(missing) + ".")
+        # A guided sweep moves its fixture under the spindle: each fit above holds at the
+        # setup pose only, so the sweep's own debt prints beside them, never a bare pass.
+        lines.extend(
+            f"? Not proven over the sweep — {debt}."
+            for debt in numbers.get("guided_sweep_debts", [])
+        )
         debts = [entry for entry in numbers.get("measurements", []) if entry.get("id") in consumed]
         if debts:
             lines.extend(self.measurement_lines(debts))
@@ -6418,10 +6424,16 @@ class _Traveler:
             # A guided-sweep setup (#255): the touch-off on the master sets X and Y.
             named = " and ".join(str(axis).upper() for axis in touch_set["axes"])
             ops = ", ".join(f"op {op}" for op in touch_set.get("ops", []))
+            how = (
+                "puts the cutter where its rails' pin-lines cross: with the spindle on that "
+                "crossing, lock them for the whole sweep and never move them"
+                if touch_set.get("by") == "trammel"
+                else "sets them by touching the cutter to its master, then locks them for "
+                "the whole sweep"
+            )
             pieces.append(
                 _p(
-                    f"{named}: no edge pickup. The guided sweep ({ops}) sets them by touching "
-                    "the cutter to its master, then locks them for the whole sweep; see its "
+                    f"{named}: no edge pickup. The guided sweep ({ops}) {how}; see its "
                     "contour sheet."
                 )
             )
