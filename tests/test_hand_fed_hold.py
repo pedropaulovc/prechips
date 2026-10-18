@@ -877,6 +877,25 @@ def test_a_known_short_cut_stays_an_error_beside_a_later_unboxed_cut(monkeypatch
     assert "op 20's cut" in finding.sentence
 
 
+def test_a_known_short_cut_stays_an_error_beside_a_later_unplaced_path(monkeypatch):
+    # Op 30's removal bounds are unknown, so its path cannot be placed; op 20 still fails
+    # on its 100 mm piece, and that known shortfall wins (Codex round 2).
+    straight(monkeypatch, y=18.0)
+    bundle = feed_bundle(box=entry_box(100.0))
+    ops = bundle.plan["setups"][0]["ops"]
+    ops.append({**ops[0], "op": 30, "stock_removal_bounds": "unknown"})
+    bundle.kernel["ops"]["S2:30"] = {"stock_bbox_before_mm": entry_box(100.0)}
+    finding = row(hold_fields, bundle)
+    assert finding.status == "error"
+    assert set(finding.numbers["hand_fed_reach_by_op"]) == {"20"}
+    # Without op 20's shortfall, op 30's unplaced path is the debt it reports.
+    bundle = feed_bundle()
+    ops = bundle.plan["setups"][0]["ops"]
+    ops.append({**ops[0], "op": 30, "stock_removal_bounds": "unknown"})
+    finding = row(hold_fields, bundle)
+    assert finding.status == "unknown" and "op 30's stock_removal_bounds" in finding.sentence
+
+
 def test_the_kernel_boxes_each_saw_cut_on_the_stock_before_it(example, freecad_kernel):
     # Two hand-fed cuts along the same line: op 10 saws its -X half, op 20 the +X half.
     edit(

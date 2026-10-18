@@ -240,8 +240,9 @@ def blade_paths(bundle, setup):
     """Each hand-fed saw op's blade path in the setup's X/Y (mm) as ``(op, centre, radius,
     span)``, in op order: the scribed arc offset by the op's ``allowance_mm`` to the side
     the saw removes, run only within ``span`` (``[x0, y0, z0, x1, y1, z1]``), its declared
-    ``stock_removal_bounds``, where the kernel clips its cut. None when any op's line is
-    not an arc the kernel places or its removal bounds are not a numeric box."""
+    ``stock_removal_bounds``, where the kernel clips its cut. An op whose line is not an
+    arc the kernel places, or whose removal bounds are not a numeric box, is ``(op, None,
+    None, why)``: its own debt, never the other cuts' (#347)."""
     from prechips.kernel import removal_bounds, scribed_profile
 
     paths = []
@@ -252,14 +253,19 @@ def blade_paths(bundle, setup):
         allowance = op.get("allowance_mm")
         centre, radius = profile.get("centre_mm"), profile.get("radius_mm")
         bounds = removal_bounds(op.get("stock_removal_bounds"), bundle.features.get("units"))
+        name = str(op["op"])
         if not (isinstance(centre, list) and number(radius) and number(allowance)):
-            return None
+            paths.append(
+                (name, None, None, f"op {name}'s blade path is known only along a scribed arc")
+            )
+            continue
         if "reason" in bounds:
-            return None
+            paths.append((name, None, None, f"op {name}'s {bounds['reason']}"))
+            continue
         sign = -1.0 if profile.get("remove") == "inside" else 1.0
         span = [*(bounds[axis][0] for axis in "xyz"), *(bounds[axis][1] for axis in "xyz")]
-        paths.append((str(op["op"]), centre[:2], radius + sign * allowance, span))
-    return paths or None
+        paths.append((name, centre[:2], radius + sign * allowance, span))
+    return paths
 
 
 def _segment_range(centre, a, b):
@@ -344,12 +350,15 @@ def hand_feed(bundle, setup):
     numbers = {"min_hand_feed_mm": minimum, "hand_feed_cite": cite}
     if minimum == UNKNOWN:
         return "unknown", numbers, f"the shop policy sets no cited, verified {MIN_HAND_FEED}"
-    if paths is None:
+    if not paths:
         return "unknown", numbers, "the blade path is known only along a scribed arc"
     # Judge every cut that can be judged: one cut's unknown stock never hides another
     # cut's known shortfall.
     cuts, debts = {}, []
     for index, (op, centre, radius, span) in enumerate(paths):
+        if centre is None:
+            debts.append(span)  # why this cut's path is not placed
+            continue
         box = cut_box(bundle, setup, op, index == 0)
         if box is None:
             debts.append(
