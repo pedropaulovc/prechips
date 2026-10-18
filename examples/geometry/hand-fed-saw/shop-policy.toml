@@ -1,6 +1,7 @@
-# hand-fed-saw fixture policy (#335): the hand-fed hold is under test. hold_fields,
-# stock_diameter and the saw cut must report the S2 saw setup. S1's unknown holding and the
-# arm the fixture does not make remain displayed debt; these selectors waive no errors.
+# hand-fed-saw fixture policy (#335, #343): the hand-fed hold and its hand-feed minimum
+# are under test. hold_fields, stock_diameter and the saw cut must report the S2 saw
+# setup. S1's unknown holding and the arm the fixture does not make remain displayed
+# debt; these selectors waive no errors.
 revision = 6
 
 [required]
@@ -13,15 +14,18 @@ refixture_budget_mm = "unknown"
 thin_wall_floor_mm = "unknown"
 stickout_ld_max = "unknown"
 saw_min_teeth_in_work = 3
+min_hand_feed_mm = 76.2 # 3 in finger-to-blade clearance (cited below), 3 x 25.4 mm
 
 [numbers_cite]
 refixture_budget_mm = "unknown"
 thin_wall_floor_mm = "unknown"
 stickout_ld_max = "unknown"
 saw_min_teeth_in_work = "example value: the common rule of at least 3 teeth in the work, as Starrett's 'Sawing Starts With the Material' states it (no fewer than 3 teeth in the material at all times), https://www.starrett.com/news-events/sawing-starts-with-the-material"
+min_hand_feed_mm = ["Penn State Origin Labs, Safety Operating Procedures, Vertical Band Saw (Hammer N4400), 2023-11-13, https://originlabs.psu.edu/wp-content/uploads/2023/11/SAFETY-OPERATING-PROCEDURES-Vertical-Bandsaw.pdf: 'If your cut will require your fingers to get within 3 inches of the blade, use a push stick to complete your cut.' (a woodworking lab's procedure, adopted as this example shop's rule)"]
 
 [numbers_verify]
 refixture_budget_mm = true
 thin_wall_floor_mm = true
 stickout_ld_max = true
 saw_min_teeth_in_work = false
+min_hand_feed_mm = false

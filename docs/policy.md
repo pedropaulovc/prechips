@@ -85,7 +85,11 @@ length (feature diameters along setup Z), not held bar OD; the M4
 grip-zone wall the kernel's measurement must meet; `saw_teeth` consumes
 `saw_min_teeth_in_work`, the fewest teeth of a saw blade's coarsest pitch allowed
 in the thickness the blade crosses (a common shop rule is 3), a positive, cited,
-explicitly unflagged number; anything else leaves the row `?`. See PLAN §4.1,
+explicitly unflagged number; anything else leaves the row `?`; `hold_fields` consumes
+`min_hand_feed_mm` for a hand-fed saw setup ([hand-fed](plan.md#hand-fed-on-the-saw-table)):
+the shop's finger-to-blade clearance, in mm, compared at each blade position along
+the scribed arc with how far the kernel's setup-entry stock reaches from the blade
+(an absent, uncited or flagged value is `?`, work that cannot reach it is `✗`). See PLAN §4.1,
 [lathe rules](rules-lathe.md) and [geometry rules](rules-geometry.md). A true
 or unknown verification flag prevents any of them from certifying a measured
 threshold. The shipped numbers remain `"unknown"`

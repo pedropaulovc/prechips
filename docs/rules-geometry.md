@@ -1354,7 +1354,12 @@ saw operation: its blade is located by the cut plane/kerf, and the axial/turning
 tool-cylinder model does not model a saw blade. This states a model boundary,
 not certified blade/fixture clearance. Saw cuts provide no finished-face or
 surface-finish coverage credit. Holding, fixture solids and fixture-interference
-screens remain in effect, including on a dedicated bandsaw setup.
+screens remain in effect, including on a dedicated bandsaw setup, except under an
+admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table). A hand-fed cut's
+`hold_fields` row instead reads the kernel's setup-entry stock box against the
+policy's `min_hand_feed_mm`, at blade positions along the scribed arc within the op's
+`stock_removal_bounds`; it never starts the kernel, and without that box the
+minimum stays `?` ([rules-setup](rules-setup.md#hold_fields)).
 
 ### Saw to a scribed line
 
