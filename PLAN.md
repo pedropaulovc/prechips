@@ -1541,7 +1541,8 @@ sheet.
    the socket branch's facing and ream take it
    ([#334](https://github.com/pedropaulovc/prechips/issues/334)). A finishing land
    whose fit band excludes the model's basic size certifies the exported face its
-   own `dia` band admits ([#337](https://github.com/pedropaulovc/prechips/issues/337)).
+   own `dia` band admits, above basic or below it, where the join no longer counts
+   the band's skin as lost ([#337](https://github.com/pedropaulovc/prechips/issues/337)).
    Transient taps/counterbores are named debt, not cylindrical substitutes.
    The built-up cone example is the bonded-sleeve route: three leaf blanks
    (body, cone sleeve, crank sleeve) and two slip-fit retaining-compound joints.

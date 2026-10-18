@@ -294,7 +294,12 @@ the face's own diameter. The axis and the cylinder shape still match within
 inside the owned finished material. The face carried radially onto the turned
 radius must lie on the accepted after-op stock. A land whose band runs past the
 exported band, even by 0.0001 mm, certifies nothing, and neither does a face no
-exported feature with a known `dia` band names. Only those faces earn `coverage`, and
+exported feature with a known `dia` band names. The rule runs both ways. A clearance land
+turned below a boss drawn at basic (`dia = [9.7, 9.8]` under Ø9.8) certifies the
+face the same way, with the turned surface inside the owned finished material.
+The join's backstop does not count the skin it takes as lost: the finished
+material under such a face, down to the land's MIN radius and within the spigot's
+axial span. Material under the MIN is still protected and still lost. Only those faces earn `coverage`, and
 `finish_coverage` too when the op is a finishing cut. A rough, unknown,
 stopped or rejected cut, a face outside or only partly inside the window, a
 face at another diameter its exported band does not admit, a face about another
