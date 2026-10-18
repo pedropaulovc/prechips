@@ -855,6 +855,18 @@ corner and has no edge there.
 The drawing's general `edge_break_r`/`chamfer_max` is not read for this. That
 allowance is a maximum and does not say what this mouth carries.
 
+Before the join, the corner a formed feature fills is finished material of neither
+branch. Its corner is the finished material between the feature's faces and the
+sharp corner where their neighbouring faces meet. A face op on the strap may take
+that ring with the rest of its stock, and so may a ream, so the strap arrives with
+a plain face for the join to judge. The kernel finds the corner by removing the
+feature's faces from the finished solid and extending their neighbours. It withholds
+a corner only when the band starts at 0, every face is mapped, the sharp solid adds
+no material, and every point of the corner lies within the band's MAX of the
+feature's faces. Otherwise the branches keep the material as finished, as before.
+The join still judges what is actually lost against the band, so nothing beyond
+the MAX is ever admitted.
+
 Beyond that, no material may be missing beyond the band's MAX, and the band must
 start at 0. `coverage` credits the faces to the joint only when the last op that
 names the feature and checks its `radius` band passes. That op must run in a setup
