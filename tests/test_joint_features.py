@@ -14,6 +14,7 @@ from test_input_contracts import FEATURES, bundle_files
 from test_physics_m2 import turning_bundle
 from test_stock_routes import JOINT
 
+from prechips import kernel
 from prechips.findings import exit_code, is_required
 from prechips.inputs import BadInput, load_bundle
 from prechips.rules import (
@@ -907,3 +908,32 @@ binding = "nominal"
         assert span["z_mm"] == pytest.approx(expected)
         assert span["diameter_mm"] == pytest.approx(9.875)
         assert "kernel" not in span["sources"].values()
+
+
+_BANDED = """
+[features.od]
+kind = "boss"
+requirements = ["dia"]
+dia = [9.69, 10.71]
+[features.undrawn]
+kind = "boss"
+requirements = []
+dia = [9.69, 10.71]
+[features.unknown_band]
+kind = "boss"
+requirements = ["dia"]
+dia = "unknown"
+"""
+
+
+@pytest.mark.parametrize(("units", "scale"), [("mm", 1.0), ("in", 25.4)])
+def test_the_kernel_job_carries_each_exported_dia_band_a_land_is_judged_against(
+    tmp_path, units, scale
+):
+    # #337: the turned land is held to the exported feature's own band, in kernel mm. A
+    # feature that does not require its dia, or whose band is unknown, offers none.
+    features = FEATURES.replace('units = "mm"', f'units = "{units}"') + _BANDED
+    bundle = _load(tmp_path, features=features)
+    bands = kernel.build_job(bundle)["dia_bands"]
+    assert bands == {"od": pytest.approx([9.69 * scale, 10.71 * scale])}
+    assert kernel.engine_job(kernel.build_job(bundle))["dia_bands"] == bands

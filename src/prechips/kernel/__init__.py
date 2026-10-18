@@ -1592,7 +1592,7 @@ def _keeps(setup, sent):
 
 
 def build_job(bundle):
-    from prechips.joint_features import primitives_mm, setup_joint
+    from prechips.joint_features import dia_bands_mm, primitives_mm, setup_joint
     from prechips.process_features import primitives_mm as process_primitives_mm
     from prechips.rules.coordinates import evaluate as coordinate_findings
     from prechips.rules.coordinates import faced_aims, revolved_located
@@ -1683,6 +1683,7 @@ def build_job(bundle):
             for name, feature in bundle.features["features"].items()
         },
         "joint_features": primitives_mm(bundle),
+        "dia_bands": dia_bands_mm(bundle),
         "process_features": process_primitives_mm(bundle),
         "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
         # The part the plan cuts: its faced aims move those finished faces.
@@ -1930,6 +1931,7 @@ def engine_job(job):
         "step_sha256": job["step_sha256"],
         "features": job["features"],
         "joint_features": job.get("joint_features", {}),
+        **({"dia_bands": job["dia_bands"]} if job.get("dia_bands") else {}),
         "process_features": job.get("process_features", {}),
         "as_is_faces": job["as_is_faces"],
         **({"aimed_faces": job["aimed_faces"]} if job.get("aimed_faces") else {}),

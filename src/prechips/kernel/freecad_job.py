@@ -5775,8 +5775,15 @@ class _Setup:
         material and on ``after``, the stock :meth:`_build` accepted for this op. Rough,
         unknown, stopped or rejected cuts never reach here or record nothing; a failed
         boolean withholds the whole certificate. Transient joint faces are never candidates.
+
+        A fit's band need not hold the model's basic size (an r6 land over a hub OD drawn
+        at basic): a face on the spigot axis at another radius is the same turned surface
+        when every exported feature naming it has a known ``dia`` band holding both the
+        spigot's declared band and the face's own diameter. Its full area must then lie in
+        the cut window at its own radius and in the owned finished material, and the face
+        carried radially onto the turned radius must lie on ``after``.
         """
-        _, spec, _ = self._joint_check(op)
+        name, spec, _ = self._joint_check(op)
         if spec["kind"] != "cylinder_spigot" or not (
             spec.get("finishing") and spec.get("completes")
         ):
@@ -5791,25 +5798,51 @@ class _Setup:
             offset = point - at
             return (offset - axis * offset.dot(axis)).Length
 
-        certified = []
-        try:
-            # The turned surface over the finite cut window, thickened by STOCK_TOL each way.
-            band = self._placed(
-                _joint_cylinder(spec, 2 * (radius + STOCK_TOL)).cut(
-                    _joint_cylinder(spec, 2 * (radius - STOCK_TOL))
+        declared = self.owner.joint_features[name].get("dia_mm")
+        bands = self.owner.job.get("dia_bands") or {}
+        owners = {}  # finished face index -> the exported features naming it
+        for feature, refs in self.owner.job.get("features", {}).items():
+            for ref in refs if isinstance(refs, list) else ():
+                if isinstance(ref, str) and ref in self.owner.mapping:
+                    owners.setdefault(self.owner.mapping[ref], set()).add(feature)
+
+        def admitted(index, diameter):
+            """Whether every exported feature naming the face holds the declared band."""
+            names = owners.get(index)
+            if not names or not isinstance(declared, list) or len(declared) != 2:
+                return False
+            low, high = min(declared[0], diameter), max(declared[1], diameter)
+            return all(
+                name in bands
+                and bands[name][0] - PLANE_TOL <= low
+                and high <= bands[name][1] + PLANE_TOL
+                for name in names
+            )
+
+        def shell(at_radius):
+            """A cylinder surface over the finite cut window, thickened by STOCK_TOL."""
+            return self._placed(
+                _joint_cylinder(spec, 2 * (at_radius + STOCK_TOL)).cut(
+                    _joint_cylinder(spec, 2 * (at_radius - STOCK_TOL))
                 )
             )
-            box = _bbox(band)
+
+        certified = []
+        try:
+            band = shell(radius)
             for index in range(len(self.finished.Faces)):
                 face, bounds = self.faces[index], self.face_boxes[index]
                 surface = face.Surface
-                if (
-                    not isinstance(surface, Part.Cylinder)
-                    or abs(surface.Radius - radius) > PLANE_TOL
-                    or not all(
-                        box[k] - STOCK_TOL <= bounds[k] and bounds[k + 3] <= box[k + 3] + STOCK_TOL
-                        for k in range(3)
-                    )
+                if not isinstance(surface, Part.Cylinder):
+                    continue
+                sized = abs(surface.Radius - radius) <= PLANE_TOL
+                if not sized and not admitted(index, 2 * surface.Radius):
+                    continue
+                window = band if sized else shell(surface.Radius)
+                box = _bbox(window)
+                if not all(
+                    box[k] - STOCK_TOL <= bounds[k] and bounds[k + 3] <= box[k + 3] + STOCK_TOL
+                    for k in range(3)
                 ):
                     continue
                 # The face's axis must be the spigot axis wherever the face lies: distance to
@@ -5828,7 +5861,10 @@ class _Setup:
                 if _normal_at(face, point).dot(outward) <= 0:
                     continue  # Material outside the face: not a turned spigot surface.
                 limit = max(AREA_ABS, face.Area * AREA_REL)
-                if all(face.cut(shape).Area <= limit for shape in (band, self.protected, after)):
+                turned = face if sized else face.makeOffsetShape(radius - surface.Radius, 1e-7)
+                if all(face.cut(shape).Area <= limit for shape in (window, self.protected)) and all(
+                    turned.cut(shape).Area <= limit for shape in (band, after)
+                ):
                     certified.append(index)
         except Part.OCCError:
             return

@@ -198,6 +198,29 @@ def primitives_mm(bundle) -> dict[str, dict]:
     return {name: primitive(bundle, name) for name in bundle.plan.get("joint_features", {})}
 
 
+def dia_bands_mm(bundle) -> dict[str, list[float]]:
+    """Each exported feature's own known ``dia`` band in mm, for the kernel to judge a fit
+    feature's turned band against the finished face it becomes. A feature whose known
+    ``requirements`` omit ``dia``, or whose band or units are unknown, has none."""
+    scale = _scale(bundle)
+    bands = {}
+    for name, feature in bundle.features.get("features", {}).items():
+        band = feature.get("dia")
+        requirements = feature.get("requirements")
+        if (
+            scale is None
+            or not isinstance(band, list)
+            or len(band) != 2
+            or not all(isinstance(v, int | float) and not isinstance(v, bool) for v in band)
+            or not 0 < band[0] <= band[1]
+            or not isinstance(requirements, list)
+            or "dia" not in requirements
+        ):
+            continue
+        bands[name] = _scaled(band, scale)
+    return bands
+
+
 def _unknown_fields(name: str, values: dict, keys: tuple[str, ...]) -> list[str]:
     return [f"{label(name)}.{key}" for key in keys if values[key] == UNKNOWN]
 
