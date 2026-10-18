@@ -463,8 +463,41 @@ def test_a_line_running_to_the_blank_enters_and_leaves_its_allowance_outside(fee
     near, far = ("-" + x, x) if feed_from == "-X" else (x, "-" + x)
     assert steps == (
         f"Enter through the +Y face at X {near}, Y 21.295 and leave through the +Y face at "
-        f"X {far}, Y 21.295, at least 0.450 mm outside each end of the line."
+        f"X {far}, Y 21.295 (from Setup S2 zero), at least 0.450 mm outside each end of the "
+        "line."
     )
+
+
+LAYOUT = {
+    "layout": "template",
+    "template": "test-r800-template",
+    "radius_mm": 800.0,
+    "centre_setup_xy": [0.0, 808.0],
+    "ends_setup_xy": [[-145.24, 21.295], [145.24, 21.295]],
+}
+
+
+@pytest.mark.parametrize(
+    ("note", "tagged"),
+    [
+        (None, True),  # the example's note: global STEP x +/-146.25, y 0..29.29
+        ("Authored 292.5 x 29.3 x 9.1 mm supply.", False),  # a size, no coordinates
+        ("Relative to Setup S2 zero the blank is Y -8..21.3.", False),  # frame named
+    ],
+)
+def test_op_row_coordinates_name_their_frame_when_the_job_page_prints_global_ones(note, tagged):
+    bundle = entry_bundle()
+    if note is not None:
+        bundle.plan["stock"]["note"] = note
+    traveler = _Traveler(bundle, [], {}, None)
+    s1, s2 = bundle.plan["setups"]
+    traveler.setup = s1
+    (layout,) = traveler.manual_arc_steps(s1["ops"][0], LAYOUT, True)
+    ends = traveler.saw_ends(s2, s2["ops"][0])
+    assert ("Y 808.000 (from Setup S1 zero)" in str(layout)) is tagged
+    assert ("Y 21.295 (from Setup S1 zero)." in str(layout)) is tagged
+    assert ("Y 21.295 (from Setup S2 zero)," in ends) is tagged
+    assert ("(from Setup" in str(layout) + ends) is tagged
 
 
 def test_a_line_inside_the_blank_or_without_kernel_facts_gets_no_entry_rule():

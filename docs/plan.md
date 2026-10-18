@@ -2183,7 +2183,10 @@ first from `feed_from`: "Enter through the +Y face at X -142.741, Y 21.295 and l
 through the +Y face at X 142.741, Y 21.295, at least 0.450 mm outside each end of the
 line." A bench hand saw prints "Cut in through ... and out through ...". A line that
 stays inside the blank, or crossings the kernel cannot place, add nothing; the sketch
-keys the same points ENTER and LEAVE. No minimum workpiece size
+keys the same points ENTER and LEAVE. When the job page prints model (STEP)
+coordinates in the plan's stock note without naming a setup zero, every op row that
+prints setup-frame coordinates (layout centre and arc ends, entry and exit points, a
+hole's tool axis, a manual arc's centre) names its frame: "(from Setup S2 zero)". No minimum workpiece size
 or hand-clearance limit is checked: none is sourced, so none is invented
 ([#343](https://github.com/pedropaulovc/prechips/issues/343)).
 [`examples/geometry/hand-fed-saw`](../examples/geometry/hand-fed-saw/plan.toml)

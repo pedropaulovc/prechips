@@ -1937,6 +1937,9 @@ _STOCK_FORMS = {
 _PLACEMENT_KEYS = {"origin_mm", "axis", "section_axis", "as_is_faces", "id", "components"}
 # A hand-fed cut's declared start end and end-of-cut support, as the HOLD prints them.
 _FEED_ENDS = frozenset({"+X", "-X", "+Y", "-Y"})
+# A coordinate in authored prose: an axis letter then a number or a +/- span, not the
+# "x" of a "70 x 50" size (#335).
+_PROSE_COORDINATE = re.compile(r"(?i)(?<!\d )(?<!\d)\b[xyz]\s*(?:\+/\s*-|±|[-+−]?\d)")
 _END_SUPPORT = {
     "push_aid": "End of the cut: finish it with the push aid, never the hands.",
     "outfeed_table": "End of the cut: the outfeed table carries the work off the blade.",
@@ -4135,6 +4138,19 @@ class _Traveler:
 
     def zero_name(self, setup):
         return f"Setup {setup['id']} zero"
+
+    def frame_tag(self, setup=None):
+        """`` (from Setup <id> zero)`` after an op row's setup-frame coordinates when the
+        job page also prints model (STEP) coordinates, in the plan's stock note, so a
+        reader never compares numbers from two frames unnamed (#335); "" otherwise."""
+        setup = setup or self.setup
+        note = _mapping(self.plan.get("stock")).get("note")
+        if setup is None or not (isinstance(note, str) and _PROSE_COORDINATE.search(note)):
+            return ""
+        if re.search(r"(?i)\bsetup \S+ zero\b", note):
+            # The note already names the setup frame its coordinates are in.
+            return ""
+        return f" (from {self.zero_name(setup)})"
 
     def bench(self, text, setup=None):
         """Plan / rule prose in shop words: no ids, files, hashes or long decimals.
@@ -7465,7 +7481,7 @@ class _Traveler:
         if not (_known(x) and _known(y)):
             return [_Box("STOP: hole X/Y not set")]
         o = self.operative
-        return [f"tool axis X {o(x)}, Y {o(y)}"]
+        return [f"tool axis X {o(x)}, Y {o(y)}{self.frame_tag(setup)}"]
 
     def dro_to_z(self, setup, op):
         """The depth the DRO shows for ``op``: the ``dro_to_z`` coordinates checked (rounded
@@ -8129,8 +8145,8 @@ class _Traveler:
         allowance = self.operative(op["allowance_mm"])
         if len(at) != 2:
             return (
-                f"Cut through {' and '.join(at)}, at least {allowance} mm outside the end of "
-                "the line."
+                f"Cut through {' and '.join(at)}{self.frame_tag(setup)}, at least {allowance} "
+                "mm outside the end of the line."
             )
         verbs = (
             ("Enter through", "leave through")
@@ -8138,8 +8154,8 @@ class _Traveler:
             else ("Cut in through", "out through")
         )
         return (
-            f"{verbs[0]} {at[0]} and {verbs[1]} {at[1]}, at least {allowance} mm outside "
-            "each end of the line."
+            f"{verbs[0]} {at[0]} and {verbs[1]} {at[1]}{self.frame_tag(setup)}, at least "
+            f"{allowance} mm outside each end of the line."
         )
 
     def hand_saw_step(self, op, numbers, setup=None):
@@ -8348,7 +8364,7 @@ class _Traveler:
             )
             line = (
                 f"Layout: blue the part; scribe R{_number(numbers.get('radius_mm'))} mm "
-                f"about the centre X {o(centre[0])}, Y {o(centre[1])}"
+                f"about the centre X {o(centre[0])}, Y {o(centre[1])}{self.frame_tag()}"
             )
             if axis:
                 line += f", on the axis of {self.feature_name(axis)}"
@@ -8357,7 +8373,7 @@ class _Traveler:
             if isinstance(ends, list) and len(ends) == 2:
                 line += (
                     f"; arc ends X {o(ends[0][0])}, Y {o(ends[0][1])} and "
-                    f"X {o(ends[1][0])}, Y {o(ends[1][1])}"
+                    f"X {o(ends[1][0])}, Y {o(ends[1][1])}{self.frame_tag()}"
                 )
             elif ends is None:
                 line += "; scribe the full circle"
@@ -9078,7 +9094,7 @@ class _Traveler:
             centre = arc.get("centre_setup_xy") or ["unknown", "unknown"]
             description = (
                 f"Cutter-centre arc R{o(arc.get('cutter_centre_radius_mm'))} "
-                f"about X {o(centre[0])}, Y {o(centre[1])}"
+                f"about X {o(centre[0])}, Y {o(centre[1])}{self.frame_tag(setup)}"
             )
             rows = []
             after = None

@@ -63,7 +63,7 @@ coolant = "none: dry cut"
 deburr_mm = 0.0
 deburr_cite = ["AUTHOR'S CHOICE: the sawn edge is a rough, filed to the line later"]
 stock_in = "S1"
-note = "Saw the crescent of waste off above the top edge in vertical mode, just outside the scribed line."
+note = "Saw the crescent of waste off above the top edge in vertical mode, just outside the scribed line. Measured from frame T, 8 mm up the bar from its bottom edge, the blank spans Y -8.000 to 21.295: the R800 top edge ends on its +Y face at X +/-145.240 and dips to Y 8.000 at X 0."
 
 [setups.hold]
 kind = "hand_fed"

@@ -234,7 +234,7 @@
           },
           "plan": {
             "path": "examples/geometry/hand-fed-saw/plan.toml",
-            "sha256": "7c99ca3b5b64d05e365671408507d5d86653aaa2f26fa7b9e34056fdb749b855"
+            "sha256": "0de9b9029d89f0d35a08038b4fd9a64dcd3cf67b75733b42d28ef3f74e5b2c5f"
           },
           "shop_policy": {
             "path": "examples/geometry/hand-fed-saw/shop-policy.toml",
@@ -2857,7 +2857,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "549063cf1e9f89203c95183cda4e8a25280c0de0f4c11ecb2924aa53af1d1d5f",
+  "hash": "8202cf36c2ea4c754082f42858171d837c8788e62abaae8975381ea3f937ade7",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2873,7 +2873,7 @@
     },
     "plan": {
       "path": "examples/geometry/hand-fed-saw/plan.toml",
-      "sha256": "7c99ca3b5b64d05e365671408507d5d86653aaa2f26fa7b9e34056fdb749b855"
+      "sha256": "0de9b9029d89f0d35a08038b4fd9a64dcd3cf67b75733b42d28ef3f74e5b2c5f"
     },
     "render:S1": {
       "path": "setup-S1.png",
