@@ -184,6 +184,8 @@ def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
     """A process end face's footprint on the stock ``setup`` receives: its root-stock
     ``bounds`` trimmed by each process end face an earlier setup of that stock lineage
     faced on a model-axis plane. Faces it cannot place leave the larger, root footprint."""
+    from prechips.rules.resolution import op_feature
+
     bounds, own = definition.get("bounds"), process_of(definition)
     if not bounds or not own:
         return bounds
@@ -193,7 +195,7 @@ def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
         if other["id"] not in earlier:
             continue
         for op in other["ops"]:
-            made = bundle.feature_definitions.get(op.get("feature"))
+            made = bundle.feature_definitions.get(op_feature(op))
             process = process_of(made)
             if not process or process["kind"] != "end_face" or process["id"] == own["id"]:
                 continue
@@ -260,10 +262,16 @@ def centre_tool(bundle, op: dict) -> dict:
     """
     from prechips.measurements import angle_fact, length_fact, measurement_entry
     from prechips.rules._envelope import selected_item
-    from prechips.rules.resolution import LENGTH_TOLERANCE_MM, resolve, same_length, uncertain
+    from prechips.rules.resolution import (
+        LENGTH_TOLERANCE_MM,
+        op_feature,
+        resolve,
+        same_length,
+        uncertain,
+    )
     from prechips.rules.tip_endpoints import drill_point_mm
 
-    process = process_of(bundle.feature_definitions.get(op.get("feature"))) or {}
+    process = process_of(bundle.feature_definitions.get(op_feature(op))) or {}
     reference = op.get("tool", UNKNOWN)
     category, tool_key, item = selected_item(bundle, "tools", reference)
     resolved = resolve(bundle, "tools", reference)
@@ -353,9 +361,9 @@ def parting_plane(bundle, setup: dict, op: dict) -> dict:
     setup Z (manifest units) when known.
     """
     from prechips.rules.coordinates import frame_point
-    from prechips.rules.resolution import record, resolve, same_length, setup_frame
+    from prechips.rules.resolution import op_feature, record, resolve, same_length, setup_frame
 
-    definition = bundle.feature_definitions.get(op.get("feature"), {})
+    definition = bundle.feature_definitions.get(op_feature(op), {})
     at, axis, to_z = definition.get("at"), definition.get("axis"), op.get("to_z", UNKNOWN)
     scale = _SCALE.get(bundle.features.get("units", UNKNOWN))
     kind = record(resolve(bundle, "machines", setup.get("machine", UNKNOWN))).get("kind")
@@ -447,7 +455,9 @@ def process_operation(bundle, op: dict) -> dict | None:
     ``reason`` names why the cut cannot be modelled (an action that does not make this
     kind, or an unknown size); the kernel then leaves the op's stock unknown.
     """
-    definition = bundle.feature_definitions.get(op.get("feature"))
+    from prechips.rules.resolution import op_feature
+
+    definition = bundle.feature_definitions.get(op_feature(op))
     process = process_of(definition)
     if process is None:
         return None

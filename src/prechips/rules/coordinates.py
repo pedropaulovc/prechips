@@ -44,6 +44,7 @@ from .resolution import (
     identity,
     length_mm,
     number,
+    op_feature,
     op_features,
     plan_frame_cite,
     resolve,
@@ -2393,7 +2394,7 @@ def _cleared_floor(op, cleared, features):
     box and it produced ``op``'s surface under the operative-producer contract: the same
     feature, or one whose X/Y ``bounds`` hold ``op``'s feature's whole footprint
     (:func:`_covers_xy`). Overlap, a partial region or an unboxed op proves nothing."""
-    name, region = op.get("feature"), _xy_box(op)
+    name, region = op_feature(op), _xy_box(op)
     target = mapping(features.get(name))
     floors = [
         to_z
@@ -2419,7 +2420,7 @@ def _z_levels(op, before, declared, cleared, features, grid, units, printed_top)
     """
     if op.get("do") not in _LEVEL_OPS or "doc_mm" not in op or "to_z" not in op:
         return None
-    name, top = op.get("feature"), before["top_z"]
+    name, top = op_feature(op), before["top_z"]
     start = declared.get(name, top)
     basis = "declared entry_z" if name in declared else "setup top_z"
     floor = None if op["do"] in _WALL_OPS else _cleared_floor(op, cleared, features)
@@ -3204,9 +3205,9 @@ def _z_residuals(bundle, setup, grid, features, entries):
         to_z = op.get("to_z")
         if "exit_mm" in op or not number(to_z):
             continue
-        if not any(cut[2] is op for cut in _cuts(bundle, op.get("feature"))):
+        if not any(cut[2] is op for cut in _cuts(bundle, op_feature(op))):
             continue
-        feature = mapping(features.get(op.get("feature")))
+        feature = mapping(features.get(op_feature(op)))
         band = _narrowest_band(feature)
         entry = mapping(entries.get(str(op["op"])))
         face = entry.get("dro_to_z", dro_z(to_z, grid))
@@ -4252,7 +4253,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 if levels["levels"] == UNKNOWN:
                     plan_debts.append(f"op {op['op']} axial levels: {levels['reason']}")
             if op.get("do") in RASTER_OPS and number(op.get("to_z")) and _xy_box(op):
-                cleared.append((op.get("feature"), _xy_box(op), op["to_z"]))
+                cleared.append((op_feature(op), _xy_box(op), op["to_z"]))
         entries = {str(entry.get("op")): entry for entry in numbers["operations"]}
         residuals = [] if grid_debt else _z_residuals(bundle, setup, grid, features, entries)
         unknown = not frame or frame.get("binding") == UNKNOWN or blade_unknown
@@ -4396,7 +4397,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 leave_errors.append(f"op {op['op']}: {refusal}")
             if not contour:
                 continue
-            name = op.get("feature")
+            name = op_feature(op)
             feature = mapping(features.get(name))
             tool = resolve(bundle, "tools", op.get("tool")) or {}
             diameter = length_mm(tool, "dia")

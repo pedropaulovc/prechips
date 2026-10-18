@@ -136,7 +136,7 @@ def complete_form_subjects(bundle):
     for setup in bundle.plan["setups"]:
         for op in setup["ops"]:
             if op.get("do") in COMPLETE_FORM:
-                owners[op.get("feature")] = f"{setup['id']}:{op['op']}"
+                owners[op_feature(op)] = f"{setup['id']}:{op['op']}"
     return set(owners.values())
 
 
@@ -262,7 +262,7 @@ def op_claims(bundle, facts, setup, op):
     )
     if invalid or not known_refs(refs):
         return None, [], invalid
-    joint = bool(record(record(bundle.feature_definitions.get(op.get("feature"))).get("joint")))
+    joint = bool(record(record(bundle.feature_definitions.get(op_feature(op))).get("joint")))
     if approach_model_reason(bundle, setup, op) or not approach_facts(bundle, facts, setup, op):
         return (set() if joint else None), [], []
     away = detail.get("claim_errors")

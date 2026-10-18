@@ -37,6 +37,7 @@ from prechips.rules.resolution import (
     HAND_FINISH,
     identity,
     number,
+    op_feature,
     projection_holder,
     record,
     resolve,
@@ -443,7 +444,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         # Always machine mm per side, independent of feature units; a negative leave is
         # unknown here (the coordinates rule reports it as an error).
         result["rough_allowance_mm"] = rough_leave(op)[0]
-    feature = record(bundle.feature_definitions.get(op.get("feature")))
+    feature = record(bundle.feature_definitions.get(op_feature(op)))
     # Joint and tooling-hole cuts use transient geometry, never the finished-face bore path.
     if (
         joint_cut is None
@@ -461,7 +462,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         entry = UNKNOWN
         for stock_op, before, _ in stock_states(bundle, setup):
             if stock_op is op or stock_op.get("op") == op["op"]:
-                entry = before["entry_z"].get(op.get("feature"), before["top_z"])
+                entry = before["entry_z"].get(op_feature(op), before["top_z"])
                 break
         depth = hole_depth_mm(op, feature, units)
         # As tip_endpoints: an absent thru is blind; only an explicit boolean is known.
@@ -479,7 +480,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             # As tip_endpoints: a through tool's full diameter runs to the exit face (entry
             # less the authored local thickness) plus its exit allowance.
             thickness = record(record(setup.get("stock_state")).get("local_thickness")).get(
-                op.get("feature")
+                op_feature(op)
             )
             allowance = op.get("exit_mm")
             if number(entry) and number(thickness) and number(allowance) and allowance >= 0:
@@ -574,7 +575,7 @@ def _tooling_inputs(bundle, setup, op, cut):
         # far side the geometry suggests.
         allowance = op.get("exit_mm", UNKNOWN)
         thickness = record(record(setup.get("stock_state")).get("local_thickness")).get(
-            op.get("feature"), UNKNOWN
+            op_feature(op), UNKNOWN
         )
         result["exit_mm"] = allowance
         if not (number(allowance) and allowance >= 0):

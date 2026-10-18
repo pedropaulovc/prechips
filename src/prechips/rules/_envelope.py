@@ -12,6 +12,7 @@ from prechips.rules.resolution import (
     _citations,
     authored,
     number,
+    op_feature,
     projection_holder,
     record,
     resolve,
@@ -377,7 +378,7 @@ def _z_extent(
             )
     if "depth_mm" in op:
         depth = op["depth_mm"]
-        entry = before["entry_z"].get(op.get("feature"), top)
+        entry = before["entry_z"].get(op_feature(op), top)
         if _known(depth) and depth >= 0 and _known(entry):
             targets.extend((entry, entry - depth))
         else:

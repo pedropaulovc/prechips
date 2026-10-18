@@ -27,6 +27,7 @@ from ..resolution import (
     known_refs,
     length_mm,
     number,
+    op_feature,
     resolve,
     setup_frame,
     uncertain,
@@ -180,7 +181,7 @@ def _axial_cut_footprint(bundle, setup, op):
     action = op.get("do")
     if action not in {"spot", "drill", "ream", "counterbore"}:
         return None
-    feature = mapping(bundle.feature_definitions.get(op.get("feature")))
+    feature = mapping(bundle.feature_definitions.get(op_feature(op)))
     axis = feature.get("axis")
     if feature.get("kind") not in {"hole", "counterbore", "threaded_hole", "thread"}:
         return None
@@ -311,7 +312,7 @@ def _primitive_spares_plane(bundle, setup, op, plane):
     if action in TURNED:
         if plane.get("radius_is_upper") is not True:
             return False
-        name = op.get("feature")
+        name = op_feature(op)
         joint = joint_operation(
             bundle, op, f"{setup['id']}:{op['op']}" in finishing_subjects(bundle)
         )

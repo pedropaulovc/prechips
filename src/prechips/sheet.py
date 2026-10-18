@@ -6116,7 +6116,7 @@ class _Traveler:
         cut that feature before it left it (:meth:`surface_z`), read as a path end: a
         turning window cut before it never blanks it (:func:`operative_z` ``path``)."""
         done = self.ops_done(setup, before=op.get("op"))
-        return self.surface_z(setup, op.get(key), face=op.get("feature"), done=done, path=True)
+        return self.surface_z(setup, op.get(key), face=op_feature(op), done=done, path=True)
 
     @property
     def near_jaw_mm(self):

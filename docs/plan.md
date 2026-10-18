@@ -505,7 +505,10 @@ the cutter's periphery (a blank end overhanging the vise; give the op's
 [rules-coordinates](rules-coordinates.md)). Only `center_drill` prepares a
 `centre_hole`, and only `spot`, `drill` and `ream` a `tooling_hole`. Such an op names exactly that one
 feature and carries no `faces`, `checks` or `missing_requirements`: there is no
-drawing limit to inspect. Process ops resolve through the same rules as other
+drawing limit to inspect. An inspect op's feature list never names a process
+feature (the loader rejects it), so a setup works a tooling hole only through an
+op whose one `feature` is that hole; a list inspect elsewhere in the setup leaves
+its [`tooling_hole`](rules-setup.md#tooling_hole) rows unchanged. Process ops resolve through the same rules as other
 cuts (speeds and feeds, reach, accessibility, headroom, tip endpoints, holding and
 the fixture model), and the kernel removes the analytic centre (countersink, pilot
 and drill point), the tooling hole (its tool's diameter, through or to depth, a
