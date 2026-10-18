@@ -1442,6 +1442,18 @@ plane and `jaw_height` down from the jaw top. `jaws_along = "x"` takes
 the zone (`jaw_above_parallels_mm = 0`, or a declared centre with no part
 between the jaws) leaves the jaws unplaced with a reason.
 
+A swivelled vise (`jaws_angle_deg`) is placed in its jaw frame: the stock (and its
+faces) turned back by the swivel about setup Z, where the rules above apply unchanged,
+then the jaws, jaw bar, jaw buttons, parallels and risers are turned forward into the
+setup frame. A tool is a vertical cylinder, unchanged by a turn about Z, so every
+clearance is judged on the turned solids; they carry no exact box, so each hit falls to
+the solid test, and a possible-jaw region keeps its setup-frame bounding box (a superset)
+for the box tests while the picture draws the turned strip. The jaw-opening check of
+[`fixture_interference`](#fixture_interference) reads each accessory's jaw-frame box;
+`wall_map` lines are jaw-frame lines and carry the angle. The setup facts add
+`jaws_angle_deg` and `jaw_frame_stock_bbox_mm`. A stated-unknown angle leaves the jaws
+unplaced; the angle is part of the job's hold, so of its cache key.
+
 Along the jaws the engine distinguishes an *exact* pose from a conservative
 envelope. With `jaw_center_along_mm` each box spans the full `jaw_width`
 centred on that value. Without it the dark (certain) boxes span only the

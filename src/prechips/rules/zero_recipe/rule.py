@@ -42,6 +42,7 @@ from ..resolution import (
     setup_frame,
     uncertain,
 )
+from ..swivel import swivel_angle, swivelled
 from ..tip_endpoints import mapping, records, stock_states
 
 
@@ -90,6 +91,10 @@ def evaluate(bundle):
         # The edge finder's procedure facts (:func:`finder_procedure`) of each pick-up.
         finder_status = set()
         tip_measurements = []
+        # X/Y pick-ups a swivelled vise leaves unproven: the work's edges stand at the
+        # swivel to the travel, so only an indicated centre sets X or Y (#300).
+        swivel = swivel_angle(mapping(setup.get("hold"))) if swivelled(bundle, setup) else 0.0
+        slanted = []
 
         unknown = (
             not frame
@@ -130,6 +135,8 @@ def evaluate(bundle):
             tool = resolve(bundle, "spindle", recipe.get("tool")) or {}
             method = recipe.get("method")
             indicated = recipe.get("from") == "indicated"
+            if swivel and axis != "z" and not indicated:
+                slanted.append(axis.upper())
             radius = (
                 "not_applicable"
                 if axis == "z" or method == "trial_cut_measure"
@@ -415,7 +422,9 @@ def evaluate(bundle):
         unrecovered = transfer.get("keep_clamped") is True and not (
             isinstance(recovery, str) and recovery.strip() and recovery != UNKNOWN
         )
-        unknown |= unrecovered or UNKNOWN in finder_status
+        unknown |= unrecovered or UNKNOWN in finder_status or bool(slanted)
+        if slanted:
+            numbers["swivel_unproven_axes"] = slanted
         finder_error = "error" in finder_status
         errors = bad or missing or corner_errors or face_errors or x_errors or finder_error
         status = "error" if errors else "unknown" if unknown else "pass"
@@ -456,6 +465,14 @@ def evaluate(bundle):
             sentence += (
                 " The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not "
                 "stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed."
+            )
+        if slanted:
+            turned = "an unknown angle" if swivel == UNKNOWN else f"{swivel:g}°"
+            sentence += (
+                f" The vise is swivelled {turned}: the work's edges stand off the table "
+                "travel, so a touch on an edge does not set "
+                + " or ".join(slanted)
+                + '; pick that axis up by indicating a bore\'s centre (from = "indicated").'
             )
         if unrecovered:
             sentence += (
