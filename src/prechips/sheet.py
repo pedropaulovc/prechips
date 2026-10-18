@@ -1682,7 +1682,12 @@ _DUPLEX_JS = r"""(() => {
           if (s.display.endsWith("flex") && !s.flexDirection.startsWith("column")) {
             el.setAttribute(STACKED, "");
           }
-          walk(el);
+          // The container's own bottom padding and border print after its last child:
+          // a child that fits only without them would push the box onto an unplanned
+          // page the count never sees (#307).
+          const capacity = CAP;
+          CAP -= parseFloat(s.paddingBottom) + parseFloat(s.borderBottomWidth);
+          try { walk(el); } finally { CAP = capacity; }
         } else {
           move(el);
           let current = el;
@@ -1837,9 +1842,6 @@ _REQUIREMENT_NAMES = {
     "land_angle_deg": "land angle °",
     "tip_land": "tip land",
 }
-# Unknown rows whose debt is listed once in the JOB measurement register: no per-setup
-# "Not verified" box or decision-input STOP repeats it (#297).
-_CHECKLIST_ONLY = frozenset({"fixture_table"})
 # Plain topics for checks the planner could not complete (report.json keeps the detail).
 _TOPICS = {
     "accessibility": "tool access",
@@ -3357,19 +3359,6 @@ class _Traveler:
                     self.setup_measurement_ids.setdefault(sid, set()).add(quantity["id"])
                     self.measurement_sources.setdefault(quantity["id"], set()).add(sid)
 
-    def register_job_measurements(self, entries, setup):
-        """Job-level entries: listed once in the JOB register with the setups that owe
-        them, never a setup's own decision input (no setup STOP)."""
-        registry = self.measurement_registry()
-        for entry in entries or []:
-            if not (
-                isinstance(entry, dict) and {"id", "category", "identity", "field"} <= entry.keys()
-            ):
-                continue
-            for quantity in self.measurement_quantities(entry):
-                registry.setdefault(quantity["id"], (f"M{len(registry) + 1}", quantity))
-                self.measurement_sources.setdefault(quantity["id"], set()).add(setup["id"])
-
     def finalize_measurements(self, sheets):
         """Number once after all consumers have rendered; rewrite their short refs once."""
         registry = self.measurement_registry()
@@ -3684,9 +3673,6 @@ class _Traveler:
                 continue
             rule, subject = _field(finding, "rule"), _field(finding, "subject", "")
             numbers = _field(finding, "numbers", {})
-            if rule in _CHECKLIST_ONLY:
-                self.register_job_measurements(numbers.get("measurements"), setup)
-                continue
             if rule == "coordinates":
                 # coordinates owns this list: grid, cut order and actual generated path
                 # inputs. It is not geometry_common's diagnostic prerequisite union.
@@ -4307,7 +4293,7 @@ class _Traveler:
                 for prefix in (subject + ":", subject.replace(":", " ") + ":"):
                     message = message.removeprefix(prefix).strip()
                 cautions.setdefault(self.bench(message), []).append(label)
-            elif status in ("unknown", "unsupported") and rule not in _CHECKLIST_ONLY:
+            elif status in ("unknown", "unsupported"):
                 unverified.setdefault(_TOPICS.get(rule, _text(rule)), []).append(label)
 
         def labelled(text, labels):
@@ -5847,21 +5833,24 @@ class _Traveler:
         travel = numbers.get("travel_checks", {})
         for axis in ("x", "y"):
             record = _mapping(travel.get(axis))
-            lower = record.get("minimum_required_mm")
-            if record and not _known(record.get("required_mm")) and _known(lower):
-                # A stock span is only a lower bound: the cutter's approach and exit past
-                # the stock are undeclared, so the need is never read as fitting (#297).
+            if (
+                record
+                and not _known(record.get("required_mm"))
+                and record.get("basis") == "stock span"
+            ):
+                # A stock span is no cutter path: the cut's extent, approach and exit are
+                # undeclared plan input, so no stroke is printed as the need (#297).
                 lines.append(
-                    f"{axis.upper()} travel: needs at least {o(lower)} "
-                    f"({_text(record.get('basis'))}; the cutter's approach and exit are not "
-                    f"declared) of {o(record.get('travel_mm'))}"
-                    f"{machine_marks(('envelope', 'travel', axis))}: ? not computed — declare "
-                    "the cut's X/Y extent."
+                    f"{axis.upper()} travel{machine_marks(('envelope', 'travel', axis))}: "
+                    "? not computed — the cut's X/Y extent, with the cutter's approach and "
+                    "exit, is not declared."
                 )
             elif record and not _known(record.get("required_mm")):
                 missing.append(
                     f"{axis.upper()} travel{machine_marks(('envelope', 'travel', axis))}"
                 )
+            elif record and record.get("required_mm") == 0:
+                continue  # No motion on this axis: no stroke to print.
             elif record:
                 # Every printed need states what it is the stroke of (travel's basis).
                 basis = record.get("basis")
@@ -5871,22 +5860,6 @@ class _Traveler:
                     f"{o(record.get('travel_mm'))}{machine_marks(('envelope', 'travel', axis))}: "
                     f"{fits(record.get('required_mm'), record.get('travel_mm'))}."
                 )
-        # The fixture's seating on the table stays ? while the table facts are JOB
-        # measurements: the line cites them, never "fits" (#297).
-        table = self.records.get(("fixture_table", setup["id"]), {})
-        if table:
-            refs = " ".join(
-                ref
-                for entry in table.get("measurements", [])
-                if (ref := self.measurement_reference(entry))
-            )
-            x, y = table.get("footprint_x_mm"), table.get("footprint_y_mm")
-            size = f"{o(x)} x {o(y)} mm " if _known(x) and _known(y) else ""
-            lines.append(
-                f"Fixture on the table: ? not checked{' — record ' + refs if refs else ''}; "
-                f"check: its {size}footprint seats on the table within the allowed overhang "
-                "and the fixture plus work weight is within the table load."
-            )
         rows = self.clearance_rows(setup, numbers, tool_numbers or {})
         if any(not _known(s.get("margin_mm")) for s in numbers.get("stacks", [])):
             missing.append("tool stickout and headroom")

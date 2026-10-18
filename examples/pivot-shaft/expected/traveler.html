@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="prechips-version" content="0.2.0"><meta name="prechips-report" content="e003c4eb0512ad6a769153c3007a527d12299dea66b9bc2d72d0d478936a558c"><title>pivot-shaft traveler</title><style>/* Hallmark · macrostructure: Narrative Workflow · tone: utilitarian technical · anchor hue: neutral
+<html lang="en"><head><meta charset="utf-8"><meta name="prechips-version" content="0.2.0"><meta name="prechips-report" content="34a676823c60500b44a301b08bc7723b6b457eee4c8bb990f0ea422210e3c155"><title>pivot-shaft traveler</title><style>/* Hallmark · macrostructure: Narrative Workflow · tone: utilitarian technical · anchor hue: neutral
  * theme: existing monochrome print · enrichment: existing kernel diagrams
  * Preserve offline Arial and black/white paper; marketing hero/nav/footer gates do not apply.
  * Physical pen floors use mm; print spacing uses named 4pt tokens. No blanket 58/58 claim.
@@ -1613,7 +1613,12 @@ display: flex; flex-wrap: wrap; gap: var(--space-md); }
           if (s.display.endsWith("flex") && !s.flexDirection.startsWith("column")) {
             el.setAttribute(STACKED, "");
           }
-          walk(el);
+          // The container's own bottom padding and border print after its last child:
+          // a child that fits only without them would push the box onto an unplanned
+          // page the count never sees (#307).
+          const capacity = CAP;
+          CAP -= parseFloat(s.paddingBottom) + parseFloat(s.borderBottomWidth);
+          try { walk(el); } finally { CAP = capacity; }
         } else {
           move(el);
           let current = el;

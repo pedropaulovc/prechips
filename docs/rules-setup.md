@@ -319,13 +319,15 @@ error. The traveler's CLEARANCE `X/Y travel: needs … (basis)` prints that span
 with the basis that set it: `cutter-centre path` (an op's printed path, which is its
 X/Y motion, approach and exit included), `declared cut extent` (feature bounds or
 centres, the cutter radius on a profile) or both. A broad cut sized only by its
-stock span is a lower bound, printed `needs at least … (stock span; the cutter's
-approach and exit are not declared) … ? not computed`, never "fits". An unresolved span is `?`; a span
+stock span is only a lower bound and prints no stroke: `X travel: ? not computed —
+the cut's X/Y extent, with the cutter's approach and exit, is not declared.` An axis
+with no motion (every op at one X/Y position) prints no travel line. An unresolved span is `?`; a span
 whose (lower bound) exceeds the measured travel is an error on both rows. No
 separate radial tip envelope is computed.
 
-The fixture's size is judged against the table by [`fixture_table`](#fixture_table),
-not by `headroom`. Inch inventory lengths convert explicitly by 25.4.
+The fixture's size does not enter travel; a fixture-on-table check is
+[#349](https://github.com/pedropaulovc/prechips/issues/349). Inch inventory lengths
+convert explicitly by 25.4.
 Unverified dimensions cannot establish a verified stack/travel pass or measured
 clearance violation.
 
@@ -379,45 +381,6 @@ inventory machine/fixture/support/tool/
 holder dimensions; plan stock-state/setup frame. Raw rail height is not a
 coordinate and fixture height is not silently assumed to be bed height.
 
-## `fixture_table`
-
-One subject per mill setup: does the fixture seat on the machine table? Travel
-bounds what the spindle reaches (`headroom`, `travel`), not the fixture's size, so
-a vise or sub-plate wider than an axis's travel is judged here instead
-([#297](https://github.com/pedropaulovc/prechips/issues/297)). The answer needs the
-table's length and width (and any extension), the allowed overhang and the table
-load. None of these is an inventory fact yet
-([#272](https://github.com/pedropaulovc/prechips/issues/272) item 1), so every mill
-setup's row is `?`. It never errors or passes. `numbers.missing` names the
-table facts to add, and the sentence ends in a `check:`: the fixture's footprint
-seats on the table within its allowed overhang, and the fixture plus work weight
-is within the table load. Its debt is four job-level measurements, each in its own
-unit: `machines.<id>.table.x` and `.y` (table length and width with any extension,
-mm), `.overhang` (allowed fixture overhang past a table edge, mm) and `.load` (table
-load limit, fixture plus work, kg). The traveler lists them once in the JOB
-MEASUREMENT REGISTER, naming the setups that owe them. Each mill setup's CLEARANCE
-prints `Fixture on the table: ? not checked — record ?M…; check: …` citing them,
-never "fits", and no per-setup "Not verified" box or decision-input STOP.
-
-Evidence is the fixture's accepted `length`/`width`, with its footprint in setup
-X/Y (`footprint_x_mm`/`footprint_y_mm`, `footprint_basis`). A vise's `length` runs
-along its screw, across the jaws, so `jaws_along = "x"` puts it along Y and
-`jaws_along = "y"` along X. A posed fixture rotates by `hold.pose` (`y = z × x`):
-a dividing head's `length` lies along its axis (pose z) and any other fixture's
-along pose x, with `width` along pose y in both cases. Without `jaws_along` or a
-pose with unit, orthogonal `x` and `z` axes, the footprint stays unknown. Unverified
-fixture length/width is this row's `numbers.measurements` debt. Lathe, saw-only
-and manual bench setups are `not_applicable`.
-
-The row blocks the exit like any unknown unless the policy's `[required]` table
-leaves `fixture_table` out. The shipped example policy leaves it out, so the
-examples' exits are unchanged.
-
-Templates:
-
-- `{setup}: the fixture on the table is not checked: the machine has no table size, overhang or load facts; check: the {fixture} {X} x {Y} mm footprint seats on the table within its allowed overhang and the fixture plus work weight is within the table load.`
-- `{setup}: a lathe holds the work on its spindle, not on a mill table.` / `{setup}: saw cuts seat no fixture on a mill table.` / `{setup}: manual bench work has no fixture on a mill table.` (not applicable)
-
 ## M5 measured inventory screens
 
 The default policy is unchanged. A shop can add `envelope = "*"` and
@@ -439,8 +402,7 @@ including explicit `"unknown"` debt; a missing parent/point stays unknown.
 The inheritance changes the cutter centre only, not child bounds/dimensions.
 
 Dedicated all-saw setups (manual inspection/deburring allowed) have no spindle
-headroom, envelope, XYZ tool travel or fixture on a mill table, and those rows
-state `not_applicable`.
+headroom, envelope or XYZ tool travel, and those rows state `not_applicable`.
 In mixed setups saw ops contribute no fictitious holder/spindle stack while
 the other machine cuts still receive their normal checks. Holding and the
 native `saw_cut` stock-preservation check are not exempted.

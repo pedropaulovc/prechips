@@ -10,7 +10,6 @@ from prechips import kernel
 from prechips.measurements import length_debt, measurement_checklist, measurement_entry
 from prechips.rules import (
     accessibility,
-    fixture_table,
     headroom,
     level_entry,
     op_chain,
@@ -322,26 +321,13 @@ def test_headroom_names_each_consumed_stack_or_travel_fact(category, identity, f
 
 @pytest.mark.parametrize("case", ["assumed", "illustrative"])
 @pytest.mark.parametrize(("field", "value"), [("length", 150), ("width", 80)])
-def test_fixture_footprint_debt_is_the_table_checks_not_headrooms(field, value, case):
-    # The footprint no longer bounds travel (#297): its debt is the fixture_table row's
-    # consumed input, on the checklist, and leaves the stack/reach verdict alone.
+def test_fixture_footprint_debt_does_not_touch_headroom(field, value, case):
+    # The footprint no longer bounds travel (#297): headroom neither consumes nor names it.
     data = bundle()
     [baseline] = headroom.evaluate(data)
     data.inventory["fixtures"]["vise"][f"{field}_mm"] = fact(value, case)
     [row] = headroom.evaluate(data)
     assert row == baseline and row.status == "pass"
-    [table] = fixture_table.evaluate(data)
-    # Beside the job-level table facts every mill setup's row owes.
-    assert table.status == "unknown"
-    entries = {entry["id"]: entry for entry in table.numbers["measurements"]}
-    assert entries[f"fixtures.vise.{field}"]["status"] == case
-    # Beside the job-level table facts every mill setup's row owes, each in its own unit.
-    assert {key: entry["units"] for key, entry in entries.items() if ".table." in key} == {
-        "machines.mill.table.x": "mm",
-        "machines.mill.table.y": "mm",
-        "machines.mill.table.overhang": "mm",
-        "machines.mill.table.load": "kg",
-    }
 
 
 def test_headroom_names_selected_projection_not_the_unused_grip_and_keeps_m5_debt():

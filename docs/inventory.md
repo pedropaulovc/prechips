@@ -1118,8 +1118,8 @@ plan's stock.
 | `jaw_height_mm` | `MeasuredLength` |
 | `height_mm` | `MeasuredLength` |
 | `height_in` | `MeasuredLength` |
-| `length_mm` | `MeasuredLength` (a fixture's footprint, judged against the table, not travel: a vise's along its screw, a dividing head's along its axis, others along pose x; see [`fixture_table`](rules-setup.md#fixture_table)) |
-| `width_mm` | `MeasuredLength` (a fixture's footprint across `length`, along pose y) |
+| `length_mm` | `MeasuredLength` |
+| `width_mm` | `MeasuredLength` |
 | `width_in` | `MeasuredLength` |
 | `capacity_mm` | `float` (a holder's single nominal collet size accepts a tool shank on its ISO 286 h6 band, [`tool_resolves`](rules-tools.md#tool_resolves)) |
 | `capacity_min_mm` / `capacity_min_in` | `MeasuredLength` (follow/steady rest jaw capacity) |

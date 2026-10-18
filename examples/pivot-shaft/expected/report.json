@@ -1388,7 +1388,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "d8e3f42e5353fee28c2c48d5c2f183ea430f5854005545e7f20919f4ac11d8dd"
+            "sha256": "1eaef230b1159f7f31de0ad455eaeb9fb6fa74da4920f98e199f84a0cae3a728"
           },
           "plan": {
             "path": "examples/pivot-shaft/plan.toml",
@@ -4100,50 +4100,6 @@
       },
       "rule": "fixture_interference",
       "status": "pass",
-      "subject": "S3"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.1 headroom",
-        "plan.setups.S0.hold"
-      ],
-      "message": "S0: a lathe holds the work on its spindle, not on a mill table.",
-      "numbers": {},
-      "rule": "fixture_table",
-      "status": "not_applicable",
-      "subject": "S0"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.1 headroom",
-        "plan.setups.S1.hold"
-      ],
-      "message": "S1: a lathe holds the work on its spindle, not on a mill table.",
-      "numbers": {},
-      "rule": "fixture_table",
-      "status": "not_applicable",
-      "subject": "S1"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.1 headroom",
-        "plan.setups.S2.hold"
-      ],
-      "message": "S2: a lathe holds the work on its spindle, not on a mill table.",
-      "numbers": {},
-      "rule": "fixture_table",
-      "status": "not_applicable",
-      "subject": "S2"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.1 headroom",
-        "plan.setups.S3.hold"
-      ],
-      "message": "S3: a lathe holds the work on its spindle, not on a mill table.",
-      "numbers": {},
-      "rule": "fixture_table",
-      "status": "not_applicable",
       "subject": "S3"
     },
     {
@@ -11003,7 +10959,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "e003c4eb0512ad6a769153c3007a527d12299dea66b9bc2d72d0d478936a558c",
+  "hash": "34a676823c60500b44a301b08bc7723b6b457eee4c8bb990f0ea422210e3c155",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -11015,7 +10971,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "d8e3f42e5353fee28c2c48d5c2f183ea430f5854005545e7f20919f4ac11d8dd"
+      "sha256": "1eaef230b1159f7f31de0ad455eaeb9fb6fa74da4920f98e199f84a0cae3a728"
     },
     "plan": {
       "path": "examples/pivot-shaft/plan.toml",

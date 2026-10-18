@@ -953,98 +953,6 @@
     {
       "cite": [
         "PLAN.md §4.1 headroom",
-        "plan.setups.S1.hold",
-        "inventory: unknown length/width",
-        "inventory.machines.test-mill"
-      ],
-      "message": "S1: the fixture on the table is not checked: the machine has no table size, overhang or load facts; check: the unknown footprint seats on the table within its allowed overhang and the fixture plus work weight is within the table load.",
-      "numbers": {
-        "fixture": "unknown",
-        "fixture_length_mm": "unknown",
-        "fixture_width_mm": "unknown",
-        "footprint_basis": "fixture length/width unknown",
-        "footprint_x_mm": "unknown",
-        "footprint_y_mm": "unknown",
-        "measurements": [
-          {
-            "category": "machines",
-            "cite": [
-              "inventory.machines.test-mill.table.load"
-            ],
-            "field": [
-              "table",
-              "load"
-            ],
-            "id": "machines.test-mill.table.load",
-            "identity": "test-mill",
-            "instruction": "measure: test-mill table load limit, fixture plus work, machine manual, kg",
-            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
-            "status": "missing",
-            "units": "kg"
-          },
-          {
-            "category": "machines",
-            "cite": [
-              "inventory.machines.test-mill.table.overhang"
-            ],
-            "field": [
-              "table",
-              "overhang"
-            ],
-            "id": "machines.test-mill.table.overhang",
-            "identity": "test-mill",
-            "instruction": "measure: test-mill allowed fixture overhang past a table edge, machine manual or shop rule, mm",
-            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "machines",
-            "cite": [
-              "inventory.machines.test-mill.table.x"
-            ],
-            "field": [
-              "table",
-              "x"
-            ],
-            "id": "machines.test-mill.table.x",
-            "identity": "test-mill",
-            "instruction": "measure: test-mill table length along X, with any extension, steel rule or tape, mm",
-            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "machines",
-            "cite": [
-              "inventory.machines.test-mill.table.y"
-            ],
-            "field": [
-              "table",
-              "y"
-            ],
-            "id": "machines.test-mill.table.y",
-            "identity": "test-mill",
-            "instruction": "measure: test-mill table width along Y, with any extension, steel rule or tape, mm",
-            "reason": "The machine table's extents, allowed overhang and load are not recorded.",
-            "status": "missing",
-            "units": "mm"
-          }
-        ],
-        "missing": [
-          "inventory.machines.test-mill table length/width (and any extension)",
-          "allowed fixture overhang",
-          "table load limit"
-        ],
-        "table_mm": "unknown"
-      },
-      "rule": "fixture_table",
-      "status": "unknown",
-      "subject": "S1"
-    },
-    {
-      "cite": [
-        "PLAN.md §4.1 headroom",
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
         "inventory.machines.test-mill.envelope.spindle_to_table_max",
@@ -2119,7 +2027,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "e613ffdcd4761d32ef8bae827771117ee44ca0674f68f5be1c3798133f4996a0",
+  "hash": "7328b97e2e0c6edb9c60686c702197b19efcca0c1e45bf7a9e525caa8e1c3b33",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

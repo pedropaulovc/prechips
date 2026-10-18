@@ -40,6 +40,7 @@ ignore = [
 
 # Non-Python inputs, read by tests that coverage cannot attribute them to.
 [paths]
+"tests/data/print/*" = ["tests/test_sheet_print.py"]
 "examples/*" = [
     "tests/test_angularity.py",
     "tests/test_chain_drill_speed.py",
@@ -1783,41 +1784,6 @@ ignore = [
     "tests/test_stock_routes.py",
     "tests/test_surface_profile.py",
     "tests/test_tool_resolution.py",
-    "tests/test_validate_examples.py",
-]
-"src/prechips/rules/fixture_table.py" = [
-    "tests/test_arithmetic.py",
-    "tests/test_auxiliary_measurement_debts.py",
-    "tests/test_blank_credit.py",
-    "tests/test_built_up_prejoin.py",
-    "tests/test_cli.py",
-    "tests/test_compare_m2.py",
-    "tests/test_controls.py",
-    "tests/test_coordinates_located.py",
-    "tests/test_examples.py",
-    "tests/test_geometry_examples.py",
-    "tests/test_guided_sweep.py",
-    "tests/test_headroom.py",
-    "tests/test_input_contracts.py",
-    "tests/test_joint_features.py",
-    "tests/test_kernel_outputs.py",
-    "tests/test_lathe_m2.py",
-    "tests/test_measurement_checklist.py",
-    "tests/test_measurement_instructions.py",
-    "tests/test_operative_surface.py",
-    "tests/test_physics_m2.py",
-    "tests/test_prepared_blank.py",
-    "tests/test_process_route.py",
-    "tests/test_provenance_checklist.py",
-    "tests/test_provenance_geometry_pending.py",
-    "tests/test_provenance_machining_debt.py",
-    "tests/test_report.py",
-    "tests/test_sheet_job.py",
-    "tests/test_sheet_precision.py",
-    "tests/test_stock_routes.py",
-    "tests/test_surface_profile.py",
-    "tests/test_tool_resolution.py",
-    "tests/test_travel_m5.py",
     "tests/test_validate_examples.py",
 ]
 "src/prechips/rules/geometry_common.py" = [
