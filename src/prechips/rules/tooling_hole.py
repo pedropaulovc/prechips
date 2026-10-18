@@ -29,7 +29,7 @@ from prechips.measurements import record_trusted
 from prechips.model import setup_lineage
 from prechips.process_features import label, makers, process_of
 from prechips.rules._envelope import measurement_item
-from prechips.rules.resolution import UNKNOWN, number, record, same_length
+from prechips.rules.resolution import UNKNOWN, number, op_features, record, same_length
 
 _CITE = "PLAN.md §4.1 plan.process_features tooling_hole: locating holes in the work's waste"
 _SCALE = {"mm": 1.0, "in": 25.4}
@@ -306,8 +306,11 @@ def evaluate(bundle):
         pins = _locators(bundle, setup, holes)
         worked = {}
         for op in setup.get("ops", []):
-            if op.get("feature") in holes:
-                worked.setdefault(op["feature"], []).append(op)
+            # Only an inspect op names a list, and the loader keeps process features out
+            # of one, so this matches exactly the op whose one feature is the hole.
+            for name in op_features(op):
+                if name in holes:
+                    worked.setdefault(name, []).append(op)
         for name in sorted(set(pins) | set(worked)):
             detail = record(setup_facts.get(setup["id"]))
             if facts.get("status") != "ok":

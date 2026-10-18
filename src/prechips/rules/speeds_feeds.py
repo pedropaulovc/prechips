@@ -48,6 +48,7 @@ from .resolution import (
     length_mm,
     manifest_mm,
     number,
+    op_feature,
     resolve,
     rough_leave,
     select,
@@ -144,13 +145,13 @@ def _diameter(bundle, setup, op, tool, lathe):
     # centre drill's is its pilot (Machinery's Handbook 27th ed. p.1132 by drill size).
     if not lathe or op.get("do") in _AXIAL_LATHE_ACTIONS:
         return length_mm(tool, "dia")
-    feature = bundle.feature_definitions.get(op.get("feature"), {})
+    feature = bundle.feature_definitions.get(op_feature(op), {})
     # Feature lengths are manifest units; convert once here, before mm allowance arithmetic.
     diameter = manifest_mm(bundle, feature.get("dia_nominal", UNKNOWN))
     if not number(diameter) and feature.get("kind") == "dome":
         # Widest (base) diameter: declared base_radius, else the declared sphere radius and
         # height, else the kernel's faces of revolution (feature_span, already in mm).
-        diameter = feature_span(bundle, setup, op.get("feature"))["base_diameter_mm"]
+        diameter = feature_span(bundle, setup, op_feature(op))["base_diameter_mm"]
     elif not number(diameter):
         radius = manifest_mm(bundle, feature.get("base_radius", UNKNOWN))
         if number(radius):
@@ -187,7 +188,7 @@ def _hole_depths(bundle):
                 or tool.get("kind") not in DRILL_KINDS
             ):
                 continue
-            start = before["entry_z"].get(op.get("feature"), before["top_z"])
+            start = before["entry_z"].get(op_feature(op), before["top_z"])
             end = op.get("to_z", UNKNOWN)
             depth = manifest_mm(bundle, start - end) if number(start) and number(end) else UNKNOWN
             depths[(setup["id"], op["op"])] = depth if _positive(depth) else UNKNOWN

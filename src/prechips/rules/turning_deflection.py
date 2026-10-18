@@ -14,6 +14,7 @@ from .resolution import (
     UNKNOWN,
     _citations,
     number,
+    op_feature,
     operations,
     record,
     resolve,
@@ -215,7 +216,7 @@ def evaluate(bundle):
             else "a tailstock tool on the spindle axis loads the work axially, not as a turning cut"
             if kind == "lathe" and action in _AXIAL_LATHE_ACTIONS
             else "stock preparation has no drawing acceptance band to deflect out of"
-            if process_of(bundle.feature_definitions.get(op.get("feature")))
+            if process_of(bundle.feature_definitions.get(op_feature(op)))
             else None
         )
         if reason:
@@ -232,7 +233,7 @@ def evaluate(bundle):
             continue
 
         feature_name = op.get("feature", UNKNOWN)
-        feature = record(bundle.feature_definitions.get(feature_name))
+        feature = record(bundle.feature_definitions.get(op_feature(op)))
         axial = action in AXIAL_OPS
         rough = isinstance(action, str) and action.startswith("rough_")
         dome = feature.get("kind") == "dome"
