@@ -1408,7 +1408,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "a8e328f3fed387b92b81160cd87e6e9d9532e8d70318c6b10c68b84c075bf1ed"
+            "sha256": "23f0e2fe88026065a154f27f3578924548355466acdd3e9a425e98e4ce8a7757"
           },
           "plan": {
             "path": "examples/pivot-bracket/plan.toml",
@@ -9792,10 +9792,11 @@
         "plan: stock state and setup frame",
         "https://www.precisionmatthews.com/products/pm-30mv",
         "inventory.machines.PM-30MV.envelope.spindle_to_table_max",
+        "kernel.setups.P1.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "P1: measured spindle stack and part/fixture travels fit.",
+      "message": "P1: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -9828,7 +9829,16 @@
           }
         ],
         "stock_bottom_z": -18.525,
-        "stock_extent_x_mm": 19.05,
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          -1.9,
+          -2.775,
+          -18.525,
+          36.1,
+          28.975,
+          0.525
+        ],
+        "stock_extent_x_mm": 38.0,
         "stock_extent_y_mm": 31.75,
         "stock_height_mm": 19.049999999999997,
         "stock_top_above_jaws_mm": 5.854700000000003,
@@ -9838,15 +9848,17 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
-            "part_mm": 19.05,
-            "required_mm": 419.09999999999997,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 61.05,
+            "part_mm": 38.0,
+            "required_mm": 61.05,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 31.75,
             "part_mm": 31.75,
-            "required_mm": 177.79999999999998,
+            "required_mm": 31.75,
             "travel_mm": 222.25
           }
         }
@@ -9866,7 +9878,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "P2: measured spindle stack and part/fixture travels fit.",
+      "message": "P2: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -9918,15 +9930,17 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 61.05,
             "part_mm": 38.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 61.05,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 18.525,
             "part_mm": 18.525,
-            "required_mm": 177.79999999999998,
+            "required_mm": 18.525,
             "travel_mm": 222.25
           }
         }
@@ -9946,7 +9960,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "P3: measured spindle stack and part/fixture travels fit.",
+      "message": "P3: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -9998,15 +10012,17 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 61.05,
             "part_mm": 38.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 61.05,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 18.525,
             "part_mm": 18.525,
-            "required_mm": 177.79999999999998,
+            "required_mm": 18.525,
             "travel_mm": 222.25
           }
         }
@@ -10026,7 +10042,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "P4: measured spindle stack and part/fixture travels fit.",
+      "message": "P4: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -10078,15 +10094,17 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 61.05,
             "part_mm": 38.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 61.05,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 26.2,
             "part_mm": 26.2,
-            "required_mm": 177.79999999999998,
+            "required_mm": 26.2,
             "travel_mm": 222.25
           }
         }
@@ -10106,7 +10124,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "P5: measured spindle stack and part/fixture travels fit.",
+      "message": "P5: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -10158,15 +10176,17 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 49.25,
             "part_mm": 26.2,
-            "required_mm": 419.09999999999997,
+            "required_mm": 49.25,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 18.0,
             "part_mm": 18.0,
-            "required_mm": 177.79999999999998,
+            "required_mm": 18.0,
             "travel_mm": 222.25
           }
         }
@@ -10186,7 +10206,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "P6: measured spindle stack and part/fixture travels fit.",
+      "message": "P6: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -10238,15 +10258,17 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 49.25,
             "part_mm": 26.2,
-            "required_mm": 419.09999999999997,
+            "required_mm": 49.25,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 18.0,
             "part_mm": 18.0,
-            "required_mm": 177.79999999999998,
+            "required_mm": 18.0,
             "travel_mm": 222.25
           }
         }
@@ -10266,7 +10288,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S1: measured spindle stack and part/fixture travels fit.",
+      "message": "S1: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -10342,15 +10364,17 @@
         "tool_oal_mm": 63.5,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 26.13,
             "part_mm": 18.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 26.13,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 35.730000000000004,
             "part_mm": 26.2,
-            "required_mm": 177.79999999999998,
+            "required_mm": 35.730000000000004,
             "travel_mm": 222.25
           }
         }
@@ -10370,7 +10394,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S2: measured spindle stack and part/fixture travels fit.",
+      "message": "S2: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -10446,15 +10470,17 @@
         "tool_oal_mm": 63.5,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 27.53,
             "part_mm": 18.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 27.53,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 35.730000000000004,
             "part_mm": 26.2,
-            "required_mm": 177.79999999999998,
+            "required_mm": 35.730000000000004,
             "travel_mm": 222.25
           }
         }
@@ -10474,7 +10500,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S3: measured spindle stack and part/fixture travels fit.",
+      "message": "S3: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -10630,15 +10656,17 @@
         "tool_oal_mm": 82.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 27.53,
             "part_mm": 18.0,
-            "required_mm": 419.09999999999997,
+            "required_mm": 27.53,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 35.730000000000004,
             "part_mm": 26.2,
-            "required_mm": 177.79999999999998,
+            "required_mm": 35.730000000000004,
             "travel_mm": 222.25
           }
         }
@@ -10658,7 +10686,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S4: measured spindle stack and part/fixture travels fit.",
+      "message": "S4: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 68.7,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -10752,15 +10780,17 @@
         "tool_oal_mm": 101.6,
         "travel_checks": {
           "x": {
-            "fixture_mm": 127.0,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 24.13,
             "part_mm": 16.0,
-            "required_mm": 127.0,
+            "required_mm": 24.13,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 101.6,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 42.730000000000004,
             "part_mm": 33.2,
-            "required_mm": 101.6,
+            "required_mm": 42.730000000000004,
             "travel_mm": 222.25
           }
         }
@@ -18202,6 +18232,8 @@
         "AUTHOR'S CHOICE: the left side is the reference face because S1-S3 edge-find it",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "coordinates.P1: printed cutter-centre path of op 10",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
         "plan.setups.P1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -18238,6 +18270,16 @@
             "holder": "r8-collets-lms-4860/3-4in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -13.425,
+                47.625
+              ],
+              "y": [
+                -2.775,
+                28.975
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -18249,11 +18291,11 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -1.8999999999999986,
-                36.1
+                -13.425,
+                47.625
               ],
               "y": [
-                -2.7750000000000004,
+                -2.775,
                 28.975
               ]
             },
@@ -18266,16 +18308,18 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 38.0,
-            "lower_bound_margin_mm": 546.1999999999999,
-            "margin_mm": 546.1999999999999,
-            "minimum_required_mm": 38.0,
-            "required_mm": 38.0,
+            "basis": "cutter-centre path",
+            "located_span_mm": 61.05,
+            "lower_bound_margin_mm": 523.15,
+            "margin_mm": 523.15,
+            "minimum_required_mm": 61.05,
+            "required_mm": 61.05,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
+            "basis": "cutter-centre path",
             "located_span_mm": 31.75,
             "lower_bound_margin_mm": 190.5,
             "margin_mm": 190.5,
@@ -18286,6 +18330,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 5.525000000000006,
             "lower_bound_margin_mm": 350.07499999999993,
             "margin_mm": 350.07499999999993,
@@ -18313,6 +18358,8 @@
         "AUTHOR'S CHOICE: the outer end is the second reference because S1 edge-finds it",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "coordinates.P2: printed cutter-centre path of op 10",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
         "plan.setups.P2.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -18349,6 +18396,16 @@
             "holder": "r8-collets-lms-4860/3-4in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -13.425,
+                47.625
+              ],
+              "y": [
+                -18.525,
+                0.0
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -18360,12 +18417,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -1.8999999999999986,
-                36.1
+                -13.425,
+                47.625
               ],
               "y": [
                 -18.525,
-                0.5250000000000004
+                0.0
               ]
             },
             "z_bounds_mm": [
@@ -18377,26 +18434,29 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 38.0,
-            "lower_bound_margin_mm": 546.1999999999999,
-            "margin_mm": 546.1999999999999,
-            "minimum_required_mm": 38.0,
-            "required_mm": 38.0,
+            "basis": "cutter-centre path",
+            "located_span_mm": 61.05,
+            "lower_bound_margin_mm": 523.15,
+            "margin_mm": 523.15,
+            "minimum_required_mm": 61.05,
+            "required_mm": 61.05,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 19.049999999999997,
-            "lower_bound_margin_mm": 203.2,
-            "margin_mm": 203.2,
-            "minimum_required_mm": 19.049999999999997,
-            "required_mm": 19.049999999999997,
+            "basis": "cutter-centre path",
+            "located_span_mm": 18.525,
+            "lower_bound_margin_mm": 203.725,
+            "margin_mm": 203.725,
+            "minimum_required_mm": 18.525,
+            "required_mm": 18.525,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 7.775000000000006,
             "lower_bound_margin_mm": 347.82499999999993,
             "margin_mm": 347.82499999999993,
@@ -18424,6 +18484,8 @@
         "AUTHOR'S CHOICE: faced from the outer end because the 26.2 run is measured over the two edges",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "coordinates.P3: printed cutter-centre path of op 10",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
         "plan.setups.P3.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -18460,6 +18522,16 @@
             "holder": "r8-collets-lms-4860/3-4in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -13.425,
+                47.625
+              ],
+              "y": [
+                -18.525,
+                0.0
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -18471,12 +18543,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -1.9,
-                36.1
+                -13.425,
+                47.625
               ],
               "y": [
                 -18.525,
-                0.5250000000000004
+                0.0
               ]
             },
             "z_bounds_mm": [
@@ -18488,26 +18560,29 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 38.0,
-            "lower_bound_margin_mm": 546.1999999999999,
-            "margin_mm": 546.1999999999999,
-            "minimum_required_mm": 38.0,
-            "required_mm": 38.0,
+            "basis": "cutter-centre path",
+            "located_span_mm": 61.05,
+            "lower_bound_margin_mm": 523.15,
+            "margin_mm": 523.15,
+            "minimum_required_mm": 61.05,
+            "required_mm": 61.05,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 19.049999999999997,
-            "lower_bound_margin_mm": 203.2,
-            "margin_mm": 203.2,
-            "minimum_required_mm": 19.049999999999997,
-            "required_mm": 19.049999999999997,
+            "basis": "cutter-centre path",
+            "located_span_mm": 18.525,
+            "lower_bound_margin_mm": 203.725,
+            "margin_mm": 203.725,
+            "minimum_required_mm": 18.525,
+            "required_mm": 18.525,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 7.775000000000006,
             "lower_bound_margin_mm": 347.82499999999993,
             "margin_mm": 347.82499999999993,
@@ -18535,6 +18610,8 @@
         "AUTHOR'S CHOICE: faced last of the four long faces, on the left side, because it is sized from the reference",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "coordinates.P4: printed cutter-centre path of op 10",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
         "plan.setups.P4.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -18571,6 +18648,16 @@
             "holder": "r8-collets-lms-4860/3-4in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -13.425,
+                47.625
+              ],
+              "y": [
+                0.0,
+                26.2
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -18582,12 +18669,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -1.8999999999999986,
-                36.1
+                -13.425,
+                47.625
               ],
               "y": [
-                -2.775000000000002,
-                28.975
+                0.0,
+                26.2
               ]
             },
             "z_bounds_mm": [
@@ -18599,26 +18686,29 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 38.0,
-            "lower_bound_margin_mm": 546.1999999999999,
-            "margin_mm": 546.1999999999999,
-            "minimum_required_mm": 38.0,
-            "required_mm": 38.0,
+            "basis": "cutter-centre path",
+            "located_span_mm": 61.05,
+            "lower_bound_margin_mm": 523.15,
+            "margin_mm": 523.15,
+            "minimum_required_mm": 61.05,
+            "required_mm": 61.05,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 31.750000000000004,
-            "lower_bound_margin_mm": 190.5,
-            "margin_mm": 190.5,
-            "minimum_required_mm": 31.750000000000004,
-            "required_mm": 31.750000000000004,
+            "basis": "cutter-centre path",
+            "located_span_mm": 26.2,
+            "lower_bound_margin_mm": 196.05,
+            "margin_mm": 196.05,
+            "minimum_required_mm": 26.2,
+            "required_mm": 26.2,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 5.525000000000006,
             "lower_bound_margin_mm": 350.07499999999993,
             "margin_mm": 350.07499999999993,
@@ -18646,6 +18736,8 @@
         "AUTHOR'S CHOICE: the crown end is faced first because S2/S3 touch Z on it",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "coordinates.P5: printed cutter-centre path of op 10",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
         "plan.setups.P5.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -18682,6 +18774,16 @@
             "holder": "r8-collets-lms-4860/3-4in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -11.525,
+                37.725
+              ],
+              "y": [
+                -18.0,
+                0.0
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -18693,12 +18795,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -2.775000000000002,
-                28.975
+                -11.525,
+                37.725
               ],
               "y": [
-                -18.525,
-                0.5250000000000004
+                -18.0,
+                0.0
               ]
             },
             "z_bounds_mm": [
@@ -18710,26 +18812,29 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 31.750000000000004,
-            "lower_bound_margin_mm": 552.4499999999999,
-            "margin_mm": 552.4499999999999,
-            "minimum_required_mm": 31.750000000000004,
-            "required_mm": 31.750000000000004,
+            "basis": "cutter-centre path",
+            "located_span_mm": 49.25,
+            "lower_bound_margin_mm": 534.9499999999999,
+            "margin_mm": 534.9499999999999,
+            "minimum_required_mm": 49.25,
+            "required_mm": 49.25,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 19.049999999999997,
-            "lower_bound_margin_mm": 203.2,
-            "margin_mm": 203.2,
-            "minimum_required_mm": 19.049999999999997,
-            "required_mm": 19.049999999999997,
+            "basis": "cutter-centre path",
+            "located_span_mm": 18.0,
+            "lower_bound_margin_mm": 204.25,
+            "margin_mm": 204.25,
+            "minimum_required_mm": 18.0,
+            "required_mm": 18.0,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 6.900000000000006,
             "lower_bound_margin_mm": 348.69999999999993,
             "margin_mm": 348.69999999999993,
@@ -18757,6 +18862,8 @@
         "AUTHOR'S CHOICE: faced last because the 34.2 length is measured over both ends",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "coordinates.P6: printed cutter-centre path of op 10",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
         "plan.setups.P6.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -18793,6 +18900,16 @@
             "holder": "r8-collets-lms-4860/3-4in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -11.525,
+                37.725
+              ],
+              "y": [
+                -18.0,
+                0.0
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -18804,12 +18921,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -2.7750000000000004,
-                28.975
+                -11.525,
+                37.725
               ],
               "y": [
-                -18.525,
-                0.5250000000000004
+                -18.0,
+                0.0
               ]
             },
             "z_bounds_mm": [
@@ -18821,26 +18938,29 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 31.75,
-            "lower_bound_margin_mm": 552.4499999999999,
-            "margin_mm": 552.4499999999999,
-            "minimum_required_mm": 31.75,
-            "required_mm": 31.75,
+            "basis": "cutter-centre path",
+            "located_span_mm": 49.25,
+            "lower_bound_margin_mm": 534.9499999999999,
+            "margin_mm": 534.9499999999999,
+            "minimum_required_mm": 49.25,
+            "required_mm": 49.25,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 19.049999999999997,
-            "lower_bound_margin_mm": 203.2,
-            "margin_mm": 203.2,
-            "minimum_required_mm": 19.049999999999997,
-            "required_mm": 19.049999999999997,
+            "basis": "cutter-centre path",
+            "located_span_mm": 18.0,
+            "lower_bound_margin_mm": 204.25,
+            "margin_mm": 204.25,
+            "minimum_required_mm": 18.0,
+            "required_mm": 18.0,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 6.900000000000006,
             "lower_bound_margin_mm": 348.69999999999993,
             "margin_mm": 348.69999999999993,
@@ -18869,6 +18989,8 @@
         "example (plausible, no dimensioned drawing)",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "coordinates.S1: printed cutter-centre path of op 10",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
         "plan.setups.S1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -18876,10 +18998,11 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S1.ops.20",
         "features.features.foot_profile.bounds/at",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
+        "coordinates.S1: printed cutter-centre path of op 20",
         "plan.setups.S1.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S1.ops.30",
+        "coordinates.S1: printed cutter-centre path of op 30",
         "plan.setups.S1.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "inventory.machines.PM-30MV.envelope.travel.x",
@@ -18913,6 +19036,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -9.0,
+                9.0
+              ],
+              "y": [
+                -8.765,
+                26.965
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -18924,12 +19057,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -8.0,
-                8.0
+                -9.0,
+                9.0
               ],
               "y": [
-                -3.0,
-                21.2
+                -8.765,
+                26.965
               ]
             },
             "z_bounds_mm": [
@@ -18961,6 +19094,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 20,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -13.065,
+                13.065
+              ],
+              "y": [
+                -8.065,
+                26.265
+              ]
+            },
             "rough_allowance_mm": 0.3,
             "tip_z_bounds_mm": [
               -6.0,
@@ -18972,12 +19115,12 @@
             "tool_radius_verified": true,
             "xy_cutter_bounds_mm": {
               "x": [
-                -13.0625,
-                13.0625
+                -13.065,
+                13.065
               ],
               "y": [
-                -8.0625,
-                26.2625
+                -8.065,
+                26.265
               ]
             },
             "z_bounds_mm": [
@@ -19009,6 +19152,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 30,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -12.765,
+                12.765
+              ],
+              "y": [
+                -7.765,
+                25.965
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -6.0,
@@ -19020,12 +19173,12 @@
             "tool_radius_verified": true,
             "xy_cutter_bounds_mm": {
               "x": [
-                -12.7625,
-                12.7625
+                -12.765,
+                12.765
               ],
               "y": [
-                -7.7625,
-                25.9625
+                -7.765,
+                25.965
               ]
             },
             "z_bounds_mm": [
@@ -19037,26 +19190,29 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 26.125,
-            "lower_bound_margin_mm": 558.0749999999999,
-            "margin_mm": 558.0749999999999,
-            "minimum_required_mm": 26.125,
-            "required_mm": 26.125,
+            "basis": "cutter-centre path",
+            "located_span_mm": 26.13,
+            "lower_bound_margin_mm": 558.0699999999999,
+            "margin_mm": 558.0699999999999,
+            "minimum_required_mm": 26.13,
+            "required_mm": 26.13,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 34.325,
-            "lower_bound_margin_mm": 187.925,
-            "margin_mm": 187.925,
-            "minimum_required_mm": 34.325,
-            "required_mm": 34.325,
+            "basis": "cutter-centre path",
+            "located_span_mm": 35.730000000000004,
+            "lower_bound_margin_mm": 186.51999999999998,
+            "margin_mm": 186.51999999999998,
+            "minimum_required_mm": 35.730000000000004,
+            "required_mm": 35.730000000000004,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 12.0,
             "lower_bound_margin_mm": 343.59999999999997,
             "margin_mm": 343.59999999999997,
@@ -19085,6 +19241,9 @@
         "example (plausible, no dimensioned drawing)",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "coordinates.S2: printed cutter-centre path of op 10",
+        "inventory.tools.bracket-long-endmill.dia",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
@@ -19094,9 +19253,11 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S2.ops.20",
         "features.features.ear_sides.bounds/at",
+        "coordinates.S2: printed cutter-centre path of op 20",
         "plan.setups.S2.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.30",
+        "coordinates.S2: printed cutter-centre path of op 30",
         "plan.setups.S2.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "inventory.machines.PM-30MV.envelope.travel.x",
@@ -19110,8 +19271,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 16.0,
-              "y": 24.2,
+              "x": 18.0,
+              "y": 26.2,
               "z": 33.2
             },
             "do": "rough_pocket",
@@ -19121,6 +19282,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -13.765,
+                13.765
+              ],
+              "y": [
+                -26.965,
+                -8.065
+              ]
+            },
             "rough_allowance_mm": 0.3,
             "tip_z_bounds_mm": [
               16.0,
@@ -19131,8 +19302,14 @@
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
-              "x": "unknown",
-              "y": "unknown"
+              "x": [
+                -13.765,
+                13.765
+              ],
+              "y": [
+                -26.965,
+                -8.065
+              ]
             },
             "z_bounds_mm": [
               59.0,
@@ -19163,6 +19340,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 20,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -13.765,
+                -12.065
+              ],
+              "y": [
+                -7.765,
+                8.765
+              ]
+            },
             "rough_allowance_mm": 0.3,
             "tip_z_bounds_mm": [
               0.0,
@@ -19174,12 +19361,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -7.3,
-                7.3
+                -13.765,
+                -12.065
               ],
               "y": [
-                -3.3,
-                3.3
+                -7.765,
+                8.765
               ]
             },
             "z_bounds_mm": [
@@ -19211,6 +19398,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 30,
+            "printed_xy_bounds_mm": {
+              "x": [
+                12.065,
+                13.765
+              ],
+              "y": [
+                -7.765,
+                8.765
+              ]
+            },
             "rough_allowance_mm": 0.3,
             "tip_z_bounds_mm": [
               0.0,
@@ -19222,12 +19419,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -7.3,
-                7.3
+                12.065,
+                13.765
               ],
               "y": [
-                -3.3,
-                3.3
+                -7.765,
+                8.765
               ]
             },
             "z_bounds_mm": [
@@ -19239,26 +19436,29 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 14.6,
-            "lower_bound_margin_mm": 567.5999999999999,
-            "margin_mm": 567.5999999999999,
-            "minimum_required_mm": 16.6,
-            "required_mm": 16.6,
+            "basis": "cutter-centre path",
+            "located_span_mm": 27.53,
+            "lower_bound_margin_mm": 556.67,
+            "margin_mm": 556.67,
+            "minimum_required_mm": 27.53,
+            "required_mm": 27.53,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 6.6,
-            "lower_bound_margin_mm": 197.45,
-            "margin_mm": 197.45,
-            "minimum_required_mm": 24.8,
-            "required_mm": 24.8,
+            "basis": "cutter-centre path",
+            "located_span_mm": 35.730000000000004,
+            "lower_bound_margin_mm": 186.51999999999998,
+            "margin_mm": 186.51999999999998,
+            "minimum_required_mm": 35.730000000000004,
+            "required_mm": 35.730000000000004,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 32.2,
             "lower_bound_margin_mm": 323.4,
             "margin_mm": 323.4,
@@ -19287,6 +19487,9 @@
         "example (plausible, no dimensioned drawing)",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "coordinates.S3: printed cutter-centre path of op 10",
+        "inventory.tools.bracket-long-endmill.dia",
+        "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
@@ -19295,19 +19498,24 @@
         "plan.setups.S3.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S3.ops.20",
+        "coordinates.S3: printed cutter-centre path of op 20",
         "plan.setups.S3.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S3.ops.40",
         "features.features.ear_sides.bounds/at",
+        "coordinates.S3: printed cutter-centre path of op 40",
         "plan.setups.S3.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.40: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S3.ops.45",
+        "coordinates.S3: printed cutter-centre path of op 45",
         "plan.setups.S3.ops.45.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.45: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S3.ops.50",
+        "coordinates.S3: printed cutter-centre path of op 50",
         "plan.setups.S3.ops.50.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.50: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S3.ops.55",
+        "coordinates.S3: printed cutter-centre path of op 55",
         "plan.setups.S3.ops.55.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.55: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S3.ops.60",
@@ -19340,8 +19548,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 16.0,
-              "y": 24.2,
+              "x": 18.0,
+              "y": 26.2,
               "z": 33.2
             },
             "do": "rough_pocket",
@@ -19351,6 +19559,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -13.765,
+                13.765
+              ],
+              "y": [
+                -26.965,
+                -8.065
+              ]
+            },
             "rough_allowance_mm": 0.3,
             "tip_z_bounds_mm": [
               0.3,
@@ -19361,8 +19579,14 @@
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
-              "x": "unknown",
-              "y": "unknown"
+              "x": [
+                -13.765,
+                13.765
+              ],
+              "y": [
+                -26.965,
+                -8.065
+              ]
             },
             "z_bounds_mm": [
               43.3,
@@ -19373,8 +19597,8 @@
           {
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
-              "x": 16.0,
-              "y": 24.2,
+              "x": 18.0,
+              "y": 26.2,
               "z": 33.2
             },
             "do": "finish_pocket",
@@ -19384,6 +19608,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 20,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -13.765,
+                13.765
+              ],
+              "y": [
+                -26.965,
+                -7.765
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -19394,8 +19628,14 @@
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
-              "x": "unknown",
-              "y": "unknown"
+              "x": [
+                -13.765,
+                13.765
+              ],
+              "y": [
+                -26.965,
+                -7.765
+              ]
             },
             "z_bounds_mm": [
               43.0,
@@ -19426,6 +19666,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 40,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -13.765,
+                -12.065
+              ],
+              "y": [
+                -7.765,
+                8.765
+              ]
+            },
             "rough_allowance_mm": 0.3,
             "tip_z_bounds_mm": [
               0.0,
@@ -19437,12 +19687,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -7.3,
-                7.3
+                -13.765,
+                -12.065
               ],
               "y": [
-                -3.3,
-                3.3
+                -7.765,
+                8.765
               ]
             },
             "z_bounds_mm": [
@@ -19474,6 +19724,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 45,
+            "printed_xy_bounds_mm": {
+              "x": [
+                12.065,
+                13.765
+              ],
+              "y": [
+                -7.765,
+                8.765
+              ]
+            },
             "rough_allowance_mm": 0.3,
             "tip_z_bounds_mm": [
               0.0,
@@ -19485,12 +19745,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -7.3,
-                7.3
+                12.065,
+                13.765
               ],
               "y": [
-                -3.3,
-                3.3
+                -7.765,
+                8.765
               ]
             },
             "z_bounds_mm": [
@@ -19522,6 +19782,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 50,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -13.765,
+                -11.765
+              ],
+              "y": [
+                -7.765,
+                8.765
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -19533,12 +19803,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -7.0,
-                7.0
+                -13.765,
+                -11.765
               ],
               "y": [
-                -3.0,
-                3.0
+                -7.765,
+                8.765
               ]
             },
             "z_bounds_mm": [
@@ -19570,6 +19840,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 55,
+            "printed_xy_bounds_mm": {
+              "x": [
+                11.765,
+                13.765
+              ],
+              "y": [
+                -7.765,
+                8.765
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -19581,12 +19861,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -7.0,
-                7.0
+                11.765,
+                13.765
               ],
               "y": [
-                -3.0,
-                3.0
+                -7.765,
+                8.765
               ]
             },
             "z_bounds_mm": [
@@ -19632,6 +19912,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 60,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -0.6,
@@ -19695,6 +19976,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 70,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -9.373567375097004,
@@ -19757,6 +20039,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 80,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -0.6,
@@ -19820,6 +20103,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 90,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -9.373567375097004,
@@ -19848,26 +20132,29 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 14.6,
-            "lower_bound_margin_mm": 567.5999999999999,
-            "margin_mm": 567.5999999999999,
-            "minimum_required_mm": 16.6,
-            "required_mm": 16.6,
+            "basis": "cutter-centre path",
+            "located_span_mm": 27.53,
+            "lower_bound_margin_mm": 556.67,
+            "margin_mm": 556.67,
+            "minimum_required_mm": 27.53,
+            "required_mm": 27.53,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 19.3,
-            "lower_bound_margin_mm": 197.45,
-            "margin_mm": 197.45,
-            "minimum_required_mm": 24.8,
-            "required_mm": 24.8,
+            "basis": "cutter-centre path",
+            "located_span_mm": 35.730000000000004,
+            "lower_bound_margin_mm": 186.51999999999998,
+            "margin_mm": 186.51999999999998,
+            "minimum_required_mm": 35.730000000000004,
+            "required_mm": 35.730000000000004,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 146.2,
             "lower_bound_margin_mm": 209.39999999999998,
             "margin_mm": 209.39999999999998,
@@ -19896,6 +20183,8 @@
         "example (plausible, no dimensioned drawing)",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "coordinates.S4: printed cutter-centre path of op 10",
+        "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
         "plan.setups.S4.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -19903,7 +20192,8 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S4.ops.15",
         "features.features.ear_arch.bounds/at",
-        "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
+        "coordinates.S4: printed cutter-centre path of op 15",
+        "kernel.setups.S4.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "plan.setups.S4.ops.15.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -19956,6 +20246,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -8.0,
+                8.0
+              ],
+              "y": [
+                -37.965,
+                4.765
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -19971,8 +20271,8 @@
                 8.0
               ],
               "y": [
-                -32.2,
-                0.0
+                -37.965,
+                4.765
               ]
             },
             "z_bounds_mm": [
@@ -19985,7 +20285,7 @@
             "approach_mm": 5.0,
             "conservative_stock_spans_mm": {
               "x": 16.0,
-              "y": 32.2,
+              "y": 33.2,
               "z": 25.2
             },
             "do": "rough_profile",
@@ -19995,6 +20295,16 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 15,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -12.065,
+                12.065
+              ],
+              "y": [
+                -37.265,
+                -25.2
+              ]
+            },
             "rough_allowance_mm": 0.3,
             "tip_z_bounds_mm": [
               -6.3,
@@ -20006,12 +20316,12 @@
             "tool_radius_verified": true,
             "xy_cutter_bounds_mm": {
               "x": [
-                -5.0625,
-                5.0625
+                -12.065,
+                12.065
               ],
               "y": [
-                -30.2625,
-                -20.1375
+                -37.265,
+                -25.2
               ]
             },
             "z_bounds_mm": [
@@ -20057,6 +20367,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 30,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -0.6,
@@ -20120,6 +20431,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 40,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -9.877208745965904,
@@ -20183,6 +20495,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 50,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -9.0,
@@ -20211,26 +20524,29 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 16.0,
-            "lower_bound_margin_mm": 558.0749999999999,
-            "margin_mm": 558.0749999999999,
-            "minimum_required_mm": 26.125,
-            "required_mm": 26.125,
+            "basis": "cutter-centre path",
+            "located_span_mm": 24.13,
+            "lower_bound_margin_mm": 560.0699999999999,
+            "margin_mm": 560.0699999999999,
+            "minimum_required_mm": 24.13,
+            "required_mm": 24.13,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 32.2,
-            "lower_bound_margin_mm": 179.925,
-            "margin_mm": 179.925,
-            "minimum_required_mm": 42.325,
-            "required_mm": 42.325,
+            "basis": "cutter-centre path",
+            "located_span_mm": 42.730000000000004,
+            "lower_bound_margin_mm": 179.51999999999998,
+            "margin_mm": 179.51999999999998,
+            "minimum_required_mm": 42.730000000000004,
+            "required_mm": 42.730000000000004,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 143.3,
             "lower_bound_margin_mm": 212.29999999999995,
             "margin_mm": 212.29999999999995,
@@ -20310,6 +20626,7 @@
         "operations": [],
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -20320,6 +20637,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -20330,6 +20648,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -20409,6 +20728,7 @@
         "operations": [],
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -20419,6 +20739,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -20429,6 +20750,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -22971,7 +23293,7 @@
       "subject": "S5"
     }
   ],
-  "hash": "5220b949f3f134e9b0fea36bf23eefd0ac28563e5cede5148e62ac24bced3576",
+  "hash": "eaca208418e85dd65d3e50469d4d51505948565477d9ee37b0e163aaea3a702e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -22983,7 +23305,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "a8e328f3fed387b92b81160cd87e6e9d9532e8d70318c6b10c68b84c075bf1ed"
+      "sha256": "23f0e2fe88026065a154f27f3578924548355466acdd3e9a425e98e4ce8a7757"
     },
     "plan": {
       "path": "examples/pivot-bracket/plan.toml",

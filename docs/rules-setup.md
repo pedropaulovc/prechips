@@ -296,17 +296,38 @@ faces come from the kernel's jaw-frame stock box (`jaw_frame_stock_bbox_mm`) and
 cutter path is turned into that frame (a `stock_removal_bounds` box by its corners);
 an unknown swivel places no faces. Other below-jaw
 cuts require geometric path checks and therefore remain unknown rather than
-being invented collision errors. Travel screens the stock each setup receives.
-A raw single supply (`stock_in` absent or `"stock"`, with no stock components)
-uses the authored blank transformed into setup X/Y
-(`stock_extent_x_mm`/`stock_extent_y_mm`):
-`sum(abs(setup_axis[i])*stock_extent[i])`. Derived, component and joined routes
-use only an already-present successful kernel's setup-entry `stock_bbox_mm`,
-already in the setup frame, never the finished part or the raw supply.
-A missing, failed or malformed entry box leaves those extents unresolved;
-`headroom` never starts the kernel. Per axis, `travel_checks` requires
-`max(stock_extent, fixture_extent) <= machine_travel`; no separate radial tip
-envelope is computed. Inch inventory lengths convert explicitly by 25.4.
+being invented collision errors.
+
+The stock each setup receives (`stock_extent_x_mm`/`stock_extent_y_mm`, evidence
+only) is an already-present successful kernel's setup-entry `stock_bbox_mm`,
+already in the setup frame, for every stock form: a raw box or round bar, a
+profiled or prepared blank, a component, a joined pair or an earlier setup's
+output. Without that box, a raw single supply (`stock_in` absent or `"stock"`,
+with no stock components or profiled blank) is the authored blank placed as the
+kernel places it: `length_mm` along the stock's own `axis`, a box's `section_mm`
+along `section_axis` then `axis × section_axis`, a round bar's `dia_mm` across
+its axis. An undeclared `axis`/`section_axis` leaves it unknown; the bar is never
+assumed to lie along model X ([#297](https://github.com/pedropaulovc/prechips/issues/297)).
+Other routes without the entry box stay unresolved, never the finished part or
+the raw supply; `headroom` never starts the kernel.
+
+Per axis, `travel_checks` is the [`travel`](#m5-measured-inventory-screens)
+rule's own cutter-centre span for the setup (`required_mm`) against the measured
+travel, with the entry stock as `part_mm`: what the table must reach, never the
+fixture's footprint, so a vise or sub-plate wider than an axis's travel is not an
+error. The traveler's CLEARANCE `X/Y travel: needs … (basis)` prints that span
+with the basis that set it: `cutter-centre path` (an op's printed path, which is its
+X/Y motion, approach and exit included), `declared cut extent` (feature bounds or
+centres, the cutter radius on a profile) or both. A broad cut sized only by its
+stock span is only a lower bound and prints no stroke: `X travel: ? not computed —
+the cut's X/Y extent, with the cutter's approach and exit, is not declared.` An axis
+with no motion (every op at one X/Y position) prints no travel line. An unresolved span is `?`; a span
+whose (lower bound) exceeds the measured travel is an error on both rows. No
+separate radial tip envelope is computed.
+
+The fixture's size does not enter travel; a fixture-on-table check is
+[#349](https://github.com/pedropaulovc/prechips/issues/349). Inch inventory lengths
+convert explicitly by 25.4.
 Unverified dimensions cannot establish a verified stack/travel pass or measured
 clearance violation.
 
@@ -348,10 +369,10 @@ Templates:
 - `{setup}: lathe swing, chuck body or between-centres length remains unmeasured or unresolved.`
 - `{setup}: stock and chuck fit the measured swing and between-centres length.`
 - `{setup}: headroom, travel or jaw-path geometry remains unmeasured or unresolved.`
-- `{setup}: measured spindle stack and part/fixture travels fit.`
+- `{setup}: measured spindle stack and setup-entry stock travels fit.`
 - `{setup}: {violations}.`, joining `supported stock height is not positive`,
   `op {n} exceeds spindle clearance by {overrun:g} mm`, and
-  `part/fixture envelope exceeds {X|Y} travel`.
+  `cutter-centre span exceeds {X|Y} travel`.
 
 Evidence: per-op stacks, projection, OAL, gauge length, margin/verification,
 `stock_height_mm`, stock/support dimensions, maximum full stack, jaw obstruction,
@@ -373,7 +394,7 @@ lathe operation is never asked for a fictitious toolpost gauge length.
 | Rule / subject | Inputs and tier | Sheet sentence |
 |---|---|---|
 | `envelope` / setup | M5: authored stock and setup stock-state/frame; already-present successful kernel bbox only; fixture bed height plus parallels/supports; measured holder gauge and tool/holder projection; each operation's authored `approach_mm` and commanded Z band; measured spindle-to-table min/max | `S1: op 10 … exceeds spindle-to-table maximum … mm by … mm.` or `? S1: spindle envelope remains unmeasured or unresolved — ? M1`, linked to the named input and full action in that setup's STOP box. |
-| `travel` / setup | M5: transformed operation feature extents/centres or conservative authored stock span; selected cutter radius for profile extents only; commanded tip targets and advanced hole entry/exit; authored `approach_mm`; per-op holder gauge and projection; measured X/Y/Z travel | `S1: … exceeds measured X travel …` or a `?` naming the usable axis travel, feature extent, holder/tool length or safe approach to measure and author. |
+| `travel` / setup | M5: transformed operation feature extents/centres, printed cutter-centre paths, or conservative setup-entry stock span; selected cutter radius for profile extents only; commanded tip targets and advanced hole entry/exit; authored `approach_mm`; per-op holder gauge and projection; measured X/Y/Z travel | `S1: … exceeds measured X travel …` or a `?` naming the usable axis travel, feature extent, holder/tool length or safe approach to measure and author. |
 
 Child `counterbore` and other point operations with no `at` inherit the named
 `parent` (or `hole`) location in that source frame. An explicit child `at` wins,
@@ -420,7 +441,20 @@ the rough stage the coordinates rule prints with it; a finish without a contour
 cuts at the line. An unknown leave a rough stage needs is debt; a negative leave
 on any operation is an error (it would cut into the finished part).
 Broad face/profile/pocket operations without complete extents use a
-conservative stock-span screen without inventing a stock origin. Z is the
+conservative stock-span screen without inventing a stock origin: the setup-entry
+stock `headroom` reads (the kernel's entry box, else a raw blank placed by its
+own `axis`/`section_axis`); a routed stock without that box is unknown, never the
+raw blank. That stock span is only a lower bound: the cutter's approach and exit
+past the stock are undeclared plan input, so the axis stays unknown (an exceeded lower
+bound still errors) with an `author:` debt naming the op's `feature.bounds`. An
+operation whose cutter-centre XY the traveler prints (`coordinates`' arc rows, join
+lines, linear-table outlines and face raster passes, `printed_xy_bounds_mm`) is that
+printed path, approach and exit included, instead of its declared extent; the path
+is placed by the cutter's diameter, so it completes the axis only when that diameter
+is a verified measurement (otherwise it is a lower bound with the diameter's
+`measure:` debt). Each X/Y
+check names its `basis`: `cutter-centre path`, `declared cut extent`, both, or
+`stock span`. Z is the
 union of each operation's **spindle-nose** positions, `tip + holder gauge +
 tool projection`, not the cutter-tip span: a long facing tool and a short
 pocketing tool in one setup need the stroke between their nose extremes, and

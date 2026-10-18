@@ -31,8 +31,10 @@ from fractions import Fraction
 
 from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact, measurement_entry
-from prechips.model import profiled
 from prechips.rules._bench import manual_bench, not_applicable
+from prechips.rules._envelope import entry_stock
+from prechips.rules.coordinates import printed_xy
+from prechips.rules.geometry_common import rule_rows
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -114,74 +116,6 @@ def _length(bundle, item, field, slot, reference, debts):
     return length_mm(item, field)
 
 
-def _entry_stock(bundle, setup, frame):
-    """Setup-frame X/Y extents of the stock this setup receives, never the finished part.
-
-    Only a raw single bar supply (no stock components or profiled blank; ``stock_in``
-    absent or ``"stock"``) keeps the authored blank's box.  A profiled blank, or any
-    derived or component route (``stock_in`` naming
-    an earlier setup, a ``stock.<component>`` or a joined pair) exists only as the
-    already-present successful kernel's setup-entry ``stock_bbox_mm``, in this setup's
-    frame: earlier cuts can shrink it inside a blank that would not fit.  Without that
-    box the extent stays unknown debt; this rule never starts the kernel.
-    """
-    components = _mapping(bundle.plan.get("stock")).get("components")
-    # A profiled blank has no authored box: only the kernel's entry stock sizes it.
-    if (
-        setup.get("stock_in", "stock") == "stock"
-        and not (isinstance(components, list) and components)
-        and not profiled(_mapping(bundle.plan.get("stock")))
-    ):
-        stock = _mapping(bundle.plan.get("stock"))
-        section = stock.get("section_mm", [])
-        stock_x, stock_y = (
-            stock.get("length_mm", _UNKNOWN),
-            section[0] if isinstance(section, list) and section else _UNKNOWN,
-        )
-        axes = [frame.get("x"), frame.get("y")]
-        extents = [
-            stock_x,
-            stock_y,
-            section[1] if isinstance(section, list) and len(section) > 1 else _UNKNOWN,
-        ]
-        # Transform the stock box dimensions into the actual setup frame.
-        if all(_numeric(value) for value in extents) and all(
-            isinstance(axis, list) and len(axis) == 3 and all(_numeric(value) for value in axis)
-            for axis in axes
-        ):
-            stock_x, stock_y = [sum(abs(axis[i]) * extents[i] for i in range(3)) for axis in axes]
-        # Unchanged legacy evidence: the authored blank adds no route fields or cites.
-        return {"x": stock_x, "y": stock_y, "cite": []}
-    sid = setup["id"]
-    result = {
-        "x": _UNKNOWN,
-        "y": _UNKNOWN,
-        "stock_entry_basis": "kernel setup-entry stock",
-        "cite": [f"kernel.setups.{sid}.stock_bbox_mm: setup-entry stock in the setup frame"],
-    }
-    facts = _mapping(getattr(bundle, "kernel", None))
-    if facts.get("status") != "ok":
-        result["kernel_status"] = facts.get("status", _UNKNOWN)
-        if facts.get("kernel_unavailable") is True:
-            result["kernel_unavailable"] = True
-        result["stock_entry_reason"] = facts.get(
-            "reason", "FreeCAD geometry facts are unavailable."
-        )
-        return result
-    detail = _mapping(_mapping(facts.get("setups")).get(sid))
-    bbox = detail.get("stock_bbox_mm")
-    if isinstance(bbox, list) and len(bbox) == 6 and all(_numeric(value) for value in bbox):
-        result.update(x=bbox[3] - bbox[0], y=bbox[4] - bbox[1], stock_entry_bbox_mm=bbox)
-    else:
-        result["stock_entry_reason"] = (
-            detail.get("assembly_error")
-            or detail.get("stock_reason")
-            or detail.get("reason")
-            or "the kernel derived no setup-entry stock"
-        )
-    return result
-
-
 # The tip-near-jaw-top crash zone the traveler boxes (sheet ``_CRASH_ZONE_MM``).
 CRASH_ZONE_MM = 3.0
 
@@ -215,36 +149,18 @@ def _setup_coordinates(bundle, setup, memo):
     from .coordinates import evaluate as coordinates
 
     if not memo:
-        memo.update({row.subject: row.numbers for row in coordinates(bundle)})
+        memo.update(
+            {row.subject: row.numbers for row in rule_rows(bundle, "coordinates", coordinates)}
+        )
     return _mapping(memo.get(setup["id"]))
-
-
-def _printed_xy(coordinates, op):
-    """Every cutter-centre XY the traveler prints for ``op`` (its setup's coordinates
-    numbers: arc rows, join lines and linear_table outlines/raster passes, as the kernel
-    clipped them), or None when it prints none or any is unknown."""
-    points = []
-    for arc in coordinates.get("arc_table", []):
-        if arc.get("op") == op:
-            points += [row.get("dro_xy") for row in arc.get("rows", [])]
-    for line in coordinates.get("line_table", []):
-        if line.get("op") == op:
-            points += list(line.get("dro_xy") or [])
-    for profile in coordinates.get("profiles", []):
-        path = profile.get("cutter_centre")
-        linear = _mapping(profile.get("contour")).get("method") == "linear_table"
-        if profile.get("op") == op and linear and isinstance(path, list):
-            points += [p for item in path for p in (item if isinstance(item[0], list) else [item])]
-    known = all(isinstance(p, list) and len(p) == 2 and all(_numeric(v) for v in p) for p in points)
-    return points if points and known else None
 
 
 def _span(op, coordinates, axis, angle=0.0):
     """[low, high] of ``op``'s cutter-centre sweep along ``axis`` (0 = X, 1 = Y) of the
     jaw frame (the setup frame turned by the swivel ``angle``): its printed cutter-centre
-    path (:func:`_printed_xy`), else its stock_removal_bounds (under a swivel, the turned
+    path (:func:`coordinates.printed_xy`), else its stock_removal_bounds (under a swivel, the turned
     corners of that box, which bound the sweep)."""
-    printed = _printed_xy(coordinates, op["op"])
+    printed = printed_xy(coordinates, op["op"])
     bounds = _mapping(op.get("stock_removal_bounds"))
     if not printed and angle:
         x, y = bounds.get("x"), bounds.get("y")
@@ -302,7 +218,10 @@ def _clear_of_jaws(bundle, setup, op, faces, coordinates, debts):
 
 
 def evaluate(bundle):
+    from . import travel
+
     findings, coordinates = [], {}
+    travel_rows = {row.subject: row.numbers for row in rule_rows(bundle, "travel", travel.evaluate)}
     for setup in bundle.plan["setups"]:
         bench = manual_bench(bundle, setup)
         if bench is not None:
@@ -527,41 +446,31 @@ def evaluate(bundle):
         # require geometry. Report separately without pretending the stack fails.
         unknown |= any(value < 0 for value in cuts.values())
         frame = setup_frame(bundle, setup)
-        entry = _entry_stock(bundle, setup, frame)
+        entry = entry_stock(bundle, setup, frame)
         stock_x, stock_y = entry.pop("x"), entry.pop("y")
         cite.extend(entry.pop("cite"))
         numbers.update(entry)
         numbers.update({"stock_extent_x_mm": stock_x, "stock_extent_y_mm": stock_y})
+        # Travel is what the table must reach: the cutter-centre span the travel rule
+        # judges (printed paths included), never the fixture's footprint (#297). The
+        # setup-entry stock is evidence only (``part_mm``).
+        span = _mapping(_mapping(travel_rows.get(setup["id"])).get("travel_checks"))
         travels = {}
-        for axis, extent in (("x", stock_x), ("y", stock_y)):
+        for axis, extent in (("x", stock_x), ("y", stock_y)) if span else ():
             travel = _limit(machine, machine_ref, f"envelope.travel.{axis}", debts, cite)
-            fixture_extent = _length(
-                bundle,
-                fixture,
-                "length" if axis == "x" else "width",
-                "workholding",
-                fixture_ref,
-                consumed,
-            )
-            required = (
-                max(extent, fixture_extent)
-                if _numeric(extent) and _numeric(fixture_extent)
-                else _UNKNOWN
-            )
+            check = _mapping(span.get(axis))
+            required = check.get("required_mm", _UNKNOWN)
             travels[axis] = {
                 "travel_mm": travel["value"],
                 "part_mm": extent,
-                "fixture_mm": fixture_extent,
                 "required_mm": required,
+                "minimum_required_mm": check.get("minimum_required_mm", _UNKNOWN),
+                "basis": check.get("basis", _UNKNOWN),
             }
             unknown |= not _numeric(required) or not travel["verified"]
-            if (
-                travel["verified"]
-                and not uncertain(fixture)
-                and _numeric(required)
-                and required > travel["value"]
-            ):
-                errors.append(f"part/fixture envelope exceeds {axis.upper()} travel")
+            lower = check.get("lower_bound_margin_mm")
+            if travel["verified"] and _numeric(lower) and lower < 0:
+                errors.append(f"cutter-centre span exceeds {axis.upper()} travel")
         numbers["travel_checks"] = travels
         # A guided sweep moves its fixture under the spindle: the stack and clearance
         # judged at the setup pose do not cover every pose, so it is never a pass (#255).
@@ -589,7 +498,7 @@ def evaluate(bundle):
                     + swept
                 )
                 if unknown or swept
-                else "measured spindle stack and part/fixture travels fit"
+                else "measured spindle stack and setup-entry stock travels fit"
             )
             + "."
         )

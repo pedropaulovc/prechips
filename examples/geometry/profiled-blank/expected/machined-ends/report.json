@@ -1095,13 +1095,15 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
-            "fixture_mm": "unknown",
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 61.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
-            "fixture_mm": "unknown",
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 17.838015,
             "required_mm": "unknown",
             "travel_mm": "unknown"
@@ -1850,6 +1852,7 @@
         "examples/geometry/author_solids.py: STRAP length (synthetic test specification)",
         "features.frames.model",
         "inventory.tools.em-8-std.dia",
+        "kernel.setups.S1.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collet-8mm.gauge_len",
@@ -2004,7 +2007,7 @@
           {
             "approach_mm": "unknown",
             "conservative_stock_spans_mm": {
-              "x": 60.0,
+              "x": 61.0,
               "y": 17.838015,
               "z": 2.5
             },
@@ -2015,6 +2018,7 @@
             "holder": "r8-collet-8mm",
             "holder_gauge_len_mm": 60.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -2037,7 +2041,7 @@
           {
             "approach_mm": "unknown",
             "conservative_stock_spans_mm": {
-              "x": 60.0,
+              "x": 61.0,
               "y": 17.838015,
               "z": 2.5
             },
@@ -2048,6 +2052,7 @@
             "holder": "r8-collet-8mm",
             "holder_gauge_len_mm": 60.0,
             "op": 20,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -2070,6 +2075,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2080,6 +2086,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2090,6 +2097,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2227,7 +2235,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "8a382dceb4a6bdca1aa990ecfbd60149e1d42aaeb6609520654a8c1cf7783cda",
+  "hash": "81f826139ac0311065502640c06943ea62828fe660cb56aaac102453156a1156",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

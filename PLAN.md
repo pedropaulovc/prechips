@@ -656,7 +656,7 @@ not exist.
 | coordinates: feature centre → setup frame → cutter centre (tool radius for profiles; rough and finish offsets both; manual-arc tables for `contour.method` `stairs`/`chain_drill`/`chords`/`rotary_table`/`guided_sweep`, docs/plan.md Manual arcs) | features.at/frames, plan.setups.frame, plan.ops.contour, inventory.tools.dia, policy.numbers.max_filing_stock_mm | M1 | silent when right; prints sheet 3a |
 | inspection per requirement: every entry in a feature's `requirements` that is a tolerance (any `*_dia`, `dia`, `finish_ra`, `depth`, `coaxiality_dia` — every requirement that carries a band, not a fixed list) has a `checks.<requirement>` (or, on a multi-feature inspect op, a feature-scoped `checks.<feature>.<requirement>`) on the op that finishes it, and the named gauge exists and spans the band (a radius band `[0, r]` is an R MAX limit check: a radius/profile gauge leaf at r) | features.requirements, plan.ops.checks, inventory.gauges | M1 | "Rod hole position Ø0.20 has no check; the 2.00 pin proves size only." |
 | hold fields complete: fixed jaw, stop, grip, clamp, coolant, deburr, direction per cutting op, holder per op, stock state per setup | plan.setups.hold/coolant/deburr_mm/stock_state, plan.ops.direction/holder | M1 | "S3 does not say which jaw is fixed." |
-| headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; part + fixture ≤ travel | inventory (vise bed height and jaw height, parallels, tool OAL/projection, holder gauge length, `machine.envelope` max and X/Y travel — unmeasured → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
+| headroom: bed-to-table height + parallels + stock height (`top_z − bottom_z` of the supported stock, never a coordinate) + tool projection + holder gauge length + 25 mm insertion ≤ spindle-to-table at full quill retract; jaw height is a separate obstruction check against the tool path, not a layer in the stack; the `travel` rule's cutter-centre span (printed paths included) ≤ travel (#297; a fixture-on-table check is #349) | inventory (vise bed height and jaw height, parallels, tool OAL/projection, holder gauge length, `machine.envelope` max and X/Y travel — unmeasured → `?`), plan.stock_state, plan.stock section | M1 | "Vise bed height not measured." |
 | envelope: per-op spindle-nose stack `bed height + parallels/supports + physical stock height + holder gauge + tool projection`, raised by the op's highest commanded Z above the stock top (authored approach) against measured spindle-to-table max, lowered to its deepest floor against measured min; optional successful already-present STEP bbox, otherwise authored stock/state extents | plan.stock/stock_state/setup frame, plan.ops approach/targets/depth, inventory fixture bed height + parallels/supports, measured holder gauge and tool/holder projection (or OAL − grip), machine.envelope max/min | M5 | "? measure: PM-30MV spindle nose to table at full Z-down, steel rule, mm"; measured over-tall stack or unreachable floor is a stop |
 | travel: union of operation feature extents/centres (hole centres unpadded; cutter radius only on outside-profile extents), commanded tip targets and explicit safe approach fits measured X/Y travel; Z unions per-op spindle-nose positions `tip + gauge + projection` against measured Z travel | features bounds/at/frame, plan stock/op target/depth/exit/approach_mm, inventory selected tool radius, holder gauge, tool projection and machine.envelope travel | M5 | "? measure: PM-30MV usable X travel between safe stops, steel rule, mm"; measured overtravel is a stop |
 | datum consistency: a feature toleranced to a datum cut in another setup needs tolerance ≥ `refixture_budget_mm` or a `transfer` indicating that datum | features.position_datums, plan.setups (which op cuts which feature), policy.numbers | M1 | "Rod hole is Ø0.20 to A but S2 re-chucks without indicating the bore; budget 0.05." |
@@ -1498,6 +1498,24 @@ sheet.
    chuck side, so it still prepares no end face. A part-off leaves one piece,
    so a `keep` after it has only that piece to keep. No shipped example parts
    onto an end face, so no example report or traveler changed.
+
+   **Headroom travel judges reach, not fixture size (2026-10-17, #297):**
+   `headroom`'s per-axis travel screen is the `travel` rule's own cutter-centre
+   span, so a vise wider than the travel (a PM 6 in vise's 290 mm base on a
+   222.25 mm Y travel) is no longer an error. An op whose cutter-centre path the
+   traveler prints is that path (approach and exit included, once its cutter's
+   diameter is measured), else its declared extent; a broad cut sized only by its
+   stock span is a lower bound, `?` with plan-input debt. Broad cuts sweep the
+   setup-entry stock: the kernel's entry box for every stock form, else a raw
+   blank placed by its own `axis`/`section_axis`, never assumed along model X
+   (sharp-corner S1 21/60 → 60/40). The traveler's CLEARANCE travel lines print
+   the span with the basis that set it and omit an axis with no motion. No
+   finding status, exit or setup picture changed. A fixture-on-table check is
+   design-first issue #349. The paired blind machinist review tracks the printed
+   change (#313). The duplex script now reserves a box's own bottom padding and
+   border while it walks the box's children: a last child that fit only without
+   them pushed the box onto a page the count never saw (fixture-holds once printed
+   39 pages with setups on backs).
 
    Geometry checks and rasterized pictures use **setup-entry stock** selected
    explicitly by `stock_in`: `"stock"` for one supply, `"stock.<id>"` for a

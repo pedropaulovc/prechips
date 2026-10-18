@@ -22,7 +22,13 @@ def measured(value):
 def bundle():
     data = SimpleNamespace(
         plan={
-            "stock": {"length_mm": 100, "section_mm": [30, 16]},
+            "stock": {
+                "length_mm": 100,
+                "section_mm": [30, 16],
+                "origin_mm": [0, 0, 0],
+                "axis": [1, 0, 0],
+                "section_axis": [0, 1, 0],
+            },
             "setups": [
                 {
                     "id": "S1",
@@ -72,7 +78,18 @@ def bundle():
             "tools": {"cutter": {"kind": "endmill", "oal_mm": 80}},
             "holders": {"holder": {"kind": "collet", "gauge_len_mm": 30, "grip_mm": 25}},
         },
-        features={"frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}}, "features": {}},
+        features={
+            "units": "mm",
+            "frames": {"A": {"origin": [0, 0, 0], "x": [1, 0, 0], "y": [0, 1, 0], "z": [0, 0, 1]}},
+            # The faced top's declared extent: the cut's X/Y the table must reach.
+            "features": {
+                "top": {
+                    "kind": "face",
+                    "frame": "A",
+                    "bounds": {"x": [0, 100], "y": [0, 30], "z": [-1, 0]},
+                }
+            },
+        },
         policy={},
         cutting_data={},
     )
@@ -267,7 +284,7 @@ def test_measured_envelope_limits_govern_over_conflicting_legacy_machine_fields(
     assert finding.numbers["spindle_to_table_max_mm"] == 180
     assert finding.numbers["stacks"][0]["margin_mm"] == pytest.approx(-1.4)
     assert finding.numbers["travel_checks"]["x"]["travel_mm"] == 140
-    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 150
+    assert finding.numbers["travel_checks"]["x"]["required_mm"] == 100
     assert finding.numbers["measurements"] == []
 
 
@@ -417,22 +434,64 @@ def test_dividing_head_unresolved_work_top_neither_passes_nor_errors(gap, limit)
         assert finding.numbers["sum_mm"] == "unknown"
 
 
-def test_machine_hosted_dividing_head_is_the_fixture_in_stack_and_travel():
+def test_machine_hosted_dividing_head_is_the_fixture_in_stack_not_in_travel():
+    # A 450 mm head against 400 mm X travel is no travel error: travel bounds what the
+    # spindle reaches, not the fixture's size (#297; the table check is #349).
     data = head_bundle()
     data.inventory["machines"]["head"]["length_mm"] = 450
     finding = evaluate(data)[0]
     assert finding.numbers["fixture_verify"] is False
     assert finding.numbers["sum_mm"] == pytest.approx(214)
-    assert finding.numbers["travel_checks"]["x"]["fixture_mm"] == 450
-    assert finding.status == "error"
+    assert "fixture_mm" not in finding.numbers["travel_checks"]["x"]
+    assert finding.status == "pass"
 
 
 def test_part_and_fixture_envelope_must_fit_travel():
     data = bundle()
+    data.plan["stock"]["length_mm"] = 150
+    data.features["features"]["top"]["bounds"]["x"] = [0, 150]
     data.inventory["machines"]["mill"]["envelope"]["travel_mm"]["x"] = measured(140)
     finding = evaluate(data)[0]
     assert finding.status == "error"
     assert finding.numbers["travel_checks"]["x"]["required_mm"] == 150
+    assert "cutter-centre span exceeds X travel" in finding.sentence
+
+
+def pm30_bundle(vise_width_mm):
+    """#297's repro: a PM 6 in vise on a PM-30MV (Y travel 8.75 in) holding a 100 x 30 part."""
+    data = bundle()
+    data.inventory["machines"]["mill"]["envelope"]["travel_mm"] = {
+        "x": measured(584.2),
+        "y": measured(222.25),
+    }
+    data.inventory["fixtures"]["vise"].update(length_mm=488, width_mm=vise_width_mm)
+    return data
+
+
+@pytest.mark.parametrize("vise_width_mm", [200, 290])
+def test_a_fixture_wider_than_travel_is_no_travel_error(vise_width_mm):
+    data = pm30_bundle(vise_width_mm)
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["travel_checks"]["y"]["required_mm"] == 30
+
+
+def test_stock_beyond_travel_errors_while_the_fixture_fits():
+    data = pm30_bundle(200)
+    data.plan["stock"]["section_mm"] = [240, 16]
+    data.features["features"]["top"]["bounds"]["y"] = [0, 240]
+    finding = evaluate(data)[0]
+    assert finding.status == "error"
+    assert finding.numbers["travel_checks"]["y"]["required_mm"] == 240
+    assert "cutter-centre span exceeds Y travel" in finding.sentence
+
+
+def test_an_unverified_fixture_size_does_not_touch_headroom():
+    # Travel no longer reads the fixture's length or width (#297).
+    data = bundle()
+    data.inventory["fixtures"]["vise"]["width_mm"] = "unknown"
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
 
 
 def test_block_orientation_unknown_does_not_guess_shortest_dimension():
@@ -467,7 +526,9 @@ def test_inch_envelope_and_holder_dimensions_convert_once():
 def test_structural_unknown_cannot_certify_physical_envelope(section):
     data = bundle()
     if section == "stock":
+        # A broad cut sized only by the stock: an unknown stock leaves its reach unknown.
         data.plan["stock"] = "unknown"
+        del data.features["features"]["top"]["bounds"]
     elif section in {"hold", "stock_state"}:
         data.plan["setups"][0][section] = "unknown"
     elif section == "envelope":

@@ -1160,6 +1160,7 @@
         "inventory: machine, fixture, support, tool and holder dimensions",
         "plan: stock state and setup frame",
         "inventory.machines.test-mill.envelope.spindle_to_table_max",
+        "kernel.setups.S1.stock_bbox_mm: setup-entry stock in the setup frame",
         "inventory.machines.test-mill.envelope.travel.x",
         "inventory.machines.test-mill.envelope.travel.y"
       ],
@@ -1190,36 +1191,6 @@
             "id": "fixtures.test-vise.bed_height",
             "identity": "test-vise",
             "instruction": "measure: test-vise table to vise bed supporting the parallels or part, height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "inventory.fixtures.test-vise.length"
-            ],
-            "field": [
-              "length"
-            ],
-            "id": "fixtures.test-vise.length",
-            "identity": "test-vise",
-            "instruction": "measure: test-vise overall fixture length along its local X axis, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "inventory.fixtures.test-vise.width"
-            ],
-            "field": [
-              "width"
-            ],
-            "id": "fixtures.test-vise.width",
-            "identity": "test-vise",
-            "instruction": "measure: test-vise overall fixture width along its local Y axis, steel rule or calipers, mm",
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
@@ -1286,8 +1257,17 @@
           }
         ],
         "stock_bottom_z": 0.0,
-        "stock_extent_x_mm": 20.0,
-        "stock_extent_y_mm": "unknown",
+        "stock_entry_basis": "kernel setup-entry stock",
+        "stock_entry_bbox_mm": [
+          -15.0,
+          -15.0,
+          0.0,
+          15.0,
+          15.0,
+          20.0
+        ],
+        "stock_extent_x_mm": 30.0,
+        "stock_extent_y_mm": 30.0,
         "stock_height_mm": 20.0,
         "stock_top_above_jaws_mm": 10.0,
         "stock_top_z": 20.0,
@@ -1296,14 +1276,16 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
-            "fixture_mm": "unknown",
-            "part_mm": 20.0,
+            "basis": "stock span",
+            "minimum_required_mm": 30.0,
+            "part_mm": 30.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
-            "fixture_mm": "unknown",
-            "part_mm": "unknown",
+            "basis": "stock span",
+            "minimum_required_mm": 30.0,
+            "part_mm": 30.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           }
@@ -1348,36 +1330,6 @@
             "id": "fixtures.test-tapped-plate.bed_height",
             "identity": "test-tapped-plate",
             "instruction": "measure: test-tapped-plate drawing support height; check as made: table to work-support contact surface, calipers or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "inventory.fixtures.test-tapped-plate.length"
-            ],
-            "field": [
-              "length"
-            ],
-            "id": "fixtures.test-tapped-plate.length",
-            "identity": "test-tapped-plate",
-            "instruction": "measure: test-tapped-plate drawing length; check as made: overall fixture length along its local X axis, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "inventory.fixtures.test-tapped-plate.width"
-            ],
-            "field": [
-              "width"
-            ],
-            "id": "fixtures.test-tapped-plate.width",
-            "identity": "test-tapped-plate",
-            "instruction": "measure: test-tapped-plate drawing width; check as made: overall fixture width along its local Y axis, steel rule or calipers, mm",
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
@@ -1463,13 +1415,15 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
-            "fixture_mm": "unknown",
+            "basis": "stock span",
+            "minimum_required_mm": 30.0,
             "part_mm": 30.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
-            "fixture_mm": "unknown",
+            "basis": "stock span",
+            "minimum_required_mm": 30.0,
             "part_mm": 30.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
@@ -1520,36 +1474,6 @@
             "units": "mm"
           },
           {
-            "category": "fixtures",
-            "cite": [
-              "inventory.fixtures.test-tapped-plate.length"
-            ],
-            "field": [
-              "length"
-            ],
-            "id": "fixtures.test-tapped-plate.length",
-            "identity": "test-tapped-plate",
-            "instruction": "measure: test-tapped-plate drawing length; check as made: overall fixture length along its local X axis, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "inventory.fixtures.test-tapped-plate.width"
-            ],
-            "field": [
-              "width"
-            ],
-            "id": "fixtures.test-tapped-plate.width",
-            "identity": "test-tapped-plate",
-            "instruction": "measure: test-tapped-plate drawing width; check as made: overall fixture width along its local Y axis, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
             "category": "machines",
             "cite": [
               "inventory.machines.test-mill.envelope.spindle_to_table_max"
@@ -1630,13 +1554,15 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
-            "fixture_mm": "unknown",
+            "basis": "stock span",
+            "minimum_required_mm": 30.0,
             "part_mm": 30.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
-            "fixture_mm": "unknown",
+            "basis": "stock span",
+            "minimum_required_mm": 30.0,
             "part_mm": 30.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
@@ -2648,6 +2574,7 @@
         "features.features.top.bounds/at",
         "examples/geometry/author_solids.py: fixture_puck (synthetic test specification)",
         "features.frames.model",
+        "kernel.setups.S1.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collet-8mm.gauge_len",
@@ -2660,7 +2587,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S1: declared operation travel remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
+      "message": "S1: declared operation travel remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Author plan.setups.S1.ops.10 feature.bounds x/y in its declared frame (or a contour the traveler prints as a cutter-centre path): the stock span is only a lower bound and does not include the cutter's approach and exit; author: Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
       "numbers": {
         "measurements": [
           {
@@ -2732,6 +2659,14 @@
             "id": "machines.test-mill.envelope.travel.z",
             "identity": "test-mill",
             "instruction": "measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "features.features.top.bounds; plan.setups.S1.ops"
+            ],
+            "id": "plan.setups.S1.ops.10.xy_geometry",
+            "instruction": "author: Author plan.setups.S1.ops.10 feature.bounds x/y in its declared frame (or a contour the traveler prints as a cutter-centre path): the stock span is only a lower bound and does not include the cutter's approach and exit",
             "units": "mm"
           },
           {
@@ -2771,6 +2706,7 @@
             "holder": "r8-collet-8mm",
             "holder_gauge_len_mm": 60.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               20.0,
@@ -2793,26 +2729,29 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
             "minimum_required_mm": 30.0,
-            "required_mm": 30.0,
-            "required_verified": true,
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
           "y": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
             "minimum_required_mm": 30.0,
-            "required_mm": 30.0,
-            "required_verified": true,
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2837,6 +2776,7 @@
         "features.features.top.bounds/at",
         "examples/geometry/author_solids.py: fixture_puck (synthetic test specification)",
         "features.frames.model",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collet-8mm.gauge_len",
@@ -2849,7 +2789,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S2: declared operation travel remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
+      "message": "S2: declared operation travel remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Author plan.setups.S2.ops.10 feature.bounds x/y in its declared frame (or a contour the traveler prints as a cutter-centre path): the stock span is only a lower bound and does not include the cutter's approach and exit; author: Author plan.setups.S2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
       "numbers": {
         "measurements": [
           {
@@ -2921,6 +2861,14 @@
             "id": "machines.test-mill.envelope.travel.z",
             "identity": "test-mill",
             "instruction": "measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm",
+            "units": "mm"
+          },
+          {
+            "cite": [
+              "features.features.top.bounds; plan.setups.S2.ops"
+            ],
+            "id": "plan.setups.S2.ops.10.xy_geometry",
+            "instruction": "author: Author plan.setups.S2.ops.10 feature.bounds x/y in its declared frame (or a contour the traveler prints as a cutter-centre path): the stock span is only a lower bound and does not include the cutter's approach and exit",
             "units": "mm"
           },
           {
@@ -2960,6 +2908,7 @@
             "holder": "r8-collet-8mm",
             "holder_gauge_len_mm": 60.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               20.0,
@@ -2982,26 +2931,29 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
             "minimum_required_mm": 30.0,
-            "required_mm": 30.0,
-            "required_verified": true,
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
           "y": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
             "minimum_required_mm": 30.0,
-            "required_mm": 30.0,
-            "required_verified": true,
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -3026,6 +2978,7 @@
         "features.features.top.bounds/at",
         "examples/geometry/author_solids.py: fixture_puck (synthetic test specification)",
         "features.frames.model",
+        "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collet-8mm.gauge_len",
@@ -3038,7 +2991,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S3: declared operation travel remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
+      "message": "S3: declared operation travel remains unmeasured or unresolved. measure: r8-collet-8mm spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: r8-collet-8mm installed tool insertion from holder exit face, steel rule or calipers, mm; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Author plan.setups.S3.ops.10 feature.bounds x/y in its declared frame (or a contour the traveler prints as a cutter-centre path): the stock span is only a lower bound and does not include the cutter's approach and exit; author: Author plan.setups.S3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: em-8-std selected tool overall length, steel rule or calipers, mm.",
       "numbers": {
         "measurements": [
           {
@@ -3114,6 +3067,14 @@
           },
           {
             "cite": [
+              "features.features.top.bounds; plan.setups.S3.ops"
+            ],
+            "id": "plan.setups.S3.ops.10.xy_geometry",
+            "instruction": "author: Author plan.setups.S3.ops.10 feature.bounds x/y in its declared frame (or a contour the traveler prints as a cutter-centre path): the stock span is only a lower bound and does not include the cutter's approach and exit",
+            "units": "mm"
+          },
+          {
+            "cite": [
               "plan.setups.S3.ops.10"
             ],
             "id": "plan.setups.S3.ops.10.z_geometry",
@@ -3149,6 +3110,7 @@
             "holder": "r8-collet-8mm",
             "holder_gauge_len_mm": 60.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               20.0,
@@ -3171,26 +3133,29 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
             "minimum_required_mm": 30.0,
-            "required_mm": 30.0,
-            "required_verified": true,
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
           "y": {
+            "basis": "stock span",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
             "minimum_required_mm": 30.0,
-            "required_mm": 30.0,
-            "required_verified": true,
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -3433,7 +3398,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "addd461a73a4833cb2df081d2d376af58fb1317da511eec3db6fb8690033cc06",
+  "hash": "e98241a86bec7bcda3991c0c5cad4c327a43579b7e95672e783c49bc451fada8",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -204,11 +204,11 @@ def angle_band(bundle, name):
 
 def _reach(bundle, setup, op, memo):
     """The farthest the op's cut lies from the DRO zero in setup XY (mm), else UNKNOWN."""
-    from prechips.rules.coordinates import UNIT_MM
-    from prechips.rules.headroom import _printed_xy, _setup_coordinates
+    from prechips.rules.coordinates import UNIT_MM, printed_xy
+    from prechips.rules.headroom import _setup_coordinates
 
     scale = UNIT_MM.get(bundle.features.get("units"))
-    points = _printed_xy(_setup_coordinates(bundle, setup, memo), op["op"])
+    points = printed_xy(_setup_coordinates(bundle, setup, memo), op["op"])
     if points is None:
         bounds = record(op.get("stock_removal_bounds"))
         x, y = bounds.get("x"), bounds.get("y")

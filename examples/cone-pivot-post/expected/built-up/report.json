@@ -2893,7 +2893,7 @@
           },
           "inventory": {
             "path": "examples/inventory/pedro-shop.toml",
-            "sha256": "a8e328f3fed387b92b81160cd87e6e9d9532e8d70318c6b10c68b84c075bf1ed"
+            "sha256": "23f0e2fe88026065a154f27f3578924548355466acdd3e9a425e98e4ce8a7757"
           },
           "plan": {
             "path": "examples/cone-pivot-post/built-up.toml",
@@ -7756,7 +7756,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S11: measured spindle stack and part/fixture travels fit.",
+      "message": "S11: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": 73.3044,
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -7874,15 +7874,17 @@
         "tool_oal_mm": 158.8,
         "travel_checks": {
           "x": {
-            "fixture_mm": 419.09999999999997,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 71.45,
             "part_mm": 43.059977,
-            "required_mm": 419.09999999999997,
+            "required_mm": 71.45,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 177.79999999999998,
+            "basis": "cutter-centre path",
+            "minimum_required_mm": 52.4,
             "part_mm": 75.083932,
-            "required_mm": 177.79999999999998,
+            "required_mm": 52.4,
             "travel_mm": 222.25
           }
         }
@@ -7986,7 +7988,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S4: measured spindle stack and part/fixture travels fit.",
+      "message": "S4: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": "not_applicable",
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -8071,15 +8073,17 @@
         "tool_oal_mm": 150.0,
         "travel_checks": {
           "x": {
-            "fixture_mm": 160.0,
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 125.0,
-            "required_mm": 160.0,
+            "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 150.0,
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 44.45,
-            "required_mm": 150.0,
+            "required_mm": 0.0,
             "travel_mm": 222.25
           }
         },
@@ -8100,7 +8104,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S5: measured spindle stack and part/fixture travels fit.",
+      "message": "S5: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": "not_applicable",
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -8185,15 +8189,17 @@
         "tool_oal_mm": 150.0,
         "travel_checks": {
           "x": {
-            "fixture_mm": 160.0,
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 125.0,
-            "required_mm": 160.0,
+            "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 150.0,
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 44.45,
-            "required_mm": 150.0,
+            "required_mm": 0.0,
             "travel_mm": 222.25
           }
         },
@@ -8274,7 +8280,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S8: measured spindle stack and part/fixture travels fit.",
+      "message": "S8: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": "not_applicable",
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -8348,15 +8354,17 @@
         "tool_oal_mm": 177.8,
         "travel_checks": {
           "x": {
-            "fixture_mm": 160.0,
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 125.0,
-            "required_mm": 160.0,
+            "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 150.0,
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 44.45,
-            "required_mm": 150.0,
+            "required_mm": 0.0,
             "travel_mm": 222.25
           }
         },
@@ -8377,7 +8385,7 @@
         "inventory.machines.PM-30MV.envelope.travel.x",
         "inventory.machines.PM-30MV.envelope.travel.y"
       ],
-      "message": "S9: measured spindle stack and part/fixture travels fit.",
+      "message": "S9: measured spindle stack and setup-entry stock travels fit.",
       "numbers": {
         "bed_height_mm": "not_applicable",
         "clearance_basis": "measured spindle-to-table maximum and XY travel; nominal fixture, support, tool and holder geometry with verification flags as measurement debt",
@@ -8451,15 +8459,17 @@
         "tool_oal_mm": 177.8,
         "travel_checks": {
           "x": {
-            "fixture_mm": 160.0,
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 125.0,
-            "required_mm": 160.0,
+            "required_mm": 0.0,
             "travel_mm": 584.1999999999999
           },
           "y": {
-            "fixture_mm": 150.0,
+            "basis": "declared cut extent",
+            "minimum_required_mm": 0.0,
             "part_mm": 44.45,
-            "required_mm": 150.0,
+            "required_mm": 0.0,
             "travel_mm": 222.25
           }
         },
@@ -21122,6 +21132,8 @@
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10",
         "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395",
+        "coordinates.S11: printed cutter-centre path of op 10",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
         "plan.setups.S11.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -21199,6 +21211,16 @@
             "holder": "r8-collets-lms-4860/3-4in",
             "holder_gauge_len_mm": 6.0,
             "op": 10,
+            "printed_xy_bounds_mm": {
+              "x": [
+                -35.725,
+                35.725
+              ],
+              "y": [
+                -26.2,
+                26.2
+              ]
+            },
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               59.4,
@@ -21210,12 +21232,12 @@
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
               "x": [
-                -25.500239754836223,
-                25.500239754836223
+                -35.725,
+                35.725
               ],
               "y": [
-                -25.500239754836223,
-                25.500239754836223
+                -26.2,
+                26.2
               ]
             },
             "z_bounds_mm": [
@@ -21261,6 +21283,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 20,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               84.0,
@@ -21323,6 +21346,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 30,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               84.0,
@@ -21386,6 +21410,7 @@
             "holder": "r8-collets-cone/9-32in",
             "holder_gauge_len_mm": 6.0,
             "op": 40,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -4.146214045104543,
@@ -21449,6 +21474,7 @@
             "holder": "r8-collets-cone/9-32in",
             "holder_gauge_len_mm": 6.0,
             "op": 50,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -4.146214045104543,
@@ -21513,6 +21539,7 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 60,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               79.9802,
@@ -21577,6 +21604,7 @@
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
             "op": 70,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               79.9802,
@@ -21605,26 +21633,29 @@
         ],
         "travel_checks": {
           "x": {
-            "located_span_mm": 51.000479509672445,
-            "lower_bound_margin_mm": 533.1995204903275,
-            "margin_mm": 533.1995204903275,
-            "minimum_required_mm": 51.000479509672445,
-            "required_mm": 51.000479509672445,
+            "basis": "cutter-centre path",
+            "located_span_mm": 71.45,
+            "lower_bound_margin_mm": 512.7499999999999,
+            "margin_mm": 512.7499999999999,
+            "minimum_required_mm": 71.45,
+            "required_mm": 71.45,
             "required_verified": true,
             "travel_mm": 584.1999999999999,
             "travel_verified": true
           },
           "y": {
-            "located_span_mm": 51.000479509672445,
-            "lower_bound_margin_mm": 171.24952049032754,
-            "margin_mm": 171.24952049032754,
-            "minimum_required_mm": 51.000479509672445,
-            "required_mm": 51.000479509672445,
+            "basis": "cutter-centre path",
+            "located_span_mm": 52.4,
+            "lower_bound_margin_mm": 169.85,
+            "margin_mm": 169.85,
+            "minimum_required_mm": 52.4,
+            "required_mm": 52.4,
             "required_verified": true,
             "travel_mm": 222.25,
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 107.6,
             "lower_bound_margin_mm": 247.99999999999997,
             "margin_mm": 247.99999999999997,
@@ -21704,6 +21735,7 @@
         "operations": [],
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -21714,6 +21746,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -21724,6 +21757,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -21845,6 +21879,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -21.3753,
@@ -21908,6 +21943,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 20,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -25.638531814471882,
@@ -21971,6 +22007,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 30,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -28.84938074740041,
@@ -22034,6 +22071,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 40,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -23.8,
@@ -22062,6 +22100,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 584.1999999999999,
             "margin_mm": 584.1999999999999,
@@ -22072,6 +22111,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 222.25,
             "margin_mm": 222.25,
@@ -22082,6 +22122,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 140.6003,
             "lower_bound_margin_mm": 214.99969999999996,
             "margin_mm": 214.99969999999996,
@@ -22178,6 +22219,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -21.0055,
@@ -22241,6 +22283,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 20,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -24.86303181447188,
@@ -22304,6 +22347,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 30,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -26.646836777209952,
@@ -22367,6 +22411,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 40,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -23.0245,
@@ -22395,6 +22440,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 584.1999999999999,
             "margin_mm": 584.1999999999999,
@@ -22405,6 +22451,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 222.25,
             "margin_mm": 222.25,
@@ -22415,6 +22462,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 140.2305,
             "lower_bound_margin_mm": 215.36949999999996,
             "margin_mm": 215.36949999999996,
@@ -22494,6 +22542,7 @@
         "operations": [],
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -22504,6 +22553,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -22514,6 +22564,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -22593,6 +22644,7 @@
         "operations": [],
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -22603,6 +22655,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -22613,6 +22666,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -22745,6 +22799,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -21.3753,
@@ -22811,6 +22866,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 20,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -75.94481946655434,
@@ -22877,6 +22933,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 30,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -72.08,
@@ -22905,6 +22962,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 584.1999999999999,
             "margin_mm": 584.1999999999999,
@@ -22915,6 +22973,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 222.25,
             "margin_mm": 222.25,
@@ -22925,6 +22984,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 121.37669999999999,
             "lower_bound_margin_mm": 234.2233,
             "margin_mm": "unknown",
@@ -23056,6 +23116,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -23122,6 +23183,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 20,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -25.194685229641046,
@@ -23188,6 +23250,7 @@
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
             "op": 30,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               -21.074499999999997,
@@ -23216,6 +23279,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 584.1999999999999,
             "margin_mm": 584.1999999999999,
@@ -23226,6 +23290,7 @@
             "travel_verified": true
           },
           "y": {
+            "basis": "declared cut extent",
             "located_span_mm": 0.0,
             "lower_bound_margin_mm": 222.25,
             "margin_mm": 222.25,
@@ -23236,6 +23301,7 @@
             "travel_verified": true
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": 131.2525,
             "lower_bound_margin_mm": 224.34749999999997,
             "margin_mm": "unknown",
@@ -26340,7 +26406,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "241fcdbe786c4e7516e17ee2ac28d925d6ccb4d5ae613c2a9bb86712f5f696f3",
+  "hash": "5a19aeafcac8b9984d87dfaee7723c1926500f457ed37c128472250dfcd57369",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26352,7 +26418,7 @@
     },
     "inventory": {
       "path": "examples/inventory/pedro-shop.toml",
-      "sha256": "a8e328f3fed387b92b81160cd87e6e9d9532e8d70318c6b10c68b84c075bf1ed"
+      "sha256": "23f0e2fe88026065a154f27f3578924548355466acdd3e9a425e98e4ce8a7757"
     },
     "plan": {
       "path": "examples/cone-pivot-post/built-up.toml",

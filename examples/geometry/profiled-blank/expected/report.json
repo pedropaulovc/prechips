@@ -1055,13 +1055,15 @@
         "tool_oal_mm": 63.0,
         "travel_checks": {
           "x": {
-            "fixture_mm": "unknown",
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 60.0,
             "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
-            "fixture_mm": "unknown",
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": 17.838015,
             "required_mm": "unknown",
             "travel_mm": "unknown"
@@ -1710,6 +1712,7 @@
         "examples/geometry/author_solids.py: STRAP chamfer (synthetic test specification)",
         "features.frames.model",
         "inventory.tools.em-8-std.dia",
+        "kernel.setups.S1.stock_bbox_mm: setup-entry stock in the setup frame",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collet-8mm.gauge_len",
@@ -1854,6 +1857,7 @@
             "holder": "r8-collet-8mm",
             "holder_gauge_len_mm": 60.0,
             "op": 10,
+            "printed_xy_bounds_mm": "not_applicable",
             "rough_allowance_mm": 0,
             "tip_z_bounds_mm": [
               0.0,
@@ -1876,6 +1880,7 @@
         ],
         "travel_checks": {
           "x": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -1886,6 +1891,7 @@
             "travel_verified": false
           },
           "y": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -1896,6 +1902,7 @@
             "travel_verified": false
           },
           "z": {
+            "basis": "unknown",
             "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
@@ -2020,7 +2027,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "f7c4ed24039f89876be49542526f47e1d85bf8a8894557b9e006a76f7ced8a85",
+  "hash": "7328b97e2e0c6edb9c60686c702197b19efcca0c1e45bf7a9e525caa8e1c3b33",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

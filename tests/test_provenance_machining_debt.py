@@ -61,11 +61,20 @@ def bundle():
                 "binding": "measured",
             }
         },
-        "features": {"target": {"kind": "hole", "dia": [6.3, 6.4]}},
+        "features": {
+            "target": {"kind": "hole", "dia": [6.3, 6.4], "frame": "A", "at": [50, 15, 20]}
+        },
     }
     return SimpleNamespace(
         plan={
-            "stock": {"material": "steel", "length_mm": 100, "section_mm": [30, 20]},
+            "stock": {
+                "material": "steel",
+                "length_mm": 100,
+                "section_mm": [30, 20],
+                "origin_mm": [0, 0, 0],
+                "axis": [1, 0, 0],
+                "section_axis": [0, 1, 0],
+            },
             "setups": [
                 {
                     "id": "S1",
@@ -287,8 +296,6 @@ def test_untapped_hole_prerequisites_and_path_sizing_are_pure_identity_checks():
     [
         ("fixtures", "vise", "bed_height", 20),
         ("fixtures", "vise", "jaw_height", 10),
-        ("fixtures", "vise", "length", 150),
-        ("fixtures", "vise", "width", 80),
         ("tools", "cutter", "oal", 80),
         ("holders", "holder", "gauge_len", 30),
         ("holders", "holder", "grip", 25),
@@ -301,13 +308,26 @@ def test_headroom_names_each_consumed_stack_or_travel_fact(category, identity, f
     assert baseline.numbers["sum_mm"] == 150
     assert baseline.numbers["stacks"][0]["tool_projection_mm"] == 55
     assert baseline.numbers["stacks"][0]["margin_mm"] == 50
-    assert baseline.numbers["travel_checks"]["x"]["required_mm"] == 150
+    # One drilled point: the table needs no X stroke; the 100 mm blank is only evidence.
+    assert baseline.numbers["travel_checks"]["x"]["required_mm"] == 0
+    assert baseline.numbers["travel_checks"]["x"]["part_mm"] == 100
     data.inventory[category][identity][f"{field}_mm"] = fact(value, case)
     data.inventory["tools"]["cutter"]["dia_mm"] = fact(6.35, "illustrative")
     [row] = headroom.evaluate(data)
     assert_debts(row, {f"{category}.{identity}.{field}": case})
     data.inventory[category][identity][f"{field}_mm"] = fact(value)
     assert headroom.evaluate(data) == [baseline]
+
+
+@pytest.mark.parametrize("case", ["assumed", "illustrative"])
+@pytest.mark.parametrize(("field", "value"), [("length", 150), ("width", 80)])
+def test_fixture_footprint_debt_does_not_touch_headroom(field, value, case):
+    # The footprint no longer bounds travel (#297): headroom neither consumes nor names it.
+    data = bundle()
+    [baseline] = headroom.evaluate(data)
+    data.inventory["fixtures"]["vise"][f"{field}_mm"] = fact(value, case)
+    [row] = headroom.evaluate(data)
+    assert row == baseline and row.status == "pass"
 
 
 def test_headroom_names_selected_projection_not_the_unused_grip_and_keeps_m5_debt():

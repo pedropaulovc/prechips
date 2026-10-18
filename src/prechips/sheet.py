@@ -1682,7 +1682,12 @@ _DUPLEX_JS = r"""(() => {
           if (s.display.endsWith("flex") && !s.flexDirection.startsWith("column")) {
             el.setAttribute(STACKED, "");
           }
-          walk(el);
+          // The container's own bottom padding and border print after its last child:
+          // a child that fits only without them would push the box onto an unplanned
+          // page the count never sees (#307).
+          const capacity = CAP;
+          CAP -= parseFloat(s.paddingBottom) + parseFloat(s.borderBottomWidth);
+          try { walk(el); } finally { CAP = capacity; }
         } else {
           move(el);
           let current = el;
@@ -5828,13 +5833,30 @@ class _Traveler:
         travel = numbers.get("travel_checks", {})
         for axis in ("x", "y"):
             record = _mapping(travel.get(axis))
-            if record and not _known(record.get("required_mm")):
+            if (
+                record
+                and not _known(record.get("required_mm"))
+                and record.get("basis") == "stock span"
+            ):
+                # A stock span is no cutter path: the cut's extent, approach and exit are
+                # undeclared plan input, so no stroke is printed as the need (#297).
+                lines.append(
+                    f"{axis.upper()} travel{machine_marks(('envelope', 'travel', axis))}: "
+                    "? not computed — the cut's X/Y extent, with the cutter's approach and "
+                    "exit, is not declared."
+                )
+            elif record and not _known(record.get("required_mm")):
                 missing.append(
                     f"{axis.upper()} travel{machine_marks(('envelope', 'travel', axis))}"
                 )
+            elif record and record.get("required_mm") == 0:
+                continue  # No motion on this axis: no stroke to print.
             elif record:
+                # Every printed need states what it is the stroke of (travel's basis).
+                basis = record.get("basis")
+                basis = f" ({basis})" if isinstance(basis, str) and basis != "unknown" else ""
                 lines.append(
-                    f"{axis.upper()} travel: needs {o(record.get('required_mm'))} of "
+                    f"{axis.upper()} travel: needs {o(record.get('required_mm'))}{basis} of "
                     f"{o(record.get('travel_mm'))}{machine_marks(('envelope', 'travel', axis))}: "
                     f"{fits(record.get('required_mm'), record.get('travel_mm'))}."
                 )

@@ -40,6 +40,7 @@ ignore = [
 
 # Non-Python inputs, read by tests that coverage cannot attribute them to.
 [paths]
+"tests/data/print/*" = ["tests/test_sheet_print.py"]
 "examples/*" = [
     "tests/test_angularity.py",
     "tests/test_chain_drill_speed.py",

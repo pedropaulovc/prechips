@@ -136,7 +136,12 @@ def routed_bundle(route, travel_x=170, travel_y=200, entry=None, kernel=None):
     than that entry stock.
     """
     if route == "derived":
-        stock = {"length_mm": 300, "section_mm": [120, 40]}
+        stock = {
+            "length_mm": 300,
+            "section_mm": [120, 40],
+            "axis": [1, 0, 0],
+            "section_axis": [0, 1, 0],
+        }
         setups = [mill_setup("S2", "stock"), mill_setup("S3", "S2")]
     else:
         stock = {"components": [{"id": "post"}, {"id": "base"}]}
@@ -174,7 +179,11 @@ def routed_bundle(route, travel_x=170, travel_y=200, entry=None, kernel=None):
             "tools": {"cutter": {"kind": "endmill", "oal_mm": 80}},
             "holders": {"holder": {"kind": "collet", "gauge_len_mm": 30, "grip_mm": 25}},
         },
-        features={"frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}}, "features": definitions},
+        features={
+            "units": "mm",
+            "frames": {"A": {"x": [1, 0, 0], "y": [0, 1, 0]}},
+            "features": definitions,
+        },
         feature_definitions=definitions,
         policy={},
         kernel=facts if kernel is None else kernel,
@@ -189,7 +198,9 @@ def row_for(data, sid="S3"):
 @pytest.mark.parametrize(
     "travel_x,travel_y,status",
     [
-        (170, 90, "pass"),
+        # The entry box is a broad cut's stock span: a lower bound (its approach and
+        # exit are undeclared), so fitting it is ? and exceeding it an error (#297).
+        (170, 90, "unknown"),
         (169.9, 90, "error"),
         (170, 89.9, "error"),
     ],
@@ -198,8 +209,8 @@ def test_routed_travel_screen_uses_setup_entry_stock_box(route, travel_x, travel
     row = row_for(routed_bundle(route, travel_x, travel_y))
     assert row.status == status
     checks = row.numbers["travel_checks"]
-    assert checks["x"]["required_mm"] == 170
-    assert checks["y"]["required_mm"] == 90
+    assert checks["x"]["minimum_required_mm"] == 170
+    assert checks["y"]["minimum_required_mm"] == 90
 
 
 def test_raw_blank_outside_travel_does_not_fail_its_reduced_derived_entry():
@@ -207,8 +218,8 @@ def test_raw_blank_outside_travel_does_not_fail_its_reduced_derived_entry():
     # The raw supply's own setup still screens the authored blank, which cannot fit.
     raw = row_for(data, "S2")
     assert raw.status == "error"
-    assert raw.numbers["travel_checks"]["x"]["required_mm"] == 300
-    assert row_for(data).status == "pass"
+    assert raw.numbers["travel_checks"]["x"]["minimum_required_mm"] == 300
+    assert row_for(data).status == "unknown"
 
 
 @pytest.mark.parametrize("route", ROUTES)

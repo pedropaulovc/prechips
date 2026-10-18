@@ -4805,3 +4805,24 @@ def evaluate(bundle, *, pre_kernel=False):
             )
         )
     return result
+
+
+def printed_xy(coordinates, op):
+    """Every cutter-centre XY the traveler prints for ``op`` (its setup's coordinates
+    numbers: arc rows, join lines and linear_table outlines/raster passes, as the kernel
+    clipped them), or None when it prints none or any is unknown."""
+    points = []
+    for arc in coordinates.get("arc_table", []):
+        if arc.get("op") == op:
+            points += [row.get("dro_xy") for row in arc.get("rows", [])]
+    for line in coordinates.get("line_table", []):
+        if line.get("op") == op:
+            points += list(line.get("dro_xy") or [])
+    for profile in coordinates.get("profiles", []):
+        path = profile.get("cutter_centre")
+        contour = profile.get("contour")
+        linear = isinstance(contour, dict) and contour.get("method") == "linear_table"
+        if profile.get("op") == op and linear and isinstance(path, list):
+            points += [p for item in path for p in (item if isinstance(item[0], list) else [item])]
+    known = all(isinstance(p, list) and len(p) == 2 and all(number(v) for v in p) for p in points)
+    return points if points and known else None
