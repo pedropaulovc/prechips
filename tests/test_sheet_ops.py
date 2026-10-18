@@ -646,8 +646,14 @@ def test_every_pass_runs_in_and_out_clear_only_when_every_emitted_piece_end_is_p
     (note,) = face_notes(box_mm, profile)
     assert bool(EVERY.search(note)) is every
     # The outer X -3 / 23 ends stay proven in air, and no inner end is named as such.
-    assert "each pass enters from air at -X and leaves into air at +X" in note
-    assert not MATERIAL.search(note)
+    # A split raster's numbered pieces do not all start and stop there: only the outer
+    # ends are named, by where the feed enters and leaves (Codex on #351).
+    named = (
+        "the outer -X and +X ends, where the feed enters and leaves"
+        if keep_out
+        else "each pass enters from air at -X and leaves into air at +X"
+    )
+    assert named in note and not MATERIAL.search(note)
     assert not any(f"{value:.3f}" in note for value in inner)
 
 
@@ -657,7 +663,8 @@ def test_a_stage_whose_pieces_prove_less_does_not_share_the_op_raster_claim():
     assert len(notes) == 2 and EVERY.search(notes[0])
     # The split finish stage states its own outer ends without the rough stage's every-pass
     # claim, and each table names its stage.
-    assert "and leaves into air at +X" in notes[1] and not EVERY.search(notes[1])
+    assert "the outer -X and +X ends, where the feed enters and leaves" in notes[1]
+    assert "each pass enters" not in notes[1] and not EVERY.search(notes[1])
     assert notes[0].startswith("Rough: lift") and notes[1].startswith("Finish: lift")
 
 

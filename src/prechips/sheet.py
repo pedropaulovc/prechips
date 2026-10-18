@@ -8764,7 +8764,7 @@ class _Traveler:
         every = bool(points) and all(any(clear(i, p[i], radius) for i in range(2)) for p in points)
         text = ""
         if air:
-            text += "; " + self._raster_air_ends(pieces if points else [], run, axis, air)
+            text += "; " + self._raster_air_ends(pieces if points else [], run, axis, air, whole)
             text += ", a cutter radius past the stock"
         if every and air:
             text += " — every pass runs in and out clear"
@@ -8790,11 +8790,14 @@ class _Traveler:
         return text
 
     @staticmethod
-    def _raster_air_ends(pieces, run, axis, air):
+    def _raster_air_ends(pieces, run, axis, air, whole):
         """The in-air ``air`` ends (-1 low, +1 high along the ``run`` axis) named by their
         role in the printed pass direction: every emitted piece of a one-way raster runs the
         same way, so the end it starts from is where each pass enters and the other where it
-        leaves. Pieces with no single direction name the ends by their side only."""
+        leaves. A keep-out splits passes into pieces the table numbers as passes, some of
+        which start or stop at the keep-out, so a split raster names only its outer ends,
+        by the side the feed enters or leaves. Pieces with no single direction name the ends
+        by their side only."""
         senses = {(b[run] > a[run]) - (b[run] < a[run]) for a, b in pieces}
         if len(senses) != 1 or 0 in senses:
             if len(air) == 2:
@@ -8802,11 +8805,20 @@ class _Traveler:
             return f"the {'-' if air[0] < 0 else '+'}{axis} pass end is in air"
         (start,) = senses
         start = -start  # a pass running toward +axis enters from the -axis end
+        sign = {-1: "-", 1: "+"}
+        if not whole:
+            roles = {start: "enters", -start: "leaves"}
+            if len(air) == 2:
+                return (
+                    f"the outer {sign[start]}{axis} and {sign[-start]}{axis} ends, where the "
+                    "feed enters and leaves, are in air"
+                )
+            return f"the outer {sign[air[0]]}{axis} end, where the feed {roles[air[0]]}, is in air"
         roles = []
         if start in air:
-            roles.append(f"each pass enters from air at {'-' if start < 0 else '+'}{axis}")
+            roles.append(f"each pass enters from air at {sign[start]}{axis}")
         if -start in air:
-            leaves = f"leaves into air at {'-' if start > 0 else '+'}{axis}"
+            leaves = f"leaves into air at {sign[-start]}{axis}"
             roles.append(leaves if roles else "each pass " + leaves)
         return " and ".join(roles)
 

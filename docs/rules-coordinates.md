@@ -583,8 +583,10 @@ radius outside the stock the kernel modelled entering the setup (its
 `stock_bbox_mm`, which holds every op's stock); the op's `stock_removal_bounds`
 is what it may remove, not where stock ends, so it proves neither air nor
 material and an unproven end carries no claim. A `keep_out` splits passes into
-pieces that also start and stop between the outer `ends`; the note then says so
-and says every pass runs in and out clear only
+pieces that also start and stop between the outer `ends`, and the table numbers each
+piece as a pass; the note then names only the outer ends, by where the feed enters or
+leaves ("the outer -X end, where the feed enters, is in air"), says the pieces start and
+stop between, and says every pass runs in and out clear only
 when each emitted piece's start and end is proven so, stage by stage. A closed
 outline's rows are on the grid too: each vertex is the nearest grid point at
 least its offset outside
