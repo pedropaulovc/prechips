@@ -709,7 +709,7 @@ def _panel_items(op, paths, waypoints, stock=None):
     op_paths = [p for p in paths if str(p.get("op", "")) == op]
     op_waypoints = [p for p in waypoints if str(p.get("op", "")) == op]
     op_waypoints += [
-        {"label": label, "op": op, "xy": xy, "plain": True}
+        {"label": label, "op": op, "xy": xy, "plain": True, "marker": path.get("end_marker")}
         for path in op_paths
         if len(path.get("ends") or []) == 2 and len(path["xy"]) >= 2
         for label, xy in zip(path["ends"], _path_ends(path["xy"], stock), strict=True)
@@ -737,6 +737,21 @@ def _path_ends(line, stock):
     start = _crossing(line[first], line[first - 1], rect) if first else tuple(line[0])
     end = _crossing(line[last], line[last + 1], rect) if last < len(line) - 1 else tuple(line[-1])
     return [start, end]
+
+
+def _point_marker(canvas, point, colour, marker=None):
+    """A sketch key's point: a dot, or a hollow ``square`` (a line's own end) or a
+    ``cross`` (where a cut meets the stock's outline), so two kinds of point near each
+    other are never mistaken for one another (#335)."""
+    x, y = point
+    if marker == "square":
+        _outline(canvas, [(x - 5, y - 5), (x + 5, y - 5), (x + 5, y + 5), (x - 5, y + 5)], colour)
+        return
+    if marker == "cross":
+        canvas.line((x - 6, y - 6), (x + 6, y + 6), colour, width=3)
+        canvas.line((x - 6, y + 6), (x + 6, y - 6), colour, width=3)
+        return
+    canvas.circle(x, y, 3, fill=colour)
 
 
 def _stock_outline(stock):
@@ -2793,12 +2808,13 @@ class _Diagram:
             available, cells = self._grid_cells(points, labels, plot, perimeter)
         if getattr(self, "inset_overflow", 0) > 0 or getattr(self, "width_overflow", 0) > 0:
             return []
-        placed = []
+        placed, markers = [], {}
         for item, label, point, cell in zip(waypoints, labels, points, cells, strict=True):
             badge, outline = available[cell], item.get("outline")
             end = _nearest_on_outline(outline, badge) if outline else point
             placed.append((badge, label, end, item.get("colour", colour), bool(outline)))
-        for badge, label, point, point_colour, hidden in placed:
+            markers[len(placed) - 1] = item.get("marker")
+        for index, (badge, label, point, point_colour, hidden) in enumerate(placed):
             if point_colour == _CONTACT:
                 c.line(point, badge, _WHITE, width=6)
                 c.circle(*point, 6 if hidden else 5, fill=_WHITE)
@@ -2807,7 +2823,7 @@ class _Diagram:
                 c.circle(*point, 4, fill=_WHITE, outline=point_colour)
                 self.hidden_leaders.append((label, [point, badge]))
                 continue
-            c.circle(*point, 3, fill=point_colour)
+            _point_marker(c, point, point_colour, markers[index])
             self.leaders.append((label, [point, badge]))
         for badge, label, _, badge_colour, _ in placed:
             _badge(c, badge, label, badge_colour)

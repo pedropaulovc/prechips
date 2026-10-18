@@ -2179,11 +2179,14 @@ the feed ("feed from +X toward -X"). A line that runs to the setup-entry blank's
 outline leaves no waste at its ends, so the target adds where the cut enters and leaves:
 where the saw path (the line offset by the allowance into the waste) crosses the
 kernel's entry box, within the op's `stock_removal_bounds`, in the setup frame, entry
-first from `feed_from`: "Enter through the +Y face at X -142.741, Y 21.295 and leave
-through the +Y face at X 142.741, Y 21.295, at least 0.450 mm outside each end of the
-line." A bench hand saw prints "Cut in through ... and out through ...". A line that
-stays inside the blank, or crossings the kernel cannot place, add nothing; the sketch
-keys the same points ENTER and LEAVE. When the job page prints model (STEP)
+first from `feed_from`, every number and face printed from those crossings: "Enter at
+X -142.741, Y 21.295 and leave at X 142.741, Y 21.295 on the +Y face (from Setup S2
+zero): where the cut, 0.450 mm off the scribed line on the waste side, meets the +Y
+face." The points lie inward of the line's own ends (X ±145.240): the cut meets the face
+there. A bench hand saw prints "Cut through at ...". A line that stays inside the
+blank, or crossings the kernel cannot place, add nothing. The sketch keys the same
+points ENTER and LEAVE with crosses, and the scribed line's own ends LINE END with
+hollow squares, so the two are never confused. When the job page prints model (STEP)
 coordinates in the plan's stock note without naming a setup zero, every op row that
 prints setup-frame coordinates (layout centre and arc ends, entry and exit points, a
 hole's tool axis, a manual arc's centre) names its frame: "(from Setup S2 zero)". No minimum workpiece size

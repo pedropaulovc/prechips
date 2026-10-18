@@ -8127,9 +8127,9 @@ class _Traveler:
 
     def saw_ends(self, setup, op):
         """Where a saw that follows a scribed line running to the blank's outline enters
-        and leaves it (#335): through that side, at least the allowance outside each end
-        of the line (:func:`prechips.kernel.saw_crossings`), in the setup frame; "" when the
-        line stays inside the blank or its crossings are unknown."""
+        and leaves it (#335): where the cut, the line offset by the allowance into the
+        waste, meets the outline (:func:`prechips.kernel.saw_crossings`), in the setup
+        frame; "" when the line stays inside the blank or its crossings are unknown."""
         from prechips.kernel import saw_crossings
 
         if "follows" not in op:
@@ -8137,26 +8137,22 @@ class _Traveler:
         crossings = saw_crossings(self.bundle, setup, op) or []
         if not crossings:
             return ""
-        at = [
-            f"the {c['face']} face at X {self.operative(c['xy'][0])}, "
-            f"Y {self.operative(c['xy'][1])}"
+        o, allowance = self.operative, self.operative(op["allowance_mm"])
+        faces = list(dict.fromkeys(c["face"] for c in crossings))
+        # Every number and face printed comes from the crossings themselves: the cut (the
+        # line offset by the allowance into the waste) meeting the blank's outline.
+        where = f"where the cut, {allowance} mm off the scribed line on the waste side, meets " + (
+            "the " + faces[0] + " face" if len(faces) == 1 else "the blank's sides"
+        )
+        points = [
+            f"X {o(c['xy'][0])}, Y {o(c['xy'][1])}" + ("" if len(faces) == 1 else f" ({c['face']})")
             for c in crossings
         ]
-        allowance = self.operative(op["allowance_mm"])
-        if len(at) != 2:
-            return (
-                f"Cut through {' and '.join(at)}{self.frame_tag(setup)}, at least {allowance} "
-                "mm outside the end of the line."
-            )
-        verbs = (
-            ("Enter through", "leave through")
-            if _mapping(setup.get("hold")).get("feed_from") in _FEED_ENDS
-            else ("Cut in through", "out through")
-        )
-        return (
-            f"{verbs[0]} {at[0]} and {verbs[1]} {at[1]}{self.frame_tag(setup)}, at least "
-            f"{allowance} mm outside each end of the line."
-        )
+        on = f" on the {faces[0]} face" if len(faces) == 1 else ""
+        frame = self.frame_tag(setup)
+        if len(points) == 2 and _mapping(setup.get("hold")).get("feed_from") in _FEED_ENDS:
+            return f"Enter at {points[0]} and leave at {points[1]}{on}{frame}: {where}."
+        return f"Cut through at {' and '.join(points)}{on}{frame}: {where}."
 
     def hand_saw_step(self, op, numbers, setup=None):
         """A bench hand-saw card: the straight cut's plane and the side kept, or "saw

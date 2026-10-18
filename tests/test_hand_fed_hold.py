@@ -462,10 +462,15 @@ def test_a_line_running_to_the_blank_enters_and_leaves_its_allowance_outside(fee
     x = f"{abs(first):.3f}"
     near, far = ("-" + x, x) if feed_from == "-X" else (x, "-" + x)
     assert steps == (
-        f"Enter through the +Y face at X {near}, Y 21.295 and leave through the +Y face at "
-        f"X {far}, Y 21.295 (from Setup S2 zero), at least 0.450 mm outside each end of the "
-        "line."
+        f"Enter at X {near}, Y 21.295 and leave at X {far}, Y 21.295 on the +Y face (from "
+        "Setup S2 zero): where the cut, 0.450 mm off the scribed line on the waste side, "
+        "meets the +Y face."
     )
+    # The printed points are the computed crossings, not the line's own ends at X 145.240.
+    printed = [[float(x), float(y)] for x, y in re.findall(r"X (-?[\d.]+), Y (-?[\d.]+)", steps)]
+    computed = [value for c in crossings for value in c["xy"]]
+    assert [value for xy in printed for value in xy] == pytest.approx(computed, abs=5e-4)
+    assert all(abs(x) < 145.240 - 2.0 for x, _ in printed)
 
 
 LAYOUT = {
@@ -496,7 +501,7 @@ def test_op_row_coordinates_name_their_frame_when_the_job_page_prints_global_one
     ends = traveler.saw_ends(s2, s2["ops"][0])
     assert ("Y 808.000 (from Setup S1 zero)" in str(layout)) is tagged
     assert ("Y 21.295 (from Setup S1 zero)." in str(layout)) is tagged
-    assert ("Y 21.295 (from Setup S2 zero)," in ends) is tagged
+    assert ("+Y face (from Setup S2 zero):" in ends) is tagged
     assert ("(from Setup" in str(layout) + ends) is tagged
 
 
@@ -552,9 +557,14 @@ def test_the_feed_arrows_push_aid_and_hold_all_follow_the_declared_start_end(
     # The sketch keys ENTER where the saw path crosses the blank at the feed_from end,
     # the end the arrows run toward, and LEAVE at the other.
     *_, waypoints, _ = render_diagram._panel_items("10", drawn["paths"], [], BLANK)
-    marked = {key["label"]: key["xy"] for key in waypoints}
-    start, leave = marked["ENTER"], marked["LEAVE"]
+    marked = {key["label"]: key for key in waypoints}
+    start, leave = marked["ENTER"]["xy"], marked["LEAVE"]["xy"]
     assert (start[0] - leave[0]) * sign > 0 and start[1] == pytest.approx(BLANK[4])
+    # The scribed line's own ends are keyed apart from the cut's, with their own marker.
+    ends = [key for key in waypoints if key["label"] == "LINE END"]
+    assert {key["marker"] for key in ends} == {"square"}
+    assert {marked["ENTER"]["marker"], marked["LEAVE"]["marker"]} == {"cross"}
+    assert sorted(abs(key["xy"][0]) for key in ends)[0] > abs(start[0]) + 2.0
     boxes = {box["name"]: box for box in drawn["boxes"]}
     assert [trailing, 0.0] in map(list, boxes["push aid"]["stock_mm"][0])
     blade = boxes["band op 10"]["box_mm"]
@@ -571,7 +581,7 @@ def test_an_undeclared_feed_end_draws_no_arrows_start_band_or_push_aid():
     bundle.plan["setups"][1]["hold"].pop("feed_from")
     drawn = scene(bundle)
     assert [path.get("directed") for path in drawn["paths"]] == [None]  # no arrows
-    assert not any("ends" in path for path in drawn["paths"])  # no ENTER or LEAVE
+    assert ["LINE END", "LINE END"] == [e for p in drawn["paths"] for e in p.get("ends", [])]
     assert [box["name"] for box in drawn["boxes"]] == ["saw table"]
     assert drawn["feed_lines"] == []
 
