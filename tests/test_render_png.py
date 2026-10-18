@@ -1769,6 +1769,7 @@ def pure_native_outline_render():
                 "_guide_components",
                 "_guide_tags",
                 "_swivel_label",
+                "_scene_boxes",
                 "_Unknown",
                 "_timed",
                 "_mark",
