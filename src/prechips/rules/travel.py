@@ -273,6 +273,18 @@ def evaluate(bundle):
                 cite.append(
                     f"coordinates.{setup['id']}: printed cutter-centre path of op {op['op']}"
                 )
+                # The path is placed by the cutter's diameter: an unverified one leaves it a
+                # lower bound (its measurement debt named), never a pass.
+                cutter = (
+                    diameter
+                    if radius_needed
+                    else fact(tool, "dia", tool_category, tool_key, debts, cite)
+                    if tool and tool.get("kind") != UNKNOWN
+                    else {"verified": False}
+                )
+                if not (cutter["verified"] and path_known):
+                    complete["x"] = complete["y"] = False
+                    op_xy_complete = False
             for axis in () if fixture_driven or path else ("x", "y"):
                 band = record(extent).get(axis)
                 located = record(point).get(axis) if fallback else band

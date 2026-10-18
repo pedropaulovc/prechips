@@ -104,6 +104,12 @@ def test_a_routed_stock_without_the_kernel_box_stays_unknown(route):
     assert numbers["stock_extent_x_mm"] == "unknown"
 
 
+def measured_cutter(data):
+    """The test cutter with a measured diameter: a printed path is placed by it."""
+    data.inventory["tools"]["cutter"]["dia_mm"] = measured(10)
+    return data
+
+
 def printed(*points):
     """The coordinates rows a traveler prints for S1 op 10: one join line through
     ``points`` (setup-frame cutter centres)."""
@@ -113,7 +119,7 @@ def printed(*points):
 
 def test_the_travel_span_covers_the_printed_cutter_path_and_headroom_needs_it():
     # A face raster runs 12 mm past each end of the 100 mm blank (rocker P1's 345 vs 368).
-    data = bundle()
+    data = measured_cutter(bundle())
     rows = printed((-12, 5), (112, 5))
     with lend_rows(data, rows):
         [span] = travel.evaluate(data)
@@ -136,7 +142,7 @@ def test_the_travel_span_covers_the_printed_cutter_path_and_headroom_needs_it():
 
 def test_a_printed_path_is_the_ops_motion_even_where_the_stock_is_unplaced():
     # The printed cutter-centre path, approach and exit included, is what the table runs.
-    data = bundle()
+    data = measured_cutter(bundle())
     data.plan["stock"].pop("axis")
     del data.features["features"]["top"]["bounds"]
     with lend_rows(data, printed((-12, 5), (112, 5))):
@@ -149,7 +155,7 @@ def test_a_printed_path_is_the_ops_motion_even_where_the_stock_is_unplaced():
 
 def test_a_printed_path_replaces_the_declared_extent_and_is_the_label():
     # pivot-bracket P4: the declared face spans the 31.75 mm section, the path 26.2 mm.
-    data = bundle()
+    data = measured_cutter(bundle())
     with lend_rows(data, printed((10, 2), (90, 28.2))):
         [span] = travel.evaluate(data)
     y = span.numbers["travel_checks"]["y"]
@@ -175,3 +181,15 @@ def test_each_axis_names_the_basis_that_set_it():
     assert any("approach and" in entry["instruction"] for entry in span.numbers["measurements"])
     assert row.status == "unknown"
     assert row.numbers["travel_checks"]["x"]["basis"] == "stock span"
+
+
+def test_a_printed_path_from_an_unverified_cutter_is_only_a_lower_bound():
+    # The path is placed by the cutter's diameter: unverified, it cannot pass (Codex P1).
+    data = bundle()
+    with lend_rows(data, printed((-12, 5), (112, 5))):
+        [span] = travel.evaluate(data)
+        [row] = headroom.evaluate(data)
+    x = span.numbers["travel_checks"]["x"]
+    assert (x["required_mm"], x["minimum_required_mm"]) == ("unknown", 124)
+    assert "tools.cutter.dia" in {entry["id"] for entry in span.numbers["measurements"]}
+    assert row.status == "unknown"

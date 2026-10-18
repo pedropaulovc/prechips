@@ -21697,6 +21697,7 @@
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10",
         "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395",
         "coordinates.S11: printed cutter-centre path of op 10",
+        "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.projection_mm.r8-collets-lms-4860/3-4in",
         "plan.setups.S11.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -26969,7 +26970,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "8184af412a64439ee6bc58f537345de77d3b2f559ef64a19aef86266ef9ad9cb",
+  "hash": "959b8138fef70ef8f2240aa79104f2e311602baa0dbad09a5b0951f37b27669e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

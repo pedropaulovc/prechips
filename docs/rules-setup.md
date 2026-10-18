@@ -487,7 +487,10 @@ past the stock are undeclared plan input, so the axis stays unknown (an exceeded
 bound still errors) with an `author:` debt naming the op's `feature.bounds`. An
 operation whose cutter-centre XY the traveler prints (`coordinates`' arc rows, join
 lines, linear-table outlines and face raster passes, `printed_xy_bounds_mm`) is that
-printed path, approach and exit included, instead of its declared extent. Each X/Y
+printed path, approach and exit included, instead of its declared extent; the path
+is placed by the cutter's diameter, so it completes the axis only when that diameter
+is a verified measurement (otherwise it is a lower bound with the diameter's
+`measure:` debt). Each X/Y
 check names its `basis`: `cutter-centre path`, `declared cut extent`, both, or
 `stock span`. Z is the
 union of each operation's **spindle-nose** positions, `tip + holder gauge +
