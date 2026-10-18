@@ -545,7 +545,26 @@ and through the existing setup-picture path:
   waste, and a feed arrow along the line. The table and support come from the
   #335 hold line once it prints.
 
-A picture whose geometry is unknown is not drawn; the row's STOP stands. The
+A picture whose geometry is unknown is not drawn; the row's STOP stands.
+
+**One `feed_from` for the text and the picture.** The HOLD's start line, the
+picture's feed arrow and the push aid's position all come from the hold's one
+`feed_from` value, never from separate inputs. `feed_from` names the end of
+the work that meets the blade first. The work therefore moves toward that
+end; the picture's arrow shows that motion, labelled as the work's motion.
+The opposite end trails, and the push aid is drawn behind it, where it pushes
+the last of the cut through. With `feed_from = "-X"`, the arrow points -X and
+the push stick sits behind the +X end. A test renders both `feed_from` signs
+and checks the arrow direction, the push-aid end and the HOLD wording against
+each other.
+
+#342's picture draws the saw path over the work from the `feed_from` end with
+arrows toward the far end. That shows the cut's progress along the work,
+which is the opposite of the work's motion. Its HOLD line says "feed the work
+into the blade along it, as the arrow in the picture runs". The two can be
+read in opposite directions, and round 4 of this mock-up's read did read
+them that way. Phase 5 adopts the work-motion arrow above for the printed
+pattern's pictures and asks #342 to use the same convention. The
 pictures join the paired main-versus-PR picture review in phase 5.
 
 ## 6. Unknown-value gate
@@ -667,16 +686,17 @@ HOLD: Fed by hand on the saw table, sawing outside the printed top edge
 SETUP PICTURE T2B — top view of the saw table, op 10 (not to scale)
    fed by hand on the saw table
 
-                            blade (teeth toward the -X end)
-                                 |
-      ////////// offcut //////////|//////////
-   _______________________________|_____________________
-   \  printed top edge R800      1.0 outside the line   \
-    \              K E E P                                \ ==[push stick]
-     \____________________________________________________\
-   -X end                                              +X end
-      feed  ====>  start at the -X end, feed along the line;
-                   finish the last of the cut with the push stick, never the hands
+     blade (fixed; the work moves, -X end first)
+       |
+       |  ///////////////// offcut //////////////////////
+   ____|___________________________________________________
+       |\  printed top edge R800    (1.0 outside the line) \
+       | \              K E E P                              \ [push stick]==
+       |  \___________________________________________________\
+     -X end (enters the blade first)                     +X end (trailing)
+          <====  feed: move the strap toward -X, into the blade, along the line;
+                 the push stick pushes the trailing +X end to finish the cut,
+                 never the hands
 
 Blade: 1/2 in x 32 TPI bandsaw blade (3.15 teeth in the 2.5 mm strap).
 Op | Feature     | Tool        | Speed    | Feed                    | Action
@@ -890,6 +910,14 @@ the sketch draws the push stick finishing the cut. After the coordinator's
 round 2 note, the bracketed T2B hold and blade lines were replaced by the output
 shapes of #342 (the hand-fed HOLD line) and #341 (the blade's TPI and its
 teeth-in-the-work STOP), and the pictures became sketches in the mock-up.
+
+Round 4 (on `99a8623`): the end-of-cut finding is fixed. The one new
+blocker was the T2B sketch's feed arrow pointing +X while the HOLD says to
+start at the -X end. The sketch now moves the work toward -X into the fixed
+blade, with the push stick behind the trailing +X end. §5.1 now makes this a
+rule: the arrow and the push aid are derived from the same `feed_from` the
+HOLD prints. It also records that #342's picture arrow shows the cut's
+progress along the work, which reads opposite to this convention.
 
 Not re-reviewed: the D2 rework (§2.2, §8.4, phase 3b) and the station
 geometry (two pins, normal-direction bound). The §10 arithmetic leaves out
