@@ -1,188 +1,70 @@
-# Plan format — `plan.toml`
+<a id="plan-format--plantoml"></a>
 
-`part`, `features`, and `setups` are required. The loader additionally requires
-a nonempty setup list, known unique setup ids, a nonempty operation list per
-setup and known unique operation numbers within each setup. A saw stock cut may
-omit `feature`; every authored feature must be in the manifest, in plan-owned
-`joint_features` or in plan-owned `process_features`, and inspection checks need a named feature. Plan and manifest
-part names must agree; a known setup frame must name an exported manifest frame
-or a plan-owned frame in [`frames`](#frames). A literal `"unknown"` setup frame
-stays unresolved.
-Execution follows authored array order, not numeric sorting of operation ids.
+# Plan format: `plan.toml`
 
-`features` is relative to the plan; it must stay inside the bundle root. The
-root is the repository above `examples` or the first ancestor with
-`pyproject.toml`, otherwise the plan's parent. Shared input precedence is CLI
-override, then a known `[paths]` declaration, then `PRECHIPS_INVENTORY` or
-`PRECHIPS_POLICY`; cutting data has no environment fallback. An omitted or
-literal `"unknown"` declaration permits the environment fallback. Missing policy
-uses the shipped required-rule vocabulary only when no known path is selected.
-Plan-declared shared paths must stay inside
-the bundle root; explicit CLI/environment shop paths may be external. STEP references are read and hashed, contained
-inside the bundle, and checked against a known `step_sha256`. M4 geometry rules
-hand that STEP, once its bytes match the manifest digest, to one FreeCAD job per
-run; an unknown digest, a missing `step`, or mismatched bytes keeps all eight
-geometry rules `?`. See [geometry rules](rules-geometry.md).
+`plan.toml` declares the stock, setup sequence, workholding, DRO pickups,
+operations and inspection procedures for one part. This reference defines its
+fields, identity checks and unresolved-value behavior. A loaded plan is not
+proof that a physical setup or machining process is safe.
 
-Use `[[setups]]` and `[[setups.ops]]`. `stock_state` records received surfaces in
-the setup frame; `local_thickness` is per hole, not the whole bar thickness.
-`top_feature` identifies the touched face that facing advances; `top_z` is then
-that feature's +Z face. A facing op with `stock_removal_bounds` advances it only
-when the box holds that feature's whole X/Y footprint: its `bounds`, or for a
-bounds-free `kind = "face"` the matched kernel box of each listed plane at the
-op's `to_z`, with every listed face resolved and any `contour.keep_out` island
-clear of the face by the cutter radius
-([coordinates](rules-coordinates.md)). `bottom_feature` likewise names the seated face: `bottom_z`
-is that feature's -Z face. The kernel gives each named face's height and the
-entering stock's over it, and [consistency](rules-setup.md#consistency) compares
-them with `top_z` / `bottom_z`. `entry_z` permits
-a separate local entry surface. `zero.transfer` describes a pickup from another
-setup, and `tool_touches` explicitly records tool changes. Neither invents a
-measured trial-cut diameter.
+Use the [quickstart](manual/quickstart.md) to check a bundle, the
+[tutorial](manual/tutorial.md) to follow the input-to-sheet workflow, and the
+[demonstration](manual/demo.md) to compare a shipped example with observed
+output. For command options, see the [CLI catalog](reference/cli.md).
 
-Setup frames, stock state and authored operation bounds supply the geometry and spans used for picture scale under [render geometry](rules-geometry.md#renders).
-The [traveler render binding](report-and-telemetry.md#kernel-renders) preserves main's accepted leader placement and all original ordinary-tolerance layout and anchor inputs; a separate bounded stream is used only for outline painting. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR. This adds no plan field and changes no authored setup coordinates, zero recipes or operation values.
+Find fields by domain:
 
-Every zero recipe's `edge_mm` is the authored pickup coordinate in the setup
-frame. A Z recipe with `face = "top"` uses the stock state's top; other named
-faces require their own explicit `edge_mm`, not the stock top or a value copied
-from report output. X/Y raw-overhang pickups likewise use their authored edges.
-The Z pickup's `retouch_after` may declare a known operation list or `"unknown"`.
-Omission and literal `"unknown"` leave the schedule unresolved, so a required
-`zero_check` cannot pass merely because no rows were declared. An explicit
-`retouch_after = []` means a known empty schedule; a known nonempty list produces
-retouch rows using the stock top after each listed operation, including a face
-cut that changes the touched top; each serves the next tool. A known list does not
-certify the schedule: `zero_check` derives a touch for every other tool change from
-the setup's standing touched or faced surfaces, or reports it missing as an error
-([coordinates and DRO zero](rules-coordinates.md#zero_check)). Z
-`method = "measure_then_set"` (with `gauge`, `measure`, `offset_mm`; on a tool
-touch `z_gauge`, `z_measure`, `z_offset_mm`) sets a measured edge, M + offset +
-paper. On a mill setup's `top` the raw top then reads Z = M + offset while the ops'
-levels start from `stock_state.top_z`; the DRO ZERO prints that correction: face a
-higher top down to `top_z` first, no deeper per pass than the setup's least op
-`doc_mm`, in plan units rounded down onto the DRO grid (unknown plan units print
-no cap).
+- [Root fields](#root-fields), [drawing identity](#drawing) and [input paths](#paths).
+- [Frames](#frames), [target and faced aims](#aims), [joint features](#joint-features)
+  and [stock-preparation features](#process-features).
+- [Stock](#stock), [prepared blanks](#prepared-blank), [profiled blanks](#profiled-blank),
+  [setup routing](#setup) and [assembly joints](#assembly-joints).
+- [Stock state](#stockstate), [holding](#hold), [indexing](#index) and
+  [support references](#reference).
+- [DRO declaration](#dro), [zero recipes](#zero), [axis pickups](#axiszero),
+  [datum transfer](#transfer) and [tool touches](#tooltouch).
+- [Operations](#operation), [contours](#contour), [manual arcs](#manual-arcs)
+  and [saw cuts](#saw-cut-off).
 
-`checks` maps requirement names to inventory gauge references. Every key must
-belong to the selected resolved feature's `requirements` list (exported or
-plan-owned); otherwise loading raises `BadInput`, even if another feature owns that name.
-A wholly unknown requirements list cannot establish membership and does not
-authorize arbitrary checks. `inspection_methods` supplies the authored procedure
-for datum/geometric checks and missing requirements. A missing check is different
-from `checks.dia = "unknown"`.
+Output layout and render binding belong to the
+[report and setup-sheet reference](report-and-telemetry.md); sampled-geometry
+limits belong to the [geometry rules](rules-geometry.md).
+Use [troubleshooting](manual/troubleshooting.md) for unresolved inputs and
+the [FAQ](manual/faq.md) for product-scope questions.
 
-An `inspection_methods.<requirement>` procedure and an op's `inspection_note`
-are each either one string or a non-empty list of strings. A string prints as
-before (blank-line paragraphs become `(1)…(2)…`). A list prints as numbered steps
-in the INSPECTION NOTES, for procedures a machinist follows and records as they go:
+<a id="input-conventions"></a>
 
-```toml
-inspection_methods.position_dia = [
-  "Pin the rod hole with the 4.000 gauge pin; zero the indicator on datum A.",
-  "Read X at the pin: {X1}",
-  "Read Y at the pin: {Y1}",
-  "Calculate: position Ø = 2 × √((X1 − 133.067)² + (Y1 + 8.456)²) = {result}",
-]
-```
+## Validation and unknown values
 
-`{name}` normally prints as a labelled blank on its own line in prose. Worksheet
-and calculation fields remain single fields, not duplicate prose boxes. A step
-beginning `Calculate:` prints apart from the numbered steps. Only an authored
-step-list procedure with named brace readings in its steps and at least two
-calculation lines becomes a worksheet on an attached logical sheet after the
-contours (the op row names it, `[S11 sheet 4 worksheet]`). Its original numbered
-steps use references such as `[rJ1]`, without duplicate value boxes; READINGS
-provides one value box per named reading with its source step. Original equations
-and calculation fields print once. Standalone underscores do not count as named
-worksheet readings. A list is known only when every step is a non-empty string
-other than `"unknown"`.
+All five input documents are UTF-8 TOML, parsed by `tomllib` and strict
+Pydantic 2 models in [`model.py`](../src/prechips/model.py). Unknown keys are
+forbidden at every modeled record (`extra="forbid"`). Only explicitly declared
+dictionaries, such as feature identities and `checks`, accept arbitrary keys.
+Floats must be finite, and booleans are not numeric substitutes.
 
-An inspect op may illustrate a stated procedure with set-up sketches:
-`inspection_views.<requirement>` is a non-empty list of views, one per way the
-part is set up on the surface plate for that check. Each view gives a `title`,
-`up` (a unit vector in the part model's axes pointing up off the plate, the way
-a height reading rises), `toward` (a unit vector square to `up`, from the part to
-the viewer), optional `aids` and at least one `mark`, all in part-model
-millimetres:
+| Type used in this reference | Accepted value |
+|---|---|
+| `Number` | A numeric float or the literal `"unknown"` |
+| `Vector` | A list of Numbers or `"unknown"` |
+| `Citations` | A string or a list of strings |
 
-```toml
-[[setups.ops.inspection_views.position_dia]]
-title = "VIEW 1: BOX ON ITS BASE, LAND C DOWN ON THE STOP BAR"
-up = [-0.9833816999, -0.1815500823, 0.0]
-toward = [0.0, 0.0, -1.0]
-aids = [
-  { name = "C STOP BAR", shape = "box", at_mm = [155.526, 40.78, 1.25], size_mm = [40.0, 12.2, 12.0], axes = [[0.1815500823, -0.9833816999, 0.0], [-0.9833816999, -0.1815500823, 0.0]] },
-  { name = "ROD GAUGE PIN", shape = "cylinder", at_mm = [133.067, 16.456, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 1.994, length_mm = 26.2 },
-]
-marks = [
-  { label = "R1: ROD PIN TOP", at_mm = [132.087, 16.275, -5.0], reads = true },
-  { label = "C: LAND C ON THE STOP BAR", at_mm = [145.747, 26.547, 0.0] },
-]
-```
+Text fields can also carry the literal `"unknown"`. It declares unresolved
+information, never a zero, a measurement or an approval. A rule can reject a
+known value or leave a missing fact unresolved even when the schema accepts it.
 
-An aid is a `box` from its least corner `at_mm` by `size_mm` along its edge
-directions `axes` (unit x then y, square; the model's X and Y when absent), or a
-`cylinder` from its base centre `at_mm` along the unit `axis`, `dia_mm` across
-and `length_mm` long. A mark is a labelled point; `reads = true` marks where a
-height reading is taken. The kernel draws the sketch on the stock the op's setup
-leaves ([renders](rules-geometry.md#renders)) and the traveler prints it at the
-head of that requirement's worksheet or inspection note
-([report binding](report-and-telemetry.md#kernel-renders)). Views on an op that is
-not `inspect`, or for a requirement with no flat `inspection_methods` entry, are
-`BadInput`: views are keyed by requirement alone, so a requirement whose method is
-scoped per feature has none.
+Fields in the generated `record()` models are optional and accept `"unknown"`
+in addition to their displayed types. Declarations with required fields, such
+as plan frames, aims, joint features and process features, state those
+requirements in their own sections. Required root fields must also be present.
 
-The traveler retains every authored view, in list order, with its own `title`.
-Each view prints as a complete figure attached once to the original requirement's
-worksheet or note. Continuations may move the figure whole and repeat applicable
-context, without duplicating reading or calculation fields. This layout adds no
-plan fields and changes no authored procedure.
+Omitted `Setup.machine` and `Operation.do` become `"unknown"` and remain in
+the loaded bundle so rules can report unresolved identity or applicability.
+Other optional fields stay absent when omitted. In particular, omitted
+`retouch_after` is unknown, not an empty list; field presence can change rule
+applicability.
 
-When an inspection requirement has no exported owner/band, an explicit operation
-may declare `missing_requirements = { length = "calipers" }` and
-`inspection_methods.length`. This uses the same gauge-reference mapping type as
-`checks`, but produces a named unknown inspection row with
-`missing_requirement = true`, not an acceptance band or a dimensional pass.
-The sheet prints `?`, the exact missing requirement identity and the authored
-procedure; reference-only dimensions such as `length_ref` are not substitutes.
-A name already in that feature's exported requirements is `BadInput` in
-`missing_requirements`; use `checks` so actual requirements cannot be bypassed.
-
-Paper records use the existing requirement-keyed `checks` and authored methods;
-they add no plan fields. One full-width freeform readings/observations area
-remains below each real requirement with its known owner(s), limits, gauge,
-method and authored context. It does not infer reading positions or counts.
-Authored `{name}` blanks remain separate named procedure fields, not invented
-samples or statistical summaries. Missing identities or bands remain visible
-as unresolved `?` instructions, without fabricated automatic measurement fields.
-
-`to_z` is an authored endpoint;
-`to_z_band` is a range, not a substitute for measured setup binding. An arc
-contour needs explicit nominal geometry and one of the manual-arc methods
-([Manual arcs](#manual-arcs)); finite bounds come from that geometry, not an
-invented full circle. Linear
-pockets and faces may declare `sweep_bounds`, `sweep_frame`, `open_side`, and
-circular `keep_out` islands; their rasters need `step_mm`
-(see [rules-coordinates](rules-coordinates.md)).
-
-All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
-models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled
-record (`extra="forbid"`); arbitrary keys are allowed only in explicitly declared
-dictionaries (for example feature identities or `checks`). Floats must be finite;
-booleans are not numeric substitutes. `Number` means a numeric float or the literal
-`"unknown"`; `Vector` means a list of Numbers or `"unknown"`; `Citations` means
-a string or a list of strings. Text fields also accept `"unknown"`.
-
-Every `record()` field below is optional and accepts `"unknown"` in addition to
-the displayed type. The schema defaults omitted `Setup.machine` and
-`Operation.do` to `"unknown"` and retains those keys in the loaded bundle so
-rules can report unresolved identity/applicability rather than crash. Other
-omitted fields stay absent: `zero_check` reads an omitted `retouch_after` as
-unknown rather than an empty list, and other rules retain optional-field
-applicability semantics.
-Root fields marked required must be present. A model accepting a value is not proof
-of geometric validity; rules perform the applicable checks.
+The snippets below are TOML fragments for the named records, not standalone
+plans. They require the surrounding root fields, setups, features and inventory.
 
 ## Root fields
 
@@ -204,14 +86,30 @@ of geometric validity; rules perform the applicable checks.
 | `process_features` | `dict[str, ProcessFeature]` | Optional |
 | `setups` | `list[Setup]` | Required |
 
+### Required identities and execution order
+
+`part`, `features` and `setups` are required. The loader also requires:
+
+- A nonempty setup list with known, unique setup ids. An id cannot be blank
+  or whitespace-only, `"stock"`, or a name beginning with `"stock."`.
+- A nonempty operation list in every setup, with known operation numbers that
+  are unique within that setup.
+- A plan `part` that matches the manifest's `part`.
+- Operation feature identities in the manifest, plan-owned `joint_features`
+  or plan-owned `process_features`. A saw stock cut may omit `feature`, but
+  inspection checks require a named feature.
+
+Use `[[setups]]` and `[[setups.ops]]`. Execution follows authored array order,
+not numeric sorting of operation ids. Setup-frame validation is described under
+[Frames](#frames).
+
 ## Frames
 
-`[frames.<name>]` declares an author-owned setup frame for a setup transform the
-CAD export does not carry. Its fields are the manifest
-[`Frame`](features.md#frame) fields, with the same three-component,
-orthonormal, right-handed basis checks: `origin` and `x/y/z` are in the model
-frame. Two fields that the manifest may omit are required here, because the
-plan, not the CAD export, owns the choice:
+`[frames.<name>]` declares a plan-owned setup transform that the CAD export
+does not carry. It uses the manifest's [`Frame`](features.md#frame) fields:
+`origin` and the three-component `x/y/z` basis are in the model frame, with
+orthonormal, right-handed basis checks. Plan frames also require two declarations
+that exported frames may omit:
 
 - `binding` must be stated, if only as `"unknown"`. `"nominal"` lets the
   transform place model geometry in setup coordinates; `"unknown"` keeps the
@@ -228,16 +126,23 @@ citations carry `plan.frames.<name>: author-declared setup frame` followed by
 the frame's own `cite`, while exported setup frames keep their manifest
 provenance.
 
+When the manifest's `frames` value is a dictionary, the loader rejects a known
+setup `frame` that names neither an exported frame nor a plan frame. When the
+manifest frame collection is `"unknown"`, that membership check cannot establish
+the exported names. A literal `"unknown"` setup frame remains unresolved.
+
 ## Aims
 
-`[aims.<feature>]` holds one drawing requirement at a stated value inside its
-printed band: a process choice. Without `face` it moves one located feature's
-DRO target off its drawing nominal so that a height-like band it holds from its
-`height_from` reference (`height_above_pivot`, `height` or `separation`) reads
-that value. That form changes only the printed target, never the STEP, the
-manifest, a cutting claim or a kernel input. With `face` it holds a faced
-length: the part the kernel cuts has that face moved so that the length between
-the feature's `lower_z` and `upper_z` planes reads the value.
+`[aims.<feature>]` selects a process target inside one printed drawing band.
+It has two forms:
+
+- Without `face`, it shifts a located feature's DRO target from drawing nominal.
+  The height-like requirement from its `height_from` reference
+  (`height_above_pivot`, `height` or `separation`) then reads the aimed value.
+  This changes only the printed target, never the STEP, manifest, cutting claim
+  or kernel input.
+- With `face`, it moves a faced plane in the part the kernel cuts. The length
+  between the feature's `lower_z` and `upper_z` planes then reads the aimed value.
 
 | Field | Meaning |
 |---|---|
@@ -250,7 +155,9 @@ The `<feature>` must be a manifest feature that exports `requirement`.
 `value_mm`, converted to the manifest units, must lie inside that requirement's
 band as the sheet prints it. Anything else is bad input.
 
-**Target aims (no `face`).** The
+### Target aims
+
+For an aim without `face`, the
 [`coordinates`](rules-coordinates.md#coordinates) rule moves the feature's own
 target along the band's measuring direction in every setup that locates it,
 then checks the target against the printed band where the features stand:
@@ -273,7 +180,9 @@ nothing:
 An aim on a child located by its parent's `at` is refused (unknown). The child
 still dials its parent's target, aimed or not.
 
-**Faced aims (`face`).** Loading also needs:
+### Faced aims
+
+An aim with `face` also requires:
 
 - `face` listed in the exported feature's `faces`;
 - the feature to declare `lower_z` and `upper_z`, the planes in its frame that
@@ -295,7 +204,9 @@ Anything else is bad input. The kernel job gets:
 - the requirement's printed band, in mm;
 - `delta_mm`, which is `value_mm` minus the planes' separation.
 
-The kernel then builds the part the plan cuts:
+#### Kernel construction and unresolved cases
+
+The kernel builds the aimed part under these constraints:
 
 - The aimed face must be a plane on one of the two declared planes, facing away
   from the other one. It moves `delta_mm` along its outward normal. A zero move
@@ -313,11 +224,10 @@ The kernel then builds the part the plan cuts:
   Loading cannot refuse such a pair as bad input, because only the kernel knows
   which plane a face lies on.
 
-Every setup's protected part, removal bounds, in-process stock, clearances,
-pictures and stock facts stand on that one face position. A frame and zero on
-the aimed face therefore agree with what the earlier setup leaves. The aimed
-value stays inside the printed band, and the finished part is the one the aim
-makes.
+Every setup uses that face position for its protected part, removal bounds,
+in-process stock, clearances, pictures and stock facts. A frame and zero on the
+aimed face therefore agree with the stock an earlier setup leaves. The finished
+part is the aimed part, with the value still inside the printed drawing band.
 
 The kernel result keeps `faces` and `bbox_mm` as the STEP exports them, and
 lists each moved face under `aimed_faces` with its feature, ref, index,
@@ -360,6 +270,8 @@ exported features. Every declaration requires:
 | `thru` | Boolean through/blind declaration |
 | `cite` | Nonempty author/source citation |
 
+### Mouth edges and unresolved geometry
+
 A `cylinder_bore` may also state its mouth edges as made: `edge_break = { kind =
 "sharp" }`, or `{ kind = "radius" | "chamfer", size = s }` in manifest units (`size =
 "unknown"` is debt). The mouths are the `at` end and, when `thru`, the far end too.
@@ -375,6 +287,8 @@ kinds, components and references are bad input. Optional `requirements` is a
 subset of `["dia"]` and defaults to that list; depth is finite construction
 geometry, not an invented depth tolerance. Optional `precision` and `note`
 retain normal dimensional/display semantics.
+
+### Preparation and finished-face credit
 
 Operations address these identities through the same resolved feature mapping
 as exported dimensions (socket as hole, spigot as boss), but may prepare them
@@ -399,13 +313,20 @@ it does not become a flat-bottomed socket or borrow a CAD profile.
 
 ## Process features
 
-`[process_features.<id>]` declares stock preparation the route makes and later
-relies on, never a drawing surface: a faced end (`end_face`), a combined drill
-and countersink centre (`centre_hole`) that a later setup's dead or live centre
-rides in, or a locating hole in the work's own waste (`tooling_hole`) that a later
-setup's fixture pin locates on until a waste cut removes it.
-Identities must not collide with exported or joint features, and nothing may name
-a `plan.process_features.` label as a face reference.
+`[process_features.<id>]` declares stock preparation that a later setup relies
+on. These features have no drawing-surface identity:
+
+- `end_face`: a faced stock end.
+- `centre_hole`: a combined drill-and-countersink seat for a later dead or live centre.
+- `tooling_hole`: a locating hole in the work's waste, used by a later fixture
+  pin until a waste cut removes it.
+
+Identities must not collide with exported or joint features. A
+`plan.process_features.` label can never be used as a finished face reference.
+
+Every process feature requires `kind`, `at`, `axis` and a usable `cite`.
+`at` and `axis` can be literal `"unknown"`; a known axis must be a unit vector.
+The remaining required or forbidden fields depend on `kind`, as described below.
 
 | Field | Meaning |
 |---|---|
@@ -423,6 +344,8 @@ a `plan.process_features.` label as a face reference.
 | `depth` | `tooling_hole` only: full-diameter depth below `at` (manifest units, > 0) of a blind hole |
 | `note` | Optional text |
 
+### Centre holes
+
 A `centre_hole` needs every centre field (each may be `"unknown"` debt); an
 `end_face` authors none. The centre's feed depth below its faced end is
 `drill_length_mm + (mouth_dia_mm - drill_dia_mm) / 2 / tan(countersink_angle_deg / 2)`:
@@ -434,6 +357,8 @@ shorter than C; its mouth must lie on the surface the quill is touched on, fed
 along setup -Z ([`blind_depth`](rules-operations.md#blind_depth-tip-endpoints)).
 A mismatch is an error, and any unknown or unaccepted size or tool fact, or an
 unconfirmed tool record, leaves the depth unknown and the centre uncut.
+
+### Tooling holes
 
 A `tooling_hole` needs `dia` and exactly one of `thru = true` or `depth` (each
 numeric value may be `"unknown"` debt); the other kinds author none of `dia`,
@@ -461,6 +386,8 @@ thru = true
 note = "tooling hole in the -X end waste; the carrier dowel locates on it; sawn off with the waste"
 cite = ["harmonic-analyzer ch_rocker_arm_tl_oblique_trammel_spec.py CL"]
 ```
+
+### End faces and parting
 
 An `end_face` is any planar face of the stock: a turned end, or one of the six
 faces of a rectangular blank a mill squares before S1. On a rectangular root stock
@@ -496,29 +423,36 @@ An axis off setup Z or pointing toward the chuck, or an `at` on another Z than
 `to_z`, is a [`parting_face`](rules-geometry.md#parting-face)
 error and the kernel does not cut it; an unknown `at`, `axis`, `to_z`, frame or
 machine kind is `?`. Either leaves the later stock unknown. A part-off that
-names a finished drawing face is unchanged. `cut_to_fit` never prepares an
-`end_face`: it keeps the chuck side and drops the free end, the opposite of a
-part-off. On a mill
-`profile`, `rough_profile` and `finish_profile` also prepare one, side-milled with
-the cutter's periphery (a blank end overhanging the vise; give the op's
-`linear_table` contour an `open_side` so its passes step in from clear air, see
-[rules-coordinates](rules-coordinates.md)). Only `center_drill` prepares a
-`centre_hole`, and only `spot`, `drill` and `ream` a `tooling_hole`. Such an op names exactly that one
-feature and carries no `faces`, `checks` or `missing_requirements`: there is no
-drawing limit to inspect. An inspect op's feature list never names a process
-feature (the loader rejects it), so a setup works a tooling hole only through an
-op whose one `feature` is that hole; a list inspect elsewhere in the setup leaves
-its [`tooling_hole`](rules-setup.md#tooling_hole) rows unchanged. Process ops resolve through the same rules as other
-cuts (speeds and feeds, reach, accessibility, headroom, tip endpoints, holding and
-the fixture model), and the kernel removes the analytic centre (countersink, pilot
-and drill point), the tooling hole (its tool's diameter, through or to depth, a
-drill's point below) or cuts the face away as a planar slab of the arriving stock so
-the setup picture and the next setup's entry stock show them. They
-earn no finished STEP coverage and no finish coverage, even when the cut lies on a
-drawing plane, and a process feature is never a drawing-requirements row. A
-hold's `centre_hole` names the process centre its dead or live centre rides in
-(see [Hold](#hold)); the squared blank the faces make is declared in
-[`stock.prepared`](#prepared-blank).
+names a finished drawing face follows the ordinary parting contract.
+`cut_to_fit` never prepares an `end_face`: it keeps the chuck side and drops the
+free end, the opposite of a part-off.
+
+On a mill, `profile`, `rough_profile` and `finish_profile` can side-mill an
+`end_face` with the cutter's periphery, for example on a blank end overhanging
+the vise. Give its `linear_table` contour an `open_side` so the passes step in
+from clear air. See [coordinates](rules-coordinates.md).
+
+### Operation and coverage boundaries
+
+Only `center_drill` prepares a `centre_hole`; only `spot`, `drill` and `ream`
+prepare a `tooling_hole`. A process-feature op names exactly that one feature
+and carries no `faces`, `checks` or `missing_requirements`. It has no drawing
+limit to inspect. The loader rejects a process feature in an inspect op's
+feature list. A list inspect elsewhere in the setup does not change the
+tooling hole's [`tooling_hole`](rules-setup.md#tooling_hole) rows.
+
+Process cuts use the ordinary speeds and feeds, reach, accessibility, headroom,
+tip endpoint, holding and fixture-model rules. The kernel removes the analytic
+centre (countersink, pilot and point), the tooling hole (tool diameter through
+the stock or to depth, with a drill point below), or a planar slab of arriving
+stock for an end face. The setup picture and the next setup's entry stock show
+those cuts.
+
+A process feature earns neither finished STEP coverage nor finish coverage,
+even on a drawing plane, and never becomes a drawing-requirements row.
+`hold.centre_hole` names the process centre that supports a dead or live centre
+([Hold](#hold)). Use [`stock.prepared`](#prepared-blank) to declare the squared
+blank made by process faces.
 
 ## Drawing
 
@@ -527,6 +461,9 @@ hold's `centre_hole` names the process centre its dead or live centre rides in
 | `number` | `str` |
 | `revision` | `str` |
 | `cite` | `Citations` |
+
+`[drawing]` records the drawing identity and its source citations. It does not
+replace the exported dimensional requirements in the [feature manifest](features.md).
 
 ## Paths
 
@@ -537,7 +474,44 @@ hold's `centre_hole` names the process centre its dead or live centre rides in
 | `cutting_data` | `str` |
 | `step` | `str` |
 
+### Path bases and precedence
+
+`features` is relative to the plan and must stay inside the bundle root. The
+root is the repository above `examples`, or the first ancestor with
+`pyproject.toml`; otherwise it is the plan's parent.
+
+Shared inventory, policy and cutting-data selection uses this precedence:
+
+1. Explicit CLI override.
+2. A known `[paths]` declaration.
+3. `PRECHIPS_INVENTORY` or `PRECHIPS_POLICY`, where applicable. Cutting data
+   has no environment fallback.
+
+Omission or literal `"unknown"` in `[paths]` permits the environment fallback.
+Plan-declared shared paths resolve relative to the plan and must stay inside
+the bundle root. CLI and environment paths resolve relative to the working
+directory and may be external. If no known policy path is selected, the loader
+uses only the shipped required-rule vocabulary; it does not invent shop numbers.
+See [policy selection](policy.md) and the [CLI catalog](reference/cli.md).
+
+### STEP identity
+
+Referenced STEP assets are read, hashed and contained inside the bundle.
+An unreadable STEP file, a path outside the bundle, bytes that do not match
+a known manifest `step_sha256`, or a known digest without its STEP bytes is
+`BadInput` (exit 3), not a geometry unknown. The manifest digest must be the
+literal `"unknown"` or a 64-character lowercase hexadecimal SHA-256; a
+malformed digest is also `BadInput`.
+
+An unknown digest can load, but cannot authorize the geometry job. With a
+matching known digest, geometry rules share one FreeCAD job per run; missing
+or unresolved geometry inputs remain `?`. See the
+[geometry rules](rules-geometry.md) for kernel eligibility and limits.
+
 ## Stock
+
+`[stock]` declares the candidate supply. Its geometry is an authored material
+envelope; it does not establish measured dimensions or confirmed stock on hand.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -566,6 +540,8 @@ hold's `centre_hole` names the process centre its dead or live centre rides in
 | `blank` | `ProfiledBlank` ([Profiled blank](#profiled-blank)) |
 | `cite` | `Citations` |
 
+### Component blanks
+
 For a built-up stock candidate, `components` lists the separately authored
 blanks. Each `StockComponent` requires a known, nonempty, unique `id`;
 references match the exact id, with no ASCII character whitelist. It accepts `form`,
@@ -576,6 +552,8 @@ dimensions and length. These are authored purchase/process choices, not
 confirmed on-hand inventory. Missing dimensions or citations keep comparison
 waste unresolved; finished volume comes only from the manifest's explicitly
 sourced `volume_mm3`, never a bounding-box estimate.
+
+### Envelope placement and branch independence
 
 M4 requires an explicitly placed envelope, not a finished-part bounding-box
 substitute. `origin_mm` is in the model frame: the rectangular blank's corner
@@ -597,6 +575,8 @@ global declaration can withhold otherwise-known branches. Empty or omitted
 Incompatible as-is surfaces also keep stock-dependent geometry `?` with a reason.
 `as_is_faces` never creates a stock solid by itself.
 
+### Supplied faces and construction permission
+
 `as_is_faces` lists STEP face references (same forms as a feature's `faces`)
 that stay as supplied stock; the M4 `coverage` rule unites them with the faces
 claimed by cutting operations and those a joint [forms](#assembly-joints). An omitted list is unknown, not empty. On a
@@ -607,8 +587,8 @@ Root `construction` declares the candidate route, independently of the
 drawing-side manifest permission. `built_up` is refused unless
 `features.construction = "built_up_permitted"`: unknown or omitted drawing
 permission does not lift the one-piece-only restriction. An explicit `one_piece`
-candidate needs no such permission. Omitting the **plan's** candidate construction
-is unknown rather than an implicit one-piece declaration.
+candidate needs no such permission. An omitted plan `construction` remains
+unknown; it is not an implicit one-piece declaration.
 See [stock-form comparison](rules-comparison.md).
 
 ### Prepared blank
@@ -632,13 +612,16 @@ which: rule `prepared_blank` stays unknown.
 | `cite` | `Citations` |
 
 `PreparedChecks` names an inventory gauge for `length`, `section_0`,
-`section_1`, `flat`, `square` and `parallel`; `PreparedMethods` gives the written
-`flat`, `square` and `parallel` procedures and `PreparedForm` their limits. An
-unknown `setup` is `BadInput`, as is a prepared blank on round, built-up or
-profiled stock (there is no box to trim). Rule `prepared_blank`
-([rules-setup](rules-setup.md#prepared_blank)) checks the size, the stock the
-kernel cut and the checks; the receiving setup's sheet prints them as **CHECK THE
-BLANK**, each form row with its limit and method.
+`section_1`, `flat`, `square` and `parallel`. `PreparedMethods` supplies the
+written `flat`, `square` and `parallel` procedures; `PreparedForm` supplies
+their limits.
+
+A known `setup` that is not a plan setup is `BadInput`. An omitted or literal
+`"unknown"` setup remains unresolved. A prepared blank on round, built-up or
+profiled stock is `BadInput` because there is no rectangular root box to trim.
+The [`prepared_blank`](rules-setup.md#prepared_blank) rule checks the size,
+kernel-cut stock and inspection declarations. The receiving setup's sheet
+prints CHECK THE BLANK, with each form row's limit and method.
 
 ### Profiled blank
 
@@ -653,6 +636,9 @@ table, on the root stock or on one `stock.components` entry:
 | `profile_tolerance_mm` | `float`: the vendor's declared ± cut tolerance, positive |
 | `cite` | `Citations`: the vendor's published tolerance |
 
+This fragment abbreviates the hash. Replace it with the full lowercase SHA-256
+of the blank STEP before loading the plan:
+
 ```toml
 [stock]
 form = "profiled_blank"
@@ -665,8 +651,8 @@ profile_tolerance_mm = 0.127 # the vendor's posted ±0.005 in
 cite = "https://sendcutsend.com/blog/basic-tolerances-and-cut-feature-relationships/"
 ```
 
-The blank STEP is authored in the **part model's coordinates**: the solid the
-vendor cuts, placed where the finished part sits inside it. It is the supply's
+Author the blank STEP in the part model's coordinates, with the finished part
+placed inside the solid that the vendor cuts. The STEP defines the supply's
 whole envelope, so a profiled blank declares no `section_mm`, `dia_mm`,
 `length_mm`, `origin_mm`, `axis` or `section_axis`. Any of them, a `blank` under
 another `form`, or a root `blank` beside `components` is bad input (exit 3), and
@@ -695,6 +681,9 @@ bound in the report, not printed for the bench.
 
 ## Dro
 
+`[dro]` declares the controller, source manual and display convention. Physical
+controller or installation facts that are not known remain unresolved.
+
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `controller` | `str` |
@@ -716,6 +705,8 @@ facts remain unresolved independently.
 
 ## Direction
 
+`[dro.direction]` records the authored direction text for each axis.
+
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `x` | `str` |
@@ -723,6 +714,9 @@ facts remain unresolved independently.
 | `z` | `str` |
 
 ## Setup
+
+Each `[[setups]]` record selects a machine, frame, entering stock, hold and
+operation list. The records run in authored order.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -740,6 +734,8 @@ facts remain unresolved independently.
 | `zero` | `Zero` |
 | `ops` | `list[Operation]` |
 
+### Manual stations and travel scope
+
 For a manual joining, finishing or inspection station, declare the inventory
 machine's `kind = "bench"` (or `"manual"`) and use only `fit`, `inspect`,
 `deburr` and `coating` operations.
@@ -750,22 +746,35 @@ explicitly unknown action retains the normal screens; a bench declaration
 cannot waive a machining operation. This does not waive physical joint,
 holding, stock, frame or render requirements.
 
-For component stock, an earlier setup's output, or a joint output, mill
-headroom's X/Y travel screen uses the kernel's **setup-entry stock bounding
-box**, before the current setup's cuts. It does not substitute the finished
-part or the original raw blank. Missing entry stock remains a geometry debt.
+For component stock, an earlier setup output or a joint output, the mill
+headroom X/Y travel screen uses the kernel's setup-entry stock bounding box,
+before the current setup's cuts. It substitutes neither the finished part nor
+the original raw blank. Missing entry stock remains geometry debt.
 
-`stock_in` names `"stock"` for a single supply, `"stock.<id>"` for a built-up
-component, or any earlier setup's `id` (not necessarily the immediately previous
-setup). An array requests assembly of exactly two disjoint branches and requires
-an explicit `joint`; there is no generic Boolean-union fallback. Unknown or forward authored references are bad input
-(exit 3), including authored `"unknown"` as a source. Omitted `stock_in`
-remains stock debt; it does not infer a linear route. Every supply and setup output stays in the model frame:
-joining references never applies an implicit assembly transform.
-Array entries must have disjoint supply ancestry: repeated references or joining
-a supply with its descendant (for example `["stock", "S1"]` when S1 consumes
-stock) are bad input (exit 3), naming the shared supply ancestor. Separate route
-alternatives may start from the same supply again, but cannot join that material
+### Stock lineage
+
+`stock_in` selects one source or an explicit two-branch assembly:
+
+| Value | Source |
+|---|---|
+| `"stock"` | The single root supply, only when stock has no component blanks |
+| `"stock.<id>"` | One built-up stock component |
+| An earlier setup's `id` | That setup's output, not necessarily the previous setup |
+| An array of two references | Two disjoint branches joined by an explicit `joint` |
+
+Bare `"stock"` is bad input when `stock.components` is a nonempty list; name
+`"stock.<id>"` instead. Declaring `joint` requires an array `stock_in` with
+exactly two references. A joint with scalar or omitted `stock_in` is bad input.
+
+Unknown or forward references, including an authored `"unknown"` source, are
+`BadInput` (exit 3). An omitted `stock_in` stays stock debt; it does not imply
+a linear route. Supply and setup outputs remain in the model frame. A join
+reference never applies an implicit assembly transform or a generic Boolean union.
+
+Array entries must have disjoint supply ancestry. Repeated references, or a
+supply joined to its descendant, are bad input naming the shared ancestor.
+For example, `["stock", "S1"]` is invalid when S1 consumes `stock`.
+Alternative routes may start from the same supply, but cannot join that material
 lineage twice.
 
 ### Assembly joints
@@ -780,6 +789,8 @@ forbidden at every step. Each interface identity is consumed only once.
 Joint geometry is in the model frame, regardless of the assembly setup's frame.
 A missing or malformed identity/reference is bad input; unknown numeric
 geometry or joint-compound process facts withhold the union as named debt.
+
+#### Cylindrical fit
 
 A cylindrical joint declares `kind = "cylindrical"`, `socket` and `spigot`
 (matching plan joint-feature kinds on the two distinct consumed component
@@ -801,6 +812,8 @@ Both preparation cuts must be completed on the actual selected ancestors,
 remain intact, and have their target geometry verified at assembly. Declaring
 a joint cannot turn untouched blanks into prepared components.
 
+#### Retaining compound
+
 A retaining compound on the interface is a
 `compound = { product, cure_time_min, surface_prep }` block: `product` names the
 compound (nonempty, or literal `"unknown"`), `cure_time_min` is positive minutes
@@ -816,15 +829,18 @@ message names this form. `process` itself must be known text: the literal
 `"unknown"` is malformed, not an alternative bond process. Known physical
 refusals remain errors even when prep or cure is unknown; a later invalid join
 does not invalidate an earlier independent, valid assembly.
-The traveler prints the prep, cure time and **do not disturb until cured** before
-later machining, once: on the setup's first `fit` op (the op that bonds), else in
-its "Starts from" line; that `fit` op's material / consumable cell names the
-compound's product. A press fit with a compound prints **press in with the
-compound on the interface, then do not disturb until cured**. The process does
-not model cure kinetics or certify a product: cite the author's source/choice for
-the declared band and cure conditions. A joint without a compound prints no prep
-or cure. Use the canonical noncutting bench action `do = "fit"`, not an
-undeclared `fit_up` or `bond` cutting action.
+The setup sheet prints the prep, cure time and "do not disturb until cured"
+once before later machining: on the first `fit` op, which bonds the joint, or
+otherwise in the setup's "Starts from" line. The `fit` op's material or
+consumable cell names the product. A press fit with compound prints "press in
+with the compound on the interface, then do not disturb until cured".
+
+This process declaration does not model cure kinetics or certify a product.
+Cite the source or authored choice for the band and cure conditions. A joint
+without compound prints no prep or cure. Use the noncutting bench action
+`do = "fit"`; `fit_up` and `bond` are not declared actions.
+
+#### Faces formed by a joint
 
 Either joint kind may declare `forms`, a list of exported features whose finished
 faces the join itself forms and no op cuts. The usual case is a root fillet whose
@@ -845,15 +861,15 @@ joined geometry with the socket's mouth breaks included, so a cylindrical joint 
 forms a feature needs its socket's mouth `edge_break`. The spigot runs through the
 corner and has no edge there.
 
-- **Sharp mouth:** the press leaves the sharp corner the band admits.
-- **Radius or chamfer mouth:** the break leaves a groove round the spigot, neither a
-  fillet nor a sharp corner, so the join is refused.
-- **Mouth not on a flat face:** the break can only be placed on a flat socket face
-  square to the axis. An authored end in air, or a saddle on a curved face, turns a
-  formed feature that passes every other check into debt. A thru socket authored past
-  its material is such a case.
-- **Omitted or unknown break:** the formed feature is debt. Lost material at its
-  faces withholds the joined stock; loss elsewhere is still refused.
+- A sharp mouth leaves the sharp corner admitted by the band.
+- A radius or chamfer mouth leaves a groove around the spigot, neither a fillet
+  nor a sharp corner. The join is refused.
+- The mouth break needs a flat socket face square to the axis. An authored end
+  in air, or a saddle on a curved face, leaves the formed feature unresolved
+  even if its other checks pass. A through socket authored past its material is
+  one such case.
+- An omitted or unknown break leaves the formed feature unresolved. Lost
+  material at its faces withholds the joined stock; loss elsewhere is still refused.
 
 The drawing's general `edge_break_r`/`chamfer_max` is not read for this. That
 allowance is a maximum and does not say what this mouth carries.
@@ -866,17 +882,18 @@ a plain face for the join to judge. The kernel finds the corner by removing the
 feature's faces from the finished solid and extending their neighbours. It withholds
 a corner only when the band starts at 0, every face is mapped, the sharp solid adds
 no material, and every point of the corner lies within the band's MAX of the
-feature's faces. Otherwise the branches keep the material as finished, as before.
+feature's faces. Otherwise the branches continue to protect that material as finished.
 The join still judges what is actually lost against the band, so nothing beyond
 the MAX is ever admitted.
 
-Beyond that, no material may be missing beyond the band's MAX, and the band must
-start at 0. `coverage` credits the faces to the joint only when the last op that
-names the feature and checks its `radius` band passes. That op must run in a setup
-downstream of the joint, or in the joint's own setup after its first `fit`, the op that
-joins. A setup with no `fit` joins on entry. Without such a check the credit is debt. A [limit
-leaf](rules-inspection.md) at or under the MAX is enough when the gauge declares no
-leaf tolerance (or zero):
+The band must start at 0, with no missing material beyond its MAX. `coverage`
+credits the formed faces only when the last op that names the feature and
+checks its `radius` band passes. That op must be downstream of the joint, or
+in the joint setup after its first `fit`. A setup without `fit` joins on entry.
+Without the check, credit stays unresolved. A [limit leaf](rules-inspection.md)
+at or below the MAX is sufficient when its declared leaf tolerance is zero or
+omitted. This fragment shows the joint and sharp-mouth declarations; the
+commented joint-feature fields must also be supplied:
 
 ```toml
 [setups.joint]
@@ -897,7 +914,7 @@ edge_break = { kind = "sharp" }   # mouths stated sharp: no break to leave a gro
 
 A formed face is neither as-is stock nor a cut, so it does not go in `as_is_faces`.
 
-For example (illustrative process choices, not manufacturer specifications):
+This fragment uses illustrative process choices, not manufacturer specifications:
 
 ```toml
 [[setups]]
@@ -918,6 +935,8 @@ op = 10
 do = "fit"
 ```
 
+#### Cross-bores and sleeves
+
 A cylindrical cross-bore socket uses the existing `cylinder_bore` kind with
 `thru = true` and a finite `depth` spanning both openings. The kernel verifies
 both ends are open; this is not an unbounded hole or a blind socket with a
@@ -926,6 +945,8 @@ An intentional bore already present in the sleeve is permitted only where it
 does not remove required finished material; joining fills the mating annulus,
 not the sleeve's core. A subsequent finished bore operation still needs its
 own preparation/finish coverage and must follow the declared cure.
+
+#### Surface joints and material protection
 
 A surface joint needs no transient feature. It declares `kind = "surface"`,
 `method = "weld"` or `"silver_braze"`, nonempty `process`, `cite`, and a nonempty
@@ -945,8 +966,11 @@ to derived finite engagement; surface joins add no fill. Undeclared overlap,
 a blocked straight-axis insertion, or lost finished material refuses the
 assembly. See [in-process stock](rules-geometry.md#in-process-stock).
 
-
 ## StockState
+
+`[setups.stock_state]` describes the surfaces and section dimensions received
+by the setup. It is checked against stock lineage and kernel facts, not used
+to replace them.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -965,12 +989,41 @@ assembly. See [in-process stock](rules-geometry.md#in-process-stock).
 | `local_thickness_cite` | `dict[str, Citations]` |
 | `entry_z` | `dict[str, Number]` |
 
+### Received surfaces and local thickness
+
+`stock_state` records received surfaces in the setup frame.
+`local_thickness` is per hole, not the whole bar thickness. `entry_z` permits a
+separate local entry surface.
+
+`top_feature` names the touched face that facing advances; `top_z` is that
+feature's +Z face. A facing op with `stock_removal_bounds` advances it only when
+the box contains the feature's whole X/Y footprint. That footprint is its
+`bounds`, or, for a bounds-free `kind = "face"`, the matched kernel box of every
+listed plane at the op's `to_z`. Every listed face must resolve, and any
+`contour.keep_out` island must clear the face by the cutter radius.
+See [coordinates](rules-coordinates.md).
+
+`bottom_feature` names the seated face; `bottom_z` is its -Z face. The kernel
+supplies each named face's height and the entering stock's height over it.
+The [consistency rule](rules-setup.md#consistency) compares these with `top_z`
+and `bottom_z`.
+
+Setup frames, stock state and authored operation bounds also supply the
+geometry and spans used for [picture scale](rules-geometry.md#renders).
+
+### Unsupported lathe span
+
 For lathe stick-out, `north_end_z` / `south_end_z` and `hold.stickout_mm` bound
 the unsupported span. Its D is the smallest finished feature diameter in that
 span after transformation into setup Z; `od_mm` remains the held-stock diameter
 for collet/chuck capacity, not the unsupported-section diameter.
 
 ## Hold
+
+`[setups.hold]` declares how the arriving stock is seated, located and held.
+Inventory references supply physical fixture facts; plan poses place them.
+See [hold requirements](rules-setup.md#hold_fields) for applicability and
+[inventory geometry](inventory.md#kernel-geometry-facts-m4) for fact trust.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1006,7 +1059,7 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `jaws_angle_deg` | `Number` strictly between −90 and 90: a vise swivelled on its base about setup +Z, the jaw line's angle from `jaws_along`, counterclockwise positive seen from above; omitted is square jaws, `"unknown"` leaves the jaws unplaced ([swivelled vise](#swivelled-vise)) |
 | `jaw_bar` | `str` (fixtures `round_bar` between the work and the moving jaw) |
 | `jaw_buttons` | `str` (fixtures `jaw_buttons`: one button between each jaw and the work, its spigot in the work's bore) |
-| `area` | `{ ref: str, on: str }`: an [area hold](inventory.md#area-holds). `ref` names a `consumables` `adhesive_tape` item; `on` names exactly one non-void solid of `fixture`, whose posed +z face carries the tape layer; a named seat the kernel cannot draw (untrusted or incomplete) stays seat-check debt, never a pass. Coverage is the work's footprint. Any other `ref` (a qualified ref outside `consumables` included), or an `on` that names no such solid or several, is bad input; a literal `"unknown"` stays unresolved |
+| `area` | `{ ref: str, on: str }`: typed [area-hold identity](#area-hold-status). `ref` names a `consumables` `adhesive_tape` item; `on` names exactly one non-void solid of `fixture`. This is not a capacity or stack-up verdict |
 | `align` | `{ indicator: str, limit_mm: Number, over_mm: Number, face: str, cite: str \| list[str] }`: how a mill vise's fixed jaw or angle plate's locating face is squared to the table travel; `indicator` is an inventory `dial_test_indicator` / `dial_indicator` gauge swept `over_mm` along the face, its reading changing no more than `limit_mm`; an angle plate's `face` names the fixture solid whose face is squared. Required where the setup mounts or turns the vise or plate ([hold_fields](rules-setup.md#hold_fields)). A swivelled vise adds `method` (`indicate_jaw`, `graduations`, `protractor`, `sine_bar`) and, for a stated method, `tolerance_deg` with its `cite` ([swivelled vise](#swivelled-vise)) |
 | `parallels_centres_mm` | `list[[Number, Number]]` (exactly two) |
 | `parallels_along` | `str` (`x` / `y`; parallels under a non-vise hold) |
@@ -1030,23 +1083,46 @@ for collet/chuck capacity, not the unsupported-section diameter.
 | `jaw_above_parallels_mm_verify` | `bool` |
 | `index` | `Index` |
 
-`Pose` is `{origin_mm, x, z}`, each `[Number, Number, Number]` in setup-frame
-mm: a fixture-local frame's origin and unit, orthogonal x and z axes. A
-`ClampPlacement` is `{ref, note, pose, restraint, torque_nm, tighten}`: `ref` names a fixture or a
+### Poses and clamp restraint
+
+`Pose` is `{origin_mm, x, z}`: the origin and unit, orthogonal x and z axes of
+a fixture-local frame. Each is a three-component `[Number, Number, Number]`;
+the origin uses setup-frame millimetres and the axes are dimensionless.
+
+`ClampPlacement` is `{ref, note, pose, restraint, torque_nm, tighten}`. `ref` names a fixture or a
 `kit/member` such as a clamping-kit strap, and its authored `solids` are
 placed by `pose` (origin at the strap underside on the work). `restraint` is
 `press` (it holds the work down along pose -z), `locate` (it only positions
 the work) or `none`; undeclared is `none`. Only a press clamp can hold a stock
-piece an op splits off, and only when the kernel proves the load path onto an
-anchored support (rules-geometry, held split). A `locate` clamp must prove that
-each of its solids that declares `locates` bears on the stock the way its
-inventory `bears` declares: a pin's contact cylinder in the bore it locates
-(`bore`) or a flat locator's face (`face`). See rules-geometry,
-`thin_wall_under_clamp`.
+piece split off by an op, and only when the kernel proves a load path to an
+anchored support. A `locate` clamp must establish the contact its inventory
+`bears` declares for every solid carrying `locates`: a pin's contact cylinder
+in its locating bore (`bore`), or a flat locator's face (`face`). See
+[`thin_wall_under_clamp`](rules-geometry.md#thin_wall_under_clamp).
+
+### Protective holding method
 
 `method` names a protective holding method in words (soft jaws, mandrel, wax).
 Tape is not a method: `method = "tape"` (any case) is bad input whose message
 names the `area` form.
+
+### Area-hold status
+
+`hold.area.ref` must resolve to a typed adhesive-tape consumable. A different
+kind or category, including a qualified reference outside `consumables`, is
+`BadInput`. `hold.area.on` must name exactly one non-void solid of the
+selected fixture when that solids list is known. Zero or several matches are
+bad input. A literal `"unknown"` identity or unresolved solids list does not
+establish a seat.
+
+The proposed tape layer covers the work's footprint on that solid's posed +z
+face. Layer generation, seat checks, holding capacity and Z-stack rules have
+not shipped. A named seat that is untrusted or incomplete must remain
+unresolved in those future checks, never pass. Current identity validation
+cannot qualify a physical hold. See [area-hold inventory](inventory.md#area-holds)
+and the [implementation status](design/area-hold.md#current-status-and-navigation).
+
+### Clamping and tightening
 
 `clamp` is the clamping instruction, or a declared clamp fixture's name. An
 explicit `clamp = "none"` or `"not_applicable"` with no `clamps` members
@@ -1071,6 +1147,8 @@ tightened "by hand only, no wrench" instead of fully; it takes no `torque_nm`. A
 clamp's note must not restate its tightening as hand or finger tight: the HOLD
 prints it from these fields ([consistency](rules-setup.md#consistency)).
 
+### Physical stops and available faces
+
 A physical stop uses `stop_fixture` plus `stop_pose`; its inventory solids
 follow the same dimension/measurement/void trust rules as other fixture bodies.
 The kernel places it, draws it and includes it in collision/interference checks.
@@ -1086,6 +1164,8 @@ unknown action, or unknown as-is faces, leaves it unknown. When a setup in the
 lineage omits `stock_in`, the routing is undeclared: an earlier setup's cut may
 have made the face, so it is unknown, not an error. A cut in this or a later
 setup is still an error: `stock_in` names only earlier setups.
+
+### Vise jaws and seat height
 
 M4 vise geometry consumes `fixture`, `parallels`, `fixed_jaw`, `jaws_along`,
 `grip_mm` and `jaw_above_parallels_mm` to place the jaw solids in the setup
@@ -1114,11 +1194,12 @@ and setup findings. When a required fact is missing, the setup's `vise` and
 `thin_wall_under_clamp` findings stay `?` and the render, if any, is a part-only
 view labelled as unresolved.
 
-Two optional authored pose fields complete the picture. `jaw_center_along_mm`
-is the centre of the jaw plates along `jaws_along` in setup-frame
-coordinates; without it the kernel draws only the jaw material certainly over
-the gripped part and a pale envelope for where the rest of each jaw may lie,
-and cutter samples inside that envelope stay `?`. `parallels_centres_mm` is
+### Jaw and parallel positions
+
+`jaw_center_along_mm` is the jaw-plate centre along `jaws_along` in setup
+coordinates. Without it, the kernel draws only jaw material certainly over
+the gripped part, plus a pale envelope for possible remaining jaw positions.
+Cutter samples inside that envelope stay `?`. `parallels_centres_mm` is
 exactly two `[x, y]` setup-frame centres of the parallels; together with the
 parallels row's fact-local `height`, `length` (along the jaws) and `width`
 (along the clamp axis) they place two parallel solids with tops at the stock
@@ -1146,21 +1227,22 @@ angle from `jaws_along` (counterclockwise positive seen from above). `jaws_along
 parallels and risers run along the swivelled jaws. The plan's setup frame carries the
 work's own pose; the kernel closes the jaws on that work across the swivelled line.
 
-The swivel is set by `hold.align.method`, where the setup mounts the vise or changes its
-swivel:
+Set `hold.align.method` when the setup mounts the vise or changes its swivel:
 
-- `indicate_jaw`: rough the swivel in on the base graduations; touch the `indicator` on
-  the fixed jaw near one end, zero the dial and DRO X/Y; raise the quill, move the
-  printed ΔX = `over_mm`·cos, ΔY = `over_mm`·sin of the jaw line, each rounded to the
-  machine's measured DRO `resolution` (the step) so the operator can dial it; lower onto
-  the jaw and tap the vise round until the two readings agree within `limit_mm`. The
-  setting tolerance is the dialled move's angle off the jaw line plus
-  asin((`limit_mm` + √2·step/2) / L), L the dialled move's length and each axis
-  displayed to within half a step.
-- The setup picture labels a swivelled stock by its own size along and across the jaws,
-  and its setup-frame box as the swivelled footprint.
-- `graduations`, `protractor`, `sine_bar`: set by that reference against the fixed jaw,
-  to its stated `tolerance_deg`, which needs a `cite`.
+- `indicate_jaw`: rough the angle in on the base graduations. Touch the
+  `indicator` near one end of the fixed jaw and zero the dial and DRO X/Y.
+  Raise the quill, then move the printed ΔX = `over_mm`·cos and
+  ΔY = `over_mm`·sin of the jaw line. Each move is rounded to the machine's
+  measured DRO `resolution`, the step. Lower onto the jaw and tap the vise
+  around until the readings agree within `limit_mm`. Setting tolerance is the
+  dialled move's angular departure from the jaw line plus
+  asin((`limit_mm` + √2·step/2) / L), where L is the dialled move's length and
+  each axis is displayed within half a step.
+- `graduations`, `protractor` or `sine_bar`: set from that reference against
+  the fixed jaw to the stated `tolerance_deg`, which needs a `cite`.
+
+The setup picture labels the stock's size along and across the swivelled jaws,
+and labels its setup-frame box as the swivelled footprint.
 
 Any unknown input leaves the tolerance unknown; the HOLD prints a STOP for it. The work
 turns with the jaws while the cutter feeds along a table axis, so the
@@ -1169,6 +1251,8 @@ tolerance and reports the shift L·sin(tolerance) at the cut's reach L from the 
 Because the work's edges then stand off the table travel, an X or Y zero is picked up by
 indicating a bore's centre (`from = "indicated"`); an edge touch there is `?`
 ([zero_check](rules-coordinates.md)).
+
+### Jaw bar and buttons
 
 `jaw_bar` names a fixtures `round_bar` laid between the work and the moving jaw,
 so a faced reference face seats flat on the fixed jaw while the opposite face is
@@ -1196,6 +1280,8 @@ contacts drawn are the button faces, not the jaws, and the grip measured is
 only where the work bears on them. The HOLD's jaw-button step prints the four
 measured sizes the jaws close on (face Ø, thickness, spigot Ø, spigot length);
 an unmeasured one prints `? not measured`.
+
+### Other fixture poses
 
 Other holding kinds are drawn from their own declarations, never defaulted.
 A `chuck_3jaw` / `chuck_4jaw` (and the chuck a `dividing_head` names with
@@ -1233,12 +1319,14 @@ and `positions` counts angular settings, not drilled holes inferred from a part
 name. Exactness uses the authored TOML angle value, not rounded sheet text.
 For a full pattern (`positions >= 2` with `angle_deg` omitted), the step is
 exactly `360 / positions`, and both every landing and cycle closure are checked.
-An authored `angle_deg` with `positions >= 2` declares an **open pattern**:
+An authored `angle_deg` with `positions >= 2` declares an open pattern:
 every position is checked against `angle_tol_deg`, but closure is not applicable,
 even when the authored steps happen to total a whole revolution. Explicit
 `"unknown"` is not omission. `positions = 1` is one explicit angular setting
-with no closure. The traveler prints plate, circle, turns and hole **spaces**,
+with no closure. The traveler prints plate, circle, turns and hole spaces,
 with angles at the drawing's declared angular precision.
+
+### Continuous rotation
 
 For rotary milling, use
 `hold.index = { fixture = "<head>", rotation = "continuous" }` instead of a
@@ -1248,6 +1336,9 @@ and an unverified head remains unknown. This declares how the head is used,
 not proof that its rotation is collision-free or its torque/locking adequate.
 
 ## Reference
+
+A `Reference` is a structured entry in `hold.supports`. It can select a fixture,
+scope it to operations and declare a follow- or steady-rest position.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1268,8 +1359,8 @@ op of the setup). A follow rest's `jaw_side` says which diameter its jaws ride:
 `turned` (the default; trailing the tool on the diameter just cut) or `uncut`
 (leading it on the diameter about to be cut). `ref` names an inventory
 `follow_rest`/`steady_rest` fixture with measured `capacity_min`/`capacity_max`.
-`turning_deflection` then uses the rest span instead of `stickout_mm`
-(docs/rules-physics.md "Follow and steady rests"). The kernel also draws and
+[`turning_deflection`](rules-physics.md#turning_deflection) uses the rest span
+instead of `stickout_mm`. The kernel also draws and
 collision-checks the rest from that fixture's measured solid fields: a follow
 rest's `jaw_width`, `jaw_height`, `jaw_depth` and `jaw_angles_deg`, a steady
 rest's `body_dia` and `body_length` ([inventory](inventory.md),
@@ -1280,21 +1371,31 @@ never beside a Ø sign: `jaws 8.00 mm behind the tool, on the diameter just turn
 set on and backed off every pass as printed under each op` (trailing jaws ride
 each pass's new diameter), or `jaws … mm ahead of the tool, on the uncut stock`.
 
-Each op the rest serves prints its pass sequence once, as a full-width line under
-the op row; the op's coordinate cell keeps only `follow rest on: Z …` where the
-op's start would foul the rest (`engage_at_z_mm`, on the DRO grid). The sequence:
-start with the jaws backed off; at that Z (or, with no engagement Z, once the tool
-has turned the jaw lead) stop the feed, then the spindle; set the jaws and lock
-them; restart the spindle, then resume the feed. Trailing (`turned`) jaws add the
-pass end: stop the feed, then the spindle; back the jaws off; withdraw the tool
-along X; return the carriage to the pass start — the return carries them back past
-the pass start by their lead onto stock that pass never cut. Leading (`uncut`)
-jaws return over the smaller cut diameter and get no release. Hands never set a
-rest on a turning spindle, and the cut never resumes on a stopped one. A rest
-whose `jaw_side` or positive `jaw_lead_mm` is not known prints a STOP box, never a
-pass sequence.
+### Follow-rest pass sequence
+
+Each served op prints its pass sequence once as a full-width line below its
+row. The coordinate cell keeps only `follow rest on: Z …` when the start would
+foul the rest, using `engage_at_z_mm` on the DRO grid.
+
+1. Start with the jaws backed off.
+2. At the engagement Z, or after turning the jaw lead when no engagement Z is
+   declared, stop the feed and then the spindle.
+3. Set and lock the jaws. Restart the spindle, then resume the feed.
+4. For trailing (`turned`) jaws, stop the feed and spindle at the pass end.
+   Back the jaws off, withdraw along X and return the carriage to the pass start.
+   The return carries the jaws behind that start by their lead onto stock the
+   pass never cut.
+
+Leading (`uncut`) jaws return over the smaller cut diameter and need no release.
+Hands must never set a rest on a turning spindle, and cutting must never resume
+with the spindle stopped. An unknown `jaw_side` or unknown/nonpositive
+`jaw_lead_mm` prints a STOP box instead of a pass sequence.
 
 ## Zero
+
+`[setups.zero]` groups axis pickups, datum-transfer instructions and tool-change
+touches. The [zero rules](rules-coordinates.md#zero_check) check the complete
+schedule against the setup and its operations.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1304,10 +1405,25 @@ pass sequence.
 | `transfer` | `Transfer` |
 | `tool_touches` | `list[ToolTouch]` |
 
-A setup whose every spindle op is a `guided_sweep` omits `x` and `y`: the sweep's
-touch-off against its master sets them ([zero_check](rules-coordinates.md#zero_check)).
+`zero.transfer` describes a pickup from another setup. `tool_touches` records
+tool changes explicitly. Neither declaration invents a measured trial-cut
+diameter.
+
+When every spindle op in a setup is a `guided_sweep`, pivot and rail sweeps may
+omit X/Y edge pickups: touching the cutter to the master sets those axes before
+the table is locked. Even without pickups, X/Y DRO directions are checked
+because the touch feed and rough back-off move those axes. A reversed direction
+is an error; an undeclared or unrecognized direction remains unknown.
+
+A trammel instead cuts at the rails' crossing under the spindle with X and Y
+locked. An X/Y pickup would move it away from that crossing and is an error.
+It needs no X/Y DRO direction for those locked axes.
+See [zero_check](rules-coordinates.md#zero_check).
 
 ## AxisZero
+
+Each `zero.x`, `zero.y` or `zero.z` uses an `AxisZero` recipe. Its declared
+coordinate and method describe what is touched and what the operator sets.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1330,15 +1446,43 @@ touch-off against its master sets them ([zero_check](rules-coordinates.md#zero_c
 | `measure_before_hold` | `bool` (`measure_then_set`: M is read on the part before it is held) |
 | `at_mm` | `[Number, Number]`: where a Z touch lands, setup-frame X, Y. An [area hold](inventory.md#area-holds) that zeroes Z on its seat face will require it; no rule reads it yet |
 
-Only explicit `measure_before_hold = true` with an authored `measure` places
-M acquisition in its original first HOLD step (`Before clamping, measure Z M = …`).
-That step has 35 × 10 mm clear pen room; no extra MEASURED ZERO INPUTS section is
-added. Its DRO row refers back to `M measured before clamping (HOLD)`.
-Absent/false declarations keep acquisition at the machine. The existing datum
-transfer prints before the DRO ZERO table and tool settings, with its source
-instructions and limits unchanged.
+### Pickup coordinates and retouch schedule
+
+Every zero recipe's `edge_mm` is the authored pickup coordinate in the setup
+frame. A Z recipe with `face = "top"` uses the stock state's top; other named
+faces require their own explicit `edge_mm`, not the stock top or a value copied
+from report output. X/Y raw-overhang pickups likewise use their authored edges.
+The Z pickup's `retouch_after` may declare a known operation list or `"unknown"`.
+Omission and literal `"unknown"` leave the schedule unresolved, so a required
+`zero_check` cannot pass merely because no rows were declared. An explicit
+`retouch_after = []` means a known empty schedule; a known nonempty list produces
+retouch rows using the stock top after each listed operation, including a face
+cut that changes the touched top; each serves the next tool. A known list does not
+certify the schedule: `zero_check` derives a touch for every other tool change from
+the setup's standing touched or faced surfaces, or reports it missing as an error
+([coordinates and DRO zero](rules-coordinates.md#zero_check)).
+
+### Measured Z setting
+
+Z `method = "measure_then_set"` (with `gauge`, `measure`, `offset_mm`; on a tool
+touch `z_gauge`, `z_measure`, `z_offset_mm`) sets a measured edge, M + offset +
+paper. On a mill setup's `top` the raw top then reads Z = M + offset while the ops'
+levels start from `stock_state.top_z`; the DRO ZERO prints that correction: face a
+higher top down to `top_z` first, no deeper per pass than the setup's least op
+`doc_mm`, in plan units rounded down onto the DRO grid (unknown plan units print
+no cap).
+
+Only `measure_before_hold = true` with an authored `measure` puts acquisition of
+M in the first HOLD step (`Before clamping, measure Z M = …`). That step keeps
+35 × 10 mm of clear pen room, and the DRO row refers to
+`M measured before clamping (HOLD)`. There is no separate MEASURED ZERO INPUTS
+section. An absent or false flag keeps acquisition at the machine. Datum
+transfer prints before the DRO ZERO table and tool settings.
 
 ## Transfer
+
+`zero.transfer` declares how an existing datum is recovered from an earlier
+setup, including the indicated feature, limit and any keep-clamped recovery.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1351,17 +1495,24 @@ instructions and limits unchanged.
 | `keep_clamped` | `bool`: the hold must not be loosened to correct the work (an indexed setup keeping an earlier chucking) |
 | `recovery` | `str`: what to do when a `keep_clamped` sweep reads over the limit |
 
-The setup sheet prints the transfer by what `indicate` names: on a lathe, tap true
-to the limit; on a mill, one hole, bore or boss (or a named item that is not a
-feature, such as a pin head) is centred on by moving the table; surfaces, or
-several features, are an alignment, so the operator sweeps each surface by table
-travel and taps the work, not the table, until the reading is within the limit.
-With `keep_clamped = true` the work is never loosened or tapped: the sheet prints
-the sweep as a check (a centring still moves the table), `do not loosen`, and the
-plan's `recovery` for a reading over the limit. Without a `recovery` it prints a
-STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
+The setup sheet interprets `indicate` by machine and reference:
+
+- On a lathe, tap the work true to the limit.
+- On a mill, centre a single hole, bore, boss or nonfeature item such as a pin
+  head by moving the table.
+- For surfaces or several features, sweep each surface with table travel and
+  tap the work, not the table, until the reading is within the limit.
+
+With `keep_clamped = true`, never loosen or tap the work. The sheet prints the
+sweep as a check, `do not loosen`, and the authored `recovery` for an excessive
+reading. Centring can still move the table. Missing `recovery` prints a STOP
+and leaves [zero_check](rules-coordinates.md#zero_check) `unknown`.
 
 ## ToolTouch
+
+Entries in `zero.tool_touches` declare the surfaces and offsets used to set
+tools before their listed operations. They do not supply a measured diameter
+unless the procedure explicitly obtains one.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1383,6 +1534,10 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 
 ## Operation
 
+Each `[[setups.ops]]` record declares one action and its tool, geometry,
+cutting settings or inspection procedure. Its position in the array determines
+execution order; `op` is its within-setup identity.
+
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `op` | `int` |
@@ -1395,7 +1550,7 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `note` | `str` |
 | `layout` | `str` (`scribe` only: `dividers`, `trammel` or `template`; or `ends`, a guided sweep's two arc-end marks measured from the bar's own faces) |
 | `guide` | `Guide` (`scribe` with a template, `file_to_line`) |
-| `inspection_note` | `str \| list[str]` (numbered steps; see above) |
+| `inspection_note` | `str \| list[str]` (numbered steps; see [Checks and written methods](#checks-and-written-methods)) |
 | `process` | `str \| list[str]` (`coating` only: a `services` or `consumables` id) |
 | `process_holds` | `list[ProcessHold]` |
 | `to_z` | `float` |
@@ -1429,25 +1584,115 @@ STOP and [zero_check](rules-coordinates.md#zero_check) is `unknown`.
 | `allowance_mm` | `Number` > 0: stock a saw that `follows` a line leaves outside it for the file |
 | `keep` | `str` (a finished feature: after a held split, the piece that carries it stays and every other piece is discarded; see [keep piece](rules-geometry.md#keep-piece)) |
 
-`keep` names the piece that leaves the setup when the work is in pieces, typically
-on the `release` op after the cut that freed the part from its frame:
+### Endpoints and inspection procedures
+
+`to_z` is an authored endpoint. `to_z_band` is a range, not a substitute for
+measured setup binding. Arc contours need the nominal geometry and a supported
+[manual-arc method](#manual-arcs); their finite bounds come from that geometry,
+not an invented full circle.
+
+#### Checks and written methods
+
+For a single-feature op, `checks` maps requirement names to inventory gauge
+references. Every key must belong to that resolved feature's `requirements`
+list, exported or plan-owned. Otherwise loading raises `BadInput`, even if
+another feature owns the name. A wholly unknown requirements list cannot
+authorize arbitrary checks. A missing check is distinct from
+`checks.dia = "unknown"`. Multi-feature inspection uses the scoping rules below.
+
+`inspection_methods` supplies the authored procedure for datum/geometric
+checks and missing requirements. Each `inspection_methods.<requirement>` or
+operation `inspection_note` is either one string or a nonempty list of strings.
+A string uses its blank-line paragraphs as numbered paragraphs
+(`(1)…(2)…`). A list prints numbered steps in INSPECTION NOTES for the
+machinist to follow and record:
 
 ```toml
-[[setups.ops]]
-op = 70
-do = "release"
-keep = "hub_od"
+inspection_methods.position_dia = [
+  "Pin the rod hole with the 4.000 gauge pin; zero the indicator on datum A.",
+  "Read X at the pin: {X1}",
+  "Read Y at the pin: {Y1}",
+  "Calculate: position Ø = 2 × √((X1 − 133.067)² + (Y1 + 8.456)²) = {result}",
+]
 ```
 
-The kernel applies it to the stock after the last op it models at or before the
-keep op (a `release` is not modelled, so that is the freeing cut), keeps the one
-piece that carries every face of the feature and discards the rest (an error if
-a discarded piece holds finished material). Later
-setups' entry stock and their `stock_state` checks then see the kept piece only,
-as do later ops' flutes in the same setup; their holders still see the
-setup-entry stock, as for any cut ([keep piece](rules-geometry.md#keep-piece)).
-The op's traveler row tells the operator which piece to keep and to discard the
-rest. Without `keep`, a held split keeps every piece, as before.
+`{name}` normally prints as a labelled blank on its own line in prose. Worksheet
+and calculation fields remain single fields, not duplicate prose boxes. A step
+beginning `Calculate:` prints apart from the numbered steps. Only an authored
+step-list procedure with named brace readings in its steps and at least two
+calculation lines becomes a worksheet on an attached logical sheet after the
+contours (the op row names it, `[S11 sheet 4 worksheet]`). Its original numbered
+steps use references such as `[rJ1]`, without duplicate value boxes; READINGS
+provides one value box per named reading with its source step. Original equations
+and calculation fields print once. Standalone underscores do not count as named
+worksheet readings. A list is known only when every step is a non-empty string
+other than `"unknown"`.
+
+#### Inspection views
+
+An `inspect` op can illustrate its procedure with `inspection_views.<requirement>`,
+a nonempty list containing one view per surface-plate arrangement.
+Each needs a `title`, known three-component unit vectors `up` and `toward`,
+and at least one mark. `up` points away from the plate in the part-model
+frame, in the direction a height reading rises. `toward` points from the part
+to the viewer and must be square to `up`. Neither vector accepts `"unknown"`.
+`aids` is optional. Positions and sizes use part-model millimetres; unit
+direction vectors are dimensionless:
+
+```toml
+[[setups.ops.inspection_views.position_dia]]
+title = "VIEW 1: BOX ON ITS BASE, LAND C DOWN ON THE STOP BAR"
+up = [-0.9833816999, -0.1815500823, 0.0]
+toward = [0.0, 0.0, -1.0]
+aids = [
+  { name = "C STOP BAR", shape = "box", at_mm = [155.526, 40.78, 1.25], size_mm = [40.0, 12.2, 12.0], axes = [[0.1815500823, -0.9833816999, 0.0], [-0.9833816999, -0.1815500823, 0.0]] },
+  { name = "ROD GAUGE PIN", shape = "cylinder", at_mm = [133.067, 16.456, -25.0], axis = [0.0, 0.0, 1.0], dia_mm = 1.994, length_mm = 26.2 },
+]
+marks = [
+  { label = "R1: ROD PIN TOP", at_mm = [132.087, 16.275, -5.0], reads = true },
+  { label = "C: LAND C ON THE STOP BAR", at_mm = [145.747, 26.547, 0.0] },
+]
+```
+
+An aid is a `box` from its least corner `at_mm` by `size_mm` along its edge
+directions `axes` (unit x then y, square; the model's X and Y when absent), or a
+`cylinder` from its base centre `at_mm` along the unit `axis`, `dia_mm` across
+and `length_mm` long. A mark is a labelled point; `reads = true` marks where a
+height reading is taken. The kernel draws the sketch on the stock the op's setup
+leaves ([renders](rules-geometry.md#renders)) and the traveler prints it at the
+head of that requirement's worksheet or inspection note
+([report binding](report-and-telemetry.md#kernel-renders)). Views on an op that is
+not `inspect`, or for a requirement with no flat `inspection_methods` entry, are
+`BadInput`: views are keyed by requirement alone, so a requirement whose method is
+scoped per feature has none.
+
+The setup sheet retains every authored view in order with its own title.
+Each attaches once as a whole figure to the requirement's worksheet or note.
+A continuation can move the figure and repeat its context without duplicating
+reading or calculation fields. Views change neither the schema nor the
+authored procedure.
+
+#### Missing requirements and paper records
+
+When an inspection requirement has no exported owner/band, an explicit operation
+may declare `missing_requirements = { length = "calipers" }` and
+`inspection_methods.length`. This uses the same gauge-reference mapping type as
+`checks`, but produces a named unknown inspection row with
+`missing_requirement = true`, not an acceptance band or a dimensional pass.
+The sheet prints `?`, the exact missing requirement identity and the authored
+procedure; reference-only dimensions such as `length_ref` are not substitutes.
+A name already in that feature's exported requirements is `BadInput` in
+`missing_requirements`; use `checks` so actual requirements cannot be bypassed.
+
+Paper records use the existing requirement-keyed `checks` and methods.
+Below each real requirement, one full-width area accepts freeform readings
+and observations beside its known owners, limits, gauge, method and authored
+context. It infers no reading positions or counts. Authored `{name}` fields
+remain separate named blanks, never invented samples or statistical summaries.
+Missing identities or bands stay visible as `?` instructions, without
+fabricated automatic measurement fields.
+
+#### Multi-feature inspection
 
 An `inspect` op may name several features (`feature = ["a", "b"]`): one
 drawing limit split across them, or one inspection station reading several. A
@@ -1463,32 +1708,43 @@ checks = { pivot_bore = { dia = "pin-gauges" }, hub_od = { dia = "micrometers/0-
 go_no_go = { pivot_bore = { dia = { go = 6.500, no_go = 6.530 } } }
 ```
 
-Each feature's entry is its scoped one, else the flat one. Flat and scoped entries
-mix in one table, but one requirement is flat or scoped within a table, never both
-(a flat entry already applies to every feature exporting it). Across tables they
-mix freely: a flat `go_no_go.dia` pairs with scoped `checks`. `BadInput` when a
-scope key is not one of the op's features, when a scoped requirement is not one
-its feature exports (use `missing_requirements`), when a key is both a listed
-feature and an exported requirement (ambiguous), when one requirement is given
-both flat and scoped, and when a `go_no_go` pair or scoped method has no `checks`
-gauge for its feature's requirement (a flat pair needs one on every listed feature
-exporting it). A single-feature op keys these tables by requirement alone, so a
-scope key on it is `BadInput`: there is nothing to tell apart, and one spelling
-keeps every single-feature reader flat. `missing_requirements` and
-`inspection_views` stay flat: a view illustrates a flat `inspection_methods`
-entry, never a scoped one. The inspection rule credits the op to each feature
-it reads, with that feature's own gauge, pair and method. The sheet prints the op
-as one station card: one row per requirement, naming every feature that shares a
-gauge, pair and method, and its own row for each feature read differently. A
-scoped method prints once as its own note headed with its feature; a flat method
-prints once for every feature. A list on any other action is `BadInput`.
+A feature uses its scoped entry when present, otherwise the flat entry.
+Flat and scoped entries can share a table, but one requirement cannot be both
+flat and scoped in that table. A flat entry already applies to every listed
+feature that exports it. Different tables can mix scopes; for example,
+flat `go_no_go.dia` can pair with scoped `checks`.
 
-**Finishing route.** `deburr` and `coating` are manual bench actions. A
+Loading raises `BadInput` for any of these conditions:
+
+- A scope key is not one of the op's listed features.
+- A scoped requirement is not exported by its feature. Use
+  `missing_requirements` for absent requirements.
+- A key is both a listed feature and an exported requirement.
+- A requirement has both flat and scoped entries within one table.
+- A `go_no_go` pair or scoped method has no corresponding `checks` gauge.
+  A flat pair needs a gauge on every listed feature exporting its requirement.
+
+A single-feature op always keys these tables by requirement; a scope key is
+bad input. `missing_requirements` and `inspection_views` remain flat, and a
+view illustrates only a flat `inspection_methods` entry. Feature lists on
+actions other than `inspect` are bad input.
+
+The inspection rule credits each feature with its own gauge, pair and method.
+The sheet groups the op as one station card. A requirement row names all
+features sharing a gauge, pair and method; features read differently get
+separate rows. A scoped method prints once as a feature-headed note, while a
+flat method prints once for each feature.
+
+### Finishing route
+
+`deburr` and `coating` are manual bench actions. A
 `coating` op (black oxide, paint, oil) names its `process`: an outside
 `[services.<id>]` item or in-house `[consumables.<id>]`. An absent process is
 unknown in `tool_resolves`, and an unlisted one is an error. A drawing
 `material.finish` with no `coating` op in the route is a job caution
 (`finish_route`, [inspection rules](rules-inspection.md)).
+
+### Process holds
 
 A `ProcessHold` is `{ feature, requirement, band = [lo, hi], gauge, reason }`, all
 required, plus an optional `go_no_go`: a shop limit tighter than the drawing, held for a stated process reason
@@ -1498,7 +1754,7 @@ inspection rule errors when the band reaches outside the drawing band (limits
 included, a scalar zone `v` read as [0, v]). The sheet prints it in the op's
 inspection cell as `PROCESS HOLD — not a drawing limit (why: see job page): …`,
 never as a drawing limit, and the job page gathers every hold, with its reason, in
-a **PROCESS HOLDS — in-process limits, not drawing limits** table, apart from
+a `PROCESS HOLDS — in-process limits, not drawing limits` table, apart from
 DRAWING REQUIREMENTS; the reason prints nowhere else.
 
 A hold may instead name a feature's reference-only dimension (`<name>_ref`, a
@@ -1507,6 +1763,8 @@ The drawing sets no limit there, so the hold must also say what the gauge reads
 (`measure`, e.g. `"scribe to faced end"`) and where the band comes from (`cite`);
 missing either is `BadInput`. A `measure` on a hold of an exported requirement is
 `BadInput` too: that hold reads the requirement itself.
+
+### GO / NO-GO declarations
 
 A `GoNoGo` is `{ go = <mm>, no_go = <mm> }`, both positive and different: the two
 limit-gauge sizes a limit check uses. The GO size must pass the work (enter a hole,
@@ -1518,6 +1776,8 @@ accept, the drawing band as printed (rounded inward) or the hold band; see
 [inspection rules](rules-inspection.md#go--no-go-limit-checks). The op row prints
 `GO <go> enters, NO-GO <no_go> does not`, so `inspection_methods` need not repeat
 the sizes.
+
+### Cutting face claims
 
 `faces` explicitly declares this operation's cutting claims using bound STEP
 references. Omission uses the feature's default `faces`; `"unknown"` means
@@ -1534,8 +1794,10 @@ A claimed hole cap also needs its feature's last drill/ream/bore/counterbore
 setup to leave it clear of stock; a tap or pilot claim never stands in for that
 (see [geometry](rules-geometry.md#finish_coverage)). No plan field selects that op.
 
-**Complete explicit-face ownership.** An op owns a feature it does not name when
-its explicit `faces` list is known and nonempty and contains every face of that
+#### Complete explicit-face ownership
+
+An op owns a feature it does not name when its
+explicit `faces` list is known and nonempty and contains every face of that
 feature's known, nonempty declared `faces`. Ownership is per op: a partial
 claim, an empty or `"unknown"` list (or one with an `"unknown"` member), a
 feature whose own faces are unknown, and an op without explicit `faces` never
@@ -1547,45 +1809,59 @@ same final-cut filters as a named op (no rough, manual or nonfinishing action);
 label-scoped facts (hole chains, sizing, inspection checks) still follow the
 op's own `feature`.
 
-`stock_removal_bounds` is an explicit setup-frame clearing box:
-`{ x = [lo, hi], y = [lo, hi], z = [lo, hi] }`, all three intervals numeric
-and strictly increasing. It declares the material outside the finished part
-that this cutting operation clears inside that volume, leaving everything
-outside it unchanged. Its faces still need valid cutting claims from this
-setup. The box is the explicit cleared footprint, for example the envelope of
-several roughing passes or, on a `chain_drill` op, the author's certification
-of the actual drilled-and-chiselled break-out footprint; it is not capped to
-the claimed faces' XY bounding box
-dilated by the cutter radius. The cutter radius must still be known: if it is
-unknown, the bounds are `?` with a reason naming the missing cutter radius, and
-later stock stays unresolved. Removal is the box's intersection with the
-setup-entry stock and never takes finished material or a protected rough leave.
-Every claim must touch the box and every removed piece must border a claim on
-that setup-entry stock, so an earlier op of the setup clearing the bridge
-between a claim and the rest of its box never strands it; the pieces are then
-cut from the current stock, which only removes material and never restores what
-an earlier op cleared. Known future planned-hole columns, with their finite caps,
-stay stock; and the removal must not split an original input solid. A violation is named stock
-debt, not an error: later stock that depends on it stays unresolved (later ops
-of the same setup keep only certain finished-material flute hits, with tool hits
-unknown), while genuine collisions with finished material remain independent
-errors. It shapes the stock later flutes of this setup and later setups meet,
-and excludes this operation's own derivable allowance from its flute obstacles;
-accessibility holder obstacles and holding facts still use setup-entry stock,
-while reach, holder-wall and shank screens see it ([`reach`](rules-geometry.md#reach)).
-The box also confines this op's cutter: accessibility judges a claimed face
-only where the cutter can stand without meeting stock outside the box (air and
-the finished part beyond it do not stop it). Samples it cannot reach are
-carried to a later op that cuts or files the same face (a rough cut or a file
-to the line, for example; never a saw); with none, the finding is an
-error ([`accessibility`](rules-geometry.md#accessibility)). This is an
-authored process/fixture volume, not a
-measured toolpath or proof that the whole toolpath is safe. Without it, any claimed wall
-whose interior still touches overstock above `to_z` (including a drafted wall)
-needs a named stock-out debt; a contour checkpoint bbox is not a clearing volume,
-and an unbounded `chain_drill` op's webs are such overstock: the kernel removes
-its discrete holes only and keeps the webs in stock until a later known
-removal (see [Manual arcs](#manual-arcs)).
+### Stock removal bounds
+
+`stock_removal_bounds` declares the setup-frame box
+`{ x = [lo, hi], y = [lo, hi], z = [lo, hi] }`. All intervals must be numeric
+and strictly increasing. The operation clears material outside the finished
+part inside this volume and leaves everything outside it unchanged.
+Its finished faces still need valid cutting claims from this setup.
+
+The box can represent several roughing passes or the author's certification
+of a chain-drilled-and-chiselled break-out footprint. It is not capped to the
+claimed faces' X/Y box dilated by cutter radius. A known cutter radius is
+still required: an unknown radius leaves the bounds `?` with that reason,
+and later stock unresolved.
+
+#### Removal and stock propagation
+
+Removal is the box intersected with setup-entry stock, never finished
+material or a protected rough leave. Every claim must touch the box, and
+every removed piece must border a claim on that entering stock. An earlier
+op clearing a bridge between claim and box therefore does not strand it.
+The resulting pieces are cut from current stock in operation order, so
+material is never restored.
+
+Known future planned-hole columns, including finite caps, stay stock.
+Removal must not split an original input solid. A violation creates named
+stock debt, not an error; dependent later stock remains unresolved. In the
+same setup, later ops retain only certain finished-material flute hits while
+tool hits are unknown. Independent genuine collisions with finished material
+remain errors.
+
+This stock shapes later flute obstacles in the current and descendant
+setups, excluding the operation's own derivable allowance. Accessibility
+holder obstacles and holding facts still use setup-entry stock; reach,
+holder-wall and shank screens see the removed stock.
+See [reach](rules-geometry.md#reach).
+
+#### Cutter access inside the box
+
+Accessibility judges a claimed face only where the cutter can stand without
+meeting stock outside the box. Air and finished part beyond it do not stop
+the cutter. Unreachable samples can pass to a later operation that cuts or
+files the same face, including another rough or file-to-line, never a saw.
+Without such an operation, the finding is an
+[accessibility error](rules-geometry.md#accessibility).
+
+The box is an authored process/fixture volume, not a measured toolpath or
+proof of safe continuous motion. Without it, a claimed wall still touching
+overstock above `to_z`, including a drafted wall, needs named stock-out debt.
+A contour-checkpoint bounding box is not a clearing volume. An unbounded
+chain-drill op removes discrete holes and retains its webs until a later
+known removal. See [Manual arcs](#manual-arcs).
+
+### Rotary approach and claim windows
 
 `approach = "rotary"` mills on a horizontal dividing head: each sample of the
 claimed faces' windowed portions is turned about the head axis to top dead
@@ -1625,6 +1901,8 @@ reach, holder-wall and shank screens meet the stock earlier ops leave. This is
 one top-dead-centre pose per sample,
 not a continuous toolpath or proof of clearance while rotating between poses.
 
+### Depth of cut and approach distance
+
 `doc_mm` supplies the engagement screen's axial depth per pass for an
 endmill-family cutter on a cutting operation. Omitted, unknown or nonpositive
 DOC on an eligible operation remains unresolved. Known noncutting actions
@@ -1641,7 +1919,34 @@ path cut in several depth levels) it also sets the raise Z the sheet prints,
 `approach_mm` above the current top; without it that return is coordinates debt
 ([depth levels](rules-coordinates.md#coordinates)).
 
+### Kept pieces
+
+`keep` names the piece that leaves the setup when the work is in pieces, typically
+on the `release` op after the cut that freed the part from its frame:
+
+```toml
+[[setups.ops]]
+op = 70
+do = "release"
+keep = "hub_od"
+```
+
+The kernel applies it to the stock after the last op it models at or before the
+keep op (a `release` is not modelled, so that is the freeing cut), keeps the one
+piece that carries every face of the feature and discards the rest (an error if
+a discarded piece holds finished material). Later
+setups' entry stock and their `stock_state` checks then see the kept piece only,
+as do later ops' flutes in the same setup; their holders still see the
+setup-entry stock, as for any cut ([keep piece](rules-geometry.md#keep-piece)).
+The op's traveler row tells the operator which piece to keep and to discard the
+rest. Without `keep`, a held split retains every piece.
+
 ## Contour
+
+`contour` declares a linear raster or one supported manual-arc method.
+Linear pockets and faces may use `sweep_bounds`, `sweep_frame`, `open_side`
+and circular `keep_out` islands; a raster also needs `step_mm`.
+See [coordinates](rules-coordinates.md).
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1661,11 +1966,15 @@ path cut in several depth levels) it also sets the raise Z the sheet prints,
 | `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
 | `sweep` | `GuidedSweep` (`guided_sweep`: its guide, master and sweep) |
 
+### Chain-drilling cutting data
+
 A `rough_profile` with `method = "chain_drill"` and a resolved drill-kind
 tool performs drilling, so its speed/feed lookup selects `operation = "drill"`.
 Other contour methods and end-mill chain contours retain profile data.
 The axial feed, tool-chart precedence and before-stock penetration used for
 deep-hole derating are defined in [cutting data](cutting-data.md).
+
+### Keep-out islands
 
 `keep_out` centres use `sweep_frame`, defaulting to the feature's frame.
 Positive `dia_mm` islands exclude the whole cutter: pass centres clear each
@@ -1684,13 +1993,15 @@ cutter radius leaves its coverage `?` (see
 
 ## GuidedSweep
 
-A `guided_sweep` contour's `sweep` record ([manual arcs](#manual-arcs), step 4).
+`GuidedSweep` is the `sweep` record inside a `guided_sweep` contour. See
+[pivot and rail sweeps](#pivot-and-rail-guided-sweeps) and
+[oblique trammels](#oblique-trammel) for process requirements.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
-| `guide` | `"pivot"` (a swing arm on a pin at the arc centre), `"rail"` (a sled's arc rail on two rollers) or `"trammel"` (a carrier's pin pair in two straight rails crossing at the spindle axis, [#269](https://github.com/pedropaulovc/prechips/issues/269)) |
+| `guide` | `"pivot"` (a swing arm on a pin at the arc centre), `"rail"` (a sled's arc rail on two rollers) or `"trammel"` (a carrier's pin pair in two straight rails crossing at the spindle axis) |
 | `fixture` | `str`: the inventory `fixtures` item that carries the work and rides the guide (`kind = "swing_arm"` for a pivot, `"arc_sled"` for a rail, `"trammel"` for a trammel); it must be the setup's `hold.fixture` |
-| `master` | `str`: the inventory `gauges` item the stationary cutter is touched to (`kind = "setting_bar"`, pivot only, or `"master_arc"`, rail only in practice: a master arc on a swing arm gives no radial line to centre the cutter on, so it prints only a STOP, [#288](https://github.com/pedropaulovc/prechips/issues/288)); a trammel has none, and naming one is an error |
+| `master` | `str`: the inventory `gauges` item touched by the stationary cutter. A pivot uses `kind = "setting_bar"`; a rail uses `"master_arc"`. A master arc on a swing arm provides no radial centring line, so the sheet prints only a STOP. A trammel has no master, and naming one is an error |
 | `touch_axis` | `"+X"`, `"-X"`, `"+Y"` or `"-Y"`: the setup axis on the cutter's radial line, and the side of the arc centre the cutter stands on; the setup frame is the work at the sweep's middle pose, so it must point from the arc centre to the arc's middle |
 | `sweep_deg` | `float`: the fixture's whole sweep, centred on the arc; at least the arc's span and under 360 (a full circle cannot be swept: use a rotary table) |
 | `rollers_deg` | `Vector` (rail: the two rollers' angles about the arc centre from the cutter's radial line, counterclockwise from above, with the cutter at the arc's middle) |
@@ -1699,6 +2010,9 @@ A `guided_sweep` contour's `sweep` record ([manual arcs](#manual-arcs), step 4).
 | `pins_deg` | `Vector` (trammel: that pair's two pins' angles about the arc centre from the cutter's radial line, the same way; their central angle must be within 0.5° of `2α` or `360° − 2α`, and the measured `α` then places them exactly about the pair's bisector) |
 
 ## Guide
+
+`guide` selects filing buttons, a template and the gauge used to check a
+manual arc. A template also supplies a `scribe` op's `layout = "template"`.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1709,299 +2023,420 @@ A `guided_sweep` contour's `sweep` record ([manual arcs](#manual-arcs), step 4).
 
 ## Manual arcs
 
-The PM-30MV is a manual mill with a DRO: one handwheel moves at a time, so an arc
-is never one move of two axes (no MDI, G-code or continuous circle). The plan
-uses the 1898 manual arc method:
+The PM-30MV is a manual mill with a DRO. One handwheel moves at a time, so the
+plan never calls for an arc as one simultaneous X/Y move: no MDI, G-code or
+continuous two-axis circle. The supported 1898-style process is to lay out the
+arc, rough outside the line and file to it, or use one of the milling and
+guided-fixture alternatives below.
 
-1. **Lay out** (optional with buttons): `do = "scribe"` on the arc feature with
-   `layout = "dividers" | "trammel" | "template"` (`guide.template` names the
-   template). The `manual_arc` rule prints the centre (setup X/Y, and the hole on
-   its axis), the nominal radius and the arc ends; an unknown layout is unknown.
-2. **Rough outside the line**: a `rough_*` op with
-   `contour = { method = "stairs", cusp_mm = … }` (single-axis stair corners on
-   the DRO grid) or `{ method = "chain_drill", pitch_mm = … }` (drilled holes,
-   webs chiselled out along the hole centres; the kernel credits the drilled
-   holes, not the chiselling, see below), plus a nonnegative
-   `rough_allowance_mm` (a negative leave, here or on any op, is an error: the
-   rough would cut into the finished part). Every
-   stair corner, every full hole and every break-out between neighbouring holes
-   must stay outside the finished line, and the stock left for the file
-   (allowance + the stair cusp measured along the wall normal, or the maximum
-   of allowance + drill radius, printed arc break-out radial depth and the
-   greatest nearest-finished-wall distance of the retained printed
-   straight-join break-out polyline)
-   must not exceed the shop policy `numbers.max_filing_stock_mm` unless a later
-   rough cuts the same faces again. Missing or unestablished caps remain unknown.
-   Both rough methods support straight joins. Chain holes use the same
-   drill-radius + allowance offset on each finite join leg, with exact
-   endpoints/miter and nominal equal spacing no greater than `pitch_mm` (DRO
-   grid snapping can move the printed spacing).
-   Host DRO selection and kernel regeneration/actual-hole acceptance use one
-   shared pure finite-boundary predicate for bounded and unbounded chains.
-   Actual closed finished loops (joined bottom outlines and full circles
-   included) use point-in-region plus nearest finite-boundary distance,
-   negative in kept material. Unordered exact arcs and lines connect by real
-   endpoints; authored scrap normals determine the kept side. True open arcs
-   and current partial top-plus-land wall packets have no complete finished
-   loop in the packet. The top packet omits tapers and the bottom arc even
-   when the host model has those linked facts; fuller actual closed-boundary
-   transport is tracked in
-   [#212](https://github.com/pedropaulovc/prechips/issues/212).
-   A gentle arc may instead be hand-sawn outside the line on the bench: a saw
-   op that `follows` the scribe op, with its `allowance_mm` and declared
-   `stock_removal_bounds`
-   ([hand saw](#hand-saw-on-the-bench-straight-or-to-a-scribed-line)), counts
-   as the rough the file finishes.
-   No closure is invented: the open fallback uses oriented finite projections,
-   real free-end
-   caps and shared-concave-vertex sector classification. Conservative ties
-   do not globally AND distant supporting half-planes. Missing or ambiguous
-   region geometry, inconsistent occupancy or unsupported topology remains
-   unknown, never an unsigned-distance pass. No admissible grid point leaves
-   cut tables withheld. Closed-loop break-outs test kept-region entry against
-   the whole finite boundary, not only their own join lines.
-   Unsigned wall distances intentionally still measure filing stock/residual,
-   not scrap-side acceptance; T6 enforces `numbers.max_filing_stock_mm` on
-   the actual regenerated residual. Every actual cylinder still needs web,
-   bounds and the existing 3D collision/accessibility backstop. The open
-   fallback is not full-part region proof. Internal wall normals/outward
-   signs add no user schema, policy knob or tolerance; the shared
-   engine helper (`kernel/chain_boundary.py`) changes the source digest and re-keys every kernel job.
-   Method, stage, full-hole outside-the-line and requested no-web (authored `pitch_mm` no greater than
-   the drill diameter) errors are preconditions found before any clip. A bounded
-   chain is then clipped at drill granularity: the drill-centre offset arc and
-   joins are intersected with the bounds eroded by the full drill radius (a
-   closed arc's seam fragments are one span), each retained arc or leg is
-   regenerated on its own with equal nominal intervals within `pitch_mm` that
-   still leave a web judged on the actual snapped DRO centres, not the nominal
-   span alone (for a retained span longer than the length tolerance, the
-   pitch-required count is always tried at its snapped positions, even when it
-   exceeds the nominal-length web bound, and any higher nominally feasible
-   count is also tried before shortening; a span within that
-   tolerance, an isolated point or a tiny retained arc or leg between two
-   shared junctions, keeps exactly one hole, never a duplicate row; a span whose
-   snapped placement leaves no positive web at any such count omits its
-   clipped end hole as
-   a dropped end, never a fabricated no-web error), and every actual hole
-   snaps to the DRO grid inside the bound and passes that same predicate
-   with clearance for the whole drill and allowance. Bounds never waive
-   region membership for a closed loop or the finite-projection/free-end/
-   concave-shared-vertex fallback for a true open packet.
-   Nominal-distance/offset guards remain additional placement constraints,
-   not independent unsigned side acceptance. The authored radial whole-hole
-   check is intentionally preserved before clipping; a regenerated,
-   physically safe finite-cap hole beyond the actual sweep may nevertheless
-   lie inside the authored supporting circle. Every hole searches a symmetric
-   square of three
-   grid steps per axis and chooses the nearest safe point by Euclidean
-   distance with a deterministic coordinate tie-break; ends and junctions may
-   back off inward along the true curve, and a hole with no such grid
-   candidate after that full search and back-off leaves the whole clip
-   unknown, never a hole in finished material. Every actual hole cylinder is judged; a
-   swept-chord intersection never becomes an extra hole.
-   Web/break-out validation and the single cap enforcement run on that chain.
-   Its table names only dropped ends and genuine piece breaks as stops where
-   stock beyond is not cleared or part of the chiselled chain; an intact
-   arc/join junction continues into the adjacent table. Omitted joins add no
-   join debt while an arc or other table
-   remains, while a wholly excluded or disconnected stage keeps its existing
-   clip debt. Arc and join tables report the same worst-stage stock; chain
-   errors retain stock/cap profile facts where the residual was computed (a
-   precondition error may prevent it), even when cut tables are
-   withheld. Hole
-   repositioning is not a handwheel cut ([coordinates](rules-coordinates.md#coordinates)).
-   In-process stock: an unbounded chain (no `stock_removal_bounds`) removes
-   only each actual hole cylinder; the positive webs between holes, the stock
-   between the holes and the claimed wall and any rail or ear beyond them stay
-   in stock until a later op really cuts them. It gets no cutter corridor,
-   no +Z claim sweep, no lineage band and no drill-radius sweep between hole
-   centres, unlike a milling profile. Those retained webs are then overstock
-   on the claimed wall: the op is named stock debt pointing at
-   `stock_removal_bounds`, and later setups descending from it stay unknown
-   through the ordinary propagation. Declare `stock_removal_bounds` on the
-   chain op to certify the actual drilled-and-chiselled footprint, under the
-   same finite-box, setup-entry-stock and protected-material rules as any
-   bounded op; it is the author's certification, not a demonstrated toolpath.
-   Ordinary milling ops and bounded boxes are unchanged. A dedicated
-   break-out/chisel phase or schema is tracked in
-   [#213](https://github.com/pedropaulovc/prechips/issues/213); none exists yet.
-3. **File to the line**: `do = "file_to_line"` with a `guide`: hardened filing
-   `buttons` (an inventory `fixtures` kit with `kind = "filing_buttons"` and the
-   declared limits of every element between its rims and the bore axis
-   ([inventory](inventory.md)), held by the setup as its `hold.fixture` or a
-   clamp) pinned through `bore`, a hole on the arc's axis drilled, reamed or
-   bored to size earlier; or a `template` checked against a scribed layout. A
-   `gauge` (inventory `radius_gauge`/`profile_gauge` whose `range_mm` covers R)
-   checks the arc. The buttons file R worst case from `button_min/2 − shift` to
-   `button_max/2 + shift`, where the rim centre's shift off the bore axis is
-   `(bore_max − pin_min)/2 + (button_bore_max − pin_min)/2 + runout/2`; that whole
-   band must sit inside the radial band. No guide, no gauge, buttons not held or
-   flagged to verify, any unknown element limit (button OD, button bore, pin,
-   runout or the bore's drawing size) or radius band, no earlier rough or no
-   established cap is unknown; a gauge range that misses R, buttons on a concave
-   arc, a bore off the axis or not yet made, a pin whose largest size exceeds the
-   smallest bore or button bore, or a worst-case filed radius outside the band is
-   an error. `scribe` and `file_to_line` are manual: they need no tool
-   and may stand in a bench setup (`machines.<id>.kind = "bench"`).
-4. **Or finish on the mill**: `{ method = "chords", count = … }` cuts straight
-   chords whose sagitta `c²/8R` fits the band, each fed along one axis (a slanted
-   chord indexed square on a rotary table; a full circle takes at least three);
-   `{ method = "rotary_table", step_deg = …, centre_by = "pin" | "indicate",
-   centre_feature = … }` turns the work on an inventory `rotary_table` fixture
-   (`hold.fixture`, its centre bore `bore_dia_mm` for a pin) under a cutter
-   locked at the cutter-centre radius on the DRO grid, between dial readings
-   rounded inward on its resolution; a pin that misses the table bore, a printed
-   offset whose cut (widened by a pin's play) leaves the band, an arc too
-   short for one dial step, and rows half a turn or more apart
-   (`step_deg` 180° or more on a long enough arc) are errors.
-5. **Or sweep it under a locked cutter** when its centre is too far off the part
-   for a rotary table: `{ method = "guided_sweep", step_deg = …, sweep = { guide,
-   fixture, master, touch_axis, sweep_deg, rollers_deg, rail_deg } }`
-   ([GuidedSweep](#guidedsweep)). The work rides a fixture that holds it to rotation
-   about the arc centre: a swing arm (`guide = "pivot"`, inventory
-   `kind = "swing_arm"`) turning on a pin at the centre, or a sled
-   (`guide = "rail"`, `kind = "arc_sled"`) whose rail, an arc concentric with the
-   part, is pushed against two rollers fixed in the T-slots. With the spindle
-   stopped the cutter itself is touched to the named `master` along `touch_axis`
-   (a `setting_bar` seated on the pivot pin, or a `master_arc` pinned on the
-   fixture), and X and Y are locked: the table never moves while it cuts, only the
-   fixture does, so no method moves two axes at once. The cut radius is the
-   master's declared `radius_limits` (a measured fact), widened by how far the
-   guide lets the arc centre move between the touch-off and the cut: the swing
-   arm's measured `pivot_play` (twice for a master on the arm, which moves with the
-   beam at the touch-off too), or, on a rail, `2 × g × (rail_form_error +
-   roller_runout / 2)` with the rollers' gain `g = (|sin a| + |sin b|) / |sin(a −
-   b)|` for rollers at `a` and `b`, each plus its finite-geometry terms (a linear
-   gain alone is no bound; one that does not converge leaves the cut unknown); it
-   must lie inside the radial band (a rough
-   stage's moved off the line by its allowance, the cutter backed off that
-   allowance along `touch_axis` on the DRO grid, the only handwheel move, and
-   widened by how far that move misses its radial one with the cutter beside the
-   radial line: one DRO step plus the pivot play for a centred setting bar, or a
-   rail centre's sideways shift `(|cos a| + |cos b|) / |sin(a − b)|` times its
-   rollers' 0.1 mm print rounding plus its form error and half its runout), then by
-   one explicit safety margin, the machine's DRO resolution (one display step,
-   `margin_mm`), which the start's clearance carries too. Bound terms provably
-   smaller than that margin are absorbed rather than modelled (a setting bar touched
-   up to a step beside its line, a touch axis leaning within its one-step tolerance;
-   [#272](https://github.com/pedropaulovc/prechips/issues/272)); a DRO resolution not
-   stated as a measured fact, or a cutter-centre reach under two steps, leaves the
-   margin unproven. The
-   rows sample the cutter-centre arc every `step_deg` over the whole sweep, centred
-   on the arc with its ends kept, so the kernel judges the cutter where the arc
-   ends and where the sweep stops. A sweep shorter than the arc (by more than one
-   DRO step of cutter travel), a sweep of a full turn or more or a full circle
-   (either starts and ends at one fixture pose, so no pair of stops bounds it), a
-   `step_deg` of 180° or more (rows half a turn apart do not show which way the
-   fixture turns between them), a guide fixture that does not carry the work or of
-   the wrong kind, a master that is not a setting bar or master arc, a setting bar
-   on a rail, two rollers on one line through the centre, a roller that runs off
-   the rail during the sweep, a worst-case cut outside the band, and a sweep sharing
-   its setup with another spindle op (nothing holds the turning fixture at the setup
-   pose for it, before the sweep or after; manual ops aside) are errors; an
-   undeclared, unmeasured or flagged guide or master fact (a rail is never
-   perfect), an unknown guide, axis, sweep, rollers or rail ends, or a sweep start
-   not proven clear of the stock the setup receives (the cutter goes down there at
-   every level, in air only), is unknown,
-   with a `measure:` instruction for each physical fact. The traveler prints no
-   DRO table for it (its contour heading and the op row's pointer name a guided
-   sweep): it prints the guide's set-up, which puts the cutter on the arc's radial line
-   so a rough's one-axis back-off is radial (the setting bar seated on the pin, the
-   other axis centred between the bar's two sides and locked; or, on a rail, the other
-   axis locked first and the rollers set from the spindle at their X/Y offsets, which
-   puts the rail's centre on the spindle's line; a master arc on a swing arm gives no
-   radial line, so it prints only a STOP, a finish too, until a feeler touch lifts it,
-   [#288](https://github.com/pedropaulovc/prechips/issues/288)), the touch-off (spindle
-   stopped, feeding the touch axis only), its lock and a blank for the DRO reading at
-   the touch (the setup's zero is never reset), the master taken off the sweep's path, a rough stage's
-   one-axis back-off with the direction the cutter must move (a finish after it
-   raises Z, returns to the touch and continues the same numbered steps; when the op
-   leaves stock for a rough sweep that does not print runnable, the finish stops
-   too), a stop block at each end of the sweep, set at the touch before any back-off
-   (X and Y still locked, spindle stopped, Z just clear): the fixture is moved until
-   the radial stroke of the arc-end mark an earlier `scribe` op with `layout = "ends"`
-   laid out in the same setup, extended, runs through the cutter's axis (whatever
-   radius the master set; only the line counts, never the stroke's direction, so the
-   angle's 0.1° rounding moves the stop by thousandths), then on by the overrun measured
-   along the cutter's path (printed to 0.1 mm rounded down, measured on the touch path;
-   the start is proven in air at that printed stop). That layout scribes marks A and
-   B on the work top, each a point measured from the nearer end face and side face of
-   a rectangular bar the setup receives as the plan's raw stock, square to the setup
-   axes, and a short stroke through it toward the arc's centre at a printed angle to
-   that side face, scribed before any op in the setup that may cut those faces; no
-   such op, stock without those faces, a layout after a cut, or a cut between the layout
-   and the sweep (an earlier sweep cuts its marks away) is unknown and the sweep
-   prints only a STOP. Then a dry pass from stop to stop, then the sweep: spindle started, its
-   direction viewed from above, its angle and cutter travel, and the time it takes
-   at the op's starting feed; each sweep ends with Z raised clear of the work and the
-   fixture, the op's last also stopping the spindle before anyone reaches in. An op
-   stepping down in axial levels (`doc_mm`) sets the heading's top level first and,
-   with Z raised, returns to the first stop for each further level, never sweeping
-   straight to the full depth. The stop step prints no setup X/Y: the marks place the
-   stops on the work. The setup picture draws a rail's rollers where they stand on the
-   table, render-only, once the sled's `roller_dia`, `roller_height`, `bed_height`
-   and `rail_side` ([inventory](inventory.md#manual-arc-kit)) and the supports under
-   the work are known, and notes a pivot's post at the arc centre, off the picture
-   ([rules-geometry](rules-geometry.md#renders)); a missing roller fact is a `NOT
-   SHOWN` note with its `measure:` instruction, never a picture verdict. The
-   worst-case cut radius stays in the report. `travel` and `headroom` do not model
-   the moving fixture (its swept footprint, the stack at every pose), so a setup with
-   a guided sweep is never a pass for either: each owes a `check:` debt
-   ([rules-setup](rules-setup.md#headroom), [#272](https://github.com/pedropaulovc/prechips/issues/272)). Any
-   unproven fact the recipe prints (the guide, its fixture or master, the cut radius,
-   the touch axis, a rough back-off, the sweep and spindle direction, the sweep angle,
-   path or overrun, the stops' landmarks, the cut Z or any axial level, a pivot's play,
-   or a rail's rollers, ends, radius or roller positions) prints only a STOP naming
-   them: nothing runnable stands beside it. So does any error or debt the rule left on
-   the stage that no printed value shows (a machine not proven a mill, say).
+Manual-arc features use `mm` or `in`; other units remain unknown.
+`method = "arc_table"` is an error.
 
-   An **oblique trammel** (`guide = "trammel"`, inventory `kind = "trammel"`,
-   [#269](https://github.com/pedropaulovc/prechips/issues/269)) needs no master: the
-   carrier rides one pin of its `pin_pair` in a carriage on each of two straight
-   rails clamped to the table, their pin-lines crossing at the spindle axis at the
-   measured rail angle `α`. The pins subtend `α` at the cutter at every pose, so in
-   the carrier's frame the cutter centre runs on the circle through both pins, of
-   radius `R = D / (2 sin α)` for the pair's measured spacing `D`; that circle's
-   centre is virtual and moves in the table frame while the carrier turns half the
-   swept angle and translates. A second pin pair gives a concentric radius without
-   moving the rails. X, Y and Z are locked and the carrier is fed by its hand lever:
-   no handwheel moves, so a rough stage (no back-off exists) is an error. As for every
-   guided sweep, the rows stay on the drawing's nominal cutter-centre arc (the kernel
-   sweeps that exact arc, not its chords) and the band check judges where the pins
-   put the real cut. The cut is
-   `R` less or plus the cutter radius, widened by the error budget: `R` itself at the
-   corners of the measured `rail_angle_error` and `pin_spacing_error` (it falls with `α`
-   and grows with `D`, so `R(D − δD, α + δα)` and `R(D + δD, α − δα)` bound it exactly;
-   to first order `∂R/∂α = D cos α / (2 sin² α)`, about 47 mm per degree for
-   `D = 450`, `α = 16.44°`, and `1 / (2 sin α)` per mm of spacing), plus each
-   pin-line's offset (`pin_clearance` plus `rail_offset`) through its exact
-   worst radius gain over the sweep (about 1:1); it must lie inside the band. The
-   budget bounds the cut radius; where the part's centre sits on the carrier is its
-   locator's ([#270](https://github.com/pedropaulovc/prechips/issues/270)). Pins that
-   do not subtend `α`, a sweep that would carry the cutter over a pin, or a carriage
-   leaving its rail's measured `rail_travel` over the sweep are errors, and the sweep
-   takes a setup of its own. Each stop is clamped by steel rule at a printed rail
-   station; set anywhere within 0.55 mm of it (the 0.1 mm print rounding plus half a
-   millimetre of rule), it must still hold the carrier past its arc end (else an
-   error: sweep farther), and at every pose the first stop can hold the cutter must go
-   down clear of the stock (else debt). The full operator sequence, what each printed
-   number is measured from and how its error reaches the cut, is in
-   [rules-coordinates](rules-coordinates.md#trammel-operator-sequence). The traveler
-   prints the drawing or document the trammel is built and commissioned to, outside
-   the traveler (`make_document`), where its commissioning record is kept and its dowel reading
-   against the predicted stations (no commissioning is debt: the card is a STOP), the
-   pin pair seated in the carriages, X and Y locked on the rails'
-   crossing, a stop clamped on one rail at each end's exact pin station (also read
-   along the rail from where the carriage stands on its near end stop; the other
-   rail's stations as a check), a dry pass, and the lever feed from stop to stop with
-   the cutter's sweep angle and travel and the carrier's own turn, each named, once per
-   axial level when the op steps down. Every value the card
-   prints is in one gate: any unproven one prints only a STOP naming it.
-   Manual-arc features are cut in `mm` or `in`; other units are unknown.
+### Layout
 
-The former `method = "arc_table"` is an error.
+A `do = "scribe"` op names the arc feature and declares
+`layout = "dividers" | "trammel" | "template"`. `guide.template` names the
+template. Layout is optional with filing buttons. The `manual_arc` rule prints
+the centre in setup X/Y, any hole on its axis, nominal radius and arc ends.
+An unknown layout stays unknown.
+
+### Roughing with stairs or chain drilling
+
+Use a `rough_*` op with one of these contours:
+
+- `contour = { method = "stairs", cusp_mm = … }`: single-axis stair corners
+  on the DRO grid.
+- `{ method = "chain_drill", pitch_mm = … }`: drilled holes, with webs
+  chiselled out along the hole centres. The kernel credits the holes, not the
+  chiselling, unless the authored clearing-box contract below supplies it.
+
+Declare a nonnegative `rough_allowance_mm`. A negative leave on any op is an
+error because it would cut into the finished part. Every stair corner, full
+hole and break-out between neighbouring holes must stay outside the finished
+line. Unless a later rough cuts the same faces again, the stock left for the
+file must not exceed `numbers.max_filing_stock_mm`:
+
+- For stairs, allowance plus stair cusp measured along the wall normal.
+- For chain drilling, the maximum of allowance plus drill radius, printed
+  arc break-out radial depth, and the greatest nearest-finished-wall distance
+  of the retained printed straight-join break-out polyline.
+
+A missing or unestablished filing-stock cap stays unknown. Both rough methods
+support straight joins. Each finite chain-drilled join leg uses the same
+drill-radius-plus-allowance offset, exact endpoints and miter, and nominal equal
+spacing no greater than `pitch_mm`. Snapping to the DRO grid can change the
+printed spacing.
+
+A gentle arc can instead be hand-sawn outside its scribed line on the bench.
+A saw op with `follows`, `allowance_mm` and `stock_removal_bounds` counts as
+the rough that filing finishes. See
+[hand saws](#hand-saw-on-the-bench-straight-or-to-a-scribed-line).
+
+#### Finite-boundary acceptance
+
+Host DRO selection and kernel regeneration use the same finite-boundary
+predicate for bounded and unbounded chains. Closed finished loops, including
+joined bottom outlines and full circles, use point-in-region and nearest
+finite-boundary distance, negative in kept material. Exact arcs and lines can
+arrive unordered; their real endpoints connect them, and authored scrap normals
+identify the kept side.
+
+True open arcs and partial top-plus-land wall packets do not contain a complete
+finished loop. The top packet omits tapers and the bottom arc even when the
+host model has those linked facts. The open fallback uses oriented finite
+projections, real free-end caps and shared-concave-vertex sector classification.
+It invents no closure. Distance ties are conservative; the predicate does not
+combine distant supporting half-planes with a global AND. Missing or ambiguous
+region geometry, inconsistent occupancy and unsupported topology remain
+unknown, never an unsigned-distance pass. If no admissible grid point exists,
+cut tables are withheld. A closed-loop break-out tests kept-region entry
+against the whole finite boundary, not just its own join lines.
+
+Unsigned wall distances still measure filing stock and residual, not
+scrap-side acceptance. The cap is applied to the actual regenerated residual.
+Every actual cylinder still needs web, bounds and 3D collision/accessibility
+checks. The open fallback is not a full-part region proof. Internal wall
+normals and outward signs add no plan field, policy knob or tolerance.
+For native helper ownership and cache identity, see
+[architecture](internals/architecture.md#native-boundary-and-cache).
+The missing full-boundary transport is recorded in
+[#212](https://github.com/pedropaulovc/prechips/issues/212).
+
+#### Bounded chains and DRO placement
+
+Method, stage, whole-hole outside-the-line and requested no-web errors are
+checked before clipping. A requested `pitch_mm` no greater than the drill
+diameter is a no-web error; clipping never waives it.
+
+Clipping works at drill granularity:
+
+1. Intersect the drill-centre offset arc and joins with the clearing bounds
+   eroded by the full drill radius. Seam fragments of a closed arc form one span.
+2. Regenerate each retained arc or leg independently with nominal equal
+   intervals within `pitch_mm`. Web acceptance uses the actual snapped DRO
+   centres, not nominal span alone.
+3. For a span longer than the length tolerance, try the pitch-required count
+   at its snapped positions even if it exceeds the nominal-length web bound.
+   Try every higher nominally feasible count before shortening.
+4. Keep exactly one hole for a span within that tolerance, an isolated point
+   or a tiny retained arc or leg between two shared junctions. Never duplicate
+   its row. If no tried count leaves positive web, omit the clipped end hole
+   as a dropped end instead of fabricating a no-web error.
+5. Snap every retained hole inside the bound on the DRO grid. It must pass
+   the same finite-boundary predicate with clearance for the whole drill and
+   allowance. Bounds waive neither closed-loop region membership nor the
+   finite-projection, free-end and shared-concave-vertex checks for open packets.
+
+Nominal-distance and offset guards are additional placement constraints,
+not independent unsigned side acceptance. The authored radial whole-hole
+check still precedes clipping: a regenerated, physically safe finite-cap hole
+beyond the actual sweep can lie inside the authored supporting circle.
+
+Each hole searches a symmetric square of three grid steps per axis and chooses
+the nearest safe point by Euclidean distance, with a deterministic coordinate
+tie-break. Ends and junctions can back off inward along the true curve. If the
+full search and back-off find no candidate, the whole clip stays unknown;
+no hole is placed in finished material. Every actual hole cylinder is judged.
+A swept-chord intersection never becomes another hole.
+
+Web and break-out validation and the single cap check use the resulting chain.
+Tables mark only dropped ends and genuine piece breaks as stops, where stock
+beyond is neither cleared nor part of the chiselled chain. An intact arc/join
+junction continues into the adjacent table. Omitted joins add no debt while
+an arc or other table remains; a wholly excluded or disconnected stage retains
+its clip debt. Arc and join tables report the same worst-stage stock.
+
+When residuals were computed, chain errors retain stock and cap profile facts
+even if cut tables are withheld. A precondition error can prevent that
+calculation. Hole repositioning is not a handwheel cut. See
+[coordinates](rules-coordinates.md#coordinates).
+
+#### In-process stock after chain drilling
+
+Without `stock_removal_bounds`, a chain removes only the actual hole
+cylinders. Positive webs, stock between the holes and claimed wall, and any
+rail or ear beyond them remain until a later known cut removes them.
+Unlike a milling profile, the chain receives no cutter corridor, +Z claim
+sweep, lineage band or drill-radius sweep between centres.
+
+Those webs remain overstock on the claimed wall. The op receives named stock
+debt pointing to `stock_removal_bounds`, and descendant setups remain unknown
+through ordinary stock propagation. Declare the bounds on the chain op to
+certify the actual drilled-and-chiselled footprint. The same finite-box,
+setup-entry-stock and protected-material rules apply as for any bounded op.
+This is the author's process declaration, not a demonstrated toolpath.
+Ordinary milling and bounded-box behavior is unchanged. There is no separate
+break-out/chisel phase or schema; that work is recorded in
+[#213](https://github.com/pedropaulovc/prechips/issues/213).
+
+### Filing to the line
+
+`do = "file_to_line"` needs a `guide`:
+
+- Hardened `buttons` from an inventory `fixtures` kit of
+  `kind = "filing_buttons"`, with limits for every element between the rims
+  and bore axis. The setup holds the kit as `hold.fixture` or a clamp.
+  The buttons are pinned through `bore`, a hole on the arc axis already
+  drilled, reamed or bored to size.
+- A `template` checked against a scribed layout.
+
+A `gauge` of inventory kind `radius_gauge` or `profile_gauge` must have a
+`range_mm` that covers R. Filing buttons produce this worst-case radius band:
+
+- Lower limit: `button_min/2 − shift`.
+- Upper limit: `button_max/2 + shift`.
+- Rim-centre shift from the bore axis:
+  `(bore_max − pin_min)/2 + (button_bore_max − pin_min)/2 + runout/2`.
+
+The whole band must fit inside the radial drawing band.
+
+| Condition | Result |
+|---|---|
+| Missing guide or gauge; buttons not held or flagged to verify; unknown button OD, button bore, pin, runout, bore drawing size or radius band; no earlier rough; or no established filing cap | Unknown |
+| Gauge range misses R; buttons on a concave arc; bore off the axis or not yet made; largest pin exceeds the smallest work bore or button bore; or worst-case filed radius outside the band | Error |
+
+`scribe` and `file_to_line` are manual actions with no tool requirement. They
+can run on a bench setup (`machines.<id>.kind = "bench"`).
+See [manual-arc inventory](inventory.md#manual-arc-kit).
+
+### Chords and rotary-table finishing
+
+`{ method = "chords", count = … }` cuts straight chords whose sagitta
+`c²/8R` fits the band. Feed each chord along one axis. A slanted chord must be
+indexed square on a rotary table, and a full circle requires at least three chords.
+
+`{ method = "rotary_table", step_deg = …, centre_by = "pin" | "indicate", centre_feature = … }`
+turns the work on an inventory `rotary_table` selected as `hold.fixture`.
+For pin centring, its `bore_dia_mm` defines the table centre bore. Lock the
+cutter at the cutter-centre radius on the DRO grid and turn between dial
+readings rounded inward to the table resolution.
+
+These conditions are errors:
+
+- A pin that does not fit the table bore.
+- A printed offset whose cut, widened by pin play, leaves the band.
+- An arc too short for one dial step.
+- Rows half a turn or more apart: `step_deg` of 180° or more on an arc long
+  enough to reach that spacing.
+
+### Pivot and rail guided sweeps
+
+When the arc centre is too far off the part for a rotary table, use
+`{ method = "guided_sweep", step_deg = …, sweep = { guide, fixture, master, touch_axis, sweep_deg, rollers_deg, rail_deg } }`.
+The [GuidedSweep](#guidedsweep) record describes the guide:
+
+- A swing arm (`guide = "pivot"`, inventory `kind = "swing_arm"`) turns on a
+  pin at the arc centre.
+- A sled (`guide = "rail"`, inventory `kind = "arc_sled"`) rides a concentric
+  arc rail against two rollers fixed in the T-slots.
+
+With the spindle stopped, touch the cutter itself to `master` along
+`touch_axis`: a `setting_bar` seated on the pivot pin, or a `master_arc`
+pinned on the fixture. Lock X and Y. Only the fixture moves during the cut.
+The table never makes a simultaneous two-axis move.
+
+#### Radius and error budget
+
+The cut radius starts with the master's measured `radius_limits`. Widen it
+for movement of the arc centre between touch-off and cut:
+
+- A swing arm contributes measured `pivot_play`, twice when its master is on
+  the arm and moves with the beam at touch-off.
+- A rail contributes `2 × g × (rail_form_error + roller_runout / 2)`, with
+  `g = (|sin a| + |sin b|) / |sin(a − b)|` for rollers at angles `a` and `b`.
+
+Both cases also need their finite-geometry terms. A linear gain alone is no
+bound; failure to converge leaves the cut unknown. A rough moves off the line
+by its allowance, backed off along `touch_axis` on the DRO grid. This is the
+only handwheel move. Widen its cut for departure of that move from a radial
+move when the cutter is beside the radial line:
+
+- A centred setting bar uses one DRO step plus pivot play.
+- A rail uses centre sideways shift
+  `(|cos a| + |cos b|) / |sin(a − b)|` times the rollers' 0.1 mm print
+  rounding, plus form error and half the runout.
+
+Then include one explicit safety margin, the machine's measured DRO resolution
+(one display step, `margin_mm`). Start clearance carries the same margin.
+Terms proven smaller than it are absorbed, including a setting-bar touch up to
+one step beside its line and touch-axis lean within the one-step tolerance.
+A resolution not recorded as measured, or cutter-centre reach under two steps,
+leaves the margin unproven. The complete widened cut must fit the radial band.
+See [guided-sweep limits](rules-coordinates.md) and
+[#272](https://github.com/pedropaulovc/prechips/issues/272).
+
+#### Sweep limits and unresolved facts
+
+Rows sample the nominal cutter-centre arc every `step_deg` over the whole
+sweep, centred on the arc and retaining its ends. The kernel therefore judges
+the cutter at the arc ends and sweep stops.
+
+These conditions are errors:
+
+- A sweep shorter than the arc by more than one DRO step of cutter travel.
+- A sweep of a full turn or more, or a full circle. It starts and ends at one
+  fixture pose, so a pair of stops cannot bound it.
+- `step_deg` of 180° or more. Half-turn rows do not identify which way the
+  fixture turns between them.
+- The wrong fixture kind, or a guide fixture that does not carry the work.
+- A master other than a setting bar or master arc, or a setting bar on a rail.
+- Two rollers on one line through the centre, or a roller leaving the rail.
+- A worst-case cut outside the band.
+- Another spindle op in the same setup. The turning fixture is not held at
+  the setup pose before or after the sweep. Manual ops are allowed.
+
+Undeclared, unmeasured or flagged guide/master facts remain unknown, with a
+`measure:` instruction for every physical fact. A rail is never assumed
+perfect. Unknown guide, axis, sweep, rollers or rail ends also remain
+unresolved. The sweep start must be proved clear of arriving stock because
+the cutter lowers there at every level, in air only.
+
+#### Printed pivot and rail procedure
+
+The sheet prints a guided-sweep procedure instead of a DRO table. Its contour
+heading and operation-row pointer both identify the sweep. The procedure is:
+
+1. Set the guide so the cutter lies on the arc's radial line. For a setting
+   bar, seat it on the pivot pin, centre the other axis between its sides and
+   lock that axis. For a rail, lock the other axis first and set the rollers
+   from the spindle at their printed X/Y offsets. This places the rail centre
+   on the spindle's line.
+2. With the spindle stopped, touch along `touch_axis` only. Lock it and record
+   the DRO reading in the printed blank. Never reset the setup zero. Remove
+   the master from the sweep path.
+3. At the touch position, before a rough back-off, set a block at each sweep
+   end. Keep X/Y locked, the spindle stopped and Z just clear. Move the fixture
+   until the extended radial stroke of the earlier `layout = "ends"` mark
+   passes through the cutter axis, then continue by the printed overrun along
+   the cutter path. The stroke's line matters, not its direction or the
+   radius set by the master; 0.1° angle rounding moves the stop by thousandths.
+   Overrun is measured on the touch path and printed to 0.1 mm, rounded down.
+   Start clearance is proved at that printed stop.
+4. For a rough, back off its allowance along the one named axis in the printed
+   cutter-movement direction. A later finish raises Z, returns to the touch
+   and continues the same numbered procedure. If that rough does not print
+   runnable, the dependent finish stops too.
+5. Make a dry pass from stop to stop.
+6. Start the spindle in the stated direction, viewed from above. Feed the
+   fixture through the printed sweep angle and cutter travel, using the time
+   given for the op's starting feed.
+7. Raise Z clear of the work and fixture after every sweep. For axial levels
+   set by `doc_mm`, begin at the heading's top level, raise Z and return to the
+   first stop for every further level. Never sweep straight to full depth.
+8. After the op's last sweep, stop the spindle before reaching in.
+
+A master arc on a swing arm supplies no radial centring line. It prints only a
+STOP for roughs and finishes until a supported feeler touch is available.
+See [#288](https://github.com/pedropaulovc/prechips/issues/288).
+
+#### Arc-end marks, pictures and model limits
+
+The earlier same-setup `scribe` op with `layout = "ends"` marks A and B on the
+work top. Each point is measured from the nearer end and side faces of the raw
+rectangular bar received by that setup, square to its axes. A short stroke
+points toward the arc centre at the printed angle to that side face.
+Scribe before any op in the setup that can cut those faces.
+
+Missing layout, stock without those faces, layout after a cut, or a cut between
+layout and sweep leaves the sweep unknown and prints only a STOP. An earlier
+sweep can itself cut the marks away. The stop-setting step prints no setup
+X/Y because the work's marks place the stops.
+
+The setup picture draws a rail's rollers at their table positions, for
+display only, once `roller_dia`, `roller_height`, `bed_height`, `rail_side`
+and the supports under the work are known. It notes a pivot post off-picture
+at the arc centre. A missing roller fact produces NOT SHOWN and its
+`measure:` instruction, not a picture verdict. The worst-case cut radius
+stays in the report. See [manual-arc kit](inventory.md#manual-arc-kit) and
+[renders](rules-geometry.md#renders).
+
+`travel` and `headroom` do not model the moving fixture's swept footprint or
+stack at every pose. A setup with a guided sweep can never pass either;
+each retains a `check:` debt. See [headroom](rules-setup.md#headroom).
+
+Any unproven printed fact suppresses the runnable recipe and prints only a
+STOP naming the gaps. This includes the guide, fixture, master, cut radius,
+touch axis, rough back-off, sweep/spindle direction, sweep angle, path,
+overrun, stop landmarks, cut Z, axial levels, pivot play, and rail rollers,
+ends, radius or roller positions. A stage's other errors or debt, even when
+not represented by a printed value, also stop the recipe. A machine not
+proved to be a mill is one such case.
+
+### Oblique trammel
+
+An oblique trammel (`guide = "trammel"`, inventory `kind = "trammel"`) has no
+master. One pin of its `pin_pair` rides in a carriage on each of two straight
+rails clamped to the table. Their pin-lines cross at the spindle axis at the
+measured rail angle `α`. The pins subtend `α` at the cutter at every pose,
+so the cutter centre follows the circle through both pins in the carrier
+frame:
+
+`R = D / (2 sin α)`, where `D` is the measured pin spacing.
+
+The circle centre is virtual and moves in the table frame while the carrier
+translates and turns through half the swept angle. A second pin pair supplies
+a concentric radius without moving the rails. X, Y and Z stay locked while
+the operator feeds the carrier with its hand lever. No handwheel moves.
+A rough stage is an error because there is no back-off.
+
+As for all guided sweeps, rows stay on the drawing's nominal cutter-centre
+arc. The kernel sweeps the exact arc, not its chords; the band check judges
+where the pins put the real cut.
+
+#### Trammel radius budget
+
+The cut radius is `R` minus or plus cutter radius, widened by the error
+budget. Radius falls with `α` and grows with `D`, so the measured
+`rail_angle_error` and `pin_spacing_error` give exact corner extremes
+`R(D − δD, α + δα)` and `R(D + δD, α − δα)`.
+
+The first-order angular sensitivity magnitude is
+`|∂R/∂α| = D cos α / (2 sin² α)` per radian, or that value times `π/180`
+per degree: about 47 mm per degree at `D = 450`, `α = 16.44°`.
+Spacing sensitivity is `1 / (2 sin α)` per mm. Each pin-line's
+`pin_clearance` plus `rail_offset` also contributes through its exact
+worst radius gain over the sweep, about 1:1. The complete band must fit inside
+the drawing band. This budget bounds cut radius; the carrier locator controls
+where the part centre sits. See
+[#270](https://github.com/pedropaulovc/prechips/issues/270).
+
+Pins that do not subtend `α`, a sweep carrying the cutter over a pin, or a
+carriage leaving its measured `rail_travel` are errors. The sweep needs its
+own setup.
+
+#### Trammel stops and printed procedure
+
+Clamp each stop by steel rule at its printed rail station. Any setting within
+0.55 mm of that station, allowing 0.1 mm print rounding plus half a millimetre
+of rule setting, must still hold the carrier past its arc end. Otherwise the
+sweep is an error and must extend farther. At every pose the first stop can
+hold, the cutter must lower clear of stock; an unproved start is debt.
+
+The sheet prints:
+
+1. The external drawing or construction document (`make_document`), the
+   commissioning-record location, and the dowel reading against predicted
+   stations. Missing commissioning is debt and makes the card a STOP.
+2. The pin pair seated in its carriages and X/Y locked at the rails' crossing.
+3. A stop on one rail at each end's exact pin station, also read along the
+   rail from the carriage's near-end-stop position. The other rail's stations
+   provide a check.
+4. A dry pass, then lever feed from stop to stop. Cutter sweep angle, cutter
+   travel and carrier turn are each named. Repeat for every axial level when
+   the op steps down.
+
+Every printed value participates in the same runnable-recipe check: any
+unproven value prints only a STOP naming it. The full sequence, measurement
+references and propagation of setting error are in
+[Trammel operator sequence](rules-coordinates.md#trammel-operator-sequence).
+Construction context is recorded in
+[#269](https://github.com/pedropaulovc/prechips/issues/269).
 
 ## Bounds
+
+`Bounds` is an axis-aligned box expressed as `x`, `y` and `z` intervals.
+Its consuming field determines the coordinate frame and validity checks.
+For operation clearing boxes, see [Stock removal bounds](#stock-removal-bounds).
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -2011,14 +2446,19 @@ The former `method = "arc_table"` is an error.
 
 ## Saw cut-off
 
-`do = "saw_cut"` and `do = "cut_off"` remove a sacrificial end/slab with a
-`tools.<blade>` whose `kind = "bandsaw"` or a hand saw (`kind = "hand_saw"`, a
-hacksaw). A bandsaw blade runs on a `mill`, `bench` or `bandsaw` machine; a hand
-saw only on a `bench` or `manual` one. A lathe uses its separate `part_off`
-action, not this model.
-The operation requires no spindle holder, direction or finished-face claim.
-If a feature is authored it must resolve normally; checks cannot be attached to
-an omitted feature.
+`do = "saw_cut"` and `do = "cut_off"` remove a sacrificial end or slab using
+an inventory blade in `tools`:
+
+| Blade kind | Supported machine |
+|---|---|
+| `bandsaw` | `mill`, `bench` or `bandsaw` for a straight cut; a scribed-line cut needs a vertical `bandsaw` |
+| `hand_saw` (a hacksaw) | `bench` or `manual` |
+
+A lathe uses `part_off`, a separate action and model. Saw operations need no
+spindle holder, direction or finished-face claim. An authored feature must
+resolve normally; an omitted feature cannot carry inspection checks.
+
+### Straight cut plane and kerf
 
 ```toml
 [[setups.ops]]
@@ -2028,47 +2468,59 @@ tool = "metal-blade"
 cut_plane = { axis = "y", value = 87.75, keep = "below" }
 ```
 
-`SawPlane` has `axis = "x" | "y" | "z"`, numeric `value` in the manifest/plan
-units, and `keep = "below" | "above"` (each may be `"unknown"`). The plane is the
-**blade centre**, in setup coordinates. The blade's inventory `kerf` straddles
-it: below retains `coordinate <= value - kerf/2`; above retains
-`coordinate >= value + kerf/2`. For a 1.5 mm kerf, the example retains Y ≤ 87 mm,
-not Y ≤ 87.75 mm. The kernel removes the kerf and the discarded offcut, checks
-that no finished target is removed, and hands the retained stock to later setups.
+`SawPlane` declares `axis = "x" | "y" | "z"`, numeric `value` in manifest/plan
+units, and `keep = "below" | "above"`. Each field can be `"unknown"`.
+The plane is the blade centre in setup coordinates, with the inventory `kerf`
+straddling it:
 
-Every saw cut also needs enough teeth in the work: the blade's inventory `tpi`
-at its coarse end, times the thickness the blade crosses, must reach the shop
-policy's `saw_min_teeth_in_work`
-([saw teeth in the work](rules-geometry.md#saw-teeth-in-the-work)). A 4/6 TPI
-blade puts 0.39 teeth in a 2.5 mm strap, an error; a 32 TPI blade puts 3.15.
+- `keep = "below"` retains `coordinate <= value - kerf/2`.
+- `keep = "above"` retains `coordinate >= value + kerf/2`.
 
-An all-saw setup (possibly with manual inspection/deburring) needs no `zero`
-recipe or mill envelope; `zero_check`, `headroom`, `envelope` and `travel` state
-why they are not applicable. Mixed setups still check their other machining ops.
-Holding declarations, `stock_state.top_z/bottom_z`, the bound frame and routing
-remain operative. Use an ordinary declared fixture (for example a saw vise with
-the usual jaw/parallels fields) to obtain a modeled fixture; a bandsaw machine
-identity does not invent integral-vise geometry. The one exception is a cut fed by
-hand along a scribed line ([hand-fed](#hand-fed-on-the-saw-table)).
+With 1.5 mm kerf, the fragment retains Y ≤ 87 mm, not Y ≤ 87.75 mm.
+The kernel removes kerf and offcut, checks that no finished target was removed,
+and passes the retained stock to later setups.
 
-The traveler prints blade-centre setting, retained edge in mm, blade speed in
-sfm and descent feed in mm/min. These starting numbers come only from the cited
-[`saw_cut` cutting-data row](cutting-data.md), never op-level RPM/feed overrides.
-Blade-centre settings, retained edges and sourced blade speed/feed keep their
-own numeric digits; a coarse drawing print class does not round machine settings.
+### Teeth, holding and starting settings
+
+The blade's coarse-end `tpi` times the crossed work thickness must reach the
+shop policy's `saw_min_teeth_in_work`. A 4/6 TPI blade places 0.39 teeth in
+a 2.5 mm strap, an error; a 32 TPI blade places 3.15. See
+[saw teeth in the work](rules-geometry.md#saw-teeth-in-the-work).
+
+An all-saw setup can include manual inspection and deburring without a `zero`
+recipe or mill envelope. `zero_check`, `headroom`, `envelope` and `travel`
+report why they are not applicable. A mixed setup still checks its other
+machining ops.
+
+Holding, `stock_state.top_z/bottom_z`, bound frame and routing still apply.
+Declare an ordinary fixture, such as a saw vise with its jaw/parallels fields,
+to model it. A bandsaw machine identity does not invent an integral vise.
+The exception is [hand-fed work along a scribed line](#hand-fed-on-the-saw-table).
+
+The setup sheet prints blade-centre setting, retained edge in mm, blade speed
+in sfm and descent feed in mm/min. Starting settings come only from the cited
+[`saw_cut` cutting-data row](cutting-data.md), never operation RPM/feed
+overrides. Blade-centre settings, retained edges and sourced speed/feed retain
+their own digits; coarse drawing precision does not round machine settings.
 
 ### Hand saw on the bench, straight or to a scribed line
 
-A saw op declares exactly one shape, else the plan is `BadInput`: `cut_plane`
-(a straight cut; `cut_plane = "unknown"` while the plane is undecided), or
-`follows`, the `"<setup>:<op>"` of an earlier `scribe` op whose line the cut
-follows. The line must be on the saw's own workpiece: scribed earlier in the same
-setup, or in a setup the saw setup's `stock_in` routing descends from (a setup with
-omitted routing descends from none). A cut that follows a line also declares `allowance_mm` (positive, the
-stock left outside the line for the file) and `stock_removal_bounds`, the
-setup-frame box the blade and its offcut take; neither belongs on a straight cut.
-Gentle curves (an R800 arc rising about 13 mm over 292 mm) are sawn by hand this
-way, then filed to the line:
+Every saw op must declare exactly one shape:
+
+- `cut_plane` for a straight cut. Use `cut_plane = "unknown"` while its plane
+  is undecided.
+- `follows = "<setup>:<op>"` for the line from an earlier `scribe` op.
+
+Any other combination is `BadInput`. The line must be on the saw's workpiece:
+scribed earlier in the same setup, or in an ancestor of its `stock_in` route.
+Omitted routing establishes no ancestors. An `ends` layout marks only arc
+ends and supplies no line for a saw to follow.
+
+A following cut also declares positive `allowance_mm`, the stock left outside
+the line for filing, and `stock_removal_bounds`, the setup-frame box removed
+by blade and offcut. Neither belongs on a straight `cut_plane` cut.
+A gentle curve, such as an R800 arc rising about 13 mm over 292 mm, can be
+sawn this way and then filed:
 
 ```toml
 [[setups.ops]]
@@ -2081,31 +2533,44 @@ stock_removal_bounds = { x = [-1.0, 293.0], y = [13.5, 20.0], z = [-1.0, 17.0] }
 note = "Saw just outside the scribed line."
 ```
 
-The box is the author's declaration of what the cut removes, the same contract
-as a mill op's clearing box: the kernel removes only the stock inside it and does
-not model break-out or chisel work (#213). When the scribed feature is an arc (its
-layout in the saw setup's frame, as the `scribe` card prints it), the box is
-clipped to stay `allowance_mm` outside that arc: outside the circle grown by the
-allowance for a part inside it, inside the circle shrunk by it for a part outside
-it. The removal then follows the curve, as the operator's blade does. A straight
-scribed line keeps the box alone. An arc whose layout in the saw setup is unknown,
-or an unknown allowance on an arc, removes nothing and is `?`. An omitted or
-unknown box removes nothing and is plan-input debt: the `saw_cut` finding is `?`
-with "declare stock_removal_bounds for <setup:op>", and later stock stays unknown.
-The removal must stay at least `allowance_mm` clear of the finished target, else
-`✗`. The following `file_to_line` checks the stock it actually meets against the
-shop's `max_filing_stock_mm`, and counts this saw as the rough it finishes.
+#### Scribed-line removal
 
-A powered bandsaw follows a scribed curve the same way in vertical mode, the work
-fed by hand on its table: a `bandsaw` blade on a `bandsaw` machine whose
-inventory `saw_modes` include `"vertical"`. Modes without `"vertical"` are `✗`;
-undeclared modes, an unverified machine or blade (its kerf included) are `?`; a
-bandsaw blade following a line on a mill or bench is `✗`. Blade speed comes from
-the cited `saw_cut` row as for any bandsaw cut, but there is no descent feed: the
-card's feed cell prints "by hand", its direction cell the hold's feed ("feed from +X
-toward -X") and its target "leave at least <allowance> mm on the waste side of the
-scribed line", the one place it names the waste side.
-A straight bandsaw cut needs no vertical mode.
+The box declares what the cut removes under the same clearing-box contract
+as a mill operation. The kernel removes only stock inside it and does not
+model separate break-out or chisel work.
+
+For an arc laid out in the saw setup's frame, as printed by its `scribe`
+card, clip the box to stay `allowance_mm` outside the arc:
+
+- Outside the circle grown by the allowance when the part lies inside it.
+- Inside the circle shrunk by the allowance when the part lies outside it.
+
+Removal then follows the curve. A straight scribed line uses the box alone.
+Unknown arc layout or unknown arc allowance removes nothing and stays `?`.
+An omitted or unknown box also removes nothing. The `saw_cut` finding requests
+"declare stock_removal_bounds for <setup:op>", and later stock stays unknown.
+Removal closer than `allowance_mm` to the finished target is `✗`.
+The following `file_to_line` judges the stock it meets against
+`max_filing_stock_mm` and counts the saw as its earlier rough.
+See [stock removal bounds](#stock-removal-bounds) for the shared limitations.
+
+#### Powered bandsaws following a line
+
+A bandsaw follows a scribed curve only in vertical mode: a `bandsaw` blade
+on a `bandsaw` machine whose `saw_modes` includes `"vertical"`, with work
+fed by hand on its table.
+
+| Condition | Result |
+|---|---|
+| Known modes omit `"vertical"` | `✗` |
+| Modes undeclared, or machine/blade unverified, including blade kerf | `?` |
+| Bandsaw blade follows a line on a mill or bench | `✗` |
+
+Blade speed comes from the cited `saw_cut` row. There is no descent feed:
+the card prints "by hand", the hold's feed in its direction cell
+("feed from +X toward -X"), and "leave at least <allowance> mm on the waste side of the
+scribed line" in its target. The target is the one place that names the waste
+side. A straight bandsaw cut needs no vertical mode.
 
 ```toml
 [[setups.ops]]
@@ -2119,8 +2584,9 @@ stock_removal_bounds = { x = [-150.0, 150.0], y = [-10.0, 6.0], z = [-20.0, 1.0]
 
 ### Hand-fed on the saw table
 
-A vertical bandsaw cut along a scribed line is fed by hand on the saw table:
-nothing clamps the work. Such a setup declares
+`hold.kind = "hand_fed"` declares a vertical bandsaw cut along a scribed line,
+with no vise or clamp holding the work. Only its optional note and four
+feeding fields belong beside `kind`:
 
 ```toml
 [setups.hold]
@@ -2132,105 +2598,146 @@ feed_from = "-X"              # the end of the line the cut starts from
 end_support = "push_aid"      # or "outfeed_table": how the end of the cut is supported
 ```
 
-and nothing else in its hold: a `fixture`, `stop`, `grip_mm`, `clamp`,
-`fixed_jaw` or any other hold field beside `kind = "hand_fed"` is `BadInput`, and so
-is a feeding field on any other hold, or a `guide_above_mm` that is not positive.
-How the work is fed is the plan's to declare, never assumed: each undeclared feeding
-field is `?` debt in `hold_fields` and prints a STOP in the HOLD; the push aid must be
-in the inventory like any hold item. It
-is a `kind` rather than a reserved `fixture` name because `fixture` is an
-inventory reference every rule resolves by key; an absent `kind` is the ordinary
-fixture hold. The hold is admitted only when every op of the setup is a `scribe`,
-`deburr` or `inspect` action or a `saw_cut`/`cut_off` that `follows` a scribed line
-with a verified `bandsaw` blade on a `bandsaw` machine whose `saw_modes` include
-`"vertical"`. Filing to the line holds the work in a vise, so it is a setup of its
-own. A setup known to be anything else (a milling op, a straight `cut_plane` cut,
-a hand saw, a horizontal-only bandsaw, another machine kind, no saw cut) is
-`BadInput`, exit 3, naming why. An unresolved blade, machine or `saw_modes` (or
-`kind = "unknown"`) loads, and the hold stays `?` until it is resolved.
+#### Admitted operations and unresolved declarations
 
-Admitted, `hold_fields` asks no fixture field (coolant, deburr and stock Z remain),
-`stock_diameter`, `vise`, `thin_wall_under_clamp` and `fixture_interference` are
-`not_applicable`, and the kernel draws no fixture and owes no fixture measurement.
-The traveler HOLD prints "Fed by hand on the saw table, sawing guided by the line
-scribed in S1 op 10; no vise or clamp holds the work.", then one line for each
-feeding declaration (the guide height, the push aid, the end the cut starts from and
-the end-of-cut support), and the STOCK AND ROUTE table's holding cell says "fed by hand
-on the saw table" from the same resolution. The holding picture draws, render-only
-(never hit-tested), the saw table under the work, the blade standing at the cut start
-up to the declared guide height and the push aid behind the work's trailing end, each
-called out. All three come from the same `feed_from` the HOLD prints. The cut starts at
-the `feed_from` end, so the work moves toward `feed_from`: that end leads into the
-stationary blade, the push aid stands behind the opposite, trailing end, and every feed
-arrow points the way the work moves, from the trailing end toward where the blade
-enters. The holding
-picture draws the saw path (the scribed arc offset by the allowance into the waste) on
-the work's top face with those arrows ("WORK FEED INTO THE BLADE"). The op's profile
-sketch draws the setup-entry blank's outline as a thin line and the scribed line,
-within the op's `stock_removal_bounds`, as the one heavier line, both from their real
-setup-frame coordinates through the one sketch transform; it shades the waste the line
-cuts off the blank, puts the same feed arrows alone in that waste 3 mm off the line
-(never on it, never as a second line) and leaves the keep side unshaded,
-keyed SCRIBED LINE, "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE" and KEEP, the line's
-own ends LINE END (hollow squares) and, with a declared `feed_from`, the cut's ENTER and
-LEAVE (crosses). No separate saw path is drawn there: 0.45 mm is not visible on a
-290 mm arc. An undeclared `feed_from` draws no arrows, ENTER, LEAVE, blade or push aid,
-and neither does one that names no end of a cut's line: an axis along which the line's
-two ends lie less than 1 mm apart (`+Y` on a symmetric top arc). That `feed_from` is `?`
-in `hold_fields`, and the HOLD and the op's direction cell print a STOP naming why. The saw card states the
-allowance as a minimum, once, in its target: "leave at least 0.450 mm on the waste side
-of the scribed line", as every saw that follows a line does; its direction cell gives
-the feed ("feed from +X toward -X"). A line that runs to the setup-entry blank's
-outline leaves no waste at its ends, so the target adds where the cut enters and leaves:
-where the saw path (the line offset by the allowance into the waste) crosses the
-kernel's entry box, within the op's `stock_removal_bounds`, in the setup frame, entry
-first from `feed_from`, every number and face printed from those crossings: "Enter at
-X -142.741, Y 21.295 and leave at X 142.741, Y 21.295 on the +Y face (from Setup S2
-zero): where the cut, 0.450 mm off the scribed line on the waste side, meets the +Y
-face." The points lie inward of the line's own ends (X ±145.240): the cut meets the face
-there. A bench hand saw prints "Cut through at ...". A line that stays inside the
-blank, or crossings the kernel cannot place, add nothing. The sketch keys the same
-points ENTER and LEAVE with crosses, and the scribed line's own ends LINE END with
-hollow squares, so the two are never confused. When the job page prints model (STEP)
-coordinates in the plan's stock note without naming a setup zero, every op row that
-prints setup-frame coordinates (layout centre and arc ends, entry and exit points, a
-hole's tool axis, a manual arc's centre) names its frame: "(from Setup S2 zero)".
+`fixture`, `stop`, `grip_mm`, `clamp`, `fixed_jaw` and every other hold field
+are `BadInput` in a hand-fed hold. Feeding fields on any other hold are also
+bad input, as is a nonpositive `guide_above_mm`.
 
-The work must be big enough to feed by hand
-([#343](https://github.com/pedropaulovc/prechips/issues/343)). The shop policy's
-`numbers.min_hand_feed_mm` is how close its safety procedure lets the operator's
-fingers come to the blade (for example a vertical band saw procedure's "if your cut
-will require your fingers to get within 3 inches of the blade, use a push stick",
-76.2 mm). `hold_fields` follows the blade along each cut's path through the work: the
-scribed arc offset by `allowance_mm`, sampled at most 1 mm apart where that cut's own
-stock box (setup X/Y, the table plane) and the op's declared `stock_removal_bounds`
-overlap: the kernel cuts nowhere else. A cut's stock box is the kernel's
-`stock_bbox_before_mm` for that saw op, the stock left by every earlier cut
-([#347](https://github.com/pedropaulovc/prechips/issues/347)); the setup's first saw
-cut may fall back to the setup-entry box. At each blade position the
-operator needs work at least the minimum away to hold. The box is tight, so some
-work lies on each of its sides (a lower bound on the farthest work: the largest of
-the sides' nearest distances) and none lies past its farthest corner (an upper
-bound). Every position's lower bound reaching the minimum, less the 1 mm step, is a
-pass; a position whose upper bound falls short is `✗` naming both numbers; anything
-between is `?`. A minimum that is absent, not positive, without a usable citation or
-not verified (`numbers_verify` false), a cut's stock the kernel did not box (a later
-cut never borrows the entry box: it works what an earlier one left), or a blade path
-it does not place (a straight scribed line, removal bounds that are not a numeric box
-or do not meet that cut's stock in X, Y and Z) is `?`. The finding records each cut's
-bounds (`hand_fed_reach_by_op`) and the worst over all cuts (`hand_fed_reach_mm`); a
-failing cut is named. The check does not
-place the hands or plan a push stick.
-[`examples/geometry/hand-fed-saw`](../examples/geometry/hand-fed-saw/plan.toml)
-exercises it.
+Each undeclared feeding field remains `?` in `hold_fields` and prints a
+HOLD STOP. `push_aid` must resolve to an inventory fixture. A missing `kind`
+means an ordinary fixture hold; `hand_fed` is not a reserved fixture name.
+Fixture references still resolve by their inventory keys.
 
-A setup on a `bench`/`manual` machine whose saws all use a verified `hand_saw`
-tool, with otherwise only bench actions (`fit`, `inspect`, `deburr`, `coating`, `scribe`,
-`file_to_line`), is manual bench work: its DRO, zero and headroom screens are
-`not_applicable` and `speeds_feeds` gives the hand saw no blade speed or feed. A
-powered or unresolved blade on a bench machine waives nothing. The traveler
-prints a bench hand saw on the assembly / finishing card: "Hand saw, blade
-centred on Y 87.75 mm; keep the side below it", or "Hand saw guided by the line
-scribed in S4 op 10, leave at least 0.5 mm on the waste side of the scribed line for
-filing".
+Every op in an admitted hand-fed setup must be `scribe`, `deburr`, `inspect`,
+or a `saw_cut`/`cut_off` that follows a scribed line using a verified `bandsaw`
+blade on a `bandsaw` machine whose `saw_modes` includes `"vertical"`.
+There must be at least one such saw cut; several following saw cuts are allowed.
+File to the line in a separate setup, held in a vise.
+
+A known milling op, straight `cut_plane` cut, hand saw, horizontal-only
+bandsaw, different machine kind or setup known to contain no saw is
+`BadInput` (exit 3), with the reason named. An unknown action, unresolved blade,
+machine or `saw_modes`, or `kind = "unknown"` can load but leaves the hold `?`.
+A known out-of-scope operation still refuses the hold when another is unresolved.
+
+Once admitted, the hold needs no fixture fields in `hold_fields`; coolant,
+deburr and stock Z declarations still apply. `stock_diameter`, `vise`,
+`thin_wall_under_clamp` and `fixture_interference` are `not_applicable`.
+The kernel draws no fixture and requires no fixture measurement.
+
+#### Feed direction and holding picture
+
+The HOLD uses the resolved scribe identity, for example:
+"Fed by hand on the saw table, sawing guided by the line scribed in S1 op 10; no vise or clamp holds the work."
+It then prints each feeding declaration: guide height, push aid, cut-start
+end and end-of-cut support. STOCK AND ROUTE uses the same resolution for its
+"fed by hand on the saw table" holding cell.
+
+The holding picture draws the saw table, blade at cut start up to the declared
+guide height, and push aid behind the trailing end. Each is labelled and
+render-only, never hit-tested. All use the same `feed_from` as the HOLD.
+The named end leads into the stationary blade, so the work moves toward
+`feed_from`. The push aid stands at the opposite end. Arrows point from the
+trailing end toward blade entry. The top-face picture shows the saw path,
+the scribed arc offset into waste by the allowance, with
+"WORK FEED INTO THE BLADE" arrows.
+
+The operation's profile sketch uses one transform for real setup coordinates:
+
+- A thin setup-entry blank outline and one heavier scribed line, restricted
+  to `stock_removal_bounds`.
+- Shaded waste and unshaded keep side. The keys are SCRIBED LINE,
+  "WASTE: SAW HERE, 0.450 MM MIN OFF THE LINE" and KEEP.
+- Feed arrows alone in waste, 3 mm off the line, never on it or forming a
+  second line.
+- Hollow squares at the scribed LINE END points and, when `feed_from` is
+  usable, crosses at the cut's ENTER and LEAVE.
+
+It draws no separate saw path there: 0.45 mm is not visible on a 290 mm arc.
+Undeclared `feed_from` draws no arrows, ENTER/LEAVE, blade or push aid.
+Neither does a direction that selects no line end: the two ends are less than
+1 mm apart on that axis, such as `+Y` on a symmetric top arc. `hold_fields`
+leaves it `?`, and HOLD plus the op's direction cell print a STOP naming why.
+
+The target states allowance once as a minimum:
+"leave at least 0.450 mm on the waste side of the scribed line".
+The direction cell states the feed, such as "feed from +X toward -X".
+
+#### Cut entry and exit landmarks
+
+When the line reaches the setup-entry blank outline and leaves no waste at
+its ends, the target adds the actual cut crossings. It intersects the
+allowance-offset saw path with the kernel entry box inside
+`stock_removal_bounds`, in the setup frame, ordered entry-first from
+`feed_from`. For example:
+
+"Enter at X -142.741, Y 21.295 and leave at X 142.741, Y 21.295 on the +Y face (from Setup S2 zero): where the cut, 0.450 mm off the scribed line on the waste side, meets the +Y face."
+
+These crossings are inward of the line's own ends at X ±145.240.
+A bench hand saw prints "Cut through at ...". A line wholly inside the blank,
+or crossings the kernel cannot place, adds no such landmarks. The sketch
+uses crosses for ENTER/LEAVE and hollow squares for LINE END to keep them
+distinct.
+
+If the stock note prints model (STEP) coordinates without naming a setup
+zero, every op row that prints setup coordinates names its frame, such as
+"(from Setup S2 zero)". This applies to layout centre/ends, cut entry/exit,
+hole tool axes and manual-arc centres.
+
+#### Minimum work size for hand feeding
+
+`numbers.min_hand_feed_mm` is the shop safety procedure's minimum allowed
+finger-to-blade distance. A cited procedure might say "if your cut will require your fingers to get within 3 inches of the blade, use a push stick",
+76.2 mm. This is a shop-owned threshold, not a built-in recommendation.
+
+For every cut, `hold_fields` samples the allowance-offset scribed arc at
+most 1 mm apart where that cut's stock box and `stock_removal_bounds`
+overlap in setup X/Y and Z. The kernel cuts nowhere else. Its stock box is
+`stock_bbox_before_mm`, after all earlier cuts. Only the first saw cut can
+fall back to the setup-entry box; a later cut never borrows it.
+
+At every blade position, enough work must remain at least the minimum
+distance away to hold. The tight stock box bounds the farthest available work:
+
+- Lower bound: the largest of the sides' nearest distances. Some work lies
+  on every side of the box.
+- Upper bound: the distance to the farthest corner. No work lies beyond it.
+
+| Distance evidence over the cut | Result |
+|---|---|
+| Every sampled lower bound, after subtracting the 1 mm sampling step, reaches the minimum | Pass |
+| Any position's upper bound falls below the minimum | `✗`, naming both distances |
+| Bounds fall between those cases | `?` |
+
+A known shortfall at any position is an error even when another cut has an
+unknown stock box, path or other debt. Only when no known shortfall exists does
+that debt make the result unknown. A pass requires all cuts to be resolved
+and every lower bound to reach the minimum.
+
+The minimum is unknown when absent, nonpositive, uncited or still flagged for
+verification. The resolved `numbers_verify` value must be false; a missing
+flag defaults to false. A missing per-cut stock box, unplaced blade path,
+straight scribed line, nonnumeric removal box or removal box that does not
+meet that cut's stock in X/Y/Z also leaves debt.
+
+Each cut's bounds appear in `hand_fed_reach_by_op`; `hand_fed_reach_mm`
+records the worst over all cuts, and a failing cut is named. This check
+neither places hands nor plans push-stick use. See the
+[hand-fed-saw fixture](../examples/geometry/hand-fed-saw/plan.toml).
+The per-cut stock requirement is recorded in
+[#347](https://github.com/pedropaulovc/prechips/issues/347), and the work-size
+check in [#343](https://github.com/pedropaulovc/prechips/issues/343).
+
+### Manual bench exemption
+
+A `bench` or `manual` setup is manual bench work when every saw uses a verified
+`hand_saw`, and all other actions are `fit`, `inspect`, `deburr`, `coating`,
+`scribe` or `file_to_line`. Its DRO, zero and headroom screens are
+`not_applicable`; `speeds_feeds` supplies no hand-saw blade speed or feed.
+A powered or unresolved blade on a bench waives nothing.
+
+The setup sheet puts the hand saw on the assembly/finishing card, for example
+"Hand saw, blade centred on Y 87.75 mm; keep the side below it", or
+"Hand saw guided by the line scribed in S4 op 10, leave at least 0.5 mm on the waste side of the scribed line for filing".
 

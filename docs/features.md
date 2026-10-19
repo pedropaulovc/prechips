@@ -1,196 +1,210 @@
-# Feature manifest — `features.toml`
+<a id="feature-manifest--featurestoml"></a>
 
-`part`, `frames`, and `features` are required. The loader rejects an empty
-feature map. `frames` must be supplied but may be literal `"unknown"`; individual
-frame/datum entries can also be `"unknown"`. Unknown is not an identity basis.
-Each feature's `requirements` is a list or literal `"unknown"`. Omitting the
-field leaves requirement identities unknown; it is not shorthand for `[]`.
-Known list entries must be unique, must name modeled fields, and must have their
-own explicitly supplied field values. A literal `"unknown"` list element means
-the requirement identity is unresolved; it is not an extra field name that the
-author must fabricate. An explicitly supplied unknown dimension value satisfies
-presence but never proves the requirement. Absence from a known requirements
-list represents known absence; an omitted or unknown whole list cannot establish
-absence. An explicit `requirements = []` is legal and known empty, but does not
-prove drawing completeness. Omitted/unknown lists or identities yield an
-unresolved `inspection` subject `feature:unknown`, not a fictional tolerance or
-N/A. This same selection keeps them required under policy `toleranced_features`.
+# Feature manifest: `features.toml`
 
-`units` accepts only `"mm"`, `"in"`, or `"unknown"`. Feature geometry coordinates
-use that unit; M1 does not silently convert drawing tolerance limits into mm.
-`precision` is the drawing's display class; per-feature `precision` maps each
-dimension to its decimal places. Nominal/reference dimensions and BASIC
-coordinates do not acquire invented acceptance bands. Dimension fields accept
-a scalar or list of Numbers; list limits conventionally mean `[low, high]`.
-For a banded requirement, `<requirement>_nominal` / `nominal_<requirement>`
-means its intended in-band target; inspection checks inclusive membership.
-It is not a general fit-system basic-size field: displaced g6/p6 zones can
-exclude the reference basic size, and interpreting those fit semantics is not
-implemented. Do not conflate a fit's reference geometry with its acceptance
-target.
+Use `features.toml` to declare the finished part's geometry, drawing requirements,
+datum references and STEP face identities. The manifest supplies authored facts;
+accepting its schema does not establish geometric validity or machining approval.
 
-Manifest units, frames and bound STEP geometry supply the finished-outline coordinates and projected spans used for picture scale under [render geometry](rules-geometry.md#renders).
-[Traveler outline overlays](report-and-telemetry.md#kernel-renders) use a separate bounded stream for painting only, preserving main's accepted leaders and all original ordinary-tolerance layout and anchor inputs. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR. This adds no manifest field and changes no authored feature coordinates, nominal dimensions, tolerance bands or requirement identities.
+Use [the tutorial](manual/tutorial.md) to follow a bundle through a check.
+For related formats, see [the plan](plan.md), [inventory](inventory.md) and
+[shop policy](policy.md). Command options are in the [CLI reference](reference/cli.md).
 
-Chain drilling does not require an invented hole feature or a new manifest field.
-For a drill-kind `rough_profile` / `chain_drill` operation, deep-hole speed
-derating uses the canonical before-stock state's entry for the named feature
-(else its stock top), minus the plan's `to_z`, converted from manifest units
-to mm. An earlier chain operation's endpoint is not the next entry surface.
-See [cutting data](cutting-data.md) for row selection and unresolved-depth behavior.
+On this page:
 
-`separation` is a supported dimension/tolerance field: for example,
+- [Requirements and dimensions](#requirements-and-dimensions)
+- [Frames and feature locations](#frames-and-feature-locations)
+- [STEP identity and evidence](#step-identity-and-evidence)
+- [Rule and output consumers](#rule-and-output-consumers)
+- [Surface profiles](#surface-profiles)
+- [Angle bands read across a face](#angle-bands-read-across-a-face)
+- [Field catalog](#root-fields)
+
+## Requirements and dimensions
+
+`part`, `frames` and a nonempty `features` map are required. `frames` may be
+literal `"unknown"`; individual frame and datum entries may also be `"unknown"`.
+Unknown does not supply an identity basis.
+
+Each feature's `requirements` is a list or literal `"unknown"`. Omitting it
+leaves requirement identities unknown; it does not mean `[]`. Known list entries
+must be unique, name modeled fields and have explicitly supplied field values.
+A literal `"unknown"` list element leaves a requirement identity unresolved; it
+does not require a field named `unknown`. An explicitly unknown dimension value
+satisfies presence but never proves the requirement.
+
+Absence from a known requirements list represents known absence. An omitted or
+unknown whole list cannot establish absence. `requirements = []` is legal and
+known empty, but does not prove drawing completeness. Omitted or unknown lists
+and identities yield an unresolved `inspection` subject `feature:unknown`, not a
+fictional tolerance or N/A. Policy `toleranced_features` selects the same debt.
+
+`units` accepts `"mm"`, `"in"` or `"unknown"`. Feature coordinates use that unit;
+declared-input checks do not silently convert drawing tolerance limits to mm.
+Root `precision` is the drawing's display class; per-feature `precision` maps
+dimensions to decimal places. Nominal/reference dimensions and BASIC coordinates
+do not acquire invented acceptance bands.
+
+Dimension fields accept a scalar or list of Numbers. List limits conventionally
+mean `[low, high]`. For a banded requirement, `<requirement>_nominal` or
+`nominal_<requirement>` gives its intended in-band target; inspection checks
+inclusive membership. This is not a general fit-system basic-size field.
+Displaced g6/p6 zones can exclude the reference basic size, and the checker does
+not interpret those fit semantics. Keep reference geometry separate from the
+acceptance target.
+
+`separation` is a dimension/tolerance field. For example,
 `requirements = ["separation"]` with `separation = [9.9, 10.1]` declares a band
-that needs its own `checks.separation` inspection gauge. Supplying
-`separation = "unknown"` preserves the requirement without inventing its limits;
-omitting a listed `separation` value is bad input.
+that needs its own `checks.separation` gauge. `separation = "unknown"` preserves
+the requirement without inventing limits; omitting a listed value is bad input.
 
-Printed freeform recording areas attach to existing `feature:requirement`
-identities and usable authored limits. Equal displayed bands alone are not proof
-of a shared physical reading; a genuinely shared dimension remains one record.
-The layout does not fill omitted identities or unknown
-bands with nominal values, invented tolerances or result data; those debts stay
-visible. Handwritten readings do not amend the manifest.
+The shared [input conventions](plan.md#input-conventions) define UTF-8 TOML, strict modeled keys,
+finite numbers and the `Number`, `Vector` and `Citations` types used below.
+Every optional record field accepts `"unknown"` in addition to its displayed
+type. Omitted `Feature.kind` loads as `"unknown"` so kind-dependent rules stay
+unresolved. Other omitted fields stay absent, including `requirements`.
+Rules determine the applicability of those omissions.
+
+## Frames and feature locations
 
 General vectors conventionally have three components and bands two; the model
 does not enforce every vector length or dimension-band ordering. Frame vectors
-are stricter: each supplied numeric/list origin or basis has exactly three
-components. Fully known basis axes must be orthonormal and right-handed:
-dot products equal the identity and `x cross y = z`, within absolute `1e-9`.
-Invalid known frames are bad input (exit 3), not unknown findings. Unknown
-components defer the basis check rather than substituting an identity.
+are stricter: each numeric/list origin or basis has exactly three components.
+Fully known basis axes must be orthonormal and right-handed: dot products equal
+the identity and `x cross y = z`, within absolute `1e-9`. Invalid known frames
+are bad input (exit 3). Unknown components defer the basis check rather than
+substituting an identity.
 
-Frames give `origin` and basis `x/y/z`; `binding = "unknown"` preserves nominal
+Frames give `origin` and basis `x/y/z`. `binding = "unknown"` preserves nominal
 geometry without certifying a measured setup. Frame names are not drawing datum
-names. Drawing datums map to actual features/surfaces through `datums`,
-`datum`, `position_datums`, `surface_profile_datums`, `coaxial_to` and
-`height_from`. `faces` is the
-feature's STEP face set: a list of face references that the M4 kernel maps to
-faces of the imported solid by each referenced `ADVANCED_FACE`'s own geometry
-(surface kind, area, bounding box), never by assuming the importer preserves
-STEP ordinal order. A reference that is malformed, missing from the STEP, or
-matches zero or several imported faces is a mapping error (`✗`) on every
-geometry rule that needs the feature; an omitted, `"unknown"` or empty list
-keeps those rules `?`. The M1/M2 declared-input rules read it only through an
-already-present kernel result, never starting the kernel: a `kind = "face"`
-feature without `bounds` takes its bounded-cut coverage from the matched boxes
-of its listed faces, every one of which must resolve; only the planes lying at
-the cutting op's `to_z` are covered and credited (see
-[coordinates](rules-coordinates.md)). Authored `bounds`, even unknown or
-malformed, take precedence. The schema is unchanged.
-See [geometry rules](rules-geometry.md#face-identity).
-
-`step_sha256` is `"unknown"` or a lowercase 64-hex SHA-256. A known digest
-requires actual referenced STEP bytes in the bundle and must match their hash;
-the digest alone is not accepted. Only a bundle with matching bytes reaches the
-FreeCAD kernel. The shaft, rocker and cone reference bundles now consume the
-consumer's generated manifests and exact adjacent STEP exports. The bracket
-keeps a hand-authored `features.toml` on the consumer v39 STEP
-(`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`).
-There is no dimensioned bracket drawing, so its acceptance bands are
-illustrative example design intent, not measured or imported drawing limits.
-Exported face sets, CAD source metadata and citations do not establish
-operation coverage, measured setup binding, a physical shop measurement (that
-is only an inventory fact's own
-[`measured.status = "measured"`](inventory.md#measured-envelopes-and-installed-tool-stacks-m5))
-or machining approval.
-`cite`, `cite_root`, and per-dimension citations identify evidence and
-are not file assets fetched or opened during the check. Python citations use
-`file:line` or line ranges; YAML citations use `file:dotted.key.path`.
-M3 exports replace the three drawn pilots' handwritten manifests; the bracket's
-absence of a dimensioned drawing remains explicit. Preserve source exports,
-unknown requirements and omitted optional fields except for user-approved,
-labelled [example divergences](../examples/README.md#example-divergences-from-consumer-exports).
-These illustrative examples are not verbatim source manifests. Do not silently
-backfill facts from superseded handwritten manifests.
-Delivery provenance and divergence authority belong beside the examples, not
-in extra manifest keys.
-Citation collection discards blank and `"unknown"` entries individually, without
-losing other known sources in the list. A per-dimension citation map supplies only
-the requested fact; whole-record provenance is collected in sorted key order.
-
-The stick-out rule takes its D from the smallest finished profile diameter along
-setup Z in the unsupported span, using these authored axial stations and frames.
-Unknown exposed stations, diameters or bindings cannot fall back to bar OD.
-
-M2 adds declared lathe profiles (`z_mm` plus a nominal diameter) and angular
-settings (`angle_deg`, `angle_tol_deg`). These are sourced nominal geometry,
-not kernel-derived access proofs. `finish_ra`, listed in `requirements`, is
-what the M4 `finish_coverage` rule reads: every face in that feature's `faces`
-must be claimed by a finishing cut. A feature's `angle_tol_deg` is an angular
-landing allowance in degrees; it is not the diametral angularity zone.
-Every declared indexing position is checked against that allowance. Closure
-applies only to a full pattern (`positions >= 2`, `angle_deg` omitted, exact
-step `360 / positions`); an authored angle declares an open pattern with no closure.
-`angularity_dia = [0.0, 0.10]` with `angularity_datums = ["A", "B"]`, listed in
-`requirements`, declares a drawing FCF that needs its own geometric gauge and
-datum-referenced inspection method. It does not convert Ø0.10 into degrees.
-
-For an indexing feature with `dimension_type = "basic"`, an omitted
-`angle_tol_deg` remains unresolved; it does not inherit the title-block general
-angular tolerance. An explicit `angle_tol_deg` remains authoritative, whether
-numeric or `"unknown"`; non-BASIC features retain the general-angle fallback.
-The current cone export puts the 12.5182° BASIC relationship on `crank_bore`
-as `land_angle_nominal_deg`, with Ø0.10 angularity to A/B but no
-`angle_tol_deg`. HA already computes `CRANK_BORE_ANGLE_LIMIT_DEG` ≈ 0.0795°
-(`cad/scripts/cone_pivot_post_spec.py:373`) but omits it from the export.
-Export that derived allowance (or state why it is not an indexing landing
-allowance); the consumer neither derives it from the bare FCF nor inherits
-the title-block ±1°. The missing field is HA export debt, not a missing source.
+names. Drawing datums map to actual features or surfaces through `datums`,
+`datum`, `position_datums`, `surface_profile_datums`, `coaxial_to` and `height_from`.
 
 The shaft and cone exports leave `frames.setup = "unknown"`. A bare unknown
-frame is unbound just like a frame with `binding = "unknown"`. Numeric authored
-operation endpoints (`to_z`, `z_from`, `z_to`) remain setup-local Z targets with
-`local_from` operation provenance. They do not establish model coordinates or
-setup X/Y when the basis is absent, and drawing stations remain unresolved.
-Neither retaining a local endpoint nor the exported model frame supplies a
-measured setup transform. Setup transforms the CAD export does not carry are
-authored in the plan's `frames` table ([plan format](plan.md#frames)); they are
-never written back into, merged with or allowed to shadow the exported manifest.
+frame is unbound just like a frame with `binding = "unknown"`. Numeric operation
+endpoints (`to_z`, `z_from`, `z_to`) remain setup-local Z targets with
+`local_from` operation provenance. They establish neither model coordinates nor
+setup X/Y when the basis is absent; drawing stations remain unresolved.
+Neither a local endpoint nor the exported model frame supplies a measured setup
+transform. Author transforms absent from the CAD export in the plan's
+[frames table](plan.md#frames). They are never written back into, merged with or
+allowed to shadow the exported manifest.
 
-For travel-centre and `coordinates` placement (one shared locator), a child
-feature with `parent` or `hole` and no authored `at` inherits the named
-parent's `at`, transformed from the parent's source frame. An authored child
-`at` takes precedence; explicit `"unknown"`
-does not request inheritance. Missing parents/locations/frames remain debt;
-dimensions and face claims are not borrowed as a side effect of locating the
-child. Saw stock cuts may omit a feature entirely and never establish coverage
-or surface-finish credit for a manifest face.
+Travel-centre and `coordinates` placement share one locator. A child with
+`parent` or `hole` and no authored `at` inherits the named parent's `at`,
+transformed from the parent's source frame. Authored child `at` takes precedence;
+explicit `"unknown"` does not request inheritance. Missing parents, locations
+and frames remain debt. Locating a child does not borrow dimensions or face claims.
 
-The optional root `volume_mm3` and `volume_cite` hold a sourced finished-part
-volume for the generic `compare` command's stock comparison. Missing or
-unverified volume remains `"unknown"`;
-prechips never substitutes a feature bounding box, guessed cone subtraction,
-or stock volume. Drawing `construction = "one_piece"` does not permit a
-built-up candidate; permission requires the literal `"built_up_permitted"`.
-Unknown or omitted drawing permission retains the one-piece-only restriction;
-it never permits built-up construction. A one-piece candidate needs no permission.
+## STEP identity and evidence
 
-All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
-models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled
-record (`extra="forbid"`); arbitrary keys are allowed only in explicitly declared
-dictionaries (for example feature identities or `checks`). Floats must be finite;
-booleans are not numeric substitutes. `Number` means a numeric float or the literal
-`"unknown"`; `Vector` means a list of Numbers or `"unknown"`; `Citations` means
-a string or a list of strings. Text fields also accept `"unknown"`.
+`faces` lists the feature's STEP face references. The kernel maps each referenced
+`ADVANCED_FACE` to the imported solid by its own surface kind, area and bounding
+box, never by assuming STEP ordinal order survives import. A malformed or
+missing reference, or one matching zero or several imported faces, gives a
+mapping error (`✗`) on every geometry rule needing that feature. An omitted,
+unknown or empty list leaves those rules `?`.
 
-Every `record()` field below is optional and accepts `"unknown"` in addition to
-the displayed type. The schema defaults omitted `Feature.kind` to `"unknown"`
-and retains it in the loaded bundle so kind-dependent rules remain unresolved.
-Other omitted fields stay absent: inspection and policy selection read an
-omitted `requirements` declaration as unknown, never as a known empty list.
-Other optional fields retain their applicability semantics in the rules.
-Root fields marked required must be present. A model accepting a value is not proof
-of geometric validity; rules perform the applicable checks.
+Declared-input rules use face geometry only through an already-present kernel
+result; they never start the kernel. A `kind = "face"` feature without `bounds`
+takes bounded-cut coverage from the matched boxes of its listed faces. Every
+reference must resolve. Only planes at the cutting operation's `to_z` receive
+coverage and credit. Authored `bounds`, even unknown or malformed, take
+precedence. See [face identity](rules-geometry.md#face-identity) and
+[coordinates](rules-coordinates.md).
+
+`step_sha256` is `"unknown"` or a lowercase 64-hex SHA-256. A known digest needs
+the referenced STEP bytes in the bundle and must match their hash; a digest
+alone is insufficient. Only matching bytes reach the FreeCAD kernel.
+
+The shaft, rocker and cone reference bundles use consumer-generated manifests
+and exact adjacent STEP exports. The bracket uses a hand-authored manifest on
+the consumer v39 STEP
+(`6cd4ab60f57b1c9771cec083fbbd0ef1f94171f1d95f9485a135a4dec0b2dabc`).
+It has no dimensioned drawing, so its bands are illustrative design intent,
+not measured or imported drawing limits. Preserve source exports, unknown
+requirements and omitted optional fields except for approved, labelled
+[example divergences](../examples/README.md#example-divergences-from-consumer-exports).
+The illustrative examples are not verbatim source manifests. Do not backfill
+from superseded handwritten manifests. Example provenance and divergence
+authority belong beside the examples, not in extra manifest keys.
+
+`cite`, `cite_root` and per-dimension citations identify evidence. Checks do not
+fetch or open them as file assets. Python citations use `file:line` or line ranges;
+YAML citations use `file:dotted.key.path`. Citation collection discards blank
+and `"unknown"` entries individually, keeping other known sources. A
+per-dimension map supplies only the requested fact; whole-record provenance is
+collected in sorted key order.
+
+Exported faces, CAD metadata and citations do not establish operation coverage,
+measured setup binding, a physical shop measurement or machining approval.
+Physical measurement status comes from an inventory fact's own
+[`measured.status = "measured"`](inventory.md#measured-envelopes-and-installed-tool-stacks-m5).
+
+## Rule and output consumers
+
+The stick-out rule takes D from the smallest finished profile diameter along
+setup Z in the unsupported span, using authored axial stations and frames.
+Unknown exposed stations, diameters or bindings cannot fall back to bar OD.
+Declared lathe profiles use `z_mm` plus a nominal diameter. These and angular
+settings (`angle_deg`, `angle_tol_deg`) are sourced nominal geometry, not
+kernel-derived access proofs.
+
+`finish_ra` in `requirements` is read by `finish_coverage`: every face in that
+feature's `faces` must be claimed by a finishing cut. Saw stock cuts may omit a
+feature and never establish coverage or surface-finish credit for manifest faces.
+
+`angle_tol_deg` is an angular landing allowance in degrees, not a diametral
+angularity zone. Every declared indexing position is checked against it.
+Closure applies only to a full pattern (`positions >= 2`, `angle_deg` omitted,
+exact step `360 / positions`); an authored angle declares an open pattern.
+`angularity_dia = [0.0, 0.10]` with `angularity_datums = ["A", "B"]`, listed in
+`requirements`, declares a drawing FCF needing its own geometric gauge and
+datum-referenced inspection method. It does not convert Ø0.10 to degrees.
+
+For indexing with `dimension_type = "basic"`, omitted `angle_tol_deg` remains
+unresolved and cannot inherit the title-block general angular tolerance.
+An explicit value, numeric or `"unknown"`, is authoritative. Non-BASIC features
+retain the general-angle fallback. The cone export puts the 12.5182° BASIC
+relationship on `crank_bore` as `land_angle_nominal_deg`, with Ø0.10 angularity
+to A/B but no `angle_tol_deg`. harmonic-analyzer (HA) computes
+`CRANK_BORE_ANGLE_LIMIT_DEG` ≈ 0.0795° (`cad/scripts/cone_pivot_post_spec.py:373`)
+but omits it from the export. The exporter must supply that allowance or explain why it is not an indexing
+landing allowance. Prechips neither derives it from the bare FCF nor inherits
+the title-block ±1°. This is export debt, not an absent source.
+
+Drill-kind `rough_profile` / `chain_drill` operations need no invented hole
+feature. Deep-hole derating takes the canonical before-stock state's feature
+entry, else stock top, minus `to_z`, converted from manifest units to mm.
+An earlier chain endpoint is not the next entry surface. See
+[cutting data](cutting-data.md) for row selection and unresolved depth.
+
+Optional root `volume_mm3` and `volume_cite` supply sourced finished-part volume
+for `compare` stock comparison. Missing or unverified volume stays `"unknown"`;
+the checker does not substitute bounding boxes, guessed cone subtraction or stock
+volume. Drawing `construction = "one_piece"` does not permit built-up candidates:
+permission requires literal `"built_up_permitted"`. Unknown or omitted permission
+retains the one-piece-only restriction. A one-piece candidate needs no permission.
+
+Manifest units, frames and bound STEP geometry provide the finished-outline
+coordinates and projected spans for [picture scale](rules-geometry.md#renders).
+[Outline overlays](report-and-telemetry.md#kernel-renders) add no manifest field
+and change no authored coordinates, dimensions, bands or requirement identities.
+
+Printed freeform recording areas attach to existing `feature:requirement`
+identities and usable authored limits. Equal displayed bands do not prove a
+shared physical reading; a genuinely shared dimension remains one record.
+The layout does not fill omitted identities or unknown bands with nominals,
+invented tolerances or result data. Handwritten readings do not amend the manifest.
 
 ## Surface profiles
 
 A drawing SURFACE PROFILE `t` (ASME Y14.5 profile of a surface, optionally
-`U` unequal disposition, to a datum reference frame) is a set of fields on the
-feature whose faces its leader names, like `position_dia`/`position_datums`.
-harmonic-analyzer #1544 is the motivation: the rocker's curved edges carry
-BASIC `radius 800`, `height_above_pivot 8.0` and `bottom_radius 816` that only
-their profile zones tolerance, so without these fields they had no band.
+`U` unequal disposition, to a datum reference frame) belongs to the feature
+whose faces its leader names, like `position_dia`/`position_datums`.
+For the rocker's curved edges (harmonic-analyzer #1544), the BASIC `radius 800`,
+`height_above_pivot 8.0` and `bottom_radius 816` receive their acceptance bands
+from the profile zones.
 
 | Field | Meaning |
 |---|---|
@@ -231,7 +245,7 @@ A `surface_profile_governs` entry says how the governed BASIC value `n` reads in
   degrees against a millimetre gauge ([inspection](rules-inspection.md#surface-profiles)).
 - `"unknown"`: the governed requirement stays unknown.
 
-The band is **pointwise**: every point of the surface lies in the zone about its
+The band is pointwise: every point of the surface lies in the zone about its
 BASIC true profile, located from the DRF, so the reading is taken from the
 DRF-located BASIC origin (centre, pivot, station). It is not a fitted-size
 tolerance: a best-fit radius of the filed edge is not what it bounds. A
@@ -268,6 +282,9 @@ target); a `surface_profile_datums` label that is not declared while the
 `datums` table is known, one named twice (`["A", "A"]`), or one that resolves to
 the profiled feature itself (its own `datum`, or a `datums` entry naming it).
 
+The following fragment needs a containing manifest, the referenced datum
+declarations and the governed BASIC scalar values:
+
 ```toml
 ["features"."top_edge"]
 "requirements" = ["height_above_pivot", "radius", "surface_profile"]
@@ -292,12 +309,11 @@ least limit 5.08 gives 10.46 ± 5.65°.
 
 ## Angle bands read across a face
 
-No gauge reads degrees: an inventory gauge declares millimetre range and
-(positive) resolution only, so a drawn angle band (`*_deg`, `[lo, hi]` degrees) has no
+Inventory gauges declare millimetre range and positive resolution, not degree
+readings. A drawn angle band (`*_deg`, `[lo, hi]` degrees) therefore has no
 inspection capability on its own ([inspection](rules-inspection.md#inspection)).
-A planar face's angle is read instead as the deviation end to end across the
-face, and the optional feature field `tilt_across` declares that length per
-angle requirement:
+A planar face's angle is read as deviation end to end across the face.
+The optional feature field `tilt_across` declares that length per angle requirement:
 
 | Field | Meaning |
 |---|---|
@@ -315,6 +331,9 @@ band or a named length band that is not two limits `[lo, hi]` with lo <= hi when
 both are known (an `"unknown"` limit is legal and leaves the reading unknown); a
 value naming anything but a listed length band of the feature (a `finish_ra` or
 zone band is none), or a number <= 0.
+
+This fragment supplies the feature-level angle and extent; it needs a containing
+manifest:
 
 ```toml
 ["features"."tip_land_pos_x"]

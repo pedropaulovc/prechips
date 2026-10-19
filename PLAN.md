@@ -16,11 +16,10 @@ horizontal dividing-head top-dead-centre poses and window-clipped radial
 plus wall-tangent vertical cutter-column own-removal outside the finished
 part. Exact per-face unions decide coverage and finish coverage for
 partial-face windows. This is not continuous toolpath proof.
-For the current delivery, eight actual traveler invocations exited 0;
-two generations produced 48 byte-identical files, now frozen, and the
-example validator passed for 26 TOML inputs, four reference bundles and
-seven geometry controls. No final full-suite or ten-minute CI result has
-been observed. Physical paper rehearsal, first-article approval and live
+Historical M3 artifact evidence is recorded in [§8](#8-milestones); its
+eight exit-0 invocations are not a fresh check of the current inputs. The
+[example guide](examples/README.md#expected-consumer-cli-exits) owns current
+bundle targets. Physical paper rehearsal, first-article approval and live
 parented farm/App Insights acceptance remain pending/unobserved.
 Rev 6 design, with current delivery status. Manual arcs (D1): the manual
 mill cuts arcs only by the 1898 method (layout, single-axis stairs or a chain
@@ -1101,6 +1100,13 @@ sheet.
 
 ## 8. Milestones
 
+Documentation is organized into a [task-based manual](docs/README.md),
+separate [CLI](docs/reference/cli.md) and
+[Python callable](docs/reference/python-api.md) catalogs, and
+[architecture](docs/internals/architecture.md) and
+[development](docs/internals/development.md) guides.
+The [style guide](docs/style-guide.md) defines page structures and verification.
+
 0. **M0 — kernel spike** (§6). Done 2026-10-03, two rounds.
 1. **M1 — local implementation deliverable completed.** Five strict TOML
    formats, all twelve §4.1 M1 rules, five CLI verbs, canonical bound reports,
@@ -1313,10 +1319,10 @@ sheet.
    [expected consumer CLI exits](examples/README.md#expected-consumer-cli-exits)
    are recorded in the example guide. A clean example exit is not physical acceptance.
 
-   **Observed local artifact validation:** eight actual traveler invocations
-   exited 0 across two generations of the four active plans. The generations
-   produced 48 byte-identical files, which are frozen. The example validator
-   passed for 26 TOML inputs, four reference bundles and seven geometry controls.
+   **Historical M3 local artifact validation:** eight actual traveler invocations
+   exited 0 across two generations of the four plans at that delivery. The
+   generations produced 48 byte-identical files, which were frozen. The example
+   validator passed for 26 TOML inputs, four bundles and seven geometry controls.
    These observations do not establish fresh native bit-repeatability,
    a final full-suite result or a ten-minute CI result. Physical print/operator
    rehearsal, the independent hand oracle, first-article approval and §5.2
@@ -1328,13 +1334,14 @@ sheet.
    acceptance evidence for the current four-plan delivery. Current export
    provenance, labelled divergences and route choices live in the example guide.
 4. **M4 — geometry and workholding local deliverable** (§4.2–4.3).
-   Eight sampled B-rep rules execute in a separate FreeCAD process; native
-   saw cut-off and the profiled-blank face credit (`blank_credit`) make ten M4
-   kernel rules in total. STEP
+   The current [geometry catalog](docs/rules-geometry.md) covers thirteen
+   registered native-rule families, including saw, blank-credit, keep-piece and
+   joint-assembly checks. STEP
    byte identity and entity/ordinal/label references are checked before
    mapping by surface/area/bbox, never by imported face ordinal. An absent
-   kernel yields one console `?` line and unknown geometry, not fabricated
-   passes; named mapping and directional-claim errors remain errors.
+   kernel reports its unavailability and leaves applicable geometry unresolved;
+   explicit not-applicable cases remain distinct. Named mapping and
+   directional-claim errors remain errors.
 
    **Swivelled vise (2026-10-17, #300):** `hold.jaws_angle_deg` swivels a mill vise
    about Z. The kernel places it in its jaw frame and turns the jaws and accessories

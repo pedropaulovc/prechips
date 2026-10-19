@@ -1,12 +1,19 @@
 # Declared lathe profile and workholding rules
 
-These M2 rules use the same `Finding`/`Bundle` contract as M1. Each emits one
-subject per setup. They check declared geometry and inventory identities; the
-profile rules also read the kernel's measured faces of revolution when a
-successful kernel result is already present (they never start one). They do
-not certify installed workholding, cutter clearance, whip or chatter. Missing
-measurements and `verify` debt are not inferred away. There are no default shop
-ratios or catalogue capacity lookups.
+Use `turned_profile` to check axial diameter order, `stickout` to screen the
+unsupported exposed length, and `stock_diameter` to check declared gripping
+capacity. Each rule emits one subject per setup using the shared finding and
+bundle contracts.
+
+The rules use declared geometry and inventory identities. Profile calculations
+also read measured faces of revolution from an already successful kernel result;
+they never start a kernel run. They do not certify installed workholding, cutter
+clearance, whip or chatter. Missing measurements and `verify` debt remain
+unresolved. No default shop ratios or catalogue capacity lookups fill the gaps.
+
+See the [plan reference](plan.md) for holds and stock states, the
+[inventory reference](inventory.md) for capacity and support identities, and
+[troubleshooting](manual/troubleshooting.md) for unresolved findings.
 
 ## `turned_profile`
 
@@ -14,10 +21,12 @@ The rule applies to lathe setups with axial turning/forming/grooving actions.
 A known nonlathe setup or a lathe setup without those actions is
 `not_applicable`; an unknown machine/action is `unknown`.
 
-The spindle convention is PLAN §8 M2: setup Z runs along the spindle, positive
+### Setup-frame geometry
+
+The spindle convention is PLAN §8: setup Z runs along the spindle, positive
 toward the exposed end, and X is a diameter. Every axial cylinder, boss, shaft
 (a cylinder), groove or dome is transformed from its feature frame into the setup frame
-using M1's `model_point`/`frame_point` functions. A rechuck with reversed spindle
+using the shared `model_point`/`frame_point` functions. A rechuck with reversed spindle
 Z therefore reverses the station order. Model +Z is never substituted for
 setup +Z. Source and setup Z axes must describe the same spindle line direction
 (up to reversal); a skewed axis is not treated as an axial turned profile.
@@ -34,6 +43,8 @@ An explicitly unknown nominal is not replaced by another field. A diameter
 band is a tolerance, not a nominal; its midpoint is never manufactured. Unknown
 stations, overlapping inconsistent cylinders, gaps and selected forms without
 a recoverable axial interval remain `unknown`, not a vacuous monotonicity pass.
+
+### Declared and kernel evidence
 
 Declared values are authoritative; the kernel fills only what a feature does
 not declare (a consumer export need not author `z_mm`). For every setup with a
@@ -72,6 +83,8 @@ returns the same per-feature result (`z_mm`, `diameter_mm`, `base_diameter_mm`,
 `height_mm` for a dome or a face's axial extent, `source`, `sources`,
 `unresolved`, `cite`) for other rules.
 
+### Exposed shoulders and groove exceptions
+
 When both setup stock end stations and stick-out are known, the declared
 exposed span is `max(north_end_z, south_end_z) - stickout_mm` through
 `max(north_end_z, south_end_z)`. Known intervals wholly behind the chuck are
@@ -93,18 +106,24 @@ Actual grooving actions are `groove`, `rough_groove`, `finish_groove` and
 `form_relief`. A turning action is not a grooving operation. An explicitly
 unknown targeted action leaves the exception unresolved. PLAN §4.1 makes this
 an operation/feature check, not a tool-capability certification: selected tool
-identity and inventory verification remain the M1 `tool_resolves` rule's
+identity and inventory verification remain the `tool_resolves` rule's
 responsibility.
 
 Evidence includes transformed intervals (each with its `source`), the swept
 constant-diameter segments, increase stations, matching grooving operations,
 unresolved geometry and its reasons.
-Citations identify PLAN §4.1 turned profile (line 540), the §8 spindle
+Citations identify PLAN §4.1 turned profile, the §8 spindle
 convention, the authored feature dimensions/frames, the kernel's revolved facts
 when used, and plan grooving operations.
 This is not a cutter-envelope or complete feature-coverage proof.
 
+Resolve profile debt by correcting the declared frames and stations or supplying
+the missing measured geometry. An outward shoulder needs a route that satisfies
+the profile check; a groove elsewhere or in a future setup does not waive it.
+
 ## `stickout`
+
+### Unsupported length and policy
 
 For a lathe setup without a selected verified tailstock/steady exception:
 
@@ -123,8 +142,10 @@ or the finding is an `error`; an unstated `measure` (missing, blank or
 `"unknown"`) or a non-numeric `nominal_mm`/`add_mm` is `unknown`. The finding's
 `stickout_fit` numbers carry the reading, nominal and allowance.
 
-**D is the smallest finished diameter in the unsupported exposed length, not
-the bar diameter held in the jaws.** It is the minimum of the finished profile
+### Diameter controlling the limit
+
+D is the smallest finished diameter in the unsupported exposed length, not
+the bar diameter held in the jaws. It is the minimum of the finished profile
 segments along setup Z (declared, kernel-filled as described above), using
 `turned_profile`'s frame transforms, explicit `mm`/`in` units and groove
 overlays. The exposed span uses the authored
@@ -164,12 +185,14 @@ support does not resolve missing exposed geometry or this held-stock debt.
 An explicit zero stick-out has no unsupported length to screen, but still needs
 a verified cited ratio or the selected verified support exception.
 
+### Selected support exception
+
 The support exception requires an explicitly selected `hold.support` or
 `hold.supports` reference. `supports` can contain strings or existing
 `{ ref = ... }` records. A verified fixture of kind `tailstock`,
 `tailstock_centre`, `tailstock_center` or `steady_rest` qualifies. Generic
 live/dead centres need an explicit tailstock identity; a headstock centre does
-not qualify. A named machine accessory must be listed in the **selected**
+not qualify. A named machine accessory must be listed in the selected
 machine's `standard_accessories`/`included` and be verified. An accessory on
 another machine and an unselected support merely present in inventory cannot
 supply the exception. An explicit `present = false` fixture is not resurrected
@@ -190,12 +213,20 @@ support's resolution status. Citations retain authored feature sources and
 identify the feature dimensions/frames and authored setup stock end stations
 and stick-out used to locate the exposed geometry.
 
+To resolve stick-out debt, measure the exposed length and geometry, establish the
+cited policy ratio, and verify any selected support. A support exception does not
+resolve unknown exposed geometry or prove supported bending acceptable.
+
 ## `stock_diameter`
 
-Checks `hold.fixture` when it selects a collet/collet set, `collet_chuck`, or
-chuck. An admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table) has no
-collet or chuck and is `not_applicable`. It uses the held OD and fallback/unknown semantics described above, not
-the finished exposed diameter D used by `stickout`.
+Checks `hold.fixture` when it selects a collet/collet set, `collet_chuck`, or a
+chuck kind. It also checks a `machines` item or a dividing head when that item
+declares a gripping-capacity field. A vise or plate opening is not admitted as
+collet/chuck capacity. An admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table)
+has no collet or chuck and is `not_applicable`.
+
+The check uses held OD and the fallback/unknown semantics above, not the finished
+exposed diameter D used by `stickout`.
 
 Only actual declared gripping capacities are used:
 
@@ -204,10 +235,10 @@ Only actual declared gripping capacities are used:
 - two-endpoint `range_mm` or `range_in`, with inclusive bounds.
 
 A collet-set root can be checked against its declared members. A selected
-member such as `set/<size>mm` or an M1 inch member is restricted to that member,
+member such as `set/<size>mm` or an inch member is restricted to that member,
 not all sizes of the parent set. Explicit `members` records use their own
 sizes/ranges, not inherited parent-set coverage. Physical inch/mm identity
-comparison reuses M1 `same_length`, so floating conversion residue is not a
+comparison reuses the shared `same_length`, so floating conversion residue is not a
 spurious mismatch.
 
 `diameter_in`, `dia`, swing, or a chuck's exterior size never supplies a gripping
@@ -216,25 +247,31 @@ missing capacity stays `unknown`, including a machine-accessory chuck without
 its actual fixture/capacity record. A fully known verified set/range that excludes
 the held stock produces `error`. Verified membership in a declared capacity
 passes; unverified inventory cannot prove either fit or mismatch. Known
-non-collet/chuck fixtures are `not_applicable`.
+fixtures outside the supported kinds and declared-capacity branches are
+`not_applicable`.
 
 Evidence names the fixture, held diameter/source, normalized listed sizes,
 normalized ranges and selected-member diameter when applicable. Citation:
-PLAN §4.3 collet/chuck (line 558), the declared stock-state/stock diameter and
+PLAN §4.3 collet/chuck, the declared stock-state/stock diameter and
 selected inventory capacity fields. This does not check jaws, clamping force,
 runout or interference.
 
+Resolve capacity debt by declaring and verifying actual gripping sizes or a
+two-endpoint range for the selected item. Do not substitute swing, exterior chuck
+diameter or a parent set's coverage for the selected member's capacity.
+
 ## Readiness and isolated proof cases
 
-These families use existing `pass`, `error`, `unknown` and `not_applicable`
-statuses; they introduce no alternative severity vocabulary. Errors take exit
-2 ahead of unresolved required rows (exit 4); clean or optional unresolved
-rows can exit 0. Input-schema errors remain exit 3 before any output, preserving
-PLAN §4's precedence `3 > 2 > 4 > 0`.
+These families use `pass`, `error`, `unknown` and `not_applicable`.
+Errors take exit 2 ahead of unresolved required rows (exit 4); clean or optional
+unresolved rows can exit 0. Input-schema errors remain exit 3 before any output,
+preserving PLAN §4's precedence `3 > 2 > 4 > 0`.
 
-`tests/test_lathe_m2.py` uses isolated authored bundles and covers diameter/order
-boundaries, frame/rechuck transforms, targeted grooving exceptions, missing
-geometry, selected fixture/accessory support, policy verification/citations,
-held-OD precedence, actual collet/chuck capacities, canonical report repeatability
-and exit precedence. The existing pivot shaft has no cross-hole: these checks
-neither add one nor infer an indexing requirement.
+The behavior checks in `tests/test_lathe_m2.py` cover diameter/order boundaries,
+frame/rechuck transforms, targeted grooving exceptions, missing geometry,
+selected fixture/accessory support, cited policy verification, held-OD
+precedence, declared capacities, canonical report repeatability and exit
+precedence. Contributor procedures are in the
+[development guide](internals/development.md). These are software checks, not
+physical workholding acceptance. The existing pivot shaft has no cross-hole;
+the rules neither add one nor infer an indexing requirement.

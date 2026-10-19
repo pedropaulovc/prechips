@@ -1,10 +1,18 @@
 # Static physics proxies
 
-`turning_deflection` and `engagement` implement [PLAN §4.4](../PLAN.md#44-physics-proxies--lines-only-policy-may-promote).
-They are deterministic screens of declared facts, not measured workholding,
-chatter, whip, cutter-life or final-size certification. They never emit a hard
-`error`: a resolved over-limit result is `warn`, a resolved within-limit result
-is `pass`, and missing or unverified necessary inputs remain `unknown` (`?`).
+Use `turning_deflection` and `engagement` to screen declared cutting conditions
+against the static proxies in
+[PLAN §4.4](../PLAN.md#44-physics-proxies--lines-only-policy-may-promote).
+They do not certify measured workholding, chatter, whip, cutter life or final size.
+A resolved over-limit result is `warn`, a resolved within-limit result is `pass`,
+and missing or unverified necessary inputs remain `unknown` (`?`). Neither rule
+emits a hard `error`.
+
+See [turning deflection](#turning_deflection) for workpiece bending and
+[engagement](#engagement) for endmill projection. The
+[cutting-force model](#cutting-force) is dormant internal code, not an active
+holding-capacity check. Input definitions are in
+[cutting data](cutting-data.md), [inventory](inventory.md), and [plan](plan.md).
 
 Both rules use operation subjects such as `S1:10`. Manual operations are
 `not_applicable`; turning deflection is also not applicable to a known nonlathe
@@ -15,6 +23,8 @@ which has no drawing acceptance band to deflect out of. An unknown operation or
 applicable machine identity is not a pass.
 
 ## `turning_deflection`
+
+### Inputs and equation
 
 For a nonmanual lathe operation, use only the declared:
 
@@ -51,7 +61,7 @@ imply millimetres.
 
 Support uses the shared `stickout.support_state` resolution. A selected verified
 tailstock centre/steady-rest fixture or a suitable accessory listed by the
-**selected setup machine** enables coefficient 48 over `hold.stickout_mm`.
+selected setup machine enables coefficient 48 over `hold.stickout_mm`.
 Merely listing support in inventory does not declare it installed; an unrelated
 machine's accessory does not qualify. Explicit `support = "none"` selects
 coefficient 3. An absent, unknown, missing or unverified necessary support
@@ -132,7 +142,15 @@ half-band and missing-input reasons. Citations include the operative PLAN row,
 authored plan/feature field identities, actual cutting-data row source and
 actual feature acceptance-band (or operation rough-allowance) source.
 
+Resolve deflection debt by supplying the operation's DOC and feed, verified
+diameter/span/support facts, cited material coefficients and the applicable
+acceptance band or rough allowance. If the proxy warns, review the actual cut
+and support arrangement. A lower calculated value is not proof against chatter
+or a guarantee of final size.
+
 ## `engagement`
+
+### Eligible operations
 
 This is an endmill-only screen for cutting operations. The selected resolved
 tool/member must have kind `endmill` or `endmill_set`. Known drill, reamer,
@@ -149,9 +167,11 @@ at or below 4×D. An unresolved tool/member, unknown tool kind or unknown
 action also stays unknown unless a known non-endmill family or known
 noncutting action independently establishes non-applicability.
 
-Resolve the operation's selected inventory tool **and** holder. Use the existing
+Resolve the operation's selected inventory tool and holder. Use the existing
 explicit-unit `length_mm` helper for tool diameter, projection/OAL and holder
 grip; a tool with a bare diameter and no units does not acquire an assumed unit.
+
+### Projection and DOC recommendation
 
 Projection uses the selected tool/holder pair before OAL-minus-grip arithmetic:
 
@@ -188,13 +208,24 @@ projection and its source basis, ratio, PLAN limit, authored DOC, reduction
 factor, recommended DOC and missing-input reasons. Citations identify the PLAN
 §4.4 engagement row and the actual selected inventory/operation fields.
 
+For unresolved projection, verify the selected tool/holder pair's projection or
+the OAL and grip needed by the fallback calculation. For unresolved DOC, declare
+a positive per-pass depth. A recommendation is advisory; the checker never edits
+the planned cut.
+
 ## Cutting force
 
-A shared model, not a rule: it has no finding of its own. The holding providers
-read it (the area hold's `hold_capacity`, [#295](https://github.com/pedropaulovc/prechips/issues/295),
-and #158's clamp provider later; see the [area-hold design](design/area-hold.md#4-force-model-shared-with-158)).
-It bounds an end-mill milling op's force from above (Kienzle, peripheral milling,
-every engaged tooth at the maximum chip):
+The shared helper in
+[`_cutting_force.py`](../src/prechips/rules/_cutting_force.py) is implemented but
+has no finding of its own, is not registered as a rule, and has no current
+production consumer. The [area-hold design](design/area-hold.md#4-force-model-shared-with-158)
+describes intended holding-provider use for
+[#295](https://github.com/pedropaulovc/prechips/issues/295) and the later #158 clamp
+provider. No registered area-hold capacity rule currently uses this model:
+a checked plan does not establish tape or adhesive holding capacity.
+
+The dormant model bounds an endmill milling operation's force from above using
+Kienzle peripheral milling, with every engaged tooth at the maximum chip:
 
 ```text
 φ_e   = arccos(1 − 2·ae/D)              engagement angle (π at ae = D)
@@ -227,8 +258,8 @@ down standing in air, or one lowered level above the stock, is a side entry;
 a plunge, an unproven entry and an end mill's hole action (a counterbore) have
 no axial-entry model and stay `?`. A drill-family tool (drill, spot drill,
 reamer, tap) has no thrust/torque model and stays `?`; any other cutting op
-stays `?`; a noncutting action is `not_applicable`. A `?` is never a pass for
-the rule that consumes it.
+stays `?`; a noncutting action is `not_applicable`. These are helper results,
+not emitted rule findings. Any future consumer must not interpret `?` as a pass.
 
 ## Existing readiness gate
 
@@ -240,10 +271,9 @@ selectors decide whether either proxy must be clean:
 - Any rule's hard `error`: exit 2, taking precedence over required proxy debt.
 - Malformed input: exit 3 before rules or outputs.
 
-The existing precedence is **3 > 2 > 4 > 0** ([PLAN §4 exit precedence](../PLAN.md#4-what-the-checker-validates-the-rule-catalogue)).
-Isolated synthetic tests in `tests/test_physics_m2.py` cover the equations,
-support selection, explicit units, projection fallback/precedence, DOC halving,
-unknowns, deterministic nonmutating findings and these consumer-visible gates;
-`tests/test_turning_rests.py` covers rest spans and capacity boundaries, rough
-and axial thresholds and the dome base diameter.
-Their numeric material rows are test fixtures, never shipped cutting data.
+The existing precedence is `3 > 2 > 4 > 0`
+([PLAN §4 exit precedence](../PLAN.md#4-what-the-checker-validates-the-rule-catalogue)).
+Software behavior checks live in `tests/test_physics_m2.py` and
+`tests/test_turning_rests.py`; contributor procedures are in the
+[development guide](internals/development.md). Their numeric material rows are
+test fixtures, never shipped cutting data or physical acceptance evidence.

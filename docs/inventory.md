@@ -1,178 +1,244 @@
-# Shop inventory — `inventory.toml`
+<a id="shop-inventory--inventorytoml"></a>
+
+# Shop inventory: `inventory.toml`
+
+`inventory.toml` declares the machines, tooling, workholding, gauges, processes
+and stock available to a plan. This reference defines their identities, field
+types, units and trust requirements. A declared item or nominal dimension does
+not establish that the shop owns it or has measured it.
+
+Use the [quickstart](manual/quickstart.md), [tutorial](manual/tutorial.md) or
+[worked demonstration](manual/demo.md) to run a bundle. For command options, see
+the [CLI catalog](reference/cli.md); for callable interfaces, see the
+[Python API catalog](reference/python-api.md). The
+[troubleshooting guide](manual/troubleshooting.md) covers input errors and
+measurement debt, and the [FAQ](manual/faq.md) explains the product's limits.
+
+On this page:
+
+- [Identity, units and tool geometry](#identity-and-display-names)
+- [Bandsaws and hand saws](#bandsaw-machines-and-blades),
+  [manual-arc equipment](#manual-arc-kit) and [edge finders](#edge-finder)
+- [Purchased tooling and receipt checks](#purchased-tooling)
+- [Kernel geometry facts](#kernel-geometry-facts-m4) and
+  [measured machine limits and installed stacks](#measured-envelopes-and-installed-tool-stacks-m5)
+- [Root fields](#root-fields), [area-hold consumables](#area-holds),
+  [stock](#stock) and [item field catalog](#inventoryitem)
+- [Spindle](#spindle) and other [nested machine records](#leadscrew)
+
+## Inventory identity and units
+
+### File selection and schema
+
+A plan's `inventory` path resolves relative to the plan file and must stay
+inside its bundle. An explicit inventory override takes precedence; if neither
+the override nor the plan supplies a path, `PRECHIPS_INVENTORY` is the fallback.
+Override and environment paths resolve from the current working directory.
+See the [CLI catalog](reference/cli.md) for the commands that accept overrides.
+
+See [shared input conventions](plan.md#input-conventions) for TOML validation,
+`Number`, `Vector`, `Citations`, omitted fields and literal `"unknown"`.
+Inventory-specific field definitions are in
+[`model.py`](../src/prechips/model.py).
+
+Inventory category/member maps and declared dictionaries such as
+`nominal_dia_mm`, `candidates`, `holders` and `plate_holes` accept authored
+keys. Missing inventory facts do not establish known absence or a pass;
+the applicable rule decides which facts it needs.
+
+### Identity and display names
 
 The root groups are `machines`, `tools`, `holders`, `fixtures`, `gauges`,
-`services`, `consumables`, and `stock`; there are no legacy `workholding` or `measuring`
-aliases. Category maps use authored identity keys. `members` is a recursively
-modeled InventoryItem map. `source` may be a source string or Source record.
-`services` are outside processes the shop sends work to (a coating vendor), not
-shop-owned kit; a plan `coating` op's `process` names a `services` item or a
-`consumables` entry. A `[consumables.<id>]` entry is a `Consumable` table:
-`products`, the in-house product names (an unknown or empty list, or a blank or
-`"unknown"` product, leaves that process unresolved), and an optional `name`,
-the display name the traveler's coating tool cell prints. A service prints its
-`name` the same way (`outside: black-oxide finisher (hot black oxide, matte)`);
-an entry with no `name` prints its identity key, never invented wording.
-Named set members/coverage may resolve without pretending an unlisted member
-was measured or purchased. Explicit `present = false` means missing;
-an item-level `verify = true`, an unverified `source`, or explicitly unknown
-presence makes that item's identity unresolved for the declared-input rules.
-Whether a particular dimension is *measured* is decided only by that fact's
-own record (see
-[M5](#measured-envelopes-and-installed-tool-stacks-m5)), and whether a
-nominal dimension enters M4 kernel geometry is decided the same fact-local
-way (see [kernel geometry facts](#kernel-geometry-facts-m4)); neither reads
-the item, set root, member container or source flags around the fact.
+`services`, `consumables` and `stock`. There are no `workholding` or `measuring`
+aliases. Category maps use authored identity keys; `members` recursively maps
+member keys to `InventoryItem` records. `source` accepts a source string or a
+[Source record](#source).
 
-`name` is an optional display name an item or a set member may carry; the
-traveler prints it whole in place of the name it would derive from the item's
-kind or identity key (`name = "4x6 bandsaw"`, a kit member `name = "cap bridge
-clamp"`). A member's name is its own: a named set does not name its members,
-and an unnamed member still prints as its key words and its own kind
-(`bracket bridge strap clamp`). No rule reads `name`.
+Named set members or declared coverage can resolve an identity without
+claiming that an unlisted member was measured or purchased. Explicit
+`present = false` means missing. Item-level `verify = true`, an unverified
+source or explicitly unknown presence leaves the identity unresolved for the
+declared-input rules.
 
-A consumed single-length fact is authored once per stem: an explicit `_mm`
-key, an `_in` key converted with exactly 25.4 mm/in, or a bare key with explicit
-`units = "mm"`, `"in"`, or `"inch"`; two spellings of that fact are rejected
-rather than ranked. Collection/coverage fields such as `sizes_mm`/`sizes_in`,
-`range_mm`/`range_in` and `width_mm`/`width_in` are not duplicate single-length
-facts; mixed metric/inch sets may declare both. Do not manufacture nominal diameters from a catalog label unless
-the resolver's supported identity/coverage or explicit `nominal_dia_mm` map
-establishes them. Nominal identity is not measured size. Inventory tool units
-may be converted explicitly; drawing units are not silently converted.
-Set `sizes_in` may be a flat list or a mapping of named groups; every group's
-sizes are declared choices (the group name is a label). `flutes` may be one count
-or a list. An `endmill_set` member `<size>in-<n>fl` resolves when the size is in
+Dimension trust is separate. [M5](#measured-envelopes-and-installed-tool-stacks-m5)
+requires a fact's own measurement record;
+[M4](#kernel-geometry-facts-m4) accepts trusted nominal geometry. Neither
+inherits dimension qualifiers from the item, set root, member container or
+source.
+
+An item's optional `name` is its display name. The setup sheet prints it whole
+instead of deriving a name from the kind or key, for example
+`name = "4x6 bandsaw"` or a kit member's `name = "cap bridge clamp"`.
+Members own their names: a named set does not name its members. An unnamed
+member prints its own key words and kind, such as `bracket bridge strap clamp`.
+No rule reads `name`.
+
+`services` are outside processes, such as a coating vendor, rather than
+shop-owned equipment. A coating operation's `process` names a service or an
+untyped consumable. Their product and display-name behavior is defined under
+[Root fields](#root-fields).
+
+### Units and set members
+
+Author each consumed single-length fact once, using a supported `_mm` key,
+`_in` key or bare key with explicit `units = "mm"`, `"in"` or `"inch"`.
+Supported bare keys still depend on the field schema. Inch values convert by
+exactly 25.4 mm/in. Two spellings of one fact are rejected, not ranked.
+Collection fields such as `sizes_mm` / `sizes_in`, `range_mm` / `range_in`
+and `width_mm` / `width_in` when used as coverage are not duplicate
+single-length facts; mixed metric/inch coverage may declare both.
+
+Do not derive nominal diameters from catalog labels unless supported
+identity/coverage resolution or an explicit `nominal_dia_mm` map establishes
+them. Nominal identity is not measured size. Inventory tool units can be
+converted explicitly; drawing units are not silently converted.
+
+Set `sizes_in` accepts a flat list or named groups. Every group's sizes are
+declared choices; the group name is a label. `flutes` accepts one count or a
+list. An `endmill_set` member `<size>in-<n>fl` resolves when the size appears in
 any group and `n` is a declared flute count.
 
-Mill holder compatibility uses spindle taper; lathe compatibility uses toolpost
-series. Collet capacity, range and maximum shank checks are separate. A holder's
-single nominal capacity (a collet size) accepts a tool `shank` on the ISO 286 h6
-band below it, `capacity - IT6` up to `capacity` with IT6 from ISO 286-1:2010
-Table 1 (a 3/8 in collet: 9.516-9.525 mm), so a measured shank below nominal
-still fits; see [`tool_resolves`](rules-tools.md#tool_resolves). Drill point
-angle, reamer lead, flute length, projection, holder gauge length and fixture bed
-height are operative geometry, not values to infer from unrelated angles or
-overall dimensions. A centre drill's centre-seat angle is not its drill-point
-angle. A combined drill and countersink (`center_drill_set` member) that drills
-a plan centre must carry its own Table 6 geometry: pilot `dia` (D), `pilot_len`
-(drill length C, countersink start to point tip, point included), countersink
-`angle_deg` (the set's centre-seat angle unless the member overrides it), body
-`shank` (A) and the pilot `point_angle`, all accepted, on a record with no
-`verify` or unknown flag. The plan centre must equal them, and the point must be
-shorter than `pilot_len`; `flute_len` stays the cutting length reach compares.
-`chart` is a source citation, never a downloaded chart.
+### Tool geometry and holders
 
-Resolved `drill`, `drill_index` and `drill_set` tools used for
-`rough_profile` / `chain_drill` select drilling cutting data, not an end-mill
-profile row. The normal cited per-tool `chart` still takes precedence over
-the shop row; retain an authored chart when it records a deliberate lower
-feed, rather than adding one merely to work around row selection.
-Mill drilling's axial mm/rev is chip load times the resolved flute count;
-missing or nonpositive flutes leave it unresolved. See
-[cutting data](cutting-data.md) for chart requirements and axial feed operands.
+Mill holder compatibility uses spindle taper. Lathe cutting-tool holders use
+toolpost series; spindle-axis lathe tools use the tailstock-quill taper.
+Collet capacity, range and maximum-shank checks are separate. A holder's
+single nominal capacity accepts a tool shank from `capacity - IT6` through
+`capacity`, the ISO 286 h6 band. IT6 comes from ISO 286-1:2010 Table 1. For a
+3/8 in collet the band is 9.516-9.525 mm, so a measured shank below nominal can
+fit. See [`tool_resolves`](rules-tools.md#tool_resolves).
 
-A limit-gauge set (`pin_gauge`, `pin_gauge_set` or `plug_gauge` for holes;
-`ring_gauge` or `snap_gauge` for a boss or shaft) lists the sizes it physically
-holds in `sizes_mm`. A plan GO / NO-GO pair may only name listed sizes: an unlisted
-size is an inspection error, and a set with no `sizes_mm` leaves the pair unknown
-([inspection](rules-inspection.md#go--no-go-limit-checks)). `range_mm` stays the
-span the set covers for ordinary span/resolution checks.
+Drill point angle, reamer lead, flute length, projection, holder gauge length
+and fixture bed height are operative geometry. Do not infer them from unrelated
+angles or overall dimensions. A centre drill's centre-seat angle is not its
+drill-point angle.
 
-Printed inspection gauge labels retain these authored item/member identities
-and source ownership. A writing area neither creates a missing gauge nor
-certifies its presence, size or capability; unresolved inventory still requires
-the existing add/resolve or measurement instruction. No inventory field is added.
+A `center_drill_set` member used to drill a plan centre must carry its own
+accepted Table 6 geometry:
 
-M2 holding checks use explicitly declared `sizes_mm` / `sizes_in` or a two-ended
-`range_mm` / `range_in` for the held stock diameter. A six-inch chuck body
-(`diameter_in`) says nothing about jaw capacity. Tailstock/steady exceptions
-must resolve to actual inventory or a named machine accessory; an unconfirmed
-accessory does not certify support. A support's `kind` also says whether it
-carries the work on a centre (`centre_support`): a kind with a whole `centre` /
-`center` word or a `tailstock` is one, and an accessory, which has no record,
-is one when its name has such a word (`tailstock_drill_chuck` is not). A
-support declared `"unknown"`, of unknown kind, or not in the inventory may be
-one, so it is never taken as proof that no centre is used; a known non-centre
-kind stays one whatever `verify` or measurement debt its record carries.
-A `follow_rest` / `steady_rest` fixture that a plan `hold.supports` table
-selects (`{ ref, ops, jaw_lead_mm }` / `{ ref, ops, at_z_mm }`) declares its jaw
-capacity as fact-local measured `capacity_min_mm` / `capacity_max_mm` (or
-`_in`): the work diameters the rest can ride on, inclusive. `turning_deflection`
-uses the rest span only for an op whose ridden diameter is inside that capacity;
-an unmeasured or unverified capacity leaves deflection unknown and is listed in
-the measurement checklist. The kernel draws the rest from its own measured
-solid fields (below and [rules-geometry](rules-geometry.md#follow-and-steady-rests)).
-Hold identities resolve through `fixtures`, `holders`, then `machines`, so a
-machine-mounted dividing head is not an unresolved fixture. Its declared
-`centre_height_in` locates the spindle axis above its mounting base for the
-headroom screen; `hold.pose.origin_mm[2]` locates that axis in the setup frame.
-`height` / `length` / `width` still describe the head body; `bed_height` is not
-a substitute for the centre. A dividing head without declared gripping capacity
-is `not_applicable` to the diameter screen; a machine or dividing head with
-declared collet sizes or chuck ranges is checked.
+- pilot `dia` (D);
+- `pilot_len`, drill length C from countersink start to point tip, including
+  the point;
+- countersink `angle_deg`, inherited from the set's centre-seat angle unless
+  the member overrides it;
+- body `shank` (A);
+- pilot `point_angle`.
 
-For indexing, a dividing head can live in `machines` (the example is `BS-0`) or
-`fixtures`. `worm_ratio`, `direct_index` and every `plate_holes` circle are
-arithmetic inputs; `verify = true` keeps the chosen setting tentative. Hole
-counts are positive integers. For engagement, the selected tool's
-`projection_mm` / `projection_in` entry for the selected holder is the
-projection whenever that entry exists: an entry that is `"unknown"` or
-carries its own debt keeps the op unresolved rather than falling back, and
-only an absent pair uses `oal - holder.grip`. Neither flute length nor holder
-gauge length substitutes for projection.
+These facts must carry no verification or unknown debt. The plan centre must
+match them, and the point must be shorter than `pilot_len`. Reach still uses
+`flute_len` as the cutting length.
 
-A projection is one value per tool/holder pair for the whole shop; a plan has no
-per-job or per-setup override, on purpose. The projection is a measured inventory
-fact: its trust (`measured`, `verify`) and its measurement debt are keyed to the
-tool/holder pair, and an authored plan number would carry neither. Six readers
-take it from the inventory (envelope, headroom, engagement, accessibility, the
-kernel's tool stack and the sheet's tool table), so an override that reached some
-and not others would print one setting while the checks use another. A shop that
-sets a blade further out for one job declares that setting in the inventory and
-measures it, and every job is then checked at it: deflection and clearance at the
-longer setting, and a reach still too short is a finding naming the setting. A
-tool kept set at two projections is two inventory tools.
+`chart` is a source citation, never a chart downloaded at runtime. Resolved
+`drill`, `drill_index` and `drill_set` tools used for `rough_profile` /
+`chain_drill` select drilling cutting data, not an end-mill profile row. A cited
+per-tool chart takes precedence over the shop row. Keep a chart that records a
+deliberately lower feed; do not add one to work around row selection.
+Mill drilling's axial mm/rev is chip load times resolved flute count. Missing
+or nonpositive flutes leave it unresolved. See [cutting data](cutting-data.md).
 
-Engagement uses the resolved `endmill` / `endmill_set` family on cutting
-operations; an omitted, unknown or nonpositive authored DOC leaves an eligible
-op unknown. Long drills, reamers, taps and lathe tools do not receive a milling
-DOC-halving recommendation.
+Limit-gauge sets list the sizes physically held in `sizes_mm`:
+`pin_gauge`, `pin_gauge_set` or `plug_gauge` for holes, and `ring_gauge` or
+`snap_gauge` for a boss or shaft. A GO / NO-GO pair can name only listed sizes.
+An unlisted size is an inspection error; absent `sizes_mm` leaves the pair
+unknown. `range_mm` remains the span used for ordinary span/resolution checks.
+See [GO / NO-GO limit checks](rules-inspection.md#go--no-go-limit-checks).
+
+Printed inspection labels retain item/member identities and source ownership.
+A writing area does not create a gauge or certify its presence, size or
+capability. Unresolved inventory still needs the existing add/resolve or
+measurement instruction; there is no separate inventory field for the blank.
+
+### Holding capacity and indexing
+
+M2 holding checks compare stock diameter with explicit `sizes_mm` / `sizes_in`
+or a two-ended `range_mm` / `range_in`. A six-inch chuck body
+(`diameter_in`) does not state jaw capacity. Tailstock and steady-support
+exceptions must resolve to inventory or a named machine accessory. An
+unconfirmed accessory cannot certify support.
+
+A support is a centre support when its kind contains a whole `centre` /
+`center` word or is a `tailstock`. A machine accessory has no record, so its
+name supplies that distinction; `tailstock_drill_chuck` is not a centre
+support. An unknown support, unknown kind or missing identity cannot prove
+that no centre is used. A known non-centre kind remains non-centre even when
+its record has verification or measurement debt.
+
+A selected `follow_rest` / `steady_rest` in `hold.supports` uses
+`{ ref, ops, jaw_lead_mm }` / `{ ref, ops, at_z_mm }`. The fixture declares
+fact-local measured `capacity_min_mm` / `capacity_max_mm` (or `_in`), inclusive
+limits on the work diameters its jaws can ride. `turning_deflection` credits
+the rest span only for an operation whose ridden diameter lies inside that
+capacity. Unmeasured or unverified capacity leaves deflection unknown and
+enters the measurement checklist. The rest's drawn geometry uses its own
+[solid fields](#holding-solids), not those capacity limits.
+
+Hold identities resolve through `fixtures`, `holders`, then `machines`.
+A machine-mounted dividing head can therefore resolve as workholding. Its
+`centre_height_in` locates the spindle axis above the mounting base for
+headroom; `hold.pose.origin_mm[2]` locates that axis in the setup frame.
+Body `height` / `length` / `width` and `bed_height` do not replace centre
+height. A dividing head with no gripping capacity is `not_applicable` to the
+diameter screen. Machines and dividing heads with collet sizes or chuck ranges
+are checked.
+
+For indexing, a dividing head may be in `machines` (the shipped example is
+`BS-0`) or `fixtures`. `worm_ratio`, `direct_index` and each `plate_holes`
+circle are arithmetic inputs. Hole counts must be positive integers;
+`verify = true` keeps the chosen setting tentative.
+
+### Projection and engagement
+
+Installed projection belongs to the tool/holder pair in inventory, with no
+per-job or per-setup override. An explicit unknown or debt-carrying pair entry
+blocks fallback; only an absent entry permits `oal - holder.grip`.
+Flute length and holder gauge length never substitute. See
+[projection ownership and precedence](#projection-ownership-and-precedence)
+for reference matching, duplicate keys and measurement requirements.
+
+Engagement applies to resolved `endmill` / `endmill_set` tools on cutting
+operations. Missing, unknown or nonpositive authored DOC leaves an eligible
+operation unknown. Long drills, reamers, taps and lathe tools do not receive a
+milling DOC-halving recommendation.
 
 ## Bandsaw machines and blades
 
 Both `machines.<saw>.kind` and `tools.<blade>.kind` may be `"bandsaw"`.
-The machine declares `blade_speed_sfm = [min, max]`, positive ordered feet/minute
-limits. The blade declares its `material` for cutting-data selection and a
-positive `kerf_mm` or `kerf_in`, using the ordinary `MeasuredLength` form or
-trusted nominal scalar. Declaring kerf in both units is rejected, and explicit
-fact-local verification debt withholds geometry. An example blade's kerf
-follows the examples policy (a demonstration-fixture record or a cited
-catalogue value), never a fabricated shop measurement.
+The machine's `blade_speed_sfm = [min, max]` is a positive, ordered speed range
+in feet/minute. The blade declares `material` for cutting-data selection and a
+positive `kerf_mm` or `kerf_in`, either a `MeasuredLength` record or a trusted
+nominal scalar. Declaring kerf in both units is rejected. Fact-local
+verification debt withholds geometry.
 
-Every saw blade, a bandsaw blade or a hand saw, declares its tooth pitch as
-`tpi = { value, cite, measured, verify }`: teeth per inch, one number for a
-constant pitch or `[coarse, fine]` for a variable-pitch blade (a 4/6 TPI blade is
-`[4, 6]`). Pitch is stated only as `tpi`, never `pitch_mm` (rejected), because
-blade catalogues sell by TPI. Like `helix_deg`, a cited catalogue value is
-enough; a bare number is bad input, and an absent, uncited or flagged pitch is
-debt that leaves the [teeth-in-the-work check](rules-geometry.md#saw-teeth-in-the-work)
-`?`, never a pass. A variable-pitch blade is judged at its coarse end, where the
-fewest teeth are in the work.
+Example blade values follow the [examples policy](../examples/README.md):
+they are demonstration-fixture records or cited catalog values, not fabricated
+shop measurements.
 
-A bandsaw machine may declare `saw_modes = ["horizontal", "vertical"]` (either or
-both). Only a `"vertical"` mode lets its blade follow a scribed line, the work fed
-by hand on the table; undeclared modes leave such a cut `?`, and a straight cut
-needs none.
+Every powered or hand-saw blade declares tooth pitch as
+`tpi = { value, cite, measured, verify }`. Use one number for constant pitch or
+`[coarse, fine]` for variable pitch; a 4/6 TPI blade is `[4, 6]`.
+`pitch_mm` is rejected. As with `helix_deg`, a cited catalog value is enough.
+A bare number is bad input. Missing, uncited or flagged pitch is debt, leaving
+the [teeth-in-the-work check](rules-geometry.md#saw-teeth-in-the-work) `?`.
+Variable pitch is judged at the coarse end, where the fewest teeth engage.
 
-A hand saw (a hacksaw or junior hacksaw) is `tools.<saw>.kind = "hand_saw"`. It
-cuts only on a `bench` or `manual` machine and needs no `blade_speed_sfm` or
-cutting-data row. A straight hand-saw cut reads the same `kerf_mm` / `kerf_in`
-as a bandsaw blade; a cut that follows a scribed line consumes no kerf (its removal
-is the op's declared box). Any verification debt on the saw, a kerf's included,
-is still its identity's: like its `tool_resolves` listing row, every saw consumer
-then leaves the cut unresolved and the kernel routes no stock for it. A saw whose
-tool resolves to a verified `hand_saw` keeps a bench setup's manual-bench waiver;
-an unverified, unresolved or powered blade does not.
+A bandsaw can declare `saw_modes = ["horizontal", "vertical"]`, with either or
+both modes. Only vertical mode supports following a scribed line with the work
+fed by hand on the table. Undeclared modes leave that cut `?`; a straight cut
+needs no mode declaration.
+
+A hacksaw or junior hacksaw uses `tools.<saw>.kind = "hand_saw"` and cuts only
+on a `bench` or `manual` machine. It needs neither `blade_speed_sfm` nor a
+cutting-data row. Straight cuts use the same kerf fields as a bandsaw blade;
+scribed-line cuts use the operation's removal box and consume no kerf.
+
+Any verification debt on a saw, including kerf debt, leaves its identity
+unresolved for every saw consumer. The kernel routes no stock for that cut.
+Only a resolved, verified `hand_saw` retains the manual-bench waiver for a
+bench setup; unresolved, unverified and powered blades do not.
+
+The following is a schematic fragment. Replace the ellipses, including the
+non-ISO placeholder date, with real measurement metadata before loading it.
+The stated kerf is an example, not a shop measurement.
 
 ```toml
 [tools.junior-hacksaw]
@@ -183,484 +249,606 @@ tpi = { value = 32, cite = "blade maker's catalogue: 32 TPI" }
 ```
 
 Saw operations need no spindle taper, holder, shank diameter, tool OAL or
-projection. A mill/bench may host the saw operation but must also declare its
+projection. A mill or bench hosting a powered saw operation must declare its
 actual blade-speed range for a sourced speed recommendation. The hold resolves
-an ordinary fixture; no machine identity silently supplies an integral vise. The
-one hold without a fixture is a cut fed by hand on a vertical bandsaw's table along
-a scribed line, `hold.kind = "hand_fed"` ([plan](plan.md#hand-fed-on-the-saw-table)).
-See [plan saw cut-off](plan.md#saw-cut-off) for the plane and keep-side contract.
+an ordinary fixture; a machine identity never supplies an integral vise.
+The only fixture-free hold is a scribed-line cut fed by hand on a vertical
+bandsaw table, `hold.kind = "hand_fed"`. See
+[hand-fed on the saw table](plan.md#hand-fed-on-the-saw-table) and
+[saw cut-off](plan.md#saw-cut-off) for the plane and keep-side contract.
 
 
 ## Manual-arc kit
 
-The mill is manual ([plan Manual arcs](plan.md#manual-arcs)); no machine field
-declares MDI, G-code or contouring. The kit for laying out, filing and indexing
-arcs is ordinary inventory:
+Manual arcs use layout, filing and indexing equipment. No machine field
+declares MDI, G-code or contouring. The operation sequence is defined in
+[Manual arcs](plan.md#manual-arcs).
 
-- A fitting bench is a `machines.<id>` with `kind = "bench"`: a setup on it
-  holds only manual ops (`scribe`, `file_to_line`, `deburr`, `inspect`, …) and
-  its work-holding (a bench vise, filing buttons) is drawn like any fixture.
-- Filing buttons are a `fixtures.<id>` with `kind = "filing_buttons"`: the
-  declared `[least, greatest]` limits of every element between the rims and the
-  bore axis, `button_dia_limits_mm` (button OD), `button_bore_limits_mm` (the
-  button's bore) and `pin_dia_limits_mm` (the pin through the button bores and
-  the part's bore), each a plain pair or a `{ value = [least, greatest],
-  measured, verify }` fact (or `_in`, never both), plus `button_runout_mm`, the
-  OD's runout (TIR) about its own bore; and `solids` (buttons, nut, stud) so the
-  setup render can draw them. The part's bore limits come from the drawing. A
-  plan names the kit in `guide.buttons` and holds it (`hold.fixture` or a clamp
-  `ref`); an unknown limit leaves the filed radius unproven.
-- A rotary table is a `fixtures.<id>` with `kind = "rotary_table"`:
-  `graduation_deg`, `vernier_deg`, `dial_increases`, `t_slots`, `max_work`,
-  `t_slot_width` and the centre bore `bore_dia` a `centre_by = "pin"` pin must
-  enter (unknown leaves the pin unproven), plus `solids` (table, slots, worm
-  housing) so the setup render draws it modeled. `max_work` and `bore_dia`
-  are fact-local length facts: one whose record is not trusted keeps its
-  contour unknown and names that fact in the measurement checklist. A `rotary_table` contour or an
-  indexed chord reads it from `hold.fixture`.
-- Templates and radius gauges are `gauges.<id>` with `kind = "radius_gauge"` or
-  `"profile_gauge"` and the `range_mm` of radii they read. A leaf set may declare
-  `leaf_tolerance_mm`, the maker's ± on each leaf's radius (a fact-local length
-  fact). An `R MAX` limit check then reads a leaf at or under the limit less that
-  tolerance ([inspection](rules-inspection.md)). The traveler does not yet name that
-  leaf, so a positive tolerance leaves the check unknown at best. An omitted
-  tolerance is zero. A declared one that is unknown or not trusted leaves the limit
-  check unknown.
-- A guided sweep's fixture ([plan Manual arcs](plan.md#manual-arcs), step 5) is a
-  `fixtures.<id>` the setup holds the work on (`hold.fixture`): a swing arm,
-  `kind = "swing_arm"`, turning on a pin at the arc centre, with `pivot_play`
-  (the most its beam's axis moves off the pin's axis, as made); or an arc sled,
-  `kind = "arc_sled"`, whose filed rail bears on two rollers in the T-slots, with
-  `rail_radius` (the rail's radius about its centre, printed for setting the
-  rollers), `rail_form_error` (the most the rail departs from a true arc, as
-  filed) and `roller_runout` (the rollers' OD runout, TIR). Each is a fact-local
-  length (`_mm` or `_in`, never both). `pivot_play`, `rail_form_error` and
-  `roller_runout` must carry their own complete `measured` record
-  (`status = "measured"`): a bare, assumed or `verify = true` value, or none, is
-  debt with a `measure:` instruction, never a perfect guide. `solids` and a
-  `hold.pose` draw it like any shop-made fixture. An arc sled declares
-  `rail_side` (`"outer"`: the rollers bear on the rail from outside the arc;
-  `"inner"`: from the centre's side), and for inside rollers a measured
-  `roller_dia`: the rail's bound turns on how far the rollers' centres orbit (at
-  least the rail radius outside it, the rail radius less half the roller diameter
-  inside it), so an undeclared side or an unmeasured inside roller is debt. For
-  the setup picture it also declares `roller_dia` and `roller_height` (the
-  rollers' top above the table), each with its own `measured` record, and its
-  `bed_height`; the rollers are then drawn render-only (see
-  [rules-geometry](rules-geometry.md#renders)), else a picture note names each
-  missing fact with its `measure:` instruction. A swing arm's pivot post stands
-  at the arc centre, far off the part: the picture names where it stands in a
-  note instead of drawing it.
-- An oblique trammel ([#269](https://github.com/pedropaulovc/prechips/issues/269))
-  is a `fixtures.<id>` of `kind = "trammel"`: a carrier riding one pin in a
-  carriage on each of two straight rails clamped to the table. It declares
-  `rail_angle_deg` (the angle the rails' pin-lines cross at) and
-  `rail_angle_error_deg` (the most that angle may be off), `pin_spacing` as a
-  map from each pin pair's name to its spacing (`pin_spacing_mm = { inner = {
-  value, measured } }`, like a tool's `projection`), `pin_spacing_error`,
-  `pin_clearance` (a pin's radial play in its carriage), `rail_offset` (the most
-  either rail's pin-line stands off the spindle axis as aligned) and
-  `rail_travel` (`[nearest, farthest]` pin station along a rail from the spindle
-  axis, the carriages on their end stops). Each must carry its own complete
-  `measured` record: a bare, assumed or undeclared one is debt with a `measure:`
-  line, never a perfect fixture. Its rails are aligned once per install, not per
-  part ([#270](https://github.com/pedropaulovc/prechips/issues/270)), and a
-  trammel op runs only on that commissioning. It is built and commissioned
-  outside the traveler, to the drawing or document `make_document = { id,
-  revision, cite }` names; the traveler never prints the build. `commissioning_record` names where
-  the install record is kept, and `dowel_reading` (measured) is the largest miss
-  a dowel in a carriage read against its predicted station targets along each
-  rail. Any of the three missing (a `make_document` without its id, revision or
-  cite included) is debt and the card prints only a STOP; the card prints them as
-  its pointer to how the trammel was built and its rails set. For the setup picture only it
-  also declares `pin_dia`, `rail_width`, `rail_height` and `bed_height`, each
-  measured; the rails and pins are then drawn render-only, else a picture note
-  names each missing fact. `carrier_length` (along its pins' chord),
-  `carrier_width` and `carrier_thickness`, each measured, draw the carrier plate
-  the work sits on: no fact places the plate off its pins' chord, so it is drawn
-  centred on it, its top at the work's seat; a missing one leaves only the
-  carrier undrawn, with its own note.
-- A guided sweep's master is a `gauges.<id>` with `kind = "setting_bar"` (seated
-  on the swing arm's pivot pin; pivot guides only) or `kind = "master_arc"` (a
-  template edge pinned on the arm or sled), with `radius_limits` (`_mm` or `_in`),
-  the `[least, greatest]` radius its touch face sets about the guide's centre as
-  seated (the pin's axis for a setting bar, the rail's centre for a master arc on a
-  sled), a measured `{ value = [least, greatest], measured }` fact.
-- A machine's own axis read-out, used as a gauge (a lathe tool touched through
-  paper on a scribe, then on a faced end), is a `gauges.<id>` with
-  `kind = "dro_scale"`, its `resolution_mm` and the `range_mm` of the axis travel.
-  It reads a length along that axis (`length`, `depth`, `height`, `thickness`,
-  `station`, or a reference-only `length_ref`) and never a diameter or a form.
+### Benches, buttons and rotary tables
 
-## Edge finder
+A fitting bench is `machines.<id>.kind = "bench"`. Its setups contain only
+manual operations, such as `scribe`, `file_to_line`, `deburr` and `inspect`.
+Workholding, including a bench vise or filing buttons, is drawn like any
+other fixture.
 
-A `tools.<id>` with `kind = "edge_finder"` that picks up a mill X or Y zero
-(`zero.x/y.tool`, not `from = "indicated"`) states `finder_type`
-(`"mechanical"`, run spinning, or `"electronic"`, run with the spindle stopped),
-its tip diameter `tip_in` (a plain number; else the catalogue `dia`) and, when mechanical,
-`rpm_range`, the maker's speed band, with a `cite`. A `tip_in` declared
-`"unknown"` is unknown: it never falls back to the body `dia`; only a tip
-that is absent altogether reads the catalogue diameter. The zero check
-([rules-coordinates](rules-coordinates.md)) records these on each pick-up row
-as `finder`: the radius (half the tip Ø), and the speeds it runs at here, the
-finder's band intersected with each of the setup machine's spindle bands
-(`ranges_rpm`, else `rpm_min`–`rpm_max`); a speed between two bands is never
-offered. A missing fact, or any unknown endpoint of the finder's or the
-spindle's bands, leaves the zero unknown; a band no spindle band turns is an
-error. The traveler prints one EDGE FINDER box per finder and mill, in the DRO
-ZERO block of the first setup that picks up with it on that mill — the speed,
-how the contact shows (a mechanical tip runs true, then kicks sideways; an
-electronic one lights), and the offset, Axis Set edge − r coming from the −
-side and edge + r from the + side — and every X/Y row names the box.
+Filing buttons use `fixtures.<id>.kind = "filing_buttons"` with these
+`[least, greatest]` limits:
 
-## Purchased tooling
+| Field | Physical limit |
+|---|---|
+| `button_dia_limits_mm` | Button OD |
+| `button_bore_limits_mm` | Button bore |
+| `pin_dia_limits_mm` | Pin through the button bores and part bore |
 
-An item bought finished (any category, not shop-made) may state what is bought
-in `purchase` and its receipt checks in `acceptance`, a list of tables:
+Each accepts a plain pair or `{ value = [least, greatest], measured, verify }`,
+or its `_in` spelling, never both. `button_runout_mm` is the button OD's TIR
+about its own bore. `solids` draws the buttons, nut and stud. The part bore's
+limits come from the drawing. The plan names the kit in `guide.buttons` and
+holds it through `hold.fixture` or a clamp `ref`. Unknown limits leave the
+filed radius unproven.
+
+A rotary table uses `fixtures.<id>.kind = "rotary_table"`. Its fields are
+`graduation_deg`, `vernier_deg`, `dial_increases`, `t_slots`, `max_work`,
+`t_slot_width` and centre `bore_dia`, plus `solids` for the table, slots and
+worm housing. A `centre_by = "pin"` pin must fit that bore; unknown bore
+diameter leaves the pin unproven. `max_work` and `bore_dia` are fact-local
+lengths. An untrusted record leaves its contour unknown and names the fact in
+the measurement checklist. A rotary-table contour or indexed chord reads the
+table from `hold.fixture`.
+
+### Templates, masters and readouts
+
+Radius templates and gauges use `gauges.<id>.kind = "radius_gauge"` or
+`"profile_gauge"`, with `range_mm` stating the radii they read.
+`leaf_tolerance_mm` is the maker's ± tolerance on each leaf radius and is a
+fact-local length. An `R MAX` inspection needs a leaf at or below the limit
+less that tolerance. The setup sheet does not yet name that leaf, so positive
+tolerance leaves the check unknown at best. Omitted tolerance is zero; declared
+unknown or untrusted tolerance leaves the limit check unknown. See
+[inspection rules](rules-inspection.md).
+
+A guided sweep's master is a gauge with `kind = "setting_bar"` or
+`"master_arc"`. A setting bar seats on a swing-arm pivot pin and is for pivot
+guides only. A master arc is a template edge pinned on the arm or sled.
+Its measured `radius_limits_mm` or `_in` gives the `[least, greatest]` radius
+the seated touch face sets about the guide centre: the pin axis for a setting
+bar, or the rail centre for a master arc on a sled.
+
+A machine axis readout used as a gauge is `gauges.<id>.kind = "dro_scale"`,
+with `resolution_mm` and axis-travel `range_mm`. It can read `length`,
+`depth`, `height`, `thickness`, `station` or reference-only `length_ref`,
+such as a lathe tool touched through paper on a scribe and then a faced end.
+It does not read diameter or form.
+
+### Guided-sweep fixtures
+
+A guided sweep uses the fixture named by `hold.fixture`. A swing arm
+(`kind = "swing_arm"`) turns on a pin at the arc centre and declares
+`pivot_play`, the greatest displacement of its beam axis from the pin axis.
+An arc sled (`kind = "arc_sled"`) runs a filed rail against two rollers in
+the T-slots and declares:
+
+- `rail_radius`, the rail radius about its centre, printed for roller setting;
+- `rail_form_error`, the greatest departure of the filed rail from a true arc;
+- `roller_runout`, the guide rollers' OD runout, TIR.
+
+These lengths use `_mm` or `_in`, never both. `pivot_play`,
+`rail_form_error` and `roller_runout` each need their own complete
+`measured` record with `status = "measured"`. Bare, assumed, flagged or missing
+values remain debt with a `measure:` instruction; they do not describe a
+perfect guide.
+
+`solids` and `hold.pose` draw the fixture. An arc sled also declares
+`rail_side`: `"outer"` for rollers bearing from outside the arc, or `"inner"`
+for rollers on the centre side. Inside rollers need measured `roller_dia`.
+The rail bound depends on the rollers' centre orbit: at least the rail radius
+for outside rollers, or rail radius less half the roller diameter for inside
+rollers. Undeclared side or unmeasured inside-roller diameter is debt.
+
+For the picture, the sled also needs measured `roller_dia`, measured
+`roller_height` (roller top above the table) and `bed_height`. The rollers are
+render-only; missing facts get picture notes with their `measure:`
+instructions. A swing arm's remote pivot post is located by a note rather
+than drawn. See [renders](rules-geometry.md#renders).
+
+### Oblique trammels
+
+An oblique trammel is `fixtures.<id>.kind = "trammel"`: a carrier with one pin
+in a carriage on each of two straight rails clamped to the table
+([#269](https://github.com/pedropaulovc/prechips/issues/269)).
 
 | Field | Meaning |
 |---|---|
-| `check` | what is checked (`"each button OD"`) |
-| `gauge` | the `gauges.<id>` (or member path) that reads it, or `"none"` for a check by hand or eye |
+| `rail_angle_deg` | Angle at which the rails' pin-lines cross |
+| `rail_angle_error_deg` | Greatest permitted error in that angle |
+| `pin_spacing_mm` / `_in` | Map from pin-pair name to its spacing, for example `pin_spacing_mm = { inner = { value, measured } }` |
+| `pin_spacing_error` | Greatest error in a pair's spacing |
+| `pin_clearance` | Pin radial play in its carriage |
+| `rail_offset` | Greatest offset of either rail's pin-line from the aligned spindle axis |
+| `rail_travel` | `[nearest, farthest]` pin stations from the spindle axis, at carriage end stops |
+
+Each fact needs its own complete measured record. Bare, assumed or missing
+values remain debt with a `measure:` line. Lengths use `_mm` or `_in`.
+Rails are aligned once per installation, not per part, and an operation
+depends on that commissioning
+([#270](https://github.com/pedropaulovc/prechips/issues/270)).
+
+The trammel is built and commissioned outside the setup sheet:
+
+- `make_document = { id, revision, cite }` names the drawing or document used
+  to build and set it.
+- `commissioning_record` points to the installation record.
+- Measured `dowel_reading` is the largest miss between predicted station
+  targets and a carriage dowel reading along each rail.
+
+Any missing entry, including any part of `make_document`, is debt and the
+card prints only a STOP. Otherwise the card prints those pointers; it never
+prints the trammel build.
+
+For the setup picture, measured `pin_dia`, `rail_width`, `rail_height` and
+`bed_height` draw render-only rails and pins. A missing fact gets its own
+picture note. Measured `carrier_length` (along the pin chord), `carrier_width`
+and `carrier_thickness` draw the plate carrying the work. No fact offsets it
+from the pin chord, so it is centred on that chord with its top at the work
+seat. A missing carrier dimension leaves only the carrier undrawn, with a
+separate note.
+
+## Edge finder
+
+An edge finder used for mill X or Y zero (`zero.x/y.tool`, except
+`from = "indicated"`) is `tools.<id>.kind = "edge_finder"`. It declares:
+
+- `finder_type = "mechanical"` for a spinning finder or `"electronic"` for
+  one used with the spindle stopped;
+- tip diameter `tip_in`, a plain number, or catalog `dia` only when `tip_in`
+  is absent;
+- for a mechanical finder, maker speed band `rpm_range` and a `cite`.
+
+Explicit `tip_in = "unknown"` never falls back to body diameter.
+The [zero check](rules-coordinates.md) records `finder` on each pickup row:
+tip radius and the usable speed bands. Those bands are the intersection of
+the finder range with each machine spindle band (`ranges_rpm`, otherwise
+`rpm_min` to `rpm_max`). Speeds between separate spindle bands are not offered.
+A missing fact or unknown endpoint leaves zero unknown; no overlap with any
+spindle band is an error.
+
+The setup sheet prints one EDGE FINDER box per finder and mill in the DRO
+ZERO block of the first setup that uses that pair. It states speed, contact
+signal and offset. A mechanical tip runs true then kicks sideways; an
+electronic finder lights. Axis Set is edge − r when approaching from the −
+side, or edge + r from the + side. Every X/Y row names the box.
+
+## Purchased tooling
+
+A bought-finished item in any category can declare `purchase`, the item
+bought, and `acceptance`, a nonempty list of receipt-check tables. Shop-made
+items cannot carry receipt checks.
+
+| Field | Meaning |
+|---|---|
+| `check` | Required nonblank text naming what is checked (`"each button OD"`); `"unknown"` remains unresolved |
+| `gauge` | Required nonblank `gauges.<id>` (or member path), or `"none"` for a hand/eye check; `"unknown"` remains unresolved |
 | `how` | optional: how the gauge is used (`"button on the GO pin in a V-block, one turn"`) |
-| `limits` | the name of a `[least, greatest]` limits field or single-length field on the same item (`"button_dia_limits_mm"`, `"button_runout_mm"`, printed lo–hi or ≤ value) |
+| `limits` | the name of a `[least, greatest]` limits field or single-length field on the same item (`"button_dia_limits_mm"`, `"button_runout_mm"`, printed low to high or ≤ value) |
 | `limits_mm` | or the `[least, greatest]` limits in mm, inline |
 | `accept` | the criterion in words (`"the nut runs on by hand"`); required where there is no numeric limit |
 
-A check states one numeric limit at most and needs a limit or `accept`; a
-`"none"` gauge takes no numeric limit; a shop-made item takes no `acceptance`.
-The `purchased_tooling` rule (always required) checks every item a setup uses
-(any hold slot — fixture, chuck, parallels, riser, jaw bar or buttons, support,
-clamps, stop, supports, alignment indicator — a zero's tool, holder or gauge,
-a tool touch's `z_gauge`, the transfer's tool or gauge, and an op's filing
-guide or its gauge, tool, holder, inspection gauge or process-hold gauge; any
-item named in the setup's prose or in the notes and record blanks of the
-shop-made items it uses, the job page's prose counting as the first setup's:
-see the key syntax under shop-made solids) that carries the list. An item is its
-category and key, and one selection reads it. A reference that names its
-category (`gauges.pins` in prose) reads that category alone. A slot reads its
-own categories in order: a hold's fixture or dividing head is workholding
-(fixtures, holders, machines); its chuck, parallels, riser, jaw bar or buttons,
-supports, clamps, stop and support blocks are fixtures; a zero's or tool
-touch's tool and the transfer's tool are a tool, then a gauge (an indicator in
-the spindle); an indicator, inspection, process-hold or guide gauge is a gauge;
-an op's tool a tool; a holder a holder; the setup's machine a machine. The
-first of those categories that lists the key, or is stated `"unknown"` as a
-whole, is final: a same-key item in another category is never read. Only a
-bare key with no slot (a bare key in prose) reads the categories in the
-default order (machines, tools, holders, fixtures, gauges). So `fixtures.pins`
-and `gauges.pins` are two items, each with its own
-checks, table and first setup. Everything after the selection reads that item
-only: its receipt, its `tool_resolves` finding (the gauge a slot reads is
-checked even when a fixture of that key is listed), the notes and record blanks
-of a shop-made holder or fixture, and every name the traveler prints for it. A
-bare key in prose prints as a slot's item only when every slot using it selects
-that one item and a bare key selects it too; otherwise it names no one item and
-prints as written: name it `<category>.<key>`. An item the selection finds
-stated `"unknown"` or listed with nothing about it (`{}`), or a category stated
-`"unknown"`, is unknown to every rule and prints `? <category>.<key>`;
-it never borrows a same-key item's name or record. A `<category>.<key>` and the
-key it selects are one item everywhere after the selection: a member's own size
-or capacity (`holders.collets/1/4` grips 1/4 in only), the holder a projection
-map names, and every citation and measurement request read the selected key,
-never the reference as spelled. Unknown is
-never an acceptance: an `acceptance` or `purchase` stated
-`"unknown"`; a `check`, `how` or `accept` that is blank or unknown; a gauge that
-is unknown, not listed or not verified; a `limits_mm` that is not two known
-lengths, low ≤ high; or a `limits` field the item does not state as known
-lengths leaves the setup unknown and prints `STOP:`. The traveler prints one
-PURCHASED TOOLING / RECEIPT CHECK table per item on the front sheet of the
-first setup using it, its limits rounded inward to 0.001 mm (inch gauges also
-get them in inches, rounded inward to 0.0001 in); later setups point back to
-it. A band too narrow for those decimals (or a cap that would round to zero)
-takes up to three more, never a reversed or empty band; past that the mm band
-prints exactly as declared and the inch band is left off.
+Each check states at most one numeric limit and must supply a limit or
+`accept`. A `"none"` gauge is for a hand/eye check and takes no numeric limit.
+Missing or blank `check` / `gauge` is bad input (exit 3). A fully numeric
+`limits_mm` pair must satisfy `0 ≤ low ≤ high`; negative or reversed pairs
+are also rejected at load with exit 3. A pair with an unknown endpoint can
+load but remains unresolved.
+
+### Item selection and receipt-check scope
+
+The always-required `purchased_tooling` rule reads a selected item's receipt
+checks whenever a setup uses it. Its scope includes:
+
+- all hold slots: fixture, chuck, parallels, riser, jaw bar, buttons, support,
+  clamps, stop, supports and alignment indicator;
+- zero tools, holders and gauges; a tool touch's `z_gauge`; transfer tools
+  and gauges;
+- an operation's filing guide or guide gauge, tool, holder, inspection gauge
+  or process-hold gauge;
+- items named in setup prose, and in notes or record blanks on selected
+  shop-made items. Job-page prose belongs to the first setup for this purpose.
+
+Selection fixes both category and key before any consumer reads the item.
+A qualified reference such as `gauges.pins` selects only that category.
+Unqualified slots use these category orders:
+
+| Slot | Categories read, in order |
+|---|---|
+| Hold fixture or dividing head | `fixtures`, `holders`, `machines` |
+| Chuck, parallels, riser, jaw bar, buttons, supports, clamps, stop or support blocks | `fixtures` |
+| Zero tool, tool-touch tool or transfer tool | `tools`, then `gauges` |
+| Indicator, inspection, process-hold or guide gauge | `gauges` |
+| Operation tool | `tools` |
+| Holder | `holders` |
+| Setup machine | `machines` |
+| Bare key in prose with no slot | `machines`, `tools`, `holders`, `fixtures`, `gauges` |
+
+The first category listing the key, or declared `"unknown"` as a whole, is
+final. Selection never borrows a same-key record from a later category.
+Thus `fixtures.pins` and `gauges.pins` are separate items with separate checks,
+tables and first-use setups.
+
+All later consumers use the selected item: receipt checks, `tool_resolves`,
+shop-made notes and record blanks, printed names, member size or capacity,
+projection ownership, citations and measurement requests. For example,
+`holders.collets/1/4` grips only 1/4 in. A category-qualified spelling and the
+key it selects refer to the same item.
+
+A bare prose key is replaced with a slot-selected shop name only when every
+slot using it selects that same item and bare-key lookup also selects it.
+Otherwise it remains as written; qualify it as `<category>.<key>`.
+An item declared `"unknown"` or `{}`, or a whole unknown category, remains
+unknown to every rule and prints `? <category>.<key>`. It never borrows another
+item's name or record.
+
+### Unresolved checks and printed limits
+
+The setup stays unknown and prints `STOP:` when any required receipt fact is
+unresolved: unknown `acceptance`, `purchase` or `check`; blank or unknown
+`how` / `accept`; an unknown, unlisted or unverified gauge; a `limits_mm`
+pair with an unknown endpoint; or `limits` naming a field without known
+lengths. These unresolved facts differ from the malformed checks rejected
+at load.
+
+The first setup using an item gets one PURCHASED TOOLING / RECEIPT CHECK
+table on its front sheet. Later setups point back to it. Limits round inward
+to 0.001 mm; inch gauges also get inward-rounded 0.0001 in limits.
+A band too narrow for those decimals, or a cap that would round to zero,
+uses up to three more decimals. If still too narrow, the mm band prints
+exactly as declared and the inch band is omitted. Rounding never prints an
+empty or reversed band.
 
 ## Kernel geometry facts (M4)
 
-M4 kernel geometry reads explicit-unit length facts through the same
-fact-local lookup as the M5 screens, with shop measurement *not* required.
-Every dimension the kernel consumes is a `MeasuredLength`: a plain nominal
-number, or a `{ value, measured, verify }` record. It enters the FreeCAD job
-when it resolves to a positive length through the single-spelling `_mm` /
-`_in` lookup and its own record carries no debt — no `verify = true` or
-`verify = "unknown"`, and no `measured` record that is incomplete or whose
-`status` is not `measured`. A nominal number
-needs no `by`/`date`/`instrument`: bare and catalogue numbers stay trusted
-wherever this page says measurement is not required. A fact whose own record says
-`verify = true`, whose `measured` is incomplete, or whose `measured.status` is
-`assumed` or `illustrative` (an omitted status is `assumed`) is debt for that
-dimension only, and an untrusted record is not shadowed by a bare alias or
-inferred fallback of the *same* physical fact (OAL − grip beside an
-illustrative pair projection, a bare sibling spelling of the same dimension):
-that fact stays debt. Unrelated fields of the same item are not
-tainted. An item's `verify`, `present` or `source` flags, a set root's or member
-container's flags and `coverage` text are identity provenance for the
-declared-input rules: they never withhold a numeric fact from the kernel, and
-nothing is inherited from them. The M5 `envelope` and `travel` screens read
-the same holder gauge/grip, tool OAL and projection facts with measurement
-required (and `headroom` the envelope limits), so an operation can be
-geometrically checked while its spindle stack is still M5 measurement debt.
+M4 kernel geometry accepts trusted nominal dimensions; it does not require a
+shop measurement for every fact. It uses the same fact-local length lookup as
+M5, but M5 requires physical measurement for its screens.
 
-Resolved tool, holder and fixture dimensions and solids supply the modeled scene extents used for picture scale under [render geometry](rules-geometry.md#renders).
-[Traveler outline overlays](report-and-telemetry.md#kernel-renders) use a separate bounded stream for painting only, preserving main's accepted leaders and all original ordinary-tolerance layout and anchor inputs. [#211](https://github.com/pedropaulovc/prechips/issues/211) stays open for a dedicated future leader PR. This adds no inventory field and changes none of those inventory facts or their measurement and verification debt.
+A consumed `MeasuredLength` is a plain nominal number or a
+`{ value, measured, verify }` record. It enters the FreeCAD job when it resolves
+to a positive length through its single supported unit spelling and its own
+record has no debt. A bare or catalog number needs no measurement metadata
+where measurement is not required. A record is refused if it has
+`verify = true` / `"unknown"`, incomplete `measured` metadata, or a measurement
+status other than `measured`. Omitted status means `assumed`.
 
-A vise enters the job solely when `jaw_height`, `jaw_width`, `jaw_depth` and
-`opening` all resolve that way; the parallels fixture needs a positive
-`height`, and its optional `length` (along the jaws) and `width` (along the
-clamp axis), resolved the same way, are what let the kernel draw the parallel
-solids once the plan declares `parallels_centres_mm`. A `blocks_123` riser
-item supplies `length`, `width` and `height` the same way. These are the vise
-sources of fixture solids: `jaw_depth_mm` / `jaw_depth_in` is the physical
-jaw-plate thickness along the gripping normal and is never synthesized from
-jaw width, jaw height, bed height or any other dimension. A `round_bar` item
-(the bar a plan's `hold.jaw_bar` lays between the work and the moving jaw)
-needs fact-local measured `dia` and `length`; its Ø holds the moving jaw off the
-work, and without both the jaws stay unplaced. A `jaw_buttons` item (the pair a
-plan's `hold.jaw_buttons` sets between each jaw and the work) needs fact-local
-measured `dia` (the button face), `thickness`, `spigot_dia` and `spigot_length`;
-without all four the jaws stay unplaced.
+Debt belongs to that dimension. An untrusted fact cannot be replaced by an
+alias or inferred fallback for the same physical fact, such as OAL − grip
+beside an illustrative pair projection. Unrelated facts on the item remain
+usable. Item `verify`, `present` and `source`, set-root/member-container flags
+and coverage text establish identity provenance for declared-input rules;
+they do not qualify numeric facts for the kernel.
 
-Other holding solids come from the same accepted-fact rule, never defaults:
+The M5 `envelope` and `travel` screens require measurements of holder
+gauge/grip, tool OAL and projection; `headroom` also requires measured machine
+limits. Geometry can therefore be checked while the installed stack still
+has M5 measurement debt.
 
-- `chuck_3jaw` / `chuck_4jaw`: `body_dia`, `body_length`, `bore_dia` (bore
-  smaller than body), `jaw_width` (tangential), `jaw_height` (radial, outward
-  from the grip) and `jaw_depth` (axial, ahead of the body face). A
-  `dividing_head` names its chuck from the plan (`hold.chuck`).
-- `follow_rest`: `jaw_width` (tangential), `jaw_height` (radial, outward from
-  the ridden diameter) and `jaw_depth` (axial), each fact-local measured, plus
-  `jaw_angles_deg`: the jaw directions about the spindle axis in degrees from
-  the cutting tool (e.g. `[90, 180]` for a top and a back jaw). Any one missing
-  leaves the rest undrawn and the ops it serves `unknown`, naming the field.
-- `steady_rest`: `body_dia` (the ring's outside diameter) and `body_length`
-  (its axial length), each fact-local measured; otherwise the rest is an
-  undrawn possible obstacle (a gap naming the field), so clear turning samples
-  and `fixture_interference` stay `unknown`.
-- `dead_centre` fixtures: `dia` (shank), `length` (tip to quill face) and
-  `point_angle` (included cone angle, degrees); the quill is the machine's
-  `tailstock.quill_dia` (a dividing head's own `tailstock` when it has one).
-- Any item (angle plate, `dividing_head`, custom fixture, `clamping_kit`
-  member such as a strap) may author `solids = [{name, shape, at_mm,
-  size_mm}]` boxes or `{name, shape = "cylinder", at_mm, axis, dia_mm,
-  length_mm}` cylinders in its own frame. Each primitive is trusted on its
-  own: a primitive whose record carries `verify = true` / `"unknown"`, an
-  incomplete `measured` or a `measured` whose status is not `measured` is not
-  drawn and is named as debt.
-- A primitive with `void = true` (a bore, tapped or clearance hole, stud
-  slot) is not drawn: it is cut from the same `solids` list's other
-  primitives, or only from those it names in `cuts = ["<name>", …]`, and
-  never from another item's or member's solids. An untrusted or malformed
-  void withholds the solids it would cut (named debt) rather than draw them
-  uncut. A strap member models its whole clamp assembly in one list: beam,
-  slot void (`cuts = ["beam"]`), stud, heel, nut and washer (washer bore with
-  `cuts = ["washer"]`). Primitives of one list are one part and never checked
-  against each other; each posed clamp's list must touch the stock to bear.
-  The holding fixture's own solids must touch the stock or a clamp member that
-  reaches it member to member (a bench vise gripping the stud of filing buttons
-  on the work); a member cut off from the bearing ones by air carries no load.
-- A trusted void in the holding fixture may carry an optional shop-caption
-  `label = "Strap stud holes"`. The setup render places its leader at the void's
-  centre after applying `hold.pose`, and records the label and posed centre in
-  `scene.fixture_detail_labels`. The caption neither creates geometry nor
-  overrides the void's measurement or verification debt.
-- A shop-made item (`kind = "custom"`, or any item / member flagged
-  `shop_made = true`) with something to make gets one SHOP-MADE FIXTURE table
-  on sheet 2 of the first setup using it at those poses under the same HOLD
-  labels; later setups with the same poses and labels point back to it, and a
-  moved or relabelled use (C1 renumbered C2) gets its own table. An item whose
-  primitives are all bought or existing, with no hole made in them, gets no
-  table and no pointer. Each row is one made primitive (identical primitives of
-  one `supply` group into one row, named by their shared `label` or the words
-  their names share) with its size and setup-frame position (box X / Y / Z
-  extents, cylinder axis), placed by `hold.pose`, the clamp entry's `pose` or
-  `stop_pose`; a posed slot whose pose is missing prints "? not posed". An item
-  the HOLD places from its facts, which no pose places (a shop-made `vise`
-  fixture's jaw plates, `hold.riser`, `hold.supports`, `hold.jaw_buttons`), is
-  loose: its table gives positions in the item's own frame, the frame its
-  solids are drawn in, under "loose: placed as the HOLD says", and the HOLD
-  step naming it points to the table. A void is listed, as "with N × <fastener
-  or size>: positions",
-  in the row of every made or existing primitive it cuts: every one `cuts`
-  names, else every one it overlaps. Overlap is decided exactly for boxes,
-  parallel cylinders and axis-aligned cylinders against boxes; a primitive an
-  oblique void may cross is not set ("? not set: oblique hole … may cross it;
-  name it in cuts") until `cuts` names it. A void that cuts only bought
-  hardware is not listed. Made primitives' dimensions and positions are
-  expected make-to-drawing settings, not observations of the installed fixture;
-  unresolved authored dimensions still print "? not set". Bought or existing
-  primitives whose own physical provenance is refused retain that refusal,
-  independently of the drawing targets for holes made here. Native geometry
-  remains unresolved until its required physical inputs are established.
-  A row whose primitive or hole has a measurement record with a status other
-  than `measured` is marked `†` after its component name; attribution prose is
-  never read for that decision. The job page prints one legend:
-  `† Make-to-drawing expected settings; check the physical fixture as made
-  before use. These settings do not clear installed-measurement STOPs.`
-  Per-primitive `supply` is `made` (default), `bought` (hardware: one "Bought
-  hardware (not made)" line under the table, named by its `fastener` or its
-  name and size; primitives with one `fastener` text that touch or overlap,
-  such as a screw's head and shank, count as one part) or `existing` (already
-  in the shop, such as a machine's vise jaws drawn for clearance: not listed,
-  unless holes are made in it here, when its row reads "(existing part: make
-  the holes only)" with size "—").
-  Sizes and positions print on the DRO grid they are made on (the shop's mill:
-  every machine of kind `mill` reading one grid, else the setup machine's), at
-  shop policy `numbers.fixture_make_decimals`; a primitive with `locates` and
-  every bore cut in it (either may be the locating surface) and shim nominals
-  print at the drawing precision, and either one undeclared, finer than the
-  grid or off it at the grid step. A position at the place of a fit on the same
-  sheet (a hole a locating pin stands in, a bolt hole over a locating pad)
-  prints the fit's value: one place, one value. A fit the grid moves beyond the
-  drawing's general tolerance at its precision (`general_tolerances.linear_<n>pl`),
-  or with that tolerance undeclared, prints `?` with the reason under the table;
-  the hole is never moved silently. Optional texts
-  `locates = "<part face>"` and `fastener = "<thread / fastener>"` fill the
-  Locates and Fastener columns; `shim = true` marks an adjustable shim stack
-  whose drawn thickness HOLD prints as the nominal to fit with feeler gauges,
-  one stack per shim primitive per placement of its item. A made primitive's
-  `note` (material, heat treatment, finish) prints once per row in a "Make:"
-  line under the table; primitives with different notes do not share a row.
-  A made hole's `note` (how it is cut) joins the Make entries under its `label`
-  or name; a bought or existing primitive's `note` (its state as bought, what
-  to leave alone) prints on a "Notes:" line after them, so a bought shell whose
-  windows are made here states its whole route.
-  `make_ops = [{ hold, tool, rpm, feed, doc_mm, cite }]` on a shop-made item, or
-  on one of its made primitives or holes, are the cutting operations that make
-  it: `hold` how the piece is held (text), `tool` a `tools` key, `rpm` a speed
-  > 0 or an ordered `[low, high]` range, `feed` a number (or `low-high`) with its
-  unit (`mm/rev`, `mm/min`, `mm/tooth`, `in/rev`, `in/min`, `in/tooth`; a bare
-  number is refused), `doc_mm` the depth of cut per pass (> 0) and `cite` the
-  source of the cutting data (`MH 31st Table 17 p.1061`). All six are stated on
-  every entry; a fact not yet known is `"unknown"`, never omitted or blank. Under
-  "Make operations, in order:" each prints as one numbered line, the item's own
-  first, then each primitive's (after its row name), in `solids` order, a list
-  shared by primitives of one `label` once: `1. hold:
-  vise on parallels; T: <tool's shop name>; 600 rpm; 0.05 mm/rev; 0.5 mm/pass;
-  MH 31st Table 17 p.1061`. `hold` and `cite` print as written, a link or path
-  in them too; an item they name (`fixtures.vise-pm-6`, also next to
-  punctuation or in quotes: `fixtures.a,gauges.dti`, `` `gauges.dti` ``) prints
-  as its shop name, but nothing inside a link or path is read as a name: a URL
-  (`scheme://…`), a drive-letter (`C:\…`), UNC (`\\server\…`), relative
-  (`./…`, `../…`) or rooted (`/srv/…/…`) path, up to the next space. An
-  unknown fact prints `?`, a tool the shop's tools do not list (only
-  `tools` counts: no other category's item or machine accessory of that key)
-  `? <key>`, a listed tool still to verify `? <tool's shop name>`, and the line
-  ends in a STOP naming them; `make_ops = "unknown"` prints one STOP line. The
-  tool is a slot like an op's tool: its receipt checks print with the setup's
-  (`purchased_tooling`) and `tool_resolves` checks each operation
-  (docs/rules-tools.md). The item is made once, before the first setup holding
-  with it through any slot, and its make operations print there only: in its
-  make table when that setup prints one, else under its own SHOP-MADE FIXTURE
-  heading on that setup's sheet 2, pointing to the later table (a chuck,
-  parallels, a jaw bar or single support, an op's holder, a guide's buttons
-  have none). A later table says "Make before" that first setup and points
-  back to the operations. Declared operations always print, so where they
-  could not they are refused: on a bought item, a bought or existing
-  primitive, an item every solid of which is bought or existing (nothing is
-  made: no make table), a set member (its record replaces its set's), a member
-  that keeps its set's operations but, read with its own keys over the set's,
-  is not shop-made or makes no solid here, and any item outside `fixtures`,
-  `holders` and `machines`.
-  `records = [{ check, gauge, how, max_mm, goal_mm, over_mm }]` on any
-  primitive are values measured and written down when the part is made or
-  received (a head-to-shoulder TIR, a squareness by reversal). Each prints
-  under "Measure and record before first use:" as a fill-in: what, the gauge's
-  shop name and how, `accept ≤ max_mm`, `goal ≤ goal_mm` (both rounded down),
-  then `measured ________ mm`, `over over_mm mm` when given. `check` must be
-  stated, and `how` and `gauge`, when given (`records` itself must be a list:
-  a stated unknown would print nothing to fill in); each length, when given, is
-  a known length ≥ 0 (`over_mm` > 0) and
-  the goal lies inside the max. A record without `max_mm` is a characterisation:
-  recorded, not judged. A record's `gauge` is a `gauges` key; one the shop list
-  does not have prints `? <key>`.
-  Any prose (a `note`, a record's `check` or `how`, a make operation's `hold` or
-  `cite`, a plan note) names an
-  inventory item as `<category>.<key>[/<member>]` (`gauges.granite-surface-plate`,
-  `tools.drills/#61`, `tools.drills/1/4`, `tools.reamers-metric/6.49mm`), category
-  one of `machines`, `tools`, `holders`, `fixtures`, `gauges`, `services`. The
-  member runs to its last letter, digit or `#` (a sentence's full stop is not
-  part of it) and is read whole, as the slots read it: a member the item does
-  not have is not the item. The traveler prints the item's shop name in its
-  place, or `? <key>` when the shop list does not have it; `tool_resolves`
-  checks it (docs/rules-tools.md) and `purchased_tooling` reads its receipt
-  checks.
-  Registered bare names match whole reference tokens. They do not replace letters
-  inside ordinary words or parts of qualified names and member references.
-  An angle plate's (or posed shop-made fixture's) lowest box that is not bought
-  is its base: HOLD prints its underside Z, an angle plate's working face (local
-  y = 0, facing local -y) and the base's `fastener` as the hold-down; with any
-  such box untrusted, HOLD prints no setting line. None of these texts creates
-  geometry or trust. On a plan clamp with `restraint = "locate"`, `locates`
-  names the drawn solid that must prove it bears on the work, and
-  `bears = "bore" | "face"` on that solid says which proof it owes: its
-  contact cylinder in a bore, or a flat face. A `locates` solid without `bears`
-  leaves the clamp unproven (rules-geometry, `thin_wall_under_clamp`). A
-cylinder whose `locates` is the name of a plan
-[`tooling_hole`](plan.md#process-features) is a pin in that hole: the
-`tooling_hole` rule judges its `dia_mm` against the hole's band.
+Resolved tool, holder and fixture dimensions and solids set the modeled scene
+extents used for [picture scale](rules-geometry.md#renders).
+[Outline overlays](report-and-telemetry.md#kernel-renders) use a separate
+bounded painting stream. They do not change layout/leader inputs, add inventory
+fields or change dimension trust.
 
-For `approach = "rotary"`, the selected hold must resolve to a `dividing_head`;
-its plan `hold.chuck` names a dimensioned chuck as above. The plan supplies
-`hold.pose` (origin at the chuck jaw-face centre, pose +z out toward the work),
-`jaw_clock_deg` and `grip_mm`. Pose z is the head axis and must be horizontal
-in the setup, perpendicular to setup Z. The head's own authored `solids`, the
-chuck body/jaws and any tailstock or clamps provide the modeled obstacles;
-indexing ratios or a vendor photograph do not supply missing solids or poses.
-The chuck rotates with the work; the head body, tailstock and clamps do not.
-Continuous rotation uses the existing plan record
+### Holding solids
+
+A vise needs accepted `jaw_height`, `jaw_width`, `jaw_depth` and `opening`.
+`jaw_depth_mm` / `jaw_depth_in` is the physical jaw-plate thickness along the
+gripping normal. It is never derived from jaw width, jaw height, bed height or
+another dimension.
+
+Parallels need positive `height`. Optional `length` along the jaws and `width`
+along the clamp axis allow parallel solids to be drawn when the plan also
+declares `parallels_centres_mm`. A `blocks_123` riser supplies accepted
+`length`, `width` and `height`.
+
+Vise jaw accessories require measured facts:
+
+- A `round_bar` selected by `hold.jaw_bar` needs `dia` and `length`. Its
+  diameter holds the moving jaw off the work. Without both facts, the jaws
+  remain unplaced.
+- `jaw_buttons` selected by `hold.jaw_buttons` need face `dia`, `thickness`,
+  `spigot_dia` and `spigot_length`. All four are required to place the jaws.
+
+Other holding solids use these fields, with no default dimensions:
+
+| Kind | Required geometry and unresolved behavior |
+|---|---|
+| `chuck_3jaw`, `chuck_4jaw` | `body_dia`, `body_length`, `bore_dia` smaller than the body, tangential `jaw_width`, radial `jaw_height` outward from the grip, and axial `jaw_depth` ahead of the body face. A dividing-head setup selects the chuck through `hold.chuck` |
+| `follow_rest` | Measured tangential `jaw_width`, radial `jaw_height` outward from the ridden diameter, and axial `jaw_depth`; `jaw_angles_deg` gives jaw directions about the spindle in degrees from the tool, for example `[90, 180]` for top/back jaws. A missing fact leaves the rest undrawn and its served operations unknown, naming the field |
+| `steady_rest` | Measured `body_dia` for the ring OD and `body_length` for axial length. Without them it remains an undrawn possible obstacle with a named gap; clear turning samples and `fixture_interference` remain unknown |
+| `dead_centre` | Shank `dia`, tip-to-quill-face `length` and included cone `point_angle` in degrees. Quill diameter comes from machine `tailstock.quill_dia`, or the dividing head's own tailstock |
+
+### Authored primitives and voids
+
+Any item, including an angle plate, dividing head, custom fixture or clamping-kit
+member, may declare local-frame solids. Box fragments use
+`solids = [{name, shape, at_mm, size_mm}]`; cylinder fragments use
+`{name, shape = "cylinder", at_mm, axis, dia_mm, length_mm}`.
+Each primitive owns its trust. A primitive with `verify = true` / `"unknown"`,
+incomplete measurement metadata or non-`measured` status is not drawn and is
+named as debt.
+
+A `void = true` primitive is cut from the same list's other primitives.
+`cuts = ["<name>", …]` restricts it to named primitives. It never cuts another
+item's or member's solids. An untrusted or malformed void withholds the solids
+it would cut, with named debt, instead of drawing them uncut.
+
+A strap member models its whole assembly in one list: beam, slot void
+(`cuts = ["beam"]`), stud, heel, nut and washer, with washer bore
+`cuts = ["washer"]`. Primitives in one list are one part and are not checked
+against each other. Each posed clamp list must touch the stock to bear.
+The holding fixture's solids must touch stock or a bearing clamp member through
+a connected chain of members, such as a bench vise gripping the stud of filing
+buttons on the work. A member separated by air from that chain carries no load.
+
+A trusted holding-fixture void may declare a shop caption such as
+`label = "Strap stud holes"`. The render places its leader at the void centre
+after `hold.pose`, and records the caption and posed centre in
+`scene.fixture_detail_labels`. A caption does not create geometry or override
+measurement/verification debt.
+
+### Shop-made fixtures
+
+An item or member is shop-made when `kind = "custom"` or `shop_made = true`.
+If it has something to make, the first setup using it at a given pose and HOLD
+label gets a SHOP-MADE FIXTURE table on sheet 2. Later uses at the same poses
+and labels point back. Moving it or changing its label, such as C1 to C2,
+produces another table. An item with only bought/existing primitives and no
+holes made in them gets neither table nor pointer.
+
+Each row gives one made primitive's size and position: box X/Y/Z extents or
+cylinder axis. Identical primitives within one `supply` group share a row
+named by their shared `label` or common name words. Positions use `hold.pose`,
+a clamp `pose` or `stop_pose`. A posed slot without its pose prints
+"? not posed".
+
+Items placed by HOLD facts rather than a pose are loose, such as shop-made
+vise jaws, `hold.riser`, `hold.supports` and `hold.jaw_buttons`. Their positions
+use the item's own drawn frame under "loose: placed as the HOLD says"; the
+HOLD step points to that table.
+
+A void appears as "with N × <fastener or size>: positions" on every made or
+existing primitive it cuts. Explicit `cuts` controls the selection; otherwise
+overlap does. Overlap is exact for boxes, parallel cylinders and axis-aligned
+cylinders against boxes. A possible oblique-hole intersection remains
+"? not set: oblique hole … may cross it; name it in cuts" until named in
+`cuts`. A void cutting only bought hardware is not listed.
+
+Make-table sizes and positions are expected make-to-drawing settings, not
+observations of the installed fixture. Unresolved authored dimensions print
+"? not set". Bought/existing primitives retain any refused physical provenance
+independently of drawing targets for holes made in them. Native geometry stays
+unresolved until its required physical inputs are established.
+
+A primitive or hole with a measurement status other than `measured` gets `†`
+after its component name. Attribution prose does not decide this. The job page
+prints this legend once:
+`† Make-to-drawing expected settings; check the physical fixture as made
+before use. These settings do not clear installed-measurement STOPs.`
+
+Per-primitive `supply` is:
+
+- `made` (default): made here;
+- `bought`: hardware, listed once under "Bought hardware (not made)" by
+  `fastener` or name and size. Touching/overlapping primitives with the same
+  fastener text, such as a screw head and shank, count as one part;
+- `existing`: already in the shop, so not listed unless holes are made in it.
+  Such a row says "(existing part: make the holes only)" and its size is "—".
+
+#### Make-table precision and notes
+
+Sizes and positions use the DRO grid on which they are made: the shop mill
+grid when all machines of kind `mill` share one grid, otherwise the setup
+machine grid. Ordinary dimensions use policy `numbers.fixture_make_decimals`.
+A primitive with `locates`, every bore cut in it and shim nominals use drawing
+precision, or grid-step precision if drawing precision is missing, finer than
+the grid or off-grid. Either a primitive or its bore may be the locating
+surface.
+
+A position coincident with a fit on the same sheet uses the fit value, such as
+a pin's hole or a bolt hole above a locating pad. If grid rounding moves a fit
+beyond `general_tolerances.linear_<n>pl`, or that tolerance is undeclared, the
+table prints `?` and a reason. It never silently moves the hole.
+
+`locates = "<part face>"` and `fastener = "<thread / fastener>"` populate the
+Locates and Fastener columns. `shim = true` marks an adjustable shim stack.
+HOLD prints its drawn thickness as the nominal to fit with feeler gauges,
+once per shim primitive per item placement.
+
+A made primitive's `note`, such as material, heat treatment or finish, prints
+once per row under "Make:". Different notes prevent row grouping. A made
+hole's note joins those entries under its label or name. A bought/existing
+primitive's note prints under "Notes:" for its purchased state or surfaces to
+leave alone. This allows a bought shell with windows made here to state its
+whole route.
+
+#### Make operations
+
+`make_ops = [{ hold, tool, rpm, feed, doc_mm, cite }]` declares cutting
+operations on a shop-made item, made primitive or made hole:
+
+| Field | Contract |
+|---|---|
+| `hold` | Text describing how the piece is held |
+| `tool` | Key in `tools`, not another category or a machine accessory |
+| `rpm` | Speed > 0 or ordered `[low, high]` range |
+| `feed` | Number or `low-high` range with `mm/rev`, `mm/min`, `mm/tooth`, `in/rev`, `in/min` or `in/tooth`; a bare number is refused |
+| `doc_mm` | Depth of cut per pass > 0 |
+| `cite` | Cutting-data source, such as `MH 31st Table 17 p.1061` |
+
+Every entry states all six fields. Use `"unknown"` for an unresolved fact,
+never omission or blank text. Under "Make operations, in order:", item
+operations print first, then primitive operations in `solids` order after
+their row names. Primitives sharing a label print a shared list once. A printed
+line has this form:
+`1. hold: vise on parallels; T: <tool's shop name>; 600 rpm; 0.05 mm/rev; 0.5 mm/pass; MH 31st Table 17 p.1061`.
+
+`hold` and `cite` print as written, including links and paths, except inventory
+references print their shop names. Unknown facts print `?`; an unlisted tool
+prints `? <key>`; a listed but unverified tool prints `? <tool's shop name>`.
+The line ends with a STOP naming unresolved facts. `make_ops = "unknown"`
+prints one STOP line. Tool selection also invokes `tool_resolves` and the
+setup's purchased-tooling receipt checks.
+
+Make operations print once, before the first setup using the item through any
+hold slot. They appear in that setup's make table, or under a separate
+SHOP-MADE FIXTURE heading on sheet 2 when that use has no table. That heading
+points to a later table when needed. Chucks, parallels, jaw bars, single
+supports, operation holders and guide buttons can have such a first use.
+A later table says "Make before" the first setup and points back to the
+operations.
+
+Declared operations must have somewhere to print. They are rejected on bought
+items, bought/existing primitives, items with only bought/existing solids,
+set members with their own operations, or items outside `fixtures`, `holders`
+and `machines`. A member inheriting set operations is also rejected if its
+own keys make it non-shop-made or leave nothing made here.
+
+#### Measurement record blanks
+
+`records = [{ check, gauge, how, max_mm, goal_mm, over_mm }]` on a primitive
+declares values to measure and record when it is made or received, such as
+head-to-shoulder TIR or squareness by reversal. Under "Measure and record before
+first use:", each entry prints the check, gauge shop name, method,
+`accept ≤ max_mm`, `goal ≤ goal_mm`, `measured ________ mm`, and
+`over over_mm mm` when given. Max and goal round down.
+
+`check` is required. `how` and `gauge`, when supplied, must be stated.
+`records` must be a list, not `"unknown"`, so the sheet has something to fill
+in. Supplied lengths must be known and ≥ 0, except `over_mm` must be > 0.
+Goal must lie inside max. Without `max_mm`, a record characterises the item
+without judging it. Gauge keys resolve in `gauges`; an unlisted gauge prints
+`? <key>`.
+
+### Inventory references in prose
+
+Notes, record checks/methods, make-operation `hold` / `cite` and plan notes
+can name an item as `<category>.<key>[/<member>]`. Categories are `machines`,
+`tools`, `holders`, `fixtures`, `gauges` and `services`. Examples are
+`gauges.granite-surface-plate`, `tools.drills/#61`, `tools.drills/1/4` and
+`tools.reamers-metric/6.49mm`.
+
+A member reference runs through its last letter, digit or `#`, excluding a
+sentence's final full stop. It resolves whole, as a slot does: a missing member
+does not select its parent item. The setup sheet substitutes the shop name,
+or `? <key>` if unlisted. `tool_resolves` checks it and `purchased_tooling`
+reads its receipt checks.
+
+References also work beside punctuation or quotes, including
+`fixtures.a,gauges.dti` and `` `gauges.dti` ``. They are not read inside URLs
+(`scheme://…`) or drive-letter (`C:\…`), UNC (`\\server\…`), relative
+(`./…`, `../…`) or rooted (`/srv/…/…`) paths up to the next space.
+Registered bare names match whole tokens, never letters inside ordinary words
+or parts of qualified/member references.
+
+### Locating and bearing surfaces
+
+For an angle plate or posed shop-made fixture, the lowest non-bought box is
+the base. HOLD prints its underside Z, the angle plate working face
+(local y = 0, facing local -y) and base `fastener` as the hold-down.
+If any such box is untrusted, HOLD prints no setting line. These texts
+establish neither geometry nor trust.
+
+For a clamp with `restraint = "locate"`, the drawn solid's `locates` names
+the surface it must prove it bears on. `bears = "bore" | "face"` selects
+contact-cylinder-in-bore or flat-face proof. Missing `bears` leaves it
+unproven under `thin_wall_under_clamp`. A cylinder whose `locates` names a
+plan [`tooling_hole`](plan.md#process-features) is a pin in that hole;
+`tooling_hole` compares its `dia_mm` with the hole band.
+
+### Rotary workholding
+
+For `approach = "rotary"`, the hold must resolve to a `dividing_head`, and
+`hold.chuck` must name a dimensioned chuck. The plan supplies `hold.pose`,
+`jaw_clock_deg` and `grip_mm`. Pose origin is the chuck jaw-face centre;
+pose +z points toward the work along the horizontal head axis, perpendicular
+to setup Z.
+
+The head's authored solids, chuck body/jaws, tailstock and clamps supply
+modeled obstacles. Indexing ratios and vendor photographs do not supply
+missing solids or poses. The chuck rotates with the work; the head body,
+tailstock and clamps remain fixed.
+
+Continuous rotation uses
 `hold.index = { fixture = "<head>", rotation = "continuous" }`, without
-`positions` or `angle_deg`; it needs a verified dividing-head identity, not a
-plate landing calculation.
+`positions` or `angle_deg`. It needs a verified dividing-head identity, not
+a plate-landing calculation.
 
-Rotary cutting uses the same vertical mill cutter and holder facts below:
-tool `dia`, `flute_len`, `oal`, holder `gauge_dia`, `gauge_len`, and the
-selected tool/holder projection (or the permitted OAL-minus-grip fallback).
-No lathe insert, toolpost or new rotary-specific inventory fields are implied.
-Each rotary op's own cutter and holder apply to its window, so a face may be
-covered by several ops with different cutters (for example a smaller endmill
-windowed into a shoulder); the geometry rules union their window portions.
-Missing or unresolved dimensions keep their dependent screens `?`; a modeled
-sample pose does not establish head torque, locking or collision-free motion
-between samples.
+Rotary operations use ordinary vertical-mill cutter/holder facts: tool
+`dia`, `flute_len`, `oal`; holder `gauge_dia`, `gauge_len`; and selected
+projection or permitted OAL-minus-grip fallback. They introduce no lathe
+insert, toolpost or rotary-specific inventory fields. Each operation's
+cutter and holder apply to its window. Several windows, including a smaller
+endmill at a shoulder, can cover one face; geometry unions their portions.
+Missing dimensions keep dependent screens `?`. Sample poses do not establish
+head torque, locking or collision-free motion between samples.
 
-A tool enters an
-op's geometry job when `dia`, `flute_len` and `oal` resolve and a holder when
-`gauge_dia` and `gauge_len` resolve; the holder cylinder uses `gauge_dia`
-(`gauge_dia_mm` / `gauge_dia_in`), not `shank` or collet capacity. The op's
-projection is the selected pair's entry in `tools.<tool>.projection_mm` /
-`projection_in` ([below](#measured-envelopes-and-installed-tool-stacks-m5));
-only when that pair has no entry is it `oal` minus the selected holder's
-`grip`, each from its own accepted fact. Any missing dimension or fact-local
-debt is named in the job's reason text and the dependent geometry rules stay
-`?`. The shipped example vise (`fixtures.vise-pm-6`) records shop-measured
-`jaw_height_in`, `jaw_width_in`, `jaw_depth_in`, `opening_in` and
-`bed_height_in` (2026-10-05, each with its own `measured` record and the
-vendor nominal kept beside it as a comment), so a shipped vise setup with a
-STEP and a complete pose draws jaw solids; its item-level `verify = true` is
-identity debt elsewhere, not a geometry veto. The shipped parallels declare
-no `width` and no shipped plan declares `parallels_centres_mm`, so no shipped
-setup draws parallel solids. See
-[geometry rules](rules-geometry.md).
+### Tool and holder solids
 
-For a spot or drill operation the kernel also consumes the selected tool's
-existing `point_angle` (`MeasuredAngle`, degrees; no new schema field) as its
-point profile. The fact is accepted the same fact-local way, nominal included;
-a missing, `"unknown"` or debt-carrying angle reaches the job as unknown and is
-never defaulted. It is required for a spot too, even though a spot's tip
-endpoint formula uses only its depth: the kernel cuts with the real point cone
-and body, so an unknown angle leaves that op's accessibility `?` and later
-stock unresolved. See [geometry rules](rules-geometry.md#accessibility).
+A tool needs accepted `dia`, `flute_len` and `oal`; a holder needs accepted
+`gauge_dia` and `gauge_len`. Holder cylinders use `gauge_dia_mm` /
+`gauge_dia_in`, not shank or collet capacity. Projection follows the
+[pair-entry precedence](#projection-ownership-and-precedence); only an absent
+entry permits tool OAL minus selected-holder grip, each from its own accepted
+fact. Missing dimensions or fact-local debt appear in the job reason and keep
+dependent geometry rules `?`.
+
+The shipped `fixtures.vise-pm-6` has shop-measured `jaw_height_in`,
+`jaw_width_in`, `jaw_depth_in`, `opening_in` and `bed_height_in`, each recorded
+on 2026-10-05 with its own measurement metadata and vendor nominal in a
+comment. With STEP and a complete pose, its setup draws jaw solids.
+Item-level `verify = true` remains identity debt elsewhere, not a geometry
+veto. Shipped parallels have no `width`, and shipped plans have no
+`parallels_centres_mm`, so shipped setups do not draw parallel solids.
+See [geometry rules](rules-geometry.md).
+
+Spot and drill operations also consume `point_angle` (`MeasuredAngle`,
+degrees) for the real point cone and body. Trusted nominal angles are
+accepted; missing, unknown or debt-carrying angles are never defaulted.
+Spots require the angle even though their tip-endpoint formula uses only
+depth. Unknown angle leaves accessibility `?` and later stock unresolved.
+See [accessibility](rules-geometry.md#accessibility).
 
 ## Measured envelopes and installed tool stacks (M5)
 
-`machines.<id>.envelope` is the one home for the mill limits that rules read:
-usable X/Y/Z travel and spindle-nose-to-table maximum and minimum. M1
-`headroom` and the M5 `envelope`/`travel` screens read this same block; a mill
-carries no top-level `spindle_to_table_max_mm/in`, `travel_in`/`travel_mm` or
-`table_in` copy, and the schema rejects one. Table length/width, T-slot pitch,
-spindle taper and R8/ER-collet-chuck/drill-chuck stack heights are not envelope
-fields: no rule reads them, so nothing asks the shop to measure them. The
-spindle taper stays vendor identity under `machines.<id>.spindle`.
+`machines.<id>.envelope` contains the machine limits read by `headroom`,
+`envelope` and `travel`. The fields differ by machine:
+
+| Machine | Nested envelope facts |
+|---|---|
+| Mill | `travel_mm` or `travel_in` with `x`, `y`, `z`; `spindle_to_table_max_mm` / `_in`; `spindle_to_table_min_mm` / `_in` |
+| Lathe | `swing_over_bed_mm` / `_in`; `swing_over_cross_slide_mm` / `_in`; `between_centres_mm` / `_in` |
+
+Each limit is a fact-local `MeasuredLength`. Lathe headroom compares stock OD
+and chuck body diameter with bed swing, stock OD with cross-slide swing, and
+exposed length plus chuck body length with distance between centres.
+Exposed length is numeric `hold.stickout_mm` when available. Otherwise it is
+the setup's `stock_state.north_end_z - stock_state.south_end_z`, converted
+from manifest units to mm, not the root stock's declared length. Missing
+endpoints or unknown manifest units leave that span unresolved.
+
+An unresolved machine or holding fixture/chuck, verification debt on the
+fixture/chuck, or unresolved dimensions or measured limits prevents a pass.
+A known overrun takes error precedence; otherwise the decision stays unknown.
+This screen checks no tool path, carriage stroke or tailstock extension.
+Top-level item fields `swing_over_bed_in` and `between_centres_in` are accepted
+descriptive numbers, but do not supply these measured nested limits.
+
+Mill top-level copies of `spindle_to_table_max_mm/in`, `travel_in` /
+`travel_mm` or `table_in` are rejected. Table length/width, T-slot pitch and
+separate R8/ER-collet-chuck/drill-chuck stack heights are not envelope inputs
+and generate no envelope measurement requests. Spindle taper remains vendor
+identity under `machines.<id>.spindle`, used for holder compatibility.
+
+This schema fragment declares unknown mill limits and stack facts. Other
+machine, holder and tool fields must describe the actual selected equipment.
 
 ```toml
 [machines.my_mill.envelope]
@@ -683,177 +871,207 @@ oal_mm = "unknown"
 my_holder = "unknown"
 ```
 
-For a measured fact replace the unknown with
+### Measurement status and provenance
+
+For a measured fact, replace `"unknown"` with the following record fragment:
 `{ value = <actual measurement>, measured = { status = "measured", by = "<operator>", date = "YYYY-MM-DD", instrument = "<actual instrument>" } }`.
-`status` is one of `measured`, `assumed` or `illustrative`; an omitted `status`
-is `assumed`. `by`, `date` and `instrument` must be nonblank known strings. Do
-not put these template placeholders into operative inventory. A vendor copy
-instead carries `{ value = <nominal>, verify = true }`.
+Do not load the placeholders as operative inventory. A copied vendor nominal
+can instead use `{ value = <nominal>, verify = true }`.
 
-**Migration rule.** Set `status = "measured"` only once an actual physical
-measurement of that fact exists, recording who took it, when and with what. A
-placeholder an operator authorised but nobody measured is `status = "assumed"`
-(what an omitted status already means); `illustrative` marks a value that is
-openly made up. `by` is attribution, never a status: the text in
-`by` is not read to decide trust, so a record like
-`{ by = "example (plausible, not measured)" }` without `status = "measured"`
-is assumed, and one with `status = "measured"` is trusted whatever `by`
-says. No bundle or policy opt-in bypasses this. The one explicit exception
-is the shipped worked examples: their demonstration fixtures carry
-`status = "measured"` with the marker
-`by = "example value (realistic, not a shop measurement)"` so the measured
-branch is exercised ([examples policy](../examples/README.md)); that marker
-is disclosure the engine never reads, those records are not shop
-observations, and copying them into a real shop file is exactly what this
-rule forbids.
+Set `status = "measured"` only after that physical fact has been measured,
+with who, when and instrument recorded. An authorised but unmeasured
+placeholder is `assumed`, also the default when status is omitted.
+`illustrative` identifies a deliberately made-up value.
 
-Trust is fact-local. A physical dimension an M5 rule reads (envelope limits,
-fixture bed/parallel/support heights, holder gauge and grip, tool OAL, the
-tool/holder projection, cutter diameter, drill point angle, reamer lead) counts
-as measured only when that fact's own record carries a complete
-`measured = { status = "measured", by, date, instrument }` and no `verify = true`
-or `"unknown"`. An `assumed` or `illustrative` record (or one with no `status`)
-never qualifies the fact: the row stays `?` and names the status and `by` of
-the record it refused. Nothing is
-inherited or inferred: `measured` on an envelope block, an item root or a
-`source` record is rejected by the schema; `source.verify`, `coverage` text,
-`present`, a date or a citation is provenance, not measurement; an explicit
-fact-local `verify = true` leaves the fact unresolved even beside a complete
-`measured`. A scalar vendor nominal (`spindle_to_table_max_in = 17` or
-`{ value = 17, verify = true }`) stays in the finding's `numbers` as evidence
-and yields `?`, never a pass or a measured overrun. Clearing `verify` without
-a `measured` record is not measurement either. Kernel geometry and engagement
-read the same facts with measurement *not* required, so the readiness they
-report is nominal-geometry readiness, not the physical measurement readiness
-these screens report; both honour the fact's own `verify`/`measured` debt,
-including an assumed or illustrative status.
+`by` is attribution, not a trust switch. For example,
+`{ by = "example (plausible, not measured)" }` without measured status remains
+assumed. With `status = "measured"`, the engine trusts a complete record
+regardless of those words. No bundle or policy opt-in changes that behavior.
 
-Each length stem has one authored unit key: `gauge_len_mm` or `gauge_len_in`,
-`oal_mm` or `oal_in`, `projection_mm` or `projection_in`, `bed_height_mm` or
-`bed_height_in`. A suffixless `gauge_len`, or a second unit spelling beside the
-first, is rejected, so a measured `_in` fact can never be shadowed by an
-unmeasured `_mm` one. `travel_mm` / `travel_in` use `x`, `y`, `z`. Inch facts
-convert by exactly 25.4.
+The [worked examples](../examples/README.md) deliberately exercise the
+measured branch with `status = "measured"` and
+`by = "example value (realistic, not a shop measurement)"`. The engine does
+not inspect that marker. It discloses demonstration fixtures, not physical
+shop observations. Do not copy those records into real shop inventory as
+measurements. Actual shop measurements, such as the separately identified vise
+facts above, retain their own provenance.
 
-Gauge is **mounted spindle nose to holder exit face** and already includes the
-spindle/chuck stack, so no separate stack height is recorded or added.
-Projection is **holder exit face to installed tool tip** and belongs to one
-(tool, holder, insertion) triple: it lives on the tool as
-`tools.<tool>.projection_mm` (or `_in`), a map keyed by the full exact holder
-reference the operation selects (for example `"r8-collets-lms-4860/3-8in"`; a
-key and a holder reference spelled with or without `holders.` match when they
-select the same holder). Two keys that select the same holder (`holder` and
-`holders.holder`) state its projection twice: the projection is unknown, with
-both keys named, whichever values they carry and in whatever order; neither is
-read and it never falls back to OAL − grip. State it once.
-A holder, fixture, machine or gauge never carries projection, and a tool never
-carries a holder-wide or tool-wide scalar projection: the schema rejects
-`projection_mm`/`projection_in` outside `tools` and rejects a tool whose
-projection is a bare number rather than a map. When the selected pair has an
-entry, that entry alone decides: an `"unknown"` or debt-carrying entry keeps
-every consumer unresolved and never falls through to another holder's number
-or to OAL − grip. Only when the pair has no entry do the rules use the
-selected tool's OAL minus the selected holder's grip — each measured for the
-M5 screens, each an accepted nominal for kernel geometry and engagement — and
-flute length never substitutes.
+### Fact-local M5 trust
 
-Fixture bed height (`bed_height_mm/in`) is the table-to-bed distance that every
-vise stack uses; jaw height (`jaw_height_in`) is the jaw's height above the bed
-for the separate jaw-obstruction check, never a stack layer. Parallels and
-support blocks carry their own heights. `point_angle` accepts the same
-`{ value, measured, verify }` record in degrees.
+An M5 dimension qualifies only through its own complete
+`measured = { status = "measured", by, date, instrument }`, with no
+`verify = true` / `"unknown"`. This includes applicable envelope limits,
+bed/parallel/support heights, holder gauge/grip, OAL, pair projection, cutter
+diameter, drill point angle and reamer lead.
 
-The traveler's TOOLS table marks each displayed refused dimension individually,
-retaining its authored value. A fact actually consumed by a refused decision
-uses a short **?M1**-style reference to the **job-wide measurement register**;
-unconsumed catalogue information can be marked unverified without creating a
-STOP or a recording item. Trusted nominal or measured siblings stay plain;
-attribution prose does not qualify a dimension.
-The JOB section prints each physical quantity's full instruction and one
-35 × 10 mm recording blank exactly once. Canonical record and field identity,
-including the installed holder/configuration, determine reuse across setups,
-not its display name. Composite fixture records retain their canonical binding
-and have separate items for their dimensional and position leaves.
-Box solids have individual local-axis length, width and height entries;
-cylindrical solids have diameter and axial length/depth entries. Each authored
-local X/Y/Z position is recorded separately, not on a shared dimensions blank.
-Position entries identify the box's minimum corner or the cylinder's base
-centre in the fixture-local frame; they are not generic mounting measurements.
-The register's numbers and display order are ascending and deterministic.
-Source setup groups and tool numbers identify where each fact is consumed.
-Every operation's actual STOP kind remains in its setup summary. Record the
-values in the JOB register and return the traveler for reissue: measurement
-alone does not recompute the blocked decisions named on those setup pages.
-Bare M is an authored measurement variable, not necessarily a touch-off reading.
-TOOLS rows stay together in print.
+Assumed, illustrative or status-less records leave the row `?`; it names the
+refused record's status and `by`. Item-root, envelope-block, source and member
+`measured` metadata are rejected. `source.verify`, coverage, presence, dates
+and citations do not replace fact-local measurement.
 
-CLEARANCE lists only the unresolved inputs its headroom decision consumed
-(for example riser dimensions, holder gauge length, installed projection and
-machine envelope limits), with references to the same job measurement items.
-Fixture instructions follow the actual fixture kind: a riser has no vise bed,
-parallels or jaw height to measure. Make-to-drawing fixture dimensions print as
-authored targets, distinct from measuring the installed fixture after making;
-that presentation does not certify its physical dimensions or clearance.
-Authored fixture coordinates remain setup settings, not clearance certification.
-A diagnostic measurement union is not proof that every listed fact was
-consumed locally. When a setup is blocked before its entry stock can be
-derived, it remains STOPped by the true upstream stock decision, referring to
-the source setup/op and its existing JOB measurement items. It does not acquire
-irrelevant local fixture or machine recording rows. A manual bench setup with
-no unresolved consumed decision has no measurement STOP and is not included
-in the JOB's stopped-setup list merely because selected inventory is assumed.
-For an unresolved stock prerequisite without an attributable dimensional
-consumer, the true reason remains STOPped without guessing a measurement.
-Eligibility belongs to the individual decision, not to the whole operation:
-independently evaluated tool engagement, speeds/feeds, cutting direction or
-saw kerf still keep their actually consumed facts while stock is blocked.
-An eager native refusal list alone does not establish a local consumer.
-The JOB readout line names the installed DRO controller (for example EL400),
-not the machine model, and reuses one global readout-step reference. Centre
-drill instructions name the pilot and countersink body directly, without
-referring to a table absent from the traveler. Shop-made support height is
-measured as made from table to work-support contact surface.
-Drill point-length STOP references name the point angle before cutter diameter.
-A declared
-positive DRO step still rounds printed instructions even when its grid is
-labelled **not verified**; an absent step uses the disclosed provisional
-default. **No coordinate targets** describes a coordinates nonconsumer, not
-a claim that no other printed settings use the machine's grid.
+Explicit fact-local verification debt still refuses a complete measurement.
+A scalar vendor nominal such as `spindle_to_table_max_in = 17`, or
+`{ value = 17, verify = true }`, remains in finding `numbers` as evidence but
+yields `?`, not a pass or measured overrun. Clearing `verify` without adding
+a measurement does not establish one.
 
-`prechips tools --measure [--plan PLAN ...]` lists the measurement debt behind
-the current reports: every `numbers.measurements` entry that an unresolved
-applicable finding emits for the given plans (default: the four pilot plans for
-shaft, rocker, bracket and the sole built-up cone), including the host-only
-debts the kernel job reports for the facts it refused, sorted and deduplicated by
-scoped report id, including set-member and
-tool/holder-pair ids such as `holders.r8-collets-lms-4860/3-8in.gauge_len` and
-`tools.endmills-lms-6784/3-8in-4fl.projection.r8-collets-lms-4860/3-8in`. An
-`"unknown"` fact a rule needs is listed even without `verify` debt. It is not a
-reflection over every declared field: items and fields no rule consumes do not
-appear, and it invents no set members or purchases. `--inventory` (or
-`PRECHIPS_INVENTORY`) overrides the plans' declared inventory; without it each
-plan's own inventory applies. Plan-input ids and instructions are prefixed with
-the plan path. When multiple effective inventories apply, inventory ids and
-instructions are qualified by their source path so equal item names cannot
-merge unrelated facts; plans sharing an inventory still share its measurement
-debt. Every other `tools` display still requires `--inventory` or
-`PRECHIPS_INVENTORY`. JSON emits the same entries with ids, instructions,
-units, citations and structured category, identity and field parts, so a
-set-member name containing a decimal point is never split to infer its field.
-Lengths use mm, point angles use degrees, and add/resolve instructions use
-identity units. Instructions use the actual record kind: a centre drill's
-`dia` is its pilot diameter and its `shank` is the countersink body diameter;
-measure either diameter with a micrometer or calipers. Measure usable machine
-travel with a calibrated readout or indicator, not a steel rule.
-Normal `tools` prints the envelope and marks each limit measured or unmeasured.
-Applicable M5 `?` sheet sentences refer to the setup's measurement item;
-unresolved tools, holders, fixtures and supports are told to add or resolve an
-owned identity, not to measure an item the shop
+Kernel geometry and engagement accept trusted nominal facts, while honoring
+the same fact-local verification and measurement-status debt. Their
+nominal-geometry readiness does not clear M5 physical-measurement debt.
+
+Use one unit key per length stem: `gauge_len_mm` or `gauge_len_in`, `oal_mm`
+or `oal_in`, `projection_mm` or `projection_in`, `bed_height_mm` or
+`bed_height_in`. Suffixless `gauge_len` is rejected, as is a second unit
+spelling. A measured inch fact therefore cannot be shadowed by an unmeasured
+mm alias. `travel_mm` / `travel_in` contain `x`, `y`, `z`; inch conversion is
+exactly 25.4.
+
+### Projection ownership and precedence
+
+Holder gauge length runs from mounted spindle nose to holder exit face. It
+already includes the spindle/chuck stack, so no separate stack height is
+recorded or added.
+
+Projection runs from holder exit face to installed tool tip. It represents
+one tool, holder and insertion setting, authored on the tool as
+`tools.<tool>.projection_mm` or `_in`. The map key is the full selected
+holder reference, such as `"r8-collets-lms-4860/3-8in"`. Qualified and
+unqualified spellings match when they select the same holder.
+
+Two map keys selecting the same holder, such as `holder` and
+`holders.holder`, duplicate the projection. It becomes unknown with both
+keys named, regardless of values or order. Neither value is read and there is
+no OAL − grip fallback. State the pair once.
+
+Only tools can carry projection maps. The schema rejects projection on a
+holder, fixture, machine or gauge, and rejects a tool-wide scalar instead of
+a map. The selected pair entry has precedence:
+
+1. If present, that entry alone decides. Unknown or debt-carrying entries
+   leave every consumer unresolved. Another holder's value cannot substitute.
+2. Only if absent, use selected-tool OAL minus selected-holder grip.
+   Both facts must be measured for M5, or accepted nominal facts for kernel
+   geometry and engagement.
+
+Flute length never substitutes for projection.
+
+Projection has no plan-level or setup-level override. Its trust and
+measurement debt belong to the inventory pair. Envelope, headroom,
+engagement, accessibility, kernel tool stacks and the setup-sheet tool table
+all read that setting. A partial override would let the sheet and checks use
+different settings.
+
+If a blade is set farther out for a job, update and measure its inventory
+setting. Every job is then checked at that setting, including deflection and
+clearance; insufficient reach remains a finding naming it. A tool kept at two
+projections is two inventory tools.
+
+### Fixture stack dimensions
+
+`bed_height_mm/in` is the table-to-vise-bed distance. Jaw height is above the
+bed for the separate jaw-obstruction check; it is not another stack layer.
+Parallels and support blocks have their own heights.
+`point_angle` uses `{ value, measured, verify }` in degrees.
+
+### Measurement register and setup-sheet references
+
+The TOOLS table marks each refused displayed dimension while retaining its
+authored value. A fact consumed by a refused decision gets a short `?M1`-style
+reference to the job-wide measurement register. Unconsumed catalog information
+can be marked unverified without creating a STOP or recording item. Trusted
+nominal/measured sibling facts remain plain; attribution prose does not qualify
+a dimension. TOOLS rows stay together in print.
+
+The JOB section gives each physical quantity one full instruction and one
+35 × 10 mm recording blank. Canonical record/field identity, including
+installed holder/configuration, determines reuse across setups, not the display
+name. Composite fixture records keep their canonical binding with separate
+dimensional and position leaves:
+
+- boxes have separate local-axis length, width and height entries;
+- cylinders have diameter and axial length/depth entries;
+- each authored local X/Y/Z position has its own entry. A box position is its
+  minimum corner; a cylinder position is its base centre, both fixture-local.
+  These are not generic mounting measurements.
+
+Register numbers and display order are ascending and deterministic. Source
+setup groups and tool numbers identify where facts are consumed. Setup
+summaries keep each operation's actual STOP kind. Record measurements in JOB
+and return the setup sheet for reissue; writing a measurement does not
+recompute blocked decisions. Bare M is an authored measurement variable, not
+necessarily a touch-off reading.
+
+CLEARANCE lists only unresolved inputs consumed by that headroom decision,
+such as riser dimensions, gauge length, installed projection and envelope
+limits, using the same JOB item references. Instructions follow the fixture
+kind: a riser has no vise bed, parallels or jaw height to measure.
+Make-to-drawing dimensions and authored fixture coordinates remain setup
+targets. They do not certify as-made dimensions or clearance.
+
+An aggregate diagnostic debt list does not prove local consumption. If entry
+stock cannot be derived, the setup remains STOPped by the actual upstream
+stock decision, pointing to the source setup/operation and existing JOB
+items. It does not gain unrelated local fixture/machine blanks. An unresolved
+stock prerequisite with no attributable dimensional consumer keeps its real
+STOP reason without an invented measurement.
+
+Eligibility is per decision. Independently evaluated engagement, speeds/feeds,
+cutting direction or saw kerf keep the facts they consumed even if stock is
+blocked. A native refusal list alone does not prove a local consumer.
+A manual bench setup with no unresolved consumed decision has no measurement
+STOP or JOB stopped-setup entry solely because selected inventory is assumed.
+
+The JOB readout line names the installed DRO controller, such as EL400, not
+the machine model, and reuses one global readout-step reference. Centre-drill
+instructions name pilot and countersink body directly, without referring to
+an absent table. Shop-made support height is measured as made from table to
+work-support contact surface. Drill point-length STOP references name point
+angle before cutter diameter.
+
+A declared positive DRO step rounds printed instructions even if its grid is
+labelled "not verified". Missing step uses the disclosed provisional default.
+"No coordinate targets" means coordinates did not consume the grid; other
+printed settings may still use it.
+
+### Measurement-debt listing
+
+`prechips tools --measure [--plan PLAN ...]` evaluates applicable findings and
+lists their unresolved `numbers.measurements`, including host-only facts
+refused by the kernel job. It defaults to the four pilot plans for shaft,
+rocker, bracket and the sole built-up cone. It may need native in-process
+stock facts. See the [CLI catalog](reference/cli.md) for invocation and output
+options.
+
+Entries sort and deduplicate by scoped report id, including set-member and
+pair identities such as `holders.r8-collets-lms-4860/3-8in.gauge_len` and
+`tools.endmills-lms-6784/3-8in-4fl.projection.r8-collets-lms-4860/3-8in`.
+A needed `"unknown"` fact is listed even without an explicit verification
+flag. Unconsumed inventory fields do not appear. The command creates neither
+set members nor purchases.
+
+For this listing, `--inventory` or `PRECHIPS_INVENTORY` overrides plan-declared
+inventory; otherwise each plan uses its own inventory. Plan-input ids and
+instructions carry the plan path. When several effective inventories apply,
+inventory ids and instructions carry source paths so equal names cannot merge
+unrelated facts. Plans sharing an inventory share its debt. Other `tools`
+displays still require `--inventory` or `PRECHIPS_INVENTORY`.
+
+JSON returns the same ids, instructions, units and citations, with structured
+category, identity and field parts. Decimal points in member names are not
+parsed as field separators. Lengths use mm, point angles degrees and
+add/resolve instructions identity units.
+
+Instructions follow record kind: centre-drill `dia` is pilot diameter and
+`shank` is countersink-body diameter, measured with a micrometer or calipers.
+Measure usable machine travel with a calibrated readout or indicator, not a
+steel rule. Normal `tools` output prints the envelope and marks limits measured
+or unmeasured. Applicable M5 `?` sheet sentences point to setup measurement
+items. An unresolved tool, holder, fixture or support instead needs an owned
+identity added or resolved; do not instruct the shop to measure an item it
 does not own.
 
-This evaluates the actual applicable rules and may need native in-process
-stock facts. A successful debt-list command is not a machining-readiness pass;
-unavailable physical facts remain unknown.
+A successful debt listing is not a machining-readiness pass. Unavailable
+physical facts remain unknown.
 
 ### Measurement records
 
@@ -865,40 +1083,28 @@ unavailable physical facts remain unknown.
 | `LimitsMeasurement` | Required `value: [Number, Number]` (`[least, greatest]`); optional `measured: Measurement`, `verify: bool` (each may be `"unknown"`); no `cite` |
 | `MeasuredLimits` | `[Number, Number]` or `LimitsMeasurement` (mm/in) |
 | `EnvelopeTravel` | `x`, `y`, `z: MeasuredLength`; no block metadata |
-| `MachineEnvelope` | `travel_mm` or `travel_in: EnvelopeTravel`; `spindle_to_table_max_mm/in`, `spindle_to_table_min_mm/in: MeasuredLength`; no block metadata |
+| `MachineEnvelope` | `travel_mm` or `travel_in: EnvelopeTravel`; `spindle_to_table_max_mm/in`, `spindle_to_table_min_mm/in`, `swing_over_bed_mm/in`, `swing_over_cross_slide_mm/in`, `between_centres_mm/in: MeasuredLength`; no block metadata |
 | `ProjectionMap` | `dict[full holder reference, MeasuredLength]`; tools only |
 
-All envelope/travel fields are optional and accept `"unknown"`; their absence
-remains measurement debt. A date or a citation is provenance, not an automatic
-claim that a fact is measured, and neither is the text of `by`: only
-`status = "measured"` is. Every dimension kernel geometry consumes — tool
-`dia` / `flute_len` / `oal`, holder `gauge_dia` / `gauge_len` / `grip`, the
-projection map, vise `jaw_height` / `jaw_width` / `jaw_depth` / `opening` and
-parallels `height` / `length` / `width` — is typed `MeasuredLength`, so a shop
-can record a measurement on any of them; kernel geometry accepts the nominal
-form, the M5 screens require the measured form.
+Envelope/travel fields are optional and accept `"unknown"`. An applicable
+screen still needs its own limits; absent limits remain measurement debt.
+Dates, citations and attribution do not establish measured status.
 
-All InventoryItems share the declared field set below, regardless of category;
-category-specific usefulness is enforced by rules, not separate subclass schemas.
-Nested dictionaries such as `nominal_dia_mm`, `candidates`, `holders`,
-`plate_holes`, and category/member identities have arbitrary declared keys.
+Tool `dia` / `flute_len` / `oal`, holder `gauge_dia` / `gauge_len` / `grip`,
+projection entries, vise `jaw_height` / `jaw_width` / `jaw_depth` / `opening`,
+and parallels `height` / `length` / `width` accept `MeasuredLength`, allowing
+physical measurements to be recorded on those facts. M4 can accept nominal
+forms; the applicable M5 screens require measurements.
 
-All five inputs are UTF-8 TOML, parsed by `tomllib` and strict Pydantic 2
-models in `src/prechips/model.py`. Unknown keys are forbidden at every modeled
-record (`extra="forbid"`); arbitrary keys are allowed only in explicitly declared
-dictionaries (for example feature identities or `checks`). Floats must be finite;
-booleans are not numeric substitutes. `Number` means a numeric float or the literal
-`"unknown"`; `Vector` means a list of Numbers or `"unknown"`; `Citations` means
-a string or a list of strings. Text fields also accept `"unknown"`.
-
-Every `record()` field below is optional and accepts `"unknown"` in addition to
-the displayed type. Omitted fields are not filled into the loaded bundle; rules
-decide whether missing information is an error, unknown or not applicable.
-Missing facts needed by an applicable check cannot establish known absence or a
-pass. Root fields marked required must be present. A model accepting a value is
-not proof of geometric validity; rules perform the applicable checks.
+All inventory categories use the same `InventoryItem` field set. Rules
+determine category-specific usefulness; separate category subclasses do not.
+See [file selection and schema](#file-selection-and-schema) for omitted,
+unknown and dictionary-key conventions.
 
 ## Root fields
+
+All root fields are optional. Category maps and their individual entries can
+be `"unknown"`; that is unresolved inventory, not an empty shop.
 
 | Field | Type | Presence |
 |---|---|---|
@@ -911,52 +1117,76 @@ not proof of geometric validity; rules perform the applicable checks.
 | `consumables` | `dict[str, Consumable \| AdhesiveTape \| Unknown] \| Unknown` | Optional |
 | `stock` | `list[Stock] \| Unknown` | Optional |
 
-`Consumable` fields (each also accepts `"unknown"`): `name: str`,
-`products: list[str]`.
-A consumable that states a `kind` is typed; `adhesive_tape` (below) is the only
-kind. A coating op's `process` never resolves to a typed consumable.
+An untyped `Consumable` has optional `name: str` and `products: list[str]`,
+each also accepting `"unknown"`. `products` lists in-house product names.
+An unknown/empty list, blank product or `"unknown"` product leaves a coating
+process unresolved.
+
+A coating operation's `process` can select an untyped consumable or a service.
+The setup sheet uses its `name` in the coating tool cell, such as
+`outside: black-oxide finisher (hot black oxide, matte)`. Without a name, it
+prints the identity key rather than inventing a description.
+
+Declaring a consumable `kind` selects a typed record. The only supported kind
+is `adhesive_tape`; a coating process never resolves to a typed consumable.
 
 ## Area holds
 
-Double-sided tape holds the work by the area of its seated footprint, not by a
-clamp. Its facts are a typed record that a plan's [`hold.area`](plan.md#hold)
-references. The design, including the capacity model and Z stack-up the rules
-will read, is [docs/design/area-hold.md](design/area-hold.md); vacuum holds are
-deferred to [#309](https://github.com/pedropaulovc/prechips/issues/309). The
-schema below is accepted; no rule reads these facts yet.
+Double-sided tape uses a typed `consumables` record referenced by plan
+[`hold.area`](plan.md#hold). The shipped implementation validates the input
+shape and identities: `area.ref` must resolve to `adhesive_tape`, and
+`area.on` must name exactly one non-void solid of the selected holding fixture.
+Literal unknown identities remain unresolved. The former `hold.method = "tape"`
+spelling is rejected.
 
-A `CitedFact` is `{ value, cite, measured, verify }`. `value` is > 0 or
-`"unknown"`. The fact is trusted only by its own qualifiers: a known `cite`, or
-a complete `measured` record whose `status` is `"measured"`, with `verify`
-neither true nor unknown. A bare number, a blank or `"unknown"` cite, and an
-assumed, illustrative or status-less measurement are debt for that fact only.
-A cite never stands in for a refused measurement, and nothing above the fact
-(the item's own `cite`, `source` or `verify`) qualifies it. A strength also
-states a `test` naming the test method its value comes from; a missing, blank
-or `"unknown"` `test` is debt. `test` is printed, never parsed. A strength also
-lists `pairs`, each exact interface it was established on as `{ work, seat }`
-cutting-data material classes (nonempty, both sides named). The capacity rule
-will apply it only to a listed pair, roles included: a value for steel work on
-an aluminium seat never stands for steel on steel.
+No current rule qualifies tape capacity or its Z stack-up. Accepted strength,
+thickness, dwell and seat facts do not establish a safe hold. The separate
+Kienzle milling-force helper does not combine them into a tape decision.
+[Area-hold design](design/area-hold.md) defines the proposed capacity and
+stack checks. Vacuum holds remain outside the shipped schema; their proposal
+is tracked in [#309](https://github.com/pedropaulovc/prechips/issues/309).
 
-A fixture solid may state `flatness_mm` (`MeasuredLength`), the flatness of its
-whole top face, and `material`, the material its contact face is made of. An
-area hold's `on` solid needs a measured flatness before its stack can be
-proved, and its `material` is the seat side of a strength's pair.
+### Cited tape facts and intended consumers
 
-`consumables.<id>` with `kind = "adhesive_tape"`:
+`CitedFact` is a `{ value, cite, measured, verify }` record whose `value` must
+be > 0 or `"unknown"`. Bare numbers are not accepted in its place.
+The design's fact-local trust contract requires a known citation or complete
+`status = "measured"` record, with verification neither true nor unknown.
+Blank/unknown citations and assumed, illustrative or status-less measurements
+remain debt. A citation cannot override a refused measurement. Item-level
+`cite`, `source` and `verify` do not qualify the fact.
 
-| Field | Type (also accepts `"unknown"`) | Meaning |
+Strengths add `test`, the test-method name, and `pairs`, a nonempty list of
+`{ work, seat }` cutting-data material classes with both roles named.
+The proposed consumer treats missing, blank or unknown `test` as debt and
+prints it without parsing it. It applies a strength only to a listed pair
+with roles preserved. Steel work on aluminium does not establish steel on
+steel.
+
+A fixture solid can declare `flatness_mm` (`MeasuredLength`) for its whole
+top face and `material` for its contact surface. In the proposed stack model,
+the `on` solid needs measured flatness; its material supplies the seat side of
+the strength pair. These are inputs for that design, not an implemented stack
+proof.
+
+For `consumables.<id>` with `kind = "adhesive_tape"`, `kind` is required and
+the remaining fields are optional and accept `"unknown"`:
+
+| Field | Type | Meaning and planned use |
 |---|---|---|
-| `name` | `str` | display name |
-| `products` | `list[str]` | what is on the shelf |
-| `width_mm` | `MeasuredLength` (> 0; a catalogue nominal is enough) | roll width. Coverage is one seamless length, so a footprint wider than the roll cannot be credited |
-| `thickness_mm` | `LimitsMeasurement` or `[least, greatest]` | applied layer thickness. Only a measured pair (a mic'd sample of the lot on hand) can clear a thickness band; a datasheet pair is printed but stays debt |
-| `shear_n_per_cm2` | `CitedFact` + `test` + `pairs` | shear strength per cm² of contact |
-| `peel_n_per_cm` | `CitedFact` + `test` + `pairs` | peel resistance per cm of peel front |
-| `dwell_min` | `CitedFact` | minimum time from applying the work to cutting, at which both strengths hold. A hard gate: a dwell not met is a STOP |
-| `surface_prep`, `apply` | `str` | printed apply instructions |
-| `release` | `{ method = "solvent" \| "heat", agent, temp_c, wait_min, cite }` | how the tape lets go: a solvent names its `agent`, heat its `temp_c`; `wait_min` and `temp_c` are > 0; printed only with a known cite |
+| `name` | `str` | Display name |
+| `products` | `list[str]` | Products on the shelf |
+| `width_mm` | `MeasuredLength`, > 0 when known | Roll width. The proposed coverage model credits one seamless length, so a wider footprint cannot be credited; trusted catalog nominal width is enough for that model |
+| `thickness_mm` | `MeasuredLimits` | Applied layer thickness, with known pair `0 < least ≤ greatest`. The design requires a measured sample from the lot on hand; datasheet limits remain debt rather than clear the thickness band |
+| `shear_n_per_cm2` | `StrengthFact` (`CitedFact` + `test` + `pairs`) | Shear strength per cm² of contact |
+| `peel_n_per_cm` | `StrengthFact` (`CitedFact` + `test` + `pairs`) | Peel resistance per cm of peel front |
+| `dwell_min` | `CitedFact` | Minimum time from applying work to cutting at which both strengths hold; unmet dwell is a planned STOP condition, not a current capacity check |
+| `surface_prep`, `apply` | `str` | Application instructions for the proposed sheet output |
+| `release` | `{ method = "solvent" \| "heat", agent, temp_c, wait_min, cite }` | Solvent release names `agent` and cannot state `temp_c`; heat names `temp_c` and cannot state `agent`. Known `wait_min` and `temp_c` must be > 0. The design prints release instructions only with a known citation |
+
+This schematic fragment preserves example values and placeholder attribution,
+test methods and citations. It is not measured shop inventory or a qualified
+tape recipe. Replace them with supported records before using the input.
 
 ```toml
 [consumables.tape-film]
@@ -971,6 +1201,9 @@ release = { method = "solvent", agent = "isopropyl alcohol", wait_min = 5, cite 
 ```
 
 ## Stock
+
+Inventory stock describes candidate blanks. Listing one does not establish
+that it is on hand; use the authored presence and provenance fields.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -990,19 +1223,50 @@ release = { method = "solvent", agent = "isopropyl alcohol", wait_min = 5, cite 
 | `on_hand` | `bool` |
 | `material_cite` | `Citations` |
 | `section_mm` | `Vector` |
+| `origin_mm` | `Vector`; model-frame envelope origin, as defined in [plan stock](plan.md#stock) |
+| `axis` | `Vector`; envelope length direction |
+| `section_axis` | `Vector`; rectangular section direction |
 | `as_is_faces` | `list[str]` |
 | `components` | `list[StockComponent]` |
+| `prepared` | `PreparedBlank`; [prepared-blank record](plan.md#prepared-blank) |
 | `cite` | `Citations` |
 
-`StockComponent` is a separate authored blank with `form`, `dia_mm`,
-`length_mm`, `section_mm`, `note`, and `cite`; see [plan stock](plan.md#stock).
-Shared inventory accepting this shape does not assert an authored candidate is
-on hand. A [profiled blank](plan.md#profiled-blank) (`form = "profiled_blank"` or
-a `blank` table, on the stock or a component) is one part's supply bound to a STEP
-in that part's bundle: inventory stock refuses it (exit 3); declare it as the
-plan's stock.
+### Stock components
+
+`components` lists separate authored blanks. Each `StockComponent` requires a
+known, nonblank `id`. The remaining fields are optional and accept `"unknown"`.
+Placement uses the same model-frame semantics as
+[plan stock](plan.md#stock): rectangular origins are corners, round origins
+are starting-face centres, `axis` is the length direction and `section_axis`
+orients a rectangular section.
+
+| Field | Type | Presence |
+|---|---|---|
+| `id` | `str`, not blank or `"unknown"` | Required |
+| `form` | `str` | Optional |
+| `note` | `str` | Optional |
+| `dia_mm` | `Number` | Optional |
+| `length_mm` | `Number` | Optional |
+| `section_mm` | `Vector` | Optional |
+| `origin_mm` | `Vector` | Optional |
+| `axis` | `Vector` | Optional |
+| `section_axis` | `Vector` | Optional |
+| `cite` | `Citations` | Optional |
+
+### Plan-only profiled blanks
+
+The shared `Stock` and `StockComponent` models also define
+`blank: ProfiledBlank`, but inventory rejects any declared `blank` key,
+including `blank = "unknown"`, and any `form = "profiled_blank"` on stock or
+a component (exit 3). It is not an accepted inventory field.
+A [profiled blank](plan.md#profiled-blank) is part-specific supply bound to
+STEP in that part's bundle. Declare it as plan stock instead.
 
 ## Source
+
+`source` can be a string or this provenance record. It can qualify identity
+resolution, but never supplies a dimension's measurement record or inherits
+trust into dimensions.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1016,10 +1280,17 @@ plan's stock.
 
 ## InventoryItem
 
-| Field | Type (also accepts `"unknown"`) |
+Every category and set member uses this shared record. A field being accepted
+here does not make it relevant to every kind of item. Rules determine
+applicability, and [dimension trust](#fact-local-m5-trust) remains separate from
+identity provenance. All fields are optional and accept `"unknown"`.
+
+### Identity, provenance and membership fields
+
+| Field | Type or meaning |
 |---|---|
-| `name` | `str` |
-| `kind` | `str` |
+| `name` | `str`, display name |
+| `kind` | `str`, item family used by consumers |
 | `make` | `str` |
 | `control` | `str` |
 | `operation_mode` | `str` |
@@ -1029,6 +1300,31 @@ plan's stock.
 | `coverage` | `str` |
 | `by` | `str` |
 | `standards` | `str` |
+| `standard` | `str` |
+| `sku` | `str \| int` |
+| `units` | `str`; supported length units are `mm`, `in`, `inch` |
+| `verify` | `bool`, identity verification flag |
+| `present` | `bool`, explicit ownership/presence |
+| `shop_made` | `bool`; also implied by `kind = "custom"` |
+| `source` | `str \| Source` |
+| `cite` | `Citations` |
+| `purchase` | `str`, bought-finished item description |
+| `acceptance` | Nonempty `list[AcceptanceCheck]`; [receipt checks](#purchased-tooling) |
+| `members` | `dict[str, InventoryItem \| Unknown]` |
+| `standard_accessories` | `list[str]` |
+| `included` | `list[str]` |
+| `candidates` | `dict[str, str]` |
+| `holders` | `dict[str, int \| Unknown]` |
+| `make_ops` | Nonempty `list[MakeOp]`; [make operations](#make-operations) |
+| `solids` | `list[FixtureSolid]`; [primitive fields](#fixture-solid-fields) |
+
+### Compatibility and construction labels
+
+These text fields describe identity or compatibility; their names do not
+establish measured geometry.
+
+| Field | Type |
+|---|---|
 | `shank` | `str` |
 | `drawbar` | `str` |
 | `insert` | `str` |
@@ -1038,26 +1334,17 @@ plan's stock.
 | `fits` | `str` |
 | `stud` | `str` |
 | `t_slot_in` | `str` |
-| `standard` | `str` |
 | `series` | `str` |
-| `chart` | `str` |
-| `units` | `str` |
 | `taper` | `str` |
-| `sku` | `str \| int` |
-| `verify` | `bool` |
-| `present` | `bool` |
-| `center_cutting` | `bool` |
-| `swivel_base` | `bool` |
-| `scroll` | `bool` |
-| `independent` | `bool` |
-| `finder_type` | `"mechanical"` / `"electronic"` (`edge_finder`: [Edge finder](#edge-finder)) |
-| `rpm_range` | `[Number, Number]` (`edge_finder`: the maker's spindle-speed band, low < high) |
-| `purchase` | `str` (bought-finished item: what is bought, printed over its receipt checks) |
-| `acceptance` | `list[AcceptanceCheck]` (bought-finished item's receipt checks: [Purchased tooling](#purchased-tooling)) |
-| `envelope` | `MachineEnvelope` |
+
+### Machine and indexing fields
+
+| Field | Type or meaning |
+|---|---|
+| `envelope` | `MachineEnvelope`; [measured limits](#measured-envelopes-and-installed-tool-stacks-m5) |
 | `headstock_tilt_deg` | `float` |
-| `swing_over_bed_in` | `float` |
-| `between_centres_in` | `float` |
+| `swing_over_bed_in` | `float`, top-level descriptive value, not the nested headroom limit |
+| `between_centres_in` | `float`, top-level descriptive value, not the nested headroom limit |
 | `cross_slide_travel_in` | `float` |
 | `compound_travel_in` | `float` |
 | `weight_lb` | `float` |
@@ -1066,78 +1353,113 @@ plan's stock.
 | `swing_in` | `float` |
 | `plates` | `float` |
 | `pieces` | `float` |
-| `angle_deg` | `float` |
-| `point_angle` | `MeasuredAngle` |
-| `blade_speed_sfm` | `[Number, Number]` (machine blade-speed limits) |
-| `saw_modes` | `["horizontal" \| "vertical", ...]` (bandsaw running modes) |
-| `kerf_mm` / `kerf_in` | `MeasuredLength` (selected bandsaw blade or hand saw) |
-| `tpi` | `{ value, cite, measured, verify }`: a saw blade's teeth per inch, a number or a variable pitch `[coarse, fine]`, each > 0 (a bare number is bad input; uncited or flagged is debt) |
-| `flute_len` | `MeasuredLength` |
-| `oal` | `MeasuredLength` |
+| `swivel_base` | `bool` |
+| `scroll` | `bool` |
+| `independent` | `bool` |
+| `spindle` | [Spindle](#spindle) |
+| `leadscrew` | [LeadScrew](#leadscrew) |
+| `capacity_in` | `float \| list[Number] \| Capacity`; [nested capacities](#capacity) |
+| `tailstock` | [Tailstock](#tailstock) |
+| `threads` | [Threads](#threads) |
+| `toolpost` | [Toolpost](#toolpost) |
+| `direct_index` | [DirectIndex](#directindex) |
+| `tilt_deg` | [Tilt](#tilt) |
+| `plate_holes` | `dict[str, Vector]` |
+| `bars` | [Bars](#bars) |
+
+### Cutting-tool and installed-stack fields
+
+Only the listed spellings are modeled. A stem shown with alternatives still
+permits one authored spelling, not simultaneous copies.
+
+| Field | Type or meaning |
+|---|---|
+| `hand` | `str`, cutting hand; separate from `helix_hand` |
+| `center_cutting` | `bool`; see [plunge data](cutting-data.md#plunge) for the supported end-mill use and known gap in tool-kind enforcement |
+| `chart` | `str`, cutting-data citation |
+| `angle_deg` | `float`, including centre-seat angle |
+| `point_angle` | `MeasuredAngle`, drill-point included angle |
+| `dia` / `dia_mm` / `dia_in` | `MeasuredLength` |
+| `flute_len` / `flute_len_mm` / `flute_len_in` | `MeasuredLength` |
+| `pilot_len` / `pilot_len_mm` / `pilot_len_in` | `MeasuredLength`, combined drill/countersink Table 6 drill length C from countersink start to point tip |
+| `oal` / `oal_mm` / `oal_in` | `MeasuredLength` |
+| `shank_mm` | `MeasuredLength`, tool body past its flutes; [`reach`](rules-geometry.md#reach) checks it against retained stock |
+| `shank_in` | `MeasuredLength \| str \| dict[str, list[str]]`; tool shank as above, or set label/size map |
+| `flutes` | `int \| list[int]` |
+| `helix_deg` | `{ value, cite, measured, verify }`, end-mill helix angle 0 ≤ β < 90; cited vendor nominal is enough, bare numbers are bad input, uncited/flagged records remain debt |
+| `helix_hand` | `"right"` / `"left"`, flute hand |
+| `grip_mm` | `MeasuredLength` |
+| `gauge_len_mm` / `gauge_len_in` | `MeasuredLength` |
+| `gauge_dia` / `gauge_dia_mm` / `gauge_dia_in` | `MeasuredLength` |
+| `projection_mm` / `projection_in` | `ProjectionMap`, tools only; [pair ownership and precedence](#projection-ownership-and-precedence) |
+| `lead_mm` | `MeasuredLength`, reamer lead |
+| `max_shank_in` | `float` |
+| `capacity_mm` | `float`, holder nominal collet size with ISO 286 h6 shank band; [`tool_resolves`](rules-tools.md#tool_resolves) |
 | `head_in` | `float` |
 | `max_offset_in` | `float` |
 | `dial_in` | `float` |
-| `length_in` | `MeasuredLength` |
 | `min_bore_in` | `float` |
-| `tip_in` | `float` |
-| `jaw_width_in` | `MeasuredLength` |
-| `jaw_width_mm` | `MeasuredLength` |
-| `jaw_depth_in` | `MeasuredLength` |
-| `jaw_depth_mm` | `MeasuredLength` |
-| `opening_in` | `MeasuredLength` |
-| `opening_mm` | `MeasuredLength` |
-| `jaw_height_in` | `MeasuredLength` |
-| `bed_height_mm` | `MeasuredLength` |
-| `diameter_in` | `float` |
-| `thickness_in` | `float` |
-| `resolution_in` | `MeasuredLength` > 0 or `"unknown"` (on a machine, as `resolution_mm`) |
-| `leaf_tolerance_mm` | `MeasuredLength` (a radius/profile gauge leaf's ±, read by an `R MAX` limit check) |
-| `leaf_tolerance_in` | `MeasuredLength` |
-| `runout_max_in` | `float` |
-| `grip_mm` | `MeasuredLength` |
-| `max_shank_in` | `float` |
-| `lead_mm` | `MeasuredLength` |
-| `projection_mm` | `ProjectionMap` (tools only) |
 | `sfm` | `float` |
 | `chip_load_mm_per_tooth` | `float` |
 | `feed_mm_rev` | `float` |
-| `dia_mm` | `MeasuredLength` |
-| `dia_in` | `MeasuredLength` |
-| `shank_mm` | `MeasuredLength` (the tool body past its flutes: [`reach`](rules-geometry.md#reach) checks it against the retained stock) |
-| `flute_len_mm` | `MeasuredLength` |
-| `flute_len_in` | `MeasuredLength` |
-| `pilot_len` / `pilot_len_mm` / `pilot_len_in` | `MeasuredLength` (combined drill and countersink: Table 6 drill length C, countersink start to point tip) |
-| `oal_mm` | `MeasuredLength` |
-| `oal_in` | `MeasuredLength` |
-| `gauge_len_mm` | `MeasuredLength` |
-| `gauge_len_in` | `MeasuredLength` |
-| `gauge_dia` | `MeasuredLength` |
-| `gauge_dia_mm` | `MeasuredLength` |
-| `gauge_dia_in` | `MeasuredLength` |
-| `projection_in` | `ProjectionMap` (tools only) |
-| `jaw_height_mm` | `MeasuredLength` |
-| `height_mm` | `MeasuredLength` |
-| `height_in` | `MeasuredLength` |
-| `length_mm` | `MeasuredLength` |
-| `width_mm` | `MeasuredLength` |
-| `width_in` | `MeasuredLength` |
-| `capacity_mm` | `float` (a holder's single nominal collet size accepts a tool shank on its ISO 286 h6 band, [`tool_resolves`](rules-tools.md#tool_resolves)) |
-| `capacity_min_mm` / `capacity_min_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
-| `capacity_max_mm` / `capacity_max_in` | `MeasuredLength` (follow/steady rest jaw capacity) |
-| `jaw_angles_deg` | `list[Number]` (follow rest jaw directions about the spindle, degrees from the tool) |
-| `body_dia_mm` / `body_dia_in` | `MeasuredLength` (chuck body; steady rest ring outside diameter) |
-| `body_length_mm` / `body_length_in` | `MeasuredLength` (chuck body; steady rest ring axial length) |
-| `blade_width_mm` / `blade_width_in` | `MeasuredLength` (grooving/parting blade front-edge width) |
-| `bed_height_in` | `MeasuredLength` |
-| `nose_radius_mm` | `float` |
-| `reach_mm` | `float` |
-| `dia` | `MeasuredLength` |
-| `shank_in` | `MeasuredLength \| str \| dict[str, list[str]]` (as `shank_mm` on a tool; a string or size map on a set) |
-| `flutes` | `int \| list[int]` |
-| `helix_deg` | `{ value, cite, measured, verify }` (an end mill's helix angle, 0 ≤ β < 90; a cited vendor nominal is enough; a bare number is bad input, an uncited or flagged record is debt) |
-| `helix_hand` | `"right"` / `"left"`: the flutes' hand, separate from the cutting `hand` |
-| `source` | `str \| Source` |
-| `cite` | `Citations` |
+
+Turning tools and toolpost bodies also accept these fact-local dimensions.
+See [lathe rules](rules-lathe.md) for their geometric use.
+
+| Field | Type |
+|---|---|
+| `nose_radius_mm` / `nose_radius_in` | `MeasuredLength` |
+| `reach_mm` / `reach_in` | `MeasuredLength` |
+| `edge_len_mm` / `edge_len_in` | `MeasuredLength` |
+| `head_len_mm` / `head_len_in` | `MeasuredLength` |
+| `shank_width_mm` / `shank_width_in` | `MeasuredLength` |
+| `functional_width_mm` / `functional_width_in` | `MeasuredLength` |
+| `body_width_mm` / `body_width_in` | `MeasuredLength` |
+| `body_depth_mm` / `body_depth_in` | `MeasuredLength` |
+| `insert_angle_deg` | `MeasuredAngle` |
+| `entering_angle_deg` | `MeasuredAngle` |
+| `blade_width_mm` / `blade_width_in` | `MeasuredLength`, grooving/parting blade front-edge width |
+
+### Saw and edge-finder fields
+
+| Field | Type or meaning |
+|---|---|
+| `blade_speed_sfm` | `[Number, Number]`, machine blade-speed limits |
+| `saw_modes` | Nonempty `["horizontal" \| "vertical", ...]` |
+| `kerf_mm` / `kerf_in` | `MeasuredLength`, selected powered or hand-saw blade |
+| `tpi` | `{ value, cite, measured, verify }`, blade teeth per inch: one positive number or positive `[coarse, fine]` with coarse < fine; bare numbers are bad input, uncited/flagged records remain debt |
+| `finder_type` | `"mechanical"` / `"electronic"`; [edge finder](#edge-finder) |
+| `tip_in` | `float`, finder tip diameter |
+| `rpm_range` | `[Number, Number]`, maker spindle-speed band; known endpoints satisfy 0 < low ≤ high |
+
+### Workholding dimensions
+
+| Field | Type or meaning |
+|---|---|
+| `jaw_width_mm` / `jaw_width_in` | `MeasuredLength` |
+| `jaw_depth_mm` / `jaw_depth_in` | `MeasuredLength` |
+| `jaw_height_mm` / `jaw_height_in` | `MeasuredLength` |
+| `opening_mm` / `opening_in` | `MeasuredLength` |
+| `bed_height_mm` / `bed_height_in` | `MeasuredLength` |
+| `height_mm` / `height_in` | `MeasuredLength` |
+| `length_mm` / `length_in` | `MeasuredLength` |
+| `width_mm` / `width_in` | `MeasuredLength` |
+| `diameter_in` | `float`, not a chuck jaw-capacity range |
+| `thickness_in` | `float` |
+| `thickness_mm` | `MeasuredLength`, including jaw-button thickness |
+| `spigot_dia_mm` / `spigot_dia_in` | `MeasuredLength` |
+| `spigot_length_mm` / `spigot_length_in` | `MeasuredLength` |
+| `capacity_min_mm` / `capacity_min_in` | `MeasuredLength`, follow/steady-rest minimum jaw capacity |
+| `capacity_max_mm` / `capacity_max_in` | `MeasuredLength`, follow/steady-rest maximum jaw capacity |
+| `jaw_angles_deg` | `list[Number]`, follow-rest directions about the spindle, degrees from the tool |
+| `body_dia_mm` / `body_dia_in` | `MeasuredLength`, chuck body or steady-rest ring OD |
+| `body_length_mm` / `body_length_in` | `MeasuredLength`, chuck body or steady-rest ring axial length |
+| `bore_dia_mm` / `bore_dia_in` | `MeasuredLength`, chuck or rotary-table bore |
+
+### Set coverage and gauge fields
+
+| Field | Type or meaning |
+|---|---|
 | `sizes` | `list[str \| int \| float]` |
 | `sizes_in` | `list[str \| float] \| dict[str, list[str]]` |
 | `sizes_mm` | `Vector` |
@@ -1147,56 +1469,94 @@ plan's stock.
 | `ranges_in` | `list[str]` |
 | `range_in` | `float \| list[Number]` |
 | `range_mm` | `float \| list[Number]` |
-| `ra_range` | `list[Number]` (two items, µm Ra; roughness gauges, read by inspection finish_ra) |
-| `resolution_mm` | `MeasuredLength` > 0 or `"unknown"`: a step of 0 or less is refused at load, since it would read every band and zone; inspection trusts only the fact's own qualifiers: `verify = true`/`"unknown"`, an incomplete `measured` or a non-`measured` status stays unknown, never pass or error; on a machine, its declared value is the DRO grid every printed coordinate and depth rounds to the safe side on, else 0.001 plan units, while a declared step whose record is not `measured` leaves every rule that judges on that grid unknown with the resolution as debt: [rules-coordinates](rules-coordinates.md) |
 | `size_in` | `str \| list[Number]` |
 | `nominal_dia_mm` | `dict[str, Number]` |
 | `nominal_dia_cite` | `dict[str, Citations]` |
-| `candidates` | `dict[str, str]` |
-| `holders` | `dict[str, int \| Unknown]` |
-| `standard_accessories` | `list[str]` |
-| `included` | `list[str]` |
-| `spindle` | `Spindle` |
-| `graduation_deg` / `vernier_deg` | `float` (`rotary_table`: dial graduation and vernier; the vernier, else the graduation, is the resolution every printed reading rounds to) |
-| `dial_increases` | `"clockwise"` / `"counterclockwise"` (`rotary_table`: the table turn that raises the dial reading) |
-| `t_slots` | `float` (`rotary_table`: number of T-slots) |
-| `max_work_mm` / `max_work_in` | `MeasuredLength` (`rotary_table`: largest work diameter the stock's swing must fit) |
-| `t_slot_width_mm` / `t_slot_width_in` | `MeasuredLength` (`rotary_table`) |
-| `button_dia_limits_mm` / `button_dia_limits_in` | `MeasuredLimits` (`filing_buttons`: button OD) |
-| `button_bore_limits_mm` / `button_bore_limits_in` | `MeasuredLimits` (`filing_buttons`: button bore on the pin) |
-| `pin_dia_limits_mm` / `pin_dia_limits_in` | `MeasuredLimits` (`filing_buttons`: pin through the button bores and the part's bore) |
-| `button_runout_mm` / `button_runout_in` | `MeasuredLength` (`filing_buttons`: button OD runout, TIR, about its own bore) |
-| `pivot_play_mm` / `pivot_play_in` | `MeasuredLength` (`swing_arm`: the most the beam's axis moves off its pivot pin's; measured) |
-| `rail_radius_mm` / `rail_radius_in` | `MeasuredLength` (`arc_sled`: the rail's radius about its centre) |
-| `rail_form_error_mm` / `rail_form_error_in` | `MeasuredLength` (`arc_sled`: the most the filed rail departs from a true arc; measured) |
-| `roller_runout_mm` / `roller_runout_in` | `MeasuredLength` (`arc_sled`: the guide rollers' OD runout, TIR; measured) |
-| `rail_side` | `"outer"` / `"inner"` (`arc_sled`: the rollers bear on the rail from outside the arc, or from the arc centre's side) |
-| `roller_dia_mm` / `roller_dia_in` | `MeasuredLength` (`arc_sled`: the guide rollers' OD; measured, needed for rollers inside the rail) |
-| `radius_limits_mm` / `radius_limits_in` | `MeasuredLimits` (`setting_bar` / `master_arc`: the radius the touch face sets about the guide's centre; measured) |
-| `roller_height_mm` / `roller_height_in` | `MeasuredLength` (`arc_sled`: the guide rollers' top above the table, for the setup picture; measured) |
-| `rail_angle_deg` / `rail_angle_error_deg` | `MeasuredAngle` (`trammel`: the rails' pin-line crossing angle, and the most it is off; measured) |
-| `pin_spacing_mm` / `pin_spacing_in` | map of pin pair name to `MeasuredLength` (`trammel`: each pin pair's spacing on the carrier; measured) |
-| `pin_spacing_error_mm` / `pin_spacing_error_in` | `MeasuredLength` (`trammel`: the most a pair's spacing is off; measured) |
-| `pin_clearance_mm` / `pin_clearance_in` | `MeasuredLength` (`trammel`: a pin's radial play in its carriage; measured) |
-| `rail_offset_mm` / `rail_offset_in` | `MeasuredLength` (`trammel`: the most a rail's pin-line stands off the spindle axis; measured) |
-| `rail_travel_mm` / `rail_travel_in` | `MeasuredLimits` (`trammel`: a pin's nearest and farthest station along its rail from the spindle axis; measured) |
-| `pin_dia_mm` / `pin_dia_in`, `rail_width_mm` / `rail_width_in`, `rail_height_mm` / `rail_height_in` | `MeasuredLength` (`trammel`: for the setup picture only; measured) |
-| `carrier_length_mm` / `carrier_length_in`, `carrier_width_mm` / `carrier_width_in`, `carrier_thickness_mm` / `carrier_thickness_in` | `MeasuredLength` (`trammel`: the carrier plate, for the setup picture only; measured) |
-| `make_document` | `{ id, revision, cite }` (`trammel`: the drawing or document it is built and commissioned to, outside the traveler) |
-| `commissioning_record` | `str` (`trammel`: where the install record of its rails' alignment is kept) |
-| `dowel_reading_mm` / `dowel_reading_in` | `MeasuredLength` (`trammel`: commissioning, the largest miss a dowel in a carriage read against its predicted stations; measured) |
-| `leadscrew` | `LeadScrew` |
-| `capacity_in` | `float \| list[Number] \| Capacity` |
-| `tailstock` | `Tailstock` |
-| `threads` | `Threads` |
-| `toolpost` | `Toolpost` |
-| `direct_index` | `DirectIndex` |
-| `tilt_deg` | `Tilt` |
-| `plate_holes` | `dict[str, Vector]` |
-| `bars` | `Bars` |
-| `members` | `dict[str, 'InventoryItem \| Unknown']` |
+| `ra_range` | Two-item `list[Number]`, µm Ra; roughness gauge capability read by inspection `finish_ra` |
+| `resolution_mm` / `resolution_in` | `MeasuredLength`, > 0 when known; gauge resolution or machine DRO step |
+| `leaf_tolerance_mm` / `leaf_tolerance_in` | `MeasuredLength`, radius/profile leaf ± tolerance consumed by `R MAX` |
+| `runout_max_in` | `float` |
+
+A zero or negative resolution is rejected at load; it cannot be used to read
+every band or zone. Inspection trusts only the resolution fact's own
+qualifiers. Verification debt, incomplete measurement or non-`measured`
+status leaves it unknown rather than establishing pass or error.
+
+On a machine, a declared positive resolution is the DRO grid used to round
+printed coordinates and depths to the safe side. Missing resolution uses the
+disclosed provisional 0.001 plan-unit step. Rules judging on that grid still
+remain unknown when the declared step is not measured and name resolution as
+debt. See [coordinates](rules-coordinates.md).
+
+### Manual-arc fields
+
+The detailed use and measurement requirements are under
+[Manual-arc kit](#manual-arc-kit). These fields complete its shared item
+schema.
+
+| Field | Type or meaning |
+|---|---|
+| `graduation_deg` / `vernier_deg` | `float`, rotary-table dial graduation/vernier; printed readings round to vernier, otherwise graduation |
+| `dial_increases` | `str`, `"clockwise"` / `"counterclockwise"` table turn that increases the dial reading |
+| `t_slots` | `float`, rotary-table slot count |
+| `max_work_mm` / `max_work_in` | `MeasuredLength`, largest work diameter that must contain the stock swing |
+| `t_slot_width_mm` / `t_slot_width_in` | `MeasuredLength` |
+| `button_dia_limits_mm` / `button_dia_limits_in` | `MeasuredLimits`, filing-button OD |
+| `button_bore_limits_mm` / `button_bore_limits_in` | `MeasuredLimits`, button bore on the pin |
+| `pin_dia_limits_mm` / `pin_dia_limits_in` | `MeasuredLimits`, pin through button and part bores |
+| `button_runout_mm` / `button_runout_in` | `MeasuredLength`, button OD TIR about its bore |
+| `pivot_play_mm` / `pivot_play_in` | `MeasuredLength`, swing-arm beam-axis displacement from pivot axis; measured |
+| `rail_radius_mm` / `rail_radius_in` | `MeasuredLength`, arc-sled rail radius about its centre |
+| `rail_form_error_mm` / `rail_form_error_in` | `MeasuredLength`, greatest filed-rail arc-form departure; measured |
+| `roller_runout_mm` / `roller_runout_in` | `MeasuredLength`, guide-roller OD TIR; measured |
+| `rail_side` | `"outer"` / `"inner"`, roller contact from outside the rail arc or centre side |
+| `roller_dia_mm` / `roller_dia_in` | `MeasuredLength`, guide-roller OD; measured, required for inside rollers |
+| `radius_limits_mm` / `radius_limits_in` | `MeasuredLimits`, seated setting-bar/master-arc touch radius about guide centre; measured |
+| `roller_height_mm` / `roller_height_in` | `MeasuredLength`, guide-roller top above table; measured, picture only |
+| `rail_angle_deg` / `rail_angle_error_deg` | `MeasuredAngle`, trammel pin-line crossing angle and greatest angle error; measured |
+| `pin_spacing_mm` / `pin_spacing_in` | Map from pin-pair name to `MeasuredLength`; measured |
+| `pin_spacing_error_mm` / `pin_spacing_error_in` | `MeasuredLength`, greatest pair-spacing error; measured |
+| `pin_clearance_mm` / `pin_clearance_in` | `MeasuredLength`, pin radial carriage play; measured |
+| `rail_offset_mm` / `rail_offset_in` | `MeasuredLength`, greatest aligned rail pin-line offset from spindle axis; measured |
+| `rail_travel_mm` / `rail_travel_in` | `MeasuredLimits`, nearest/farthest pin stations from spindle axis; measured |
+| `pin_dia_mm` / `pin_dia_in`, `rail_width_mm` / `rail_width_in`, `rail_height_mm` / `rail_height_in` | `MeasuredLength`, trammel picture only; measured |
+| `carrier_length_mm` / `carrier_length_in`, `carrier_width_mm` / `carrier_width_in`, `carrier_thickness_mm` / `carrier_thickness_in` | `MeasuredLength`, trammel carrier-plate picture only; measured |
+| `make_document` | `{ id, revision, cite }`, document used to build and commission the trammel outside the setup sheet |
+| `commissioning_record` | `str`, location of rail-alignment installation record |
+| `dowel_reading_mm` / `dowel_reading_in` | `MeasuredLength`, largest commissioning miss from predicted carriage-dowel stations; measured |
+
+### Fixture solid fields
+
+`solids` contains `FixtureSolid` records in the item's local frame. Their
+geometry, void and trust behavior is defined under
+[authored primitives and voids](#authored-primitives-and-voids).
+`Point3` below means exactly three Numbers. Each field is optional and accepts
+`"unknown"`; a drawable primitive still needs its shape's actual geometry.
+
+| Field | Type or meaning |
+|---|---|
+| `name`, `shape`, `note`, `label`, `locates`, `fastener` | `str` |
+| `at_mm` | `Point3`, box minimum corner or cylinder base centre |
+| `size_mm` | `Point3`, box dimensions |
+| `axis` | `Point3`, cylinder axis |
+| `dia_mm`, `length_mm` | `Number`, cylinder diameter/length |
+| `void` | `bool` |
+| `cuts` | `list[str]`, same-list primitive names |
+| `shim` | `bool` |
+| `supply` | `"made"` / `"bought"` / `"existing"` |
+| `bears` | `"bore"` / `"face"` |
+| `records` | `list[RecordBlank]`; [measurement record blanks](#measurement-record-blanks) |
+| `make_ops` | Nonempty `list[MakeOp]`; [make operations](#make-operations) |
+| `measured` | `Measurement`, primitive-local evidence |
+| `verify` | `bool`, primitive-local verification flag |
+| `flatness_mm` | `MeasuredLength`, top-face flatness for the proposed area-hold stack |
+| `material` | `str`, contact-face material for the proposed area-hold strength interface |
 
 ## Spindle
+
+`machines.<id>.spindle` declares machine spindle identity, speed bands and mill
+cutting rotation. Holder matching consumes its taper; speed selection and
+edge-finder pickup consume its available speed bands.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1213,37 +1573,51 @@ plan's stock.
 | `ranges_rpm` | `list[list[Number]]` |
 | `rotation` | `"cw"` / `"ccw"` / `{value, measured, verify}` |
 
-`rotation` is the spindle's cutting rotation viewed from above, looking down
-setup -Z (a right-hand cutter runs `cw`, M03). It may be bare or a labelled
-fact `{ value = "cw", measured = {status, by, date, instrument} }`; a labelled value
-flagged `verify = true`, or whose record's status is not `measured`, counts as undeclared,
-and the coordinates finding names it in the measurement checklist. With an op's `direction`
-(`conventional`/`climb`) it fixes the cutting order of contour tables
-(see [coordinates](rules-coordinates.md)); absent, that order stays unknown.
-A reamer's `lead` is read the same fact-local way; an untrusted lead keeps
-`tip_endpoints` unknown with that lead listed.
+### Mill rotation and contour order
 
-A lathe spindle's turn comes from the op's tool, not from `rotation`: the turn is
-FORWARD (the top of the work turns toward the operator) for a lathe op whose tool
-declares `hand = "right"` or `"left"` (a turning, facing, grooving or boring tool
-of either hand is set edge up, as the turning model poses it), REVERSE for a
-left-hand-cut tailstock tool (centre drill, drill, reamer, tap), and a STOP when
-the tool declares no `hand`. When every spindle op of the setup turns the same
-known way, the op table's heading says it once (`spindle FORWARD whenever it runs:
-…`) and the rpm cells carry only the speed; mixed turns print the word in each rpm
-cell, the heading saying once what each word means.
+`rotation` is viewed from above, looking down setup -Z. A right-hand cutter
+runs `cw` (M03). It can be bare or a record such as
+`{ value = "cw", measured = {status, by, date, instrument} }`.
+A labelled value with verification debt or non-`measured` status counts as
+undeclared and enters the coordinates measurement checklist.
+
+Together with operation `direction` (`conventional` / `climb`), rotation
+determines contour-table cutting order. Without it, that order remains
+unknown. See [coordinates](rules-coordinates.md).
+A reamer's `lead` uses the same fact-local trust: an untrusted lead leaves
+`tip_endpoints` unknown and is listed as debt.
+
+### Lathe spindle instructions
+
+Lathe turn comes from the operation's tool, not machine `rotation`.
+Turning, facing, grooving and boring tools with either `hand = "right"` or
+`"left"` are posed edge-up and use FORWARD: the top of the work turns toward
+the operator. A tailstock centre drill, drill, reamer or tap uses FORWARD for
+a right-hand cut and REVERSE for a left-hand cut. Undeclared tool hand
+produces a STOP.
+
+When all spindle operations in a setup use the same known turn, the operation
+heading states it once (`spindle FORWARD whenever it runs: …`) and rpm cells
+give only speed. Mixed turns print the word in each rpm cell, with the
+heading defining the words once.
 
 ## Length and angle facts
 
-There are no `Travel` or `Table` records: travel and spindle-to-table limits
-live only under `envelope` (see [measurement records](#measurement-records)),
-and the former `table_in` length/width/`t_slot` block is not modeled. The
-`t_slot_in` text on a clamping kit is an identity label, not a measured pitch.
-Inventory loading rejects a `measured` record on an item root, an envelope
-block, a `source` or a member; the only measurement evidence is the
-`LengthMeasurement`/`MeasuredAngle` record on the fact itself.
+Machine travel and spindle-to-table limits live under `envelope`, using
+`EnvelopeTravel` and `MachineEnvelope`. There are no separate `Travel` or
+`Table` records, and `table_in` length/width/`t_slot` blocks are rejected.
+A clamping kit's `t_slot_in` text is an identity label, not measured pitch.
+
+Measurement evidence belongs to the fact, not the item, member, source or
+envelope block. Lengths and angles use the fact records in
+[Measurement records](#measurement-records); fixture primitives carry their
+own measurement metadata. The [unit rules](#units-and-set-members) prohibit
+duplicate single-length spellings.
 
 ## LeadScrew
+
+The `leadscrew` record declares screw pitch, dial increment and cross-feed
+choices. `tpi` here is a machine-screw value, not the blade `tpi` record.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1253,6 +1627,10 @@ block, a `source` or a member; the only measurement evidence is the
 
 ## Capacity
 
+The nested form of `capacity_in` records nominal drilling, end-milling and
+face-milling capacities in inches. It does not replace measured
+[machine envelope limits](#measured-envelopes-and-installed-tool-stacks-m5).
+
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `drill` | `float` |
@@ -1261,12 +1639,18 @@ block, a `source` or a member; the only measurement evidence is the
 
 ## Tailstock
 
+`tailstock` declares quill identity and travel. Its quill diameter supplies
+the modeled obstacle behind a dead-centre fixture.
+
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `taper` | `str` |
 | `quill_travel_in` | `Number` |
+| `quill_dia_mm` / `quill_dia_in` | `MeasuredLength` |
 
 ## Threads
+
+`threads` lists the lathe's available inch TPI and metric pitches.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1274,6 +1658,9 @@ block, a `source` or a member; the only measurement evidence is the
 | `metric_pitch_mm` | `Vector` |
 
 ## Toolpost
+
+`toolpost` declares holder-series compatibility and the printed instructions
+for setting a lathe tool on centre and squaring a grooving/parting blade.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1288,6 +1675,9 @@ block, a `source` or a member; the only measurement evidence is the
 
 ## DirectIndex
 
+`direct_index` declares the direct-index position count and angular step.
+See [indexing rules](rules-indexing.md) for setting checks.
+
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `positions` | `float` |
@@ -1295,12 +1685,17 @@ block, a `source` or a member; the only measurement evidence is the
 
 ## Tilt
 
+The `tilt_deg` record declares downward and upward tilt limits in degrees.
+
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
 | `down` | `float` |
 | `up` | `float` |
 
 ## Bars
+
+`bars` describes boring-bar count, type and available shank, minimum-bore and
+depth sizes. Its fields are declarations, not installed reach measurements.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
