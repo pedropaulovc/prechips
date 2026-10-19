@@ -609,3 +609,55 @@ def test_missing_setup_id_reaches_loaders_bad_input_contract(tmp_path):
     path = bundle_files(tmp_path, PLAN.replace('id = "S1"\n', ""))
     with pytest.raises(BadInput, match="Setup ids must be known and non-empty"):
         load_bundle(path)
+
+
+def test_ordinary_setup_states_allow_fan_out_and_selected_ancestor_rework():
+    plan = {
+        "part": "ordinary-state-routing",
+        "features": "features.toml",
+        "setups": [
+            {"id": "S1", "stock_in": "stock"},
+            {"id": "S2", "stock_in": "S1"},
+            {"id": "S3", "stock_in": "S1"},
+            {"id": "S4", "stock_in": "S2"},
+        ],
+    }
+    validated = Plan.model_validate(plan).model_dump(exclude_unset=True)
+    graph = MaterialGraph(validated, validate=True)
+    assert graph.roots("S3") == {"stock"}
+    assert setup_lineage(validated, "S3") == {"S1", "S3"}
+    assert setup_lineage(validated, "S4") == {"S1", "S2", "S4"}
+    # Alternative process states are not two disjoint pieces to assemble together.
+    plan["setups"].append(
+        {
+            "id": "invalid_join",
+            "stock_in": ["S2", "S3"],
+            "joint": copy.deepcopy(route()["setups"][-1]["joint"]),
+        }
+    )
+    with pytest.raises(ValueError, match="shares ancestor"):
+        Plan.model_validate(plan)
+
+
+def test_named_partition_does_not_make_unrelated_ordinary_setup_states_single_use():
+    plan = route()
+    plan["stock"] = {"components": [{"id": "bar"}, {"id": "plate"}]}
+    plan["setups"][0]["stock_in"] = "stock.bar"
+    plan["setups"].extend(
+        [
+            {"id": "plate_start", "stock_in": "stock.plate"},
+            {"id": "plate_second", "stock_in": "plate_start"},
+            {"id": "plate_rework", "stock_in": "plate_start"},
+        ]
+    )
+    graph = MaterialGraph(Plan.model_validate(plan).model_dump(exclude_unset=True), validate=True)
+    assert graph.roots("A1") == {"stock.bar"}
+    assert graph.roots("plate_second") == graph.roots("plate_rework") == {"stock.plate"}
+    assert all(atom.split is None for atom in graph.nodes["plate_rework"])
+
+
+def test_unsplit_predecessor_of_named_partition_is_still_exclusive():
+    plan = route()
+    plan["setups"].insert(1, {"id": "other_use", "stock_in": "P1"})
+    with pytest.raises(ValueError, match="already consumed"):
+        Plan.model_validate(plan)

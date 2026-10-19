@@ -7,6 +7,7 @@ repository's own sources.
 import ast
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import textwrap
@@ -25,6 +26,15 @@ _spec.loader.exec_module(split)
 
 def _names(source, **kwargs):
     return [(u.name, u.kind) for u in split.units(textwrap.dedent(source), **kwargs)]
+
+
+def _pytest_env(*paths):
+    # Keep Windows startup requirements (notably SYSTEMROOT for Winsock/_overlapped),
+    # but do not inherit the outer test run's import paths or pytest configuration.
+    env = {name: value for name, value in os.environ.items() if not name.startswith("PYTEST_")}
+    env["PYTHONPATH"] = os.pathsep.join(map(str, paths))
+    env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    return env
 
 
 def test_units_keep_comments_type_aliases_and_trailers_with_their_symbol():
@@ -207,7 +217,7 @@ def test_a_patch_of_a_name_two_files_read_patches_both(at, tmp_path):
     process = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(test)],
         cwd=tmp_path,
-        env={"PYTHONPATH": f"{tmp_path / 'src'}:{tmp_path / 'tests'}", "PATH": "/usr/bin:/bin"},
+        env=_pytest_env(tmp_path / "src", tmp_path / "tests"),
         capture_output=True,
         text=True,
     )
@@ -279,7 +289,7 @@ def test_apply_moves_symbols_and_mixins_and_rewrites_importers_and_patches(at, t
     process = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(test)],
         cwd=tmp_path,
-        env={"PYTHONPATH": str(tmp_path / "src"), "PATH": "/usr/bin:/bin"},
+        env=_pytest_env(tmp_path / "src"),
         capture_output=True,
         text=True,
     )
@@ -606,7 +616,7 @@ def test_value_uses_rest_rebinds_a_value_alias_to_the_entry_points_file(at, tmp_
     process = subprocess.run(
         [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(test)],
         cwd=tmp_path,
-        env={"PYTHONPATH": str(tmp_path / "src"), "PATH": "/usr/bin:/bin"},
+        env=_pytest_env(tmp_path / "src"),
         capture_output=True,
         text=True,
     )

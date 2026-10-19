@@ -129,6 +129,7 @@ p { margin: var(--space-xs) 0; }
 .meta { display: flex; justify-content: space-between; gap: var(--space-sm);
 align-items: flex-start; font-size: var(--text-running); }
 .meta > * { min-width: 0; }
+.meta > div { flex-shrink: 0; white-space: nowrap; }
 .banner { border: var(--rule-warning) solid var(--color-ink); font-weight: bold;
 padding: var(--space-xs) var(--space-sm); margin: var(--space-sm) 0; }
 .stop { border: var(--rule-warning) solid var(--color-ink);
@@ -10582,10 +10583,7 @@ class _Traveler:
                 if isinstance(cite, str) and cite != "unknown" and cite not in cites:
                     cites.append(cite)
         if not cites:
-            return (
-                "Speeds / feeds: no cited source — STOP before powered cuts that require "
-                "speed/feed settings until those settings are sourced."
-            )
+            return "Speeds / feeds: no cited source — resolve speed/feed STOPs before powered cuts."
         return "Speeds and feeds are starting points, not limits."
 
     def material(self):

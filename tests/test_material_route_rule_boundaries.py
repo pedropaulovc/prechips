@@ -571,3 +571,32 @@ def test_saw_native_volumes_cannot_override_scribe_material_debt(monkeypatch, ow
     )
     if expected == "unknown":
         assert "survives the material partition" in finding.sentence
+
+
+@pytest.mark.parametrize("sid", ["BASE", "LATER"])
+def test_ordinary_scribed_line_needs_no_retained_partition_registration(sid):
+    bundle = routed_bundle(action="scribe")
+    root = setup(bundle, "BASE")
+    later = {"id": "LATER", "stock_in": "BASE", "ops": []}
+    bundle.plan["setups"] = [root, later]
+    saw = {"op": 30, "do": "saw_cut", "follows": "BASE:10"}
+    # The ordinary follows witness is already bound by Plan.saw_shapes. Its lack
+    # of a source finished-solid owner introduces no new partition or pose debt.
+    assert saw_cut.scribe_material_status(bundle, setup(bundle, sid), saw) is True
+
+
+@pytest.mark.parametrize("identity", [None, "", "unknown"])
+@pytest.mark.parametrize("unresolved_target", [False, True])
+def test_incomplete_rendering_identity_has_no_known_process_arrival_footprint(
+    identity, unresolved_target
+):
+    from prechips.process_features import arriving_bounds
+
+    first = {"id": identity if unresolved_target else "FIRST", "stock_in": "stock", "ops": []}
+    later = {"id": "LATER" if unresolved_target else identity, "stock_in": "FIRST", "ops": []}
+    bundle = SimpleNamespace(plan={"setups": [first, later]})
+    definition = {
+        "bounds": {"x": [0, 1], "y": [0, 1], "z": [0, 1]},
+        "preparation": {"id": "end", "kind": "end_face"},
+    }
+    assert arriving_bounds(bundle, first, definition) is None

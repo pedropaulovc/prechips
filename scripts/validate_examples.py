@@ -1194,6 +1194,7 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
     for setup in setups:
         sid = setup["id"]
         bench = manual_bench(inventory, setup)
+        threaded_manual = manual_thread_facts(inventory, setup) if bench is None else None
         if bench is None:
             frame = setup.get("frame", "unknown")
             require(
@@ -1220,17 +1221,33 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
             )
         elif any(spindle_saw(inventory, setup, op) for op in setup["ops"]):
             check_spindle_zero(setup, findings["zero_check", sid], inventory)
-        elif bench is None:
-            require(isinstance(setup.get("zero"), dict), f"{sid}: missing zero")
-            lathe = machine_kind(setup, Entries(inventory)) == "lathe"
-            axes = ("x", "z") if lathe else ("x", "y", "z")
-            for axis in axes:
-                recipe = setup["zero"].get(axis)
+        elif threaded_manual is not None:
+            # Stopped-spindle thread work waives only these two electronic screens.
+            for rule in ("zero_check", "coordinates"):
+                has(rule, sid)
                 require(
-                    isinstance(recipe, dict) and "check_jog_mm" in recipe,
-                    f"{sid}: missing {axis} check jog",
+                    findings[rule, sid]["status"] == "not_applicable"
+                    and findings[rule, sid]["numbers"] == threaded_manual,
+                    f"{sid}: {rule} must name the all-manual thread facts that waive it",
                 )
-            require("retouch_after" in setup["zero"]["z"], f"{sid}: missing retouch contract")
+        elif bench is None:
+            for rule in ("zero_check", "coordinates"):
+                has(rule, sid)
+                require(
+                    findings[rule, sid]["status"] != "not_applicable",
+                    f"{sid}: {rule} cannot waive unknown or mixed machine work",
+                )
+            if table_of(plan.get("dro")).get("kind", "digital") == "digital":
+                require(isinstance(setup.get("zero"), dict), f"{sid}: missing zero")
+                lathe = machine_kind(setup, Entries(inventory)) == "lathe"
+                axes = ("x", "z") if lathe else ("x", "y", "z")
+                for axis in axes:
+                    recipe = setup["zero"].get(axis)
+                    require(
+                        isinstance(recipe, dict) and "check_jog_mm" in recipe,
+                        f"{sid}: missing {axis} check jog",
+                    )
+                require("retouch_after" in setup["zero"]["z"], f"{sid}: missing retouch contract")
         else:
             # Manual bench fit/inspect work sets no DRO zero; the screens say so by name.
             for rule in ("zero_check", "coordinates", "headroom"):
@@ -3086,11 +3103,144 @@ def contact_retouch(recipe: dict) -> dict:
     return touch
 
 
+def manual_thread_facts(inventory: dict, setup: dict):
+    """Independent proof of wholly manual thread work, never a holding waiver."""
+    reference = setup.get("machine", "unknown")
+    kind = Entries(inventory).record(reference, "machines").get("kind")
+    ops = setup.get("ops")
+    if (
+        kind not in BENCH_KINDS | {"lathe", "mill", "drill_press"}
+        or not isinstance(ops, list)
+        or not ops
+        or not any(op.get("do") in HAND_THREAD for op in ops)
+        or not all(op.get("do") in MANUAL for op in ops)
+    ):
+        return None
+    return {
+        "machine": reference,
+        "machine_kind": kind,
+        "manual_thread": True,
+        "operations": [{"op": op.get("op", "unknown"), "do": op["do"]} for op in ops],
+    }
+
+
+def readout_fields(plan: dict, features: dict) -> dict:
+    """Independent source-scale facts; CAD and readout units are distinct.
+
+    A diameter-scale increment is diameter change, not radial travel. A source
+    procedure or positive graduation does not prove physical calibration or zero.
+    The explanatory debt sentence is wording, checked separately by check_readout.
+    """
+    dro = table_of(plan.get("dro"))
+    units = dro.get("units", features.get("units", "unknown"))
+    graduation = dro.get("graduation", "unknown")
+    graduation = graduation if positive(graduation) else "unknown"
+    unit_mm = UNIT_MM.get(units)
+    graduation_mm = graduation * unit_mm if numeric(graduation) and unit_mm else "unknown"
+    radius = dro.get("radius_mode")
+    radial = (
+        graduation_mm / (1 if radius is True else 2)
+        if numeric(graduation_mm) and isinstance(radius, bool)
+        else "unknown"
+    )
+    return {
+        "kind": dro.get("kind", "digital"),
+        "units": units,
+        "graduation": graduation,
+        "graduation_mm": graduation_mm,
+        "x_radial_graduation_mm": radial,
+        "x_scale": "radius" if radius is True else "diameter" if radius is False else "unknown",
+        "procedure": dro.get("procedure", "unknown"),
+        "backlash": dro.get("backlash", "unknown"),
+        "calibration": dro.get("calibration", "unknown"),
+    }
+
+
+def check_readout(reported, plan: dict, features: dict, where: str) -> None:
+    """Hold reported mechanical/unknown scale facts to authored inputs, not a rule helper."""
+    fields = readout_fields(plan, features)
+    require(
+        isinstance(reported, dict) and set(reported) == set(fields) | {"debt"},
+        f"{where}: readout fields are not the declared scale's",
+    )
+    for key, value in fields.items():
+        require(
+            same_evidence(reported[key], value),
+            f"{where}: readout {key} is not the plan's {value!r}",
+        )
+    # Wording is not evidence, but an unproved physical instrument cannot lose its debt.
+    debt = reported["debt"]
+    require(
+        isinstance(debt, str) and debt.strip() not in {"", "unknown"},
+        f"{where}: readout physical-setting debt is missing",
+    )
+
+
+def mechanical_zero_rows(setup: dict, own, entries: Entries) -> tuple:
+    """Independent source pickup rows, held without any electronic preset or carry proof.
+
+    The returned readout has the source/numeric fields only; check_readout validates
+    their report plus its nonempty explanatory debt. Nominal edge_mm and source
+    calibration prose cannot register a physical dial or create carried Z readings.
+    """
+    zero = table_of(setup.get("zero"))
+    fields = readout_fields(own.plan, own.features)
+    axes = {
+        axis: {
+            key: recipe.get(key, "unknown")
+            for key in ("procedure", "method", "dial_setting", "face", "feature", "tool", "gauge")
+        }
+        for axis in ("x", "y", "z")
+        if isinstance(recipe := zero.get(axis), dict)
+    }
+    machine = machine_record(setup, entries)
+    lathe = machine.get("kind") == "lathe" or "lathe" in str(machine.get("type", "")).lower()
+    needed = ("x", "z") if lathe else ("x", "y", "z")
+    missing = [
+        f"{axis.upper()} physical dial setting"
+        for axis in needed
+        if not numeric(table_of(axes.get(axis)).get("dial_setting"))
+    ]
+    if not axes:
+        missing.append("physical zero/pickup procedure")
+    missing.extend(
+        key for key in ("graduation", "calibration", "backlash") if fields[key] == "unknown"
+    )
+    directions = table_of(table_of(own.plan.get("dro")).get("direction"))
+    missing.extend(
+        f"{axis.upper()} direction"
+        for axis in needed
+        if directions.get(axis, "unknown") == "unknown"
+    )
+    if fields["units"] not in UNIT_MM:
+        missing.append("readout units")
+    if lathe and fields["x_scale"] == "unknown":
+        missing.append("X diameter/radius scale")
+    touches = zero.get("tool_touches")
+    return (
+        "unknown",
+        {
+            "frame": setup.get("frame", "unknown"),
+            "readout": fields,
+            "axes": axes,
+            "physical_setting_debt": missing,
+            "tool_touches": [row for row in touches if isinstance(row, dict)]
+            if isinstance(touches, list)
+            else [],
+        },
+        {},
+    )
+
+
 def derive_zero(setup: dict, own, entries: Entries) -> tuple:
-    """``(status, numbers)``: the ``zero_check`` finding of a setup that sets a DRO zero
-    (:func:`zero_rows`), with a lathe's tool-setting rows and every row or verdict only
-    the checker derives on these inputs (:func:`checker_row`)."""
+    """The independently derived zero evidence; electronic-only extras stay electronic.
+
+    A digital zero carries lathe tool-setting rows and checker-only evidence
+    (:func:`checker_row`); a mechanical zero never merges that electronic recipe.
+    """
     status, numbers, _ = zero_rows(setup, own, entries)
+    if table_of(own.plan.get("dro")).get("kind", "digital") != "digital":
+        return status, numbers
     if zero_rules_touch.lathe_setup(own, setup):
         numbers["tool_setting"] = zero_rules_tool_setting.tool_setting(
             own, setup, setup["zero"], numbers["tool_touches"], numbers["derived_touches"]
@@ -3099,11 +3249,11 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
 
 
 def zero_rows(setup: dict, own, entries: Entries) -> tuple:
-    """``(status, numbers, readings)``: the ``zero_check`` rows of a setup that sets a DRO
-    zero, from the validator's own inputs ``own`` (:func:`zero_inputs`) alone, and per
-    cutting op the carried Z touch its DRO reads (``readings``: physical and native
-    heights, typed setting, stand-off and residual; "unknown" for a native face its touch
-    cannot place; absent otherwise).
+    """``(status, numbers, readings)``: independent ``zero_check`` rows and per-op carried
+    electronic Z readings, from the validator's own inputs ``own`` (:func:`zero_inputs`).
+    Mechanical pickups stay held with no carried readings, never nominal-edge presets.
+    Electronic readings carry physical and native heights, typed setting, stand-off and
+    residual; "unknown" for a native face its touch cannot place; absent otherwise.
 
     The DRO's jog polarity per axis is the plan's ``dro.direction`` (:data:`DRO_COUNTS`):
     a reversed axis (-1), or a mode other than ABS, is the error to stop on. The display
@@ -3126,6 +3276,8 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
     (:func:`safe_down_setting`), every carried contact so, its listed retouches contacts
     whatever the zero's own method (:func:`contact_retouch`). A lathe X touch's Axis Set
     is the checker's own expression of it (``x_touch_set``)."""
+    if table_of(own.plan.get("dro")).get("kind", "digital") != "digital":
+        return mechanical_zero_rows(setup, own, entries)
     plan = own.plan
     dro = plan.get("dro") if isinstance(plan.get("dro"), dict) else {}
     counts = dro.get("direction") if isinstance(dro.get("direction"), dict) else {}
@@ -3458,11 +3610,30 @@ def check_spindle_zero(setup: dict, finding: dict, inventory: dict) -> None:
 
 
 def check_zero(setup: dict, finding: dict, entries: Entries, own) -> None:
-    """The ``zero_check`` finding of a setup that sets a DRO zero carries the verdict and
-    every row the validator derives from its own inputs (:func:`derive_zero`): the jog
-    polarity, Axis Set and readings of each axis, each retouch, each tool touch, re-touch
-    and missing touch, and the DRO mode it prints. No reported sign, mode, reading or
-    status is an operand: a report's rows can only repeat them."""
+    """Hold the zero's verdict and rows to independent authored-input derivations.
+
+    Electronic jogs, modes, presets and tool touches follow :func:`derive_zero`.
+    Mechanical source pickups have no electronic settings and cannot waive their
+    unverified physical registration. No report field or verdict is an operand.
+    """
+    if table_of(own.plan.get("dro")).get("kind", "digital") != "digital":
+        status, numbers = derive_zero(setup, own, entries)
+        sid, reported = setup["id"], finding["numbers"]
+        check_readout(reported.get("readout"), own.plan, own.features, sid)
+        require(
+            set(reported) == set(numbers),
+            f"{sid}: mechanical zero cannot invent digital modes, presets or retouches",
+        )
+        for key in numbers.keys() - {"readout"}:
+            require(
+                same_evidence(reported.get(key), numbers[key]),
+                f"{sid}: mechanical zero {key} is not its authored pickup evidence",
+            )
+        require(
+            finding["status"] == status,
+            f"{sid}: unverified physical readout cannot pass or waive its zero",
+        )
+        return
     spindle = [op for op in setup["ops"] if spindle_saw(entries.inventory, setup, op)]
     if spindle:
         check_spindle_zero(setup, finding, entries.inventory)
@@ -4969,6 +5140,12 @@ def dro_grid_trusted(
     setup: dict, features: dict, entries: Entries, plan: dict | None = None
 ) -> bool:
     """Judging requires the effective grid's own positive, complete measured fact."""
+    dro = table_of(table_of(plan).get("dro"))
+    if (
+        dro.get("kind", "digital") != "digital"
+        or dro.get("units", features.get("units")) not in UNIT_MM
+    ):
+        return False
     source = dro_grid_source(setup, entries, plan)
     resolution, fact = declared_dro_resolution(machine_record(source, entries))
     return (
@@ -4985,6 +5162,9 @@ def dro_grid(setup: dict, features: dict, entries: Entries, plan: dict | None = 
 
     Only an absent/unread positive step uses ``DRO_DEFAULT_STEP``. A bench inherits
     its source machine's declaration and trust when its plan is available."""
+    if table_of(table_of(plan).get("dro")).get("kind", "digital") != "digital":
+        # Only an internal nominal grid; neither physical graduation nor machine DRO.
+        return DRO_DEFAULT_STEP, 3
     scale = UNIT_MM.get(features.get("units"))
     source = dro_grid_source(setup, entries, plan)
     resolution, _ = declared_dro_resolution(machine_record(source, entries))
@@ -5172,6 +5352,24 @@ def check_coordinates(
     grid = dro_grid(setup, features, entries, plan)
     grid_trusted = dro_grid_trusted(setup, features, entries, plan)
     uses_grid = coordinates_use_grid(setup, definitions, context.frames, numbers, lathe)
+    if table_of(plan.get("dro")).get("kind", "digital") != "digital":
+        if uses_grid:
+            check_readout(numbers.get("readout"), plan, features, sid)
+        else:
+            require("readout" not in numbers, f"{sid}: unused nominal grid has no readout row")
+        if lathe:
+            require(
+                numbers.get("x_display") == readout_fields(plan, features)["x_scale"],
+                f"{sid}: mechanical X scale is not the plan's radius/diameter mode",
+            )
+        require(
+            not any(
+                entry.get("id", "").startswith("machines.")
+                and entry.get("id", "").endswith(".resolution")
+                for entry in numbers.get("measurements", [])
+            ),
+            f"{sid}: a mechanical or unknown readout cannot request a digital DRO resolution",
+        )
     shown = numbers.get("dro_grid")
     require(isinstance(shown, dict) and set(shown) == {"step", "decimals"}, f"{sid}: DRO grid")
     if uses_grid:
@@ -6169,7 +6367,7 @@ def check_fixture_semantics(
     definitions = operative_definitions(plan, features)
     own = functools.cache(lambda: zero_inputs(plan, features, inventory, policy, kernel))
     for setup in plan["setups"]:
-        if manual_bench(inventory, setup) is None:
+        if manual_bench(inventory, setup) is None and manual_thread_facts(inventory, setup) is None:
             if not saw_setup(inventory, setup):
                 check_zero(setup, findings["zero_check", setup["id"]], entries, own())
             check_coordinates(

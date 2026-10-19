@@ -73,8 +73,16 @@ def test_the_runaway_guard_names_itself_the_open_phase_and_the_engine_output(mon
 @pytest.mark.parametrize(
     ("code", "says"),
     [
-        (137, "exited 137: killed by SIGKILL"),  # a launcher shell's 128 + 9
-        (-9, "exited -9: killed by SIGKILL"),
+        pytest.param(
+            137,
+            "exited 137: killed by SIGKILL",  # a launcher shell's 128 + 9
+            marks=pytest.mark.skipif(os.name != "posix", reason="POSIX shell signal status"),
+        ),
+        pytest.param(
+            -9,
+            "exited -9: killed by SIGKILL",
+            marks=pytest.mark.skipif(os.name != "posix", reason="POSIX SIGKILL status"),
+        ),
         (1, "exited 1"),
     ],
 )
@@ -82,6 +90,18 @@ def test_a_nonzero_exit_names_its_signal_even_with_no_output(monkeypatch, code, 
     _fake(monkeypatch, code=code)
     reason = _execute()["reason"]
     assert says in reason
+    assert "no stderr or stdout output" in reason
+    assert "recorded no progress" in reason
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows exit codes are not POSIX signal statuses")
+@pytest.mark.parametrize("code", [137, -9, 0xC0000005])
+def test_windows_exit_codes_do_not_invent_a_signal_or_oom_diagnosis(monkeypatch, code):
+    _fake(monkeypatch, code=code)
+    reason = _execute()["reason"]
+    assert f"FreeCAD kernel exited {code};" in reason
+    assert "killed by" not in reason
+    assert "out-of-memory" not in reason
     assert "no stderr or stdout output" in reason
     assert "recorded no progress" in reason
 
@@ -153,7 +173,23 @@ def test_an_engine_job_error_without_a_reason_gets_one(monkeypatch):
     assert result["timing"]["host_wall_ms"] >= 0
 
 
-def test_the_reason_reaches_the_bundle(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    ("code", "says"),
+    [
+        (1, "exited 1"),
+        pytest.param(
+            137,
+            "killed by SIGKILL",
+            marks=pytest.mark.skipif(os.name != "posix", reason="POSIX shell signal status"),
+        ),
+        pytest.param(
+            137,
+            "exited 137;",
+            marks=pytest.mark.skipif(os.name != "nt", reason="Windows process exit status"),
+        ),
+    ],
+)
+def test_the_reason_reaches_the_bundle(tmp_path, monkeypatch, code, says):
     bundle = prepared_bundle(tmp_path)
     step = tmp_path / "part.STEP"
     step.write_bytes(b"error reason specimen")
@@ -164,10 +200,10 @@ def test_the_reason_reaches_the_bundle(tmp_path, monkeypatch):
     executable = tmp_path / "freecadcmd"
     executable.write_bytes(b"fake kernel")
     monkeypatch.setattr(kernel, "discover_kernel", lambda: executable)
-    _fake(monkeypatch, code=137, trail=TRAIL)
+    _fake(monkeypatch, code=code, trail=TRAIL)
     facts = kernel.run_geometry(deepcopy(bundle))
     assert facts["status"] == "error"
-    assert "killed by SIGKILL" in facts["reason"]
+    assert says in facts["reason"]
     assert "batch/job 0/S1/stock_states" in facts["reason"]
     assert facts["timing"]["trail"]["open"]
     # A failed run is never cached: the next run executes again.

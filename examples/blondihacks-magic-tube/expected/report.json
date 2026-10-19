@@ -15451,8 +15451,6 @@
           "P1 op 20"
         ],
         "made_later": [],
-        "material_rejected": [],
-        "material_unknown": [],
         "mouth_dia_mm": "unknown",
         "preparation": {
           "P1 op 20": "unknown"
@@ -57123,7 +57121,7 @@
       "subject": "T2"
     }
   ],
-  "hash": "30f19c6677ef194b60613f5c69ef9fd5326c44527cd0719c67f7cf4005b725b6",
+  "hash": "4b73fb2547c97fc27bd41f027acbcf65a7ded8dab632d9de2d7ad27d76c8c125",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-magic-tube/cutting-data.toml",

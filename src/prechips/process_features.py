@@ -190,6 +190,11 @@ def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
     bounds, own = definition.get("bounds"), process_of(definition)
     if not bounds or not own:
         return bounds
+    identities = [setup.get("id"), *(other.get("id") for other in bundle.plan.get("setups", []))]
+    if any(not isinstance(sid, str) or not sid.strip() or sid == UNKNOWN for sid in identities):
+        # Public rendering may inspect an incomplete setup. Its process footprint is
+        # unresolved, while strict complete-plan loading still rejects this identity.
+        return None
     # Root-stock bounds are not registered bounds of an independently reposed child.
     if any(
         atom.split is not None for atom in MaterialGraph(bundle.plan).nodes.get(setup["id"], ())

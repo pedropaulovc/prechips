@@ -9,7 +9,7 @@ import math
 from dataclasses import replace
 
 from prechips.findings import Finding
-from prechips.material_routes import feature_material_status
+from prechips.material_routes import MaterialGraph, feature_material_status
 from prechips.measurements import length_debt, length_fact, tooth_pitch_fact
 from prechips.rules.geometry_common import (
     kernel_measurement_debts,
@@ -60,9 +60,13 @@ _MISMATCH = {
 def scribe_material_status(bundle, setup, op):
     """Whether the ``follows`` witness is on this saw's material, not just its history.
 
-    The plan validates the witness's existence and order. A pre-partition scribe
-    still needs material ownership and registration before it can locate a cut.
+    The plan validates the witness's existence and order. Ordinary routes need no
+    additional partition witness; a retained child still needs material ownership
+    and registration before a pre-partition scribe can locate its cut.
     """
+    material = MaterialGraph(bundle.plan).nodes.get(setup["id"], ())
+    if material and all(atom.split is None for atom in material):
+        return True
     sid, separator, number_ = str(op.get("follows", UNKNOWN)).partition(":")
     if not separator:
         return None

@@ -225,7 +225,8 @@ west, east = Part.makeBox(10, 10, 10), Part.makeBox(10, 10, 10, V(20, 0, 0))
 def plane(x0, x1):
     return Part.makePlane(x1 - x0, 10, V(x0, 0, 10))
 faces = [plane(2, 8), plane(22, 28), plane(5, 25), plane(12, 18)]
-owner = SimpleNamespace(features={
+# These controls exercise legacy component protection, not named finished-solid routing.
+owner = SimpleNamespace(multisolid=False, features={
     "west_top": [0], "east_top": [1], "both_tops": [0, 1], "bridge": [2], "gap": [3],
 })
 owner._declared = lambda: owner.features
@@ -246,6 +247,7 @@ for stock_name, stock in {
 scrap = Part.makeBox(5, 5, 5, V(40, 0, 0))
 built = SimpleNamespace(
     owner=SimpleNamespace(
+        multisolid=False,
         features=owner.features,
         _declared=owner._declared,
         protected={"left": west, "right": east},
@@ -280,7 +282,7 @@ def test_the_kept_piece_is_the_one_that_carries_the_whole_feature(tmp_path, free
     )
     assert target.exists(), process.stdout[-2000:] + process.stderr[-2000:]
     out = json.loads(target.read_text(encoding="utf-8"))
-    assert out["split:west_top"]["shape"] == [0, 0, 0, 10, 10, 10]
+    assert out["split:west_top"]["shape"] == [0, 0, 0, 10, 10, 10], out["split:west_top"]
     assert out["split:west_top"]["kept"]["piece"] == 1
     assert [row["piece"] for row in out["split:west_top"]["discarded"]] == [2]
     assert out["split:east_top"]["shape"] == [20, 0, 0, 30, 10, 10]

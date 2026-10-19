@@ -7555,7 +7555,7 @@
           },
           "plan": {
             "path": "examples/blondihacks-brass-ring/plan.toml",
-            "sha256": "4f8af99f2c956c8f0eeba6c00d6712d44ed33090c401f53b8d5676a04cb3f0cd"
+            "sha256": "fa2a51037df4785064dc8c6eac67bf4ec5ec978ea02ee75636abb4d3473d1be1"
           },
           "shop_policy": {
             "path": "examples/blondihacks-brass-ring/shop-policy.toml",
@@ -11409,7 +11409,7 @@
         "plan authored route",
         "features declared process/thread"
       ],
-      "message": "bore: hole prerequisites are present in causal material order.",
+      "message": "bore: hole prerequisites are present across the route.",
       "numbers": {
         "chain": [
           "spot",
@@ -20769,7 +20769,7 @@
       "subject": "L1"
     }
   ],
-  "hash": "85091a6ec69aa46981197818bee82184bbf8908d2807dcdd7dae77b518c7e670",
+  "hash": "3f1ea46b527a3699240d628c17e6c1c200d9583568dd7920063cdc4a473a08c7",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-brass-ring/cutting-data.toml",
@@ -20785,7 +20785,7 @@
     },
     "plan": {
       "path": "examples/blondihacks-brass-ring/plan.toml",
-      "sha256": "4f8af99f2c956c8f0eeba6c00d6712d44ed33090c401f53b8d5676a04cb3f0cd"
+      "sha256": "fa2a51037df4785064dc8c6eac67bf4ec5ec978ea02ee75636abb4d3473d1be1"
     },
     "shop_policy": {
       "path": "examples/blondihacks-brass-ring/shop-policy.toml",

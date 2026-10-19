@@ -1029,15 +1029,20 @@ authored `"unknown"` as a source. Omitted `stock_in` remains named stock debt,
 never an inferred linear route. An assembly reference applies no implicit
 transform; a named output's explicit pose registers it in model coordinates.
 
-Setup outputs and named outputs are single-consumption references. Raw supply
-declarations may seed alternative routes, but overlapping ancestry cannot be
-recombined. Shared roots are accepted only for different children of the same
-partition, with distinct identities and a native split proof. Parent plus
-descendant, a repeated child, unproved sibling partition geometry or actual
-material overlap cannot produce joined stock. No second independent stock
-component is manufactured for a derived child. The canonical host identity
-resolver is [`material_routes.py`](../src/prechips/material_routes.py);
-declared identities do not replace native containment or non-overlap proof.
+Single-consumption applies only to the
+[named-retained lineage](plan.md#stock-lineage), including its downstream
+states and unsplit setup predecessors, not every ordinary setup output.
+Ordinary setup-reference fan-out, rework and selected-state routing remain
+valid outside that lineage, even in another branch of a plan with a named
+split. Raw supplies may also seed alternative routes, but an assembly cannot
+recombine overlapping ancestry. Shared roots at a join are accepted only
+for different children of the same partition, with distinct identities and
+a native split proof. Parent plus descendant, a repeated child, unproved
+sibling partition geometry or actual material overlap cannot produce joined
+stock. No second independent stock component is manufactured for a derived
+child. The canonical host identity resolver is
+[`material_routes.py`](../src/prechips/material_routes.py); declared identities
+do not replace native containment or non-overlap proof.
 
 Each setup output subtracts only that setup's derivable claimed removals from
 its selected input. Current-setup removals do not change current holding facts,

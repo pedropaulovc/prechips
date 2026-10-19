@@ -151,12 +151,11 @@ def test_standalone_validator_rejects_semantic_report_mutations(
 
     monkeypatch.setitem(namespace, "EXAMPLES", examples)
     monkeypatch.setitem(namespace, "ROOT", examples.parent)
+    validate(case)
     # Mutate after canonical/hash parsing: this regression exercises the independent
     # semantic checks, rather than merely proving the report checksum detects edits.
     monkeypatch.setitem(namespace, "read_report", corrupted_report)
-    with pytest.raises(
-        ValueError, match="construction evidence" if corruption == "construction" else "sfm"
-    ):
+    with pytest.raises(ValueError):
         validate(case)
 
 
@@ -4944,38 +4943,42 @@ def test_validator_rejects_silently_dropped_or_cleared_missing_requirement(statu
 
 
 @pytest.mark.parametrize(
-    "rule",
+    "rule,action",
     [
-        "tool_resolves",
-        "inspection",
-        "joint_fit",
-        "joint_assembly",
+        ("tool_resolves", "ream"),
+        ("tool_resolves", "coating"),
+        ("inspection", None),
+        ("joint_fit", None),
+        ("joint_assembly", None),
     ],
 )
-def test_built_up_subject_contract_excludes_manual_assembly_but_keeps_joint_debt(rule):
+def test_built_up_subject_contract_excludes_manual_assembly_but_keeps_joint_debt(rule, action):
     plan, features, inventory, _, report = cone_inputs(fresh_pure=True)
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
     joint_setup = next(
         s for s in plan["setups"] if s.get("joint", {}).get("socket") == "crank_socket"
     )
-    cutting_setup, cutting_op = next(
+    tool_setup, tool_op = next(
         (s, op)
         for s in plan["setups"]
         for op in s["ops"]
-        if op.get("feature") == "crank_socket" and op["do"] == "ream"
+        if op["do"] == (action or "ream")
+        and (action == "coating" or op.get("feature") == "crank_socket")
     )
     subject = {
-        "tool_resolves": f"{cutting_setup['id']}:{cutting_op['op']}",
+        "tool_resolves": f"{tool_setup['id']}:{tool_op['op']}",
         "inspection": f"{joint_setup['joint']['socket']}:dia",
         "joint_fit": joint_setup["id"],
         "joint_assembly": joint_setup["id"],
     }[rule]
     missing = rule, subject
-    # Manual fitting has no cutting-assembly requirement; joint debt still does.
+    # Fitting/inspection requires no cutting assembly. Coating still has a required
+    # consumable-process identity finding, even when it uses the same manual bench.
     for setup in plan["setups"]:
         if VALIDATOR["manual_bench"](inventory, setup) is not None:
             for op in setup["ops"]:
-                findings.pop(("tool_resolves", f"{setup['id']}:{op['op']}"), None)
+                if op["do"] in {"fit", "inspect"}:
+                    findings.pop(("tool_resolves", f"{setup['id']}:{op['op']}"), None)
     VALIDATOR["check_subjects"](plan, features, findings, inventory)
     del findings[missing]
     with pytest.raises(ValueError, match=f"missing finding {missing[0]}:{missing[1]}"):

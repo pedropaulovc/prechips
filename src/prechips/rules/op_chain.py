@@ -567,7 +567,7 @@ def evaluate(bundle):
         why = "; ".join(dict.fromkeys(errors or unknown)) or (
             "external thread has a prior turned male blank and die operation"
             if kind == "external_thread"
-            else "hole prerequisites are present in causal material order"
+            else "hole prerequisites are present across the route"
         )
         result.append(Finding("op_chain", name, status, nums, cite, f"{name}: {why}."))
     return result

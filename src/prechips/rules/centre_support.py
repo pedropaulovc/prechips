@@ -145,14 +145,16 @@ def _evaluate(bundle, setup, hold, centres):
             "process_feature": label(name),
             "made_by": made_by,
             "made_later": after,
-            "material_unknown": maybe,
-            "material_rejected": rejected,
             "routed": routed,
             "preparation": {made: status for made, (status, _) in preparation.items()},
             "mouth_dia_mm": mouth,
             **centre_depth_mm(bundle.feature_definitions.get(name)),
         }
     )
+    if maybe:
+        numbers["material_unknown"] = maybe
+    if rejected:
+        numbers["material_rejected"] = rejected
     errors = []
     if not before and not maybe and routed:
         made = f"it is first drilled in {after[0]}" if after else "no op drills it"

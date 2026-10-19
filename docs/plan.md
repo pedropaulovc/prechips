@@ -818,16 +818,19 @@ a retained output's explicit `pose` registers its material into that frame.
 A join reference never applies an implicit assembly transform or a generic
 Boolean union.
 
-An earlier setup output or named output may be consumed only once. Repeated
-references and a parent joined to its descendant are bad input. Raw `"stock"`
-and `"stock.<id>"` remain supply declarations that alternative routes may start
-from, not proof of additional physical blanks; those overlapping alternatives
-cannot be recombined.
-An unsplit setup ancestor that has already fed a partition cannot be reused
-as another derived output.
+Single-consumption applies to the named-retained lineage: each `stock_out`
+reference, each downstream setup state carrying its partition, and the
+unsplit setup predecessors feeding that split may be consumed only once.
+Ordinary setup references outside that lineage retain selectable-state
+fan-out and rework routing, including an unrelated ordinary branch in a plan
+that also contains a named split. Raw `"stock"` and `"stock.<id>"` likewise
+remain supply declarations that alternative routes may start from, not proof
+of additional physical blanks. An assembly cannot join repeated references,
+a parent with its descendant or overlapping same-origin alternatives.
 
-Shared supply roots are permitted only for different retained children of the
-same declared partition. Their descendants retain that partition identity.
+At a join, shared supply roots are permitted only for different retained
+children of the same declared partition. Their descendants retain that
+partition identity.
 The host resolver rejects overlapping identities; the kernel must independently
 prove the split and non-overlapping material before those siblings can be used
 together. A producing setup with named outputs cannot be consumed by its setup

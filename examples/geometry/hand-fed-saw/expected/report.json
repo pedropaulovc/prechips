@@ -1044,7 +1044,7 @@
       "cite": [
         "PLAN.md §4.1 hold fields"
       ],
-      "message": "S1: holding declarations need hold.fixture, hold.stop, hold.grip_mm, hold.clamp, hold.fixed_jaw.",
+      "message": "S1: holding declarations need hold.fixture, hold.stop, hold.grip_mm, hold.clamp.",
       "numbers": {
         "align_due": "not_applicable",
         "coolant": "none",
@@ -1062,8 +1062,7 @@
           "hold.fixture",
           "hold.stop",
           "hold.grip_mm",
-          "hold.clamp",
-          "hold.fixed_jaw"
+          "hold.clamp"
         ],
         "stock_bottom_z": -8.0565,
         "stock_top_z": 1.0
@@ -1827,6 +1826,7 @@
         "operation": "saw_cut",
         "removed_volume_mm3": 22175.352997,
         "retained_to_target_mm": 0.45,
+        "scribe_on_arriving_stock": true,
         "stock_removal_bounds": {
           "x": [
             -147.5,
@@ -2874,7 +2874,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "b7610f9e41f4159db9b1e51beb5b964b9bf3fb5d1effcd430e816788215a5be5",
+  "hash": "412e1e6e8df55d2a154a835b3870d535345972ade82f7ce56f4e1945548b6a39",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -4239,6 +4239,11 @@ class _Job:
             }
             self.consumed_refs = set()
             self._init_joints()
+            # Single-use applies to the retained route, not unrelated legacy
+            # setup fan-out merely sharing a job with a named split.
+            self.exclusive_refs = set().union(
+                *(self.joint_ancestors.get(sid, set()) for sid in self.split_setup_ids)
+            )
             self._init_process(stock if reason is None else None)
             result["transient_faces"] = [
                 {"index": len(signatures) + index, "label": self.labels[len(signatures) + index]}
@@ -4613,8 +4618,18 @@ class _Job:
             if isinstance(setup.get("joint"), dict) and setup["joint"].get("thread_error"):
                 raise ValueError(setup["joint"]["thread_error"])
             if self.split_setup_ids:
-                derived = [ref for ref in refs if ref not in self.raw_supplies]
-                if len(set(refs)) != len(refs) or any(ref in self.consumed_refs for ref in derived):
+                derived = [
+                    ref
+                    for ref in refs
+                    if ref not in self.raw_supplies
+                    and (
+                        ref in self.exclusive_refs
+                        or any(self.states.get(ref, {}).get("partitions", {}).values())
+                    )
+                ]
+                if len(set(derived)) != len(derived) or any(
+                    ref in self.consumed_refs for ref in derived
+                ):
                     raise ValueError("stock_in reuses already consumed physical material")
                 if any(ref in self.split_setup_ids for ref in refs):
                     raise ValueError("a named split setup must be consumed through stock_out names")

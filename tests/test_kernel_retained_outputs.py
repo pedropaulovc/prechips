@@ -781,6 +781,59 @@ joined = engine.run_job(threaded)
 latest_result = joined
 out["full_job"]["threaded_reason"] = joined["setups"]["A"].get("stock_reason")
 
+# A split makes only its own material lineage exclusive. An unrelated ordinary
+# no-cut branch must retain the established ability to fan out and rework.
+ordinary = [
+    {"id": "O", "stock_in": "stock", "frame": identity, "ops": []},
+    {"id": "O1", "stock_in": "O", "frame": identity, "ops": []},
+    {"id": "O2", "stock_in": "O", "frame": identity, "ops": []},
+]
+out["ordinary_fanout"] = {}
+for name, coexist in (("mixed", True), ("without_split", False)):
+    variant = copy.deepcopy(job)
+    variant["setups"] = (variant["setups"] if coexist else []) + copy.deepcopy(ordinary)
+    fanout = engine._Job(variant).run()
+    latest_result = fanout
+    out["ordinary_fanout"][name] = {
+        sid: fanout["setups"][sid] for sid in ("O", "O1", "O2")
+    }
+    if coexist:
+        out["ordinary_fanout"][name]["split_outputs"] = fanout["setups"]["P1"]["outputs"]
+
+# Named children and descendants are still consumable physical material, and
+# an earlier ordinary setup becomes exclusive when its output feeds the split.
+out["lineage_reuse"] = {}
+for case in ("named_output", "descendant", "unsplit_ancestor"):
+    variant = copy.deepcopy(job)
+    if case == "named_output":
+        target_sid = "REUSE"
+        variant["setups"].append({
+            "id": target_sid, "stock_in": "stock_out.body_blank", "frame": identity, "ops": [],
+        })
+    elif case == "descendant":
+        target_sid = "SECOND"
+        variant["setups"].extend([
+            {"id": "FIRST", "stock_in": "B", "frame": identity, "ops": []},
+            {"id": target_sid, "stock_in": "B", "frame": identity, "ops": []},
+        ])
+    else:
+        target_sid = "REUSE"
+        variant["setups"][0]["stock_in"] = "U"
+        variant["setups"].insert(0, {
+            "id": "U", "stock_in": "stock", "frame": identity, "ops": [],
+        })
+        variant["setups"].append({
+            "id": target_sid, "stock_in": "U", "frame": identity, "ops": [],
+        })
+    reused = engine._Job(variant).run()
+    latest_result = reused
+    out["lineage_reuse"][case] = {
+        "refused": reused["setups"][target_sid],
+        "split_outputs": reused["setups"]["P1"]["outputs"],
+        "body": reused["setups"]["B"],
+        "first": reused["setups"].get("FIRST"),
+    }
+
 # Named stocks are terminal material states, never snapshots that can survive a
 # later cut, process, or disguised geometry-bearing inspection in their setup.
 tails = {
@@ -997,3 +1050,43 @@ def test_full_native_job_preserves_outputs_after_explicit_metadata_only_ops(nati
         assert "reason" not in outputs[name]
         assert outputs[name]["volume_mm3"] == pytest.approx(volume, abs=1e-6)
         assert outputs[name]["bbox_mm"] == pytest.approx(bbox, abs=1e-6)
+
+
+@pytest.mark.parametrize("case", ["mixed", "without_split"])
+def test_ordinary_no_cut_fanout_remains_known_with_or_without_an_unrelated_split(native, case):
+    result = native["ordinary_fanout"][case]
+    for sid in ("O", "O1", "O2"):
+        stock = result[sid]
+        assert "stock_reason" not in stock
+        assert "stock_out_reason" not in stock
+        assert stock["stock_volume_mm3"] == pytest.approx(320 * math.pi, abs=1e-6)
+        assert stock["stock_out_volume_mm3"] == pytest.approx(320 * math.pi, abs=1e-6)
+        assert stock["stock_bbox_mm"] == pytest.approx([-4, -4, 0, 4, 4, 20], abs=1e-6)
+        assert stock["stock_out_bbox_mm"] == pytest.approx([-4, -4, 0, 4, 4, 20], abs=1e-6)
+    if case == "mixed":
+        assert result["split_outputs"]["body_blank"]["volume_mm3"] == pytest.approx(
+            128 * math.pi, abs=1e-6
+        )
+        assert result["split_outputs"]["cap_blank"]["volume_mm3"] == pytest.approx(
+            160 * math.pi, abs=1e-6
+        )
+
+
+@pytest.mark.parametrize("case", ["named_output", "descendant", "unsplit_ancestor"])
+def test_split_lineage_still_refuses_named_child_descendant_and_ancestor_reuse(native, case):
+    result = native["lineage_reuse"][case]
+    refused = result["refused"]
+    assert "stock_in reuses already consumed physical material" in refused["stock_reason"]
+    assert "stock_volume_mm3" not in refused
+    assert "stock_out_volume_mm3" not in refused
+    assert "stock_bbox_mm" not in refused
+    assert "stock_out_bbox_mm" not in refused
+    assert result["body"]["stock_out_volume_mm3"] == pytest.approx(128 * math.pi, abs=1e-6)
+    assert result["split_outputs"]["body_blank"]["volume_mm3"] == pytest.approx(
+        128 * math.pi, abs=1e-6
+    )
+    assert result["split_outputs"]["cap_blank"]["volume_mm3"] == pytest.approx(
+        160 * math.pi, abs=1e-6
+    )
+    if case == "descendant":
+        assert result["first"]["stock_out_volume_mm3"] == pytest.approx(128 * math.pi, abs=1e-6)

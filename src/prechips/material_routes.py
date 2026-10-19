@@ -150,6 +150,19 @@ class MaterialGraph:
                 }
             )
         consumed: set[str] = set()
+        # Ordinary setup references describe selectable process states and may fan out.
+        # Exclusivity starts only in a named-retained route, including its unsplit
+        # predecessors: reusing one of those would duplicate the bar behind its children.
+        exclusive_refs = (
+            {
+                ref
+                for setup in setups.values()
+                if retained_outputs(setup)
+                for ref in setup_lineage(plan, setup["id"])
+            }
+            if validate
+            else set()
+        )
         earlier: set[str] = set()
         split_setups: set[str] = set()
         output_names: set[str] = set()
@@ -192,9 +205,9 @@ class MaterialGraph:
                         )
                     atoms.append(atom)
                     local[atom.root] = ref
-                # A raw supply specification may seed alternative root setups, as before.
-                # Their common origin still prevents recombining overlapping material.
-                if ref != "stock" and not ref.startswith("stock."):
+                # Raw supplies and ordinary setup states keep their existing reuse
+                # semantics. A named partition and each state carrying it are single-use.
+                if ref in exclusive_refs or any(atom.split is not None for atom in incoming):
                     consumed.add(ref)
             material = tuple(atoms) or (Material(sid),)
             self.nodes[sid] = material

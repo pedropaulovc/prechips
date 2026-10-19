@@ -5,18 +5,28 @@ binds their keys to rows. Row ids remain useful provenance but are not aliases w
 bounded op loses holes during clipping. Bounded tables are left to the kernel's clip.
 """
 
-from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 from test_coordinates_checkpoints import finding, plan
 
+from prechips.inputs import Bundle
 from prechips.kernel.render_inputs import contour_annotations, setup_annotations
 from prechips.rules import coordinates
 from prechips.rules.resolution import LENGTH_TOLERANCE_MM
 
 
 def _bundle(units="mm"):
-    return SimpleNamespace(features={"units": units}, inventory={"fixtures": {}})
+    return Bundle(
+        plan={"dro": {"kind": "digital", "units": units}, "setups": [_setup()]},
+        features={"units": units},
+        inventory={"fixtures": {}},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
+    )
 
 
 def _setup():
