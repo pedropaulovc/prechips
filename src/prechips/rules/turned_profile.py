@@ -442,7 +442,7 @@ def exposed_profile(bundle, setup):
     names = {
         name
         for name, feature in features.items()
-        if feature.get("kind") in AXIAL_KINDS and present(bundle, setup, name)
+        if feature.get("kind") in AXIAL_KINDS and present(bundle, setup, name) is not False
     } | claimed
     state, hold = record(setup.get("stock_state")), record(setup.get("hold"))
     north, south, length = (
@@ -463,6 +463,16 @@ def exposed_profile(bundle, setup):
         reasons[name] = why
 
     for name in sorted(names):
+        material = present(bundle, setup, name)
+        if material is not True:
+            exposed_names.add(name)
+            unresolve(
+                name,
+                "material ownership after retained split is unproven"
+                if material is None
+                else "the claimed feature belongs to another retained output",
+            )
+            continue
         feature = record(features.get(name))
         kind = feature.get("kind", UNKNOWN)
         geometry = _geometry(bundle, name, context)

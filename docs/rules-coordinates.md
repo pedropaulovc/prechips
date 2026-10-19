@@ -1,9 +1,9 @@
 # Coordinates and DRO zero
 
-These rules check setup coordinates, manual arc layout and filing, and DRO
-zero recipes. `coordinates` and `zero_check` produce one finding per setup.
-`manual_arc` produces a finding per applicable operation, with a subject such as
-`S1:40`.
+These rules check setup coordinates, manual arc layout and filing, and digital
+or mechanical readout zero recipes. `coordinates` and `zero_check` produce one
+finding per setup. `manual_arc` produces a finding per applicable operation,
+with a subject such as `S1:40`.
 
 Nominal numeric recipes and tables can remain useful while their status is
 unknown. They are not cleared toolpaths or measured first-article evidence.
@@ -32,6 +32,7 @@ and contributor checks are in [architecture](internals/architecture.md) and
 | Interpret a lathe table | [Lathe stations and nose compensation](#lathe-stations-and-nose-compensation), [blade and dome targets](#blade-and-dome-targets) |
 | Resolve manual layout or filing debt | [`manual_arc`](#manual_arc) |
 | Resolve a zero or tool-touch finding | [`zero_check`](#zero_check) |
+| Interpret inch handwheel targets or unresolved physical pickups | [Mechanical dials and unknown readouts](#mechanical-dials-and-unknown-readouts) |
 
 ## Numeric precision
 
@@ -58,20 +59,41 @@ or cutter-centre table. The exemption requires all of these facts:
 
 - The selected machine resolves to `kind = "bench"` or `"manual"`.
 - The setup has at least one operation.
-- Every operation is `fit`, `inspect`, `deburr`, `coating`, `scribe` or
-  `file_to_line`, or is a `saw_cut`/`cut_off` whose selected tool resolves to
-  a verified `hand_saw`.
+- Every operation is `fit`, `inspect`, `deburr`, `coating`, `scribe`,
+  `file_to_line`, `hand_tap` or `die_thread`, or is a `saw_cut`/`cut_off` whose
+  selected tool resolves to a verified `hand_saw`.
 
 The machine kind alone waives nothing. Another or unknown action, a powered
 saw blade or an unresolved saw tool leaves the machine checks in force.
 `zero_check` uses this same predicate for its no-DRO-zero exemption.
 
+### Manual-thread-only applicability
+
+Both `coordinates` and `zero_check` are `not_applicable` for a manual-thread
+setup when all these facts hold:
+
+- The selected machine resolves to kind `bench`, `manual`, `lathe`, `mill`
+  or `drill_press`.
+- At least one operation is `hand_tap` or `die_thread`.
+- Every operation is a manual action: `inspect`, `deburr`, `coating`, `release`,
+  `fit`, `scribe`, `file_to_line`, `hand_tap` or `die_thread`.
+
+A powered cut, a saw operation, an unknown action or an unknown machine kind
+cannot use this separate exemption. A bench may still qualify under its
+existing verified-hand-saw predicate above. The manual-thread finding records
+`manual_thread = true`; it requires no digital pickup or coordinate table.
+This does not waive tool/holder resolution, stopped-spindle enforcement,
+physical workholding, thread preparation or unmodeled native thread geometry.
+The shared predicate is `manual_thread_setup` in
+[`rules/_bench.py`](../src/prechips/rules/_bench.py).
+
 ### DRO grid consumption
 
-The machine's `resolution` becomes coordinate-rule measurement debt only when
-an operation authors or emits at least one coordinate rounded to, or printed
-on, that machine's DRO grid. These requests consume the grid even when unknown
-geometry or binding prevents computing their rows:
+For a digital readout (`dro.kind = "digital"`, or omitted), the machine's
+`resolution` becomes coordinate-rule measurement debt only when an operation
+authors or emits at least one coordinate rounded to, or printed on, that
+machine's DRO grid. These requests consume the grid even when unknown geometry
+or binding prevents computing their rows:
 
 - An authored `to_z`, `z_from` or `z_to`.
 - A requested feature location.
@@ -85,6 +107,12 @@ an authored target's debt. A missing or untrusted consumed grid, including an
 `machines.<id>.resolution` measurement instruction. Its declared step still
 places provisional targets; otherwise `DRO_DEFAULT_STEP` does. A trusted
 consumed grid retains the same rounding and geometric judgments.
+
+The same target requests on `dro.kind = "handwheel"` or explicit `"unknown"`
+retain readout debt instead of requesting a digital machine-resolution
+measurement. Their finite internal grid is provisional nominal arithmetic,
+not a measured dial increment or a calibrated physical target. See
+[mechanical dials and unknown readouts](#mechanical-dials-and-unknown-readouts).
 
 Machine selection, stock-state metadata and an unlocated feature name alone
 consume no DRO coordinate. A bare `saw_cut` with no feature location, contour,
@@ -245,6 +273,13 @@ retains `local_from = {op, field, axis}`. This does not bind fitted shaft length
 to nominal model geometry. Dome axial samples compute
 `radius=sqrt(sphere_radius^2-(z-sphere_centre_z)^2)` at authored steps and include
 the exact endpoint.
+
+The lathe feature map's cut-start and cut-stop columns describe this setup's
+process window, not the finished feature's extent. A missing authored start
+or stop remains unknown; a feature's `at`, a drawing station or a native
+finished span does not fill the missing endpoint. An independently known
+endpoint and nominal diameter can still print without inventing a
+zero-length cut.
 
 Each row then gets tool-nose compensation. The selected tool must not be
 flagged uncertain, and its nose radius `rn` must be known and ≥ 0. The nose must
@@ -1656,9 +1691,10 @@ through the op's error box.
 ## `zero_check`
 
 This is the base contract for a setup's zero and tool-touch finding. It
-consumes the [plan zero recipes](plan.md#zero), DRO settings and inventory tools.
-Unknown recipes or unresolved physical references remain debt; contradictory
-direction, mode or surface settings are errors.
+consumes the [plan zero recipes](plan.md#zero), readout settings and inventory
+tools. Unknown recipes or unresolved physical references remain debt.
+In the digital branch, contradictory direction, mode or surface settings
+are errors.
 
 Native-face details also have four operation-rule extensions:
 
@@ -1678,6 +1714,69 @@ A setup satisfying the [manual-bench predicate](#manual-bench-applicability)
 is also `not_applicable`: it has no DRO zero to set. This is the same
 machine-kind, nonempty-operation and verified-hand-saw test used by
 `coordinates`; a bench machine name alone does not establish the exemption.
+
+Manual `hand_tap` and `die_thread` operations do not assign a spindle or
+toolpost cutting tool or generate a digital tool-change retouch. They are
+hand operations, not native axial-cutter setting recipes. Listing their
+actual tap/die and wrench/stock identities does not change that boundary.
+A setup meeting the [manual-thread-only predicate](#manual-thread-only-applicability)
+needs no zero recipe. A mixed setup outside that predicate retains the zero
+and coordinate debt of its other work.
+
+### Mechanical dials and unknown readouts
+
+The plan's [`dro.kind`](plan.md#dro) selects the readout contract. Omission
+keeps the existing digital branch. Explicit `"handwheel"` selects mechanical
+dials; explicit `"unknown"` establishes neither a digital grid nor a
+mechanical setting. Controller names and machine prose do not override that
+selection.
+
+Nominal target lengths convert once from manifest units to `dro.units`, which
+is independent of CAD units. Omitted units retain manifest units; explicitly
+unknown or unsupported units do not acquire a display-unit fallback. A metric
+model can therefore produce inch nominal targets for `dro.units = "in"` while
+the drawing's limits retain their own units.
+
+`dro.graduation` records a positive nominal source division, not a calibrated
+digital resolution. Lathe `radius_mode = false` means X divisions indicate
+diameter change; `true` means radial change. For example, a source division
+of 0.002 in on a diameter scale represents 0.0508 mm of diameter change and
+0.0254 mm of radial travel. This conversion establishes no physical accuracy.
+An unknown radius/diameter convention leaves X scale meaning unresolved.
+
+The sheet prints the authored readout and setup procedures, per-axis pickup
+procedure or method, contact and direction, source graduation, calibration
+and backlash text. It keeps the [axis `dial_setting`](plan.md#axiszero) in
+declared readout units separate from `edge_mm`, the nominal CAD datum. A
+model coordinate of zero never supplies a physical dial zero. Missing
+physical readings remain `STOP: physical dial setting unknown`, and missing
+graduation, calibration, backlash or direction stays visible as debt.
+Tool-change touches retain their authored method but require the actual
+scale reference and contact compensation; none is inferred from nominal
+geometry. This branch generates no electronic Axis Set or Preset instruction.
+
+After the [applicability exemptions](#applicability), mechanical and unknown
+readouts produce an unknown `zero_check`. The finding retains `readout`,
+authored `axes`, `physical_setting_debt` and `tool_touches`. Even fully
+populated source procedures and readings cannot establish measured dial
+accuracy or dial-to-part registration in the current model. The nominal
+graduation and calibration prose do not clear that HOLD. Consumed coordinate
+targets likewise keep `coordinates` unknown through `dro_grid_debt`, unless
+an independent error takes precedence. Neither readout kind creates an
+installed-digital-DRO measurement task.
+
+Establish the actual instrument, datum pickup, graduation/scale meaning and
+backlash behavior at the machine; do not substitute a drawing target for
+those facts. The current checker does not convert that physical work into a
+mechanical-readout pass. Local rendering or arithmetic is not physical
+acceptance evidence.
+
+Readout conversion and coordinate debt are implemented in
+[`rules/coordinates.py`](../src/prechips/rules/coordinates.py); the mechanical
+zero finding is in
+[`zero_recipe/rule.py`](../src/prechips/rules/zero_recipe/rule.py).
+
+The remaining zero-recipe subsections describe the digital branch.
 
 ### Guided-sweep X/Y exemptions
 
@@ -1842,10 +1941,10 @@ zero row and in a re-touch, and stops a blade touch whose corner is unknown.
 
 ### Lathe tool setting
 
-On a lathe, `tool_setting` has one record per toolpost tool, meaning a tool used by a
-non-axial op. Records follow op order at each tool's first touch-off: the zero
-(`touch = "zero"`, `axis`), else its first `tool_touches` or
-`derived_touches` entry (`index`).
+On a lathe, `tool_setting` has one record per toolpost tool, meaning a tool used
+by a non-axial op other than `hand_tap` or `die_thread`. Records follow op order
+at each tool's first touch-off: the zero (`touch = "zero"`, `axis`), else its
+first `tool_touches` or `derived_touches` entry (`index`).
 
 Each record carries `centre_height` and, for a grooving/parting blade,
 `square_blade` (otherwise `not_applicable`). It uses machine `toolpost` words,
@@ -1865,7 +1964,11 @@ touch or a listed retouch. A tool touch occurs before the first of its
 run before any tool set Z. An axis without a zero recipe has no tool Axis Set
 to change; that missing zero is unknown.
 
-Every cutting op whose tool did not make the latest Axis Set gets a prior
+`hand_tap` and `die_thread` do not change the spindle tool or become the latest
+digital setter, so they generate no derived retouch or toolpost-setting
+instruction. Their real tool numbers identify the manual assemblies only.
+
+Each eligible powered cutting op whose tool did not make the latest Axis Set gets a prior
 touch (`derived_touches`, printed "re-touch"). The source recipe names its
 own tool edge, so the derived recipe is tool-neutral: `edge_then_set` on a
 lathe (Z-cutting edge to surface, withdraw along X) or `touch_then_set` on a
@@ -2136,13 +2239,13 @@ actual opposite face's AS-CUT height.
 
 ### Zero-check evidence and operator acceptance
 
-Evidence: per-axis contact/set/check/mirror/sign, source edge, finder radius,
+Digital evidence: per-axis contact/set/check/mirror/sign, source edge, finder radius,
 paper, jog and DRO direction, retouch list, per-tool touches, derived and
 missing tool-change touches and transfer.
 Citations: PLAN §4.1 and Electronica EL400 Operation Manual §6.2 p20, §7.4 p31,
 §8.1 p37, §9.2.1 p62; plan zero/stock-state and inventory finder nominal size.
 
-The recipe requires a jog without retouching. The operator must exercise
+The digital recipe requires a jog without retouching. The operator must exercise
 physical emulator direction and actual check readings. Local computation does
 not prove the paper/emulator acceptance control.
 

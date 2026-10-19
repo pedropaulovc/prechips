@@ -31,7 +31,7 @@ from prechips.rules.zero_recipe.touch import (
 
 from ...findings import Finding
 from ...measurements import length_debt, measurement_checklist
-from .._bench import manual_bench, not_applicable
+from .._bench import manual_bench, manual_thread_setup, not_applicable
 from ..resolution import (
     MANUAL,
     SAW_OPS,
@@ -52,13 +52,83 @@ from ..swivel import swivel_angle, swivelled
 from ..tip_endpoints import mapping, records, stock_states
 
 
+def _mechanical_zero(bundle, setup):
+    """Keep authored physical pickups separate from nominal CAD/frame coordinates.
+
+    Mechanical-dial accuracy and dial-to-part registration are not inferred from a
+    source procedure, edge_mm = 0, or a nominal frame. Until independent physical
+    evidence exists they remain a held process recipe, never electronic Axis Sets.
+    """
+    from ..coordinates import handwheel_readout, readout_kind
+
+    readout = handwheel_readout(bundle)
+    zero = mapping(setup.get("zero"))
+    axes = {
+        axis: {
+            key: touch.get(key, UNKNOWN)
+            for key in ("procedure", "method", "dial_setting", "face", "feature", "tool", "gauge")
+        }
+        for axis in ("x", "y", "z")
+        if isinstance(touch := zero.get(axis), dict)
+    }
+    needed = ("x", "z") if lathe_setup(bundle, setup) else ("x", "y", "z")
+    missing = [
+        f"{axis.upper()} physical dial setting"
+        for axis in needed
+        if not number(mapping(axes.get(axis)).get("dial_setting"))
+    ]
+    if not axes:
+        missing.append("physical zero/pickup procedure")
+    for field in ("graduation", "calibration", "backlash"):
+        if readout[field] == UNKNOWN:
+            missing.append(field)
+    directions = mapping(mapping(bundle.plan.get("dro")).get("direction"))
+    missing.extend(
+        f"{axis.upper()} direction"
+        for axis in needed
+        if directions.get(axis, UNKNOWN) == UNKNOWN
+    )
+    if readout["units"] not in {"mm", "in"}:
+        missing.append("readout units")
+    if lathe_setup(bundle, setup) and readout["x_scale"] == UNKNOWN:
+        missing.append("X diameter/radius scale")
+    kind = readout_kind(bundle)
+    reason = readout["debt"] if kind == "handwheel" else "readout kind is unknown"
+    return Finding(
+        "zero_check",
+        setup["id"],
+        UNKNOWN,
+        {
+            "frame": setup.get("frame", UNKNOWN),
+            "readout": readout,
+            "axes": axes,
+            "physical_setting_debt": missing,
+            "tool_touches": records(zero.get("tool_touches")),
+        },
+        [
+            "docs/plan.md readout and zero recipe",
+            *plan_frame_cite(bundle, setup),
+            *(
+                [cite]
+                if isinstance(cite := mapping(bundle.plan.get("dro")).get("cite"), str)
+                else cite
+                if isinstance(cite, list)
+                else []
+            ),
+        ],
+        f"{setup['id']}: authored pickup procedures and nominal targets "
+        f"do not certify physical settings: {reason}."
+        + (" Unknown: " + ", ".join(missing) + "." if missing else ""),
+    )
+
+
 def evaluate(bundle):
     from ..coordinates import dro_grid_debt, dro_grid_measurements
 
     result = []
     dro = mapping(bundle.plan.get("dro"))
     for setup in bundle.plan["setups"]:
-        bench = manual_bench(bundle, setup)
+        bench = manual_bench(bundle, setup) or manual_thread_setup(bundle, setup)
         if bench is not None:
             result.append(
                 not_applicable("zero_check", setup, bench, "zero recipe", "DRO zero to set")
@@ -76,6 +146,11 @@ def evaluate(bundle):
                     "zero is set.",
                 )
             )
+            continue
+        from ..coordinates import readout_kind
+
+        if readout_kind(bundle) != "digital":
+            result.append(_mechanical_zero(bundle, setup))
             continue
         spindle_ops = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
         spindle_debt = "; ".join(

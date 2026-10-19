@@ -20,8 +20,8 @@ from __future__ import annotations
 import math
 
 from prechips.findings import Finding
+from prechips.material_routes import feature_material_status, setup_lineage
 from prechips.measurements import length_debt, limits_debt, limits_fact, record_debt
-from prechips.model import setup_lineage
 from prechips.rules._profile import requirement_band
 from prechips.rules.coordinates import (
     _CENTRE_FORMS,
@@ -343,8 +343,12 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
         errors.append("filing buttons only guide a convex arc; this arc is concave")
     if layout and layout["centre_on"] != bore:
         errors.append(f"{bore} is not on the arc's axis, so buttons pinned through it miss R")
-    elif not _sized_before(bundle, op, bore):
-        errors.append(f"{bore} is not drilled, reamed or bored to size before this filing")
+    else:
+        sized = _sized_before(bundle, op, bore)
+        if sized is None:
+            debts.append(f"whether {bore}'s sizing survives the stock partition is unresolved")
+        elif not sized:
+            errors.append(f"{bore} is not drilled, reamed or bored to size before this filing")
     if uncertain(item):
         debts.append(f"filing buttons {kit} are flagged to verify")
         measurements = _button_measurements(bundle, item, kit)
@@ -379,24 +383,41 @@ def _buttons(bundle, setup, op, guide, layout, band, scale, errors, debts):
 
 
 def _workpiece(bundle, op):
-    """The setups whose material ``op``'s setup works on (:func:`setup_lineage`)."""
-    for setup in bundle.plan["setups"]:
-        if any(other is op for other in setup.get("ops", [])):
-            return setup_lineage(bundle.plan, setup["id"])
-    return set()
+    """The setup whose arriving material ``op`` works on."""
+    return next(
+        (
+            setup["id"]
+            for setup in bundle.plan["setups"]
+            if any(other is op for other in setup.get("ops", []))
+        ),
+        None,
+    )
 
 
 def _rough(bundle, op, name):
     """The stairs, chain-drill or scribed-line saw roughs of ``name`` before ``op`` that
     leave their stock to this file (no later rough recuts them): "S1 op 30 and S2 op 28",
-    else None. Only work on the filing's own workpiece counts (:func:`setup_lineage`): a
-    rough, saw or earlier file on another stock branch neither roughs nor files it. A saw
-    roughs ``name`` when it ``follows`` a scribe op laying out its line."""
-    found = []
+    else None, or UNKNOWN for unresolved partition ownership. A rough, saw or earlier
+    file on another stock branch neither roughs nor files it. A saw roughs ``name`` when
+    it ``follows`` a scribe op laying out its line."""
+    found, unresolved = [], False
     lines = set()
-    lineage = _workpiece(bundle, op)
+    target = _workpiece(bundle, op)
+    material = {
+        setup["id"]: feature_material_status(bundle.plan, target, setup["id"], name, bundle)
+        for setup in bundle.plan["setups"]
+    }
+    lineage = {sid for sid, status in material.items() if status is True}
     for sid, other in _earlier(bundle, op):
-        if sid not in lineage:
+        relevant = other.get("feature") == name or (
+            other.get("do") in SAW_OPS and other.get("follows") in lines
+        )
+        if not relevant or material[sid] is False:
+            continue
+        if material[sid] is None:
+            unresolved = True
+            if _full_line(other):
+                lines.add(f"{sid}:{other.get('op', UNKNOWN)}")
             continue
         if _full_line(other) and other.get("feature") == name:
             lines.add(f"{sid}:{other.get('op', UNKNOWN)}")
@@ -410,7 +431,7 @@ def _rough(bundle, op, name):
         method = record(other.get("contour")).get("method")
         if method in ROUGH_METHODS and _recut_by(bundle, other, lineage) is None:
             found.append(f"{sid} op {other.get('op', UNKNOWN)}")
-    return " and ".join(found) or None
+    return UNKNOWN if unresolved else " and ".join(found) or None
 
 
 def _full_line(op):
@@ -421,23 +442,35 @@ def _full_line(op):
 
 def _layout_op(bundle, op, name):
     found = None
+    target = _workpiece(bundle, op)
     for sid, other in _earlier(bundle, op):
         if other.get("feature") == name and _full_line(other):
-            found = f"{sid}:{other.get('op', UNKNOWN)}"
+            material = feature_material_status(bundle.plan, target, sid, name, bundle)
+            if material is not False:
+                found = UNKNOWN if material is None else f"{sid}:{other.get('op', UNKNOWN)}"
     return found
 
 
 def _sized_before(bundle, op, bore):
     """Whether every drill, ream or bore op on ``bore`` (at least one) precedes ``op``: the
     pin meets the hole at its drawing size."""
-    before = after = passed = False
+    before = after = passed = unresolved = False
+    target = _workpiece(bundle, op)
     for setup in bundle.plan["setups"]:
         for other in setup["ops"]:
             passed |= other is op
             if other.get("feature") == bore and other.get("do") in _CENTRE_FORMS:
-                after |= passed
-                before |= not passed
-    return before and not after
+                material = feature_material_status(bundle.plan, target, setup["id"], bore, bundle)
+                if passed and setup["id"] != target:
+                    material = feature_material_status(
+                        bundle.plan, setup["id"], target, bore, bundle
+                    )
+                if material is None:
+                    unresolved = True
+                elif material is True:
+                    after |= passed
+                    before |= not passed
+    return False if after else None if unresolved else before
 
 
 def evaluate(bundle):
@@ -540,12 +573,16 @@ def evaluate(bundle):
                 numbers["layout_op"] = _layout_op(bundle, op, name)
                 if numbers["layout_op"] is None and not buttons:
                     debts.append(f"no scribe op lays out {name}'s line before this filing")
+                elif numbers["layout_op"] == UNKNOWN and not buttons:
+                    debts.append(f"whether {name}'s scribed line survives partition is unresolved")
                 numbers["rough_op"] = _rough(bundle, op, name)
                 if numbers["rough_op"] is None:
                     debts.append(
                         f"no stairs, chain_drill or scribed-line saw op roughs {name} "
                         "before this filing"
                     )
+                elif numbers["rough_op"] == UNKNOWN:
+                    debts.append(f"whether {name}'s roughing survives partition is unresolved")
                 cap = filing_cap(bundle)
                 numbers["stock_cap_mm"] = cap
                 if not number(cap):

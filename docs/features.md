@@ -15,6 +15,7 @@ On this page:
 - [Requirements and dimensions](#requirements-and-dimensions)
 - [Frames and feature locations](#frames-and-feature-locations)
 - [STEP identity and evidence](#step-identity-and-evidence)
+- [Threaded features](#threaded-features)
 - [Rule and output consumers](#rule-and-output-consumers)
 - [Surface profiles](#surface-profiles)
 - [Angle bands read across a face](#angle-bands-read-across-a-face)
@@ -98,12 +99,16 @@ and frames remain debt. Locating a child does not borrow dimensions or face clai
 
 ## STEP identity and evidence
 
-`faces` lists the feature's STEP face references. The kernel maps each referenced
-`ADVANCED_FACE` to the imported solid by its own surface kind, area and bounding
-box, never by assuming STEP ordinal order survives import. A malformed or
-missing reference, or one matching zero or several imported faces, gives a
-mapping error (`✗`) on every geometry rule needing that feature. An omitted,
-unknown or empty list leaves those rules `?`.
+`faces` lists the feature's STEP face references in the form
+`#<entity>/ADVANCED_FACE[<ordinal>]/<label>`. The entity ID, 1-based source-file
+ordinal and raw label must agree with the exact STEP bytes. The kernel maps
+each reference by surface kind, area, bounding box and outward orientation,
+never by assuming STEP ordinal order survives import. Opposite-facing
+coincident surfaces can therefore remain distinct; a genuinely ambiguous
+same-orientation match is not guessed. A malformed or missing reference, or
+one matching zero or several imported faces, gives a mapping error (`✗`) on
+every geometry rule needing that feature. An omitted, unknown or empty list
+leaves those rules `?`.
 
 Declared-input rules use face geometry only through an already-present kernel
 result; they never start the kernel. A `kind = "face"` feature without `bounds`
@@ -116,6 +121,50 @@ precedence. See [face identity](rules-geometry.md#face-identity) and
 `step_sha256` is `"unknown"` or a lowercase 64-hex SHA-256. A known digest needs
 the referenced STEP bytes in the bundle and must match their hash; a digest
 alone is insufficient. Only matching bytes reach the FreeCAD kernel.
+
+### Named finished solids
+
+The optional root `solids` table, called `features.solids` when referring to the
+loaded manifest, maps authored finished-solid names to exact source references:
+`#<entity>/MANIFOLD_SOLID_BREP[<ordinal>]/<label>`. Here the ordinal is the
+1-based source-file position among `MANIFOLD_SOLID_BREP` records, not an
+imported-solid index. The raw label may be empty; the final `/` still belongs
+to that reference.
+
+A nonempty map must name every source `MANIFOLD_SOLID_BREP` exactly once.
+Names and references must be known, nonblank strings; duplicate references,
+an incomplete or incorrect source map, or declarations without the exact
+source STEP bytes are bad input (exit 3). The table and its entries do not
+accept literal `"unknown"`. Omission defaults to `{}`; an explicit empty
+table has the same effect and preserves the ordinary single-solid path.
+A multi-solid native import needs the complete map; leaving it absent or
+empty does not make the imported solids interchangeable.
+
+Each exported feature's `faces` supplies its ownership through the source
+solid's shell topology. All listed faces must resolve to the same named solid
+for unique ownership. Omitted, unknown or empty face lists leave ownership
+unresolved. An inspection feature may span named solids without acquiring
+a unique owner; a known face outside the declared solid shells is bad input.
+There is no feature-level solid-name override.
+
+The [plan's retained-output and joint contracts](plan.md) consume this ownership.
+A retained-output `carries` selector or threaded interface with known faces
+spanning multiple named solids is bad input (exit 3), not merely ownership
+debt. Missing or unknown face ownership remains unresolved. Threaded
+interfaces known to belong to the same finished solid are also bad input.
+
+The kernel independently associates the complete source-shell face set with
+one imported solid using the oriented face matches. Neither import order nor
+a nearest-face tie-break supplies identity. Unresolved association or
+unproven registration to incoming stock remains material-protection debt,
+never an empty protected shape that passes a safety guard. Source ownership
+alone does not prove that an incoming blank contains the whole finished solid.
+Faced `aims` on multiple finished solids remain unmodeled.
+
+Source references and shell traversal are defined in
+[`step_faces.py`](../src/prechips/kernel/step_faces.py), source ownership and
+bundle checks in [`inputs.py`](../src/prechips/inputs.py), and native matching
+in [`freecad_job.py`](../src/prechips/kernel/freecad_job.py).
 
 The shaft, rocker and cone reference bundles use consumer-generated manifests
 and exact adjacent STEP exports. The bracket uses a hand-authored manifest on
@@ -140,6 +189,51 @@ Exported faces, CAD metadata and citations do not establish operation coverage,
 measured setup binding, a physical shop measurement or machining approval.
 Physical measurement status comes from an inventory fact's own
 [`measured.status = "measured"`](inventory.md#measured-envelopes-and-installed-tool-stacks-m5).
+
+## Threaded features
+
+Use `kind = "thread"` or `"threaded_hole"` for an internal thread and
+`kind = "external_thread"` for a male thread. The `kind` field remains a
+string, not a closed enum. These kinds select different preparation checks:
+internal threads use a drilled-and-tapped route, with
+[`hand_tap`](rules-tools.md#manual-tapping) for spindle-stopped manual tapping
+or `tap` for the powered action. An external thread uses
+[`die_thread` with a prior turned male blank](rules-tools.md#manual-die-threading),
+not a drill-and-tap chain.
+
+`thread` gives the explicit nominal size and pitch, separately from
+`thread_hand = "right"`, `"left"` or `"unknown"` and the string `thread_class`.
+Omission or `"unknown"` supplies no hand or class default. Nominal comparison
+supports explicit metric forms such as `M6x1` and inch size-TPI forms such as
+`1/2-20` or `#10-32UNF`, ignoring whitespace and case. An omitted Unified
+series does not supply one; two different explicit series contradict.
+Bare metric sizes without pitch, unsupported designations, tool names and
+prose do not resolve missing thread facts.
+
+For a [removable threaded joint](plan.md#threaded-joints), the exported feature's
+`frame`, `at` and `axis` locate its nominal finite envelope. The internal
+thread uses scalar `depth`; the external thread uses scalar `length`, both
+in manifest units. A band does not supply that scalar depth. Actual joint
+engagement is a separate plan fact and is never replaced by the male length.
+Known Unified classes `1B`, `2B` or `3B` have the internal role; `1A`, `2A` or
+`3A` have the external role. Different grades alone are not treated as
+incompatible. Metric tolerance classes and other unsupported class systems
+remain unresolved for mating-class checks.
+
+The manual-thread tool check compares its selected tap or die's hand and
+class directly with the corresponding feature. For both `tap` and `hand_tap`,
+[`op_chain`](rules-operations.md#op_chain) also checks the selected tap's
+designation, hand and class: a known mismatch is an error even when other
+preparation facts are unresolved; missing or unknown facts remain debt.
+Class equality trims whitespace and ignores case. Neither tool names nor
+standards prose supply a missing class.
+
+The mating-class check instead compares internal and external roles. These
+are nominal route checks, not pitch-diameter fit, thread-flank geometry,
+strength or retention approval. See
+[`joint_thread`](rules-tools.md#joint_thread) for finding conditions and
+[`thread_specs.py`](../src/prechips/thread_specs.py) for the supported nominal
+comparison.
 
 ## Rule and output consumers
 
@@ -365,6 +459,7 @@ manifest:
 | `frames` | `dict[str, Frame \| Unknown] \| Unknown` | Required |
 | `datums` | `dict[str, Datum \| Unknown] \| Unknown` | Optional |
 | `features` | `dict[str, Feature]` | Required |
+| `solids` | `dict[str, str]`; [exact named finished-solid references](#named-finished-solids) | Optional; defaults to `{}` |
 
 ## Drawing
 
@@ -381,8 +476,19 @@ manifest:
 | `spec` | `str` |
 | `name` | `str` |
 | `finish` | `str` |
+| `finish_kind` | `"coating" \| "surface"` |
 | `thickness` | `Number` |
 | `cite` | `Citations` |
+
+`finish` names the delivered-part finish. Omitted `finish_kind` means a coating
+requirement, as does explicit `"coating"`: the route must apply it after the
+cuts it covers. Explicit `"surface"` instead describes a machined, filed or
+polished surface condition; it is not a coating requirement.
+[`finish_route`](rules-inspection.md#finish_route) is then `not_applicable` for
+a known finish, not a certificate that surface inspection passed. Feature
+surface-finish and inspection requirements still apply. Explicit `"unknown"`
+kind or finish stays unresolved. No classification is inferred from finish
+wording, including “as turned” or “none”.
 
 ## Notes
 
@@ -443,6 +549,8 @@ manifest:
 | `binding` | `str` |
 | `dimension_type` | `str` |
 | `thread` | `str` |
+| `thread_hand` | `"right" \| "left"` |
+| `thread_class` | `str` |
 | `construction` | `str` |
 | `representation` | `str` |
 | `hole_spec` | `str` |

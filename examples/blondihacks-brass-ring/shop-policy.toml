@@ -1,0 +1,39 @@
+# Independent video-only demonstration policy; no unrelated shop defaults.
+# Video supplies no measured shop acceptance limits. Unknown is not a pass.
+revision = 1
+
+[required]
+tool_resolves = "*"
+sizing = "*"
+op_chain = "*"
+blind_depth = "*"
+inspection = "*"
+coordinates = "*"
+zero_check = "*"
+
+[numbers]
+refixture_budget_mm = "unknown"
+thin_wall_floor_mm = "unknown"
+stickout_ld_max = "unknown"
+fixture_make_decimals = "unknown"
+near_jaw_mm = "unknown"
+max_filing_stock_mm = "unknown"
+saw_min_teeth_in_work = "unknown"
+
+[numbers_cite]
+refixture_budget_mm = "No shop refixture budget published; source uses one chucking, not a measured budget: https://www.youtube.com/watch?v=t9NGty1CVII&t=366s"
+thin_wall_floor_mm = "Source ring has nominal 0.050-inch wall, not a shop thin-wall safety floor: https://www.youtube.com/watch?v=t9NGty1CVII&t=341s"
+stickout_ld_max = "No measured permissible chuck stickout ratio published in the video"
+fixture_make_decimals = "No shop-made fixture drawing or shop setting precision published in the video"
+near_jaw_mm = "Rule and witness-mark clearance procedure shown 09:19-09:58, but no numerical jaw clearance established"
+max_filing_stock_mm = "Fine-file deburring shown 16:18-17:35, without quantified stock removal or safe filing envelope"
+saw_min_teeth_in_work = "No saw operation is shown or invented in this route"
+
+[numbers_verify]
+refixture_budget_mm = true
+thin_wall_floor_mm = true
+stickout_ld_max = true
+fixture_make_decimals = true
+near_jaw_mm = true
+max_filing_stock_mm = true
+saw_min_teeth_in_work = true

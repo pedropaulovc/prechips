@@ -9,9 +9,11 @@ shop-made item's make operation names a ``tools`` key and states its cutting dat
 """
 
 from ..findings import Finding
-from ..measurements import length_debt, length_fact
+from ..measurements import length_debt, length_fact, limits_fact
+from ..thread_specs import match as thread_match
 from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
+    HAND_THREAD,
     MANUAL,
     SAW_MACHINES,
     SAW_OPS,
@@ -285,6 +287,101 @@ def _make_ops(bundle):
     return findings
 
 
+def _manual_thread(bundle, subject, op):
+    """Hand thread tools have real holders, but never a powered spindle stack."""
+    tapping = op["do"] == "hand_tap"
+    cutter, support = ("tap", "tap wrench/follower") if tapping else ("die", "die stock")
+    tool_kinds = {"tap", "tap_set", "tap_die_set"} if tapping else {"die", "die_set", "tap_die_set"}
+    holder_kinds = {"tap_wrench", "tap_follower"} if tapping else {"die_stock"}
+    feature_kinds = {"thread", "threaded_hole"} if tapping else {"external_thread"}
+    tool_ref, holder_ref = op.get("tool"), op.get("holder")
+    tool = resolve(bundle, "tools", tool_ref)
+    holder = resolve(bundle, "holders", holder_ref)
+    feature = record(bundle.feature_definitions.get(op.get("feature")))
+    problems, missing = [], []
+    nums = {
+        "tool": tool_ref or UNKNOWN,
+        "holder": holder_ref or UNKNOWN,
+        "feature": op.get("feature", UNKNOWN),
+        "manual": True,
+    }
+    if number(op.get("rpm")) and op["rpm"] != 0:
+        problems.append("manual threading requires a stopped spindle, not a powered rpm")
+    for label, item, kinds in ((cutter, tool, tool_kinds), (support, holder, holder_kinds)):
+        kind = record(item).get("kind", UNKNOWN)
+        if kind != UNKNOWN and kind not in kinds:
+            problems.append(f"selected {label} has wrong tool kind {kind}")
+        elif item is None or kind == UNKNOWN or uncertain(item):
+            missing.append(f"resolve and verify the {label} identity")
+    _, reference, _ = select(bundle, tool_ref, "tools")
+    if tool is None and isinstance(reference, str) and "/" in reference:
+        root, _, member = reference.partition("/")
+        parent = record(select(bundle, root, "tools")[2])
+        if isinstance(parent.get("members"), dict) and member not in parent["members"]:
+            problems.append(f"selected {cutter} member is not declared in its set")
+    kind = feature.get("kind", UNKNOWN)
+    if kind != UNKNOWN and kind not in feature_kinds:
+        problems.append(f"feature kind {kind} is not an {'internal' if tapping else 'external'} thread")
+    elif kind == UNKNOWN:
+        missing.append("thread feature identity is unknown")
+    for field in ("thread", "thread_hand", "thread_class"):
+        required = feature.get(field, UNKNOWN)
+        actual = record(tool).get(field, UNKNOWN)
+        nums[field] = {"required": required, cutter: actual}
+        if field == "thread":
+            matches = thread_match(required, actual)
+        else:
+            matches = (
+                required.strip().casefold() == actual.strip().casefold()
+                if isinstance(required, str)
+                and isinstance(actual, str)
+                and required.strip().casefold() not in {"", UNKNOWN}
+                and actual.strip().casefold() not in {"", UNKNOWN}
+                else None
+            )
+        if matches is False:
+            problems.append(f"{cutter} {field} does not match the thread feature")
+        elif matches is None:
+            missing.append(f"{cutter} and feature {field} must be known")
+    fits = record(holder).get("fits", UNKNOWN)
+    nums["holder_fits"] = fits
+    fit_known = fits not in (None, "", UNKNOWN) and tool_ref not in (None, UNKNOWN) and tool is not None
+    if fit_known and identity(bundle, fits, "tools") != identity(bundle, tool_ref, "tools"):
+        problems.append(f"{support} does not fit the selected {cutter} identity")
+    if tapping:
+        # Wrench ranges are nominal tap sizes, not a spindle collet's shank fit.
+        capacity_field = "range" if any(
+            key in record(holder) for key in ("range_mm", "range_in")
+        ) else "capacity"
+        capacity = limits_fact(holder, capacity_field, require_measured=False)
+        maximum = length_mm(holder, capacity_field)
+        diameter = length_mm(tool, "dia")
+        nums.update(tap_dia_mm=diameter, holder_capacity_mm=capacity["value"] if capacity["verified"] else maximum)
+        if number(diameter) and capacity["verified"]:
+            low, high = capacity["value"]
+            if (diameter < low and not same_length(diameter, low)) or (
+                diameter > high and not same_length(diameter, high)
+            ):
+                problems.append("tap nominal diameter is outside the wrench/follower capacity")
+        elif number(diameter) and number(maximum):
+            if diameter > maximum and not same_length(diameter, maximum):
+                problems.append("tap nominal diameter exceeds the wrench/follower capacity")
+        elif not fit_known:
+            missing.append("tap wrench/follower fit or nominal tap-size capacity is unknown")
+    elif not fit_known:
+        missing.append("die stock fit to the selected die identity is unknown")
+    status = "error" if problems else "unknown" if missing else "pass"
+    message = "; ".join(problems or missing) or f"manual {cutter} and {support} match the thread"
+    return Finding(
+        "tool_resolves",
+        subject,
+        status,
+        nums,
+        ["inventory thread tool/member/spec/hand/class and manual holder fit or capacity"],
+        f"{subject}: {message}.",
+    )
+
+
 def evaluate(bundle):
     findings = []
     # Each item a slot selects (setup_items), once: under its bare key when a bare reference
@@ -292,6 +389,19 @@ def evaluate(bundle):
     # is ``gauges.pins`` when a fixture ``pins`` is listed first). Read as the rules read
     # it, so a whole set with no member is not a tool.
     selected = {}
+    hand_items = {
+        identity(bundle, op.get(field), category)
+        for _, op in operations(bundle)
+        if op.get("do") in HAND_THREAD
+        for field, category in (("tool", "tools"), ("holder", "holders"))
+    }
+    powered_items = {
+        identity(bundle, op.get(field), category)
+        for _, op in operations(bundle)
+        if op.get("do") not in HAND_THREAD
+        for field, category in (("tool", "tools"), ("holder", "holders"))
+    }
+    hand_only_items = hand_items - powered_items
     for setup in bundle.plan.get("setups") or []:
         for category, ref, _ in setup_items(bundle, setup):
             bare = select(bundle, ref)[0] in (None, category)
@@ -299,6 +409,8 @@ def evaluate(bundle):
     for subject, (category, ref) in sorted(selected.items()):
         item = resolve(bundle, category, ref)
         status = "error" if item is None else "unknown" if uncertain(item) else "pass"
+        if item is None and (category, ref) in hand_only_items:
+            status = "unknown"
         numbers = {
             "reference": ref,
             "category": category,
@@ -382,6 +494,9 @@ def evaluate(bundle):
         subject = f"{setup['id']}:{op['op']}"
         if op["do"] == "coating":
             findings.append(_coating(subject, op, bundle))
+            continue
+        if op["do"] in HAND_THREAD:
+            findings.append(_manual_thread(bundle, subject, op))
             continue
         if op["do"] in MANUAL:
             continue

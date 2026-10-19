@@ -1,8 +1,12 @@
-"""Sourced starting speeds. No chart/row citation means no numeric speed.
+"""Sourced starting speeds and authored requests; requests do not replace cutting evidence.
 
 RPM policy: round raw RPM to nearest 50 with half-way ties to even, then clamp
 to the actual machine range. A boundary not divisible by 50 is retained rather
 than commanding an out-of-range speed.
+An authored operation ``rpm`` takes precedence without rounding or clamping.
+It is a requested speed, not evidence of safe cutting: known nonpositive or
+unavailable speeds are errors, and unresolved spindle/cutting inputs remain
+unknown. Manual actions and non-spindle saws do not consume this request.
 Cutting-table diameter_range is in millimetres, inclusive at both ends; an
 ambiguous overlapping pair of rows is unresolved rather than first-row wins.
 Mill feed is RPM x flutes x chip load; lathe feed is RPM x the op's planned
@@ -519,6 +523,23 @@ def evaluate(bundle):
                 else UNKNOWN
             )
             rpm = turnable(nearest50(raw, low, high), bands)
+            authored = "rpm" in op
+            rpm_error = None
+            if authored:
+                computed = rpm
+                requested = op["rpm"]
+                rpm = requested if _positive(requested) else UNKNOWN
+                spindle = mapping(machine.get("spindle"))
+                minimum = spindle.get("rpm_min", UNKNOWN)
+                maximum = spindle.get("rpm_max", UNKNOWN)
+                if requested != UNKNOWN and not _positive(requested):
+                    rpm_error = "Requested RPM must be a finite positive number."
+                elif _positive(requested) and (
+                    (number(minimum) and requested < minimum)
+                    or (number(maximum) and requested > maximum)
+                    or (bands != UNKNOWN and not any(lo <= requested <= hi for lo, hi in bands))
+                ):
+                    rpm_error = "Requested RPM is outside the machine's available spindle speeds."
             flutes = tool.get("flutes", UNKNOWN)
             if lathe:
                 # A turning tool advances feed_mm_rev per spindle revolution.
@@ -578,7 +599,25 @@ def evaluate(bundle):
                 or range_unknown
                 or deep_unknown
                 or (disk and saw_station(bundle, setup, op) != "fits")
+                or (
+                    authored
+                    and (bands == UNKNOWN or raw == UNKNOWN or not tool or not machine)
+                )
             )
+            if authored:
+                rpm_status = "error" if rpm_error else "unknown" if unknown else "pass"
+                reason = rpm_error or (
+                    "Spindle limits, cutting data, tool or material are unresolved or unverified."
+                    if unknown
+                    else "Checked against spindle limits and sourced starting data; not a safety certification."
+                )
+                numbers.update(
+                    requested_rpm=op["rpm"],
+                    computed_rpm=computed,
+                    rpm_basis="authored",
+                    rpm_status=rpm_status,
+                    rpm_reason=reason,
+                )
             if unknown and tool and (not lathe or op.get("do") in _AXIAL_LATHE_ACTIONS):
                 category, identity, _ = select(bundle, op.get("tool"), "tools")
                 debt = length_debt(tool, "dia", category, identity)
@@ -590,6 +629,11 @@ def evaluate(bundle):
                 "inventory machine spindle range",
                 "cutting-data aliases and rows",
             ]
+            if authored:
+                cite.append(
+                    f"plan.setups[{setup['id']}].ops[{op['op']}].rpm: authored request "
+                    "takes precedence without rounding or clamping"
+                )
             if lathe:
                 cite.append(
                     f"lathe feed = RPM·feed_mm_rev from plan.setups[{setup['id']}].ops"
@@ -628,11 +672,13 @@ def evaluate(bundle):
                     "clamped to the actual machine range."
                 )
             )
+            if authored:
+                sentence = f"Authored RPM request: {reason}"
             result.append(
                 Finding(
                     "speeds_feeds",
                     subject,
-                    "unknown" if unknown else "pass",
+                    rpm_status if authored else "unknown" if unknown else "pass",
                     numbers,
                     cite,
                     sentence,

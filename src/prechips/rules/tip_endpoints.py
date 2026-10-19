@@ -7,14 +7,22 @@ import itertools
 import math
 import re
 
+from prechips.material_routes import (
+    feature_material_status,
+    producer_setup,
+    reference_frame,
+    setup_lineage,
+)
 from prechips.measurements import angle_fact, length_debt
 
 from ..findings import Finding
 from ..model import UNIT_TOLERANCE
 from .resolution import (
+    HAND_THREAD,
     LENGTH_TOLERANCE_MM,
     MANUAL,
     SAW_OPS,
+    TAP_OPS,
     UNKNOWN,
     identity,
     length_mm,
@@ -30,7 +38,7 @@ from .resolution import (
 FACING = {"face", "rough_face", "finish_face"}
 POCKETING = {"pocket", "rough_pocket", "finish_pocket"}
 AXES = ("x", "y", "z")
-HOLE_OPS = {"spot", "drill", "ream", "tap", "counterbore", "bore"}
+HOLE_OPS = {"spot", "drill", "ream", "counterbore", "bore"} | TAP_OPS
 _HOLE_KINDS = {"hole", "counterbore", "thread", "threaded_hole"}
 # Lathe actions that, as a facing op does, leave their feature's face at their to_z.
 _PARTING = {"part_off", "cut_to_fit"}
@@ -181,7 +189,7 @@ def hole_depth_mm(op, feature, units):
     if "depth_mm" in op:
         value = op["depth_mm"]
         return value if number(value) else UNKNOWN
-    if op.get("do") == "tap":
+    if op.get("do") in TAP_OPS:
         field = "thread_depth" if "thread_depth" in feature else "depth"
         return _feature_depth_mm(feature, field, units)
     return UNKNOWN
@@ -768,21 +776,9 @@ def stock_states(bundle, setup):
 
 
 def lineage(bundle, setup):
-    """The setups whose output ``setup`` receives, oldest first: its ``stock_in`` chain
-    (each branch of a joint), as the geometry kernel builds the stock; supplies end it."""
-    by_id = {s.get("id"): s for s in bundle.plan.get("setups", [])}
-    chain, seen = [], {setup.get("id")}
-
-    def walk(current):
-        refs = current.get("stock_in")
-        for ref in refs if isinstance(refs, list) else [refs]:
-            if isinstance(ref, str) and ref in by_id and ref not in seen:
-                seen.add(ref)
-                walk(by_id[ref])
-                chain.append(by_id[ref])
-
-    walk(setup)
-    return chain
+    """Producer history, oldest first; feature survival requires separate material proof."""
+    earlier = setup_lineage(bundle.plan, setup.get("id")) - {setup.get("id")}
+    return [other for other in bundle.plan.get("setups", []) if other.get("id") in earlier]
 
 
 def operative_z(bundle, setup, value, face=None, done=0, source=None, path=False):
@@ -866,6 +862,11 @@ def _operative_z(bundle, setup, value, face, done, source, path, carried):
             found = carried() if carried else _carried(bundle, setup)
             if key in found:
                 return found[key][1]
+        surface = state.get("top_feature") if face == "top" else face
+        if not path and feature_material_status(
+            bundle.plan, setup["id"], "stock", surface, bundle
+        ) is None:
+            return UNKNOWN
     return dro_z(value, dro_grid(bundle, setup))
 
 
@@ -905,14 +906,16 @@ def transfer(bundle, setup):
     from .coordinates import dro_grid, dro_z, frame_axes, mapping_vector
 
     source, before = setup.get("stock_in"), None
+    producer = producer_setup(bundle.plan, source) if isinstance(source, str) else None
     for other in bundle.plan.get("setups", []):
         if other is setup:
             break
-        if isinstance(source, str) and other.get("id") == source:
+        if other.get("id") == producer:
             before = other
     if before is None:
         return None
-    here, there = setup_frame(bundle, setup), setup_frame(bundle, before)
+    here = setup_frame(bundle, setup)
+    there = reference_frame(bundle.plan, source, setup_frame(bundle, before))
     z_here, z_there = frame_axes(here)[2], frame_axes(there)[2]
     o_here, o_there = (mapping_vector(mapping(f).get("origin")) for f in (here, there))
     if not all(number(v) for v in (*z_here, *z_there, *o_here, *o_there)):
@@ -926,18 +929,26 @@ def transfer(bundle, setup):
     step = grid[0]
     received = arrival_zs(bundle, before)
     state, left = mapping(setup.get("stock_state")), {}
+    unresolved = {}
     for key, named in ARRIVAL_ZS.items():
         if number(state.get(key)):
             feature = state.get(named) if named else None
+            material = feature_material_status(
+                bundle.plan, setup["id"], before["id"], feature, bundle
+            )
+            if material is None:
+                unresolved[key] = (state[key], UNKNOWN)
+            if material is not True:
+                continue
             z = _left_z(bundle, before, sign * (state[key] - offset), feature, received)
             if number(z):
                 left[key] = sign * z
     move = {"before": before, "sign": sign, "offset": offset, "shift": dro_z(offset, grid)}
     if not left:
-        return {**move, "carried": {}}
+        return {**move, "carried": unresolved}
     anchor = next(iter(left.values()))
     if any(abs((z - anchor) / step - round((z - anchor) / step)) > 1e-6 for z in left.values()):
-        return {**move, "shift": None, "carried": {}}
+        return {**move, "shift": None, "carried": unresolved}
     shift = dro_z(anchor + offset, grid) - anchor
     zero = mapping(mapping(setup.get("zero")).get("z"))
     touched = zero.get("face") == "top" and zero.get("after_op") is None
@@ -945,13 +956,29 @@ def transfer(bundle, setup):
         shift = dro_z(state["top_z"], grid) - left["top_z"]
     shift = round(shift, 9)
     carried = {key: (state[key], dro_z(z + shift, grid)) for key, z in left.items()}
+    carried.update(unresolved)
     return {**move, "shift": shift, "carried": carried}
 
 
 def _carried(bundle, setup):
-    """:func:`transfer`'s ``carried`` Zs; none when ``setup`` receives no transfer."""
+    """:func:`transfer`'s carried Zs; unknown, not nominal, across an unplaced output."""
     move = transfer(bundle, setup)
-    return move["carried"] if move else {}
+    if move:
+        return move["carried"]
+    source = setup.get("stock_in")
+    if not isinstance(source, str) or not source.startswith("stock_out."):
+        return {}
+    producer = producer_setup(bundle.plan, source)
+    before = next(
+        (row for row in bundle.plan.get("setups", []) if row.get("id") == producer),
+        None,
+    )
+    if before is None or reference_frame(
+        bundle.plan, source, setup_frame(bundle, before)
+    ) is not None:
+        return {}
+    state = mapping(setup.get("stock_state"))
+    return {key: (state[key], UNKNOWN) for key in ARRIVAL_ZS if number(state.get(key))}
 
 
 def arrival_zs(bundle, setup):
@@ -1141,6 +1168,16 @@ def _producer(bundle, setup, value, face, done, source, path=False, debts=None, 
             )
         if not forms:
             continue
+        surface_name = top or name if face == "top" else face
+        material = feature_material_status(
+            bundle.plan, setup["id"], cut_setup["id"], surface_name, bundle
+        )
+        if material is False:
+            continue
+        if material is None:
+            if debts is not None:
+                debts.append(f"survival after partition is unknown for {surface_name}")
+            return UNKNOWN
         surface = mapping(features.get(top or name if face == "top" else face))
         # An op that cut only part of the surface did not produce it: the uncut part
         # still stands where its last whole producer left it. Unknown coverage proves
@@ -1278,6 +1315,7 @@ def evaluate(bundle):
     unresolved = set()
     errors = set()
     negative_exit = set()
+    manual_depth_errors = set()
     # Per centre: why it is not the centre its selected tool cuts from the touched surface.
     centre_errors = {}
     input_errors = {}
@@ -1290,7 +1328,10 @@ def evaluate(bundle):
             feature = features[name]
             # A plan centre hole is drilled by a combined drill and countersink fed from
             # the tailstock quill: its depth is its own Table 6 geometry, read on the quill.
-            centre = op.get("do") == "center_drill" and feature.get("kind") == "centre_hole"
+            centre = (
+                op.get("do") in {"spot", "center_drill"}
+                and feature.get("kind") == "centre_hole"
+            )
             if not centre and (
                 op.get("do") not in HOLE_OPS or feature.get("kind") not in _HOLE_KINDS
             ):
@@ -1305,6 +1346,7 @@ def evaluate(bundle):
             }
             tool = resolve(bundle, "tools", op.get("tool")) or {}
             action = op["do"]
+            manual_tap = action in TAP_OPS and action in HAND_THREAD
             angle = angle_fact(tool, "point_angle", require_measured=False)
             point = drill_point_mm(
                 length_mm(tool, "dia"),
@@ -1327,7 +1369,7 @@ def evaluate(bundle):
                     exit_face="not_applicable",
                     tip_z=_subtract(entry, depth),
                 )
-            elif action == "tap":
+            elif action in TAP_OPS:
                 depth = hole_depth_mm(op, feature, bundle.features.get("units"))
                 flute = length_mm(tool, "flute_len")
                 # The thread depth band a tap's depth answers to (hole_depth_mm's field).
@@ -1341,6 +1383,10 @@ def evaluate(bundle):
                     tip_z=_subtract(entry, depth),
                     exit_face="not_applicable",
                 )
+                if manual_tap:
+                    row["depth_scale"] = "manual"
+                    if number(depth) and depth <= 0:
+                        manual_depth_errors.add(name)
                 if number(flute) and number(depth) and not uncertain(tool) and flute < depth:
                     errors.add(name)
                 elif not (number(flute) and number(depth)):
@@ -1396,7 +1442,11 @@ def evaluate(bundle):
                     errors.add(name)
             # A centre row's verdict is centre_endpoint's alone (it already holds the tool's
             # presence and verify debt), which centre_support reads through centre_check.
-            if not centre and (row.get("tip_z") == UNKNOWN or not tool or uncertain(tool)):
+            if not centre and (
+                (not manual_tap and row.get("tip_z") == UNKNOWN)
+                or not tool
+                or uncertain(tool)
+            ):
                 unresolved.add(name)
             if not centre and action == "ream":
                 category, tool_ref = identity(bundle, op.get("tool"), "tools")
@@ -1410,17 +1460,18 @@ def evaluate(bundle):
                     debt = length_debt(tool, "dia", category, tool_ref) if tool else None
                     if debt:
                         debts.setdefault(name, {})[debt["id"]] = debt
-            face = name if name in before["entry_z"] else "top"
-            bad_input = _operative(row, bundle, setup, face, op)
-            if bad_input is not None:
-                input_errors.setdefault(name, []).append(bad_input)
-            if row.get("dro_tip_z") == UNKNOWN:
-                unresolved.add(name)
-            if row.get("dro_grid_debt"):
-                unresolved.add(name)
-                debts.setdefault(name, {}).update(
-                    (item["id"], item) for item in dro_grid_measurements(bundle, setup)
-                )
+            if not manual_tap:
+                face = name if name in before["entry_z"] else "top"
+                bad_input = _operative(row, bundle, setup, face, op)
+                if bad_input is not None:
+                    input_errors.setdefault(name, []).append(bad_input)
+                if row.get("dro_tip_z") == UNKNOWN:
+                    unresolved.add(name)
+                if row.get("dro_grid_debt"):
+                    unresolved.add(name)
+                    debts.setdefault(name, {}).update(
+                        (item["id"], item) for item in dro_grid_measurements(bundle, setup)
+                    )
             endpoints[name].append(row)
     result = []
     for name, feature in features.items():
@@ -1429,12 +1480,17 @@ def evaluate(bundle):
         if feature.get("kind") not in _HOLE_KINDS | {"centre_hole"}:
             status, sentence = "not_applicable", "Not a hole; no tip endpoint applies."
         elif (
-            name in errors or name in negative_exit or name in centre_errors or name in input_errors
+            name in errors
+            or name in negative_exit
+            or name in manual_depth_errors
+            or name in centre_errors
+            or name in input_errors
         ):
             sentence = " ".join(
                 text
                 for flagged, text in (
                     (negative_exit, "A through exit allowance is negative; exit_mm must be >= 0."),
+                    (manual_depth_errors, "Manual tapping requires a positive relative depth."),
                     (errors, "The blind tip or tap flute length exceeds the declared depth guard."),
                     (
                         centre_errors,

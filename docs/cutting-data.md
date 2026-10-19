@@ -15,6 +15,7 @@ On this page:
 - [File selection and input conventions](#file-selection-and-input-conventions)
 - [Cut row selection](#cut-row-selection)
 - [Spindle speed and feed](#spindle-speed-and-feed)
+- [Authored RPM](#authored-rpm)
 - [Chain drilling](#chain-drilling)
 - [Deep-hole speed reduction](#deep-hole-speed-reduction)
 - [Saw speed and feed](#saw-speed-and-feed)
@@ -54,8 +55,9 @@ feed, which may be higher.
 `sfm` is surface feet/minute; `chip_load_mm_per_tooth` is mm/tooth. The
 selected diameter and machine speed range are required.
 
-RPM is `12*sfm/(pi*D_in)`, rounded to the nearest 50 (ties to even), then clamped
-to actual machine limits. A nonmultiple-of-50 boundary is retained.
+When the operation omits `rpm`, RPM is `12*sfm/(pi*D_in)`, rounded to the
+nearest 50 (ties to even), then clamped to actual machine limits. A
+nonmultiple-of-50 boundary is retained.
 If `spindle.ranges_rpm` is present, each band is clipped to known `rpm_min`
 and `rpm_max`; otherwise those limits define one band. Every band's endpoints
 must be known, and at least one band must survive clipping. A rounded, clamped
@@ -73,6 +75,58 @@ The operation ledger keeps each cited recommendation beside its action in
 authored order. Marking the operation performed neither accepts that
 recommendation nor verifies actual cutting conditions. The paper layout adds
 no cutting-data field and never replaces unknown recommendations with numbers.
+
+### Authored RPM
+
+An operation's [`rpm`](plan.md#authored-spindle-speed) is a requested spindle
+speed, not a replacement for sourced cutting data. Precedence is:
+
+| Operation input | Effective RPM |
+| --- | --- |
+| `rpm` omitted | The computed starting recommendation above |
+| Positive numeric `rpm` | Exactly the requested value, without rounding, clamping or moving it into an available band |
+| `rpm = "unknown"` | Unknown; no computed fallback, even when a cited recommendation can be calculated |
+
+The request must be finite and positive. Nonfinite input is rejected by the
+schema. A zero or negative request produces a `speeds_feeds` error. A positive
+request also errors when it violates a known `spindle.rpm_min` or `rpm_max`,
+even if the other bound is unknown, or falls outside every fully resolved
+available `ranges_rpm` band. A speed in a known gap is an error, not a request
+to choose the lower band.
+
+A positive request remains visible as `numbers.rpm` even when unresolved
+spindle limits, tool identity or dimensions, cutting data, deep-hole evidence
+or material/machine/tool verification keep the finding unknown. The sheet
+prints the value as `rpm requested`, with `STOP:` and the reason for an unknown
+or error result; an explicit unknown prints `STOP: requested RPM unknown`.
+Resolve the named inputs before treating the request as checked. The
+[policy gate](policy.md#gate-and-always-required-checks) still governs whether
+an unknown `speeds_feeds` finding blocks the report.
+
+When their inputs are known, feeds use the effective requested RPM:
+`RPM*flutes*chip_load_mm_per_tooth` on a mill and `RPM*feed_mm_rev` on a lathe,
+with the same feed-source precedence as above. A numeric feed does not clear
+the speed's STOP. A passing request means the implemented spindle-limit and
+sourced-input checks are satisfied; it does not establish a safe cut or
+agreement with the separately computed starting recommendation.
+
+Only the authored path adds `requested_rpm`, `computed_rpm`,
+`rpm_basis = "authored"`, `rpm_status` (`"pass"`, `"unknown"` or `"error"`)
+and `rpm_reason` to the finding. `computed_rpm` retains the ordinary starting
+recommendation, or `"unknown"` when it cannot be derived. It is comparison
+evidence, never a fallback for the request.
+
+`speeds_feeds` returns `not_applicable` for manual actions, including
+spindle-stopped `die_thread` and `hand_tap`, and for hand saws. This is not
+permission to power a hand-threading operation: `tool_resolves` separately
+errors on any known nonzero `rpm` for either manual threading action. They
+produce no spindle-speed recommendation. Nonspindle powered-saw speed and
+descent feed retain their [linear-speed path](#saw-speed-and-feed). A rotating
+`slitting_saw` does consume the authored spindle request.
+
+The implementation is
+[`rules/speeds_feeds.py`](../src/prechips/rules/speeds_feeds.py); the
+[operation reference](plan.md#authored-spindle-speed) owns the plan field.
 
 ## Chain drilling
 

@@ -26,43 +26,66 @@ not physical machining acceptance.
 
 ## `op_chain`
 
-The rule produces one finding per feature. It checks route-wide prerequisites
-for holes, threads, threaded holes and counterbores, including operations in
-later setups. It also checks deterministic starts for contour/form operations,
-including nonhole features.
+The rule produces one finding per operative feature. Hole and external-thread
+preparation must precede the consuming operation on the same surviving material.
+A matching operation somewhere else in the route, on a sibling retained output
+or after the consumer does not establish preparation. The rule also checks
+deterministic starts for contour/form operations, including nonhole features.
 
 ### Hole prerequisites
 
-A hole/thread/threaded-hole/counterbore route needs spot and drill operations.
-A `process = "ream"` feature needs reaming; a thread needs tapping. A
-counterbore needs its own counterbore operation and a drill on its named
-`parent` or `hole` feature.
+A hole, internal thread, threaded hole or counterbore needs causal spot and
+drill preparation. A `process = "ream"` feature needs reaming; an internal
+thread needs `tap` or spindle-stopped `hand_tap`. Both consume prior spot/drill
+preparation. A counterbore needs its own counterbore operation and a prior
+drill on its named `parent` or `hole` feature.
 
-When the route taps, the selected drill diameter must match the explicitly
-supplied `tap_drill_mm` thread specification, using verified selected-tool
-geometry. Converted lengths are equal within absolute 1e-6 mm, with no
-relative tolerance: `3/8` in and `9.525` mm agree. Unknown process or thread
-specification leaves the chain unresolved. An explicitly unknown feature kind
-or route action makes the finding unknown, even when `banded_starts` records
-a known start error.
+The optional typed `prerequisites.spot` reference can name a real earlier
+process-centre or tooling-hole spot, or a centre-only `center_drill`, when its
+location, directed axis and surviving material establish the same preparation.
+A setup name or nominally coincident point alone does not transfer a centre
+through a retained split. See the [plan reference](plan.md) for the reference
+fields and [retained material routing](plan.md#retained-part-off-outputs) for
+the stock identities.
 
-With known kind/actions, a complete applicable route passes. Missing
-prerequisite operations or a known tap-drill mismatch are errors. A nonhole
-with no contour-start issue is `not_applicable`; nonholes can receive the
-start errors or unknowns described below, including unknown from
-`unknown_starts` alone.
+For `tap` and `hand_tap`, the selected drill diameter must match the explicit
+`tap_drill_mm` specification using verified tool geometry. Lengths agree
+within absolute 1e-6 mm, so `3/8` in and `9.525` mm agree. The selected tap's
+supported thread designation, handedness and thread class must also match
+the feature. Class comparison trims whitespace and ignores case; it does not
+infer an omitted class. A known class mismatch is an error even when
+preparation has other debt. Missing, empty or unknown class, tool identity,
+designation, handedness, geometry or surviving-material evidence remains
+unknown. The `tap_tools` evidence records `required_class`, `selected_class`
+and `class_match`.
 
-Typical sentences are:
+Missing required operations and known order or tap-drill contradictions are
+errors. An explicitly unknown feature kind or route action keeps the finding
+unknown even when other route evidence is present.
 
-- `{feature}: not a hole chain.`
-- `{feature}: feature kind or hole-chain action is explicitly unknown.`
-- `{feature}: hole prerequisites are present across the route.`
-- `{feature}: thread tap-drill specification/measurement unresolved.`
-- `{feature}: {errors}.`, with clauses such as `no drill operation`,
-  `no spot operation`, `required ream operation absent`,
-  `thread requires a tap operation`, `counterbore operation absent`,
-  `counterbore has no parent hole drill` or
-  `selected tap drill differs from thread specification`.
+### External-thread preparation
+
+An `external_thread` needs a manual `die_thread`, not an internal
+spot/drill/tap chain. A known supported thread without its required die
+operation is an error. A missing or unresolved designation or selected die
+leaves the relevant preparation unresolved. Applying `spot`, `center_drill`,
+`drill`, `ream`, `tap`, `hand_tap` or `counterbore` as the external-thread route is an error.
+
+Before `die_thread`, a same-feature `rough_turn`, `finish_turn` or `turn`
+operation on surviving material must prepare the male blank. The evidence
+must establish its diameter, aligned axis and full axial shoulder extent.
+The declared `to_dia` is checked against the feature's diameter band, or its
+nominal diameter when no band exists; the turning window must cover the
+declared thread length. Wrong material, diameter, axis or extent is an error.
+Missing preparation, extent, units or ownership evidence stays unknown.
+The die operation runs with the spindle stopped and does not require a
+cutting RPM or axial cutter-setting recipe. See
+[manual threading tools](rules-tools.md#tool_resolves) for die identity and
+specification checks.
+
+For other features, no applicable chain or contour-start issue is
+`not_applicable`. These route checks do not prove thread form, engagement,
+strength or an assembled cutting load path.
 
 ### Deterministic contour starts
 
@@ -106,18 +129,29 @@ are:
 
 | Operation or route | Required order |
 | --- | --- |
-| Ream, tap or counterbore | Follow the prerequisite drill, using the parent/hole feature for a counterbore. |
+| Ream, tap, hand tap or counterbore | Follow the prerequisite drill, using the parent/hole feature for a counterbore. |
 | Drill and spot | A drill must not precede its only spot. An earlier spot already satisfies this relationship even if another spot follows. |
 | Spot and facing | A spot follows facing when its setup contains `face` or `finish_face`. |
 | Rough and finish | A `rough_*` operation must not follow the matching `finish_*` for that feature in the same setup. |
-| Release or part-off | Follow all remaining cutting in the same setup. A later setup may cut the released part; later manual work in this setup does not violate the relationship. |
+| Release or part-off | Follow all remaining cutting in the same setup, including `die_thread` and `hand_tap`. A later setup may cut the released part; other allowed later manual work in this setup does not violate the relationship. |
 
-A finishing hole operation (`ream`, `tap` or `counterbore`) in another setup
+A finishing hole operation (`ream`, `tap`, `hand_tap` or `counterbore`) in another setup
 must receive stock from the earlier drilled setup through its `stock_in`
 ancestry. Legacy input with no `stock_in` may use a `zero.transfer.from`
 that names an earlier drilled setup. Once `stock_in` is explicit, a datum
 transfer from another blank cannot substitute for that material route.
 This check establishes route order, not physical fixture continuity.
+
+Named `part_off` outputs retain their own material identities through
+`stock_out.<name>` references. Preparation from the other child of a split
+does not satisfy an incoming drill or centre requirement. An output-producing
+part-off is terminal for cutting in its setup, like existing part-off; later
+manual work does not create a second source or permit reuse of its unsplit
+ancestor. See [retained outputs](plan.md#retained-part-off-outputs).
+
+For this release-order check, `die_thread` and `hand_tap` count as cutting
+even though the spindle is stopped. They must precede `release` or `part_off`;
+neither gains the later-manual-work exemption.
 
 An unknown action in the current setup makes its order unknown. Otherwise
 any violation is an error and a route with none passes. Correct the array
@@ -146,6 +180,13 @@ separate rule ids. They explain when an exact native face can supply a
 numeric contact setting and `credited_faces`. Plane selection, stock
 presence, orientation, operation timing and usable contact area must all be
 proved. A known nominal height alone does not supply touch credit.
+
+These numeric contact and native DRO-grid extensions apply to the digital
+readout path. A handwheel or explicitly unknown readout takes its separate
+physical-setting debt path before these checks. Handwheel sheets print
+source-authored procedures and nominal targets, not Axis Set, Preset or
+digital-DRO measurement tasks; they do not establish a physical zero. See
+[mechanical readouts](rules-coordinates.md#mechanical-dials-and-unknown-readouts).
 
 ### Component-local supply proof
 
@@ -397,10 +438,17 @@ Implementation: [`zero_recipe/native.py`](../src/prechips/rules/zero_recipe/nati
 ## `blind_depth` (tip endpoints)
 
 The rule produces one finding per feature, with an `endpoints` array for
-`spot`, `drill`, `ream`, `tap`, `counterbore` and `bore` operations, and for
+`spot`, `drill`, `ream`, `tap`, `hand_tap`, `counterbore` and `bore` operations, and for
 `center_drill` on a plan [process](plan.md#process-features) `centre_hole`.
 Nonhole features are `not_applicable`. An applicable feature without endpoint
 rows remains unknown.
+
+`hand_tap` retains the authored depth, tap flute-length and depth-guard checks,
+with `depth_scale = "manual"`. It does not derive a digital DRO tip setting or
+require a spindle cutter retouch. Unknown depth or usable flute length remains
+debt; a known tap flute shorter than the required depth is an error. Native
+helical removal is unmodeled, so this endpoint screen does not establish
+thread geometry or proven post-thread stock.
 
 ### Local entry and stock-state advancement
 
@@ -509,7 +557,8 @@ thickness.
 
 ### Centre-hole quill depth
 
-For `center_drill` on a process `centre_hole`:
+For canonical `spot` on a process `centre_hole` with a selected centre drill
+(and the legacy `center_drill` action on the same process feature):
 
 `depth_mm = drill_length_mm + (mouth_dia_mm - drill_dia_mm) / 2 / tan(countersink_angle_deg / 2)`
 
@@ -602,7 +651,7 @@ Implementation: [`tip_endpoints.py`](../src/prechips/rules/tip_endpoints.py).
 ## `speeds_feeds`
 
 The rule produces one finding per `setup:op`. Manual actions (`inspect`,
-`deburr`, `coating`, `release`, `fit`, `scribe`, `file_to_line`) receive
+`deburr`, `coating`, `release`, `fit`, `scribe`, `file_to_line`, `die_thread`, `hand_tap`) receive
 explicit `not_applicable` findings. Supported verified hand-saw cuts are
 also exempt as described below. Spindle and powered-saw calculations pass
 when their consumed facts are sourced and resolved; missing or ambiguous
@@ -611,7 +660,7 @@ cutting performance or physical acceptance.
 
 ### Source selection and RPM
 
-For spindle cuts, a tool chart citation takes precedence over table rows.
+When `op.rpm` is omitted, a tool chart citation takes precedence over table rows.
 Otherwise selection matches material alias, tool material, normalized
 action and inclusive mm diameter range. Exactly one cited row is required.
 Overlapping matches or unknown ranges remain unresolved. No chart URL is
@@ -632,6 +681,27 @@ unselectable speed. Any unknown band endpoint leaves RPM unknown.
 Verified material, tool and machine facts are required. Missing/unverified
 source rows, charts, geometry or machine ranges cannot be replaced by a
 remembered cutting value.
+
+An authored `op.rpm` selects the requested-speed path instead. The exact
+request takes precedence over the computed starting RPM; explicit
+`rpm = "unknown"` does not fall back to a chart or table calculation. A known
+request is not rounded or clamped into a different requested value.
+Nonpositive/nonfinite requests and known contradictions with spindle limits
+or an available speed band are errors, even if a different limit is unknown.
+Missing or unverified machine, tool, material or cutting-safety evidence leaves
+the request visible but unresolved, not a certified recommendation. Feed uses
+the effective requested RPM with the existing chip-load or feed-per-revolution
+calculation.
+
+Authored-speed evidence includes `requested_rpm`, `computed_rpm`,
+`rpm_basis = "authored"`, `rpm_status` and `rpm_reason`; `rpm` is the effective
+speed. The setup sheet labels the value as requested and adds STOP with the
+reason when it is unknown or erroneous. An absent request keeps the computed
+path unchanged. Manual actions and verified hand sawing have no spindle-RPM
+requirement; a nonzero authored RPM on stopped-spindle threading is a tooling
+error, not permission to power the manual operation. Non-spindle powered saws
+retain blade-speed rules. See [requested RPM](cutting-data.md#authored-rpm)
+for the input contract.
 
 ### Deep-hole derating
 
@@ -719,7 +789,7 @@ therefore does not authorize an unresolved contour entry.
 
 ### Powered saws and hand saws
 
-Saw cut-off uses a cited canonical `operation = "saw_cut"` row for either
+Non-spindle saw cut-off uses a cited canonical `operation = "saw_cut"` row for either
 `saw_cut` or `cut_off`, keyed by material class and blade material without
 a diameter filter. Positive sfm is linear blade speed, clamped to machine
 `blade_speed_sfm`; `feed_mm_min` is descent feed. There is no spindle RPM,
@@ -730,13 +800,22 @@ remain unknown.
 A verified `kind = "hand_saw"` has no blade speed or machine feed. Its
 finding is `not_applicable`, citing tool kind. This is selected-tool scope
 per operation, not action-wide scope: a hand saw beside a powered cut still
-has no machine feed; a bandsaw blade or unresolved/unverified tool retains
-the blade-speed screen. See [hand saw on the bench](plan.md#hand-saw-on-the-bench-straight-or-to-a-scribed-line).
+has no machine feed. A known bandsaw retains the blade-speed screen. An
+unresolved tool on a mill or unknown station cannot establish that the saw is
+non-spindle and retains unknown spindle RPM/feed evidence instead. See
+[hand saw on the bench](plan.md#hand-saw-on-the-bench-straight-or-to-a-scribed-line).
 
 A vertical-mode bandsaw cut that `follows` a scribed line keeps sourced,
 clamped blade speed but no descent feed. Hand feeding makes `feed_mm_min`
 `not_applicable`; its absence creates no feed debt. Native stock preservation
 is covered separately by [saw geometry](rules-geometry.md#saw-cut-off).
+
+A `slitting_saw` is mill-mounted spindle tooling. It selects
+`operation = "slitting_saw"` and uses disk diameter, tooth count, normal
+chart/table precedence and spindle limits to derive RPM and tooth feed. It
+does not consume a bandsaw's blade-speed range or descent feed. Correct speed
+arithmetic does not establish finite disk/arbor reach, mounted zero, fixture
+clearance or assembled cutting support; those applicable model debts remain.
 
 ### Findings, evidence and remedy
 

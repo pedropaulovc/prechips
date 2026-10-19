@@ -54,6 +54,7 @@ ALWAYS_REQUIRED = frozenset(
     {
         "joint_fit",
         "joint_assembly",
+        "joint_thread",
         "manual_arc",
         "centre_support",
         "tooling_hole",

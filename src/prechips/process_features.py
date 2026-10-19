@@ -19,6 +19,7 @@ import math
 from typing import Any
 
 from prechips.inputs import BadInput
+from prechips.material_routes import MaterialGraph, feature_material_status
 from prechips.model import UNKNOWN, setup_lineage
 
 LABEL_PREFIX = "plan.process_features."
@@ -41,7 +42,7 @@ ACTIONS = {
             "finish_profile",
         }
     ),
-    "centre_hole": frozenset({"center_drill"}),
+    "centre_hole": frozenset({"spot", "center_drill"}),
     # A tooling hole is spotted, drilled and reamed when its band needs it: the ream
     # finishes the band, the drill roughs it (``sizing`` judges the finishing tool against
     # ``dia``) and the spot only starts it, cutting its own point.
@@ -189,6 +190,9 @@ def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
     bounds, own = definition.get("bounds"), process_of(definition)
     if not bounds or not own:
         return bounds
+    # Root-stock bounds are not registered bounds of an independently reposed child.
+    if any(atom.split is not None for atom in MaterialGraph(bundle.plan).nodes.get(setup["id"], ())):
+        return None
     trimmed = {key: list(span) for key, span in bounds.items()}
     earlier = setup_lineage(bundle.plan, setup["id"]) - {setup["id"]}
     for other in bundle.plan["setups"]:
@@ -198,6 +202,10 @@ def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
             made = bundle.feature_definitions.get(op_feature(op))
             process = process_of(made)
             if not process or process["kind"] != "end_face" or process["id"] == own["id"]:
+                continue
+            if feature_material_status(
+                bundle.plan, setup["id"], other["id"], process["id"], bundle
+            ) is not True:
                 continue
             axis, at = made["axis"], made["at"]
             vectors = (axis, at)
@@ -413,6 +421,7 @@ def makers(bundle, setup: dict, name: str) -> list[tuple[dict, dict]]:
         if other["id"] in earlier
         for op in other.get("ops", [])
         if op.get("feature") == name
+        and feature_material_status(bundle.plan, setup["id"], other["id"], name, bundle) is not False
     ]
 
 

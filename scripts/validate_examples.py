@@ -28,6 +28,14 @@ from prechips.findings import ALWAYS_REQUIRED
 from prechips.inputs import BadInput, blank_supplies, load_bundle, operative_definitions
 from prechips.joint_features import LABEL_PREFIX, fit, label, present, setup_span_mm
 from prechips.kernel import run_geometry
+from prechips.material_routes import (
+    OUTPUT_PREFIX,
+    MaterialGraph,
+    feature_material_status,
+    input_refs,
+    producer_setup,
+    setup_lineage,
+)
 from prechips.measurements import length_debt, record_debt
 from prechips.model import UNIT_TOLERANCE, Inventory, Plan, tolerance_requirements
 from prechips.process_features import ACTIONS as PROCESS_ACTIONS
@@ -48,11 +56,13 @@ from prechips.rules.geometry_common import _TURNING_ACTIONS as TURNING_ACTIONS
 from prechips.rules.geometry_common import TURNING_BLADE_KINDS, cutting_action, op_claims
 from prechips.rules.resolution import (
     HAND_FINISH,
+    HAND_THREAD,
     LENGTH_TOLERANCE_MM,
     MANUAL,
     SAW_OPS,
     SLITTING_SAW_MODEL_REASON,
     SLOT_CATEGORIES,
+    TAP_OPS,
     UNRESOLVED_SAW_MODEL_REASON,
     make_op_unknowns,
     make_ops,
@@ -119,7 +129,10 @@ EXPECTED_EXIT = {
     "pivot-bracket": 0,
     "cone-pivot-post/built-up.toml": 4,
 }
-STANDALONE_CASES = (("blondihacks-t-nuts", "plan.toml", "expected", 4),)
+STANDALONE_CASES = (
+    ("blondihacks-t-nuts", "plan.toml", "expected", 4),
+    ("blondihacks-brass-ring", "plan.toml", "expected", 4),
+)
 # Worked fixtures exercise the measured branch without claiming shop observations.
 EXAMPLE_MEASUREMENT = {
     "by": "example value (realistic, not a shop measurement)",
@@ -280,8 +293,8 @@ CUT_OPERATIONS = {
     ),
 }
 # The hole actions whose tip a hole feature's blind_depth row places, and the feature
-# kinds they place it for (a centre hole's row is its center_drill's alone).
-ENDPOINT_OPS = frozenset({"spot", "drill", "ream", "tap", "counterbore", "bore"})
+# kinds they place it for (a centre hole uses its real spot/centre-drilling action).
+ENDPOINT_OPS = frozenset({"spot", "drill", "ream", "counterbore", "bore"}) | TAP_OPS
 ENDPOINT_KINDS = frozenset({"hole", "counterbore", "thread", "threaded_hole"})
 
 
@@ -1160,20 +1173,28 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
     require(len(ids) == len(set(ids)), "duplicate setup id")
     for setup in setups:
         sid = setup["id"]
-        require(
-            setup["frame"] in features["frames"] or setup["frame"] in plan_frames(plan, features),
-            f"{sid}: missing frame",
-        )
-        require(setup.get("ops"), f"{sid}: empty operations")
-        require(isinstance(setup.get("stock_state"), dict), f"{sid}: missing stock state")
-        require(isinstance(setup.get("hold"), dict), f"{sid}: missing hold")
         bench = manual_bench(inventory, setup)
+        if bench is None:
+            frame = setup.get("frame", "unknown")
+            require(
+                frame == "unknown"
+                or frame in features["frames"]
+                or frame in plan_frames(plan, features),
+                f"{sid}: missing frame",
+            )
+            state = setup.get("stock_state", "unknown")
+            require(
+                state == "unknown" or isinstance(state, dict),
+                f"{sid}: stock state must be declared or remain unknown",
+            )
+        require(setup.get("ops"), f"{sid}: empty operations")
+        require(isinstance(setup.get("hold"), dict), f"{sid}: missing hold")
         if saw_setup(inventory, setup):
             # A dedicated saw setup locates its cut by cut_plane; no spindle zero is set.
             has("zero_check", sid)
             require(
                 findings["zero_check", sid]["status"] == "not_applicable"
-                and findings["zero_check", sid]["numbers"] == {"frame": setup["frame"]},
+                and findings["zero_check", sid]["numbers"] == {"frame": setup.get("frame", "unknown")},
                 f"{sid}: saw setup zero waiver must name its frame",
             )
         elif any(spindle_saw(inventory, setup, op) for op in setup["ops"]):
@@ -1274,14 +1295,35 @@ def measured_setup(kernel, sid: str) -> dict:
     return measured if isinstance(measured, dict) else {}
 
 
-def kernel_join(kernel, setup: dict) -> tuple:
+def measured_output(plan: dict, facts: dict, ref: str) -> dict:
+    """Only a native-proven retained partition, never its host identity descriptor."""
+    if facts.get("status") != "ok":
+        return {}
+    producer = producer_setup(plan, ref)
+    detail = table_of(table_of(facts.get("setups")).get(producer))
+    output = table_of(table_of(detail.get("outputs")).get(ref.removeprefix(OUTPUT_PREFIX)))
+    box, volume = output.get("bbox_mm"), output.get("volume_mm3")
+    if (
+        output.get("reason")
+        or not isinstance(box, list)
+        or len(box) != 6
+        or not all(map(finite, box))
+        or any(box[i] > box[i + 3] for i in range(3))
+        or not finite(volume)
+        or volume <= 0
+    ):
+        return {}
+    return output
+
+
+def kernel_join(kernel, setup: dict, plan: dict) -> tuple:
     """``(status, numbers)``: the ``joint_assembly`` finding the validator's own kernel run
     (``kernel``, :func:`independent_kernel`) derives for the assembly ``setup``. A run that
     is not ``ok`` names its status (``kernel_status``, plus ``kernel_unavailable`` when
     the kernel is missing) and is an error only when it errored, else unknown; an ``ok``
-    run refusing the join is an error, one leaving its joined stock unknown or deriving
-    none for the setup (no setup facts at all included) unknown, else pass, with that
-    setup's completed joint features."""
+    run refusing the join is an error; unknown joined stock, missing setup facts or any
+    retained input without its own native partition proof is unknown. Only a proven
+    route passes, with that setup's completed joint features."""
     facts = kernel()
     facts = facts if isinstance(facts, dict) else {}
     run = facts.get("status")
@@ -1293,11 +1335,19 @@ def kernel_join(kernel, setup: dict) -> tuple:
     setups = facts.get("setups")
     detail = setups.get(setup["id"]) if isinstance(setups, dict) else None
     detail = detail if isinstance(detail, dict) else {}
+    history = setup_lineage(plan, setup["id"])
+    unproven_partition = any(
+        not measured_output(plan, facts, ref)
+        for earlier in plan.get("setups", [])
+        if earlier["id"] in history
+        for ref in input_refs(earlier)
+        if ref.startswith(OUTPUT_PREFIX)
+    )
     status = (
         "error"
         if detail.get("assembly_error")
         else "unknown"
-        if detail.get("stock_reason") or "stock_bbox_mm" not in detail
+        if detail.get("stock_reason") or "stock_bbox_mm" not in detail or unproven_partition
         else "pass"
     )
     numbers = {
@@ -1320,7 +1370,7 @@ def check_joint_declarations(plan: dict, features: dict, findings: dict, kernel)
         sid = setup["id"]
         joint = setup["joint"]
         assembly = findings["joint_assembly", sid]
-        status, numbers = kernel_join(kernel, setup)
+        status, numbers = kernel_join(kernel, setup, plan)
         require(
             assembly["status"] == status,
             f"{sid}: joint assembly verdict differs from the validator's own kernel join",
@@ -1534,20 +1584,6 @@ def vector_of(value, size: int = 3) -> list | None:
     return None
 
 
-def stock_lineage(plan: dict, sid) -> set:
-    """Setup ``sid`` and every earlier setup whose output material flows into it."""
-    setups = {setup["id"]: setup for setup in plan.get("setups", [])}
-    seen, pending = set(), [sid]
-    while pending:
-        current = pending.pop()
-        if not isinstance(current, str) or current in seen or current not in setups:
-            continue
-        seen.add(current)
-        refs = setups[current].get("stock_in")
-        pending.extend(refs if isinstance(refs, list) else [refs])
-    return seen
-
-
 def blank_axes(stock: dict) -> list | None:
     """The root stock's unit length, section and third axes, or None when unknown."""
     axis, across = vector_of(stock.get("axis")), vector_of(stock.get("section_axis"))
@@ -1596,12 +1632,16 @@ def blank_cut(plan: dict, kernel, receiver: str, axes, declared, allowed, number
     facts = kernel() if isinstance(source, str) and source != "unknown" else None
     if not isinstance(facts, dict) or facts.get("status") != "ok":
         return "unknown"
-    setups = facts.get("setups")
-    handed = setups.get(source) if isinstance(setups, dict) else None
-    handed = handed if isinstance(handed, dict) else {}
-    if handed.get("stock_out_reason"):
-        return "unknown"
-    bbox, volume = vector_of(handed.get("stock_out_bbox_mm"), 6), handed.get("stock_out_volume_mm3")
+    if source.startswith(OUTPUT_PREFIX):
+        handed = measured_output(plan, facts, source)
+        bbox, volume = handed.get("bbox_mm"), handed.get("volume_mm3")
+    else:
+        setups = facts.get("setups")
+        handed = setups.get(source) if isinstance(setups, dict) else None
+        handed = handed if isinstance(handed, dict) else {}
+        if handed.get("stock_out_reason"):
+            return "unknown"
+        bbox, volume = vector_of(handed.get("stock_out_bbox_mm"), 6), handed.get("stock_out_volume_mm3")
     if bbox is None or not numeric(volume):
         return "unknown"
     spans = []
@@ -1781,9 +1821,9 @@ def derive_prepared_blank(plan: dict, features: dict, inventory: dict, prepared:
     }
     if receiver == "unknown":
         return "unknown", numbers, []
-    lineage = stock_lineage(plan, receiver)
+    lineage = setup_lineage(plan, receiver)
     definitions = operative_definitions(plan, features)
-    made, later = [], []
+    made, later, unproven = [], [], []
     for setup in plan["setups"]:
         for op in setup["ops"]:
             name = op.get("feature")
@@ -1794,11 +1834,22 @@ def derive_prepared_blank(plan: dict, features: dict, inventory: dict, prepared:
             if op.get("do") not in PROCESS_ACTIONS["end_face"]:
                 continue
             earlier = setup["id"] in lineage and setup["id"] != receiver
-            (made if earlier else later).append((name, f"{setup['id']} op {op['op']}"))
+            status = (
+                feature_material_status(plan, receiver, setup["id"], name, features)
+                if earlier
+                else False
+            )
+            destination = unproven if status is None else made if status else later
+            destination.append((name, f"{setup['id']} op {op['op']}"))
     numbers["made_by"] = [f"{PROCESS_PREFIX}{name} in {where}" for name, where in made]
     numbers["made_outside_lineage"] = [
         f"{PROCESS_PREFIX}{name} in {where}" for name, where in later
     ]
+    if unproven:
+        numbers["made_material_unknown"] = [
+            f"{PROCESS_PREFIX}{name} in {where}" for name, where in unproven
+        ]
+        return "unknown", numbers, []
     axes = blank_axes(stock)
     raw_section, raw_length = vector_of(stock.get("section_mm"), 2), stock.get("length_mm")
     raw_origin = vector_of(stock.get("origin_mm"))
@@ -1815,6 +1866,32 @@ def derive_prepared_blank(plan: dict, features: dict, inventory: dict, prepared:
         return "unknown", numbers, []
     if tolerance is None or any(t < 0 for t in tolerance):
         return "unknown", numbers, []
+    partitioned = any(
+        atom.split is not None for atom in MaterialGraph(plan).nodes.get(receiver, ())
+    )
+    if partitioned:
+        # The original bar's analytic box is not the receiving child's geometry.
+        # Require every selected split's own native proof, then measure that child.
+        facts = kernel()
+        facts = facts if isinstance(facts, dict) else {}
+        if any(
+            not measured_output(plan, facts, ref)
+            for earlier in plan["setups"]
+            if earlier["id"] in lineage
+            for ref in input_refs(earlier)
+            if ref.startswith(OUTPUT_PREFIX)
+        ):
+            return "unknown", numbers, []
+        declared = blank_box(origin, [length, *section], axes)
+        numbers["declared_box_mm"] = [[round(v, 6) for v in span] for span in declared]
+        allowed = [tolerance[2], tolerance[0], tolerance[1]]
+        cut = blank_cut(plan, lambda: facts, receiver, axes, declared, allowed, numbers)
+        bands = {
+            key: [size - tol, size + tol]
+            for key, size, tol in zip(PREPARED_SIZE_CHECKS, [length, *section], allowed, strict=True)
+        }
+        checked, missing = blank_gauge_checks(prepared, bands, features, inventory, numbers)
+        return max(cut, checked, key=STATUS_RANK.get), numbers, missing
     box = blank_box(raw_origin, [float(raw_length), *raw_section], axes)
     scale = UNIT_MM.get(features.get("units"))
     tilted = False
@@ -2251,35 +2328,20 @@ def surface_cut_coverage(own, entries: Entries, setup: dict, op: dict, target: d
 
 
 def carry_route(plan: dict, setup: dict) -> list | None:
-    """The setups whose stock flows into ``setup``, in plan order and ending with it: each
-    ``stock_in`` names the root stock, one of its components or an earlier setup, else
-    None."""
-    setups = [other for other in plan.get("setups", []) if isinstance(other, dict)]
-    order = {other.get("id"): index for index, other in enumerate(setups)}
-    stock = table_of(plan.get("stock"))
-    supplies = {"stock"} | {
-        f"stock.{component['id']}"
-        for component in as_list(stock.get("components"))
-        if isinstance(component, dict) and isinstance(component.get("id"), str)
-    }
-    routed, pending = set(), [setup.get("id")]
-    while pending:
-        sid = pending.pop()
-        if sid in routed:
-            continue
-        routed.add(sid)
-        refs = as_list(setups[order[sid]].get("stock_in"))
-        if not refs:
-            return None
-        for ref in refs:
-            if not isinstance(ref, str):
-                return None
-            if ref in supplies:
-                continue
-            if ref not in order or order[ref] >= order[sid]:
-                return None
-            pending.append(ref)
-    return [other for other in setups if other.get("id") in routed]
+    """Validated producer history in plan order, including named retained outputs.
+
+    Canonical partition identities allow sibling pieces from one bar to meet again,
+    but still reject overlapping/reused material. This establishes no native geometry.
+    """
+    try:
+        MaterialGraph(plan, validate=True)
+    except (KeyError, TypeError, ValueError):
+        return None
+    routed = setup_lineage(plan, setup.get("id"))
+    setups = [other for other in plan.get("setups", []) if other.get("id") in routed]
+    if not setups or any(not input_refs(other) for other in setups):
+        return None
+    return setups
 
 
 def exact_end_plane(kernel: dict, sid, face: str) -> dict | None:
@@ -2807,10 +2869,25 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
     outputs, made, unproven = {}, False, False
     for current in route:
         sid, receiving = current.get("id"), current is setup
-        rows = [
-            outputs.get(source, {"present": False, "plane": None, "lost": False, "excluded": 0.0})
-            for source in as_list(current.get("stock_in"))
-        ]
+        rows = []
+        for source in input_refs(current):
+            row = outputs.get(
+                producer_setup(own.plan, source),
+                {"present": False, "plane": None, "lost": False, "excluded": 0.0},
+            )
+            if source.startswith(OUTPUT_PREFIX) and row["present"] is not False:
+                row = dict(row)
+                producer = row["plane"]["source"] if row["plane"] is not None else None
+                status = (
+                    feature_material_status(own.plan, source, producer, face, own)
+                    if producer is not None
+                    else None
+                )
+                if status is False:
+                    row.update(present=False, plane=None, lost=False, excluded=0.0)
+                elif status is None or not measured_output(own.plan, kernel, source):
+                    row.update(present="unknown", lost=True)
+            rows.append(row)
         carrying = [row for row in rows if row["present"] is True]
         present = "unknown" if any(row["present"] == "unknown" for row in rows) else bool(carrying)
         if len({row["plane"]["source"] for row in carrying}) > 1:
@@ -3538,7 +3615,7 @@ def planned_depth_mm(op: dict, feature: dict, units):
     one, its feature's upper thread (else hole) depth."""
     if "depth_mm" in op:
         return op["depth_mm"] if numeric(op["depth_mm"]) else "unknown"
-    if op.get("do") == "tap":
+    if op.get("do") in TAP_OPS:
         field = "thread_depth" if "thread_depth" in feature else "depth"
         return feature_depth_mm(feature, field, units)
     return "unknown"
@@ -3867,7 +3944,11 @@ def check_endpoints(
             for setup in plan["setups"]
             for op in setup["ops"]
             if op.get("feature") == name
-            and (op.get("do") == "center_drill" if centre else op.get("do") in ENDPOINT_OPS)
+            and (
+                op.get("do") in PROCESS_ACTIONS["centre_hole"]
+                if centre
+                else op.get("do") in ENDPOINT_OPS
+            )
         ]
         require(
             [(row.get("setup"), row.get("op")) for row in rows] == placed,
@@ -3879,6 +3960,46 @@ def check_endpoints(
             op = next(op for op in setup["ops"] if op["op"] == row["op"])
             require(op["feature"] == row["feature"], "endpoint mismatched feature")
             where = f"{row['setup']}:{row['op']}"
+            feature = definitions[op["feature"]]
+            action = op["do"]
+            if action in TAP_OPS & HAND_THREAD:
+                # A stopped-spindle hand tap uses a relative depth, not carriage/table
+                # DRO coordinates. The independent oracle still checks actual tap length.
+                require(row.get("depth_scale") == "manual", f"{where}: hand tap depth scale")
+                require(
+                    not any(key.startswith("dro_") for key in row)
+                    and not any(key in row for key in CARRIED_ENDPOINT),
+                    f"{where}: hand tap must not claim a DRO or carried tool setting",
+                )
+                entry, source, _ = entry_surface(stock, setup, op)
+                near(row.get("entry_z", "unknown"), entry, f"{where}: nominal entry")
+                require(row.get("entry_from") == source, f"{where}: nominal entry source")
+                depth = planned_depth_mm(op, feature, units)
+                tool = op.get("tool", "unknown")
+                flute = tool_length_mm(tool, "flute_len", entries)
+                near(row.get("depth_mm", "unknown"), depth, f"{where}: manual tapping depth")
+                near(row.get("flute_len_mm", "unknown"), flute, f"{where}: actual tap flute length")
+                band = "thread_depth" if "thread_depth" in feature else "depth"
+                near(
+                    row.get("depth_floor_mm", "unknown"),
+                    feature_depth_mm(feature, band, units, 0),
+                    f"{where}: thread depth floor",
+                )
+                require(row.get("exit_face") == "not_applicable", f"{where}: hand tap exit")
+                near(row.get("tip_z", "unknown"), difference(entry, depth), f"{where}: nominal tip")
+                depths[row["setup"], row["op"]] = depth if positive(depth) else "unknown"
+                missing = not entries.resolves(tool, "tools")
+                unverified = tool_unverified(tool, entries)
+                if numeric(depth) and depth <= 0:
+                    verdict = "error"
+                elif numeric(flute) and numeric(depth) and flute < depth and not unverified:
+                    verdict = "error"
+                elif missing or unverified or not (positive(depth) and positive(flute)):
+                    verdict = "unknown"
+                else:
+                    verdict = "pass"
+                verdicts.append(verdict)
+                continue
             grid_trusted = dro_grid_trusted(setup, features, entries, plan)
             require(
                 bool(row.get("dro_grid_debt")) is not grid_trusted,
@@ -3916,7 +4037,7 @@ def check_endpoints(
             missing = not entries.resolves(tool, "tools")
             unverified = tool_unverified(tool, entries)
             verdict = "pass"
-            if action == "center_drill":
+            if centre and action in PROCESS_ACTIONS["centre_hole"]:
                 require(
                     feature.get("kind") == "centre_hole",
                     f"{where}: only a plan centre hole has a centre endpoint",
@@ -3931,7 +4052,7 @@ def check_endpoints(
                     verdict = "unknown"
                 verdicts.append(verdict)
                 continue
-            elif action in {"spot", "tap"}:
+            elif action in {"spot"} | TAP_OPS:
                 depth = planned_depth_mm(op, feature, units)
                 depths[row["setup"], row["op"]] = depth if positive(depth) else "unknown"
                 near(row.get("depth_mm", "unknown"), depth, f"{action} cutting depth")
@@ -3939,7 +4060,7 @@ def check_endpoints(
                 tip = difference(entry, depth)
                 near(row["tip_z"], tip, f"{action} endpoint")
                 planned.update(depth=depth, tip=tip)
-                if action == "tap":
+                if action in TAP_OPS:
                     flute = tool_length_mm(tool, "flute_len", entries)
                     near(row.get("flute_len_mm", "unknown"), flute, "tap flute length")
                     band = "thread_depth" if "thread_depth" in feature else "depth"
@@ -4104,7 +4225,7 @@ def check_saw_speed(
     known = all(isinstance(v, str) and v.strip() and v != "unknown" for v in identities)
     rows = [
         c
-        for c in cutting.get("cut", [])
+        for c in (cutting["cut"] if isinstance(cutting.get("cut"), list) else [])
         if known
         and (c.get("material_class"), c.get("tool_material"), c.get("operation"))
         == (material[1], tool_material, "saw_cut")
@@ -4169,7 +4290,11 @@ def deep_hole_derate(cutting: dict, operation: str, depth, diameter) -> tuple:
     deepest ``depth_over_dia`` its depth/diameter exceeds. An operation no row names keeps
     its sfm and reports nothing; an unknown ratio or a malformed, uncited or tied row leaves
     the factor unknown, and they or an unconfirmed governing row leave it ``unresolved``."""
-    rows = [row for row in cutting.get("deep_hole", []) if row.get("operation") == operation]
+    authored = cutting.get("deep_hole")
+    rows = [
+        row for row in (authored if isinstance(authored, list) else [])
+        if row.get("operation") == operation
+    ]
     if not rows:
         return 1.0, {}, False
     known = numeric(depth) and numeric(diameter) and diameter > 0
@@ -4376,7 +4501,8 @@ def check_speeds(
         per_rev = selected_tool(tool, entries, "feed_mm_rev")
     else:
         matching = []
-        for candidate in cutting.get("cut", []):
+        authored = cutting.get("cut")
+        for candidate in authored if isinstance(authored, list) else []:
             key = tuple(candidate.get(k) for k in ("material_class", "tool_material", "operation"))
             if key != (material[1], tool_material, operation):
                 continue
@@ -4965,7 +5091,7 @@ def check_coordinates(
     grid (:func:`dro_grid`). No reported coordinate is an operand."""
     frame = setup_frame(setup, plan, features)
     sid = setup["id"]
-    if setup["frame"] in plan.get("frames", {}):
+    if setup.get("frame", "unknown") in plan.get("frames", {}):
         require(
             f"plan.frames.{setup['frame']}: author-declared setup frame" in finding["cite"],
             f"{sid}: plan-owned frame provenance missing from coordinates",

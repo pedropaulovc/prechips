@@ -259,13 +259,22 @@ def test_tap_chain_names_only_the_selected_drill_diameter(case, status):
     data = bundle()
     data.feature_definitions["target"] = {
         "kind": "threaded_hole",
-        "thread": {"tap_drill_mm": 6.35},
+        "thread": "M8x1.25",
+        "thread_hand": "right",
+        "thread_class": "6H",
+        "tap_drill_mm": 6.35,
     }
     data.plan["setups"][0]["ops"] = [
         {"op": 5, "do": "spot", "feature": "target"},
         {"op": 10, "do": "drill", "feature": "target", "tool": "tools.cutter"},
-        {"op": 20, "do": "tap", "feature": "target"},
+        {"op": 20, "do": "tap", "feature": "target", "tool": "tap"},
     ]
+    data.inventory["tools"]["tap"] = {
+        "kind": "tap",
+        "thread": "M8x1.25",
+        "thread_hand": "right",
+        "thread_class": "6H",
+    }
     [baseline] = op_chain.evaluate(data)
     assert baseline.status == "pass"
     assert baseline.numbers["selected_drill_mm"] == 6.35

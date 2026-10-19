@@ -19,6 +19,7 @@ SET_KINDS = {
     "drill_set",
     "tap_die_set",
     "tap_set",
+    "die_set",
     "reamers",
     "countersink_set",
     "qctp_set",
@@ -29,7 +30,9 @@ SET_KINDS = {
 # Bench filing to a scribed line: hand work (no spindle, cutter or DRO) that still finishes
 # its feature's faces: the kernel models its removal and coverage credits its claims.
 HAND_FINISH = frozenset({"file_to_line"})
-MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"} | HAND_FINISH
+HAND_THREAD = frozenset({"die_thread", "hand_tap"})
+TAP_OPS = frozenset({"tap", "hand_tap"})
+MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"} | HAND_FINISH | HAND_THREAD
 SAW_OPS = frozenset({"saw_cut", "cut_off"})
 # Saw tool kind -> the machine kinds it cuts on. A slitting saw is a spindle-mounted
 # disk, not a bandsaw blade or hand saw: recognizing its station proves no arbor fit.
@@ -823,11 +826,11 @@ def _item(entry, separator, member):
 
 
 def tool_numbers(bundle, setup):
-    """``{(tool, holder): "T<n>"}`` for ``setup``'s cutting ops in first-use order: the
-    numbers its TOOLS table prints, one per tool + holder pair, keyed by the items the pair
-    selects (:func:`identity`; ``tools.drill`` and ``drill`` are one drill). A lathe's
-    holders stay on its toolpost between setups, so there a pair keeps one number on every
-    setup that machine (by identity) runs (first use over the plan)."""
+    """``{(tool, holder): "T<n>"}`` for powered cuts and hand dies in first-use order.
+    These are TOOLS-table identities, not spindle or toolpost assignments, one per
+    tool + holder pair (:func:`identity`; ``tools.drill`` and ``drill`` are one drill).
+    A lathe's pair keeps one number on every setup that machine (by identity) runs
+    (first use over the plan), including a hand die and its stock."""
 
     def pair(op):
         return identity(bundle, op["tool"], "tools"), identity(bundle, op.get("holder"), "holders")
@@ -846,12 +849,12 @@ def tool_numbers(bundle, setup):
     fixed = {}
     for each in setups:
         for op in each.get("ops", []):
-            if op.get("do") in MANUAL or op.get("tool") in (None, UNKNOWN):
+            if op.get("do") in MANUAL - HAND_THREAD or op.get("tool") in (None, UNKNOWN):
                 continue
             fixed.setdefault(pair(op), f"T{len(fixed) + 1}")
     numbers = {}
     for op in setup.get("ops", []):
-        if op.get("do") in MANUAL or op.get("tool") in (None, UNKNOWN):
+        if op.get("do") in MANUAL - HAND_THREAD or op.get("tool") in (None, UNKNOWN):
             continue
         numbers.setdefault(pair(op), fixed[pair(op)])
     return numbers

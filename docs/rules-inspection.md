@@ -332,7 +332,15 @@ setup / op, hold, gauge, the drawing's own limit and why.
 
 ## `finish_route`
 
-One row per part. A coating applies the drawing `material.finish` to the cuts it
+One row per part. Omitted `material.finish_kind` or explicit `"coating"` makes
+the drawing `material.finish` a coating requirement. Explicit `"surface"` with
+a known finish is `not_applicable` here: it describes a surface condition, not
+a coating requirement, and does not establish that roughness or other surface
+inspection passed. Existing feature inspection and finishing-cut coverage
+checks still apply. Explicitly unknown kind or finish is `unknown`; the rule
+never classifies finish prose.
+
+For a coating requirement, a coating applies the finish to the cuts it
 follows, in plan order, on stock that carries them: in the same setup after the
 cut, or in a setup whose `stock_in` lineage contains the cut's setup. Every cut
 needs such a coating. So on a built-up part, each component is covered either

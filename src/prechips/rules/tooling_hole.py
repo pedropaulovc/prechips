@@ -26,7 +26,7 @@ drawn pin in the cut bore. The hole earns no drawing coverage or finishing credi
 
 from prechips.findings import Finding
 from prechips.measurements import record_trusted
-from prechips.model import setup_lineage
+from prechips.material_routes import feature_material_status, setup_lineage
 from prechips.process_features import label, makers, process_of
 from prechips.rules._envelope import measurement_item
 from prechips.rules.resolution import UNKNOWN, number, op_features, record, same_length
@@ -243,20 +243,29 @@ def _evaluate(bundle, setup, name, ops, pins, state, detail):
     elif entry == UNKNOWN:
         unknown.append(state.get("reason") or f"whether the stock still holds {name} is unknown")
     if pins:
-        before = makers(bundle, setup, name)
+        candidates = makers(bundle, setup, name)
+        material = [
+            (other, op, feature_material_status(bundle.plan, setup["id"], other["id"], name, bundle))
+            for other, op in candidates
+        ]
+        before = [(other, op) for other, op, status in material if status is True]
+        unresolved = [f"{other['id']} op {op['op']}" for other, op, status in material if status is None]
+        if unresolved:
+            numbers["unresolved_makers"] = unresolved
+            unknown.append(f"whether drilling of {name} survived the stock partition is unresolved")
         lineage = setup_lineage(bundle.plan, setup["id"])
         routed = all(
             "stock_in" in other for other in bundle.plan["setups"] if other["id"] in lineage
         )
         numbers["made_by"] = [f"{other['id']} op {op['op']}" for other, op in before]
-        if not before:
+        if not before and not unresolved:
             (errors if routed else unknown).append(
                 f"no earlier setup in its stock lineage drills {name}"
                 if routed
                 else f"a setup in the stock lineage declares no stock_in, so whether {name} "
                 "is drilled is unresolved"
             )
-        elif entry == "undrilled":
+        elif before and entry == "undrilled":
             errors.append(f"{name} is not drilled in the stock entering this setup")
         # The fit is judged against the band, so the op that sizes it (the ream when the
         # hole has one, else the drill, as ``sizing`` picks) must already have run.
@@ -277,7 +286,7 @@ def _evaluate(bundle, setup, name, ops, pins, state, detail):
                 f"{name} is not yet sized to its band when this setup locates on it: its "
                 f"{sizing} " + (f"runs later ({', '.join(later)})" if later else "never runs")
             )
-            (errors if routed else unknown).append(why)
+            (errors if routed and not unresolved else unknown).append(why)
         numbers["locators"] = []
         for owner, solid in pins:
             status, fit, why = _fit(bundle, name, owner, solid)

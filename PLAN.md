@@ -1107,6 +1107,19 @@ separate [CLI](docs/reference/cli.md) and
 [development](docs/internals/development.md) guides.
 The [style guide](docs/style-guide.md) defines page structures and verification.
 
+Standalone video examples are tracked separately from consumer-export delivery:
+the [catalog-adapted T-nuts](examples/blondihacks-t-nuts/README.md) and
+[360-brass ring](examples/blondihacks-brass-ring/README.md) use local shop
+inputs and preserve missing real measurements. Their expected exit is 4 and
+their travelers remain PLANNED. Source/catalog identity and bound CAD are not
+physical feasibility, first-article or live-farm acceptance evidence.
+The [plan reference](docs/plan.md) owns retained-output identity and removable
+threaded-joint fields; [geometry limits](docs/rules-geometry.md#limits) remain
+applicable to multi-solid routes. Exact native material ownership is not a
+helical thread, seated-join, engagement or assembled-cut certification.
+Mechanical-handwheel procedures and requested RPM preserve their source
+instructions without replacing unresolved physical facts.
+
 0. **M0 — kernel spike** (§6). Done 2026-10-03, two rounds.
 1. **M1 — local implementation deliverable completed.** Five strict TOML
    formats, all twelve §4.1 M1 rules, five CLI verbs, canonical bound reports,

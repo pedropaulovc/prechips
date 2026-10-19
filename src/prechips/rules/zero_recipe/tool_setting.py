@@ -34,6 +34,7 @@ from prechips.rules.zero_recipe.touch import (
 
 from ..geometry_common import approach
 from ..resolution import (
+    HAND_THREAD,
     LENGTH_TOLERANCE_MM,
     MANUAL,
     SAW_OPS,
@@ -325,8 +326,11 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
 def z_readings(bundle, setup):
     """{op: Z touch record} for each cutting op of ``setup``: the touch whose Axis Set its
     DRO Z reads (:func:`tool_changes` ``readings``), None when no touch of its tool set Z.
-    Empty for a saw setup."""
-    if saw_setup(bundle, setup):
+    Empty for a saw setup or a non-digital readout: nominal model coordinates do not
+    establish a mechanical dial's physical registration."""
+    from ..coordinates import readout_kind
+
+    if saw_setup(bundle, setup) or readout_kind(bundle) != "digital":
         return {}
     zero = mapping(setup.get("zero"))
     touches = [touch for touch in records(zero.get("tool_touches")) if isinstance(touch, dict)]
@@ -407,8 +411,15 @@ def blade_readings(bundle, setup, readings=None):
     """{op: corner record} for each grooving/parting-blade op of a lathe setup: the corner
     the DRO Z reads while it cuts (:func:`touch_corner` of the Z touch in effect,
     :func:`z_readings` unless given), with ``reason`` when no touch of that blade set Z.
-    Empty off a lathe."""
-    if saw_setup(bundle, setup) or not lathe_setup(bundle, setup):
+    Empty off a lathe or for a non-digital readout; no mechanical scale registration
+    is inferred from a nominal face or a tool-change recipe."""
+    from ..coordinates import readout_kind
+
+    if (
+        saw_setup(bundle, setup)
+        or not lathe_setup(bundle, setup)
+        or readout_kind(bundle) != "digital"
+    ):
         return {}
     readings = z_readings(bundle, setup) if readings is None else readings
     result = {}
@@ -463,7 +474,7 @@ def tool_setting(bundle, setup, zero, touches, derived):
     carriage = {
         identity(bundle, op.get("tool"), "spindle")
         for op in ops
-        if approach(bundle, setup, op) != "axial"
+        if op.get("do") not in HAND_THREAD and approach(bundle, setup, op) != "axial"
     }
     carriage.difference_update(
         identity(bundle, op.get("tool"), "spindle") for op in ops if spindle_saw(bundle, setup, op)

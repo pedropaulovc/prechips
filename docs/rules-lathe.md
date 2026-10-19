@@ -44,6 +44,12 @@ band is a tolerance, not a nominal; its midpoint is never manufactured. Unknown
 stations, overlapping inconsistent cylinders, gaps and selected forms without
 a recoverable axial interval remain `unknown`, not a vacuous monotonicity pass.
 
+An `external_thread` is not itself an axial diameter kind in this profile
+model. The rule does not infer a turned diameter from its thread designation;
+a turn claiming that unsupported feature can remain unknown. The separate
+[`op_chain` check](rules-operations.md#external-thread-preparation) evaluates
+the prior male-blank preparation required before manual die threading.
+
 ### Declared and kernel evidence
 
 Declared values are authoritative; the kernel fills only what a feature does
@@ -173,6 +179,10 @@ way. A span the profile does not cover,
 or any span without a kernel run, stays in `uncovered_z_mm` with
 `stock_reason`, and D stays `unknown`: the stock state's `od_mm` cannot show
 that no op reduced that span. `turned_profile` ignores stock segments.
+
+Manual `die_thread` and `hand_tap` have no modeled helical stock removal.
+Stock and profile after either operation remain unknown; downstream checks
+cannot treat the pre-thread blank as proven handed-on post-thread material.
 There is no held-bar fallback for missing finished geometry. With an authored,
 verified ratio of 4, Ø20 held with Ø6 finished over a 40 mm overhang therefore
 has a 24 mm limit and is an `error` without the support exception.

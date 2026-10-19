@@ -12,7 +12,8 @@ it runs along is the vise's ``jaws_along``, or the plate face's run (:func:`alig
 import math
 
 from prechips.findings import Finding
-from prechips.model import HAND_FEEDING, setup_lineage
+from prechips.material_routes import feature_material_status, setup_lineage
+from prechips.model import HAND_FEEDING
 from prechips.rules._bench import BENCH_KINDS, manual_bench, unfixtured_handling
 from prechips.rules.level_entry import stock_box
 from prechips.rules.resolution import (
@@ -210,7 +211,13 @@ def stop_face(bundle, setup, name):
                 continue
             cut = f"{other['id']} op {op['op']}"
             if other["id"] in earlier:
-                (pending if action == UNKNOWN else before).append(cut)
+                material = feature_material_status(
+                    bundle.plan, setup["id"], other["id"], name, bundle
+                )
+                if material is False:
+                    later.append(cut)
+                else:
+                    (pending if action == UNKNOWN or material is None else before).append(cut)
             elif routed or other["id"] in downstream:
                 later.append(cut)
             else:
@@ -219,6 +226,14 @@ def stop_face(bundle, setup, name):
     as_is = record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN)
     settled = known_refs(faces) and isinstance(as_is, list)
     supplied = settled and set(faces) <= set(as_is)
+    material = (
+        feature_material_status(bundle.plan, setup["id"], "stock", name, bundle)
+        if supplied
+        else False
+    )
+    supplied = supplied and material is True
+    if material is None:
+        pending.append("stock as-is face survival after partition is unresolved")
     facts = {"face": name, "cut_before": before, "cut_later": later, "as_is": supplied}
     if before or supplied:
         return "pass", {**facts, "on_arriving_stock": True}

@@ -171,5 +171,5 @@ def main():
     )
 
 
-# FreeCADCmd executes scripts without setting __name__ to '__main__'.
+# FreeCADCmd's positional-script success path imports the module.
 main()

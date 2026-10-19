@@ -717,7 +717,7 @@ note = "Re-touch for the drill and drill the tapping hole through with an approv
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s"
 [[setups.ops]]
 op = 30
-do = "tap"
+do = "hand_tap"
 feature = "threaded-hole"
 tool = "taper-tap"
 holder = "tap-follower"

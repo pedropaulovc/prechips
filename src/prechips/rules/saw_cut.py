@@ -9,6 +9,7 @@ import math
 from dataclasses import replace
 
 from prechips.findings import Finding
+from prechips.material_routes import feature_material_status
 from prechips.measurements import length_debt, length_fact, tooth_pitch_fact
 from prechips.rules.geometry_common import (
     kernel_measurement_debts,
@@ -54,6 +55,36 @@ _MISMATCH = {
     "no_vertical_mode": "the bandsaw declares no vertical saw_modes, so it cannot follow a "
     "scribed line",
 }
+
+
+def scribe_material_status(bundle, setup, op):
+    """Whether the ``follows`` witness is on this saw's material, not just its history.
+
+    The plan validates the witness's existence and order. A pre-partition scribe
+    still needs material ownership and registration before it can locate a cut.
+    """
+    sid, separator, number_ = str(op.get("follows", UNKNOWN)).partition(":")
+    if not separator:
+        return None
+    witness = next(
+        (
+            (earlier, scribe)
+            for earlier, scribe in operations(bundle)
+            if earlier.get("id") == sid and str(scribe.get("op")) == number_
+        ),
+        None,
+    )
+    if witness is None:
+        return None
+    earlier, scribe = witness
+    if scribe.get("do") != "scribe":
+        return None if scribe.get("do") in (None, UNKNOWN) else False
+    feature = scribe.get("feature")
+    if not isinstance(feature, str) or feature == UNKNOWN:
+        return None
+    return feature_material_status(
+        bundle.plan, setup["id"], earlier["id"], feature, bundle
+    )
 
 
 def evaluate(bundle):
@@ -108,6 +139,16 @@ def evaluate(bundle):
                 debts.append(debt)
         invalid = []
         missing = []
+        if scribed:
+            material = scribe_material_status(bundle, setup, op)
+            numbers["scribe_on_arriving_stock"] = UNKNOWN if material is None else material
+            if material is None:
+                missing.append(
+                    f"whether {op['follows']}'s scribed line survives the material partition "
+                    "and registration is unknown"
+                )
+            elif material is False:
+                invalid.append(f"{op['follows']}'s scribed line is not on this saw's material")
         disk = slitting_saw(bundle, op)
         if disk:
             # The planar Boolean describes an ideal complete cut, not whether a finite

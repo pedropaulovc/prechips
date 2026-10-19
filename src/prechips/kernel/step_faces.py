@@ -23,6 +23,7 @@ import re
 from dataclasses import dataclass
 
 REF_PATTERN = re.compile(r"#(\d+)/ADVANCED_FACE\[(\d+)\]/(.*)", re.DOTALL)
+SOLID_REF_PATTERN = re.compile(r"#(\d+)/MANIFOLD_SOLID_BREP\[(\d+)\]/(.*)", re.DOTALL)
 
 # Entities that hold a solid's/shell's faces, and the wrappers between a shell
 # and the representation item that a shape representation lists.
@@ -183,6 +184,7 @@ class StepFile:
         self.records: dict[int, _Record] = {}
         self._order: list[int] = []
         faces: list[StepFace] = []
+        solids: list[StepFace] = []
         for chunk in _split_records(clean[head.end() : head.end() + end.start()]):
             match = _INSTANCE.fullmatch(chunk)
             if match is None:
@@ -205,8 +207,14 @@ class StepFile:
                 if label is None:
                     raise StepError(f"#{entity}: ADVANCED_FACE has no label string")
                 faces.append(StepFace(entity, len(faces) + 1, label))
+            if types == ("MANIFOLD_SOLID_BREP",):
+                label = _first_string(body)
+                if label is None:
+                    raise StepError(f"#{entity}: MANIFOLD_SOLID_BREP has no label string")
+                solids.append(StepFace(entity, len(solids) + 1, label))
         self.faces: tuple[StepFace, ...] = tuple(faces)
         self._face_by_entity = {face.entity: face for face in faces}
+        self._solids = tuple(solids)
         users: dict[int, list[int]] = {}
         for record in self.records.values():
             for target in record.refs:
@@ -230,18 +238,54 @@ class StepFile:
             raise FaceRefError(f"{ref}: #{entity} carries label {face.label!r}, not {label!r}")
         return face
 
+    def solid_refs(self) -> tuple[str, ...]:
+        """Exact source solid identities, never imported-shape positions."""
+        return tuple(
+            f"#{solid.entity}/MANIFOLD_SOLID_BREP[{solid.ordinal}]/{solid.label}"
+            for solid in self._solids
+        )
+
+    def solid_faces(self, ref: str) -> tuple[str, ...]:
+        """Source face refs belonging to one validated MANIFOLD_SOLID_BREP.
+
+        Traverse only shell topology, not arbitrary geometry references: sharing a
+        surface or edge does not make a face belong to another solid.
+        """
+        match = SOLID_REF_PATTERN.fullmatch(ref) if isinstance(ref, str) else None
+        if match is None:
+            raise FaceRefError(f"{ref!r}: not an exact MANIFOLD_SOLID_BREP reference")
+        entity, ordinal, label = int(match[1]), int(match[2]), match[3]
+        solid = next((item for item in self._solids if item.entity == entity), None)
+        if solid is None or (solid.ordinal, solid.label) != (ordinal, label):
+            raise FaceRefError(f"{ref}: source solid entity, ordinal or label does not agree")
+        allowed = _SHELLS | _SHELL_WRAPPERS | {"ORIENTED_FACE"}
+        pending = list(self.records[entity].refs)
+        seen, faces = set(), set()
+        while pending:
+            current = pending.pop()
+            if current in seen:
+                continue
+            seen.add(current)
+            if current in self._face_by_entity:
+                faces.add(current)
+            elif self._has_type(current, allowed):
+                pending.extend(self.records[current].refs)
+        if not faces:
+            raise FaceRefError(f"{ref}: source solid has no supported shell faces")
+        return tuple(face.ref for face in self.faces if face.entity in faces)
+
     def _has_type(self, entity: int, names: frozenset[str]) -> bool:
         record = self.records.get(entity)
         return record is not None and any(name in names for name in record.types)
 
     def isolate_face(self, entity: int) -> str:
-        """STEP text whose shape representation(s) carry only ``entity``.
+        """STEP text whose source item carries only ``entity`` as a loose face.
 
         Every instance is kept, so product structure, placements and units are
         those of the full file.  A new ``OPEN_SHELL`` holding the face, wrapped
         in a ``SHELL_BASED_SURFACE_MODEL``, replaces each representation item
-        (solid or surface model) whose shell uses the face; nothing else
-        references the original solid, so a reader transfers the one face.
+        whose shell uses the face. Other product solids may remain; the native
+        matcher identifies the one loose face outside those solids.
         """
         if entity not in self._face_by_entity:
             raise FaceRefError(f"#{entity} is not an ADVANCED_FACE")
@@ -257,6 +301,14 @@ class StepFile:
         }
         if not shells:
             raise FaceRefError(f"#{entity} is not used by any shell")
+        uses = {
+            holder
+            for holder in holders
+            if any(holder in self.records[shell].refs for shell in shells)
+        }
+        if len(uses) != 1:
+            raise FaceRefError(f"#{entity}: multiple shell uses leave face orientation ambiguous")
+        holder = next(iter(uses))
         wrapped = set(shells)
         for shell in shells:
             for user in self._users.get(shell, ()):
@@ -287,6 +339,6 @@ class StepFile:
             if record_id in reps:
                 body = pattern.sub(f"#{model_id}", body)
             lines.append(f"#{record_id} = {body};")
-        lines.append(f"#{shell_id} = OPEN_SHELL('',(#{entity}));")
+        lines.append(f"#{shell_id} = OPEN_SHELL('',(#{holder}));")
         lines.append(f"#{model_id} = SHELL_BASED_SURFACE_MODEL('',(#{shell_id}));")
         return self._prefix + "\n" + "\n".join(lines) + "\n" + self._suffix

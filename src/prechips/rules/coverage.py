@@ -10,6 +10,7 @@ refused join credits nothing.
 """
 
 from prechips.findings import Finding
+from prechips.material_routes import feature_material_status, setup_lineage
 from prechips.rules import blank_credit, inspection
 from prechips.rules.geometry_common import (
     LATHE_APPROACH_REASON,
@@ -42,13 +43,10 @@ FORMED_REQUIREMENT = "radius"
 
 
 def _downstream(plan, sid):
-    """``sid`` and every setup whose stock descends from it."""
-    found = {sid}
-    for setup in plan["setups"]:
-        refs = setup.get("stock_in")
-        if any(ref in found for ref in (refs if isinstance(refs, list) else [refs])):
-            found.add(setup["id"])
-    return found
+    """Producer descendants only; a check still needs feature-material proof."""
+    return {
+        setup["id"] for setup in plan["setups"] if sid in setup_lineage(plan, setup["id"])
+    }
 
 
 def _after_join(setup, op, sid):
@@ -100,6 +98,7 @@ def joint_formed(bundle, facts):
                 (s, o)
                 for s, o in operations(bundle, name)
                 if s["id"] in later
+                and feature_material_status(bundle.plan, s["id"], sid, name, bundle) is not False
                 and _after_join(s, o, sid)
                 and op_entry(o, "checks", name, FORMED_REQUIREMENT) is not None
             ]
@@ -112,6 +111,13 @@ def joint_formed(bundle, facts):
                 row["credit"] = UNKNOWN
                 continue
             check_setup, op = checks[-1]
+            if feature_material_status(bundle.plan, check_setup["id"], sid, name, bundle) is None:
+                debts.append(
+                    f"{sid} forms {name}, but its check's material after partition is unresolved"
+                )
+                pending |= faces
+                row["credit"] = UNKNOWN
+                continue
             status, message, _ = inspection.requirement_check(bundle, name, FORMED_REQUIREMENT, op)
             row.update(check=f"{check_setup['id']}:{op['op']}", check_status=status)
             if status != "pass":

@@ -6,14 +6,17 @@ from copy import deepcopy
 from dataclasses import replace
 
 from prechips.findings import Finding
+from prechips.material_routes import setup_lineage
 from prechips.rules.datum_consistency import _cuts
 from prechips.rules.resolution import (
     COMPLETE_FORM,
     HAND_FED,
     HAND_FINISH,
+    HAND_THREAD,
     MANUAL,
     SAW_OPS,
     SLITTING_SAW_MODEL_REASON,
+    TAP_OPS,
     UNRESOLVED_SAW_MODEL_REASON,
     _citations,
     claim_refs,
@@ -32,15 +35,15 @@ from prechips.rules.resolution import (
 from prechips.rules.turned_profile import PROFILE_OPS
 
 UNKNOWN = "unknown"
-_NONCUTTING = MANUAL | {"transfer"}
+_NONCUTTING = (MANUAL - HAND_THREAD) | {"transfer"}
 LATHE_APPROACH_REASON = (
     "turning action has no approach model off a lathe "
     "(the turning model needs a lathe spindle on setup Z)"
 )
 TURNING = "turning"
 ROTARY = "rotary"
-# A bench file (``HAND_FINISH``): no machine cutter; the kernel removes at most the shop's
-# max_filing_stock_mm off its claimed faces.
+# Hand actions have no spindle cutter. Filing has a bounded removal model; die threading
+# remains explicit unknown helical removal, never an axial or turning-cylinder stand-in.
 HAND = "hand"
 CHUCK_KINDS = {"chuck_3jaw", "chuck_4jaw"}
 # Shared profile/form/groove actions also occur on mills; resolve their machine kind.
@@ -48,7 +51,7 @@ _TURNING_ACTIONS = (
     PROFILE_OPS - {"profile", "form", "groove", "rough_groove", "finish_groove"}
 ) | {"part_off", "cut_to_fit"}
 # On a lathe these tools sit on the spindle axis (tailstock): the -Z cylinder model applies.
-_AXIAL_LATHE_ACTIONS = {"spot", "drill", "ream", "tap", "center", "center_drill"}
+_AXIAL_LATHE_ACTIONS = {"spot", "drill", "ream", "center", "center_drill"} | TAP_OPS
 # Turning-model inputs; every one must be known before the engine places a tool.
 TURNING_TOOL_KEYS = (
     "radius_mm",
@@ -78,9 +81,9 @@ def blade_keys(inputs):
 
 
 def approach(bundle, setup, op):
-    """'hand' (a bench file), 'turning', 'rotary' (dividing-head milling), 'axial' (-Z
-    cutter cylinders) or None when no approach model applies."""
-    if op.get("do") in HAND_FINISH:
+    """'hand' (manual material cutting), 'turning', 'rotary' (dividing-head milling),
+    'axial' (-Z cutter cylinders) or None when no approach model applies."""
+    if op.get("do") in HAND_FINISH | HAND_THREAD:
         return HAND
     machine = record(resolve(bundle, "machines", setup.get("machine")))
     kind, action = machine.get("kind"), op.get("do")
@@ -393,32 +396,32 @@ def kernel_measurement_debts(job, setup, op=None, *, fixture=False, stock=False)
     """Current host facts behind this context, including its routed stock ancestry."""
     attachment = job.get("measurement_debts", {})
     debts = {}
-    setups = {entry["id"]: entry for entry in job["setups"]}
 
     def add(entries):
         debts.update((entry["id"], entry) for entry in entries)
 
-    def upstream(sid, visited):
-        if sid in visited or sid not in setups:
-            return
-        visited.add(sid)
-        source = setups[sid]
-        refs = source["stock_in"]
-        for ref in refs if isinstance(refs, list) else [refs]:
-            upstream(ref, visited)
-        if sid != setup["id"]:
-            add(attachment.get("setups", {}).get(sid, []))
-        for cut in source["ops"]:
-            if sid == setup["id"] and op is not None and cut["subject"] == (f"{sid}:{op['op']}"):
-                break
-            add(attachment.get("ops", {}).get(cut["subject"], []))
+    def upstream():
+        # Debts describe producer history, not feature survival or material credit.
+        lineage = setup_lineage(job, setup["id"])
+        for source in job["setups"]:
+            sid = source["id"]
+            if sid not in lineage:
+                continue
+            if sid != setup["id"]:
+                add(attachment.get("setups", {}).get(sid, []))
+            for cut in source["ops"]:
+                if sid == setup["id"] and op is not None and cut["subject"] == (
+                    f"{sid}:{op['op']}"
+                ):
+                    break
+                add(attachment.get("ops", {}).get(cut["subject"], []))
 
     if op is not None:
         add(attachment.get("ops", {}).get(f"{setup['id']}:{op['op']}", []))
     if fixture:
         add(attachment.get("setups", {}).get(setup["id"], []))
     if stock:
-        upstream(setup["id"], set())
+        upstream()
     return [debts[key] for key in sorted(debts)]
 
 

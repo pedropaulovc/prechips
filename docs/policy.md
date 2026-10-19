@@ -55,14 +55,26 @@ and yields exit 4 unless an error takes precedence. It cannot authorize
 `verification = "checked"`. An explicitly empty `[required]` table is a known
 empty map, so nonrequired unknowns do not block. Errors still yield exit 2.
 
-`joint_fit`, `joint_assembly`, `manual_arc`, `centre_support`, `tooling_hole`,
-`prepared_blank`, `purchased_tooling` and `keep_piece` are always required
-(`findings.ALWAYS_REQUIRED`). Their `warn`, `unknown` and `unsupported` rows
-yield exit 4 even when the policy omits them. A setup with no joint or centre
-has only `not_applicable` rows for those checks, which do not block. There is no
-`purchased_tooling` row without a bought item that has receipt checks, no
-`tooling_hole` row without work or location on a tooling hole, and no `keep_piece`
-row without a plan `keep`.
+`joint_fit`, `joint_assembly`, `joint_thread`, `manual_arc`, `centre_support`,
+`tooling_hole`, `prepared_blank`, `purchased_tooling` and `keep_piece` are always
+required ([`findings.ALWAYS_REQUIRED`](../src/prechips/findings.py)). Their
+`warn`, `unknown` and `unsupported` rows yield exit 4 even when the policy omits
+them or supplies an empty `[required]` table. A `not_applicable` row does not
+block. Each rule keeps its own scope: there is no `joint_thread` row without a
+threaded assembly, no `purchased_tooling` row without a bought item that has
+receipt checks, no `tooling_hole` row without work or location on a tooling
+hole, and no `keep_piece` row without a plan `keep`.
+
+For a removable threaded assembly, `joint_thread` checks the declared nominal
+thread identities, hand/classes, axes, finite engagement, seat facts and
+retained-material ownership. Known contradictions produce errors. Missing
+facts remain unknown, and even agreeing nominal facts cannot prove the
+unmodeled helical flanks, lead/runout or prepared shoulder seating. The current
+`joint_thread` and `joint_assembly` results therefore remain unknown unless a
+known contradiction makes them errors. They certify no joined stock, fit,
+strength or retention. No policy selector, omission or waiver can turn that
+debt into readiness. See the [joint input reference](plan.md#joint) and
+[`rules/joints.py`](../src/prechips/rules/joints.py) for the consumed contract.
 
 The setup sheet's operation-performed square records progress only. It is not
 a rule `pass`, inspection acceptance, clearance to proceed, readiness or

@@ -9,7 +9,15 @@ height's band derived from its surface profile included.
 
 from prechips.findings import Finding
 from prechips.rules._profile import datum_features, requirement_band
-from prechips.rules.resolution import HAND_FINISH, MANUAL, SAW_OPS, UNKNOWN, operations
+from prechips.rules.resolution import (
+    HAND_FINISH,
+    HAND_THREAD,
+    MANUAL,
+    SAW_OPS,
+    TAP_OPS,
+    UNKNOWN,
+    operations,
+)
 
 _NONFINISH = {"spot", "inspect", "release", "fit", "scribe", "transfer", "deburr"} | SAW_OPS
 
@@ -24,7 +32,7 @@ def _number(value):
 
 def _cuts(bundle, feature):
     """Final forming cuts of a feature: its labeled ops plus ops whose explicit faces own it.
-    Filing to the line forms its faces; other manual work does not.
+    Filing and manual threading materially form faces; other manual work does not.
 
     An unresolved datum (no feature name) has no cuts, never every op.
     """
@@ -34,11 +42,11 @@ def _cuts(bundle, feature):
     cuts = [
         (order[id(setup)], setup, op)
         for setup, op in operations(bundle, feature, owned=True)
-        if op.get("do", UNKNOWN) not in _NONFINISH | (MANUAL - HAND_FINISH)
+        if op.get("do", UNKNOWN) not in _NONFINISH | (MANUAL - HAND_FINISH - HAND_THREAD)
         and not op.get("do", UNKNOWN).startswith("rough")
     ]
     # A pilot is not the final datum when reaming happens in a later setup.
-    if any(op.get("do") in ("ream", "tap", "bore") for _, _, op in cuts):
+    if any(op.get("do") in TAP_OPS | {"ream", "bore"} for _, _, op in cuts):
         cuts = [(index, setup, op) for index, setup, op in cuts if op.get("do") != "drill"]
     return cuts
 

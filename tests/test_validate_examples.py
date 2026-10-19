@@ -65,6 +65,18 @@ ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
 
 
+def test_speed_oracle_preserves_unknown_cutting_collections_as_debt():
+    data = drill_bundle()
+    data.cutting_data.update(cut="unknown", deep_hole="unknown")
+    finding, check = speed_finding(data)
+    check()
+    assert finding["status"] == "unknown"
+    assert finding["numbers"]["rpm"] == "unknown"
+    finding["numbers"]["rpm"] = 1500.0
+    with pytest.raises(ValueError, match="RPM"):
+        check()
+
+
 def test_subject_oracle_allows_unknown_limits_without_invented_decimal_precision():
     folder = ROOT / "examples" / "blondihacks-t-nuts"
     data = load_bundle(folder / "plan.toml")

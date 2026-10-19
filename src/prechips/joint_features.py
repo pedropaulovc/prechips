@@ -12,6 +12,7 @@ import math
 from typing import Any
 
 from prechips.inputs import BadInput
+from prechips.material_routes import feature_branch_status, feature_material_status
 from prechips.measurements import angle_fact, length_fact
 from prechips.model import UNIT_TOLERANCE, UNKNOWN, setup_lineage, stock_ancestry
 
@@ -39,9 +40,6 @@ _PROFILE_CUTS = {
     "cylinder_bore": frozenset({"spot"}),
     "cylinder_spigot": frozenset(),
 }
-# Hole actions whose real removal needs geometry the joint model does not represent yet;
-# on a transient joint feature they are refused as named debt, never a cylinder stand-in.
-_UNMODELLED_GEOMETRY = {"tap": "thread", "counterbore": "counterbore step"}
 _SCALE = {"mm": 1.0, "in": 25.4}
 
 
@@ -132,23 +130,26 @@ def setup_span_mm(bundle, name: str, frame: dict) -> tuple[float, float] | None:
     return low, high
 
 
-def present(bundle, setup: dict, name: str) -> bool:
-    """Whether a transient joint feature exists on this setup's in-process material.
-
-    It exists only on its own unjoined component branch once that lineage has cut it; a
-    join consumes it. Exported features are always part of the declared final geometry.
-    """
+def present(bundle, setup: dict, name: str) -> bool | None:
+    """Feature presence on this material; unresolved partition ownership remains debt."""
     joint = joint_of(bundle.feature_definitions.get(name))
     if joint is None:
-        return True
+        return (
+            feature_branch_status(bundle.plan, setup["id"], name, bundle)
+            if bundle.features.get("solids")
+            else True
+        )
     if setup_ancestry(bundle.plan).get(setup["id"]) != {f"stock.{joint['component']}"}:
         return False
     lineage = setup_lineage(bundle.plan, setup["id"])
-    return any(
-        earlier["id"] in lineage and op.get("feature") == name
+    statuses = [
+        feature_material_status(bundle.plan, setup["id"], earlier["id"], name, bundle)
         for earlier in bundle.plan["setups"]
+        if earlier["id"] in lineage
         for op in earlier["ops"]
-    )
+        if op.get("feature") == name
+    ]
+    return True if True in statuses else None if None in statuses else False
 
 
 def joint_of(definition: Any) -> dict | None:
@@ -158,13 +159,7 @@ def joint_of(definition: Any) -> dict | None:
 
 def setup_ancestry(plan: dict) -> dict[str, frozenset[str]]:
     """Root supplies (``stock`` / ``stock.<component>``) behind every setup output."""
-    routes = []
-    for setup in plan.get("setups", []):
-        refs = setup.get("stock_in")
-        routes.append(
-            (setup["id"], None if refs is None else refs if isinstance(refs, list) else [refs])
-        )
-    return stock_ancestry(routes)
+    return stock_ancestry(plan)
 
 
 def _scale(bundle) -> float | None:
@@ -317,7 +312,8 @@ def describe(violations: list[str]) -> str:
 
 def _owner(refs: list[str], ancestry: dict[str, frozenset[str]], component: str) -> str:
     root = f"stock.{component}"
-    return next(ref for ref in refs if root in ancestry.get(ref, frozenset((ref,))))
+    candidates = [ref for ref in refs if root in ancestry.get(ref, frozenset((ref,)))]
+    return candidates[0] if len(candidates) == 1 else UNKNOWN
 
 
 def formed(bundle, name: str) -> dict:
@@ -371,6 +367,229 @@ def mouth_break(bundle, name: str) -> dict:
     return {"kind": declared["kind"], "size_mm": size}
 
 
+def validate_threaded_joints(plan: dict, features: dict) -> None:
+    """Validate cross-file exported identities; topology ownership is separate evidence."""
+    exported = features.get("features", {})
+    used = set()
+    for setup in plan.get("setups", []):
+        joint = setup.get("joint")
+        if not isinstance(joint, dict) or joint.get("kind") != "threaded":
+            continue
+        for role, kinds in (
+            ("socket", {"thread", "threaded_hole"}),
+            ("spigot", {"external_thread"}),
+        ):
+            name = joint[role]
+            feature = exported.get(name)
+            if not isinstance(feature, dict) or feature.get("kind") not in kinds:
+                raise BadInput(
+                    f"Setup {setup['id']} threaded joint {role} {name!r} must name an "
+                    f"exported {'internal' if role == 'socket' else 'external'} threaded feature."
+                )
+            if name in used:
+                raise BadInput(f"Threaded joint feature {name!r} is already used by another joint.")
+            used.add(name)
+
+
+def _thread_geometry(bundle, name: str) -> dict:
+    """Explicit nominal thread envelope in model mm; never an actual flank/lead model."""
+    feature = bundle.features.get("features", {}).get(name, {})
+    scale = _scale(bundle)
+    at, axis = feature.get("at", UNKNOWN), feature.get("axis", UNKNOWN)
+    frame = bundle.features.get("frames", {})
+    frame = frame.get(feature.get("frame")) if isinstance(frame, dict) else None
+    if isinstance(frame, dict):
+        origin = frame.get("origin", UNKNOWN)
+        axes = [frame.get(key, UNKNOWN) for key in ("x", "y", "z")]
+        if isinstance(at, list) and isinstance(origin, list) and all(
+            isinstance(vector, list) and len(vector) == 3 and all(_number(v) for v in vector)
+            for vector in [at, origin, *axes]
+        ):
+            at = [origin[i] + sum(axes[j][i] * at[j] for j in range(3)) for i in range(3)]
+        else:
+            at = UNKNOWN
+        if isinstance(axis, list) and all(
+            isinstance(vector, list) and len(vector) == 3 and all(_number(v) for v in vector)
+            for vector in [axis, *axes]
+        ):
+            axis = [sum(axes[j][i] * axis[j] for j in range(3)) for i in range(3)]
+        else:
+            axis = UNKNOWN
+    else:
+        at = axis = UNKNOWN
+    depth = feature.get("length" if feature.get("kind") == "external_thread" else "depth", UNKNOWN)
+    return {
+        "at_mm": _scaled(at, scale),
+        "axis": axis,
+        "depth_mm": _scaled(depth, scale) if _number(depth) else UNKNOWN,
+        **{key: feature.get(key, UNKNOWN) for key in ("thread", "thread_hand", "thread_class")},
+    }
+
+
+def _seat_patches_overlap(patches: list[dict]) -> bool:
+    """Positive-area rectangle overlap in the common seat plane (separating axes)."""
+    bases = []
+    for patch in patches:
+        normal, x = patch["normal"], patch["x"]
+        y = [
+            normal[1] * x[2] - normal[2] * x[1],
+            normal[2] * x[0] - normal[0] * x[2],
+            normal[0] * x[1] - normal[1] * x[0],
+        ]
+        bases.append((x, y))
+    offset = [b - a for a, b in zip(patches[0]["at_mm"], patches[1]["at_mm"], strict=True)]
+    for axis in (*bases[0], *bases[1]):
+        reach = sum(
+            abs(_dot(axis, direction)) * size / 2
+            for patch, basis in zip(patches, bases, strict=True)
+            for direction, size in zip(basis, patch["size_mm"], strict=True)
+        )
+        if abs(_dot(offset, axis)) >= reach - LENGTH_TOLERANCE_MM:
+            return False
+    return True
+
+
+def thread_facts(bundle, setup: dict) -> dict:
+    """Known nominal contradictions plus debt; no result here certifies a physical join."""
+    from prechips.material_routes import feature_branch_status
+    from prechips.thread_specs import match, mating_classes
+
+    joint = setup["joint"]
+    socket, spigot = (_thread_geometry(bundle, joint[role]) for role in ("socket", "spigot"))
+    missing, violations = [], []
+    for role, geometry in (("socket", socket), ("spigot", spigot)):
+        missing.extend(f"{role}.{key}" for key, value in geometry.items() if value == UNKNOWN)
+    designation = match(socket["thread"], spigot["thread"])
+    if designation is False:
+        violations.append("socket and spigot nominal thread designations differ")
+    elif designation is None:
+        missing.append("supported nominal thread designations")
+    hands = [geometry["thread_hand"] for geometry in (socket, spigot)]
+    if UNKNOWN not in hands and hands[0] != hands[1]:
+        violations.append("socket and spigot thread hands differ")
+    classes = mating_classes(socket["thread_class"], spigot["thread_class"])
+    if classes is False:
+        violations.append("socket and spigot thread classes are incompatible")
+    elif classes is None:
+        missing.append("supported mating thread classes")
+    engagement = joint["engagement_mm"]
+    if engagement == UNKNOWN:
+        missing.append("actual engagement_mm")
+    elif engagement <= 0:
+        violations.append("actual thread engagement must be positive")
+    for role, geometry in (("socket", socket), ("spigot", spigot)):
+        depth = geometry["depth_mm"]
+        if _number(depth) and depth <= 0:
+            violations.append(f"{role} thread depth must be positive")
+        elif _number(depth) and _number(engagement) and engagement > depth + LENGTH_TOLERANCE_MM:
+            violations.append(f"actual engagement exceeds {role} threaded depth")
+    if all(
+        isinstance(geometry[key], list)
+        for geometry in (socket, spigot)
+        for key in ("at_mm", "axis")
+    ):
+        axis = socket["axis"]
+        offset = [b - a for a, b in zip(socket["at_mm"], spigot["at_mm"], strict=True)]
+        along = _dot(offset, axis)
+        radial = math.sqrt(max(0.0, _dot(offset, offset) - along * along))
+        if any(
+            abs(_dot(geometry["axis"], geometry["axis"]) - 1) > UNIT_TOLERANCE
+            for geometry in (socket, spigot)
+        ):
+            violations.append("thread axis is not a unit vector")
+        elif (
+            abs(abs(_dot(axis, spigot["axis"])) - 1) > UNIT_TOLERANCE
+            or radial > LENGTH_TOLERANCE_MM
+        ):
+            violations.append("socket and spigot thread axes are not collinear")
+        elif all(_number(geometry["depth_mm"]) for geometry in (socket, spigot)):
+            end = along + _dot(axis, spigot["axis"]) * spigot["depth_mm"]
+            overlap = min(socket["depth_mm"], max(along, end)) - max(0, min(along, end))
+            if overlap <= LENGTH_TOLERANCE_MM:
+                violations.append("finite thread envelopes do not overlap")
+            elif _number(engagement) and engagement > overlap + LENGTH_TOLERANCE_MM:
+                violations.append("actual engagement exceeds finite thread-envelope overlap")
+    seat = joint["seat"]
+    if seat == UNKNOWN:
+        missing.append("seat")
+    else:
+        seat = {
+            **{key: seat[key] for key in ("gap_mm", "runout_clearance_mm")},
+            **{
+                role: {
+                    "at_mm": _scaled(seat[role]["at"], _scale(bundle)),
+                    **{key: seat[role][key] for key in ("normal", "x", "size_mm")},
+                } if isinstance(seat[role], dict) else UNKNOWN
+                for role in ("socket", "spigot")
+            },
+        }
+        for key in ("gap_mm", "runout_clearance_mm"):
+            if seat[key] == UNKNOWN:
+                missing.append(f"seat.{key}")
+            elif seat[key] < 0:
+                violations.append(f"seat.{key} is negative")
+        if _number(seat["gap_mm"]) and seat["gap_mm"] > LENGTH_TOLERANCE_MM:
+            violations.append("declared shoulder seat has a positive gap")
+        if (
+            seat["gap_mm"] == 0
+            and all(_number(geometry["depth_mm"]) for geometry in (socket, spigot))
+            and spigot["depth_mm"] > socket["depth_mm"] + LENGTH_TOLERANCE_MM
+        ):
+            violations.append("seated male thread is longer than the socket threaded depth")
+        patches = [seat[role] for role in ("socket", "spigot")]
+        for role, patch in zip(("socket", "spigot"), patches, strict=True):
+            if patch == UNKNOWN:
+                missing.append(f"seat.{role}")
+            else:
+                missing.extend(
+                    f"seat.{role}.{key}" for key, value in patch.items() if value == UNKNOWN
+                )
+        if all(isinstance(patch, dict) and isinstance(patch["normal"], list) for patch in patches):
+            if abs(_dot(patches[0]["normal"], patches[1]["normal"]) + 1) > UNIT_TOLERANCE:
+                violations.append("seat interface normals do not oppose")
+            if all(isinstance(patch["at_mm"], list) for patch in patches):
+                offset = [
+                    b - a for a, b in zip(patches[0]["at_mm"], patches[1]["at_mm"], strict=True)
+                ]
+                gap = abs(_dot(offset, patches[0]["normal"]))
+                if _number(seat["gap_mm"]) and abs(gap - seat["gap_mm"]) > LENGTH_TOLERANCE_MM:
+                    violations.append("seat interface separation differs from declared gap_mm")
+            if all(
+                isinstance(patch[key], list)
+                for patch in patches
+                for key in ("at_mm", "normal", "x", "size_mm")
+            ) and not _seat_patches_overlap(patches):
+                violations.append("finite shoulder seat patches have no overlapping contact area")
+    owners = {}
+    for role in ("socket", "spigot"):
+        states = [
+            (ref, feature_branch_status(bundle.plan, ref, joint[role], bundle))
+            for ref in setup["stock_in"]
+        ]
+        proven = [ref for ref, status in states if status is True]
+        if len(proven) == 1 and all(status is not None for _, status in states):
+            owners[role] = proven[0]
+        else:
+            owners[role] = UNKNOWN
+            missing.append(f"{role} retained-material ownership")
+            if len(proven) > 1:
+                violations.append(f"{role} feature belongs to multiple consumed material branches")
+            if not proven and all(status is False for _, status in states):
+                violations.append(f"{role} feature is absent from the consumed branches")
+    if owners["socket"] != UNKNOWN and owners["socket"] == owners["spigot"]:
+        violations.append("socket and spigot belong to the same consumed material branch")
+    return {
+        "socket_geometry": socket,
+        "spigot_geometry": spigot,
+        "socket_ref": owners["socket"],
+        "spigot_ref": owners["spigot"],
+        "engagement_mm": engagement,
+        "seat": seat,
+        "missing": list(dict.fromkeys(missing)),
+        "violations": violations,
+    }
+
+
 def setup_joint(bundle, setup: dict) -> dict | None:
     """Normalised mm joint descriptor of a two-branch assembly setup, else None.
 
@@ -383,9 +602,23 @@ def setup_joint(bundle, setup: dict) -> dict | None:
     common = {
         "kind": joint["kind"],
         "refs": list(refs),
-        "method": joint["method"],
+        "method": joint.get("method", "screw"),
         "process": joint["process"],
     }
+    if joint["kind"] == "threaded":
+        result = thread_facts(bundle, setup)
+        return {
+            **common,
+            **result,
+            "socket": joint["socket"],
+            "spigot": joint["spigot"],
+            "thread_error": "; ".join(result["violations"]) or None,
+            # Nominal major cylinders cannot prove helical flank/lead/runout, preparation
+            # or shoulder contact. Do not replace this debt with an annular fill or fuse.
+            "reason": "threaded assembly geometry unmodeled: helical flanks, lead/runout and "
+            "seated prepared thread interfaces are not proved"
+            + (f"; unknown: {', '.join(result['missing'])}" if result["missing"] else ""),
+        }
     if joint.get("compound") is not None:
         common["compound"] = dict(joint["compound"])
     if joint.get("forms"):
@@ -460,7 +693,7 @@ def joint_operation(bundle, op: dict, finishing: bool) -> dict | None:
     """
     from prechips.rules._envelope import measurement_item
     from prechips.rules.geometry_common import cutting_action
-    from prechips.rules.resolution import op_feature, rough_leave
+    from prechips.rules.resolution import TAP_OPS, op_feature, rough_leave
 
     joint = joint_of(bundle.feature_definitions.get(op_feature(op)))
     if joint is None or cutting_action(op) is False:
@@ -486,11 +719,11 @@ def joint_operation(bundle, op: dict, finishing: bool) -> dict | None:
     result["completes"] = action in _CYLINDER_CUTS[kind]
     if action == UNKNOWN:
         reason = "the joint cut action is unknown"
-    elif action in _UNMODELLED_GEOMETRY:
+    elif action in TAP_OPS | {"counterbore"}:
         reason = (
             f"{action} on {label(joint['id'])} is refused: its "
-            f"{_UNMODELLED_GEOMETRY[action]} geometry is not modelled on transient joint "
-            "features"
+            f"{'thread' if action in TAP_OPS else 'counterbore step'} geometry is not "
+            "modelled on transient joint features"
         )
     elif action not in _CYLINDER_CUTS[kind] | _PROFILE_CUTS[kind]:
         reason = f"{action} has no supported physical cut profile on {label(joint['id'])} ({kind})"

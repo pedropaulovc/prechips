@@ -206,9 +206,11 @@ prints no swivel.
 The setting tolerance δθ comes from `hold.align`, as defined under
 [swivelled vise](plan.md#swivelled-vise):
 
-- For `indicate_jaw`, it is the dialled DRO-grid move's angle off the jaw line
-  plus asin((`limit_mm` + √2·step/2) / L). L is that move's length; step is the
-  machine's measured DRO resolution.
+- For `indicate_jaw` with a digital readout, it is the dialled DRO-grid move's
+  angle off the jaw line plus asin((`limit_mm` + √2·step/2) / L). L is that
+  move's length; step is the machine's measured DRO resolution. Handwheel
+  readout debt does not become a measured digital grid, so this path remains
+  unknown in handwheel mode even when machine resolution is supplied.
 - For a stated method (`graduations`, `protractor` or `sine_bar`), it is the
   cited `tolerance_deg`.
 
@@ -401,8 +403,8 @@ does not establish which blank the next setup receives.
 
 ### Received and cut stock
 
-The analytic receiving box starts with the root stock. Earlier operations
-in the receiving setup's `stock_in` lineage trim it plane by plane through
+For an unsplit supply, the analytic receiving box starts with the root stock.
+Earlier operations in the receiving setup's `stock_in` lineage trim it plane by plane through
 plan process `end_face` features. Each declared dimension (section 0, section
 1 and length), placed at `origin_mm` on the blank's axes, must lie within its
 ± `tolerance_mm` of that box. A made face must also be square to those axes.
@@ -416,6 +418,13 @@ inside the blank removes required material. Either is an error. If the
 model-frame box cannot be read along the declared blank axes, that proof
 remains unknown. A supplied blank (`stock_in = "stock"`) is the root stock
 itself. Without known kernel stock, this part of the verdict is unknown.
+
+A setup receiving `stock_out.<name>` instead receives that exact retained
+child, not the root stock's trimmed box. Its prepared-blank geometry is checked
+against the selected kernel `outputs.<name>.bbox_mm` and `volume_mm3`.
+Unknown or unproven child geometry remains unknown; the unsplit root or a
+sibling output cannot stand in for it. See
+[retained part-off outputs](plan.md#retained-part-off-outputs).
 
 ### Blank inspection checks
 

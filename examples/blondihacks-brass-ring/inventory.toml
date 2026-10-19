@@ -1,0 +1,261 @@
+# Standalone video-only demonstration inventory, not the reader's measured shop.
+# present=true means actually shown/used in this video, not available to the reader.
+# Affiliate lists are NOT inventory evidence. No unrelated Pedro-shop inheritance.
+stock = "unknown"
+
+[machines.video-lathe]
+name = "Precision Matthews PM-1022V"
+kind = "lathe"
+make = "Precision Matthews"
+control = "manual handwheel dials"
+operation_mode = "manual"
+present = true
+verify = false
+note = "PM-1022V nameplate legible at 05:45. Manual direct-read cross-feed dial (diameter reduction) explained 10:40; no digital DRO used. Nameplate identity is not measured travel, spindle capability, accuracy or installed-tool-stack evidence."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=345s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=640s"]
+[machines.video-lathe.spindle]
+rpm_min = "unknown"
+rpm_max = "unknown"
+hp = "unknown"
+bore_in = "unknown"
+taper = "unknown"
+rotation = "unknown"
+[machines.video-lathe.envelope]
+travel_mm = { x = "unknown", y = "unknown", z = "unknown" }
+swing_over_bed_mm = "unknown"
+swing_over_cross_slide_mm = "unknown"
+between_centres_mm = "unknown"
+[machines.video-lathe.tailstock]
+taper = "unknown"
+quill_travel_in = "unknown"
+quill_dia_mm = "unknown"
+[machines.video-lathe.toolpost]
+type = "four-way toolpost"
+centre_height = "unknown"
+square_blade = "unknown"
+note = "Four-way screw-clamped post visible 07:00/14:55, NOT a quick-change AXA post from the generic affiliate list. Source squares the post to the newly faced end at 08:21; actual edge centre-height and groove-tool squareness remain unmeasured."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=420s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=501s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=895s"]
+
+[machines.video-bench]
+name = "Wooden bench"
+kind = "bench"
+present = true
+verify = false
+note = "Hand finishing only, ring held in fingers and conical deburring tool twisted manually. No vise or mandrel shown."
+cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1411s"
+
+[fixtures.three-jaw-chuck]
+name = "Three-jaw scroll chuck"
+kind = "chuck_3jaw"
+present = true
+verify = false
+scroll = true
+dia_mm = "unknown"
+length_mm = "unknown"
+jaw_height_mm = "unknown"
+jaw_width_mm = "unknown"
+jaw_depth_mm = "unknown"
+opening_mm = "unknown"
+mount = "unknown"
+note = "Entire machining route keeps the bar in one three-jaw chucking. Chuck diameter, axial jaw-front placement, grip, runout and load rating are not established."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=366s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=895s"]
+
+[holders.four-way-toolpost]
+name = "Four-way screw-clamped toolpost"
+kind = "toolpost"
+present = true
+verify = false
+body_width_mm = "unknown"
+body_depth_mm = "unknown"
+gauge_len_mm = "unknown"
+grip_mm = "unknown"
+fits = "unknown"
+note = "Source-visible holder for both the flat-top turning tool and wide traditional ground parting tool. No separate quick-change holders are used."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=420s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=895s"]
+
+[holders.tailstock-drill-chuck]
+name = "Jacobs-type tailstock drill chuck"
+kind = "drill_chuck"
+present = true
+verify = false
+taper = "unknown"
+arbor = "unknown"
+capacity_in = "unknown"
+gauge_len_mm = "unknown"
+grip_mm = "unknown"
+body_width_mm = "unknown"
+body_depth_mm = "unknown"
+note = "Narration calls it Jacobs chuck 17:56; used in tailstock for #2 centre drill and five twist-drill stages. Brand/model, taper, capacity, grip and assembly projection are unmeasured. A nominal 5/8 cutting diameter does not prove a 5/8 shank or chuck capacity."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=1076s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=1361s"]
+
+[tools.turning-tool]
+name = "Flat-top ground turning/facing tool"
+kind = "lathe_tool_bit"
+present = true
+verify = false
+material = "unknown"
+hand = "unknown"
+oal_mm = "unknown"
+nose_radius_mm = "unknown"
+insert_angle_deg = "unknown"
+entering_angle_deg = "unknown"
+edge_len_mm = "unknown"
+head_len_mm = "unknown"
+shank_width_mm = "unknown"
+functional_width_mm = "unknown"
+projection_mm = { four-way-toolpost = "unknown" }
+note = "Source 07:00-07:18: one flat-top ground tool with generous nose radius handles facing and turning. Zero back rake discussed 18:41. No tool material, shank size or numeric nose radius inferred from colour or generic shopping links."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=420s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=1121s"]
+
+[tools.parting-tool]
+name = "Wide Grizzly pre-ground parting tool"
+kind = "lathe_tool_bit"
+make = "Grizzly"
+present = true
+verify = false
+material = "unknown"
+oal_mm = "unknown"
+nose_radius_mm = "unknown"
+insert_angle_deg = "unknown"
+entering_angle_deg = "unknown"
+edge_len_mm = "unknown"
+head_len_mm = "unknown"
+shank_width_mm = "unknown"
+functional_width_mm = "unknown"
+blade_width_mm = "unknown"
+projection_mm = { four-way-toolpost = "unknown" }
+note = "14:54-15:08 explicitly identifies traditional wide ground parting tool from Grizzly pre-ground set, not a parting blade. Numeric width, exact SKU, material and grind envelope are unestablished. No blade width or kerf is invented."
+cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=894s"
+
+[tools.fine-mill-file]
+name = "Fine-cut handled mill file"
+kind = "file"
+present = true
+verify = false
+length_mm = "unknown"
+width_mm = "unknown"
+note = "Named fine-cut mill file 16:22 and shown with handle 17:17, used on both outer edges while bar remains chucked. No numerical chamfer produced by this hand operation is established."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=982s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=1037s"]
+
+[tools.centre-drill-2]
+name = "Number 2 centre drill"
+kind = "center_drill"
+present = true
+verify = false
+material = "unknown"
+dia_mm = "unknown"
+pilot_len_mm = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+point_angle = "unknown"
+projection_mm = { tailstock-drill-chuck = "unknown" }
+note = "Size #2 named 18:01; actual pilot diameter/point length and installed projection not given. No handbook dimensions silently transferred to this unknown make."
+cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1081s"
+
+[tools.drill-quarter]
+name = "Quarter-inch twist drill"
+kind = "drill"
+present = true
+verify = false
+dia_mm = 6.35
+material = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+point_angle = "unknown"
+projection_mm = { tailstock-drill-chuck = "unknown" }
+note = "Nominal 1/4-inch size spoken 19:58, used 20:45. Physical length, point angle, shank and grind are unmeasured."
+cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1198s"
+
+[tools.drill-five-sixteenths]
+name = "Five-sixteenths-inch twist drill"
+kind = "drill"
+present = true
+verify = false
+dia_mm = 7.9375
+material = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+point_angle = "unknown"
+projection_mm = { tailstock-drill-chuck = "unknown" }
+note = "Nominal 5/16-inch size spoken 21:10. Video demonstrates this drill trying to grab; no qualified brass regrind or modified rake is established."
+cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1270s"
+
+[tools.drill-seven-sixteenths]
+name = "Seven-sixteenths-inch twist drill"
+kind = "drill"
+present = true
+verify = false
+dia_mm = 11.1125
+material = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+point_angle = "unknown"
+projection_mm = { tailstock-drill-chuck = "unknown" }
+note = "Actual montage overlay at 22:32 says Now with 7/16 inch; retained despite omission from captions. No 3/8-inch drill is identified or added."
+cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1352s"
+
+[tools.drill-half]
+name = "Half-inch twist drill"
+kind = "drill"
+present = true
+verify = false
+dia_mm = 12.7
+material = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+point_angle = "unknown"
+projection_mm = { tailstock-drill-chuck = "unknown" }
+note = "Actual montage overlay 22:37-22:41 says Then 1/2 inch. No 9/16-inch drill is shown/identified or added."
+cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1357s"
+
+[tools.drill-five-eighths]
+name = "Five-eighths-inch final twist drill"
+kind = "drill"
+present = true
+verify = false
+dia_mm = 15.875
+material = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+point_angle = "unknown"
+projection_mm = { tailstock-drill-chuck = "unknown" }
+note = "Nominal 5/8 inch spoken 04:48/19:52/22:41. The source discusses a rough caliper figure of about 0.300 inch at 20:12-20:28, but the exact measured span and drill-point length are not established. The source uses approximate total quill travel after tip touch at 20:28-20:43; 0.300 in = 7.62 mm is a nominal conversion, not a verified machine setting. The quill mm scale is visible at 20:40-20:44, but the scale-column count is unconfirmed."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=288s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=1201s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=1361s"]
+
+[tools.hand-deburring-tool]
+name = "Hand-held conical deburring tool"
+kind = "deburring_tool"
+present = true
+verify = false
+dia_mm = "unknown"
+angle_deg = "unknown"
+note = "23:28-23:43: black-handled conical countersink-style hand tool, twisted manually on the ring's inner edges. No brand, cutting diameter or included angle inferred from the affiliate list."
+cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1408s"
+
+[gauges.dial-caliper]
+name = "Dial caliper"
+kind = "caliper"
+present = true
+verify = false
+range_in = "unknown"
+resolution_in = "unknown"
+note = "Used for finger sizing 04:31, cleanup OD 11:43, rough OD 13:27 and drill-depth discussion 20:21. Inch dial visible 11:50; actual calibration, accuracy and inspection uncertainty unknown. No micrometer, plug gauge or indicator added from shopping links."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=271s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=710s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=807s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=1221s"]
+
+[gauges.machinist-scale]
+name = "Machinist scale"
+kind = "rule"
+present = true
+verify = false
+length_mm = "unknown"
+resolution_mm = "unknown"
+note = "Source uses a machinist scale for jaw-clearance sighting 09:33 and 0.100-inch ring axial width 14:40. That is not a measured jaw-clearance value or proof of width acceptance."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=573s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=880s"]
+
+[consumables.cutting-oil]
+name = "Cutting oil"
+products = "unknown"
+# Oil applied 18:14/20:49/22:46; product/specification unknown.
+# https://www.youtube.com/watch?v=t9NGty1CVII&t=1094s
+# https://www.youtube.com/watch?v=t9NGty1CVII&t=1249s
+# https://www.youtube.com/watch?v=t9NGty1CVII&t=1366s

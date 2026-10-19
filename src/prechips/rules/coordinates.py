@@ -34,7 +34,7 @@ from ..measurements import (
     record_trusted,
 )
 from ..model import tolerance_requirements
-from ._bench import manual_bench, not_applicable
+from ._bench import manual_bench, manual_thread_setup, not_applicable
 from .datum_consistency import _cuts
 from .resolution import (
     HAND_FINISH,
@@ -851,6 +851,58 @@ DRO_DEFAULT_STEP = 0.001
 OVERSHOOT_NOTE = "corner overshoot into scrap — OK"
 
 
+def readout_kind(bundle):
+    """An omitted kind is the legacy digital contract; explicit unknown never is."""
+    return mapping(bundle.plan.get("dro")).get("kind", "digital")
+
+
+def readout_units(bundle):
+    """Display units, independent of CAD units; omitted preserves existing bundles."""
+    return mapping(bundle.plan.get("dro")).get("units", bundle.features.get("units", UNKNOWN))
+
+
+def readout_value(bundle, value):
+    """A nominal model/setup length in declared readout units, converted exactly once."""
+    source = UNIT_MM.get(bundle.features.get("units"))
+    target = UNIT_MM.get(readout_units(bundle))
+    return value * source / target if source and target and number(value) else UNKNOWN
+
+
+def handwheel_readout(bundle):
+    """Source dial facts, not a calibrated coordinate grid or an inferred physical zero.
+
+    A diameter dial's graduation is diameter change: its radial travel is half that.
+    Calibration prose and a source nominal cannot establish measured dial accuracy, so
+    the mechanical readout remains explicitly unverified rather than borrowing a DRO.
+    """
+    dro = mapping(bundle.plan.get("dro"))
+    graduation = dro.get("graduation", UNKNOWN)
+    units = readout_units(bundle)
+    scale = UNIT_MM.get(units)
+    known = number(graduation) and math.isfinite(graduation) and graduation > 0
+    radius = dro.get("radius_mode")
+    x_scale = 1.0 if radius is True else 0.5 if radius is False else None
+    return {
+        "kind": readout_kind(bundle),
+        "units": units,
+        "graduation": graduation if known else UNKNOWN,
+        "graduation_mm": graduation * scale if known and scale else UNKNOWN,
+        "x_radial_graduation_mm": graduation * scale * x_scale
+        if known and scale and x_scale is not None
+        else UNKNOWN,
+        "x_scale": "radius" if radius is True else "diameter" if radius is False else UNKNOWN,
+        "procedure": dro.get("procedure", UNKNOWN),
+        "backlash": dro.get("backlash", UNKNOWN),
+        "calibration": dro.get("calibration", UNKNOWN),
+        "debt": (
+            "mechanical dial calibration and dial-to-part registration are unverified; "
+            "source graduations and nominal targets do not establish physical dial settings"
+        )
+        if readout_kind(bundle) == "handwheel"
+        else "readout kind is unknown and physical settings remain unverified",
+    }
+
+
 def dro_grid_source(bundle, setup):
     """The setup supplying the grid: a bench with no positive declared step inherits
     its nearest machine setup's grid and measurement debt together."""
@@ -881,6 +933,10 @@ def dro_grid(bundle, setup):
     discarding a declaration. A bench with no positive declared step inherits the
     machine grid that left its surfaces (:func:`dro_grid_source`).
     """
+    if readout_kind(bundle) != "digital":
+        # Internal nominal geometry still needs a finite numerical grid. This is not a
+        # physical dial increment: X diameter and Z travel cannot share that assumption.
+        return DRO_DEFAULT_STEP, 3
     units = bundle.features.get("units")
     scale = {"mm": 1.0, "in": 25.4}.get(units)
     source = dro_grid_source(bundle, setup)
@@ -899,6 +955,13 @@ def dro_grid_debt(bundle, setup):
     measurement. A provisional grid still places and prints the targets, but no judging
     consumer certifies it. Bench lineage preserves the source machine's debt.
     """
+    kind = readout_kind(bundle)
+    if kind == "handwheel":
+        return handwheel_readout(bundle)["debt"]
+    if kind != "digital":
+        return "readout kind is unknown; neither a digital grid nor mechanical dial is established"
+    if readout_units(bundle) not in UNIT_MM:
+        return "readout units are not mm or in, so physical coordinate readings are unknown"
     if bundle.features.get("units") not in UNIT_MM:
         return "feature units are not mm or in, so the DRO grid is provisional"
     source = dro_grid_source(bundle, setup)
@@ -916,6 +979,10 @@ def dro_grid_debt(bundle, setup):
 
 def dro_grid_measurements(bundle, setup):
     """The effective grid's measurement checklist entry, including a bench's source."""
+    if readout_kind(bundle) != "digital":
+        # A mechanical scale (or unknown readout kind) must not request installation or
+        # measurement of a digital DRO which the source does not have.
+        return []
     source = dro_grid_source(bundle, setup)
     name = source.get("machine")
     debt = length_debt(
@@ -4165,7 +4232,7 @@ def evaluate(bundle, *, pre_kernel=False):
     dro = mapping(bundle.plan.get("dro"))
     units = bundle.features.get("units")
     for setup in bundle.plan["setups"]:
-        bench = manual_bench(bundle, setup)
+        bench = manual_bench(bundle, setup) or manual_thread_setup(bundle, setup)
         if bench is not None:
             result.append(
                 not_applicable(
@@ -4673,6 +4740,8 @@ def evaluate(bundle, *, pre_kernel=False):
             if grid_debt:
                 numbers["dro_grid_debt"] = grid_debt
                 numbers["measurements"] = dro_grid_measurements(bundle, setup)
+                if readout_kind(bundle) != "digital":
+                    numbers["readout"] = handwheel_readout(bundle)
                 unknown = True
         else:
             numbers["dro_grid"] = {"step": "not used", "decimals": "not used"}
@@ -4714,7 +4783,14 @@ def evaluate(bundle, *, pre_kernel=False):
             "nominal geometry and authored allowance."
         )
         if grid_debt:
-            sentence += f" DRO grid debt: {grid_debt}"
+            label = (
+                "DRO grid"
+                if readout_kind(bundle) == "digital"
+                else "Mechanical readout"
+                if readout_kind(bundle) == "handwheel"
+                else "Readout"
+            )
+            sentence += f" {label} debt: {grid_debt}"
         if unknown:
             sentence += (
                 " Missing geometry or unverified tool/frame binding prevents a cleared toolpath."

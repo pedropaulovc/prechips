@@ -6,8 +6,16 @@ from itertools import pairwise, product
 
 from prechips.rules.zero_recipe.touch import FILL_MARGIN_MM, TOUCH_LAND_MM, TURNED, _position
 
-from ...model import setup_lineage
-from ..resolution import LENGTH_TOLERANCE_MM, MANUAL, UNKNOWN, known_refs, number, setup_frame
+from ...material_routes import feature_material_status, setup_lineage
+from ..resolution import (
+    HAND_THREAD,
+    LENGTH_TOLERANCE_MM,
+    MANUAL,
+    UNKNOWN,
+    known_refs,
+    number,
+    setup_frame,
+)
 from ..tip_endpoints import (
     FACING,
     POCKETING,
@@ -157,7 +165,7 @@ def _cuts(bundle, setup, event, states, start, end):
     gone, unproven, scars = False, event["face"] in {None, "", UNKNOWN}, []
     for op, _, _ in states[start:end]:
         action = op.get("do")
-        if action in MANUAL:
+        if action in MANUAL - HAND_THREAD:
             continue
         names = _features(op)
         if names is None:
@@ -234,7 +242,7 @@ def _turned_standing(event, states, index):
     since cut that feature other than by turning it, or cut a feature the plan does not
     name."""
     for op, _, _ in states[event["index"] : index]:
-        if op.get("do") in MANUAL:
+        if op.get("do") in MANUAL - HAND_THREAD:
             continue
         names = _features(op)
         if names is None or (event["x_face"] in names and op.get("do") not in TURNED):
@@ -271,7 +279,7 @@ def x_face_state(bundle, setup, touch, x_recipe, states, index):
             return "error", "touches the X zero's trial-cut land, but the X zero cuts none"
         if index < made:
             return "error", "touches the X zero's trial-cut land before the zero cuts it"
-        cut = next((op for op in ops[made:index] if op.get("do") not in MANUAL), None)
+        cut = next((op for op in ops[made:index] if op.get("do") not in MANUAL - HAND_THREAD), None)
         if cut is not None:
             return UNKNOWN, f"touches the X zero's trial-cut land after op {cut['op']} cut"
         return "pass", None
@@ -286,20 +294,29 @@ def x_face_state(bundle, setup, touch, x_recipe, states, index):
     ]
     history = earlier + [(setup["id"], op) for op, _, _ in states[:index]]
     for owner, op in reversed(history):
-        if op.get("do") in MANUAL:
+        if op.get("do") in MANUAL - HAND_THREAD:
             continue
         names = _features(op)
         where = f"{owner} op {op.get('op')}"
         if names is None:
             return UNKNOWN, f"touches {face} after {where}, which names no feature"
         if face in names:
+            material = feature_material_status(bundle.plan, setup["id"], owner, face, bundle)
+            if material is None:
+                return UNKNOWN, f"touches {face}, whose survival after partition is unresolved"
+            if material is False:
+                continue
             if op.get("do") in TURNED:
                 return "pass", None
             return "error", f"touches {face} after {where} cut it other than by turning"
     faces = mapping(bundle.feature_definitions.get(face)).get("faces", UNKNOWN)
     as_is = mapping(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN)
     if known_refs(faces) and isinstance(as_is, list) and set(faces) <= set(as_is):
-        return "pass", None
+        material = feature_material_status(bundle.plan, setup["id"], "stock", face, bundle)
+        if material is True:
+            return "pass", None
+        if material is None:
+            return UNKNOWN, f"touches {face}, whose stock as-is survival after partition is unresolved"
     if not all("stock_in" in other for other in bundle.plan["setups"] if other["id"] in lineage):
         return UNKNOWN, f"touches {face}, whose turning upstream is not routed to this setup"
     return "error", f"touches {face} before any op turns it"

@@ -1,0 +1,67 @@
+"""Conservative nominal thread designation comparisons, not fit or strength checks.
+
+Only explicit size/pitch identities are read. Tool names, prose standards, unspecified
+coarse pitches and member spelling never supply missing thread facts.
+"""
+
+import re
+from fractions import Fraction
+
+_INCH = re.compile(r"(#\d+|\d+(?:/\d+)?|\d*\.\d+)-(\d+)(UNC|UNF|UNEF|UNS)?")
+_METRIC = re.compile(r"M(\d+(?:\.\d+)?)[X×](\d+(?:\.\d+)?)")
+
+
+def _identity(value):
+    if not isinstance(value, str) or not value.strip() or value == "unknown":
+        return None
+    text = re.sub(r"\s+", "", value).upper().replace("−", "-")
+    metric = _METRIC.fullmatch(text)
+    if metric:
+        try:
+            diameter, pitch = map(Fraction, metric.groups())
+        except (ValueError, ZeroDivisionError):
+            return None
+        return ("metric", diameter, pitch, None) if diameter > 0 and pitch > 0 else None
+    inch = _INCH.fullmatch(text)
+    if inch is None:
+        return None
+    size, tpi, series = inch.groups()
+    try:
+        diameter = ("number", int(size[1:])) if size.startswith("#") else Fraction(size)
+        pitch = int(tpi)
+    except (ValueError, ZeroDivisionError):
+        return None
+    if (isinstance(diameter, Fraction) and diameter <= 0) or pitch <= 0:
+        return None
+    return "inch", diameter, pitch, series
+
+
+def match(required, actual):
+    """True/False for known nominal compatibility, None for unsupported or unknown facts.
+
+    An omitted Unified series does not invent a series: size and TPI still compare, while
+    two explicitly different series contradict. Classes and hand are separate facts.
+    """
+    left, right = _identity(required), _identity(actual)
+    if left is None or right is None:
+        return None
+    if left[:3] != right[:3]:
+        return False
+    return not (left[3] is not None and right[3] is not None and left[3] != right[3])
+
+
+def mating_classes(socket, spigot):
+    """Compare Unified internal B/external A classes without pretending class is fit proof.
+
+    Metric tolerance positions and nonstandard designations need a dedicated standards
+    model; they remain unknown rather than becoming an exact-string apparent pass.
+    """
+    if not isinstance(socket, str) or not isinstance(spigot, str):
+        return None
+    inner = re.fullmatch(r"([123])([AB])", socket.strip().upper())
+    outer = re.fullmatch(r"([123])([AB])", spigot.strip().upper())
+    if inner is None or outer is None:
+        return None
+    # A/B names the internal/external role. Different tolerance grades alone do not
+    # establish incompatibility; do not invent a grade-equality fit requirement.
+    return inner[2] == "B" and outer[2] == "A"

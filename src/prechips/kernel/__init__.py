@@ -36,6 +36,7 @@ from prechips.rules.geometry_common import (
 from prechips.rules.resolution import (
     HAND_FED,
     HAND_FINISH,
+    HAND_THREAD,
     SAW_OPS,
     hand_fed,
     identity,
@@ -293,7 +294,13 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     """One op's kernel inputs; ``tables`` is its setup's coordinates numbers, whose printed
     cutter-centre checkpoints the kernel checks against the stock model (``checkpoints``)."""
     from prechips.joint_features import joint_operation
-    from prechips.process_features import centre_tool, parting_plane, parts_off, process_operation
+    from prechips.process_features import (
+        ACTIONS,
+        centre_tool,
+        parting_plane,
+        parts_off,
+        process_operation,
+    )
     from prechips.rules.geometry_common import (
         ROTARY,
         TURNING,
@@ -304,6 +311,20 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     from prechips.rules.tip_endpoints import HOLE_OPS, hole_depth_mm, stock_states
 
     subject = f"{setup['id']}:{op['op']}"
+    if op.get("do") in HAND_THREAD:
+        return {
+            "subject": subject,
+            "feature": op.get("feature", UNKNOWN),
+            "do": op["do"],
+            "finishing": subject in (
+                finishing_subjects(bundle) if finishing is None else finishing
+            ),
+            **({"faces": op["faces"]} if "faces" in op else {}),
+            "manual_thread": {
+                "reason": "helical thread removal unmodeled; no nominal-major "
+                "cylinder stand-in"
+            },
+        }
     if op.get("do") in {"saw_cut", "cut_off"}:
         units = bundle.features.get("units", UNKNOWN)
         # The host's one saw verdict (rules.resolution.saw_tool/saw_station) decides whether
@@ -390,6 +411,8 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         "do": op.get("do", UNKNOWN),
         "finishing": subject in (finishing_subjects(bundle) if finishing is None else finishing),
     }
+    if isinstance(op.get("outputs"), dict):
+        result["outputs"] = _retained_output_inputs(op["outputs"], bundle.features.get("units"))
     joint_cut = joint_operation(bundle, op, result["finishing"])
     if joint_cut is not None:
         if op.get("do") in {"spot", "drill", "ream"}:
@@ -405,7 +428,11 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         result["joint_cut"] = joint_cut
     process_cut = process_operation(bundle, op)
     if process_cut is not None:
-        if op.get("do") == "center_drill" and "reason" not in process_cut:
+        if (
+            op.get("do") in ACTIONS["centre_hole"]
+            and process_cut.get("kind") == "centre_hole"
+            and "reason" not in process_cut
+        ):
             # The kernel cuts only the centre the selected tool itself makes, closed by its
             # own accepted pilot point: never an assumed angle.
             binding = centre_tool(bundle, op)
@@ -973,6 +1000,18 @@ def scribed_profile(bundle, setup, op):
     from prechips.rules.coordinates import arc_layout, frame_point, model_point
     from prechips.rules.manual_arc import _arc_feature
     from prechips.rules.resolution import setup_frame
+    from prechips.rules.saw_cut import scribe_material_status
+
+    material = scribe_material_status(bundle, setup, op)
+    if material is not True:
+        return {
+            "reason": (
+                f"whether {op['follows']}'s scribed line survives its material partition "
+                "and registration is unknown"
+                if material is None
+                else f"{op['follows']}'s scribed line is not on this saw's material"
+            )
+        }
 
     sid, _, number_ = str(op["follows"]).partition(":")
     scribe = next(
@@ -1729,8 +1768,32 @@ def _keeps(setup, sent):
     return keeps
 
 
+def _retained_output_inputs(outputs, units):
+    """Normalize model-point registrations exactly once; unknown binding stays unknown."""
+    result = {}
+    for name, output in outputs.items():
+        pose = output["pose"]
+        frame = (
+            {key: pose.get(key, UNKNOWN) for key in ("origin", "x", "y", "z")}
+            if isinstance(pose, dict)
+            else {}
+        )
+        if (
+            units not in {"mm", "in"}
+            or not isinstance(pose, dict)
+            or pose.get("binding", UNKNOWN) == UNKNOWN
+            or not all(_vector(value) for value in frame.values())
+        ):
+            frame = UNKNOWN
+        elif units == "in":
+            frame["origin"] = [value * 25.4 for value in frame["origin"]]
+        result[name] = {"carries": output["carries"], "pose": frame, "cite": output["cite"]}
+    return result
+
+
 def build_job(bundle):
     from prechips.joint_features import dia_bands_mm, primitives_mm, setup_joint
+    from prechips.material_routes import MaterialGraph
     from prechips.process_features import primitives_mm as process_primitives_mm
     from prechips.rules.coordinates import evaluate as coordinate_findings
     from prechips.rules.coordinates import faced_aims, revolved_located
@@ -1742,6 +1805,9 @@ def build_job(bundle):
 
     units = bundle.features.get("units", UNKNOWN)
     setups = []
+    solids = bundle.features.get("solids")
+    graph = MaterialGraph(bundle.plan) if solids else None
+    owners = bundle.finished_feature_owners if solids else {}
     # The kernel request: a bounded op's printed tables go whole, for the kernel to clip.
     coordinates = {
         finding.subject: finding.numbers for finding in coordinate_findings(bundle, pre_kernel=True)
@@ -1774,6 +1840,7 @@ def build_job(bundle):
                     for op in sent
                 ],
                 "stock_in": setup.get("stock_in", UNKNOWN),
+                **({"material": graph.descriptor(setup["id"], owners)} if graph else {}),
                 **({"keep": keeps} if keeps else {}),
                 "render": _inspections_after(
                     setup, sent, setup_annotations(bundle, setup, coordinates.get(setup["id"], {}))
@@ -1820,6 +1887,7 @@ def build_job(bundle):
             name: feature.get("faces", UNKNOWN)
             for name, feature in bundle.features["features"].items()
         },
+        **({"finished_solids": solids, "feature_solids": owners} if solids else {}),
         "joint_features": primitives_mm(bundle),
         "dia_bands": dia_bands_mm(bundle),
         "process_features": process_primitives_mm(bundle),
@@ -1935,6 +2003,8 @@ _ENGINE_OP = (
     "faces",
     "joint_cut",
     "process_cut",
+    "outputs",
+    "manual_thread",
     "finishing",
     "hole",
     "radius_mm",
@@ -2071,6 +2141,14 @@ def engine_job(job):
         "step_path": job["step_path"],
         "step_sha256": job["step_sha256"],
         "features": job["features"],
+        **(
+            {
+                "finished_solids": job["finished_solids"],
+                "feature_solids": job.get("feature_solids", {}),
+            }
+            if job.get("finished_solids")
+            else {}
+        ),
         "joint_features": job.get("joint_features", {}),
         **({"dia_bands": job["dia_bands"]} if job.get("dia_bands") else {}),
         "process_features": job.get("process_features", {}),
@@ -2084,6 +2162,7 @@ def engine_job(job):
                 "hold": _engine_hold(setup["hold"]),
                 "ops": [_engine_op(op) for op in setup["ops"]],
                 "stock_in": setup["stock_in"],
+                **({"material": setup["material"]} if "material" in setup else {}),
                 **({"keep": setup["keep"]} if setup.get("keep") else {}),
                 "joint": setup.get("joint"),
                 "machine_kind": setup["machine_kind"],

@@ -1,0 +1,13 @@
+# Source-only, offline cutting-data input for this one video demonstration.
+# Source identifies 360 brass and gives approximate operation RPM/pass increments,
+# authored next to the operations. It does not establish tool material, approved
+# diameter-range SFM/feed rows, specific cutting force, modulus or deep-hole limits.
+# Do not convert one demonstration's RPM into a fabricated transferable table.
+revision = 1
+cut = "unknown"
+material = "unknown"
+deep_hole = "unknown"
+plunge = "unknown"
+
+[aliases]
+"360 free-machining brass" = "360 free-machining brass"

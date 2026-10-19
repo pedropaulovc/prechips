@@ -1,6 +1,7 @@
 """Measured grip-zone wall below the shop floor needs a named protective method."""
 
 from prechips.findings import Finding
+from prechips.rules._bench import manual_bench, not_applicable, unfixtured_handling
 from prechips.rules.geometry_common import (
     fact_reason,
     setup_contexts,
@@ -25,6 +26,15 @@ def evaluate(bundle):
     ):
         floor = "unknown"
     for setup, _, detail, inputs, cite, blocked in setup_contexts(bundle, "thin_wall_under_clamp"):
+        bench = manual_bench(bundle, setup)
+        hold = setup.get("hold", {})
+        if isinstance(hold, dict) and unfixtured_handling(bench, hold):
+            rows.append(
+                not_applicable(
+                    "thin_wall_under_clamp", setup, bench, "holding", "clamping load on a wall"
+                )
+            )
+            continue
         cite = cite + [
             "shop-policy.numbers.thin_wall_floor_mm; "
             "PLAN.md §4.3 named soft jaws / mandrel / tape / wax"

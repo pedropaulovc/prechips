@@ -42,6 +42,16 @@ ignore = [
 [paths]
 "tests/data/print/*" = ["tests/test_sheet_print.py"]
 "examples/*" = [
+    "tests/test_authored_rpm.py",
+    "tests/test_handwheel_readout.py",
+    "tests/test_kernel_retained_outputs.py",
+    "tests/test_manual_thread_boundaries.py",
+    "tests/test_manual_die_tools.py",
+    "tests/test_material_route_display.py",
+    "tests/test_material_route_rule_boundaries.py",
+    "tests/test_material_routes.py",
+    "tests/test_thread_preparation.py",
+    "tests/test_threaded_joints.py",
     "tests/test_angularity.py",
     "tests/test_chain_drill_speed.py",
     "tests/test_cli.py",
@@ -82,6 +92,53 @@ ignore = [
     "tests/test_surface_profile.py",
     "tests/test_validate_examples.py",
 ]
+# New shared host modules have explicit conservative consumers until the next
+# coordinated coverage-map rebuild. They are not native ENGINE_SOURCES.
+"src/prechips/thread_specs.py" = [
+    "tests/test_chain_boundary.py",
+    "tests/test_examples.py",
+    "tests/test_joint_features.py",
+    "tests/test_joint_multi.py",
+    "tests/test_manual_die_tools.py",
+    "tests/test_process_features.py",
+    "tests/test_manual_thread_boundaries.py",
+    "tests/test_thread_preparation.py",
+    "tests/test_threaded_joints.py",
+    "tests/test_tooling_hole.py",
+    "tests/test_validate_examples.py",
+]
+"src/prechips/material_routes.py" = [
+    "tests/test_chain_boundary.py",
+    "tests/test_examples.py",
+    "tests/test_joint_features.py",
+    "tests/test_joint_geometry.py",
+    "tests/test_joint_multi.py",
+    "tests/test_kernel_retained_outputs.py",
+    "tests/test_material_route_display.py",
+    "tests/test_manual_thread_boundaries.py",
+    "tests/test_material_route_rule_boundaries.py",
+    "tests/test_material_routes.py",
+    "tests/test_prepared_blank.py",
+    "tests/test_process_features.py",
+    "tests/test_thread_preparation.py",
+    "tests/test_threaded_joints.py",
+    "tests/test_tooling_hole.py",
+    "tests/test_validate_examples.py",
+]
+# Manual threading crosses these existing rule boundaries. Keep its focused
+# regressions selected alongside the historical coverage-derived consumers.
+"src/prechips/rules/_bench.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/coordinates.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/datum_consistency.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/geometry_common.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/op_chain.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/op_order.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/resolution.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/tip_endpoints.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/tool_resolves.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/zero_recipe/rule.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/saw_cut.py" = ["tests/test_material_route_rule_boundaries.py"]
+"src/prechips/kernel/__init__.py" = ["tests/test_material_routes.py", "tests/test_kernel_retained_outputs.py"]
 "tests/data/kernel/*" = [
     "tests/test_kernel_geometry.py",
     "tests/test_kernel_held_split.py",
@@ -94,6 +151,8 @@ ignore = [
     "tests/test_coordinates_dro_consumption.py",
     "tests/test_example_provenance_comments.py",
     "tests/test_examples.py",
+    "tests/test_material_route_display.py",
+    "tests/test_material_route_rule_boundaries.py",
     "tests/test_sheet_touch_exclusion.py",
     "tests/test_validate_examples.py",
 ]

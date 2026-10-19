@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 
+from prechips.material_routes import feature_material_status, producer_setup
 from prechips.rules.zero_recipe.faces import _rectangle, _uncut
 from prechips.rules.zero_recipe.touch import (
     MEASURED,
@@ -22,6 +23,7 @@ from ...model import UNIT_TOLERANCE
 from ..geometry_common import TURNING_BLADE_KINDS, approach, cutting_action, op_claims
 from ..resolution import (
     HAND_FINISH,
+    HAND_THREAD,
     LENGTH_TOLERANCE_MM,
     UNKNOWN,
     known_refs,
@@ -876,6 +878,24 @@ def _carried_face_z(
             "excluded_mm": 0.0,
         }
 
+    def incoming_row(current, incoming, source, ref):
+        producer = producer_setup(bundle.plan, source) if isinstance(source, str) else None
+        if producer not in outputs:
+            return seed(current, incoming, source, ref)
+        row = outputs[producer][ref]
+        material = feature_material_status(
+            bundle.plan, current["id"], producer, face, bundle
+        )
+        if material is True or row["present"] is False:
+            return row
+        return {
+            **row,
+            "present": UNKNOWN if material is None else False,
+            "plane": None,
+            "normal": None,
+            "area_unknown": material is None or row["area_unknown"],
+        }
+
     for current in route:
         receiving = current.get("id") == setup.get("id")
         incoming = current.get("stock_in")
@@ -883,7 +903,7 @@ def _carried_face_z(
         state = {}
         for ref in refs:
             inputs = [
-                outputs[source][ref] if source in outputs else seed(current, incoming, source, ref)
+                incoming_row(current, incoming, source, ref)
                 for source in incoming
             ]
             present = (
@@ -930,7 +950,7 @@ def _carried_face_z(
         if receiving:
             ops = ops[:done]
         for op in ops:
-            cuts = True if op.get("do") in HAND_FINISH else cutting_action(op)
+            cuts = True if op.get("do") in HAND_FINISH | HAND_THREAD else cutting_action(op)
             if cuts is False:
                 continue
             claims, away, invalid = op_claims(bundle, kernel, current, op)
