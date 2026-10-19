@@ -290,6 +290,14 @@ def _turning_values(bundle, op):
 
 
 @_collect_debts
+def mounted_saw_inputs(bundle, setup, op):
+    """Pure measured mounted-disk normalization; never prepares or runs a native job."""
+    from .mounted_saw import prepare
+
+    return prepare(bundle, setup, op)
+
+
+@_collect_debts
 def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     """One op's kernel inputs; ``tables`` is its setup's coordinates numbers, whose printed
     cutter-centre checkpoints the kernel checks against the stock model (``checkpoints``)."""
@@ -350,7 +358,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
                 if slitting_saw(bundle, op)
                 else scribed_profile(bundle, setup, op)
             )
-            return {
+            result = {
                 "subject": subject,
                 "do": op["do"],
                 "follows": op["follows"],
@@ -365,14 +373,24 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
                 **({} if profile is None else {"scribed_profile": profile}),
                 **saw_tool_marker,
             }
+            if slitting_saw(bundle, op):
+                from .mounted_saw import prepare
+
+                result["mounted_saw"] = prepare(bundle, setup, op)
+            return result
         tool = measurement_item(bundle, "tools", op.get("tool"))
-        return {
+        result = {
             "subject": subject,
             "do": op["do"],
             "kerf_mm": _accepted_length(tool, "kerf"),
             "cut_plane": saw_plane(op.get("cut_plane"), units),
             **saw_tool_marker,
         }
+        if slitting_saw(bundle, op):
+            from .mounted_saw import prepare
+
+            result["mounted_saw"] = prepare(bundle, setup, op)
+        return result
     if op.get("do") in HAND_FINISH:
         return _hand_inputs(bundle, setup, op, subject, finishing)
     model = approach(bundle, setup, op)
@@ -1997,6 +2015,7 @@ _ENGINE_OP = (
     "allowance_mm",
     "scribed_profile",
     "saw_tool",
+    "mounted_saw",
     "feature",
     "faces",
     "joint_cut",
@@ -2236,6 +2255,7 @@ ENGINE_SOURCES = (
     "freecad_job.py",
     "render_diagram.py",
     "render_png.py",
+    "saw_engagement.py",
     "step_faces.py",
 )
 

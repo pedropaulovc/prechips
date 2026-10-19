@@ -116,6 +116,8 @@ def _resolve(item, field):
     raw = fact["value"] if fact is not None else mapping
     if unit == "mm" and number(raw):
         return raw, fact, None
+    if unit == "in" and number(raw):
+        return raw * 25.4, fact, None
     if unit == "in" and not isinstance(raw, (bool, dict, list)):
         parsed = fraction(raw)
         if parsed is not None:

@@ -207,6 +207,10 @@ def evaluate(bundle):
     for setup, op, facts, detail, inputs, cite, blocked in op_contexts(
         bundle, "accessibility", required, fixture=True, turning=turning
     ):
+        if op.get("do") in SAW_OPS:
+            # The shared finite result is not an axial sample/hit record.
+            rows.append(blocked)
+            continue
         turned = inputs.get("approach") == TURNING
         minimum = detail.get("min_hits", {})
         certain = {

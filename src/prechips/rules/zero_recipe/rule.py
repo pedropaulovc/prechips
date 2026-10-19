@@ -9,6 +9,7 @@ from prechips.rules.zero_recipe.tool_setting import (
     _carried_setting,
     _corner_recorder,
     _face_checker,
+    mounted_saw_settings,
     tool_changes,
     tool_setting,
     toolpost,
@@ -33,18 +34,13 @@ from ...findings import Finding
 from ...measurements import length_debt, measurement_checklist
 from .._bench import manual_bench, manual_thread_setup, not_applicable
 from ..resolution import (
-    MANUAL,
-    SAW_OPS,
-    SLITTING_SAW_MODEL_REASON,
     UNKNOWN,
-    UNRESOLVED_SAW_MODEL_REASON,
     identity,
     number,
     plan_frame_cite,
     resolve,
     saw_setup,
     setup_frame,
-    slitting_saw,
     spindle_saw,
     uncertain,
 )
@@ -151,38 +147,19 @@ def evaluate(bundle):
             result.append(_mechanical_zero(bundle, setup))
             continue
         spindle_ops = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
+        mounted = mounted_saw_settings(bundle, setup) if spindle_ops else {}
         spindle_debt = "; ".join(
-            dict.fromkeys(
-                SLITTING_SAW_MODEL_REASON
-                if slitting_saw(bundle, op)
-                else UNRESOLVED_SAW_MODEL_REASON
-                for op in spindle_ops
-            )
+            dict.fromkeys(reason for row in mounted.values() for reason in row["reasons"])
         )
         spindle_numbers = (
             {
                 "spindle_saw_ops": [op["op"] for op in spindle_ops],
                 "spindle_saw_debt": spindle_debt,
+                "mounted_saw_settings": mounted,
             }
             if spindle_ops
             else {}
         )
-        ordinary = [op for op in setup["ops"] if op.get("do") not in MANUAL | SAW_OPS]
-        if spindle_ops and not ordinary:
-            result.append(
-                Finding(
-                    "zero_check",
-                    setup["id"],
-                    "error" if dro.get("mode", UNKNOWN) not in {"abs", UNKNOWN} else UNKNOWN,
-                    {
-                        "frame": setup.get("frame", UNKNOWN),
-                        **spindle_numbers,
-                    },
-                    ["PLAN.md §4.1 zero recipe", *plan_frame_cite(bundle, setup)],
-                    f"{setup['id']}: {spindle_debt}; mounted-blade zero setting is unresolved.",
-                )
-            )
-            continue
         frame = setup_frame(bundle, setup)
         lathe = lathe_setup(bundle, setup)
         zero = mapping(setup.get("zero"))
@@ -220,14 +197,16 @@ def evaluate(bundle):
         slanted = []
 
         unknown = (
-            bool(spindle_ops)
+            any(row["status"] != "pass" for row in mounted.values())
             or not frame
             or frame.get("binding") == UNKNOWN
             or dro.get("controller", UNKNOWN) == UNKNOWN
             or dro.get("radius_mode") == UNKNOWN
             or dro.get("mode", UNKNOWN) == UNKNOWN
         )
-        bad = dro.get("mode", UNKNOWN) not in {"abs", UNKNOWN}
+        bad = dro.get("mode", UNKNOWN) not in {"abs", UNKNOWN} or any(
+            row["status"] == "error" for row in mounted.values()
+        )
         # A setup whose every spindle op is a guided sweep sets X and Y by touching the
         # cutter to its master and locks them: it picks up no X/Y zero (#255).
         from ..guided_sweep import touch_set, trammel_set
@@ -265,6 +244,27 @@ def evaluate(bundle):
             # Frames are installed machine-aligned: a flipped model frame changes
             # the model basis, not the machine's authored right/away/up convention.
             bad |= sign == -1
+            if axis == "z" and recipe.get("method") == "mounted_saw_side":
+                setting = next((row for row in mounted.values() if row.get("kind") == "axis"), {})
+                shown = setting.get("z_axis_set", UNKNOWN)
+                jog = recipe.get("check_jog_mm", UNKNOWN)
+                increment = sign * jog if sign in {-1, 1} and number(jog) else UNKNOWN
+                axes[axis] = {
+                    **recipe,
+                    "axis_set": shown,
+                    "check_reading": shown + increment
+                    if number(shown) and number(increment)
+                    else UNKNOWN,
+                    "mirrored_reading": shown - increment
+                    if number(shown) and number(increment)
+                    else UNKNOWN,
+                    "axis_set_status": "computed" if number(shown) else UNKNOWN,
+                    "tool_setting_state": "mounted_saw_side",
+                    "mounted_saw_proof": setting.get("proof", {}),
+                    "mounted_saw_setting": setting.get("mounted_saw_setting", {}),
+                }
+                unknown |= not number(shown) or not number(increment)
+                continue
             if unsupported_touch(recipe.get("tool")):
                 axes[axis] = {
                     **recipe,
@@ -460,6 +460,31 @@ def evaluate(bundle):
         # Authored X touches on a diameter that is gone (errors) or not shown standing.
         x_errors, x_unknowns = [], []
         for record in records(zero.get("tool_touches")):
+            if record.get("method") == "mounted_saw_side":
+                setting = next(
+                    (
+                        row
+                        for row in mounted.values()
+                        if row.get("kind") == "tool"
+                        and row.get("tool_reference") == record.get("tool")
+                        and row.get("holder_reference") == record.get("holder")
+                        and row.get("before_ops") == record.get("before_ops")
+                        and row.get("after_op") == record.get("after_op")
+                    ),
+                    {},
+                )
+                touches.append(
+                    {
+                        **record,
+                        "x_axis_set": "not_applicable",
+                        "z_axis_set": setting.get("z_axis_set", UNKNOWN),
+                        "tool_setting_state": "mounted_saw_side",
+                        "mounted_saw_proof": setting.get("proof", {}),
+                        "mounted_saw_setting": setting.get("mounted_saw_setting", {}),
+                    }
+                )
+                unknown |= setting.get("status") != "pass"
+                continue
             if unsupported_touch(record.get("tool")):
                 touches.append(
                     {
@@ -524,7 +549,7 @@ def evaluate(bundle):
             )
         unknown |= bool(x_unknowns)
         derived, missing, changes_unknown, _, served = tool_changes(
-            bundle, setup, zero, lathe, x_scale, touches
+            bundle, setup, zero, lathe, x_scale, touches, mounted=mounted
         )
         unknown |= changes_unknown
         # A listed retouch names the op that reads it and the tool that goes in first;

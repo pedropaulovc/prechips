@@ -437,11 +437,12 @@ def setup_items(bundle, setup):
     the hold's fixture and dividing head (workholding); its chuck, parallels, riser, jaw
     bar / buttons, support, clamps, stop, supports and support blocks (fixtures) and
     alignment indicator (a gauge); the zero's touch tools (spindle), holders and gauges (a
-    tool touch's Z measuring gauge too), the transfer's tool (spindle) and gauge; then each
-    op's filing guide (its buttons a fixture, its template and gauge gauges), guided
-    sweep (its fixture a fixture, its master a gauge), tool,
-    holder, inspection gauges (``checks`` and ``missing_requirements``) and process-hold
-    gauges. A shop-made holding item is followed by the tool of each of its make
+    tool touch's Z measuring gauge too) and mounted-saw fixture contact pads, the transfer's
+    tool (spindle) and gauge; then each op's filing guide (its buttons a fixture, its template
+    and gauge gauges), guided sweep (its fixture a fixture, its master a gauge), mounted-saw
+    capture fixture and moving clamp (fixtures), tool, holder, inspection gauges (``checks``
+    and ``missing_requirements``) and process-hold gauges. A shop-made holding item is
+    followed by the tool of each of its make
     operations (:func:`make_ops`), a ``tools`` item only (:func:`make_tool`). One reference
     two kinds of slot select in two categories is two items. An item is its category and
     reference from here on: every reader uses that pair, never the bare key again."""
@@ -461,6 +462,19 @@ def setup_items(bundle, setup):
     slots = (("tool", "spindle"), ("holder", "holders"), ("gauge", "gauges"), ("z_gauge", "gauges"))
     for touch in [*(zero.get(axis) for axis in "xyz"), *touches]:
         uses += [(kind, record(touch).get(key)) for key, kind in slots]
+        touch = record(touch)
+        face = touch.get("face", touch.get("z_face"))
+        if touch.get("method") == "mounted_saw_side" and isinstance(face, str):
+            target, separator, side = face.removeprefix("fixture:").rpartition(":")
+            reference, slash, component = target.rpartition("/")
+            if (
+                face.startswith("fixture:")
+                and separator
+                and side in {"+z", "-z"}
+                and slash
+                and component
+            ):
+                uses.append(("fixtures", reference))
     transfer = record(zero.get("transfer"))
     uses += [("spindle", transfer.get("tool")), ("gauges", transfer.get("gauge"))]
     for op in setup.get("ops") or []:
@@ -472,6 +486,8 @@ def setup_items(bundle, setup):
         uses += [("fixtures", sweep.get("fixture")), ("gauges", sweep.get("master"))]
         uses += [("gauges", guide.get("template")), ("gauges", guide.get("gauge"))]
         uses += [("tools", op.get("tool")), ("holders", op.get("holder"))]
+        capture = record(op.get("saw_capture"))
+        uses += [("fixtures", capture.get(key)) for key in ("fixture", "moving_clamp")]
         uses += [("gauges", gauge) for _, _, gauge in op_entries(op, "checks")]
         uses += [("gauges", gauge) for gauge in record(op.get("missing_requirements")).values()]
         process_holds = op.get("process_holds")

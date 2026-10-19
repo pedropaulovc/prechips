@@ -1,4 +1,4 @@
-"""Measured mill spindle-nose bands between table-clearance limits."""
+"""Measured mill spindle-nose bands, including proved finite mounted-saw assemblies."""
 
 from prechips.findings import Finding
 from prechips.rules import tip_endpoints
@@ -15,6 +15,13 @@ from prechips.rules._envelope import (
     unknown_sentence,
 )
 from prechips.rules.coordinates import CENTRE_OPS
+from prechips.rules.geometry_common import (
+    _saw_bounds as _ordered_bounds,
+)
+from prechips.rules.geometry_common import (
+    finite_saw_evidence,
+    mounted_saw_inputs,
+)
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
@@ -30,6 +37,18 @@ from prechips.rules.resolution import (
     slitting_saw,
     spindle_saw,
 )
+
+
+def _mounted_saw_bounds(bundle, setup, op, check):
+    """Read only cached successful native proof; never launch geometry for M5."""
+    facts = record(getattr(bundle, "kernel", None))
+    detail = (
+        record(record(facts.get("ops")).get(f"{setup['id']}:{op['op']}"))
+        if facts.get("status") == "ok"
+        else {}
+    )
+    status, reasons, evidence = finite_saw_evidence(detail, check)
+    return status, reasons, evidence, mounted_saw_inputs(bundle, setup, op)
 
 
 def evaluate(bundle):
@@ -70,14 +89,7 @@ def evaluate(bundle):
             continue
         debts, missing, errors = {}, [], []
         spindle_saws = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
-        saw_debt = "; ".join(
-            dict.fromkeys(
-                SLITTING_SAW_MODEL_REASON
-                if slitting_saw(bundle, op)
-                else UNRESOLVED_SAW_MODEL_REASON
-                for op in spindle_saws
-            )
-        )
+        saw_debts = []
         maximum = fact(
             machine, "envelope.spindle_to_table_max", "machines", machine_ref, debts, cite
         )
@@ -116,11 +128,70 @@ def evaluate(bundle):
         target, owner = setup_frame_ref(bundle, setup)
         cite.extend(plan_frame_cite(bundle, setup))
         initial_top = record(setup.get("stock_state")).get("top_z", UNKNOWN)
-        if spindle_saws:
+        saw_results = {}
+        for op in spindle_saws:
+            status, reasons, evidence, inputs = _mounted_saw_bounds(bundle, setup, op, "envelope")
+            saw_results[op["op"]] = status, reasons, evidence, inputs
+            if status != "pass":
+                saw_debts.extend(
+                    reasons
+                    or [
+                        SLITTING_SAW_MODEL_REASON
+                        if slitting_saw(bundle, op)
+                        else UNRESOLVED_SAW_MODEL_REASON
+                    ]
+                )
+            if status == "error":
+                errors.extend(f"op {op['op']}: {reason}" for reason in reasons)
+        saw_debt = "; ".join(dict.fromkeys(saw_debts))
+        if saw_debt:
             missing.append(saw_debt)
         stacks = []
+        for op in spindle_saws:
+            status, reasons, evidence, inputs = saw_results[op["op"]]
+            nose = evidence.get("spindle_nose_bounds_mm")
+            if not _ordered_bounds(nose):
+                continue
+            table_band = (
+                [fixture + height - initial_top + value for value in (nose[2], nose[5])]
+                if all(number(value) for value in (fixture, height, initial_top))
+                else UNKNOWN
+            )
+            verified = fixture_verified and number(height) and _band(table_band)
+            lower, upper = table_band if _band(table_band) else (UNKNOWN, UNKNOWN)
+            upper_margin = (
+                maximum["value"] - upper if number(upper) and number(maximum["value"]) else UNKNOWN
+            )
+            lower_margin = (
+                lower - minimum["value"] if number(lower) and number(minimum["value"]) else UNKNOWN
+            )
+            if number(upper_margin) and same_length(maximum["value"], upper):
+                upper_margin = 0
+            if number(lower_margin) and same_length(minimum["value"], lower):
+                lower_margin = 0
+            if verified and maximum["verified"] and number(upper_margin) and upper_margin < 0:
+                errors.append(
+                    f"op {op['op']} spindle-nose height exceeds spindle-to-table maximum "
+                    f"by {-upper_margin:g} mm"
+                )
+            if verified and minimum["verified"] and number(lower_margin) and lower_margin < 0:
+                errors.append(
+                    f"op {op['op']} spindle-nose height is below spindle-to-table minimum "
+                    f"by {-lower_margin:g} mm"
+                )
+            stacks.append(
+                {
+                    "op": op["op"],
+                    "mounted_saw": inputs,
+                    "assembly_swept_bounds_mm": evidence.get("assembly_swept_bounds_mm", UNKNOWN),
+                    "spindle_nose_table_band_mm": table_band,
+                    "upper_margin_mm": upper_margin,
+                    "lower_margin_mm": lower_margin,
+                    "verified": bool(verified and status == "pass"),
+                }
+            )
         for op, before, _ in tip_endpoints.stock_states(bundle, setup):
-            # Planar saw cuts cannot supply a spindle stack; spindle-saw debt remains below.
+            # Hand saws and mounted disks never use an axial cutter stack.
             if op.get("do") in MANUAL or op.get("do") in SAW_OPS:
                 continue
             label = f"plan.setups.{setup['id']}.ops.{op['op']}"

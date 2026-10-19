@@ -1950,6 +1950,7 @@ _METHODS = {
     "touch_then_set": "touch it, then set",
     "touch_then_set_after_face": "touch the faced end, then set",
     "measure_then_set": "touch it, then set from the measured M",
+    "mounted_saw_side": "touch the flat blade-body side; Z reads the cutting-band midplane",
     "edge_then_set": (
         "spindle stopped; bring this tool's Z-cutting edge to it, "
         "withdraw along X without moving Z, then set"
@@ -6886,6 +6887,8 @@ class _Traveler:
                 )
             if indicate:
                 contact.append(self.indicate_recipe(setup, axis, target, authored, tool))
+            elif method == "mounted_saw_side":
+                contact.append(self.mounted_saw_contact(computed))
             elif method not in (None, "paper", "touch"):
                 contact.append(_METHODS.get(method, _text(method)))
             if tool and not indicate:
@@ -6901,7 +6904,11 @@ class _Traveler:
             readings = {
                 key: computed.get(key) for key in ("axis_set", "check_reading", "mirrored_reading")
             }
-            if axis == "z" and _known(edge) and _carried(computed):
+            if (
+                axis == "z"
+                and _known(edge)
+                and (_carried(computed) or method == "mounted_saw_side")
+            ):
                 # A carried height: the report's typed setting and jog readings print
                 # as computed; the surface retains its separate physical height.
                 shown_edge = (
@@ -7394,6 +7401,16 @@ class _Traveler:
             text += f"; then {self.bench(square)}"
         return text + "."
 
+    def mounted_saw_contact(self, record):
+        setting = _mapping(record.get("mounted_saw_setting"))
+        side = {"minus_z": "lower", "plus_z": "upper"}.get(setting.get("blade_side"), "selected")
+        return (
+            f"touch the {side} flat blade-body side; "
+            f"body {_number(setting.get('body_thickness_mm'))} mm, "
+            f"cutting-band offset {_number(setting.get('kerf_offset_mm'))} mm; "
+            "Z reads the cutting-band midplane"
+        )
+
     def tool_touch(self, setup, touch, tools, slot):
         reference = touch.get("tool")
         name = self.touched_tool(reference, tools, slot)
@@ -7451,7 +7468,7 @@ class _Traveler:
             edge = touch.get("edge_mm")
             axis_set = touch.get("z_axis_set", edge)
             surface = "unknown"
-            if _carried(touch) and _known(edge):
+            if (_carried(touch) or touch.get("method") == "mounted_saw_side") and _known(edge):
                 # A carried face: the report's setting prints as computed, the face at
                 # its physical height.
                 surface = edge
@@ -7464,7 +7481,11 @@ class _Traveler:
             # A blade's Z touch sets one corner (zero_check ``reference_corner``): named.
             corner = _CORNERS.get(touch.get("reference_corner"))
             blade = "reference_corner" in touch
-            words = _METHODS.get(method, self.bench(method))
+            words = (
+                self.mounted_saw_contact(touch)
+                if method == "mounted_saw_side"
+                else _METHODS.get(method, self.bench(method))
+            )
             text = f"Z — on the {self.bench(z_face)}"
             if corner:
                 text = f"Z — {corner} corner on the {self.bench(z_face)}"

@@ -5,6 +5,9 @@ stock the op's own cut leaves behind them.
 Turning ops: the depth is the wall beside the insert nose, the "flute" the radial
 span of the cutting edge (or declared reach) and the "OAL" the nose-to-toolpost-body
 projection; holder clearance is the shank and toolpost body clear of remaining walls.
+
+Mounted disks consume the shared finite kerf-coverage and assembly-clearance result;
+neither axial flute depth nor diameter minus flange radius establishes their reach.
 """
 
 from prechips.findings import Finding

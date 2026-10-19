@@ -11,7 +11,9 @@ A dividing head carries the work on its axis: the stock top above the table
 is any declared parallels/supports plus the head's ``centre_height`` plus stock
 ``top_z`` minus the posed axis origin height (``hold.pose.origin_mm`` z); the
 head's bed and jaw heights and the supported stock height do not enter it.
-Saw-only setups have no spindle stack and are not applicable.
+Hand-saw-only setups have no spindle stack. Mounted disks require complete native
+assembly and spindle-nose bounds, translated from setup Z using the same supported
+stock/fixture stack as envelope; no axial insertion allowance is invented for them.
 
 A lathe setup's envelope is its swing and length: the stock and chuck body
 diameters against swing over the bed, the stock against swing over the cross
@@ -32,8 +34,9 @@ from fractions import Fraction
 from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact, measurement_entry
 from prechips.rules._bench import manual_bench, not_applicable
-from prechips.rules._envelope import entry_stock
+from prechips.rules._envelope import _band, entry_stock, fixture_height, stock_extents
 from prechips.rules.coordinates import printed_xy
+from prechips.rules.envelope import _mounted_saw_bounds, _ordered_bounds
 from prechips.rules.geometry_common import rule_rows
 from prechips.rules.resolution import (
     MANUAL,
@@ -350,6 +353,60 @@ def evaluate(bundle):
         if _numeric(stock_height) and stock_height <= 0:
             errors.append("supported stock height is not positive")
         nominal_stacks, oals, gauges, conflicts = [], [], [], []
+        saw_debts = []
+        spindle_saws = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
+        if spindle_saws:
+            fixture_z, fixture_verified = fixture_height(bundle, setup, debts, cite)
+            extents, extent_cite = stock_extents(bundle, setup)
+            cite.extend(extent_cite)
+            height = extents.get("z", _UNKNOWN)
+            for op in spindle_saws:
+                status, reasons, evidence, inputs = _mounted_saw_bounds(
+                    bundle, setup, op, "headroom"
+                )
+                if status != "pass":
+                    saw_debts.extend(
+                        reasons
+                        or [
+                            SLITTING_SAW_MODEL_REASON
+                            if slitting_saw(bundle, op)
+                            else UNRESOLVED_SAW_MODEL_REASON
+                        ]
+                    )
+                if status == "error":
+                    errors.extend(f"op {op['op']}: {reason}" for reason in reasons)
+                nose = evidence.get("spindle_nose_bounds_mm")
+                table_band = (
+                    [fixture_z + height - top + value for value in (nose[2], nose[5])]
+                    if _ordered_bounds(nose)
+                    and all(_numeric(value) for value in (fixture_z, height, top))
+                    else _UNKNOWN
+                )
+                verified = fixture_verified and _band(table_band)
+                stack = table_band[1] if _band(table_band) else _UNKNOWN
+                margin = (
+                    spindle["value"] - stack
+                    if _numeric(spindle["value"]) and _numeric(stack)
+                    else _UNKNOWN
+                )
+                unknown |= status != "pass" or not verified or not spindle["verified"]
+                numbers["stacks"].append(
+                    {
+                        "op": op["op"],
+                        "mounted_saw": inputs,
+                        "assembly_swept_bounds_mm": evidence.get(
+                            "assembly_swept_bounds_mm", _UNKNOWN
+                        ),
+                        "spindle_nose_table_band_mm": table_band,
+                        "sum_mm": stack,
+                        "margin_mm": margin,
+                        "verify": not (verified and spindle["verified"] and status == "pass"),
+                    }
+                )
+                if verified and spindle["verified"] and _numeric(margin) and margin < 0:
+                    errors.append(f"op {op['op']} exceeds spindle clearance by {-margin:g} mm")
+                if _numeric(stack):
+                    nominal_stacks.append(stack)
         for op in setup["ops"]:
             if op["do"] in MANUAL or op["do"] in SAW_OPS:
                 continue
@@ -481,17 +538,8 @@ def evaluate(bundle):
         from .guided_sweep import unmodelled
 
         swept = unmodelled(bundle, setup, "headroom")
-        spindle_saws = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
-        saw_debt = "; ".join(
-            dict.fromkeys(
-                SLITTING_SAW_MODEL_REASON
-                if slitting_saw(bundle, op)
-                else UNRESOLVED_SAW_MODEL_REASON
-                for op in spindle_saws
-            )
-        )
+        saw_debt = "; ".join(dict.fromkeys(saw_debts))
         if spindle_saws:
-            unknown = True
             numbers["spindle_saw_ops"] = [op["op"] for op in spindle_saws]
             numbers["spindle_saw_debt"] = saw_debt
         if swept:
@@ -513,7 +561,7 @@ def evaluate(bundle):
                     )
                     + conflicts
                     + swept
-                    + ([saw_debt] if spindle_saws else [])
+                    + ([saw_debt] if saw_debt else [])
                 )
                 if unknown or swept
                 else "measured spindle stack and setup-entry stock travels fit"

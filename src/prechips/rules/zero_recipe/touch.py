@@ -128,6 +128,32 @@ def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, pap
     }
 
 
+def mounted_saw_axis_recipe(zero, blade, jog_mm, sign=1):
+    """Cutting-midplane Axis Set from a stopped, flat body-side pickup, in mm.
+
+    Physical contact/approach proof is a separate native obligation. In particular a
+    numeric plane does not establish contact, and kerf and radius never set this offset.
+    """
+    side = zero.get("blade_side")
+    edge, paper = zero.get("edge_mm"), zero.get("paper_mm")
+    body, offset = blade.get("thickness_mm"), blade.get("kerf_offset_mm")
+    sense = {"minus_z": 1, "plus_z": -1}.get(side)
+    contact = (
+        edge + sense * (paper + body / 2) + offset
+        if sense and all(number(v) for v in (edge, paper, body, offset)) and paper >= 0 and body > 0
+        else UNKNOWN
+    )
+    increment = sign * jog_mm if sign in {-1, 1} and number(jog_mm) else UNKNOWN
+    return {
+        "axis_set": contact,
+        "check_reading": contact + increment if number(contact) and number(increment) else UNKNOWN,
+        "mirrored_reading": contact - increment
+        if number(contact) and number(increment)
+        else UNKNOWN,
+        "sign": sign,
+    }
+
+
 def measured(scale):
     """The bench expression a measured trial-cut diameter is set as on this display."""
     return {2: "D", 1: "D/2"}.get(scale, UNKNOWN)

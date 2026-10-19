@@ -50,6 +50,7 @@ from .resolution import (
     resolve,
     rough_leave,
     setup_frame,
+    spindle_saw,
     uncertain,
 )
 from .tip_endpoints import (
@@ -4301,6 +4302,68 @@ def evaluate(bundle, *, pre_kernel=False):
         for done, (entry, (op, before, _)) in enumerate(
             zip(numbers["operations"], states, strict=True)
         ):
+            if spindle_saw(bundle, setup, op) and not pre_kernel:
+                from .geometry_common import finite_saw_evidence, mounted_saw_inputs
+                from .zero_recipe.tool_setting import mounted_saw_settings
+
+                mounted = mounted_saw_inputs(bundle, setup, op)
+                trajectory = mapping(mounted.get("trajectory"))
+                detail = mapping(
+                    mapping(mapping(getattr(bundle, "kernel", None)).get("ops")).get(
+                        f"{setup['id']}:{op['op']}"
+                    )
+                )
+                saw_status, saw_reasons, saw_proof = finite_saw_evidence(detail, "geometry")
+                setting = mounted_saw_settings(bundle, setup).get(str(op["op"]), {})
+                scale = {"mm": 1.0, "in": 25.4}.get(units)
+
+                def saw_dro(point, scale=scale, grid=grid):
+                    if not (
+                        scale
+                        and isinstance(point, list)
+                        and len(point) == 3
+                        and all(number(value) for value in point)
+                    ):
+                        return [UNKNOWN] * 3
+                    return dro_point([value / scale for value in point], grid)
+
+                moves = trajectory.get("moves")
+                path = {
+                    "coordinate_reference": "spindle_xy_cutting_midplane_z",
+                    "start_mm": trajectory.get("start_mm", UNKNOWN),
+                    "moves": moves if isinstance(moves, list) else UNKNOWN,
+                    "dro_start": saw_dro(trajectory.get("start_mm")),
+                    "dro_moves": [
+                        {
+                            "to": saw_dro(mapping(move).get("to_mm")),
+                            "mode": mapping(move).get("mode"),
+                        }
+                        for move in moves
+                    ]
+                    if isinstance(moves, list)
+                    else [],
+                    "status": saw_status,
+                    "proof": saw_proof,
+                    "setting": setting,
+                }
+                entry["mounted_saw_trajectory"] = path
+                grid_consumed = True
+                reasons = [*saw_reasons, *setting.get("reasons", [])]
+                if saw_status == "error" or setting.get("status") == "error":
+                    allowed_errors.extend(
+                        reasons or [f"op {op['op']} mounted-saw trajectory/zero error"]
+                    )
+                elif (
+                    saw_status != "pass"
+                    or setting.get("status") != "pass"
+                    or not isinstance(moves, list)
+                    or not moves
+                    or UNKNOWN in path["dro_start"]
+                    or any(UNKNOWN in move["to"] for move in path["dro_moves"])
+                ):
+                    plan_debts.extend(
+                        reasons or [f"op {op['op']} mounted trajectory or zero proof unknown"]
+                    )
             if "to_z" in entry:
                 # The depth the DRO shows: rounded up, never deeper than authored.
                 entry["dro_to_z"] = dro_z(entry["to_z"], grid)

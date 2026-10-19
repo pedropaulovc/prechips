@@ -35,6 +35,7 @@ ignore = [
 "src/prechips/kernel/freecad_job.py" = "freecad_kernel"
 "src/prechips/kernel/render_diagram.py" = "freecad_kernel"
 "src/prechips/kernel/render_png.py" = "freecad_kernel"
+"src/prechips/kernel/saw_engagement.py" = "freecad_kernel"
 "src/prechips/kernel/step_faces.py" = "freecad_kernel"
 "src/prechips/cli.py" = "run_cli("
 
@@ -133,8 +134,18 @@ ignore = [
 # identify conservative consumers, not measured coverage, until that rebuild.
 
 [sources]
-# New shared host modules have explicit conservative consumers until the next
-# coordinated coverage-map rebuild. They are not native ENGINE_SOURCES.
+# New modules have explicit conservative consumers until the next coordinated
+# coverage-map rebuild; native modules also appear in [consumers] above.
+"src/prechips/kernel/mounted_saw.py" = [
+    "tests/test_mounted_saw_inputs.py",
+    "tests/test_mounted_saw_rules.py",
+    "tests/test_mounted_saw_zero.py",
+    "tests/test_sheet_mounted_saw.py",
+]
+"src/prechips/kernel/saw_engagement.py" = [
+    "tests/test_mounted_saw_native.py",
+    "tests/test_saw_engagement.py",
+]
 "src/prechips/thread_specs.py" = [
     "tests/test_chain_boundary.py",
     "tests/test_examples.py",

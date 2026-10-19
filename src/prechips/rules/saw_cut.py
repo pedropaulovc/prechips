@@ -1,8 +1,12 @@
-"""A saw removes its kerf and discarded side, never any of the finished target.
+"""A saw removes only declared excess, never any of the finished target.
 
 A straight cut is located by its blade-centre ``cut_plane``; one that ``follows`` an earlier
 scribe op's line removes only its declared ``stock_removal_bounds`` and must leave at least
 its ``allowance_mm`` of stock between that region and the finished target for the file.
+
+A mounted disk requires complete finite kerf coverage, assembly clearance and independent
+capture of the upper child; both physical children remain after the kerf is removed.
+Circular teeth use the established-engagement minimum over unknown tooth phase, not TPI.
 """
 
 import math
@@ -12,7 +16,10 @@ from prechips.findings import Finding
 from prechips.material_routes import MaterialGraph, feature_material_status
 from prechips.measurements import length_debt, length_fact, tooth_pitch_fact
 from prechips.rules.geometry_common import (
+    finite_saw_evidence,
     kernel_measurement_debts,
+    mounted_saw_assembly_evidence,
+    mounted_saw_inputs,
     prepared_job,
     unavailable,
     with_measurement_debts,
@@ -153,10 +160,20 @@ def evaluate(bundle):
                 invalid.append(f"{op['follows']}'s scribed line is not on this saw's material")
         disk = slitting_saw(bundle, op)
         if disk:
-            # The planar Boolean describes an ideal complete cut, not whether a finite
-            # disk and its arbor can make it. Even complete native slab facts stay debt.
-            missing.append(SLITTING_SAW_MODEL_REASON)
-            numbers["model_reason"] = SLITTING_SAW_MODEL_REASON
+            finite_status, finite_reasons, finite = finite_saw_evidence(detail, "geometry")
+            numbers["saw"] = finite
+            assembly_status, assembly_reasons = mounted_saw_assembly_evidence(
+                mounted_saw_inputs(bundle, setup, op)
+            )
+            if finite_status == "error":
+                invalid.extend(finite_reasons)
+            elif finite_status != "pass":
+                missing.extend(finite_reasons)
+                numbers["model_reason"] = "; ".join(finite_reasons)
+            if assembly_status == "error":
+                invalid.extend(assembly_reasons)
+            elif assembly_status != "pass":
+                missing.extend(assembly_reasons)
         station = saw_station(bundle, setup, op)
         if station == "wrong_station":
             invalid.append(_MISMATCH["scribed_bandsaw" if scribed and tool == "bandsaw" else tool])
@@ -206,7 +223,7 @@ def evaluate(bundle):
             reason = detail.get("saw_reason", detail.get("stock_reason"))
             if reason:
                 missing.append(reason)
-            if not all(number(detail.get(field)) for field in fields):
+            if not disk and not all(number(detail.get(field)) for field in fields):
                 missing.append(
                     "native saw stock volumes and clearance to the target"
                     if scribed
@@ -219,6 +236,9 @@ def evaluate(bundle):
                 else "the declared removal stays outside the scribed line by at least its "
                 "allowance; the retained piece keeps that stock for the file"
                 if scribed
+                else "the finite blade cuts the complete required kerf with its body and arbor "
+                "clear, preserving both physical children and the finished target"
+                if disk
                 else "blade kerf and discarded slab remove only excess stock; "
                 "the retained piece preserves the finished target"
             )
@@ -247,6 +267,69 @@ def min_teeth(bundle):
     return (minimum if known else UNKNOWN), cited
 
 
+def _circular_teeth(bundle, setup, op, facts, minimum, policy_cite):
+    subject = f"{setup['id']}:{op['op']}"
+    tool = op.get("tool", UNKNOWN)
+    blade = record(resolve(bundle, "tools", tool))
+    status, reasons, saw = finite_saw_evidence(
+        record(record(facts.get("ops")).get(subject)), "engagement"
+    )
+    engagement = record(saw.get("engagement"))
+    count = engagement.get("minimum_teeth_in_work", UNKNOWN)
+    tooth_count = blade.get("flutes", UNKNOWN)
+    numbers = {
+        "operation": op["do"],
+        "tool": tool,
+        "tooth_count": tooth_count,
+        "teeth_in_work": count if status == "pass" else UNKNOWN,
+        "engagement_arc_deg": engagement.get("engagement_arc_deg", UNKNOWN),
+        "engagement": engagement,
+        _MIN_TEETH: minimum,
+    }
+    cite = [
+        f"inventory.tools.{tool}.flutes",
+        f"inventory.tools.{tool}.tooth_spacing",
+        f"shop-policy.numbers.{_MIN_TEETH}",
+        *policy_cite,
+        "docs/rules-geometry.md: saw teeth in the work",
+    ]
+    blocked = unavailable(bundle, "saw_teeth", subject, facts, cite)
+    if blocked is not None and status != "error":
+        return blocked
+    if status == "pass" and (
+        tooth_count != engagement.get("tooth_count")
+        or blade.get("tooth_spacing") != "uniform"
+        or uncertain(blade)
+    ):
+        status, reasons = (
+            UNKNOWN,
+            ["native engagement does not match the verified installed uniformly spaced teeth"],
+        )
+    if status == "pass" and (not number(minimum) or not math.isfinite(minimum) or minimum <= 0):
+        status, reasons = UNKNOWN, [f"the shop policy sets no cited, verified numbers.{_MIN_TEETH}"]
+    if status == "pass" and engagement["minimum_teeth_tie"] and count < minimum <= count + 1:
+        status, reasons = (
+            UNKNOWN,
+            ["the circular tooth-count threshold lies on an unresolved numeric phase tie"],
+        )
+    if status == "pass":
+        short = count < minimum
+        status = "error" if short else "pass"
+        message = (
+            f"at least {count} strictly interior advancing-rim teeth over unknown tooth phase "
+            f"during established engagement, "
+            + (
+                f"fewer than the shop's {minimum:g}"
+                if short
+                else f"at least the shop's {minimum:g}"
+            )
+            + "; monotone entry and exit transitions are not a certified tooth-loading interval"
+        )
+    else:
+        message = "; ".join(reasons)
+    return Finding("saw_teeth", subject, status, numbers, cite, f"{subject}: {message}.")
+
+
 def evaluate_teeth(bundle):
     """Teeth in the work: the thickness the blade crosses times the blade's coarsest
     pitch must reach the shop's minimum, or the teeth straddle the work and strip."""
@@ -262,29 +345,7 @@ def evaluate_teeth(bundle):
         subject = f"{setup['id']}:{op['op']}"
         tool = op.get("tool", UNKNOWN)
         if slitting_saw(bundle, op):
-            findings.append(
-                Finding(
-                    "saw_teeth",
-                    subject,
-                    UNKNOWN,
-                    {
-                        "operation": op["do"],
-                        "tool": tool,
-                        "tooth_count": record(resolve(bundle, "tools", tool)).get(
-                            "flutes", UNKNOWN
-                        ),
-                        "teeth_in_work": UNKNOWN,
-                        "engagement_arc_deg": UNKNOWN,
-                    },
-                    [
-                        f"inventory.tools.{tool}.flutes",
-                        "docs/rules-geometry.md: saw teeth in the work",
-                    ],
-                    f"{subject}: circular slitting-saw tooth engagement needs the finite "
-                    "disk, arbor and feed trajectory; the planar stock section and a linear "
-                    "blade's TPI cannot establish teeth in the work.",
-                )
-            )
+            findings.append(_circular_teeth(bundle, setup, op, facts, minimum, policy_cite))
             continue
         pitch = tooth_pitch_fact(record(resolve(bundle, "tools", tool)))
         detail = record(record(facts.get("ops")).get(subject))

@@ -199,6 +199,7 @@ import boolean_pool  # noqa: E402
 import chain_boundary  # noqa: E402
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
+import saw_engagement  # noqa: E402
 from render_diagram import (  # noqa: E402
     _common_plane,
     _nominal_outline_deflection,
@@ -4009,6 +4010,941 @@ def _owner_primitives(specs):
     return result
 
 
+class _FiniteSaw:
+    """One finite mounted assembly, its exact moves and its three independent proofs.
+
+    The scene is the ordinary setup fixture scene, extended with the host's ordinary
+    posed primitives. No output is registered here: both physical children remain in
+    the stock returned to the existing stock/retained-output machinery.
+    """
+
+    def __init__(self, setup, op, stock):
+        self.setup, self.op, self.stock = setup, op, stock
+        self.mounted = op.get("mounted_saw", {})
+        self.blade = self.mounted.get("blade", {})
+        self.arbor = self.mounted.get("arbor", {})
+        self.reasons, self.errors = [], []
+        self.scene = [
+            {"name": c["name"], "solid": c["envelope"], "role": "fixture"}
+            for c in setup.fixture
+            if c.get("subjects", "all") == "all" or setup._subject(op) in c["subjects"]
+        ]
+        self.primary_scene = list(self.scene)
+        self.scene_reasons = []
+        self.capture_scene = []
+        self.components, self.moves = [], []
+        self.saw = {
+            "model": "finite_disk_v1",
+            "status": UNKNOWN,
+            "reasons": [],
+            **{
+                key: UNKNOWN
+                for key in (
+                    "body_band_mm",
+                    "cutting_band_mm",
+                    "gauge_plane_z_mm",
+                    "spindle_nose_z_mm",
+                    "axis_path_bounds_mm",
+                    "assembly_swept_bounds_mm",
+                    "spindle_nose_bounds_mm",
+                    "required_kerf_volume_mm3",
+                    "uncovered_kerf_volume_mm3",
+                    "removed_kerf_volume_mm3",
+                    "unintended_removal_volume_mm3",
+                    "stock_volume_before_mm3",
+                    "stock_volume_after_mm3",
+                )
+            },
+            "collisions": [],
+            "outputs": [],
+            "capture": {
+                "status": UNKNOWN,
+                "reasons": [],
+                "contacts": [],
+                "moving_clamp_contact": False,
+            },
+            "engagement": {"status": UNKNOWN, "reasons": []},
+            "zero": {"status": UNKNOWN, "reasons": [], "selected": UNKNOWN, "touches": []},
+        }
+
+    @staticmethod
+    def _messages(value, exclude=()):
+        if isinstance(value, dict):
+            return [
+                str(message)
+                for key, message in value.items()
+                if not any(str(key).startswith(prefix) for prefix in exclude)
+            ]
+        return [str(message) for message in value] if isinstance(value, list) else []
+
+    @staticmethod
+    def _numeric(value):
+        return _number(value) and math.isfinite(value)
+
+    @classmethod
+    def _vector(cls, value, size=3):
+        return isinstance(value, list) and len(value) == size and all(map(cls._numeric, value))
+
+    @classmethod
+    def _limits(cls, value):
+        return cls._vector(value, 2) and 0 < value[0] <= value[1]
+
+    @staticmethod
+    def _finish(section, reasons, errors):
+        section["status"] = "error" if errors else UNKNOWN if reasons else "pass"
+        section["reasons"] = list(dict.fromkeys(errors + reasons))
+        return section
+
+    def _section_messages(self, field, section):
+        values = self.mounted.get(field, {})
+        if not isinstance(values, dict):
+            return []
+        prefixes = (section + ".",)
+        if section == "engagement":
+            prefixes += ("blade.flutes", "blade.tooth_spacing")
+        return [str(message) for key, message in values.items() if str(key).startswith(prefixes)]
+
+    def _assembly(self):
+        independent = ("zero.", "engagement.", "blade.flutes", "blade.tooth_spacing")
+        self.reasons.extend(self._messages(self.mounted.get("reasons"), independent))
+        self.errors.extend(self._messages(self.mounted.get("errors"), independent))
+        self.assembly_reasons, self.assembly_errors = [], []
+        for field, target in (("reasons", self.assembly_reasons), ("errors", self.assembly_errors)):
+            values = self.mounted.get(field, {})
+            if isinstance(values, dict):
+                target.extend(
+                    str(message)
+                    for key, message in values.items()
+                    if str(key).startswith(("assembly.", "blade.", "arbor."))
+                    and not str(key).startswith(("blade.flutes", "blade.tooth_spacing"))
+                )
+        reason_start, error_start = len(self.reasons), len(self.errors)
+        try:
+            return self._assembly_inputs()
+        finally:
+            self.assembly_reasons.extend(self.reasons[reason_start:])
+            self.assembly_errors.extend(self.errors[error_start:])
+
+    def _assembly_inputs(self):
+        b, a = self.blade, self.arbor
+        if self.mounted.get("model") != "finite_disk_v1":
+            self.reasons.append("mounted saw model is not known finite_disk_v1")
+        ready = True
+        for source, keys in (
+            (b, ("dia_mm", "root_dia_mm", "thickness_mm", "kerf_mm", "kerf_offset_mm")),
+            (a, ("projection_mm", "gauge_len_mm", "bore_clearance_max_mm")),
+        ):
+            for key in keys:
+                value = source.get(key)
+                if not self._numeric(value):
+                    self.reasons.append(f"mounted saw {key} is unknown")
+                    ready = False
+                elif (
+                    key not in ("kerf_offset_mm", "gauge_len_mm", "bore_clearance_max_mm")
+                    and value <= 0
+                ):
+                    self.errors.append(f"mounted saw {key} must be positive")
+                    ready = False
+                elif key in ("gauge_len_mm", "bore_clearance_max_mm") and value < 0:
+                    self.errors.append(f"mounted saw {key} cannot be negative")
+                    ready = False
+        for source, key in (
+            (b, "bore_dia_limits_mm"),
+            (a, "pilot_dia_limits_mm"),
+            (a, "blade_thickness_limits_mm"),
+        ):
+            if not self._limits(source.get(key)):
+                (self.errors if self._vector(source.get(key), 2) else self.reasons).append(
+                    f"mounted saw {key} is not a positive ordered interval"
+                )
+                ready = False
+        raw = a.get("components")
+        if not isinstance(raw, list) or not raw:
+            self.reasons.append("mounted saw arbor envelope components are unknown")
+            ready = False
+        names = set()
+        for c in raw if isinstance(raw, list) else []:
+            if not isinstance(c, dict):
+                ready = False
+                self.reasons.append("mounted saw arbor component is unknown")
+                continue
+            name = c.get("id")
+            if not isinstance(name, str) or not name.strip() or name == UNKNOWN or name in names:
+                self.errors.append("mounted saw arbor components need unique known ids")
+                ready = False
+            else:
+                names.add(name)
+            if not all(self._numeric(c.get(key)) for key in ("dia_mm", "z_min_mm", "z_max_mm")):
+                self.reasons.append(f"arbor {name} has unknown envelope dimensions")
+                ready = False
+            elif c["dia_mm"] <= 0 or c["z_min_mm"] >= c["z_max_mm"]:
+                self.errors.append(f"arbor {name} needs positive diameter and z_min < z_max")
+                ready = False
+        if a.get("envelope_state") != "complete":
+            self.reasons.append("arbor complete external envelope through spindle nose is unknown")
+        rotation = self.mounted.get("spindle_rotation")
+        cutting = a.get("cutting_rotation")
+        side, hand = a.get("retaining_side"), a.get("retaining_thread_hand")
+        if rotation not in ("cw", "ccw") or cutting not in ("cw", "ccw"):
+            self.reasons.append("mounted saw spindle and installed tooth rotation are unknown")
+        elif rotation != cutting:
+            self.errors.append("installed tooth cutting rotation does not match spindle rotation")
+        if side not in ("minus_z", "plus_z") or hand not in ("right", "left"):
+            self.reasons.append("arbor retaining side and thread hand are unknown")
+        elif rotation in ("cw", "ccw"):
+            if (rotation == "cw") != ((side == "minus_z") == (hand == "right")):
+                self.errors.append("spindle rotation tends to loosen the arbor retaining thread")
+        if not ready:
+            return False
+        bore, pilot = b["bore_dia_limits_mm"], a["pilot_dia_limits_mm"]
+        root, radius = b["root_dia_mm"] / 2, b["dia_mm"] / 2
+        if not bore[1] < b["root_dia_mm"] < b["dia_mm"]:
+            self.errors.append("blade bore, root and cutting diameters are incompatible")
+            return False
+        if pilot[1] > bore[0] or bore[1] - pilot[0] > a["bore_clearance_max_mm"]:
+            self.errors.append("blade bore and arbor pilot or qualified clearance are incompatible")
+        if (
+            not a["blade_thickness_limits_mm"][0]
+            <= b["thickness_mm"]
+            <= a["blade_thickness_limits_mm"][1]
+        ):
+            self.errors.append("blade body thickness is outside arbor mounting limits")
+        if abs(b["kerf_offset_mm"]) + b["thickness_mm"] / 2 > b["kerf_mm"] / 2:
+            self.errors.append("blade body band is not contained in its cutting band")
+        body_lo = -b["kerf_offset_mm"] - b["thickness_mm"] / 2
+        body_hi = body_lo + b["thickness_mm"]
+        gauge = a["projection_mm"] - b["kerf_offset_mm"]
+        self.components = [
+            ("blade_cutting", root, radius, -b["kerf_mm"] / 2, b["kerf_mm"] / 2),
+            ("blade_body", bore[0] / 2, root, body_lo, body_hi),
+            *[
+                (
+                    "arbor:" + c["id"],
+                    0,
+                    c["dia_mm"] / 2,
+                    gauge + c["z_min_mm"],
+                    gauge + c["z_max_mm"],
+                )
+                for c in raw
+            ],
+        ]
+        self.radius, self.root, self.gauge = radius, root, gauge
+        # Both flange contacts are real body-side contacts, not an envelope marker.
+        for face_z, end_key in ((body_lo, 4), (body_hi, 3)):
+            flanges = [
+                c
+                for c in self.components[2:]
+                if abs(c[end_key] - face_z) <= PLANE_TOL and c[2] > bore[1] / 2
+            ]
+            if not flanges:
+                self.reasons.append("arbor flange contact with both flat body sides is unknown")
+            if any(c[2] >= root for c in flanges):
+                self.errors.append("arbor flange reaches the blade tooth root")
+        intervals = sorted((c[3], c[4]) for c in self.components[2:])
+        end = intervals[0][1]
+        for lo, hi in intervals[1:]:
+            if lo > end + PLANE_TOL:
+                self.errors.append("arbor envelope has a known axial gap before the spindle nose")
+            end = max(end, hi)
+        if end < gauge + a["gauge_len_mm"] - PLANE_TOL:
+            self.errors.append("arbor envelope does not extend through the spindle nose")
+        # Installed envelopes may meet the body on a face, never occupy its annulus.
+        origin = [0, 0, 0]
+        blade = [self._sweep(c, origin, origin) for c in self.components[:2]]
+        for c in self.components[2:]:
+            shape = self._sweep(c, origin, origin)
+            if any(shape.common(part).Volume > HIT_MM3 for part in blade):
+                self.errors.append(f"{c[0]} interpenetrates the blade body or cutting envelope")
+        return True
+
+    @staticmethod
+    def _sweep(component, start, end):
+        """Exact swept annulus/cylinder for one single-axis translation, not sampled poses.
+
+        A horizontal annulus sweep is its outer stadium less the intersection of the
+        two endpoint bore disks. All intermediate bore disks contain that intersection.
+        Every other point in the outer sweep meets the moving annulus by continuity.
+        """
+        _, inner, outer, lo, hi = component
+        if start[:2] == end[:2]:
+            shape = Part.makeCylinder(
+                outer,
+                max(start[2], end[2]) + hi - min(start[2], end[2]) - lo,
+                V(start[0], start[1], min(start[2], end[2]) + lo),
+            )
+            if inner > 0:
+                shape = shape.cut(
+                    Part.makeCylinder(
+                        inner,
+                        max(start[2], end[2]) + hi - min(start[2], end[2]) - lo,
+                        V(start[0], start[1], min(start[2], end[2]) + lo),
+                    )
+                )
+            return shape
+        a, b = V(start[0], start[1], 0), V(end[0], end[1], 0)
+        area = _stadium(a, b, outer)
+        if inner > 0 and (b - a).Length < 2 * inner:
+            holes = [Part.Face(Part.Wire(Part.makeCircle(inner, point))) for point in (a, b)]
+            area = area.cut(holes[0].common(holes[1]))
+        shape = area.extrude(V(0, 0, hi - lo))
+        shape.translate(V(0, 0, start[2] + lo))
+        return shape
+
+    def _trajectory(self):
+        t = self.mounted.get("trajectory", {})
+        self.reasons.extend(self._messages(t.get("reasons")))
+        self.errors.extend(self._messages(t.get("errors")))
+        start, moves = t.get("start_mm"), t.get("moves")
+        if not self._vector(start) or not isinstance(moves, list) or not moves:
+            self.reasons.append("finite saw trajectory needs known start and moves")
+            return False
+        previous, cuts = start, []
+        for index, move in enumerate(moves):
+            if (
+                not isinstance(move, dict)
+                or not self._vector(move.get("to_mm"))
+                or move.get("mode") not in ("cut", "clear")
+            ):
+                self.reasons.append(f"finite saw move {index} has unknown coordinates or mode")
+                return False
+            target = move["to_mm"]
+            axes = [k for k in range(3) if previous[k] != target[k]]
+            if len(axes) != 1 or move["mode"] == "cut" and axes[0] == 2:
+                self.reasons.append(
+                    "only single-axis moves and one straight horizontal cut are supported"
+                )
+                return False
+            self.moves.append((index, previous, target, move["mode"]))
+            if move["mode"] == "cut":
+                cuts.append(self.moves[-1])
+            previous = target
+        if len(cuts) != 1:
+            self.reasons.append("finite saw supports exactly one straight constant-Z cut move")
+            return False
+        self.cut_index, self.cut_start, self.cut_end, _ = cuts[0]
+        plane = self.op.get("cut_plane", {})
+        if plane.get("axis") != "z" or not self._numeric(plane.get("value")):
+            self.reasons.append("finite saw requires a numeric setup-Z cutting-midplane cut_plane")
+            return False
+        if plane["value"] != self.cut_start[2]:
+            self.errors.append("cut trajectory does not match the cutting-band-midplane cut_plane")
+        run = V(*self.cut_end) - V(*self.cut_start)
+        self.feed, self.cut_length = run / run.Length, run.Length
+        self.saw.update(cut_move_index=self.cut_index, feed_direction=list(self.feed))
+        return True
+
+    def _place(self, placements, role):
+        result = []
+        for placement in placements if isinstance(placements, list) else []:
+            if (
+                not isinstance(placement, dict)
+                or not isinstance(placement.get("pose"), dict)
+                or not isinstance(placement.get("solids"), list)
+                or not placement["solids"]
+            ):
+                raise _Unknown("mounted saw placed fixture primitives or pose are unknown")
+            matrix = _pose_matrix(placement["pose"])
+            for spec, shape in _owner_primitives(placement["solids"]):
+                shape.transformShape(matrix)
+                result.append(
+                    {"name": spec["name"], "solid": shape, "role": placement.get("role", role)}
+                )
+        return result
+
+    def _collision(self, shape, component, obstacle, index, mode, rows):
+        if not _boxes_overlap(_bbox(shape), _bbox(obstacle["solid"])):
+            return
+        common = shape.common(obstacle["solid"])
+        if common.Volume > HIT_MM3:
+            rows.append(
+                {
+                    "component": component,
+                    "obstacle": obstacle["name"],
+                    "move_index": index,
+                    "mode": mode,
+                    "volume_mm3": _r(common.Volume),
+                    "bbox_mm": [_r(v) for v in _bbox(common)],
+                }
+            )
+
+    def _engagement(self, section):
+        result = self.saw["engagement"]
+        reasons = self._section_messages("reasons", "engagement")
+        errors = self._section_messages("errors", "engagement")
+        teeth, spacing = self.blade.get("flutes"), self.blade.get("tooth_spacing")
+        if not isinstance(teeth, int) or isinstance(teeth, bool):
+            reasons.append("integer blade tooth count is unknown")
+        elif teeth <= 0:
+            errors.append("blade tooth count must be positive")
+        if spacing != "uniform":
+            reasons.append("uniform tooth spacing is unknown")
+        if section is None:
+            reasons.append("actual slab stock and finite cut trajectory are unresolved")
+            return self._finish(result, reasons, errors)
+        low, high = self.saw["cutting_band_mm"]
+        caps = [
+            face
+            for face in section.Faces
+            if abs(_bbox(face)[2] - low) <= PLANE_TOL and abs(_bbox(face)[5] - low) <= PLANE_TOL
+        ]
+        if len(caps) != 1 or len(caps[0].Wires) != 1:
+            reasons.append(
+                "kerf section is hollow or disconnected, not one polygonal material interval"
+            )
+        elif any(type(edge.Curve).__name__ != "Line" for edge in caps[0].OuterWire.Edges):
+            reasons.append("curved kerf sections are unsupported for circular engagement")
+        else:
+            cap = caps[0]
+            extrusion = cap.extrude(V(0, 0, high - low))
+            if section.cut(extrusion).Volume > HIT_MM3 or extrusion.cut(section).Volume > HIT_MM3:
+                reasons.append("actual slab stock is not a constant section through kerf thickness")
+            else:
+                transverse = V(-self.feed.y, self.feed.x, 0)
+                origin = V(*self.cut_start)
+                points = [
+                    (
+                        (vertex.Point - origin).dot(self.feed),
+                        (vertex.Point - origin).dot(transverse),
+                    )
+                    for vertex in cap.OuterWire.OrderedVertexes
+                ]
+                transitions, why = saw_engagement.transitions(points, self.radius)
+                if why:
+                    reasons.append(why)
+                else:
+                    result.update(transitions)
+                    enter, leave = transitions["entry_complete_mm"], transitions["exit_begins_mm"]
+                    if not enter < leave:
+                        reasons.append("there is no positive established-engagement interval")
+                    elif (
+                        transitions["first_contact_mm"] < 0
+                        or transitions["last_contact_mm"] > self.cut_length
+                    ):
+                        reasons.append("cut move does not contain complete monotone entry and exit")
+                    else:
+                        lo, hi = transitions["transverse_interval_mm"]
+                        arc = saw_engagement.engaged_arc(lo, hi, self.radius)
+                        result.update(
+                            radius_mm=self.radius,
+                            established_interval_mm=[enter, leave],
+                            engaged_angle_rad=arc[1] - arc[0],
+                            tooth_count=teeth,
+                            tooth_spacing=spacing,
+                            entry={
+                                "from_mm": transitions["first_contact_mm"],
+                                "to_mm": enter,
+                                "monotone": True,
+                                "tooth_loading_certified": False,
+                            },
+                            exit={
+                                "from_mm": leave,
+                                "to_mm": transitions["last_contact_mm"],
+                                "monotone": True,
+                                "tooth_loading_certified": False,
+                            },
+                        )
+                        if not reasons and not errors:
+                            count, tie = saw_engagement.min_interior_teeth([arc], teeth)
+                            result.update(
+                                pitch_rad=2 * math.pi / teeth,
+                                minimum_teeth_in_work=count,
+                                minimum_teeth_tie=tie,
+                            )
+        return self._finish(result, reasons, errors)
+
+    def _zero(self, assembly_ready):
+        source = self.mounted.get("zero", {})
+        result = self.saw["zero"]
+        reasons = result["reasons"] + self._messages(source.get("reasons"))
+        errors = self._messages(source.get("errors"))
+        reasons.extend(self._section_messages("reasons", "zero"))
+        errors.extend(self._section_messages("errors", "zero"))
+        reasons.extend(getattr(self, "assembly_reasons", []))
+        errors.extend(getattr(self, "assembly_errors", []))
+        reasons.extend(self.scene_reasons)
+        if not self.setup.fixture_ready:
+            reasons.append("primary fixture scene is unresolved at calibration")
+        reasons.extend(self.setup.fixture_debts)
+        reasons.extend(self.setup.fixture_gaps)
+        reasons.extend(self.setup.undrawn)
+        if self.setup.fixture_possible:
+            reasons.append("calibration has unresolved possible fixture extents")
+        selected, touches = source.get("selected"), source.get("touches")
+        result["selected"] = selected if selected is not None else UNKNOWN
+        if (
+            not isinstance(touches, list)
+            or not isinstance(selected, int)
+            or isinstance(selected, bool)
+            or not 0 <= selected < len(touches)
+        ):
+            reasons.append("a current matching mounted blade-side touch is unknown")
+            return self._finish(result, reasons, errors)
+        for index, touch in enumerate(touches):
+            entry = {"index": index, "status": UNKNOWN, "reasons": [], "collisions": []}
+            result["touches"].append(entry)
+            # Other pairs require their own measured assembly; never borrow this pair's.
+            if index != selected:
+                entry["reasons"] = ["touch is not the selected current tool-holder setting"]
+                continue
+            local, wrong = [], []
+            if touch.get("method") != "mounted_saw_side" or touch.get("axis") != "z":
+                local.append("only an explicit mounted_saw_side setup-Z touch calibrates this disk")
+            for key in ("tool", "holder"):
+                expected, actual = self.mounted.get(key), touch.get(key)
+                if expected not in (None, UNKNOWN) and actual not in (None, UNKNOWN):
+                    if expected != actual:
+                        wrong.append(f"calibration {key} does not match the installed saw pair")
+            position = touch.get("position")
+            touch_stock = self.stock
+            if isinstance(position, int) and not isinstance(position, bool):
+                if position == 0:
+                    touch_stock = self.setup.part
+                elif 0 < position <= len(self.setup.ops):
+                    _, touch_stock, why = self.setup.cuts.get(
+                        id(self.setup.ops[position - 1]), (None, None, "touch stock is unresolved")
+                    )
+                    if why or touch_stock is None:
+                        local.append("stock at the calibration touch is unresolved")
+                else:
+                    local.append("calibration touch operation position is invalid")
+            else:
+                local.append("calibration touch operation position is unknown")
+            contact, surface = touch.get("mounted_saw", {}), touch.get("surface", {})
+            side = contact.get("blade_side")
+            point, axis = contact.get("point_mm"), contact.get("axis_xy_mm")
+            paper = touch.get("paper_mm")
+            entry.update(
+                blade_side=side,
+                surface_side=surface.get("side"),
+                spindle_state=contact.get("spindle_state"),
+                point_mm=point,
+                axis_xy_mm=axis,
+                paper_mm=paper,
+            )
+            if contact.get("spindle_state") == "running":
+                wrong.append("mounted blade contact requires the spindle fully stopped")
+            elif contact.get("spindle_state") != "stopped":
+                local.append("mounted blade calibration spindle state is unknown")
+            if (
+                side not in ("minus_z", "plus_z")
+                or not self._vector(point)
+                or not self._vector(axis, 2)
+                or not self._numeric(paper)
+            ):
+                local.append("mounted blade touch side, point, axis or paper is unknown")
+            elif paper < 0:
+                wrong.append("calibration paper thickness cannot be negative")
+            if not assembly_ready:
+                local.append("mounted blade calibration assembly is unresolved")
+            if local or wrong:
+                self._finish(entry, local, wrong)
+                reasons.extend(local)
+                errors.extend(wrong)
+                continue
+            sign = 1 if side == "minus_z" else -1
+            if surface.get("side") != ("+z" if sign == 1 else "-z"):
+                wrong.append("blade side and calibration surface normal are incompatible")
+            candidates = []
+            if surface.get("kind") == "fixture":
+                candidates = [
+                    face
+                    for component in self.scene
+                    if component["name"] == surface.get("name")
+                    for face in component["solid"].Faces
+                ]
+            elif surface.get("kind") == "stock":
+                # A named face is resolved against actual arriving stock, not edge alone.
+                named = surface.get("face", touch.get("face"))
+                indices = self.setup.owner.features.get(named, [])
+                indices = indices if isinstance(indices, list) else []
+                indices = set(indices) | {
+                    index for index, ref in enumerate(self.setup.owner.labels) if ref == named
+                }
+                for face_index in indices:
+                    if face_index >= len(self.setup.faces):
+                        continue
+                    declared = self.setup.faces[face_index]
+                    candidates.extend(
+                        face
+                        for face in touch_stock.Faces
+                        if type(face.Surface).__name__ == "Plane"
+                        and face.common(declared).Area > AREA_ABS
+                    )
+                # A feature may name multiple coplanar faces; do not duplicate one
+                # actual stock face while resolving their common surface.
+                candidates = [
+                    face
+                    for index, face in enumerate(candidates)
+                    if not any(face.isSame(other) for other in candidates[:index])
+                ]
+            else:
+                local.append("calibration contact surface is unresolved")
+            faces = [
+                face
+                for face in candidates
+                if type(face.Surface).__name__ == "Plane"
+                and abs(face.normalAt(*face.ParameterRange[::2]).z - sign) <= PLANE_TOL
+                and face.distToShape(Part.Vertex(V(*point)))[0] <= PLANE_TOL
+            ]
+            if len(faces) != 1:
+                wrong.append(
+                    "contact point is not on one named horizontal face with the correct normal"
+                )
+            elif touch.get("edge_mm") not in (None, UNKNOWN) and (
+                not self._numeric(touch["edge_mm"]) or abs(touch["edge_mm"] - point[2]) > PLANE_TOL
+            ):
+                wrong.append("declared calibration edge disagrees with the actual contact plane")
+            radius = math.hypot(point[0] - axis[0], point[1] - axis[1])
+            body = self.blade["thickness_mm"]
+            offset = self.blade["kerf_offset_mm"]
+            mid = saw_engagement.mounted_midplane(side, point[2], paper, body, offset)
+            body_face = point[2] + sign * paper
+            body_local = self.components[1][3 if sign == 1 else 4]
+            exposed = self.blade["bore_dia_limits_mm"][1] / 2
+            # Every envelope occupying the contact-side halfspace masks that radial band.
+            for c in self.components[2:]:
+                if c[3] <= body_local + PLANE_TOL if sign == 1 else c[4] >= body_local - PLANE_TOL:
+                    exposed = max(exposed, c[2])
+            if not exposed < radius < self.root:
+                wrong.append("contact is not on the exposed flat blade-body annulus")
+            obstacles = [{"name": "stock", "solid": touch_stock}, *self.scene]
+            extents = [_bbox(obstacle["solid"]) for obstacle in obstacles]
+            if sign == 1:
+                start = max(box[5] for box in extents) - min(c[3] for c in self.components) + 1
+                start = max(start, mid + 1)
+            else:
+                start = min(box[2] for box in extents) - max(c[4] for c in self.components) - 1
+                start = min(start, mid - 1)
+            entry.update(
+                plane_z_mm=point[2],
+                plane_normal_z=sign,
+                body_thickness_mm=body,
+                kerf_offset_mm=offset,
+                body_face_z_mm=body_face,
+                cutting_midplane_z_mm=mid,
+                contact_radius_mm=radius,
+                exposed_inner_radius_mm=exposed,
+                root_radius_mm=self.root,
+                approach_start_z_mm=start,
+                approach_end_z_mm=mid,
+            )
+            for c in self.components:
+                swept = self._sweep(c, [*axis, start], [*axis, mid])
+                for obstacle in obstacles:
+                    self._collision(swept, c[0], obstacle, -1, "calibration", entry["collisions"])
+            if entry["collisions"]:
+                wrong.append("complete assembly collides during the axial calibration approach")
+            self._finish(entry, local, wrong)
+            reasons.extend(local)
+            errors.extend(wrong)
+        return self._finish(result, reasons, errors)
+
+    def run(self):
+        facts = self.setup._saw_facts(self.op)
+        facts.update(
+            stock_volume_before_mm3=_r(self.stock.Volume),
+            stock_bbox_before_mm=[_r(v) for v in _bbox(self.stock)],
+            saw=self.saw,
+        )
+        if facts.get("saw_error"):
+            self.errors.append(facts["saw_error"])
+        if facts.get("saw_reason"):
+            self.reasons.append(facts["saw_reason"])
+        machine = self.setup.setup.get("machine_kind")
+        if machine not in (None, UNKNOWN, "mill"):
+            self.errors.append("finite mounted saw requires a mill spindle on setup Z")
+        elif machine in (None, UNKNOWN):
+            self.reasons.append("finite mounted-saw machine kind is unknown")
+        if self._numeric(self.op.get("kerf_mm")) and self._numeric(self.blade.get("kerf_mm")):
+            if self.op["kerf_mm"] != self.blade["kerf_mm"]:
+                self.errors.append("operative kerf disagrees with the mounted blade kerf")
+        section, after, assembly_ready, path_ready = None, None, False, False
+        try:
+            assembly_ready = self._assembly()
+            path_ready = self._trajectory()
+            capture = self.mounted.get("capture", {})
+            capture_reasons = self._messages(capture.get("reasons"))
+            capture_reasons.extend(self._section_messages("reasons", "capture"))
+            capture_errors = self._messages(capture.get("errors"))
+            capture_errors.extend(self._section_messages("errors", "capture"))
+            if capture.get("state") == "released":
+                capture_errors.append("upper-child capture is released during the saw cycle")
+            elif capture.get("state") != "clamped":
+                capture_reasons.append("upper-child capture clamped state is unknown")
+            try:
+                if not isinstance(capture.get("components"), list) or not capture["components"]:
+                    raise _Unknown("upper capture physical component geometry is unknown")
+                self.capture_scene = self._place(capture.get("components"), "capture")
+                for c in self.capture_scene:
+                    if c["solid"].common(self.stock).Volume > HIT_MM3:
+                        capture_errors.append(
+                            f"capture {c['name']} interpenetrates the arriving stock"
+                        )
+                    for primary in self.scene:
+                        if c["solid"].common(primary["solid"]).Volume > HIT_MM3:
+                            capture_errors.append(
+                                f"capture {c['name']} interpenetrates primary fixture "
+                                f"{primary['name']}"
+                            )
+                self.scene.extend(self.capture_scene)
+            except (KeyError, TypeError, ValueError, _Unknown) as exc:
+                capture_reasons.append(str(exc))
+                self.scene_reasons.append(f"capture obstacle geometry is unresolved ({exc})")
+            try:
+                for c in self._place(self.mounted.get("zero", {}).get("fixtures"), "calibration"):
+                    if not any(existing["name"] == c["name"] for existing in self.scene):
+                        self.scene.append(c)
+            except (KeyError, TypeError, ValueError, _Unknown) as exc:
+                self.saw["zero"]["reasons"].append(f"calibration fixture is unresolved ({exc})")
+            if not self.setup.fixture_ready:
+                self.reasons.append("primary fixture scene is unresolved")
+            self.reasons.extend(self.setup.fixture_debts)
+            self.reasons.extend(self.setup.fixture_gaps)
+            self.reasons.extend(self.setup.undrawn)
+            if self.setup.fixture_possible:
+                self.reasons.append("primary fixture has unresolved possible jaw extents")
+            if self.setup.protection_reason:
+                self.reasons.append(self.setup.protection_reason)
+            if assembly_ready and path_ready:
+                z = self.cut_start[2]
+                b, a = self.blade, self.arbor
+                self.saw.update(
+                    body_band_mm=[z + self.components[1][3], z + self.components[1][4]],
+                    cutting_band_mm=[z - b["kerf_mm"] / 2, z + b["kerf_mm"] / 2],
+                    gauge_plane_z_mm=z + self.gauge,
+                    spindle_nose_z_mm=z + self.gauge + a["gauge_len_mm"],
+                )
+                points = [self.moves[0][1], *[move[2] for move in self.moves]]
+                axis = [
+                    [p[0], p[1], p[2] + dz]
+                    for p in points
+                    for dz in (-b["kerf_offset_mm"], self.gauge + a["gauge_len_mm"])
+                ]
+                nose = [[p[0], p[1], p[2] + self.gauge + a["gauge_len_mm"]] for p in points]
+                for key, values in (
+                    ("axis_path_bounds_mm", axis),
+                    ("spindle_nose_bounds_mm", nose),
+                ):
+                    self.saw[key] = [min(v[k] for v in values) for k in range(3)] + [
+                        max(v[k] for v in values) for k in range(3)
+                    ]
+                sweep_boxes = []
+                box = _bbox(self.stock)
+                low, high = self.saw["cutting_band_mm"]
+                slab = _box_shape([box[0] - 1, box[1] - 1, low, box[3] + 1, box[4] + 1, high])
+                section = self.stock.common(slab)
+                # Full disk removal is credited only after the advancing rim precedes
+                # every body point: clear initial disk, horizontal feed, root < OD and
+                # body band inside cutting band. An arbor never receives future removal.
+                disk = ("blade_cutting", 0, self.radius, -b["kerf_mm"] / 2, b["kerf_mm"] / 2)
+                cut_sweep = self._sweep(disk, self.cut_start, self.cut_end)
+                removed = self.stock.common(cut_sweep)
+                uncovered = section.cut(cut_sweep).Volume
+                extra = removed.cut(slab).Volume
+                protected = removed.common(self.setup.protected).Volume
+                after = self.stock.cut(removed)
+                self.saw.update(
+                    required_kerf_volume_mm3=_r(section.Volume),
+                    uncovered_kerf_volume_mm3=_r(uncovered),
+                    removed_kerf_volume_mm3=_r(removed.Volume),
+                    unintended_removal_volume_mm3=_r(extra + protected),
+                    stock_volume_before_mm3=_r(self.stock.Volume),
+                    stock_volume_after_mm3=_r(after.Volume),
+                )
+                facts.update(
+                    kerf_volume_mm3=_r(section.Volume),
+                    offcut_volume_mm3=0.0,
+                    removed_volume_mm3=_r(removed.Volume),
+                    stock_volume_after_mm3=_r(after.Volume),
+                )
+                if section.Volume <= HIT_MM3:
+                    self.errors.append("finite saw kerf slab removes no stock")
+                if uncovered > HIT_MM3:
+                    self.errors.append(
+                        "finite disk sweep leaves uncovered kerf or a residual ligament"
+                    )
+                if extra + protected > HIT_MM3:
+                    self.errors.append(
+                        "finite saw removes unintended or protected finished material"
+                    )
+                start_disk = self._sweep(disk, self.cut_start, self.cut_start)
+                if start_disk.common(self.stock).Volume > HIT_MM3:
+                    self.reasons.append(
+                        "initially embedded disk is unsupported; "
+                        "advancing-rim precedence is unproved"
+                    )
+                pieces = sorted(after.Solids, key=lambda piece: _bbox(piece)[2])
+                if len(self.stock.Solids) != 1 or len(pieces) != 2:
+                    self.errors.append(
+                        "finite saw must separate one input into exactly two physical children"
+                    )
+                elif not after.isValid() or not all(piece.Volume > HIT_MM3 for piece in pieces):
+                    self.reasons.append("finite saw two-child stock boolean is invalid")
+                elif (
+                    _bbox(pieces[0])[5] > low + PLANE_TOL or _bbox(pieces[1])[2] < high - PLANE_TOL
+                ):
+                    self.errors.append(
+                        "finite saw children do not lie on opposite sides of the kerf"
+                    )
+                else:
+                    self.saw["outputs"] = [
+                        {
+                            "side": side,
+                            "volume_mm3": _r(piece.Volume),
+                            "bbox_mm": [_r(v) for v in _bbox(piece)],
+                        }
+                        for side, piece in zip(("below", "above"), pieces, strict=True)
+                    ]
+                    if (
+                        abs(self.stock.Volume - removed.Volume - sum(p.Volume for p in pieces))
+                        > HIT_MM3
+                    ):
+                        self.errors.append("finite saw two-child material conservation failed")
+                    if not any(
+                        c["solid"].distToShape(pieces[0])[0] <= PLANE_TOL
+                        and c["solid"].common(pieces[0]).Volume <= HIT_MM3
+                        for c in self.primary_scene
+                    ):
+                        self.reasons.append(
+                            "primary hold contact with the actual lower child is unproved"
+                        )
+                    contacts = []
+                    for c in self.capture_scene:
+                        if c["solid"].common(pieces[1]).Volume > HIT_MM3:
+                            capture_errors.append(
+                                f"capture {c['name']} interpenetrates the upper child"
+                            )
+                        elif c["solid"].distToShape(pieces[1])[0] <= PLANE_TOL:
+                            contacts.append(c)
+                    self.saw["capture"].update(
+                        contacts=[c["name"] for c in contacts],
+                        moving_clamp_contact=any(c["role"] == "moving_clamp" for c in contacts),
+                    )
+                    if not any(c["role"] == "fixture" for c in contacts) or not any(
+                        c["role"] == "moving_clamp" for c in contacts
+                    ):
+                        capture_reasons.append(
+                            "independent capture fixture and moving clamp contact "
+                            "with actual upper child are unproved"
+                        )
+                # Conventional feed is placement-specific. The complete engaged section
+                # must lie on the side where tooth motion follows spindle-axis feed
+                # (opposite work/table feed), viewed from setup +Z.
+                direction = self.mounted.get("direction")
+                if direction != "conventional":
+                    (self.reasons if direction in (None, UNKNOWN) else self.errors).append(
+                        "mounted saw requires conventional feed"
+                    )
+                transverse = V(-self.feed.y, self.feed.x, 0)
+                offsets = [(v.Point - V(*self.cut_start)).dot(transverse) for v in section.Vertexes]
+                if offsets and self.mounted.get("spindle_rotation") in ("cw", "ccw"):
+                    valid = (
+                        min(offsets) > 0
+                        if self.mounted["spindle_rotation"] == "cw"
+                        else max(offsets) < 0
+                    )
+                    if not valid:
+                        self.errors.append(
+                            "spindle rotation and actual stock side "
+                            "do not provide conventional feed"
+                        )
+                for index, start, end, mode in self.moves:
+                    material = self.stock if index <= self.cut_index else after
+                    for c in self.components:
+                        swept = self._sweep(c, start, end)
+                        sweep_boxes.append(_bbox(swept))
+                        for obstacle in self.scene:
+                            self._collision(
+                                swept, c[0], obstacle, index, mode, self.saw["collisions"]
+                            )
+                        if mode == "clear" or c[0].startswith("arbor:"):
+                            if index > self.cut_index and len(pieces) == 2:
+                                obstacles = [
+                                    {"name": name, "solid": piece}
+                                    for name, piece in zip(
+                                        ("child:lower", "child:upper"), pieces, strict=True
+                                    )
+                                ]
+                            else:
+                                obstacles = [{"name": "stock", "solid": material}]
+                            for obstacle in obstacles:
+                                self._collision(
+                                    swept, c[0], obstacle, index, mode, self.saw["collisions"]
+                                )
+                self.saw["assembly_swept_bounds_mm"] = [
+                    min(box[k] for box in sweep_boxes) for k in range(3)
+                ] + [max(box[k] for box in sweep_boxes) for k in range(3, 6)]
+                if self.saw["collisions"]:
+                    self.errors.append(
+                        "finite saw blade or arbor sweep collides with stock or a fixture"
+                    )
+                # Legacy linear section thickness remains its old planar meaning.
+                hollow = (
+                    _solid_section(section, 2, (low, high))
+                    if section.Volume > HIT_MM3
+                    else "empty kerf"
+                )
+                if hollow is None:
+                    extent = _bbox(section)
+                    across = min((0, 1), key=lambda k: extent[k + 3] - extent[k])
+                    facts.update(
+                        cut_thickness_mm=_r(extent[across + 3] - extent[across]),
+                        cut_thickness_axis="xy"[across],
+                    )
+                else:
+                    facts["reasons"]["cut_thickness_mm"] = hollow
+            else:
+                capture_reasons.append("actual upper child is unresolved")
+            if (
+                not self.saw["capture"]["contacts"]
+                or not self.saw["capture"]["moving_clamp_contact"]
+            ):
+                capture_reasons.append("actual upper-child mechanical contact is unresolved")
+            self._finish(self.saw["capture"], capture_reasons, capture_errors)
+            self.reasons.extend(capture_reasons)
+            self.errors.extend(capture_errors)
+        except Exception as exc:
+            self.reasons.append(f"finite saw native proof failed ({_failure_text(exc)})")
+        try:
+            self._zero(assembly_ready)
+        except Exception as exc:
+            self.saw["zero"].update(
+                status=UNKNOWN, reasons=[f"native calibration proof failed ({_failure_text(exc)})"]
+            )
+        try:
+            blade = self.blade
+            if path_ready and all(
+                self._numeric(blade.get(key)) and blade[key] > 0 for key in ("dia_mm", "kerf_mm")
+            ):
+                # Circular engagement needs the real blade and section, not a
+                # successful arbor/capture/clearance proof.
+                self.radius = blade["dia_mm"] / 2
+                low = self.cut_start[2] - blade["kerf_mm"] / 2
+                high = self.cut_start[2] + blade["kerf_mm"] / 2
+                self.saw["cutting_band_mm"] = [low, high]
+                if section is None:
+                    box = _bbox(self.stock)
+                    slab = _box_shape([box[0] - 1, box[1] - 1, low, box[3] + 1, box[4] + 1, high])
+                    section = self.stock.common(slab)
+                self._engagement(section)
+            else:
+                self.saw["engagement"]["reasons"] = ["finite blade and cut section are unresolved"]
+        except Exception as exc:
+            self.saw["engagement"].update(
+                status=UNKNOWN, reasons=[f"native engagement proof failed ({_failure_text(exc)})"]
+            )
+        self._finish(self.saw, self.reasons, self.errors)
+        # The stock builder consumes these outer keys. Independent engagement/zero
+        # failures are intentionally absent: they cannot rewrite a geometry verdict.
+        if self.saw["status"] == "error":
+            facts.pop("saw_reason", None)
+            facts.pop("reason", None)
+            facts["saw_error"] = "; ".join(self.saw["reasons"])
+        elif self.saw["status"] == UNKNOWN:
+            facts["saw_reason"] = facts["reason"] = "; ".join(self.saw["reasons"])
+        return (after if self.saw["status"] == "pass" else None), facts
+
+
 # --------------------------------------------------------------------------- PNG
 
 
@@ -7370,6 +8306,17 @@ class _Setup:
 
     def _saw_stock(self, op, stock):
         """Keep one side of the blade slab; the kerf and offcut never enter later setups."""
+        if isinstance(op.get("mounted_saw"), dict):
+            return _FiniteSaw(self, op, stock).run()
+        if op.get("saw_tool") == "slitting_saw":
+            facts = self._saw_facts(op)
+            return None, self._saw_debts(
+                facts,
+                [
+                    "finite disk/arbor/capture trajectory is unknown; "
+                    "a planar slab is not mounted-saw proof"
+                ],
+            )
         if self.protection_reason is not None:
             facts = self._saw_facts(op)
             facts["saw_reason"] = facts["reason"] = self.protection_reason

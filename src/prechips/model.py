@@ -433,6 +433,15 @@ Hold = record(
 )
 # ``measure_before_hold``: a ``measure_then_set`` M read on the part before it is held (a
 # span the hold then covers): the HOLD prints the reading before the clamping.
+MountedSawTouch = record(
+    "MountedSawTouch",
+    {
+        "blade_side": Literal["minus_z", "plus_z"],
+        "axis_xy_mm": Annotated[list[Number], Field(min_length=2, max_length=2)],
+        "point_mm": Point3,
+        "spindle_state": Literal["stopped", "running"],
+    },
+)
 AxisZero = record(
     "AxisZero",
     {
@@ -449,6 +458,7 @@ AxisZero = record(
         # Where a Z touch lands, [x, y] in the setup frame: an area hold's recipe A touches
         # the seat face here, off the work (docs/design/area-hold.md).
         "at_mm": Annotated[list[Number], Field(min_length=2, max_length=2)],
+        "mounted_saw": MountedSawTouch,
     },
 )
 # ``keep_clamped``: the hold must not be loosened to realign the work (an indexed setup
@@ -473,8 +483,10 @@ Transfer = record(
 ToolTouch = record(
     "ToolTouch",
     {
-        **texts("tool x_method x_face gauge z_face method z_gauge z_measure"),
+        **texts("tool holder x_method x_face gauge z_face method z_gauge z_measure"),
         **numbers("edge_mm paper_mm x_paper_mm z_offset_mm"),
+        "check_jog_mm": Number,
+        "mounted_saw": MountedSawTouch,
         # The blade corner a grooving/parting blade's Z touch sets, where the touched
         # face's normal cannot give it (a scribe): docs/rules-coordinates.md.
         "corner": Literal["chuck_side", "tailstock_side"],
@@ -537,6 +549,29 @@ Guide = record("Guide", texts("buttons bore template gauge"))
 SawPlane = record(
     "SawPlane",
     {"axis": Literal["x", "y", "z"], "value": Number, "keep": Literal["below", "above"]},
+)
+
+
+class SawMove(InputModel):
+    to_mm: Point3
+    mode: Literal["cut", "clear"]
+
+
+class SawTrajectory(InputModel):
+    """Spindle XY and cutting-band-midplane Z, in setup millimetres."""
+
+    start_mm: Point3
+    moves: Annotated[list[SawMove], Field(min_length=1)]
+
+
+SawCapture = record(
+    "SawCapture",
+    {
+        **texts("fixture moving_clamp"),
+        "pose": Pose,
+        "moving_clamp_pose": Pose,
+        "state": Literal["clamped", "released"],
+    },
 )
 
 
@@ -796,6 +831,8 @@ Operation = record(
         "angle_window_deg": Annotated[list[Number], Field(min_length=2, max_length=2)],
         # Blade centre plane in setup coordinates; kerf comes only from the selected blade.
         "cut_plane": SawPlane,
+        "saw_trajectory": SawTrajectory,
+        "saw_capture": SawCapture,
         # A saw cut that follows a scribed line instead: the earlier ``scribe`` op
         # (``"<setup>:<op>"``), the stock it leaves outside the line for the file, and its
         # ``stock_removal_bounds``, the region the blade and offcut take.
@@ -1315,7 +1352,9 @@ class Plan(InputModel):
                 where = f"Setup {setup.id} op {op.op}"
                 declared = op.model_fields_set
                 if op.do not in SAW_ACTIONS:
-                    stray = sorted(declared & {"follows", "allowance_mm"})
+                    stray = sorted(
+                        declared & {"follows", "allowance_mm", "saw_trajectory", "saw_capture"}
+                    )
                     if stray:
                         raise ValueError(f"{where}: only a saw cut declares {', '.join(stray)}.")
                     if op.do == "scribe" and op.layout == "ends":
@@ -2047,6 +2086,42 @@ class SpindleRotation(InputModel):
     verify: bool | Unknown = UNKNOWN
 
 
+class SawArborCylinder(InputModel):
+    """One external rotational envelope, gauge-plane-local, +Z toward spindle."""
+
+    id: str
+    dia_mm: MeasuredLength = UNKNOWN
+    z_min_mm: MeasuredLength = UNKNOWN
+    z_max_mm: MeasuredLength = UNKNOWN
+
+    @model_validator(mode="after")
+    def named(self) -> SawArborCylinder:
+        _known_text(self.id, "A saw arbor cylinder id")
+        return self
+
+
+class MountedSawArbor(InputModel):
+    pilot_dia_limits_mm: MeasuredLimits | Unknown = UNKNOWN
+    pilot_dia_limits_in: MeasuredLimits | Unknown = UNKNOWN
+    bore_clearance_max_mm: CitedNumber | Unknown = UNKNOWN
+    bore_clearance_max_in: CitedNumber | Unknown = UNKNOWN
+    blade_thickness_limits_mm: MeasuredLimits | Unknown = UNKNOWN
+    blade_thickness_limits_in: MeasuredLimits | Unknown = UNKNOWN
+    envelope_state: Literal["complete", "incomplete", "unknown"] = UNKNOWN
+    components: list[SawArborCylinder] | Unknown = UNKNOWN
+    cutting_rotation: Literal["cw", "ccw"] | SpindleRotation | Unknown = UNKNOWN
+    retaining_side: Literal["minus_z", "plus_z", "unknown"] = UNKNOWN
+    retaining_thread_hand: Literal["right", "left", "unknown"] = UNKNOWN
+
+    @model_validator(mode="after")
+    def unique_components(self) -> MountedSawArbor:
+        if isinstance(self.components, list):
+            names = [component.id for component in self.components]
+            if len(names) != len(set(names)):
+                raise ValueError("Saw arbor cylinder ids must be unique.")
+        return self
+
+
 Spindle = record(
     "Spindle",
     {
@@ -2179,7 +2254,7 @@ InventoryItem = record(
             "cross_slide_travel_in compound_travel_in weight_lb worm_ratio centre_height_in "
             "swing_in plates pieces angle_deg head_in max_offset_in "
             "dial_in min_bore_in tip_in "
-            "diameter_in thickness_in runout_max_in "
+            "diameter_in runout_max_in "
             "max_shank_in sfm chip_load_mm_per_tooth feed_mm_rev capacity_mm "
             "t_slots graduation_deg vernier_deg"
         ),
@@ -2231,6 +2306,10 @@ InventoryItem = record(
                 "leaf_tolerance_in",
                 "kerf_mm",
                 "kerf_in",
+                "root_dia_mm",
+                "root_dia_in",
+                "kerf_offset_mm",
+                "kerf_offset_in",
                 # The tool body past its cutting length (docs/rules-geometry.md#reach).
                 "shank_mm",
                 "max_work_mm",
@@ -2239,6 +2318,7 @@ InventoryItem = record(
                 "t_slot_width_in",
                 # Jaw buttons (a vise hold's jaw_buttons): face Ø (dia), thickness, spigot.
                 "thickness_mm",
+                "thickness_in",
                 "spigot_dia_mm",
                 "spigot_dia_in",
                 "spigot_length_mm",
@@ -2273,6 +2353,10 @@ InventoryItem = record(
         "entering_angle_deg": MeasuredAngle,
         "projection_mm": ProjectionMap,
         "projection_in": ProjectionMap,
+        "bore_dia_limits_mm": MeasuredLimits,
+        "bore_dia_limits_in": MeasuredLimits,
+        "tooth_spacing": Literal["uniform"],
+        "mounted_saw_arbor": MountedSawArbor,
         "envelope": MachineEnvelope,
         # A tool's own shank, or an end-mill set's {shank: [sizes]} map.
         "shank_in": MeasuredLength | str | dict[str, list[str]],
@@ -2432,6 +2516,7 @@ _INVENTORY_LENGTH_STEMS |= {"pin_spacing", "pin_spacing_error", "pin_clearance",
 _INVENTORY_LENGTH_STEMS |= {"rail_travel", "pin_dia", "rail_width", "rail_height"}
 _INVENTORY_LENGTH_STEMS |= {"dowel_reading", "carrier_length", "carrier_width"}
 _INVENTORY_LENGTH_STEMS |= {"carrier_thickness"}
+_INVENTORY_LENGTH_STEMS |= {"root_dia", "kerf_offset", "bore_dia_limits"}
 
 
 def _inventory_lengths(
@@ -2467,6 +2552,12 @@ def _inventory_lengths(
             unit=child_unit,
             stems=_ENVELOPE_LENGTH_STEMS if key == "envelope" else _TRAVEL_LENGTH_STEMS,
         )
+    _inventory_lengths(
+        item.get("mounted_saw_arbor"),
+        f"{where}.mounted_saw_arbor",
+        tool=False,
+        stems=frozenset({"pilot_dia_limits", "bore_clearance_max", "blade_thickness_limits"}),
+    )
 
 
 def _inventory_checks(item: Any, where: str) -> None:
