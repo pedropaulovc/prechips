@@ -316,13 +316,11 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "subject": subject,
             "feature": op.get("feature", UNKNOWN),
             "do": op["do"],
-            "finishing": subject in (
-                finishing_subjects(bundle) if finishing is None else finishing
-            ),
+            "finishing": subject
+            in (finishing_subjects(bundle) if finishing is None else finishing),
             **({"faces": op["faces"]} if "faces" in op else {}),
             "manual_thread": {
-                "reason": "helical thread removal unmodeled; no nominal-major "
-                "cylinder stand-in"
+                "reason": "helical thread removal unmodeled; no nominal-major cylinder stand-in"
             },
         }
     if op.get("do") in {"saw_cut", "cut_off"}:

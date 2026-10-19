@@ -103,7 +103,14 @@ def evaluate_thread(bundle):
             ),
         ]
         rows.append(
-            Finding("joint_thread", sid, status, numbers, list(dict.fromkeys(cite)), f"{sid}: {message}.")
+            Finding(
+                "joint_thread",
+                sid,
+                status,
+                numbers,
+                list(dict.fromkeys(cite)),
+                f"{sid}: {message}.",
+            )
         )
     return rows
 

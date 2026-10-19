@@ -1,0 +1,886 @@
+# Complete 2019 video route for an explicitly adapted source-size design.
+# PLANNED/HOLD. Source nominals are not physical shop measurements.
+part = "blondihacks-magic-tube"
+features = "features.toml"
+step = "magic-tube.STEP"
+construction = "built_up"
+quantity = 1
+quantity_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=34s"
+
+[drawing]
+number = "BH-MT-ADAPTED-EXAMPLE"
+revision = "source-size-design-1"
+cite = "geometry-provenance.md: authored adapted design, not a video drawing or release approval"
+
+[paths]
+inventory = "inventory.toml"
+policy = "shop-policy.toml"
+cutting_data = "cutting-data.toml"
+step = "magic-tube.STEP"
+
+[stock]
+form = "round_bar"
+material = "12L14 steel"
+material_verify = true
+material_cite = "https://blondihacks.com/lathe-magic-tube/ (older project alloy adopted for this design; actual 2019 scrap alloy unspecified)"
+dia_mm = "unknown"
+length_mm = "unknown"
+origin_mm = "unknown"
+axis = [0.0, 0.0, 1.0]
+on_hand = "unknown"
+as_is_faces = []
+prerequisite = "HOLD: approve adapted dimensions and acceptance limits; identify actual alloy and measure raw bar, straightness and sound gripping length. Allocate one bar for the tube blank, both parting kerfs, cap and facing/gripping allowances. No raw length, kerf or safe grip is inferred from the finished STEP."
+note = "One source bar is retained as TWO real pieces at P3: long exposed tube blank and chuck-side remnant. C1 makes the cap from that remnant. Keep the tube blank aside until T2, then screw cap onto body at A1. Final STEP is two separate solids; no adhesive or fused-cap substitute."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=60s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=145s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=242s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=274s", "geometry-provenance.md"]
+
+[dro]
+kind = "handwheel"
+controller = "No DRO used in source; mechanical handwheel/quill scales and dial indicator"
+manual = "unknown"
+mode = "unknown"
+units = "in"
+radius_mode = "unknown"
+procedure = "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD."
+graduation = "unknown"
+backlash = "unknown"
+calibration = "unknown"
+[dro.direction]
+x = "unknown"
+y = "unknown"
+z = "unknown"
+
+[frames.mouth-out]
+origin = [0.0, 0.0, 88.9]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: nominal finished body mouth at setup Z0; model body base Z-88.9 and cap head top Z12.7. Setup +Z points away from chuck. Original stock and re-chucking positions remain unmeasured. Coordinates are a design convention, not a source DRO observation."
+cite = ["AUTHOR'S CHOICE", "geometry-provenance.md", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=505s"]
+
+[frames.cap-stub-out]
+origin = [0.0, 0.0, 76.2]
+x = [1.0, 0.0, 0.0]
+y = [0.0, -1.0, 0.0]
+z = [0.0, 0.0, -1.0]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: cap male tip faces tailstock at Z0, shoulder is Z-12.7 and final outer head face is Z-25.4. This reverses the cap relative to its closed-assembly model position; it does not imply a measured remnant placement."
+cite = ["AUTHOR'S CHOICE", "geometry-provenance.md", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=328s"]
+
+[process_features.tube-centre]
+kind = "centre_hole"
+at = [0.0, 0.0, 88.9]
+axis = [0.0, 0.0, -1.0]
+size = "unknown"
+drill_dia_mm = "unknown"
+drill_length_mm = "unknown"
+mouth_dia_mm = "unknown"
+countersink_angle_deg = "unknown"
+note = "Source-made transient seat for P2's live centre, later consumed by the tube bore. AUTHOR'S CHOICE: exact nominal point is the adapted mouth centre; the actual centre-drill geometry is unshown and remains unknown, not a fabricated finished STEP feature."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=116s", "AUTHOR'S CHOICE: nominal adapted mouth centre, geometry-provenance.md"]
+
+[process_features.tube-blank-tail]
+kind = "end_face"
+at = "unknown"
+axis = [0.0, 0.0, 1.0]
+note = "First parting leaves a raw rear face beyond the future body base and its final gripping/parting allowance. Actual cutoff station is unknown. This is NOT the finished body base and is removed at A3."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=242s"
+
+[process_features.cap-blank-head]
+kind = "end_face"
+at = "unknown"
+axis = [0.0, 0.0, -1.0]
+note = "Raw cap parting face with unmeasured allowance beyond its selected final head face. This is NOT the finished outside head face, which A1 later faces with the cap screwed onto the body."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=467s"
+
+# P1: short rigid hold, initial face and centre hole.
+[[setups]]
+id = "P1"
+machine = "video-lathe"
+frame = "mouth-out"
+stock_in = "stock"
+coolant = "cutting-oil"
+deburr_mm = "unknown"
+note = "Begin with short stock projection. Source faces down an irregular scrap end; it remarks that parting the end off might have been quicker. This route retains the demonstrated facing, not a second optional cutoff. Do not break the future mating edge."
+[setups.stock_state]
+od_mm = "unknown"
+north_end_z = "unknown"
+south_end_z = "unknown"
+[setups.hold]
+fixture = "four-jaw"
+support = "none"
+grip_on = "sound unmachined bar behind the irregular end"
+grip_mm = "unknown"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "unknown"
+stickout_mm = "unknown"
+clamp = "Clamp the sound round bar in the four-jaw chuck; remove the key and turn the chuck by hand to establish complete tool and jaw clearance."
+note = "HOLD until engagement, stock projection, jaw position and tool centre height are established. Editorial safeguard: no gloves near a rotating spindle. Keep hands and loose items clear."
+[setups.zero.x]
+dial_setting = "unknown"
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "trial_cut_measure"
+tool = "turning-tool"
+gauge = "caliper"
+check_jog_mm = "unknown"
+[setups.zero.z]
+dial_setting = "unknown"
+face = "irregular bar end, then newly faced mouth"
+edge_mm = "unknown"
+from = "+z"
+method = "Use a light facing pass to establish the actual end; establish a repeatable mechanical-scale datum and verify handwheel direction. Raw-end position and compensation are unknown."
+tool = "turning-tool"
+paper_mm = "unknown"
+check_jog_mm = "unknown"
+retouch_after = [10]
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "body-length"
+faces = ["#50/ADVANCED_FACE[2]/"]
+tool = "turning-tool"
+holder = "turning-holder"
+to_z = 0.0
+to_dia = 0.0
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "radially_inward"
+note = "Face the irregular scrap end flat using a rigid short hold; establish the future tube mouth. Preserve the sharp mating annulus rather than applying a general edge break. Source repeatedly faces away the irregular end."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=68s"
+[[setups.ops]]
+op = 20
+do = "spot"
+feature = "tube-centre"
+tool = "centre-drill"
+holder = "drill-chuck"
+depth_mm = "unknown"
+rpm = "unknown"
+feed_mm_min = "unknown"
+approach_mm = "unknown"
+note = "Drill a centre seat for the next setup's live centre. Begin with the drill-chuck jaws nearly closed and open them just enough so the small drill is centered between all three jaws, not trapped between two. Centre-drill size, mouth and safe depth are unknown. This temporary seat is later removed by the bore drilling."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=116s"
+
+# P2: supported preliminary OD; source's .700 is NOT this adapted final OD.
+[[setups]]
+id = "P2"
+machine = "video-lathe"
+frame = "mouth-out"
+stock_in = "P1"
+coolant = "cutting-oil"
+deburr_mm = "unknown"
+note = "Extend the same bar for the whole tube plus source-described extra length. Support the exposed end with the live centre for this preliminary turning only."
+[setups.stock_state]
+od_mm = "unknown"
+north_end_z = "unknown"
+south_end_z = 0.0
+[setups.hold]
+fixture = "four-jaw"
+support = "live-centre"
+centre_hole = "tube-centre"
+centre_hole_dia_mm = "unknown"
+quill_extension_mm = "unknown"
+grip_on = "sound raw bar behind the long tube blank and future parting plane"
+grip_mm = "unknown"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "unknown"
+stickout_mm = "unknown"
+clamp = "Pull out enough stock for the complete tube, excess for later gripping and final part-off; re-clamp and apply the live centre to its centre seat with appropriate light support."
+note = "HOLD: actual excess, grip, centre-seat fit/angle, quill extension and deflection/clearance remain unknown. The source recommends a couple of extra inches but does not supply a measured blank or a certified projection."
+[setups.zero.x]
+dial_setting = "unknown"
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "trial_cut_measure"
+tool = "turning-tool"
+gauge = "caliper"
+check_jog_mm = "unknown"
+[setups.zero.z]
+dial_setting = "unknown"
+face = "P1 faced mouth"
+edge_mm = 0.0
+from = "+z"
+method = "Re-establish the actual faced-end datum after extending the stock; do not retain an unverified carriage zero across reholding."
+tool = "turning-tool"
+paper_mm = "unknown"
+check_jog_mm = "unknown"
+retouch_after = []
+[[setups.ops]]
+op = 10
+do = "rough_turn"
+feature = "body-od"
+tool = "turning-tool"
+holder = "turning-holder"
+to_dia = 17.78
+z_from = 0.0
+z_to = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "toward_chuck"
+note = "Make a cleanup pass, measure, then bring the whole required tube length to the video's 0.700-inch preliminary OD. Source reads about 0.805 inch after cleanup; that single observation is not the raw bar diameter or a stock record. Turn far enough past the selected final body base for the measured future grip and parting allowance. Do not cut into the centre or jaws."
+note_cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=157s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=181s"]
+[[setups.ops]]
+op = 20
+do = "finish_turn"
+feature = "body-od"
+tool = "turning-tool"
+holder = "turning-holder"
+to_dia = 17.78
+z_from = 0.0
+z_to = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "toward_chuck"
+note = "Retain the source's separate preliminary finishing pass with a slower feed and higher speed relative to roughing, only after selecting safe actual settings. This remains 0.700 inch, larger than the adapted 11/16-inch final joint OD. Apply cutting oil; no source numeric speed/feed recommendation is inferred."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=205s"
+[[setups.ops]]
+op = 30
+do = "inspect"
+feature = "body-od"
+checks = { dia = "caliper" }
+inspection_methods = { dia = "With spindle stopped, measure the preliminary cylinder at several axial positions and orientations; record the readings. Confirm enough material remains for joint finishing. This 0.700-inch process stage is not finished-OD acceptance." }
+note = "Caliper range, resolution, calibration and actual readings are unrecorded."
+
+# P3 physically splits one original bar into tube blank plus useful remnant.
+[[setups]]
+id = "P3"
+machine = "video-lathe"
+frame = "mouth-out"
+stock_in = "P2"
+coolant = "cutting-oil"
+deburr_mm = "unknown"
+note = "Withdraw the live centre and tailstock for parting. Retain BOTH pieces: exposed long tube blank for setup T2, chuck-side remnant for setup C1. Source stock is short and explicitly not recommended as the ideal allowance."
+[setups.stock_state]
+od_mm = "unknown"
+north_end_z = "unknown"
+south_end_z = 0.0
+[setups.hold]
+fixture = "four-jaw"
+support = "none"
+grip_on = "same sound bar in the chuck; tube projects beyond the parting plane"
+grip_mm = "unknown"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "unknown"
+stickout_mm = "unknown"
+clamp = "Retain the bar clamping, withdraw centre pressure, and verify parting-blade centre height, square setting, minimal projection and full chuck/holder clearance."
+note = "HOLD until a safe parting plane, blade width, tube retention and catch arrangement are established. Do not catch or retrieve a loose cutoff near a rotating chuck. No unshown retention fixture is claimed."
+[setups.zero.x]
+dial_setting = "unknown"
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "unknown"
+tool = "parting-blade"
+check_jog_mm = "unknown"
+[setups.zero.z]
+dial_setting = "unknown"
+face = "P1 faced mouth"
+edge_mm = 0.0
+from = "+z"
+method = "Locate the selected raw blank cutoff behind final body length, future grip and final parting allowance. Account for the ACTUAL blade edge and width; blank cutoff station is unknown."
+tool = "parting-blade"
+paper_mm = "unknown"
+check_jog_mm = "unknown"
+retouch_after = []
+[[setups.ops]]
+op = 10
+do = "groove"
+feature = "tube-blank-tail"
+tool = "parting-blade"
+holder = "parting-holder"
+z_from = "unknown"
+z_to = "unknown"
+to_dia = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "radially_inward"
+note = "Begin the blank parting cut but STOP while enough sound section remains to retain the exposed blank. Source pauses halfway through to reach its rear edge; exact safe remaining web and cut depth are not specified."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=242s"
+[[setups.ops]]
+op = 20
+do = "deburr"
+feature = "tube-blank-tail"
+tool = "hand-file"
+note = "Editorial stopped-machine procedure: stop the spindle completely, isolate accidental restart, and remove the accessible rear seating burr with a sound handled file without levering the partly cut blank. Source shows filing with rotating stock; that unsafe demonstration is NOT an instruction to repeat. Do not break the future mouth mating annulus."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=254s"
+[[setups.ops]]
+op = 30
+do = "part_off"
+feature = "tube-blank-tail"
+outputs = { tube_blank = { carries = "body-thread", pose = "unknown", cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=242s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=488s"] }, bar_remnant = { carries = "cap-thread", pose = "unknown", cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=261s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=274s"] } }
+tool = "parting-blade"
+holder = "parting-holder"
+to_z = "unknown"
+to_dia = 0.0
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "radially_inward"
+note = "Clear all hand tools, recheck retention/clearance and finish separating the long tube blank. After the spindle stops, set the blank aside labelled for setup T2 and keep the chuck-side remnant for setup C1. The selected final base is not yet made: the long blank still needs a gripping tail and final part-off allowance."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=261s"
+
+# C1: make the cap from P3's chuck-side remnant, not an invented new stock bar.
+[[setups]]
+id = "C1"
+machine = "video-lathe"
+frame = "cap-stub-out"
+stock_in = "stock_out.bar_remnant"
+coolant = "cutting-oil"
+deburr_mm = "unknown"
+note = "Use the retained P3 remnant still in the chuck. Keep the long tube blank aside. Cap head must be at least the tube's preliminary OD before later joint finishing; 0.500-inch male stub is separate from the adapted 0.500-inch HEAD."
+[setups.stock_state]
+od_mm = "unknown"
+north_end_z = "unknown"
+south_end_z = "unknown"
+[setups.hold]
+fixture = "four-jaw"
+support = "none"
+grip_on = "sound P3 chuck-side remnant behind cap head and parting allowance"
+grip_mm = "unknown"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "unknown"
+stickout_mm = "unknown"
+clamp = "Retain or safely re-establish the remnant grip. Verify enough stock remains for a 12.7-mm male stub, 12.7-mm head, actual kerf, facing allowance and sound jaw contact."
+note = "HOLD while cap blank diameter, shoulder position, die fit, tool centre height or jaw/holder clearance is unknown. Set the turning tool square with clearance on both shoulder and OD; a broad tool edge is not automatically a qualified form tool. Stop spindle and prevent powered rotation for die cutting."
+[setups.zero.x]
+dial_setting = "unknown"
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "trial_cut_measure"
+tool = "turning-tool"
+gauge = "caliper"
+check_jog_mm = "unknown"
+[setups.zero.z]
+dial_setting = "unknown"
+face = "lightly faced cap male tip"
+edge_mm = 0.0
+from = "+z"
+method = "Take a light face so the tool is exactly on the end. Preload/zero the carriage indicator, count 0.500 inch of travel, then reposition/preload/zero it at the shoulder limit. Verify indicator direction and travel; do not mistake five dial turns for a universal indicator range."
+tool = "turning-tool"
+gauge = "indicator"
+paper_mm = "unknown"
+check_jog_mm = "unknown"
+retouch_after = [10]
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "cap-thread"
+faces = ["#247/ADVANCED_FACE[12]/"]
+tool = "turning-tool"
+holder = "turning-holder"
+to_z = 0.0
+to_dia = 0.0
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "radially_inward"
+note = "Face the exposed remnant end to establish the male tip datum. Source does not remove the whole existing outer shoulder because that OD will be turned away."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=274s"
+[[setups.ops]]
+op = 20
+do = "rough_turn"
+feature = "cap-head"
+tool = "turning-tool"
+holder = "turning-holder"
+to_dia = "unknown"
+z_from = 0.0
+z_to = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "toward_chuck"
+note = "Clean up the cap blank to roughly the tube's 0.700-inch preliminary diameter, or slightly larger, NEVER smaller. Measure the actual tube and cap blank rather than assigning an invented oversize. The final 11/16-inch OD comes only after assembly."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=303s"
+[[setups.ops]]
+op = 30
+do = "turn"
+feature = "cap-thread"
+tool = "turning-tool"
+holder = "turning-holder"
+to_dia = "unknown"
+z_from = 0.0
+z_to = -12.7
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "toward_chuck"
+note = "Turn the male stub for the source nominal 0.500-inch axial length, stopping at the indicated shoulder. Source describes a few thou below 1/2-inch thread major diameter for easier die cutting; exact blank diameter is deliberately unknown until the actual die and fit are approved. The STEP major envelope is NOT a 12.7-mm turning target."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=328s"
+[[setups.ops]]
+op = 40
+do = "face"
+feature = "cap-head-length"
+faces = ["#202/ADVANCED_FACE[10]/"]
+tool = "turning-tool"
+holder = "turning-holder"
+to_z = -12.7
+to_dia = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "radially_inward"
+note = "Finish the cap's mating shoulder square and smooth; this annulus makes the hidden seam. Preserve the annulus edge. Source uses a carefully squared broad edge on this short shoulder; actual tool squareness and root-fillet size remain unverified."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=365s"
+[[setups.ops]]
+op = 50
+do = "form"
+feature = "cap-thread"
+tool = "chamfer-tool"
+holder = "turning-holder"
+z_from = "unknown"
+z_to = "unknown"
+to_dia = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "unknown"
+note = "Chamfer the male tip to help start the die. Chamfer size and tool angle are unrecorded and the sharp-envelope STEP does not model this cut; establish a suitable small lead without inventing a dimension or touching the mating shoulder."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=400s"
+[[setups.ops]]
+op = 60
+do = "die_thread"
+feature = "cap-thread"
+tool = "cap-die/1/2-20"
+holder = "die-holder"
+direction = "unknown"
+note = "With spindle unpowered and accidental start prevented, align the tailstock die holder and turn the chuck BY HAND to cut the right-hand 1/2-20 thread. Use cutting oil and clear chips as needed. Approve the die's start/finish orientation and actual usable thread length; thread class, die adjustment and lead remain unknown. No powered threading cycle is implied."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=420s"
+[[setups.ops]]
+op = 70
+do = "form"
+feature = "cap-thread"
+tool = "chamfer-tool"
+holder = "turning-holder"
+z_from = "unknown"
+z_to = "unknown"
+to_dia = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "unknown"
+note = "Bevel the thread end again after die cutting so the cap starts easily. Source leaves a root shoulder to be cleared by the tube-mouth chamfer later; do not silently replace that method with an undercut. Bevel size remains unknown and unmodeled."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=449s"
+[[setups.ops]]
+op = 80
+do = "part_off"
+feature = "cap-blank-head"
+keep = "cap-thread"
+tool = "parting-blade"
+holder = "parting-holder"
+to_z = "unknown"
+to_dia = 0.0
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "radially_inward"
+note = "Part off the cap with enough head material for the selected final 0.500-inch head and later facing. Actual blade width and facing allowance are unknown; the finished head-face coordinate Z-25.4 is NOT automatically the blade-center position. Stop before retrieving the cap and retain it for A1. This route carries the cap only from this cut; remaining chuck-side material is not an additional retained example component."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=467s"
+
+# T2: retrieve the P3 tube blank and preserve its original faced/centred mouth.
+[[setups]]
+id = "T2"
+machine = "video-lathe"
+frame = "mouth-out"
+stock_in = "stock_out.tube_blank"
+coolant = "cutting-oil"
+deburr_mm = "unknown"
+note = "Rechuck the long P3 tube blank with its original P1 mouth exposed. Source shows jaw protection strips; their material/thickness are unmeasured. Do not treat the cap remnant or a fresh stock purchase as this tube blank."
+[setups.stock_state]
+od_mm = "unknown"
+north_end_z = "unknown"
+south_end_z = 0.0
+[setups.hold]
+fixture = "four-jaw"
+support = "none"
+jaw_protection = "jaw-protectors"
+grip_on = "excess tube-blank tail beyond the selected final closed base"
+grip_mm = "unknown"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "unknown"
+stickout_mm = "unknown"
+clamp = "Protect the turned OD, seat and grip the extra tail securely. Set the exposed mouth on the spindle axis without crushing the future hollow section. Remove the key and verify tool/jaw clearance."
+note = "HOLD: measure usable drill flute/reach, drill point, actual blank length, intended hole depth, tap lead and bottom clearance before drilling. The adapted nominal three-inch cavity does not prove a drill reaches safely. Stop spindle before every tailstock sliding/chip-clearance movement and before hand tapping."
+[setups.zero.x]
+dial_setting = "unknown"
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "unknown"
+tool = "pilot-drill"
+check_jog_mm = "unknown"
+[setups.zero.z]
+dial_setting = "unknown"
+face = "original P1 tube mouth"
+edge_mm = 0.0
+from = "+z"
+method = "Touch each stationary tailstock tool to the actual mouth and establish its quill depth reference. Mark the approved depth on each drill/tap as shown; a pen line is not a precision depth stop. Allow for drill point and tap lead explicitly."
+tool = "pilot-drill"
+paper_mm = "unknown"
+check_jog_mm = "unknown"
+retouch_after = [10, 20]
+[[setups.zero.tool_touches]]
+tool = "chamfer-tool"
+before_ops = [50]
+x_face = "body-od"
+x_method = "AUTHOR'S CHOICE release safeguard: with spindle stopped, measure the actual turned OD using the source caliper and establish this chamfer bit's radial contact/reference on that standing outer surface. Actual bit geometry, contact compensation and reference remain HOLD; do not reuse a drill's centreline reference as a qualified turning-tool setting."
+gauge = "caliper"
+x_paper_mm = "unknown"
+z_face = "body-length"
+edge_mm = 0.0
+paper_mm = "unknown"
+z_offset_mm = "unknown"
+method = "With spindle stopped, establish this chamfer bit's axial contact at the actual mouth annulus, not the body base. Recheck handwheel direction, tool centre height, retention and clearance before chamfering. The nominal mouth is Z0; actual pickup compensation is unresolved."
+[[setups.ops]]
+op = 10
+do = "drill"
+feature = "body-thread"
+prerequisites = { spot = "P1:20" }
+tool = "pilot-drill"
+holder = "drill-chuck"
+depth_mm = "unknown"
+rpm = "unknown"
+feed_mm_min = "unknown"
+approach_mm = "unknown"
+note = "Use the source 1/4-inch pilot drill in the existing centre start. Mark the approved blind depth, drill in pecks and clear chips. To clear a deep hole, stop the spindle, unlock and slide the WHOLE tailstock out without changing quill extension; clear chips, reseat and lock it, then restart. Retain the depth reference while never sliding a drill into spinning work."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=488s"
+[[setups.ops]]
+op = 20
+do = "drill"
+feature = "body-thread"
+tool = "tap-drill"
+holder = "drill-chuck"
+depth_mm = "unknown"
+rpm = "unknown"
+feed_mm_min = "unknown"
+approach_mm = "unknown"
+note = "Open the pilot with the source 15/32-inch tap drill for its stated 1/2-20 thread. Select the correct safe speed BEFORE engagement; the video's correction from an initially fast speed is not a required mistake to reproduce. Use pecks, oil and stopped-machine chip clearing. Adopted cavity depth is nominally 76.2 mm from mouth; actual quill penetration including point is unknown and must leave the selected closed base intact."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=531s"
+[[setups.ops]]
+op = 30
+do = "hand_tap"
+feature = "body-thread"
+tool = "body-tap"
+holder = "tap-wrench"
+depth_mm = "unknown"
+rpm = "unknown"
+feed_mm_min = "unknown"
+approach_mm = "unknown"
+note = "Spindle unpowered: mark the tap for enough FULL threads to exceed the cap's actual engagement, allowing its lead and bottom clearance. Support the wrench with the tailstock follower shown; turn chuck/wrench by hand, use oil, break/clear chips and never force the tap against the blind floor. The source supplies no exact tap penetration or thread class."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=568s"
+[[setups.ops]]
+op = 40
+do = "fit"
+feature = "body-thread"
+note = "With spindle stopped and chips removed, test the actual cap gently. Source initially finds it cannot reach the shoulder because the male root/remaining shoulder interferes; this is a check, not permission to force the thread."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=589s"
+[[setups.ops]]
+op = 50
+do = "form"
+feature = "body-thread"
+tool = "chamfer-tool"
+holder = "turning-holder"
+z_from = "unknown"
+z_to = "unknown"
+to_dia = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "unknown"
+note = "Use the dedicated chamfer tool INSIDE the tube mouth to clear the actual male root/shoulder. The video mentions counterboring, a large drill or male undercut as alternatives; none is silently substituted. Chamfer size is unknown/unmodeled; preserve enough flat mating annulus for complete shoulder seating."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=597s"
+
+# A1 joins the real retained cap and body with their removable right-hand thread.
+[[setups]]
+id = "A1"
+machine = "video-lathe"
+frame = "mouth-out"
+stock_in = ["C1", "T2"]
+coolant = "cutting-oil"
+deburr_mm = "unknown"
+note = "Screw the finished cap into the tapped tube until the shoulder seats on the mouth annulus, then face the cap head while the body stays chucked. This is a removable threaded assembly, NOT glue, press fit or a fused one-piece solid."
+[setups.joint]
+kind = "threaded"
+socket = "body-thread"
+spigot = "cap-thread"
+engagement_mm = "unknown"
+seat = "unknown"
+process = "With spindle stopped and accidental start prevented, hand-screw the real cap onto its matching body until the shoulder seats on the mouth annulus without bottoming on thread tip, root or tap runout. Establish actual useful thread engagement and safe retention before facing. No adhesive, press fit or permanent joining is used; nominal cylinder contact is not a physical fit or load certificate."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=616s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=628s", "geometry-provenance.md"]
+[setups.stock_state]
+od_mm = "unknown"
+north_end_z = "unknown"
+south_end_z = "unknown"
+[setups.hold]
+fixture = "four-jaw"
+support = "none"
+jaw_protection = "jaw-protectors"
+grip_on = "same sound excess tube tail as setup T2; cap held only by the source threaded seat"
+grip_mm = "unknown"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "unknown"
+stickout_mm = "unknown"
+clamp = "Retain body grip. With spindle stopped, screw the cap fully home by hand on clean threads and confirm shoulder-to-mouth seating before the facing tool approaches."
+note = "HOLD until actual thread engagement, seating, cut direction and retention under tool load are established. Source explains right-hand thread tightens under its forward counterclockwise-view cutting, but crossing the axis reverses torque and unscrews the cap. Do NOT reproduce that mistake: never cross the spindle centre; stop if the cap moves. No extra unshown antirotation fixture is claimed, and thread safety remains unresolved."
+[setups.zero.x]
+dial_setting = "unknown"
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "unknown"
+tool = "turning-tool"
+check_jog_mm = "unknown"
+[setups.zero.z]
+dial_setting = "unknown"
+face = "seated cap outer face, referred to body mouth datum"
+edge_mm = "unknown"
+from = "+z"
+method = "Touch the actual cap outer face and establish remaining head stock from its seated shoulder; selected final head length is 12.7 mm. Do not assume the raw part-off face is already at Z12.7."
+tool = "turning-tool"
+paper_mm = "unknown"
+check_jog_mm = "unknown"
+retouch_after = []
+[[setups.zero.tool_touches]]
+tool = "chamfer-tool"
+before_ops = [30]
+x_face = "cap-head"
+x_method = "AUTHOR'S CHOICE release safeguard: with spindle stopped and cap securely seated, measure its actual head OD using the source caliper and establish this chamfer bit's radial contact/reference. Hold until bit geometry, contact compensation and actual setting are established; do not inherit a different tool's setting."
+gauge = "caliper"
+x_paper_mm = "unknown"
+z_face = "cap-head-length"
+edge_mm = 12.7
+paper_mm = "unknown"
+z_offset_mm = "unknown"
+method = "After op 20, touch the standing outside head face with spindle stopped and establish this chamfer bit's axial reference. The preceding facing operation targets nominal Z12.7; actual pickup compensation remains unknown. Recheck cap retention and clearance before cutting."
+[[setups.ops]]
+op = 10
+do = "fit"
+feature = "body-thread"
+note = "Screw on the cap and prove the shoulder seats continuously on the tube mouth without bottoming on its thread tip, root or tap runout. Establish safe useful thread engagement; nominal envelope contact is not a fit certificate."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=616s"
+[[setups.ops]]
+op = 20
+do = "face"
+feature = "cap-head-length"
+faces = ["#193/ADVANCED_FACE[9]/"]
+tool = "turning-tool"
+holder = "turning-holder"
+to_z = 12.7
+to_dia = 0.0
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "radially_inward"
+note = "Face the seated cap to the adapted nominal 12.7-mm head length, stopping exactly at the spindle axis and NEVER feeding across it. Keep the correct cutting direction so tool load tends to tighten the right-hand thread. The source's accidental unscrewing and corrective reface are a cautionary lesson, not mandatory operations. If any movement occurs, stop and re-establish the safe hold before doing anything else."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=625s"
+[[setups.ops]]
+op = 30
+do = "form"
+feature = "cap-head-length"
+tool = "chamfer-tool"
+holder = "turning-holder"
+z_from = "unknown"
+z_to = "unknown"
+to_dia = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "unknown"
+note = "Set the chamfer bit with the spindle stopped, check retention and clearance, then remove only the exposed outer cap-face sharp edge as demonstrated. Stop before any adjustment. Do not break the shoulder/mouth seam annuli. Edge-break size/form is unknown and unmodeled; the feature identifies its owning head face, not an invented chamfer."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=649s"
+
+# A2: no tail centre in this final operation; bearing is alignment only, withdrawn.
+[[setups]]
+id = "A2"
+machine = "video-lathe"
+frame = "mouth-out"
+stock_in = "A1"
+coolant = "cutting-oil"
+deburr_mm = "unknown"
+note = "Extend the complete screwed assembly so all selected final body/head length and the final parting allowance clear the jaws. Source final turn is UNSUPPORTED after alignment; do not invent a centre, steady rest or bearing support during cutting."
+[setups.stock_state]
+od_mm = "unknown"
+north_end_z = "unknown"
+south_end_z = 12.7
+[setups.hold]
+fixture = "four-jaw"
+support = "none"
+jaw_protection = "jaw-protectors"
+grip_on = "excess solid tail beyond the selected closed body base and final parting plane"
+grip_mm = "unknown"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "unknown"
+stickout_mm = "unknown"
+clamp = "Grip the protected excess tail, indicate the base at the four-jaw chuck, then use the source rolling-bearing aligner at the free end only after approving a safe alignment procedure. Withdraw the bearing and all indicator equipment completely before cutting."
+note = "HOLD until grip, stickout, runout, bending/deflection, wall thickness, thread seating, actual cut load and chuck/tool clearance are approved for this unsupported assembly. Source bearing alignment brings roughly 0.005-inch TIR, not a finished tolerance or certified safe limit. Aligning bearing is not continuous support and is not left in contact for the turn."
+[setups.zero.x]
+dial_setting = "unknown"
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "trial_cut_measure"
+tool = "turning-tool"
+gauge = "caliper"
+check_jog_mm = "unknown"
+[setups.zero.z]
+dial_setting = "unknown"
+face = "seated cap outer face referred to the body mouth"
+edge_mm = 12.7
+from = "+z"
+method = "Re-establish actual end position after extending/reindicating. Locate the body mouth and selected base consistently; nominal Z12.7 is the selected finished cap face, not proof of actual seating or stock projection."
+tool = "turning-tool"
+paper_mm = "unknown"
+check_jog_mm = "unknown"
+retouch_after = []
+[[setups.ops]]
+op = 10
+do = "finish_turn"
+feature = "body-od"
+faces = ["#17/ADVANCED_FACE[1]/", "#160/ADVANCED_FACE[8]/"]
+tool = "turning-tool"
+holder = "turning-holder"
+to_dia = 17.4625
+z_from = 12.7
+z_to = -88.9
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "toward_chuck"
+note = "With cap seated and bearing WITHDRAWN, turn across the cap and tube as one continuous cylinder to selected catalog nominal OD17.4625 mm. Repeat full light passes until the seam disappears and the approved size is reached; source describes 0.002-0.003-inch passes and five or six OR MORE repetitions, not one magical pass. Do not blindly copy that cut depth to an unmeasured unsupported setup. Establish the required run beyond the final base for safe parting without nearing the jaws. If the seam persists, stop and inspect seating; the source suggests refacing the mouth, not endless diameter removal."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=716s"
+[[setups.ops]]
+op = 20
+do = "inspect"
+feature = ["body-od", "cap-head"]
+checks = { body-od = { dia = "caliper" }, cap-head = { dia = "caliper" } }
+inspection_methods = { body-od = { dia = "Stop the spindle, measure tube OD at several axial stations and orientations and record readings. Compare only to approved size bands once supplied; the selected 11/16-inch nominal is not a tolerance." }, cap-head = { dia = "Measure the cap OD and compare directly with the body across the seam. Record both; do not claim a flush seam is dimensional, thread-class or load acceptance." } }
+note = "Release residual thread tightening only with spindle stopped. Source notes first unscrewing may be tight after cutting pressure; do not use the lathe under power to loosen it."
+
+# A3: final parting of the closed body from its gripping tail.
+[[setups]]
+id = "A3"
+machine = "video-lathe"
+frame = "mouth-out"
+stock_in = "A2"
+coolant = "cutting-oil"
+deburr_mm = "unknown"
+note = "Part the completed tube from its tail while preserving the selected closed base. No unshown reverse-and-face phase or old-article aluminum-can chucking phase is inserted."
+[setups.stock_state]
+od_mm = "unknown"
+north_end_z = "unknown"
+south_end_z = 12.7
+[setups.hold]
+fixture = "four-jaw"
+support = "none"
+jaw_protection = "jaw-protectors"
+grip_on = "same sound excess tail as A2"
+grip_mm = "unknown"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "unknown"
+stickout_mm = "unknown"
+clamp = "Retain the tail grip, set the parting blade square and on centre with minimum projection, and hand-turn the chuck to check all clearances."
+note = "HOLD until actual blade width/edge reference, parting position relative to the blind floor, cap seating and safe separated-part retention are established. Do not catch the tube beside a running chuck. The adapted base thickness is nominally 12.7 mm; neither raw stock nor actual bore tip position has been measured."
+[setups.zero.x]
+dial_setting = "unknown"
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "unknown"
+tool = "parting-blade"
+check_jog_mm = "unknown"
+[setups.zero.z]
+dial_setting = "unknown"
+face = "selected final body base"
+edge_mm = -88.9
+from = "+z"
+method = "Locate the final base from the established actual mouth datum and account for the actual blade width/cutting corner; -88.9 mm names the kept face, not the blade centre. Verify blind-floor clearance before starting."
+tool = "parting-blade"
+paper_mm = "unknown"
+check_jog_mm = "unknown"
+retouch_after = []
+[[setups.ops]]
+op = 10
+do = "part_off"
+feature = "body-length"
+faces = ["#70/ADVANCED_FACE[3]/"]
+tool = "parting-blade"
+holder = "parting-holder"
+to_z = -88.9
+to_dia = 0.0
+rpm = "unknown"
+feed_mm_rev = "unknown"
+doc_mm = "unknown"
+approach_mm = "unknown"
+direction = "radially_inward"
+note = "Part off at the approved base station, retaining the complete closed tube toward the exposed end. Stop the spindle before retrieving it. Source shows final parting only; parted-face quality and any remaining pip/burr must be inspected rather than asserted acceptable."
+note_cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=790s"
+
+[[setups]]
+id = "F1"
+machine = "video-bench"
+stock_in = "A3"
+note = "Final opening/closing and recorded dimensional checks. Editorial inspection additions use only the source caliper and the actual mating cap/body; no invisible thread gauge, micrometer, pressure test or chemical finish is invented."
+[setups.hold]
+note = "Hand-held, away from stopped machinery. Remove loose chips without forcing them into threads; do not use this leaded-steel example for food contact. No performance or pressure rating is established."
+[[setups.ops]]
+op = 10
+do = "inspect"
+feature = ["body-length", "cap-head-length", "cap-thread", "body-thread"]
+checks = { body-length = { length = "caliper" }, cap-head-length = { length = "caliper" }, cap-thread = { length = "caliper", thread = "unknown" }, body-thread = { dia = "unknown", depth = "caliper", thread = "unknown" } }
+missing_requirements = { thread_class = "unknown", seating_load = "unknown", seam_limit = "unknown" }
+inspection_methods = { body-length = { length = "With the cap removed, measure body base-to-mouth length and record it. Adapted nominal is 88.9 mm; no acceptance band is supplied." }, cap-head-length = { length = "Measure from the actual shoulder seating annulus to the outer head face; record it separately from male stub length. Adapted head nominal is 12.7 mm." }, cap-thread = { length = "Measure male tip-to-shoulder axial length; source nominal is 12.7 mm. Record actual usable full-thread length separately; lead and runout cannot be assumed engaged.", thread = "Try the actual cap into its matching body by hand, without forcing. Record smooth start and full shoulder seating. This functional pairing is NOT verification of an unspecified thread class or flank fit; suitable gauging remains undecided." }, body-thread = { dia = "Record the drilled cavity's actual size only with an approved suitable method; the video supplies no dedicated bore gauge and the nominal drill is not a finished bore measurement.", depth = "Use the source caliper's depth function only if its actual reach and end geometry can read the cavity reliably. Record mouth-to-bottom depth and distinguish full-diameter depth from drill-point depth. Instrument capability and acceptance limits are unknown.", thread = "Confirm enough actual female full threads for the cap without tip/root bottoming. Shoulder must meet the mouth continuously; thread class and proper gauging remain unknown." } }
+note = "HOLD until approved dimensional/fit limits, capable calibrated instruments and actual readings exist. These inspection procedures are authored release safeguards, not claims that the source performed and recorded them."
+[[setups.ops]]
+op = 20
+do = "inspect"
+feature = "all-surfaces"
+missing_requirements = { smooth_open_close = "unknown", hidden_seam = "unknown", burrs_and_chips = "unknown" }
+inspection_methods = { smooth_open_close = "Open and close the real cap by hand repeatedly, checking for clean starts, smooth running and solid shoulder seating without looseness or forcing. Record the result; no numeric torque or engagement limit is supplied.", hidden_seam = "Close the cap fully and inspect the complete circumference under suitable light; record whether the seam remains visible. No quantified cosmetic gap/step limit is invented.", burrs_and_chips = "Inspect exposed ends, threads and interior for loose chips, sharp burrs, cracking or a parted-face pip. Stop for a controlled corrective procedure if needed; no extra unshown source finishing phase is claimed." }
+note = "Source demonstrates the hidden seam and unscrewing; that is not a certified first article or physical safety acceptance for this adapted design."
+note_cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=754s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=805s"]

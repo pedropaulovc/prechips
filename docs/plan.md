@@ -2151,9 +2151,14 @@ rest. Without `keep`, a held split retains every piece.
 
 Use `outputs` when both real pieces of a terminal `part_off` continue through
 the route, rather than treating one as scrap or authoring a second stock
-component. The `part_off` remains terminal for cutting in that setup under the
-[`order` rule](rules-operations.md#order); later manual inspection does not
-authorize another cut in the released holding.
+component. The schema requires this `part_off` to be the setup's final
+material-changing operation. Only `inspect`, `deburr`, `coating`, `release`
+or `scribe` may follow it. Later `fit`, `file_to_line`, `die_thread`,
+`hand_tap`, powered cuts or unknown actions are bad input, not merely an
+[`order` finding](rules-operations.md#order). Permitted deburring or coating
+does not claim new native stock geometry or remeasurement of the retained
+pieces; later inspection cannot authorize another cut in the released
+holding.
 
 `outputs` must contain exactly two globally unique, known, nonempty names with
 no leading or trailing whitespace. Only one named split is allowed in a setup.

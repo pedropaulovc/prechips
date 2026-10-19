@@ -19,7 +19,6 @@ from prechips.material_routes import (
 from prechips.model import Features, Plan, setup_lineage, stock_ancestry
 from prechips.rules.coordinates import frame_point
 
-
 STEP = """ISO-10303-21;
 HEADER;
 FILE_DESCRIPTION(('host topology fixture; not native geometry'),'2;1');
@@ -63,25 +62,29 @@ def route():
             {
                 "id": "P3",
                 "stock_in": "P1",
-                "ops": [{
-                    "op": 10,
-                    "do": "part_off",
-                    "feature": "body-thread",
-                    "outputs": {
-                        "tube_blank": output("body-thread"),
-                        "bar_remnant": output("cap-thread"),
-                    },
-                }],
+                "ops": [
+                    {
+                        "op": 10,
+                        "do": "part_off",
+                        "feature": "body-thread",
+                        "outputs": {
+                            "tube_blank": output("body-thread"),
+                            "bar_remnant": output("cap-thread"),
+                        },
+                    }
+                ],
             },
             {
                 "id": "C1",
                 "stock_in": "stock_out.bar_remnant",
-                "ops": [{
-                    "op": 10,
-                    "do": "part_off",
-                    "feature": "cap-thread",
-                    "keep": "cap-thread",
-                }],
+                "ops": [
+                    {
+                        "op": 10,
+                        "do": "part_off",
+                        "feature": "cap-thread",
+                        "keep": "cap-thread",
+                    }
+                ],
             },
             {
                 "id": "T2",
@@ -117,7 +120,8 @@ def test_same_bar_siblings_route_to_one_threaded_assembly_without_new_supplies()
         "finished_solids": ["cap"],
     }
     assert graph.descriptor("A1", OWNERS.finished_feature_owners)["finished_solids"] == [
-        "body", "cap",
+        "body",
+        "cap",
     ]
     assert producer_setup(plan, "stock_out.tube_blank") == "P3"
     assert setup_lineage(plan, "T2") == {"P1", "P3", "T2"}
@@ -151,7 +155,8 @@ def test_duplicate_or_unproven_material_is_rejected_statically(case, reason):
     elif case == "nested":
         plan["setups"][2]["ops"][0].pop("keep")
         plan["setups"][2]["ops"][0]["outputs"] = {
-            "next_cap": output("cap-thread"), "scrap": output("body-thread"),
+            "next_cap": output("cap-thread"),
+            "scrap": output("body-thread"),
         }
     elif case == "invalid":
         plan["setups"][2]["stock_in"] = "stock_out.missing"
@@ -188,9 +193,14 @@ def test_output_schema_requires_real_two_piece_cited_split(case, reason):
     elif case == "keep":
         op["keep"] = "body-thread"
     elif case == "later_keep":
-        plan["setups"][1]["ops"].append({
-            "op": 20, "do": "inspect", "feature": "body-thread", "keep": "body-thread",
-        })
+        plan["setups"][1]["ops"].append(
+            {
+                "op": 20,
+                "do": "inspect",
+                "feature": "body-thread",
+                "keep": "body-thread",
+            }
+        )
     elif case == "uncited":
         op["outputs"]["tube_blank"]["cite"] = "unknown"
     elif case == "blank_name":
@@ -300,7 +310,7 @@ def test_duplicate_solid_refs_rejected_by_manifest_schema():
 
 
 def test_loader_validates_solid_map_before_any_kernel(tmp_path):
-    features = '''part = "scratch"
+    features = """part = "scratch"
 step = "source.STEP"
 frames = "unknown"
 [solids]
@@ -309,7 +319,7 @@ body = "#20/MANIFOLD_SOLID_BREP[1]/body"
 kind = "face"
 requirements = []
 faces = ["#1/ADVANCED_FACE[1]/body"]
-'''
+"""
     path = bundle_files(tmp_path, PLAN, features)
     (tmp_path / "source.STEP").write_text(STEP, encoding="ascii")
     with pytest.raises(BadInput, match="bijectively"):
@@ -330,7 +340,9 @@ def test_retained_pose_translation_converts_plan_units_only_once():
     result = _retained_output_inputs(entries, "in")["piece"]["pose"]
     assert result["origin"] == pytest.approx([25.4, 50.8, 76.2])
     assert [result[key] for key in ("x", "y", "z")] == [
-        [0, 0, 1], [0, 1, 0], [-1, 0, 0],
+        [0, 0, 1],
+        [0, 1, 0],
+        [-1, 0, 0],
     ]
     assert pose == original
     pose["binding"] = "unknown"
@@ -375,7 +387,9 @@ def test_manual_thread_recipe_never_asks_for_a_powered_toolpost_or_spindle(actio
 )
 def test_loader_rejects_invalid_finished_material_selectors(tmp_path, case, reason):
     selected = "missing" if case == "not_exported" else "other"
-    plan = PLAN.replace('do = "inspect"', 'do = "part_off"') + f'''
+    plan = (
+        PLAN.replace('do = "inspect"', 'do = "part_off"')
+        + f'''
 [setups.ops.outputs.first]
 carries = "subject"
 pose = "unknown"
@@ -385,17 +399,22 @@ carries = "{selected}"
 pose = "unknown"
 cite = "Authored route; no physical registration measured"
 '''
+    )
     second_faces = '["#2/ADVANCED_FACE[2]/cap"]'
     if case == "same_solid":
         second_faces = '["#1/ADVANCED_FACE[1]/body"]'
     elif case == "mixed_selector":
         second_faces = '["#1/ADVANCED_FACE[1]/body", "#2/ADVANCED_FACE[2]/cap"]'
-    declarations = "" if case == "no_solid_map" else '''
+    declarations = (
+        ""
+        if case == "no_solid_map"
+        else """
 [solids]
 body = "#20/MANIFOLD_SOLID_BREP[1]/body"
 cap = "#21/MANIFOLD_SOLID_BREP[2]/cap"
-'''
-    features = f'''part = "scratch"
+"""
+    )
+    features = f"""part = "scratch"
 step = "source.STEP"
 frames = "unknown"
 {declarations}
@@ -407,7 +426,7 @@ faces = ["#1/ADVANCED_FACE[1]/body"]
 kind = "face"
 requirements = []
 faces = {second_faces}
-'''
+"""
     path = bundle_files(tmp_path, plan, features)
     (tmp_path / "source.STEP").write_text(STEP, encoding="ascii")
     with pytest.raises(BadInput, match=reason):
@@ -447,7 +466,9 @@ def test_registered_basis_applies_inverse_pose_to_model_point_readings(units, sc
     normalized_pose = _retained_output_inputs(outputs, units)["tube_blank"]["pose"]
     assert normalized_pose["origin"] == pytest.approx([10 * scale, 20 * scale, 30 * scale])
     assert [normalized_pose[key] for key in ("x", "y", "z")] == [
-        [0, 1, 0], [-1, 0, 0], [0, 0, 1],
+        [0, 1, 0],
+        [-1, 0, 0],
+        [0, 0, 1],
     ]
     metric_frame = {
         **registered,
@@ -468,30 +489,32 @@ def test_actual_native_projection_preserves_partition_and_manual_thread_contract
         "feature_solids": {"body-thread": "body", "cap-thread": "cap"},
         "as_is_faces": "unknown",
         "stock": {"reason": "physical source dimensions unknown"},
-        "setups": [{
-            "id": "P3",
-            "frame": "unknown",
-            "hold": {"kind": "unknown"},
-            "stock_in": "stock",
-            "material": {"roots": ["stock"], "partitions": [], "finished_solids": None},
-            "machine_kind": "lathe",
-            "locate_revolved": [],
-            "ops": [
-                {
-                    "subject": "P3:10",
-                    "do": "part_off",
-                    "outputs": {
-                        "tube_blank": output("body-thread"),
-                        "bar_remnant": output("cap-thread"),
+        "setups": [
+            {
+                "id": "P3",
+                "frame": "unknown",
+                "hold": {"kind": "unknown"},
+                "stock_in": "stock",
+                "material": {"roots": ["stock"], "partitions": [], "finished_solids": None},
+                "machine_kind": "lathe",
+                "locate_revolved": [],
+                "ops": [
+                    {
+                        "subject": "P3:10",
+                        "do": "part_off",
+                        "outputs": {
+                            "tube_blank": output("body-thread"),
+                            "bar_remnant": output("cap-thread"),
+                        },
                     },
-                },
-                {
-                    "subject": "P3:20",
-                    "do": "hand_tap",
-                    "manual_thread": {"reason": "helical thread removal unmodeled"},
-                },
-            ],
-        }],
+                    {
+                        "subject": "P3:20",
+                        "do": "hand_tap",
+                        "manual_thread": {"reason": "helical thread removal unmodeled"},
+                    },
+                ],
+            }
+        ],
     }
     projected = engine_job(job)
     assert projected["finished_solids"] == {
@@ -501,14 +524,88 @@ def test_actual_native_projection_preserves_partition_and_manual_thread_contract
     assert projected["feature_solids"] == {"body-thread": "body", "cap-thread": "cap"}
     setup = projected["setups"][0]
     assert setup["material"] == {
-        "roots": ["stock"], "partitions": [], "finished_solids": None,
+        "roots": ["stock"],
+        "partitions": [],
+        "finished_solids": None,
     }
     assert setup["ops"][0]["outputs"]["tube_blank"]["carries"] == "body-thread"
     assert setup["ops"][0]["outputs"]["bar_remnant"]["pose"] == "unknown"
     assert setup["ops"][1]["manual_thread"]["reason"] == "helical thread removal unmodeled"
     job["setups"][0]["ops"][0]["outputs"]["tube_blank"]["pose"] = {
-        "origin": [1, 2, 3], "x": [1, 0, 0], "y": [0, 1, 0], "z": [0, 0, 1],
+        "origin": [1, 2, 3],
+        "x": [1, 0, 0],
+        "y": [0, 1, 0],
+        "z": [0, 0, 1],
     }
     assert engine_job(job)["setups"][0]["ops"][0]["outputs"]["tube_blank"]["pose"]["origin"] == [
-        1, 2, 3,
+        1,
+        2,
+        3,
     ]
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        "face",
+        "drill",
+        "die_thread",
+        "hand_tap",
+        "file_to_line",
+        "fit",
+        "unknown",
+        "unregistered_cut",
+    ],
+)
+def test_named_outputs_cannot_snapshot_before_a_later_material_change(action):
+    plan = route()
+    plan["setups"][1]["ops"].append(
+        {
+            "op": 20,
+            "do": action,
+            "feature": "body-thread",
+        }
+    )
+    with pytest.raises(ValueError, match="final material-changing operation"):
+        Plan.model_validate(plan)
+
+
+@pytest.mark.parametrize("action", ["inspect", "deburr", "coating", "release", "scribe"])
+def test_named_outputs_allow_existing_nonstockgeometry_process_followups(action):
+    plan = route()
+    plan["setups"][1]["ops"].append(
+        {
+            "op": 20,
+            "do": action,
+            "feature": "body-thread",
+        }
+    )
+    validated = Plan.model_validate(plan).model_dump(exclude_unset=True)
+    assert validated["setups"][1]["ops"][-1]["do"] == action
+    assert MaterialGraph(validated, validate=True).roots("A1") == {"stock"}
+
+
+@pytest.mark.parametrize(
+    "setups",
+    [
+        [{}],
+        [{}, {}],
+        [{"id": "unknown"}],
+        [{"id": ""}],
+        [{"id": " "}],
+    ],
+)
+def test_missing_setup_identity_is_structured_input_failure_not_an_anonymous_root(setups):
+    plan = {"part": "identity-test", "features": "features.toml", "setups": setups}
+    with pytest.raises(ValueError, match="Setup ids must be known and non-empty"):
+        Plan.model_validate(plan)
+    with pytest.raises(ValueError, match="Setup ids must be known and non-empty"):
+        MaterialGraph(plan, validate=True)
+    with pytest.raises(ValueError, match="Setup ids must be known and non-empty"):
+        setup_lineage(plan, "unknown")
+
+
+def test_missing_setup_id_reaches_loaders_bad_input_contract(tmp_path):
+    path = bundle_files(tmp_path, PLAN.replace('id = "S1"\n', ""))
+    with pytest.raises(BadInput, match="Setup ids must be known and non-empty"):
+        load_bundle(path)

@@ -48,9 +48,7 @@ def prepared_hole(tmp_path):
                     "frame": "model",
                     "stock_in": "stock",
                     "stock_state": {"top_z": 10.0},
-                    "ops": [
-                        {"op": 20, "do": "spot", "feature": "tube_centre", "tool": "centre"}
-                    ],
+                    "ops": [{"op": 20, "do": "spot", "feature": "tube_centre", "tool": "centre"}],
                 },
                 {
                     "id": "T2",
@@ -335,9 +333,7 @@ def test_known_wrong_partition_cannot_credit_a_spot_or_centre_maker(prepared_hol
 
 
 @pytest.mark.parametrize("owner,status", [("tube", "unknown"), ("knob", "error")])
-def test_unknown_output_pose_is_debt_without_hiding_a_wrong_branch(
-    prepared_hole, owner, status
-):
+def test_unknown_output_pose_is_debt_without_hiding_a_wrong_branch(prepared_hole, owner, status):
     split_before_receiver(prepared_hole, owner=owner, source_owned=True)
     prepared_hole.plan["setups"][0]["ops"][-1]["outputs"][owner]["pose"] = "unknown"
     assert hole_row(prepared_hole).status == status
@@ -476,9 +472,7 @@ def external_thread(tmp_path):
             },
         },
         inventory={
-            "tools": {
-                "die": {"kind": "die", "thread": "1/2-20 UNF", "thread_hand": "right"}
-            }
+            "tools": {"die": {"kind": "die", "thread": "1/2-20 UNF", "thread_hand": "right"}}
         },
         policy={},
         cutting_data={},
@@ -604,7 +598,9 @@ def test_uncertain_drill_survival_does_not_prove_a_wrong_target_tap_drill(prepar
     split_before_receiver(prepared_hole, source_owned=True)
     source["ops"][-1]["outputs"]["tube"]["carries"] = "tube_surface"
     prepared_hole.__dict__["finished_feature_owners"] = {
-        "tube_surface": "tube", "tube_centre": "tube", "other": "knob"
+        "tube_surface": "tube",
+        "tube_centre": "tube",
+        "other": "knob",
     }
     row = hole_row(prepared_hole)
     assert row.status == "unknown"
@@ -637,9 +633,7 @@ def test_external_blank_partition_and_registration_are_preserved(
         {"id": "DIE", "stock_in": f"stock_out.{selected}", "ops": [die]}
     )
     external_thread.features["features"]["other"] = {"kind": "boss"}
-    external_thread.__dict__["finished_feature_owners"] = {
-        "stud": "male", "other": "other"
-    }
+    external_thread.__dict__["finished_feature_owners"] = {"stud": "male", "other": "other"}
     assert external_row(external_thread).status == status
 
 
@@ -770,3 +764,174 @@ def test_known_wrong_tap_class_is_not_hidden_by_other_missing_proof(prepared_hol
     assert row.status == "error"
     assert "selected tap class differs" in row.sentence
     assert row.numbers["tap_tools"][0]["class_match"] is False
+
+
+def add_same_hole_enlarger(bundle):
+    setup = receiving_setup(bundle)
+    pilot = setup["ops"][0]
+    pilot["tool"] = "pilot"
+    bundle.inventory["tools"]["pilot"] = {"kind": "drill", "dia_mm": 5.0}
+    enlarger = {"op": 15, "do": "drill", "feature": "socket", "tool": "drill"}
+    setup["ops"].insert(1, enlarger)
+    return setup, pilot, enlarger
+
+
+def test_later_same_hole_drill_inherits_the_real_pilots_spot(prepared_hole):
+    setup, _, enlarger = add_same_hole_enlarger(prepared_hole)
+    row = hole_row(prepared_hole)
+    assert row.status == "pass"
+    assert row.numbers["chain"] == ["drill", "drill", "tap"]
+    assert row.numbers["selected_drill_mm"] == 10.7
+    assert "prerequisites" not in enlarger
+    assert [op["do"] for op in setup["ops"]] == ["drill", "drill", "tap"]
+    assert row.numbers["preparation_witnesses"][1] == {
+        "operation": "T2:15",
+        "spot": "P1:20",
+        "source_feature": "tube_centre",
+        "source_kind": "centre_hole",
+        "action": "spot",
+        "preparation": "pass",
+        "inherited_from": "T2:10",
+    }
+
+
+def test_multiple_enlargements_keep_the_original_witness_source(prepared_hole):
+    setup, _, _ = add_same_hole_enlarger(prepared_hole)
+    setup["ops"].insert(2, {"op": 17, "do": "drill", "feature": "socket", "tool": "drill"})
+    row = hole_row(prepared_hole)
+    assert row.status == "pass"
+    proofs = row.numbers["preparation_witnesses"]
+    assert [proof["spot"] for proof in proofs] == ["P1:20", "P1:20", "P1:20"]
+    assert proofs[-1]["operation"] == "T2:17"
+    assert proofs[-1]["inherited_from"] == "T2:15"
+
+
+@pytest.mark.parametrize("missing", ["spot identity", "target axis", "source tool"])
+def test_inherited_unknown_pilot_preparation_is_not_a_missing_spot_error(prepared_hole, missing):
+    _, pilot, _ = add_same_hole_enlarger(prepared_hole)
+    if missing == "spot identity":
+        pilot["prerequisites"]["spot"] = "unknown"
+    elif missing == "target axis":
+        prepared_hole.features["features"]["socket"]["axis"] = "unknown"
+    else:
+        prepared_hole.inventory["tools"]["centre"]["pilot_len_mm"] = "unknown"
+    row = hole_row(prepared_hole)
+    assert row.status == "unknown"
+    assert "no earlier spot" not in row.sentence
+    assert row.numbers["preparation_witnesses"][1]["inherited_from"] == "T2:10"
+
+
+@pytest.mark.parametrize(
+    "reference,status",
+    [("unknown", "unknown"), ("missing:20", "error"), ("T2:20", "error")],
+)
+def test_an_explicit_enlarger_witness_cannot_fall_back_to_the_pilot(
+    prepared_hole, reference, status
+):
+    _, _, enlarger = add_same_hole_enlarger(prepared_hole)
+    enlarger["prerequisites"] = {"spot": reference}
+    row = hole_row(prepared_hole)
+    assert row.status == status
+    proof = row.numbers["preparation_witnesses"][1]
+    assert proof["spot"] == reference
+    assert "inherited_from" not in proof
+
+
+def test_a_future_spot_at_the_pilot_is_not_repaired_by_later_inheritance(prepared_hole):
+    setup, pilot, _ = add_same_hole_enlarger(prepared_hole)
+    spot = prepared_hole.plan["setups"][0]["ops"].pop()
+    spot["op"] = 12
+    setup["stock_state"] = {"top_z": 10.0}
+    setup["ops"].insert(1, spot)
+    pilot["prerequisites"]["spot"] = "T2:12"
+    row = hole_row(prepared_hole)
+    assert row.status == "error"
+    assert "not earlier" in row.sentence
+    inherited = row.numbers["preparation_witnesses"][1]
+    assert inherited["operation"] == "T2:15"
+    assert inherited["inherited_from"] == "T2:10"
+    assert inherited["preparation"] == "pass"
+
+
+def move_enlarger_to_receiver(bundle):
+    pilot_setup, _, enlarger = add_same_hole_enlarger(bundle)
+    pilot_setup["ops"].remove(enlarger)
+    tap = pilot_setup["ops"].pop()
+    receiver = {"id": "T3", "stock_in": "T2", "ops": [enlarger, tap]}
+    bundle.plan["setups"].append(receiver)
+    return pilot_setup, receiver
+
+
+@pytest.mark.parametrize("routed,status", [(True, "pass"), (False, "unknown")])
+def test_an_enlarger_requires_a_known_route_from_the_actual_pilot(prepared_hole, routed, status):
+    _, receiver = move_enlarger_to_receiver(prepared_hole)
+    if not routed:
+        receiver.pop("stock_in")
+    row = hole_row(prepared_hole)
+    assert row.status == status
+    assert row.numbers["preparation_witnesses"][1]["inherited_from"] == "T2:10"
+    if status == "unknown":
+        assert "no earlier spot" not in row.sentence
+
+
+def test_a_pilot_on_unrelated_stock_cannot_prepare_the_enlarger(prepared_hole):
+    _, receiver = move_enlarger_to_receiver(prepared_hole)
+    prepared_hole.plan["stock"]["components"] = [{"id": "tube"}, {"id": "other"}]
+    prepared_hole.plan["setups"][0]["stock_in"] = "stock.tube"
+    receiver["stock_in"] = "stock.other"
+    row = hole_row(prepared_hole)
+    assert row.status == "error"
+    assert "T3:15 has no earlier spot" in row.sentence
+    assert len(row.numbers["preparation_witnesses"]) == 1
+
+
+@pytest.mark.parametrize(
+    "selected,pose_known,source_owned,status",
+    [
+        ("tube", True, True, "pass"),
+        ("tube", False, True, "unknown"),
+        ("tube", True, False, "unknown"),
+        ("knob", True, True, "error"),
+        ("knob", False, True, "error"),
+    ],
+)
+def test_pilot_inheritance_preserves_partition_pose_and_original_spot_ownership(
+    prepared_hole, selected, pose_known, source_owned, status
+):
+    pilot_setup, receiver = move_enlarger_to_receiver(prepared_hole)
+    outputs = {
+        "tube": retained_output("socket"),
+        "knob": retained_output("other"),
+    }
+    if not pose_known:
+        outputs[selected]["pose"] = "unknown"
+    pilot_setup["ops"].append({"op": 90, "do": "part_off", "feature": "other", "outputs": outputs})
+    receiver["stock_in"] = f"stock_out.{selected}"
+    prepared_hole.__dict__["finished_feature_owners"] = {
+        "socket": "tube",
+        "other": "knob",
+    }
+    if source_owned:
+        prepared_hole.finished_feature_owners["tube_centre"] = "tube"
+    row = hole_row(prepared_hole)
+    assert row.status == status
+    if status != "error":
+        inherited = row.numbers["preparation_witnesses"][1]
+        assert inherited["operation"] == "T3:15"
+        assert inherited["spot"] == "P1:20"
+        assert inherited["inherited_from"] == "T2:10"
+    if status == "unknown":
+        assert "no earlier spot" not in row.sentence
+
+
+@pytest.mark.parametrize("unusable", ["future", "different feature"])
+def test_only_an_actual_earlier_same_feature_pilot_can_supply_preparation(prepared_hole, unusable):
+    setup, pilot, enlarger = add_same_hole_enlarger(prepared_hole)
+    if unusable == "future":
+        setup["ops"].remove(enlarger)
+        setup["ops"].insert(0, enlarger)
+    else:
+        pilot["feature"] = "other"
+    row = hole_row(prepared_hole)
+    assert row.status == "error"
+    assert "T2:15 has no earlier spot" in row.sentence

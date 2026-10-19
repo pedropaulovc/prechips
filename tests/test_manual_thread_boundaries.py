@@ -24,24 +24,44 @@ def manual_bundle(tmp_path):
     return Bundle(
         features={
             "units": "mm",
-            "features": {"thread": {
-                "kind": "threaded_hole", "depth": [8.0, 8.0],
-                "thread": "1/4-20 UNC", "thread_hand": "right", "thread_class": "2B",
-            }},
+            "features": {
+                "thread": {
+                    "kind": "threaded_hole",
+                    "depth": [8.0, 8.0],
+                    "thread": "1/4-20 UNC",
+                    "thread_hand": "right",
+                    "thread_class": "2B",
+                }
+            },
         },
-        plan={"setups": [{
-            "id": "S", "machine": "station", "stock_in": "stock",
-            "stock_state": {"top_z": 0.0},
-            "ops": [{
-                "op": 10, "do": "hand_tap", "feature": "thread",
-                "tool": "tap", "depth_mm": 8.0,
-            }],
-        }]},
+        plan={
+            "setups": [
+                {
+                    "id": "S",
+                    "machine": "station",
+                    "stock_in": "stock",
+                    "stock_state": {"top_z": 0.0},
+                    "ops": [
+                        {
+                            "op": 10,
+                            "do": "hand_tap",
+                            "feature": "thread",
+                            "tool": "tap",
+                            "depth_mm": 8.0,
+                        }
+                    ],
+                }
+            ]
+        },
         inventory={
             "machines": {"station": {"kind": "mill", "verify": False}},
             "tools": {"tap": {"kind": "tap", "flute_len_mm": 12.0, "verify": False}},
         },
-        policy={}, cutting_data={}, paths={}, hashes={}, root=tmp_path,
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=tmp_path,
     )
 
 
@@ -102,7 +122,10 @@ def endpoint_report(bundle):
 
 def validate_endpoints(bundle, findings):
     return VALIDATOR["check_endpoints"](
-        bundle.plan, bundle.features, findings, VALIDATOR["Entries"](bundle.inventory),
+        bundle.plan,
+        bundle.features,
+        findings,
+        VALIDATOR["Entries"](bundle.inventory),
     )
 
 
@@ -110,20 +133,37 @@ def test_manual_tap_endpoint_is_relative_depth_not_a_dro_claim(manual_bundle):
     findings = endpoint_report(manual_bundle)
     finding = findings["blind_depth", "thread"]
     assert finding["status"] == "pass"
-    assert finding["numbers"]["endpoints"] == [{
-        "setup": "S", "op": 10, "feature": "thread",
-        "entry_z": 0.0, "entry_from": "S stock_state.top_z",
-        "depth_mm": 8.0, "depth_floor_mm": 8.0, "flute_len_mm": 12.0,
-        "tip_z": -8.0, "exit_face": "not_applicable", "depth_scale": "manual",
-    }]
+    assert finding["numbers"]["endpoints"] == [
+        {
+            "setup": "S",
+            "op": 10,
+            "feature": "thread",
+            "entry_z": 0.0,
+            "entry_from": "S stock_state.top_z",
+            "depth_mm": 8.0,
+            "depth_floor_mm": 8.0,
+            "flute_len_mm": 12.0,
+            "tip_z": -8.0,
+            "exit_face": "not_applicable",
+            "depth_scale": "manual",
+        }
+    ]
     assert validate_endpoints(manual_bundle, findings) == {("S", 10): 8.0}
 
 
-@pytest.mark.parametrize("field,value", [
-    ("depth_mm", 9.0), ("flute_len_mm", 13.0), ("depth_floor_mm", 7.0),
-    ("depth_scale", "quill"), ("tip_z", -9.0), ("dro_tip_z", -8.0),
-    ("dro_depth_mm", 8.0), ("dro_entry_z", 0.0),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("depth_mm", 9.0),
+        ("flute_len_mm", 13.0),
+        ("depth_floor_mm", 7.0),
+        ("depth_scale", "quill"),
+        ("tip_z", -9.0),
+        ("dro_tip_z", -8.0),
+        ("dro_depth_mm", 8.0),
+        ("dro_entry_z", 0.0),
+    ],
+)
 def test_manual_endpoint_oracle_rejects_corrupt_facts_or_dro_claims(manual_bundle, field, value):
     findings = endpoint_report(manual_bundle)
     validate_endpoints(manual_bundle, findings)

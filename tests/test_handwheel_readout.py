@@ -17,7 +17,6 @@ from prechips.rules.zero_recipe.rule import evaluate as zero_findings
 from prechips.rules.zero_recipe.tool_setting import blade_readings, z_readings
 from prechips.sheet import _Traveler
 
-
 _PROCEDURE = "Touch the faced shoulder, then record the actual scale reading."
 _CALIBRATION = "Compare one full revolution against an independent indicator."
 _BACKLASH = "Take up lost motion by approaching every target from the same direction."
@@ -79,8 +78,7 @@ def _map_cells(html):
         and node["parent"] is not None
         and node["parent"]["parent"] is not None
         and (
-            node["parent"]["parent"] is tables[0]
-            or node["parent"]["parent"]["parent"] is tables[0]
+            node["parent"]["parent"] is tables[0] or node["parent"]["parent"]["parent"] is tables[0]
         )
     ]
 
@@ -129,9 +127,7 @@ def test_digital_numeric_reading_converts_cad_mm_to_declared_inches():
     assert float(sheet.reading(25.4)) == pytest.approx(1.0)
 
 
-@pytest.mark.parametrize(
-    "expression", ["measured D", "measured D +20", "measured D/2 +10"]
-)
+@pytest.mark.parametrize("expression", ["measured D", "measured D +20", "measured D/2 +10"])
 def test_cross_unit_measured_diameter_expression_identifies_source_units_and_conversion(
     expression,
 ):
@@ -231,8 +227,7 @@ def test_manual_coordinate_and_zero_debt_never_requests_digital_resolution(kind)
     assert coordinates.dro_grid_measurements(bundle, setup) == []
     checklist = measurement_checklist([finding, *zero_findings(bundle)])
     assert not any(
-        entry["category"] == "machines" and "resolution" in entry["field"]
-        for entry in checklist
+        entry["category"] == "machines" and "resolution" in entry["field"] for entry in checklist
     )
 
 
@@ -318,9 +313,10 @@ def test_legacy_blade_touches_cannot_manufacture_digital_readings_for_manual_sca
     digital.plan["dro"]["kind"] = "digital"
     digital_setup = digital.plan["setups"][0]
     assert z_readings(digital, digital_setup)["10"] is not None
-    assert blade_readings(digital, digital_setup, readings=synthetic)["10"][
-        "reference_corner"
-    ] == "chuck_side"
+    assert (
+        blade_readings(digital, digital_setup, readings=synthetic)["10"]["reference_corner"]
+        == "chuck_side"
+    )
 
 
 def test_authored_physical_reading_is_preserved_separately_from_zero_model_edge():
@@ -350,9 +346,7 @@ def test_authored_physical_reading_is_preserved_separately_from_zero_model_edge(
         ({"z_from": 12.7, "z_to": 0.0}, ("0.500", "0.000")),
     ],
 )
-def test_lathe_map_cut_extents_are_op_ends_not_feature_or_kernel_stations(
-    kind, ends, expected
-):
+def test_lathe_map_cut_extents_are_op_ends_not_feature_or_kernel_stations(kind, ends, expected):
     bundle = _manual(kind=kind)
     # Keep the digital control in CAD inches so the same independent window oracle applies.
     if kind == "digital":
@@ -362,8 +356,7 @@ def test_lathe_map_cut_extents_are_op_ends_not_feature_or_kernel_stations(
         )
         bundle.inventory["machines"]["lathe"]["resolution_mm"] = 0.0254
         ends = {
-            key: value / 25.4 if isinstance(value, float) else value
-            for key, value in ends.items()
+            key: value / 25.4 if isinstance(value, float) else value for key, value in ends.items()
         }
     op = bundle.plan["setups"][0]["ops"][0]
     op.pop("z_from")
@@ -426,9 +419,7 @@ def test_omitted_kind_and_explicit_digital_have_identical_rule_and_sheet_outputs
     implicit_sheet, implicit_setup = _sheet(implicit)
     explicit_sheet, explicit_setup = _sheet(explicit)
     assert implicit_sheet.dro(implicit_setup, {}) == explicit_sheet.dro(explicit_setup, {})
-    assert implicit_sheet.feature_map(implicit_setup) == explicit_sheet.feature_map(
-        explicit_setup
-    )
+    assert implicit_sheet.feature_map(implicit_setup) == explicit_sheet.feature_map(explicit_setup)
     implicit_zero = lathe()
     explicit_zero = deepcopy(implicit_zero)
     explicit_zero.plan["dro"]["kind"] = "digital"

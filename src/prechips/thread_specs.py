@@ -9,6 +9,10 @@ from fractions import Fraction
 
 _INCH = re.compile(r"(#\d+|\d+(?:/\d+)?|\d*\.\d+)-(\d+)(UNC|UNF|UNEF|UNS)?")
 _METRIC = re.compile(r"M(\d+(?:\.\d+)?)[X×](\d+(?:\.\d+)?)")
+# ANSI/ASME B1.1 basic numbered diameters: D = 0.060 + 0.013*N inches.
+# Supported sizes are the standard UNC/UNF table entries, not every possible gauge.
+# https://www.engineeringtoolbox.com/unified-screw-threads-unc-unf-d_1809.html
+_NUMBERED_SIZES = frozenset({0, 1, 2, 3, 4, 5, 6, 8, 10, 12})
 
 
 def _identity(value):
@@ -27,11 +31,18 @@ def _identity(value):
         return None
     size, tpi, series = inch.groups()
     try:
-        diameter = ("number", int(size[1:])) if size.startswith("#") else Fraction(size)
+        if size.startswith("#"):
+            digits = size[1:]
+            gauge = int(digits)
+            if digits != str(gauge) or gauge not in _NUMBERED_SIZES:
+                return None
+            diameter = Fraction(60 + 13 * gauge, 1000)
+        else:
+            diameter = Fraction(size)
         pitch = int(tpi)
     except (ValueError, ZeroDivisionError):
         return None
-    if (isinstance(diameter, Fraction) and diameter <= 0) or pitch <= 0:
+    if diameter <= 0 or pitch <= 0:
         return None
     return "inch", diameter, pitch, series
 

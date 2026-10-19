@@ -1,5 +1,7 @@
 """Note-only bench handling waives holding geometry, never process identity."""
 
+from dataclasses import replace
+
 import pytest
 from test_geometry_rules import rules_bundle
 
@@ -34,7 +36,7 @@ def handling_bundle(tmp_path, actions=("inspect", "coating"), kind="bench"):
 @pytest.mark.parametrize("actions", [("inspect",), ("coating",), ("inspect", "coating")])
 def test_note_only_handling_is_na_even_without_geometry(tmp_path, screen, kind, actions):
     data = handling_bundle(tmp_path, actions, kind)
-    data.kernel = dict(NO_KERNEL)
+    data = replace(data, kernel=dict(NO_KERNEL))
     (row,) = screen.evaluate(data)
     assert row.status == "not_applicable"
     assert row.numbers["machine_kind"] == kind
@@ -46,7 +48,7 @@ def test_note_only_handling_is_na_even_without_geometry(tmp_path, screen, kind, 
 @pytest.mark.parametrize("kind", ["unknown", "mill"])
 def test_unestablished_bench_machine_keeps_holding_debt(tmp_path, screen, kind):
     data = handling_bundle(tmp_path, kind=kind)
-    data.kernel = dict(NO_KERNEL)
+    data = replace(data, kernel=dict(NO_KERNEL))
     assert screen.evaluate(data)[0].status == "unknown"
 
 
@@ -66,7 +68,7 @@ def test_unestablished_bench_machine_keeps_holding_debt(tmp_path, screen, kind):
 )
 def test_mechanical_or_unestablished_actions_keep_holding_debt(tmp_path, screen, actions):
     data = handling_bundle(tmp_path, actions)
-    data.kernel = dict(NO_KERNEL)
+    data = replace(data, kernel=dict(NO_KERNEL))
     assert screen.evaluate(data)[0].status == "unknown"
 
 
@@ -75,7 +77,7 @@ def test_mechanical_or_unestablished_actions_keep_holding_debt(tmp_path, screen,
 def test_declared_unknown_holding_fact_is_not_absence(tmp_path, screen, field):
     data = handling_bundle(tmp_path)
     data.plan["setups"][0]["hold"][field] = "unknown"
-    data.kernel = dict(NO_KERNEL)
+    data = replace(data, kernel=dict(NO_KERNEL))
     assert screen.evaluate(data)[0].status == "unknown"
 
 
@@ -83,7 +85,7 @@ def test_declared_unknown_holding_fact_is_not_absence(tmp_path, screen, field):
 def test_unknown_hold_as_a_whole_is_not_unfixtured_handling(tmp_path, screen):
     data = handling_bundle(tmp_path)
     data.plan["setups"][0]["hold"] = "unknown"
-    data.kernel = dict(NO_KERNEL)
+    data = replace(data, kernel=dict(NO_KERNEL))
     assert screen.evaluate(data)[0].status == "unknown"
 
 
@@ -123,7 +125,8 @@ def test_unknown_coating_product_stays_debt_and_prints_its_actual_topic(tmp_path
     stops, cautions, topics = traveler.status_lines([row], setup)
     printed = traveler.status_boxes(stops, cautions, topics).lower()
     assert "coating product identity" in printed
-    assert "tool/holder fit" not in printed
+    assert "holder" not in printed
+    assert "tool" not in printed
     assert "not verified" in printed
 
 
@@ -131,8 +134,10 @@ def test_unknown_coating_product_stays_debt_and_prints_its_actual_topic(tmp_path
 def test_coating_words_do_not_relabel_other_operation_identity_debt(tmp_path, action):
     data = handling_bundle(tmp_path, (action,))
     row = Finding("tool_resolves", "S1:10", "unknown", {}, [], "coating oil identity unknown")
+    neutral = replace(row, sentence="selected cutting assembly identity unknown")
     traveler = _Traveler(data, [row], {}, None)
     stops, cautions, topics = traveler.status_lines([row], data.plan["setups"][0])
+    assert (stops, cautions, topics) == traveler.status_lines([neutral], data.plan["setups"][0])
+    assert topics
     printed = traveler.status_boxes(stops, cautions, topics).lower()
-    assert "tool/holder fit" in printed
-    assert "coating product identity" not in printed
+    assert "coating" not in printed

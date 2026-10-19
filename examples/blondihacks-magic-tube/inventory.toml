@@ -1,0 +1,345 @@
+# Standalone demonstration inventory, ONLY equipment used in the 2019 video.
+# No affiliate-list inheritance or fabricated physical measurement records.
+# present=true records source visibility, not availability in the recipient shop.
+stock = "unknown"
+
+[machines.video-lathe]
+name = "Video manual lathe"
+kind = "lathe"
+control = "manual handwheels and mechanical scales"
+operation_mode = "manual"
+present = true
+verify = false
+resolution_mm = "unknown"
+note = "Exact make/model, spindle limits/power, leadscrew and travel limits are not established by the inspected source frames. No DRO or Pedro-shop machine capability is inherited. Source shows a four-jaw chuck, tailstock and quick-change toolpost."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=68s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=157s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=672s"]
+[machines.video-lathe.spindle]
+rpm_min = "unknown"
+rpm_max = "unknown"
+hp = "unknown"
+rotation = "unknown"
+[machines.video-lathe.envelope]
+swing_over_bed_mm = "unknown"
+swing_over_cross_slide_mm = "unknown"
+between_centres_mm = "unknown"
+[machines.video-lathe.tailstock]
+taper = "unknown"
+quill_travel_in = "unknown"
+quill_dia_mm = "unknown"
+[machines.video-lathe.toolpost]
+type = "quick-change toolpost"
+series = "unknown"
+centre_height = "unknown"
+square_blade = "unknown"
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=68s"
+
+[machines.video-bench]
+name = "Bench"
+kind = "bench"
+present = true
+verify = false
+note = "Handheld final opening/closing demonstration at the workbench; not an extra machining station."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=34s"
+
+[fixtures.four-jaw]
+name = "Independent four-jaw chuck"
+kind = "chuck_4jaw"
+present = true
+verify = false
+independent = true
+scroll = false
+body_dia_mm = "unknown"
+body_length_mm = "unknown"
+bore_dia_mm = "unknown"
+jaw_width_mm = "unknown"
+jaw_height_mm = "unknown"
+jaw_depth_mm = "unknown"
+range_mm = "unknown"
+note = "Four independent jaws visible. No physical jaw engagement, runout certificate or chuck size established."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=69s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=672s"]
+
+[fixtures.live-centre]
+name = "Tailstock live centre"
+kind = "live_centre"
+present = true
+verify = false
+dia_mm = "unknown"
+length_mm = "unknown"
+point_angle = "unknown"
+note = "Used only during the first long-bar OD preparation, NOT the final unsupported assembled turn."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=157s"
+
+[fixtures.jaw-protectors]
+name = "Jaw protection strips"
+kind = "shim"
+present = true
+verify = false
+material = "unknown"
+thickness_mm = "unknown"
+width_mm = "unknown"
+length_mm = "unknown"
+note = "Copper-coloured strips visible between four-jaw chuck and tube at 09:43 and 11:12. Colour alone is not material identification or a thickness measurement; do not substitute the older article's aluminum-can method."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=583s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=672s"]
+
+[fixtures.rolling-aligner]
+name = "Toolpost rolling-bearing aligner"
+kind = "custom"
+present = true
+verify = false
+shop_made = "unknown"
+width_mm = "unknown"
+height_mm = "unknown"
+length_mm = "unknown"
+note = "A bearing on a brass-coloured toolpost block contacts the free end to align the stock. It is withdrawn before cutting and is NOT a follow rest or continuous support. Fabrication dimensions and load rating are unknown; no make table is invented."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=703s"
+
+[tools.turning-tool]
+name = "Turning and facing tool bit"
+kind = "lathe_tool_bit"
+present = true
+verify = false
+material = "unknown"
+hand = "unknown"
+nose_radius_mm = "unknown"
+insert_angle_deg = "unknown"
+entering_angle_deg = "unknown"
+edge_len_mm = "unknown"
+head_len_mm = "unknown"
+shank_width_mm = "unknown"
+functional_width_mm = "unknown"
+oal_mm = "unknown"
+projection_mm = { "turning-holder" = "unknown" }
+note = "Tool bit used for face, OD and shoulder cuts. Geometry, alloy and installed projection are not inferred from appearance or an affiliate tool set."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=69s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=367s"]
+
+[tools.parting-blade]
+name = "Parting blade"
+kind = "parting_blade"
+present = true
+verify = false
+material = "unknown"
+hand = "unknown"
+blade_width_mm = "unknown"
+reach_mm = "unknown"
+nose_radius_mm = "unknown"
+insert_angle_deg = "unknown"
+entering_angle_deg = "unknown"
+edge_len_mm = "unknown"
+head_len_mm = "unknown"
+shank_width_mm = "unknown"
+functional_width_mm = "unknown"
+projection_mm = { "parting-holder" = "unknown" }
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=242s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=799s"]
+
+[tools.chamfer-tool]
+name = "Chamfering tool bit"
+kind = "lathe_tool_bit"
+present = true
+verify = false
+material = "unknown"
+hand = "unknown"
+nose_radius_mm = "unknown"
+insert_angle_deg = "unknown"
+entering_angle_deg = "unknown"
+edge_len_mm = "unknown"
+head_len_mm = "unknown"
+shank_width_mm = "unknown"
+functional_width_mm = "unknown"
+projection_mm = { "turning-holder" = "unknown" }
+note = "Dedicated angled bit shown at 06:47 and internal mouth chamfer at 10:00. Edge angle/size not measured."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=407s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=600s"]
+
+[tools.centre-drill]
+name = "Centre drill"
+kind = "center_drill"
+present = true
+verify = false
+material = "unknown"
+dia_mm = "unknown"
+pilot_len_mm = "unknown"
+point_angle = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+note = "Jacobs-chuck jaw-centering technique described 01:58; actual size not stated."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=118s"
+
+[tools.pilot-drill]
+name = "1/4 in pilot drill"
+kind = "drill"
+present = true
+verify = false
+material = "unknown"
+dia_in = 0.25
+point_angle = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+note = "Spoken nominal tool size, NOT a physical diameter/reach measurement."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=527s"
+
+[tools.tap-drill]
+name = "15/32 in tap drill"
+kind = "drill"
+present = true
+verify = false
+material = "unknown"
+dia_in = 0.46875
+point_angle = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+note = "Source says 15/32 for its stated 50% engagement 1/2-20 thread; percentage is source context, not a certified thread calculation. Actual diameter, point and usable depth unknown."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=531s"
+
+[tools.cap-die]
+name = "Source die selection (one observed die)"
+kind = "die_set"
+present = true
+verify = false
+dia_mm = "unknown"
+material = "unknown"
+note = "Logical grouping of the single source-used die, not a claim that an additional physical die set or unused sizes exist. Used with spindle unpowered and chuck turned by hand."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=423s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=628s"]
+
+[tools.cap-die.members."1/2-20"]
+name = "1/2-20 right-hand die"
+thread = "1/2-20"
+thread_hand = "right"
+thread_class = "unknown"
+dia_mm = "unknown"
+oal_mm = "unknown"
+material = "unknown"
+note = "Source nominal identity only. Actual die adjustment, body dimensions, fit class, usable cutting lead and recipient availability remain unknown."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=423s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=628s"]
+
+[tools.body-tap]
+name = "1/2-20 tap"
+kind = "tap"
+present = true
+verify = false
+sizes = ["1/2-20"]
+thread = "1/2-20"
+thread_hand = "right"
+thread_class = "unknown"
+dia_mm = "unknown"
+flute_len_mm = "unknown"
+lead_mm = "unknown"
+oal_mm = "unknown"
+material = "unknown"
+note = "Hand tap with depth marker and tailstock alignment. Full-thread length, tap lead, class and bottom clearance are not stated. Gold colour does not establish coating."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=572s"
+
+[tools.hand-file]
+name = "Hand file"
+kind = "files"
+present = true
+verify = false
+note = "Flat file used on the rear edge of tube at the parting interruption 04:18. Brand/grade/section unknown. Editorial safety instruction requires a fitted handle and stopped spindle; it does not reproduce source live filing."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=258s"
+
+[tools.marker]
+name = "Depth-marking pen"
+kind = "marker"
+present = true
+verify = false
+note = "Drill and tap depth markings; no layout dye inferred from the older article."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=493s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=572s"]
+
+[holders.turning-holder]
+name = "Quick-change turning holder"
+kind = "toolpost_holder"
+present = true
+verify = false
+gauge_dia_mm = "unknown"
+gauge_len_mm = "unknown"
+grip_mm = "unknown"
+body_depth_mm = "unknown"
+body_width_mm = "unknown"
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=69s"
+
+[holders.parting-holder]
+name = "Quick-change parting holder"
+kind = "toolpost_holder"
+present = true
+verify = false
+gauge_dia_mm = "unknown"
+gauge_len_mm = "unknown"
+grip_mm = "unknown"
+body_depth_mm = "unknown"
+body_width_mm = "unknown"
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=242s"
+
+[holders.drill-chuck]
+name = "Tailstock drill chuck"
+kind = "drill_chuck"
+present = true
+verify = false
+gauge_dia_mm = "unknown"
+gauge_len_mm = "unknown"
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=118s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=583s"]
+
+[holders.die-holder]
+name = "Tailstock die holder (source)"
+kind = "die_stock"
+present = true
+verify = false
+fits = "tools.cap-die/1/2-20"
+gauge_dia_mm = "unknown"
+gauge_len_mm = "unknown"
+note = "Narrated tailstock die holder; do not substitute the older article's die wrench and dead centre."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=420s"
+
+[holders.tap-wrench]
+name = "T-handle tap wrench"
+kind = "tap_wrench"
+present = true
+verify = false
+gauge_dia_mm = "unknown"
+gauge_len_mm = "unknown"
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=583s"
+
+[holders.tap-follower]
+name = "Tailstock tap follower"
+kind = "tap_follower"
+present = true
+verify = false
+gauge_dia_mm = "unknown"
+gauge_len_mm = "unknown"
+note = "Follower in the tailstock drill chuck presses the tap wrench; travel and spring details unknown."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=583s"
+
+[holders.indicator-support]
+name = "Red 3D-printed toolpost indicator support"
+kind = "indicator_holder"
+present = true
+verify = false
+gauge_dia_mm = "unknown"
+gauge_len_mm = "unknown"
+note = "Source-visible support for indicating the four-jaw setup; not a workholding fixture or cutting support. Source-linked printable design is not proof of actual print dimensions, material, stiffness or clamping force."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=672s", "https://www.thingiverse.com/thing:2830764"]
+
+[gauges.caliper]
+name = "Lyman dial caliper"
+kind = "caliper"
+make = "Lyman"
+present = true
+verify = false
+range_mm = "unknown"
+resolution_mm = "unknown"
+note = "Brand visible at 03:04; not the description's generic Mitutoyo affiliate link. Calibration and actual readable increment remain unrecorded."
+cite = "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=184s"
+
+[gauges.indicator]
+name = "Mitutoyo dial indicator"
+kind = "dial_indicator"
+make = "Mitutoyo"
+present = true
+verify = false
+range_mm = "unknown"
+resolution_mm = "unknown"
+note = "Mitutoyo brand visible on the dial face at 11:07. Used for carriage travel at the cap shoulder and four-jaw radial alignment; source demonstrates 0.500-in counted travel. Calibration and actual resolution remain unrecorded; no calibration certificate is inferred from the face markings."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=325s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=667s"]
+
+# Source: cutting oil visibly applied at https://www.youtube.com/watch?v=-dyO4PEkEkc&t=158s
+# Exact product, chemistry, suitability and recipient availability are unknown.
+[consumables.cutting-oil]
+name = "Cutting oil"
+products = ["unknown"]

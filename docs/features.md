@@ -210,6 +210,15 @@ series does not supply one; two different explicit series contradict.
 Bare metric sizes without pitch, unsupported designations, tool names and
 prose do not resolve missing thread facts.
 
+Recognized numbered inch sizes are `#0`, `#1`, `#2`, `#3`, `#4`, `#5`,
+`#6`, `#8`, `#10` and `#12`. They compare by exact nominal diameter
+`(60 + 13*N)/1000` inches, so `#10-24` and `0.190-24` are equivalent.
+Different known diameters, TPI or conflicting explicit series still
+contradict. Other numbered sizes and leading-zero forms such as `#00`
+remain unresolved; the checker does not extrapolate this mapping.
+Comparison runs offline and does not infer hand or class, fetch a standards
+table, or establish that every authored size/TPI combination is standardized.
+
 For a [removable threaded joint](plan.md#threaded-joints), the exported feature's
 `frame`, `at` and `axis` locate its nominal finite envelope. The internal
 thread uses scalar `depth`; the external thread uses scalar `length`, both

@@ -297,7 +297,8 @@ def _manual_thread(bundle, subject, op):
     tool_ref, holder_ref = op.get("tool"), op.get("holder")
     tool = resolve(bundle, "tools", tool_ref)
     holder = resolve(bundle, "holders", holder_ref)
-    feature = record(bundle.feature_definitions.get(op.get("feature")))
+    definitions = record(getattr(bundle, "feature_definitions", None))
+    feature = record(definitions.get(op.get("feature")))
     problems, missing = [], []
     nums = {
         "tool": tool_ref or UNKNOWN,
@@ -321,7 +322,9 @@ def _manual_thread(bundle, subject, op):
             problems.append(f"selected {cutter} member is not declared in its set")
     kind = feature.get("kind", UNKNOWN)
     if kind != UNKNOWN and kind not in feature_kinds:
-        problems.append(f"feature kind {kind} is not an {'internal' if tapping else 'external'} thread")
+        problems.append(
+            f"feature kind {kind} is not an {'internal' if tapping else 'external'} thread"
+        )
     elif kind == UNKNOWN:
         missing.append("thread feature identity is unknown")
     for field in ("thread", "thread_hand", "thread_class"):
@@ -345,18 +348,25 @@ def _manual_thread(bundle, subject, op):
             missing.append(f"{cutter} and feature {field} must be known")
     fits = record(holder).get("fits", UNKNOWN)
     nums["holder_fits"] = fits
-    fit_known = fits not in (None, "", UNKNOWN) and tool_ref not in (None, UNKNOWN) and tool is not None
+    fit_known = (
+        fits not in (None, "", UNKNOWN) and tool_ref not in (None, UNKNOWN) and tool is not None
+    )
     if fit_known and identity(bundle, fits, "tools") != identity(bundle, tool_ref, "tools"):
         problems.append(f"{support} does not fit the selected {cutter} identity")
     if tapping:
         # Wrench ranges are nominal tap sizes, not a spindle collet's shank fit.
-        capacity_field = "range" if any(
-            key in record(holder) for key in ("range_mm", "range_in")
-        ) else "capacity"
+        capacity_field = (
+            "range"
+            if any(key in record(holder) for key in ("range_mm", "range_in"))
+            else "capacity"
+        )
         capacity = limits_fact(holder, capacity_field, require_measured=False)
         maximum = length_mm(holder, capacity_field)
         diameter = length_mm(tool, "dia")
-        nums.update(tap_dia_mm=diameter, holder_capacity_mm=capacity["value"] if capacity["verified"] else maximum)
+        nums.update(
+            tap_dia_mm=diameter,
+            holder_capacity_mm=capacity["value"] if capacity["verified"] else maximum,
+        )
         if number(diameter) and capacity["verified"]:
             low, high = capacity["value"]
             if (diameter < low and not same_length(diameter, low)) or (

@@ -47,9 +47,7 @@ def test_source_solid_refs_are_exact_file_order_entities_and_raw_labels():
     assert step.solid_faces("#100/MANIFOLD_SOLID_BREP[1]/right's / #99") == (
         "#4/ADVANCED_FACE[2]/east",
     )
-    assert step.solid_faces("#3/MANIFOLD_SOLID_BREP[2]/") == (
-        "#80/ADVANCED_FACE[1]/west",
-    )
+    assert step.solid_faces("#3/MANIFOLD_SOLID_BREP[2]/") == ("#80/ADVANCED_FACE[1]/west",)
 
 
 @pytest.mark.parametrize(
@@ -183,6 +181,7 @@ job = {
 }
 owner = engine._Job(job)
 result = owner.run()
+latest_result = result
 out["job"] = {"status": result["status"], "errors": result["mapping_errors"],
               "features": owner.features, "owners": owner.feature_solids,
               "shapes": {name: facts(s) for name, s in owner.finished_solids.items()}}
@@ -256,8 +255,26 @@ else:
 
 def _probe(script_text, directory, executable):
     script, target = directory / "probe.py", directory / "probe.json"
+    body = directory / "probe-body.py"
+    error = directory / "probe-error.json"
+    body.write_text(script_text, encoding="utf-8")
     script.write_text(
-        script_text + '\nwith open(target, "w", encoding="utf-8") as stream:\n    json.dump(out, stream)\n',
+        "import json, os, traceback\n"
+        "try:\n"
+        f"    with open({str(body)!r}, encoding='utf-8') as _probe_source:\n"
+        f"        exec(compile(_probe_source.read(), {str(body)!r}, 'exec'), globals())\n"
+        f"    with open({str(directory / 'probe-success.json')!r}, 'w', "
+        "encoding='utf-8') as _probe_target:\n"
+        "        json.dump(out, _probe_target)\n"
+        f"    os.replace({str(directory / 'probe-success.json')!r}, {str(target)!r})\n"
+        "except BaseException:\n"
+        "    _probe_error = traceback.format_exc()\n"
+        "    traceback.print_exc()\n"
+        f"    with open({str(error)!r}, 'w', encoding='utf-8') as _probe_diagnostic:\n"
+        "        json.dump({'traceback': _probe_error, 'out': globals().get('out'),\n"
+        "                   'result': globals().get('latest_result', globals().get('result'))},\n"
+        "                  _probe_diagnostic, default=str, indent=2)\n"
+        "    raise\n",
         encoding="utf-8",
     )
     process = subprocess.run(
@@ -266,9 +283,11 @@ def _probe(script_text, directory, executable):
         capture_output=True,
         text=True,
         errors="replace",
-        timeout=300,
+        timeout=600,
     )
-    assert target.exists(), process.stdout[-4000:] + process.stderr[-4000:]
+    assert target.exists(), (
+        f"Native probe failed; diagnostic: {error}\n{process.stdout}\n{process.stderr}"
+    )
     return json.loads(target.read_text(encoding="utf-8"))
 
 
@@ -317,7 +336,9 @@ def test_real_multisolid_job_keeps_face_lists_and_infers_native_ownership(native
     job = native["job"]
     assert job["status"] == "ok" and job["errors"] == {}
     assert job["owners"] == {"left_faces": "left", "right_faces": "right"}
-    assert all(isinstance(indices, list) and len(indices) == 6 for indices in job["features"].values())
+    assert all(
+        isinstance(indices, list) and len(indices) == 6 for indices in job["features"].values()
+    )
     _assert_box(job["shapes"]["left"], 1000, [0, 0, 0, 10, 10, 10])
     _assert_box(job["shapes"]["right"], 2000, [10, 0, 0, 30, 10, 10])
 
@@ -387,7 +408,8 @@ def probe(name, operation=None, original=before, result=after):
                  "state_unchanged": runner.state == state_before}
 
 out["raw"] = {"before": facts(before), "after_volume": after.Volume,
-              "pieces": len(after.Solids), "intersection": after.Solids[0].common(after.Solids[1]).Volume}
+              "pieces": len(after.Solids),
+              "intersection": after.Solids[0].common(after.Solids[1]).Volume}
 probe("known")
 # Setup-from-model is independently nonidentity; output must still be in model
 # coordinates after the authored forward output pose, not in setup coordinates.
@@ -620,7 +642,10 @@ def test_retained_parting_removes_only_finite_blade_width_kerf(retained):
 @pytest.mark.parametrize(
     ("case", "reason"),
     [
-        ("unknown_blade", "retained part-off needs a known to_z and measured parting blade_width_mm"),
+        (
+            "unknown_blade",
+            "retained part-off needs a known to_z and measured parting blade_width_mm",
+        ),
         ("residual_core", "retained part-off must cut to the axis; a residual core is not a split"),
         ("ambiguous_side", "retained part-off claimed-face side is ambiguous"),
         ("short_span", "retained part-off span does not cover its full blade-width kerf"),
@@ -635,8 +660,10 @@ def test_retained_parting_refuses_owned_finished_material_in_kerf(retained):
     assert result["removal"] is None
     assert result["reason"].startswith("retained part-off takes ")
     assert result["reason"].endswith(" mm^3 of owned finished material")
-    measured = result["reason"].removeprefix("retained part-off takes ").removesuffix(
-        " mm^3 of owned finished material"
+    measured = (
+        result["reason"]
+        .removeprefix("retained part-off takes ")
+        .removesuffix(" mm^3 of owned finished material")
     )
     assert float(measured) == pytest.approx(math.pi, abs=1e-5)
 
@@ -724,6 +751,7 @@ job = {
 }
 owner = engine._Job(job)
 result = owner.run()
+latest_result = result
 out["full_job"] = {
     "status": result["status"], "mapping_errors": result["mapping_errors"],
     "setups": result["setups"], "split_hold": result["ops"]["P1:10"].get("split_hold"),
@@ -741,6 +769,7 @@ for sid, name in (("B", "body"), ("C", "cap")):
 wrong = copy.deepcopy(job)
 wrong["setups"][0]["ops"][0]["outputs"]["cap_blank"]["pose"] = identity
 bad = engine.run_job(wrong)
+latest_result = bad
 out["full_job"]["wrong_pose"] = bad["setups"]["P1"].get("outputs")
 threaded = copy.deepcopy(job)
 threaded["setups"].append({
@@ -749,7 +778,77 @@ threaded["setups"].append({
               "socket": "body", "spigot": "cap"},
 })
 joined = engine.run_job(threaded)
+latest_result = joined
 out["full_job"]["threaded_reason"] = joined["setups"]["A"].get("stock_reason")
+
+# Named stocks are terminal material states, never snapshots that can survive a
+# later cut, process, or disguised geometry-bearing inspection in their setup.
+tails = {
+    "rough_turn": {"do": "rough_turn", "approach": "turning", "to_dia_mm": 6, "to_z": 7},
+    "hand_tap": {"do": "hand_tap"},
+    "die_thread": {"do": "die_thread"},
+    "fit": {"do": "fit"},
+    "unknown_action": {"do": "unmodelled_action"},
+    "deburr": {"do": "deburr"},
+    "coating": {"do": "coating"},
+    "inspect_approach": {"do": "inspect", "approach": "turning"},
+    "inspect_radius": {"do": "inspect", "radius_mm": 1},
+    "inspect_process_cut": {
+        "do": "inspect",
+        "process_cut": {"process_feature": "split", "kind": "end_face"},
+    },
+}
+out["terminal_rejections"] = {}
+for name, tail in tails.items():
+    variant = copy.deepcopy(job)
+    variant["setups"][0]["ops"].append({"subject": "P1:20", "feature": "body", **tail})
+    rejected_owner = engine._Job(variant)
+    rejected = rejected_owner.run()
+    latest_result = rejected
+    out["terminal_rejections"][name] = {
+        "outputs": rejected["setups"]["P1"]["outputs"],
+        "branches": {sid: rejected["setups"][sid] for sid in ("B", "C")},
+        "states": {
+            ref: {
+                "finished_names": rejected_owner.states[ref]["finished_names"],
+                "completed": rejected_owner.states[ref]["completed"],
+            }
+            for ref in ("stock_out.body_blank", "stock_out.cap_blank")
+        },
+    }
+variant = copy.deepcopy(job)
+variant["setups"][0]["keep"] = [{
+    "subject": "P1:90", "feature": "body", "after": "never",
+}]
+rejected_owner = engine._Job(variant)
+rejected = rejected_owner.run()
+latest_result = rejected
+out["terminal_keep"] = {
+    "outputs": rejected["setups"]["P1"]["outputs"],
+    "branches": {sid: rejected["setups"][sid] for sid in ("B", "C")},
+    "states": {
+        ref: {
+            "finished_names": rejected_owner.states[ref]["finished_names"],
+            "completed": rejected_owner.states[ref]["completed"],
+        }
+        for ref in ("stock_out.body_blank", "stock_out.cap_blank")
+    },
+}
+out["terminal_metadata"] = {}
+for action in ("inspect", "release", "scribe"):
+    variant = copy.deepcopy(job)
+    variant["setups"][0]["ops"].append({
+        "subject": "P1:20", "do": action, "feature": "body",
+        "note": "Metadata only after the proved part-off.",
+    })
+    metadata_owner = engine._Job(variant)
+    metadata = metadata_owner.run()
+    latest_result = metadata
+    out["terminal_metadata"][action] = {
+        "outputs": metadata["setups"]["P1"]["outputs"],
+        "states": {sid: sorted(metadata_owner.states[sid]["finished_names"]) for sid in ("B", "C")},
+        "branch_reasons": {sid: metadata["setups"][sid].get("stock_reason") for sid in ("B", "C")},
+    }
 """
 
 
@@ -838,3 +937,63 @@ def test_coincident_interfaces_attribute_only_to_the_branch_owned_finished_solid
 
 def test_unknown_finished_ownership_cannot_attribute_source_or_turning_hits(native):
     assert native["unowned_attribution"] == {"source": None, "candidates": [], "turn_refs": []}
+
+
+def _assert_withheld_terminal_outputs(result, reason):
+    assert set(result["outputs"]) == {"body_blank", "cap_blank"}
+    for record in result["outputs"].values():
+        assert reason in record["reason"]
+        assert "volume_mm3" not in record and "bbox_mm" not in record
+    assert set(result["states"]) == {"stock_out.body_blank", "stock_out.cap_blank"}
+    for state in result["states"].values():
+        assert state["finished_names"] is None
+        assert state["completed"] == {}
+    for branch in result["branches"].values():
+        assert reason in branch["stock_reason"]
+        assert "stock_volume_mm3" not in branch
+        assert "stock_bbox_mm" not in branch
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "rough_turn",
+        "hand_tap",
+        "die_thread",
+        "fit",
+        "unknown_action",
+        "deburr",
+        "coating",
+        "inspect_approach",
+        "inspect_radius",
+        "inspect_process_cut",
+    ],
+)
+def test_full_native_job_never_publishes_output_snapshots_before_a_later_material_op(native, case):
+    _assert_withheld_terminal_outputs(
+        native["terminal_rejections"][case],
+        "retained outputs require the last material operation; "
+        "later operation P1:20 may change stock",
+    )
+
+
+def test_full_native_job_never_combines_named_outputs_with_setup_keep(native):
+    _assert_withheld_terminal_outputs(
+        native["terminal_keep"], "retained outputs cannot be combined with setup keep"
+    )
+
+
+@pytest.mark.parametrize("action", ["inspect", "release", "scribe"])
+def test_full_native_job_preserves_outputs_after_explicit_metadata_only_ops(native, action):
+    result = native["terminal_metadata"][action]
+    assert result["states"] == {"B": ["body"], "C": ["cap"]}
+    assert result["branch_reasons"] == {"B": None, "C": None}
+    outputs = result["outputs"]
+    assert set(outputs) == {"body_blank", "cap_blank"}
+    for name, volume, bbox in (
+        ("body_blank", 128 * math.pi, [-4, -4, 0, 4, 4, 8]),
+        ("cap_blank", 160 * math.pi, [-4, -4, 30, 4, 4, 40]),
+    ):
+        assert "reason" not in outputs[name]
+        assert outputs[name]["volume_mm3"] == pytest.approx(volume, abs=1e-6)
+        assert outputs[name]["bbox_mm"] == pytest.approx(bbox, abs=1e-6)

@@ -1,0 +1,38 @@
+# Standalone source-video demonstration policy; no measured shop limits supplied.
+revision = 1
+
+[required]
+tool_resolves = "*"
+sizing = "*"
+op_chain = "*"
+blind_depth = "*"
+inspection = "*"
+coordinates = "*"
+zero_check = "*"
+
+[numbers]
+refixture_budget_mm = "unknown"
+thin_wall_floor_mm = "unknown"
+stickout_ld_max = "unknown"
+fixture_make_decimals = "unknown"
+near_jaw_mm = "unknown"
+max_filing_stock_mm = "unknown"
+saw_min_teeth_in_work = "unknown"
+
+[numbers_cite]
+refixture_budget_mm = "No numerical shop limit stated in https://www.youtube.com/watch?v=-dyO4PEkEkc"
+thin_wall_floor_mm = "Source 03:19 suggests 80-100 thou wall for its chosen design, not a verified universal shop floor"
+stickout_ld_max = "Source 12:00 unsupported light finishing demonstration is not a validated shop stickout limit"
+fixture_make_decimals = "No dimensioned rolling-aligner manufacturing drawing or setting precision supplied"
+near_jaw_mm = "No numerical chuck-jaw or holder clearance measured in source"
+max_filing_stock_mm = "Source hand edge deburring has no numerical filing allowance"
+saw_min_teeth_in_work = "No saw used in this source; retained unknown baseline policy fact"
+
+[numbers_verify]
+refixture_budget_mm = true
+thin_wall_floor_mm = true
+stickout_ld_max = true
+fixture_make_decimals = true
+near_jaw_mm = true
+max_filing_stock_mm = true
+saw_min_teeth_in_work = true

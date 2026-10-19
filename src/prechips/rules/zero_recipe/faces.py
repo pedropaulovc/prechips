@@ -316,7 +316,10 @@ def x_face_state(bundle, setup, touch, x_recipe, states, index):
         if material is True:
             return "pass", None
         if material is None:
-            return UNKNOWN, f"touches {face}, whose stock as-is survival after partition is unresolved"
+            return (
+                UNKNOWN,
+                f"touches {face}, whose stock as-is survival after partition is unresolved",
+            )
     if not all("stock_in" in other for other in bundle.plan["setups"] if other["id"] in lineage):
         return UNKNOWN, f"touches {face}, whose turning upstream is not routed to this setup"
     return "error", f"touches {face} before any op turns it"

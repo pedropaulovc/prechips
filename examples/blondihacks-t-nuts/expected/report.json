@@ -1861,13 +1861,6 @@
         "plan.setups.D1.ops.30: selected action/tool/holder",
         "inventory.tools.taper-tap: explicit-unit verified dimensions",
         "inventory.holders.tap-follower: explicit-unit verified dimensions",
-        "inventory.fixtures.None.height",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s",
-        "inventory.fixtures.bench-vise.jaw_depth",
-        "inventory.fixtures.bench-vise.jaw_height",
-        "inventory.fixtures.bench-vise.jaw_width",
-        "inventory.fixtures.bench-vise.opening",
         "inventory.fixtures.mill-vise.jaw_depth",
         "inventory.fixtures.mill-vise.jaw_height",
         "inventory.fixtures.mill-vise.jaw_width",
@@ -1875,142 +1868,12 @@
         "inventory.fixtures.parallels.height",
         "inventory.fixtures.parallels.length",
         "inventory.fixtures.parallels.width",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s",
-        "inventory.fixtures.round-bar.dia",
-        "inventory.fixtures.round-bar.length",
-        "inventory.holders.drill-chuck.gauge_dia",
-        "inventory.holders.drill-chuck.gauge_len",
-        "inventory.holders.drill-chuck.grip",
-        "inventory.holders.milling-holder.gauge_dia",
-        "inventory.holders.milling-holder.gauge_len",
-        "inventory.holders.milling-holder.grip",
-        "inventory.holders.tap-follower.gauge_dia",
-        "inventory.holders.tap-follower.gauge_len",
-        "inventory.holders.tap-follower.grip",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s",
-        "inventory.machines.video-mill.resolution",
-        "inventory.tools.centre-drill.dia",
-        "inventory.tools.centre-drill.flute_len",
-        "inventory.tools.centre-drill.oal",
-        "inventory.tools.centre-drill.point_angle",
-        "inventory.tools.centre-drill.shank",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s",
-        "inventory.tools.finishing-endmill.dia",
-        "inventory.tools.finishing-endmill.flute_len",
-        "inventory.tools.finishing-endmill.oal",
-        "inventory.tools.finishing-endmill.shank",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=165s",
-        "inventory.tools.initial-stock-saw.kerf",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s",
-        "inventory.tools.roughing-endmill.dia",
-        "inventory.tools.roughing-endmill.flute_len",
-        "inventory.tools.roughing-endmill.oal",
-        "inventory.tools.roughing-endmill.shank",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s",
-        "inventory.tools.shoulder-rougher.dia",
-        "inventory.tools.shoulder-rougher.flute_len",
-        "inventory.tools.shoulder-rougher.oal",
-        "inventory.tools.shoulder-rougher.shank",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=647s",
-        "inventory.tools.slitting-saw.kerf",
-        "inventory.tools.tap-drill.dia",
-        "inventory.tools.tap-drill.flute_len",
-        "inventory.tools.tap-drill.oal",
-        "inventory.tools.tap-drill.point_angle",
-        "inventory.tools.tap-drill.shank",
-        "inventory.tools.taper-tap.dia",
-        "inventory.tools.taper-tap.flute_len",
-        "inventory.tools.taper-tap.oal",
-        "inventory.tools.taper-tap.shank"
+        "inventory.machines.video-mill.resolution"
       ],
-      "message": "D1:30: in-process stock unknown: setup B0 frame is unusable (numeric setup frame is unknown); in-process stock after it cannot be derived. Refused kernel facts: fixtures.None.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.length (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.dia (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.length (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.grip (missing): No numeric length with explicit millimetre or inch units is recorded; machines.video-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.centre-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.initial-stock-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.slitting-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.tap-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "message": "D1:30: kernel facts for this rotary op are not rotary-model facts. Refused kernel facts: fixtures.mill-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.length (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.width (missing): No numeric length with explicit millimetre or inch units is recorded; machines.video-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded.",
       "numbers": {
         "measurements": [
-          {
-            "category": "fixtures",
-            "cite": [
-              "inventory.fixtures.None.height"
-            ],
-            "field": [
-              "height"
-            ],
-            "id": "fixtures.None.height",
-            "identity": null,
-            "instruction": "measure: None fixture height, bottom bearing face to top contact surface, calipers or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s",
-              "inventory.fixtures.bench-vise.jaw_depth"
-            ],
-            "field": [
-              "jaw_depth"
-            ],
-            "id": "fixtures.bench-vise.jaw_depth",
-            "identity": "bench-vise",
-            "instruction": "measure: bench-vise jaw depth, gripping face to back, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s",
-              "inventory.fixtures.bench-vise.jaw_height"
-            ],
-            "field": [
-              "jaw_height"
-            ],
-            "id": "fixtures.bench-vise.jaw_height",
-            "identity": "bench-vise",
-            "instruction": "measure: bench-vise jaw height above its supporting bed, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s",
-              "inventory.fixtures.bench-vise.jaw_width"
-            ],
-            "field": [
-              "jaw_width"
-            ],
-            "id": "fixtures.bench-vise.jaw_width",
-            "identity": "bench-vise",
-            "instruction": "measure: bench-vise jaw face width, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s",
-              "inventory.fixtures.bench-vise.opening"
-            ],
-            "field": [
-              "opening"
-            ],
-            "id": "fixtures.bench-vise.opening",
-            "identity": "bench-vise",
-            "instruction": "measure: bench-vise usable jaw opening, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
           {
             "category": "fixtures",
             "cite": [
@@ -2127,182 +1990,6 @@
             "units": "mm"
           },
           {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s",
-              "inventory.fixtures.round-bar.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "fixtures.round-bar.dia",
-            "identity": "round-bar",
-            "instruction": "measure: round-bar jaw bar outside diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s",
-              "inventory.fixtures.round-bar.length"
-            ],
-            "field": [
-              "length"
-            ],
-            "id": "fixtures.round-bar.length",
-            "identity": "round-bar",
-            "instruction": "measure: round-bar overall fixture length along its local X axis, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.holders.drill-chuck.gauge_dia"
-            ],
-            "field": [
-              "gauge_dia"
-            ],
-            "id": "holders.drill-chuck.gauge_dia",
-            "identity": "drill-chuck",
-            "instruction": "measure: drill-chuck mounted holder outside diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.holders.drill-chuck.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.drill-chuck.gauge_len",
-            "identity": "drill-chuck",
-            "instruction": "measure: drill-chuck spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.holders.drill-chuck.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.drill-chuck.grip",
-            "identity": "drill-chuck",
-            "instruction": "measure: drill-chuck installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
-              "inventory.holders.milling-holder.gauge_dia"
-            ],
-            "field": [
-              "gauge_dia"
-            ],
-            "id": "holders.milling-holder.gauge_dia",
-            "identity": "milling-holder",
-            "instruction": "measure: milling-holder mounted holder outside diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
-              "inventory.holders.milling-holder.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.milling-holder.gauge_len",
-            "identity": "milling-holder",
-            "instruction": "measure: milling-holder spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
-              "inventory.holders.milling-holder.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.milling-holder.grip",
-            "identity": "milling-holder",
-            "instruction": "measure: milling-holder installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.gauge_dia"
-            ],
-            "field": [
-              "gauge_dia"
-            ],
-            "id": "holders.tap-follower.gauge_dia",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower mounted holder outside diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.tap-follower.gauge_len",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.tap-follower.grip",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
             "category": "machines",
             "cite": [
               "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
@@ -2315,460 +2002,6 @@
             "id": "machines.video-mill.resolution",
             "identity": "video-mill",
             "instruction": "measure: video-mill installed DRO least readable step, installed readout and indicator check, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.tools.centre-drill.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.centre-drill.dia",
-            "identity": "centre-drill",
-            "instruction": "measure: centre-drill centre drill pilot diameter D (Table 6 D), micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.tools.centre-drill.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.centre-drill.flute_len",
-            "identity": "centre-drill",
-            "instruction": "measure: centre-drill centre drill usable cutting length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.tools.centre-drill.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.centre-drill.oal",
-            "identity": "centre-drill",
-            "instruction": "measure: centre-drill selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "inventory.tools.centre-drill.point_angle"
-            ],
-            "field": [
-              "point_angle"
-            ],
-            "id": "tools.centre-drill.point_angle",
-            "identity": "centre-drill",
-            "instruction": "measure: centre-drill pilot point included angle, drill point gauge or protractor, degrees",
-            "reason": "No numeric angle in degrees is recorded.",
-            "status": "missing",
-            "units": "degrees"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.tools.centre-drill.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.centre-drill.shank",
-            "identity": "centre-drill",
-            "instruction": "measure: centre-drill centre drill countersink body diameter A (Table 6 A), micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s",
-              "inventory.tools.finishing-endmill.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.finishing-endmill.dia",
-            "identity": "finishing-endmill",
-            "instruction": "measure: finishing-endmill selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s",
-              "inventory.tools.finishing-endmill.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.finishing-endmill.flute_len",
-            "identity": "finishing-endmill",
-            "instruction": "measure: finishing-endmill selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s",
-              "inventory.tools.finishing-endmill.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.finishing-endmill.oal",
-            "identity": "finishing-endmill",
-            "instruction": "measure: finishing-endmill selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s",
-              "inventory.tools.finishing-endmill.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.finishing-endmill.shank",
-            "identity": "finishing-endmill",
-            "instruction": "measure: finishing-endmill shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=165s",
-              "inventory.tools.initial-stock-saw.kerf"
-            ],
-            "field": [
-              "kerf"
-            ],
-            "id": "tools.initial-stock-saw.kerf",
-            "identity": "initial-stock-saw",
-            "instruction": "measure: initial-stock-saw saw blade cutting width across the tooth set, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s",
-              "inventory.tools.roughing-endmill.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.roughing-endmill.dia",
-            "identity": "roughing-endmill",
-            "instruction": "measure: roughing-endmill selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s",
-              "inventory.tools.roughing-endmill.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.roughing-endmill.flute_len",
-            "identity": "roughing-endmill",
-            "instruction": "measure: roughing-endmill selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s",
-              "inventory.tools.roughing-endmill.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.roughing-endmill.oal",
-            "identity": "roughing-endmill",
-            "instruction": "measure: roughing-endmill selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s",
-              "inventory.tools.roughing-endmill.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.roughing-endmill.shank",
-            "identity": "roughing-endmill",
-            "instruction": "measure: roughing-endmill shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s",
-              "inventory.tools.shoulder-rougher.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.shoulder-rougher.dia",
-            "identity": "shoulder-rougher",
-            "instruction": "measure: shoulder-rougher selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s",
-              "inventory.tools.shoulder-rougher.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.shoulder-rougher.flute_len",
-            "identity": "shoulder-rougher",
-            "instruction": "measure: shoulder-rougher selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s",
-              "inventory.tools.shoulder-rougher.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.shoulder-rougher.oal",
-            "identity": "shoulder-rougher",
-            "instruction": "measure: shoulder-rougher selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s",
-              "inventory.tools.shoulder-rougher.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.shoulder-rougher.shank",
-            "identity": "shoulder-rougher",
-            "instruction": "measure: shoulder-rougher shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=647s",
-              "inventory.tools.slitting-saw.kerf"
-            ],
-            "field": [
-              "kerf"
-            ],
-            "id": "tools.slitting-saw.kerf",
-            "identity": "slitting-saw",
-            "instruction": "measure: slitting-saw saw blade cutting width across the tooth set, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s",
-              "inventory.tools.tap-drill.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.tap-drill.dia",
-            "identity": "tap-drill",
-            "instruction": "measure: tap-drill selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s",
-              "inventory.tools.tap-drill.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.tap-drill.flute_len",
-            "identity": "tap-drill",
-            "instruction": "measure: tap-drill selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s",
-              "inventory.tools.tap-drill.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.tap-drill.oal",
-            "identity": "tap-drill",
-            "instruction": "measure: tap-drill selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "inventory.tools.tap-drill.point_angle"
-            ],
-            "field": [
-              "point_angle"
-            ],
-            "id": "tools.tap-drill.point_angle",
-            "identity": "tap-drill",
-            "instruction": "measure: tap-drill included drill point angle, drill point gauge or protractor, degrees",
-            "reason": "No numeric angle in degrees is recorded.",
-            "status": "missing",
-            "units": "degrees"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s",
-              "inventory.tools.tap-drill.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.tap-drill.shank",
-            "identity": "tap-drill",
-            "instruction": "measure: tap-drill shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.taper-tap.dia",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.taper-tap.flute_len",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.taper-tap.oal",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.taper-tap.shank",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap shank diameter, micrometer or calipers, mm",
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
@@ -6379,10 +5612,7 @@
           {
             "depth_floor_mm": "unknown",
             "depth_mm": "unknown",
-            "dro_depth_mm": "unknown",
-            "dro_entry_z": "unknown",
-            "dro_grid_debt": "machine video-mill declares no positive numeric DRO resolution, so its grid is provisional",
-            "dro_tip_z": "unknown",
+            "depth_scale": "manual",
             "entry_from": "D1 stock_state.top_z",
             "entry_z": "unknown",
             "exit_face": "not_applicable",
@@ -6439,7 +5669,7 @@
           },
           "plan": {
             "path": "examples/blondihacks-t-nuts/plan.toml",
-            "sha256": "c1c37f68b0693de5cdfbc36141ef77d45f5fc706f9fc386389c062a4324a1697"
+            "sha256": "d64729791cbc4201b7c78f5db37ba9e62506554e41c0545bd3636200408b80b6"
           },
           "shop_policy": {
             "path": "examples/blondihacks-t-nuts/shop-policy.toml",
@@ -8111,7 +7341,7 @@
             "tool": "tap-drill"
           },
           {
-            "do": "tap",
+            "do": "hand_tap",
             "feature": "threaded-hole",
             "op": 30,
             "tool": "taper-tap"
@@ -8735,7 +7965,7 @@
         "kernel: STEP SHA-256 456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e; FreeCAD B-rep measurements",
         "plan.stock.as_is_faces; union of each cutting op's direction-valid face claims"
       ],
-      "message": "blondihacks-t-nuts: every imported face is claimed by a cutting op or declared as-stock.",
+      "message": "blondihacks-t-nuts: cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown.",
       "numbers": {
         "claimed_face_count": 11,
         "face_count": 11,
@@ -8743,7 +7973,7 @@
         "unclaimed_indices": []
       },
       "rule": "coverage",
-      "status": "pass",
+      "status": "unknown",
       "subject": "blondihacks-t-nuts"
     },
     {
@@ -9028,7 +8258,7 @@
       "message": "D1:30: engagement applies only to an endmill cutting operation.",
       "numbers": {
         "holder": "tap-follower",
-        "operation": "tap",
+        "operation": "hand_tap",
         "tool": "taper-tap",
         "tool_kind": "tap"
       },
@@ -10230,32 +9460,26 @@
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
         "inventory.fixtures.mill-vise.bed_height",
         "inventory.fixtures.parallels.height",
         "inventory.holders.drill-chuck.gauge_len",
         "inventory.holders.drill-chuck.grip",
-        "inventory.holders.tap-follower.gauge_len",
-        "inventory.holders.tap-follower.grip",
         "inventory.machines.video-mill.envelope.spindle_to_table_max",
         "inventory.machines.video-mill.envelope.spindle_to_table_min",
         "inventory.tools.centre-drill.oal",
         "inventory.tools.tap-drill.dia",
         "inventory.tools.tap-drill.oal",
         "inventory.tools.tap-drill.point_angle",
-        "inventory.tools.taper-tap.oal",
         "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
         "plan.frames.top-up: author-declared setup frame",
         "plan.setups.D1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.D1.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.D1.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.D1.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.D1.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-        "plan.setups.D1.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.stock_state: physical supported stock height"
       ],
-      "message": "D1: spindle envelope remains unmeasured or unresolved. measure: mill-vise table to vise bed supporting the parallels or part, height gauge, mm; measure: parallels parallel height between its bottom and top bearing faces, calipers or height gauge, mm; measure: drill-chuck spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: drill-chuck installed tool insertion from holder exit face, steel rule or calipers, mm; measure: tap-follower spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: tap-follower installed tool insertion from holder exit face, steel rule or calipers, mm; measure: video-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: video-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.D1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.10.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.D1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.20.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.D1.ops.30 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.30.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: centre-drill selected tool overall length, steel rule or calipers, mm; measure: tap-drill selected cutter diameter, micrometer, mm; measure: tap-drill selected tool overall length, steel rule or calipers, mm; measure: tap-drill included drill point angle, drill point gauge or protractor, degrees; measure: taper-tap selected tool overall length, steel rule or calipers, mm.",
+      "message": "D1: spindle envelope remains unmeasured or unresolved. measure: mill-vise table to vise bed supporting the parallels or part, height gauge, mm; measure: parallels parallel height between its bottom and top bearing faces, calipers or height gauge, mm; measure: drill-chuck spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: drill-chuck installed tool insertion from holder exit face, steel rule or calipers, mm; measure: video-mill spindle nose to table at full Z-up, steel rule or height gauge, mm; measure: video-mill spindle nose to table at full Z-down, steel rule or height gauge, mm; author: Measure plan.setups.D1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.10.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.D1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.20.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: centre-drill selected tool overall length, steel rule or calipers, mm; measure: tap-drill selected cutter diameter, micrometer, mm; measure: tap-drill selected tool overall length, steel rule or calipers, mm; measure: tap-drill included drill point angle, drill point gauge or protractor, degrees.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
         "fixture_height_mm": "unknown",
@@ -10313,32 +9537,6 @@
             "units": "mm"
           },
           {
-            "category": "holders",
-            "cite": [
-              "inventory.holders.tap-follower.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.tap-follower.gauge_len",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "inventory.holders.tap-follower.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.tap-follower.grip",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
             "category": "machines",
             "cite": [
               "inventory.machines.video-mill.envelope.spindle_to_table_max"
@@ -10380,14 +9578,6 @@
             ],
             "id": "plan.setups.D1.ops.20.z_geometry",
             "instruction": "author: Measure plan.setups.D1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.20.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
-            "units": "mm"
-          },
-          {
-            "cite": [
-              "plan.setups.D1.ops.30"
-            ],
-            "id": "plan.setups.D1.ops.30.z_geometry",
-            "instruction": "author: Measure plan.setups.D1.ops.30 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.30.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
             "units": "mm"
           },
           {
@@ -10441,19 +9631,6 @@
             "identity": "tap-drill",
             "instruction": "measure: tap-drill included drill point angle, drill point gauge or protractor, degrees",
             "units": "degrees"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "inventory.tools.taper-tap.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.taper-tap.oal",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected tool overall length, steel rule or calipers, mm",
-            "units": "mm"
           }
         ],
         "part_extents_mm": {
@@ -10494,23 +9671,6 @@
               0.0
             ],
             "tool": "tap-drill",
-            "tool_projection_mm": "unknown",
-            "upper_margin_mm": "unknown",
-            "verified": false
-          },
-          {
-            "approach_mm": "unknown",
-            "holder": "tap-follower",
-            "holder_gauge_len_mm": "unknown",
-            "lower_margin_mm": "unknown",
-            "op": 30,
-            "spindle_nose_table_band_mm": "unknown",
-            "stack_mm": "unknown",
-            "tip_z_bounds_mm": [
-              0.0,
-              0.0
-            ],
-            "tool": "taper-tap",
             "tool_projection_mm": "unknown",
             "upper_margin_mm": "unknown",
             "verified": false
@@ -11630,14 +10790,36 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 fixture_interference",
-        "kernel: STEP SHA-256 456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e; FreeCAD B-rep measurements",
-        "plan.setups.B2: frame and hold"
+        "PLAN.md §4.1 holding",
+        "inventory.machines.video-bench: kind bench",
+        "plan.setups.B2.ops: manual bench actions only"
       ],
-      "message": "B2: holding identity is unknown.",
-      "numbers": {},
+      "message": "B2: manual bench work has no fixture solids to collide.",
+      "numbers": {
+        "joint_method": "not_applicable",
+        "machine": "video-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "coating",
+            "op": 10
+          },
+          {
+            "do": "coating",
+            "op": 20
+          },
+          {
+            "do": "coating",
+            "op": 30
+          },
+          {
+            "do": "coating",
+            "op": 40
+          }
+        ]
+      },
       "rule": "fixture_interference",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "B2"
     },
     {
@@ -12867,10 +12049,6 @@
         "inventory.holders.milling-holder.gauge_dia",
         "inventory.holders.milling-holder.gauge_len",
         "inventory.holders.milling-holder.grip",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-        "inventory.holders.tap-follower.gauge_dia",
-        "inventory.holders.tap-follower.gauge_len",
-        "inventory.holders.tap-follower.grip",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s",
         "inventory.machines.video-mill.resolution",
         "inventory.tools.centre-drill.dia",
@@ -12904,13 +12082,9 @@
         "inventory.tools.tap-drill.flute_len",
         "inventory.tools.tap-drill.oal",
         "inventory.tools.tap-drill.point_angle",
-        "inventory.tools.tap-drill.shank",
-        "inventory.tools.taper-tap.dia",
-        "inventory.tools.taper-tap.flute_len",
-        "inventory.tools.taper-tap.oal",
-        "inventory.tools.taper-tap.shank"
+        "inventory.tools.tap-drill.shank"
       ],
-      "message": "D1: in-process stock unknown: setup B0 frame is unusable (numeric setup frame is unknown); in-process stock after it cannot be derived. Refused kernel facts: fixtures.None.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.length (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.dia (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.length (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.grip (missing): No numeric length with explicit millimetre or inch units is recorded; machines.video-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.centre-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.initial-stock-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.slitting-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.tap-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "message": "D1: in-process stock unknown: setup B0 frame is unusable (numeric setup frame is unknown); in-process stock after it cannot be derived. Refused kernel facts: fixtures.None.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.length (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.dia (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.length (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.grip (missing): No numeric length with explicit millimetre or inch units is recorded; machines.video-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.centre-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.initial-stock-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.slitting-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.tap-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
       "numbers": {
         "measurements": [
           {
@@ -13235,54 +12409,6 @@
             "id": "holders.milling-holder.grip",
             "identity": "milling-holder",
             "instruction": "measure: milling-holder installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.gauge_dia"
-            ],
-            "field": [
-              "gauge_dia"
-            ],
-            "id": "holders.tap-follower.gauge_dia",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower mounted holder outside diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.tap-follower.gauge_len",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.tap-follower.grip",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower installed tool insertion from holder exit face, steel rule or calipers, mm",
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
@@ -13690,70 +12816,6 @@
             "id": "tools.tap-drill.shank",
             "identity": "tap-drill",
             "instruction": "measure: tap-drill shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.taper-tap.dia",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.taper-tap.flute_len",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.taper-tap.oal",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.taper-tap.shank",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap shank diameter, micrometer or calipers, mm",
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
@@ -14361,14 +13423,24 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 fixture_interference",
-        "kernel: STEP SHA-256 456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e; FreeCAD B-rep measurements",
-        "plan.setups.F1: frame and hold"
+        "PLAN.md §4.1 holding",
+        "inventory.machines.video-bench: kind bench",
+        "plan.setups.F1.ops: manual bench actions only"
       ],
-      "message": "F1: holding identity is unknown.",
-      "numbers": {},
+      "message": "F1: manual bench work has no fixture solids to collide.",
+      "numbers": {
+        "joint_method": "not_applicable",
+        "machine": "video-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "inspect",
+            "op": 10
+          }
+        ]
+      },
       "rule": "fixture_interference",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "F1"
     },
     {
@@ -16929,38 +16001,6 @@
             "units": "mm"
           },
           {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.tap-follower.gauge_len",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.tap-follower.grip",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
             "category": "machines",
             "cite": [
               "inventory.machines.video-mill.envelope.spindle_to_table_max"
@@ -17035,22 +16075,6 @@
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.taper-tap.oal",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
           }
         ],
         "parallels_mm": "unknown",
@@ -17075,17 +16099,6 @@
             "op": 20,
             "sum_mm": "unknown",
             "tool": "tap-drill",
-            "tool_oal_mm": "unknown",
-            "tool_projection_mm": "unknown",
-            "verify": true
-          },
-          {
-            "holder": "tap-follower",
-            "holder_gauge_len_mm": "unknown",
-            "margin_mm": "unknown",
-            "op": 30,
-            "sum_mm": "unknown",
-            "tool": "taper-tap",
             "tool_oal_mm": "unknown",
             "tool_projection_mm": "unknown",
             "verify": true
@@ -18435,7 +17448,7 @@
           "clamp": "Clamp the raw bar in the bench vise for the initial cutoff; retain the kept bar and arrange the offcut safely.",
           "fixture": "bench-vise",
           "grip_mm": "unknown",
-          "note": "BEFORE LOADING: use dial calipers to measure and record the actual slot throat width and wide undercut width. Measure undercut depth using the source's backstop against the underside of the slot lip; identify the reference surfaces. Check the intended rod with a matching 3/8-16 nut, not the misleading M10 x 1.5 near-fit. Establish approved nut targets/clearances so it will slide, pull up under the lips and stay below the table. Then establish safe blade engagement, raw-bar cutoff length and offcut support. HOLD while any prerequisite is unknown.",
+          "note": "BEFORE LOADING: use calipers to measure and record the actual slot throat width and wide undercut width. Measure undercut depth using the source's backstop against the underside of the slot lip; identify the reference surfaces. Check the intended rod with a matching 3/8-16 nut, not the misleading M10 x 1.5 near-fit. Establish approved nut targets/clearances so it will slide, pull up under the lips and stay below the table. Then establish safe blade engagement, raw-bar cutoff length and offcut support. HOLD while any prerequisite is unknown.",
           "stop": "unknown"
         },
         "missing": [
@@ -19833,13 +18846,10 @@
         "inventory.tools.taper-tap: explicit-unit verified dimensions",
         "inventory.holders.tap-follower: explicit-unit verified dimensions"
       ],
-      "message": "D1:30: claimed faces have no concave edges perpendicular to the tool axis.",
-      "numbers": {
-        "corner_radii_mm": [],
-        "tool_radius_mm": "unknown"
-      },
+      "message": "D1:30: kernel facts for this rotary op are not rotary-model facts.",
+      "numbers": {},
       "rule": "internal_corner_radius",
-      "status": "not_applicable",
+      "status": "unknown",
       "subject": "D1:30"
     },
     {
@@ -20459,12 +19469,12 @@
         "plan authored route",
         "features declared process/thread"
       ],
-      "message": "threaded-hole: thread tap-drill specification/measurement unresolved.",
+      "message": "threaded-hole: thread tap-drill specification/measurement is unresolved; feature or selected tap thread designation is unresolved; feature or selected tap thread hand is unresolved; feature or selected tap thread class is unresolved.",
       "numbers": {
         "chain": [
           "spot",
           "drill",
-          "tap",
+          "hand_tap",
           "inspect",
           "deburr",
           "fit",
@@ -20501,7 +19511,26 @@
           "F1:10"
         ],
         "selected_drill_mm": "unknown",
-        "tap_drill_mm": "unknown"
+        "tap_drill_mm": "unknown",
+        "tap_tools": [
+          {
+            "class_match": null,
+            "operation": "D1:30",
+            "required": "3/8-16",
+            "required_class": "unknown",
+            "required_hand": "unknown",
+            "selected": "unknown",
+            "selected_class": "unknown",
+            "selected_hand": "unknown",
+            "thread_match": null
+          }
+        ],
+        "unresolved": [
+          "thread tap-drill specification/measurement is unresolved",
+          "feature or selected tap thread designation is unresolved",
+          "feature or selected tap thread hand is unresolved",
+          "feature or selected tap thread class is unresolved"
+        ]
       },
       "rule": "op_chain",
       "status": "unknown",
@@ -20604,7 +19633,7 @@
         "sequence": [
           "10 spot threaded-hole",
           "20 drill threaded-hole",
-          "30 tap threaded-hole",
+          "30 hand_tap threaded-hole",
           "40 inspect threaded-hole"
         ],
         "violations": []
@@ -22604,921 +21633,10 @@
         "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN E=1/2 inch)",
         "plan.setups.D1.ops.30: selected action/tool/holder",
         "inventory.tools.taper-tap: explicit-unit verified dimensions",
-        "inventory.holders.tap-follower: explicit-unit verified dimensions",
-        "inventory.fixtures.None.height",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s",
-        "inventory.fixtures.bench-vise.jaw_depth",
-        "inventory.fixtures.bench-vise.jaw_height",
-        "inventory.fixtures.bench-vise.jaw_width",
-        "inventory.fixtures.bench-vise.opening",
-        "inventory.fixtures.mill-vise.jaw_depth",
-        "inventory.fixtures.mill-vise.jaw_height",
-        "inventory.fixtures.mill-vise.jaw_width",
-        "inventory.fixtures.mill-vise.opening",
-        "inventory.fixtures.parallels.height",
-        "inventory.fixtures.parallels.length",
-        "inventory.fixtures.parallels.width",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s",
-        "inventory.fixtures.round-bar.dia",
-        "inventory.fixtures.round-bar.length",
-        "inventory.holders.drill-chuck.gauge_dia",
-        "inventory.holders.drill-chuck.gauge_len",
-        "inventory.holders.drill-chuck.grip",
-        "inventory.holders.milling-holder.gauge_dia",
-        "inventory.holders.milling-holder.gauge_len",
-        "inventory.holders.milling-holder.grip",
-        "inventory.holders.tap-follower.gauge_dia",
-        "inventory.holders.tap-follower.gauge_len",
-        "inventory.holders.tap-follower.grip",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s",
-        "inventory.machines.video-mill.resolution",
-        "inventory.tools.centre-drill.dia",
-        "inventory.tools.centre-drill.flute_len",
-        "inventory.tools.centre-drill.oal",
-        "inventory.tools.centre-drill.point_angle",
-        "inventory.tools.centre-drill.shank",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s",
-        "inventory.tools.finishing-endmill.dia",
-        "inventory.tools.finishing-endmill.flute_len",
-        "inventory.tools.finishing-endmill.oal",
-        "inventory.tools.finishing-endmill.shank",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=165s",
-        "inventory.tools.initial-stock-saw.kerf",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s",
-        "inventory.tools.roughing-endmill.dia",
-        "inventory.tools.roughing-endmill.flute_len",
-        "inventory.tools.roughing-endmill.oal",
-        "inventory.tools.roughing-endmill.shank",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s",
-        "inventory.tools.shoulder-rougher.dia",
-        "inventory.tools.shoulder-rougher.flute_len",
-        "inventory.tools.shoulder-rougher.oal",
-        "inventory.tools.shoulder-rougher.shank",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=647s",
-        "inventory.tools.slitting-saw.kerf",
-        "inventory.tools.tap-drill.dia",
-        "inventory.tools.tap-drill.flute_len",
-        "inventory.tools.tap-drill.oal",
-        "inventory.tools.tap-drill.point_angle",
-        "inventory.tools.tap-drill.shank",
-        "inventory.tools.taper-tap.dia",
-        "inventory.tools.taper-tap.flute_len",
-        "inventory.tools.taper-tap.oal",
-        "inventory.tools.taper-tap.shank"
+        "inventory.holders.tap-follower: explicit-unit verified dimensions"
       ],
-      "message": "D1:30: in-process stock unknown: setup B0 frame is unusable (numeric setup frame is unknown); in-process stock after it cannot be derived. Refused kernel facts: fixtures.None.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.length (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.dia (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.length (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.grip (missing): No numeric length with explicit millimetre or inch units is recorded; machines.video-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.centre-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.initial-stock-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.slitting-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.tap-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
-      "numbers": {
-        "measurements": [
-          {
-            "category": "fixtures",
-            "cite": [
-              "inventory.fixtures.None.height"
-            ],
-            "field": [
-              "height"
-            ],
-            "id": "fixtures.None.height",
-            "identity": null,
-            "instruction": "measure: None fixture height, bottom bearing face to top contact surface, calipers or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s",
-              "inventory.fixtures.bench-vise.jaw_depth"
-            ],
-            "field": [
-              "jaw_depth"
-            ],
-            "id": "fixtures.bench-vise.jaw_depth",
-            "identity": "bench-vise",
-            "instruction": "measure: bench-vise jaw depth, gripping face to back, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s",
-              "inventory.fixtures.bench-vise.jaw_height"
-            ],
-            "field": [
-              "jaw_height"
-            ],
-            "id": "fixtures.bench-vise.jaw_height",
-            "identity": "bench-vise",
-            "instruction": "measure: bench-vise jaw height above its supporting bed, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s",
-              "inventory.fixtures.bench-vise.jaw_width"
-            ],
-            "field": [
-              "jaw_width"
-            ],
-            "id": "fixtures.bench-vise.jaw_width",
-            "identity": "bench-vise",
-            "instruction": "measure: bench-vise jaw face width, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s",
-              "inventory.fixtures.bench-vise.opening"
-            ],
-            "field": [
-              "opening"
-            ],
-            "id": "fixtures.bench-vise.opening",
-            "identity": "bench-vise",
-            "instruction": "measure: bench-vise usable jaw opening, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
-              "inventory.fixtures.mill-vise.jaw_depth"
-            ],
-            "field": [
-              "jaw_depth"
-            ],
-            "id": "fixtures.mill-vise.jaw_depth",
-            "identity": "mill-vise",
-            "instruction": "measure: mill-vise jaw depth, gripping face to back, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
-              "inventory.fixtures.mill-vise.jaw_height"
-            ],
-            "field": [
-              "jaw_height"
-            ],
-            "id": "fixtures.mill-vise.jaw_height",
-            "identity": "mill-vise",
-            "instruction": "measure: mill-vise jaw height above its supporting bed, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
-              "inventory.fixtures.mill-vise.jaw_width"
-            ],
-            "field": [
-              "jaw_width"
-            ],
-            "id": "fixtures.mill-vise.jaw_width",
-            "identity": "mill-vise",
-            "instruction": "measure: mill-vise jaw face width, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
-              "inventory.fixtures.mill-vise.opening"
-            ],
-            "field": [
-              "opening"
-            ],
-            "id": "fixtures.mill-vise.opening",
-            "identity": "mill-vise",
-            "instruction": "measure: mill-vise usable jaw opening, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=414s",
-              "inventory.fixtures.parallels.height"
-            ],
-            "field": [
-              "height"
-            ],
-            "id": "fixtures.parallels.height",
-            "identity": "parallels",
-            "instruction": "measure: parallels parallel height between its bottom and top bearing faces, calipers or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=414s",
-              "inventory.fixtures.parallels.length"
-            ],
-            "field": [
-              "length"
-            ],
-            "id": "fixtures.parallels.length",
-            "identity": "parallels",
-            "instruction": "measure: parallels parallel length along the jaws, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=414s",
-              "inventory.fixtures.parallels.width"
-            ],
-            "field": [
-              "width"
-            ],
-            "id": "fixtures.parallels.width",
-            "identity": "parallels",
-            "instruction": "measure: parallels parallel width across the clamp axis, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s",
-              "inventory.fixtures.round-bar.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "fixtures.round-bar.dia",
-            "identity": "round-bar",
-            "instruction": "measure: round-bar jaw bar outside diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "fixtures",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s",
-              "inventory.fixtures.round-bar.length"
-            ],
-            "field": [
-              "length"
-            ],
-            "id": "fixtures.round-bar.length",
-            "identity": "round-bar",
-            "instruction": "measure: round-bar overall fixture length along its local X axis, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.holders.drill-chuck.gauge_dia"
-            ],
-            "field": [
-              "gauge_dia"
-            ],
-            "id": "holders.drill-chuck.gauge_dia",
-            "identity": "drill-chuck",
-            "instruction": "measure: drill-chuck mounted holder outside diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.holders.drill-chuck.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.drill-chuck.gauge_len",
-            "identity": "drill-chuck",
-            "instruction": "measure: drill-chuck spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.holders.drill-chuck.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.drill-chuck.grip",
-            "identity": "drill-chuck",
-            "instruction": "measure: drill-chuck installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
-              "inventory.holders.milling-holder.gauge_dia"
-            ],
-            "field": [
-              "gauge_dia"
-            ],
-            "id": "holders.milling-holder.gauge_dia",
-            "identity": "milling-holder",
-            "instruction": "measure: milling-holder mounted holder outside diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
-              "inventory.holders.milling-holder.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.milling-holder.gauge_len",
-            "identity": "milling-holder",
-            "instruction": "measure: milling-holder spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
-              "inventory.holders.milling-holder.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.milling-holder.grip",
-            "identity": "milling-holder",
-            "instruction": "measure: milling-holder installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.gauge_dia"
-            ],
-            "field": [
-              "gauge_dia"
-            ],
-            "id": "holders.tap-follower.gauge_dia",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower mounted holder outside diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.tap-follower.gauge_len",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.tap-follower.grip",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "machines",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s",
-              "inventory.machines.video-mill.resolution"
-            ],
-            "field": [
-              "resolution"
-            ],
-            "id": "machines.video-mill.resolution",
-            "identity": "video-mill",
-            "instruction": "measure: video-mill installed DRO least readable step, installed readout and indicator check, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.tools.centre-drill.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.centre-drill.dia",
-            "identity": "centre-drill",
-            "instruction": "measure: centre-drill centre drill pilot diameter D (Table 6 D), micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.tools.centre-drill.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.centre-drill.flute_len",
-            "identity": "centre-drill",
-            "instruction": "measure: centre-drill centre drill usable cutting length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.tools.centre-drill.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.centre-drill.oal",
-            "identity": "centre-drill",
-            "instruction": "measure: centre-drill selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "inventory.tools.centre-drill.point_angle"
-            ],
-            "field": [
-              "point_angle"
-            ],
-            "id": "tools.centre-drill.point_angle",
-            "identity": "centre-drill",
-            "instruction": "measure: centre-drill pilot point included angle, drill point gauge or protractor, degrees",
-            "reason": "No numeric angle in degrees is recorded.",
-            "status": "missing",
-            "units": "degrees"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s",
-              "inventory.tools.centre-drill.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.centre-drill.shank",
-            "identity": "centre-drill",
-            "instruction": "measure: centre-drill centre drill countersink body diameter A (Table 6 A), micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s",
-              "inventory.tools.finishing-endmill.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.finishing-endmill.dia",
-            "identity": "finishing-endmill",
-            "instruction": "measure: finishing-endmill selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s",
-              "inventory.tools.finishing-endmill.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.finishing-endmill.flute_len",
-            "identity": "finishing-endmill",
-            "instruction": "measure: finishing-endmill selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s",
-              "inventory.tools.finishing-endmill.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.finishing-endmill.oal",
-            "identity": "finishing-endmill",
-            "instruction": "measure: finishing-endmill selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s",
-              "inventory.tools.finishing-endmill.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.finishing-endmill.shank",
-            "identity": "finishing-endmill",
-            "instruction": "measure: finishing-endmill shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=165s",
-              "inventory.tools.initial-stock-saw.kerf"
-            ],
-            "field": [
-              "kerf"
-            ],
-            "id": "tools.initial-stock-saw.kerf",
-            "identity": "initial-stock-saw",
-            "instruction": "measure: initial-stock-saw saw blade cutting width across the tooth set, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s",
-              "inventory.tools.roughing-endmill.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.roughing-endmill.dia",
-            "identity": "roughing-endmill",
-            "instruction": "measure: roughing-endmill selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s",
-              "inventory.tools.roughing-endmill.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.roughing-endmill.flute_len",
-            "identity": "roughing-endmill",
-            "instruction": "measure: roughing-endmill selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s",
-              "inventory.tools.roughing-endmill.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.roughing-endmill.oal",
-            "identity": "roughing-endmill",
-            "instruction": "measure: roughing-endmill selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s",
-              "inventory.tools.roughing-endmill.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.roughing-endmill.shank",
-            "identity": "roughing-endmill",
-            "instruction": "measure: roughing-endmill shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s",
-              "inventory.tools.shoulder-rougher.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.shoulder-rougher.dia",
-            "identity": "shoulder-rougher",
-            "instruction": "measure: shoulder-rougher selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s",
-              "inventory.tools.shoulder-rougher.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.shoulder-rougher.flute_len",
-            "identity": "shoulder-rougher",
-            "instruction": "measure: shoulder-rougher selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s",
-              "inventory.tools.shoulder-rougher.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.shoulder-rougher.oal",
-            "identity": "shoulder-rougher",
-            "instruction": "measure: shoulder-rougher selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s",
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s",
-              "inventory.tools.shoulder-rougher.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.shoulder-rougher.shank",
-            "identity": "shoulder-rougher",
-            "instruction": "measure: shoulder-rougher shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=647s",
-              "inventory.tools.slitting-saw.kerf"
-            ],
-            "field": [
-              "kerf"
-            ],
-            "id": "tools.slitting-saw.kerf",
-            "identity": "slitting-saw",
-            "instruction": "measure: slitting-saw saw blade cutting width across the tooth set, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s",
-              "inventory.tools.tap-drill.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.tap-drill.dia",
-            "identity": "tap-drill",
-            "instruction": "measure: tap-drill selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s",
-              "inventory.tools.tap-drill.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.tap-drill.flute_len",
-            "identity": "tap-drill",
-            "instruction": "measure: tap-drill selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s",
-              "inventory.tools.tap-drill.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.tap-drill.oal",
-            "identity": "tap-drill",
-            "instruction": "measure: tap-drill selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "inventory.tools.tap-drill.point_angle"
-            ],
-            "field": [
-              "point_angle"
-            ],
-            "id": "tools.tap-drill.point_angle",
-            "identity": "tap-drill",
-            "instruction": "measure: tap-drill included drill point angle, drill point gauge or protractor, degrees",
-            "reason": "No numeric angle in degrees is recorded.",
-            "status": "missing",
-            "units": "degrees"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s",
-              "inventory.tools.tap-drill.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.tap-drill.shank",
-            "identity": "tap-drill",
-            "instruction": "measure: tap-drill shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.taper-tap.dia",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.taper-tap.flute_len",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.taper-tap.oal",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.taper-tap.shank",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          }
-        ]
-      },
+      "message": "D1:30: kernel facts for this rotary op are not rotary-model facts.",
+      "numbers": {},
       "rule": "reach",
       "status": "unknown",
       "subject": "D1:30"
@@ -27290,12 +25408,14 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "plan.setups[C1].ops[20].rpm: authored request takes precedence without rounding or clamping"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "Authored RPM request: Spindle limits, cutting data, tool or material are unresolved or unverified.",
       "numbers": {
         "action": "cut_off",
         "chip_load_mm_per_tooth": "unknown",
+        "computed_rpm": "unknown",
         "cutting_data_row": "unknown",
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
@@ -27322,10 +25442,14 @@
           }
         ],
         "operation": "slitting_saw",
+        "requested_rpm": "unknown",
         "rpm": "unknown",
+        "rpm_basis": "authored",
         "rpm_max": "unknown",
         "rpm_min": "unknown",
         "rpm_range_verify": false,
+        "rpm_reason": "Spindle limits, cutting data, tool or material are unresolved or unverified.",
+        "rpm_status": "unknown",
         "sfm": "unknown",
         "tool_kind": "slitting_saw",
         "tool_material": "unknown"
@@ -27338,12 +25462,14 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "plan.setups[C2].ops[10].rpm: authored request takes precedence without rounding or clamping"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "Authored RPM request: Spindle limits, cutting data, tool or material are unresolved or unverified.",
       "numbers": {
         "action": "cut_off",
         "chip_load_mm_per_tooth": "unknown",
+        "computed_rpm": "unknown",
         "cutting_data_row": "unknown",
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
@@ -27370,10 +25496,14 @@
           }
         ],
         "operation": "slitting_saw",
+        "requested_rpm": "unknown",
         "rpm": "unknown",
+        "rpm_basis": "authored",
         "rpm_max": "unknown",
         "rpm_min": "unknown",
         "rpm_range_verify": false,
+        "rpm_reason": "Spindle limits, cutting data, tool or material are unresolved or unverified.",
+        "rpm_status": "unknown",
         "sfm": "unknown",
         "tool_kind": "slitting_saw",
         "tool_material": "unknown"
@@ -27386,11 +25516,13 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "plan.setups[D1].ops[10].rpm: authored request takes precedence without rounding or clamping"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "Authored RPM request: Spindle limits, cutting data, tool or material are unresolved or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "computed_rpm": "unknown",
         "cutting_data_row": "unknown",
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
@@ -27417,10 +25549,14 @@
           }
         ],
         "operation": "spot",
+        "requested_rpm": "unknown",
         "rpm": "unknown",
+        "rpm_basis": "authored",
         "rpm_max": "unknown",
         "rpm_min": "unknown",
         "rpm_range_verify": false,
+        "rpm_reason": "Spindle limits, cutting data, tool or material are unresolved or unverified.",
+        "rpm_status": "unknown",
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -27432,12 +25568,14 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "plan.setups[D1].ops[20].rpm: authored request takes precedence without rounding or clamping"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "Authored RPM request: Spindle limits, cutting data, tool or material are unresolved or unverified.",
       "numbers": {
         "axial_feed_mm_rev": "unknown",
         "chip_load_mm_per_tooth": "unknown",
+        "computed_rpm": "unknown",
         "cutting_data_row": "unknown",
         "diameter_in": "unknown",
         "feed_direction": "axial",
@@ -27465,10 +25603,14 @@
           }
         ],
         "operation": "drill",
+        "requested_rpm": "unknown",
         "rpm": "unknown",
+        "rpm_basis": "authored",
         "rpm_max": "unknown",
         "rpm_min": "unknown",
         "rpm_range_verify": false,
+        "rpm_reason": "Spindle limits, cutting data, tool or material are unresolved or unverified.",
+        "rpm_status": "unknown",
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -27478,48 +25620,14 @@
     },
     {
       "cite": [
-        "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
-        "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "PLAN.md §4.1 speeds/feeds"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "This manual operation has no cutting speed or feed.",
       "numbers": {
-        "chip_load_mm_per_tooth": "unknown",
-        "cutting_data_row": "unknown",
-        "diameter_in": "unknown",
-        "feed_mm_min": "unknown",
-        "flutes": "unknown",
-        "material": "1018 steel",
-        "material_class": "1018 steel",
-        "material_verify": false,
-        "measurements": [
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.taper-tap.dia",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          }
-        ],
-        "operation": "tap",
-        "rpm": "unknown",
-        "rpm_max": "unknown",
-        "rpm_min": "unknown",
-        "rpm_range_verify": false,
-        "sfm": "unknown",
-        "tool_material": "unknown"
+        "operation": "hand_tap"
       },
       "rule": "speeds_feeds",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "D1:30"
     },
     {
@@ -27538,11 +25646,13 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "plan.setups[E1].ops[10].rpm: authored request takes precedence without rounding or clamping"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "Authored RPM request: Spindle limits, cutting data, tool or material are unresolved or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "computed_rpm": "unknown",
         "cutting_data_row": "unknown",
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
@@ -27570,10 +25680,14 @@
           }
         ],
         "operation": "profile",
+        "requested_rpm": "unknown",
         "rpm": "unknown",
+        "rpm_basis": "authored",
         "rpm_max": "unknown",
         "rpm_min": "unknown",
         "rpm_range_verify": false,
+        "rpm_reason": "Spindle limits, cutting data, tool or material are unresolved or unverified.",
+        "rpm_status": "unknown",
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -27609,11 +25723,13 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "plan.setups[Q1].ops[10].rpm: authored request takes precedence without rounding or clamping"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "Authored RPM request: Spindle limits, cutting data, tool or material are unresolved or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "computed_rpm": "unknown",
         "cutting_data_row": "unknown",
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
@@ -27640,10 +25756,14 @@
           }
         ],
         "operation": "face",
+        "requested_rpm": "unknown",
         "rpm": "unknown",
+        "rpm_basis": "authored",
         "rpm_max": "unknown",
         "rpm_min": "unknown",
         "rpm_range_verify": false,
+        "rpm_reason": "Spindle limits, cutting data, tool or material are unresolved or unverified.",
+        "rpm_status": "unknown",
         "sfm": "unknown",
         "tool_material": "HSS"
       },
@@ -27667,11 +25787,13 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "plan.setups[Q2].ops[10].rpm: authored request takes precedence without rounding or clamping"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "Authored RPM request: Spindle limits, cutting data, tool or material are unresolved or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "computed_rpm": "unknown",
         "cutting_data_row": "unknown",
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
@@ -27698,10 +25820,14 @@
           }
         ],
         "operation": "face",
+        "requested_rpm": "unknown",
         "rpm": "unknown",
+        "rpm_basis": "authored",
         "rpm_max": "unknown",
         "rpm_min": "unknown",
         "rpm_range_verify": false,
+        "rpm_reason": "Spindle limits, cutting data, tool or material are unresolved or unverified.",
+        "rpm_status": "unknown",
         "sfm": "unknown",
         "tool_material": "HSS"
       },
@@ -27725,11 +25851,13 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "plan.setups[Q3].ops[10].rpm: authored request takes precedence without rounding or clamping"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "Authored RPM request: Spindle limits, cutting data, tool or material are unresolved or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "computed_rpm": "unknown",
         "cutting_data_row": "unknown",
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
@@ -27756,10 +25884,14 @@
           }
         ],
         "operation": "face",
+        "requested_rpm": "unknown",
         "rpm": "unknown",
+        "rpm_basis": "authored",
         "rpm_max": "unknown",
         "rpm_min": "unknown",
         "rpm_range_verify": false,
+        "rpm_reason": "Spindle limits, cutting data, tool or material are unresolved or unverified.",
+        "rpm_status": "unknown",
         "sfm": "unknown",
         "tool_material": "HSS"
       },
@@ -27795,11 +25927,13 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "plan.setups[Q4].ops[10].rpm: authored request takes precedence without rounding or clamping"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "Authored RPM request: Spindle limits, cutting data, tool or material are unresolved or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "computed_rpm": "unknown",
         "cutting_data_row": "unknown",
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
@@ -27826,10 +25960,14 @@
           }
         ],
         "operation": "face",
+        "requested_rpm": "unknown",
         "rpm": "unknown",
+        "rpm_basis": "authored",
         "rpm_max": "unknown",
         "rpm_min": "unknown",
         "rpm_range_verify": false,
+        "rpm_reason": "Spindle limits, cutting data, tool or material are unresolved or unverified.",
+        "rpm_status": "unknown",
         "sfm": "unknown",
         "tool_material": "HSS"
       },
@@ -27865,11 +26003,13 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "plan.setups[S1].ops[10].rpm: authored request takes precedence without rounding or clamping"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "Authored RPM request: Spindle limits, cutting data, tool or material are unresolved or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "computed_rpm": "unknown",
         "cutting_data_row": "unknown",
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
@@ -27897,10 +26037,14 @@
           }
         ],
         "operation": "profile",
+        "requested_rpm": "unknown",
         "rpm": "unknown",
+        "rpm_basis": "authored",
         "rpm_max": "unknown",
         "rpm_min": "unknown",
         "rpm_range_verify": false,
+        "rpm_reason": "Spindle limits, cutting data, tool or material are unresolved or unverified.",
+        "rpm_status": "unknown",
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -27912,11 +26056,13 @@
       "cite": [
         "PLAN.md §3.5 RPM = 12·sfm/(π·D_in), round raw RPM nearest50 ties-to-even then clamp",
         "inventory machine spindle range",
-        "cutting-data aliases and rows"
+        "cutting-data aliases and rows",
+        "plan.setups[S1].ops[20].rpm: authored request takes precedence without rounding or clamping"
       ],
-      "message": "Starting RPM/feed cannot be certified: the selected row/chart, measured tool, material or machine range is missing or unverified.",
+      "message": "Authored RPM request: Spindle limits, cutting data, tool or material are unresolved or unverified.",
       "numbers": {
         "chip_load_mm_per_tooth": "unknown",
+        "computed_rpm": "unknown",
         "cutting_data_row": "unknown",
         "diameter_in": "unknown",
         "feed_mm_min": "unknown",
@@ -27944,10 +26090,14 @@
           }
         ],
         "operation": "profile",
+        "requested_rpm": "unknown",
         "rpm": "unknown",
+        "rpm_basis": "authored",
         "rpm_max": "unknown",
         "rpm_min": "unknown",
         "rpm_range_verify": false,
+        "rpm_reason": "Spindle limits, cutting data, tool or material are unresolved or unverified.",
+        "rpm_status": "unknown",
         "sfm": "unknown",
         "tool_material": "unknown"
       },
@@ -28459,22 +26609,36 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck",
-        "plan.stock.dia_mm",
-        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+        "PLAN.md §4.1 collet/chuck",
+        "inventory.machines.video-bench: kind bench",
+        "plan.setups.B2.ops: manual bench actions only"
       ],
-      "message": "B2: selected collet/chuck identity is unresolved.",
+      "message": "B2: manual bench work has no collet or chuck gripping size.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "diameter_source": "plan.stock.dia_mm",
-        "fixture": "unknown",
-        "fixture_kind": "unknown",
-        "ranges_mm": [],
-        "selected_size_mm": "unknown",
-        "sizes_mm": []
+        "joint_method": "not_applicable",
+        "machine": "video-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "coating",
+            "op": 10
+          },
+          {
+            "do": "coating",
+            "op": 20
+          },
+          {
+            "do": "coating",
+            "op": 30
+          },
+          {
+            "do": "coating",
+            "op": 40
+          }
+        ]
       },
       "rule": "stock_diameter",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "B2"
     },
     {
@@ -28559,22 +26723,24 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 collet/chuck",
-        "plan.stock.dia_mm",
-        "inventory selected workholding sizes_mm/sizes_in/range_mm/range_in; 25.4 mm/in"
+        "PLAN.md §4.1 collet/chuck",
+        "inventory.machines.video-bench: kind bench",
+        "plan.setups.F1.ops: manual bench actions only"
       ],
-      "message": "F1: selected collet/chuck identity is unresolved.",
+      "message": "F1: manual bench work has no collet or chuck gripping size.",
       "numbers": {
-        "diameter_mm": "unknown",
-        "diameter_source": "plan.stock.dia_mm",
-        "fixture": "unknown",
-        "fixture_kind": "unknown",
-        "ranges_mm": [],
-        "selected_size_mm": "unknown",
-        "sizes_mm": []
+        "joint_method": "not_applicable",
+        "machine": "video-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "inspect",
+            "op": 10
+          }
+        ]
       },
       "rule": "stock_diameter",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "F1"
     },
     {
@@ -28891,14 +27057,36 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 thin_wall_under_clamp",
-        "kernel: STEP SHA-256 456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e; FreeCAD B-rep measurements",
-        "plan.setups.B2: frame and hold"
+        "PLAN.md §4.1 holding",
+        "inventory.machines.video-bench: kind bench",
+        "plan.setups.B2.ops: manual bench actions only"
       ],
-      "message": "B2: holding identity is unknown.",
-      "numbers": {},
+      "message": "B2: manual bench work has no clamping load on a wall.",
+      "numbers": {
+        "joint_method": "not_applicable",
+        "machine": "video-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "coating",
+            "op": 10
+          },
+          {
+            "do": "coating",
+            "op": 20
+          },
+          {
+            "do": "coating",
+            "op": 30
+          },
+          {
+            "do": "coating",
+            "op": 40
+          }
+        ]
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "B2"
     },
     {
@@ -30128,10 +28316,6 @@
         "inventory.holders.milling-holder.gauge_dia",
         "inventory.holders.milling-holder.gauge_len",
         "inventory.holders.milling-holder.grip",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-        "inventory.holders.tap-follower.gauge_dia",
-        "inventory.holders.tap-follower.gauge_len",
-        "inventory.holders.tap-follower.grip",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s",
         "inventory.machines.video-mill.resolution",
         "inventory.tools.centre-drill.dia",
@@ -30165,13 +28349,9 @@
         "inventory.tools.tap-drill.flute_len",
         "inventory.tools.tap-drill.oal",
         "inventory.tools.tap-drill.point_angle",
-        "inventory.tools.tap-drill.shank",
-        "inventory.tools.taper-tap.dia",
-        "inventory.tools.taper-tap.flute_len",
-        "inventory.tools.taper-tap.oal",
-        "inventory.tools.taper-tap.shank"
+        "inventory.tools.tap-drill.shank"
       ],
-      "message": "D1: in-process stock unknown: setup B0 frame is unusable (numeric setup frame is unknown); in-process stock after it cannot be derived. Refused kernel facts: fixtures.None.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.length (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.dia (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.length (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.grip (missing): No numeric length with explicit millimetre or inch units is recorded; machines.video-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.centre-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.initial-stock-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.slitting-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.tap-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "message": "D1: in-process stock unknown: setup B0 frame is unusable (numeric setup frame is unknown); in-process stock after it cannot be derived. Refused kernel facts: fixtures.None.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.length (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.dia (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.length (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.grip (missing): No numeric length with explicit millimetre or inch units is recorded; machines.video-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.centre-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.initial-stock-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.slitting-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.tap-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
       "numbers": {
         "measurements": [
           {
@@ -30496,54 +28676,6 @@
             "id": "holders.milling-holder.grip",
             "identity": "milling-holder",
             "instruction": "measure: milling-holder installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.gauge_dia"
-            ],
-            "field": [
-              "gauge_dia"
-            ],
-            "id": "holders.tap-follower.gauge_dia",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower mounted holder outside diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.tap-follower.gauge_len",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.tap-follower.grip",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower installed tool insertion from holder exit face, steel rule or calipers, mm",
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
@@ -30951,70 +29083,6 @@
             "id": "tools.tap-drill.shank",
             "identity": "tap-drill",
             "instruction": "measure: tap-drill shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.taper-tap.dia",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.taper-tap.flute_len",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.taper-tap.oal",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.taper-tap.shank",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap shank diameter, micrometer or calipers, mm",
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
@@ -31622,14 +29690,24 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 thin_wall_under_clamp",
-        "kernel: STEP SHA-256 456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e; FreeCAD B-rep measurements",
-        "plan.setups.F1: frame and hold"
+        "PLAN.md §4.1 holding",
+        "inventory.machines.video-bench: kind bench",
+        "plan.setups.F1.ops: manual bench actions only"
       ],
-      "message": "F1: holding identity is unknown.",
-      "numbers": {},
+      "message": "F1: manual bench work has no clamping load on a wall.",
+      "numbers": {
+        "joint_method": "not_applicable",
+        "machine": "video-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "inspect",
+            "op": 10
+          }
+        ]
+      },
       "rule": "thin_wall_under_clamp",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "F1"
     },
     {
@@ -33964,17 +32042,28 @@
     },
     {
       "cite": [
-        "inventory spindle/holder/shank fields",
-        "PLAN.md §4.1"
+        "inventory thread tool/member/spec/hand/class and manual holder fit or capacity"
       ],
-      "message": "D1:30: assembly fit needs measured shank, holder and machine facts.",
+      "message": "D1:30: tap and feature thread must be known; tap and feature thread_hand must be known; tap and feature thread_class must be known; tap wrench/follower fit or nominal tap-size capacity is unknown.",
       "numbers": {
+        "feature": "threaded-hole",
         "holder": "tap-follower",
         "holder_capacity_mm": "unknown",
-        "holder_standard": "unknown",
-        "machine": "video-mill",
-        "machine_standard": "unknown",
-        "shank_mm": "unknown",
+        "holder_fits": "unknown",
+        "manual": true,
+        "tap_dia_mm": "unknown",
+        "thread": {
+          "required": "3/8-16",
+          "tap": "unknown"
+        },
+        "thread_class": {
+          "required": "unknown",
+          "tap": "unknown"
+        },
+        "thread_hand": {
+          "required": "unknown",
+          "tap": "unknown"
+        },
         "tool": "taper-tap"
       },
       "rule": "tool_resolves",
@@ -35059,17 +33148,11 @@
         "inventory.tools.tap-drill.point_angle",
         "plan.setups.D1.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.D1.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
-        "plan.setups.D1.ops.30",
-        "inventory.holders.tap-follower.gauge_len",
-        "inventory.tools.taper-tap.oal",
-        "inventory.holders.tap-follower.grip",
-        "plan.setups.D1.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
-        "plan.setups.D1.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "inventory.machines.video-mill.envelope.travel.x",
         "inventory.machines.video-mill.envelope.travel.y",
         "inventory.machines.video-mill.envelope.travel.z"
       ],
-      "message": "D1: declared operation travel remains unmeasured or unresolved. measure: drill-chuck spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: drill-chuck installed tool insertion from holder exit face, steel rule or calipers, mm; measure: tap-follower spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: tap-follower installed tool insertion from holder exit face, steel rule or calipers, mm; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.D1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.10.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.D1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.20.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.D1.ops.30 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.30.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: centre-drill selected tool overall length, steel rule or calipers, mm; measure: tap-drill selected cutter diameter, micrometer, mm; measure: tap-drill selected tool overall length, steel rule or calipers, mm; measure: tap-drill included drill point angle, drill point gauge or protractor, degrees; measure: taper-tap selected tool overall length, steel rule or calipers, mm.",
+      "message": "D1: declared operation travel remains unmeasured or unresolved. measure: drill-chuck spindle nose to mounted holder exit face, steel rule or height gauge, mm; measure: drill-chuck installed tool insertion from holder exit face, steel rule or calipers, mm; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.D1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.10 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.10.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; author: Measure plan.setups.D1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.20 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.20.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.20 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: centre-drill selected tool overall length, steel rule or calipers, mm; measure: tap-drill selected cutter diameter, micrometer, mm; measure: tap-drill selected tool overall length, steel rule or calipers, mm; measure: tap-drill included drill point angle, drill point gauge or protractor, degrees.",
       "numbers": {
         "measurements": [
           {
@@ -35096,32 +33179,6 @@
             "id": "holders.drill-chuck.grip",
             "identity": "drill-chuck",
             "instruction": "measure: drill-chuck installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "inventory.holders.tap-follower.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.tap-follower.gauge_len",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "inventory.holders.tap-follower.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.tap-follower.grip",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower installed tool insertion from holder exit face, steel rule or calipers, mm",
             "units": "mm"
           },
           {
@@ -35186,14 +33243,6 @@
             "units": "mm"
           },
           {
-            "cite": [
-              "plan.setups.D1.ops.30"
-            ],
-            "id": "plan.setups.D1.ops.30.z_geometry",
-            "instruction": "author: Measure plan.setups.D1.ops.30 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.D1.ops.30.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure plan.setups.D1.ops.30 hole entry and local thickness/depth with a depth gauge, drill point or reamer lead with an optical comparator, and exit allowance in mm; record stock_state.entry_z/local_thickness and operation depth_mm/exit_mm; Measure plan.setups.D1.ops.30.depth_mm and local entry using a depth gauge or machine Z readout; record a nonnegative depth and entry_z in mm; Measure and declare plan.setups.D1.ops.30 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm",
-            "units": "mm"
-          },
-          {
             "category": "tools",
             "cite": [
               "inventory.tools.centre-drill.oal"
@@ -35244,19 +33293,6 @@
             "identity": "tap-drill",
             "instruction": "measure: tap-drill included drill point angle, drill point gauge or protractor, degrees",
             "units": "degrees"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "inventory.tools.taper-tap.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.taper-tap.oal",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected tool overall length, steel rule or calipers, mm",
-            "units": "mm"
           }
         ],
         "operations": [
@@ -35367,67 +33403,6 @@
               0.0
             ],
             "tool": "tap-drill",
-            "tool_projection_mm": "unknown",
-            "tool_radius_mm": "unknown",
-            "tool_radius_verified": false,
-            "xy_cutter_bounds_mm": {
-              "x": [
-                0.0,
-                0.0
-              ],
-              "y": [
-                0.0,
-                0.0
-              ]
-            },
-            "z_bounds_mm": "unknown",
-            "z_verified": false
-          },
-          {
-            "approach_mm": "unknown",
-            "conservative_stock_spans_mm": "not_applicable",
-            "do": "tap",
-            "endpoint": {
-              "depth_floor_mm": "unknown",
-              "depth_mm": "unknown",
-              "dro_depth_mm": "unknown",
-              "dro_entry_z": "unknown",
-              "dro_grid_debt": "machine video-mill declares no positive numeric DRO resolution, so its grid is provisional",
-              "dro_tip_z": "unknown",
-              "entry_from": "D1 stock_state.top_z",
-              "entry_z": "unknown",
-              "exit_face": "not_applicable",
-              "feature": "threaded-hole",
-              "flute_len_mm": "unknown",
-              "op": 30,
-              "setup": "D1",
-              "tip_z": "unknown"
-            },
-            "extent_mm": {
-              "x": [
-                0.0,
-                0.0
-              ],
-              "y": [
-                0.0,
-                0.0
-              ],
-              "z": [
-                0.0,
-                0.0
-              ]
-            },
-            "feature": "threaded-hole",
-            "holder": "tap-follower",
-            "holder_gauge_len_mm": "unknown",
-            "op": 30,
-            "printed_xy_bounds_mm": "not_applicable",
-            "rough_allowance_mm": 0,
-            "tip_z_bounds_mm": [
-              0.0,
-              0.0
-            ],
-            "tool": "taper-tap",
             "tool_projection_mm": "unknown",
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
@@ -37266,7 +35241,7 @@
       "message": "D1:30: the static turning proxy does not apply to this operation.",
       "numbers": {
         "feature": "threaded-hole",
-        "operation": "tap"
+        "operation": "hand_tap"
       },
       "rule": "turning_deflection",
       "status": "not_applicable",
@@ -37725,14 +35700,36 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 vise",
-        "kernel: STEP SHA-256 456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e; FreeCAD B-rep measurements",
-        "plan.setups.B2: frame and hold"
+        "PLAN.md §4.1 holding",
+        "inventory.machines.video-bench: kind bench",
+        "plan.setups.B2.ops: manual bench actions only"
       ],
-      "message": "B2: holding identity is unknown.",
-      "numbers": {},
+      "message": "B2: manual bench work has no vise jaw grip.",
+      "numbers": {
+        "joint_method": "not_applicable",
+        "machine": "video-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "coating",
+            "op": 10
+          },
+          {
+            "do": "coating",
+            "op": 20
+          },
+          {
+            "do": "coating",
+            "op": 30
+          },
+          {
+            "do": "coating",
+            "op": 40
+          }
+        ]
+      },
       "rule": "vise",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "B2"
     },
     {
@@ -38962,10 +36959,6 @@
         "inventory.holders.milling-holder.gauge_dia",
         "inventory.holders.milling-holder.gauge_len",
         "inventory.holders.milling-holder.grip",
-        "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-        "inventory.holders.tap-follower.gauge_dia",
-        "inventory.holders.tap-follower.gauge_len",
-        "inventory.holders.tap-follower.grip",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s",
         "inventory.machines.video-mill.resolution",
         "inventory.tools.centre-drill.dia",
@@ -38999,13 +36992,9 @@
         "inventory.tools.tap-drill.flute_len",
         "inventory.tools.tap-drill.oal",
         "inventory.tools.tap-drill.point_angle",
-        "inventory.tools.tap-drill.shank",
-        "inventory.tools.taper-tap.dia",
-        "inventory.tools.taper-tap.flute_len",
-        "inventory.tools.taper-tap.oal",
-        "inventory.tools.taper-tap.shank"
+        "inventory.tools.tap-drill.shank"
       ],
-      "message": "D1: in-process stock unknown: setup B0 frame is unusable (numeric setup frame is unknown); in-process stock after it cannot be derived. Refused kernel facts: fixtures.None.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.length (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.dia (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.length (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.tap-follower.grip (missing): No numeric length with explicit millimetre or inch units is recorded; machines.video-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.centre-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.initial-stock-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.slitting-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.tap-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.taper-tap.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
+      "message": "D1: in-process stock unknown: setup B0 frame is unusable (numeric setup frame is unknown); in-process stock after it cannot be derived. Refused kernel facts: fixtures.None.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.bench-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_depth (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.jaw_width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.mill-vise.opening (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.height (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.length (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.parallels.width (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.dia (missing): No numeric length with explicit millimetre or inch units is recorded; fixtures.round-bar.length (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.drill-chuck.grip (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_dia (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.gauge_len (missing): No numeric length with explicit millimetre or inch units is recorded; holders.milling-holder.grip (missing): No numeric length with explicit millimetre or inch units is recorded; machines.video-mill.resolution (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.centre-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.centre-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.finishing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.initial-stock-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.roughing-endmill.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.shoulder-rougher.shank (missing): No numeric length with explicit millimetre or inch units is recorded; tools.slitting-saw.kerf (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.dia (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.flute_len (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.oal (missing): No numeric length with explicit millimetre or inch units is recorded; tools.tap-drill.point_angle (missing): No numeric angle in degrees is recorded; tools.tap-drill.shank (missing): No numeric length with explicit millimetre or inch units is recorded.",
       "numbers": {
         "measurements": [
           {
@@ -39330,54 +37319,6 @@
             "id": "holders.milling-holder.grip",
             "identity": "milling-holder",
             "instruction": "measure: milling-holder installed tool insertion from holder exit face, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.gauge_dia"
-            ],
-            "field": [
-              "gauge_dia"
-            ],
-            "id": "holders.tap-follower.gauge_dia",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower mounted holder outside diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.gauge_len"
-            ],
-            "field": [
-              "gauge_len"
-            ],
-            "id": "holders.tap-follower.gauge_len",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower spindle nose to mounted holder exit face, steel rule or height gauge, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "holders",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.holders.tap-follower.grip"
-            ],
-            "field": [
-              "grip"
-            ],
-            "id": "holders.tap-follower.grip",
-            "identity": "tap-follower",
-            "instruction": "measure: tap-follower installed tool insertion from holder exit face, steel rule or calipers, mm",
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
@@ -39785,70 +37726,6 @@
             "id": "tools.tap-drill.shank",
             "identity": "tap-drill",
             "instruction": "measure: tap-drill shank diameter, micrometer or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.dia"
-            ],
-            "field": [
-              "dia"
-            ],
-            "id": "tools.taper-tap.dia",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected cutter diameter, micrometer, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.flute_len"
-            ],
-            "field": [
-              "flute_len"
-            ],
-            "id": "tools.taper-tap.flute_len",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected cutter usable flute length, calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.oal"
-            ],
-            "field": [
-              "oal"
-            ],
-            "id": "tools.taper-tap.oal",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap selected tool overall length, steel rule or calipers, mm",
-            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
-            "status": "missing",
-            "units": "mm"
-          },
-          {
-            "category": "tools",
-            "cite": [
-              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s",
-              "inventory.tools.taper-tap.shank"
-            ],
-            "field": [
-              "shank"
-            ],
-            "id": "tools.taper-tap.shank",
-            "identity": "taper-tap",
-            "instruction": "measure: taper-tap shank diameter, micrometer or calipers, mm",
             "reason": "No numeric length with explicit millimetre or inch units is recorded.",
             "status": "missing",
             "units": "mm"
@@ -40456,14 +38333,24 @@
     },
     {
       "cite": [
-        "PLAN.md §4.3 vise",
-        "kernel: STEP SHA-256 456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e; FreeCAD B-rep measurements",
-        "plan.setups.F1: frame and hold"
+        "PLAN.md §4.1 holding",
+        "inventory.machines.video-bench: kind bench",
+        "plan.setups.F1.ops: manual bench actions only"
       ],
-      "message": "F1: holding identity is unknown.",
-      "numbers": {},
+      "message": "F1: manual bench work has no vise jaw grip.",
+      "numbers": {
+        "joint_method": "not_applicable",
+        "machine": "video-bench",
+        "machine_kind": "bench",
+        "operations": [
+          {
+            "do": "inspect",
+            "op": 10
+          }
+        ]
+      },
       "rule": "vise",
-      "status": "unknown",
+      "status": "not_applicable",
       "subject": "F1"
     },
     {
@@ -42815,11 +40702,11 @@
           },
           {
             "axis_set": "unknown",
-            "next_op": 30,
-            "next_tool": "taper-tap",
+            "next_op": "not_applicable",
+            "next_tool": "not_applicable",
             "op": 20,
             "paper_mm": "unknown",
-            "tool_change": true,
+            "tool_change": false,
             "top_z": "unknown"
           }
         ],
@@ -43680,7 +41567,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "fdd938c2523cb51e766c760ae4ea60d51550742b898254098c0d754fbbd809ba",
+  "hash": "133bc9679154fec74aadaaba4d7b68d45b3820973d427d6addca81c19f387c5e",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-t-nuts/cutting-data.toml",
@@ -43696,7 +41583,7 @@
     },
     "plan": {
       "path": "examples/blondihacks-t-nuts/plan.toml",
-      "sha256": "c1c37f68b0693de5cdfbc36141ef77d45f5fc706f9fc386389c062a4324a1697"
+      "sha256": "d64729791cbc4201b7c78f5db37ba9e62506554e41c0545bd3636200408b80b6"
     },
     "shop_policy": {
       "path": "examples/blondihacks-t-nuts/shop-policy.toml",

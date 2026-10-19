@@ -1108,9 +1108,10 @@ separate [CLI](docs/reference/cli.md) and
 The [style guide](docs/style-guide.md) defines page structures and verification.
 
 Standalone video examples are tracked separately from consumer-export delivery:
-the [catalog-adapted T-nuts](examples/blondihacks-t-nuts/README.md) and
-[360-brass ring](examples/blondihacks-brass-ring/README.md) use local shop
-inputs and preserve missing real measurements. Their expected exit is 4 and
+the [catalog-adapted T-nuts](examples/blondihacks-t-nuts/README.md),
+[360-brass ring](examples/blondihacks-brass-ring/README.md) and
+[adapted two-piece Magic Tube](examples/blondihacks-magic-tube/README.md)
+use local shop inputs and preserve missing real measurements. Their expected exit is 4 and
 their travelers remain PLANNED. Source/catalog identity and bound CAD are not
 physical feasibility, first-article or live-farm acceptance evidence.
 The [plan reference](docs/plan.md) owns retained-output identity and removable
@@ -1119,6 +1120,12 @@ applicable to multi-solid routes. Exact native material ownership is not a
 helical thread, seated-join, engagement or assembled-cut certification.
 Mechanical-handwheel procedures and requested RPM preserve their source
 instructions without replacing unresolved physical facts.
+The coordinated 2026-10-19 standalone regeneration observed actual CLI child
+exit 4 with no error findings for all three examples and byte-identical
+report/traveler pairs across two generations. Counts and frozen report hashes
+are recorded in the [example output evidence](examples/README.md#frozen-standalone-output-evidence).
+This is not full-suite, full-validator, independent blind, physical paper or
+first-article acceptance.
 
 0. **M0 — kernel spike** (§6). Done 2026-10-03, two rounds.
 1. **M1 — local implementation deliverable completed.** Five strict TOML

@@ -82,9 +82,7 @@ def scribe_material_status(bundle, setup, op):
     feature = scribe.get("feature")
     if not isinstance(feature, str) or feature == UNKNOWN:
         return None
-    return feature_material_status(
-        bundle.plan, setup["id"], earlier["id"], feature, bundle
-    )
+    return feature_material_status(bundle.plan, setup["id"], earlier["id"], feature, bundle)
 
 
 def evaluate(bundle):

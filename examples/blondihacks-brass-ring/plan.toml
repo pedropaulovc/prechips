@@ -28,7 +28,7 @@ origin_mm = "unknown"
 axis = [0.0, 0.0, 1.0]
 on_hand = "unknown"
 as_is_faces = []
-prerequisite = "HOLD: identify actual 360-brass stock, measure its available length and existing scrap step, approve the grip/stickout and safe tool-to-jaw travel, and approve final dimensions/limits. Video nominal 1-inch bar is not a measurement of the reader's stock. For smaller purchased stock, the source recommends probably no less than 0.050 inch of diameter cleanup stock above the 0.725-inch target; this is source guidance, not a measured allowance. Source starts from an existing scrap; no saw operation is shown or added. EDITORIAL MATERIAL HOLD: CDA C36000 lists 2.5-3.0% lead (Pb), so this is not lead-free brass. Confirm actual alloy and applicable wear/gift suitability before use; no child-jewelry or adult-wear approval is implied. See https://alloys.copper.org/alloy/C36000."
+prerequisite = "HOLD: identify actual 360-brass stock, measure its available length and existing scrap step, approve the grip/stickout and safe tool-to-jaw travel, and approve final dimensions/limits. Video nominal 1-inch bar is not a measurement of the reader's stock. For smaller purchased stock, the source recommends probably no less than 0.050 inch of diameter cleanup stock above the 0.725-inch target; this is source guidance, not a measured allowance. Source starts from an existing scrap; no saw operation is shown or added. EDITORIAL MATERIAL HOLD: CDA C36000 lists 2.5-3.0% lead (Pb), so this is not lead-free brass. Confirm actual alloy and applicable wear/gift suitability before use; no child-jewelry or adult-wear approval is implied."
 note = "Nominal 1-inch diameter from video 05:50. Length, prior step, raw end station, chuck engagement and straightness are unrecorded. One ring is demonstrated; repeat the complete route with fresh grip/clearance checks for each additional ring, not an unverified repeated feed."
 cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=299s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=350s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=355s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=677s", "https://alloys.copper.org/alloy/C36000"]
 
@@ -241,11 +241,11 @@ note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=864s"
 [[setups.ops]]
 op = 110
 do = "deburr"
-feature = ["outer-diameter", "front-face", "back-face"]
+feature = "outer-diameter"
 faces = ["#17/ADVANCED_FACE[1]/", "#50/ADVANCED_FACE[2]/", "#70/ADVANCED_FACE[3]/"]
 tool = "fine-mill-file"
 rpm = 200.0
-note = "16:18-17:35: source lightly files the exposed front outer edge and ring's rear outer edge, reaching only the rear edge through the wide groove, before any drilling, at about 200 rpm. The bore does not exist yet and is not claimed by this operation. Chamfer size unspecified. HOLD for an approved lathe-filing procedure and safe handled-file posture/clearance; keep hands and clothing clear of jaws, no gloves. This manual action has no certified rotating-file/fixture contact model. No invented edge-break size is applied to STEP."
+note = "16:18-17:35: source lightly files the exposed front outer edge and ring's rear outer edge, reaching only the rear edge through the wide groove, before any drilling, at about 200 rpm. The primary feature is the outer diameter; the front/back annular face references locate its two outer rims, not a facing cut or whole-face finishing claim. The bore does not exist yet and is not claimed by this operation. Chamfer size unspecified. HOLD for an approved lathe-filing procedure and safe handled-file posture/clearance; keep hands and clothing clear of jaws, no gloves. This manual action has no certified rotating-file/fixture contact model. No invented edge-break size is applied to STEP."
 note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=978s"
 
 [[setups.ops]]
@@ -350,10 +350,10 @@ note = "HOLD until safe retention for this small sharp ring is established. Sour
 [[setups.ops]]
 op = 10
 do = "deburr"
-feature = ["bore", "front-face", "back-face"]
+feature = "bore"
 faces = ["#90/ADVANCED_FACE[4]/", "#50/ADVANCED_FACE[2]/", "#70/ADVANCED_FACE[3]/"]
 tool = "hand-deburring-tool"
-note = "Clean the sharp inside edges created by drilling with the hand-held conical deburring tool, a few gentle manual twists on both ends. Source calls the tiny part fiddly to hold. No numerical chamfer, stock removal or surface-finish target is published."
+note = "Clean the sharp inside edges created by drilling with the hand-held conical deburring tool, a few gentle manual twists on both ends. The primary feature is the bore; the front/back annular face references locate its two inner rims, not a facing cut or whole-face finishing claim. Source calls the tiny part fiddly to hold. No numerical chamfer, stock removal or surface-finish target is published."
 note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1407s"
 [[setups.ops]]
 op = 20

@@ -30,9 +30,13 @@ def retained_outputs(setup: dict) -> dict[str, dict]:
 
 
 def _known_vector(value: Any) -> bool:
-    return isinstance(value, list) and len(value) == 3 and all(
-        isinstance(entry, (int, float)) and not isinstance(entry, bool) and math.isfinite(entry)
-        for entry in value
+    return (
+        isinstance(value, list)
+        and len(value) == 3
+        and all(
+            isinstance(entry, (int, float)) and not isinstance(entry, bool) and math.isfinite(entry)
+            for entry in value
+        )
     )
 
 
@@ -79,6 +83,19 @@ def reference_frame(plan: dict, ref: str, frame: dict) -> dict | None:
     }
 
 
+def setup_index(plan: dict) -> dict[str, dict]:
+    """Known, unique setup identities; never synthesize a missing material identity."""
+    result = {}
+    for setup in plan.get("setups", []):
+        sid = setup.get("id")
+        if not isinstance(sid, str) or not sid.strip() or sid == UNKNOWN:
+            raise ValueError("Setup ids must be known and non-empty.")
+        if sid in result:
+            raise ValueError("Setup ids must be unique.")
+        result[sid] = setup
+    return result
+
+
 def producer_setup(plan: dict, ref: str) -> str | None:
     """The producing setup of a setup/output reference; a supply has no producer."""
     for setup in plan.get("setups", []):
@@ -91,7 +108,7 @@ def producer_setup(plan: dict, ref: str) -> str | None:
 
 def setup_lineage(plan: dict, sid: str) -> set[str]:
     """Producer history only. Membership is never proof that a feature survived a split."""
-    by_id = {setup["id"]: setup for setup in plan.get("setups", [])}
+    by_id = setup_index(plan)
     seen: set[str] = set()
     pending = [sid]
     while pending:
@@ -113,9 +130,7 @@ class Material:
 
     def overlaps(self, other: Material) -> bool:
         return self.root == other.root and not (
-            self.split is not None
-            and self.split == other.split
-            and self.output != other.output
+            self.split is not None and self.split == other.split and self.output != other.output
         )
 
 
@@ -123,20 +138,23 @@ class MaterialGraph:
     """Route identities for a validated plan; unresolved roots remain explicit identities."""
 
     def __init__(self, plan: dict, *, validate: bool = False):
+        setups = setup_index(plan)
         self.nodes: dict[str, tuple[Material, ...]] = {"stock": (Material("stock"),)}
         stock = plan.get("stock")
         components = stock.get("components", []) if isinstance(stock, dict) else []
         if isinstance(components, list):
             self.nodes.update(
-                {f"stock.{entry['id']}": (Material(f"stock.{entry['id']}"),) for entry in components}
+                {
+                    f"stock.{entry['id']}": (Material(f"stock.{entry['id']}"),)
+                    for entry in components
+                }
             )
         consumed: set[str] = set()
         earlier: set[str] = set()
         split_setups: set[str] = set()
         output_names: set[str] = set()
-        setup_ids = {setup["id"] for setup in plan.get("setups", [])}
-        for setup in plan.get("setups", []):
-            sid = setup["id"]
+        setup_ids = set(setups)
+        for sid, setup in setups.items():
             atoms: list[Material] = []
             refs = input_refs(setup)
             local: dict[str, str] = {}
@@ -144,11 +162,19 @@ class MaterialGraph:
                 where = f"Setup {sid} stock_in reference {ref!r}"
                 if validate:
                     if ref == "stock" and isinstance(components, list) and components:
-                        raise ValueError(f"{where} requires a single stock supply; use stock.<component id>.")
+                        raise ValueError(
+                            f"{where} requires a single stock supply; use stock.<component id>."
+                        )
                     if ref in split_setups:
-                        raise ValueError(f"{where} names a partitioned setup; select its stock_out.<name>.")
+                        raise ValueError(
+                            f"{where} names a partitioned setup; select its stock_out.<name>."
+                        )
                     if ref not in self.nodes or ref in setup_ids and ref not in earlier:
-                        reason = "is not an earlier setup" if ref in setup_ids else "is an unknown stock reference"
+                        reason = (
+                            "is not an earlier setup"
+                            if ref in setup_ids
+                            else "is an unknown stock reference"
+                        )
                         raise ValueError(f"{where} {reason}.")
                     if ref in consumed:
                         raise ValueError(
@@ -175,13 +201,18 @@ class MaterialGraph:
             outputs = retained_outputs(setup)
             if outputs:
                 if validate and (len(material) != 1 or material[0].split is not None):
-                    raise ValueError(f"Setup {sid}: named outputs cannot split an already partitioned or assembled input.")
+                    raise ValueError(
+                        f"Setup {sid}: named outputs cannot split an already partitioned "
+                        "or assembled input."
+                    )
                 for name, entry in outputs.items():
                     if validate and name in output_names:
                         raise ValueError(f"Retained output name {name!r} must be globally unique.")
                     output_names.add(name)
                     ref = OUTPUT_PREFIX + name
-                    self.nodes[ref] = tuple(Material(atom.root, sid, name, entry["carries"]) for atom in material)
+                    self.nodes[ref] = tuple(
+                        Material(atom.root, sid, name, entry["carries"]) for atom in material
+                    )
                 split_setups.add(sid)
             earlier.add(sid)
 
@@ -195,7 +226,8 @@ class MaterialGraph:
             "roots": sorted(self.roots(ref)),
             "partitions": [
                 {"split": atom.split, "output": atom.output}
-                for atom in atoms if atom.split is not None
+                for atom in atoms
+                if atom.split is not None
             ],
             # An unregistered source bar is unknown, never an empty protected part.
             "finished_solids": sorted(set(carried)) if carried and all(carried) else None,

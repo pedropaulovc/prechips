@@ -410,8 +410,10 @@ def kernel_measurement_debts(job, setup, op=None, *, fixture=False, stock=False)
             if sid != setup["id"]:
                 add(attachment.get("setups", {}).get(sid, []))
             for cut in source["ops"]:
-                if sid == setup["id"] and op is not None and cut["subject"] == (
-                    f"{sid}:{op['op']}"
+                if (
+                    sid == setup["id"]
+                    and op is not None
+                    and cut["subject"] == (f"{sid}:{op['op']}")
                 ):
                     break
                 add(attachment.get("ops", {}).get(cut["subject"], []))

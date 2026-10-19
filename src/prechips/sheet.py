@@ -6670,9 +6670,7 @@ class _Traveler:
             words = "; ".join(self.bench(_METHODS.get(m, m), setup) for m in methods if known(m))
             before = touch.get("before_ops")
             when = (
-                "Before " + _ops_label(before) + ": "
-                if isinstance(before, list) and before
-                else ""
+                "Before " + _ops_label(before) + ": " if isinstance(before, list) and before else ""
             )
             if touch.get("after_op") not in (None, "unknown"):
                 when += f"after op {_text(touch['after_op'])}, "
@@ -6838,9 +6836,7 @@ class _Traveler:
                 # A carried height: the report's typed setting and jog readings print
                 # as computed; the surface retains its separate physical height.
                 shown_edge = (
-                    self.physical(edge)
-                    if readout_units(self.bundle) == self.units
-                    else o(edge)
+                    self.physical(edge) if readout_units(self.bundle) == self.units else o(edge)
                 )
             elif axis == "z" and _known(edge):
                 # The touched surface as the DRO shows it; Axis Set and the jog readings
@@ -7255,9 +7251,7 @@ class _Traveler:
         if not (_known(offset) and _known(top)):
             return "STOP: the measured top's Z is not set — Z offset or stock top unknown."
         shown_offset = (
-            _number(abs(offset))
-            if readout_units(self.bundle) == self.units
-            else o(abs(offset))
+            _number(abs(offset)) if readout_units(self.bundle) == self.units else o(abs(offset))
         )
         measurement = self.reading("M")
         raw = (
@@ -7301,9 +7295,7 @@ class _Traveler:
             if self.units not in ("mm", "in") or units not in ("mm", "in"):
                 return "?"
             subject = (
-                f"measured Ø ({self.units})/2"
-                if symbol == "D/2"
-                else f"{subject} ({self.units})"
+                f"measured Ø ({self.units})/2" if symbol == "D/2" else f"{subject} ({self.units})"
             )
             return f"({subject} {'/25.4' if self.units == 'mm' else '×25.4'})"
 
@@ -7939,9 +7931,7 @@ class _Traveler:
         if not blade:
             low, high = op["to_z_band"][0], op["to_z_band"][-1]
             if readout_units(self.bundle) != self.units:
-                low, high = (
-                    readout_value(self.bundle, value) for value in (low, high)
-                )
+                low, high = (readout_value(self.bundle, value) for value in (low, high))
             return f"allowed {_declared(low)} to {_declared(high)}"
         corner = _CORNERS.get(blade.get("reading_corner"))
         band = blade.get("corner_dro_band")

@@ -19,7 +19,6 @@ from prechips.rules import (
 )
 from prechips.rules.zero_recipe import faces, native, touch
 
-
 FRAME = {
     "origin": [0, 0, 0],
     "x": [1, 0, 0],
@@ -131,16 +130,24 @@ def test_monolithic_finish_route_keeps_known_missing_and_unknown_routing_distinc
     assert finish_route.evaluate(bundle)[0].numbers["uncoated_cuts"] == ["BASE:100"]
 
 
-@pytest.mark.parametrize("owner, expected", [(None, "unknown"), ("source:left-solid", "pass"), ("source:right-solid", "error")])
+@pytest.mark.parametrize(
+    "owner, expected",
+    [(None, "unknown"), ("source:left-solid", "pass"), ("source:right-solid", "error")],
+)
 def test_stop_face_needs_material_membership_not_just_history(owner, expected):
     bundle = routed_bundle(owner=owner)
     status, facts = hold_fields.stop_face(bundle, setup(bundle, "LEFT"), "land")
     assert status == expected
     assert facts["cut_before"] == (["BASE op 10"] if expected == "pass" else [])
-    assert facts["on_arriving_stock"] == {"pass": True, "error": False, "unknown": "unknown"}[expected]
+    assert (
+        facts["on_arriving_stock"] == {"pass": True, "error": False, "unknown": "unknown"}[expected]
+    )
 
 
-@pytest.mark.parametrize("owner, expected", [(None, "unknown"), ("source:left-solid", "pass"), ("source:right-solid", "error")])
+@pytest.mark.parametrize(
+    "owner, expected",
+    [(None, "unknown"), ("source:left-solid", "pass"), ("source:right-solid", "error")],
+)
 def test_as_is_stop_face_cannot_bypass_partition_ownership(owner, expected):
     bundle = routed_bundle(owner=owner)
     setup(bundle, "BASE")["ops"] = []
@@ -148,7 +155,10 @@ def test_as_is_stop_face_cannot_bypass_partition_ownership(owner, expected):
     assert hold_fields.stop_face(bundle, setup(bundle, "LEFT"), "land")[0] == expected
 
 
-@pytest.mark.parametrize("owner, expected", [(None, "unknown"), ("source:left-solid", "pass"), ("source:right-solid", "error")])
+@pytest.mark.parametrize(
+    "owner, expected",
+    [(None, "unknown"), ("source:left-solid", "pass"), ("source:right-solid", "error")],
+)
 def test_x_zero_credit_distinguishes_transient_and_owned_turned_land(owner, expected):
     bundle = routed_bundle(owner=owner, action="turn")
     status, _ = faces.x_face_state(bundle, setup(bundle, "LEFT"), {"x_face": "land"}, {}, [], 0)
@@ -165,7 +175,9 @@ def test_unresolved_prepared_face_is_unknown_not_a_missing_face_error():
     assert numbers["unresolved_faces"]
 
 
-@pytest.mark.parametrize("reason, expected", [(None, "pass"), ("partition registration unresolved", "unknown")])
+@pytest.mark.parametrize(
+    "reason, expected", [(None, "pass"), ("partition registration unresolved", "unknown")]
+)
 def test_prepared_blank_reads_selected_output_not_full_parent(monkeypatch, reason, expected):
     import prechips.kernel
 
@@ -185,8 +197,12 @@ def test_prepared_blank_reads_selected_output_not_full_parent(monkeypatch, reaso
     }
     monkeypatch.setattr(prechips.kernel, "run_geometry", lambda _: facts)
     status, _ = prepared_blank._cut(
-        bundle, "LEFT", [FRAME["x"], FRAME["y"], FRAME["z"]],
-        [[0, 4], [0, 2], [0, 2]], [0.01, 0.01, 0.01], {},
+        bundle,
+        "LEFT",
+        [FRAME["x"], FRAME["y"], FRAME["z"]],
+        [[0, 4], [0, 2], [0, 2]],
+        [0.01, 0.01, 0.01],
+        {},
     )
     assert status == expected
 
@@ -208,11 +224,11 @@ def test_prepared_child_without_native_proof_is_not_a_false_raw_box_error(
     if not partitioned:
         setup(bundle, "SPLIT")["ops"][0].pop("outputs")
         setup(bundle, "LEFT")["stock_in"] = "SPLIT"
-        bundle.plan["setups"] = [
-            row for row in bundle.plan["setups"] if row["id"] != "RIGHT"
-        ]
+        bundle.plan["setups"] = [row for row in bundle.plan["setups"] if row["id"] != "RIGHT"]
     monkeypatch.setattr(
-        prechips.kernel, "run_geometry", lambda _: {"status": "unknown", "reason": "no native proof"}
+        prechips.kernel,
+        "run_geometry",
+        lambda _: {"status": "unknown", "reason": "no native proof"},
     )
     monkeypatch.setattr(prepared_blank, "_checks", lambda *args: ("pass", ""))
     status, _, _ = prepared_blank._evaluate(
@@ -250,7 +266,11 @@ def test_anonymous_carried_top_does_not_gain_a_nominal_zero_after_split(monkeypa
 
 def test_explicit_zero_route_keeps_named_output_producer_and_rejects_broken_history():
     bundle = routed_bundle()
-    assert [row["id"] for row in touch._stock_route(bundle, setup(bundle, "LEFT"))] == ["BASE", "SPLIT", "LEFT"]
+    assert [row["id"] for row in touch._stock_route(bundle, setup(bundle, "LEFT"))] == [
+        "BASE",
+        "SPLIT",
+        "LEFT",
+    ]
     del setup(bundle, "BASE")["stock_in"]
     assert touch._stock_route(bundle, setup(bundle, "LEFT")) is None
 
@@ -263,8 +283,14 @@ def test_native_as_is_plane_ledger_does_not_leak_across_partition(monkeypatch, o
     bundle.kernel = {"mapping": {"F-land": 0}}
     plane = {"source": "BASE", "frame": FRAME, "normal_z": 1, "z_mm": 0}
     monkeypatch.setattr(native, "setup_frame", lambda *args: FRAME)
-    monkeypatch.setattr(native, "_kernel_face_boxes", lambda *args: ([("F-land", [[0, 1], [0, 1], [0, 0]])], None))
-    monkeypatch.setattr(native, "_carried_native_plane_groups", lambda *args, **kwargs: [{"z": 0, "refs": ["F-land"]}])
+    monkeypatch.setattr(
+        native, "_kernel_face_boxes", lambda *args: ([("F-land", [[0, 1], [0, 1], [0, 0]])], None)
+    )
+    monkeypatch.setattr(
+        native,
+        "_carried_native_plane_groups",
+        lambda *args, **kwargs: [{"z": 0, "refs": ["F-land"]}],
+    )
     monkeypatch.setattr(native, "_native_plane_geometry", lambda *args: deepcopy(plane))
     monkeypatch.setattr(native, "_plane_in_frame", lambda *args, **kwargs: 0)
     # Isolate route identity: the parting cut is independently proven to spare this face.
@@ -277,7 +303,10 @@ def test_native_as_is_plane_ledger_does_not_leak_across_partition(monkeypatch, o
     assert bool(debts) is (expected == "unknown")
 
 
-@pytest.mark.parametrize("owner, expected", [(None, "unknown"), ("source:left-solid", "BASE:10"), ("source:right-solid", None)])
+@pytest.mark.parametrize(
+    "owner, expected",
+    [(None, "unknown"), ("source:left-solid", "BASE:10"), ("source:right-solid", None)],
+)
 def test_scribe_and_rough_credits_require_owned_material(owner, expected):
     bundle = routed_bundle(owner=owner, action="scribe")
     root_op = setup(bundle, "BASE")["ops"][0]
@@ -290,7 +319,9 @@ def test_scribe_and_rough_credits_require_owned_material(owner, expected):
     assert rough == ("BASE op 10" if expected == "BASE:10" else expected)
 
 
-@pytest.mark.parametrize("owner, expected", [(None, None), ("source:left-solid", True), ("source:right-solid", False)])
+@pytest.mark.parametrize(
+    "owner, expected", [(None, None), ("source:left-solid", True), ("source:right-solid", False)]
+)
 def test_filing_button_hole_sizing_is_partition_aware(owner, expected):
     bundle = routed_bundle(owner=owner, action="drill")
     file_op = {"op": 30, "do": "file_to_line", "feature": "land"}
@@ -304,7 +335,13 @@ def test_tooling_hole_unknown_maker_is_retained_as_debt(monkeypatch):
     monkeypatch.setattr(tooling_hole, "_fit", lambda *args: ("pass", {}, "fits"))
     monkeypatch.setattr(tooling_hole, "_clocking", lambda *args: {})
     status, numbers, why = tooling_hole._evaluate(
-        bundle, setup(bundle, "LEFT"), "land", [], [("fixture", {})], {"state": "drilled"}, {},
+        bundle,
+        setup(bundle, "LEFT"),
+        "land",
+        [],
+        [("fixture", {})],
+        {"state": "drilled"},
+        {},
     )
     assert status == "unknown"
     assert numbers["made_by"] == []
@@ -313,7 +350,10 @@ def test_tooling_hole_unknown_maker_is_retained_as_debt(monkeypatch):
     assert "no earlier setup" not in why
 
 
-@pytest.mark.parametrize("owner, expected", [(None, "unknown"), ("source:left-solid", "pass"), ("source:right-solid", "error")])
+@pytest.mark.parametrize(
+    "owner, expected",
+    [(None, "unknown"), ("source:left-solid", "pass"), ("source:right-solid", "error")],
+)
 def test_drill_prerequisite_order_uses_material_not_ancestor_membership(owner, expected):
     bundle = routed_bundle(owner=owner, action="drill")
     setup(bundle, "LEFT")["ops"] = [{"op": 30, "do": "ream", "feature": "land"}]
@@ -367,7 +407,8 @@ def test_tip_transfer_composes_output_pose_with_producer_frame(monkeypatch):
     target["stock_state"] = {"top_z": 3, "top_feature": "land"}
     target["zero"] = {"z": {"face": "top"}}
     monkeypatch.setattr(
-        tip_endpoints, "setup_frame",
+        tip_endpoints,
+        "setup_frame",
         lambda _, current: {**FRAME, "origin": [0, 0, 2 if current is before else 1]},
     )
     monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (0.1, 1))
@@ -387,9 +428,7 @@ def test_tip_transfer_composes_output_pose_with_producer_frame(monkeypatch):
 
 
 @pytest.mark.parametrize("units", ["mm", "in"])
-def test_tip_transfer_uses_forward_quarter_turn_registration_not_its_inverse(
-    monkeypatch, units
-):
+def test_tip_transfer_uses_forward_quarter_turn_registration_not_its_inverse(monkeypatch, units):
     from prechips.rules import coordinates
 
     bundle = routed_bundle(owner="source:left-solid")
@@ -405,9 +444,11 @@ def test_tip_transfer_uses_forward_quarter_turn_registration_not_its_inverse(
     target["stock_state"] = {"top_z": 29, "top_feature": "land"}
     target["zero"] = {"z": {"face": "top"}}
     monkeypatch.setattr(
-        tip_endpoints, "setup_frame",
+        tip_endpoints,
+        "setup_frame",
         lambda _, current: {
-            **FRAME, "origin": [1, 2, 3] if current is before else [7, 8, 9],
+            **FRAME,
+            "origin": [1, 2, 3] if current is before else [7, 8, 9],
         },
     )
     monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (0.1, 1))
@@ -444,14 +485,17 @@ def test_tip_unknown_output_pose_carries_no_nominal_arrival_z(monkeypatch, pose)
     setup(bundle, "SPLIT")["ops"][0]["outputs"]["left"]["pose"] = pose
     target = setup(bundle, "LEFT")
     target["stock_state"] = {
-        "top_z": 3, "top_feature": "land",
-        "bottom_z": 1, "bottom_feature": "land",
+        "top_z": 3,
+        "top_feature": "land",
+        "bottom_z": 1,
+        "bottom_feature": "land",
     }
     monkeypatch.setattr(tip_endpoints, "setup_frame", lambda *args: FRAME)
     monkeypatch.setattr(coordinates, "dro_grid", lambda *args: (0.1, 1))
     assert tip_endpoints.transfer(bundle, target) is None
     assert tip_endpoints.arrival_zs(bundle, target) == {
-        "top_z": (3, "unknown"), "bottom_z": (1, "unknown"),
+        "top_z": (3, "unknown"),
+        "bottom_z": (1, "unknown"),
     }
 
 
@@ -462,10 +506,13 @@ def test_tip_unknown_output_pose_carries_no_nominal_arrival_z(monkeypatch, pose)
 def test_parent_scribe_needs_material_proof_for_each_retained_child(owner, expected):
     bundle = routed_bundle(owner=owner, action="scribe")
     saw = {"op": 30, "do": "saw_cut", "follows": "BASE:10"}
-    assert tuple(
-        saw_cut.scribe_material_status(bundle, setup(bundle, sid), saw)
-        for sid in ("LEFT", "RIGHT")
-    ) == expected
+    assert (
+        tuple(
+            saw_cut.scribe_material_status(bundle, setup(bundle, sid), saw)
+            for sid in ("LEFT", "RIGHT")
+        )
+        == expected
+    )
 
 
 def test_unknown_parent_scribe_cannot_become_straight_box_removal():
@@ -500,9 +547,7 @@ def test_saw_native_volumes_cannot_override_scribe_material_debt(monkeypatch, ow
 
     bundle = routed_bundle(owner=owner, action="scribe")
     target = setup(bundle, "LEFT")
-    target["ops"] = [
-        {"op": 30, "do": "saw_cut", "follows": "BASE:10", "allowance_mm": 1}
-    ]
+    target["ops"] = [{"op": 30, "do": "saw_cut", "follows": "BASE:10", "allowance_mm": 1}]
     facts = {
         "status": "ok",
         "ops": {"LEFT:30": {key: 1 for key in saw_cut._SCRIBED_FACTS}},
@@ -516,8 +561,13 @@ def test_saw_native_volumes_cannot_override_scribe_material_debt(monkeypatch, ow
     monkeypatch.setattr(saw_cut, "unavailable", lambda *args: None)
     (finding,) = saw_cut.evaluate(bundle)
     assert finding.status == expected
-    assert finding.numbers["scribe_on_arriving_stock"] == {
-        "unknown": "unknown", "pass": True, "error": False,
-    }[expected]
+    assert (
+        finding.numbers["scribe_on_arriving_stock"]
+        == {
+            "unknown": "unknown",
+            "pass": True,
+            "error": False,
+        }[expected]
+    )
     if expected == "unknown":
         assert "survives the material partition" in finding.sentence

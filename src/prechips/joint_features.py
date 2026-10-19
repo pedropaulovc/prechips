@@ -397,13 +397,17 @@ def _thread_geometry(bundle, name: str) -> dict:
     scale = _scale(bundle)
     at, axis = feature.get("at", UNKNOWN), feature.get("axis", UNKNOWN)
     frame = bundle.features.get("frames", {})
-    frame = frame.get(feature.get("frame")) if isinstance(frame, dict) else None
+    frame = frame.get(feature.get("frame", "model")) if isinstance(frame, dict) else None
     if isinstance(frame, dict):
         origin = frame.get("origin", UNKNOWN)
         axes = [frame.get(key, UNKNOWN) for key in ("x", "y", "z")]
-        if isinstance(at, list) and isinstance(origin, list) and all(
-            isinstance(vector, list) and len(vector) == 3 and all(_number(v) for v in vector)
-            for vector in [at, origin, *axes]
+        if (
+            isinstance(at, list)
+            and isinstance(origin, list)
+            and all(
+                isinstance(vector, list) and len(vector) == 3 and all(_number(v) for v in vector)
+                for vector in [at, origin, *axes]
+            )
         ):
             at = [origin[i] + sum(axes[j][i] * at[j] for j in range(3)) for i in range(3)]
         else:
@@ -519,7 +523,9 @@ def thread_facts(bundle, setup: dict) -> dict:
                 role: {
                     "at_mm": _scaled(seat[role]["at"], _scale(bundle)),
                     **{key: seat[role][key] for key in ("normal", "x", "size_mm")},
-                } if isinstance(seat[role], dict) else UNKNOWN
+                }
+                if isinstance(seat[role], dict)
+                else UNKNOWN
                 for role in ("socket", "spigot")
             },
         }

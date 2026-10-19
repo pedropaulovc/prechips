@@ -1,0 +1,153 @@
+# Source-size ADAPTED demonstration design, not an exact video reconstruction.
+# All published values below are design nominals, NEVER physical measurements.
+part = "blondihacks-magic-tube"
+units = "mm"
+precision = "unknown"
+step = "magic-tube.STEP"
+step_sha256 = "3c9d4fe47078a61ceda7c5b4e84f6cd5367e6303ba5d05cf3a75aa17a3dca90a"
+construction = "built_up_permitted"
+volume_mm3 = 17263.13784426415
+volume_cite = "geometry-provenance.md: observed FreeCAD 1.1.4 two-solid export; nominal model volume, not a physical measurement"
+cite_root = "."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc", "https://blondihacks.com/lathe-magic-tube/", "https://continentalsteel.com/item/steel-bars/cold-finished-round-bar-type-12l14/12l14-6875", "geometry-provenance.md"]
+
+[solids]
+body = "#15/MANIFOLD_SOLID_BREP[1]/"
+cap = "#158/MANIFOLD_SOLID_BREP[2]/"
+
+[drawing]
+number = "BH-MT-ADAPTED-EXAMPLE"
+revision = "source-size-design-1"
+cite = "geometry-provenance.md: authored adapted design identifier, not a video drawing or released manufacturing approval"
+
+[material]
+spec = "12L14 steel"
+name = "12L14 steel"
+finish = "Turned exterior; no coating specified"
+finish_kind = "surface"
+cite = ["https://blondihacks.com/lathe-magic-tube/ (older project material; adopted design choice, not identification of the 2019 scrap)", "geometry-provenance.md"]
+
+[notes]
+manufacturing = [
+  "ADAPTED DESIGN: catalog 11/16-inch final OD selected from Continental 12L14-6875; the video states 0.700-inch PREPARATION OD and leaves the smaller final OD unstated.",
+  "Video nominal 1/2-20 RH thread and 0.500-inch male stub length are retained. Older author's article uses DIFFERENT 3/8-24 threading and 0.500-inch exterior; those are not copied.",
+  "AUTHOR'S CHOICE: adopt the older article's published 3.5-inch OVERALL size as this adapted BODY length, not as a claimed source-body dimension. Retain its 3-inch bore depth and 0.500-inch cap HEAD length. Result: 4-inch closed assembly with 0.500-inch base; source video lengths remain unknown.",
+  "The STEP contains two separate solids in closed nominal position. Simple 12.7-mm major cylinders represent mating threads, not helical flank geometry, actual blank/minor diameter, engagement or fit.",
+  "The socket visual envelope extends exactly one nominal stub length. Actual full-thread depth must exceed the male engagement and allow tap lead/root clearance; source tap depth, root fillet and mouth chamfer size are unknown.",
+  "The bore floor is a flat schematic boundary, not a modeled drill point. Chamfers, edge breaks and transient centre hole are not modeled because their sizes are unpublished.",
+  "No dimensional tolerance, thread class, finish limit, pressure/food-contact rating or physical acceptance certificate is established. The 12L14 adopted material is leaded; this is not a food container.",
+]
+process = "Preserve the video's two retained pieces, hand threading, temporary screwed assembly, joint OD finishing and final part-off; do not fuse or bond the removable cap."
+edge_break = "Keep mating annuli sharp and undamaged; only demonstrated exposed edges are deburred. Sizes unknown."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc", "https://blondihacks.com/lathe-magic-tube/", "geometry-provenance.md"]
+
+[general_tolerances]
+linear_1pl = "unknown"
+linear_2pl = "unknown"
+linear_3pl = "unknown"
+angular_deg = "unknown"
+edge_break_r = "unknown"
+chamfer_max = "unknown"
+cite = "No released tolerance bands supplied; catalog/source design nominals are not adopted tolerance limits."
+
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: body closed base at Z0, mouth/seat at Z88.9, cap head to Z101.6; cap male stub extends inward to Z76.2. Nominal model frame is not a measured machine pickup."
+cite = ["AUTHOR'S CHOICE", "geometry-provenance.md"]
+
+[features.body-od]
+kind = "boss"
+frame = "model"
+binding = "nominal"
+requirements = ["dia"]
+dia = "unknown"
+dia_nominal = 17.4625
+faces = ["#17/ADVANCED_FACE[1]/"]
+bounds = { x = [-8.73125, 8.73125], y = [-8.73125, 8.73125], z = [0.0, 88.9] }
+note = "Adapted finished OD: selected catalog 11/16 inch. Video first turns to 0.700 inch then removes further light passes from cap and body together. No finished OD acceptance band published."
+cite = ["https://continentalsteel.com/item/steel-bars/cold-finished-round-bar-type-12l14/12l14-6875", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=185s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=720s", "geometry-provenance.md"]
+
+[features.body-length]
+kind = "face"
+frame = "model"
+binding = "nominal"
+requirements = ["length"]
+length = "unknown"
+length_nominal = 88.9
+faces = ["#50/ADVANCED_FACE[2]/", "#70/ADVANCED_FACE[3]/"]
+note = "AUTHOR'S CHOICE: 3.5-inch adapted BODY, deliberately reusing the older article's OVERALL nominal to leave a closed base beneath its three-inch hole. Not an observed video length or an article body specification. Mouth annulus must mate cap shoulder; numerical flatness/squareness/length limits remain unknown."
+cite = ["AUTHOR'S CHOICE", "https://blondihacks.com/lathe-magic-tube/", "geometry-provenance.md"]
+
+[features.body-thread]
+kind = "threaded_hole"
+frame = "model"
+binding = "nominal"
+requirements = ["dia", "thread", "depth"]
+dia = "unknown"
+thread = "1/2-20"
+thread_hand = "right"
+thread_class = "unknown"
+depth = "unknown"
+depth_ref = 76.2
+length_nominal = 12.7
+tap_drill_mm = 11.90625
+thru = false
+at = [0.0, 0.0, 88.9]
+axis = [0.0, 0.0, -1.0]
+end = [0.0, 0.0, 12.7]
+faces = ["#79/ADVANCED_FACE[4]/", "#104/ADVANCED_FACE[5]/", "#124/ADVANCED_FACE[6]/", "#149/ADVANCED_FACE[7]/"]
+note = "One blind drilled-and-tapped cavity: video 15/32-inch tap drill, 1/2-20 RH entry thread; older author's three-inch interior-depth nominal retained for this adaptation. STEP uses a 12.7-mm nominal-major visual socket envelope for one stub length, then 11.90625-mm bore to a flat schematic floor. Neither cylinder is a certified finished thread minor diameter; the floor is not a drill point. Thread class, full-thread depth and tap lead clearance are unknown. Actual tapping must exceed cap engagement. Mouth chamfer must clear the male root fillet without sacrificing the mating annulus; both sizes unknown."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=423s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=527s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=531s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=572s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=599s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=628s", "https://blondihacks.com/lathe-magic-tube/", "geometry-provenance.md"]
+
+[features.cap-head]
+kind = "boss"
+frame = "model"
+binding = "nominal"
+requirements = ["dia"]
+dia = "unknown"
+dia_nominal = 17.4625
+faces = ["#160/ADVANCED_FACE[8]/"]
+bounds = { x = [-8.73125, 8.73125], y = [-8.73125, 8.73125], z = [88.9, 101.6] }
+note = "Finish cap and body together to the selected catalog nominal OD only after secure shoulder seating. This is not a separate smaller cap or a knurled substitute."
+cite = ["https://continentalsteel.com/item/steel-bars/cold-finished-round-bar-type-12l14/12l14-6875", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=720s", "geometry-provenance.md"]
+
+[features.cap-head-length]
+kind = "face"
+frame = "model"
+binding = "nominal"
+requirements = ["length"]
+length = "unknown"
+length_nominal = 12.7
+faces = ["#193/ADVANCED_FACE[9]/", "#202/ADVANCED_FACE[10]/"]
+note = "Older article's 500-thou parting line is measured BEHIND THE SHOULDER: it is the cap HEAD length, not total cap length. Combined with the video's 0.500-inch male stub, nominal cap overall is 1 inch. Threaded assembly facing makes the external head face; shoulder annulus remains unbroken."
+cite = ["https://blondihacks.com/lathe-magic-tube/", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=625s", "geometry-provenance.md"]
+
+[features.cap-thread]
+kind = "external_thread"
+frame = "model"
+binding = "nominal"
+requirements = ["thread", "length"]
+thread = "1/2-20"
+thread_hand = "right"
+thread_class = "unknown"
+length = "unknown"
+length_nominal = 12.7
+dia_nominal = 12.7
+at = [0.0, 0.0, 88.9]
+axis = [0.0, 0.0, -1.0]
+faces = ["#222/ADVANCED_FACE[11]/", "#247/ADVANCED_FACE[12]/"]
+note = "Video nominal 0.500-inch axial stub and 1/2-20 RH die. Turn the physical blank a source-described few thou below major diameter only after approving actual die/fit; that unspecified subtraction is NOT encoded as an invented diameter. STEP shows nominal-major envelope, not a turning target or helical thread."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=328s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=348s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=423s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=628s", "geometry-provenance.md"]
+
+[features.all-surfaces]
+kind = "face"
+frame = "model"
+binding = "nominal"
+requirements = []
+faces = ["#17/ADVANCED_FACE[1]/", "#50/ADVANCED_FACE[2]/", "#70/ADVANCED_FACE[3]/", "#79/ADVANCED_FACE[4]/", "#104/ADVANCED_FACE[5]/", "#124/ADVANCED_FACE[6]/", "#149/ADVANCED_FACE[7]/", "#160/ADVANCED_FACE[8]/", "#193/ADVANCED_FACE[9]/", "#202/ADVANCED_FACE[10]/", "#222/ADVANCED_FACE[11]/", "#247/ADVANCED_FACE[12]/"]
+note = "Convenience set for final chips/burrs and opening/closing demonstration only; not an additional tolerance or physical acceptance claim."
+cite = ["https://www.youtube.com/watch?v=-dyO4PEkEkc&t=754s", "https://www.youtube.com/watch?v=-dyO4PEkEkc&t=805s", "geometry-provenance.md"]

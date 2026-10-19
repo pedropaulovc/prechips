@@ -599,17 +599,17 @@ def evaluate(bundle):
                 or range_unknown
                 or deep_unknown
                 or (disk and saw_station(bundle, setup, op) != "fits")
-                or (
-                    authored
-                    and (bands == UNKNOWN or raw == UNKNOWN or not tool or not machine)
-                )
+                or (authored and (bands == UNKNOWN or raw == UNKNOWN or not tool or not machine))
             )
             if authored:
                 rpm_status = "error" if rpm_error else "unknown" if unknown else "pass"
                 reason = rpm_error or (
                     "Spindle limits, cutting data, tool or material are unresolved or unverified."
                     if unknown
-                    else "Checked against spindle limits and sourced starting data; not a safety certification."
+                    else (
+                        "Checked against spindle limits and sourced starting data; "
+                        "not a safety certification."
+                    )
                 )
                 numbers.update(
                     requested_rpm=op["rpm"],

@@ -80,7 +80,9 @@ def _finished_feature_owners(features: dict, path: Path | None) -> dict[str, str
         source = StepFile(path.read_bytes().decode("latin-1"))
         actual = set(source.solid_refs())
         if set(declarations.values()) != actual:
-            raise BadInput("features.solids must bijectively name every source MANIFOLD_SOLID_BREP.")
+            raise BadInput(
+                "features.solids must bijectively name every source MANIFOLD_SOLID_BREP."
+            )
         face_owners: dict[str, set[str]] = {}
         for name, ref in declarations.items():
             faces = source.solid_faces(ref)
@@ -99,7 +101,9 @@ def _finished_feature_owners(features: dict, path: Path | None) -> dict[str, str
                 source.resolve(ref)
                 owners.append(face_owners.get(ref, set()))
             if not all(owners):
-                raise BadInput(f"Feature {name!r} names a face outside the declared finished solids.")
+                raise BadInput(
+                    f"Feature {name!r} names a face outside the declared finished solids."
+                )
             combined = set().union(*owners)
             result[name] = next(iter(combined)) if len(combined) == 1 else None
         return result
@@ -117,7 +121,9 @@ def _selector_owner(features: dict, owners: dict, name: str, where: str) -> str 
         and faces
         and "unknown" not in faces
     ):
-        raise BadInput(f"{where}: feature {name!r} must belong to exactly one named finished solid.")
+        raise BadInput(
+            f"{where}: feature {name!r} must belong to exactly one named finished solid."
+        )
     return owner
 
 
@@ -440,7 +446,9 @@ def load_bundle(
         if "unknown" in op_ids or len(set(op_ids)) != len(op_ids):
             raise BadInput(f"{setup['id']}: operation numbers must be known and unique.")
         for op in ops:
-            for name, output in (op["outputs"] if isinstance(op.get("outputs"), dict) else {}).items():
+            for name, output in (
+                op["outputs"] if isinstance(op.get("outputs"), dict) else {}
+            ).items():
                 if output["carries"] not in features["features"]:
                     raise BadInput(
                         f"{setup['id']}:{op['op']}: output {name!r} carries must name an "
@@ -628,7 +636,8 @@ def load_bundle(
             known = [owner for owner in carried if owner is not None]
             if len(set(known)) != len(known):
                 raise BadInput(
-                    f"{setup['id']}:{op['op']}: retained outputs must carry distinct finished solids."
+                    f"{setup['id']}:{op['op']}: retained outputs must carry "
+                    "distinct finished solids."
                 )
         joint = setup.get("joint")
         if isinstance(joint, dict) and joint.get("kind") == "threaded":

@@ -103,18 +103,15 @@ def _makers(bundle, setup, name):
     before, after, maybe, rejected = [], [], [], []
     for other in bundle.plan["setups"]:
         for op in other["ops"]:
-            if (
-                op.get("feature") not in (name, UNKNOWN)
-                or op.get("do") not in ACTIONS["centre_hole"] | {UNKNOWN}
-            ):
+            if op.get("feature") not in (name, UNKNOWN) or op.get("do") not in ACTIONS[
+                "centre_hole"
+            ] | {UNKNOWN}:
                 continue
             made = f"{other['id']} op {op['op']}"
             if other["id"] not in earlier:
                 after.append(made)
                 continue
-            material = feature_material_status(
-                bundle.plan, setup["id"], other["id"], name, bundle
-            )
+            material = feature_material_status(bundle.plan, setup["id"], other["id"], name, bundle)
             if material is False:
                 rejected.append(made)
             elif material is None or op.get("feature") == UNKNOWN or op.get("do") == UNKNOWN:

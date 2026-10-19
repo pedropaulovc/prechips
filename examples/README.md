@@ -65,6 +65,61 @@ Its expected exit is **4** and the traveler remains **PLANNED**; source-known
 material and machine identity do not establish measured tooling, holding or
 first-article acceptance.
 
+### Magic Tube
+
+[`blondihacks-magic-tube/`](blondihacks-magic-tube/README.md) follows
+[Metal Lathe Tutorial 18: Your Second Project!](https://www.youtube.com/watch?v=-dyO4PEkEkc):
+a two-piece storage tube with a removable **1/2-20 right-hand screw cap**.
+The nine-setup route retains the source's one-bar parting split, cap from the
+remnant, return to the long body blank, stopped-spindle die/tap work, cap
+facing, repeated joint-OD turning and final part-off. It does not substitute
+two unrelated raw supplies or a bonded one-piece model.
+
+This is an explicitly adapted design. The older author article supplies
+selected dimensions and **12L14 steel** as design inputs; the catalog supplies
+a selected nominal round-bar size, not a finished-tube specification. The
+2019 video identifies its actual material only as scrap. Its alloy and all
+recipient-stock/tool/holding measurements remain unknown. The bundle README
+separates those sources from the author's body-length reallocation and other
+design choices; none is a measured tolerance or physical certification.
+
+Its STEP contains two separate named finished solids. Named retained outputs
+preserve their one-bar route identities, while pose, ownership and whole-solid
+carriage require actual native proof. The removable threaded-joint declaration
+does not prove helical geometry, usable engagement, seating, strength or a
+safe assembled cutting load path. Missing facts remain unresolved rather than
+an empty protected shape or automatic clearance pass. Expected exit is **4**;
+the source-complete route remains **PLANNED/HOLD**, not an approved process.
+Local inputs and frozen outputs use the same standalone validation lane as the
+other video examples. No video, catalog or article fetch is needed at runtime.
+
+### Frozen standalone output evidence
+
+The coordinated 2026-10-19 regeneration captured the actual CLI child exit,
+not a shell wrapper's status. Each standalone route produced report and
+traveler outputs twice, with byte-identical pairs. All three child processes
+exited **4** with **no error findings**; the required unknowns remain visible.
+
+| Bundle | Pass | Unknown | Not applicable | Checker exit |
+| --- | ---: | ---: | ---: | ---: |
+| `blondihacks-t-nuts` | 48 | 191 | 273 | 4 |
+| `blondihacks-brass-ring` | 23 | 76 | 108 | 4 |
+| `blondihacks-magic-tube` | 31 | 226 | 182 | 4 |
+
+The frozen `expected/report.json` file SHA-256 values are:
+
+| Bundle | SHA-256 |
+| --- | --- |
+| `blondihacks-t-nuts` | `a49b8666e71ad803e821516839182f5b8f1da6d0dfde0fcf2ba07798ea87eb39` |
+| `blondihacks-brass-ring` | `eab18d76959a6cb2cdfcf235ef4c74889764e90cac2a1cc009f9de4a1439b306` |
+| `blondihacks-magic-tube` | `b84425f10dd8578aa23d60328dff736c0b1b2782c363821bf8024620de4b975f` |
+
+These are generated-output integrity and repeatability records, not source
+measurements, full-suite or full-validator acceptance, independent blind
+approval, physical paper rehearsal or first-article machining evidence.
+Finding counts and hashes change when operative inputs or the engine change;
+the bundle READMEs continue to own the source and adaptation provenance.
+
 ## Consumer bundles and shared shop inputs
 
 ### Examples policy: plausible, labelled values

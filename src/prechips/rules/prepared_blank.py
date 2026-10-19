@@ -105,12 +105,12 @@ def _faces(bundle, receiver):
                 continue
             if op.get("do") not in ACTIONS["end_face"]:
                 continue
-            material = feature_material_status(
-                bundle.plan, receiver, setup["id"], name, bundle
-            )
+            material = feature_material_status(bundle.plan, receiver, setup["id"], name, bundle)
             destination = (
-                pending if setup["id"] in earlier and material is None
-                else made if setup["id"] in earlier and material is True
+                pending
+                if setup["id"] in earlier and material is None
+                else made
+                if setup["id"] in earlier and material is True
                 else later
             )
             destination.append((name, f"{setup['id']} op {op['op']}"))
@@ -266,7 +266,10 @@ def _cut(bundle, receiver, axes, declared, allowed, numbers):
         bbox, volume = _vector(output.get("bbox_mm"), 6), output.get("volume_mm3")
     else:
         reason = handed.get("stock_out_reason")
-        bbox, volume = _vector(handed.get("stock_out_bbox_mm"), 6), handed.get("stock_out_volume_mm3")
+        bbox, volume = (
+            _vector(handed.get("stock_out_bbox_mm"), 6),
+            handed.get("stock_out_volume_mm3"),
+        )
     if reason:
         return "unknown", f"the stock {source} hands on is unknown ({reason})"
     if bbox is None or not number(volume):

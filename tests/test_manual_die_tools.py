@@ -1,5 +1,7 @@
 """A stopped-spindle die route selects real hand tooling, not a spindle stack."""
 
+from types import SimpleNamespace
+
 import pytest
 
 from prechips.inputs import Bundle
@@ -22,17 +24,21 @@ def die_bundle(tmp_path):
             }
         },
         plan={
-            "setups": [{
-                "id": "S1",
-                "machine": "lathe",
-                "ops": [{
-                    "op": 10,
-                    "do": "die_thread",
-                    "feature": "stud",
-                    "tool": "dies/quarter",
-                    "holder": "tools.stock",
-                }],
-            }]
+            "setups": [
+                {
+                    "id": "S1",
+                    "machine": "lathe",
+                    "ops": [
+                        {
+                            "op": 10,
+                            "do": "die_thread",
+                            "feature": "stud",
+                            "tool": "dies/quarter",
+                            "holder": "tools.stock",
+                        }
+                    ],
+                }
+            ]
         },
         inventory={
             "machines": {"lathe": {"kind": "lathe", "verify": False}},
@@ -40,11 +46,13 @@ def die_bundle(tmp_path):
                 "dies": {
                     "kind": "die_set",
                     "verify": False,
-                    "members": {"quarter": {
-                        "thread": "1/4-20 UNC",
-                        "thread_hand": "right",
-                        "thread_class": "2A",
-                    }},
+                    "members": {
+                        "quarter": {
+                            "thread": "1/4-20 UNC",
+                            "thread_hand": "right",
+                            "thread_class": "2A",
+                        }
+                    },
                 },
                 "stock": {
                     "kind": "die_stock",
@@ -85,8 +93,7 @@ def test_die_thread_is_manual_material_cut_not_hand_finish(die_bundle):
 
 @pytest.mark.parametrize(
     "field,value",
-    [("kind", "tap"), ("thread", "1/4-28 UNF"), ("thread_hand", "left"),
-     ("thread_class", "3A")],
+    [("kind", "tap"), ("thread", "1/4-28 UNF"), ("thread_hand", "left"), ("thread_class", "3A")],
 )
 def test_known_wrong_die_kind_spec_hand_or_class_is_error(die_bundle, field, value):
     member(die_bundle)[field] = value
@@ -152,17 +159,28 @@ def test_die_does_not_require_toolpost_setting_even_if_touch_is_authored(die_bun
 def test_manual_die_does_not_change_spindle_tool_or_require_retouch(die_bundle):
     setup = die_bundle.plan["setups"][0]
     assert tool_changes(die_bundle, setup, {}, True, "unknown", []) == (
-        [], [], False, {}, {},
+        [],
+        [],
+        False,
+        {},
+        {},
     )
     die_bundle.inventory["tools"]["turner"] = {"kind": "turning_tool", "verify": False}
-    setup["ops"].extend([
-        {"op": 20, "do": "turn", "tool": "turner", "feature": "stud"},
-        {**setup["ops"][0], "op": 30},
-        {"op": 40, "do": "turn", "tool": "tools.turner", "feature": "stud"},
-    ])
+    setup["ops"].extend(
+        [
+            {"op": 20, "do": "turn", "tool": "turner", "feature": "stud"},
+            {**setup["ops"][0], "op": 30},
+            {"op": 40, "do": "turn", "tool": "tools.turner", "feature": "stud"},
+        ]
+    )
     zero = {"x": {"tool": "turner"}}
     derived, missing, unknown, readings, served = tool_changes(
-        die_bundle, setup, zero, True, "unknown", [],
+        die_bundle,
+        setup,
+        zero,
+        True,
+        "unknown",
+        [],
     )
     assert derived == missing == []
     assert unknown is False
@@ -204,10 +222,14 @@ def tap_bundle(die_bundle):
     tools["taps"] = {
         "kind": "tap_set",
         "verify": False,
-        "members": {"quarter": {
-            "thread": "1/4-20 UNC", "thread_hand": "right", "thread_class": "2B",
-            "dia_mm": 6.35,
-        }},
+        "members": {
+            "quarter": {
+                "thread": "1/4-20 UNC",
+                "thread_hand": "right",
+                "thread_class": "2B",
+                "dia_mm": 6.35,
+            }
+        },
     }
     tools["wrench"] = {"kind": "tap_wrench", "range_mm": [3.0, 8.0], "verify": False}
     op = die_bundle.plan["setups"][0]["ops"][0]
@@ -215,21 +237,46 @@ def tap_bundle(die_bundle):
     return die_bundle
 
 
+@pytest.mark.parametrize("fixture_name", ["die_bundle", "tap_bundle"])
+def test_identity_only_context_leaves_thread_feature_unresolved(fixture_name, request):
+    bundle = request.getfixturevalue(fixture_name)
+    context = SimpleNamespace(plan=bundle.plan, inventory=bundle.inventory)
+    rows = tool_resolves.evaluate(context)
+    manual = next(row for row in rows if row.subject == "S1:10")
+    assert manual.status == "unknown"
+    for field in ("thread", "thread_hand", "thread_class"):
+        assert manual.numbers[field]["required"] == "unknown"
+    assert "thread feature identity is unknown" in manual.sentence
+    identities = {row.numbers["reference"]: row for row in rows if "category" in row.numbers}
+    tool = bundle.plan["setups"][0]["ops"][0]["tool"]
+    assert tool in identities
+    assert identities[tool].status == "pass"
+
+
 def test_hand_tap_resolves_real_tap_and_nominal_wrench_capacity_without_spindle(tap_bundle):
     assert assembly(tap_bundle).status == "pass"
     assert all(row.status == "pass" for row in tool_resolves.evaluate(tap_bundle))
     setup = tap_bundle.plan["setups"][0]
     assert tool_changes(tap_bundle, setup, {}, True, "unknown", []) == (
-        [], [], False, {}, {},
+        [],
+        [],
+        False,
+        {},
+        {},
     )
     zero = {"x": {"tool": "taps/quarter"}, "z": {"tool": "taps/quarter"}}
     assert tool_setting(tap_bundle, setup, zero, [], []) == []
 
 
-@pytest.mark.parametrize("field,value", [
-    ("kind", "die"), ("thread", "1/4-28 UNF"),
-    ("thread_hand", "left"), ("thread_class", "2A"),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("kind", "die"),
+        ("thread", "1/4-28 UNF"),
+        ("thread_hand", "left"),
+        ("thread_class", "2A"),
+    ],
+)
 def test_hand_tap_wrong_kind_spec_hand_or_class_is_error(tap_bundle, field, value):
     tap_bundle.inventory["tools"]["taps"]["members"]["quarter"][field] = value
     assert assembly(tap_bundle).status == "error"
@@ -254,10 +301,15 @@ def test_hand_tap_stock_and_chuck_are_not_hand_tap_holders(tap_bundle):
     assert assembly(tap_bundle).status == "error"
 
 
-@pytest.mark.parametrize("capacity,status", [
-    ([3.0, 6.0], "error"), ([7.0, 8.0], "error"), ([3.0, 8.0], "pass"),
-    ("unknown", "unknown"),
-])
+@pytest.mark.parametrize(
+    "capacity,status",
+    [
+        ([3.0, 6.0], "error"),
+        ([7.0, 8.0], "error"),
+        ([3.0, 8.0], "pass"),
+        ("unknown", "unknown"),
+    ],
+)
 def test_hand_tap_nominal_capacity_boundaries(tap_bundle, capacity, status):
     tap_bundle.inventory["tools"]["wrench"]["range_mm"] = capacity
     assert assembly(tap_bundle).status == status

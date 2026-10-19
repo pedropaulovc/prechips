@@ -1806,6 +1806,20 @@ The [plan's `outputs` contract](plan.md#retained-part-off-outputs) names both
 pieces that continue after one terminal `part_off`. It is not `keep`, which
 discards all but one selected piece, and not permission to fork the same
 unpartitioned material into two purchases.
+The schema requires the split to be the final material-changing operation
+in that setup. The permitted follow-on actions listed in the plan contract
+do not provide fresh native stock geometry or certify that deburring/coating
+has left newly measured retained-piece dimensions.
+
+Before publishing either output, the native job independently checks the
+ordered tail of its request. A later material-changing or unknown action
+withholds both outputs and their descendants rather than exposing geometry
+from before that action. Direct native requests admit only strict
+metadata-only `inspect`, `release` or `scribe` records after the split;
+unexpected geometry-bearing fields also fail that screen. The host normally
+omits non-geometry actions such as deburring and coating from the native
+recipe. Directly supplied, unmodelled `deburr` or `coating` records are not
+trusted as no-op cuts and leave the retained outputs unresolved.
 
 A named lathe part-off removes a finite blade-width kerf, unlike the ordinary
 part-off model's free-end sweep. It requires known `to_z`, an accepted positive

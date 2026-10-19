@@ -25,8 +25,8 @@ drawn pin in the cut bore. The hole earns no drawing coverage or finishing credi
 """
 
 from prechips.findings import Finding
-from prechips.measurements import record_trusted
 from prechips.material_routes import feature_material_status, setup_lineage
+from prechips.measurements import record_trusted
 from prechips.process_features import label, makers, process_of
 from prechips.rules._envelope import measurement_item
 from prechips.rules.resolution import UNKNOWN, number, op_features, record, same_length
@@ -245,11 +245,17 @@ def _evaluate(bundle, setup, name, ops, pins, state, detail):
     if pins:
         candidates = makers(bundle, setup, name)
         material = [
-            (other, op, feature_material_status(bundle.plan, setup["id"], other["id"], name, bundle))
+            (
+                other,
+                op,
+                feature_material_status(bundle.plan, setup["id"], other["id"], name, bundle),
+            )
             for other, op in candidates
         ]
         before = [(other, op) for other, op, status in material if status is True]
-        unresolved = [f"{other['id']} op {op['op']}" for other, op, status in material if status is None]
+        unresolved = [
+            f"{other['id']} op {op['op']}" for other, op, status in material if status is None
+        ]
         if unresolved:
             numbers["unresolved_makers"] = unresolved
             unknown.append(f"whether drilling of {name} survived the stock partition is unresolved")

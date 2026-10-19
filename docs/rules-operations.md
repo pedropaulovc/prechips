@@ -48,6 +48,14 @@ through a retained split. See the [plan reference](plan.md) for the reference
 fields and [retained material routing](plan.md#retained-part-off-outputs) for
 the stock identities.
 
+A later same-feature drill that enlarges an earlier hole can inherit that
+earlier drill's causal spot preparation when both act on the same surviving
+material. When the later drill omits `prerequisites`, it can reuse the earlier
+witness. Inheritance preserves
+the original typed witness and any unresolved partition or pose evidence;
+it cannot promote an uncertain preparation to a pass. An explicit
+`prerequisites` declaration on the later drill is validated independently.
+
 For `tap` and `hand_tap`, the selected drill diameter must match the explicit
 `tap_drill_mm` specification using verified tool geometry. Lengths agree
 within absolute 1e-6 mm, so `3/8` in and `9.525` mm agree. The selected tap's
@@ -144,10 +152,13 @@ This check establishes route order, not physical fixture continuity.
 
 Named `part_off` outputs retain their own material identities through
 `stock_out.<name>` references. Preparation from the other child of a split
-does not satisfy an incoming drill or centre requirement. An output-producing
-part-off is terminal for cutting in its setup, like existing part-off; later
-manual work does not create a second source or permit reuse of its unsplit
-ancestor. See [retained outputs](plan.md#retained-part-off-outputs).
+does not satisfy an incoming drill or centre requirement. For a part-off
+declaring named outputs, schema validation permits only `inspect`, `deburr`,
+`coating`, `release` or `scribe` after the split. Other material-changing
+operations are bad input, not merely an `order` finding. Allowed finishing or
+handling does not remodel the retained outputs or certify their measurements,
+create a second source, or permit reuse of the unsplit ancestor. See
+[retained outputs](plan.md#retained-part-off-outputs).
 
 For this release-order check, `die_thread` and `hand_tap` count as cutting
 even though the spindle is stopped. They must precede `release` or `part_off`;
@@ -660,9 +671,9 @@ cutting performance or physical acceptance.
 
 ### Source selection and RPM
 
-When `op.rpm` is omitted, a tool chart citation takes precedence over table rows.
-Otherwise selection matches material alias, tool material, normalized
-action and inclusive mm diameter range. Exactly one cited row is required.
+A tool chart citation takes precedence over table rows, whether or not
+`op.rpm` is authored. Without a chart, selection matches material alias, tool
+material, normalized action and inclusive mm diameter range. Exactly one cited row is required.
 Overlapping matches or unknown ranges remain unresolved. No chart URL is
 fetched. Use the [cutting-data reference](cutting-data.md) for row fields and
 citation requirements.
@@ -689,9 +700,10 @@ request is not rounded or clamped into a different requested value.
 Nonpositive/nonfinite requests and known contradictions with spindle limits
 or an available speed band are errors, even if a different limit is unknown.
 Missing or unverified machine, tool, material or cutting-safety evidence leaves
-the request visible but unresolved, not a certified recommendation. Feed uses
-the effective requested RPM with the existing chip-load or feed-per-revolution
-calculation.
+the request visible but unresolved, not a certified recommendation. Authored
+RPM changes only the speed choice, not chart/table priority for chip load or
+feed per revolution. Feed uses the effective requested RPM with that selected
+source's existing calculation.
 
 Authored-speed evidence includes `requested_rpm`, `computed_rpm`,
 `rpm_basis = "authored"`, `rpm_status` and `rpm_reason`; `rpm` is the effective

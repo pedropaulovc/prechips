@@ -87,9 +87,7 @@ def _label(setup, op):
 
 def _material(bundle, setup, producer, name):
     """Retained-material proof; missing routing is debt, never a different blank."""
-    status = feature_material_status(
-        bundle.plan, setup["id"], producer["id"], name, bundle
-    )
+    status = feature_material_status(bundle.plan, setup["id"], producer["id"], name, bundle)
     if setup["id"] == producer["id"]:
         return status
     lineage = setup_lineage(bundle.plan, setup["id"])
@@ -135,20 +133,17 @@ def _geometry(bundle, name):
     return point, [v / norm for v in direction] if norm else None
 
 
-def _spot_witness(bundle, setup, op, target, route, positions):
+def _spot_witness(bundle, setup, op, target, route, positions, *, preparation=None):
     """Resolve exactly the offered real preparation, retaining every proof boundary."""
-    reference = record(op.get("prerequisites")).get("spot", UNKNOWN)
+    offered = op if preparation is None else preparation
+    reference = record(offered.get("prerequisites")).get("spot", UNKNOWN)
     errors, unknown = [], []
     proof = {"operation": _label(setup, op), "spot": reference}
     if reference == UNKNOWN:
         return [], ["the spot prerequisite is unknown"], proof
     sid, separator, ordinal = str(reference).rpartition(":")
     candidates = (
-        [
-            (other, cut)
-            for other, cut in route
-            if other["id"] == sid and str(cut["op"]) == ordinal
-        ]
+        [(other, cut) for other, cut in route if other["id"] == sid and str(cut["op"]) == ordinal]
         if separator
         else []
     )
@@ -185,8 +180,7 @@ def _spot_witness(bundle, setup, op, target, route, positions):
     if source_at is None or target_at is None or scale is None:
         unknown.append("the preparation and target entry locations are unresolved")
     elif not all(
-        same_length(a * scale, b * scale)
-        for a, b in zip(source_at, target_at, strict=True)
+        same_length(a * scale, b * scale) for a, b in zip(source_at, target_at, strict=True)
     ):
         errors.append("spot prerequisite and target hole have different entry locations")
     if source_axis is None or target_axis is None:
@@ -252,6 +246,69 @@ def _earlier(bundle, setup, op, target, action, route, positions):
             certain = cut.get("do") == action and op_feature(cut) == target
             return other, cut, material if certain else None
     return None, None, False
+
+
+def _drill_preparation(bundle, setup, op, target, route, positions, prepared):
+    """A drilled pilot carries its proven start into a later same-material enlargement.
+
+    Keep the original real source, not a synthetic spot on the finished hole. An
+    explicit prerequisite is always authoritative; inherited proof rechecks that
+    source against the receiver as well as the intervening drill's material.
+    """
+    if "prerequisites" in op:
+        errors, unknown, proof = _spot_witness(bundle, setup, op, target, route, positions)
+        return errors, unknown, (setup, op), proof
+    spot_setup, spot, material = _earlier(bundle, setup, op, target, "spot", route, positions)
+    if material is True:
+        return [], [], (spot_setup, spot), None
+    for earlier_setup, earlier in reversed(route[: positions[id(op)]]):
+        if op_feature(earlier) != target or earlier.get("do") != "drill":
+            continue
+        carried = _material(bundle, setup, earlier_setup, target)
+        if carried is False:
+            continue
+        bad, debt, source, _ = prepared[id(earlier)]
+        errors, unknown, proof = list(bad), list(debt), None
+        if carried is None:
+            unknown.append(
+                f"{_label(setup, op)} prior drill material is unresolved "
+                f"({_label(earlier_setup, earlier)})"
+            )
+        if source is not None:
+            source_setup, source_op = source
+            if source_op.get("do") == "drill" and "prerequisites" in source_op:
+                bad, debt, proof = _spot_witness(
+                    bundle,
+                    setup,
+                    op,
+                    target,
+                    route,
+                    positions,
+                    preparation=source_op,
+                )
+                proof["inherited_from"] = _label(earlier_setup, earlier)
+                errors.extend(bad)
+                unknown.extend(debt)
+            else:
+                survives = _material(bundle, setup, source_setup, target)
+                if survives is False:
+                    errors.append(f"{_label(setup, op)} initial spot is on different material")
+                elif survives is None:
+                    unknown.append(f"{_label(setup, op)} initial spot material is unresolved")
+        return errors, unknown, source, proof
+    if material is None:
+        return (
+            [],
+            [f"{_label(setup, op)} prior spot material is unresolved"],
+            (spot_setup, spot),
+            None,
+        )
+    return (
+        [f"{_label(setup, op)} has no earlier spot operation on its material"],
+        [],
+        None,
+        None,
+    )
 
 
 def _turned_blank(bundle, setup, op, name, route, positions):
@@ -352,17 +409,14 @@ def evaluate(bundle):
             )
             if wrong:
                 errors.append(
-                    "external thread cannot use an internal hole chain: "
-                    + ", ".join(sorted(wrong))
+                    "external thread cannot use an internal hole chain: " + ", ".join(sorted(wrong))
                 )
             preparations = {}
             for setup, op in route:
                 if op["do"] != "die_thread":
                     continue
                 if _material(bundle, setup, setup, name) is False:
-                    errors.append(
-                        "external thread die operation is on different retained material"
-                    )
+                    errors.append("external thread die operation is on different retained material")
                 bad, debt, producer = _turned_blank(bundle, setup, op, name, all_ops, positions)
                 errors.extend(bad)
                 unknown.extend(debt)
@@ -371,58 +425,43 @@ def evaluate(bundle):
                 nums["male_blank_preparation"] = preparations
         elif kind in {"hole", "thread", "threaded_hole", "counterbore"}:
             parent = (
-                feature.get("hole", feature.get("parent", name))
-                if kind == "counterbore"
-                else name
+                feature.get("hole", feature.get("parent", name)) if kind == "counterbore" else name
             )
             parent_route = operations(bundle, parent)
             parent_actions = [op["do"] for _, op in parent_route]
             drills = [(s, o) for s, o in parent_route if o["do"] == "drill"]
             if not drills:
                 (unknown if UNKNOWN in parent_actions else errors).append("no drill operation")
-            witnesses = []
+            witnesses, prepared = [], {}
             for setup, op in drills:
-                if "prerequisites" in op:
-                    bad, debt, proof = _spot_witness(
-                        bundle, setup, op, parent, all_ops, positions
-                    )
-                    errors.extend(bad)
-                    unknown.extend(debt)
+                bad, debt, source, proof = _drill_preparation(
+                    bundle, setup, op, parent, all_ops, positions, prepared
+                )
+                prepared[id(op)] = (bad, debt, source, proof)
+                errors.extend(bad)
+                unknown.extend(debt)
+                if proof is not None:
                     witnesses.append(proof)
-                else:
-                    _, _, material = _earlier(
-                        bundle, setup, op, parent, "spot", all_ops, positions
-                    )
-                    if material is False:
-                        errors.append(
-                            f"{_label(setup, op)} has no earlier spot operation on its material"
-                        )
-                    elif material is None:
-                        unknown.append(f"{_label(setup, op)} prior spot material is unresolved")
             if not drills and not any(o["do"] == "spot" for _, o in parent_route):
                 (unknown if UNKNOWN in parent_actions else errors).append("no spot operation")
             if feature.get("process") == "ream" and "ream" not in actions:
                 (unknown if UNKNOWN in actions else errors).append("required ream operation absent")
             if feature.get("thread") == UNKNOWN or feature.get("process") == UNKNOWN:
                 unknown.append("thread or finishing process is unresolved")
-            threaded = (
-                feature.get("thread") not in (None, "", UNKNOWN)
-                or kind in {"thread", "threaded_hole"}
-            )
+            threaded = feature.get("thread") not in (None, "", UNKNOWN) or kind in {
+                "thread",
+                "threaded_hole",
+            }
             if threaded and not any(action in TAP_OPS for action in actions):
                 (unknown if UNKNOWN in actions else errors).append(
                     "thread requires a tap or hand_tap operation"
                 )
-            if (
-                kind == "counterbore" or "counterbore" in actions
-            ) and "counterbore" not in actions:
+            if (kind == "counterbore" or "counterbore" in actions) and "counterbore" not in actions:
                 (unknown if UNKNOWN in actions else errors).append("counterbore operation absent")
             measurements, tap_checks = {}, []
             for setup, op in route:
                 if "prerequisites" in op and op["do"] != "drill":
-                    bad, debt, proof = _spot_witness(
-                        bundle, setup, op, parent, all_ops, positions
-                    )
+                    bad, debt, proof = _spot_witness(bundle, setup, op, parent, all_ops, positions)
                     errors.extend(bad)
                     unknown.extend(debt)
                     witnesses.append(proof)
@@ -518,9 +557,7 @@ def evaluate(bundle):
                     "error" if errors else "unknown" if unknown else "not_applicable",
                     nums,
                     cite,
-                    f"{name}: "
-                    + ("; ".join(errors or unknown) or "not a hole chain")
-                    + ".",
+                    f"{name}: " + ("; ".join(errors or unknown) or "not a hole chain") + ".",
                 )
             )
             continue

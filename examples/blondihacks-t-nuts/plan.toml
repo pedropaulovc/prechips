@@ -106,7 +106,7 @@ fixture = "bench-vise"
 stop = "unknown"
 grip_mm = "unknown"
 clamp = "Clamp the raw bar in the bench vise for the initial cutoff; retain the kept bar and arrange the offcut safely."
-note = "BEFORE LOADING: use dial calipers to measure and record the actual slot throat width and wide undercut width. Measure undercut depth using the source's backstop against the underside of the slot lip; identify the reference surfaces. Check the intended rod with a matching 3/8-16 nut, not the misleading M10 x 1.5 near-fit. Establish approved nut targets/clearances so it will slide, pull up under the lips and stay below the table. Then establish safe blade engagement, raw-bar cutoff length and offcut support. HOLD while any prerequisite is unknown."
+note = "BEFORE LOADING: use calipers to measure and record the actual slot throat width and wide undercut width. Measure undercut depth using the source's backstop against the underside of the slot lip; identify the reference surfaces. Check the intended rod with a matching 3/8-16 nut, not the misleading M10 x 1.5 near-fit. Establish approved nut targets/clearances so it will slide, pull up under the lips and stay below the table. Then establish safe blade engagement, raw-bar cutoff length and offcut support. HOLD while any prerequisite is unknown."
 [[setups.ops]]
 op = 20
 do = "cut_off"

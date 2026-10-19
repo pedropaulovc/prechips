@@ -84,9 +84,7 @@ def _mechanical_zero(bundle, setup):
             missing.append(field)
     directions = mapping(mapping(bundle.plan.get("dro")).get("direction"))
     missing.extend(
-        f"{axis.upper()} direction"
-        for axis in needed
-        if directions.get(axis, UNKNOWN) == UNKNOWN
+        f"{axis.upper()} direction" for axis in needed if directions.get(axis, UNKNOWN) == UNKNOWN
     )
     if readout["units"] not in {"mm", "in"}:
         missing.append("readout units")

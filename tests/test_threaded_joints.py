@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import ValidationError
 
-from prechips.inputs import BadInput
+from prechips.inputs import BadInput, Bundle
 from prechips.joint_features import setup_joint, thread_facts, validate_threaded_joints
 from prechips.material_routes import MaterialGraph
 from prechips.model import ThreadedJoint, ThreadSeat
@@ -32,65 +32,94 @@ def patch(normal):
 
 @pytest.fixture
 def threaded():
-    joint = ThreadedJoint.model_validate({
-        "kind": "threaded",
-        "socket": "female",
-        "spigot": "male",
-        "process": "Screw cap into tube by hand until the shoulders seat",
-        "cite": ["synthetic contract fixture"],
-        "engagement_mm": 4.0,
-        "seat": {
-            "socket": patch([0.0, 0.0, 1.0]),
-            "spigot": patch([0.0, 0.0, -1.0]),
-            "gap_mm": 0.0,
-            "runout_clearance_mm": 0.5,
-        },
-    }).model_dump()
+    joint = ThreadedJoint.model_validate(
+        {
+            "kind": "threaded",
+            "socket": "female",
+            "spigot": "male",
+            "process": "Screw cap into tube by hand until the shoulders seat",
+            "cite": ["synthetic contract fixture"],
+            "engagement_mm": 4.0,
+            "seat": {
+                "socket": patch([0.0, 0.0, 1.0]),
+                "spigot": patch([0.0, 0.0, -1.0]),
+                "gap_mm": 0.0,
+                "runout_clearance_mm": 0.5,
+            },
+        }
+    ).model_dump()
     definitions = {
         "female": {
-            "kind": "threaded_hole", "frame": "model", "at": [0.0, 0.0, 0.0],
-            "axis": [0.0, 0.0, 1.0], "depth": 6.0, "thread": "1/4-20 UNC",
-            "thread_hand": "right", "thread_class": "2B",
+            "kind": "threaded_hole",
+            "frame": "model",
+            "at": [0.0, 0.0, 0.0],
+            "axis": [0.0, 0.0, 1.0],
+            "depth": 6.0,
+            "thread": "1/4-20 UNC",
+            "thread_hand": "right",
+            "thread_class": "2B",
         },
         "male": {
-            "kind": "external_thread", "frame": "model", "at": [0.0, 0.0, 0.0],
-            "axis": [0.0, 0.0, 1.0], "length": 6.0, "thread": "1/4-20 UNC",
-            "thread_hand": "right", "thread_class": "2A",
+            "kind": "external_thread",
+            "frame": "model",
+            "at": [0.0, 0.0, 0.0],
+            "axis": [0.0, 0.0, 1.0],
+            "length": 6.0,
+            "thread": "1/4-20 UNC",
+            "thread_hand": "right",
+            "thread_class": "2A",
         },
     }
     plan = {
         "stock": {"form": "round_bar"},
         "setups": [
-            {"id": "P", "stock_in": "stock", "ops": [{
-                "op": 10, "do": "part_off", "outputs": {
-                    "tube": {"carries": "female"}, "cap": {"carries": "male"},
-                },
-            }]},
+            {
+                "id": "P",
+                "stock_in": "stock",
+                "ops": [
+                    {
+                        "op": 10,
+                        "do": "part_off",
+                        "outputs": {
+                            "tube": {"carries": "female"},
+                            "cap": {"carries": "male"},
+                        },
+                    }
+                ],
+            },
             {"id": "T", "stock_in": "stock_out.tube", "ops": []},
             {"id": "C", "stock_in": "stock_out.cap", "ops": []},
-            {"id": "J", "machine": "bench", "stock_in": ["T", "C"],
-             "joint": joint, "ops": []},
+            {"id": "J", "machine": "bench", "stock_in": ["T", "C"], "joint": joint, "ops": []},
         ],
     }
     for output in plan["setups"][0]["ops"][0]["outputs"].values():
         output["pose"] = {
-            "origin": [0.0, 0.0, 0.0], "x": [1.0, 0.0, 0.0],
-            "y": [0.0, 1.0, 0.0], "z": [0.0, 0.0, 1.0],
+            "origin": [0.0, 0.0, 0.0],
+            "x": [1.0, 0.0, 0.0],
+            "y": [0.0, 1.0, 0.0],
+            "z": [0.0, 0.0, 1.0],
             "binding": "synthetic contract registration",
             "cite": ["synthetic contract fixture; not a shop measurement"],
         }
     return SimpleNamespace(
         plan=plan,
         features={
-            "units": "mm", "features": definitions,
-            "frames": {"model": {
-                "origin": [0.0, 0.0, 0.0], "x": [1.0, 0.0, 0.0],
-                "y": [0.0, 1.0, 0.0], "z": [0.0, 0.0, 1.0],
-            }},
+            "units": "mm",
+            "features": definitions,
+            "frames": {
+                "model": {
+                    "origin": [0.0, 0.0, 0.0],
+                    "x": [1.0, 0.0, 0.0],
+                    "y": [0.0, 1.0, 0.0],
+                    "z": [0.0, 0.0, 1.0],
+                }
+            },
         },
         feature_definitions=definitions,
         finished_feature_owners={"female": "body", "male": "cap"},
-        inventory={}, policy={}, cutting_data={},
+        inventory={},
+        policy={},
+        cutting_data={},
     )
 
 
@@ -116,7 +145,6 @@ def test_schema_and_split_branch_identity_are_explicit(threaded):
     assert row.numbers["unmodeled_geometry"]
 
 
-
 def test_unknown_retained_pose_withholds_thread_ownership(threaded):
     threaded.plan["setups"][0]["ops"][0]["outputs"]["tube"]["pose"] = "unknown"
     facts = thread_facts(threaded, assembly(threaded))
@@ -124,11 +152,19 @@ def test_unknown_retained_pose_withholds_thread_ownership(threaded):
     assert "socket retained-material ownership" in facts["missing"]
     assert joints.evaluate_thread(threaded)[0].status == "unknown"
 
-@pytest.mark.parametrize("field,value", [
-    ("fit", "clearance"), ("clearance_mm", [0.0, 0.1]),
-    ("compound", {"product": "adhesive"}), ("method", "press"),
-    ("forms", ["bonded_fillet"]), ("spigot", "female"), ("cite", []),
-])
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("fit", "clearance"),
+        ("clearance_mm", [0.0, 0.1]),
+        ("compound", {"product": "adhesive"}),
+        ("method", "press"),
+        ("forms", ["bonded_fillet"]),
+        ("spigot", "female"),
+        ("cite", []),
+    ],
+)
 def test_schema_rejects_bonded_fit_fields_and_false_formed_faces(threaded, field, value):
     candidate = deepcopy(joint(threaded))
     candidate[field] = value
@@ -155,17 +191,20 @@ def test_cross_file_validation_rejects_missing_export_and_reused_thread(threaded
         validate_threaded_joints(threaded.plan, threaded.features)
 
 
-@pytest.mark.parametrize("field,value,cause", [
-    ("thread", "1/4-28 UNF", "designations"),
-    ("thread_hand", "left", "hands"),
-    ("thread_class", "2B", "classes"),
-    ("axis", [1.0, 0.0, 0.0], "collinear"),
-    ("axis", [0.0, 0.0, 2.0], "unit vector"),
-    ("at", [1.0, 0.0, 0.0], "collinear"),
-    ("at", [0.0, 0.0, 20.0], "overlap"),
-    ("length", 2.0, "depth"),
-    ("length", 0.0, "positive"),
-])
+@pytest.mark.parametrize(
+    "field,value,cause",
+    [
+        ("thread", "1/4-28 UNF", "designations"),
+        ("thread_hand", "left", "hands"),
+        ("thread_class", "2B", "classes"),
+        ("axis", [1.0, 0.0, 0.0], "collinear"),
+        ("axis", [0.0, 0.0, 2.0], "unit vector"),
+        ("at", [1.0, 0.0, 0.0], "collinear"),
+        ("at", [0.0, 0.0, 20.0], "overlap"),
+        ("length", 2.0, "depth"),
+        ("length", 0.0, "positive"),
+    ],
+)
 def test_known_thread_contradictions_are_errors(threaded, field, value, cause):
     threaded.features["features"]["male"][field] = value
     [row] = joints.evaluate_thread(threaded)
@@ -181,9 +220,14 @@ def test_invalid_or_excessive_actual_engagement_is_error(threaded, engagement):
     assert row.status == "error"
 
 
-@pytest.mark.parametrize("field,value", [
-    ("gap_mm", -0.1), ("gap_mm", 0.1), ("runout_clearance_mm", -0.1),
-])
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("gap_mm", -0.1),
+        ("gap_mm", 0.1),
+        ("runout_clearance_mm", -0.1),
+    ],
+)
 def test_known_seat_gap_and_runout_contradictions_are_errors(threaded, field, value):
     joint(threaded)["seat"][field] = value
     [row] = joints.evaluate_thread(threaded)
@@ -230,33 +274,44 @@ def test_normalized_payload_never_invents_cylindrical_fill_or_engagement(threade
     assert payload["engagement_mm"] == 4.0
     assert payload["kind"] == "threaded"
     assert "unmodeled" in payload["reason"]
-    assert not {"fit", "band_mm", "guaranteed_mm", "compound", "engagement", "forms"} & payload.keys()
+    assert (
+        not {"fit", "band_mm", "guaranteed_mm", "compound", "engagement", "forms"} & payload.keys()
+    )
     joint(threaded)["engagement_mm"] = "unknown"
     assert setup_joint(threaded, assembly(threaded))["engagement_mm"] == "unknown"
 
 
 def test_injected_bbox_cannot_certify_a_threaded_assembly(threaded, monkeypatch):
-    monkeypatch.setattr("prechips.kernel.run_geometry", lambda bundle: {
-        "status": "ok", "setups": {"J": {
-            "stock_bbox_mm": {"min": [0.0, 0.0, 0.0], "max": [10.0, 10.0, 10.0]},
-            "completed_joint_features": ["female", "male"],
-        }},
-    })
+    monkeypatch.setattr(
+        "prechips.kernel.run_geometry",
+        lambda bundle: {
+            "status": "ok",
+            "setups": {
+                "J": {
+                    "stock_bbox_mm": {"min": [0.0, 0.0, 0.0], "max": [10.0, 10.0, 10.0]},
+                    "completed_joint_features": ["female", "male"],
+                }
+            },
+        },
+    )
     [row] = joints.evaluate_assembly(threaded)
     assert row.status == "unknown"
     assert "unmodeled" in row.sentence
 
 
-def test_bare_traveler_prints_removable_action_and_unconditional_hold(threaded):
-    traveler = object.__new__(_Traveler)
-    traveler.setup = assembly(threaded)
-    traveler.plan = threaded.plan
-    traveler.features = threaded.features["features"]
-    traveler.faces = {}
-    traveler.references = {}
-    traveler.frames = {}
-    traveler.records = {}
-    traveler.decimals = 3
+def test_bare_traveler_prints_removable_action_and_unconditional_hold(threaded, tmp_path):
+    bundle = Bundle(
+        plan=threaded.plan,
+        features=threaded.features,
+        inventory=threaded.inventory,
+        policy=threaded.policy,
+        cutting_data=threaded.cutting_data,
+        paths={},
+        hashes={},
+        root=tmp_path,
+    )
+    traveler = _Traveler(bundle, [], {}, None)
+    traveler.setup = assembly(bundle)
     text = traveler.joint_text(assembly(threaded))
     assert "removable threaded assembly" in text
     assert "male" in text and "female" in text
@@ -266,34 +321,100 @@ def test_bare_traveler_prints_removable_action_and_unconditional_hold(threaded):
     assert "no strength or retention certification" in debt
 
 
-@pytest.mark.parametrize("required,actual,expected", [
-    ("1/4-20 UNC", " 1/4 - 20 unc ", True),
-    ("1/4-20", "0.25-20 UNC", True),
-    ("M6 x 1", "m6×1.0", True),
-    ("1/4-20 UNC", "1/4-28 UNF", False),
-    ("1/4-20 UNC", "1/4-20 UNF", False),
-    ("M6x1", "M6x0.75", False),
-    ("#8-32 UNC", "#10-32 UNC", False),
-])
+@pytest.mark.parametrize(
+    "required,actual,expected",
+    [
+        ("1/4-20 UNC", " 1/4 - 20 unc ", True),
+        ("1/4-20", "0.25-20 UNC", True),
+        ("M6 x 1", "m6×1.0", True),
+        ("1/4-20 UNC", "1/4-28 UNF", False),
+        ("1/4-20 UNC", "1/4-20 UNF", False),
+        ("M6x1", "M6x0.75", False),
+        ("#8-32 UNC", "#10-32 UNC", False),
+        ("#0-80 UNF", "0.060-80 UNF", True),
+        ("#1-64 UNC", "0.073-64 UNC", True),
+        ("#5-40", "1/8-40", True),
+        ("#10-24 UNC", "0.190-24 UNC", True),
+        ("0.190-24 UNC", "#10-24", True),
+        ("#12-28 UNF", "0.216-28 UNF", True),
+        ("#10-24 UNC", "0.190-32 UNC", False),
+        ("#10-24 UNC", "0.164-24 UNC", False),
+        ("#10-24 UNC", "0.190-24 UNF", False),
+    ],
+)
 def test_supported_fractional_and_metric_thread_comparisons(required, actual, expected):
     assert match(required, actual) is expected
 
 
-@pytest.mark.parametrize("value", [
-    "unknown", "", "unsupported", "1/0-20", "0/4-20", "1/4-0", "M6",
-    "M6x0", "M6x1/0", "1//4-20", "1/4--20", None, 42, [], {},
-])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "unknown",
+        "",
+        "unsupported",
+        "1/0-20",
+        "0/4-20",
+        "1/4-0",
+        "M6",
+        "M6x0",
+        "M6x1/0",
+        "1//4-20",
+        "1/4--20",
+        None,
+        42,
+        [],
+        {},
+        "#7-24",
+        "#13-24",
+        "#14-24",
+        "#00-90",
+        "#000-120",
+        "#010-24",
+    ],
+)
 def test_malformed_unsupported_or_unknown_designations_never_crash_or_pass(value):
     assert match(value, "1/4-20 UNC") is None
     assert match("1/4-20 UNC", value) is None
 
 
-@pytest.mark.parametrize("female,male,expected", [
-    ("2B", "2A", True), ("1b", "3a", True), ("2A", "2B", False),
-    ("2B", "2B", False), ("unknown", "2A", None), ("6H", "6g", None),
-])
+@pytest.mark.parametrize(
+    "female,male,expected",
+    [
+        ("2B", "2A", True),
+        ("1b", "3a", True),
+        ("2A", "2B", False),
+        ("2B", "2B", False),
+        ("unknown", "2A", None),
+        ("6H", "6g", None),
+    ],
+)
 def test_mating_classes_preserve_internal_external_roles(female, male, expected):
     assert mating_classes(female, male) is expected
+
+
+@pytest.mark.parametrize(
+    "designation,status,unresolved",
+    [
+        ("0.190-24 UNC", "unknown", False),
+        ("0.190-32 UNC", "error", False),
+        ("0.164-24 UNC", "error", False),
+        ("#14-24 UNC", "unknown", True),
+    ],
+)
+def test_joint_numbered_designations_use_known_diameters_not_spelling(
+    threaded, designation, status, unresolved
+):
+    threaded.features["features"]["female"]["thread"] = "#10-24 UNC"
+    threaded.features["features"]["male"]["thread"] = designation
+    facts = thread_facts(threaded, assembly(threaded))
+    assert ("supported nominal thread designations" in facts["missing"]) is unresolved
+    [row] = joints.evaluate_thread(threaded)
+    assert row.status == status
+    if status == "error":
+        assert "socket and spigot nominal thread designations differ" in facts["violations"]
+    else:
+        assert facts["violations"] == []
+        assert row.numbers["unmodeled_geometry"]
 
 
 def test_thread_geometry_transforms_frames_and_manifest_inches_to_mm(threaded):
@@ -308,6 +429,45 @@ def test_thread_geometry_transforms_frames_and_manifest_inches_to_mm(threaded):
         assert facts[role]["depth_mm"] == pytest.approx(152.4)
     assert facts["engagement_mm"] == 4.0
     assert facts["seat"]["socket"]["size_mm"] == [8.0, 8.0]
+
+
+@pytest.mark.parametrize("omit_frame", [False, True])
+def test_model_frame_default_preserves_geometry_and_unmodeled_hold(threaded, omit_frame):
+    if omit_frame:
+        for feature in threaded.features["features"].values():
+            feature.pop("frame")
+    facts = thread_facts(threaded, assembly(threaded))
+    for role in ("socket_geometry", "spigot_geometry"):
+        assert facts[role]["at_mm"] == [0.0, 0.0, 0.0]
+        assert facts[role]["axis"] == [0.0, 0.0, 1.0]
+        assert facts[role]["depth_mm"] == 6.0
+    assert facts["violations"] == facts["missing"] == []
+    [row] = joints.evaluate_thread(threaded)
+    assert row.status == "unknown"
+    assert row.numbers["unmodeled_geometry"]
+
+
+@pytest.mark.parametrize("omit_frame", [False, True])
+def test_model_frame_default_does_not_hide_known_axis_misalignment(threaded, omit_frame):
+    if omit_frame:
+        for feature in threaded.features["features"].values():
+            feature.pop("frame")
+    threaded.features["features"]["male"]["at"] = [1.0, 0.0, 0.0]
+    facts = thread_facts(threaded, assembly(threaded))
+    assert facts["spigot_geometry"]["at_mm"] == [1.0, 0.0, 0.0]
+    [row] = joints.evaluate_thread(threaded)
+    assert row.status == "error"
+    assert "collinear" in row.sentence
+
+
+@pytest.mark.parametrize("frame", ["unknown", "missing"])
+def test_unresolved_explicit_frame_does_not_fall_back_to_model(threaded, frame):
+    threaded.features["features"]["male"]["frame"] = frame
+    facts = thread_facts(threaded, assembly(threaded))
+    assert facts["spigot_geometry"]["at_mm"] == "unknown"
+    assert facts["spigot_geometry"]["axis"] == "unknown"
+    assert facts["missing"]
+    assert joints.evaluate_thread(threaded)[0].status == "unknown"
 
 
 def test_die_thread_is_manual_but_material_cutting_with_no_powered_approach(threaded):
@@ -342,7 +502,8 @@ def test_die_thread_remains_a_final_forming_cut_and_finishing_subject(threaded):
     ]
     cuts = _cuts(threaded, "male")
     assert [(setup["id"], op["op"]) for _, setup, op in cuts] == [
-        ("C", 10), ("C", 20),
+        ("C", 10),
+        ("C", 20),
     ]
     assert {"C:10", "C:20"} <= finishing_subjects(threaded)
 
@@ -351,9 +512,13 @@ def test_unknown_die_finish_withholds_an_earlier_known_turning_finish(threaded, 
     from prechips.rules import finish_coverage
 
     face = "#42/ADVANCED_FACE[1]/SYNTHETIC_THREAD"
-    threaded.features["features"]["male"].update({
-        "faces": [face], "requirements": ["finish_ra"], "finish_ra": 1.6,
-    })
+    threaded.features["features"]["male"].update(
+        {
+            "faces": [face],
+            "requirements": ["finish_ra"],
+            "finish_ra": 1.6,
+        }
+    )
     cap = threaded.plan["setups"][2]
     cap["machine"] = "lathe"
     cap["ops"] = [{"op": 10, "do": "finish_turn", "feature": "male"}]

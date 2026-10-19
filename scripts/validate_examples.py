@@ -132,6 +132,7 @@ EXPECTED_EXIT = {
 STANDALONE_CASES = (
     ("blondihacks-t-nuts", "plan.toml", "expected", 4),
     ("blondihacks-brass-ring", "plan.toml", "expected", 4),
+    ("blondihacks-magic-tube", "plan.toml", "expected", 4),
 )
 # Worked fixtures exercise the measured branch without claiming shop observations.
 EXAMPLE_MEASUREMENT = {
@@ -948,6 +949,7 @@ def rule_subjects(plan: dict, features: dict, entries: Entries, checked) -> dict
         prepared_blank={"stock.prepared"},
         joint_assembly={setup["id"] for setup in joined},
         joint_fit={setup["id"] for setup in joined if setup["joint"]["kind"] == "cylindrical"},
+        joint_thread={setup["id"] for setup in joined if setup["joint"]["kind"] == "threaded"},
         saw_cut=op_ids(lambda op: op.get("do") in SAW_OPS),
         manual_arc=op_ids(
             lambda op: (
@@ -956,10 +958,16 @@ def rule_subjects(plan: dict, features: dict, entries: Entries, checked) -> dict
                 and arc_feature(definitions.get(op["feature"], {}))
             )
         ),
-        # A coating's process resolves as its op; other manual work selects no tool.
+        # Coating resolves its process; stopped-spindle threads select real hand tools.
         tool_resolves=set(identity_rows(plan, entries))
         | set(make_op_rows(plan, entries))
-        | op_ids(lambda op: op.get("do") == "coating" or op.get("do") not in MANUAL),
+        | op_ids(
+            lambda op: (
+                op.get("do") == "coating"
+                or op.get("do") in HAND_THREAD
+                or op.get("do") not in MANUAL
+            )
+        ),
         inspection=inspection_subjects(plan, definitions),
     )
     for rule in CHECKER_RULES:
@@ -1050,6 +1058,17 @@ def check_required_coverage(
     absent = sorted((evaluated | coverage.keys()) - findings.keys())
     require(not absent, f"missing findings {absent}: evaluated or required subjects")
     check_make_ops(plan, entries, findings)
+    # Thread subjects are independently authored above, while their full normalized
+    # evidence still comes from this validator's own source-bound checker bundle.
+    threaded = domains.get("joint_thread", set())
+    if threaded:
+        rule = next(rule for rule in CHECKER_RULES if rule.name == "joint_thread")
+        own = checked(rule)
+        for subject in threaded:
+            require(
+                subject in own and findings["joint_thread", subject] == own[subject],
+                f"joint_thread:{subject}: not the checker's own row on the validator's inputs",
+            )
     for rule, own in domains.items():
         for subject, row in own.items() if isinstance(own, dict) else ():
             if rule == "consistency":
@@ -1129,7 +1148,8 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
             f"{name}: transient joint or preparation labels cannot name finished STEP faces",
         )
         numeric_requirements = [
-            field for field in requirements
+            field
+            for field in requirements
             if numeric(feature.get(field))
             or (
                 isinstance(feature.get(field), list)
@@ -1194,7 +1214,8 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
             has("zero_check", sid)
             require(
                 findings["zero_check", sid]["status"] == "not_applicable"
-                and findings["zero_check", sid]["numbers"] == {"frame": setup.get("frame", "unknown")},
+                and findings["zero_check", sid]["numbers"]
+                == {"frame": setup.get("frame", "unknown")},
                 f"{sid}: saw setup zero waiver must name its frame",
             )
         elif any(spindle_saw(inventory, setup, op) for op in setup["ops"]):
@@ -1230,14 +1251,21 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
             has("speeds_feeds", f"{sid}:{op['op']}")
             has("turning_deflection", f"{sid}:{op['op']}")
             has("engagement", f"{sid}:{op['op']}")
-            if op["do"] not in MANUAL:
-                if "tool" in op and (op["do"] not in SAW_OPS or spindle_saw(inventory, setup, op)):
+            action = op["do"]
+            if action in HAND_THREAD:
+                require("tool" in op, f"{sid}:{op['op']}: omitted manual thread tool")
+                require("holder" in op, f"{sid}:{op['op']}: omitted manual thread holder")
+            elif action not in MANUAL:
+                if "tool" in op and (action not in SAW_OPS or spindle_saw(inventory, setup, op)):
                     require("holder" in op, f"{sid}:{op['op']}: omitted holder")
+            if action in HAND_THREAD or action == "coating" or action not in MANUAL:
                 has("tool_resolves", f"{sid}:{op['op']}")
         if isinstance(setup.get("stock_in"), list):
             has("joint_assembly", sid)
             if setup["joint"]["kind"] == "cylindrical":
                 has("joint_fit", sid)
+            elif setup["joint"]["kind"] == "threaded":
+                has("joint_thread", sid)
 
 
 def check_inspection_declarations(plan: dict, features: dict, findings: dict) -> None:
@@ -1347,7 +1375,12 @@ def kernel_join(kernel, setup: dict, plan: dict) -> tuple:
         "error"
         if detail.get("assembly_error")
         else "unknown"
-        if detail.get("stock_reason") or "stock_bbox_mm" not in detail or unproven_partition
+        if (
+            setup["joint"]["kind"] == "threaded"
+            or detail.get("stock_reason")
+            or "stock_bbox_mm" not in detail
+            or unproven_partition
+        )
         else "pass"
     )
     numbers = {
@@ -1379,6 +1412,21 @@ def check_joint_declarations(plan: dict, features: dict, findings: dict, kernel)
             assembly["numbers"] == numbers,
             f"{sid}: joint assembly evidence differs from the validator's own kernel join",
         )
+        if joint["kind"] == "threaded":
+            thread = findings["joint_thread", sid]
+            require(
+                thread["status"] == ("error" if thread["numbers"].get("violations") else "unknown"),
+                f"{sid}: unmodeled threaded geometry cannot approve the assembly",
+            )
+            require(
+                thread["numbers"].get("socket") == joint["socket"]
+                and thread["numbers"].get("spigot") == joint["spigot"]
+                and thread["numbers"].get("unmodeled_geometry")
+                == ["helical flanks", "lead/runout", "prepared shoulder seating"],
+                f"{sid}: threaded joint must retain exported identities "
+                "and unmodeled geometry debt",
+            )
+            continue
         if joint["kind"] != "cylindrical":
             continue
         result = fit(bundle, setup)
@@ -1641,7 +1689,10 @@ def blank_cut(plan: dict, kernel, receiver: str, axes, declared, allowed, number
         handed = handed if isinstance(handed, dict) else {}
         if handed.get("stock_out_reason"):
             return "unknown"
-        bbox, volume = vector_of(handed.get("stock_out_bbox_mm"), 6), handed.get("stock_out_volume_mm3")
+        bbox, volume = (
+            vector_of(handed.get("stock_out_bbox_mm"), 6),
+            handed.get("stock_out_volume_mm3"),
+        )
     if bbox is None or not numeric(volume):
         return "unknown"
     spans = []
@@ -1888,7 +1939,9 @@ def derive_prepared_blank(plan: dict, features: dict, inventory: dict, prepared:
         cut = blank_cut(plan, lambda: facts, receiver, axes, declared, allowed, numbers)
         bands = {
             key: [size - tol, size + tol]
-            for key, size, tol in zip(PREPARED_SIZE_CHECKS, [length, *section], allowed, strict=True)
+            for key, size, tol in zip(
+                PREPARED_SIZE_CHECKS, [length, *section], allowed, strict=True
+            )
         }
         checked, missing = blank_gauge_checks(prepared, bands, features, inventory, numbers)
         return max(cut, checked, key=STATUS_RANK.get), numbers, missing
@@ -4292,7 +4345,8 @@ def deep_hole_derate(cutting: dict, operation: str, depth, diameter) -> tuple:
     the factor unknown, and they or an unconfirmed governing row leave it ``unresolved``."""
     authored = cutting.get("deep_hole")
     rows = [
-        row for row in (authored if isinstance(authored, list) else [])
+        row
+        for row in (authored if isinstance(authored, list) else [])
         if row.get("operation") == operation
     ]
     if not rows:

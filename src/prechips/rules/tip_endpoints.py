@@ -863,9 +863,10 @@ def _operative_z(bundle, setup, value, face, done, source, path, carried):
             if key in found:
                 return found[key][1]
         surface = state.get("top_feature") if face == "top" else face
-        if not path and feature_material_status(
-            bundle.plan, setup["id"], "stock", surface, bundle
-        ) is None:
+        if (
+            not path
+            and feature_material_status(bundle.plan, setup["id"], "stock", surface, bundle) is None
+        ):
             return UNKNOWN
     return dro_z(value, dro_grid(bundle, setup))
 
@@ -973,9 +974,10 @@ def _carried(bundle, setup):
         (row for row in bundle.plan.get("setups", []) if row.get("id") == producer),
         None,
     )
-    if before is None or reference_frame(
-        bundle.plan, source, setup_frame(bundle, before)
-    ) is not None:
+    if (
+        before is None
+        or reference_frame(bundle.plan, source, setup_frame(bundle, before)) is not None
+    ):
         return {}
     state = mapping(setup.get("stock_state"))
     return {key: (state[key], UNKNOWN) for key in ARRIVAL_ZS if number(state.get(key))}
@@ -1329,8 +1331,7 @@ def evaluate(bundle):
             # A plan centre hole is drilled by a combined drill and countersink fed from
             # the tailstock quill: its depth is its own Table 6 geometry, read on the quill.
             centre = (
-                op.get("do") in {"spot", "center_drill"}
-                and feature.get("kind") == "centre_hole"
+                op.get("do") in {"spot", "center_drill"} and feature.get("kind") == "centre_hole"
             )
             if not centre and (
                 op.get("do") not in HOLE_OPS or feature.get("kind") not in _HOLE_KINDS
@@ -1443,9 +1444,7 @@ def evaluate(bundle):
             # A centre row's verdict is centre_endpoint's alone (it already holds the tool's
             # presence and verify debt), which centre_support reads through centre_check.
             if not centre and (
-                (not manual_tap and row.get("tip_z") == UNKNOWN)
-                or not tool
-                or uncertain(tool)
+                (not manual_tap and row.get("tip_z") == UNKNOWN) or not tool or uncertain(tool)
             ):
                 unresolved.add(name)
             if not centre and action == "ream":

@@ -375,6 +375,34 @@ def _sawn(op):
     return op.get("do") in SAW_ACTIONS
 
 
+def _retained_metadata(op):
+    """Only explicit non-material metadata may follow a published stock output.
+
+    Host recipes normally omit these manual actions. A direct native caller
+    must not smuggle cutting geometry through an inspection or layout label.
+    Deburring and coating remain unmodelled processes, not native no-op cuts.
+    """
+    return (
+        isinstance(op, dict)
+        and op.get("do") in {"inspect", "release", "scribe"}
+        and op.keys()
+        <= {
+            "subject",
+            "op",
+            "do",
+            "feature",
+            "features",
+            "cite",
+            "note",
+            "text",
+            "instruction",
+            "inspection_views",
+            "inspection_note",
+            "layout",
+        }
+    )
+
+
 def _scribed_saw(op):
     """A saw cut that follows a scribed line: it removes its declared region, no plane."""
     return _sawn(op) and "follows" in op
@@ -4116,11 +4144,17 @@ class _Job:
                     mapping[ref]: name for ref, name in source_owners.items() if ref in mapping
                 }
                 for name, refs in self._declared().items():
-                    owners = {source_owners.get(ref) for ref in refs} if isinstance(refs, list) else set()
+                    owners = (
+                        {source_owners.get(ref) for ref in refs}
+                        if isinstance(refs, list)
+                        else set()
+                    )
                     owner = next(iter(owners)) if len(owners) == 1 and None not in owners else None
                     claimed = job.get("feature_solids", {}).get(name, owner)
                     if claimed != owner:
-                        raise ValueError(f"feature {name} finished-solid ownership contradicts STEP")
+                        raise ValueError(
+                            f"feature {name} finished-solid ownership contradicts STEP"
+                        )
                     self.feature_solids[name] = owner
             self.features = {name: self._feature(value) for name, value in self._declared().items()}
             aimed = job.get("aimed_faces", [])
@@ -4646,8 +4680,8 @@ class _Job:
                 # Never reuse the bonded clearance fill / press-fusion construction.
                 raise _Unknown(
                     joint.get("reason")
-                    or "threaded joint helical flank, lead/runout and seated geometry are unmodelled; "
-                    "assembled stock is withheld"
+                    or "threaded joint helical flank, lead/runout and seated geometry "
+                    "are unmodelled; assembled stock is withheld"
                 )
             if joint.get("fit_error"):
                 raise ValueError(joint["fit_error"])
@@ -5528,7 +5562,10 @@ class _Setup:
             for name in op.get("outputs", {}):
                 ref = "stock_out." + name
                 self.output_specs[ref] = op["outputs"][name]
-                self.named_outputs[ref] = (None, self.stock_reason or "retained output cut is unproven")
+                self.named_outputs[ref] = (
+                    None,
+                    self.stock_reason or "retained output cut is unproven",
+                )
                 self.output_states[ref] = {
                     **self.state,
                     "completed": {},
@@ -6145,10 +6182,12 @@ class _Setup:
                 removal = removal.cut(target)
             if removal.isNull() or removal.Volume <= HIT_MM3:
                 return None, None
-            intrusion = (
-                removal.common(self.protected) if self.protected.Solids else None
-            )
-            if spec["kind"] == "cylinder_bore" and intrusion is not None and intrusion.Volume > HIT_MM3:
+            intrusion = removal.common(self.protected) if self.protected.Solids else None
+            if (
+                spec["kind"] == "cylinder_bore"
+                and intrusion is not None
+                and intrusion.Volume > HIT_MM3
+            ):
                 for setup in self.owner.job["setups"]:
                     joint = setup.get("joint")
                     if (
@@ -6440,6 +6479,10 @@ class _Setup:
             before = stock
             plan = None
             try:
+                if self.output_records and _retained_metadata(op):
+                    # The output is already a proved terminal material state.
+                    # Inspection/release/layout metadata does not replay a cut.
+                    continue
                 if _sawn(op):
                     after, detail = self._saw_stock(op, stock)
                     self.saws[id(op)] = detail
@@ -6503,7 +6546,9 @@ class _Setup:
                             self.owner.partition_proofs[subject] = True
                             for name, record in records.items():
                                 ref = "stock_out." + name
-                                self.output_states[ref]["finished_names"] = {record["finished_solid"]}
+                                self.output_states[ref]["finished_names"] = {
+                                    record["finished_solid"]
+                                }
         return (None, stopped) if stopped is not None else (stock, None)
 
     def _retained_outputs(self, op, before, after):
@@ -6516,6 +6561,29 @@ class _Setup:
         specs = op.get("outputs")
         if op.get("do") != "part_off" or not isinstance(specs, dict) or len(specs) != 2:
             return {}, {}, "retained outputs require exactly two names on a part_off"
+        if self.setup.get("keep"):
+            return {}, {}, "retained outputs cannot be combined with setup keep"
+        operations = self.setup.get("ops", [])
+        subject = self._subject(op)
+        positions = [
+            index
+            for index, candidate in enumerate(operations)
+            if isinstance(candidate, dict)
+            and (candidate is op or self._subject(candidate) == subject)
+        ]
+        if len(positions) != 1:
+            return {}, {}, "retained output operation order is unproven"
+        for later in operations[positions[0] + 1 :]:
+            if not _retained_metadata(later):
+                later_subject = self._subject(later) if isinstance(later, dict) else UNKNOWN
+                return (
+                    {},
+                    {},
+                    (
+                        "retained outputs require the last material operation; "
+                        f"later operation {later_subject} may change stock"
+                    ),
+                )
         if self.state.get("partitions"):
             return {}, {}, "named nested partitions are unsupported"
         if before is None or after is None or self.matrix is None:
@@ -6974,6 +7042,10 @@ class _Setup:
         where = self._where()
         try:
             for op in self.ops:
+                if self.output_records and _retained_metadata(op):
+                    # The builder accepted this as metadata, not a milling
+                    # claim whose walls must be cleared by another cut.
+                    continue
                 if (
                     isinstance(op.get("joint_cut"), dict)
                     or isinstance(op.get("process_cut"), dict)
@@ -7898,7 +7970,9 @@ class _Setup:
             edge = probe.Edges[len(probe.Edges) // 2]
             point = edge.valueAt((edge.FirstParameter + edge.LastParameter) / 2)
             height = min(levels, key=lambda level: level[0].distToShape(Part.Vertex(point))[0])
-            if not _inside_material(self.material_target, V(point.x, point.y, height[1]), PLANE_TOL, True):
+            if not _inside_material(
+                self.material_target, V(point.x, point.y, height[1]), PLANE_TOL, True
+            ):
                 sides.append(sign)
         if len(sides) != 1:
             return None
@@ -8520,7 +8594,11 @@ class _Setup:
         if indices == UNKNOWN:
             return UNKNOWN, [], "claimed face references are unknown or unmapped"
         if any(not self._owns_finished_face(index) for index in indices):
-            return UNKNOWN, [], "claimed finished faces are not owned by this retained material output"
+            return (
+                UNKNOWN,
+                [],
+                "claimed finished faces are not owned by this retained material output",
+            )
         if _hand(op):
             return sorted(indices), [], None
         labels = self.owner.labels
@@ -13016,7 +13094,9 @@ class _Setup:
             }
 
         if op.get("do") == "hand_tap":
-            return debt("internal helical thread removal is unmodelled; no nominal cylinder substitute")
+            return debt(
+                "internal helical thread removal is unmodelled; no nominal cylinder substitute"
+            )
 
         hole = op.get("hole")
         if not isinstance(hole, dict):
@@ -13287,7 +13367,9 @@ class _Setup:
                 if self.owner.multisolid:
                     names = self.state.get("finished_names")
                     if names is None:
-                        raise ValueError("finished-solid ownership is unknown; future hole columns are unknown")
+                        raise ValueError(
+                            "finished-solid ownership is unknown; future hole columns are unknown"
+                        )
                     if self.owner.face_solids.get(index) not in names:
                         continue
                 face = self.faces[index]
@@ -14618,7 +14700,11 @@ class _Setup:
         the blade's near side at ``to_z`` and its outward side takes the blade.
         This is nominal radial-cut geometry, not proof that either piece is held.
         """
-        plane, width, diameter = op.get("to_z"), _positive(op, "blade_width_mm"), op.get("to_dia_mm")
+        plane, width, diameter = (
+            op.get("to_z"),
+            _positive(op, "blade_width_mm"),
+            op.get("to_dia_mm"),
+        )
         if not _number(plane) or width is None or op.get("corners") != 2:
             return None, "retained part-off needs a known to_z and measured parting blade_width_mm"
         if not _number(diameter) or abs(diameter) > PLANE_TOL:
@@ -14644,7 +14730,9 @@ class _Setup:
             if self.protected is not None and self.protected.Solids:
                 spoiled = removal.common(self.protected).Volume
                 if spoiled > STOCK_MM3:
-                    return None, f"retained part-off takes {_r(spoiled)} mm^3 of owned finished material"
+                    return None, (
+                        f"retained part-off takes {_r(spoiled)} mm^3 of owned finished material"
+                    )
             return removal, None
         except Exception as exc:
             return None, f"retained part-off kerf boolean failed ({exc})"

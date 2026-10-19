@@ -883,9 +883,7 @@ def _carried_face_z(
         if producer not in outputs:
             return seed(current, incoming, source, ref)
         row = outputs[producer][ref]
-        material = feature_material_status(
-            bundle.plan, current["id"], producer, face, bundle
-        )
+        material = feature_material_status(bundle.plan, current["id"], producer, face, bundle)
         if material is True or row["present"] is False:
             return row
         return {
@@ -902,10 +900,7 @@ def _carried_face_z(
         incoming = incoming if isinstance(incoming, list) else [incoming]
         state = {}
         for ref in refs:
-            inputs = [
-                incoming_row(current, incoming, source, ref)
-                for source in incoming
-            ]
+            inputs = [incoming_row(current, incoming, source, ref) for source in incoming]
             present = (
                 UNKNOWN
                 if any(row["present"] == UNKNOWN for row in inputs)

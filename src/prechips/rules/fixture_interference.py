@@ -13,9 +13,7 @@ def evaluate(bundle):
         bench = manual_bench(bundle, setup)
         hold = setup.get("hold", {})
         if isinstance(hold, dict) and unfixtured_handling(bench, hold):
-            rows.append(
-                not_applicable(_RULE, setup, bench, "holding", "fixture solids to collide")
-            )
+            rows.append(not_applicable(_RULE, setup, bench, "holding", "fixture solids to collide"))
             continue
         if blocked:
             rows.append(blocked)

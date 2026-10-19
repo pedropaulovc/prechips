@@ -45,9 +45,8 @@ def evaluate(bundle):
                     for _, prev in before
                 ):
                     errors.append(f"op {op['op']} {action} precedes its drill")
-            if (
-                action == "drill"
-                and any(o.get("feature") == feature and o["do"] == "spot" for _, o in after)
+            if action == "drill" and any(
+                o.get("feature") == feature and o["do"] == "spot" for _, o in after
             ):
                 spotted = [
                     feature_material_status(bundle.plan, sid, s["id"], feature, bundle)
@@ -77,8 +76,7 @@ def evaluate(bundle):
                     errors.append(f"op {op['op']} roughs after finishing {feature}")
             # Release/part-off ends this holding; the next setup may cut the released part.
             if action in {"release", "part_off"} and any(
-                s["id"] == sid and later["do"] not in MANUAL - HAND_THREAD
-                for s, later in after
+                s["id"] == sid and later["do"] not in MANUAL - HAND_THREAD for s, later in after
             ):
                 errors.append(f"op {op['op']} releases before the final cutting operation")
             if action in TAP_OPS | {"ream", "counterbore"}:
@@ -95,13 +93,17 @@ def evaluate(bundle):
                 ]
                 if earlier and True not in prepared:
                     if None in prepared:
-                        unknown.append(f"op {op['op']} drill survival after partition is unresolved")
+                        unknown.append(
+                            f"op {op['op']} drill survival after partition is unresolved"
+                        )
                     else:
                         transfer = record(record(setup.get("zero")).get("transfer"))
                         drilled_ids = {s["id"] for s, _ in earlier}
                         # A legacy datum transfer cannot certify an explicit material route.
                         if "stock_in" in setup or transfer.get("from") not in drilled_ids:
-                            errors.append(f"op {op['op']} has no incoming route from the drilled setup")
+                            errors.append(
+                                f"op {op['op']} has no incoming route from the drilled setup"
+                            )
         nums = {
             "sequence": [f"{o['op']} {o['do']} {o.get('feature', '')}" for o in own],
             "violations": errors,

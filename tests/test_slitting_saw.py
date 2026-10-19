@@ -278,6 +278,10 @@ def test_a_passing_measured_mill_stack_cannot_hide_a_mixed_slitting_saw():
     assert [stack["op"] for stack in row.numbers["stacks"]] == [10]
     assert row.numbers["stacks"][0]["verified"] is True
     assert row.numbers["stacks"][0]["stack_mm"] == 151
+    assert row.numbers["part_extents_mm"]["z"] == 16
+    assert "plan.setups.S1.supported_height" not in {
+        debt["id"] for debt in row.numbers["measurements"]
+    }
 
 
 @pytest.mark.parametrize("machine_kind", ["mill", "unknown"])

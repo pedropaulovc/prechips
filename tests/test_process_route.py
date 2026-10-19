@@ -205,9 +205,7 @@ def test_finish_kind_explicitly_distinguishes_surface_conditions_from_coatings(
 
 
 @pytest.mark.parametrize("finish_kind", ["none", "as turned", "Surface", "", 1])
-def test_material_finish_kind_rejects_values_outside_its_explicit_schema(
-    tmp_path, finish_kind
-):
+def test_material_finish_kind_rejects_values_outside_its_explicit_schema(tmp_path, finish_kind):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     features = plan.with_name("features.toml")
     features.write_text(
@@ -229,8 +227,12 @@ def test_a_surface_condition_does_not_credit_missing_roughness_inspection(tmp_pa
     ).model_dump(exclude_unset=True)
     assert evaluate("finish_route", bundle)["rocker-arm"].status == "not_applicable"
     assert evaluate("inspection", bundle)["pivot_bore:finish_ra"].status == "pass"
+    # This fixture reads roughness on the ream op itself, not a separate inspect op.
+    # Remove the actual requirement-keyed check while retaining the machining route.
     for setup in bundle.plan["setups"]:
-        setup["ops"] = [op for op in setup["ops"] if op["do"] != "inspect"]
+        for op in setup["ops"]:
+            if isinstance(op.get("checks"), dict):
+                op["checks"].pop("finish_ra", None)
     assert evaluate("inspection", bundle)["pivot_bore:finish_ra"].status == "error"
 
 
@@ -885,9 +887,7 @@ def test_the_traveler_prints_an_unknown_go_no_go_pair_as_unresolved(tmp_path, de
         ('do = "inspect"\nfeature = "pivot_bearing"\n', "pass"),
     ],
 )
-def test_a_coating_applies_the_finish_only_after_the_last_cut(
-    tmp_path, after, status, finish_kind
-):
+def test_a_coating_applies_the_finish_only_after_the_last_cut(tmp_path, after, status, finish_kind):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     without_coating(plan)
     append_op(plan, 'do = "coating"\nfeature = "pivot_bearing"\nprocess = "cutting-oil"\n')

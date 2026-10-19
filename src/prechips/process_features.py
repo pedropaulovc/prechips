@@ -191,7 +191,9 @@ def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
     if not bounds or not own:
         return bounds
     # Root-stock bounds are not registered bounds of an independently reposed child.
-    if any(atom.split is not None for atom in MaterialGraph(bundle.plan).nodes.get(setup["id"], ())):
+    if any(
+        atom.split is not None for atom in MaterialGraph(bundle.plan).nodes.get(setup["id"], ())
+    ):
         return None
     trimmed = {key: list(span) for key, span in bounds.items()}
     earlier = setup_lineage(bundle.plan, setup["id"]) - {setup["id"]}
@@ -203,9 +205,12 @@ def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
             process = process_of(made)
             if not process or process["kind"] != "end_face" or process["id"] == own["id"]:
                 continue
-            if feature_material_status(
-                bundle.plan, setup["id"], other["id"], process["id"], bundle
-            ) is not True:
+            if (
+                feature_material_status(
+                    bundle.plan, setup["id"], other["id"], process["id"], bundle
+                )
+                is not True
+            ):
                 continue
             axis, at = made["axis"], made["at"]
             vectors = (axis, at)
@@ -421,7 +426,8 @@ def makers(bundle, setup: dict, name: str) -> list[tuple[dict, dict]]:
         if other["id"] in earlier
         for op in other.get("ops", [])
         if op.get("feature") == name
-        and feature_material_status(bundle.plan, setup["id"], other["id"], name, bundle) is not False
+        and feature_material_status(bundle.plan, setup["id"], other["id"], name, bundle)
+        is not False
     ]
 
 

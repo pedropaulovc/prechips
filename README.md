@@ -28,6 +28,7 @@ uv run prechips traveler examples/pivot-bracket/plan.toml --out out/pivot-bracke
 uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-pivot-post
 uv run prechips traveler examples/blondihacks-t-nuts/plan.toml --out out/blondihacks-t-nuts
 uv run prechips traveler examples/blondihacks-brass-ring/plan.toml --out out/blondihacks-brass-ring
+uv run prechips traveler examples/blondihacks-magic-tube/plan.toml --out out/blondihacks-magic-tube
 ```
 
 Read the [worked tutorial](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/tutorial.md) for the input-to-sheet workflow and the [input/output demonstration](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/demo.md) for actual excerpts. The [example guide](https://github.com/pedropaulovc/prechips/blob/main/examples/README.md) owns each bundle's provenance, demonstration-value disclosures and expected exit. Outputs can still be written when the checker exits 2 or 4.
@@ -37,6 +38,8 @@ Example values exercise the rules; they are not measurements to copy into a real
 The standalone [Blondihacks T-nuts example](https://github.com/pedropaulovc/prechips/blob/main/examples/blondihacks-t-nuts/README.md) adapts a video process with explicitly selected catalog dimensions. It uses local shop inputs, not harmonic-analyzer exports or the shared demonstration-measurement inventory. Source observations, catalog design choices and missing real measurements remain distinct; the sheet stays PLANNED.
 
 The standalone [brass-ring example](https://github.com/pedropaulovc/prechips/blob/main/examples/blondihacks-brass-ring/README.md) follows [Metal Lathe Tutorial 16: Your First Project](https://www.youtube.com/watch?v=t9NGty1CVII), with source-known 360 brass and a PM-1022V lathe. Its local inventory retains real measurement debt; expected exit 4 does not release the PLANNED traveler.
+
+The [Magic Tube example](https://github.com/pedropaulovc/prechips/blob/main/examples/blondihacks-magic-tube/README.md) follows [Metal Lathe Tutorial 18: Your Second Project!](https://www.youtube.com/watch?v=-dyO4PEkEkc): one source bar becomes a blind-bored body and removable 1/2-20 right-hand screw cap. Its adapted 12L14 design and catalog dimensions are not identification or measurements of the video's unknown scrap stock. Retained-piece routing and nominal thread compatibility do not certify engagement, seating or joint turning; the traveler remains PLANNED with expected exit 4.
 
 Slitting-saw recognition is limited to mill-mounted tooling; it does not establish full physical support. Finite disk/arbor clearance, the mounted assembly, engagement and mounted-zero evidence remain unresolved. See the [tool rules](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-tools.md) for the supported checks and limits.
 

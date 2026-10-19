@@ -1137,7 +1137,9 @@ class ThreadedJoint(InputModel):
         _known_text(self.spigot, "A threaded joint spigot")
         _known_text(self.process, "A threaded joint process")
         if self.socket == self.spigot:
-            raise ValueError("A threaded joint needs different exported socket and spigot features.")
+            raise ValueError(
+                "A threaded joint needs different exported socket and spigot features."
+            )
         if not _cited(self.cite):
             raise ValueError("A threaded joint must cite its thread and assembly source.")
         if self.forms:
@@ -1197,6 +1199,14 @@ class Plan(InputModel):
     process_features: dict[str, ProcessFeature] = Field(default_factory=dict)
     # Plan-owned DRO aims keyed by located feature; never a change to its geometry.
     aims: dict[str, Aim] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def named_setups(self) -> Plan:
+        """Routing requires identities before any sparse setup dump is traversed."""
+        from prechips.material_routes import setup_index
+
+        setup_index(self.model_dump(exclude_unset=True))
+        return self
 
     @model_validator(mode="after")
     def named_frames(self) -> Plan:
@@ -1374,15 +1384,37 @@ class Plan(InputModel):
             split = False
             for op in setup.ops if isinstance(setup.ops, list) else ():
                 if split and "keep" in op.model_fields_set:
-                    raise ValueError(f"Setup {setup.id}: keep cannot follow named retained outputs.")
+                    raise ValueError(
+                        f"Setup {setup.id}: keep cannot follow named retained outputs."
+                    )
+                # These existing manual/process actions do not create native stock
+                # geometry. In particular, deburring/coating here is not a claim that
+                # the retained pieces were remeasured or their material remodeled.
+                if split and op.do not in {
+                    "inspect",
+                    "deburr",
+                    "coating",
+                    "release",
+                    "scribe",
+                }:
+                    raise ValueError(
+                        f"Setup {setup.id} op {op.op}: named outputs require the part_off "
+                        "to be the final material-changing operation."
+                    )
                 if "outputs" not in op.model_fields_set:
                     continue
                 if op.do != "part_off":
-                    raise ValueError(f"Setup {setup.id} op {op.op}: only part_off declares outputs.")
+                    raise ValueError(
+                        f"Setup {setup.id} op {op.op}: only part_off declares outputs."
+                    )
                 if "keep" in op.model_fields_set:
-                    raise ValueError(f"Setup {setup.id} op {op.op}: keep and outputs are exclusive.")
+                    raise ValueError(
+                        f"Setup {setup.id} op {op.op}: keep and outputs are exclusive."
+                    )
                 if not isinstance(op.outputs, dict) or len(op.outputs) != 2:
-                    raise ValueError("A part_off outputs table must name exactly two retained pieces.")
+                    raise ValueError(
+                        "A part_off outputs table must name exactly two retained pieces."
+                    )
                 if split:
                     raise ValueError(f"Setup {setup.id}: named outputs may be declared only once.")
                 for name in op.outputs:
@@ -1589,7 +1621,8 @@ Feature = record(
     {
         **texts(
             "kind frame drill process datum coaxial_to height_from note binding dimension_type "
-            "thread thread_class construction representation hole_spec arc parent hole top_edge_feature"
+            "thread thread_class construction representation hole_spec arc parent hole "
+            "top_edge_feature"
         ),
         "thread_hand": Literal["right", "left"] | Unknown,
         "requirements": list[str],

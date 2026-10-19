@@ -249,10 +249,10 @@ def test_explicit_setup_reference_does_not_require_a_tool_with_the_same_number(p
     data = bundle(
         [
             {"id": "T2", "ops": [FACE]},
-            {"ops": [{**FACE, "note": f"Use the body from {prefix} T2."}]},
+            {"ops": [{**FACE, "note": f"Use the body from {prefix} T2 and cut with T1."}]},
         ]
     )
-    assert rows(data)["S1:10"].status == "not_applicable"
+    assert rows(data)["S1:10"].status == "pass"
 
 
 def test_setup_reference_does_not_hide_a_separate_invalid_tool_reference():

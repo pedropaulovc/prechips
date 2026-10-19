@@ -78,8 +78,6 @@ def evaluate(bundle):
                 for op in spindle_saws
             )
         )
-        if spindle_saws:
-            missing.append(saw_debt)
         maximum = fact(
             machine, "envelope.spindle_to_table_max", "machines", machine_ref, debts, cite
         )
@@ -97,26 +95,29 @@ def evaluate(bundle):
         height = extents["z"]
         height_pending = "z" in extents.get("geometry_pending_axes", [])
         if not number(height):
-            missing.append(
+            height_missing = (
                 f"Geometry pending: {setup['id']} supported blank height needs the "
                 "kernel bounding box in its declared setup frame"
                 if height_pending
                 else f"measure: {setup['id']} supported blank height and setup orientation, "
                 "caliper and square, mm; author stock/stock_state and frame"
             )
+            missing.append(height_missing)
+            if not height_pending:
+                authoring_entry(
+                    debts,
+                    f"plan.setups.{setup['id']}.supported_height",
+                    height_missing,
+                    f"plan.setups.{setup['id']}.stock_state",
+                )
         elif height <= 0:
             errors.append("supported stock height is not positive")
         fixture, fixture_verified = fixture_height(bundle, setup, debts, cite)
         target, owner = setup_frame_ref(bundle, setup)
         cite.extend(plan_frame_cite(bundle, setup))
         initial_top = record(setup.get("stock_state")).get("top_z", UNKNOWN)
-        if missing and not height_pending:
-            authoring_entry(
-                debts,
-                f"plan.setups.{setup['id']}.supported_height",
-                missing[-1],
-                f"plan.setups.{setup['id']}.stock_state",
-            )
+        if spindle_saws:
+            missing.append(saw_debt)
         stacks = []
         for op, before, _ in tip_endpoints.stock_states(bundle, setup):
             # Planar saw cuts cannot supply a spindle stack; spindle-saw debt remains below.

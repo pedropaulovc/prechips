@@ -44,9 +44,7 @@ FORMED_REQUIREMENT = "radius"
 
 def _downstream(plan, sid):
     """Producer descendants only; a check still needs feature-material proof."""
-    return {
-        setup["id"] for setup in plan["setups"] if sid in setup_lineage(plan, setup["id"])
-    }
+    return {setup["id"] for setup in plan["setups"] if sid in setup_lineage(plan, setup["id"])}
 
 
 def _after_join(setup, op, sid):

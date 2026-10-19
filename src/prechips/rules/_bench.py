@@ -12,12 +12,21 @@ force: the bench kind alone waives nothing.
 """
 
 from prechips.findings import Finding
-from prechips.rules.resolution import HAND_THREAD, MANUAL, SAW_OPS, UNKNOWN, record, resolve, saw_tool
+from prechips.rules.resolution import (
+    HAND_THREAD,
+    MANUAL,
+    SAW_OPS,
+    UNKNOWN,
+    record,
+    resolve,
+    saw_tool,
+)
 
 BENCH_KINDS = frozenset({"bench", "manual"})
 BENCH_HANDLING = frozenset({"inspect", "coating"})
 BENCH_ACTIONS = BENCH_HANDLING | {"fit", "deburr", "scribe", "file_to_line"} | HAND_THREAD
 HAND_SAW = "hand_saw"
+
 
 def manual_thread_setup(bundle, setup):
     """Known stopped-spindle thread work owes no DRO; mixed/unknown actions waive nothing."""
@@ -38,7 +47,6 @@ def manual_thread_setup(bundle, setup):
         "manual_thread": True,
         "operations": [{"op": op.get("op", UNKNOWN), "do": op["do"]} for op in ops],
     }
-
 
 
 def hand_saw(bundle, op):
@@ -64,7 +72,9 @@ def manual_bench(bundle, setup):
     method = (
         "screw"
         if record(joint).get("kind") == "threaded"
-        else record(joint).get("method", UNKNOWN) if joint is not None else "not_applicable"
+        else record(joint).get("method", UNKNOWN)
+        if joint is not None
+        else "not_applicable"
     )
     operations = []
     for op in ops:
