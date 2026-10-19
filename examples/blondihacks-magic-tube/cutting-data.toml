@@ -1,0 +1,13 @@
+# Independent offline source-video cutting data; no borrowed Pedro-shop values.
+# The video gives qualitative faster/slower choices and 2-3 thou final passes,
+# not a complete supported speed/feed/tool-material selection. No numeric
+# recommendation is synthesized to clear a rule. Source demonstrations remain
+# cited in individual operation notes, not asserted as safe recipient settings.
+revision = 1
+cut = "unknown"
+material = "unknown"
+deep_hole = "unknown"
+plunge = "unknown"
+
+[aliases]
+"12L14 steel" = "12L14 steel"

@@ -90,6 +90,7 @@ RULES: list[Rule] = [
     Rule("construction", construction.evaluate),
     Rule("finish_route", finish_route.evaluate),
     Rule("joint_fit", joints.evaluate_fit),
+    Rule("joint_thread", joints.evaluate_thread),
     Rule("consistency", consistency.evaluate),
 ]
 

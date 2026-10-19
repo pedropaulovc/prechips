@@ -6,8 +6,10 @@ its ``allowance_mm`` of stock between that region and the finished target for th
 """
 
 import math
+from dataclasses import replace
 
 from prechips.findings import Finding
+from prechips.material_routes import MaterialGraph, feature_material_status
 from prechips.measurements import length_debt, length_fact, tooth_pitch_fact
 from prechips.rules.geometry_common import (
     kernel_measurement_debts,
@@ -17,6 +19,7 @@ from prechips.rules.geometry_common import (
 )
 from prechips.rules.resolution import (
     SAW_OPS,
+    SLITTING_SAW_MODEL_REASON,
     UNKNOWN,
     _citations,
     number,
@@ -26,6 +29,7 @@ from prechips.rules.resolution import (
     saw_station,
     saw_tool,
     select,
+    slitting_saw,
     uncertain,
 )
 
@@ -43,13 +47,46 @@ _SCRIBED_FACTS = ("allowance_mm", "retained_to_target_mm", *_VOLUMES)
 
 
 _MISMATCH = {
-    "not_a_saw": "selected saw tool is not a bandsaw blade or hand saw",
+    "not_a_saw": "selected saw tool is not a bandsaw blade, hand saw or mill slitting saw",
     "hand_saw": "a hand saw cuts only at a bench or manual station",
     "bandsaw": "saw cut-off requires a mill, bench or bandsaw machine",
+    "slitting_saw": "a spindle-mounted slitting saw cuts only on a mill",
     "scribed_bandsaw": "a bandsaw blade follows a scribed line only on a vertical bandsaw",
     "no_vertical_mode": "the bandsaw declares no vertical saw_modes, so it cannot follow a "
     "scribed line",
 }
+
+
+def scribe_material_status(bundle, setup, op):
+    """Whether the ``follows`` witness is on this saw's material, not just its history.
+
+    The plan validates the witness's existence and order. Ordinary routes need no
+    additional partition witness; a retained child still needs material ownership
+    and registration before a pre-partition scribe can locate its cut.
+    """
+    material = MaterialGraph(bundle.plan).nodes.get(setup["id"], ())
+    if material and all(atom.split is None for atom in material):
+        return True
+    sid, separator, number_ = str(op.get("follows", UNKNOWN)).partition(":")
+    if not separator:
+        return None
+    witness = next(
+        (
+            (earlier, scribe)
+            for earlier, scribe in operations(bundle)
+            if earlier.get("id") == sid and str(scribe.get("op")) == number_
+        ),
+        None,
+    )
+    if witness is None:
+        return None
+    earlier, scribe = witness
+    if scribe.get("do") != "scribe":
+        return None if scribe.get("do") in (None, UNKNOWN) else False
+    feature = scribe.get("feature")
+    if not isinstance(feature, str) or feature == UNKNOWN:
+        return None
+    return feature_material_status(bundle.plan, setup["id"], earlier["id"], feature, bundle)
 
 
 def evaluate(bundle):
@@ -104,6 +141,22 @@ def evaluate(bundle):
                 debts.append(debt)
         invalid = []
         missing = []
+        if scribed:
+            material = scribe_material_status(bundle, setup, op)
+            numbers["scribe_on_arriving_stock"] = UNKNOWN if material is None else material
+            if material is None:
+                missing.append(
+                    f"whether {op['follows']}'s scribed line survives the material partition "
+                    "and registration is unknown"
+                )
+            elif material is False:
+                invalid.append(f"{op['follows']}'s scribed line is not on this saw's material")
+        disk = slitting_saw(bundle, op)
+        if disk:
+            # The planar Boolean describes an ideal complete cut, not whether a finite
+            # disk and its arbor can make it. Even complete native slab facts stay debt.
+            missing.append(SLITTING_SAW_MODEL_REASON)
+            numbers["model_reason"] = SLITTING_SAW_MODEL_REASON
         station = saw_station(bundle, setup, op)
         if station == "wrong_station":
             invalid.append(_MISMATCH["scribed_bandsaw" if scribed and tool == "bandsaw" else tool])
@@ -119,8 +172,11 @@ def evaluate(bundle):
         if not machine or machine.get("kind", UNKNOWN) == UNKNOWN or uncertain(machine):
             missing.append("resolved, verified saw machine")
         if tool in ("unknown", "unverified"):
-            hand = blade.get("kind") == "hand_saw"
-            missing.append(f"resolved, verified {'hand saw' if hand else 'bandsaw blade'}")
+            label = {
+                "hand_saw": "hand saw",
+                "slitting_saw": "slitting saw",
+            }.get(blade.get("kind"), "bandsaw blade")
+            missing.append(f"resolved, verified {label}")
         if not scribed and (not kerf["verified"] or not number(kerf["value"])):
             missing.append("known, verified blade kerf")
         if scribed and not number(op.get("allowance_mm")):
@@ -134,6 +190,12 @@ def evaluate(bundle):
         if invalid:
             status, message = "error", "; ".join(invalid)
         elif blocked is not None:
+            if disk:
+                blocked = replace(
+                    blocked,
+                    numbers={**blocked.numbers, "model_reason": SLITTING_SAW_MODEL_REASON},
+                    sentence=f"{blocked.sentence} {SLITTING_SAW_MODEL_REASON}.",
+                )
             if blocked.status == UNKNOWN and facts.get("measurement_debts"):
                 if job is None:
                     job = prepared_job(bundle)
@@ -199,6 +261,31 @@ def evaluate_teeth(bundle):
     for setup, op in cuts:
         subject = f"{setup['id']}:{op['op']}"
         tool = op.get("tool", UNKNOWN)
+        if slitting_saw(bundle, op):
+            findings.append(
+                Finding(
+                    "saw_teeth",
+                    subject,
+                    UNKNOWN,
+                    {
+                        "operation": op["do"],
+                        "tool": tool,
+                        "tooth_count": record(resolve(bundle, "tools", tool)).get(
+                            "flutes", UNKNOWN
+                        ),
+                        "teeth_in_work": UNKNOWN,
+                        "engagement_arc_deg": UNKNOWN,
+                    },
+                    [
+                        f"inventory.tools.{tool}.flutes",
+                        "docs/rules-geometry.md: saw teeth in the work",
+                    ],
+                    f"{subject}: circular slitting-saw tooth engagement needs the finite "
+                    "disk, arbor and feed trajectory; the planar stock section and a linear "
+                    "blade's TPI cannot establish teeth in the work.",
+                )
+            )
+            continue
         pitch = tooth_pitch_fact(record(resolve(bundle, "tools", tool)))
         detail = record(record(facts.get("ops")).get(subject))
         thickness = detail.get("cut_thickness_mm", UNKNOWN)

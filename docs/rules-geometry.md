@@ -22,6 +22,7 @@ debt cannot substitute for the required geometry.
 - For stock routes, assemblies and waste removal, see
   [in-process stock](#in-process-stock),
   [joint preparation and assembly](#transient-joint-preparation-and-assembly),
+  [retained part-off outputs](#retained-part-off-outputs),
   [saw cuts](#saw-cut-off) and [piece selection](#keep-piece).
 - For cutting findings, see [accessibility](#accessibility), [reach](#reach),
   [corner radii](#internal_corner_radius), [face coverage](#coverage),
@@ -44,8 +45,8 @@ structure belongs in [architecture](internals/architecture.md) and
 
 The [rule registry](../src/prechips/rules/__init__.py) contains 13 geometry
 rules. Findings are conditional: a rule can emit one row per operation, setup
-or feature, or no rows when its subject is absent. `joint_fit` is a separate
-declared-input rule, not one of these 13.
+or feature, or no rows when its subject is absent. `joint_fit` and
+`joint_thread` are separate declared-input rules, not two of these 13.
 
 | Rule | Subject | Contract |
 |---|---|---|
@@ -137,11 +138,13 @@ Without a kernel, findings that need kernel facts become `unknown` with
 Availability can be checked before ordinary applicability, so a lathe setup's
 `vise` row can be unknown rather than `not_applicable`.
 
-Some scope decisions precede availability. In particular, `accessibility`,
-`reach` and `internal_corner_radius` stay `not_applicable` for saw operations
-because their tool-cylinder model never applies to a blade. Rules with no
-applicable subject can emit no findings, and an invalid `keep` can name its
-feature debt without calling the kernel. `saw_cut` checks known station
+Some scope decisions precede availability. For nonspindle bandsaw and hand-saw
+operations, `accessibility`, `reach` and `internal_corner_radius` stay
+`not_applicable` because their tool-cylinder model never applies to a blade.
+For a mill-mounted `slitting_saw`, physical accessibility and reach instead
+stay unknown: the planar cut does not model a finite disk or its assembly.
+Rules with no applicable subject can emit no findings, and an invalid `keep`
+can name its feature debt without calling the kernel. `saw_cut` checks known station
 mismatches, a verified nonpositive kerf on a straight cut and any reported
 native `saw_error` before accepting a kernel-unavailable finding. Those
 certain errors remain `error` even when kernel facts are unavailable.
@@ -174,13 +177,25 @@ and S3 explicitly claim both exported tip lands (`tip_land_pos_x`,
 unclaimed faces. Unmeasured stock/fixture inputs remain named geometry debts, not
 finished-solid clearance passes.
 
-The engine returns `unknown` for each of these import conditions:
+An ordinary monolithic import still needs one valid finished solid. A
+multi-solid STEP is supported only with an explicit
+[named finished-solid map](features.md#named-finished-solids) naming every source
+`MANIFOLD_SOLID_BREP` by its exact entity, source ordinal and label. The host
+checks the complete source identities; the native kernel independently
+associates each named source shell's bound faces with exactly one imported
+solid. The association must be bijective. Import order, nearest shape and
+bounding-box proximity never break a tie.
 
-- Anything other than one solid: `STEP import yields <n> solids; the kernel
-  measures exactly one part solid.`
-- Faces outside that solid: `STEP import holds faces outside its single solid.`
-- An invalid solid: `imported solid is not a valid B-rep; booleans on it would
-  be unreliable.`
+The engine returns `unknown` for an import with no finished solids, faces
+outside the finished solids, or an invalid B-rep. A missing/incomplete native
+named-solid map or unresolved source-face association withholds the affected
+solid's ownership proof, never substitutes an empty protected solid. A
+malformed or incomplete authored `features.solids` source map is bad input
+before the native job. The nominal overall geometry may be a compound; that
+does not make disconnected material a joined assembly.
+
+Faced aims on multiple finished solids remain `unknown`; naming the solids
+does not extend the one-solid [faced-aim model](plan.md#faced-aims).
 
 An unparseable STEP, a digest mismatch detected inside the engine, or an
 exception in a job produces `error`. Exceptions name their location as
@@ -335,14 +350,15 @@ wrong label is an error naming the reference (`… STEP has no instance #n`,
 A reference is bound to an imported face by geometry, never by position: the
 engine rewrites the STEP so a reader transfers only that one `ADVANCED_FACE`
 (same representation chain and units), takes its surface kind, area and
-optimal bounding box, and looks for exactly one face of the full import with
-the same signature (area within 1e-6 relative/absolute mm², bbox within
-1e-4 mm). Zero matches (`no imported face matches its … surface, area …`),
-several matches (`ambiguous; imported faces … share its surface kind, area and
-bounding box`), or two STEP faces that both match one imported face
-(`ambiguous; ADVANCED_FACEs … all match imported face n`) are mapping errors.
-Symmetric parts with congruent faces at the same bbox can therefore be
-ambiguous by construction; that is reported, not resolved by guessing. In the
+optimal bounding box and outward orientation, and looks for exactly one face
+of the full import with the same signature (area within the kernel's
+1e-6 relative/absolute mm² tolerance and bbox within 1e-4 mm). Oppositely
+oriented coincident faces can therefore retain distinct material-side
+identities. Zero matches, several same-signature matches, or two source faces
+that both match one imported face are mapping errors. Shell/solid membership
+then binds the source faces to the named finished solid; sharing a surface or
+edge does not transfer ownership. Genuinely ambiguous same-orientation faces
+remain ambiguous, not resolved by import order or guessing. In the
 report, every rule that needs the feature is `error` with
 `numbers.mapping_errors` and `<subject>: invalid STEP face reference(s):
 <refs>.` A feature whose `faces` is omitted, `"unknown"` or empty keeps its
@@ -526,6 +542,35 @@ drawn pin against the bore the kernel cut.
 
 ## Approach models
 
+### Manual threading
+
+`hand_tap` and `die_thread` use the hand material-cutting approach, not the
+powered axial `tap` model or the lathe turning model. Their real tap/die and
+manual holder identities are checked by
+[`tool_resolves`](rules-tools.md#manual-tapping); their preparation follows
+[`op_chain`](rules-operations.md#op_chain).
+
+The native job carries an explicit manual-thread geometry debt. The engine
+returns unresolved operation geometry and stops stock derivation after the
+manual cut because helical thread removal is unmodelled. It does not
+subtract a nominal major-diameter cylinder, turn a prior drill's void into
+proof of finished threads, or derive a powered cutter/holder clearance.
+Accepted earlier drilling and other independent preparation facts remain
+distinct from that missing removal proof.
+
+A [manual-thread-only setup](rules-coordinates.md#manual-thread-only-applicability)
+can have no DRO zero or coordinate table to check. That applicability decision
+does not resolve the native thread cut or waive physical holding, preparation
+or downstream stock debt.
+
+There is no RPM recommendation, spindle/toolpost assembly or axial
+tool-setting requirement for either hand action. A known nonzero authored
+RPM is instead a `tool_resolves` error. The manual tap's relative depth and
+flute-length check does not establish native helical geometry, absolute
+machine Z or a physical tapping result. See the
+[manual-threading input contract](plan.md#manual-threading) and
+[removable-joint boundary](#removable-threaded-assembly).
+
 ### Axial milling
 
 Directional claims and prescribed cutter and holder poses approach along
@@ -616,7 +661,9 @@ back into model coordinates and can
 feed any later setup that explicitly selects it through `stock_in`, not only
 the immediately following setup. Removal checks each input solid separately:
 splitting any one input piece into multiple retained pieces leaves the output
-unresolved. Separate supplies do not authorize an unconnected assembly.
+unresolved unless the supported held-split or
+[named terminal part-off](#retained-part-off-outputs) proof accepts it.
+Separate supplies do not authorize an unconnected assembly.
 
 #### Turning scope and unresolved approaches
 
@@ -966,21 +1013,37 @@ declared setup frame. That frame is an authored placement, not a measured setup.
 
 ### Stock routes and operation order
 
-Each setup's checks and image use the material explicitly selected by `stock_in`.
-`"stock"` selects a single supply; `"stock.<id>"` selects a built-up component;
-any earlier setup id selects that setup's output, even when it is not the
-immediately previous setup. Every array requires a tagged `joint` and exactly
-two disjoint input branches. One may be an existing assembly when the other
-contains one single physical component, so body+cone followed by assembly+crank
-is supported. Two existing assemblies cannot be joined. There is no
-unconditional Boolean-union path. Unknown or forward authored references
-are bad input (exit 3), including authored `"unknown"` as a source. Omitted
-`stock_in` remains named stock debt, never an inferred linear route. Supplies and outputs all stay in the
-model frame; assembly does not implicitly transform a reference.
-Joined references must have disjoint supply ancestry. Duplicate entries or
-`["stock", "S1"]` when S1 consumes stock are bad input (exit 3), naming the
-shared supply ancestor. Independent forks may start from the same supply again
-as route alternatives, but cannot join that material lineage twice.
+Each setup's checks and image use the material explicitly selected by
+[`stock_in`](plan.md#stock-lineage). `"stock"` selects a single supply;
+`"stock.<id>"` selects a built-up component; an earlier setup id selects its
+single output, even when it is not the immediately previous setup.
+`"stock_out.<name>"` selects one named retained part-off piece. A named split's
+producer id is not a combined output.
+
+Every array requires a tagged `joint` and exactly two material-disjoint input
+branches. One may be an existing assembly when the other contains one single
+physical component, so body+cone followed by assembly+crank is supported. Two
+existing assemblies cannot be joined. There is no unconditional Boolean-union
+path. Unknown or forward authored references are bad input (exit 3), including
+authored `"unknown"` as a source. Omitted `stock_in` remains named stock debt,
+never an inferred linear route. An assembly reference applies no implicit
+transform; a named output's explicit pose registers it in model coordinates.
+
+Single-consumption applies only to the
+[named-retained lineage](plan.md#stock-lineage), including its downstream
+states and unsplit setup predecessors, not every ordinary setup output.
+Ordinary setup-reference fan-out, rework and selected-state routing remain
+valid outside that lineage, even in another branch of a plan with a named
+split. Raw supplies may also seed alternative routes, but an assembly cannot
+recombine overlapping ancestry. Shared roots at a join are accepted only
+for different children of the same partition, with distinct identities and
+a native split proof. Parent plus descendant, a repeated child, unproved
+sibling partition geometry or actual material overlap cannot produce joined
+stock. No second independent stock component is manufactured for a derived
+child. The canonical host identity resolver is
+[`material_routes.py`](../src/prechips/material_routes.py); declared identities
+do not replace native containment or non-overlap proof.
+
 Each setup output subtracts only that setup's derivable claimed removals from
 its selected input. Current-setup removals do not change current holding facts,
 image or accessibility holder obstacles; the reach, holder-wall, shank and
@@ -1020,6 +1083,29 @@ holders; only its stopping tool's part-material test uses known before-stock.
 Finished face indices
 stay bound to the original STEP even when booleans change the stock's face
 order.
+
+### Named-solid material protection
+
+For a multi-solid finished model, the source face map identifies each
+feature's named-solid owner without using imported solid indices. A feature
+whose faces span solids, or whose faces are unresolved, has no unique owner.
+Such a feature may describe a multi-solid inspection. A known mixed-solid
+retained selector or thread interface is bad input; unknown face identities
+withhold its ownership proof.
+
+Before a raw bar has a proved registration to its finished solids, its
+finished-material protection is unknown. The kernel may derive nominal
+removal or independent stock facts, but cannot pass a finished-material safety
+guard by treating the protected shape as empty. It reports
+`finished_material_reason` when that registration/ownership proof is absent.
+
+After a named output passes the partition and whole-solid containment proof,
+that child's carried finished solid becomes its protected material. Subsequent
+removal, rough leave, future-hole reservations and checkpoint guards use the
+owned material, not every other finished solid in the nominal compound.
+Original face indices remain available for source identity; they do not grant
+the child ownership of another solid's faces. Unknown mapping or pose remains
+debt, including for `keep`'s decision that a discarded piece is genuine scrap.
 
 ### Entry-stock size and machine screens
 
@@ -1092,9 +1178,10 @@ mismatches are bad input.
 #### `joint_assembly` findings
 
 `joint_assembly` emits one setup-scoped finding for each array `stock_in`.
-It emits no rows when the plan has no assembly setup. Both `joint_assembly`
-and the separate `joint_fit` rule are always required; leaving them out of
-policy cannot waive an incompatible or unresolved joint.
+It emits no rows when the plan has no assembly setup. `joint_assembly` and
+the applicable declared-input `joint_fit` or `joint_thread` rule are always
+required; leaving them out of policy cannot waive an incompatible or
+unresolved joint.
 
 | Result | Condition |
 |---|---|
@@ -1102,14 +1189,37 @@ policy cannot waive an incompatible or unresolved joint.
 | `error` | Usable kernel facts contain `assembly_error`: `join refused: …`. |
 | `unknown` | Kernel facts have any other non-`ok` status, such as missing FreeCAD or an unbound STEP. |
 | `unknown` | Usable kernel facts contain `stock_reason` (`joined stock unknown: …`) or no joined `stock_bbox_mm` (`the kernel derived no joined stock`). |
-| `pass` | Prepared branches, physical fit and declared fill derive joined stock. |
+| `pass` | A supported cylindrical or surface join derives joined stock from prepared branches and its modelled fit/contact and declared fill. A threaded joint never takes this branch. |
 
 With usable kernel facts, the row reports `joint`, `stock_in`,
 `completed_joint_features` and, when the
 joint declares them, `forms`. Correct the named preparation, fit, insertion,
 ownership or process fact before relying on a downstream stock route. A
-passing join does not establish chemical cure or physical assembly acceptance.
-The host mapping is in [joint findings](../src/prechips/rules/joints.py).
+passing supported join does not establish chemical cure, mechanical capacity
+or physical assembly acceptance. The host mapping is in
+[joint findings](../src/prechips/rules/joints.py).
+
+#### Removable threaded assembly
+
+[`kind = "threaded"`](plan.md#threaded-joints) declares a removable joint
+between exported internal and external thread features. The
+[`joint_thread` rule](rules-tools.md#joint_thread) checks supported nominal
+thread facts, directed finite envelopes, declared seat facts and retained
+branch ownership. Known contradictions are errors; a missing measurement
+never becomes zero engagement or inferred shoulder contact.
+
+Nominal major-diameter cylinders are not helical flanks. The current native
+engine does not model helical engagement, lead/runout, the actual die/tap cut
+or prepared shoulder seating. Even complete, agreeing authored facts leave
+`joint_thread` unknown and withhold native joined stock. `joint_assembly`
+reports an error for a known refusal or otherwise remains unknown. Downstream
+checks retain the missing-stock debt rather than infer assembled material or
+a clearance pass. No bonded annular fill, press-fused union or filler
+substitutes for the missing threaded geometry.
+
+This boundary does not prevent source-authored assembly, disassembly or
+inspection instructions from printing. It also grants no physical joint-fit,
+thread strength, retention, torque or first-article acceptance claim.
 
 #### Preparation and component ownership
 
@@ -1141,7 +1251,8 @@ and is invalidated by subsequent damaging cuts. Noncutting operations such as
 inspection, fitting and deburring do not cut, damage or complete joint geometry.
 Assembly rechecks actual received target geometry.
 
-Finished-material protection is component-owned before joining. The spigot's
+For cylindrical preparation on component blanks, finished-material protection
+is component-owned before joining. The spigot's
 share is the final solid inside its full cylinder; the socket's share excludes
 that spigot-owned region. Neither share holds the corner a later joint
 [forms](plan.md#assembly-joints). That corner is the finished solid less the same
@@ -1517,12 +1628,22 @@ kernel job and does not enlarge an unbounded cut or certify a toolpath
 ### Saw cut-off
 
 A straight `saw_cut` or `cut_off` uses an authored setup-axis blade-centre
-`cut_plane` and the selected blade's (bandsaw or hand saw) positive inventory
-kerf. Below retains the
+`cut_plane` and the selected blade's positive explicit inventory kerf
+(`bandsaw`, `hand_saw` or mill-only `slitting_saw`). Below retains the
 halfspace at or below `plane - kerf/2`; above retains the halfspace at or above
 `plane + kerf/2`. The native Boolean removes the kerf plus the discarded planar
 slab from the current operation stock, including earlier removals in that
 setup. Its retained result is available through normal `stock_in` routing.
+
+For a slitting saw, this Boolean is ideal removal only, not the swept volume
+of a finite disk. Disk OD must be explicit `dia_mm` / `dia_in`, with separate
+`kerf_mm` / `kerf_in` (never inferred from thickness), and `flutes` denotes
+tooth count. Neither these facts nor the optional arbor identity and selected
+holder supply a finite-disk reach or assembly model.
+Only straight `cut_plane` cuts receive this bounded slitting recognition.
+A `slitting_saw` with `follows` stays unknown: host
+`scribed_profile.reason` debt prevents known stock routing, without changing
+the native kernel. Scribed-region removal cannot stand in for disk geometry.
 
 The `saw_cut` finding reports the normalized plane, kerf, retained boundary and
 before/after, kerf, offcut and removed volumes in mm/mm³. A cut into the finished
@@ -1540,12 +1661,27 @@ retained slivers. Independently supplied components already disconnected before
 the saw may remain disconnected; the check is per input solid, not the total
 retained count. Target-loss and volume facts are computed before this refusal.
 
-`accessibility`, `reach` and `internal_corner_radius` are `not_applicable` to a
-saw operation: its blade is located by the cut plane/kerf, and the axial/turning
-tool-cylinder model does not model a saw blade. This states a model boundary,
-not certified blade/fixture clearance. Saw cuts provide no finished-face or
-surface-finish coverage credit. Holding, fixture solids and fixture-interference
-screens remain in effect, including on a dedicated bandsaw setup, except under an
+For nonspindle bandsaw and hand-saw operations, `accessibility`, `reach` and
+`internal_corner_radius` are `not_applicable`: the axial/turning tool-cylinder
+model does not model their blades. This is a model boundary, not certified
+blade/fixture clearance. A `slitting_saw` is not granted that nonspindle
+waiver: `saw_cut`, assembled `tool_resolves`, `accessibility`, `reach` and
+`saw_teeth` stay unknown for its unmodelled physical cut. Finite disk reach,
+mount/axis, arbor assembly, spindle/tool/fixture clearance and engagement/
+teeth in the work are not modelled by the planar kerf cut. Known station or
+removal errors still cannot become passes. Ideal stock removal may be routed
+without establishing physical cutter reach or clearance.
+
+No saw cut provides finished-face or surface-finish coverage credit. A setup
+containing a raw `slitting_saw` identity, even with verification or dimension
+debt, cannot take dedicated-nonspindle-saw or manual-bench waivers. Its setup
+zero and clearance rows (`zero_check`, `headroom`, `envelope`, `travel`) remain
+unknown where the rotating-disk model is missing, never a safety certification.
+Mixed setups still assess their ordinary operations while retaining slitting
+debt. DRO touch-off cannot waive this debt. Holding, selected holder/arbor and
+fixture inputs remain owed.
+For nonspindle saws, holding, fixture solids and fixture-interference screens
+remain in effect, including on a dedicated bandsaw setup, except under an
 admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table). A hand-fed cut's
 `hold_fields` row instead reads the kernel's setup-entry stock box against the
 policy's `min_hand_feed_mm`, at blade positions along the scribed arc within the op's
@@ -1581,9 +1717,12 @@ earlier cut ([#347](https://github.com/pedropaulovc/prechips/issues/347)).
 
 ### Saw teeth in the work
 
-A blade with too few teeth in the work straddles it: the teeth strip and the
-blade grabs, and a hand-fed cut is held only by hand. Each saw cut gets a
-`saw_teeth` row: the thickness the blade crosses times the blade's coarsest pitch
+A bandsaw or hand-saw blade with too few teeth in the work straddles it: the
+teeth strip and the blade grabs, and a hand-fed cut is held only by hand. Each
+saw cut gets a `saw_teeth` row. A slitting saw's row remains unknown: total
+tooth count (`flutes`) cannot establish engagement or teeth in the work
+without finite-disk geometry. For bandsaw and hand-saw blades, the thickness
+the blade crosses times the blade's coarsest pitch
 (`tools.<blade>.tpi`, the low end of a variable `[coarse, fine]` range) is the
 teeth in the work, and fewer than the shop policy's `saw_min_teeth_in_work` is an
 error naming the coarsest pitch the cut allows (`minimum × 25.4 / thickness` TPI,
@@ -1665,6 +1804,75 @@ row is `?` for that reason.
 The traveler prints the keep on its op's row: "Keep the piece that carries
 <feature>; discard the other piece" (the count of pieces the kernel discarded
 when `keep_piece` passed, else "discard every other piece").
+
+### Retained part-off outputs
+
+The [plan's `outputs` contract](plan.md#retained-part-off-outputs) names both
+pieces that continue after one terminal `part_off`. It is not `keep`, which
+discards all but one selected piece, and not permission to fork the same
+unpartitioned material into two purchases.
+The schema requires the split to be the final material-changing operation
+in that setup. The permitted follow-on actions listed in the plan contract
+do not provide fresh native stock geometry or certify that deburring/coating
+has left newly measured retained-piece dimensions.
+
+Before publishing either output, the native job independently checks the
+ordered tail of its request. A later material-changing or unknown action
+withholds both outputs and their descendants rather than exposing geometry
+from before that action. Direct native requests admit only strict
+metadata-only `inspect`, `release` or `scribe` records after the split;
+unexpected geometry-bearing fields also fail that screen. The host normally
+omits non-geometry actions such as deburring and coating from the native
+recipe. Directly supplied, unmodelled `deburr` or `coating` records are not
+trusted as no-op cuts and leave the retained outputs unresolved.
+
+A named lathe part-off removes a finite blade-width kerf, unlike the ordinary
+part-off model's free-end sweep. It requires known `to_z`, an accepted positive
+`blade_width_mm` or `blade_width_in` on the selected two-cornered parting blade,
+and claimed axial faces that all identify the same outward side. The kerf
+runs from `to_z` one blade width in that side's direction, radially through
+the spindle axis. Omitted `to_dia` means the axis as for ordinary parting;
+unknown `to_dia` or a residual core cannot establish a split. If `z_from` or
+`z_to` is authored, both must be numeric and their span must contain the full
+blade-width kerf. Missing or ambiguous cut facts, a no-op/invalid kerf,
+protected-material loss or a failed Boolean leaves the outputs unresolved.
+These are consumed tool and operation facts, not new `outputs` fields.
+
+The native proof accepts only one incoming solid and exactly two valid,
+positive-volume retained solids after a real nonzero cut. The result may add
+no material outside the input, and the two original pieces must not overlap.
+Nested named partitions are unsupported.
+
+The existing [held-split proof](#held-splits) is independent and still
+required: both pieces need press-clamp contact with a load path to an
+anchored support. A missing modelled witness refuses the cut/output before
+the carrier proof. Naming an output invents neither a catch nor support for a
+loose offcut, even when the kerf and poses are numeric.
+
+For each output, the carried exported feature must have one source-owned
+named finished solid. The engine applies the output's forward
+[`PlanFrame` registration](plan.md#retained-part-off-outputs) to each candidate
+piece and requires exactly one candidate to contain the whole finished solid,
+using the kernel's 1e-3 mm³ stock tolerance. It does not select by a feature
+point, one face or a nearest bounding box. The two outputs must select
+different original physical pieces and different named finished solids, and
+their owners must account for every named finished solid. The posed outputs'
+actual material must also remain non-overlapping.
+
+Only after the complete proof succeeds are both `stock_out.<name>` references
+registered. Setup facts record each output's `carries`, `finished_solid`,
+`partition` operation, `volume_mm3` and model-frame `bbox_mm`. Unknown cut
+geometry, source ownership or pose, no unique whole-solid carrier, a duplicate
+selection, unaccounted finished material, overlap or a failed Boolean leaves
+the outputs with a `reason` and downstream stock unresolved. Declared route
+identities remain present so an unresolved proof cannot erase their material
+history or authorize reuse.
+
+At a later join, the native engine independently checks that shared-root
+branches are distinct children of one proved partition and that their actual
+material does not overlap. A source declaration or supported named-solid
+Boolean proof is not certification of a physical cut, holding arrangement or
+threaded join.
 
 ### Jaw placement
 

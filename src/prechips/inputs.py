@@ -62,6 +62,70 @@ class Bundle:
         """
         return operative_definitions(self.plan, self.features)
 
+    @cached_property
+    def finished_feature_owners(self) -> dict[str, str | None]:
+        """Source STEP ownership, independent of native import order and containment."""
+        return _finished_feature_owners(self.features, self.paths.get("step"))
+
+
+def _finished_feature_owners(features: dict, path: Path | None) -> dict[str, str | None]:
+    from prechips.kernel.step_faces import FaceRefError, StepError, StepFile
+
+    declarations = features.get("solids")
+    if not declarations:
+        return {}
+    if path is None:
+        raise BadInput("features.solids requires the exact source STEP bytes.")
+    try:
+        source = StepFile(path.read_bytes().decode("latin-1"))
+        actual = set(source.solid_refs())
+        if set(declarations.values()) != actual:
+            raise BadInput(
+                "features.solids must bijectively name every source MANIFOLD_SOLID_BREP."
+            )
+        face_owners: dict[str, set[str]] = {}
+        for name, ref in declarations.items():
+            faces = source.solid_faces(ref)
+            if not faces:
+                raise BadInput(f"Finished solid {name!r} has no source shell faces.")
+            for face in faces:
+                face_owners.setdefault(face, set()).add(name)
+        result = {}
+        for name, feature in features["features"].items():
+            faces = feature.get("faces")
+            if not isinstance(faces, list) or not faces or "unknown" in faces:
+                result[name] = None
+                continue
+            owners = []
+            for ref in faces:
+                source.resolve(ref)
+                owners.append(face_owners.get(ref, set()))
+            if not all(owners):
+                raise BadInput(
+                    f"Feature {name!r} names a face outside the declared finished solids."
+                )
+            combined = set().union(*owners)
+            result[name] = next(iter(combined)) if len(combined) == 1 else None
+        return result
+    except (OSError, StepError, FaceRefError) as exc:
+        raise BadInput(f"Cannot bind features.solids to the source STEP: {exc}") from exc
+
+
+def _selector_owner(features: dict, owners: dict, name: str, where: str) -> str | None:
+    owner = owners.get(name)
+    faces = features["features"][name].get("faces")
+    if (
+        features.get("solids")
+        and owner is None
+        and isinstance(faces, list)
+        and faces
+        and "unknown" not in faces
+    ):
+        raise BadInput(
+            f"{where}: feature {name!r} must belong to exactly one named finished solid."
+        )
+    return owner
+
 
 def operative_definitions(plan: dict, features: dict) -> dict[str, dict]:
     """The exported manifest plus resolved plan joint and process features."""
@@ -342,6 +406,7 @@ def load_bundle(
     from prechips import joint_features, process_features
 
     definitions = operative_definitions(plan, features)
+    joint_features.validate_threaded_joints(plan, features)
     for name, feature in features["features"].items():
         faces = feature.get("faces")
         for prefix, what in (
@@ -381,6 +446,14 @@ def load_bundle(
         if "unknown" in op_ids or len(set(op_ids)) != len(op_ids):
             raise BadInput(f"{setup['id']}: operation numbers must be known and unique.")
         for op in ops:
+            for name, output in (
+                op["outputs"] if isinstance(op.get("outputs"), dict) else {}
+            ).items():
+                if output["carries"] not in features["features"]:
+                    raise BadInput(
+                        f"{setup['id']}:{op['op']}: output {name!r} carries must name an "
+                        "exported finished feature, not a transient preparation feature."
+                    )
             for hold in op.get("process_holds", []):
                 held = definitions.get(hold["feature"], {})
                 where = f"{setup['id']}:{op['op']}: process hold {hold['feature']}"
@@ -548,4 +621,32 @@ def load_bundle(
     )
     # Seed the cached operative mapping already resolved above; it is built once.
     bundle.__dict__["feature_definitions"] = definitions
+    owners = bundle.finished_feature_owners
+    for setup in setups:
+        for op in setup["ops"]:
+            outputs = op.get("outputs")
+            if not isinstance(outputs, dict):
+                continue
+            if not features.get("solids"):
+                raise BadInput("Named retained outputs require features.solids source identities.")
+            carried = [
+                _selector_owner(features, owners, entry["carries"], f"{setup['id']}:{op['op']}")
+                for entry in outputs.values()
+            ]
+            known = [owner for owner in carried if owner is not None]
+            if len(set(known)) != len(known):
+                raise BadInput(
+                    f"{setup['id']}:{op['op']}: retained outputs must carry "
+                    "distinct finished solids."
+                )
+        joint = setup.get("joint")
+        if isinstance(joint, dict) and joint.get("kind") == "threaded":
+            socket, spigot = (
+                _selector_owner(features, owners, joint[role], setup["id"])
+                for role in ("socket", "spigot")
+            )
+            if socket is not None and socket == spigot:
+                raise BadInput(
+                    f"{setup['id']}: threaded joint interfaces belong to the same finished solid."
+                )
     return bundle

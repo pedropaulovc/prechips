@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="450" viewBox="0 0 640 450">
+<title>Nominal finished design — not stock, holding or fit approval</title>
+<desc>Native FreeCAD TechDraw hidden-line projection of the validated brass ring B-rep. Sharp nominal edges; unquantified hand deburring and sacrificial-bar groove not modeled. STEP SHA-256: 5e1fc38ebade5d85d47ab662b184b09d688fb75962f169483059d47526796ed7.</desc>
+<rect width="640" height="450" fill="white"/>
+<g font-family="sans-serif" text-anchor="middle" fill="#222">
+<text x="320" y="30" font-size="18">Nominal finished design</text>
+<text x="320" y="54" font-size="15">— not stock, holding or fit approval</text>
+<svg x="45" y="75" width="550" height="285" viewBox="-10.55142168737199 -10.55142168737199 21.10284337474398 21.10284337474398">
+<g stroke-width="0.10"><g fill="none" stroke="rgb(0, 0, 0)" stroke-linecap="butt" stroke-linejoin="miter" stroke-width="0.10" transform="scale(1, -1)">
+<path id="1" d=" M 6.3998 6.93698 L 4.60375 7.97393 " />
+<path id="2" d=" M -2.8077 -9.01088 L -4.60375 -7.97393 " />
+</g>
+<g fill="none" stroke="rgb(0, 0, 0)" stroke-linecap="butt" stroke-linejoin="miter" stroke-width="0.10" transform="scale(1, -1)">
+<path d="M6.51069 3.75895 A9.2075 5.31595 60 0 1 4.60375 7.97393" />
+<path d="M4.60375 7.97393 A9.2075 5.31595 60 0 1 -4.60375 -7.97393" />
+<path d="M-4.60375 -7.97393 A9.2075 5.31595 60 0 1 6.51069 3.75895" />
+<path d="M8.30674 2.722 A9.2075 5.31595 60 0 1 6.3998 6.93698" />
+<path d="M-2.8077 -9.01088 A9.2075 5.31595 60 0 1 8.30674 2.722" />
+<path d="M5.61266 3.24047 A7.9375 4.58272 60 0 1 3.96875 6.87408" />
+<path d="M3.96875 6.87408 A7.9375 4.58272 60 0 1 -3.96875 -6.87408" />
+<path d="M-3.96875 -6.87408 A7.9375 4.58272 60 0 1 5.61266 3.24047" />
+<path d="M4.76384 6.17731 A7.9375 4.58272 60 0 1 -2.96779 -7.21426" />
+</g>
+</g>
+</svg>
+<text x="320" y="388" font-size="14">360 brass ring · OD 18.415 · ID 15.875 · width 2.54 mm</text>
+<text x="320" y="411" font-size="13">Spoken design nominals; no tolerance or physical measurement claim</text>
+<text x="320" y="434" font-size="13">Axis +Z; front Z=0; back Z=−2.54 mm; nominal sharp edges</text>
+</g></svg>

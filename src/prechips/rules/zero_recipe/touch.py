@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from ...material_routes import producer_setup, setup_lineage
 from ...measurements import length_keys
 from ..geometry_common import TURNING_BLADE_KINDS
 from ..resolution import UNKNOWN, length_mm, number, resolve, setup_frame, uncertain
@@ -282,32 +283,24 @@ def _stock_route(bundle, setup):
     if len(set(component_ids)) != len(component_ids):
         return None
     supplies = {f"stock.{cid}" for cid in component_ids} if components else {"stock"}
-    routed, visiting = set(), set()
-
-    def visit(current):
+    lineage = setup_lineage(bundle.plan, setup.get("id"))
+    for current in setups:
         sid = current.get("id")
-        if sid in routed:
-            return True
-        if sid in visiting:
-            return False
-        visiting.add(sid)
+        if sid not in lineage:
+            continue
         refs = current.get("stock_in")
         refs = refs if isinstance(refs, list) else [refs]
         if not refs:
-            return False
+            return None
         for ref in refs:
             if not isinstance(ref, str):
-                return False
+                return None
             if ref in supplies:
                 continue
-            previous = by_id.get(ref)
-            if previous is None or order[ref] >= order[sid] or not visit(previous):
-                return False
-        visiting.remove(sid)
-        routed.add(sid)
-        return True
-
-    return [s for s in setups if s.get("id") in routed] if visit(setup) else None
+            previous = producer_setup(bundle.plan, ref)
+            if previous not in by_id or order[previous] >= order[sid]:
+                return None
+    return [current for current in setups if current.get("id") in lineage]
 
 
 def _position(ops, record):

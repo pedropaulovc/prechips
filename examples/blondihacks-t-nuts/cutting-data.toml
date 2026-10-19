@@ -1,0 +1,13 @@
+# Offline source-only cutting data. The source identifies 1018 and an HSS TiCN
+# squaring cutter, but supplies no reliable complete diameter/speed/feed selection.
+# Spoken cut increments and the 0.477-in cutter-center position are demonstrations,
+# not a transferable cutting-data table. No handbook/catalog values are imported.
+# Every machining operation therefore retains starting-speed/feed/depth debt.
+revision = 1
+cut = "unknown"
+material = "unknown"
+deep_hole = "unknown"
+plunge = "unknown"
+
+[aliases]
+"1018 steel" = "1018 steel"

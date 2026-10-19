@@ -13,6 +13,115 @@ example design intent, individually cited as such, not measured drawing facts.
 Neither export delivery nor a CAD face identity is a tooling measurement,
 clearance proof, approved route or first article.
 
+## Standalone video examples
+
+### T-nuts
+
+[`blondihacks-t-nuts/`](blondihacks-t-nuts/README.md) is an authored plan for
+four 1018-steel T-nuts, inspired by the
+[Blondihacks video](https://www.youtube.com/watch?v=TL0OsfFkBL8). Its geometry
+combines the video's 1 in length, 1/4 in flange and 3/8-16 thread with selected
+[Carr Lane CL-0-TN catalog](https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts)
+stem width (0.495 in), base width (0.875 in) and total height (0.5 in).
+This is an **adapted catalog-based design**, not an exact video reconstruction
+or a commercial-part replica. The bundle README owns dimension-by-dimension
+provenance and remaining measurement debt.
+
+The plan, inventory, shop policy and cutting data are local to this bundle;
+the manifest binds the adjacent authored STEP by digest and actual face
+identities. It is not a harmonic-analyzer consumer export. Catalog dimensions
+are design inputs, not evidence that the machine slots, stock, tools or fixtures
+were measured. Unlike the shared demonstration inventory below, this example
+does not invent measured values to clear missing shop facts. Its printable
+setup sheets remain **PLANNED**, with unresolved measurement and tooling debt.
+Sources are cited offline; generating or validating the bundle does not fetch
+the video or vendor page, and downloaded media is not part of the repository.
+
+Generate its report and sheets with:
+
+```sh
+uv run prechips traveler examples/blondihacks-t-nuts/plan.toml --out out/blondihacks-t-nuts
+```
+
+The expected exit is **4**: required shop and measurement facts remain unknown.
+This is a standalone planned example, not an exit-0 demonstration-measurement
+fixture or one of the consumer-export targets below.
+
+`scripts/validate_examples.py` validates its strict input schemas, local paths,
+adjacent STEP binding, authored face identities, feature/finding coverage,
+report and render hashes, sheet binding and expected exit. The frozen-example
+tests regenerate the output twice and compare report, sheet and PNG bytes.
+These checks do not establish physical readiness or first-article acceptance.
+
+### Brass ring
+
+[`blondihacks-brass-ring/`](blondihacks-brass-ring/README.md) follows
+[Metal Lathe Tutorial 16: Your First Project](https://www.youtube.com/watch?v=t9NGty1CVII):
+a **360-brass ring**, using the source-identified **PM-1022V** lathe.
+The local bundle README distinguishes source observations, authored design
+choices and missing physical measurements. It does not inherit the shared
+demonstration-measurement inventory or claim consumer-export provenance.
+Its expected exit is **4** and the traveler remains **PLANNED**; source-known
+material and machine identity do not establish measured tooling, holding or
+first-article acceptance.
+
+### Magic Tube
+
+[`blondihacks-magic-tube/`](blondihacks-magic-tube/README.md) follows
+[Metal Lathe Tutorial 18: Your Second Project!](https://www.youtube.com/watch?v=-dyO4PEkEkc):
+a two-piece storage tube with a removable **1/2-20 right-hand screw cap**.
+The nine-setup route retains the source's one-bar parting split, cap from the
+remnant, return to the long body blank, stopped-spindle die/tap work, cap
+facing, repeated joint-OD turning and final part-off. It does not substitute
+two unrelated raw supplies or a bonded one-piece model.
+
+This is an explicitly adapted design. The older author article supplies
+selected dimensions and **12L14 steel** as design inputs; the catalog supplies
+a selected nominal round-bar size, not a finished-tube specification. The
+2019 video identifies its actual material only as scrap. Its alloy and all
+recipient-stock/tool/holding measurements remain unknown. The bundle README
+separates those sources from the author's body-length reallocation and other
+design choices; none is a measured tolerance or physical certification.
+
+Its STEP contains two separate named finished solids. Named retained outputs
+preserve their one-bar route identities, while pose, ownership and whole-solid
+carriage require actual native proof. The removable threaded-joint declaration
+does not prove helical geometry, usable engagement, seating, strength or a
+safe assembled cutting load path. Missing facts remain unresolved rather than
+an empty protected shape or automatic clearance pass. Expected exit is **4**;
+the source-complete route remains **PLANNED/HOLD**, not an approved process.
+Local inputs and frozen outputs use the same standalone validation lane as the
+other video examples. No video, catalog or article fetch is needed at runtime.
+
+### Frozen standalone output evidence
+
+The coordinated 2026-10-19 regeneration captured the actual CLI child exit,
+not a shell wrapper's status. Each standalone route produced report and
+traveler outputs twice, with byte-identical pairs. All three child processes
+exited **4** with **no error findings**; the required unknowns remain visible.
+
+| Bundle | Pass | Unknown | Not applicable | Checker exit |
+| --- | ---: | ---: | ---: | ---: |
+| `blondihacks-t-nuts` | 48 | 191 | 273 | 4 |
+| `blondihacks-brass-ring` | 23 | 76 | 108 | 4 |
+| `blondihacks-magic-tube` | 31 | 226 | 182 | 4 |
+
+The frozen `expected/report.json` file SHA-256 values are:
+
+| Bundle | SHA-256 |
+| --- | --- |
+| `blondihacks-t-nuts` | `c3162113996b71cf653b1c00cac9c9a527d4906b548e75c4ef1e6874341b388f` |
+| `blondihacks-brass-ring` | `4fbdc4627ad2df69d04ac5b0db99b8a3be0afc5370ae8581a89cf7908317e887` |
+| `blondihacks-magic-tube` | `5ad097ceb0cf92339e43c8fde53921471ae8ca00feb38b3e570bbd91b412fb4e` |
+
+These are generated-output integrity and repeatability records, not source
+measurements, full-suite or full-validator acceptance, independent blind
+approval, physical paper rehearsal or first-article machining evidence.
+Finding counts and hashes change when operative inputs or the engine change;
+the bundle READMEs continue to own the source and adaptation provenance.
+
+## Consumer bundles and shared shop inputs
+
 ### Examples policy: plausible, labelled values
 
 These are realistic demonstration fixtures, not shop observations or released
@@ -755,13 +864,21 @@ and contour offsets do not claim measured readiness.
 
 ## DRO and print surfaces
 
+The consumer worked fixtures use the
 [Electronica EL400 Operation Manual](https://www.dropros.com/documents/EL400%20OpManual.pdf):
 Direction and Radial/Diametric §6.2 (p20), Axis Set in ABS §7.4 (p31), Preset
 §8.1 (p37, distance-to-go, **never datum zero**), and lathe trial-cut/touch-off
-§9.2.1 (p62). Every recipe gives touch → compensated Axis Set → jog without
-retouch → expected/mirrored reading. Physical check jogs are 10 mm; paper touches
-use 0.05 mm. Lathe trial-cut X readings and installation stay unknown; an authored
-diametric X mode doubles a physical jog's displayed increment, not its distance.
+§9.2.1 (p62). Their digital recipes give touch → compensated Axis Set → jog
+without retouch → expected/mirrored reading. Physical check jogs are 10 mm;
+paper touches use 0.05 mm. Lathe trial-cut X readings and installation stay
+unknown; an authored diametric X mode doubles a physical jog's displayed
+increment, not its distance.
+
+The standalone lathe examples use source-authored mechanical handwheel
+procedures in inches. Their `dro.kind = "handwheel"` does not assert a digital
+display, Axis Set or Preset capability. Nominal dial targets and touch/backlash
+instructions do not clear missing graduation, backlash or datum measurements.
+See the [readout reference](../docs/rules-coordinates.md#zero_check).
 
 Travelers are Letter portrait with variable physical pagination. Operation
 ledgers, inspection writing areas and semantic diagram panels flow onto
@@ -884,10 +1001,13 @@ Local regeneration evidence and remaining acceptance belong to [PLAN §8 M3](../
 ## Generated outputs and fixture contracts
 
 The implementation does not read `expected/` at runtime.
-The four current plans are the shaft, rocker, bracket and built-up cone routes
+The four consumer plans are the shaft, rocker, bracket and built-up cone routes
 listed under [expected consumer CLI exits](#expected-consumer-cli-exits).
-Their report/HTML pairs are generated by `prechips traveler` from operative
-inputs. Regeneration evidence belongs to [PLAN §8 M3](../PLAN.md#8-milestones).
+Their report/HTML pairs, and the standalone video bundles listed above, are
+generated by `prechips traveler` from operative inputs. Runtime does not fetch
+video, vendor pages or source media. Regeneration evidence for the consumer
+delivery belongs to [PLAN §8 M3](../PLAN.md#8-milestones); standalone bundle
+READMEs own their source and adaptation records.
 
 The built-up cone's S2 parting-blade touch reads the cap faced in that setup:
 nominal target Z21.0055 leaves an AS-CUT face at reading 21.01 on the lathe's

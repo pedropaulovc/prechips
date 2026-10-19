@@ -1004,6 +1004,35 @@ def _write_events(path: Path, events: Sequence[dict[str, Any]]) -> None:
     path.write_text(f"{text}\n" if text else "", encoding="utf-8")
 
 
+def _cli_error_detail(stderr: str, events: Sequence[dict[str, Any]]) -> str:
+    """Summarize explicit CLI failures, never arbitrary stream or tool payloads."""
+    if stderr.strip():
+        return stderr.strip()[-800:]
+    for event in reversed(events):
+        detail: Any = None
+        if event.get("type") == "result" and event.get("is_error") is True:
+            detail = event.get("result")
+        elif event.get("type") == "assistant" and event.get("error"):
+            message = event.get("message")
+            content = message.get("content") if isinstance(message, dict) else None
+            if isinstance(content, list):
+                detail = "\n".join(
+                    block["text"]
+                    for block in content
+                    if isinstance(block, dict)
+                    and block.get("type") == "text"
+                    and isinstance(block.get("text"), str)
+                )
+        elif event.get("type") == "error":
+            detail = event.get("message")
+            if not isinstance(detail, str):
+                error = event.get("error")
+                detail = error.get("message") if isinstance(error, dict) else error
+        if isinstance(detail, str) and detail.strip():
+            return detail.strip()[-800:]
+    return "no diagnostic in stderr or structured error events; see retained stdout/events"
+
+
 def review_package(
     package: ReviewPackage,
     *,
@@ -1135,7 +1164,8 @@ def review_package(
             attempt_events = _parse_events(proc.stdout)
             if proc.returncode != 0:
                 raise RuntimeError(
-                    f"{reviewer} exit {proc.returncode}: {proc.stderr.strip()[-800:]}"
+                    f"{reviewer} exit {proc.returncode}: "
+                    f"{_cli_error_detail(proc.stderr, attempt_events)}"
                 )
             verdict = (
                 extract_claude_verdict(attempt_events)

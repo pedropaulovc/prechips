@@ -244,6 +244,37 @@ def test_one_tool_spelled_two_ways_is_one_tool_number_in_the_check_and_the_table
     assert "T2" not in re.findall(r"\|(T\d+)\|", sheet(data))
 
 
+@pytest.mark.parametrize("prefix", ["setup", "Setup", "SETUP"])
+def test_explicit_setup_reference_does_not_require_a_tool_with_the_same_number(prefix):
+    data = bundle(
+        [
+            {"id": "T2", "ops": [FACE]},
+            {"ops": [{**FACE, "note": f"Use the body from {prefix} T2 and cut with T1."}]},
+        ]
+    )
+    assert rows(data)["S1:10"].status == "pass"
+
+
+def test_setup_reference_does_not_hide_a_separate_invalid_tool_reference():
+    data = bundle(
+        [
+            {"id": "T2", "ops": [FACE]},
+            {"ops": [{**FACE, "note": "After setup T2, change to T2 for this cut."}]},
+        ]
+    )
+    assert rows(data)["S1:10"].status == "error"
+
+
+def test_setup_reference_does_not_hide_a_wrong_flute_count_on_an_actual_tool():
+    data = bundle(
+        [
+            {"id": "T2", "ops": [FACE]},
+            {"ops": [{**FACE, "note": "In setup T2, use T1, the 2-flute cutter."}]},
+        ]
+    )
+    assert rows(data)["S1:10"].status == "error"
+
+
 # ------------------------------------------------------------ jaw heights
 def bar(note, top=0.525, bottom=-18.525, jaw=13.1953):
     return {

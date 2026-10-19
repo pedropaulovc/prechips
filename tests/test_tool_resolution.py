@@ -174,7 +174,13 @@ def test_inch_tap_drill_matches_equivalent_mm_specification(tmp_path, drill_in, 
     bundle = Bundle(
         features={
             "features": {
-                "t1": {"kind": "threaded_hole", "thread": "7/16-14", "tap_drill_mm": 9.525}
+                "t1": {
+                    "kind": "threaded_hole",
+                    "thread": "7/16-14",
+                    "thread_hand": "right",
+                    "thread_class": "2B",
+                    "tap_drill_mm": 9.525,
+                }
             }
         },
         plan={
@@ -189,7 +195,17 @@ def test_inch_tap_drill_matches_equivalent_mm_specification(tmp_path, drill_in, 
                 }
             ]
         },
-        inventory={"tools": {"drill": {"kind": "drill", "dia_in": drill_in, "verify": False}}},
+        inventory={
+            "tools": {
+                "drill": {"kind": "drill", "dia_in": drill_in, "verify": False},
+                "tap": {
+                    "kind": "tap",
+                    "thread": "7/16-14",
+                    "thread_hand": "right",
+                    "thread_class": "2B",
+                },
+            }
+        },
         policy={},
         cutting_data={},
         paths={},

@@ -17,7 +17,9 @@ measurement debt, and the [FAQ](manual/faq.md) explains the product's limits.
 On this page:
 
 - [Identity, units and tool geometry](#identity-and-display-names)
-- [Bandsaws and hand saws](#bandsaw-machines-and-blades),
+- [Manual dies and die stocks](#manual-dies-and-die-stocks)
+- [Manual taps and wrenches](#manual-taps-and-wrenches)
+- [Bandsaws, hand saws and slitting saws](#bandsaw-machines-and-blades),
   [manual-arc equipment](#manual-arc-kit) and [edge finders](#edge-finder)
 - [Purchased tooling and receipt checks](#purchased-tooling)
 - [Kernel geometry facts](#kernel-geometry-facts-m4) and
@@ -25,6 +27,7 @@ On this page:
 - [Root fields](#root-fields), [area-hold consumables](#area-holds),
   [stock](#stock) and [item field catalog](#inventoryitem)
 - [Spindle](#spindle) and other [nested machine records](#leadscrew)
+- [Mechanical dial source facts](#mechanical-dial-source-facts)
 
 ## Inventory identity and units
 
@@ -148,6 +151,72 @@ A writing area does not create a gauge or certify its presence, size or
 capability. Unresolved inventory still needs the existing add/resolve or
 measurement instruction; there is no separate inventory field for the blank.
 
+### Manual dies and die stocks
+
+A manual `die_thread` operation selects a real die through the existing tool
+identity rules. For a `die_set` or `tap_die_set`, declare the selected die in
+`members` and name it as `tools.<set>/<member>` in `op.tool`. A whole set is not
+a selected die, and a size written only in a name or coverage note does not
+declare that member. An explicit member inherits the set record, with its own
+fields overriding the set's. Grouping one observed die under a set identity
+does not establish ownership of the rest of that physical set. A resolved
+individual `kind = "die"` is also accepted.
+
+The selected die needs explicit `thread`, `thread_hand` and `thread_class`
+facts matching the exported `external_thread` feature. `thread` is the nominal
+size/pitch designation, not the member's display name; `thread_hand` is
+`"right"`, `"left"` or `"unknown"`, separate from a turning tool's `hand`;
+`thread_class` is the die's class designation. Missing or unsupported thread
+facts remain unresolved.
+
+The operation's `holder` selects `kind = "die_stock"`. A bare holder reference
+looks in `holders`; a category-qualified reference such as
+`tools.<die-stock>` can select an existing tool-category item. Its `fits` must
+name the exact selected die identity, including the member, rather than just
+the set or an assumed diameter. Bare and category-qualified spellings of the
+same resolved identity are equivalent. Unknown fit remains debt; a known
+different identity is a mismatch.
+
+This hand assembly is not a spindle or toolpost stack. It supplies no powered
+RPM or electronic tool-touch recipe. Tool/holder contradictions and missing
+facts are checked by [manual die threading](rules-tools.md#manual-die-threading);
+prior male blank and shoulder preparation remain separate operation-chain requirements.
+
+### Manual taps and wrenches
+
+A spindle-stopped `hand_tap` selects `kind = "tap"` or an explicitly declared
+member of a `tap_set` / `tap_die_set` in `op.tool`. Whole-set selection and
+member inheritance follow the [die identity rules](#manual-dies-and-die-stocks).
+The selected tap's explicit `thread`, `thread_hand` and `thread_class` must
+match the exported internal `thread` / `threaded_hole` feature.
+
+Its `op.holder` selects a real `tap_wrench` or `tap_follower`. A bare reference
+uses `holders`; a category-qualified `tools.<wrench-or-follower>` can select
+an item already declared in `tools`. Fit can be established in either of
+these ways:
+
+- `fits` names the exact selected tap identity, including any member, using
+  the same bare/qualified identity equivalence as a die stock.
+- Explicit nominal tap-size capacity contains the tap's declared
+  `dia_mm` / `dia_in` (or supported bare `dia` with units). A positive ordered
+  pair in `range_mm` / `range_in` gives inclusive lower and upper limits; a
+  scalar gives an upper limit. When no range key is declared, `capacity_mm` /
+  `capacity_in` supplies the upper limit, or an accepted `capacity_in` pair
+  supplies both limits. These are nominal tap sizes, not collet-shank fits.
+
+A declared range takes precedence over capacity, including when the range
+is `"unknown"`; an unknown range does not fall back to capacity. Without
+resolved exact fit or usable capacity and tap diameter, fit remains unknown.
+A known incompatible `fits` or out-of-capacity tap is an error even when
+another declared fit fact agrees. A designation or member name alone does
+not supply the tap diameter for this comparison.
+
+The manual tap and holder require no spindle shank, taper, chuck or toolpost
+assignment and create no digital tool-change retouch. A known nonzero
+operation `rpm` is prohibited for both `hand_tap` and `die_thread`. See
+[manual tapping](rules-tools.md#manual-tapping) for tool checks and
+[manual threading](plan.md#manual-threading) for the operation contract.
+
 ### Holding capacity and indexing
 
 M2 holding checks compare stock diameter with explicit `sizes_mm` / `sizes_in`
@@ -213,7 +282,7 @@ Example blade values follow the [examples policy](../examples/README.md):
 they are demonstration-fixture records or cited catalog values, not fabricated
 shop measurements.
 
-Every powered or hand-saw blade declares tooth pitch as
+Bandsaw and hand-saw blades declare tooth pitch as
 `tpi = { value, cite, measured, verify }`. Use one number for constant pitch or
 `[coarse, fine]` for variable pitch; a 4/6 TPI blade is `[4, 6]`.
 `pitch_mm` is rejected. As with `helix_deg`, a cited catalog value is enough.
@@ -231,10 +300,12 @@ on a `bench` or `manual` machine. It needs neither `blade_speed_sfm` nor a
 cutting-data row. Straight cuts use the same kerf fields as a bandsaw blade;
 scribed-line cuts use the operation's removal box and consume no kerf.
 
-Any verification debt on a saw, including kerf debt, leaves its identity
-unresolved for every saw consumer. The kernel routes no stock for that cut.
-Only a resolved, verified `hand_saw` retains the manual-bench waiver for a
-bench setup; unresolved, unverified and powered blades do not.
+Verification debt on a saw, including kerf debt, remains unresolved for its
+consumers; unresolved geometry cannot route known stock. Only a resolved,
+verified `hand_saw` retains the manual-bench waiver for a bench setup;
+unresolved, unverified and powered blades do not. A raw `slitting_saw` identity
+never earns a nonspindle-saw waiver, even while dimensions or verification are
+unknown.
 
 The following is a schematic fragment. Replace the ellipses, including the
 non-ISO placeholder date, with real measurement metadata before loading it.
@@ -248,14 +319,30 @@ kerf_mm = { value = 0.6, measured = { status = "measured", by = "...", date = ".
 tpi = { value = 32, cite = "blade maker's catalogue: 32 TPI" }
 ```
 
-Saw operations need no spindle taper, holder, shank diameter, tool OAL or
-projection. A mill or bench hosting a powered saw operation must declare its
-actual blade-speed range for a sourced speed recommendation. The hold resolves
-an ordinary fixture; a machine identity never supplies an integral vise.
-The only fixture-free hold is a scribed-line cut fed by hand on a vertical
-bandsaw table, `hold.kind = "hand_fed"`. See
+Nonspindle bandsaw and hand-saw operations need no spindle taper, holder, shank
+diameter, tool OAL or projection. A mill or bench hosting a bandsaw blade must
+declare its actual blade-speed range for a sourced speed recommendation. The
+hold resolves an ordinary fixture; a machine identity never supplies an
+integral vise. The only fixture-free hold is a scribed-line cut fed by hand on
+a vertical bandsaw table, `hold.kind = "hand_fed"`. See
 [hand-fed on the saw table](plan.md#hand-fed-on-the-saw-table) and
 [saw cut-off](plan.md#saw-cut-off) for the plane and keep-side contract.
+
+A real mill-mounted slitting disk uses `tools.<disk>.kind = "slitting_saw"`,
+not `"bandsaw"`, and is recognized only on a `mill` for `saw_cut` / `cut_off`.
+Inventory `kind` remains an arbitrary string; recognition adds no schema fields.
+Declare disk OD explicitly as `dia_mm` or `dia_in`, and kerf separately as
+`kerf_mm` or `kerf_in`: neither OD nor kerf is inferred from `thickness`.
+Use existing `flutes` for total tooth count, not TPI. The existing optional
+`arbor` field can name the arbor identity, and the operation's `holder` selects
+its holder. Unknown dimensions or arbor facts remain debt; these identity
+fields do not prove mounting, axis, arbor assembly or clearance.
+
+Slitting recommendations use rotating-tool `operation = "slitting_saw"` data
+and spindle limits, never bandsaw descent rows or `blade_speed_sfm`. The
+planar kerf model can describe ideal stock removal only: finite disk reach,
+arbor/spindle/tool/fixture clearance and engagement/tooth count are unmodelled.
+It cannot certify physical slitting safety or finished-face coverage.
 
 
 ## Manual-arc kit
@@ -405,15 +492,15 @@ An edge finder used for mill X or Y zero (`zero.x/y.tool`, except
 - for a mechanical finder, maker speed band `rpm_range` and a `cite`.
 
 Explicit `tip_in = "unknown"` never falls back to body diameter.
-The [zero check](rules-coordinates.md) records `finder` on each pickup row:
+The digital [zero check](rules-coordinates.md#zero_check) records `finder` on each pickup row:
 tip radius and the usable speed bands. Those bands are the intersection of
 the finder range with each machine spindle band (`ranges_rpm`, otherwise
 `rpm_min` to `rpm_max`). Speeds between separate spindle bands are not offered.
 A missing fact or unknown endpoint leaves zero unknown; no overlap with any
 spindle band is an error.
 
-The setup sheet prints one EDGE FINDER box per finder and mill in the DRO
-ZERO block of the first setup that uses that pair. It states speed, contact
+For a digital readout, the setup sheet prints one EDGE FINDER box per finder
+and mill in the DRO ZERO block of the first setup that uses that pair. It states speed, contact
 signal and offset. A mechanical tip runs true then kicks sideways; an
 electronic finder lights. Axis Set is edge − r when approaching from the −
 side, or edge + r from the + side. Every X/Y row names the box.
@@ -1015,20 +1102,29 @@ items. It does not gain unrelated local fixture/machine blanks. An unresolved
 stock prerequisite with no attributable dimensional consumer keeps its real
 STOP reason without an invented measurement.
 
+When assembled stock depends on two retained siblings whose split is still
+unproven, the operator STOP names the producing part-off, both required pieces
+and the assembled workpiece to establish before cutting. It does not expose
+the partition-proof diagnostic as a machining instruction. Native/report
+reasons and finding statuses remain unchanged. Successful producer partition
+records do not relabel an independent joining failure as a missing split.
+
 Eligibility is per decision. Independently evaluated engagement, speeds/feeds,
 cutting direction or saw kerf keep the facts they consumed even if stock is
 blocked. A native refusal list alone does not prove a local consumer.
 A manual bench setup with no unresolved consumed decision has no measurement
 STOP or JOB stopped-setup entry solely because selected inventory is assumed.
 
-The JOB readout line names the installed DRO controller, such as EL400, not
-the machine model, and reuses one global readout-step reference. Centre-drill
-instructions name pilot and countersink body directly, without referring to
+For a digital readout, the JOB line names the installed DRO controller, such
+as EL400, not the machine model, and reuses one global readout-step reference.
+Mechanical dials do not receive that digital resolution measurement request.
+
+Centre-drill instructions name pilot and countersink body directly, without referring to
 an absent table. Shop-made support height is measured as made from table to
 work-support contact surface. Drill point-length STOP references name point
 angle before cutter diameter.
 
-A declared positive DRO step rounds printed instructions even if its grid is
+A declared positive digital DRO step rounds printed instructions even if its grid is
 labelled "not verified". Missing step uses the disclosed provisional default.
 "No coordinate targets" means coordinates did not consume the grid; other
 printed settings may still use it.
@@ -1336,6 +1432,9 @@ establish measured geometry.
 | `t_slot_in` | `str` |
 | `series` | `str` |
 | `taper` | `str` |
+| `thread` | `str`, explicit nominal size/pitch designation for a tap or die |
+| `thread_hand` | `"right"` / `"left"` / `"unknown"`, thread handedness |
+| `thread_class` | `str`, explicit thread class or `"unknown"` |
 
 ### Machine and indexing fields
 
@@ -1394,7 +1493,7 @@ permits one authored spelling, not simultaneous copies.
 | `projection_mm` / `projection_in` | `ProjectionMap`, tools only; [pair ownership and precedence](#projection-ownership-and-precedence) |
 | `lead_mm` | `MeasuredLength`, reamer lead |
 | `max_shank_in` | `float` |
-| `capacity_mm` | `float`, holder nominal collet size with ISO 286 h6 shank band; [`tool_resolves`](rules-tools.md#tool_resolves) |
+| `capacity_mm` | `float`, nominal collet size with ISO 286 h6 shank band, or manual tap-wrench/follower upper nominal tap size; [manual taps](#manual-taps-and-wrenches) |
 | `head_in` | `float` |
 | `max_offset_in` | `float` |
 | `dial_in` | `float` |
@@ -1482,11 +1581,33 @@ every band or zone. Inspection trusts only the resolution fact's own
 qualifiers. Verification debt, incomplete measurement or non-`measured`
 status leaves it unknown rather than establishing pass or error.
 
-On a machine, a declared positive resolution is the DRO grid used to round
-printed coordinates and depths to the safe side. Missing resolution uses the
-disclosed provisional 0.001 plan-unit step. Rules judging on that grid still
-remain unknown when the declared step is not measured and name resolution as
-debt. See [coordinates](rules-coordinates.md).
+With the plan's digital readout, a declared positive machine resolution is
+the DRO grid used to round printed coordinates and depths to the safe side.
+Missing resolution uses the disclosed provisional 0.001 plan-unit step.
+Rules judging on that grid still remain unknown when the declared step is
+not measured and name resolution as debt. See
+[DRO grid consumption](rules-coordinates.md#dro-grid-consumption).
+
+### Mechanical dial source facts
+
+Readout identity belongs to the plan's [`dro`](plan.md#dro), not an inventory
+machine's `control`, `name` or other descriptive text. An omitted `dro.kind`
+retains the digital behavior. Explicit `"handwheel"` selects mechanical dials;
+explicit `"unknown"` does not establish a digital readout.
+
+Mechanical `dro.graduation` is a nominal division in the declared `dro.units`,
+which can be `"in"` even when CAD lengths are in mm. It is not the machine's
+measured `resolution_mm` or `resolution_in`. On a lathe, `radius_mode = false`
+makes the X marking a diameter change, so radial travel is half that marking;
+`true` makes it radial. An unknown scale meaning remains debt.
+
+Source-authored pickup, calibration and backlash procedures do not prove
+physical accuracy or register a dial to the part datum. Keep unavailable
+physical settings and graduation/backlash facts unknown. The checker retains
+that debt without asking for a digital DRO measurement or inferring an
+electronic setting. See
+[mechanical dials and unknown readouts](rules-coordinates.md#mechanical-dials-and-unknown-readouts)
+for findings and printed instructions.
 
 ### Manual-arc fields
 
@@ -1618,6 +1739,8 @@ duplicate single-length spellings.
 
 The `leadscrew` record declares screw pitch, dial increment and cross-feed
 choices. `tpi` here is a machine-screw value, not the blade `tpi` record.
+These inventory descriptions do not supply the plan's mechanical
+`dro.graduation`, calibration or physical datum registration.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|

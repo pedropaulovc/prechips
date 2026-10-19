@@ -8,6 +8,7 @@ import re
 import subprocess
 import threading
 from copy import deepcopy
+from dataclasses import replace
 from html import unescape
 from html.parser import HTMLParser
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -16,6 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from prechips.inputs import Bundle
 from prechips.sheet import _Traveler
 
 ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
@@ -157,11 +159,15 @@ def shop(records, kind="mill"):
     sheet = bare(3)
     sheet.records = records
     sheet.report = {}
-    sheet.bundle = SimpleNamespace(
+    sheet.bundle = Bundle(
         features={"units": "mm"},
         inventory={},
-        plan={"setups": []},
-        kernel=None,
+        plan={"dro": {"kind": "digital", "units": "mm"}, "setups": []},
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=Path("."),
     )
     sheet.findings = []
     sheet.plan = sheet.bundle.plan
@@ -753,7 +759,7 @@ def test_a_hole_op_prints_its_tool_axis_on_the_dro_grid():
 def mapped(records, features, drawing=None, kind="mill"):
     sheet = shop(records, kind)
     sheet.features = features
-    sheet.bundle = SimpleNamespace(features={"features": drawing or {}})
+    sheet.bundle = replace(sheet.bundle, features={"units": "mm", "features": drawing or {}})
     sheet.feature_name = lambda feature: feature.replace("_", " ")
     sheet.zero_name = lambda setup: f"Setup {setup['id']} zero"
     sheet.surface_z = lambda setup, value, *args, **kwargs: value
@@ -1414,7 +1420,7 @@ def _lathe_sheet(ops, hands):
 )
 def test_a_tool_row_prints_the_shank_where_it_differs_from_the_cutting_diameter(tool, shank):
     sheet = shop({})
-    sheet.bundle.inventory = {"tools": {"drill": {"kind": "drill", **tool}}}
+    sheet.bundle = replace(sheet.bundle, inventory={"tools": {"drill": {"kind": "drill", **tool}}})
     detail = sheet.tool_detail("drill")
     assert [d for d in detail if d.startswith("shank")] == ([shank] if shank else [])
 
@@ -1832,7 +1838,8 @@ def test_the_drawing_edge_break_never_prints_looser_than_declared():
 
 @pytest.mark.parametrize(("low", "high"), [(-6.0, -5.9), (-1234.5675, -1234.5671)])
 def test_an_authored_z_band_prints_its_limits_as_declared(low, high):
-    sheet = bare(2)
+    sheet = shop({})
+    sheet.precision = lambda feature, dimension: 2
     sheet.coordinates_entry = lambda setup, op: {}
     printed = re.findall(r"-?\d+(?:\.\d+)?", sheet.allowed({}, {"to_z_band": [low, high]}))
     assert list(map(float, printed)) == [low, high], printed
@@ -1854,8 +1861,9 @@ def ledger(features, ops):
     sheet.features = features
     sheet.units = "mm"
     sheet.findings = []
-    sheet.bundle = SimpleNamespace(features={"units": "mm"}, inventory={"tools": {"c": {}}})
+    sheet.bundle = replace(sheet.bundle, inventory={"tools": {"c": {}}})
     sheet.setup = {"id": "S1", "ops": ops}
+    sheet.plan["setups"] = [sheet.setup]
     sheet.feature_name = lambda feature: feature.replace("_", " ")
     sheet.feature_label = lambda feature, marked=True: sheet.feature_name(feature)
     sheet.short_reference = lambda reference, category: f"Gauge {reference}"
@@ -2411,7 +2419,12 @@ def test_feature_map_qualification_is_part_of_its_repeatable_table_header():
         kind="lathe",
     )
     markup = Markup(
-        sheet.feature_map({"id": "S1", "ops": [{"op": 10, "do": "turn", "feature": "body"}]})
+        sheet.feature_map(
+            {
+                "id": "S1",
+                "ops": [{"op": 10, "do": "turn", "feature": "body", "z_from": 0.0, "z_to": -20.0}],
+            }
+        )
     )
     table = markup.find("feature-map")[0]
     qualification = markup.find("table-context", table)[0]
@@ -2421,7 +2434,15 @@ def test_feature_map_qualification_is_part_of_its_repeatable_table_header():
     assert "later cut" in content(qualification)
     body = next(node for node in markup.nodes if node["tag"] == "tbody")
     assert markup.nodes.index(qualification) < markup.nodes.index(body)
-    assert all(value in content(body) for value in ("Ø9.900–10.100", "Ø10.000", "-20.000"))
+    cells = [
+        node for node in markup.nodes if node["tag"] == "td" and node["parent"]["parent"] is body
+    ]
+    assert [content(cell) for cell in cells[:1]] == ["body"]
+    assert all(content(cell).startswith("Ø") for cell in cells[1:3])
+    assert [
+        [float(value) for value in re.findall(r"-?\d+(?:\.\d+)?", content(cell))]
+        for cell in cells[1:]
+    ] == [[9.9, 10.1], [10.0], [0.0], [-20.0]]
 
 
 @pytest.mark.parametrize("list_only", [False, True])
@@ -3792,7 +3813,8 @@ def test_public_other_zero_methods_do_not_manufacture_an_m_destination(method):
     assert not markup.find("writing-blank", markup.find("zero")[0])
 
 
-def test_public_measurements_are_axis_owned_and_require_a_resolved_setup():
+@pytest.mark.parametrize("setup_id", ["unknown", "", None])
+def test_public_measurements_are_axis_owned_and_require_a_resolved_setup(setup_id):
     def add_axis(bundle):
         bundle.plan["setups"][0]["zero"]["x"] = {
             "method": "measure_then_set",
@@ -3813,7 +3835,7 @@ def test_public_measurements_are_axis_owned_and_require_a_resolved_setup():
     )
 
     def unresolved_owner(bundle):
-        bundle.plan["setups"][0]["id"] = "unknown"
+        bundle.plan["setups"][0]["id"] = setup_id
 
     unresolved, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=unresolved_owner)
     assert unresolved.find("zero")

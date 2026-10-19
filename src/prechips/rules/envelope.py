@@ -18,13 +18,17 @@ from prechips.rules.coordinates import CENTRE_OPS
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
+    SLITTING_SAW_MODEL_REASON,
     UNKNOWN,
+    UNRESOLVED_SAW_MODEL_REASON,
     number,
     plan_frame_cite,
     record,
     same_length,
     saw_setup,
     setup_frame_ref,
+    slitting_saw,
+    spindle_saw,
 )
 
 
@@ -40,7 +44,7 @@ def evaluate(bundle):
     for setup in bundle.plan["setups"]:
         machine_ref, machine = machine_envelope(bundle, setup)
         cite = ["PLAN.md §8 M5; docs/rules-setup.md envelope: conservative setup stack"]
-        if saw_setup(setup):
+        if saw_setup(bundle, setup):
             findings.append(
                 Finding(
                     "envelope",
@@ -65,6 +69,15 @@ def evaluate(bundle):
             )
             continue
         debts, missing, errors = {}, [], []
+        spindle_saws = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
+        saw_debt = "; ".join(
+            dict.fromkeys(
+                SLITTING_SAW_MODEL_REASON
+                if slitting_saw(bundle, op)
+                else UNRESOLVED_SAW_MODEL_REASON
+                for op in spindle_saws
+            )
+        )
         maximum = fact(
             machine, "envelope.spindle_to_table_max", "machines", machine_ref, debts, cite
         )
@@ -82,29 +95,32 @@ def evaluate(bundle):
         height = extents["z"]
         height_pending = "z" in extents.get("geometry_pending_axes", [])
         if not number(height):
-            missing.append(
+            height_missing = (
                 f"Geometry pending: {setup['id']} supported blank height needs the "
                 "kernel bounding box in its declared setup frame"
                 if height_pending
                 else f"measure: {setup['id']} supported blank height and setup orientation, "
                 "caliper and square, mm; author stock/stock_state and frame"
             )
+            missing.append(height_missing)
+            if not height_pending:
+                authoring_entry(
+                    debts,
+                    f"plan.setups.{setup['id']}.supported_height",
+                    height_missing,
+                    f"plan.setups.{setup['id']}.stock_state",
+                )
         elif height <= 0:
             errors.append("supported stock height is not positive")
         fixture, fixture_verified = fixture_height(bundle, setup, debts, cite)
         target, owner = setup_frame_ref(bundle, setup)
         cite.extend(plan_frame_cite(bundle, setup))
         initial_top = record(setup.get("stock_state")).get("top_z", UNKNOWN)
-        if missing and not height_pending:
-            authoring_entry(
-                debts,
-                f"plan.setups.{setup['id']}.supported_height",
-                missing[-1],
-                f"plan.setups.{setup['id']}.stock_state",
-            )
+        if spindle_saws:
+            missing.append(saw_debt)
         stacks = []
         for op, before, _ in tip_endpoints.stock_states(bundle, setup):
-            # Saw cuts have no spindle stack; the setup's other cutting ops are still assessed.
+            # Planar saw cuts cannot supply a spindle stack; spindle-saw debt remains below.
             if op.get("do") in MANUAL or op.get("do") in SAW_OPS:
                 continue
             label = f"plan.setups.{setup['id']}.ops.{op['op']}"
@@ -194,10 +210,19 @@ def evaluate(bundle):
                 Finding(
                     "envelope",
                     setup["id"],
-                    "not_applicable",
-                    {},
+                    "error" if errors else "unknown" if spindle_saws else "not_applicable",
+                    {
+                        "spindle_saw_ops": [op["op"] for op in spindle_saws],
+                        "spindle_saw_debt": saw_debt,
+                    }
+                    if spindle_saws
+                    else {},
                     cite,
-                    "No cutting assembly needs a spindle-to-table envelope in this setup.",
+                    f"{setup['id']}: " + "; ".join(errors) + "."
+                    if errors
+                    else f"{setup['id']}: {saw_debt}."
+                    if spindle_saws
+                    else "No cutting assembly needs a spindle-to-table envelope in this setup.",
                 )
             )
             continue
@@ -226,6 +251,14 @@ def evaluate(bundle):
                     "spindle_to_table_max_mm": maximum["value"],
                     "spindle_to_table_min_mm": minimum["value"],
                     "stacks": stacks,
+                    **(
+                        {
+                            "spindle_saw_ops": [op["op"] for op in spindle_saws],
+                            "spindle_saw_debt": saw_debt,
+                        }
+                        if spindle_saws
+                        else {}
+                    ),
                     "measurements": [debts[key] for key in sorted(debts)],
                     "basis": (
                         "measured fixture bed/height + parallels/supports + supported part height "

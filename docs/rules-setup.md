@@ -31,14 +31,19 @@ that the fixture was installed as written.
 ### Required declarations
 
 A fixture-held setup needs a fixture, stop, grip and clamp declaration, plus
-coolant and deburr decisions. A vise or nonlathe setup needs `fixed_jaw` unless
+coolant and deburr decisions. Outside established manual bench work or the
+verified bench-saw scope below, a vise or nonlathe setup needs `fixed_jaw` unless
 that field is explicitly `not_applicable`. Lathe setups also need stock OD,
-support, grip-on and at least one known end station. Other setups need stock
-`top_z` and `bottom_z`. When you supply supports, support orientation, parallels,
-jaw direction, locator or stop-face fields, the rule checks those declarations
-too.
+support, grip-on and at least one known end station. Other machine setups need
+stock `top_z` and `bottom_z`. When you supply supports, support orientation,
+parallels, jaw direction, locator or stop-face fields, the rule checks those
+declarations too.
 
-Every nonmanual machining operation needs a holder; saw cut-off needs none.
+Every nonmanual machining operation needs a holder; nonspindle bandsaw and
+hand-saw cut-off need none. A mill-mounted `slitting_saw`, or a saw whose unknown
+tool kind cannot exclude a spindle-mounted disk on a mill or unresolved machine,
+retains its selected holder/arbor requirement; identity fields alone do not prove
+assembly fit.
 Every nonmanual cut needs `direction`, including face, profile, pocket, turn,
 form and parting actions, with these exceptions:
 
@@ -49,6 +54,44 @@ form and parting actions, with these exceptions:
 An explicitly unknown action without a direction leaves that requirement
 unknown. Missing or empty required fields are errors. Explicit `"unknown"`
 values remain unknown. There is no fallback grip or deburr limit.
+
+### Manual bench holding and handling
+
+An established [manual bench setup](plan.md#manual-stations-and-travel-scope)
+has no machine fixed-jaw orientation or stock top/bottom Z station to declare.
+That does not remove its mechanical holding requirements: fitting (including
+punching or press work), deburring, layout, filing and verified hand-saw cuts
+still need fixture, stop, grip, clamp, coolant and deburr decisions. Unknown
+grip or an undeclared retention choice remains debt; the rule invents no
+measurements or safe support.
+
+A verified `bench` or `manual` station used only for known non-spindle saw cuts
+and manual actions likewise has no machine fixed-jaw orientation or stock-Z
+station. This includes a portable bandsaw cutting work retained in a bench
+vise; it does not turn the powered saw into a manual action. Each saw must
+resolve to a verified saw identity, and the dedicated non-spindle saw scope
+must be established. Unknown kerf or tooth pitch remains cutting-data debt,
+not a reason to invent machine axes. Unknown/unverified machine or tool
+identity, a possible spindle saw, or other machining actions keep the normal
+machine-setting requirements. Mechanical holding and supplied fixture checks
+remain required.
+
+Only a bench setup containing inspection and/or coating operations, with no
+holding fields other than an optional `hold.note`, uses handling declarations
+instead. It requires a known, nonblank `hold.note` describing the actual
+handling. Missing or blank notes, `"none"` and `"not_applicable"` are errors;
+`"unknown"` remains unresolved.
+There is no fictitious fixture, coolant, deburr limit or machine-Z requirement
+for this scope. The setup sheet prints the handling instructions in HOLD and
+refers to them from the route rather than asking for a nonexistent fixture.
+This checks declaration completeness, not chemical safety or inspection
+acceptance.
+
+Any other holding declaration retains the mechanical preconditions and their
+checks. A bench machine name alone, an absent/unknown action, a powered blade
+or an unresolved/unverified hand saw cannot establish the manual-bench scope.
+Stock lineage, physical geometry, joint and applicable render checks remain
+independent requirements.
 
 ### Hand-fed saw holding
 
@@ -163,9 +206,11 @@ prints no swivel.
 The setting tolerance δθ comes from `hold.align`, as defined under
 [swivelled vise](plan.md#swivelled-vise):
 
-- For `indicate_jaw`, it is the dialled DRO-grid move's angle off the jaw line
-  plus asin((`limit_mm` + √2·step/2) / L). L is that move's length; step is the
-  machine's measured DRO resolution.
+- For `indicate_jaw` with a digital readout, it is the dialled DRO-grid move's
+  angle off the jaw line plus asin((`limit_mm` + √2·step/2) / L). L is that
+  move's length; step is the machine's measured DRO resolution. Handwheel
+  readout debt does not become a measured digital grid, so this path remains
+  unknown in handwheel mode even when machine resolution is supplied.
 - For a stated method (`graduations`, `protractor` or `sine_bar`), it is the
   cited `tolerance_deg`.
 
@@ -358,8 +403,8 @@ does not establish which blank the next setup receives.
 
 ### Received and cut stock
 
-The analytic receiving box starts with the root stock. Earlier operations
-in the receiving setup's `stock_in` lineage trim it plane by plane through
+For an unsplit supply, the analytic receiving box starts with the root stock.
+Earlier operations in the receiving setup's `stock_in` lineage trim it plane by plane through
 plan process `end_face` features. Each declared dimension (section 0, section
 1 and length), placed at `origin_mm` on the blank's axes, must lie within its
 ± `tolerance_mm` of that box. A made face must also be square to those axes.
@@ -373,6 +418,13 @@ inside the blank removes required material. Either is an error. If the
 model-frame box cannot be read along the declared blank axes, that proof
 remains unknown. A supplied blank (`stock_in = "stock"`) is the root stock
 itself. Without known kernel stock, this part of the verdict is unknown.
+
+A setup receiving `stock_out.<name>` instead receives that exact retained
+child, not the root stock's trimmed box. Its prepared-blank geometry is checked
+against the selected kernel `outputs.<name>.bbox_mm` and `volume_mm3`.
+Unknown or unproven child geometry remains unknown; the unsplit root or a
+sibling output cannot stand in for it. See
+[retained part-off outputs](plan.md#retained-part-off-outputs).
 
 ### Blank inspection checks
 
@@ -414,9 +466,9 @@ Implementation: [`prepared_blank.py`](../src/prechips/rules/prepared_blank.py).
 
 The rule produces one finding per setup. On a mill it screens the tool-change
 stack, jaw obstruction and declared travel. On a lathe it screens swing and
-length. Manual bench work within the scope below and dedicated all-saw setups
-are `not_applicable`. In a mixed setup, saw operations add no fictitious
-holder or spindle stack.
+length. Manual bench work within the scope below and dedicated nonspindle
+all-saw setups are `not_applicable`. In a mixed setup, nonspindle saw operations
+add no fictitious holder or spindle stack.
 
 ### Manual bench and saw scope
 
@@ -429,9 +481,25 @@ The machine's bench/manual kind alone waives nothing. Another or unknown
 action, or a powered/unresolved saw tool, does not establish this manual
 exemption; the applicable machine screens remain in force.
 
-A dedicated all-saw setup has saw cuts and no other nonmanual operations.
-Manual inspection/deburring can accompany those cuts. Its saw-specific
-exemption is separate from the manual-bench predicate.
+A dedicated nonspindle all-saw setup has saw cuts and no other nonmanual
+operations, and contains no confirmed or possible spindle saw. Manual
+inspection/deburring can accompany those cuts. Its saw-specific exemption is
+separate from the manual-bench predicate.
+
+A mill-mounted `slitting_saw` never receives a nonspindle/no-spindle waiver,
+even when its raw identity has unverified dimensions or other verification
+debt. A saw action whose raw tool kind is missing, unlisted or unknown on a
+mill or unknown machine also receives no such waiver: a spindle-mounted disk
+cannot be excluded, but its physical identity is not established.
+Required `headroom`, `envelope`, `travel` and `zero_check` findings remain
+unknown unless an independently established error is stronger. For a known
+disk the finite disk and mounted assembly are unmodelled; for an unresolved
+tool the spindle assembly, zero and clearance remain unknown. DRO touch-off
+cannot establish the missing geometry. Mixed setups still assess ordinary
+operations while retaining this debt. Setup model-boundary guards report
+`spindle_saw_ops` (operation IDs) and `spindle_saw_debt` (the applicable known-disk
+and/or unresolved-identity reasons). No planar kerf result certifies disk reach,
+arbor/spindle/tool/fixture clearance or physical safety.
 Implementation: [`_bench.py`](../src/prechips/rules/_bench.py).
 
 ### Mill stack
@@ -624,12 +692,18 @@ for the complete requiredness and exit contract.
 
 These declared-input rules do not invoke FreeCAD or certify collisions.
 Lathe setups are `not_applicable` to both. Setups with no nonmanual,
-nonsaw cutting assembly also have no applicable stack/travel calculation,
+nonspindle cutting assembly also have no applicable stack/travel calculation,
 including the [manual-bench work described above](#manual-bench-and-saw-scope).
-Dedicated all-saw setups are exempt; manual inspection/deburring does not
-remove that exemption. In mixed setups, the other mill cuts retain their
-checks. Holding and native `saw_cut` stock preservation remain required by
-their own rules.
+Dedicated nonspindle all-saw setups are exempt; manual inspection/deburring
+does not remove that exemption. Any `slitting_saw` identity prevents it,
+including a raw unverified disk. A saw action whose raw tool kind is neither
+`bandsaw` nor `hand_saw` on a mill or unknown machine also prevents it, without
+claiming a known disk.
+The known disk's missing clearance model or the unresolved tool's possible
+spindle assembly keeps these findings unknown unless a known error is stronger.
+In mixed setups, other mill cuts retain their checks alongside that debt.
+Holding and native `saw_cut` ideal stock preservation remain required by their
+own rules.
 
 There is no separate `holder_stack` rule. Selected-holder gauge debt belongs
 to `envelope` or `travel` where consumed; lathe cuts are not asked for a
@@ -711,6 +785,17 @@ exit past the stock are undeclared. The axis stays unknown with an `author:`
 debt naming the operation's `feature.bounds`; an exceeded lower bound still
 errors. Each X/Y check records its `basis` as `cutter-centre path`,
 `declared cut extent`, both, or `stock span`.
+
+An explicit `stock_removal_bounds` takes precedence over finished-feature
+bounds for a broad operation's declared material scope. Its coordinates are
+already in the setup frame. `"unknown"` or incomplete limits prevent fallback
+to a one-part feature or stock span; this is required when facing a whole batch
+bar whose actual extent is unrecorded. A known removal box also supplies no exact
+or minimum X/Y stroke: it can extend beyond the arriving stock, while the
+cutter can travel through air outside it. Without a printed cutter-centre path,
+X/Y stays unknown and names the full cutting, approach and exit path to author.
+Omitting the field preserves the feature/stock fallback above. Independent
+known Z checks and overtravel errors remain active.
 
 Z is the union of spindle-nose positions:
 

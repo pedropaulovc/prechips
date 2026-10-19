@@ -3,9 +3,10 @@
 Always required (findings.ALWAYS_REQUIRED) wherever it applies: a hold whose ``support`` or
 any ``supports`` entry is a dead or live centre, or that declares the centre it seats in,
 names the plan ``process_features`` centre the point rides in (``hold.centre_hole``). The
-centre must be made by a ``center_drill`` op of an earlier setup in this setup's
-``stock_in`` lineage, that op's own ``blind_depth`` verdict must pass (``tip_endpoints``:
-the selected tool's own centre, its mouth on the touched entry surface) and its countersink
+centre must be made by a ``spot`` (or existing ``center_drill``) op of an earlier setup
+on the same retained material, and that op's own ``blind_depth`` verdict must pass
+(``tip_endpoints``: the selected tool's own centre, its mouth on the touched entry
+surface). Its countersink
 mouth must be the ``centre_hole_dia_mm`` the hold seats the point in. An undeclared
 centre, mouth, routing anywhere in the lineage, or preparation is unknown; a centre no
 earlier lineage op makes, a preparation contradiction, or a mouth that differs is an
@@ -27,6 +28,7 @@ interpenetration.
 import re
 
 from prechips.findings import Finding
+from prechips.material_routes import feature_material_status
 from prechips.model import setup_lineage
 from prechips.process_features import ACTIONS, centre_depth_mm, label, process_of
 from prechips.rules.resolution import (
@@ -96,18 +98,27 @@ def _centres(bundle, hold):
 
 
 def _makers(bundle, setup, name):
-    """``(earlier (setup, op) pairs, later op labels)`` drilling centre ``name``."""
+    """Certain makers, later makers, and unproven/rejected retained-material candidates."""
     earlier = setup_lineage(bundle.plan, setup["id"]) - {setup["id"]}
-    before, after = [], []
+    before, after, maybe, rejected = [], [], [], []
     for other in bundle.plan["setups"]:
         for op in other["ops"]:
-            if op.get("feature") != name or op.get("do") not in ACTIONS["centre_hole"]:
+            if op.get("feature") not in (name, UNKNOWN) or op.get("do") not in ACTIONS[
+                "centre_hole"
+            ] | {UNKNOWN}:
                 continue
-            if other["id"] in earlier:
-                before.append((other, op))
+            made = f"{other['id']} op {op['op']}"
+            if other["id"] not in earlier:
+                after.append(made)
+                continue
+            material = feature_material_status(bundle.plan, setup["id"], other["id"], name, bundle)
+            if material is False:
+                rejected.append(made)
+            elif material is None or op.get("feature") == UNKNOWN or op.get("do") == UNKNOWN:
+                maybe.append(made)
             else:
-                after.append(f"{other['id']} op {op['op']}")
-    return before, after
+                before.append((other, op))
+    return before, after, maybe, rejected
 
 
 def _evaluate(bundle, setup, hold, centres):
@@ -119,7 +130,7 @@ def _evaluate(bundle, setup, hold, centres):
         return "unknown", numbers, "which centre the work rides in is undeclared"
     process = process_of(bundle.feature_definitions.get(name)) or {}
     mouth = process.get("mouth_dia_mm", UNKNOWN)
-    before, after = _makers(bundle, setup, name)
+    before, after, maybe, rejected = _makers(bundle, setup, name)
     made_by = [f"{other['id']} op {op['op']}" for other, op in before]
     # A pass needs every setup the stock passes through routed: one undeclared stock_in
     # anywhere upstream leaves where the work (and any centre) came from unresolved.
@@ -140,8 +151,12 @@ def _evaluate(bundle, setup, hold, centres):
             **centre_depth_mm(bundle.feature_definitions.get(name)),
         }
     )
+    if maybe:
+        numbers["material_unknown"] = maybe
+    if rejected:
+        numbers["material_rejected"] = rejected
     errors = []
-    if not before and routed:
+    if not before and not maybe and routed:
         made = f"it is first drilled in {after[0]}" if after else "no op drills it"
         errors.append(f"no earlier setup in its stock lineage drills {name}; {made}")
     if number(seat) and number(mouth) and not same_length(seat, mouth):

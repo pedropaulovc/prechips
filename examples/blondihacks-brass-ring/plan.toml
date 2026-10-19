@@ -1,0 +1,367 @@
+# Source-only worked example: complete single-chucking ring route plus hand finishing.
+# PLANNED/HOLD. No measured-shop claim, physical release approval or fabricated bands.
+part = "blondihacks-brass-ring"
+features = "features.toml"
+step = "brass-ring.STEP"
+construction = "one_piece"
+quantity = 1
+quantity_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=344s"
+
+[drawing]
+number = "BH-BR-EXAMPLE"
+revision = "video-design-1"
+cite = "Locally authored nominal demonstration design from video 05:41-05:52 and 14:40-14:48; no source drawing or release approval."
+
+[paths]
+inventory = "inventory.toml"
+policy = "shop-policy.toml"
+cutting_data = "cutting-data.toml"
+step = "brass-ring.STEP"
+
+[stock]
+form = "round_bar"
+material = "360 free-machining brass"
+material_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=299s"
+dia_mm = 25.4
+length_mm = "unknown"
+origin_mm = "unknown"
+axis = [0.0, 0.0, 1.0]
+on_hand = "unknown"
+as_is_faces = []
+prerequisite = "HOLD: identify actual 360-brass stock, measure its available length and existing scrap step, approve the grip/stickout and safe tool-to-jaw travel, and approve final dimensions/limits. Video nominal 1-inch bar is not a measurement of the reader's stock. For smaller purchased stock, the source recommends probably no less than 0.050 inch of diameter cleanup stock above the 0.725-inch target; this is source guidance, not a measured allowance. Source starts from an existing scrap; no saw operation is shown or added. EDITORIAL MATERIAL HOLD: CDA C36000 lists 2.5-3.0% lead (Pb), so this is not lead-free brass. Confirm actual alloy and applicable wear/gift suitability before use; no child-jewelry or adult-wear approval is implied."
+note = "Nominal 1-inch-diameter scrap. Measure actual length, prior step, raw end station, chuck engagement and straightness before loading."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=299s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=350s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=355s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=677s", "https://alloys.copper.org/alloy/C36000"]
+
+[dro]
+kind = "handwheel"
+controller = "manual handwheel dials; no digital readout used"
+manual = "unknown"
+mode = "unknown"
+units = "in"
+radius_mode = false
+procedure = "For OD turning, touch the stock surface, withdraw clear and rotate the cross-slide graduation ring to the closest whole number; record the starting dial number and read subsequent DIAMETER reductions from that physical dial. Set the groove's ring-side Z edge with the machinist scale."
+graduation = 0.002
+calibration = "unknown"
+backlash = "unknown"
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=627s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=642s (cross-slide engraved diameter increment 0.002 in)", "https://www.youtube.com/watch?v=t9NGty1CVII&t=876s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=940s"]
+[dro.direction]
+x = "unknown"
+z = "unknown"
+
+[frames.lathe-front]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+note = "Nominal references: front finished annulus is Z0, spindle axis is X0, +Z points away from chuck; ring rear face Z-2.54. HOLD until the actual raw end, jaw-front station and handwheel zeros are measured and recorded."
+cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=t9NGty1CVII&t=881s", "geometry-provenance.md"]
+
+[[setups]]
+id = "L1"
+machine = "video-lathe"
+frame = "lathe-front"
+stock_in = "stock"
+coolant = "Turn dry; use cutting oil for spotting/drilling. Confirm the actual oil product before use."
+deburr_mm = "unknown"
+note = "Keep the same three-jaw chucking for facing, turning, grooving and drilling. Speeds and pass increments are demonstration values, not approved cutting data or verified machine capability; approximate source speeds do not supply an exact requested setting. HOLD until actual tool heights, brass-drill suitability, clearances, final drill-point travel and safe ring release are approved. No gloves near rotating machinery; stop and isolate before measuring, repositioning or recovering the ring."
+[setups.stock_state]
+od_mm = 25.4
+south_end_z = "unknown"
+north_end_z = "unknown"
+[setups.hold]
+fixture = "three-jaw-chuck"
+support = "none"
+grip_on = "Unmachined brass scrap behind the short exposed working end; measure and approve actual engagement before power"
+grip_mm = "unknown"
+stickout_mm = "unknown"
+fixed_jaw = "not_applicable"
+jaws_along = "not_applicable"
+parallels = "not_applicable"
+jaw_above_parallels_mm = "not_applicable"
+stop = "unknown"
+clamp = "Secure the brass in the three-jaw chuck, leaving room for the wide groove tool and the 0.100-inch ring; remove chuck key before power."
+note = "BEFORE LOADING: confirm intended ring size. Record actual stock length/diameter/old step, chuck grip and exposed length. With power isolated, check the whole turning and grooving travel against the jaw envelope using the rule and witness mark; measure and approve clearance before power. Confirm tool centre height, toolpost clamping, tailstock alignment/lock and drill grip. HOLD for an approved final-drill breakthrough and loose-ring retention method. No tailstock centre support is used; the tailstock carries the drill chuck only."
+[setups.zero.x]
+feature = "spindle_axis"
+edge_mm = 0.0
+from = "+x"
+method = "trial_cut_measure"
+tool = "turning-tool"
+holder = "four-way-toolpost"
+gauge = "dial-caliper"
+check_jog_mm = "unknown"
+procedure = "Touch the OD, withdraw the tool clear and set the cross-slide ring to the closest whole dial number; record that starting reading before cutting. Its engraved 0.002-inch graduations indicate diameter reduction, not radial travel; nominal spindle-axis X0 is not a physical dial setting."
+dial_setting = "unknown"
+[setups.zero.z]
+face = "raw exposed brass end, then the faced front annulus"
+edge_mm = "unknown"
+from = "+z"
+method = "Touch the raw face until a first chip appears; withdraw radially, advance the carriage for facing and lock. Establish the faced end as the later nominal axial reference. Record the actual initial end station and verify sign/reversal checks before relying on this pickup."
+tool = "turning-tool"
+holder = "four-way-toolpost"
+check_jog_mm = "unknown"
+retouch_after = []
+procedure = "Touch the raw exposed face, withdraw radially, advance the carriage for facing and lock it. The resulting front face is the axial reference. For the groove tool in L1 op 100, set the ring-side cutting edge 0.100 inch behind that face with a machinist scale and lock the carriage. Use this scale pickup; do not make a paper/top retouch after L1 op 80."
+dial_setting = "unknown"
+[[setups.zero.tool_touches]]
+tool = "parting-tool"
+x_method = "Touch the finished OD and read diameter reduction on the physical handwheel. Record the initial dial reading and verify the backlash/take-up procedure before cutting."
+x_face = "outer-diameter"
+gauge = "dial-caliper"
+z_face = "front-face"
+method = "Use the machinist scale to place the ring-side edge 0.100 inch behind the faced end; lock carriage. This is a scale pickup, not a paper/face touch. Do not substitute the unmeasured tool width for the ring width."
+z_gauge = "machinist-scale"
+edge_mm = "unknown"
+paper_mm = "unknown"
+z_offset_mm = -2.54
+corner = "tailstock_side"
+before_ops = [100]
+
+[[setups.ops]]
+op = 10
+do = "face"
+feature = "front-face"
+faces = ["#50/ADVANCED_FACE[2]/"]
+tool = "turning-tool"
+holder = "four-way-toolpost"
+to_z = 0.0
+to_dia = 0.0
+rpm = 450.0
+doc_mm = 0.508
+feed_mm_rev = "unknown"
+direction = "radially_inward"
+note = "Use the flat-top turning/facing tool with generous nose radius. Touch the raw face, withdraw cross slide, advance carriage about 0.020 inch, lock carriage and face gently to centre by hand. Repeat only as needed to clean up; verify actual allowance and tool height before cutting. Z0 is the nominal finished face; establish and record the actual raw pickup."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=408s"
+
+[[setups.ops]]
+op = 20
+do = "turn"
+feature = "outer-diameter"
+tool = "turning-tool"
+holder = "four-way-toolpost"
+to_dia = "unknown"
+z_from = 0.0
+z_to = "unknown"
+rpm = 380.0
+doc_mm = 0.254
+feed_mm_rev = "unknown"
+direction = "toward_chuck"
+note = "With spindle stopped, square the toolpost against the newly faced end and retighten away from the part. Check jaw clearance with the rule; make a witness mark at the approved rear travel limit. Touch OD, set the closest whole physical dial value and record the starting number. Establish a verified backlash/take-up procedure before relying on dial increments. First cleanup pass: 0.020-inch DIAMETER reduction on this direct-read dial (= 0.010-inch radial DOC), manual smooth feed to the witness mark. Clean the old scrap step before measuring. HOLD until the travel limit and extra cleanup depth are approved."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=501s"
+
+[[setups.ops]]
+op = 30
+do = "inspect"
+feature = "outer-diameter"
+tool = "gauges.dial-caliper"
+checks = { dia = "dial-caliper" }
+inspection_note = "Stop spindle and clean part/caliper. Record the actual cleaned OD and plan roughing stock from that reading; do not use the video's 0.944-inch example as a stock measurement. Measure radial wall only after drilling. HOLD dimensional acceptance until approved limits are supplied."
+note = "Measure cleaned OD and calculate remaining diameter reduction to 0.725 inch. The demonstrated route uses two 0.100-inch diameter reductions followed by a light measured finishing pass. Determine the reductions for the actual stock from the OD measured in this operation; do not use the video's 0.944-inch reading as a measurement of this stock."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=686s"
+
+[[setups.ops]]
+op = 40
+do = "rough_turn"
+feature = "outer-diameter"
+tool = "turning-tool"
+holder = "four-way-toolpost"
+to_dia = "unknown"
+z_from = 0.0
+z_to = "unknown"
+rpm = 380.0
+doc_mm = 1.27
+rough_allowance_mm = "unknown"
+feed_mm_rev = "unknown"
+direction = "toward_chuck"
+note = "First roughing pass: about 380-390 rpm, advance the direct-read cross dial 0.100 inch DIAMETER (= 0.050-inch radial DOC). Hand feed smoothly only to the approved witness limit; turn dry. Actual pass depth must be approved for the real setup; do not blindly repeat a deep pass on different stock/tooling."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=756s"
+
+[[setups.ops]]
+op = 50
+do = "rough_turn"
+feature = "outer-diameter"
+tool = "turning-tool"
+holder = "four-way-toolpost"
+to_dia = "unknown"
+z_from = 0.0
+z_to = "unknown"
+rpm = 380.0
+doc_mm = 1.27
+rough_allowance_mm = "unknown"
+feed_mm_rev = "unknown"
+direction = "toward_chuck"
+note = "Second roughing pass: 0.100-inch DIAMETER reduction. Retain the same tool, chucking and checked travel limit. The two roughing passes remove 0.200 inch in diameter, not radially."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=785s"
+
+[[setups.ops]]
+op = 60
+do = "inspect"
+feature = "outer-diameter"
+tool = "gauges.dial-caliper"
+checks = { dia = "dial-caliper" }
+inspection_note = "Stop spindle, wipe clean and record actual rough OD. Calculate the remaining DIAMETER reduction to nominal 0.725 inch; determine a safe finishing pass from the actual reading. HOLD dimensional acceptance until approved limits are supplied."
+note = "Remeasure before finishing; calculate the remaining reduction from the actual rough OD, not the predicted result of the preceding passes."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=799s"
+
+[[setups.ops]]
+op = 80
+do = "finish_turn"
+feature = "outer-diameter"
+faces = ["#17/ADVANCED_FACE[1]/"]
+tool = "turning-tool"
+holder = "four-way-toolpost"
+to_dia = 18.415
+z_from = 0.0
+z_to = "unknown"
+rpm = "unknown"
+doc_mm = "unknown"
+feed_mm_rev = "unknown"
+direction = "toward_chuck"
+note = "Finish to nominal 0.725-inch OD. The demonstrated speed is a little over 500 rpm, not an exact requested setting; HOLD until the actual setting is approved. Determine depth from L1 op 60's actual measurement; smooth slow hand feed. Withdraw the cross slide at the end rather than dragging the edge back across the finished OD. HOLD until turning length and jaw clearance are established; do not machine into jaws."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=826s"
+
+[[setups.ops]]
+op = 100
+do = "groove"
+feature = "back-face"
+faces = ["#70/ADVANCED_FACE[3]/"]
+tool = "parting-tool"
+holder = "four-way-toolpost"
+z_from = "unknown"
+z_to = -2.54
+to_dia = "unknown"
+rpm = 140.0
+doc_mm = "unknown"
+feed_mm_rev = "unknown"
+direction = "plunge_radial"
+note = "Set the ring-side edge of the wide traditional ground Grizzly parting tool 0.100 inch behind front face with the machinist scale; lock carriage. Do not substitute a narrow parting blade. Touch the finished OD. Make only a partial groove: the demonstrated cut is 0.100-inch DIAMETER reduction plus a little more radial depth than the 0.050-inch wall. At exactly that nominal reduction, 0.725 - 0.100 = 0.625 inch, equal to the final drill nominal, so there is no nominal release margin. HOLD: establish and verify the additional depth so the actual groove root lies BELOW the actual final drill's cut diameter, with an approved positive release margin. Measure extra depth, actual root and groove width, and obtain approval of the required margin before proceeding; equality must not be relied on to release the ring. Do not part off now. Confirm groove geometry, tool centre height and safe final-drill breakthrough/retention before proceeding."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=864s"
+
+[[setups.ops]]
+op = 110
+do = "deburr"
+feature = "outer-diameter"
+faces = ["#17/ADVANCED_FACE[1]/", "#50/ADVANCED_FACE[2]/", "#70/ADVANCED_FACE[3]/"]
+tool = "fine-mill-file"
+rpm = 200.0
+note = "Before drilling, lightly file the exposed front outer edge and ring's rear outer edge with the fine-cut handled mill file; reach only the rear edge through the wide groove. Demonstrated speed is about 200 rpm. The bore has not yet been drilled; file the outer edges only. HOLD until the edge-break requirement and lathe-filing procedure are approved, including safe handled-file posture and rotating-file clearance/contact. Keep hands and clothing clear of jaws, no gloves."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=978s"
+
+[[setups.ops]]
+op = 120
+do = "spot"
+feature = "bore"
+tool = "centre-drill-2"
+holder = "tailstock-drill-chuck"
+depth_mm = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+note = "Mount the Jacobs-type drill chuck in the tailstock; use the #2 centre drill and cutting oil. The demonstrated speed is approximately 800-900 rpm, not an exact requested setting; HOLD until the actual setting is approved. Spot only; establish and approve penetration/countersink dimensions before cutting. Stop for tool changes and lock tailstock before feeding."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1069s"
+
+[[setups.ops]]
+op = 130
+do = "drill"
+feature = "bore"
+tool = "drill-quarter"
+holder = "tailstock-drill-chuck"
+depth_mm = "unknown"
+exit_mm = "unknown"
+rpm = 400.0
+feed_mm_rev = "unknown"
+note = "First twist drill: 1/4 inch. Apply cutting oil, lock tailstock and touch the tip to the front. HOLD: measure actual final-drill point geometry, groove root and clearance before setting depth/exit travel. Do not use the demonstrated approximate 0.300-inch tip travel (= 7.62 mm) as an approved machine setting. Verify the measured span, drill-point length, correct quill scale column and actual travel. Establish full-diameter breakthrough beyond the 0.100-inch ring, positive release margin and safe retention. Brass can grab a steel-ground drill: use controlled gentle feed; obtain approval of brass-drill suitability before cutting."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1188s"
+
+[[setups.ops]]
+op = 140
+do = "drill"
+feature = "bore"
+tool = "drill-five-sixteenths"
+holder = "tailstock-drill-chuck"
+depth_mm = "unknown"
+exit_mm = "unknown"
+rpm = 400.0
+feed_mm_rev = "unknown"
+note = "Enlarge with 5/16 inch at the same demonstrated 400 rpm; feed very gently. The drill can grab/self-feed or spin in the chuck. Stop if it grabs or slips; correct the setup rather than forcing feed. Feed to the previous hole bottom only after physical depth is approved from the measured final-drill/release geometry."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1268s"
+
+[[setups.ops]]
+op = 150
+do = "drill"
+feature = "bore"
+tool = "drill-seven-sixteenths"
+holder = "tailstock-drill-chuck"
+depth_mm = "unknown"
+exit_mm = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+note = "Enlarge with 7/16 inch, using controlled gentle brass feed. HOLD until the actual speed, feed and drill-point travel are established and approved."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1352s"
+
+[[setups.ops]]
+op = 160
+do = "drill"
+feature = "bore"
+tool = "drill-half"
+holder = "tailstock-drill-chuck"
+depth_mm = "unknown"
+exit_mm = "unknown"
+rpm = "unknown"
+feed_mm_rev = "unknown"
+note = "Enlarge with 1/2 inch. Retain the same bar chucking and tailstock drill-chuck arrangement. HOLD until the actual speed, feed and drill-point travel are established and approved."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1357s"
+
+[[setups.ops]]
+op = 170
+do = "drill"
+feature = "bore"
+faces = ["#90/ADVANCED_FACE[4]/"]
+tool = "drill-five-eighths"
+holder = "tailstock-drill-chuck"
+depth_mm = "unknown"
+exit_mm = "unknown"
+rpm = 150.0
+feed_mm_rev = "unknown"
+keep = "all-surfaces"
+note = "Use the final 5/8-inch drill, oil, about 150 rpm. Full-diameter breakthrough into the pre-groove frees the ring onto the drill. HOLD until the actual groove root is verified below the actual final cut diameter with an approved positive release margin, and safe containment/retention and breakthrough procedures are established. Do not reach for the ring with spindle moving."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1361s"
+
+[[setups.ops]]
+op = 180
+do = "release"
+feature = "all-surfaces"
+note = "After the final drill frees the ring, stop and isolate spindle before removing it from the drill. Recover the ring without sharp-edge contact; do not put it on a finger yet."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1393s"
+
+[[setups]]
+id = "H1"
+machine = "video-bench"
+stock_in = "L1"
+coolant = "none"
+deburr_mm = "unknown"
+note = "Hand-finish the released ring at the wooden bench. HOLD until safe retention is established."
+[setups.hold]
+fixture = "unknown"
+stop = "unknown"
+grip_mm = "unknown"
+clamp = "The demonstration holds the small ring in fingers for manual twists of the conical hand deburring tool. HOLD until safe mechanical retention/contact is established and approved."
+note = "HOLD until safe retention for this small sharp ring is established. Finger holding does not establish safe mechanical retention or holding capacity. Both inner edges must be safe before wear."
+[[setups.ops]]
+op = 10
+do = "deburr"
+feature = "bore"
+faces = ["#90/ADVANCED_FACE[4]/", "#50/ADVANCED_FACE[2]/", "#70/ADVANCED_FACE[3]/"]
+tool = "hand-deburring-tool"
+note = "Clean the sharp inside edges created by drilling with the hand-held conical deburring tool, a few gentle manual twists on both ends. Deburr the inner rims only. The tiny ring is difficult to hold; resolve the H1 retention HOLD before proceeding. HOLD until chamfer, stock-removal and surface-finish requirements are approved."
+note_cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=1407s"
+[[setups.ops]]
+op = 20
+do = "inspect"
+feature = ["outer-diameter", "back-face", "bore"]
+tool = "gauges.dial-caliper"
+checks = { outer-diameter = { dia = "dial-caliper", thickness = "dial-caliper" }, back-face = { length = "dial-caliper" }, bore = { dia = "dial-caliper", thru = "unknown", coaxiality_dia = "unknown" } }
+inspection_methods = { bore = { thru = "With the ring stopped and safely retained, look through the bore from both ends and verify an unobstructed opening; inspect both inner rims for remaining drilling burrs. This qualitative visual check does not establish dimensional acceptance." } }
+inspection_note = "Record OD, ID and axial ring width with the dial caliper; calculate radial wall = (OD - ID) / 2. Nominal targets are OD 0.725, ID 0.625, axial ring width 0.100 and radial wall 0.050 inch. HOLD dimensional acceptance until approved limits, the through check's dimensional gauge/acceptance, coaxiality method/limit and caliper uncertainty are established. Do not declare fit or acceptance from these nominal comparisons or the qualitative visual check."
+note = "HOLD until actual requirements, safe edge condition, material suitability and recorded results are approved."
+note_cite = ["EDITORIAL SAFEGUARD", "https://www.youtube.com/watch?v=t9NGty1CVII&t=703s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=1393s"]

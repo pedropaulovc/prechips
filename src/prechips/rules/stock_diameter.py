@@ -1,6 +1,7 @@
 """Check declared workholding sizes/ranges, never a chuck's exterior diameter."""
 
 from ..findings import Finding
+from ._bench import manual_bench, not_applicable, unfixtured_handling
 from .resolution import (
     UNKNOWN,
     authored,
@@ -117,6 +118,15 @@ def _relevant(item, kind, category):
 def evaluate(bundle):
     findings = []
     for setup in bundle.plan["setups"]:
+        bench = manual_bench(bundle, setup)
+        hold = setup.get("hold", {})
+        if isinstance(hold, dict) and unfixtured_handling(bench, hold):
+            findings.append(
+                not_applicable(
+                    "stock_diameter", setup, bench, "collet/chuck", "collet or chuck gripping size"
+                )
+            )
+            continue
         reference = record(setup.get("hold")).get("fixture", UNKNOWN)
         item, selected_size = _workholding(bundle, reference)
         item = record(item)

@@ -25,9 +25,17 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from prechips.findings import ALWAYS_REQUIRED
-from prechips.inputs import blank_supplies, load_bundle, operative_definitions
+from prechips.inputs import BadInput, blank_supplies, load_bundle, operative_definitions
 from prechips.joint_features import LABEL_PREFIX, fit, label, present, setup_span_mm
 from prechips.kernel import run_geometry
+from prechips.material_routes import (
+    OUTPUT_PREFIX,
+    MaterialGraph,
+    feature_material_status,
+    input_refs,
+    producer_setup,
+    setup_lineage,
+)
 from prechips.measurements import length_debt, record_debt
 from prechips.model import UNIT_TOLERANCE, Inventory, Plan, tolerance_requirements
 from prechips.process_features import ACTIONS as PROCESS_ACTIONS
@@ -35,7 +43,7 @@ from prechips.process_features import ANGLE_TOLERANCE_DEG
 from prechips.process_features import LABEL_PREFIX as PROCESS_PREFIX
 from prechips.rules import RULES as CHECKER_RULES
 from prechips.rules import tool_resolves as identity_rule
-from prechips.rules._bench import BENCH_KINDS, manual_bench
+from prechips.rules._bench import BENCH_KINDS, hand_saw, manual_bench
 from prechips.rules.coordinates import (
     CENTRE_OPS,
     DRO_DEFAULT_STEP,
@@ -48,10 +56,14 @@ from prechips.rules.geometry_common import _TURNING_ACTIONS as TURNING_ACTIONS
 from prechips.rules.geometry_common import TURNING_BLADE_KINDS, cutting_action, op_claims
 from prechips.rules.resolution import (
     HAND_FINISH,
+    HAND_THREAD,
     LENGTH_TOLERANCE_MM,
     MANUAL,
     SAW_OPS,
+    SLITTING_SAW_MODEL_REASON,
     SLOT_CATEGORIES,
+    TAP_OPS,
+    UNRESOLVED_SAW_MODEL_REASON,
     make_op_unknowns,
     make_ops,
     make_tool,
@@ -62,7 +74,10 @@ from prechips.rules.resolution import (
     rough_leave,
     same_length,
     saw_setup,
+    saw_station,
     shop_made_item,
+    slitting_saw,
+    spindle_saw,
 )
 from prechips.rules.resolution import resolve as resolve_item
 from prechips.rules.resolution import select as select_item
@@ -114,6 +129,11 @@ EXPECTED_EXIT = {
     "pivot-bracket": 0,
     "cone-pivot-post/built-up.toml": 4,
 }
+STANDALONE_CASES = (
+    ("blondihacks-t-nuts", "plan.toml", "expected", 4),
+    ("blondihacks-brass-ring", "plan.toml", "expected", 4),
+    ("blondihacks-magic-tube", "plan.toml", "expected", 4),
+)
 # Worked fixtures exercise the measured branch without claiming shop observations.
 EXAMPLE_MEASUREMENT = {
     "by": "example value (realistic, not a shop measurement)",
@@ -274,8 +294,8 @@ CUT_OPERATIONS = {
     ),
 }
 # The hole actions whose tip a hole feature's blind_depth row places, and the feature
-# kinds they place it for (a centre hole's row is its center_drill's alone).
-ENDPOINT_OPS = frozenset({"spot", "drill", "ream", "tap", "counterbore", "bore"})
+# kinds they place it for (a centre hole uses its real spot/centre-drilling action).
+ENDPOINT_OPS = frozenset({"spot", "drill", "ream", "counterbore", "bore"}) | TAP_OPS
 ENDPOINT_KINDS = frozenset({"hole", "counterbore", "thread", "threaded_hole"})
 
 
@@ -749,8 +769,7 @@ def check_frames(features: dict, plan: dict) -> None:
     for name, frame in planned.items():
         require(frame.get("binding") is not None, f"plan frame {name}: binding must be stated")
         require(
-            "AUTHOR'S CHOICE" in frame.get("cite", [])
-            and "AUTHOR'S CHOICE" in frame.get("note", ""),
+            "AUTHOR'S CHOICE" in frame.get("cite", []),
             f"plan frame {name}: author's choice must be distinguished from source geometry",
         )
     exported = features["frames"] if isinstance(features["frames"], dict) else {}
@@ -929,6 +948,7 @@ def rule_subjects(plan: dict, features: dict, entries: Entries, checked) -> dict
         prepared_blank={"stock.prepared"},
         joint_assembly={setup["id"] for setup in joined},
         joint_fit={setup["id"] for setup in joined if setup["joint"]["kind"] == "cylindrical"},
+        joint_thread={setup["id"] for setup in joined if setup["joint"]["kind"] == "threaded"},
         saw_cut=op_ids(lambda op: op.get("do") in SAW_OPS),
         manual_arc=op_ids(
             lambda op: (
@@ -937,10 +957,16 @@ def rule_subjects(plan: dict, features: dict, entries: Entries, checked) -> dict
                 and arc_feature(definitions.get(op["feature"], {}))
             )
         ),
-        # A coating's process resolves as its op; other manual work selects no tool.
+        # Coating resolves its process; stopped-spindle threads select real hand tools.
         tool_resolves=set(identity_rows(plan, entries))
         | set(make_op_rows(plan, entries))
-        | op_ids(lambda op: op.get("do") == "coating" or op.get("do") not in MANUAL),
+        | op_ids(
+            lambda op: (
+                op.get("do") == "coating"
+                or op.get("do") in HAND_THREAD
+                or op.get("do") not in MANUAL
+            )
+        ),
         inspection=inspection_subjects(plan, definitions),
     )
     for rule in CHECKER_RULES:
@@ -1031,6 +1057,17 @@ def check_required_coverage(
     absent = sorted((evaluated | coverage.keys()) - findings.keys())
     require(not absent, f"missing findings {absent}: evaluated or required subjects")
     check_make_ops(plan, entries, findings)
+    # Thread subjects are independently authored above, while their full normalized
+    # evidence still comes from this validator's own source-bound checker bundle.
+    threaded = domains.get("joint_thread", set())
+    if threaded:
+        rule = next(rule for rule in CHECKER_RULES if rule.name == "joint_thread")
+        own = checked(rule)
+        for subject in threaded:
+            require(
+                subject in own and findings["joint_thread", subject] == own[subject],
+                f"joint_thread:{subject}: not the checker's own row on the validator's inputs",
+            )
     for rule, own in domains.items():
         for subject, row in own.items() if isinstance(own, dict) else ():
             if rule == "consistency":
@@ -1088,6 +1125,11 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
     def has(rule: str, subject: str) -> None:
         require((rule, subject) in findings, f"missing finding {rule}:{subject}")
 
+    # Missing-requirement declarations replace a known empty feature's bare N/A row,
+    # but unknown requirement identities/applicability still need their own subjects.
+    for subject in inspection_subjects(plan, definitions):
+        has("inspection", subject)
+
     for name, feature in features["features"].items():
         requirements = feature.get("requirements")
         require(
@@ -1109,7 +1151,17 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
             ),
             f"{name}: transient joint or preparation labels cannot name finished STEP faces",
         )
-        if requirements:
+        numeric_requirements = [
+            field
+            for field in requirements
+            if numeric(feature.get(field))
+            or (
+                isinstance(feature.get(field), list)
+                and bool(feature[field])
+                and all(map(numeric, feature[field]))
+            )
+        ]
+        if numeric_requirements:
             require(isinstance(feature.get("precision"), dict), f"{name}: per-dimension precision")
         has("datum_consistency", name)
     for name, feature in definitions.items():
@@ -1119,16 +1171,12 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
         tolerances = set(tolerance_requirements(feature)) - {"unknown"}
         if requirements == "unknown" or "unknown" in requirements:
             subject = f"{name}:unknown"
-            has("inspection", subject)
             require(
                 findings["inspection", subject]["status"] == "unknown",
                 f"{subject}: unresolved requirement must remain unknown",
             )
-        if not tolerances and requirements != "unknown" and "unknown" not in requirements:
-            has("inspection", name)
         for requirement in tolerances:
             subject = f"{name}:{requirement}"
-            has("inspection", subject)
             finishing = [
                 op
                 for setup in plan["setups"]
@@ -1145,33 +1193,61 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
     require(len(ids) == len(set(ids)), "duplicate setup id")
     for setup in setups:
         sid = setup["id"]
-        require(
-            setup["frame"] in features["frames"] or setup["frame"] in plan_frames(plan, features),
-            f"{sid}: missing frame",
-        )
-        require(setup.get("ops"), f"{sid}: empty operations")
-        require(isinstance(setup.get("stock_state"), dict), f"{sid}: missing stock state")
-        require(isinstance(setup.get("hold"), dict), f"{sid}: missing hold")
         bench = manual_bench(inventory, setup)
-        if saw_setup(setup):
+        threaded_manual = manual_thread_facts(inventory, setup) if bench is None else None
+        if bench is None:
+            frame = setup.get("frame", "unknown")
+            require(
+                frame == "unknown"
+                or frame in features["frames"]
+                or frame in plan_frames(plan, features),
+                f"{sid}: missing frame",
+            )
+            state = setup.get("stock_state", "unknown")
+            require(
+                state == "unknown" or isinstance(state, dict),
+                f"{sid}: stock state must be declared or remain unknown",
+            )
+        require(setup.get("ops"), f"{sid}: empty operations")
+        require(isinstance(setup.get("hold"), dict), f"{sid}: missing hold")
+        if saw_setup(inventory, setup):
             # A dedicated saw setup locates its cut by cut_plane; no spindle zero is set.
             has("zero_check", sid)
             require(
                 findings["zero_check", sid]["status"] == "not_applicable"
-                and findings["zero_check", sid]["numbers"] == {"frame": setup["frame"]},
+                and findings["zero_check", sid]["numbers"]
+                == {"frame": setup.get("frame", "unknown")},
                 f"{sid}: saw setup zero waiver must name its frame",
             )
-        elif bench is None:
-            require(isinstance(setup.get("zero"), dict), f"{sid}: missing zero")
-            lathe = machine_kind(setup, Entries(inventory)) == "lathe"
-            axes = ("x", "z") if lathe else ("x", "y", "z")
-            for axis in axes:
-                recipe = setup["zero"].get(axis)
+        elif any(spindle_saw(inventory, setup, op) for op in setup["ops"]):
+            check_spindle_zero(setup, findings["zero_check", sid], inventory)
+        elif threaded_manual is not None:
+            # Stopped-spindle thread work waives only these two electronic screens.
+            for rule in ("zero_check", "coordinates"):
+                has(rule, sid)
                 require(
-                    isinstance(recipe, dict) and "check_jog_mm" in recipe,
-                    f"{sid}: missing {axis} check jog",
+                    findings[rule, sid]["status"] == "not_applicable"
+                    and findings[rule, sid]["numbers"] == threaded_manual,
+                    f"{sid}: {rule} must name the all-manual thread facts that waive it",
                 )
-            require("retouch_after" in setup["zero"]["z"], f"{sid}: missing retouch contract")
+        elif bench is None:
+            for rule in ("zero_check", "coordinates"):
+                has(rule, sid)
+                require(
+                    findings[rule, sid]["status"] != "not_applicable",
+                    f"{sid}: {rule} cannot waive unknown or mixed machine work",
+                )
+            if table_of(plan.get("dro")).get("kind", "digital") == "digital":
+                require(isinstance(setup.get("zero"), dict), f"{sid}: missing zero")
+                lathe = machine_kind(setup, Entries(inventory)) == "lathe"
+                axes = ("x", "z") if lathe else ("x", "y", "z")
+                for axis in axes:
+                    recipe = setup["zero"].get(axis)
+                    require(
+                        isinstance(recipe, dict) and "check_jog_mm" in recipe,
+                        f"{sid}: missing {axis} check jog",
+                    )
+                require("retouch_after" in setup["zero"]["z"], f"{sid}: missing retouch contract")
         else:
             # Manual bench fit/inspect work sets no DRO zero; the screens say so by name.
             for rule in ("zero_check", "coordinates", "headroom"):
@@ -1192,14 +1268,21 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
             has("speeds_feeds", f"{sid}:{op['op']}")
             has("turning_deflection", f"{sid}:{op['op']}")
             has("engagement", f"{sid}:{op['op']}")
-            if op["do"] not in MANUAL:
-                if "tool" in op and op["do"] not in SAW_OPS:
+            action = op["do"]
+            if action in HAND_THREAD:
+                require("tool" in op, f"{sid}:{op['op']}: omitted manual thread tool")
+                require("holder" in op, f"{sid}:{op['op']}: omitted manual thread holder")
+            elif action not in MANUAL:
+                if "tool" in op and (action not in SAW_OPS or spindle_saw(inventory, setup, op)):
                     require("holder" in op, f"{sid}:{op['op']}: omitted holder")
+            if action in HAND_THREAD or action == "coating" or action not in MANUAL:
                 has("tool_resolves", f"{sid}:{op['op']}")
         if isinstance(setup.get("stock_in"), list):
             has("joint_assembly", sid)
             if setup["joint"]["kind"] == "cylindrical":
                 has("joint_fit", sid)
+            elif setup["joint"]["kind"] == "threaded":
+                has("joint_thread", sid)
 
 
 def check_inspection_declarations(plan: dict, features: dict, findings: dict) -> None:
@@ -1257,14 +1340,35 @@ def measured_setup(kernel, sid: str) -> dict:
     return measured if isinstance(measured, dict) else {}
 
 
-def kernel_join(kernel, setup: dict) -> tuple:
+def measured_output(plan: dict, facts: dict, ref: str) -> dict:
+    """Only a native-proven retained partition, never its host identity descriptor."""
+    if facts.get("status") != "ok":
+        return {}
+    producer = producer_setup(plan, ref)
+    detail = table_of(table_of(facts.get("setups")).get(producer))
+    output = table_of(table_of(detail.get("outputs")).get(ref.removeprefix(OUTPUT_PREFIX)))
+    box, volume = output.get("bbox_mm"), output.get("volume_mm3")
+    if (
+        output.get("reason")
+        or not isinstance(box, list)
+        or len(box) != 6
+        or not all(map(finite, box))
+        or any(box[i] > box[i + 3] for i in range(3))
+        or not finite(volume)
+        or volume <= 0
+    ):
+        return {}
+    return output
+
+
+def kernel_join(kernel, setup: dict, plan: dict) -> tuple:
     """``(status, numbers)``: the ``joint_assembly`` finding the validator's own kernel run
     (``kernel``, :func:`independent_kernel`) derives for the assembly ``setup``. A run that
     is not ``ok`` names its status (``kernel_status``, plus ``kernel_unavailable`` when
     the kernel is missing) and is an error only when it errored, else unknown; an ``ok``
-    run refusing the join is an error, one leaving its joined stock unknown or deriving
-    none for the setup (no setup facts at all included) unknown, else pass, with that
-    setup's completed joint features."""
+    run refusing the join is an error; unknown joined stock, missing setup facts or any
+    retained input without its own native partition proof is unknown. Only a proven
+    route passes, with that setup's completed joint features."""
     facts = kernel()
     facts = facts if isinstance(facts, dict) else {}
     run = facts.get("status")
@@ -1276,11 +1380,24 @@ def kernel_join(kernel, setup: dict) -> tuple:
     setups = facts.get("setups")
     detail = setups.get(setup["id"]) if isinstance(setups, dict) else None
     detail = detail if isinstance(detail, dict) else {}
+    history = setup_lineage(plan, setup["id"])
+    unproven_partition = any(
+        not measured_output(plan, facts, ref)
+        for earlier in plan.get("setups", [])
+        if earlier["id"] in history
+        for ref in input_refs(earlier)
+        if ref.startswith(OUTPUT_PREFIX)
+    )
     status = (
         "error"
         if detail.get("assembly_error")
         else "unknown"
-        if detail.get("stock_reason") or "stock_bbox_mm" not in detail
+        if (
+            setup["joint"]["kind"] == "threaded"
+            or detail.get("stock_reason")
+            or "stock_bbox_mm" not in detail
+            or unproven_partition
+        )
         else "pass"
     )
     numbers = {
@@ -1303,7 +1420,7 @@ def check_joint_declarations(plan: dict, features: dict, findings: dict, kernel)
         sid = setup["id"]
         joint = setup["joint"]
         assembly = findings["joint_assembly", sid]
-        status, numbers = kernel_join(kernel, setup)
+        status, numbers = kernel_join(kernel, setup, plan)
         require(
             assembly["status"] == status,
             f"{sid}: joint assembly verdict differs from the validator's own kernel join",
@@ -1312,6 +1429,21 @@ def check_joint_declarations(plan: dict, features: dict, findings: dict, kernel)
             assembly["numbers"] == numbers,
             f"{sid}: joint assembly evidence differs from the validator's own kernel join",
         )
+        if joint["kind"] == "threaded":
+            thread = findings["joint_thread", sid]
+            require(
+                thread["status"] == ("error" if thread["numbers"].get("violations") else "unknown"),
+                f"{sid}: unmodeled threaded geometry cannot approve the assembly",
+            )
+            require(
+                thread["numbers"].get("socket") == joint["socket"]
+                and thread["numbers"].get("spigot") == joint["spigot"]
+                and thread["numbers"].get("unmodeled_geometry")
+                == ["helical flanks", "lead/runout", "prepared shoulder seating"],
+                f"{sid}: threaded joint must retain exported identities "
+                "and unmodeled geometry debt",
+            )
+            continue
         if joint["kind"] != "cylindrical":
             continue
         result = fit(bundle, setup)
@@ -1517,20 +1649,6 @@ def vector_of(value, size: int = 3) -> list | None:
     return None
 
 
-def stock_lineage(plan: dict, sid) -> set:
-    """Setup ``sid`` and every earlier setup whose output material flows into it."""
-    setups = {setup["id"]: setup for setup in plan.get("setups", [])}
-    seen, pending = set(), [sid]
-    while pending:
-        current = pending.pop()
-        if not isinstance(current, str) or current in seen or current not in setups:
-            continue
-        seen.add(current)
-        refs = setups[current].get("stock_in")
-        pending.extend(refs if isinstance(refs, list) else [refs])
-    return seen
-
-
 def blank_axes(stock: dict) -> list | None:
     """The root stock's unit length, section and third axes, or None when unknown."""
     axis, across = vector_of(stock.get("axis")), vector_of(stock.get("section_axis"))
@@ -1579,12 +1697,19 @@ def blank_cut(plan: dict, kernel, receiver: str, axes, declared, allowed, number
     facts = kernel() if isinstance(source, str) and source != "unknown" else None
     if not isinstance(facts, dict) or facts.get("status") != "ok":
         return "unknown"
-    setups = facts.get("setups")
-    handed = setups.get(source) if isinstance(setups, dict) else None
-    handed = handed if isinstance(handed, dict) else {}
-    if handed.get("stock_out_reason"):
-        return "unknown"
-    bbox, volume = vector_of(handed.get("stock_out_bbox_mm"), 6), handed.get("stock_out_volume_mm3")
+    if source.startswith(OUTPUT_PREFIX):
+        handed = measured_output(plan, facts, source)
+        bbox, volume = handed.get("bbox_mm"), handed.get("volume_mm3")
+    else:
+        setups = facts.get("setups")
+        handed = setups.get(source) if isinstance(setups, dict) else None
+        handed = handed if isinstance(handed, dict) else {}
+        if handed.get("stock_out_reason"):
+            return "unknown"
+        bbox, volume = (
+            vector_of(handed.get("stock_out_bbox_mm"), 6),
+            handed.get("stock_out_volume_mm3"),
+        )
     if bbox is None or not numeric(volume):
         return "unknown"
     spans = []
@@ -1764,9 +1889,9 @@ def derive_prepared_blank(plan: dict, features: dict, inventory: dict, prepared:
     }
     if receiver == "unknown":
         return "unknown", numbers, []
-    lineage = stock_lineage(plan, receiver)
+    lineage = setup_lineage(plan, receiver)
     definitions = operative_definitions(plan, features)
-    made, later = [], []
+    made, later, unproven = [], [], []
     for setup in plan["setups"]:
         for op in setup["ops"]:
             name = op.get("feature")
@@ -1777,11 +1902,22 @@ def derive_prepared_blank(plan: dict, features: dict, inventory: dict, prepared:
             if op.get("do") not in PROCESS_ACTIONS["end_face"]:
                 continue
             earlier = setup["id"] in lineage and setup["id"] != receiver
-            (made if earlier else later).append((name, f"{setup['id']} op {op['op']}"))
+            status = (
+                feature_material_status(plan, receiver, setup["id"], name, features)
+                if earlier
+                else False
+            )
+            destination = unproven if status is None else made if status else later
+            destination.append((name, f"{setup['id']} op {op['op']}"))
     numbers["made_by"] = [f"{PROCESS_PREFIX}{name} in {where}" for name, where in made]
     numbers["made_outside_lineage"] = [
         f"{PROCESS_PREFIX}{name} in {where}" for name, where in later
     ]
+    if unproven:
+        numbers["made_material_unknown"] = [
+            f"{PROCESS_PREFIX}{name} in {where}" for name, where in unproven
+        ]
+        return "unknown", numbers, []
     axes = blank_axes(stock)
     raw_section, raw_length = vector_of(stock.get("section_mm"), 2), stock.get("length_mm")
     raw_origin = vector_of(stock.get("origin_mm"))
@@ -1798,6 +1934,34 @@ def derive_prepared_blank(plan: dict, features: dict, inventory: dict, prepared:
         return "unknown", numbers, []
     if tolerance is None or any(t < 0 for t in tolerance):
         return "unknown", numbers, []
+    partitioned = any(
+        atom.split is not None for atom in MaterialGraph(plan).nodes.get(receiver, ())
+    )
+    if partitioned:
+        # The original bar's analytic box is not the receiving child's geometry.
+        # Require every selected split's own native proof, then measure that child.
+        facts = kernel()
+        facts = facts if isinstance(facts, dict) else {}
+        if any(
+            not measured_output(plan, facts, ref)
+            for earlier in plan["setups"]
+            if earlier["id"] in lineage
+            for ref in input_refs(earlier)
+            if ref.startswith(OUTPUT_PREFIX)
+        ):
+            return "unknown", numbers, []
+        declared = blank_box(origin, [length, *section], axes)
+        numbers["declared_box_mm"] = [[round(v, 6) for v in span] for span in declared]
+        allowed = [tolerance[2], tolerance[0], tolerance[1]]
+        cut = blank_cut(plan, lambda: facts, receiver, axes, declared, allowed, numbers)
+        bands = {
+            key: [size - tol, size + tol]
+            for key, size, tol in zip(
+                PREPARED_SIZE_CHECKS, [length, *section], allowed, strict=True
+            )
+        }
+        checked, missing = blank_gauge_checks(prepared, bands, features, inventory, numbers)
+        return max(cut, checked, key=STATUS_RANK.get), numbers, missing
     box = blank_box(raw_origin, [float(raw_length), *raw_section], axes)
     scale = UNIT_MM.get(features.get("units"))
     tilted = False
@@ -1933,6 +2097,14 @@ def checker_row(own, evaluate, subject: str, status: str, numbers: dict) -> tupl
         return status, numbers
 
     def merge(theirs, ours):
+        # A mounted disk has no axial touch model. Only this explicitly marked,
+        # independently evaluated row supplies its unsupported evidence; ordinary
+        # touch arithmetic below still overrides the checker's values.
+        if (
+            isinstance(theirs, dict)
+            and theirs.get("tool_setting_state") == "unsupported_spindle_saw"
+        ):
+            return theirs
         if isinstance(theirs, dict) and isinstance(ours, dict):
             return {**theirs, **{key: merge(theirs.get(key), v) for key, v in ours.items()}}
         if isinstance(theirs, list) and isinstance(ours, list) and len(theirs) == len(ours):
@@ -2226,35 +2398,20 @@ def surface_cut_coverage(own, entries: Entries, setup: dict, op: dict, target: d
 
 
 def carry_route(plan: dict, setup: dict) -> list | None:
-    """The setups whose stock flows into ``setup``, in plan order and ending with it: each
-    ``stock_in`` names the root stock, one of its components or an earlier setup, else
-    None."""
-    setups = [other for other in plan.get("setups", []) if isinstance(other, dict)]
-    order = {other.get("id"): index for index, other in enumerate(setups)}
-    stock = table_of(plan.get("stock"))
-    supplies = {"stock"} | {
-        f"stock.{component['id']}"
-        for component in as_list(stock.get("components"))
-        if isinstance(component, dict) and isinstance(component.get("id"), str)
-    }
-    routed, pending = set(), [setup.get("id")]
-    while pending:
-        sid = pending.pop()
-        if sid in routed:
-            continue
-        routed.add(sid)
-        refs = as_list(setups[order[sid]].get("stock_in"))
-        if not refs:
-            return None
-        for ref in refs:
-            if not isinstance(ref, str):
-                return None
-            if ref in supplies:
-                continue
-            if ref not in order or order[ref] >= order[sid]:
-                return None
-            pending.append(ref)
-    return [other for other in setups if other.get("id") in routed]
+    """Validated producer history in plan order, including named retained outputs.
+
+    Canonical partition identities allow sibling pieces from one bar to meet again,
+    but still reject overlapping/reused material. This establishes no native geometry.
+    """
+    try:
+        MaterialGraph(plan, validate=True)
+    except (KeyError, TypeError, ValueError):
+        return None
+    routed = setup_lineage(plan, setup.get("id"))
+    setups = [other for other in plan.get("setups", []) if other.get("id") in routed]
+    if not setups or any(not input_refs(other) for other in setups):
+        return None
+    return setups
 
 
 def exact_end_plane(kernel: dict, sid, face: str) -> dict | None:
@@ -2782,10 +2939,25 @@ def carried_source_plane(own, entries: Entries, setup: dict, face, done: int) ->
     outputs, made, unproven = {}, False, False
     for current in route:
         sid, receiving = current.get("id"), current is setup
-        rows = [
-            outputs.get(source, {"present": False, "plane": None, "lost": False, "excluded": 0.0})
-            for source in as_list(current.get("stock_in"))
-        ]
+        rows = []
+        for source in input_refs(current):
+            row = outputs.get(
+                producer_setup(own.plan, source),
+                {"present": False, "plane": None, "lost": False, "excluded": 0.0},
+            )
+            if source.startswith(OUTPUT_PREFIX) and row["present"] is not False:
+                row = dict(row)
+                producer = row["plane"]["source"] if row["plane"] is not None else None
+                status = (
+                    feature_material_status(own.plan, source, producer, face, own)
+                    if producer is not None
+                    else None
+                )
+                if status is False:
+                    row.update(present=False, plane=None, lost=False, excluded=0.0)
+                elif status is None or not measured_output(own.plan, kernel, source):
+                    row.update(present="unknown", lost=True)
+            rows.append(row)
         carrying = [row for row in rows if row["present"] is True]
         present = "unknown" if any(row["present"] == "unknown" for row in rows) else bool(carrying)
         if len({row["plane"]["source"] for row in carrying}) > 1:
@@ -2931,11 +3103,144 @@ def contact_retouch(recipe: dict) -> dict:
     return touch
 
 
+def manual_thread_facts(inventory: dict, setup: dict):
+    """Independent proof of wholly manual thread work, never a holding waiver."""
+    reference = setup.get("machine", "unknown")
+    kind = Entries(inventory).record(reference, "machines").get("kind")
+    ops = setup.get("ops")
+    if (
+        kind not in BENCH_KINDS | {"lathe", "mill", "drill_press"}
+        or not isinstance(ops, list)
+        or not ops
+        or not any(op.get("do") in HAND_THREAD for op in ops)
+        or not all(op.get("do") in MANUAL for op in ops)
+    ):
+        return None
+    return {
+        "machine": reference,
+        "machine_kind": kind,
+        "manual_thread": True,
+        "operations": [{"op": op.get("op", "unknown"), "do": op["do"]} for op in ops],
+    }
+
+
+def readout_fields(plan: dict, features: dict) -> dict:
+    """Independent source-scale facts; CAD and readout units are distinct.
+
+    A diameter-scale increment is diameter change, not radial travel. A source
+    procedure or positive graduation does not prove physical calibration or zero.
+    The explanatory debt sentence is wording, checked separately by check_readout.
+    """
+    dro = table_of(plan.get("dro"))
+    units = dro.get("units", features.get("units", "unknown"))
+    graduation = dro.get("graduation", "unknown")
+    graduation = graduation if positive(graduation) else "unknown"
+    unit_mm = UNIT_MM.get(units)
+    graduation_mm = graduation * unit_mm if numeric(graduation) and unit_mm else "unknown"
+    radius = dro.get("radius_mode")
+    radial = (
+        graduation_mm / (1 if radius is True else 2)
+        if numeric(graduation_mm) and isinstance(radius, bool)
+        else "unknown"
+    )
+    return {
+        "kind": dro.get("kind", "digital"),
+        "units": units,
+        "graduation": graduation,
+        "graduation_mm": graduation_mm,
+        "x_radial_graduation_mm": radial,
+        "x_scale": "radius" if radius is True else "diameter" if radius is False else "unknown",
+        "procedure": dro.get("procedure", "unknown"),
+        "backlash": dro.get("backlash", "unknown"),
+        "calibration": dro.get("calibration", "unknown"),
+    }
+
+
+def check_readout(reported, plan: dict, features: dict, where: str) -> None:
+    """Hold reported mechanical/unknown scale facts to authored inputs, not a rule helper."""
+    fields = readout_fields(plan, features)
+    require(
+        isinstance(reported, dict) and set(reported) == set(fields) | {"debt"},
+        f"{where}: readout fields are not the declared scale's",
+    )
+    for key, value in fields.items():
+        require(
+            same_evidence(reported[key], value),
+            f"{where}: readout {key} is not the plan's {value!r}",
+        )
+    # Wording is not evidence, but an unproved physical instrument cannot lose its debt.
+    debt = reported["debt"]
+    require(
+        isinstance(debt, str) and debt.strip() not in {"", "unknown"},
+        f"{where}: readout physical-setting debt is missing",
+    )
+
+
+def mechanical_zero_rows(setup: dict, own, entries: Entries) -> tuple:
+    """Independent source pickup rows, held without any electronic preset or carry proof.
+
+    The returned readout has the source/numeric fields only; check_readout validates
+    their report plus its nonempty explanatory debt. Nominal edge_mm and source
+    calibration prose cannot register a physical dial or create carried Z readings.
+    """
+    zero = table_of(setup.get("zero"))
+    fields = readout_fields(own.plan, own.features)
+    axes = {
+        axis: {
+            key: recipe.get(key, "unknown")
+            for key in ("procedure", "method", "dial_setting", "face", "feature", "tool", "gauge")
+        }
+        for axis in ("x", "y", "z")
+        if isinstance(recipe := zero.get(axis), dict)
+    }
+    machine = machine_record(setup, entries)
+    lathe = machine.get("kind") == "lathe" or "lathe" in str(machine.get("type", "")).lower()
+    needed = ("x", "z") if lathe else ("x", "y", "z")
+    missing = [
+        f"{axis.upper()} physical dial setting"
+        for axis in needed
+        if not numeric(table_of(axes.get(axis)).get("dial_setting"))
+    ]
+    if not axes:
+        missing.append("physical zero/pickup procedure")
+    missing.extend(
+        key for key in ("graduation", "calibration", "backlash") if fields[key] == "unknown"
+    )
+    directions = table_of(table_of(own.plan.get("dro")).get("direction"))
+    missing.extend(
+        f"{axis.upper()} direction"
+        for axis in needed
+        if directions.get(axis, "unknown") == "unknown"
+    )
+    if fields["units"] not in UNIT_MM:
+        missing.append("readout units")
+    if lathe and fields["x_scale"] == "unknown":
+        missing.append("X diameter/radius scale")
+    touches = zero.get("tool_touches")
+    return (
+        "unknown",
+        {
+            "frame": setup.get("frame", "unknown"),
+            "readout": fields,
+            "axes": axes,
+            "physical_setting_debt": missing,
+            "tool_touches": [row for row in touches if isinstance(row, dict)]
+            if isinstance(touches, list)
+            else [],
+        },
+        {},
+    )
+
+
 def derive_zero(setup: dict, own, entries: Entries) -> tuple:
-    """``(status, numbers)``: the ``zero_check`` finding of a setup that sets a DRO zero
-    (:func:`zero_rows`), with a lathe's tool-setting rows and every row or verdict only
-    the checker derives on these inputs (:func:`checker_row`)."""
+    """The independently derived zero evidence; electronic-only extras stay electronic.
+
+    A digital zero carries lathe tool-setting rows and checker-only evidence
+    (:func:`checker_row`); a mechanical zero never merges that electronic recipe.
+    """
     status, numbers, _ = zero_rows(setup, own, entries)
+    if table_of(own.plan.get("dro")).get("kind", "digital") != "digital":
+        return status, numbers
     if zero_rules_touch.lathe_setup(own, setup):
         numbers["tool_setting"] = zero_rules_tool_setting.tool_setting(
             own, setup, setup["zero"], numbers["tool_touches"], numbers["derived_touches"]
@@ -2944,11 +3249,11 @@ def derive_zero(setup: dict, own, entries: Entries) -> tuple:
 
 
 def zero_rows(setup: dict, own, entries: Entries) -> tuple:
-    """``(status, numbers, readings)``: the ``zero_check`` rows of a setup that sets a DRO
-    zero, from the validator's own inputs ``own`` (:func:`zero_inputs`) alone, and per
-    cutting op the carried Z touch its DRO reads (``readings``: physical and native
-    heights, typed setting, stand-off and residual; "unknown" for a native face its touch
-    cannot place; absent otherwise).
+    """``(status, numbers, readings)``: independent ``zero_check`` rows and per-op carried
+    electronic Z readings, from the validator's own inputs ``own`` (:func:`zero_inputs`).
+    Mechanical pickups stay held with no carried readings, never nominal-edge presets.
+    Electronic readings carry physical and native heights, typed setting, stand-off and
+    residual; "unknown" for a native face its touch cannot place; absent otherwise.
 
     The DRO's jog polarity per axis is the plan's ``dro.direction`` (:data:`DRO_COUNTS`):
     a reversed axis (-1), or a mode other than ABS, is the error to stop on. The display
@@ -2971,6 +3276,8 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
     (:func:`safe_down_setting`), every carried contact so, its listed retouches contacts
     whatever the zero's own method (:func:`contact_retouch`). A lathe X touch's Axis Set
     is the checker's own expression of it (``x_touch_set``)."""
+    if table_of(own.plan.get("dro")).get("kind", "digital") != "digital":
+        return mechanical_zero_rows(setup, own, entries)
     plan = own.plan
     dro = plan.get("dro") if isinstance(plan.get("dro"), dict) else {}
     counts = dro.get("direction") if isinstance(dro.get("direction"), dict) else {}
@@ -3287,12 +3594,67 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
     return status, numbers, {op: reading(record) for op, record in readings.items()}
 
 
+def check_spindle_zero(setup: dict, finding: dict, inventory: dict) -> None:
+    """A confirmed or possible disk cannot gain a no-spindle zero waiver."""
+    ops = [op for op in setup["ops"] if spindle_saw(inventory, setup, op)]
+    reasons = dict.fromkeys(
+        SLITTING_SAW_MODEL_REASON if slitting_saw(inventory, op) else UNRESOLVED_SAW_MODEL_REASON
+        for op in ops
+    )
+    require(
+        finding["status"] in {"unknown", "error"}
+        and finding["numbers"].get("spindle_saw_ops") == [op["op"] for op in ops]
+        and finding["numbers"].get("spindle_saw_debt") == "; ".join(reasons),
+        f"{setup['id']}: mounted saw zero debt is missing or waived",
+    )
+
+
 def check_zero(setup: dict, finding: dict, entries: Entries, own) -> None:
-    """The ``zero_check`` finding of a setup that sets a DRO zero carries the verdict and
-    every row the validator derives from its own inputs (:func:`derive_zero`): the jog
-    polarity, Axis Set and readings of each axis, each retouch, each tool touch, re-touch
-    and missing touch, and the DRO mode it prints. No reported sign, mode, reading or
-    status is an operand: a report's rows can only repeat them."""
+    """Hold the zero's verdict and rows to independent authored-input derivations.
+
+    Electronic jogs, modes, presets and tool touches follow :func:`derive_zero`.
+    Mechanical source pickups have no electronic settings and cannot waive their
+    unverified physical registration. No report field or verdict is an operand.
+    """
+    if table_of(own.plan.get("dro")).get("kind", "digital") != "digital":
+        status, numbers = derive_zero(setup, own, entries)
+        sid, reported = setup["id"], finding["numbers"]
+        check_readout(reported.get("readout"), own.plan, own.features, sid)
+        require(
+            set(reported) == set(numbers),
+            f"{sid}: mechanical zero cannot invent digital modes, presets or retouches",
+        )
+        for key in numbers.keys() - {"readout"}:
+            require(
+                same_evidence(reported.get(key), numbers[key]),
+                f"{sid}: mechanical zero {key} is not its authored pickup evidence",
+            )
+        require(
+            finding["status"] == status,
+            f"{sid}: unverified physical readout cannot pass or waive its zero",
+        )
+        return
+    spindle = [op for op in setup["ops"] if spindle_saw(entries.inventory, setup, op)]
+    if spindle:
+        check_spindle_zero(setup, finding, entries.inventory)
+        ordinary = [op for op in setup["ops"] if op["do"] not in MANUAL | SAW_OPS]
+        if not ordinary:
+            require(
+                finding["status"]
+                == (
+                    "error"
+                    if own.plan.get("dro", {}).get("mode", "unknown") not in {"abs", "unknown"}
+                    else "unknown"
+                )
+                and finding["numbers"]
+                == {
+                    "frame": setup.get("frame", "unknown"),
+                    "spindle_saw_ops": finding["numbers"]["spindle_saw_ops"],
+                    "spindle_saw_debt": finding["numbers"]["spindle_saw_debt"],
+                },
+                f"{setup['id']}: pure mounted saw zero must retain only unresolved evidence",
+            )
+            return
     status, numbers = derive_zero(setup, own, entries)
     sid, reported = setup["id"], finding["numbers"]
     require(
@@ -3477,7 +3839,7 @@ def planned_depth_mm(op: dict, feature: dict, units):
     one, its feature's upper thread (else hole) depth."""
     if "depth_mm" in op:
         return op["depth_mm"] if numeric(op["depth_mm"]) else "unknown"
-    if op.get("do") == "tap":
+    if op.get("do") in TAP_OPS:
         field = "thread_depth" if "thread_depth" in feature else "depth"
         return feature_depth_mm(feature, field, units)
     return "unknown"
@@ -3783,7 +4145,7 @@ def check_endpoints(
     def carried_reading(setup: dict, op: dict):
         """The carried Z touch ``op``'s DRO reads, from this setup's own zero rows
         (:func:`zero_rows`); None when it reads none."""
-        if saw_setup(setup) or not isinstance(setup.get("zero"), dict):
+        if saw_setup(entries.inventory, setup) or not isinstance(setup.get("zero"), dict):
             return None
         if setup["id"] not in readings:
             readings[setup["id"]] = zero_rows(setup, stock, entries)[2]
@@ -3806,7 +4168,11 @@ def check_endpoints(
             for setup in plan["setups"]
             for op in setup["ops"]
             if op.get("feature") == name
-            and (op.get("do") == "center_drill" if centre else op.get("do") in ENDPOINT_OPS)
+            and (
+                op.get("do") in PROCESS_ACTIONS["centre_hole"]
+                if centre
+                else op.get("do") in ENDPOINT_OPS
+            )
         ]
         require(
             [(row.get("setup"), row.get("op")) for row in rows] == placed,
@@ -3818,6 +4184,46 @@ def check_endpoints(
             op = next(op for op in setup["ops"] if op["op"] == row["op"])
             require(op["feature"] == row["feature"], "endpoint mismatched feature")
             where = f"{row['setup']}:{row['op']}"
+            feature = definitions[op["feature"]]
+            action = op["do"]
+            if action in TAP_OPS & HAND_THREAD:
+                # A stopped-spindle hand tap uses a relative depth, not carriage/table
+                # DRO coordinates. The independent oracle still checks actual tap length.
+                require(row.get("depth_scale") == "manual", f"{where}: hand tap depth scale")
+                require(
+                    not any(key.startswith("dro_") for key in row)
+                    and not any(key in row for key in CARRIED_ENDPOINT),
+                    f"{where}: hand tap must not claim a DRO or carried tool setting",
+                )
+                entry, source, _ = entry_surface(stock, setup, op)
+                near(row.get("entry_z", "unknown"), entry, f"{where}: nominal entry")
+                require(row.get("entry_from") == source, f"{where}: nominal entry source")
+                depth = planned_depth_mm(op, feature, units)
+                tool = op.get("tool", "unknown")
+                flute = tool_length_mm(tool, "flute_len", entries)
+                near(row.get("depth_mm", "unknown"), depth, f"{where}: manual tapping depth")
+                near(row.get("flute_len_mm", "unknown"), flute, f"{where}: actual tap flute length")
+                band = "thread_depth" if "thread_depth" in feature else "depth"
+                near(
+                    row.get("depth_floor_mm", "unknown"),
+                    feature_depth_mm(feature, band, units, 0),
+                    f"{where}: thread depth floor",
+                )
+                require(row.get("exit_face") == "not_applicable", f"{where}: hand tap exit")
+                near(row.get("tip_z", "unknown"), difference(entry, depth), f"{where}: nominal tip")
+                depths[row["setup"], row["op"]] = depth if positive(depth) else "unknown"
+                missing = not entries.resolves(tool, "tools")
+                unverified = tool_unverified(tool, entries)
+                if numeric(depth) and depth <= 0:
+                    verdict = "error"
+                elif numeric(flute) and numeric(depth) and flute < depth and not unverified:
+                    verdict = "error"
+                elif missing or unverified or not (positive(depth) and positive(flute)):
+                    verdict = "unknown"
+                else:
+                    verdict = "pass"
+                verdicts.append(verdict)
+                continue
             grid_trusted = dro_grid_trusted(setup, features, entries, plan)
             require(
                 bool(row.get("dro_grid_debt")) is not grid_trusted,
@@ -3855,7 +4261,7 @@ def check_endpoints(
             missing = not entries.resolves(tool, "tools")
             unverified = tool_unverified(tool, entries)
             verdict = "pass"
-            if action == "center_drill":
+            if centre and action in PROCESS_ACTIONS["centre_hole"]:
                 require(
                     feature.get("kind") == "centre_hole",
                     f"{where}: only a plan centre hole has a centre endpoint",
@@ -3870,7 +4276,7 @@ def check_endpoints(
                     verdict = "unknown"
                 verdicts.append(verdict)
                 continue
-            elif action in {"spot", "tap"}:
+            elif action in {"spot"} | TAP_OPS:
                 depth = planned_depth_mm(op, feature, units)
                 depths[row["setup"], row["op"]] = depth if positive(depth) else "unknown"
                 near(row.get("depth_mm", "unknown"), depth, f"{action} cutting depth")
@@ -3878,7 +4284,7 @@ def check_endpoints(
                 tip = difference(entry, depth)
                 near(row["tip_z"], tip, f"{action} endpoint")
                 planned.update(depth=depth, tip=tip)
-                if action == "tap":
+                if action in TAP_OPS:
                     flute = tool_length_mm(tool, "flute_len", entries)
                     near(row.get("flute_len_mm", "unknown"), flute, "tap flute length")
                     band = "thread_depth" if "thread_depth" in feature else "depth"
@@ -4043,7 +4449,7 @@ def check_saw_speed(
     known = all(isinstance(v, str) and v.strip() and v != "unknown" for v in identities)
     rows = [
         c
-        for c in cutting.get("cut", [])
+        for c in (cutting["cut"] if isinstance(cutting.get("cut"), list) else [])
         if known
         and (c.get("material_class"), c.get("tool_material"), c.get("operation"))
         == (material[1], tool_material, "saw_cut")
@@ -4064,8 +4470,8 @@ def check_saw_speed(
     near(row.get("blade_speed_max_sfm", "unknown"), high, "saw blade speed maximum")
     speed = max(low, min(high, sfm)) if positive(sfm) and numeric(low) else "unknown"
     near(row.get("blade_speed_sfm", "unknown"), speed, f"{where}: blade speed")
-    feed = descent if positive(descent) else "unknown"
-    near(row.get("feed_mm_min", "unknown"), feed, f"{where}: descent feed")
+    feed = "not_applicable" if "follows" in op else descent if positive(descent) else "unknown"
+    same(row.get("feed_mm_min", "unknown"), feed, f"{where}: descent feed")
     require("rpm" not in row, f"{where}: a saw blade has no spindle RPM")
     material_verify = plan.get("stock", {}).get("material_verify", False)
     require(row.get("material_verify") == material_verify, f"{where}: material verification")
@@ -4073,7 +4479,7 @@ def check_saw_speed(
     require(row.get("blade_speed_range_verify") == range_verify, f"{where}: blade range check")
     unsettled = (
         not numeric(speed)
-        or not numeric(feed)
+        or feed == "unknown"
         or not texts
         or record_uncertain(rows[0])
         or range_verify
@@ -4108,7 +4514,12 @@ def deep_hole_derate(cutting: dict, operation: str, depth, diameter) -> tuple:
     deepest ``depth_over_dia`` its depth/diameter exceeds. An operation no row names keeps
     its sfm and reports nothing; an unknown ratio or a malformed, uncited or tied row leaves
     the factor unknown, and they or an unconfirmed governing row leave it ``unresolved``."""
-    rows = [row for row in cutting.get("deep_hole", []) if row.get("operation") == operation]
+    authored = cutting.get("deep_hole")
+    rows = [
+        row
+        for row in (authored if isinstance(authored, list) else [])
+        if row.get("operation") == operation
+    ]
     if not rows:
         return 1.0, {}, False
     known = numeric(depth) and numeric(diameter) and diameter > 0
@@ -4250,22 +4661,53 @@ def check_speeds(
     """Hold a speeds_feeds row to the RPM and feed the authored inputs give: the plan's
     material and the cutting data's alias, the selected tool's chart (else the one cited
     cut row its material, the op and its diameter select), the machine's spindle range,
-    the plan-derived hole depth (:func:`check_endpoints`) and its deep-hole derate. No
-    reported operand enters the arithmetic; each is compared with its source."""
+    the plan-derived hole depth (:func:`check_endpoints`) and its deep-hole derate. An
+    authored RPM overrides the computed recommendation, not its unresolved-input debt;
+    known request/limit contradictions remain errors. No reported operand enters the
+    arithmetic; each is compared with its source."""
     where = f"{setup['id']}:{op['op']}"
     row = finding["numbers"]
     if op["do"] in MANUAL:
         require(finding["status"] == "not_applicable", f"{where}: a manual op has no speed")
         return
     material = cutting_material(plan, features, cutting)
-    if op["do"] in SAW_OPS:
+    if hand_saw(entries.inventory, op):
+        require(
+            finding["status"] == "not_applicable"
+            and row == {"operation": op["do"], "tool": op["tool"]},
+            f"{where}: a hand saw has no blade speed or machine feed",
+        )
+        return
+    disk = slitting_saw(entries.inventory, op)
+    if spindle_saw(entries.inventory, setup, op) and not disk:
+        require(
+            finding["status"] == "unknown"
+            and row
+            == {
+                "operation": op["do"],
+                "tool": op.get("tool", "unknown"),
+                "rpm": "unknown",
+                "feed_mm_min": "unknown",
+                "model_reason": UNRESOLVED_SAW_MODEL_REASON,
+            },
+            f"{where}: unresolved saw kind cannot establish blade-only speed or spindle RPM",
+        )
+        return
+    if op["do"] in SAW_OPS and not disk:
         check_saw_speed(plan, setup, op, finding, entries, cutting, material)
         return
     machine = machine_record(setup, entries)
-    lathe = machine.get("kind") == "lathe"
+    lathe = machine.get("kind") == "lathe" and not disk
     tool = op.get("tool", "unknown")
     diameter = cutting_diameter_mm(setup, op, entries, definitions, features.get("units"), lathe)
-    operation = CUT_OPERATIONS.get(op["do"], op["do"])
+    operation = "slitting_saw" if disk else CUT_OPERATIONS.get(op["do"], op["do"])
+    if disk:
+        require(
+            row.get("action") == op["do"] and row.get("tool_kind") == "slitting_saw",
+            f"{where}: missing spindle-mounted saw identity",
+        )
+        require("blade_speed_sfm" not in row, f"{where}: a disk requires spindle RPM")
+        require("rpm" in row and "feed_mm_min" in row, f"{where}: missing disk RPM/feed")
     if (
         op["do"] == "rough_profile"
         and isinstance(op.get("contour"), dict)
@@ -4286,7 +4728,8 @@ def check_speeds(
         per_rev = selected_tool(tool, entries, "feed_mm_rev")
     else:
         matching = []
-        for candidate in cutting.get("cut", []):
+        authored = cutting.get("cut")
+        for candidate in authored if isinstance(authored, list) else []:
             key = tuple(candidate.get(k) for k in ("material_class", "tool_material", "operation"))
             if key != (material[1], tool_material, operation):
                 continue
@@ -4355,7 +4798,37 @@ def check_speeds(
         if numeric(speed) and speed > 0 and numeric(diameter_in)
         else "unknown"
     )
-    rpm = available_rpm(nearest50(raw, low, high), machine)
+    computed_rpm = available_rpm(nearest50(raw, low, high), machine)
+    rpm = computed_rpm
+    authored = "rpm" in op
+    rpm_error = False
+    authored_fields = {"requested_rpm", "computed_rpm", "rpm_basis", "rpm_status", "rpm_reason"}
+    if authored:
+        require(authored_fields <= row.keys(), f"{where}: missing authored RPM evidence")
+        requested = op["rpm"]
+        rpm = requested if positive(requested) else "unknown"
+        bands = spindle_bands(machine)
+        spindle = machine.get("spindle") if isinstance(machine.get("spindle"), dict) else {}
+        minimum, maximum = spindle.get("rpm_min", "unknown"), spindle.get("rpm_max", "unknown")
+        rpm_error = requested != "unknown" and not positive(requested)
+        if positive(requested):
+            rpm_error |= (
+                (numeric(minimum) and requested < minimum)
+                or (numeric(maximum) and requested > maximum)
+                or (
+                    bands != "unknown"
+                    and not any(start <= requested <= end for start, end in bands)
+                )
+            )
+        same(row["requested_rpm"], requested, f"{where}: requested RPM")
+        near(row["computed_rpm"], computed_rpm, f"{where}: computed RPM")
+        require(row["rpm_basis"] == "authored", f"{where}: authored RPM basis")
+        require(
+            isinstance(row["rpm_reason"], str) and row["rpm_reason"].strip() not in {"", "unknown"},
+            f"{where}: missing authored RPM reason",
+        )
+    else:
+        require(not authored_fields & row.keys(), f"{where}: unauthored RPM evidence")
     near(row.get("rpm", "unknown"), rpm, f"{where}: RPM")
     operands = (rpm, per_rev) if lathe else (rpm, flutes, chip)
     feed = math.prod(operands) if all(map(positive, operands)) else "unknown"
@@ -4372,10 +4845,23 @@ def check_speeds(
         or material_verify
         or range_verify
         or tool_unverified(tool, entries)
+        or (disk and saw_station(entries.inventory, setup, op) != "fits")
+        or (
+            authored
+            and (
+                bands == "unknown"
+                or not numeric(raw)
+                or not entries.record(tool, "tools")
+                or not machine
+            )
+        )
     )
-    # The checker certifies a sourced RPM and feed, else leaves it unknown.
+    # A request stays visible through debt; a known contradiction cannot become unknown.
+    status = "error" if rpm_error else "unknown" if unsettled else "pass"
+    if authored:
+        require(row["rpm_status"] == status, f"{where}: authored RPM verdict")
     require(
-        finding["status"] == ("unknown" if unsettled else "pass"),
+        finding["status"] == status,
         f"{where}: the RPM and feed verdict is not the one its inputs settle",
     )
 
@@ -4698,6 +5184,12 @@ def dro_grid_trusted(
     setup: dict, features: dict, entries: Entries, plan: dict | None = None
 ) -> bool:
     """Judging requires the effective grid's own positive, complete measured fact."""
+    dro = table_of(table_of(plan).get("dro"))
+    if (
+        dro.get("kind", "digital") != "digital"
+        or dro.get("units", features.get("units")) not in UNIT_MM
+    ):
+        return False
     source = dro_grid_source(setup, entries, plan)
     resolution, fact = declared_dro_resolution(machine_record(source, entries))
     return (
@@ -4714,6 +5206,9 @@ def dro_grid(setup: dict, features: dict, entries: Entries, plan: dict | None = 
 
     Only an absent/unread positive step uses ``DRO_DEFAULT_STEP``. A bench inherits
     its source machine's declaration and trust when its plan is available."""
+    if table_of(table_of(plan).get("dro")).get("kind", "digital") != "digital":
+        # Only an internal nominal grid; neither physical graduation nor machine DRO.
+        return DRO_DEFAULT_STEP, 3
     scale = UNIT_MM.get(features.get("units"))
     source = dro_grid_source(setup, entries, plan)
     resolution, _ = declared_dro_resolution(machine_record(source, entries))
@@ -4874,7 +5369,7 @@ def check_coordinates(
     grid (:func:`dro_grid`). No reported coordinate is an operand."""
     frame = setup_frame(setup, plan, features)
     sid = setup["id"]
-    if setup["frame"] in plan.get("frames", {}):
+    if setup.get("frame", "unknown") in plan.get("frames", {}):
         require(
             f"plan.frames.{setup['frame']}: author-declared setup frame" in finding["cite"],
             f"{sid}: plan-owned frame provenance missing from coordinates",
@@ -4901,6 +5396,24 @@ def check_coordinates(
     grid = dro_grid(setup, features, entries, plan)
     grid_trusted = dro_grid_trusted(setup, features, entries, plan)
     uses_grid = coordinates_use_grid(setup, definitions, context.frames, numbers, lathe)
+    if table_of(plan.get("dro")).get("kind", "digital") != "digital":
+        if uses_grid:
+            check_readout(numbers.get("readout"), plan, features, sid)
+        else:
+            require("readout" not in numbers, f"{sid}: unused nominal grid has no readout row")
+        if lathe:
+            require(
+                numbers.get("x_display") == readout_fields(plan, features)["x_scale"],
+                f"{sid}: mechanical X scale is not the plan's radius/diameter mode",
+            )
+        require(
+            not any(
+                entry.get("id", "").startswith("machines.")
+                and entry.get("id", "").endswith(".resolution")
+                for entry in numbers.get("measurements", [])
+            ),
+            f"{sid}: a mechanical or unknown readout cannot request a digital DRO resolution",
+        )
     shown = numbers.get("dro_grid")
     require(isinstance(shown, dict) and set(shown) == {"step", "decimals"}, f"{sid}: DRO grid")
     if uses_grid:
@@ -5640,14 +6153,14 @@ def same_segments(reported, expected: list) -> bool:
 
 
 def held_stock(setup: dict, plan: dict):
-    """The chucked stock's diameter as ``stickout.held_diameter`` counts it: the stock
-    state's ``od_mm``, else the bar's ``dia_mm`` only while the plan does not flag the
-    bar's form for verification (``stock.form_verify`` true or unknown); a stock state
-    declared unknown has none. Unknown unless a positive number: an unverified fallback
-    is never a held diameter."""
+    """The declared held-stock OD: the setup's ``od_mm``, else the plan stock's
+    ``dia_mm`` unless its form is marked for verification. An omitted stock state uses
+    that fallback; an explicitly unknown state or OD does not. Only positive numbers
+    count, and a nominal declaration is not evidence of a measured physical diameter."""
     state = setup.get("stock_state")
-    if not isinstance(state, dict):
+    if state == "unknown":
         return "unknown"
+    state = state if isinstance(state, dict) else {}
     if "od_mm" in state:
         value = state["od_mm"]
     else:
@@ -5873,6 +6386,62 @@ def check_cone_facts(plan: dict, features: dict) -> None:
     require(plan["stock"]["form"] == "built_up", "built-up blank form lost candidate identity")
 
 
+def check_fixture_semantics(
+    plan_path: Path,
+    plan: dict,
+    features: dict,
+    inventory: dict,
+    policy: dict,
+    cutting: dict,
+    findings: dict,
+) -> list:
+    """Independent authored-input arithmetic shared by consumer and standalone examples."""
+    entries = Entries(inventory)
+    check_construction(plan, features, findings["construction", plan["part"]])
+    check_frames(features, plan)
+    check_subjects(plan, features, findings, inventory)
+    checked = checker_findings(plan_path)
+    check_required_coverage(policy, plan, features, findings, entries, checked)
+    check_inspection_declarations(plan, features, findings)
+    kernel = independent_kernel(plan_path)
+    check_joint_declarations(plan, features, findings, kernel)
+    missing = check_references(plan, entries, findings)
+    missing += check_prepared_blank(plan, features, inventory, findings, kernel)
+    depths = check_endpoints(plan, features, findings, entries, kernel)
+    definitions = operative_definitions(plan, features)
+    own = functools.cache(lambda: zero_inputs(plan, features, inventory, policy, kernel))
+    for setup in plan["setups"]:
+        if manual_bench(inventory, setup) is None and manual_thread_facts(inventory, setup) is None:
+            if not saw_setup(inventory, setup):
+                check_zero(setup, findings["zero_check", setup["id"]], entries, own())
+            check_coordinates(
+                setup,
+                features,
+                findings["coordinates", setup["id"]],
+                plan,
+                entries,
+                inventory,
+                kernel,
+            )
+        check_indexing(setup, features, entries, findings["indexing", setup["id"]])
+        check_stickout(
+            setup, plan, features, inventory, policy, findings["stickout", setup["id"]], kernel
+        )
+        for op in setup["ops"]:
+            check_speeds(
+                plan,
+                features,
+                setup,
+                op,
+                findings["speeds_feeds", f"{setup['id']}:{op['op']}"],
+                entries,
+                cutting,
+                definitions,
+                depths,
+            )
+    return missing
+
+
 def validate_fixture(
     part: str,
     documents: dict,
@@ -5895,7 +6464,6 @@ def validate_fixture(
     inventory = documents[paths["inventory"]]
     policy = documents[paths["shop_policy"]]
     cutting = documents[paths["cutting_data"]]
-    entries = Entries(inventory)
     report = read_report(folder / expected_subdir / "report.json")
     renders = report.get("renders", {})
     # Every image the report binds: each setup's render and each inspection sketch it
@@ -5924,51 +6492,11 @@ def validate_fixture(
             "step" in paths and sha256(paths["step"]) == digest, "STEP bytes differ from digest"
         )
     findings = {(f["rule"], f["subject"]): f for f in report["findings"]}
-    check_construction(plan, features, findings["construction", part])
     if part == "cone-pivot-post":
         check_cone_facts(plan, features)
-    check_frames(features, plan)
-    check_subjects(plan, features, findings, inventory)
-    checked = checker_findings(folder / plan_filename)
-    check_required_coverage(policy, plan, features, findings, entries, checked)
-    check_inspection_declarations(plan, features, findings)
-    kernel = independent_kernel(folder / plan_filename)
-    check_joint_declarations(plan, features, findings, kernel)
-    missing = check_references(plan, entries, findings)
-    missing += check_prepared_blank(plan, features, inventory, findings, kernel)
-    depths = check_endpoints(plan, features, findings, entries, kernel)
-    definitions = operative_definitions(plan, features)
-    own = functools.cache(lambda: zero_inputs(plan, features, inventory, policy, kernel))
-    for setup in plan["setups"]:
-        # check_subjects already holds bench and saw zero waivers to their facts.
-        if manual_bench(inventory, setup) is None:
-            if not saw_setup(setup):
-                check_zero(setup, findings["zero_check", setup["id"]], entries, own())
-            check_coordinates(
-                setup,
-                features,
-                findings["coordinates", setup["id"]],
-                plan,
-                entries,
-                inventory,
-                kernel,
-            )
-        check_indexing(setup, features, entries, findings["indexing", setup["id"]])
-        check_stickout(
-            setup, plan, features, inventory, policy, findings["stickout", setup["id"]], kernel
-        )
-        for op in setup["ops"]:
-            check_speeds(
-                plan,
-                features,
-                setup,
-                op,
-                findings["speeds_feeds", f"{setup['id']}:{op['op']}"],
-                entries,
-                cutting,
-                definitions,
-                depths,
-            )
+    missing = check_fixture_semantics(
+        folder / plan_filename, plan, features, inventory, policy, cutting, findings
+    )
     exit_code = report_exit(report, policy, plan, features)
     candidate = part if plan_filename == "plan.toml" else f"{part}/{plan_filename}"
     require(
@@ -5977,6 +6505,102 @@ def validate_fixture(
     )
     check_sheet(folder, report, expected_subdir)
     return exit_code, missing
+
+
+def check_step_face_references(step: Path, plan: dict, features: dict) -> None:
+    """Resolve authored finished-face identities against the adjacent STEP bytes."""
+    records = re.findall(
+        r"#(\d+)\s*=\s*ADVANCED_FACE\s*\(\s*'((?:[^']|'')*)'",
+        step.read_text(encoding="utf-8"),
+        re.DOTALL,
+    )
+    require(records, f"{step.name}: no ADVANCED_FACE records")
+    refs = set(plan["stock"].get("as_is_faces", []))
+    for feature in features["features"].values():
+        if isinstance(feature.get("faces"), list):
+            refs.update(feature["faces"])
+    for setup in plan["setups"]:
+        for op in setup["ops"]:
+            if isinstance(op.get("faces"), list):
+                refs.update(op["faces"])
+    for ref in refs:
+        match = re.fullmatch(r"#(\d+)/ADVANCED_FACE\[(\d+)\]/(.*)", ref)
+        require(match is not None, f"{step.name}: malformed face reference {ref}")
+        entity, ordinal, label = match.groups()
+        require(0 < int(ordinal) <= len(records), f"{step.name}: invalid face ordinal {ref}")
+        actual_entity, actual_label = records[int(ordinal) - 1]
+        require(
+            (entity, label) == (actual_entity, actual_label.replace("''", "'")),
+            f"{step.name}: face reference differs from bound STEP {ref}",
+        )
+
+
+def validate_standalone_fixture(case: tuple) -> None:
+    """Validate local authored inputs without consumer-export or measurement claims."""
+    part, plan_filename, expected_subdir, expected_exit = case
+    folder = (EXAMPLES / part).resolve()
+    bundle = load_bundle(folder / plan_filename)
+    plan, features = bundle.plan, bundle.features
+    require(plan["part"] == features["part"] == part, "part identity mismatch")
+    paths = {key: path.resolve() for key, path in input_paths(folder, plan, plan_filename).items()}
+    require(
+        all(path.is_relative_to(folder) for path in paths.values()), "nonlocal standalone input"
+    )
+    require(paths["step"].parent == paths["features"].parent, "STEP is not adjacent to manifest")
+    require(
+        features["step_sha256"] == sha256(paths["step"]),
+        f"{part}: STEP digest mismatch",
+    )
+    check_step_face_references(paths["step"], plan, features)
+    report = read_report(folder / expected_subdir / "report.json")
+    require(report["step_sha256"] == features["step_sha256"], "STEP report binding mismatch")
+    images = {f"render:{sid}": asset for sid, asset in report.get("renders", {}).items()}
+    images |= {
+        f"render:{sid}:{key}": sketch
+        for sid, asset in report.get("renders", {}).items()
+        for key, sketch in asset.get("inspections", {}).items()
+    }
+    require(set(report["inputs"]) == set(paths) | set(images), "report input bundle incomplete")
+    for key, path in paths.items():
+        require(
+            report["inputs"][key]
+            == {"path": path.relative_to(ROOT).as_posix(), "sha256": sha256(path)},
+            f"{part}: stale {key} input binding",
+        )
+    expected = (folder / expected_subdir).resolve()
+    for key, asset in images.items():
+        image = (expected / asset["path"]).resolve()
+        require(image.is_relative_to(expected), "render path escapes")
+        require(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"), "invalid fixture PNG")
+        require(
+            asset["sha256"] == sha256(image)
+            and report["inputs"][key] == {"path": asset["path"], "sha256": asset["sha256"]},
+            "fixture render not bound to report",
+        )
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    check_fixture_semantics(
+        folder / plan_filename,
+        plan,
+        features,
+        bundle.inventory,
+        bundle.policy,
+        bundle.cutting_data,
+        findings,
+    )
+    checked = checker_findings(folder / plan_filename)
+    for rule in CHECKER_RULES:
+        for subject, row in checked(rule).items():
+            require(
+                findings.get((rule.name, subject)) == row,
+                f"{part}: stale {rule.name}:{subject} finding",
+            )
+    require(
+        report_exit(report, bundle.policy, plan, features)
+        == report["expected_exit"]
+        == expected_exit,
+        f"{part}: expected exit mismatch",
+    )
+    check_sheet(folder, report, expected_subdir)
 
 
 def validate_geometry_fixture(case: tuple, documents: dict) -> None:
@@ -5992,30 +6616,7 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
         features["step_sha256"] == sha256(paths["step"]) == report["step_sha256"],
         f"{name}: STEP digest mismatch",
     )
-    face_records = re.findall(
-        r"#(\d+)\s*=\s*ADVANCED_FACE\s*\(\s*'((?:[^']|'')*)'",
-        paths["step"].read_text(encoding="utf-8"),
-        re.DOTALL,
-    )
-    require(face_records, f"{name}: no ADVANCED_FACE records")
-    refs = set(plan["stock"].get("as_is_faces", []))
-    for feature in features["features"].values():
-        if isinstance(feature.get("faces"), list):
-            refs.update(feature["faces"])
-    for setup in plan["setups"]:
-        for op in setup["ops"]:
-            if isinstance(op.get("faces"), list):
-                refs.update(op["faces"])
-    for ref in refs:
-        match = re.fullmatch(r"#(\d+)/ADVANCED_FACE\[(\d+)\]/(.*)", ref)
-        require(match is not None, f"{name}: malformed face reference {ref}")
-        entity, ordinal, label = match.groups()
-        require(0 < int(ordinal) <= len(face_records), f"{name}: invalid face ordinal {ref}")
-        actual_entity, actual_label = face_records[int(ordinal) - 1]
-        require(
-            (entity, label) == (actual_entity, actual_label.replace("''", "'")),
-            f"{name}: face reference differs from bound STEP {ref}",
-        )
+    check_step_face_references(paths["step"], plan, features)
     for kind, path in paths.items():
         require(
             report["inputs"][kind]
@@ -6136,9 +6737,12 @@ def main() -> int:
         for case in GEOMETRY_CASES:
             validate_geometry_fixture(case, documents)
             print(f"geometry/{case[0]}/{case[1]}: expected exit {case[3]}")
+        for case in STANDALONE_CASES:
+            validate_standalone_fixture(case)
+            print(f"{case[0]}/{case[1]}: expected exit {case[3]}")
         print("All rev-6 reference bundles validate.")
         return 0
-    except (OSError, ValueError, KeyError, TypeError, StopIteration) as exc:
+    except (BadInput, OSError, ValueError, KeyError, TypeError, StopIteration) as exc:
         print(f"Example validation failed: {exc}", file=sys.stderr)
         return 1
 

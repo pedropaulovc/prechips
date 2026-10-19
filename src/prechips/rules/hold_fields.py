@@ -12,10 +12,13 @@ it runs along is the vise's ``jaws_along``, or the plate face's run (:func:`alig
 import math
 
 from prechips.findings import Finding
-from prechips.model import HAND_FEEDING, setup_lineage
+from prechips.material_routes import feature_material_status, setup_lineage
+from prechips.model import HAND_FEEDING
+from prechips.rules._bench import BENCH_KINDS, manual_bench, unfixtured_handling
 from prechips.rules.level_entry import stock_box
 from prechips.rules.resolution import (
     MANUAL,
+    SAW_MACHINES,
     SAW_OPS,
     UNKNOWN,
     _citations,
@@ -28,6 +31,9 @@ from prechips.rules.resolution import (
     record,
     resolve,
     same_length,
+    saw_setup,
+    saw_tool,
+    spindle_saw,
     uncertain,
 )
 from prechips.rules.swivel import STATED, swivel_angle
@@ -205,7 +211,13 @@ def stop_face(bundle, setup, name):
                 continue
             cut = f"{other['id']} op {op['op']}"
             if other["id"] in earlier:
-                (pending if action == UNKNOWN else before).append(cut)
+                material = feature_material_status(
+                    bundle.plan, setup["id"], other["id"], name, bundle
+                )
+                if material is False:
+                    later.append(cut)
+                else:
+                    (pending if action == UNKNOWN or material is None else before).append(cut)
             elif routed or other["id"] in downstream:
                 later.append(cut)
             else:
@@ -214,6 +226,14 @@ def stop_face(bundle, setup, name):
     as_is = record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN)
     settled = known_refs(faces) and isinstance(as_is, list)
     supplied = settled and set(faces) <= set(as_is)
+    material = (
+        feature_material_status(bundle.plan, setup["id"], "stock", name, bundle)
+        if supplied
+        else False
+    )
+    supplied = supplied and material is True
+    if material is None:
+        pending.append("stock as-is face survival after partition is unresolved")
     facts = {"face": name, "cut_before": before, "cut_later": later, "as_is": supplied}
     if before or supplied:
         return "pass", {**facts, "on_arriving_stock": True}
@@ -421,6 +441,21 @@ def evaluate(bundle):
         state = state if isinstance(state, dict) else {}
         machine = record(resolve(bundle, "machines", setup["machine"]))
         lathe = machine.get("kind") == "lathe"
+        bench = manual_bench(bundle, setup)
+        handling = unfixtured_handling(bench, hold)
+        # A portable non-spindle saw at a verified bench has no machine setting either.
+        # Its blade, work retention and declared fixture facts remain checked separately.
+        bench_saw = (
+            machine.get("kind") in BENCH_KINDS
+            and not uncertain(machine)
+            and saw_setup(bundle, setup)
+            and all(
+                saw_tool(bundle, op) in SAW_MACHINES
+                for op in setup["ops"]
+                if op.get("do") in SAW_OPS
+            )
+        )
+        machine_axes = bench is None and not bench_saw
         # A hand-fed hold clamps nothing: no fixture field applies, and an unresolved scope
         # leaves the hold itself unknown.
         scope, why = hand_fed(bundle, setup)
@@ -431,6 +466,11 @@ def evaluate(bundle):
             "hold.grip_mm": hold.get("grip_mm"),
             "hold.clamp": hold.get("clamp"),
         }
+        if handling:
+            note = hold.get("note")
+            if isinstance(note, str):
+                note = note.strip()
+            required = {"hold.note": None if note in ("none", "not_applicable") else note}
         if scope != "fixture":
             # A stated hand-fed kind whose saw is unresolved owes that scope, not the kind.
             key = "hold.kind" if hold.get("kind") == UNKNOWN else "hand_fed_scope"
@@ -445,12 +485,17 @@ def evaluate(bundle):
             ambiguity = feed_from_ambiguity(bundle, setup)
             if ambiguity:
                 required["hold.feed_from"] = UNKNOWN
-        required.update(coolant=setup.get("coolant"), deburr_mm=setup.get("deburr_mm"))
+        if not handling:
+            required.update(coolant=setup.get("coolant"), deburr_mm=setup.get("deburr_mm"))
         fixture_ref = hold.get("fixture")
         fixture = resolve(bundle, "workholding", fixture_ref) or {}
-        if scope == "fixture" and (
-            fixture.get("kind") == "vise"
-            or (not lathe and hold.get("fixed_jaw") != "not_applicable")
+        if (
+            machine_axes
+            and scope == "fixture"
+            and (
+                fixture.get("kind") == "vise"
+                or (not lathe and hold.get("fixed_jaw") != "not_applicable")
+            )
         ):
             required["hold.fixed_jaw"] = hold.get("fixed_jaw")
         if lathe:
@@ -466,7 +511,7 @@ def evaluate(bundle):
                     required[f"stock_state.{key}"] = state[key]
             if not any(key in state for key in ("plain_end_z", "north_end_z", "south_end_z")):
                 required["stock_state.end_station"] = None
-        else:
+        elif machine_axes:
             required.update(
                 {
                     "stock_state.top_z": state.get("top_z"),
@@ -502,11 +547,13 @@ def evaluate(bundle):
                 required["hold.align.travel"] = align_travel(bundle, hold) or UNKNOWN
         directions = {}
         for op in setup["ops"]:
-            # A saw blade needs no holder and is located by its cut_plane, not a direction;
-            # the setup's holding and stock facts above still apply.
-            if op["do"] in MANUAL or op["do"] in SAW_OPS:
+            # Only non-spindle saws waive the holder; a mounted blade selects an arbor.
+            # Mechanical holding above still applies to every saw, including a hand saw.
+            if op["do"] in MANUAL or (op["do"] in SAW_OPS and not spindle_saw(bundle, setup, op)):
                 continue
             required[f"ops.{op['op']}.holder"] = op.get("holder")
+            if op["do"] in SAW_OPS:
+                continue
             if op["do"] not in _POINT or "direction" in op:
                 # An explicitly unknown action cannot establish whether it needs a direction.
                 fallback = UNKNOWN if op["do"] == UNKNOWN else None
@@ -522,7 +569,11 @@ def evaluate(bundle):
         absent = [key for key, value in required.items() if value is None or value == ""]
         unresolved = [key for key, value in required.items() if value == "unknown"]
         numbers = {
-            "fixture": hold.get("fixture", "unknown") if scope == "fixture" else "not_applicable",
+            "fixture": (
+                hold.get("fixture", "unknown")
+                if scope == "fixture" and not handling
+                else "not_applicable"
+            ),
             "hold": dict(hold),
             "coolant": setup.get("coolant", "unknown"),
             "deburr_mm": setup.get("deburr_mm", "unknown"),
@@ -531,7 +582,11 @@ def evaluate(bundle):
             # Why this setup squares its vise or angle plate first, else not_applicable.
             "align_due": aligned.get(setup["id"], "not_applicable"),
         }
-        if scope != "fixture":
+        if handling:
+            numbers["hold_scope"] = "bench_handling"
+            numbers["coolant"] = setup.get("coolant", "not_applicable")
+            numbers["deburr_mm"] = setup.get("deburr_mm", "not_applicable")
+        elif scope != "fixture":
             numbers["hold_scope"] = scope
         numbers.update(
             {

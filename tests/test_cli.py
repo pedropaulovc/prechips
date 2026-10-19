@@ -1,5 +1,6 @@
 """CLI boundaries exercised through the installed Python entry point."""
 
+import hashlib
 import json
 import os
 import re
@@ -126,6 +127,13 @@ def test_installed_artifact_console_script_matches_module(tmp_path):
         pytest.skip("The packaging CI job supplies a built wheel or sdist.")
     artifact = Path(artifact).resolve()
     assert artifact.is_file(), artifact
+    # uv can reuse an older environment when a same-version artifact is rebuilt in place.
+    artifact_bytes = artifact.read_bytes()
+    staged_artifact = (
+        tmp_path / "artifacts" / hashlib.sha256(artifact_bytes).hexdigest() / artifact.name
+    )
+    staged_artifact.parent.mkdir(parents=True)
+    staged_artifact.write_bytes(artifact_bytes)
     environment = {
         key: value
         for key, value in os.environ.items()
@@ -141,7 +149,7 @@ def test_installed_artifact_console_script_matches_module(tmp_path):
         environment["PRECHIPS_KERNEL_WORKERS"] = os.environ["PRECHIPS_KERNEL_WORKERS"]
     examples = copy_examples(tmp_path)
     plan = examples / "pivot-shaft" / "plan.toml"
-    prefix = ["uv", "run", "--quiet", "--isolated", "--no-project", "--with", str(artifact)]
+    prefix = ["uv", "run", "--quiet", "--isolated", "--no-project", "--with", str(staged_artifact)]
 
     def invoke(entry, *args):
         return subprocess.run(

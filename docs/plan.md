@@ -91,7 +91,7 @@ plans. They require the surrounding root fields, setups, features and inventory.
 `part`, `features` and `setups` are required. The loader also requires:
 
 - A nonempty setup list with known, unique setup ids. An id cannot be blank
-  or whitespace-only, `"stock"`, or a name beginning with `"stock."`.
+  or whitespace-only, `"stock"`, or a name beginning with `"stock."` or `"stock_out."`.
 - A nonempty operation list in every setup, with known operation numbers that
   are unique within that setup.
 - A plan `part` that matches the manifest's `part`.
@@ -114,8 +114,10 @@ that exported frames may omit:
 - `binding` must be stated, if only as `"unknown"`. `"nominal"` lets the
   transform place model geometry in setup coordinates; `"unknown"` keeps the
   numeric transform for display while operation Z endpoints stay setup-local.
-- `cite` must be non-empty. The bundled examples begin it, and the `note`, with
-  `AUTHOR'S CHOICE` before the drawing/model citations the transform rests on.
+- `cite` must be non-empty. The bundled examples mark authored transforms with
+  `AUTHOR'S CHOICE` in that citation, before their drawing/model sources.
+  The operator-facing `note` describes orientation and physical pickup debt;
+  it need not repeat the citation marker.
 
 A setup's `frame` resolves to the exported manifest frame of that name, otherwise
 to the plan frame. A plan frame whose name is already exported (including an
@@ -130,6 +132,11 @@ When the manifest's `frames` value is a dictionary, the loader rejects a known
 setup `frame` that names neither an exported frame nor a plan frame. When the
 manifest frame collection is `"unknown"`, that membership check cannot establish
 the exported names. A literal `"unknown"` setup frame remains unresolved.
+
+An operation's retained-output `pose` uses the same `PlanFrame` record inline,
+not a frame-name reference. Its forward material-registration convention is
+defined under [retained part-off outputs](#retained-part-off-outputs); it is not
+the model-to-setup coordinate conversion.
 
 ## Aims
 
@@ -241,6 +248,7 @@ leave the whole kernel result unknown with the reason:
   end;
 - a neighbour that does not run square to the face;
 - a move that does not give one valid solid;
+- faced aims on multiple finished solids, which are not modelled;
 - aims that move each other's faces or other ends.
 
 Faced aims move no DRO target. Aim each face whose position follows from the
@@ -434,10 +442,11 @@ from clear air. See [coordinates](rules-coordinates.md).
 
 ### Operation and coverage boundaries
 
-Only `center_drill` prepares a `centre_hole`; only `spot`, `drill` and `ream`
-prepare a `tooling_hole`. A process-feature op names exactly that one feature
-and carries no `faces`, `checks` or `missing_requirements`. It has no drawing
-limit to inspect. The loader rejects a process feature in an inspect op's
+`spot` or the centre-specific `center_drill` prepares a `centre_hole`; only
+`spot`, `drill` and `ream` prepare a `tooling_hole`. A process-feature op names
+exactly that one feature and carries no `faces`, `checks` or
+`missing_requirements`. It has no drawing limit to inspect. The loader rejects
+a process feature in an inspect op's
 feature list. A list inspect elsewhere in the setup does not change the
 tooling hole's [`tooling_hole`](rules-setup.md#tooling_hole) rows.
 
@@ -681,11 +690,12 @@ bound in the report, not printed for the bench.
 
 ## Dro
 
-`[dro]` declares the controller, source manual and display convention. Physical
-controller or installation facts that are not known remain unresolved.
+`[dro]` declares a digital readout or mechanical handwheel dials, their source
+manual and display convention. Unknown installation facts remain unresolved.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
+| `kind` | `"digital" \| "handwheel"`; omitted preserves the digital contract, explicit `"unknown"` does not |
 | `controller` | `str` |
 | `manual` | `str` |
 | `manual_url` | `str` |
@@ -693,6 +703,11 @@ controller or installation facts that are not known remain unresolved.
 | `units` | `str` |
 | `radius_mode` | `bool` |
 | `direction` | `Direction` |
+| `graduation` | Positive `float`: source nominal dial division in `dro.units`, on the declared radius/diameter scale |
+| `procedure` | `str`: source-authored operating procedure |
+| `backlash` | `str`: authored backlash/take-up procedure or unresolved fact |
+| `calibration` | `str`: authored calibration fact, not an inferred measurement |
+| `cite` | `Citations` |
 
 `radius_mode` selects the lathe X display convention: radial physical X jogs
 read once in radius mode and twice in diameter mode. It does not change a known
@@ -702,6 +717,15 @@ setups. Omitted or unknown on a lathe, no X reading is printed: the feature map,
 part-off X and dome tables stop rather than assume a display
 ([coordinates](rules-coordinates.md#coordinates)). Unknown controller/install
 facts remain unresolved independently.
+
+For `kind = "handwheel"`, `units = "in"` or `"mm"` selects the printed nominal
+target units; it does not change manifest geometry units. A nominal
+`graduation` is neither a measured digital resolution nor calibration evidence.
+Use the authored procedures and explicit [physical dial settings](#axiszero),
+not electronic Axis Set or Preset instructions. Unknown readout kind, units,
+datum, graduation, calibration or backlash remains debt. The
+[mechanical-readout rules](rules-coordinates.md#mechanical-dials-and-unknown-readouts)
+define the current unresolved physical-registration boundary.
 
 ## Direction
 
@@ -725,7 +749,7 @@ operation list. The records run in authored order.
 | `frame` | `str` |
 | `coolant` | `str` |
 | `stock_in` | `str \| list[str]` |
-| `joint` | Tagged cylindrical or surface joint (required for array `stock_in`) |
+| `joint` | Tagged cylindrical, surface or threaded joint (required for array `stock_in`) |
 | `note` | `str` |
 | `deburr_mm` | `Number` |
 | `deburr_cite` | `Citations` |
@@ -736,15 +760,37 @@ operation list. The records run in authored order.
 
 ### Manual stations and travel scope
 
-For a manual joining, finishing or inspection station, declare the inventory
-machine's `kind = "bench"` (or `"manual"`) and use only `fit`, `inspect`,
-`deburr` and `coating` operations.
+For a manual joining, finishing, layout, threading or inspection station,
+declare the inventory machine's `kind = "bench"` (or `"manual"`) and use only
+`fit`, `inspect`, `deburr`, `coating`, `scribe`, `file_to_line`, `die_thread`
+or `hand_tap` operations, or `saw_cut`/`cut_off` selecting a verified `hand_saw`.
 `zero_check`, `coordinates` and `headroom` are then `not_applicable`: the station
 has no DRO, cutter-centre table, spindle stack or machine travel to check.
-The joint's joining method does not create machine axes. Any cutting or
-explicitly unknown action retains the normal screens; a bench declaration
-cannot waive a machining operation. This does not waive physical joint,
-holding, stock, frame or render requirements.
+The joint's joining method does not create machine axes. Powered cuts or
+explicitly unknown actions retain the normal screens; the bench name alone
+cannot waive an applicable check.
+
+A separate manual-thread-only scope makes `zero_check` and `coordinates`
+`not_applicable` when the resolved machine has known kind `bench`, `manual`,
+`lathe`, `mill` or `drill_press`, the setup contains at least one `hand_tap`
+or `die_thread`, and every operation is a supported manual action. Unknown
+actions or machine kind, or any powered cut in the same setup, retain normal
+zero/coordinate obligations. This scope does not extend the bench-only
+headroom exemption or waive tool selection, causal preparation, holding or
+native geometry debt. See
+[manual-thread-only applicability](rules-coordinates.md#manual-thread-only-applicability).
+
+The holding rule likewise requires no machine fixed-jaw orientation or stock
+top/bottom Z station for established manual bench work, or for a verified
+bench/manual station used only for known non-spindle saw cuts and manual
+actions. This includes a portable bandsaw cutting work held in a bench vise;
+it does not waive powered-saw cutting data. Mechanical work, including manual
+threading, still needs declared holding. Inspection/coating-only work may instead declare
+`hold.note` for its actual handling, but only when no other holding fields
+are supplied; missing or unknown handling is not complete. See
+[manual bench holding and handling](rules-setup.md#manual-bench-holding-and-handling).
+Physical joint, stock, frame, applicable render and mechanical holding checks
+are not waived.
 
 For component stock, an earlier setup output or a joint output, the mill
 headroom X/Y travel screen uses the kernel's setup-entry stock bounding box,
@@ -759,8 +805,9 @@ the original raw blank. Missing entry stock remains geometry debt.
 |---|---|
 | `"stock"` | The single root supply, only when stock has no component blanks |
 | `"stock.<id>"` | One built-up stock component |
-| An earlier setup's `id` | That setup's output, not necessarily the previous setup |
-| An array of two references | Two disjoint branches joined by an explicit `joint` |
+| An earlier setup's `id` | That setup's single output, not necessarily the previous setup; a named split must instead use its `stock_out` references |
+| `"stock_out.<name>"` | One [named retained part-off output](#retained-part-off-outputs) |
+| An array of two references | Two material-disjoint branches joined by an explicit `joint` |
 
 Bare `"stock"` is bad input when `stock.components` is a nonempty list; name
 `"stock.<id>"` instead. Declaring `joint` requires an array `stock_in` with
@@ -768,27 +815,47 @@ exactly two references. A joint with scalar or omitted `stock_in` is bad input.
 
 Unknown or forward references, including an authored `"unknown"` source, are
 `BadInput` (exit 3). An omitted `stock_in` stays stock debt; it does not imply
-a linear route. Supply and setup outputs remain in the model frame. A join
-reference never applies an implicit assembly transform or a generic Boolean union.
+a linear route. Supplies and ordinary setup outputs remain in the model frame;
+a retained output's explicit `pose` registers its material into that frame.
+A join reference never applies an implicit assembly transform or a generic
+Boolean union.
 
-Array entries must have disjoint supply ancestry. Repeated references, or a
-supply joined to its descendant, are bad input naming the shared ancestor.
-For example, `["stock", "S1"]` is invalid when S1 consumes `stock`.
-Alternative routes may start from the same supply, but cannot join that material
-lineage twice.
+Single-consumption applies to the named-retained lineage: each `stock_out`
+reference, each downstream setup state carrying its partition, and the
+unsplit setup predecessors feeding that split may be consumed only once.
+Ordinary setup references outside that lineage retain selectable-state
+fan-out and rework routing, including an unrelated ordinary branch in a plan
+that also contains a named split. Raw `"stock"` and `"stock.<id>"` likewise
+remain supply declarations that alternative routes may start from, not proof
+of additional physical blanks. An assembly cannot join repeated references,
+a parent with its descendant or overlapping same-origin alternatives.
+
+At a join, shared supply roots are permitted only for different retained
+children of the same declared partition. Their descendants retain that
+partition identity.
+The host resolver rejects overlapping identities; the kernel must independently
+prove the split and non-overlapping material before those siblings can be used
+together. A producing setup with named outputs cannot be consumed by its setup
+id, and a named split cannot split an already-partitioned or assembled input.
+Ordinary machining and `keep` on a retained child's later setup remain supported.
+Producer history alone does not prove that a centre, touch face or other
+preparation survived on either child. See
+[causal preparation](rules-operations.md#op_chain).
 
 ### Assembly joints
 
 Every array `stock_in` requires a singular tagged `joint` declaration and
-exactly two disjoint input branches. Either input may be an already-joined
-assembly if the other input is one single component. Thus `["body", "cone"]`
-may produce `J1`, followed by `["J1", "crank"]` producing a three-component
-assembly. Joining two existing assemblies, one-piece arrays and arrays with
-more than two references are bad input (exit 3). Shared supply ancestry remains
-forbidden at every step. Each interface identity is consumed only once.
+exactly two material-disjoint input branches. Either input may be an
+already-joined assembly if the other input is one single component. Thus
+`["body", "cone"]` may produce `J1`, followed by `["J1", "crank"]` producing a
+three-component assembly. Joining two existing assemblies, one-piece arrays
+and arrays with more than two references are bad input (exit 3). Shared supply
+ancestry is allowed only for the retained siblings described above, never
+overlapping material. Each interface identity is consumed only once.
 Joint geometry is in the model frame, regardless of the assembly setup's frame.
-A missing or malformed identity/reference is bad input; unknown numeric
-geometry or joint-compound process facts withhold the union as named debt.
+A missing or malformed identity/reference is bad input; unknown geometry or
+joining-process facts withhold joined stock as named debt. A threaded joint
+also retains the explicit unmodelled-geometry boundary below.
 
 #### Cylindrical fit
 
@@ -811,6 +878,65 @@ be collinear with finite overlapping engagement.
 Both preparation cuts must be completed on the actual selected ancestors,
 remain intact, and have their target geometry verified at assembly. Declaring
 a joint cannot turn untouched blanks into prepared components.
+
+#### Threaded joints
+
+A removable threaded assembly declares `kind = "threaded"`. It uses exported
+finished features, not transient `plan.joint_features`, and never takes the
+cylindrical fit's `method`, `fit`, clearance/interference band or `compound`.
+Every field below is required; none is inferred from a name or assembly note.
+
+| Field | Type and meaning |
+|---|---|
+| `kind` | `"threaded"` |
+| `socket` | Known exported feature id of kind `thread` or `threaded_hole` |
+| `spigot` | Different known exported feature id of kind `external_thread` |
+| `process` | Known nonempty assembly instructions |
+| `cite` | Nonempty citations for the thread and assembly source |
+| `engagement_mm` | Finite number or `"unknown"`: actual axial thread engagement in mm, not the male stub length |
+| `seat` | `ThreadSeat` below or `"unknown"` |
+
+The exported features carry their own nominal `thread`, `thread_hand` and
+`thread_class` facts. Each interface must resolve to a different consumed
+material branch and must not be reused by another threaded joint. A known
+mixed-solid interface or same-finished-solid pair is bad input. Unknown face
+identities or retained-material survival remain debt, not a guessed owner.
+See [threaded features](features.md#threaded-features) for their field contract.
+
+`ThreadSeat` requires all four fields below. Each may be `"unknown"`.
+
+| Field | Type and meaning |
+|---|---|
+| `socket` | `JointInterface`: finite shoulder-seat patch on the socket |
+| `spigot` | `JointInterface`: finite shoulder-seat patch on the spigot |
+| `gap_mm` | Finite number: declared normal separation of the seat patches in mm |
+| `runout_clearance_mm` | Finite number: declared runout clearance in mm |
+
+Each `JointInterface` requires `at`, `normal`, `x`, `size_mm` and nonempty `cite`.
+`at` is its model-frame centre in manifest units; `normal` and `x` are unit
+orthogonal directions. `size_mm = [width, height]` gives positive full side
+lengths in mm, with `normal × x` the height direction. Each geometry field may
+be `"unknown"`. This is the same finite-patch record used by
+[surface joints](#surface-joints-and-material-protection), not an inferred
+shoulder from a cylinder's bounding box.
+
+The declared-input [`joint_thread`](rules-tools.md#joint_thread) rule rejects
+known contradictions in supported nominal size/pitch, hand, class role,
+collinear axes, positive finite threaded depth and engagement. Engagement may
+not exceed either threaded depth or the finite envelope overlap. Negative gap
+or runout clearance, a positive seated gap, non-opposing seat normals,
+separation inconsistent with the gap, or disjoint finite seat patches is an
+error. A zero-gap seated male thread longer than the socket's threaded depth
+is also an error. Length comparisons use a 1e-6 mm equality tolerance.
+Unknown or unsupported facts remain unresolved.
+
+Agreement is not a physical thread-fit, strength or retention verdict. The
+engine does not model helical flanks, lead/runout or prepared shoulder contact,
+so both `joint_thread` and native `joint_assembly` remain unknown even when
+nominal facts agree. No annular bond fill, press fusion or certified joined
+stock is produced. Omitted `forms` defaults to an empty list; a nonempty list
+is bad input because a removable thread forms no bonded finished faces. See
+the [native assembly boundary](rules-geometry.md#removable-threaded-assembly).
 
 #### Retaining compound
 
@@ -842,7 +968,7 @@ without compound prints no prep or cure. Use the noncutting bench action
 
 #### Faces formed by a joint
 
-Either joint kind may declare `forms`, a list of exported features whose finished
+A cylindrical or surface joint may declare `forms`, a list of exported features whose finished
 faces the join itself forms and no op cuts. The usual case is a root fillet whose
 drawing limit admits the sharp corner the join leaves: a hub pressed through a
 strap, with its root printed `2X R0.2 MAX` (`radius = [0, 0.2]`). The list goes on
@@ -1036,7 +1162,7 @@ See [hold requirements](rules-setup.md#hold_fields) for applicability and
 | `jaws_along` | `"x"` / `"y"` / `"not_applicable"`: the vise jaw length axis; any other text is bad input (exit 3) |
 | `fixed_jaw` | `str` |
 | `parallels` | `str` |
-| `supports` | `str \| list[str \| Reference]` |
+| `supports` | `str \| list[str \| Reference]`: each string or record's `ref` selects its fixture; list entries print the selected support name, with any operation/rest-setting metadata |
 | `support` | `str` |
 | `support_orientation` | `str` |
 | `grip_on` | `str` |
@@ -1071,7 +1197,7 @@ See [hold requirements](rules-setup.md#hold_fields) for applicability and
 | `jaw_clock_deg` | `Number` |
 | `support_tip_mm` | `[Number, Number, Number]` |
 | `quill_extension_mm` | `Number` |
-| `centre_hole` | `str`: the `process_features` `centre_hole` the dead or live centre rides in; the always-required [`centre_support`](rules-setup.md#centre_support) rule requires an earlier setup in this setup's `stock_in` lineage (every setup in it routed) to drill it, with its preparation established and a mouth equal to `centre_hole_dia_mm`; the kernel seats the centre in that cut countersink instead of cutting a seat of its own |
+| `centre_hole` | `str`: the process `centre_hole` the dead or live centre rides in; the always-required [`centre_support`](rules-setup.md#centre_support) rule needs earlier `spot` or centre-specific `center_drill` preparation on the received material, with a mouth equal to `centre_hole_dia_mm`; the kernel seats the centre in that cut countersink instead of cutting a seat of its own |
 | `centre_hole_dia_mm` | `Number` (> 0): the work's centre-hole countersink mouth at its end face; without `centre_hole`, the kernel cuts a seat of the dead centre's own point angle with that mouth on the face where the centre axis leaves the stock. In either case the centre must touch its seat (else a render debt) before it is checked against the setup-entry stock |
 | `clamps` | `list[ClampPlacement]` |
 | `clamp_order` | `list[positive int]` (1-based indices into `clamps`) |
@@ -1403,11 +1529,17 @@ schedule against the setup and its operations.
 | `y` | `AxisZero` |
 | `z` | `AxisZero` |
 | `transfer` | `Transfer` |
+| `procedure` | `str`: source-authored physical zero/pickup instructions |
 | `tool_touches` | `list[ToolTouch]` |
 
 `zero.transfer` describes a pickup from another setup. `tool_touches` records
 tool changes explicitly. Neither declaration invents a measured trial-cut
 diameter.
+
+For mechanical dials, this procedure and each axis's `procedure` describe the
+physical touch and backlash/take-up sequence. They do not convert nominal CAD
+coordinates into measured dial settings or enable the digital-zero recipes
+below. See [readout kinds](#dro).
 
 When every spindle op in a setup is a `guided_sweep`, pivot and rail sweeps may
 omit X/Y edge pickups: touching the cutter to the master sets those axes before
@@ -1431,6 +1563,8 @@ coordinate and method describe what is touched and what the operator sets.
 | `feature` | `str` |
 | `face` | `str` |
 | `method` | `str` |
+| `procedure` | `str`: source-authored touch and dial-setting instructions |
+| `dial_setting` | `Number`: physical mechanical-dial setting in `dro.units`; not inferred from `edge_mm` |
 | `tool` | `str` |
 | `holder` | `str` |
 | `gauge` | `str` |
@@ -1560,8 +1694,8 @@ execution order; `op` is its within-setup identity.
 | `stock_to_leave_mm` | `float` |
 | `z_from` | `float` |
 | `z_to` | `float` |
-| `to_dia` | `float` |
-| `rpm` | `float` |
+| `to_dia` | `float`: this operation's target diameter in manifest units; an explicit `"unknown"` does not inherit the finished feature's nominal diameter |
+| `rpm` | `float`: optional authored spindle-speed request in rev/min; see [authored spindle speed](#authored-spindle-speed) |
 | `feed_mm_min` | `float` |
 | `doc_mm` | `float` |
 | `ae_mm` | `float` (radial width of cut, 0 < ae ≤ D; omitted, the [force bound](rules-physics.md#cutting-force) takes a full slot. `contour.step_mm` is never read as it) |
@@ -1583,6 +1717,80 @@ execution order; `op` is its within-setup identity.
 | `follows` | `str`: `"<setup>:<op>"` of an earlier `scribe` op (a saw that follows its line only; an `ends` layout scribes no line, an error) |
 | `allowance_mm` | `Number` > 0: stock a saw that `follows` a line leaves outside it for the file |
 | `keep` | `str` (a finished feature: after a held split, the piece that carries it stays and every other piece is discarded; see [keep piece](rules-geometry.md#keep-piece)) |
+| `outputs` | `dict[str, RetainedOutput]`: exactly two named pieces on a terminal `part_off`; see [retained part-off outputs](#retained-part-off-outputs) |
+| `prerequisites` | `{ spot = "<setup>:<op>" }`: typed prior preparation witness, or `spot = "unknown"` |
+
+### Authored spindle speed
+
+Omit `rpm` to use the sourced starting-speed path. An authored `rpm` takes
+precedence exactly as requested, without nearest-50 rounding or clamping.
+Explicit `"unknown"` requests no known speed; it does not fall back to a
+computed recommendation. A known nonpositive request or a speed outside the
+machine's known spindle limits or available bands is an error.
+
+A positive request is not safety evidence. Missing or unverified machine,
+tool, material, cutting-data or applicable depth facts still leave
+`speeds_feeds` unresolved. The report preserves the requested speed separately
+from the computed starting value and its verdict. The sheet prints a known
+request even when unresolved, with the STOP/debt rather than presenting it as a
+verified recommendation. Manual actions, including spindle-stopped
+`die_thread` and `hand_tap`, and nonspindle saws have no RPM recommendation.
+For either manual threading action, `tool_resolves` separately rejects any
+known numeric `rpm` other than zero: a stopped-spindle declaration is not a
+cutting-speed request. A mill-mounted `slitting_saw` uses the spindle-speed
+path.
+
+See [authored RPM](cutting-data.md#authored-rpm) for precedence, reported
+evidence and feed arithmetic.
+
+### Prior preparation references
+
+`prerequisites.spot` optionally names one real earlier operation as
+`"<setup>:<op>"`. The referenced operation must be a `spot` on a process
+`centre_hole` or `tooling_hole`, or a centre-specific `center_drill`.
+The [causal operation rule](rules-operations.md#op_chain) checks entry location,
+directed axis, earlier route position and survival on the material that the
+consumer receives. The reference offers evidence; it creates no second cut and
+grants no credit merely because the producer is in the child's history.
+`spot = "unknown"` or an unproved preparation/registration remains debt. A
+known wrong action, geometry, order or material is an error.
+
+### Manual threading
+
+`die_thread` and `hand_tap` are spindle-stopped hand cuts, not powered spindle
+operations or noncutting fitting instructions. They require actual selected
+thread tools and manual holders, but no spindle RPM/feed, spindle/shank
+mounting, axial tool setting or toolpost-retouch instructions. Omit `rpm` when
+no speed applies; a known nonzero numeric value is an error.
+
+`die_thread` works an exported `external_thread` and needs prior male
+blank/shoulder preparation. Select the actual die or declared set member and a
+`die_stock` holder. See [manual die threading](rules-tools.md#manual-die-threading)
+for supported identities and fit facts, and
+[external-thread preparation](rules-operations.md#external-thread-preparation)
+for the causal preparation checks.
+
+`hand_tap` works an exported `thread` or `threaded_hole`, using an actual tap
+or declared tap-set member with a `tap_wrench` or `tap_follower` holder.
+The selected tap must match the exported nominal thread, hand and class;
+known mismatches are errors and missing facts remain debt. Holder fit needs
+an exact tap identity or its supported nominal tap-size range/capacity, not a
+spindle-collet shank fit. See [manual tapping](rules-tools.md#manual-tapping).
+
+An internal thread still needs the real causal spot-and-drill preparation on
+the material received by the tapping operation. An earlier drill on another
+retained child cannot supply that preparation. A manual tap uses `depth_mm`
+when authored, otherwise the feature's `thread_depth` or `depth` upper value
+converted from manifest units; its selected tap's flutes must cover that
+depth. This is a relative manual depth, not a DRO/absolute Z endpoint or a
+powered-feed instruction. See [`op_chain`](rules-operations.md#op_chain) and
+[tip endpoints](rules-operations.md#blind_depth-tip-endpoints).
+
+Both actions are cuts for the terminal-holding rule: they cannot follow a
+`part_off` or `release` in the same holding. Native stock after manual
+threading remains unresolved because helical removal is unmodelled; no
+nominal cylinder is subtracted in its place. See the
+[manual-threading geometry boundary](rules-geometry.md#manual-threading).
 
 ### Endpoints and inspection procedures
 
@@ -1741,7 +1949,10 @@ flat method prints once for each feature.
 `coating` op (black oxide, paint, oil) names its `process`: an outside
 `[services.<id>]` item or in-house `[consumables.<id>]`. An absent process is
 unknown in `tool_resolves`, and an unlisted one is an error. A drawing
-`material.finish` with no `coating` op in the route is a job caution
+`material.finish` with omitted `finish_kind` or explicit `"coating"` and no
+`coating` op in the route is a job caution. Explicit `"surface"` declares a
+surface condition instead, leaving its inspection to the existing inspection
+rules; unknown kind or finish remains unresolved
 (`finish_route`, [inspection rules](rules-inspection.md)).
 
 ### Process holds
@@ -1822,6 +2033,10 @@ of a chain-drilled-and-chiselled break-out footprint. It is not capped to the
 claimed faces' X/Y box dilated by cutter radius. A known cutter radius is
 still required: an unknown radius leaves the bounds `?` with that reason,
 and later stock unresolved.
+
+This material mask does not bound cutter travel through air. The
+[`travel` rule](rules-setup.md#travel-required-table-and-spindle-stroke)
+distinguishes an omitted field from an explicit `"unknown"` or known mask.
 
 #### Removal and stock propagation
 
@@ -1940,6 +2155,81 @@ as do later ops' flutes in the same setup; their holders still see the
 setup-entry stock, as for any cut ([keep piece](rules-geometry.md#keep-piece)).
 The op's traveler row tells the operator which piece to keep and to discard the
 rest. Without `keep`, a held split retains every piece.
+
+### Retained part-off outputs
+
+Use `outputs` when both real pieces of a terminal `part_off` continue through
+the route, rather than treating one as scrap or authoring a second stock
+component. The schema requires this `part_off` to be the setup's final
+material-changing operation. Only `inspect`, `deburr`, `coating`, `release`
+or `scribe` may follow it. Later `fit`, `file_to_line`, `die_thread`,
+`hand_tap`, powered cuts or unknown actions are bad input, not merely an
+[`order` finding](rules-operations.md#order). Permitted deburring or coating
+does not claim new native stock geometry or remeasurement of the retained
+pieces; later inspection cannot authorize another cut in the released
+holding.
+
+`outputs` must contain exactly two globally unique, known, nonempty names with
+no leading or trailing whitespace. Only one named split is allowed in a setup.
+`keep` and `outputs` are mutually exclusive on the split op, and a later
+`keep` in that same setup is bad input. A later setup machining one named
+output may still use `keep` to discard genuine scrap.
+
+Each `[setups.ops.outputs.<name>]` is a required-field `RetainedOutput`:
+
+| Field | Type and meaning |
+|---|---|
+| `carries` | Known exported finished feature id; never a transient joint or process feature |
+| `pose` | Inline `PlanFrame` or `"unknown"` |
+| `cite` | Nonempty citations for the selector and authored registration |
+
+The manifest must declare [named finished solids](features.md#named-finished-solids).
+The carried feature's bound source faces must resolve to one named finished
+solid. That whole solid selects the piece: containing only a feature point,
+face or local patch is insufficient. A known mixed-solid selector or two
+selectors owning the same finished solid is bad input. Unknown face
+identities withhold proof; they are not an empty protected shape.
+
+The inline `pose` maps a point `p` in the incoming material's model coordinates
+to registered model coordinates:
+
+```text
+p' = origin + x*p.x + y*p.y + z*p.z
+```
+
+`origin` uses manifest/plan units and the basis vectors are dimensionless.
+The host converts the translation to mm once. The basis must be orthonormal
+and right-handed, and the record must state `binding` and a nonempty `cite`,
+as under [frames](#frames). `binding = "unknown"`, unknown units or unknown
+numeric components leaves native registration unresolved. Describe a known
+author-selected pose in `note` and `cite` as `AUTHOR'S CHOICE`, not as a
+physical measurement.
+
+Reference the outputs as `"stock_out.<name>"`. For example, after setup P3
+names `tube_blank` and `bar_remnant`, T2 may consume
+`stock_out.tube_blank` and C1 may consume `stock_out.bar_remnant`; an assembly
+can then name `stock_in = ["C1", "T2"]`. P3 itself is not a selectable combined
+output. These names retain the original supply root and distinct partition
+identities; they do not create independent stock purchases.
+
+The named split uses the selected parting blade's accepted width as a finite
+kerf at `to_z`, on the claimed face's axial side. It must cut to the spindle
+axis, not leave a connected core; any authored `z_from`/`z_to` span must cover
+the full kerf. These are the [native cut requirements](rules-geometry.md#retained-part-off-outputs),
+not additional output fields. The ordinary part-off-and-`keep` route is
+unchanged.
+
+Naming both outputs does not waive the existing
+[held-split proof](rules-geometry.md#held-splits). Each retained piece still
+needs modelled press-clamp contact and a load path to an anchored support.
+Unknown catch/support geometry does not become permission to release or route
+a loose piece.
+
+The kernel must prove a real cut, two distinct pieces, unique whole-solid
+containment after each pose, complete finished-solid accounting and no material
+overlap before it exposes either output. Missing geometry or a failed proof
+leaves the named outputs and downstream stock unresolved. See the
+[native partition contract](rules-geometry.md#retained-part-off-outputs).
 
 ## Contour
 
@@ -2453,10 +2743,14 @@ an inventory blade in `tools`:
 |---|---|
 | `bandsaw` | `mill`, `bench` or `bandsaw` for a straight cut; a scribed-line cut needs a vertical `bandsaw` |
 | `hand_saw` (a hacksaw) | `bench` or `manual` |
+| `slitting_saw` (rotating disk; not a bandsaw alias) | `mill` only; bounded recognition, not physical disk/assembly validation |
 
-A lathe uses `part_off`, a separate action and model. Saw operations need no
-spindle holder, direction or finished-face claim. An authored feature must
-resolve normally; an omitted feature cannot carry inspection checks.
+A lathe uses `part_off`, a separate action and model. Nonspindle bandsaw and
+hand-saw operations need no spindle holder or direction. A slitting saw uses
+the existing selected operation `holder` reference and optional tool `arbor`
+identity; these do not prove its mount or axis. No saw earns finished-face
+coverage. An authored feature must resolve normally; an omitted feature cannot
+carry inspection checks.
 
 ### Straight cut plane and kerf
 
@@ -2480,28 +2774,53 @@ With 1.5 mm kerf, the fragment retains Y ≤ 87 mm, not Y ≤ 87.75 mm.
 The kernel removes kerf and offcut, checks that no finished target was removed,
 and passes the retained stock to later setups.
 
+For a `slitting_saw`, this is ideal planar removal only. Explicit inventory
+`dia_mm` / `dia_in` describes disk OD, separate `kerf_mm` / `kerf_in`
+describes kerf (never inferred from thickness), and `flutes` is tooth count.
+Missing or unverified dimensions and arbor facts remain debt. No new fields
+are required. The plane and retained halfspace do not model finite disk reach,
+mount/axis, arbor assembly, spindle/tool/fixture clearance or engagement.
+`saw_cut`, assembled `tool_resolves`, `accessibility`, `reach` and `saw_teeth`
+therefore remain unknown for physical slitting support, even when ideal stock
+removal can be routed. No planar result certifies safe or complete slitting.
+Bounded slitting recognition is limited to straight `cut_plane` cuts. A
+slitting saw with `follows` remains unknown: the host supplies a
+`scribed_profile.reason` debt and does not route known stock from that cut.
+Arbitrary scribed-region removal is not a finite-disk model.
+
 ### Teeth, holding and starting settings
 
-The blade's coarse-end `tpi` times the crossed work thickness must reach the
-shop policy's `saw_min_teeth_in_work`. A 4/6 TPI blade places 0.39 teeth in
+For bandsaw and hand-saw blades, coarse-end `tpi` times the crossed work
+thickness must reach the shop policy's `saw_min_teeth_in_work`. A 4/6 TPI blade
+places 0.39 teeth in
 a 2.5 mm strap, an error; a 32 TPI blade places 3.15. See
 [saw teeth in the work](rules-geometry.md#saw-teeth-in-the-work).
 
-An all-saw setup can include manual inspection and deburring without a `zero`
-recipe or mill envelope. `zero_check`, `headroom`, `envelope` and `travel`
-report why they are not applicable. A mixed setup still checks its other
-machining ops.
+An all-nonspindle-saw setup can include manual inspection and deburring without
+a `zero` recipe or mill envelope. `zero_check`, `headroom`, `envelope` and
+`travel` report why they are not applicable. A mixed setup still checks its
+other machining ops. Any `slitting_saw` operation, even with unresolved
+dimensions or verification, prevents this waiver: `zero_check` and DRO
+touch-off remain unknown, as do `headroom`, `envelope` and `travel` for the
+missing rotating-disk model. Mixed setups still assess ordinary operations
+while preserving slitting debt; they never certify disk clearance or declare
+it unnecessary.
 
 Holding, `stock_state.top_z/bottom_z`, bound frame and routing still apply.
 Declare an ordinary fixture, such as a saw vise with its jaw/parallels fields,
 to model it. A bandsaw machine identity does not invent an integral vise.
 The exception is [hand-fed work along a scribed line](#hand-fed-on-the-saw-table).
 
-The setup sheet prints blade-centre setting, retained edge in mm, blade speed
-in sfm and descent feed in mm/min. Starting settings come only from the cited
-[`saw_cut` cutting-data row](cutting-data.md), never operation RPM/feed
-overrides. Blade-centre settings, retained edges and sourced speed/feed retain
-their own digits; coarse drawing precision does not round machine settings.
+For bandsaws, the setup sheet prints blade-centre setting, retained edge in mm,
+linear blade speed in sfm and descent feed in mm/min. Those starting settings
+come only from the cited [`saw_cut` cutting-data row](cutting-data.md), never
+operation RPM/feed overrides. A mill slitting saw instead uses a cited
+rotating-tool chart or unique `operation = "slitting_saw"` row selected by
+disk OD: `sfm` and `chip_load_mm_per_tooth` produce spindle-limited RPM and
+`RPM × flutes × chip load` feed. Canonical `saw_cut`/descent rows never supply
+its numbers. Blade-centre settings, retained edges and sourced speed/feed
+retain their own digits; coarse drawing precision does not round machine
+settings. Starting numbers do not certify physical slitting clearance.
 
 ### Hand saw on the bench, straight or to a scribed line
 

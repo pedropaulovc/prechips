@@ -1,0 +1,348 @@
+# Video-only shop inventory. Shown/named identities are not physical measurements.
+# Source: https://www.youtube.com/watch?v=TL0OsfFkBL8 (Blondihacks, 2020-05-02).
+# No affiliate-list additions, Pedro-shop inheritance, or invented machine ratings.
+# present = true means seen/used in this source, not available in the reader's shop.
+stock = "unknown"
+
+[machines.video-mill]
+name = "Precision Matthews mill"
+kind = "mill"
+make = "Precision Matthews"
+control = "manual with DRO"
+operation_mode = "manual"
+present = true
+verify = false
+note = "PM logo and Precision Matthews DRO visible; exact mill model, travels, spindle limits, power and measured DRO resolution are not established. Do not substitute another example's PM-30MV."
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s"]
+[machines.video-mill.spindle]
+rpm_min = "unknown"
+rpm_max = "unknown"
+hp = "unknown"
+taper = "unknown"
+rotation = "unknown"
+[machines.video-mill.envelope]
+travel_mm = { x = "unknown", y = "unknown", z = "unknown" }
+spindle_to_table_max_mm = "unknown"
+
+[machines.video-bench]
+name = "Bench"
+kind = "bench"
+present = true
+verify = false
+note = "Source bench station with vise: portable powered band-saw cutoff, hand finishing and chemical finishing. No separate stationary saw or extra shop capability is inferred."
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s"]
+
+[fixtures.mill-vise]
+name = "Mill vise"
+kind = "vise"
+present = true
+verify = false
+jaw_height_mm = "unknown"
+jaw_width_mm = "unknown"
+jaw_depth_mm = "unknown"
+opening_mm = "unknown"
+note = "Precision Tool label visible at 05:24. Jaw engagement, pose, alignment and dimensions have not been measured."
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s"
+
+[fixtures.bench-vise]
+name = "Bench vise"
+kind = "vise"
+present = true
+verify = false
+jaw_height_mm = "unknown"
+jaw_width_mm = "unknown"
+opening_mm = "unknown"
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=890s"]
+
+[fixtures.parallels]
+name = "Parallels"
+kind = "parallels"
+present = true
+verify = false
+height_mm = "unknown"
+width_mm = "unknown"
+length_mm = "unknown"
+note = "Height is selected in the video for shoulder clearance and grip, but no measured height/stack is available."
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=414s"]
+
+[fixtures.round-bar]
+name = "Round bar"
+kind = "round_bar"
+present = true
+verify = false
+dia_mm = "unknown"
+length_mm = "unknown"
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s"
+
+[fixtures.end-stop]
+name = "End stop"
+kind = "stop"
+present = true
+verify = false
+length_mm = "unknown"
+dia_mm = "unknown"
+note = "Shown stop arrangement only; position, attachment and retention are not measured."
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s"
+
+[fixtures.balancing-piece]
+name = "Balancing T-nut"
+kind = "block"
+present = true
+verify = false
+width_mm = "unknown"
+length_mm = "unknown"
+height_mm = "unknown"
+note = "A previously separated nut balances the opposite jaw end in the final upright cut. The paper is on the workpiece being cut, not this balancing piece; source description, not a qualified retention fixture."
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=691s"
+
+[fixtures.wood-block]
+name = "Wood block"
+kind = "block"
+present = true
+verify = false
+width_mm = "unknown"
+length_mm = "unknown"
+height_mm = "unknown"
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=712s"
+
+[tools.initial-stock-saw]
+name = "Band-saw blade"
+kind = "bandsaw"
+present = true
+verify = false
+kerf_mm = "unknown"
+tpi = "unknown"
+note = "Frame 02:45 shows a portable powered band saw cutting stock held in the bench vise. Make/model, blade tooth pitch, kerf and safe engagement are not established; not a hand hacksaw."
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=165s"
+
+[tools.roughing-endmill]
+name = "Niagara squaring mill"
+kind = "endmill"
+make = "Niagara"
+material = "HSS"
+coating = "TiCN"
+present = true
+verify = false
+dia_mm = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+flutes = "unknown"
+center_cutting = "unknown"
+note = "Black Niagara HSS TiCN cutter named at 03:23 for stock squaring. It is distinct from the gold-coloured shoulder rougher shown at 07:44. No diameter, flute count or reach measurement supplied."
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=203s"
+
+[tools.shoulder-rougher]
+name = "Shoulder roughing mill"
+kind = "endmill"
+present = true
+verify = false
+material = "unknown"
+coating = "unknown"
+dia_mm = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+flutes = "unknown"
+center_cutting = "unknown"
+note = "Gold-coloured roughing end mill held beside the finishing mill at 07:44 and used on the shoulders. Colour does not establish coating, make or tool material; distinct from the black Niagara squaring cutter."
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s"]
+
+[tools.finishing-endmill]
+name = "Finishing end mill"
+kind = "endmill"
+present = true
+verify = false
+material = "unknown"
+dia_mm = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+flutes = "unknown"
+center_cutting = "unknown"
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s"]
+
+[tools.edge-finder]
+name = "Edge finder"
+kind = "edge_finder"
+present = true
+verify = false
+finder_type = "unknown"
+dia_mm = "unknown"
+rpm_range = "unknown"
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=437s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s"]
+
+[tools.slitting-saw]
+name = "Slitting saw"
+kind = "slitting_saw"
+present = true
+verify = false
+material = "unknown"
+dia_mm = "unknown"
+kerf_mm = "unknown"
+tpi = "unknown"
+oal_mm = "unknown"
+note = "Not a bandsaw blade. Blade diameter, kerf, teeth, arbor dimensions and assembly projection are not source measurements."
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=647s"
+
+[tools.centre-drill]
+name = "Centre drill"
+kind = "center_drill"
+present = true
+verify = false
+material = "unknown"
+dia_mm = "unknown"
+pilot_len_mm = "unknown"
+point_angle = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s"
+
+[tools.tap-drill]
+name = "Tap drill"
+kind = "drill"
+present = true
+verify = false
+material = "unknown"
+dia_mm = "unknown"
+point_angle = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+note = "No letter/number/diameter is stated clearly in the source; do not infer a handbook tap drill as video evidence."
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s"
+
+[tools.taper-tap]
+name = "3/8-16 taper tap"
+kind = "tap"
+present = true
+verify = false
+sizes = ["3/8-16"]
+dia_mm = "unknown"
+flute_len_mm = "unknown"
+oal_mm = "unknown"
+material = "unknown"
+note = "Thread form/class and tap geometry are not separately established. The nominal thread identity is source evidence, not a measured tap diameter."
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s"
+
+[tools.noga-deburrer]
+name = "Noga deburrer"
+kind = "deburring_tool"
+present = true
+verify = false
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s"
+
+[tools.needle-files]
+name = "Needle files"
+kind = "files"
+present = true
+verify = false
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s"
+
+[tools.punch]
+name = "Punch"
+kind = "punch"
+present = true
+verify = false
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s"
+
+[tools.layout-marker]
+name = "Sharpie"
+kind = "marker"
+present = true
+verify = false
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=630s"
+
+[holders.milling-holder]
+name = "Mill cutter holder"
+kind = "unknown"
+present = true
+verify = true
+gauge_dia_mm = "unknown"
+gauge_len_mm = "unknown"
+note = "Visible assembly only; do not infer collet standard or measured cutter projection."
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s"
+
+[holders.saw-arbor]
+name = "Saw arbor"
+kind = "arbor"
+present = true
+verify = false
+gauge_dia_mm = "unknown"
+gauge_len_mm = "unknown"
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=691s"
+
+[holders.drill-chuck]
+name = "Drill chuck"
+kind = "drill_chuck"
+present = true
+verify = false
+gauge_dia_mm = "unknown"
+gauge_len_mm = "unknown"
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s"
+
+[holders.tap-follower]
+name = "Tap follower"
+kind = "tap_follower"
+present = true
+verify = false
+gauge_dia_mm = "unknown"
+gauge_len_mm = "unknown"
+note = "Maintains tap alignment; does not mean powered tapping."
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s"
+
+[gauges.calipers]
+name = "Dial calipers"
+kind = "caliper"
+present = true
+verify = false
+range_mm = "unknown"
+resolution_mm = "unknown"
+note = "No calibration, readable resolution or measurement log is available."
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=90s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s"]
+
+[gauges.mating-hardware]
+name = "3/8-16 rod and nut"
+kind = "mating_hardware"
+present = true
+verify = false
+note = "Functional comparison only, not certified GO/NO-GO thread gauges. Distinguish from misleading near-fit M10 x 1.5."
+cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=143s"
+
+[gauges.actual-slot]
+name = "Table T-slot"
+kind = "mating_part"
+present = true
+verify = false
+width_mm = "unknown"
+height_mm = "unknown"
+note = "Throat width, undercut width, undercut depth and top clearance are not transcribed numerical measurements."
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=90s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s"]
+
+[consumables.cutting-fluid]
+name = "Cutting fluid"
+products = "unknown"
+
+[consumables.acetone]
+name = "Acetone"
+products = ["Acetone; grade and supplier unspecified in source"]
+
+[consumables.jax-blackener]
+name = "JAX Metal Blackener"
+products = ["JAX Metal Blackener; exact formulation/SDS not established"]
+
+[consumables.rinse-water]
+name = "Rinse water"
+products = ["Water rinse shown at 15:55"]
+
+[consumables.paper-towel]
+name = "Paper towel"
+products = ["Paper towel; unspecified product"]
+
+[consumables.steel-wool]
+name = "#000 steel wool"
+products = ["#000 steel wool named at 16:00"]
+
+[consumables.oil]
+name = "Oil"
+products = "unknown"
+
+[consumables.paper-shim]
+name = "Paper shim on the cutting workpiece"
+products = ["Paper; thickness not measured"]

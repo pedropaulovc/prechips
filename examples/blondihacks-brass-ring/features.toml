@@ -1,0 +1,119 @@
+# Worked demonstration from the video's spoken design nominals, not measured shop data.
+# An ideal sharp-edged ring; no fabricated tolerance bands or edge-break dimensions.
+part = "blondihacks-brass-ring"
+units = "mm"
+precision = "unknown"
+step = "brass-ring.STEP"
+step_sha256 = "5e1fc38ebade5d85d47ab662b184b09d688fb75962f169483059d47526796ed7"
+construction = "one_piece"
+volume_mm3 = 173.74999458253205
+volume_cite = "geometry-provenance.md: native FreeCAD nominal-model volume; not a physical measurement"
+cite_root = "."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII", "geometry-provenance.md", "source-ledger.md"]
+
+[drawing]
+number = "BH-BR-EXAMPLE"
+revision = "video-design-1"
+cite = "Locally authored nominal demonstration design from video 05:41-05:52 and 14:40-14:48; no source drawing or release approval."
+
+[material]
+spec = "360 free-machining brass"
+name = "360 free-machining brass"
+finish = "As turned and hand deburred; no coating applied in the video; numerical roughness unknown"
+finish_kind = "surface"
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=299s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=1389s", "https://alloys.copper.org/alloy/C36000 (published alloy composition, not a certificate for the actual stock)"]
+
+[notes]
+manufacturing = [
+  "VIDEO NOMINALS: 5/8-inch inside diameter, 0.050-inch radial wall, 0.725-inch outside diameter, 0.100-inch axial width. Inch conversion is exactly 25.4 mm/inch.",
+  "These are design targets, not physical measurements or acceptance bands. No fit, runout, coaxiality, roughness or edge-break tolerance is published.",
+  "The finished STEP omits the unquantified hand-filed edge breaks and the sacrificial groove in the retained bar. It is not a pixel-exact replica of the deburred physical ring.",
+  "The video uses a partial rear groove, then the final drill frees the ring onto the drill. Safe release/retention and brass-drill grabbing require an approved procedure; the checker does not certify them.",
+  "EDITORIAL MATERIAL HOLD: CDA C36000 contains 2.5-3.0% Pb. This selected brass is not lead-free; actual stock identity/composition and applicable jewelry/wear suitability require approval, not an inference from the video's separate 12L14 warning.",
+]
+process = "One three-jaw chucking: face; mark safe turning limit and clean up; measure; two roughing passes; remeasure; finish; rear groove; file outer edges; spot; drill 1/4, 5/16, 7/16, 1/2, 5/8 inch; stop and recover the ring; hand deburr inner edges."
+edge_break = "Slight outer-edge chamfers with a fine-cut mill file, then inner edges hand deburred; sizes unspecified."
+cite = ["source-ledger.md", "https://www.youtube.com/watch?v=t9NGty1CVII"]
+
+[general_tolerances]
+linear_1pl = "unknown"
+linear_2pl = "unknown"
+linear_3pl = "unknown"
+angular_deg = "unknown"
+edge_break_r = "unknown"
+chamfer_max = "unknown"
+cite = "No numerical tolerance bands or edge-break sizes published in the inspected video; spoken thou are nominals, not +/- tolerances."
+
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+note = "AUTHOR'S CHOICE: spindle axis +Z toward the exposed end; finished front annulus Z0, rear annulus Z-2.54. Not a measured machine pickup."
+cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=t9NGty1CVII&t=881s", "geometry-provenance.md"]
+
+[features.outer-diameter]
+kind = "cylinder"
+frame = "model"
+binding = "nominal"
+requirements = ["dia", "thickness"]
+dia = "unknown"
+dia_nominal = 18.415
+thickness = "unknown"
+thickness_nominal = 1.27
+at = [0.0, 0.0, 0.0]
+axis = [0.0, 0.0, -1.0]
+faces = ["#17/ADVANCED_FACE[1]/"]
+bounds = { x = [-9.2075, 9.2075], y = [-9.2075, 9.2075], z = [-2.54, 0.0] }
+note = "Video design OD 0.725 inch = ID 0.625 + 2 x radial wall 0.050 inch. Unknown requirements preserve absent acceptance limits."
+cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=341s"
+
+[features.front-face]
+kind = "face"
+frame = "model"
+binding = "nominal"
+requirements = []
+at = [0.0, 0.0, 0.0]
+normal = [0.0, 0.0, 1.0]
+faces = ["#50/ADVANCED_FACE[2]/"]
+note = "Initial facing establishes the exposed end. No flatness or roughness limit is invented."
+cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=408s"
+
+[features.back-face]
+kind = "face"
+frame = "model"
+binding = "nominal"
+requirements = ["length"]
+length = "unknown"
+length_nominal = 2.54
+at = [0.0, 0.0, -2.54]
+normal = [0.0, 0.0, -1.0]
+faces = ["#70/ADVANCED_FACE[3]/"]
+note = "Axial ring width 0.100 inch set with a machinist scale at the ring-side edge of the wide ground parting tool; no tolerance is stated. Sacrificial groove width/root diameter are not finished-part features."
+cite = "https://www.youtube.com/watch?v=t9NGty1CVII&t=880s"
+
+[features.bore]
+kind = "hole"
+frame = "model"
+binding = "nominal"
+requirements = ["dia", "thru", "coaxiality_dia"]
+dia = "unknown"
+dia_nominal = 15.875
+coaxiality_dia = "unknown"
+thru = true
+through_thickness = 2.54
+at = [0.0, 0.0, 0.0]
+axis = [0.0, 0.0, -1.0]
+faces = ["#90/ADVANCED_FACE[4]/"]
+note = "Final 5/8-inch drill forms the bore and frees the ring from the pre-grooved bar. Video says concentric to the spindle but supplies no coaxiality acceptance limit. Drill point angle and proven breakthrough/release geometry remain unknown."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=341s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=1361s"]
+
+[features.all-surfaces]
+kind = "face"
+frame = "model"
+binding = "nominal"
+requirements = []
+faces = ["#17/ADVANCED_FACE[1]/", "#50/ADVANCED_FACE[2]/", "#70/ADVANCED_FACE[3]/", "#90/ADVANCED_FACE[4]/"]
+note = "Convenience set for deburring, release and visual condition checks, not extra toleranced geometry."
+cite = ["https://www.youtube.com/watch?v=t9NGty1CVII&t=980s", "https://www.youtube.com/watch?v=t9NGty1CVII&t=1407s"]

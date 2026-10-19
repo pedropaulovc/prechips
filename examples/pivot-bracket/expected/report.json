@@ -18232,6 +18232,7 @@
         "AUTHOR'S CHOICE: the left side is the reference face because S1-S3 edge-find it",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "plan.setups.P1.ops.10.stock_removal_bounds",
         "coordinates.P1: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -18254,16 +18255,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -1.8999999999999986,
-                36.1
+                -3.9,
+                38.1
               ],
               "y": [
-                -2.7750000000000004,
+                -2.775,
                 28.975
               ],
               "z": [
                 0.0,
-                0.0
+                0.525
               ]
             },
             "feature": "blank_left",
@@ -18358,6 +18359,7 @@
         "AUTHOR'S CHOICE: the outer end is the second reference because S1 edge-finds it",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "plan.setups.P2.ops.10.stock_removal_bounds",
         "coordinates.P2: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -18380,16 +18382,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -1.8999999999999986,
-                36.1
+                -3.9,
+                38.1
               ],
               "y": [
                 -18.525,
-                0.5250000000000004
+                0.0
               ],
               "z": [
                 0.0,
-                0.0
+                2.775
               ]
             },
             "feature": "blank_outer_end",
@@ -18484,6 +18486,7 @@
         "AUTHOR'S CHOICE: faced from the outer end because the 26.2 run is measured over the two edges",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "plan.setups.P3.ops.10.stock_removal_bounds",
         "coordinates.P3: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -18506,16 +18509,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -1.9,
-                36.1
+                -3.9,
+                38.1
               ],
               "y": [
                 -18.525,
-                0.5250000000000004
+                0.0
               ],
               "z": [
                 0.0,
-                0.0
+                2.775
               ]
             },
             "feature": "blank_free_end",
@@ -18610,6 +18613,7 @@
         "AUTHOR'S CHOICE: faced last of the four long faces, on the left side, because it is sized from the reference",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "plan.setups.P4.ops.10.stock_removal_bounds",
         "coordinates.P4: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -18632,16 +18636,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -1.8999999999999986,
-                36.1
+                -3.9,
+                38.1
               ],
               "y": [
-                -2.775000000000002,
-                28.975
+                0.0,
+                26.2
               ],
               "z": [
                 0.0,
-                0.0
+                0.525
               ]
             },
             "feature": "blank_right",
@@ -18736,6 +18740,7 @@
         "AUTHOR'S CHOICE: the crown end is faced first because S2/S3 touch Z on it",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "plan.setups.P5.ops.10.stock_removal_bounds",
         "coordinates.P5: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -18758,16 +18763,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -2.775000000000002,
-                28.975
+                -2.0,
+                28.2
               ],
               "y": [
-                -18.525,
-                0.5250000000000004
+                -18.0,
+                0.0
               ],
               "z": [
                 0.0,
-                0.0
+                1.9
               ]
             },
             "feature": "blank_crown_end",
@@ -18862,6 +18867,7 @@
         "AUTHOR'S CHOICE: faced last because the 34.2 length is measured over both ends",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "plan.setups.P6.ops.10.stock_removal_bounds",
         "coordinates.P6: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -18884,16 +18890,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -2.7750000000000004,
-                28.975
+                -2.0,
+                28.2
               ],
               "y": [
-                -18.525,
-                0.5250000000000004
+                -18.0,
+                0.0
               ],
               "z": [
                 0.0,
-                0.0
+                1.9
               ]
             },
             "feature": "blank_seat_end",
@@ -18989,6 +18995,7 @@
         "example (plausible, no dimensioned drawing)",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "plan.setups.S1.ops.10.stock_removal_bounds",
         "coordinates.S1: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
@@ -18998,10 +19005,12 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S1.ops.20",
         "features.features.foot_profile.bounds/at",
+        "plan.setups.S1.ops.20.stock_removal_bounds",
         "coordinates.S1: printed cutter-centre path of op 20",
         "plan.setups.S1.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S1.ops.30",
+        "plan.setups.S1.ops.30.stock_removal_bounds",
         "coordinates.S1: printed cutter-centre path of op 30",
         "plan.setups.S1.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
@@ -19020,16 +19029,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -8.0,
-                8.0
+                -9.0,
+                9.0
               ],
               "y": [
-                -3.0,
-                21.2
+                -4.0,
+                22.2
               ],
               "z": [
                 0.0,
-                0.0
+                1.0
               ]
             },
             "feature": "seat_face",
@@ -19078,16 +19087,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -8.0,
-                8.0
+                -9.0,
+                9.0
               ],
               "y": [
-                -3.0,
-                21.2
+                -4.0,
+                22.2
               ],
               "z": [
                 -6.0,
-                0.0
+                1.0
               ]
             },
             "feature": "foot_profile",
@@ -19136,16 +19145,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -8.0,
-                8.0
+                -9.0,
+                9.0
               ],
               "y": [
-                -3.0,
-                21.2
+                -4.0,
+                22.2
               ],
               "z": [
                 -6.0,
-                0.0
+                1.0
               ]
             },
             "feature": "foot_profile",
@@ -19241,11 +19250,9 @@
         "example (plausible, no dimensioned drawing)",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "plan.setups.S2.ops.10.stock_removal_bounds",
         "coordinates.S2: printed cutter-centre path of op 10",
         "inventory.tools.bracket-long-endmill.dia",
-        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
-        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
-        "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
         "inventory.tools.bracket-long-endmill.projection_mm.r8-collets-lms-4860/3-8in",
         "plan.setups.S2.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
@@ -19253,10 +19260,12 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S2.ops.20",
         "features.features.ear_sides.bounds/at",
+        "plan.setups.S2.ops.20.stock_removal_bounds",
         "coordinates.S2: printed cutter-centre path of op 20",
         "plan.setups.S2.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.30",
+        "plan.setups.S2.ops.30.stock_removal_bounds",
         "coordinates.S2: printed cutter-centre path of op 30",
         "plan.setups.S2.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
@@ -19270,14 +19279,23 @@
         "operations": [
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 18.0,
-              "y": 26.2,
-              "z": 33.2
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "rough_pocket",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -9.0,
+                9.0
+              ],
+              "y": [
+                -22.2,
+                -3.0
+              ],
+              "z": [
+                16.0,
+                27.2
+              ]
+            },
             "feature": "ear_relief",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
@@ -19324,16 +19342,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -7.0,
-                7.0
+                -9.0,
+                -7.0
               ],
               "y": [
-                -3.0,
-                3.0
+                -3.3,
+                4.0
               ],
               "z": [
-                0.0,
-                26.200000000000003
+                16.0,
+                27.2
               ]
             },
             "feature": "ear_sides",
@@ -19382,16 +19400,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -7.0,
-                7.0
+                7.0,
+                9.0
               ],
               "y": [
-                -3.0,
-                3.0
+                -3.3,
+                4.0
               ],
               "z": [
-                0.0,
-                26.200000000000003
+                16.0,
+                27.2
               ]
             },
             "feature": "ear_sides",
@@ -19487,34 +19505,37 @@
         "example (plausible, no dimensioned drawing)",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "plan.setups.S3.ops.10.stock_removal_bounds",
         "coordinates.S3: printed cutter-centre path of op 10",
         "inventory.tools.bracket-long-endmill.dia",
-        "kernel.setups.S3.stock_bbox_mm: setup-entry stock in the setup frame",
-        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
-        "plan.setups.stock_state: physical supported stock height",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
         "inventory.tools.bracket-long-endmill.projection_mm.r8-collets-lms-4860/3-8in",
         "plan.setups.S3.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S3.ops.20",
+        "plan.setups.S3.ops.20.stock_removal_bounds",
         "coordinates.S3: printed cutter-centre path of op 20",
         "plan.setups.S3.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S3.ops.40",
         "features.features.ear_sides.bounds/at",
+        "plan.setups.S3.ops.40.stock_removal_bounds",
         "coordinates.S3: printed cutter-centre path of op 40",
         "plan.setups.S3.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.40: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S3.ops.45",
+        "plan.setups.S3.ops.45.stock_removal_bounds",
         "coordinates.S3: printed cutter-centre path of op 45",
         "plan.setups.S3.ops.45.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.45: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S3.ops.50",
+        "plan.setups.S3.ops.50.stock_removal_bounds",
         "coordinates.S3: printed cutter-centre path of op 50",
         "plan.setups.S3.ops.50.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.50: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S3.ops.55",
+        "plan.setups.S3.ops.55.stock_removal_bounds",
         "coordinates.S3: printed cutter-centre path of op 55",
         "plan.setups.S3.ops.55.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S3.ops.55: stock_states current top and local entry; hole tip/exit endpoints",
@@ -19547,14 +19568,23 @@
         "operations": [
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 18.0,
-              "y": 26.2,
-              "z": 33.2
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "rough_pocket",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -9.0,
+                9.0
+              ],
+              "y": [
+                -22.2,
+                -3.0
+              ],
+              "z": [
+                0.0,
+                16.0
+              ]
+            },
             "feature": "ear_relief",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
@@ -19596,14 +19626,23 @@
           },
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 18.0,
-              "y": 26.2,
-              "z": 33.2
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "finish_pocket",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -9.0,
+                9.0
+              ],
+              "y": [
+                -22.2,
+                -3.0
+              ],
+              "z": [
+                0.0,
+                27.2
+              ]
+            },
             "feature": "ear_relief",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
@@ -19650,16 +19689,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -7.0,
-                7.0
+                -9.0,
+                -7.0
               ],
               "y": [
                 -3.0,
-                3.0
+                4.0
               ],
               "z": [
                 0.0,
-                26.200000000000003
+                16.0
               ]
             },
             "feature": "ear_sides",
@@ -19708,16 +19747,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -7.0,
-                7.0
+                7.0,
+                9.0
               ],
               "y": [
                 -3.0,
-                3.0
+                4.0
               ],
               "z": [
                 0.0,
-                26.200000000000003
+                16.0
               ]
             },
             "feature": "ear_sides",
@@ -19766,16 +19805,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -7.0,
-                7.0
+                -9.0,
+                -7.0
               ],
               "y": [
                 -3.0,
-                3.0
+                4.0
               ],
               "z": [
                 0.0,
-                26.200000000000003
+                27.2
               ]
             },
             "feature": "ear_sides",
@@ -19824,16 +19863,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -7.0,
-                7.0
+                7.0,
+                9.0
               ],
               "y": [
                 -3.0,
-                3.0
+                4.0
               ],
               "z": [
                 0.0,
-                26.200000000000003
+                27.2
               ]
             },
             "feature": "ear_sides",
@@ -20183,6 +20222,7 @@
         "example (plausible, no dimensioned drawing)",
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/pivot_bracket_spec.py:7-12",
+        "plan.setups.S4.ops.10.stock_removal_bounds",
         "coordinates.S4: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
@@ -20192,10 +20232,8 @@
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S4.ops.15",
         "features.features.ear_arch.bounds/at",
+        "plan.setups.S4.ops.15.stock_removal_bounds",
         "coordinates.S4: printed cutter-centre path of op 15",
-        "kernel.setups.S4.stock_bbox_mm: setup-entry stock in the setup frame",
-        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
-        "plan.setups.stock_state: physical supported stock height",
         "plan.setups.S4.ops.15.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S4.ops.15: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S4.ops.30",
@@ -20234,12 +20272,12 @@
                 8.0
               ],
               "y": [
-                -32.2,
+                -33.2,
                 0.0
               ],
               "z": [
                 0.0,
-                0.0
+                1.0
               ]
             },
             "feature": "outer_face",
@@ -20283,14 +20321,23 @@
           },
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 16.0,
-              "y": 33.2,
-              "z": 25.2
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "rough_profile",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -7.0,
+                7.0
+              ],
+              "y": [
+                -33.2,
+                -25.2
+              ],
+              "z": [
+                -6.0,
+                1.0
+              ]
+            },
             "feature": "ear_arch",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
@@ -23293,7 +23340,7 @@
       "subject": "S5"
     }
   ],
-  "hash": "eaca208418e85dd65d3e50469d4d51505948565477d9ee37b0e163aaea3a702e",
+  "hash": "df51d6987a800218d6168525f02a695c54b73b3839dfb562135ed273757fd812",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

@@ -11,7 +11,7 @@ from test_turning_geometry import _turn
 
 from prechips import kernel
 from prechips.inputs import Bundle
-from prechips.rules.resolution import HAND_FINISH, MANUAL
+from prechips.rules.resolution import HAND_FINISH, HAND_THREAD, MANUAL
 
 _AUTHOR = r"""
 import sys
@@ -816,8 +816,8 @@ def _manual_job(step, action):
     return kernel.build_job(bundle)
 
 
-# A bench file (HAND_FINISH) does remove stock, off its claimed faces; it is not a no-op.
-@pytest.mark.parametrize("action", sorted((MANUAL - HAND_FINISH) | {"transfer"}))
+# Bench files remove claimed stock; manual threads withhold unmodelled helical removal.
+@pytest.mark.parametrize("action", sorted((MANUAL - HAND_FINISH - HAND_THREAD) | {"transfer"}))
 def test_manual_actions_neither_damage_stock_nor_prepare_socket(engine, joint_solids, action):
     facts = engine.run(_manual_job(joint_solids["joined"], action))
     assert facts["status"] == "ok", facts
@@ -826,6 +826,41 @@ def test_manual_actions_neither_damage_stock_nor_prepare_socket(engine, joint_so
         assert stock["stock_volume_mm3"] == pytest.approx(math.pi * 1000, abs=1e-3)
         assert stock["stock_out_volume_mm3"] == pytest.approx(math.pi * 1000, abs=1e-3)
         assert stock["completed_joint_features"] == []
+
+
+@pytest.mark.parametrize("action", sorted(HAND_THREAD))
+def test_manual_threads_withhold_stock_and_never_prepare_transient_socket(
+    engine, joint_solids, action
+):
+    job = _manual_job(joint_solids["joined"], action)
+    [thread] = job["setups"][0]["ops"]
+    assert thread["do"] == action
+    assert "joint_cut" not in thread
+    debt = "helical thread removal unmodeled; no nominal-major cylinder stand-in"
+    assert thread["manual_thread"]["reason"] == debt
+
+    facts = engine.run(job)
+    assert facts["status"] == "ok", facts
+    upstream = facts["setups"]["socket-cut"]
+    assert upstream["stock_volume_mm3"] == pytest.approx(math.pi * 1000, abs=1e-3)
+    assert "stock_out_volume_mm3" not in upstream
+    assert "stock_out_bbox_mm" not in upstream
+    assert debt in upstream["stock_out_reason"]
+
+    detail = facts["ops"]["socket-cut:10"]
+    assert detail["reason"] == debt
+    assert detail["claimed_indices"] == "unknown"
+    assert detail["reasons"]["claimed_indices"] == debt
+    downstream = facts["setups"]["after-manual"]
+    assert "stock_volume_mm3" not in downstream
+    assert "stock_bbox_mm" not in downstream
+    assert "stock_out_volume_mm3" not in downstream
+    assert "stock_out_bbox_mm" not in downstream
+    assert debt in downstream["stock_reason"]
+    assert debt in downstream["stock_out_reason"]
+    for stock in (upstream, downstream):
+        assert "completed_joint_features" not in stock
+        assert "socket" not in stock.get("completed_joint_features", [])
 
 
 def test_filing_a_joint_feature_without_face_references_is_unknown(engine, joint_solids):

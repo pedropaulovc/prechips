@@ -1,6 +1,7 @@
 """Drawn fixture solids may touch the work and each other, never pass into them."""
 
 from prechips.findings import Finding
+from prechips.rules._bench import manual_bench, not_applicable, unfixtured_handling
 from prechips.rules.geometry_common import setup_contexts, with_measurement_debts
 
 _RULE = "fixture_interference"
@@ -9,6 +10,11 @@ _RULE = "fixture_interference"
 def evaluate(bundle):
     rows = []
     for setup, _, detail, inputs, cite, blocked in setup_contexts(bundle, _RULE):
+        bench = manual_bench(bundle, setup)
+        hold = setup.get("hold", {})
+        if isinstance(hold, dict) and unfixtured_handling(bench, hold):
+            rows.append(not_applicable(_RULE, setup, bench, "holding", "fixture solids to collide"))
+            continue
         if blocked:
             rows.append(blocked)
             continue

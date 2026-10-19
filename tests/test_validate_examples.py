@@ -65,6 +65,301 @@ ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
 
 
+def test_authored_frame_provenance_is_carried_by_its_citation():
+    frame = {
+        "origin": [0.0, 0.0, 0.0],
+        "x": [1.0, 0.0, 0.0],
+        "y": [0.0, 1.0, 0.0],
+        "z": [0.0, 0.0, 1.0],
+        "binding": "nominal",
+        "cite": ["AUTHOR'S CHOICE"],
+        "note": "Establish the physical pickup before cutting.",
+    }
+    plan = {"frames": {"setup-frame": frame}}
+    check = VALIDATOR["check_frames"]
+    check({"frames": {}}, plan)
+    frame["cite"] = []
+    frame["note"] = "AUTHOR'S CHOICE"
+    with pytest.raises(ValueError):
+        check({"frames": {}}, plan)
+
+
+def test_speed_oracle_preserves_unknown_cutting_collections_as_debt():
+    data = drill_bundle()
+    data.cutting_data.update(cut="unknown", deep_hole="unknown")
+    finding, check = speed_finding(data)
+    check()
+    assert finding["status"] == "unknown"
+    assert finding["numbers"]["rpm"] == "unknown"
+    finding["numbers"]["rpm"] = 1500.0
+    with pytest.raises(ValueError, match="RPM"):
+        check()
+
+
+def test_speed_oracle_keeps_authored_request_distinct_from_derated_recommendation():
+    data = drill_bundle(depth_mm=40.0)
+    data.plan["setups"][0]["ops"][0]["rpm"] = 380.5
+    finding, check = speed_finding(data)
+    row = finding["numbers"]
+    # The 1/4-inch drill's 100 sfm is halved: 12*50/(pi*0.25) rounds to 750.
+    assert finding["status"] == "pass"
+    assert row["requested_rpm"] == 380.5
+    assert row["computed_rpm"] == 750
+    assert row["rpm"] == 380.5
+    assert row["feed_mm_min"] == pytest.approx(380.5 * 2 * 0.05)
+    assert row["rpm_basis"] == "authored"
+    assert row["rpm_status"] == "pass"
+    check()
+    row.update(rpm=750, feed_mm_min=750 * 2 * 0.05)
+    with pytest.raises(ValueError, match="RPM"):
+        check()
+
+
+@pytest.mark.parametrize("kind", ["mill", "lathe"])
+@pytest.mark.parametrize("debt", ["cutting", "limits", "depth", "diameter", "tool", "machine"])
+def test_speed_oracle_preserves_known_request_when_recommendation_is_unknown(kind, debt):
+    data = drill_bundle(depth_mm=40.0)
+    op = data.plan["setups"][0]["ops"][0]
+    op["rpm"] = 450.0
+    data.inventory["machines"]["mill"]["kind"] = kind
+    if kind == "lathe":
+        op["feed_mm_rev"] = 0.05
+    if debt == "cutting":
+        data.cutting_data["cut"] = "unknown"
+    elif debt == "limits":
+        data.inventory["machines"]["mill"]["spindle"]["rpm_min"] = "unknown"
+    elif debt == "depth":
+        del op["depth_mm"]
+    elif debt == "diameter":
+        data.inventory["tools"]["drill"]["dia_mm"] = "unknown"
+    elif debt == "tool":
+        data.inventory["tools"].clear()
+    else:
+        data.inventory["machines"].clear()
+    finding, check = speed_finding(data)
+    row = finding["numbers"]
+    assert finding["status"] == "unknown"
+    assert row["rpm_status"] == "unknown"
+    assert row["requested_rpm"] == 450.0
+    assert row["rpm"] == 450.0
+    assert row["computed_rpm"] == "unknown"
+    if kind == "lathe" and debt != "machine":
+        assert row["feed_mm_min"] == pytest.approx(450.0 * 0.05)
+    elif debt in {"cutting", "diameter", "tool"}:
+        assert row["feed_mm_min"] == "unknown"
+    else:
+        assert row["feed_mm_min"] == pytest.approx(450.0 * 2 * 0.05)
+    check()
+    finding["status"] = row["rpm_status"] = "pass"
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize(
+    ("requested", "spindle"),
+    [
+        (0, {"rpm_min": 50, "rpm_max": 3000}),
+        (-10, {"rpm_min": 50, "rpm_max": 3000}),
+        (49, {"rpm_min": 50, "rpm_max": "unknown"}),
+        (3001, {"rpm_min": "unknown", "rpm_max": 3000}),
+        (700, {"rpm_min": 50, "rpm_max": 3000, "ranges_rpm": [[50, 500], [1000, 3000]]}),
+    ],
+)
+def test_speed_oracle_keeps_known_request_contradictions_dominant_over_cutting_debt(
+    requested, spindle
+):
+    data = drill_bundle(depth_mm=5.0, deep=())
+    data.plan["setups"][0]["ops"][0]["rpm"] = requested
+    data.inventory["machines"]["mill"]["spindle"] = spindle
+    data.cutting_data["cut"] = "unknown"
+    finding, check = speed_finding(data)
+    row = finding["numbers"]
+    assert finding["status"] == "error"
+    assert row["rpm_status"] == "error"
+    assert row["requested_rpm"] == requested
+    assert row["rpm"] == (requested if requested > 0 else "unknown")
+    assert row["computed_rpm"] == "unknown"
+    assert row["feed_mm_min"] == "unknown"
+    check()
+    finding["status"] = row["rpm_status"] = "unknown"
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize("authored", [False, True])
+@pytest.mark.parametrize("cutting_known", [False, True])
+def test_speed_oracle_keeps_unknown_and_omitted_requests_on_their_own_paths(
+    authored, cutting_known
+):
+    data = drill_bundle(depth_mm=5.0, deep=())
+    if authored:
+        data.plan["setups"][0]["ops"][0]["rpm"] = "unknown"
+    if not cutting_known:
+        data.cutting_data["cut"] = "unknown"
+    finding, check = speed_finding(data)
+    row = finding["numbers"]
+    # The un-derated fixture computes 12*100/(pi*0.25), rounded to 1550.
+    recommended = 1550 if cutting_known else "unknown"
+    effective = "unknown" if authored else recommended
+    status = "pass" if cutting_known and not authored else "unknown"
+    assert finding["status"] == status
+    assert row["rpm"] == effective
+    assert row["feed_mm_min"] == (155.0 if status == "pass" else "unknown")
+    if authored:
+        assert row["requested_rpm"] == "unknown"
+        assert row["computed_rpm"] == recommended
+        assert row["rpm_status"] == "unknown"
+    else:
+        authored_fields = {
+            "requested_rpm",
+            "computed_rpm",
+            "rpm_basis",
+            "rpm_status",
+            "rpm_reason",
+        }
+        assert not authored_fields & row.keys()
+    check()
+    wrong_rpm = 1500 if status == "pass" else 1550
+    row.update(rpm=wrong_rpm, feed_mm_min=wrong_rpm * 2 * 0.05)
+    with pytest.raises(ValueError, match="RPM"):
+        check()
+
+
+@pytest.mark.parametrize(
+    ("field", "corruption"),
+    [
+        ("requested_rpm", 380.0),
+        ("computed_rpm", 1550),
+        ("rpm_basis", "computed"),
+        ("rpm_status", "unknown"),
+        ("rpm_reason", ""),
+    ],
+)
+def test_speed_oracle_checks_authored_rpm_evidence_against_inputs(field, corruption):
+    data = drill_bundle(depth_mm=40.0)
+    data.plan["setups"][0]["ops"][0]["rpm"] = 380.5
+    finding, check = speed_finding(data)
+    check()
+    finding["numbers"][field] = corruption
+    with pytest.raises(ValueError):
+        check()
+
+
+@pytest.mark.parametrize(
+    "field", ["requested_rpm", "computed_rpm", "rpm_basis", "rpm_status", "rpm_reason"]
+)
+def test_speed_oracle_requires_even_unknown_authored_rpm_evidence(field):
+    data = drill_bundle(depth_mm=5.0, deep=())
+    data.plan["setups"][0]["ops"][0]["rpm"] = "unknown"
+    data.cutting_data["cut"] = "unknown"
+    finding, check = speed_finding(data)
+    check()
+    del finding["numbers"][field]
+    with pytest.raises(ValueError):
+        check()
+
+
+def test_subject_oracle_allows_unknown_limits_without_invented_decimal_precision():
+    folder = ROOT / "examples" / "blondihacks-t-nuts"
+    data = load_bundle(folder / "plan.toml")
+    report = json.loads((folder / "expected" / "report.json").read_bytes())
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    check = VALIDATOR["check_subjects"]
+    check(data.plan, data.features, findings, data.inventory)
+    feature = data.features["features"]["base-envelope"]
+    assert feature["width"] == "unknown"
+    assert not isinstance(feature.get("precision"), dict)
+    feature["width"] = [22.0, 23.0]
+    with pytest.raises(ValueError, match="base-envelope: per-dimension precision"):
+        check(data.plan, data.features, findings, data.inventory)
+
+
+@pytest.mark.parametrize("location", ["stock", "feature", "operation"])
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "#42/ADVANCED_FACE[1]/O'Brien",
+        "#99/ADVANCED_FACE[1]/O'Brien",
+        "#42/ADVANCED_FACE[2]/O'Brien",
+        "#42/ADVANCED_FACE[1]/OTHER",
+        "ADVANCED_FACE[1]",
+    ],
+)
+def test_bound_step_face_identity_checks_every_authored_claim(tmp_path, location, reference):
+    step = tmp_path / "part.STEP"
+    step.write_text("#42 = ADVANCED_FACE('O''Brien', (), #1, .T.);", encoding="utf-8")
+    plan = {"stock": {}, "setups": [{"ops": [{}]}]}
+    features = {"features": {"base": {}}}
+    target = {
+        "stock": plan["stock"],
+        "feature": features["features"]["base"],
+        "operation": plan["setups"][0]["ops"][0],
+    }[location]
+    target["as_is_faces" if location == "stock" else "faces"] = [reference]
+    validate = VALIDATOR["check_step_face_references"]
+    if reference == "#42/ADVANCED_FACE[1]/O'Brien":
+        validate(step, plan, features)
+    else:
+        with pytest.raises(ValueError, match="(?:face reference|face ordinal)"):
+            validate(step, plan, features)
+
+
+@pytest.mark.parametrize("corruption", ["construction", "cutting_speed"])
+def test_standalone_validator_rejects_semantic_report_mutations(
+    tmp_path, monkeypatch, pilot_kernel_cache, corruption
+):
+    """Valid report hashes do not excuse evidence that contradicts authored inputs."""
+    examples = copy_examples(tmp_path)
+    case = VALIDATOR["STANDALONE_CASES"][0]
+    folder = examples / case[0]
+    pilot_kernel_cache(folder / case[1])
+    validate = VALIDATOR["validate_standalone_fixture"]
+    namespace = validate.__globals__
+    original = namespace["read_report"]
+
+    def corrupted_report(path):
+        report = original(path)
+        if corruption == "construction":
+            row = next(row for row in report["findings"] if row["rule"] == "construction")
+            row["numbers"]["plan_construction"] = "invented-construction"
+        else:
+            row = next(
+                row
+                for row in report["findings"]
+                if row["rule"] == "speeds_feeds" and "sfm" in row["numbers"]
+            )
+            row["numbers"]["sfm"] = 123456.0
+        return report
+
+    monkeypatch.setitem(namespace, "EXAMPLES", examples)
+    monkeypatch.setitem(namespace, "ROOT", examples.parent)
+    validate(case)
+    # Mutate after canonical/hash parsing: this regression exercises the independent
+    # semantic checks, rather than merely proving the report checksum detects edits.
+    monkeypatch.setitem(namespace, "read_report", corrupted_report)
+    with pytest.raises(ValueError):
+        validate(case)
+
+
+@pytest.mark.parametrize("verification_debt", [False, True])
+@pytest.mark.parametrize("kind", ["slitting_saw", "unknown"])
+def test_mounted_saw_zero_debt_cannot_be_waived(verification_debt, kind):
+    data = drill_bundle()
+    setup = data.plan["setups"][0]
+    setup["ops"] = [{"op": 10, "do": "cut_off", "tool": "disk", "holder": "arbor"}]
+    data.inventory["tools"]["disk"] = {
+        "kind": kind,
+        "verify": verification_debt,
+    }
+    finding = zero_recipe_rule.evaluate(data)[0].to_dict()
+    entries = VALIDATOR["Entries"](data.inventory)
+    VALIDATOR["check_zero"](setup, finding, entries, data)
+    assert finding["status"] == "unknown"
+    finding["status"] = "not_applicable"
+    with pytest.raises(ValueError, match="mounted.*zero"):
+        VALIDATOR["check_zero"](setup, finding, entries, data)
+
+
 def synthetic_fact(value):
     """A new isolated test measurement, never a relabelling of shipped example evidence."""
     return {
@@ -806,6 +1101,63 @@ def test_stickout_holds_only_a_verified_held_diameter(shaft_bundle, sid, case):
     forged["numbers"]["held_diameter_mm"] = fallback
     with pytest.raises(ValueError):
         check(forged)
+
+
+@pytest.mark.parametrize(
+    ("setup", "stock", "expected"),
+    [
+        ({}, {"dia_mm": 25.4}, 25.4),
+        ({"stock_state": {}}, {"dia_mm": 25.4}, 25.4),
+        ({"stock_state": {"top_z": "unknown"}}, {"dia_mm": 25.4}, 25.4),
+        ({}, {"dia_mm": 25.4, "form_verify": False}, 25.4),
+        ({}, {"dia_mm": 25.4, "form_verify": True}, "unknown"),
+        ({}, {"dia_mm": 25.4, "form_verify": "unknown"}, "unknown"),
+        ({"stock_state": "unknown"}, {"dia_mm": 25.4}, "unknown"),
+        ({"stock_state": {"od_mm": "unknown"}}, {"dia_mm": 25.4}, "unknown"),
+        ({"stock_state": {"od_mm": 0}}, {"dia_mm": 25.4}, "unknown"),
+        ({"stock_state": {"od_mm": -1}}, {"dia_mm": 25.4}, "unknown"),
+        ({"stock_state": {"od_mm": 19.0}}, {"dia_mm": 25.4}, 19.0),
+        ({"stock_state": {"od_mm": 19.0}}, {"dia_mm": 25.4, "form_verify": True}, 19.0),
+        ({}, {"dia_mm": "unknown"}, "unknown"),
+        ({}, {"dia_mm": 0}, "unknown"),
+        ({}, {}, "unknown"),
+        ({}, "unknown", "unknown"),
+    ],
+)
+def test_held_stock_oracle_distinguishes_omission_from_explicit_unknown(setup, stock, expected):
+    # These are declared-input cases, not measurements or approval of a physical hold.
+    plan = {"stock": stock}
+    assert VALIDATOR["held_stock"](setup, plan) == expected
+    assert stickout.held_diameter(SimpleNamespace(plan=plan), setup) == expected
+
+
+def test_stickout_oracle_keeps_ring_bench_nominal_fallback_without_resolving_its_hold():
+    data = load_bundle(ROOT / "examples" / "blondihacks-brass-ring" / "plan.toml")
+    setup = next(item for item in data.plan["setups"] if item["id"] == "H1")
+    assert "stock_state" not in setup
+    assert data.plan["stock"]["dia_mm"] == 25.4
+    finding = next(item.to_dict() for item in stickout.evaluate(data) if item.subject == "H1")
+    row = finding["numbers"]
+    assert finding["status"] == "not_applicable"
+    assert row["held_diameter_mm"] == 25.4
+    assert row["stickout_mm"] == "unknown"
+    assert setup["hold"]["grip_mm"] == "unknown"
+
+    def check():
+        VALIDATOR["check_stickout"](
+            setup,
+            data.plan,
+            data.features,
+            data.inventory,
+            data.policy,
+            finding,
+            lambda: data.kernel,
+        )
+
+    check()
+    row["held_diameter_mm"] = 26.4
+    with pytest.raises(ValueError, match="held diameter"):
+        check()
 
 
 @pytest.mark.parametrize("action", ["tap", "ream", "drill"])
@@ -2414,6 +2766,53 @@ def saw_bundle():
     data.inventory["tools"]["blade"] = {"kind": "saw_blade", "material": "bimetal"}
     data.cutting_data["cut"].append(SAW_ROW)
     return data
+
+
+@pytest.mark.parametrize("verification_debt", [False, True])
+def test_slitting_speed_oracle_uses_disk_rpm_not_bandsaw_descent(verification_debt):
+    data = drill_bundle()
+    setup = data.plan["setups"][0]
+    setup["ops"] = [{"op": 10, "do": "cut_off", "tool": "disk", "holder": "arbor"}]
+    data.inventory["tools"]["disk"] = {
+        "kind": "slitting_saw",
+        "material": "HSS",
+        "dia_mm": synthetic_fact(50.8),
+        "flutes": 20,
+        "verify": verification_debt,
+    }
+    data.cutting_data["cut"].append(
+        {
+            "material_class": "low_carbon_steel",
+            "tool_material": "HSS",
+            "operation": "slitting_saw",
+            "diameter_range": [50.0, 51.0],
+            "sfm": 100.0,
+            "chip_load_mm_per_tooth": 0.01,
+            "cite": "synthetic disk speed row",
+        }
+    )
+    finding, check = saw_finding(data)
+    check()
+    assert finding["numbers"]["operation"] == "slitting_saw"
+    assert "rpm" in finding["numbers"]
+    assert "blade_speed_sfm" not in finding["numbers"]
+    finding["numbers"]["operation"] = "saw_cut"
+    with pytest.raises(ValueError, match="cutting-data operation"):
+        check()
+
+
+def test_hand_fed_bandsaw_speed_oracle_does_not_require_descent_feed():
+    data = saw_bundle()
+    data.plan["setups"][0]["ops"][0]["follows"] = "scribed-line"
+    data.cutting_data["cut"][-1] = {
+        key: value for key, value in SAW_ROW.items() if key != "feed_mm_min"
+    }
+    finding, check = saw_finding(data)
+    check()
+    assert finding["numbers"]["feed_mm_min"] == "not_applicable"
+    finding["numbers"]["feed_mm_min"] = 20.0
+    with pytest.raises(ValueError, match="descent feed"):
+        check()
 
 
 @pytest.mark.parametrize("cut", ["drill", "saw"])
@@ -4783,38 +5182,109 @@ def test_validator_rejects_silently_dropped_or_cleared_missing_requirement(statu
 
 
 @pytest.mark.parametrize(
-    "rule",
+    ("kind", "action", "requirements", "missing", "expected"),
     [
-        "tool_resolves",
-        "inspection",
-        "joint_fit",
-        "joint_assembly",
+        ("face", "inspect", [], False, {"surface"}),
+        ("face", "inspect", [], True, {"surface:finish_quality"}),
+        ("unknown", "inspect", [], True, {"surface", "surface:finish_quality"}),
+        ("face", "unknown", [], True, {"surface", "surface:finish_quality"}),
+        ("face", "inspect", "unknown", True, {"surface:unknown", "surface:finish_quality"}),
+        ("face", "inspect", ["unknown"], True, {"surface:unknown", "surface:finish_quality"}),
+        ("face", "inspect", ["length"], True, {"surface:length", "surface:finish_quality"}),
+        ("unknown", "inspect", ["length"], True, {"surface:length", "surface:finish_quality"}),
     ],
 )
-def test_built_up_subject_contract_excludes_manual_assembly_but_keeps_joint_debt(rule):
+def test_inspection_subject_oracle_preserves_missing_requirements_and_unknown_applicability(
+    kind, action, requirements, missing, expected
+):
+    feature = {"kind": kind, "requirements": requirements, "length": "unknown"}
+    op = {"op": 10, "do": action, "feature": "surface"}
+    if missing:
+        op["missing_requirements"] = {"finish_quality": "unknown"}
+    plan = {"setups": [{"id": "S", "ops": [op]}]}
+    assert VALIDATOR["inspection_subjects"](plan, {"surface": feature}) == expected
+
+
+@pytest.mark.parametrize("requirement", ["smooth_open_close", "hidden_seam", "burrs_and_chips"])
+@pytest.mark.parametrize("corruption", ["dropped", "passed", "unmarked"])
+def test_subject_oracle_keeps_magic_tube_named_inspection_debt_instead_of_a_bare_waiver(
+    requirement, corruption
+):
+    folder = ROOT / "examples" / "blondihacks-magic-tube"
+    data = load_bundle(folder / "plan.toml")
+    report = json.loads((folder / "expected" / "report.json").read_bytes())
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    expected = {
+        "all-surfaces:smooth_open_close",
+        "all-surfaces:hidden_seam",
+        "all-surfaces:burrs_and_chips",
+    }
+    assert data.features["features"]["all-surfaces"]["requirements"] == []
+    assert {
+        subject
+        for rule, subject in findings
+        if rule == "inspection" and subject.split(":", 1)[0] == "all-surfaces"
+    } == expected
+    for subject in expected:
+        row = findings["inspection", subject]
+        assert row["status"] == "unknown"
+        assert row["numbers"]["missing_requirement"] is True
+        assert row["numbers"]["limits"] == "unknown"
+    check = VALIDATOR["check_subjects"]
+    declarations = VALIDATOR["check_inspection_declarations"]
+    check(data.plan, data.features, findings, data.inventory)
+    declarations(data.plan, data.features, findings)
+    key = "inspection", f"all-surfaces:{requirement}"
+    if corruption == "dropped":
+        del findings[key]
+        with pytest.raises(ValueError, match=f"missing finding inspection:{key[1]}"):
+            check(data.plan, data.features, findings, data.inventory)
+    else:
+        if corruption == "passed":
+            findings[key]["status"] = "pass"
+        else:
+            findings[key]["numbers"]["missing_requirement"] = False
+        with pytest.raises(ValueError, match="missing requirement inspection"):
+            declarations(data.plan, data.features, findings)
+
+
+@pytest.mark.parametrize(
+    "rule,action",
+    [
+        ("tool_resolves", "ream"),
+        ("tool_resolves", "coating"),
+        ("inspection", None),
+        ("joint_fit", None),
+        ("joint_assembly", None),
+    ],
+)
+def test_built_up_subject_contract_excludes_manual_assembly_but_keeps_joint_debt(rule, action):
     plan, features, inventory, _, report = cone_inputs(fresh_pure=True)
     findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
     joint_setup = next(
         s for s in plan["setups"] if s.get("joint", {}).get("socket") == "crank_socket"
     )
-    cutting_setup, cutting_op = next(
+    tool_setup, tool_op = next(
         (s, op)
         for s in plan["setups"]
         for op in s["ops"]
-        if op.get("feature") == "crank_socket" and op["do"] == "ream"
+        if op["do"] == (action or "ream")
+        and (action == "coating" or op.get("feature") == "crank_socket")
     )
     subject = {
-        "tool_resolves": f"{cutting_setup['id']}:{cutting_op['op']}",
+        "tool_resolves": f"{tool_setup['id']}:{tool_op['op']}",
         "inspection": f"{joint_setup['joint']['socket']}:dia",
         "joint_fit": joint_setup["id"],
         "joint_assembly": joint_setup["id"],
     }[rule]
     missing = rule, subject
-    # Manual fitting has no cutting-assembly requirement; joint debt still does.
+    # Fitting/inspection requires no cutting assembly. Coating still has a required
+    # consumable-process identity finding, even when it uses the same manual bench.
     for setup in plan["setups"]:
         if VALIDATOR["manual_bench"](inventory, setup) is not None:
             for op in setup["ops"]:
-                findings.pop(("tool_resolves", f"{setup['id']}:{op['op']}"), None)
+                if op["do"] in {"fit", "inspect"}:
+                    findings.pop(("tool_resolves", f"{setup['id']}:{op['op']}"), None)
     VALIDATOR["check_subjects"](plan, features, findings, inventory)
     del findings[missing]
     with pytest.raises(ValueError, match=f"missing finding {missing[0]}:{missing[1]}"):

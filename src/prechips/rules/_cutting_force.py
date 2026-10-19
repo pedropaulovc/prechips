@@ -23,7 +23,16 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from ..measurements import cited_fact
-from .resolution import MANUAL, UNKNOWN, _citations, length_mm, number, resolve, uncertain
+from .resolution import (
+    HAND_THREAD,
+    MANUAL,
+    UNKNOWN,
+    _citations,
+    length_mm,
+    number,
+    resolve,
+    uncertain,
+)
 from .speeds_feeds import DRILL_KINDS, chip_load, stock_material_class
 from .tip_endpoints import FACING, HOLE_OPS, POCKETING, mapping, records
 
@@ -128,6 +137,11 @@ def _scope(action, kind):
     """``(status, reason)`` when the op is outside the model, else None."""
     if action == UNKNOWN:
         return "unknown", "operation: the op's action is unknown"
+    if action in HAND_THREAD:
+        return (
+            "not_applicable",
+            "operation: manual thread torque is outside the powered cutter model",
+        )
     if action in MANUAL:
         return "not_applicable", f"operation: {action} does not cut"
     if kind in _THRUST_KINDS:

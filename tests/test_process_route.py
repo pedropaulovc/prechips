@@ -13,6 +13,7 @@ from test_cli import SYNTHETIC_KERNEL, copy_examples, synthetic_kernel, traveler
 from test_sheet_ops import Markup, content
 
 from prechips.inputs import BadInput, load_bundle
+from prechips.model import MaterialSpec
 from prechips.rules import RULES
 from prechips.sheet import _Traveler, render_traveler
 
@@ -164,6 +165,75 @@ def test_a_drawing_finish_needs_a_coating_step_naming_a_resolvable_process(
     bundle = load_bundle(plan)
     assert evaluate("finish_route", bundle)["pivot-shaft"].status == "pass"
     assert evaluate("tool_resolves", bundle)[subject].status == resolves
+
+
+@pytest.mark.parametrize("coated", [False, True])
+@pytest.mark.parametrize(
+    ("finish_kind", "finish", "status"),
+    [
+        (None, "as turned and hand deburred", "warn"),
+        ("coating", "as turned and hand deburred", "warn"),
+        ("surface", "as turned and hand deburred", "not_applicable"),
+        ("surface", "polished", "not_applicable"),
+        (None, "none", "warn"),  # prose is never a classification signal
+        ("unknown", "as turned and hand deburred", "unknown"),
+        ("surface", "unknown", "unknown"),
+        ("coating", "unknown", "unknown"),
+        (None, "unknown", "unknown"),
+    ],
+)
+def test_finish_kind_explicitly_distinguishes_surface_conditions_from_coatings(
+    tmp_path, finish_kind, finish, status, coated
+):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    without_coating(plan)
+    if coated:
+        append_op(plan, 'do = "coating"\nfeature = "pivot_bearing"\nprocess = "cutting-oil"\n')
+    bundle = load_bundle(plan)
+    material = {"finish": finish}
+    if finish_kind is not None:
+        material["finish_kind"] = finish_kind
+    bundle.features["material"] = MaterialSpec.model_validate(material).model_dump(
+        exclude_unset=True
+    )
+    row = evaluate("finish_route", bundle)["pivot-shaft"]
+    assert row.status == ("pass" if coated and status == "warn" else status)
+    assert row.numbers["finish"] == finish
+    if finish_kind is None:
+        assert "finish_kind" not in row.numbers
+        assert "features.material.finish_kind" not in row.cite
+
+
+@pytest.mark.parametrize("finish_kind", ["none", "as turned", "Surface", "", 1])
+def test_material_finish_kind_rejects_values_outside_its_explicit_schema(tmp_path, finish_kind):
+    plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
+    features = plan.with_name("features.toml")
+    features.write_text(
+        features.read_text(encoding="utf-8").replace(
+            '["material"]\n',
+            f'["material"]\nfinish_kind = {json.dumps(finish_kind)}\n',
+            1,
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(BadInput, match="finish_kind"):
+        load_bundle(plan)
+
+
+def test_a_surface_condition_does_not_credit_missing_roughness_inspection(tmp_path):
+    bundle = load_bundle(copy_examples(tmp_path) / "rocker-arm" / "plan.toml")
+    bundle.features["material"] = MaterialSpec.model_validate(
+        {"finish": "polished", "finish_kind": "surface"}
+    ).model_dump(exclude_unset=True)
+    assert evaluate("finish_route", bundle)["rocker-arm"].status == "not_applicable"
+    assert evaluate("inspection", bundle)["pivot_bore:finish_ra"].status == "pass"
+    # This fixture reads roughness on the ream op itself, not a separate inspect op.
+    # Remove the actual requirement-keyed check while retaining the machining route.
+    for setup in bundle.plan["setups"]:
+        for op in setup["ops"]:
+            if isinstance(op.get("checks"), dict):
+                op["checks"].pop("finish_ra", None)
+    assert evaluate("inspection", bundle)["pivot_bore:finish_ra"].status == "error"
 
 
 def test_an_outside_coating_names_the_service_and_what_it_applies(tmp_path):
@@ -807,6 +877,7 @@ def test_the_traveler_prints_an_unknown_go_no_go_pair_as_unresolved(tmp_path, de
     assert content(blank).strip() == ""
 
 
+@pytest.mark.parametrize("finish_kind", [None, "coating"])
 @pytest.mark.parametrize(
     ("after", "status"),
     [
@@ -816,13 +887,16 @@ def test_the_traveler_prints_an_unknown_go_no_go_pair_as_unresolved(tmp_path, de
         ('do = "inspect"\nfeature = "pivot_bearing"\n', "pass"),
     ],
 )
-def test_a_coating_applies_the_finish_only_after_the_last_cut(tmp_path, after, status):
+def test_a_coating_applies_the_finish_only_after_the_last_cut(tmp_path, after, status, finish_kind):
     plan = copy_examples(tmp_path) / "pivot-shaft" / "plan.toml"
     without_coating(plan)
     append_op(plan, 'do = "coating"\nfeature = "pivot_bearing"\nprocess = "cutting-oil"\n')
     if after:
         append_op(plan, after)
-    assert evaluate("finish_route", load_bundle(plan))["pivot-shaft"].status == status
+    bundle = load_bundle(plan)
+    if finish_kind is not None:
+        bundle.features["material"]["finish_kind"] = finish_kind
+    assert evaluate("finish_route", bundle)["pivot-shaft"].status == status
 
 
 @pytest.mark.parametrize("products", ['["unknown"]', '[""]', '["oxide salts", " "]'])
@@ -905,10 +979,13 @@ def coat(setup, feature=None):
     setup["ops"].append({"op": number, "do": "coating", "feature": feature})
 
 
+@pytest.mark.parametrize("finish_kind", [None, "coating"])
 def test_one_coating_of_the_joined_assembly_after_its_last_cut_covers_every_component(
-    tmp_path,
+    tmp_path, finish_kind
 ):
     bundle, by_id = built_up(tmp_path)
+    if finish_kind is not None:
+        bundle.features["material"]["finish_kind"] = finish_kind
     # S12 is the bench finishing setup after S11's last cut; stripping its coatings empties it.
     last = bundle.plan["setups"][-1]
     assert last["id"] == "S12" and last["ops"] == []
@@ -927,6 +1004,7 @@ def test_one_coating_of_the_joined_assembly_after_its_last_cut_covers_every_comp
 JOINED = ["S1", "S2", "S4", "S5", "S3", "S6", "S7"]
 
 
+@pytest.mark.parametrize("finish_kind", [None, "coating"])
 @pytest.mark.parametrize(
     ("coated", "status", "bare"),
     [
@@ -938,8 +1016,12 @@ JOINED = ["S1", "S2", "S4", "S5", "S3", "S6", "S7"]
         (["S6"], "warn", {"S3"}),  # the crank joins after this coating
     ],
 )
-def test_every_component_needs_a_coating_after_its_own_last_cut(tmp_path, coated, status, bare):
+def test_every_component_needs_a_coating_after_its_own_last_cut(
+    tmp_path, coated, status, bare, finish_kind
+):
     bundle, by_id = built_up(tmp_path, JOINED)
+    if finish_kind is not None:
+        bundle.features["material"]["finish_kind"] = finish_kind
     assert isinstance(by_id["S6"]["stock_in"], list) and isinstance(by_id["S7"]["stock_in"], list)
     for sid in coated:
         coat(by_id[sid])

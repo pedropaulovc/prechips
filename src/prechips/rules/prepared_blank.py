@@ -15,6 +15,11 @@ fill the declared box within tolerance (a shallow, partial or missed face is an 
 no kernel stock is unknown). Any unknown size, placement, tolerance, unit or routing stays
 unknown, never a pass; so does a preparation declared ``"unknown"``.
 
+Retained children are not the parent's analytically trimmed box. End-face credit across
+the split needs declared material ownership; unresolved ownership remains unknown. A
+child's own native output box and volume, never its parent's full output, certify its
+prepared blank.
+
 Once the size passes, ``stock.prepared.checks`` resolve as the sheet's CHECK THE BLANK
 rows: the size checks through the inspection gauge capability against size ± tolerance,
 the form checks (flat, square, parallel) through an indicating inventory gauge whose
@@ -26,8 +31,13 @@ resolution stays unknown.
 import math
 
 from prechips.findings import Finding
+from prechips.material_routes import (
+    feature_material_status,
+    input_refs,
+    producer_setup,
+    setup_lineage,
+)
 from prechips.measurements import length_fact
-from prechips.model import setup_lineage
 from prechips.process_features import ACTIONS, label, primitive, process_of
 from prechips.rules.inspection import _capability, _gauge_measurements, procedure_known
 from prechips.rules.resolution import UNKNOWN, number, op_feature, record, resolve, uncertain
@@ -82,10 +92,10 @@ def _box(origin, sizes, axes):
 
 
 def _faces(bundle, receiver):
-    """``(made, later)``: process end-face ops before ``receiver`` in its lineage, as
-    ``(name, "<setup> op <n>")`` pairs, and those of setups outside that lineage."""
+    """``(made, later, pending)``: end-face ops with proven, absent or unresolved material
+    membership in the receiver's producer history, as ``(name, "<setup> op <n>")``."""
     earlier = setup_lineage(bundle.plan, receiver) - {receiver}
-    made, later = [], []
+    made, later, pending = [], [], []
     for setup in bundle.plan["setups"]:
         for op in setup["ops"]:
             # An inspect op's feature list never cuts an end face.
@@ -95,10 +105,16 @@ def _faces(bundle, receiver):
                 continue
             if op.get("do") not in ACTIONS["end_face"]:
                 continue
-            (made if setup["id"] in earlier else later).append(
-                (name, f"{setup['id']} op {op['op']}")
+            material = feature_material_status(bundle.plan, receiver, setup["id"], name, bundle)
+            destination = (
+                pending
+                if setup["id"] in earlier and material is None
+                else made
+                if setup["id"] in earlier and material is True
+                else later
             )
-    return made, later
+            destination.append((name, f"{setup['id']} op {op['op']}"))
+    return made, later, pending
 
 
 def _evaluate(bundle, prepared):
@@ -113,9 +129,12 @@ def _evaluate(bundle, prepared):
     }
     if receiver == UNKNOWN:
         return "unknown", numbers, "the setup that receives the prepared blank is undeclared"
-    made, later = _faces(bundle, receiver)
+    made, later, pending = _faces(bundle, receiver)
     numbers["made_by"] = [f"{label(name)} in {where}" for name, where in made]
     numbers["made_outside_lineage"] = [f"{label(name)} in {where}" for name, where in later]
+    if pending:
+        numbers["unresolved_faces"] = [f"{label(name)} in {where}" for name, where in pending]
+        return "unknown", numbers, "prepared face survival after partition is unresolved"
     lineage = setup_lineage(bundle.plan, receiver)
     axes = _axes(stock)
     raw_section = _vector(stock.get("section_mm"), 2)
@@ -156,11 +175,23 @@ def _evaluate(bundle, prepared):
         else:
             box[i][1] = min(box[i][1], plane)
     declared = _box(origin, [length, *section], axes)
-    numbers["received_box_mm"] = [[round(v, 6) for v in span] for span in box]
-    numbers["declared_box_mm"] = [[round(v, 6) for v in span] for span in declared]
-    numbers["received_size_mm"] = [round(hi - lo, 6) for lo, hi in box]
+    partitioned = any(
+        ref.startswith("stock_out.")
+        for current in bundle.plan["setups"]
+        if current["id"] in lineage
+        for ref in input_refs(current)
+    )
     allowed = [tolerance[2], tolerance[0], tolerance[1]]
-    errors = _misfit(f"{receiver} receives", box, declared, allowed)
+    if partitioned:
+        # The root's trimmed box is not a child's blank. Only its own native output
+        # can establish the box and volume after the split.
+        numbers["declared_box_mm"] = [[round(v, 6) for v in span] for span in declared]
+        errors = []
+    else:
+        numbers["received_box_mm"] = [[round(v, 6) for v in span] for span in box]
+        numbers["declared_box_mm"] = [[round(v, 6) for v in span] for span in declared]
+        numbers["received_size_mm"] = [round(hi - lo, 6) for lo, hi in box]
+        errors = _misfit(f"{receiver} receives", box, declared, allowed)
     if tilted:
         errors.insert(0, "made face(s) not square to the blank's axes: " + ", ".join(tilted))
     if errors:
@@ -227,10 +258,20 @@ def _cut(bundle, receiver, axes, declared, allowed, numbers):
     if facts.get("status") != "ok":
         reason = facts.get("reason", UNKNOWN)
         return "unknown", f"no kernel stock proves what the faces cut ({reason})"
-    handed = record(record(facts.get("setups")).get(source))
-    if handed.get("stock_out_reason"):
-        return "unknown", f"the stock {source} hands on is unknown ({handed['stock_out_reason']})"
-    bbox, volume = _vector(handed.get("stock_out_bbox_mm"), 6), handed.get("stock_out_volume_mm3")
+    producer = producer_setup(bundle.plan, source) if isinstance(source, str) else None
+    handed = record(record(facts.get("setups")).get(producer))
+    if isinstance(source, str) and source.startswith("stock_out."):
+        output = record(record(handed.get("outputs")).get(source.removeprefix("stock_out.")))
+        reason = output.get("reason")
+        bbox, volume = _vector(output.get("bbox_mm"), 6), output.get("volume_mm3")
+    else:
+        reason = handed.get("stock_out_reason")
+        bbox, volume = (
+            _vector(handed.get("stock_out_bbox_mm"), 6),
+            handed.get("stock_out_volume_mm3"),
+        )
+    if reason:
+        return "unknown", f"the stock {source} hands on is unknown ({reason})"
     if bbox is None or not number(volume):
         return "unknown", f"the kernel reports no stock {source} hands on"
     spans = []

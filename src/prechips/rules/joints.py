@@ -5,7 +5,7 @@ joint can never be waived by an absent shop-policy entry.
 """
 
 from prechips.findings import Finding
-from prechips.joint_features import COMPOUND_FIELDS, describe, fit, label
+from prechips.joint_features import COMPOUND_FIELDS, describe, fit, label, thread_facts
 from prechips.rules.resolution import UNKNOWN, _citations, record
 
 
@@ -66,6 +66,55 @@ def evaluate_fit(bundle):
     return rows
 
 
+def evaluate_thread(bundle):
+    """A removable thread is never the cylindrical fit/fill path."""
+    rows = []
+    for setup in _assemblies(bundle):
+        joint = setup["joint"]
+        if joint["kind"] != "threaded":
+            continue
+        sid = setup["id"]
+        result = thread_facts(bundle, setup)
+        numbers = {
+            "socket": joint["socket"],
+            "spigot": joint["spigot"],
+            **result,
+            "unmodeled_geometry": ["helical flanks", "lead/runout", "prepared shoulder seating"],
+        }
+        if result["violations"]:
+            status, message = "error", "; ".join(result["violations"])
+        else:
+            status = "unknown"
+            message = "threaded assembly geometry is unmodeled; no joined stock is certified"
+            if result["missing"]:
+                message += f"; facts unresolved: {', '.join(result['missing'])}"
+            else:
+                message += "; nominal thread facts agree, not a fit, strength or retention verdict"
+        cite = [
+            "PLAN.md §4.1 threaded joints",
+            f"plan.setups.{sid}.joint: removable threaded assembly",
+            *_citations(joint.get("cite")),
+            *(
+                citation
+                for role in ("socket", "spigot")
+                for citation in _citations(
+                    record(bundle.features.get("features", {}).get(joint[role])).get("cite")
+                )
+            ),
+        ]
+        rows.append(
+            Finding(
+                "joint_thread",
+                sid,
+                status,
+                numbers,
+                list(dict.fromkeys(cite)),
+                f"{sid}: {message}.",
+            )
+        )
+    return rows
+
+
 def evaluate_assembly(bundle):
     from prechips.kernel import run_geometry
     from prechips.rules.geometry_common import provenance, unavailable
@@ -91,6 +140,12 @@ def evaluate_assembly(bundle):
             status, message = "error", f"join refused: {detail['assembly_error']}"
         elif detail.get("stock_reason"):
             status, message = "unknown", f"joined stock unknown: {detail['stock_reason']}"
+        elif setup["joint"]["kind"] == "threaded":
+            status, message = (
+                "unknown",
+                "threaded helical flank, lead/runout and prepared shoulder geometry are "
+                "unmodeled; cylindrical envelopes derive no joined stock",
+            )
         elif "stock_bbox_mm" not in detail:
             status, message = "unknown", "the kernel derived no joined stock"
         else:

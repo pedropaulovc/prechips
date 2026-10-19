@@ -125,14 +125,26 @@ def flags(names: str) -> dict[str, Any]:
 Drawing = record("Drawing", {**texts("number revision"), "cite": Citations})
 Paths = record("Paths", texts("inventory policy cutting_data step"))
 Direction = record("Direction", texts("x y z"))
-Dro = record(
-    "Dro",
-    {
-        **texts("controller manual manual_url mode units"),
-        "radius_mode": bool,
-        "direction": Direction,
-    },
-)
+
+
+class Dro(InputModel):
+    # A real default preserves digital behavior for both sparse TOML loads and Python
+    # callers dumping defaults. Explicit unknown never selects a digital readout.
+    kind: Literal["digital", "handwheel", "unknown"] = "digital"
+    controller: str = UNKNOWN
+    manual: str = UNKNOWN
+    manual_url: str = UNKNOWN
+    mode: str = UNKNOWN
+    units: str = UNKNOWN
+    radius_mode: bool | Unknown = UNKNOWN
+    direction: Direction | Unknown = UNKNOWN
+    # A nominal in dro.units on the declared X diameter/radius scale, not a measured
+    # digital resolution or calibration. Descriptive source evidence cannot verify it.
+    graduation: Annotated[float, Field(gt=0)] | Unknown = UNKNOWN
+    procedure: str = UNKNOWN
+    backlash: str = UNKNOWN
+    calibration: str = UNKNOWN
+    cite: Citations | Unknown = UNKNOWN
 
 
 # A blank bought already profiled (laser-, waterjet- or plasma-cut): the supplied solid is
@@ -425,6 +437,10 @@ AxisZero = record(
     "AxisZero",
     {
         **texts("edge feature face method tool holder gauge measure"),
+        # A physical mechanical-dial setting is independent of the CAD datum edge_mm.
+        # Unknown settings must never be replaced by a nominal model coordinate.
+        "procedure": str,
+        "dial_setting": Number,
         "from": str,
         **numbers("edge_mm radius_mm paper_mm check_jog_mm offset_mm"),
         "retouch_after": list[int],
@@ -473,6 +489,7 @@ Zero = record(
         "y": AxisZero,
         "z": AxisZero,
         "transfer": Transfer,
+        "procedure": str,
         "tool_touches": list[ToolTouch],
     },
 )
@@ -703,6 +720,35 @@ class InspectionView(InputModel):
         return self
 
 
+class PreparationWitness(InputModel):
+    """A prior real operation offered as preparation, never a synthetic duplicate cut."""
+
+    spot: str | Unknown = UNKNOWN
+
+    @model_validator(mode="after")
+    def reference(self) -> PreparationWitness:
+        if self.spot != UNKNOWN:
+            sid, separator, op = self.spot.rpartition(":")
+            if not separator or not sid.strip() or not op.isdecimal():
+                raise ValueError("A spot prerequisite must name an operation as setup:op.")
+        return self
+
+
+class RetainedOutput(InputModel):
+    """One real part-off piece, registered by its entire carried finished solid."""
+
+    carries: str
+    pose: PlanFrame | Unknown
+    cite: Citations
+
+    @model_validator(mode="after")
+    def source_bound(self) -> RetainedOutput:
+        _known_text(self.carries, "A retained output carries feature")
+        if not _cited(self.cite):
+            raise ValueError("A retained output must cite its selector and authored registration.")
+        return self
+
+
 Operation = record(
     "Operation",
     {
@@ -712,9 +758,11 @@ Operation = record(
         # split across features is read once).
         "feature": str | Annotated[list[str], Field(min_length=2)],
         **texts("tool holder direction note layout"),
+        "prerequisites": PreparationWitness,
         # The finished feature whose piece stays when the work is in pieces after this op:
         # every other piece is discarded (the kernel's stock pass; keep_piece reports it).
         "keep": str,
+        "outputs": dict[str, RetainedOutput],
         "inspection_note": Procedure,
         # A coating op's process: an outside ``services`` entry or in-house ``consumables``.
         "process": str | Annotated[list[str], Field(min_length=1)],
@@ -1058,6 +1106,47 @@ class SurfaceJoint(InputModel):
         return self
 
 
+class ThreadSeat(InputModel):
+    """Finite, source-backed seating facts; no shoulder contact is inferred from envelopes."""
+
+    socket: JointInterface | Unknown
+    spigot: JointInterface | Unknown
+    gap_mm: float | Unknown
+    runout_clearance_mm: float | Unknown
+
+
+class ThreadedJoint(InputModel):
+    """Removable threads over exported features, not a bonded cylindrical fit.
+
+    Actual engagement and seating remain explicit unknowns when unmeasured. Even complete
+    nominal facts do not model helical flanks, runout or mechanical retention.
+    """
+
+    kind: Literal["threaded"]
+    socket: str
+    spigot: str
+    process: str
+    cite: Citations
+    engagement_mm: float | Unknown
+    seat: ThreadSeat | Unknown
+    forms: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def declared_thread(self) -> ThreadedJoint:
+        _known_text(self.socket, "A threaded joint socket")
+        _known_text(self.spigot, "A threaded joint spigot")
+        _known_text(self.process, "A threaded joint process")
+        if self.socket == self.spigot:
+            raise ValueError(
+                "A threaded joint needs different exported socket and spigot features."
+            )
+        if not _cited(self.cite):
+            raise ValueError("A threaded joint must cite its thread and assembly source.")
+        if self.forms:
+            raise ValueError("A removable threaded joint forms no bonded or fused finished faces.")
+        return self
+
+
 Setup = record(
     "Setup",
     {
@@ -1069,39 +1158,24 @@ Setup = record(
         "hold": Hold,
         "zero": Zero,
         "ops": list[Operation],
-        "joint": CylindricalJoint | SurfaceJoint,
+        "joint": CylindricalJoint | SurfaceJoint | ThreadedJoint,
     },
     indexed=("machine",),
 )
 
 
 def setup_lineage(plan: dict, sid: str) -> set[str]:
-    """The setup and every earlier setup whose output material flows into it: the one
-    workpiece its ops act on (omitted ``stock_in`` routing descends from none)."""
-    setups = {setup["id"]: setup for setup in plan.get("setups", [])}
-    seen, pending = set(), [sid]
-    while pending:
-        current = pending.pop()
-        if current in seen or current not in setups:
-            continue
-        seen.add(current)
-        refs = setups[current].get("stock_in")
-        pending.extend(refs if isinstance(refs, list) else [refs] if isinstance(refs, str) else [])
-    return seen
+    """Producer history, including retained outputs; not proof of feature survival."""
+    from prechips.material_routes import setup_lineage as resolve_lineage
+
+    return resolve_lineage(plan, sid)
 
 
-def stock_ancestry(routes: Any) -> dict[str, frozenset[str]]:
-    """Root supplies behind each validated setup output; ``routes`` = (id, refs or None).
+def stock_ancestry(plan: dict) -> dict[str, frozenset[str]]:
+    """Canonical supply ancestry from the complete plan, including retained outputs."""
+    from prechips.material_routes import stock_ancestry as resolve_ancestry
 
-    A setup whose routing is omitted is its own root: its material is unexplained.
-    """
-    ancestry: dict[str, frozenset[str]] = {}
-    for sid, refs in routes:
-        roots = frozenset(
-            root for ref in refs or () for root in ancestry.get(ref, frozenset((ref,)))
-        )
-        ancestry[sid] = roots or frozenset((sid,))
-    return ancestry
+    return resolve_ancestry(plan)
 
 
 class Plan(InputModel):
@@ -1125,6 +1199,14 @@ class Plan(InputModel):
     process_features: dict[str, ProcessFeature] = Field(default_factory=dict)
     # Plan-owned DRO aims keyed by located feature; never a change to its geometry.
     aims: dict[str, Aim] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def named_setups(self) -> Plan:
+        """Routing requires identities before any sparse setup dump is traversed."""
+        from prechips.material_routes import setup_index
+
+        setup_index(self.model_dump(exclude_unset=True))
+        return self
 
     @model_validator(mode="after")
     def named_frames(self) -> Plan:
@@ -1219,20 +1301,14 @@ class Plan(InputModel):
     def saw_shapes(self) -> Plan:
         """A saw cut is planar (``cut_plane``) or follows an earlier scribe op's line
         (``follows``, ``allowance_mm``, ``stock_removal_bounds``): exactly one shape. The
-        line must be on the saw's own workpiece: scribed earlier in the same setup or in a
-        setup its ``stock_in`` routing descends from (omitted routing descends from none)."""
+        reference must be structurally upstream (or earlier in this setup). This is not
+        proof that its line survives a partition: saw_cut and the native adapter require
+        the separate material/registration witness and leave an unproven line unknown."""
         scribes = {}
         # An ``ends`` layout scribes only an arc's two end marks (a guided sweep's stops): no
         # line for a saw to follow.
         end_marks = set()
-        routes = {
-            "setups": [
-                {"id": setup.id, "stock_in": setup.stock_in}
-                if "stock_in" in setup.model_fields_set
-                else {"id": setup.id}
-                for setup in self.setups
-            ]
-        }
+        routes = self.model_dump(exclude_unset=True)
         for setup in self.setups:
             lineage = setup_lineage(routes, setup.id)
             for op in setup.ops if isinstance(setup.ops, list) else ():
@@ -1296,46 +1372,60 @@ class Plan(InputModel):
         known_ids = [sid for sid in setup_ids if sid != UNKNOWN]
         if len(set(known_ids)) != len(known_ids):
             raise ValueError("Setup ids must be unique.")
-        if any(not sid.strip() or sid == "stock" or sid.startswith("stock.") for sid in known_ids):
+        if any(
+            not sid.strip() or sid == "stock" or sid.startswith(("stock.", "stock_out."))
+            for sid in known_ids
+        ):
             raise ValueError(
                 "Setup ids must be non-empty and cannot use the reserved stock namespace."
             )
-        earlier = set()
-        ancestry = {"stock": {"stock"}}
-        ancestry.update({f"stock.{cid}": {f"stock.{cid}"} for cid in component_ids})
+        output_names: set[str] = set()
         for setup in self.setups:
-            consumed = {}
-            # Omitted routing remains input debt, never an inferred linear route.
-            if "stock_in" in setup.model_fields_set:
-                refs = setup.stock_in if isinstance(setup.stock_in, list) else [setup.stock_in]
-                for ref in refs:
-                    where = f"Setup {setup.id} stock_in reference {ref!r}"
-                    if ref == "stock":
-                        if isinstance(components, list) and components:
-                            raise ValueError(
-                                f"{where} requires a single stock supply; use stock.<component id>."
-                            )
-                    elif ref.startswith("stock."):
-                        if ref.removeprefix("stock.") not in component_ids:
-                            raise ValueError(f"{where} names an unknown stock component.")
-                    elif ref not in earlier:
-                        reason = (
-                            "is not an earlier setup"
-                            if ref in known_ids
-                            else "is an unknown stock reference"
-                        )
-                        raise ValueError(f"{where} {reason}.")
-                    for ancestor in ancestry[ref]:
-                        if ancestor in consumed:
-                            raise ValueError(
-                                f"{where} shares ancestor {ancestor!r} with "
-                                f"{consumed[ancestor]!r}; an assembly cannot join the same "
-                                "material twice."
-                            )
-                        consumed[ancestor] = ref
-            if setup.id != UNKNOWN:
-                earlier.add(setup.id)
-                ancestry[setup.id] = set(consumed) if consumed else {setup.id}
+            split = False
+            for op in setup.ops if isinstance(setup.ops, list) else ():
+                if split and "keep" in op.model_fields_set:
+                    raise ValueError(
+                        f"Setup {setup.id}: keep cannot follow named retained outputs."
+                    )
+                # These existing manual/process actions do not create native stock
+                # geometry. In particular, deburring/coating here is not a claim that
+                # the retained pieces were remeasured or their material remodeled.
+                if split and op.do not in {
+                    "inspect",
+                    "deburr",
+                    "coating",
+                    "release",
+                    "scribe",
+                }:
+                    raise ValueError(
+                        f"Setup {setup.id} op {op.op}: named outputs require the part_off "
+                        "to be the final material-changing operation."
+                    )
+                if "outputs" not in op.model_fields_set:
+                    continue
+                if op.do != "part_off":
+                    raise ValueError(
+                        f"Setup {setup.id} op {op.op}: only part_off declares outputs."
+                    )
+                if "keep" in op.model_fields_set:
+                    raise ValueError(
+                        f"Setup {setup.id} op {op.op}: keep and outputs are exclusive."
+                    )
+                if not isinstance(op.outputs, dict) or len(op.outputs) != 2:
+                    raise ValueError(
+                        "A part_off outputs table must name exactly two retained pieces."
+                    )
+                if split:
+                    raise ValueError(f"Setup {setup.id}: named outputs may be declared only once.")
+                for name in op.outputs:
+                    _known_text(name, "A retained output name")
+                    if name != name.strip() or name in output_names:
+                        raise ValueError(f"Retained output name {name!r} must be globally unique.")
+                    output_names.add(name)
+                split = True
+        from prechips.material_routes import MaterialGraph
+
+        MaterialGraph(self.model_dump(exclude_unset=True), validate=True)
         return self
 
     @model_validator(mode="after")
@@ -1354,16 +1444,7 @@ class Plan(InputModel):
                     f"Joint feature {name!r} names component {feature.component!r}, which is "
                     "not a declared stock component."
                 )
-        ancestry = stock_ancestry(
-            (
-                setup.id,
-                (setup.stock_in if isinstance(setup.stock_in, list) else [setup.stock_in])
-                if "stock_in" in setup.model_fields_set
-                else None,
-            )
-            for setup in self.setups
-            if setup.id != UNKNOWN
-        )
+        ancestry = stock_ancestry(self.model_dump(exclude_unset=True))
         joined: dict[str, str] = {}
         formed: dict[str, str] = {}
         for setup in self.setups:
@@ -1482,9 +1563,18 @@ class PlanFrame(Frame):
         return self
 
 
+RetainedOutput.model_rebuild()
+
+
 Datum = record("Datum", {**texts("feature surface"), "cite": Citations})
 MaterialSpec = record(
-    "MaterialSpec", {**texts("spec name finish"), "thickness": Number, "cite": Citations}
+    "MaterialSpec",
+    {
+        **texts("spec name finish"),
+        "finish_kind": Literal["coating", "surface"],
+        "thickness": Number,
+        "cite": Citations,
+    },
 )
 GeneralTolerances = record(
     "GeneralTolerances",
@@ -1531,8 +1621,10 @@ Feature = record(
     {
         **texts(
             "kind frame drill process datum coaxial_to height_from note binding dimension_type "
-            "thread construction representation hole_spec arc parent hole top_edge_feature"
+            "thread thread_class construction representation hole_spec arc parent hole "
+            "top_edge_feature"
         ),
+        "thread_hand": Literal["right", "left"] | Unknown,
         "requirements": list[str],
         "faces": list[str],
         "cite": Citations | dict[str, Citations],
@@ -1598,6 +1690,17 @@ class Features(InputModel):
     frames: dict[str, Frame | Unknown] | Unknown
     datums: dict[str, Datum | Unknown] | Unknown = UNKNOWN
     features: dict[str, Feature]
+    # Complete source-owned MANIFOLD_SOLID_BREP reference map; never imported solid indices.
+    solids: dict[str, str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def named_solids(self) -> Features:
+        for name, ref in self.solids.items():
+            _known_text(name, "A finished solid name")
+            _known_text(ref, f"Finished solid {name!r} source reference")
+        if len(set(self.solids.values())) != len(self.solids):
+            raise ValueError("Finished solid source references must be bijective.")
+        return self
 
     @model_validator(mode="after")
     def complete_requirements(self) -> Features:
@@ -2056,8 +2159,9 @@ InventoryItem = record(
         **texts(
             "name kind make control operation_mode note coating material coverage by standards "
             "shank drawbar insert arbor jaw_bolt mount fits stud t_slot_in hand "
-            "standard series chart units taper"
+            "standard series chart units taper thread thread_class"
         ),
+        "thread_hand": Literal["right", "left"] | Unknown,
         "sku": str | int,
         **flags("verify present center_cutting swivel_base scroll independent shop_made"),
         **texts("dial_increases"),

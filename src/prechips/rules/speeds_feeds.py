@@ -1,8 +1,12 @@
-"""Sourced starting speeds. No chart/row citation means no numeric speed.
+"""Sourced starting speeds and authored requests; requests do not replace cutting evidence.
 
 RPM policy: round raw RPM to nearest 50 with half-way ties to even, then clamp
 to the actual machine range. A boundary not divisible by 50 is retained rather
 than commanding an out-of-range speed.
+An authored operation ``rpm`` takes precedence without rounding or clamping.
+It is a requested speed, not evidence of safe cutting: known nonpositive or
+unavailable speeds are errors, and unresolved spindle/cutting inputs remain
+unknown. Manual actions and non-spindle saws do not consume this request.
 Cutting-table diameter_range is in millimetres, inclusive at both ends; an
 ambiguous overlapping pair of rows is unresolved rather than first-row wins.
 Mill feed is RPM x flutes x chip load; lathe feed is RPM x the op's planned
@@ -16,13 +20,17 @@ depth is a through hole's local thickness or a blind hole's planned depth.
 Chain drilling uses its before-state entry-to-``to_z`` penetration; no air
 approach, point extension or exit lead is added.
 
-A saw cut (``saw_cut``/``cut_off``) has no spindle: its one canonical
-``operation = "saw_cut"`` row supplies blade linear speed (``sfm``) and descent
+A non-spindle saw cut (``saw_cut``/``cut_off``) uses one canonical
+``operation = "saw_cut"`` row supplying blade linear speed (``sfm``) and descent
 feed (``feed_mm_min``) directly. There is no diameter band, tool chart or
 override; the sourced speed is clamped to the machine's inclusive
 ``blade_speed_sfm`` range and no RPM is derived. A cut made with a verified hand saw
 (:func:`prechips.rules._bench.hand_saw`) has no blade speed or feed at all:
 ``not_applicable``, judged per operation, whatever else its setup runs.
+A mill-mounted ``slitting_saw`` instead selects ``operation = "slitting_saw"``:
+its disk O.D. sets spindle RPM and its tooth count (``flutes``) sets tooth feed,
+using the ordinary cited chart/diameter-band row and spindle-range semantics.
+It never consumes a bandsaw's descent feed or ``blade_speed_sfm`` limits.
 
 A mill op with a ``contour`` path also carries its plunge feed. A drill doing
 ``chain_drill`` is centre-cutting by kind and uses its cited drilling chip load
@@ -44,6 +52,7 @@ from .resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    UNRESOLVED_SAW_MODEL_REASON,
     _citations,
     length_mm,
     manifest_mm,
@@ -51,7 +60,10 @@ from .resolution import (
     op_feature,
     resolve,
     rough_leave,
+    saw_station,
     select,
+    slitting_saw,
+    spindle_saw,
     uncertain,
 )
 from .tip_endpoints import mapping, records
@@ -73,6 +85,8 @@ DRILL_KINDS = frozenset({"drill", "drill_index", "drill_set"})
 
 def _operation(op, tool):
     action = op["do"]
+    if action in SAW_OPS and tool.get("kind") == "slitting_saw":
+        return "slitting_saw"
     if (
         action == "rough_profile"
         and mapping(op.get("contour")).get("method") == "chain_drill"
@@ -432,11 +446,12 @@ def evaluate(bundle):
     depths = _hole_depths(bundle) if records(cutting.get("deep_hole")) else {}
     for setup in bundle.plan["setups"]:
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
-        lathe = machine.get("kind") == "lathe"
         bands = spindle_ranges(machine)
         low, high = spindle_bounds(machine)
         for op in setup["ops"]:
             subject = f"{setup['id']}:{op['op']}"
+            disk = slitting_saw(bundle, op)
+            lathe = machine.get("kind") == "lathe" and not disk
             if op["do"] in MANUAL:
                 result.append(
                     Finding(
@@ -464,7 +479,25 @@ def evaluate(bundle):
                     )
                 )
                 continue
-            if op["do"] in SAW_OPS:
+            if spindle_saw(bundle, setup, op) and not disk:
+                result.append(
+                    Finding(
+                        "speeds_feeds",
+                        subject,
+                        UNKNOWN,
+                        {
+                            "operation": op["do"],
+                            "tool": op.get("tool", UNKNOWN),
+                            "rpm": UNKNOWN,
+                            "feed_mm_min": UNKNOWN,
+                            "model_reason": UNRESOLVED_SAW_MODEL_REASON,
+                        },
+                        ["inventory selected saw kind", "docs/cutting-data.md: Saw speed and feed"],
+                        f"{subject}: {UNRESOLVED_SAW_MODEL_REASON}.",
+                    )
+                )
+                continue
+            if op["do"] in SAW_OPS and not disk:
                 tool = resolve(bundle, "tools", op.get("tool")) or {}
                 result.append(
                     _saw(subject, op, machine, tool, stock, material, material_class, cutting)
@@ -490,6 +523,23 @@ def evaluate(bundle):
                 else UNKNOWN
             )
             rpm = turnable(nearest50(raw, low, high), bands)
+            authored = "rpm" in op
+            rpm_error = None
+            if authored:
+                computed = rpm
+                requested = op["rpm"]
+                rpm = requested if _positive(requested) else UNKNOWN
+                spindle = mapping(machine.get("spindle"))
+                minimum = spindle.get("rpm_min", UNKNOWN)
+                maximum = spindle.get("rpm_max", UNKNOWN)
+                if requested != UNKNOWN and not _positive(requested):
+                    rpm_error = "Requested RPM must be a finite positive number."
+                elif _positive(requested) and (
+                    (number(minimum) and requested < minimum)
+                    or (number(maximum) and requested > maximum)
+                    or (bands != UNKNOWN and not any(lo <= requested <= hi for lo, hi in bands))
+                ):
+                    rpm_error = "Requested RPM is outside the machine's available spindle speeds."
             flutes = tool.get("flutes", UNKNOWN)
             if lathe:
                 # A turning tool advances feed_mm_rev per spindle revolution.
@@ -509,6 +559,7 @@ def evaluate(bundle):
                 "operation": action,
                 "tool_material": tool_material,
                 "diameter_in": diameter_in,
+                **({"action": op["do"], "tool_kind": "slitting_saw"} if disk else {}),
                 "flutes": flutes,
                 "sfm": sfm,
                 **deep,
@@ -547,7 +598,26 @@ def evaluate(bundle):
                 or stock.get("material_verify", False)
                 or range_unknown
                 or deep_unknown
+                or (disk and saw_station(bundle, setup, op) != "fits")
+                or (authored and (bands == UNKNOWN or raw == UNKNOWN or not tool or not machine))
             )
+            if authored:
+                rpm_status = "error" if rpm_error else "unknown" if unknown else "pass"
+                reason = rpm_error or (
+                    "Spindle limits, cutting data, tool or material are unresolved or unverified."
+                    if unknown
+                    else (
+                        "Checked against spindle limits and sourced starting data; "
+                        "not a safety certification."
+                    )
+                )
+                numbers.update(
+                    requested_rpm=op["rpm"],
+                    computed_rpm=computed,
+                    rpm_basis="authored",
+                    rpm_status=rpm_status,
+                    rpm_reason=reason,
+                )
             if unknown and tool and (not lathe or op.get("do") in _AXIAL_LATHE_ACTIONS):
                 category, identity, _ = select(bundle, op.get("tool"), "tools")
                 debt = length_debt(tool, "dia", category, identity)
@@ -559,6 +629,11 @@ def evaluate(bundle):
                 "inventory machine spindle range",
                 "cutting-data aliases and rows",
             ]
+            if authored:
+                cite.append(
+                    f"plan.setups[{setup['id']}].ops[{op['op']}].rpm: authored request "
+                    "takes precedence without rounding or clamping"
+                )
             if lathe:
                 cite.append(
                     f"lathe feed = RPM·feed_mm_rev from plan.setups[{setup['id']}].ops"
@@ -597,11 +672,13 @@ def evaluate(bundle):
                     "clamped to the actual machine range."
                 )
             )
+            if authored:
+                sentence = f"Authored RPM request: {reason}"
             result.append(
                 Finding(
                     "speeds_feeds",
                     subject,
-                    "unknown" if unknown else "pass",
+                    rpm_status if authored else "unknown" if unknown else "pass",
                     numbers,
                     cite,
                     sentence,

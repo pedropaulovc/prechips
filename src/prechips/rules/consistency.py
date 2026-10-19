@@ -58,7 +58,8 @@ not matter: the fact has one source, and the text may only leave it to that sour
 Compared. A ``T<n>`` in a setup's or op's text names that setup's TOOLS row:
 
 * ``T<n>`` as a word of its own (not in ``6061-T6``, not before a decimal point or a
-  hyphen, not a plan frame's name): on this setup's TOOLS table;
+  hyphen, not a plan frame's name, not explicitly introduced by ``setup``): on this
+  setup's TOOLS table;
 * a flute count in digits (any integer) bound to one tool number, ``2-flute T1``,
   ``T1 (2-flute …)`` or ``T1, the 2fl …``: the tool's inventory ``flutes``;
 * on an op with a GO / NO-GO pair, an un-negated inspection clause (sentences split at
@@ -127,6 +128,7 @@ _JAW_HEIGHT = re.compile(
     re.I,
 )
 _TOOL = re.compile(r"(?<![\w\-/.])T(\d+)\b(?![.,]\d|-)")
+_SETUP_REFERENCE = re.compile(r"\bsetup\s+(T\d+)\b", re.I)
 _COUNT = r"(?<![\w.])(\d+)[- ]?(?:fl|flutes?|fluted)\b"
 _FLUTES_BEFORE = re.compile(_COUNT + r"\s+$", re.I)
 _FLUTES_AFTER = re.compile(r"(?:\s*\(\s*|,\s+(?:the|a|an)\s+)" + _COUNT, re.I)
@@ -297,10 +299,11 @@ def _tool_claims(bundle, setup, texts, frames):
     listed = ", ".join(sorted(by_label, key=lambda label: int(label[1:]))) or "no tools"
     claims, found, unchecked = 0, [], []
     for text in texts:
+        setup_references = {match.span(1) for match in _SETUP_REFERENCE.finditer(text)}
         for match in _TOOL.finditer(text):
             label = match.group(0)
-            if label in frames:
-                continue  # A frame of the same name: the text may mean either.
+            if label in frames or match.span() in setup_references:
+                continue  # An explicit setup reference or an ambiguous frame name.
             claims += 1
             if label not in by_label:
                 if _incomplete(bundle, setup):

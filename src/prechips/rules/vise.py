@@ -5,6 +5,7 @@ between the jaw planes plus any round bar between the work and the moving jaw an
 both jaw buttons' thickness."""
 
 from prechips.findings import Finding
+from prechips.rules._bench import manual_bench, not_applicable, unfixtured_handling
 from prechips.rules.geometry_common import fact_reason, setup_contexts, with_measurement_debts
 from prechips.rules.resolution import number, same_length
 
@@ -14,6 +15,11 @@ _FACTS = ("parallel_pair", "jaw_separation_mm", "contact_grip_mm", "claimed_in_j
 def evaluate(bundle):
     rows = []
     for setup, _, detail, inputs, cite, blocked in setup_contexts(bundle, "vise"):
+        bench = manual_bench(bundle, setup)
+        hold = setup.get("hold", {})
+        if isinstance(hold, dict) and unfixtured_handling(bench, hold):
+            rows.append(not_applicable("vise", setup, bench, "holding", "vise jaw grip"))
+            continue
         if blocked:
             rows.append(blocked)
             continue

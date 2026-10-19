@@ -26,11 +26,22 @@ uv run prechips traveler examples/pivot-shaft/plan.toml --out out/pivot-shaft
 uv run prechips traveler examples/rocker-arm/plan.toml --out out/rocker-arm
 uv run prechips traveler examples/pivot-bracket/plan.toml --out out/pivot-bracket
 uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-pivot-post
+uv run prechips traveler examples/blondihacks-t-nuts/plan.toml --out out/blondihacks-t-nuts
+uv run prechips traveler examples/blondihacks-brass-ring/plan.toml --out out/blondihacks-brass-ring
+uv run prechips traveler examples/blondihacks-magic-tube/plan.toml --out out/blondihacks-magic-tube
 ```
 
 Read the [worked tutorial](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/tutorial.md) for the input-to-sheet workflow and the [input/output demonstration](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/demo.md) for actual excerpts. The [example guide](https://github.com/pedropaulovc/prechips/blob/main/examples/README.md) owns each bundle's provenance, demonstration-value disclosures and expected exit. Outputs can still be written when the checker exits 2 or 4.
 
 Example values exercise the rules; they are not measurements to copy into a real shop inventory. An exit-0 report is eligible for approval. Without a valid first-article approval record, the printable sheet remains PLANNED.
+
+The standalone [Blondihacks T-nuts example](https://github.com/pedropaulovc/prechips/blob/main/examples/blondihacks-t-nuts/README.md) adapts a video process with explicitly selected catalog dimensions. It uses local shop inputs, not harmonic-analyzer exports or the shared demonstration-measurement inventory. Source observations, catalog design choices and missing real measurements remain distinct; the sheet stays PLANNED.
+
+The standalone [brass-ring example](https://github.com/pedropaulovc/prechips/blob/main/examples/blondihacks-brass-ring/README.md) follows [Metal Lathe Tutorial 16: Your First Project](https://www.youtube.com/watch?v=t9NGty1CVII), with source-known 360 brass and a PM-1022V lathe. Its local inventory retains real measurement debt; expected exit 4 does not release the PLANNED traveler.
+
+The [Magic Tube example](https://github.com/pedropaulovc/prechips/blob/main/examples/blondihacks-magic-tube/README.md) follows [Metal Lathe Tutorial 18: Your Second Project!](https://www.youtube.com/watch?v=-dyO4PEkEkc): one source bar becomes a blind-bored body and removable 1/2-20 right-hand screw cap. Its adapted 12L14 design and catalog dimensions are not identification or measurements of the video's unknown scrap stock. Retained-piece routing and nominal thread compatibility do not certify engagement, seating or joint turning; the traveler remains PLANNED with expected exit 4.
+
+Slitting-saw recognition is limited to mill-mounted tooling; it does not establish full physical support. Finite disk/arbor clearance, the mounted assembly, engagement and mounted-zero evidence remain unresolved. See the [tool rules](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-tools.md) for the supported checks and limits.
 
 ## CLI: five noninteractive verbs
 
@@ -50,9 +61,13 @@ The [documentation index](https://github.com/pedropaulovc/prechips/blob/main/doc
 
 The literal `"unknown"` is unresolved debt. A source citation, vendor nominal, declared procedure or generated picture does not establish a physical measurement. Approval cannot waive rule errors or required unresolved findings. See [eligibility and approval](https://github.com/pedropaulovc/prechips/blob/main/docs/report-and-telemetry.md#eligibility-and-approval).
 
+An authored `op.rpm` is a requested speed, not a verified recommendation. The requested value takes precedence over calculation, including an explicit `"unknown"` request with no computed fallback. Known machine-limit violations are errors; unresolved safety inputs keep a visible STOP. See [requested RPM](https://github.com/pedropaulovc/prechips/blob/main/docs/cutting-data.md#authored-rpm).
+
 ## Geometry on the FreeCAD kernel
 
 The [geometry reference](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-geometry.md) defines face identity, stock evolution, prescribed approach models, sampled workholding and collision screens, caches and renders. Its [limits](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-geometry.md#limits) explain what these measurements cannot establish. The [architecture guide](https://github.com/pedropaulovc/prechips/blob/main/docs/internals/architecture.md) describes the host/native boundary.
+
+Named finished solids, retained part-off outputs and removable threaded assembly routes require explicit identities and material ownership. A nominal thread match is not proof of engagement, seating, strength or a collision-free assembled cut. The [plan reference](https://github.com/pedropaulovc/prechips/blob/main/docs/plan.md) defines retained outputs and threaded joints; unresolved registration and physical engagement remain debt.
 
 A missing kernel leaves applicable geometry unresolved and produces exit 4 unless a rule error takes precedence with exit 2. A valid explicit `FREECAD_CMD` can select an installation; an invalid override prevents fallback discovery. See [FreeCAD troubleshooting](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/troubleshooting.md#freecad-is-installed-but-geometry-says-the-kernel-is-unavailable).
 
@@ -68,7 +83,7 @@ Passing the checker does not prove a continuous cutter path, dynamic stability, 
 
 ## DRO reference
 
-The zero recipe uses the Electronica EL400 Direction §6.2 and ABS Axis Set §7.4 functions. Preset §8.1 is not a zero-setting command.
+For digital readouts, the zero recipe uses the Electronica EL400 Direction §6.2 and ABS Axis Set §7.4 functions. Preset §8.1 is not a zero-setting command. Mechanical handwheels instead use `dro.kind = "handwheel"` and their declared units and procedures; they do not acquire digital Axis Set or Preset instructions. Missing graduation, backlash or physical datum evidence remains unresolved. See the [readout contract](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-coordinates.md#zero_check).
 
 - [EL400 Operation Manual](https://www.dropros.com/documents/EL400%20OpManual.pdf)
 - [Changing read direction](https://www.dropros.com/documents/400%20ScaleDirection.pdf)

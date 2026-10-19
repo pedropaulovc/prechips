@@ -1,20 +1,25 @@
 """Resolve selected identities once, then check each cutting assembly.
 
-A saw cut has no spindle, collet or holder: its assembly is a ``bandsaw`` blade on
-a mill, bench or bandsaw machine, or a ``hand_saw`` at a bench or manual station, and the
-cut is located by ``cut_plane`` or the scribed line it ``follows``. A coating
+A non-spindle saw cut uses a ``bandsaw`` blade on a mill, bench or bandsaw, or a
+``hand_saw`` at a bench or manual station. A mill-mounted ``slitting_saw`` instead needs
+an arbor assembly; its finite disk and mount are not modelled by the planar cut.
+The cut is located by ``cut_plane`` or the scribed line it ``follows``. A coating
 op has no tool: it names its process, an outside service or in-house consumables. A
 shop-made item's make operation names a ``tools`` key and states its cutting data.
 """
 
 from ..findings import Finding
-from ..measurements import length_debt, length_fact
+from ..measurements import length_debt, length_fact, limits_fact
+from ..thread_specs import match as thread_match
 from .geometry_common import _AXIAL_LATHE_ACTIONS
 from .resolution import (
+    HAND_THREAD,
     MANUAL,
     SAW_MACHINES,
     SAW_OPS,
+    SLITTING_SAW_MODEL_REASON,
     UNKNOWN,
+    UNRESOLVED_SAW_MODEL_REASON,
     WORKHOLDING_CATEGORIES,
     coating_process,
     identity,
@@ -33,6 +38,8 @@ from .resolution import (
     select,
     setup_items,
     shop_made_item,
+    slitting_saw,
+    spindle_saw,
     uncertain,
 )
 
@@ -81,6 +88,69 @@ def _saw_assembly(bundle, subject, setup, op, tool, machine, machine_ref):
     }
     problems = []
     station = saw_station(bundle, setup, op)
+    if spindle_saw(bundle, setup, op):
+        model_reason = (
+            SLITTING_SAW_MODEL_REASON if slitting_saw(bundle, op) else UNRESOLVED_SAW_MODEL_REASON
+        )
+        holder_ref = op.get("holder", UNKNOWN)
+        holder = record(resolve(bundle, "holders", holder_ref))
+        nums.update(
+            holder=holder_ref,
+            arbor=record(tool).get("arbor", UNKNOWN),
+            arbor_fit=UNKNOWN,
+            spindle_interface=record(record(machine).get("spindle")).get("taper", UNKNOWN),
+            holder_interface=holder.get("taper", holder.get("standard", UNKNOWN)),
+            model_reason=model_reason,
+        )
+        missing = [model_reason]
+        debts = []
+        category, reference, _ = select(bundle, op.get("tool"), "tools")
+        for field, label in (("dia", "blade_diameter_mm"), ("kerf", "kerf_mm")):
+            fact = length_fact(record(tool), field, require_measured=False)
+            value = fact["value"] if fact["verified"] else UNKNOWN
+            nums[label] = value
+            if number(value) and value <= 0:
+                problems.append(f"blade {field} must be positive")
+            elif not number(value):
+                missing.append(f"known, verified positive blade {field}")
+            debt = length_debt(record(tool), field, category, reference)
+            if debt is not None:
+                debts.append(debt)
+        if debts:
+            nums["measurements"] = debts
+        if not holder or uncertain(holder):
+            missing.append("resolved, verified mounted arbor/holder")
+        if machine and holder and not any(uncertain(item) for item in (machine, holder)):
+            spindle_interface = nums["spindle_interface"]
+            holder_interface = nums["holder_interface"]
+            if (
+                all(
+                    isinstance(value, str) and value.strip() and value != UNKNOWN
+                    for value in (spindle_interface, holder_interface)
+                )
+                and spindle_interface != holder_interface
+            ):
+                problems.append("holder interface does not match machine")
+        if station == UNKNOWN:
+            missing.append("resolved, verified slitting saw and mill")
+        if station == "wrong_station":
+            problems.append(
+                f"tool kind {nums['tool_kind']} cannot run a saw cut"
+                if nums["tool_kind"] not in SAW_TOOL_KINDS
+                else f"a spindle-mounted slitting saw cuts only on a mill, not "
+                f"a {nums['machine_kind']}"
+            )
+        return Finding(
+            "tool_resolves",
+            subject,
+            "error" if problems else UNKNOWN,
+            nums,
+            [
+                "inventory spindle, selected holder, blade dia and kerf",
+                "docs/rules-tools.md: Shop-made tooling and saws",
+            ],
+            f"{subject}: " + "; ".join(problems or missing) + ".",
+        )
     scribed_blade = nums["tool_kind"] == "bandsaw" and "follows" in op
     if station == "no_vertical_mode":
         problems.append(
@@ -217,6 +287,111 @@ def _make_ops(bundle):
     return findings
 
 
+def _manual_thread(bundle, subject, op):
+    """Hand thread tools have real holders, but never a powered spindle stack."""
+    tapping = op["do"] == "hand_tap"
+    cutter, support = ("tap", "tap wrench/follower") if tapping else ("die", "die stock")
+    tool_kinds = {"tap", "tap_set", "tap_die_set"} if tapping else {"die", "die_set", "tap_die_set"}
+    holder_kinds = {"tap_wrench", "tap_follower"} if tapping else {"die_stock"}
+    feature_kinds = {"thread", "threaded_hole"} if tapping else {"external_thread"}
+    tool_ref, holder_ref = op.get("tool"), op.get("holder")
+    tool = resolve(bundle, "tools", tool_ref)
+    holder = resolve(bundle, "holders", holder_ref)
+    definitions = record(getattr(bundle, "feature_definitions", None))
+    feature = record(definitions.get(op.get("feature")))
+    problems, missing = [], []
+    nums = {
+        "tool": tool_ref or UNKNOWN,
+        "holder": holder_ref or UNKNOWN,
+        "feature": op.get("feature", UNKNOWN),
+        "manual": True,
+    }
+    if number(op.get("rpm")) and op["rpm"] != 0:
+        problems.append("manual threading requires a stopped spindle, not a powered rpm")
+    for label, item, kinds in ((cutter, tool, tool_kinds), (support, holder, holder_kinds)):
+        kind = record(item).get("kind", UNKNOWN)
+        if kind != UNKNOWN and kind not in kinds:
+            problems.append(f"selected {label} has wrong tool kind {kind}")
+        elif item is None or kind == UNKNOWN or uncertain(item):
+            missing.append(f"resolve and verify the {label} identity")
+    _, reference, _ = select(bundle, tool_ref, "tools")
+    if tool is None and isinstance(reference, str) and "/" in reference:
+        root, _, member = reference.partition("/")
+        parent = record(select(bundle, root, "tools")[2])
+        if isinstance(parent.get("members"), dict) and member not in parent["members"]:
+            problems.append(f"selected {cutter} member is not declared in its set")
+    kind = feature.get("kind", UNKNOWN)
+    if kind != UNKNOWN and kind not in feature_kinds:
+        problems.append(
+            f"feature kind {kind} is not an {'internal' if tapping else 'external'} thread"
+        )
+    elif kind == UNKNOWN:
+        missing.append("thread feature identity is unknown")
+    for field in ("thread", "thread_hand", "thread_class"):
+        required = feature.get(field, UNKNOWN)
+        actual = record(tool).get(field, UNKNOWN)
+        nums[field] = {"required": required, cutter: actual}
+        if field == "thread":
+            matches = thread_match(required, actual)
+        else:
+            matches = (
+                required.strip().casefold() == actual.strip().casefold()
+                if isinstance(required, str)
+                and isinstance(actual, str)
+                and required.strip().casefold() not in {"", UNKNOWN}
+                and actual.strip().casefold() not in {"", UNKNOWN}
+                else None
+            )
+        if matches is False:
+            problems.append(f"{cutter} {field} does not match the thread feature")
+        elif matches is None:
+            missing.append(f"{cutter} and feature {field} must be known")
+    fits = record(holder).get("fits", UNKNOWN)
+    nums["holder_fits"] = fits
+    fit_known = (
+        fits not in (None, "", UNKNOWN) and tool_ref not in (None, UNKNOWN) and tool is not None
+    )
+    if fit_known and identity(bundle, fits, "tools") != identity(bundle, tool_ref, "tools"):
+        problems.append(f"{support} does not fit the selected {cutter} identity")
+    if tapping:
+        # Wrench ranges are nominal tap sizes, not a spindle collet's shank fit.
+        capacity_field = (
+            "range"
+            if any(key in record(holder) for key in ("range_mm", "range_in"))
+            else "capacity"
+        )
+        capacity = limits_fact(holder, capacity_field, require_measured=False)
+        maximum = length_mm(holder, capacity_field)
+        diameter = length_mm(tool, "dia")
+        nums.update(
+            tap_dia_mm=diameter,
+            holder_capacity_mm=capacity["value"] if capacity["verified"] else maximum,
+        )
+        if number(diameter) and capacity["verified"]:
+            low, high = capacity["value"]
+            if (diameter < low and not same_length(diameter, low)) or (
+                diameter > high and not same_length(diameter, high)
+            ):
+                problems.append("tap nominal diameter is outside the wrench/follower capacity")
+        elif number(diameter) and number(maximum):
+            if diameter > maximum and not same_length(diameter, maximum):
+                problems.append("tap nominal diameter exceeds the wrench/follower capacity")
+        elif not fit_known:
+            missing.append("tap wrench/follower fit or nominal tap-size capacity is unknown")
+    elif not fit_known:
+        missing.append("die stock fit to the selected die identity is unknown")
+    status = "error" if problems else "unknown" if missing else "pass"
+    message = "; ".join(problems or missing) or f"manual {cutter} and {support} match the thread"
+    return Finding(
+        "tool_resolves",
+        subject,
+        status,
+        nums,
+        ["inventory thread tool/member/spec/hand/class and manual holder fit or capacity"],
+        f"{subject}: {message}.",
+    )
+
+
 def evaluate(bundle):
     findings = []
     # Each item a slot selects (setup_items), once: under its bare key when a bare reference
@@ -224,6 +399,19 @@ def evaluate(bundle):
     # is ``gauges.pins`` when a fixture ``pins`` is listed first). Read as the rules read
     # it, so a whole set with no member is not a tool.
     selected = {}
+    hand_items = {
+        identity(bundle, op.get(field), category)
+        for _, op in operations(bundle)
+        if op.get("do") in HAND_THREAD
+        for field, category in (("tool", "tools"), ("holder", "holders"))
+    }
+    powered_items = {
+        identity(bundle, op.get(field), category)
+        for _, op in operations(bundle)
+        if op.get("do") not in HAND_THREAD
+        for field, category in (("tool", "tools"), ("holder", "holders"))
+    }
+    hand_only_items = hand_items - powered_items
     for setup in bundle.plan.get("setups") or []:
         for category, ref, _ in setup_items(bundle, setup):
             bare = select(bundle, ref)[0] in (None, category)
@@ -231,6 +419,8 @@ def evaluate(bundle):
     for subject, (category, ref) in sorted(selected.items()):
         item = resolve(bundle, category, ref)
         status = "error" if item is None else "unknown" if uncertain(item) else "pass"
+        if item is None and (category, ref) in hand_only_items:
+            status = "unknown"
         numbers = {
             "reference": ref,
             "category": category,
@@ -314,6 +504,9 @@ def evaluate(bundle):
         subject = f"{setup['id']}:{op['op']}"
         if op["do"] == "coating":
             findings.append(_coating(subject, op, bundle))
+            continue
+        if op["do"] in HAND_THREAD:
+            findings.append(_manual_thread(bundle, subject, op))
             continue
         if op["do"] in MANUAL:
             continue

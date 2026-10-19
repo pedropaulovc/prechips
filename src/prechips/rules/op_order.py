@@ -1,24 +1,15 @@
 """Check authored execution order, not numeric operation sorting."""
 
 from ..findings import Finding
-from .resolution import MANUAL, op_feature, operations, record
+from ..material_routes import feature_material_status
+from .resolution import HAND_THREAD, MANUAL, TAP_OPS, op_feature, operations, record
 
 
 def evaluate(bundle):
     result = []
     route = operations(bundle)
-    ancestors = {}
     for setup in bundle.plan["setups"]:
-        source = setup.get("stock_in")
-        refs = source if isinstance(source, list) else [source]
-        parents = set()
-        for ref in refs:
-            if ref in ancestors:
-                parents.add(ref)
-                parents.update(ancestors[ref])
-        ancestors[setup["id"]] = parents
-    for setup in bundle.plan["setups"]:
-        errors = []
+        errors, unknown = [], []
         sid = setup["id"]
         own = setup["ops"]
         if any(o["do"] == "unknown" for o in own):
@@ -48,18 +39,24 @@ def evaluate(bundle):
                 if action == "counterbore"
                 else feature
             )
-            if action in {"ream", "tap", "counterbore"}:
+            if action in TAP_OPS | {"ream", "counterbore"}:
                 if not any(
                     prev.get("feature") == prerequisite_feature and prev["do"] == "drill"
                     for _, prev in before
                 ):
                     errors.append(f"op {op['op']} {action} precedes its drill")
-            if (
-                action == "drill"
-                and any(o.get("feature") == feature and o["do"] == "spot" for _, o in after)
-                and not any(o.get("feature") == feature and o["do"] == "spot" for _, o in before)
+            if action == "drill" and any(
+                o.get("feature") == feature and o["do"] == "spot" for _, o in after
             ):
-                errors.append(f"op {op['op']} drills before its spot")
+                spotted = [
+                    feature_material_status(bundle.plan, sid, s["id"], feature, bundle)
+                    for s, o in before
+                    if o.get("feature") == feature and o["do"] == "spot"
+                ]
+                if True not in spotted:
+                    (unknown if None in spotted else errors).append(
+                        f"op {op['op']} drills before its spot"
+                    )
             if action == "spot":
                 # Face the entry surface in this setup, or explicitly receive a prior setup's
                 # faced stock.
@@ -79,39 +76,53 @@ def evaluate(bundle):
                     errors.append(f"op {op['op']} roughs after finishing {feature}")
             # Release/part-off ends this holding; the next setup may cut the released part.
             if action in {"release", "part_off"} and any(
-                s["id"] == sid and later["do"] not in MANUAL for s, later in after
+                s["id"] == sid and later["do"] not in MANUAL - HAND_THREAD for s, later in after
             ):
                 errors.append(f"op {op['op']} releases before the final cutting operation")
-            if action in {"ream", "tap", "counterbore"}:
+            if action in TAP_OPS | {"ream", "counterbore"}:
                 earlier = [
                     (s, o)
                     for s, o in before
                     if o.get("feature") == prerequisite_feature and o["do"] == "drill"
                 ]
-                if earlier and not any(
-                    s["id"] == sid or s["id"] in ancestors[sid] for s, _ in earlier
-                ):
-                    transfer = record(record(setup.get("zero")).get("transfer"))
-                    drilled_ids = {s["id"] for s, _ in earlier}
-                    # Unrouted legacy input may declare a transfer; an explicit material
-                    # route cannot be certified by transferring datums from another blank.
-                    if "stock_in" in setup or transfer.get("from") not in drilled_ids:
-                        errors.append(f"op {op['op']} has no incoming route from the drilled setup")
+                prepared = [
+                    feature_material_status(
+                        bundle.plan, sid, source["id"], prerequisite_feature, bundle
+                    )
+                    for source, _ in earlier
+                ]
+                if earlier and True not in prepared:
+                    if None in prepared:
+                        unknown.append(
+                            f"op {op['op']} drill survival after partition is unresolved"
+                        )
+                    else:
+                        transfer = record(record(setup.get("zero")).get("transfer"))
+                        drilled_ids = {s["id"] for s, _ in earlier}
+                        # A legacy datum transfer cannot certify an explicit material route.
+                        if "stock_in" in setup or transfer.get("from") not in drilled_ids:
+                            errors.append(
+                                f"op {op['op']} has no incoming route from the drilled setup"
+                            )
         nums = {
             "sequence": [f"{o['op']} {o['do']} {o.get('feature', '')}" for o in own],
             "violations": errors,
         }
+        if unknown:
+            nums["unresolved"] = unknown
         result.append(
             Finding(
                 "order",
                 sid,
-                "error" if errors else "pass",
+                "error" if errors else "unknown" if unknown else "pass",
                 nums,
                 ["PLAN.md §4.1 order", "plan setup/operation sequence and stock_in/zero.transfer"],
                 f"{sid}: "
                 + (
                     "; ".join(errors)
                     if errors
+                    else "; ".join(unknown)
+                    if unknown
                     else "rough/finish, face/spot, hole and release order is consistent"
                 )
                 + ".",

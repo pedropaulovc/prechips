@@ -1,17 +1,19 @@
-"""A drawing finish is route work: a declared finish needs a coating step (PLAN §4.1).
+"""A coating finish is route work: it needs a coating step (PLAN §4.1).
 
-The drawing's ``material.finish`` (black oxide, paint, oil) is a requirement on the
-delivered part, not a note. A route with no ``coating`` op never applies it, and a cut
-after the coating removes it, so the job cannot pass silently. Every cut needs a coating
-after it, in plan order, on stock that carries that cut: the same setup, or a setup whose
-``stock_in`` lineage contains it. On a built-up part each component is covered by its own
-coating, or by one coating of the joined assembly. An op of explicitly unknown action, or
-undeclared routing, leaves its coverage unknown. Whether each coating op's process
+The drawing's ``material.finish`` is a coating requirement unless ``finish_kind``
+explicitly declares a surface condition. Surface conditions belong to inspection,
+not coating coverage. A route with no ``coating`` op never applies a coating finish,
+and a cut after the coating removes it, so the job cannot pass silently. Every cut
+needs a coating after it, in plan order, on all stock that carries that cut. Producer
+history alone does not cover a retained partition's unsplit parent. On a built-up part
+each component is covered by its own coating, or by one coating of the joined assembly.
+An op of explicitly unknown action, undeclared routing, or unresolved partition coverage
+leaves its coverage unknown. Whether each coating op's process
 resolves to an outside service or in-house consumables is ``tool_resolves``'s per-op check.
 """
 
 from ..findings import Finding
-from ..model import setup_lineage
+from ..material_routes import material_coverage_status, setup_lineage
 from .geometry_common import cutting_action
 from .resolution import UNKNOWN, operations, record
 
@@ -22,6 +24,32 @@ def evaluate(bundle):
     subject = bundle.plan["part"]
     material = record(bundle.features.get("material"))
     finish = material.get("finish")
+    finish_kind = material.get("finish_kind", "coating")
+    if finish_kind == UNKNOWN or (
+        finish_kind == "surface"
+        and isinstance(finish, str)
+        and finish.strip()
+        and finish.strip() != UNKNOWN
+    ):
+        status, message = (
+            ("unknown", "the drawing finish kind is explicitly unknown")
+            if finish_kind == UNKNOWN
+            else (
+                "not_applicable",
+                "the drawing declares a surface condition, not a coating requirement; "
+                "surface inspection is checked separately",
+            )
+        )
+        return [
+            Finding(
+                "finish_route",
+                subject,
+                status,
+                {"finish": finish, "finish_kind": finish_kind},
+                ["features.material.finish", "features.material.finish_kind"],
+                f"{subject}: {message}.",
+            )
+        ]
     plan = bundle.plan
     route = operations(bundle)
     lineage = {setup["id"]: setup_lineage(plan, setup["id"]) for setup in plan["setups"]}
@@ -33,12 +61,14 @@ def evaluate(bundle):
         return f"{route[index][0]['id']}:{route[index][1]['op']}"
 
     def coated(index):
-        """True, False, or None (a later coating whose routing is undeclared)."""
+        """True, False, or None (a later coating whose material coverage is unresolved)."""
         sid = route[index][0]["id"]
-        later = [lineage[route[j][0]["id"]] for j in coatings if j > index]
-        if any(sid in members for members in later):
+        later = [route[j][0]["id"] for j in coatings if j > index]
+        covering = [covering for covering in later if sid in lineage[covering]]
+        coverage = material_coverage_status(plan, covering, sid) if covering else False
+        if coverage is True:
             return True
-        if any(not routed[route[j][0]["id"]] for j in coatings if j > index):
+        if coverage is None or any(not routed[covering] for covering in later):
             return None
         return False
 

@@ -6,6 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from prechips.findings import Finding
+from prechips.inputs import load_bundle
+from prechips.rules.geometry_common import lend_rows
 from prechips.rules.travel import evaluate
 
 
@@ -1056,3 +1059,205 @@ def test_travel_unresolved_holder_asks_to_resolve_without_unowned_measurements()
     assert debts["holders.unowned-chuck.resolve"]["instruction"].startswith("resolve:")
     assert "holders.unowned-chuck.gauge_len" not in debts
     assert "holders.unowned-chuck.grip" not in debts
+
+
+def public_extent_bundle(tmp_path, removal=None, *, action="finish_profile"):
+    """Load authored presence through the public TOML boundary, with measured test facts."""
+    footprint = "" if removal is None else f"stock_removal_bounds = {removal}\n"
+    measurement = (
+        'measured = { status = "measured", by = "synthetic operator", '
+        'date = "2026-01-01", instrument = "synthetic steel rule" }'
+    )
+    documents = {
+        "plan.toml": f"""part = "extent-boundary"
+features = "features.toml"
+[paths]
+inventory = "inventory.toml"
+policy = "policy.toml"
+cutting_data = "cutting.toml"
+[stock]
+length_mm = 100.0
+section_mm = [30.0, 10.0]
+axis = [1.0, 0.0, 0.0]
+section_axis = [0.0, 1.0, 0.0]
+[[setups]]
+id = "S1"
+machine = "mill"
+frame = "A"
+[setups.stock_state]
+top_z = 0.0
+bottom_z = -10.0
+[[setups.ops]]
+op = 10
+do = "{action}"
+feature = "outline"
+tool = "cutter"
+holder = "holder"
+to_z = -2.0
+approach_mm = 3.0
+rough_allowance_mm = 0.4
+{footprint}""",
+        "features.toml": """part = "extent-boundary"
+units = "mm"
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+[frames.A]
+origin = [70.0, 50.0, 10.0]
+x = [0.0, 1.0, 0.0]
+y = [-1.0, 0.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "measured"
+[features.outline]
+kind = "profile"
+bounds = { x = [0.0, 40.0], y = [0.0, 20.0], z = [-2.0, 0.0] }
+requirements = []
+""",
+        "inventory.toml": f"""[machines.mill]
+kind = "mill"
+resolution_mm = {{ value = 0.001, {measurement} }}
+[machines.mill.envelope.travel_mm]
+x = {{ value = 100.0, {measurement} }}
+y = {{ value = 100.0, {measurement} }}
+z = {{ value = 100.0, {measurement} }}
+[tools.cutter]
+kind = "endmill"
+dia_mm = {{ value = 6.0, {measurement} }}
+[tools.cutter.projection_mm]
+holder = {{ value = 40.0, {measurement} }}
+[holders.holder]
+kind = "collet"
+gauge_len_mm = {{ value = 30.0, {measurement} }}
+""",
+        "policy.toml": '[required]\ntravel = "*"\n',
+        "cutting.toml": "revision = 1\n",
+    }
+    for name, text in documents.items():
+        (tmp_path / name).write_text(text, encoding="utf-8")
+    return load_bundle(tmp_path / "plan.toml")
+
+
+def test_public_omitted_removal_scope_retains_transformed_feature_extent(tmp_path):
+    data = public_extent_bundle(tmp_path)
+    assert "stock_removal_bounds" not in setup(data)["ops"][0]
+    finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    assert finding.numbers["operations"][0]["extent_mm"] == {
+        "x": [-50, -30],
+        "y": [30, 70],
+        "z": [-12, -10],
+    }
+    checks = finding.numbers["travel_checks"]
+    assert (checks["x"]["required_mm"], checks["y"]["required_mm"]) == (26, 46)
+    assert checks["x"]["basis"] == "declared cut extent"
+
+
+@pytest.mark.parametrize("action", ["face", "rough_profile", "finish_pocket"])
+@pytest.mark.parametrize(
+    "removal",
+    [
+        '"unknown"',
+        '{ x = "unknown", y = [0.0, 20.0], z = [-2.0, 0.0] }',
+        "{ x = [0.0, 120.0], y = [0.0, 20.0] }",
+        "{}",
+    ],
+)
+def test_public_unknown_removal_scope_cannot_reuse_finished_feature_or_stock(
+    tmp_path, action, removal
+):
+    data = public_extent_bundle(tmp_path, removal, action=action)
+    assert "stock_removal_bounds" in setup(data)["ops"][0]
+    if removal == '"unknown"':
+        assert setup(data)["ops"][0]["stock_removal_bounds"] == "unknown"
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    operation = finding.numbers["operations"][0]
+    assert operation["extent_mm"] == "unknown"
+    assert operation["xy_cutter_bounds_mm"] == {"x": "unknown", "y": "unknown"}
+    assert operation["conservative_stock_spans_mm"] == "not_applicable"
+    for axis in ("x", "y"):
+        row = finding.numbers["travel_checks"][axis]
+        assert row["required_mm"] == row["minimum_required_mm"] == "unknown"
+        assert row["basis"] == "unknown"
+    assert finding.numbers["travel_checks"]["z"]["required_mm"] == 15
+    assert data.feature_definitions["outline"]["bounds"]["x"] == [0, 40]
+    debt = next(
+        entry
+        for entry in finding.numbers["measurements"]
+        if entry["id"] == "plan.setups.S1.ops.10.xy_geometry"
+    )
+    assert debt["instruction"].startswith("author: ")
+    assert "stock_removal_bounds" in debt["instruction"]
+    assert "setup frame" in debt["instruction"]
+    assert "calipers" in debt["instruction"] and "approach and exit" in debt["instruction"]
+    assert "plan.setups.S1.ops.10.stock_removal_bounds" in finding.cite
+
+
+def test_public_known_material_limits_keep_setup_frame_without_claiming_table_stroke(tmp_path):
+    data = public_extent_bundle(
+        tmp_path,
+        "{ x = [120.0, 180.0], y = [3.0, 8.0], z = [-5.0, 2.0] }",
+    )
+    finding = evaluate(data)[0]
+    assert finding.status == "unknown"
+    # These are already setup coordinates, despite the translated, rotated setup frame.
+    assert finding.numbers["operations"][0]["extent_mm"] == {
+        "x": [120, 180],
+        "y": [3, 8],
+        "z": [-5, 2],
+    }
+    assert finding.numbers["operations"][0]["xy_cutter_bounds_mm"] == {
+        "x": "unknown",
+        "y": "unknown",
+    }
+    for axis in ("x", "y"):
+        row = finding.numbers["travel_checks"][axis]
+        assert row["required_mm"] == row["minimum_required_mm"] == "unknown"
+    assert finding.numbers["travel_checks"]["z"]["required_mm"] == 15
+    assert finding.numbers["operations"][0]["tip_z_bounds_mm"] == [-12, 3]
+
+
+def test_unknown_removal_scope_preserves_known_z_overrun_and_machine_measurement_debt(tmp_path):
+    data = public_extent_bundle(tmp_path, '"unknown"')
+    machine(data)["envelope"]["travel_mm"].update(x="unknown", z=measured(14))
+    finding = evaluate(data)[0]
+    assert finding.status == "error"
+    checks = finding.numbers["travel_checks"]
+    assert checks["x"]["required_mm"] == checks["x"]["minimum_required_mm"] == "unknown"
+    assert checks["z"]["required_mm"] == 15
+    assert checks["z"]["required_verified"] is True
+    assert checks["z"]["margin_mm"] == -1
+    debts = {entry["id"]: entry for entry in finding.numbers["measurements"]}
+    assert "plan.setups.S1.ops.10.xy_geometry" in debts
+    assert debts["machines.mill.envelope.travel.x"]["instruction"].startswith("measure:")
+
+
+@pytest.mark.parametrize(
+    "removal",
+    ['"unknown"', "{ x = [120.0, 180.0], y = [3.0, 8.0], z = [-5.0, 2.0] }"],
+)
+def test_printed_cutter_path_still_governs_an_explicit_removal_scope(tmp_path, removal):
+    data = public_extent_bundle(tmp_path, removal)
+    rows = {
+        "coordinates": [
+            Finding(
+                "coordinates",
+                "S1",
+                "pass",
+                {"line_table": [{"op": 10, "dro_xy": [[-12, 5], [80, 25]]}]},
+                [],
+                "",
+            )
+        ]
+    }
+    with lend_rows(data, rows):
+        finding = evaluate(data)[0]
+    assert finding.status == "pass"
+    checks = finding.numbers["travel_checks"]
+    assert (checks["x"]["required_mm"], checks["y"]["required_mm"]) == (92, 20)
+    assert checks["x"]["basis"] == checks["y"]["basis"] == "cutter-centre path"
+    assert "plan.setups.S1.ops.10.xy_geometry" not in {
+        entry["id"] for entry in finding.numbers["measurements"]
+    }
