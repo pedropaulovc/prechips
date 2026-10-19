@@ -48,7 +48,7 @@ from .rules.coordinates import (
     readout_value,
     row_id,
 )
-from .rules.geometry_common import TURNING, approach
+from .rules.geometry_common import TURNING, approach, finite_saw_evidence
 from .rules.hold_fields import align_indicator, align_travel
 from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
@@ -5864,15 +5864,29 @@ class _Traveler:
         return f"{sense} {where}"
 
     # ------------------------------------------------------------- clearance
-    def spindle_saw_debt(self, setup):
-        """The shared model boundary for known or still-possible spindle saws."""
+    def _spindle_saw_op_debt(self, setup, op, check):
+        if not spindle_saw(self.bundle, setup, op):
+            return ""
+        details = _mapping(_mapping(self.bundle.kernel).get("ops"))
+        detail = _mapping(details.get(f"{setup['id']}:{op['op']}"))
+        if isinstance(detail.get("saw"), dict):
+            status, reasons, _ = finite_saw_evidence(detail, check)
+            if status == "pass":
+                return ""
+            return "; ".join(reasons) or f"Mounted-saw {check} evidence is incomplete"
+        return (
+            SLITTING_SAW_MODEL_REASON
+            if slitting_saw(self.bundle, op)
+            else UNRESOLVED_SAW_MODEL_REASON
+        )
+
+    def spindle_saw_debt(self, setup, check="geometry"):
+        """Keep each mounted-saw check's unresolved or failed evidence visible."""
         return "; ".join(
             dict.fromkeys(
-                SLITTING_SAW_MODEL_REASON
-                if slitting_saw(self.bundle, op)
-                else UNRESOLVED_SAW_MODEL_REASON
+                debt
                 for op in setup.get("ops", [])
-                if spindle_saw(self.bundle, setup, op)
+                if (debt := self._spindle_saw_op_debt(setup, op, check))
             )
         )
 
@@ -6753,7 +6767,7 @@ class _Traveler:
                 "STOP: readout kind is unknown; establish the instrument and physical pickup "
                 "procedure before cutting. No digital or mechanical settings are inferred."
             )
-        spindle_debt = self.spindle_saw_debt(setup)
+        spindle_debt = self.spindle_saw_debt(setup, "zero")
         saw_warning = (
             "STOP: " + spindle_debt + "; mounted-blade zero setting "
             "is unresolved, not an axial endmill touch-off."
@@ -9010,10 +9024,8 @@ class _Traveler:
             action = self.cut_depths(setup, op, lathe)
             if saw:
                 action.append(self.saw_setting(op))
-                if spindle_saw(self.bundle, setup, op):
-                    action.append(
-                        "STOP: blade reach, arbor fit and fixture clearance have not been checked."
-                    )
+                if debt := self._spindle_saw_op_debt(setup, op, "geometry"):
+                    action.append("STOP: " + debt)
             reference = op.get("tool")
             if op.get("do") == "coating":
                 tool = self.coating(op)
