@@ -41,7 +41,7 @@ The standalone [brass-ring example](https://github.com/pedropaulovc/prechips/blo
 
 The [Magic Tube example](https://github.com/pedropaulovc/prechips/blob/main/examples/blondihacks-magic-tube/README.md) follows [Metal Lathe Tutorial 18: Your Second Project!](https://www.youtube.com/watch?v=-dyO4PEkEkc): one source bar becomes a blind-bored body and removable 1/2-20 right-hand screw cap. Its adapted 12L14 design and catalog dimensions are not identification or measurements of the video's unknown scrap stock. Retained-piece routing and nominal thread compatibility do not certify engagement, seating or joint turning; the traveler remains PLANNED with expected exit 4.
 
-Slitting-saw recognition is limited to mill-mounted tooling; it does not establish full physical support. Finite disk/arbor clearance, the mounted assembly, engagement and mounted-zero evidence remain unresolved. See the [tool rules](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-tools.md) for the supported checks and limits.
+Mounted slitting saws have bounded offline support for a measured blade/arbor assembly, one straight constant-Z cut and checked clear moves with clamped capture. Geometry, established engagement and mounted body-zero evidence are independent requirements; legacy planar inputs alone remain unresolved. See the [tool rules](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-tools.md) and [operation contract](https://github.com/pedropaulovc/prechips/blob/main/docs/plan.md#mounted-slitting-saw-path-and-capture). Named batch-piece lineage, inspection expansion and setup-sheet detail modes are not implemented by this change; it is not CAM or physical safety certification.
 
 ## CLI: five noninteractive verbs
 

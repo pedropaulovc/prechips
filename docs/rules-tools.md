@@ -173,21 +173,21 @@ scribed line needs a `bandsaw` machine whose `saw_modes` include `"vertical"`:
 other machine kinds or modes without it are errors, and undeclared modes stay
 debt. These nonspindle tools require no holder.
 
-A real mill-mounted disk uses tool kind `slitting_saw`, never `bandsaw`, under
-`saw_cut` or `cut_off`, and is compatible only with a `mill`. Its disk OD is
-explicit `dia_mm` / `dia_in`, its separate kerf is `kerf_mm` / `kerf_in`, and
-`flutes` is tooth count. The existing optional inventory `arbor` identity and
-operation `holder` reference describe selected equipment, not a proven mounted
-assembly. Missing or unverified dimensions and arbor facts remain debt.
-`tool_resolves` stays unknown for physical slitting-saw assembly fit: finite
-disk reach, mounting/axis, arbor, spindle and cutter/fixture clearance are not
-modelled by the planar kerf cut. A known nonpositive blade diameter or kerf, or
-a verified selected holder taper that disagrees with the verified machine
-spindle taper, is still an error; model debt does not hide a known mismatch.
-Recognizing this kind, even with verification debt, never grants a nonspindle-saw
-or manual-bench waiver. An unresolved or unrecognized tool kind on a mill also
-cannot establish a nonspindle saw, so its spindle assembly and clearance stay
-unknown; a verified non-saw kind still produces a tool-compatibility error.
+A mill-mounted disk uses `slitting_saw` under `saw_cut` / `cut_off`, only on a
+`mill`. `tool_resolves` checks the selected holder and qualified
+[blade/arbor assembly](inventory.md#mounted-slitting-saw-assembly), including
+interface, pilot/bore fit, body thickness, flange geometry and rotation/
+retaining-thread constraints. The optional `arbor` identity alone is
+insufficient. Known nonpositive dimensions or incompatible taper error;
+missing or unverified facts remain debt.
+
+Physical consumers require matching
+[finite native evidence](rules-geometry.md#saw-cut-off), not planar kerf or an
+axial cutter surrogate. Recognition, including an unverified raw
+`slitting_saw` identity, never grants nonspindle-saw/manual-bench waivers.
+An unresolved tool kind on a mill cannot establish nonspindle scope; a
+verified incompatible kind still errors. Zero and M5 measurement proofs
+remain separate from assembly resolution.
 
 Incompatible known machine/tool kinds are errors and unverified identities
 remain debt. No saw replaces a groove's size-setting tool or establishes a

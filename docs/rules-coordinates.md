@@ -1197,7 +1197,8 @@ groove wall or turned shoulder does.
 An op is known to leave no Z face only in these cases:
 
 - A manual or transfer step cuts nothing.
-- A saw locates its face by `cut_plane`, never a DRO Z.
+- A nonspindle saw locates its face by `cut_plane`, never a DRO Z.
+  A mounted slitting saw uses its proved cutting-midplane Z setting.
 - Off the turning approach, only facing or pocketing leaves a Z face.
   A hole's `to_z` is its tip; a milled wall's is its foot.
 - A turning op sampled by the kernel at numeric `to_z`, or over its
@@ -1725,10 +1726,20 @@ Native-face details also have four operation-rule extensions:
 
 ### Applicability
 
-A dedicated saw setup (all nonmanual ops are `saw_cut` / `cut_off`, at least one
-saw) is `not_applicable`: its setting is an authored blade-centre `cut_plane`,
-not a spindle XYZ zero. A mixed setup still checks its other machining zero
-recipes; an unknown action cannot establish the saw-only exemption.
+A dedicated nonspindle saw setup (all nonmanual ops are `saw_cut` /
+`cut_off`, at least one saw, no confirmed or possible spindle saw) is
+`not_applicable`: its setting is `cut_plane`, not a spindle XYZ zero.
+An unknown action cannot establish that exemption. A mounted slitting saw
+requires the [mounted body-side setting](plan.md#mounted-saw-z-setting).
+`zero_check` consumes its independent native `saw.zero` evidence, not the
+geometry or engagement status. It proves stopped-spindle contact on the
+exposed flat annulus and a clear axial approach. Missing evidence stays
+unknown; a running touch or wrong body/plane side errors.
+
+Body thickness and signed kerf offset determine the setting, never blade
+radius or kerf width. New/reinstalled tool-holder pairs need matching touches.
+Mixed setups preserve ordinary X/Y/Z recipes and known-error precedence;
+ordinary touch evidence cannot be transferred to a mounted saw or vice versa.
 
 A setup satisfying the [manual-bench predicate](#manual-bench-applicability)
 is also `not_applicable`: it has no DRO zero to set. This is the same

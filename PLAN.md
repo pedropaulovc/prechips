@@ -1394,23 +1394,23 @@ first-article acceptance.
    not applicable; saw cuts earn no finished-face coverage. Fixture modeling
    and input debt semantics remain operative.
 
-   **Bounded mill slitting-saw recognition:** `saw_cut` / `cut_off` distinguish
-   mill-only `slitting_saw` from nonspindle `bandsaw` and `hand_saw`, including
-   unresolved identities so they cannot acquire nonspindle/manual waivers.
-   Existing inventory fields provide explicit disk `dia_mm` / `dia_in`,
-   separate `kerf_mm` / `kerf_in` (never thickness-derived), `flutes` as tooth
-   count, optional `arbor` identity and the operation's selected `holder`;
-   unknown dimensions or arbor remain debt. Cited rotating-tool charts or a
-   unique diameter-matched `operation = "slitting_saw"` row provide `sfm` and
-   `chip_load_mm_per_tooth`, spindle-limited RPM and RPM × teeth × chip-load
-   feed, never canonical `saw_cut` blade-speed/descent numbers. The existing
-   planar kerf/one-side-retained Boolean is ideal removal only; no native
-   finite-disk reach, mount/axis, arbor/spindle/tool/fixture clearance or
-   engagement model is added. Physical `saw_cut`, `tool_resolves`,
-   `accessibility`, `reach`, `saw_teeth` and setup zero/clearance rows remain
-   unknown for that missing model. There is no finished-face coverage,
-   physical safety certification, complete slitting support or live-validation
-   claim.
+   **Mounted slitting-saw phase 0a implemented; selected regression gate passed:**
+   mill-only `slitting_saw` now has a strict measured blade/arbor assembly,
+   one finite straight constant-Z cut plus checked clear moves, explicit
+   clamped upper-child capture and independent native geometry, established
+   engagement and body-side zero evidence. Native separation retains both
+   physical children. M5 consumes existing successful native results and
+   independently requires its measured limits; it never starts FreeCAD.
+   Planar-only and axial synthetic saw inputs remain negative contracts.
+   An actual FreeCAD smoke exercised complete geometry/engagement/zero and
+   released-capture geometry refusal. The required-FreeCAD selected gate passed
+   706 tests with `-n2 --dist loadscope` and `PRECHIPS_KERNEL_WORKERS=1`;
+   `ruff check .` and `ruff format --check .` passed. This was not the full
+   suite, a release or completion of the broader work.
+   Named nested batch lineage (0b), inspection expansion (0c) and detail
+   modes are not implemented. See [inventory](docs/inventory.md#mounted-slitting-saw-assembly),
+   [operations](docs/plan.md#mounted-slitting-saw-path-and-capture) and
+   [geometry limits](docs/rules-geometry.md#saw-cut-off).
 
    **Bench hand saw shipped (2026-10-16, #249):** a `hand_saw` tool on a
    bench/manual machine keeps the manual-bench waiver and has no blade-speed

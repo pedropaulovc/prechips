@@ -1714,6 +1714,8 @@ execution order; `op` is its within-setup identity.
 | `approach` | `"rotary"` |
 | `angle_window_deg` | `[Number, Number]` |
 | `cut_plane` | `SawPlane` (a straight saw cut only) |
+| `saw_trajectory` | `SawTrajectory`: setup-mm start and cut/clear moves for a mounted saw; see [mounted path](#mounted-slitting-saw-path-and-capture) |
+| `saw_capture` | `SawCapture`: independently posed fixture and moving clamp, with explicit clamped state; see [mounted path](#mounted-slitting-saw-path-and-capture) |
 | `follows` | `str`: `"<setup>:<op>"` of an earlier `scribe` op (a saw that follows its line only; an `ends` layout scribes no line, an error) |
 | `allowance_mm` | `Number` > 0: stock a saw that `follows` a line leaves outside it for the file |
 | `keep` | `str` (a finished feature: after a held split, the piece that carries it stays and every other piece is discarded; see [keep piece](rules-geometry.md#keep-piece)) |
@@ -2743,12 +2745,12 @@ an inventory blade in `tools`:
 |---|---|
 | `bandsaw` | `mill`, `bench` or `bandsaw` for a straight cut; a scribed-line cut needs a vertical `bandsaw` |
 | `hand_saw` (a hacksaw) | `bench` or `manual` |
-| `slitting_saw` (rotating disk; not a bandsaw alias) | `mill` only; bounded recognition, not physical disk/assembly validation |
+| `slitting_saw` (rotating disk; not a bandsaw alias) | `mill` only; finite mounted assembly with the strict path and capture below |
 
 A lathe uses `part_off`, a separate action and model. Nonspindle bandsaw and
-hand-saw operations need no spindle holder or direction. A slitting saw uses
-the existing selected operation `holder` reference and optional tool `arbor`
-identity; these do not prove its mount or axis. No saw earns finished-face
+hand-saw operations need no spindle holder or direction. A slitting saw needs
+its selected `holder`, qualified mounted assembly and conventional-feed
+direction. An optional tool `arbor` identity does not prove fit. No saw earns finished-face
 coverage. An authored feature must resolve normally; an omitted feature cannot
 carry inspection checks.
 
@@ -2774,19 +2776,71 @@ With 1.5 mm kerf, the fragment retains Y ≤ 87 mm, not Y ≤ 87.75 mm.
 The kernel removes kerf and offcut, checks that no finished target was removed,
 and passes the retained stock to later setups.
 
-For a `slitting_saw`, this is ideal planar removal only. Explicit inventory
-`dia_mm` / `dia_in` describes disk OD, separate `kerf_mm` / `kerf_in`
-describes kerf (never inferred from thickness), and `flutes` is tooth count.
-Missing or unverified dimensions and arbor facts remain debt. No new fields
-are required. The plane and retained halfspace do not model finite disk reach,
-mount/axis, arbor assembly, spindle/tool/fixture clearance or engagement.
-`saw_cut`, assembled `tool_resolves`, `accessibility`, `reach` and `saw_teeth`
-therefore remain unknown for physical slitting support, even when ideal stock
-removal can be routed. No planar result certifies safe or complete slitting.
-Bounded slitting recognition is limited to straight `cut_plane` cuts. A
-slitting saw with `follows` remains unknown: the host supplies a
-`scribed_profile.reason` debt and does not route known stock from that cut.
-Arbitrary scribed-region removal is not a finite-disk model.
+### Mounted slitting-saw path and capture
+
+The `finite_disk_v1` model requires the
+[blade and complete arbor inputs](inventory.md#mounted-slitting-saw-assembly).
+Planar-only legacy inputs remain unknown for physical slitting support.
+The ordinary axial cutter model and linear TPI calculation cannot substitute.
+A slitting saw with `follows` remains unknown and cannot route known stock;
+arbitrary scribed-region removal is not a finite-disk model.
+
+`saw_trajectory` contains setup-mm `start_mm = [x, y, z]` and a nonempty
+`moves` list of `{ to_mm = [x, y, z], mode = "cut" | "clear" }`.
+These coordinates locate spindle XY and the cutting-band midplane Z, not
+the tooth tip, body face or spindle nose. Exactly one finite, straight,
+constant-Z cut is supported, with disk normal along setup Z and numeric
+`cut_plane.axis = "z"` at the same converted Z. Manual moves are single-axis.
+Diagonals, axial plunges, curves, reversing multi-cut paths and an initially
+embedded disk are unsupported. Every pre/post clear move is checked.
+The spindle runs only on the cut move and is fully stopped before and after.
+
+Declare `direction = "conventional"`. Machine spindle rotation is viewed
+from above down setup −Z. Installed tooth rotation must match it, and the
+arbor's retaining side/thread hand must give tightening rather than loosening
+tendency. Missing measured rotation facts stay unknown; a wrong sense errors.
+The native check also proves placement: for spindle-axis feed `f`, transverse
+direction is `(-f.y, f.x, 0)`. The engaged section must lie strictly on its
+positive side for clockwise rotation, negative side for counterclockwise.
+Touching or crossing the axis fails; the direction label alone is insufficient.
+Axis travel here is not the work/table feed direction.
+
+The cut's `saw_capture` declares `fixture`, `pose`, `moving_clamp`,
+`moving_clamp_pose` and `state = "clamped" | "released" | "unknown"`.
+The primary hold retains the lower remainder; the upper child needs independent
+mechanical capture before cutting. Native geometry proves contact with the
+actual upper child and includes capture components in collision sweeps.
+Released capture errors; missing or unproved capture stays unknown.
+Contact geometry does not establish dynamic clamp capacity.
+
+Secure both holds, cut, stop fully with capture clamped, withdraw through the
+proved clear/kerf path, then release/retrieve and adjust while stopped.
+Both physical children remain in the native stock result and remain obstacles
+during withdrawal. Named nested batch outputs and repeated-piece lineage are
+not implemented by this support.
+
+### Mounted-saw Z setting
+
+Use `method = "mounted_saw_side"` on the Z `AxisZero` or a `ToolTouch`.
+A tool touch also names its `holder`. Its `mounted_saw` record declares
+`blade_side = "minus_z" | "plus_z"`, `axis_xy_mm`, `point_mm` and
+`spindle_state = "stopped" | "running"` (each may be unknown).
+A running touch errors; unknown state remains debt.
+Name a stock face/z-face or a posed
+`fixture:<inventory-reference>/<component-id>:+z` or `:-z` face.
+A numeric edge alone does not prove contact.
+
+The proof requires the exposed flat body annulus outside every flange and
+inside the tooth root, the correct body side and plane normal, and a clear
+axial calibration approach. A broad stock top is not automatically a setting
+pad. Each new or reinstalled tool/holder pair needs a matching setting.
+
+For plane Z `E`, paper thickness `p`, body thickness `B` and signed kerf offset
+`C`, lower body side on a +Z plane sets cutting-midplane DRO to
+`E + p + B/2 + C`; upper body side on a −Z plane sets
+`E − p − B/2 + C`. Never substitute kerf width or blade radius for body thickness.
+Ordinary and mounted-saw settings do not transfer without the appropriate
+touch; ordinary X/Y/Z evidence remains required where used.
 
 ### Teeth, holding and starting settings
 
@@ -2800,11 +2854,10 @@ An all-nonspindle-saw setup can include manual inspection and deburring without
 a `zero` recipe or mill envelope. `zero_check`, `headroom`, `envelope` and
 `travel` report why they are not applicable. A mixed setup still checks its
 other machining ops. Any `slitting_saw` operation, even with unresolved
-dimensions or verification, prevents this waiver: `zero_check` and DRO
-touch-off remain unknown, as do `headroom`, `envelope` and `travel` for the
-missing rotating-disk model. Mixed setups still assess ordinary operations
-while preserving slitting debt; they never certify disk clearance or declare
-it unnecessary.
+dimensions or verification, prevents this waiver. Its mounted zero and M5
+screens use their corresponding evidence; missing facts remain debt.
+A passing geometry proof cannot clear an independent zero or measurement
+requirement, and a passing touch cannot clear geometry debt.
 
 Holding, `stock_state.top_z/bottom_z`, bound frame and routing still apply.
 Declare an ordinary fixture, such as a saw vise with its jaw/parallels fields,

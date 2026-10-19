@@ -328,21 +328,72 @@ a vertical bandsaw table, `hold.kind = "hand_fed"`. See
 [hand-fed on the saw table](plan.md#hand-fed-on-the-saw-table) and
 [saw cut-off](plan.md#saw-cut-off) for the plane and keep-side contract.
 
-A real mill-mounted slitting disk uses `tools.<disk>.kind = "slitting_saw"`,
-not `"bandsaw"`, and is recognized only on a `mill` for `saw_cut` / `cut_off`.
-Inventory `kind` remains an arbitrary string; recognition adds no schema fields.
-Declare disk OD explicitly as `dia_mm` or `dia_in`, and kerf separately as
-`kerf_mm` or `kerf_in`: neither OD nor kerf is inferred from `thickness`.
-Use existing `flutes` for total tooth count, not TPI. The existing optional
-`arbor` field can name the arbor identity, and the operation's `holder` selects
-its holder. Unknown dimensions or arbor facts remain debt; these identity
-fields do not prove mounting, axis, arbor assembly or clearance.
+### Mounted slitting-saw assembly
+
+A mill-mounted disk uses `tools.<disk>.kind = "slitting_saw"`, only on a
+`mill` for `saw_cut` / `cut_off`. Its operation selects a `holder`; the optional
+tool `arbor` identity alone does not establish assembly fit.
+
+Declare each blade length with one `_mm` or `_in` spelling:
+
+| Blade field | Meaning |
+|---|---|
+| `dia` | Cutting OD |
+| `root_dia` | Tooth-root diameter |
+| `bore_dia_limits` | `[least, greatest]` bore diameter |
+| `thickness` | Body thickness, separate from kerf |
+| `kerf` | Cutting-band width, never inferred from thickness |
+| `kerf_offset` | Signed cutting-band midplane offset from body midplane, positive toward the spindle |
+| `projection` | Holder-keyed installed distance from body midplane to holder gauge plane, positive toward the spindle |
+
+Use integer `flutes` for total tooth count and `tooth_spacing = "uniform"`
+for the circular engagement proof; unknown spacing remains engagement debt.
+Require `0 < bore < root diameter < cutting OD`, positive body/kerf widths,
+and the entire body band inside the cutting band.
+
+The selected holder declares `mounted_saw_arbor`:
+
+| Field | Meaning |
+|---|---|
+| `pilot_dia_limits_mm` / `_in` | Pilot diameter limits |
+| `bore_clearance_max_mm` / `_in` | Allowed bore-to-pilot clearance |
+| `blade_thickness_limits_mm` / `_in` | Arbor's admitted body-thickness range |
+| `envelope_state` | `"complete"`, `"incomplete"` or `"unknown"` |
+| `components` | List of cylinders with unique `id`, positive `dia_mm`, signed `z_min_mm` and `z_max_mm`; component fields have no inch alternatives |
+| `cutting_rotation` | Fact-local measured rotation with `value = "cw"` or `"ccw"` |
+| `retaining_side` | `"minus_z"` or `"plus_z"` |
+| `retaining_thread_hand` | `"right"` or `"left"` |
+
+Cylinder Z limits are relative to the holder gauge plane, positive toward the
+spindle. Record the complete external rotational envelope through the spindle
+nose, including flange, spacers, exposed stem and a cylinder circumscribing the
+retaining nut. A partial envelope cannot establish clearance. Each dimension
+needs its own qualifying evidence; block-level provenance does not qualify it.
+Assembly checks include the machine/holder spindle interface, pilot maximum
+≤ bore minimum, bore maximum − pilot minimum ≤ allowed clearance, admitted
+blade thickness, and flange overlap with the flat body annulus.
+Both body sides need contacting flanges with diameters strictly between bore
+maximum and tooth-root diameter. The declared envelope must have no axial gap
+from the blade body through spindle nose; an oversized component cannot
+intersect the body where it should fit inside the bore.
+
+The disk projection convention differs from an axial cutter's tip projection.
+For cutting midplane `zk`, signed offset `C`, projection `P` and holder gauge
+length `G`, body midplane is `zk − C`, gauge plane is `zk − C + P`, and spindle
+nose is `zk − C + P + G`. Do not add blade radius to this stack.
+
+Missing, assumed, ambiguous or verification-debt facts remain unknown.
+Mounted-saw normalization requires fact-local measurements for blade lengths,
+fit limits, pair projection, gauge length, all arbor cylinders and installed/
+machine rotation. Bare rotation strings parse but do not qualify the proof.
+The clearance allowance needs its own cited or measured qualification.
+A citation alone does not make a physical dimension measured.
 
 Slitting recommendations use rotating-tool `operation = "slitting_saw"` data
-and spindle limits, never bandsaw descent rows or `blade_speed_sfm`. The
-planar kerf model can describe ideal stock removal only: finite disk reach,
-arbor/spindle/tool/fixture clearance and engagement/tooth count are unmodelled.
-It cannot certify physical slitting safety or finished-face coverage.
+and spindle limits, never bandsaw descent rows or `blade_speed_sfm`. See
+[mounted-saw operations](plan.md#mounted-slitting-saw-path-and-capture) for the
+bounded path, capture and stopped-spindle zero contract. No saw earns
+finished-face coverage or physical safety certification.
 
 
 ## Manual-arc kit
@@ -1002,9 +1053,11 @@ A scalar vendor nominal such as `spindle_to_table_max_in = 17`, or
 yields `?`, not a pass or measured overrun. Clearing `verify` without adding
 a measurement does not establish one.
 
-Kernel geometry and engagement accept trusted nominal facts, while honoring
-the same fact-local verification and measurement-status debt. Their
-nominal-geometry readiness does not clear M5 physical-measurement debt.
+Ordinary kernel geometry and engagement can accept trusted nominal facts while
+honoring fact-local verification and measurement-status debt. Mounted-saw
+normalization is stricter: its physical dimensions and rotation require
+measurements as described under [mounted assembly](#mounted-slitting-saw-assembly).
+Native readiness never clears other M5 physical-measurement debt.
 
 Use one unit key per length stem: `gauge_len_mm` or `gauge_len_in`, `oal_mm`
 or `oal_in`, `projection_mm` or `projection_in`, `bed_height_mm` or
@@ -1019,8 +1072,11 @@ Holder gauge length runs from mounted spindle nose to holder exit face. It
 already includes the spindle/chuck stack, so no separate stack height is
 recorded or added.
 
-Projection runs from holder exit face to installed tool tip. It represents
-one tool, holder and insertion setting, authored on the tool as
+For an axial cutter, projection runs from holder exit face to installed tool
+tip. For a mounted slitting saw it runs from body midplane to holder gauge
+plane, positive toward the spindle, as defined under
+[mounted slitting-saw assembly](#mounted-slitting-saw-assembly).
+It represents one tool, holder and insertion setting, authored on the tool as
 `tools.<tool>.projection_mm` or `_in`. The map key is the full selected
 holder reference, such as `"r8-collets-lms-4860/3-8in"`. Qualified and
 unqualified spellings match when they select the same holder.

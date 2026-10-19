@@ -49,7 +49,8 @@ form and parting actions, with these exceptions:
 
 - Point and hole actions: `spot`, `drill`, `ream`, `tap`, `counterbore`, `center`
   and `center_drill`. A direction supplied for one of these is still checked.
-- Saw cut-off, whose `cut_plane` defines the setting.
+- Nonspindle saw cut-off, whose `cut_plane` defines the setting. A mounted
+  slitting saw requires `direction = "conventional"`.
 
 An explicitly unknown action without a direction leaves that requirement
 unknown. Missing or empty required fields are errors. Explicit `"unknown"`
@@ -491,15 +492,14 @@ even when its raw identity has unverified dimensions or other verification
 debt. A saw action whose raw tool kind is missing, unlisted or unknown on a
 mill or unknown machine also receives no such waiver: a spindle-mounted disk
 cannot be excluded, but its physical identity is not established.
-Required `headroom`, `envelope`, `travel` and `zero_check` findings remain
-unknown unless an independently established error is stronger. For a known
-disk the finite disk and mounted assembly are unmodelled; for an unresolved
-tool the spindle assembly, zero and clearance remain unknown. DRO touch-off
-cannot establish the missing geometry. Mixed setups still assess ordinary
-operations while retaining this debt. Setup model-boundary guards report
-`spindle_saw_ops` (operation IDs) and `spindle_saw_debt` (the applicable known-disk
-and/or unresolved-identity reasons). No planar kerf result certifies disk reach,
-arbor/spindle/tool/fixture clearance or physical safety.
+Required `headroom`, `envelope`, `travel` and `zero_check` findings consume
+their corresponding mounted evidence. A known disk needs the
+[finite native result](rules-geometry.md#saw-cut-off), and missing or incomplete
+evidence remains unknown unless a known error is stronger. An unresolved tool
+still owes spindle assembly, zero and clearance evidence. Mixed setups retain
+ordinary checks alongside this debt. Setup guards name `spindle_saw_ops` and
+`spindle_saw_debt`; a planar kerf result cannot clear physical model debt.
+No mounted result certifies physical safety.
 Implementation: [`_bench.py`](../src/prechips/rules/_bench.py).
 
 ### Mill stack
@@ -699,11 +699,16 @@ does not remove that exemption. Any `slitting_saw` identity prevents it,
 including a raw unverified disk. A saw action whose raw tool kind is neither
 `bandsaw` nor `hand_saw` on a mill or unknown machine also prevents it, without
 claiming a known disk.
-The known disk's missing clearance model or the unresolved tool's possible
-spindle assembly keeps these findings unknown unless a known error is stronger.
-In mixed setups, other mill cuts retain their checks alongside that debt.
-Holding and native `saw_cut` ideal stock preservation remain required by their
-own rules.
+A mounted disk uses only already-present successful native saw evidence;
+these M5 rules never launch FreeCAD. `travel` uses axis-path extrema,
+`envelope` uses assembly and spindle-nose ranges, and `headroom` uses the
+mounted stack rather than an axial tip/radius surrogate. Applicable
+[fact-local measurements](inventory.md#fact-local-m5-trust), including the
+complete arbor envelope and machine limits, remain required. Native nominal
+geometry readiness cannot clear measurement debt. Missing results, incomplete
+envelopes or an unresolved possible spindle assembly remain unknown unless a
+known error is stronger. Mixed setups retain other mill-cut checks. Holding
+and native material preservation remain required by their own rules.
 
 There is no separate `holder_stack` rule. Selected-holder gauge debt belongs
 to `envelope` or `travel` where consumed; lathe cuts are not asked for a

@@ -141,8 +141,9 @@ Availability can be checked before ordinary applicability, so a lathe setup's
 Some scope decisions precede availability. For nonspindle bandsaw and hand-saw
 operations, `accessibility`, `reach` and `internal_corner_radius` stay
 `not_applicable` because their tool-cylinder model never applies to a blade.
-For a mill-mounted `slitting_saw`, physical accessibility and reach instead
-stay unknown: the planar cut does not model a finite disk or its assembly.
+For a mill-mounted `slitting_saw`, physical accessibility and reach consume the
+strict finite assembly proof described under [saw cut-off](#saw-cut-off);
+planar-only evidence remains unknown.
 Rules with no applicable subject can emit no findings, and an invalid `keep`
 can name its feature debt without calling the kernel. `saw_cut` checks known station
 mismatches, a verified nonpositive kerf on a straight cut and any reported
@@ -1629,21 +1630,39 @@ kernel job and does not enlarge an unbounded cut or certify a toolpath
 
 A straight `saw_cut` or `cut_off` uses an authored setup-axis blade-centre
 `cut_plane` and the selected blade's positive explicit inventory kerf
-(`bandsaw`, `hand_saw` or mill-only `slitting_saw`). Below retains the
-halfspace at or below `plane - kerf/2`; above retains the halfspace at or above
-`plane + kerf/2`. The native Boolean removes the kerf plus the discarded planar
-slab from the current operation stock, including earlier removals in that
-setup. Its retained result is available through normal `stock_in` routing.
+(`bandsaw`, `hand_saw` or mill-only `slitting_saw`). For nonspindle blades,
+below retains the halfspace at or below `plane - kerf/2`; above retains the
+halfspace at or above `plane + kerf/2`. Their native Boolean removes the kerf
+plus discarded planar slab from current operation stock, including earlier
+removals. Its retained result is available through normal `stock_in` routing.
 
-For a slitting saw, this Boolean is ideal removal only, not the swept volume
-of a finite disk. Disk OD must be explicit `dia_mm` / `dia_in`, with separate
-`kerf_mm` / `kerf_in` (never inferred from thickness), and `flutes` denotes
-tooth count. Neither these facts nor the optional arbor identity and selected
-holder supply a finite-disk reach or assembly model.
-Only straight `cut_plane` cuts receive this bounded slitting recognition.
-A `slitting_saw` with `follows` stays unknown: host
-`scribed_profile.reason` debt prevents known stock routing, without changing
-the native kernel. Scribed-region removal cannot stand in for disk geometry.
+Mounted slitting saws use `detail.saw.model = "finite_disk_v1"` with the
+[strict assembly](inventory.md#mounted-slitting-saw-assembly) and
+[path/capture inputs](plan.md#mounted-slitting-saw-path-and-capture).
+The native job builds a body annulus, root-to-OD rotating cutting envelope
+and posed arbor cylinders, using exact straight sweeps rather than sampled
+poses. For stock `S`, required kerf slab `L` and finite cutting sweep `W`,
+it requires full coverage of `S ∩ L`, no unintended removal outside that slab
+or protected finished material, and clear blade/arbor/fixture relationships.
+Clear-start and advancing-rim precedence must be proved before the swept
+disk can count as removal. Future removal is never subtracted to clear a
+leading obstacle. Pre-cut clear moves see original stock; post-cut moves see
+both retained children and the clamped capture.
+
+The result records body/cutting bands, gauge and spindle-nose positions,
+axis-path/assembly/spindle-nose bounds, per-component/obstacle/move collisions,
+required/uncovered/removed/unintended kerf volumes, before/after stock volumes,
+and the two proved children. Mounted cuts retain both physical children;
+their legacy `offcut` volume is zero. Named nested batch outputs are not
+implemented. Planar-only inputs and `slitting_saw` with `follows` remain
+unknown and cannot establish a physical cut or known routed stock.
+
+Geometry, established engagement and mounted body-zero evidence have separate
+statuses. A released capture can error geometry while engagement and zero
+remain independently proved. A geometry pass cannot clear either of their
+debts. Missing/unsupported facts stay unknown; known contradictions and
+collisions error. A model marker without complete matching evidence is not a
+proof. Geometry error stops stock propagation.
 
 The `saw_cut` finding reports the normalized plane, kerf, retained boundary and
 before/after, kerf, offcut and removed volumes in mm/mm³. A cut into the finished
@@ -1655,31 +1674,27 @@ cut is an `error` even without FreeCAD. Any reported native `saw_error` also
 takes precedence over unavailable kernel facts. Otherwise a missing or
 unverified kerf, cut-plane or upstream stock remains named `?`, and missing
 FreeCAD remains kernel debt.
-Splitting one connected input stock solid into several retained pieces is also
-an error: detached pieces are not silently routed as held stock, including tiny
-retained slivers. Independently supplied components already disconnected before
-the saw may remain disconnected; the check is per input solid, not the total
-retained count. Target-loss and volume facts are computed before this refusal.
+For the nonspindle planar model, splitting one connected input stock solid into
+several retained pieces is an error: detached slivers are not silently routed.
+Independently supplied components already disconnected before the saw may
+remain disconnected; the check is per input solid. Target-loss and volume
+facts precede this refusal. The mounted model instead requires its proved,
+captured two-child separation.
 
 For nonspindle bandsaw and hand-saw operations, `accessibility`, `reach` and
 `internal_corner_radius` are `not_applicable`: the axial/turning tool-cylinder
 model does not model their blades. This is a model boundary, not certified
-blade/fixture clearance. A `slitting_saw` is not granted that nonspindle
-waiver: `saw_cut`, assembled `tool_resolves`, `accessibility`, `reach` and
-`saw_teeth` stay unknown for its unmodelled physical cut. Finite disk reach,
-mount/axis, arbor assembly, spindle/tool/fixture clearance and engagement/
-teeth in the work are not modelled by the planar kerf cut. Known station or
-removal errors still cannot become passes. Ideal stock removal may be routed
-without establishing physical cutter reach or clearance.
+blade/fixture clearance. A `slitting_saw` receives no nonspindle waiver:
+`saw_cut`, assembled `tool_resolves`, `accessibility` and `reach` consume
+their matching finite evidence; `saw_teeth` consumes established engagement.
+Legacy planar or axial synthetic inputs do not satisfy these proofs.
 
-No saw cut provides finished-face or surface-finish coverage credit. A setup
-containing a raw `slitting_saw` identity, even with verification or dimension
-debt, cannot take dedicated-nonspindle-saw or manual-bench waivers. Its setup
-zero and clearance rows (`zero_check`, `headroom`, `envelope`, `travel`) remain
-unknown where the rotating-disk model is missing, never a safety certification.
-Mixed setups still assess their ordinary operations while retaining slitting
-debt. DRO touch-off cannot waive this debt. Holding, selected holder/arbor and
-fixture inputs remain owed.
+No saw cut provides finished-face or surface-finish coverage credit. A raw
+`slitting_saw` identity, even with verification or dimension debt, prevents
+dedicated-nonspindle-saw and manual-bench waivers. Its zero and M5 findings
+remain independent requirements; mixed setups also assess ordinary operations.
+A touch does not waive geometry debt. These bounded offline proofs do not
+certify dynamic workholding, CAM paths or continuous arbitrary tool motion.
 For nonspindle saws, holding, fixture solids and fixture-interference screens
 remain in effect, including on a dedicated bandsaw setup, except under an
 admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table). A hand-fed cut's
@@ -1719,17 +1734,36 @@ earlier cut ([#347](https://github.com/pedropaulovc/prechips/issues/347)).
 
 A bandsaw or hand-saw blade with too few teeth in the work straddles it: the
 teeth strip and the blade grabs, and a hand-fed cut is held only by hand. Each
-saw cut gets a `saw_teeth` row. A slitting saw's row remains unknown: total
-tooth count (`flutes`) cannot establish engagement or teeth in the work
-without finite-disk geometry. For bandsaw and hand-saw blades, the thickness
-the blade crosses times the blade's coarsest pitch
+saw cut gets a `saw_teeth` row. For mounted slitting saws, native engagement
+must establish a constant-through-thickness polygonal, connected,
+feed-monotone section with one material interval per transverse coordinate;
+the extrusion must match actual slab stock, not its bounding box.
+Hollow, multiple-interval, curved or nonuniform sections remain unknown.
+
+Circular first/last tangency has zero engagement. The policy minimum applies
+only to the derived established-engagement interval, from entry-complete to
+exit-begins, which must have positive length. Entry/exit are separately
+reported monotone transitions without certified tooth loading. With uniform
+teeth, the native proof minimizes the strictly-interior integer tooth count
+over unknown tooth phase, including endpoint events. A single arc of angle
+`α` and tooth pitch `δ = 2π/flutes` gives `max(0, ceil(α/δ) − 1)`, with
+conservative equality handling; unresolved threshold ties remain unknown.
+Mean engagement and total tooth count alone do not satisfy the minimum.
+The `saw_teeth` verdict additionally requires native tooth count to match the
+current verified inventory and a positive, finite, cited and verified
+`shop-policy.numbers.saw_min_teeth_in_work`. A native engagement pass alone
+does not establish that policy result.
+
+For bandsaw and hand-saw blades, the thickness the blade crosses times its
+coarsest pitch
 (`tools.<blade>.tpi`, the low end of a variable `[coarse, fine]` range) is the
 teeth in the work, and fewer than the shop policy's `saw_min_teeth_in_work` is an
 error naming the coarsest pitch the cut allows (`minimum × 25.4 / thickness` TPI,
 rounded up to 0.1 so the printed pitch is enough).
 The comparison is plain `≥`: exactly the minimum passes.
 
-The kernel reports the thickness the blade crosses as `cut_thickness_mm`. A cut
+For these nonspindle blades, the kernel reports crossed thickness as
+`cut_thickness_mm`. A cut
 that `follows` a scribed line runs its blade along setup Z (a vertical bandsaw or
 a bench saw), so it crosses the Z span of the stock inside its removed region. A
 straight cut's blade travel within its plane is not modelled, so it crosses the
@@ -1742,7 +1776,7 @@ within 1% of its volume). A hollow, open or split section (tube, angle, channel,
 stepped plate) leaves the thickness unknown with that reason, never the box's
 span.
 
-An unknown or uncited pitch, an absent, uncited or flagged policy minimum, or a
+For the linear-TPI check, an unknown or uncited pitch, an absent, uncited or flagged policy minimum, or a
 thickness the kernel could not derive (no stock, a refused or unresolved cut)
 leaves the row `?` with that reason, never a pass. A cut the `saw_cut` row
 refuses or leaves unresolved never passes on its pitch alone; too few teeth on it
