@@ -25,7 +25,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from prechips.findings import ALWAYS_REQUIRED
-from prechips.inputs import blank_supplies, load_bundle, operative_definitions
+from prechips.inputs import BadInput, blank_supplies, load_bundle, operative_definitions
 from prechips.joint_features import LABEL_PREFIX, fit, label, present, setup_span_mm
 from prechips.kernel import run_geometry
 from prechips.measurements import length_debt, record_debt
@@ -35,7 +35,7 @@ from prechips.process_features import ANGLE_TOLERANCE_DEG
 from prechips.process_features import LABEL_PREFIX as PROCESS_PREFIX
 from prechips.rules import RULES as CHECKER_RULES
 from prechips.rules import tool_resolves as identity_rule
-from prechips.rules._bench import BENCH_KINDS, manual_bench
+from prechips.rules._bench import BENCH_KINDS, hand_saw, manual_bench
 from prechips.rules.coordinates import (
     CENTRE_OPS,
     DRO_DEFAULT_STEP,
@@ -51,7 +51,9 @@ from prechips.rules.resolution import (
     LENGTH_TOLERANCE_MM,
     MANUAL,
     SAW_OPS,
+    SLITTING_SAW_MODEL_REASON,
     SLOT_CATEGORIES,
+    UNRESOLVED_SAW_MODEL_REASON,
     make_op_unknowns,
     make_ops,
     make_tool,
@@ -62,7 +64,10 @@ from prechips.rules.resolution import (
     rough_leave,
     same_length,
     saw_setup,
+    saw_station,
     shop_made_item,
+    slitting_saw,
+    spindle_saw,
 )
 from prechips.rules.resolution import resolve as resolve_item
 from prechips.rules.resolution import select as select_item
@@ -114,6 +119,7 @@ EXPECTED_EXIT = {
     "pivot-bracket": 0,
     "cone-pivot-post/built-up.toml": 4,
 }
+STANDALONE_CASES = (("blondihacks-t-nuts", "plan.toml", "expected", 4),)
 # Worked fixtures exercise the measured branch without claiming shop observations.
 EXAMPLE_MEASUREMENT = {
     "by": "example value (realistic, not a shop measurement)",
@@ -1109,7 +1115,16 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
             ),
             f"{name}: transient joint or preparation labels cannot name finished STEP faces",
         )
-        if requirements:
+        numeric_requirements = [
+            field for field in requirements
+            if numeric(feature.get(field))
+            or (
+                isinstance(feature.get(field), list)
+                and bool(feature[field])
+                and all(map(numeric, feature[field]))
+            )
+        ]
+        if numeric_requirements:
             require(isinstance(feature.get("precision"), dict), f"{name}: per-dimension precision")
         has("datum_consistency", name)
     for name, feature in definitions.items():
@@ -1153,7 +1168,7 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
         require(isinstance(setup.get("stock_state"), dict), f"{sid}: missing stock state")
         require(isinstance(setup.get("hold"), dict), f"{sid}: missing hold")
         bench = manual_bench(inventory, setup)
-        if saw_setup(setup):
+        if saw_setup(inventory, setup):
             # A dedicated saw setup locates its cut by cut_plane; no spindle zero is set.
             has("zero_check", sid)
             require(
@@ -1161,6 +1176,8 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
                 and findings["zero_check", sid]["numbers"] == {"frame": setup["frame"]},
                 f"{sid}: saw setup zero waiver must name its frame",
             )
+        elif any(spindle_saw(inventory, setup, op) for op in setup["ops"]):
+            check_spindle_zero(setup, findings["zero_check", sid], inventory)
         elif bench is None:
             require(isinstance(setup.get("zero"), dict), f"{sid}: missing zero")
             lathe = machine_kind(setup, Entries(inventory)) == "lathe"
@@ -1193,7 +1210,7 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
             has("turning_deflection", f"{sid}:{op['op']}")
             has("engagement", f"{sid}:{op['op']}")
             if op["do"] not in MANUAL:
-                if "tool" in op and op["do"] not in SAW_OPS:
+                if "tool" in op and (op["do"] not in SAW_OPS or spindle_saw(inventory, setup, op)):
                     require("holder" in op, f"{sid}:{op['op']}: omitted holder")
                 has("tool_resolves", f"{sid}:{op['op']}")
         if isinstance(setup.get("stock_in"), list):
@@ -1933,6 +1950,14 @@ def checker_row(own, evaluate, subject: str, status: str, numbers: dict) -> tupl
         return status, numbers
 
     def merge(theirs, ours):
+        # A mounted disk has no axial touch model. Only this explicitly marked,
+        # independently evaluated row supplies its unsupported evidence; ordinary
+        # touch arithmetic below still overrides the checker's values.
+        if (
+            isinstance(theirs, dict)
+            and theirs.get("tool_setting_state") == "unsupported_spindle_saw"
+        ):
+            return theirs
         if isinstance(theirs, dict) and isinstance(ours, dict):
             return {**theirs, **{key: merge(theirs.get(key), v) for key, v in ours.items()}}
         if isinstance(theirs, list) and isinstance(ours, list) and len(theirs) == len(ours):
@@ -3287,12 +3312,48 @@ def zero_rows(setup: dict, own, entries: Entries) -> tuple:
     return status, numbers, {op: reading(record) for op, record in readings.items()}
 
 
+def check_spindle_zero(setup: dict, finding: dict, inventory: dict) -> None:
+    """A confirmed or possible disk cannot gain a no-spindle zero waiver."""
+    ops = [op for op in setup["ops"] if spindle_saw(inventory, setup, op)]
+    reasons = dict.fromkeys(
+        SLITTING_SAW_MODEL_REASON if slitting_saw(inventory, op) else UNRESOLVED_SAW_MODEL_REASON
+        for op in ops
+    )
+    require(
+        finding["status"] in {"unknown", "error"}
+        and finding["numbers"].get("spindle_saw_ops") == [op["op"] for op in ops]
+        and finding["numbers"].get("spindle_saw_debt") == "; ".join(reasons),
+        f"{setup['id']}: mounted saw zero debt is missing or waived",
+    )
+
+
 def check_zero(setup: dict, finding: dict, entries: Entries, own) -> None:
     """The ``zero_check`` finding of a setup that sets a DRO zero carries the verdict and
     every row the validator derives from its own inputs (:func:`derive_zero`): the jog
     polarity, Axis Set and readings of each axis, each retouch, each tool touch, re-touch
     and missing touch, and the DRO mode it prints. No reported sign, mode, reading or
     status is an operand: a report's rows can only repeat them."""
+    spindle = [op for op in setup["ops"] if spindle_saw(entries.inventory, setup, op)]
+    if spindle:
+        check_spindle_zero(setup, finding, entries.inventory)
+        ordinary = [op for op in setup["ops"] if op["do"] not in MANUAL | SAW_OPS]
+        if not ordinary:
+            require(
+                finding["status"]
+                == (
+                    "error"
+                    if own.plan.get("dro", {}).get("mode", "unknown") not in {"abs", "unknown"}
+                    else "unknown"
+                )
+                and finding["numbers"]
+                == {
+                    "frame": setup.get("frame", "unknown"),
+                    "spindle_saw_ops": finding["numbers"]["spindle_saw_ops"],
+                    "spindle_saw_debt": finding["numbers"]["spindle_saw_debt"],
+                },
+                f"{setup['id']}: pure mounted saw zero must retain only unresolved evidence",
+            )
+            return
     status, numbers = derive_zero(setup, own, entries)
     sid, reported = setup["id"], finding["numbers"]
     require(
@@ -3783,7 +3844,7 @@ def check_endpoints(
     def carried_reading(setup: dict, op: dict):
         """The carried Z touch ``op``'s DRO reads, from this setup's own zero rows
         (:func:`zero_rows`); None when it reads none."""
-        if saw_setup(setup) or not isinstance(setup.get("zero"), dict):
+        if saw_setup(entries.inventory, setup) or not isinstance(setup.get("zero"), dict):
             return None
         if setup["id"] not in readings:
             readings[setup["id"]] = zero_rows(setup, stock, entries)[2]
@@ -4064,8 +4125,8 @@ def check_saw_speed(
     near(row.get("blade_speed_max_sfm", "unknown"), high, "saw blade speed maximum")
     speed = max(low, min(high, sfm)) if positive(sfm) and numeric(low) else "unknown"
     near(row.get("blade_speed_sfm", "unknown"), speed, f"{where}: blade speed")
-    feed = descent if positive(descent) else "unknown"
-    near(row.get("feed_mm_min", "unknown"), feed, f"{where}: descent feed")
+    feed = "not_applicable" if "follows" in op else descent if positive(descent) else "unknown"
+    same(row.get("feed_mm_min", "unknown"), feed, f"{where}: descent feed")
     require("rpm" not in row, f"{where}: a saw blade has no spindle RPM")
     material_verify = plan.get("stock", {}).get("material_verify", False)
     require(row.get("material_verify") == material_verify, f"{where}: material verification")
@@ -4073,7 +4134,7 @@ def check_saw_speed(
     require(row.get("blade_speed_range_verify") == range_verify, f"{where}: blade range check")
     unsettled = (
         not numeric(speed)
-        or not numeric(feed)
+        or feed == "unknown"
         or not texts
         or record_uncertain(rows[0])
         or range_verify
@@ -4258,14 +4319,43 @@ def check_speeds(
         require(finding["status"] == "not_applicable", f"{where}: a manual op has no speed")
         return
     material = cutting_material(plan, features, cutting)
-    if op["do"] in SAW_OPS:
+    if hand_saw(entries.inventory, op):
+        require(
+            finding["status"] == "not_applicable"
+            and row == {"operation": op["do"], "tool": op["tool"]},
+            f"{where}: a hand saw has no blade speed or machine feed",
+        )
+        return
+    disk = slitting_saw(entries.inventory, op)
+    if spindle_saw(entries.inventory, setup, op) and not disk:
+        require(
+            finding["status"] == "unknown"
+            and row
+            == {
+                "operation": op["do"],
+                "tool": op.get("tool", "unknown"),
+                "rpm": "unknown",
+                "feed_mm_min": "unknown",
+                "model_reason": UNRESOLVED_SAW_MODEL_REASON,
+            },
+            f"{where}: unresolved saw kind cannot establish blade-only speed or spindle RPM",
+        )
+        return
+    if op["do"] in SAW_OPS and not disk:
         check_saw_speed(plan, setup, op, finding, entries, cutting, material)
         return
     machine = machine_record(setup, entries)
-    lathe = machine.get("kind") == "lathe"
+    lathe = machine.get("kind") == "lathe" and not disk
     tool = op.get("tool", "unknown")
     diameter = cutting_diameter_mm(setup, op, entries, definitions, features.get("units"), lathe)
-    operation = CUT_OPERATIONS.get(op["do"], op["do"])
+    operation = "slitting_saw" if disk else CUT_OPERATIONS.get(op["do"], op["do"])
+    if disk:
+        require(
+            row.get("action") == op["do"] and row.get("tool_kind") == "slitting_saw",
+            f"{where}: missing spindle-mounted saw identity",
+        )
+        require("blade_speed_sfm" not in row, f"{where}: a disk requires spindle RPM")
+        require("rpm" in row and "feed_mm_min" in row, f"{where}: missing disk RPM/feed")
     if (
         op["do"] == "rough_profile"
         and isinstance(op.get("contour"), dict)
@@ -4372,6 +4462,7 @@ def check_speeds(
         or material_verify
         or range_verify
         or tool_unverified(tool, entries)
+        or (disk and saw_station(entries.inventory, setup, op) != "fits")
     )
     # The checker certifies a sourced RPM and feed, else leaves it unknown.
     require(
@@ -5873,6 +5964,62 @@ def check_cone_facts(plan: dict, features: dict) -> None:
     require(plan["stock"]["form"] == "built_up", "built-up blank form lost candidate identity")
 
 
+def check_fixture_semantics(
+    plan_path: Path,
+    plan: dict,
+    features: dict,
+    inventory: dict,
+    policy: dict,
+    cutting: dict,
+    findings: dict,
+) -> list:
+    """Independent authored-input arithmetic shared by consumer and standalone examples."""
+    entries = Entries(inventory)
+    check_construction(plan, features, findings["construction", plan["part"]])
+    check_frames(features, plan)
+    check_subjects(plan, features, findings, inventory)
+    checked = checker_findings(plan_path)
+    check_required_coverage(policy, plan, features, findings, entries, checked)
+    check_inspection_declarations(plan, features, findings)
+    kernel = independent_kernel(plan_path)
+    check_joint_declarations(plan, features, findings, kernel)
+    missing = check_references(plan, entries, findings)
+    missing += check_prepared_blank(plan, features, inventory, findings, kernel)
+    depths = check_endpoints(plan, features, findings, entries, kernel)
+    definitions = operative_definitions(plan, features)
+    own = functools.cache(lambda: zero_inputs(plan, features, inventory, policy, kernel))
+    for setup in plan["setups"]:
+        if manual_bench(inventory, setup) is None:
+            if not saw_setup(inventory, setup):
+                check_zero(setup, findings["zero_check", setup["id"]], entries, own())
+            check_coordinates(
+                setup,
+                features,
+                findings["coordinates", setup["id"]],
+                plan,
+                entries,
+                inventory,
+                kernel,
+            )
+        check_indexing(setup, features, entries, findings["indexing", setup["id"]])
+        check_stickout(
+            setup, plan, features, inventory, policy, findings["stickout", setup["id"]], kernel
+        )
+        for op in setup["ops"]:
+            check_speeds(
+                plan,
+                features,
+                setup,
+                op,
+                findings["speeds_feeds", f"{setup['id']}:{op['op']}"],
+                entries,
+                cutting,
+                definitions,
+                depths,
+            )
+    return missing
+
+
 def validate_fixture(
     part: str,
     documents: dict,
@@ -5895,7 +6042,6 @@ def validate_fixture(
     inventory = documents[paths["inventory"]]
     policy = documents[paths["shop_policy"]]
     cutting = documents[paths["cutting_data"]]
-    entries = Entries(inventory)
     report = read_report(folder / expected_subdir / "report.json")
     renders = report.get("renders", {})
     # Every image the report binds: each setup's render and each inspection sketch it
@@ -5924,51 +6070,11 @@ def validate_fixture(
             "step" in paths and sha256(paths["step"]) == digest, "STEP bytes differ from digest"
         )
     findings = {(f["rule"], f["subject"]): f for f in report["findings"]}
-    check_construction(plan, features, findings["construction", part])
     if part == "cone-pivot-post":
         check_cone_facts(plan, features)
-    check_frames(features, plan)
-    check_subjects(plan, features, findings, inventory)
-    checked = checker_findings(folder / plan_filename)
-    check_required_coverage(policy, plan, features, findings, entries, checked)
-    check_inspection_declarations(plan, features, findings)
-    kernel = independent_kernel(folder / plan_filename)
-    check_joint_declarations(plan, features, findings, kernel)
-    missing = check_references(plan, entries, findings)
-    missing += check_prepared_blank(plan, features, inventory, findings, kernel)
-    depths = check_endpoints(plan, features, findings, entries, kernel)
-    definitions = operative_definitions(plan, features)
-    own = functools.cache(lambda: zero_inputs(plan, features, inventory, policy, kernel))
-    for setup in plan["setups"]:
-        # check_subjects already holds bench and saw zero waivers to their facts.
-        if manual_bench(inventory, setup) is None:
-            if not saw_setup(setup):
-                check_zero(setup, findings["zero_check", setup["id"]], entries, own())
-            check_coordinates(
-                setup,
-                features,
-                findings["coordinates", setup["id"]],
-                plan,
-                entries,
-                inventory,
-                kernel,
-            )
-        check_indexing(setup, features, entries, findings["indexing", setup["id"]])
-        check_stickout(
-            setup, plan, features, inventory, policy, findings["stickout", setup["id"]], kernel
-        )
-        for op in setup["ops"]:
-            check_speeds(
-                plan,
-                features,
-                setup,
-                op,
-                findings["speeds_feeds", f"{setup['id']}:{op['op']}"],
-                entries,
-                cutting,
-                definitions,
-                depths,
-            )
+    missing = check_fixture_semantics(
+        folder / plan_filename, plan, features, inventory, policy, cutting, findings
+    )
     exit_code = report_exit(report, policy, plan, features)
     candidate = part if plan_filename == "plan.toml" else f"{part}/{plan_filename}"
     require(
@@ -5977,6 +6083,102 @@ def validate_fixture(
     )
     check_sheet(folder, report, expected_subdir)
     return exit_code, missing
+
+
+def check_step_face_references(step: Path, plan: dict, features: dict) -> None:
+    """Resolve authored finished-face identities against the adjacent STEP bytes."""
+    records = re.findall(
+        r"#(\d+)\s*=\s*ADVANCED_FACE\s*\(\s*'((?:[^']|'')*)'",
+        step.read_text(encoding="utf-8"),
+        re.DOTALL,
+    )
+    require(records, f"{step.name}: no ADVANCED_FACE records")
+    refs = set(plan["stock"].get("as_is_faces", []))
+    for feature in features["features"].values():
+        if isinstance(feature.get("faces"), list):
+            refs.update(feature["faces"])
+    for setup in plan["setups"]:
+        for op in setup["ops"]:
+            if isinstance(op.get("faces"), list):
+                refs.update(op["faces"])
+    for ref in refs:
+        match = re.fullmatch(r"#(\d+)/ADVANCED_FACE\[(\d+)\]/(.*)", ref)
+        require(match is not None, f"{step.name}: malformed face reference {ref}")
+        entity, ordinal, label = match.groups()
+        require(0 < int(ordinal) <= len(records), f"{step.name}: invalid face ordinal {ref}")
+        actual_entity, actual_label = records[int(ordinal) - 1]
+        require(
+            (entity, label) == (actual_entity, actual_label.replace("''", "'")),
+            f"{step.name}: face reference differs from bound STEP {ref}",
+        )
+
+
+def validate_standalone_fixture(case: tuple) -> None:
+    """Validate local authored inputs without consumer-export or measurement claims."""
+    part, plan_filename, expected_subdir, expected_exit = case
+    folder = (EXAMPLES / part).resolve()
+    bundle = load_bundle(folder / plan_filename)
+    plan, features = bundle.plan, bundle.features
+    require(plan["part"] == features["part"] == part, "part identity mismatch")
+    paths = {key: path.resolve() for key, path in input_paths(folder, plan, plan_filename).items()}
+    require(
+        all(path.is_relative_to(folder) for path in paths.values()), "nonlocal standalone input"
+    )
+    require(paths["step"].parent == paths["features"].parent, "STEP is not adjacent to manifest")
+    require(
+        features["step_sha256"] == sha256(paths["step"]),
+        f"{part}: STEP digest mismatch",
+    )
+    check_step_face_references(paths["step"], plan, features)
+    report = read_report(folder / expected_subdir / "report.json")
+    require(report["step_sha256"] == features["step_sha256"], "STEP report binding mismatch")
+    images = {f"render:{sid}": asset for sid, asset in report.get("renders", {}).items()}
+    images |= {
+        f"render:{sid}:{key}": sketch
+        for sid, asset in report.get("renders", {}).items()
+        for key, sketch in asset.get("inspections", {}).items()
+    }
+    require(set(report["inputs"]) == set(paths) | set(images), "report input bundle incomplete")
+    for key, path in paths.items():
+        require(
+            report["inputs"][key]
+            == {"path": path.relative_to(ROOT).as_posix(), "sha256": sha256(path)},
+            f"{part}: stale {key} input binding",
+        )
+    expected = (folder / expected_subdir).resolve()
+    for key, asset in images.items():
+        image = (expected / asset["path"]).resolve()
+        require(image.is_relative_to(expected), "render path escapes")
+        require(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"), "invalid fixture PNG")
+        require(
+            asset["sha256"] == sha256(image)
+            and report["inputs"][key] == {"path": asset["path"], "sha256": asset["sha256"]},
+            "fixture render not bound to report",
+        )
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    check_fixture_semantics(
+        folder / plan_filename,
+        plan,
+        features,
+        bundle.inventory,
+        bundle.policy,
+        bundle.cutting_data,
+        findings,
+    )
+    checked = checker_findings(folder / plan_filename)
+    for rule in CHECKER_RULES:
+        for subject, row in checked(rule).items():
+            require(
+                findings.get((rule.name, subject)) == row,
+                f"{part}: stale {rule.name}:{subject} finding",
+            )
+    require(
+        report_exit(report, bundle.policy, plan, features)
+        == report["expected_exit"]
+        == expected_exit,
+        f"{part}: expected exit mismatch",
+    )
+    check_sheet(folder, report, expected_subdir)
 
 
 def validate_geometry_fixture(case: tuple, documents: dict) -> None:
@@ -5992,30 +6194,7 @@ def validate_geometry_fixture(case: tuple, documents: dict) -> None:
         features["step_sha256"] == sha256(paths["step"]) == report["step_sha256"],
         f"{name}: STEP digest mismatch",
     )
-    face_records = re.findall(
-        r"#(\d+)\s*=\s*ADVANCED_FACE\s*\(\s*'((?:[^']|'')*)'",
-        paths["step"].read_text(encoding="utf-8"),
-        re.DOTALL,
-    )
-    require(face_records, f"{name}: no ADVANCED_FACE records")
-    refs = set(plan["stock"].get("as_is_faces", []))
-    for feature in features["features"].values():
-        if isinstance(feature.get("faces"), list):
-            refs.update(feature["faces"])
-    for setup in plan["setups"]:
-        for op in setup["ops"]:
-            if isinstance(op.get("faces"), list):
-                refs.update(op["faces"])
-    for ref in refs:
-        match = re.fullmatch(r"#(\d+)/ADVANCED_FACE\[(\d+)\]/(.*)", ref)
-        require(match is not None, f"{name}: malformed face reference {ref}")
-        entity, ordinal, label = match.groups()
-        require(0 < int(ordinal) <= len(face_records), f"{name}: invalid face ordinal {ref}")
-        actual_entity, actual_label = face_records[int(ordinal) - 1]
-        require(
-            (entity, label) == (actual_entity, actual_label.replace("''", "'")),
-            f"{name}: face reference differs from bound STEP {ref}",
-        )
+    check_step_face_references(paths["step"], plan, features)
     for kind, path in paths.items():
         require(
             report["inputs"][kind]
@@ -6136,9 +6315,12 @@ def main() -> int:
         for case in GEOMETRY_CASES:
             validate_geometry_fixture(case, documents)
             print(f"geometry/{case[0]}/{case[1]}: expected exit {case[3]}")
+        for case in STANDALONE_CASES:
+            validate_standalone_fixture(case)
+            print(f"{case[0]}/{case[1]}: expected exit {case[3]}")
         print("All rev-6 reference bundles validate.")
         return 0
-    except (OSError, ValueError, KeyError, TypeError, StopIteration) as exc:
+    except (BadInput, OSError, ValueError, KeyError, TypeError, StopIteration) as exc:
         print(f"Example validation failed: {exc}", file=sys.stderr)
         return 1
 

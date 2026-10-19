@@ -13,6 +13,46 @@ example design intent, individually cited as such, not measured drawing facts.
 Neither export delivery nor a CAD face identity is a tooling measurement,
 clearance proof, approved route or first article.
 
+## Standalone video example
+
+[`blondihacks-t-nuts/`](blondihacks-t-nuts/README.md) is an authored plan for
+four 1018-steel T-nuts, inspired by the
+[Blondihacks video](https://www.youtube.com/watch?v=TL0OsfFkBL8). Its geometry
+combines the video's 1 in length, 1/4 in flange and 3/8-16 thread with selected
+[Carr Lane CL-0-TN catalog](https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts)
+stem width (0.495 in), base width (0.875 in) and total height (0.5 in).
+This is an **adapted catalog-based design**, not an exact video reconstruction
+or a commercial-part replica. The bundle README owns dimension-by-dimension
+provenance and remaining measurement debt.
+
+The plan, inventory, shop policy and cutting data are local to this bundle;
+the manifest binds the adjacent authored STEP by digest and actual face
+identities. It is not a harmonic-analyzer consumer export. Catalog dimensions
+are design inputs, not evidence that the machine slots, stock, tools or fixtures
+were measured. Unlike the shared demonstration inventory below, this example
+does not invent measured values to clear missing shop facts. Its printable
+setup sheets remain **PLANNED**, with unresolved measurement and tooling debt.
+Sources are cited offline; generating or validating the bundle does not fetch
+the video or vendor page, and downloaded media is not part of the repository.
+
+Generate its report and sheets with:
+
+```sh
+uv run prechips traveler examples/blondihacks-t-nuts/plan.toml --out out/blondihacks-t-nuts
+```
+
+The expected exit is **4**: required shop and measurement facts remain unknown.
+This is a standalone planned example, not an exit-0 demonstration-measurement
+fixture or one of the consumer-export targets below.
+
+`scripts/validate_examples.py` validates its strict input schemas, local paths,
+adjacent STEP binding, authored face identities, feature/finding coverage,
+report and render hashes, sheet binding and expected exit. The frozen-example
+tests regenerate the output twice and compare report, sheet and PNG bytes.
+These checks do not establish physical readiness or first-article acceptance.
+
+## Consumer bundles and shared shop inputs
+
 ### Examples policy: plausible, labelled values
 
 These are realistic demonstration fixtures, not shop observations or released

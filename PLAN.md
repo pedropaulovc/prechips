@@ -1365,13 +1365,32 @@ The [style guide](docs/style-guide.md) defines page structures and verification.
    report body, shank and holder-face clearances in millimetres; no minimum
    clearance is enforced.
 
-   **Saw cut-off shipped (2026-10-06, `m5-rev9`):** `saw_cut` / `cut_off`
-   on mill, bench or bandsaw removes a setup-plane slab including the selected
-   blade's kerf, preserving the finished target and routing the retained stock.
+   **Nonspindle saw cut-off shipped (2026-10-06, `m5-rev9`):** `saw_cut` / `cut_off`
+   with a bandsaw blade on mill, bench or bandsaw removes a setup-plane slab
+   including the blade's kerf, preserving the finished target and routing the
+   retained stock.
    Cited canonical `saw_cut` rows supply linear blade sfm and descent feed,
    never spindle RPM. Axial/turning-cylinder accessibility is explicitly
    not applicable; saw cuts earn no finished-face coverage. Fixture modeling
    and input debt semantics remain operative.
+
+   **Bounded mill slitting-saw recognition:** `saw_cut` / `cut_off` distinguish
+   mill-only `slitting_saw` from nonspindle `bandsaw` and `hand_saw`, including
+   unresolved identities so they cannot acquire nonspindle/manual waivers.
+   Existing inventory fields provide explicit disk `dia_mm` / `dia_in`,
+   separate `kerf_mm` / `kerf_in` (never thickness-derived), `flutes` as tooth
+   count, optional `arbor` identity and the operation's selected `holder`;
+   unknown dimensions or arbor remain debt. Cited rotating-tool charts or a
+   unique diameter-matched `operation = "slitting_saw"` row provide `sfm` and
+   `chip_load_mm_per_tooth`, spindle-limited RPM and RPM × teeth × chip-load
+   feed, never canonical `saw_cut` blade-speed/descent numbers. The existing
+   planar kerf/one-side-retained Boolean is ideal removal only; no native
+   finite-disk reach, mount/axis, arbor/spindle/tool/fixture clearance or
+   engagement model is added. Physical `saw_cut`, `tool_resolves`,
+   `accessibility`, `reach`, `saw_teeth` and setup zero/clearance rows remain
+   unknown for that missing model. There is no finished-face coverage,
+   physical safety certification, complete slitting support or live-validation
+   claim.
 
    **Bench hand saw shipped (2026-10-16, #249):** a `hand_saw` tool on a
    bench/manual machine keeps the manual-bench waiver and has no blade-speed
@@ -1388,10 +1407,11 @@ The [style guide](docs/style-guide.md) defines page structures and verification.
    feed. A saw following a scribed arc removes its declared box clipped to the arc
    offset by `allowance_mm`, so the stock prediction follows the curve.
 
-   **Saw teeth in the work (2026-10-18, #336):** saw blades declare a cited
-   `tpi` (a number or a variable `[coarse, fine]` pitch); a `saw_teeth` row per
-   saw cut multiplies the coarse pitch by the kernel's `cut_thickness_mm` (the
-   stock's Z span for a scribed cut, the section's thinnest in-plane extent for
+   **Nonspindle saw teeth in the work (2026-10-18, #336):** bandsaw and hand-saw
+   blades declare a cited `tpi` (a number or a variable `[coarse, fine]` pitch);
+   their `saw_teeth` row multiplies coarse pitch by the kernel's
+   `cut_thickness_mm` (the stock's Z span for a scribed cut, the section's
+   thinnest in-plane extent for
    a straight one) and errors below the policy's `saw_min_teeth_in_work`.
    Unknown pitch, minimum or thickness is debt, and a hollow, open, split or
    stepped section leaves the thickness unknown.

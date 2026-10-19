@@ -33,13 +33,19 @@ from ...findings import Finding
 from ...measurements import length_debt, measurement_checklist
 from .._bench import manual_bench, not_applicable
 from ..resolution import (
+    MANUAL,
+    SAW_OPS,
+    SLITTING_SAW_MODEL_REASON,
     UNKNOWN,
+    UNRESOLVED_SAW_MODEL_REASON,
     identity,
     number,
     plan_frame_cite,
     resolve,
     saw_setup,
     setup_frame,
+    slitting_saw,
+    spindle_saw,
     uncertain,
 )
 from ..swivel import swivel_angle, swivelled
@@ -58,7 +64,7 @@ def evaluate(bundle):
                 not_applicable("zero_check", setup, bench, "zero recipe", "DRO zero to set")
             )
             continue
-        if saw_setup(setup):
+        if saw_setup(bundle, setup):
             result.append(
                 Finding(
                     "zero_check",
@@ -71,11 +77,55 @@ def evaluate(bundle):
                 )
             )
             continue
+        spindle_ops = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
+        spindle_debt = "; ".join(
+            dict.fromkeys(
+                SLITTING_SAW_MODEL_REASON
+                if slitting_saw(bundle, op)
+                else UNRESOLVED_SAW_MODEL_REASON
+                for op in spindle_ops
+            )
+        )
+        spindle_numbers = (
+            {
+                "spindle_saw_ops": [op["op"] for op in spindle_ops],
+                "spindle_saw_debt": spindle_debt,
+            }
+            if spindle_ops
+            else {}
+        )
+        ordinary = [op for op in setup["ops"] if op.get("do") not in MANUAL | SAW_OPS]
+        if spindle_ops and not ordinary:
+            result.append(
+                Finding(
+                    "zero_check",
+                    setup["id"],
+                    "error" if dro.get("mode", UNKNOWN) not in {"abs", UNKNOWN} else UNKNOWN,
+                    {
+                        "frame": setup.get("frame", UNKNOWN),
+                        **spindle_numbers,
+                    },
+                    ["PLAN.md §4.1 zero recipe", *plan_frame_cite(bundle, setup)],
+                    f"{setup['id']}: {spindle_debt}; mounted-blade zero setting is unresolved.",
+                )
+            )
+            continue
         frame = setup_frame(bundle, setup)
         lathe = lathe_setup(bundle, setup)
         zero = mapping(setup.get("zero"))
         ops = records(setup.get("ops"))
         states = list(stock_states(bundle, setup))
+        spindle_tools = {
+            identity(bundle, op["tool"], "spindle")
+            for op in spindle_ops
+            if op.get("tool") not in (None, UNKNOWN)
+        }
+
+        def unsupported_touch(reference, tools=spindle_tools):
+            return (
+                reference not in (None, UNKNOWN) and identity(bundle, reference, "spindle") in tools
+            )
+
         # The top as each op left it, unknown where no stated depth proves it.
         tops = [z for z, _ in _tops(bundle, setup, states)]
         axes = {}
@@ -97,7 +147,8 @@ def evaluate(bundle):
         slanted = []
 
         unknown = (
-            not frame
+            bool(spindle_ops)
+            or not frame
             or frame.get("binding") == UNKNOWN
             or dro.get("controller", UNKNOWN) == UNKNOWN
             or dro.get("radius_mode") == UNKNOWN
@@ -141,6 +192,17 @@ def evaluate(bundle):
             # Frames are installed machine-aligned: a flipped model frame changes
             # the model basis, not the machine's authored right/away/up convention.
             bad |= sign == -1
+            if unsupported_touch(recipe.get("tool")):
+                axes[axis] = {
+                    **recipe,
+                    "axis_set": UNKNOWN,
+                    "check_reading": UNKNOWN,
+                    "mirrored_reading": UNKNOWN,
+                    "axis_set_status": UNKNOWN,
+                    "tool_setting_state": "unsupported_spindle_saw",
+                }
+                unknown = True
+                continue
             edge = recipe.get("edge_mm", UNKNOWN)
             paper = recipe.get("paper_mm", UNKNOWN) if axis == "z" else None
             tool = resolve(bundle, "spindle", recipe.get("tool")) or {}
@@ -291,6 +353,18 @@ def evaluate(bundle):
         )
         for index, (op, _, after) in enumerate(states):
             if op.get("op") in records(recipe.get("retouch_after")):
+                if unsupported_touch(recipe.get("tool")):
+                    retouch.append(
+                        {
+                            "op": op["op"],
+                            "top_z": UNKNOWN,
+                            "paper_mm": paper,
+                            "axis_set": UNKNOWN,
+                            "tool_setting_state": "unsupported_spindle_saw",
+                        }
+                    )
+                    unknown = True
+                    continue
                 who = f"the retouch after op {op['op']}"
                 top, credited, carried = face_check(
                     _retouch_recipe(recipe),
@@ -313,6 +387,18 @@ def evaluate(bundle):
         # Authored X touches on a diameter that is gone (errors) or not shown standing.
         x_errors, x_unknowns = [], []
         for record in records(zero.get("tool_touches")):
+            if unsupported_touch(record.get("tool")):
+                touches.append(
+                    {
+                        **record,
+                        "edge_mm": UNKNOWN,
+                        "x_axis_set": UNKNOWN,
+                        "z_axis_set": UNKNOWN,
+                        "tool_setting_state": "unsupported_spindle_saw",
+                    }
+                )
+                unknown = True
+                continue
             edge, paper = record.get("edge_mm", UNKNOWN), record.get("paper_mm", UNKNOWN)
             who = f"the {record.get('tool', UNKNOWN)} touch"
             edge, credited, carried = face_check(
@@ -410,6 +496,7 @@ def evaluate(bundle):
             "tool_touches": touches,
             "derived_touches": derived,
             "missing_touches": missing,
+            **spindle_numbers,
         }
         touched = [axis for axis in ("x", "y") if swept and not isinstance(zero.get(axis), dict)]
         if touched:
@@ -539,6 +626,8 @@ def evaluate(bundle):
                 + "; ".join(x_unknowns)
                 + "): name it in x_face, on a diameter the rule can follow."
             )
+        if spindle_debt:
+            sentence += f" {spindle_debt}."
         result.append(
             Finding(
                 "zero_check",

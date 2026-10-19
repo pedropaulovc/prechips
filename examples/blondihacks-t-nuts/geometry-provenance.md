@@ -73,6 +73,16 @@ function must not be inferred from this STEP. This catalog-based nominal design
 does not establish fit to the viewer's actual table, strength, clearance, or physical
 acceptance. Measure the recipient slot and verify the finished part separately.
 
+### Supplemental nominal part illustration
+
+[Nominal finished design](part-reference.svg) is an isometric illustration generated
+from the validated nominal B-rep using FreeCAD TechDraw's native hidden-line
+removal (`projectToSVG`) and a fixed isometric projection, with only visible
+CAD edges and no mesh shading. It is explicitly labeled **“Nominal finished
+design — not stock, holding or fit approval”**. It is not a setup render, a
+stock-state image, a fixture model, or evidence of tool access or physical fit.
+No workholding or stock geometry is added to the illustration.
+
 ## Reproduction and observed export
 
 Run with FreeCAD, not the project Python environment:
@@ -81,10 +91,13 @@ Run with FreeCAD, not the project Python environment:
 freecadcmd.exe examples/blondihacks-t-nuts/build_part.py
 ```
 
-The script checks the constructed solid, exports `t-nut.STEP`, normalizes only
-the non-geometric `FILE_NAME` header (fixed epoch timestamp, no absolute path),
-reimports it and emits a `TNUT_JSON` summary. LF bytes are used for its digest.
-Byte identity across FreeCAD/OpenCascade versions is not promised.
+The script checks the constructed solid, privately exports `t-nut.STEP`,
+normalizes only the non-geometric `FILE_NAME` header (fixed epoch timestamp, no
+absolute path), and compares its LF bytes with the existing frozen STEP. If the
+bytes differ it fails without replacing the existing file; an absent STEP is
+created. It then reimports the STEP, generates `part-reference.svg`, and emits a
+`TNUT_JSON` summary. Byte identity across FreeCAD/OpenCascade versions is not
+promised; a version-dependent mismatch preserves the committed reference.
 
 Observed with FreeCAD 1.1.4 / build 20260928: valid reimported B-rep, one solid,
 11 faces, bounds `(-12.7, -11.1125, 0)` to `(12.7, 11.1125, 12.7)` mm,

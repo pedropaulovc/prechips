@@ -42,6 +42,7 @@ from ..resolution import (
     number,
     resolve,
     saw_setup,
+    spindle_saw,
     uncertain,
 )
 from ..tip_endpoints import (
@@ -92,6 +93,19 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     from ..coordinates import dro_grid, dro_z
 
     ops = records(setup.get("ops"))
+    spindle_ops = [op for op in ops if spindle_saw(bundle, setup, op)]
+    spindle_tools = {
+        identity(bundle, op["tool"], "spindle")
+        for op in spindle_ops
+        if op.get("tool") not in (None, UNKNOWN)
+    }
+
+    def unsupported_touch(reference):
+        return (
+            reference not in (None, UNKNOWN)
+            and identity(bundle, reference, "spindle") in spindle_tools
+        )
+
     states = list(stock_states(bundle, setup))
     features = mapping(bundle.feature_definitions)
     recipe, x_recipe = mapping(zero.get("z")), mapping(zero.get("x"))
@@ -102,7 +116,11 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
     grid = dro_grid(bundle, setup)
     # A top pickup touches the top as the ops through its after_op left it.
     zero_z = tops[start][0] if face == "top" else recipe.get("edge_mm", UNKNOWN)
-    placed, unknown = {}, False
+    if unsupported_touch(recipe.get("tool")):
+        zero_z = UNKNOWN
+    # Keep ordinary tool-change evidence in mixed setups, but never certify the disk.
+    placed = {}
+    unknown = bool(spindle_ops)
     for touch in touches:
         placed.setdefault(_position(ops, touch), []).append(touch)
     listed = {str(n) for n in records(recipe.get("retouch_after"))}
@@ -149,7 +167,9 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
 
     for index, (op, _, _) in enumerate(states):
         if index == start and recipe:
-            set_z = recipe.get("tool", UNKNOWN)
+            set_z = (
+                UNKNOWN if unsupported_touch(recipe.get("tool")) else recipe.get("tool", UNKNOWN)
+            )
             z_by = {
                 **recipe,
                 "tool": set_z,
@@ -157,9 +177,15 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                 "edge_mm": zero_z,
                 "from": recipe.get("from", UNKNOWN),
             }
-            if recipe.get("method") not in MEASURED:
+            if recipe.get("method") not in MEASURED and not unsupported_touch(recipe.get("tool")):
                 z_event(index, face or UNKNOWN, zero_z, paper, "zero", z_by)
         for touch in placed.get(index, []):
+            if unsupported_touch(touch.get("tool")):
+                unknown, pending, spindle = True, None, UNKNOWN
+                set_z = None if set_z is None else UNKNOWN
+                set_x = None if set_x is None else UNKNOWN
+                z_by = None
+                continue
             if touch.get("z_face"):
                 set_z, z_by = touch.get("tool", UNKNOWN), touch
                 if touch.get("method") != "measure_then_set":
@@ -173,6 +199,12 @@ def tool_changes(bundle, setup, zero, lathe, x_scale, touches):
                     )
             if lathe:
                 set_x, x_gauge = touch.get("tool", UNKNOWN), touch.get("gauge", x_gauge)
+        if spindle_saw(bundle, setup, op):
+            unknown, pending, spindle = True, None, UNKNOWN
+            set_z = None if set_z is None else UNKNOWN
+            set_x = None if set_x is None else UNKNOWN
+            z_by = None
+            continue
         tool = op.get("tool", UNKNOWN)
         cuts = op.get("do") not in MANUAL | SAW_OPS and not (
             lathe and approach(bundle, setup, op) == "axial"
@@ -294,7 +326,7 @@ def z_readings(bundle, setup):
     """{op: Z touch record} for each cutting op of ``setup``: the touch whose Axis Set its
     DRO Z reads (:func:`tool_changes` ``readings``), None when no touch of its tool set Z.
     Empty for a saw setup."""
-    if saw_setup(setup):
+    if saw_setup(bundle, setup):
         return {}
     zero = mapping(setup.get("zero"))
     touches = [touch for touch in records(zero.get("tool_touches")) if isinstance(touch, dict)]
@@ -376,7 +408,7 @@ def blade_readings(bundle, setup, readings=None):
     the DRO Z reads while it cuts (:func:`touch_corner` of the Z touch in effect,
     :func:`z_readings` unless given), with ``reason`` when no touch of that blade set Z.
     Empty off a lathe."""
-    if saw_setup(setup) or not lathe_setup(bundle, setup):
+    if saw_setup(bundle, setup) or not lathe_setup(bundle, setup):
         return {}
     readings = z_readings(bundle, setup) if readings is None else readings
     result = {}
@@ -433,6 +465,9 @@ def tool_setting(bundle, setup, zero, touches, derived):
         for op in ops
         if approach(bundle, setup, op) != "axial"
     }
+    carriage.difference_update(
+        identity(bundle, op.get("tool"), "spindle") for op in ops if spindle_saw(bundle, setup, op)
+    )
     words = toolpost(bundle, setup)
     events = [
         (-1, 0, {"touch": "zero", "axis": axis}, mapping(zero.get(axis)).get("tool"))
@@ -440,6 +475,8 @@ def tool_setting(bundle, setup, zero, touches, derived):
     ]
     for kind, rank, rows in (("tool_touches", 1, touches), ("derived_touches", 2, derived)):
         for index, row in enumerate(rows):
+            if row.get("tool_setting_state") == "unsupported_spindle_saw":
+                continue
             position = _position(ops, row)
             at = len(ops) if position is None else position
             events.append((at, rank, {"touch": kind, "index": index}, row.get("tool")))

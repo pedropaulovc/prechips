@@ -13,6 +13,8 @@ from prechips.rules.resolution import (
     HAND_FINISH,
     MANUAL,
     SAW_OPS,
+    SLITTING_SAW_MODEL_REASON,
+    UNRESOLVED_SAW_MODEL_REASON,
     _citations,
     claim_refs,
     known_refs,
@@ -24,6 +26,8 @@ from prechips.rules.resolution import (
     resolve,
     select,
     setup_frame,
+    slitting_saw,
+    spindle_saw,
 )
 from prechips.rules.turned_profile import PROFILE_OPS
 
@@ -504,6 +508,12 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
         cite = provenance(bundle, rule, setup, op, op_feature(op))
         if op.get("do") in SAW_OPS:
             # Before kernel availability: the tool-cylinder model never applies to a blade.
+            disk = spindle_saw(bundle, setup, op) and rule in {"accessibility", "reach"}
+            reason = (
+                SLITTING_SAW_MODEL_REASON
+                if slitting_saw(bundle, op)
+                else UNRESOLVED_SAW_MODEL_REASON
+            )
             yield (
                 setup,
                 op,
@@ -514,10 +524,13 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                 Finding(
                     rule,
                     subject,
-                    "not_applicable",
-                    {"operation": op["do"]},
+                    UNKNOWN if disk else "not_applicable",
+                    {
+                        "operation": op["do"],
+                        **({"model_reason": reason} if disk else {}),
+                    },
                     cite,
-                    f"{subject}: {SAW_TOOL_MODEL_REASON}.",
+                    f"{subject}: {reason if disk else SAW_TOOL_MODEL_REASON}.",
                 ),
             )
             continue

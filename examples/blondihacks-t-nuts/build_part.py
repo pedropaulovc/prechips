@@ -14,10 +14,13 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import tempfile
 from pathlib import Path
+from xml.etree import ElementTree
 
 import FreeCAD
 import Part
+import TechDraw
 
 HERE = Path(__file__).resolve().parent
 SOURCE_URL = "https://www.youtube.com/watch?v=TL0OsfFkBL8"
@@ -57,15 +60,62 @@ def build_shape():
     return flange.fuse(stem).cut(bore).removeSplitter()
 
 
+def write_reference_svg(shape, digest):
+    """Use native hidden-line removal on the validated B-rep, not mesh painting."""
+    projection = ElementTree.fromstring(TechDraw.projectToSVG(shape, FreeCAD.Vector(1, -1, 1)))
+    projection.set("stroke-width", "0.18")
+    # Orthographic projection cannot exceed distance from the model origin.
+    # The nominal part is bounded by planar exterior faces, so its outer
+    # vertices establish a conservative, geometry-derived viewport radius.
+    radius = max(vertex.Point.Length for vertex in shape.Vertexes) + 1
+    rows = [
+        '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="450" viewBox="0 0 640 450">',
+        "<title>Nominal finished design — not stock, holding or fit approval</title>",
+        "<desc>Isometric projection of the validated nominal T-nut B-rep. "
+        "The bore is cosmetic; no helical thread, staking or edge breaks are modeled. "
+        f"STEP SHA-256: {digest}.</desc>",
+        '<rect width="640" height="450" fill="#ffffff"/>',
+        '<g font-family="sans-serif" text-anchor="middle" fill="#222222">',
+        '<text x="320" y="30" font-size="18">Nominal finished design</text>',
+        '<text x="320" y="54" font-size="15">— not stock, holding or fit approval</text>',
+        "</g>",
+    ]
+    rows.extend(
+        [
+            f'<svg x="45" y="75" width="550" height="300" '
+            f'viewBox="{-radius:.6f} {-radius:.6f} {2 * radius:.6f} {2 * radius:.6f}">',
+            '<g transform="rotate(60)">',
+            ElementTree.tostring(projection, encoding="unicode"),
+            "</g>",
+            "</svg>",
+        ]
+    )
+    rows.extend(
+        [
+            '<g font-family="sans-serif" text-anchor="middle" fill="#444444" font-size="13">',
+            '<text x="320" y="392">Catalog-based section; video length and flange thickness</text>',
+            '<text x="320" y="414">Simple bore represents '
+            "3/8-16 nominal major diameter only</text>",
+            '<text x="320" y="436">No stock, workholding, '
+            "thread-stop or physical fit evidence</text>",
+            "</g>",
+            "</svg>",
+        ]
+    )
+    (HERE / "part-reference.svg").write_bytes(("\n".join(rows) + "\n").encode("utf-8"))
+
+
 def main():
     shape = build_shape()
     if not shape.isValid() or len(shape.Solids) != 1 or shape.Volume <= 0:
         raise ValueError("T-nut reconstruction must be one valid, nonempty solid")
     target = HERE / "t-nut.STEP"
-    shape.exportStep(str(target))
-    # OpenCascade includes wall-clock time and an absolute path in FILE_NAME.
-    # Only replace that non-geometric header record, leaving DATA untouched.
-    text = target.read_text(encoding="ascii")
+    # Export privately: never replace the frozen STEP with different bytes.
+    with tempfile.TemporaryDirectory(prefix="prechips-tnut-") as directory:
+        candidate = Path(directory) / target.name
+        shape.exportStep(str(candidate))
+        text = candidate.read_text(encoding="ascii")
+    # Only normalize the non-geometric FILE_NAME header, leaving DATA untouched.
     text, count = re.subn(
         r"FILE_NAME\(.*?\);",
         "FILE_NAME('t-nut.STEP','2000-01-01T00:00:00',(''),(''),"
@@ -77,11 +127,18 @@ def main():
     if count != 1:
         raise ValueError("Expected exactly one STEP FILE_NAME header")
     data = text.replace("\r\n", "\n").encode("ascii")
-    target.write_bytes(data)
+    if target.exists():
+        if target.read_bytes() != data:
+            raise ValueError(
+                "Regenerated STEP differs from the frozen reference; original preserved"
+            )
+    else:
+        target.write_bytes(data)
     imported = Part.Shape()
     imported.read(str(target))
     if not imported.isValid() or len(imported.Solids) != 1:
         raise ValueError("Exported STEP did not reimport as one valid solid")
+    write_reference_svg(imported, hashlib.sha256(data).hexdigest())
     box = imported.BoundBox
     faces = []
     for index, face in enumerate(imported.Faces, 1):

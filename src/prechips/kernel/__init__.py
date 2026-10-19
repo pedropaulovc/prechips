@@ -48,6 +48,7 @@ from prechips.rules.resolution import (
     saw_station,
     saw_tool,
     setup_frame,
+    slitting_saw,
 )
 
 from .render_inputs import setup_annotations
@@ -321,7 +322,15 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             # plan-input debt), clipped to stay its allowance outside a scribed arc; the
             # blade's kerf locates nothing, so no kerf is consumed.
             bounds = op.get("stock_removal_bounds", UNKNOWN)
-            profile = scribed_profile(bundle, setup, op)
+            profile = (
+                {
+                    "reason": "the scribed-region removal model does not model a finite "
+                    "slitting-saw disk following a line; only straight cut_plane cuts have "
+                    "an ideal planar removal model"
+                }
+                if slitting_saw(bundle, op)
+                else scribed_profile(bundle, setup, op)
+            )
             return {
                 "subject": subject,
                 "do": op["do"],

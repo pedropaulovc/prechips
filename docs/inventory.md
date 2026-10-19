@@ -17,7 +17,7 @@ measurement debt, and the [FAQ](manual/faq.md) explains the product's limits.
 On this page:
 
 - [Identity, units and tool geometry](#identity-and-display-names)
-- [Bandsaws and hand saws](#bandsaw-machines-and-blades),
+- [Bandsaws, hand saws and slitting saws](#bandsaw-machines-and-blades),
   [manual-arc equipment](#manual-arc-kit) and [edge finders](#edge-finder)
 - [Purchased tooling and receipt checks](#purchased-tooling)
 - [Kernel geometry facts](#kernel-geometry-facts-m4) and
@@ -213,7 +213,7 @@ Example blade values follow the [examples policy](../examples/README.md):
 they are demonstration-fixture records or cited catalog values, not fabricated
 shop measurements.
 
-Every powered or hand-saw blade declares tooth pitch as
+Bandsaw and hand-saw blades declare tooth pitch as
 `tpi = { value, cite, measured, verify }`. Use one number for constant pitch or
 `[coarse, fine]` for variable pitch; a 4/6 TPI blade is `[4, 6]`.
 `pitch_mm` is rejected. As with `helix_deg`, a cited catalog value is enough.
@@ -231,10 +231,12 @@ on a `bench` or `manual` machine. It needs neither `blade_speed_sfm` nor a
 cutting-data row. Straight cuts use the same kerf fields as a bandsaw blade;
 scribed-line cuts use the operation's removal box and consume no kerf.
 
-Any verification debt on a saw, including kerf debt, leaves its identity
-unresolved for every saw consumer. The kernel routes no stock for that cut.
-Only a resolved, verified `hand_saw` retains the manual-bench waiver for a
-bench setup; unresolved, unverified and powered blades do not.
+Verification debt on a saw, including kerf debt, remains unresolved for its
+consumers; unresolved geometry cannot route known stock. Only a resolved,
+verified `hand_saw` retains the manual-bench waiver for a bench setup;
+unresolved, unverified and powered blades do not. A raw `slitting_saw` identity
+never earns a nonspindle-saw waiver, even while dimensions or verification are
+unknown.
 
 The following is a schematic fragment. Replace the ellipses, including the
 non-ISO placeholder date, with real measurement metadata before loading it.
@@ -248,14 +250,30 @@ kerf_mm = { value = 0.6, measured = { status = "measured", by = "...", date = ".
 tpi = { value = 32, cite = "blade maker's catalogue: 32 TPI" }
 ```
 
-Saw operations need no spindle taper, holder, shank diameter, tool OAL or
-projection. A mill or bench hosting a powered saw operation must declare its
-actual blade-speed range for a sourced speed recommendation. The hold resolves
-an ordinary fixture; a machine identity never supplies an integral vise.
-The only fixture-free hold is a scribed-line cut fed by hand on a vertical
-bandsaw table, `hold.kind = "hand_fed"`. See
+Nonspindle bandsaw and hand-saw operations need no spindle taper, holder, shank
+diameter, tool OAL or projection. A mill or bench hosting a bandsaw blade must
+declare its actual blade-speed range for a sourced speed recommendation. The
+hold resolves an ordinary fixture; a machine identity never supplies an
+integral vise. The only fixture-free hold is a scribed-line cut fed by hand on
+a vertical bandsaw table, `hold.kind = "hand_fed"`. See
 [hand-fed on the saw table](plan.md#hand-fed-on-the-saw-table) and
 [saw cut-off](plan.md#saw-cut-off) for the plane and keep-side contract.
+
+A real mill-mounted slitting disk uses `tools.<disk>.kind = "slitting_saw"`,
+not `"bandsaw"`, and is recognized only on a `mill` for `saw_cut` / `cut_off`.
+Inventory `kind` remains an arbitrary string; recognition adds no schema fields.
+Declare disk OD explicitly as `dia_mm` or `dia_in`, and kerf separately as
+`kerf_mm` or `kerf_in`: neither OD nor kerf is inferred from `thickness`.
+Use existing `flutes` for total tooth count, not TPI. The existing optional
+`arbor` field can name the arbor identity, and the operation's `holder` selects
+its holder. Unknown dimensions or arbor facts remain debt; these identity
+fields do not prove mounting, axis, arbor assembly or clearance.
+
+Slitting recommendations use rotating-tool `operation = "slitting_saw"` data
+and spindle limits, never bandsaw descent rows or `blade_speed_sfm`. The
+planar kerf model can describe ideal stock removal only: finite disk reach,
+arbor/spindle/tool/fixture clearance and engagement/tooth count are unmodelled.
+It cannot certify physical slitting safety or finished-face coverage.
 
 
 ## Manual-arc kit

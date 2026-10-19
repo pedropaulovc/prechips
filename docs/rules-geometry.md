@@ -137,11 +137,13 @@ Without a kernel, findings that need kernel facts become `unknown` with
 Availability can be checked before ordinary applicability, so a lathe setup's
 `vise` row can be unknown rather than `not_applicable`.
 
-Some scope decisions precede availability. In particular, `accessibility`,
-`reach` and `internal_corner_radius` stay `not_applicable` for saw operations
-because their tool-cylinder model never applies to a blade. Rules with no
-applicable subject can emit no findings, and an invalid `keep` can name its
-feature debt without calling the kernel. `saw_cut` checks known station
+Some scope decisions precede availability. For nonspindle bandsaw and hand-saw
+operations, `accessibility`, `reach` and `internal_corner_radius` stay
+`not_applicable` because their tool-cylinder model never applies to a blade.
+For a mill-mounted `slitting_saw`, physical accessibility and reach instead
+stay unknown: the planar cut does not model a finite disk or its assembly.
+Rules with no applicable subject can emit no findings, and an invalid `keep`
+can name its feature debt without calling the kernel. `saw_cut` checks known station
 mismatches, a verified nonpositive kerf on a straight cut and any reported
 native `saw_error` before accepting a kernel-unavailable finding. Those
 certain errors remain `error` even when kernel facts are unavailable.
@@ -1517,12 +1519,22 @@ kernel job and does not enlarge an unbounded cut or certify a toolpath
 ### Saw cut-off
 
 A straight `saw_cut` or `cut_off` uses an authored setup-axis blade-centre
-`cut_plane` and the selected blade's (bandsaw or hand saw) positive inventory
-kerf. Below retains the
+`cut_plane` and the selected blade's positive explicit inventory kerf
+(`bandsaw`, `hand_saw` or mill-only `slitting_saw`). Below retains the
 halfspace at or below `plane - kerf/2`; above retains the halfspace at or above
 `plane + kerf/2`. The native Boolean removes the kerf plus the discarded planar
 slab from the current operation stock, including earlier removals in that
 setup. Its retained result is available through normal `stock_in` routing.
+
+For a slitting saw, this Boolean is ideal removal only, not the swept volume
+of a finite disk. Disk OD must be explicit `dia_mm` / `dia_in`, with separate
+`kerf_mm` / `kerf_in` (never inferred from thickness), and `flutes` denotes
+tooth count. Neither these facts nor the optional arbor identity and selected
+holder supply a finite-disk reach or assembly model.
+Only straight `cut_plane` cuts receive this bounded slitting recognition.
+A `slitting_saw` with `follows` stays unknown: host
+`scribed_profile.reason` debt prevents known stock routing, without changing
+the native kernel. Scribed-region removal cannot stand in for disk geometry.
 
 The `saw_cut` finding reports the normalized plane, kerf, retained boundary and
 before/after, kerf, offcut and removed volumes in mm/mm³. A cut into the finished
@@ -1540,12 +1552,27 @@ retained slivers. Independently supplied components already disconnected before
 the saw may remain disconnected; the check is per input solid, not the total
 retained count. Target-loss and volume facts are computed before this refusal.
 
-`accessibility`, `reach` and `internal_corner_radius` are `not_applicable` to a
-saw operation: its blade is located by the cut plane/kerf, and the axial/turning
-tool-cylinder model does not model a saw blade. This states a model boundary,
-not certified blade/fixture clearance. Saw cuts provide no finished-face or
-surface-finish coverage credit. Holding, fixture solids and fixture-interference
-screens remain in effect, including on a dedicated bandsaw setup, except under an
+For nonspindle bandsaw and hand-saw operations, `accessibility`, `reach` and
+`internal_corner_radius` are `not_applicable`: the axial/turning tool-cylinder
+model does not model their blades. This is a model boundary, not certified
+blade/fixture clearance. A `slitting_saw` is not granted that nonspindle
+waiver: `saw_cut`, assembled `tool_resolves`, `accessibility`, `reach` and
+`saw_teeth` stay unknown for its unmodelled physical cut. Finite disk reach,
+mount/axis, arbor assembly, spindle/tool/fixture clearance and engagement/
+teeth in the work are not modelled by the planar kerf cut. Known station or
+removal errors still cannot become passes. Ideal stock removal may be routed
+without establishing physical cutter reach or clearance.
+
+No saw cut provides finished-face or surface-finish coverage credit. A setup
+containing a raw `slitting_saw` identity, even with verification or dimension
+debt, cannot take dedicated-nonspindle-saw or manual-bench waivers. Its setup
+zero and clearance rows (`zero_check`, `headroom`, `envelope`, `travel`) remain
+unknown where the rotating-disk model is missing, never a safety certification.
+Mixed setups still assess their ordinary operations while retaining slitting
+debt. DRO touch-off cannot waive this debt. Holding, selected holder/arbor and
+fixture inputs remain owed.
+For nonspindle saws, holding, fixture solids and fixture-interference screens
+remain in effect, including on a dedicated bandsaw setup, except under an
 admitted [hand-fed hold](plan.md#hand-fed-on-the-saw-table). A hand-fed cut's
 `hold_fields` row instead reads the kernel's setup-entry stock box against the
 policy's `min_hand_feed_mm`, at blade positions along the scribed arc within the op's
@@ -1581,9 +1608,12 @@ earlier cut ([#347](https://github.com/pedropaulovc/prechips/issues/347)).
 
 ### Saw teeth in the work
 
-A blade with too few teeth in the work straddles it: the teeth strip and the
-blade grabs, and a hand-fed cut is held only by hand. Each saw cut gets a
-`saw_teeth` row: the thickness the blade crosses times the blade's coarsest pitch
+A bandsaw or hand-saw blade with too few teeth in the work straddles it: the
+teeth strip and the blade grabs, and a hand-fed cut is held only by hand. Each
+saw cut gets a `saw_teeth` row. A slitting saw's row remains unknown: total
+tooth count (`flutes`) cannot establish engagement or teeth in the work
+without finite-disk geometry. For bandsaw and hand-saw blades, the thickness
+the blade crosses times the blade's coarsest pitch
 (`tools.<blade>.tpi`, the low end of a variable `[coarse, fine]` range) is the
 teeth in the work, and fewer than the shop policy's `saw_min_teeth_in_work` is an
 error naming the coarsest pitch the cut allows (`minimum × 25.4 / thickness` TPI,

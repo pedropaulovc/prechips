@@ -26,11 +26,16 @@ uv run prechips traveler examples/pivot-shaft/plan.toml --out out/pivot-shaft
 uv run prechips traveler examples/rocker-arm/plan.toml --out out/rocker-arm
 uv run prechips traveler examples/pivot-bracket/plan.toml --out out/pivot-bracket
 uv run prechips traveler examples/cone-pivot-post/built-up.toml --out out/cone-pivot-post
+uv run prechips traveler examples/blondihacks-t-nuts/plan.toml --out out/blondihacks-t-nuts
 ```
 
 Read the [worked tutorial](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/tutorial.md) for the input-to-sheet workflow and the [input/output demonstration](https://github.com/pedropaulovc/prechips/blob/main/docs/manual/demo.md) for actual excerpts. The [example guide](https://github.com/pedropaulovc/prechips/blob/main/examples/README.md) owns each bundle's provenance, demonstration-value disclosures and expected exit. Outputs can still be written when the checker exits 2 or 4.
 
 Example values exercise the rules; they are not measurements to copy into a real shop inventory. An exit-0 report is eligible for approval. Without a valid first-article approval record, the printable sheet remains PLANNED.
+
+The standalone [Blondihacks T-nuts example](https://github.com/pedropaulovc/prechips/blob/main/examples/blondihacks-t-nuts/README.md) adapts a video process with explicitly selected catalog dimensions. It uses local shop inputs, not harmonic-analyzer exports or the shared demonstration-measurement inventory. Source observations, catalog design choices and missing real measurements remain distinct; the sheet stays PLANNED.
+
+Slitting-saw recognition is limited to mill-mounted tooling; it does not establish full physical support. Finite disk/arbor clearance, the mounted assembly, engagement and mounted-zero evidence remain unresolved. See the [tool rules](https://github.com/pedropaulovc/prechips/blob/main/docs/rules-tools.md) for the supported checks and limits.
 
 ## CLI: five noninteractive verbs
 

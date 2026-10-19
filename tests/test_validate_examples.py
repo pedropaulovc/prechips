@@ -65,6 +65,108 @@ ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
 
 
+def test_subject_oracle_allows_unknown_limits_without_invented_decimal_precision():
+    folder = ROOT / "examples" / "blondihacks-t-nuts"
+    data = load_bundle(folder / "plan.toml")
+    report = json.loads((folder / "expected" / "report.json").read_bytes())
+    findings = {(row["rule"], row["subject"]): row for row in report["findings"]}
+    check = VALIDATOR["check_subjects"]
+    check(data.plan, data.features, findings, data.inventory)
+    feature = data.features["features"]["base-envelope"]
+    assert feature["width"] == "unknown"
+    assert not isinstance(feature.get("precision"), dict)
+    feature["width"] = [22.0, 23.0]
+    with pytest.raises(ValueError, match="base-envelope: per-dimension precision"):
+        check(data.plan, data.features, findings, data.inventory)
+
+
+@pytest.mark.parametrize("location", ["stock", "feature", "operation"])
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "#42/ADVANCED_FACE[1]/O'Brien",
+        "#99/ADVANCED_FACE[1]/O'Brien",
+        "#42/ADVANCED_FACE[2]/O'Brien",
+        "#42/ADVANCED_FACE[1]/OTHER",
+        "ADVANCED_FACE[1]",
+    ],
+)
+def test_bound_step_face_identity_checks_every_authored_claim(tmp_path, location, reference):
+    step = tmp_path / "part.STEP"
+    step.write_text("#42 = ADVANCED_FACE('O''Brien', (), #1, .T.);", encoding="utf-8")
+    plan = {"stock": {}, "setups": [{"ops": [{}]}]}
+    features = {"features": {"base": {}}}
+    target = {
+        "stock": plan["stock"],
+        "feature": features["features"]["base"],
+        "operation": plan["setups"][0]["ops"][0],
+    }[location]
+    target["as_is_faces" if location == "stock" else "faces"] = [reference]
+    validate = VALIDATOR["check_step_face_references"]
+    if reference == "#42/ADVANCED_FACE[1]/O'Brien":
+        validate(step, plan, features)
+    else:
+        with pytest.raises(ValueError, match="(?:face reference|face ordinal)"):
+            validate(step, plan, features)
+
+
+@pytest.mark.parametrize("corruption", ["construction", "cutting_speed"])
+def test_standalone_validator_rejects_semantic_report_mutations(
+    tmp_path, monkeypatch, pilot_kernel_cache, corruption
+):
+    """Valid report hashes do not excuse evidence that contradicts authored inputs."""
+    examples = copy_examples(tmp_path)
+    case = VALIDATOR["STANDALONE_CASES"][0]
+    folder = examples / case[0]
+    pilot_kernel_cache(folder / case[1])
+    validate = VALIDATOR["validate_standalone_fixture"]
+    namespace = validate.__globals__
+    original = namespace["read_report"]
+
+    def corrupted_report(path):
+        report = original(path)
+        if corruption == "construction":
+            row = next(row for row in report["findings"] if row["rule"] == "construction")
+            row["numbers"]["plan_construction"] = "invented-construction"
+        else:
+            row = next(
+                row
+                for row in report["findings"]
+                if row["rule"] == "speeds_feeds" and "sfm" in row["numbers"]
+            )
+            row["numbers"]["sfm"] = 123456.0
+        return report
+
+    monkeypatch.setitem(namespace, "EXAMPLES", examples)
+    monkeypatch.setitem(namespace, "ROOT", examples.parent)
+    # Mutate after canonical/hash parsing: this regression exercises the independent
+    # semantic checks, rather than merely proving the report checksum detects edits.
+    monkeypatch.setitem(namespace, "read_report", corrupted_report)
+    with pytest.raises(
+        ValueError, match="construction evidence" if corruption == "construction" else "sfm"
+    ):
+        validate(case)
+
+
+@pytest.mark.parametrize("verification_debt", [False, True])
+@pytest.mark.parametrize("kind", ["slitting_saw", "unknown"])
+def test_mounted_saw_zero_debt_cannot_be_waived(verification_debt, kind):
+    data = drill_bundle()
+    setup = data.plan["setups"][0]
+    setup["ops"] = [{"op": 10, "do": "cut_off", "tool": "disk", "holder": "arbor"}]
+    data.inventory["tools"]["disk"] = {
+        "kind": kind,
+        "verify": verification_debt,
+    }
+    finding = zero_recipe_rule.evaluate(data)[0].to_dict()
+    entries = VALIDATOR["Entries"](data.inventory)
+    VALIDATOR["check_zero"](setup, finding, entries, data)
+    assert finding["status"] == "unknown"
+    finding["status"] = "not_applicable"
+    with pytest.raises(ValueError, match="mounted.*zero"):
+        VALIDATOR["check_zero"](setup, finding, entries, data)
+
+
 def synthetic_fact(value):
     """A new isolated test measurement, never a relabelling of shipped example evidence."""
     return {
@@ -2414,6 +2516,53 @@ def saw_bundle():
     data.inventory["tools"]["blade"] = {"kind": "saw_blade", "material": "bimetal"}
     data.cutting_data["cut"].append(SAW_ROW)
     return data
+
+
+@pytest.mark.parametrize("verification_debt", [False, True])
+def test_slitting_speed_oracle_uses_disk_rpm_not_bandsaw_descent(verification_debt):
+    data = drill_bundle()
+    setup = data.plan["setups"][0]
+    setup["ops"] = [{"op": 10, "do": "cut_off", "tool": "disk", "holder": "arbor"}]
+    data.inventory["tools"]["disk"] = {
+        "kind": "slitting_saw",
+        "material": "HSS",
+        "dia_mm": synthetic_fact(50.8),
+        "flutes": 20,
+        "verify": verification_debt,
+    }
+    data.cutting_data["cut"].append(
+        {
+            "material_class": "low_carbon_steel",
+            "tool_material": "HSS",
+            "operation": "slitting_saw",
+            "diameter_range": [50.0, 51.0],
+            "sfm": 100.0,
+            "chip_load_mm_per_tooth": 0.01,
+            "cite": "synthetic disk speed row",
+        }
+    )
+    finding, check = saw_finding(data)
+    check()
+    assert finding["numbers"]["operation"] == "slitting_saw"
+    assert "rpm" in finding["numbers"]
+    assert "blade_speed_sfm" not in finding["numbers"]
+    finding["numbers"]["operation"] = "saw_cut"
+    with pytest.raises(ValueError, match="cutting-data operation"):
+        check()
+
+
+def test_hand_fed_bandsaw_speed_oracle_does_not_require_descent_feed():
+    data = saw_bundle()
+    data.plan["setups"][0]["ops"][0]["follows"] = "scribed-line"
+    data.cutting_data["cut"][-1] = {
+        key: value for key, value in SAW_ROW.items() if key != "feed_mm_min"
+    }
+    finding, check = saw_finding(data)
+    check()
+    assert finding["numbers"]["feed_mm_min"] == "not_applicable"
+    finding["numbers"]["feed_mm_min"] = 20.0
+    with pytest.raises(ValueError, match="descent feed"):
+        check()
 
 
 @pytest.mark.parametrize("cut", ["drill", "saw"])

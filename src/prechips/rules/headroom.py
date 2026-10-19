@@ -38,12 +38,16 @@ from prechips.rules.geometry_common import rule_rows
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
+    SLITTING_SAW_MODEL_REASON,
+    UNRESOLVED_SAW_MODEL_REASON,
     length_mm,
     projection_holder,
     resolve,
     saw_setup,
     select,
     setup_frame,
+    slitting_saw,
+    spindle_saw,
     uncertain,
 )
 from prechips.rules.swivel import swivel_angle, to_jaw_frame
@@ -236,7 +240,7 @@ def evaluate(bundle):
         if machine.get("kind") == "lathe":
             findings.append(_lathe(bundle, setup, machine, machine_ref))
             continue
-        if saw_setup(setup):
+        if saw_setup(bundle, setup):
             findings.append(
                 Finding(
                     "headroom",
@@ -477,6 +481,19 @@ def evaluate(bundle):
         from .guided_sweep import unmodelled
 
         swept = unmodelled(bundle, setup, "headroom")
+        spindle_saws = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
+        saw_debt = "; ".join(
+            dict.fromkeys(
+                SLITTING_SAW_MODEL_REASON
+                if slitting_saw(bundle, op)
+                else UNRESOLVED_SAW_MODEL_REASON
+                for op in spindle_saws
+            )
+        )
+        if spindle_saws:
+            unknown = True
+            numbers["spindle_saw_ops"] = [op["op"] for op in spindle_saws]
+            numbers["spindle_saw_debt"] = saw_debt
         if swept:
             numbers["guided_sweep_debts"] = swept
         status = "error" if errors else "unknown" if unknown or swept else "pass"
@@ -496,6 +513,7 @@ def evaluate(bundle):
                     )
                     + conflicts
                     + swept
+                    + ([saw_debt] if spindle_saws else [])
                 )
                 if unknown or swept
                 else "measured spindle stack and setup-entry stock travels fit"

@@ -15,7 +15,8 @@ from prechips.findings import Finding
 from prechips.rules.resolution import SAW_OPS, UNKNOWN, record, resolve, saw_tool
 
 BENCH_KINDS = frozenset({"bench", "manual"})
-BENCH_ACTIONS = frozenset({"fit", "inspect", "deburr", "coating", "scribe", "file_to_line"})
+BENCH_HANDLING = frozenset({"inspect", "coating"})
+BENCH_ACTIONS = BENCH_HANDLING | {"fit", "deburr", "scribe", "file_to_line"}
 HAND_SAW = "hand_saw"
 
 
@@ -52,6 +53,19 @@ def manual_bench(bundle, setup):
         "operations": operations,
         "joint_method": method,
     }
+
+
+def unfixtured_handling(bench, hold):
+    """Only established bench inspection/coating may declare handling instead of a fixture.
+
+    Any other holding declaration keeps the mechanical requirements. Fitting, punching,
+    deburring, layout, filing and hand sawing still owe mechanical holding.
+    """
+    return (
+        bench is not None
+        and not (hold.keys() - {"note"})
+        and all(op["do"] in BENCH_HANDLING for op in bench["operations"])
+    )
 
 
 def not_applicable(rule, setup, bench, section, absent):

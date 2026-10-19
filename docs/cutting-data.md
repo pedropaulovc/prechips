@@ -107,13 +107,13 @@ leaves RPM and feed unknown.
 
 ## Saw speed and feed
 
-`saw_cut` and `cut_off` select `operation = "saw_cut"` by material class and
-blade material, without a rotating-tool `diameter_range`. Exactly one cited
-row supplies positive `sfm` (linear blade feet/minute) and `feed_mm_min`
-(blade descent feed). Blade speed is clamped inclusively to the machine's
-positive, ordered `blade_speed_sfm = [min, max]`. It is neither converted to
-RPM nor rounded to 50. Tool charts and operation overrides do not supply saw
-numbers.
+For a nonspindle `bandsaw`, `saw_cut` and `cut_off` select
+`operation = "saw_cut"` by material class and blade material, without a
+rotating-tool `diameter_range`. Exactly one cited row supplies positive `sfm`
+(linear blade feet/minute) and `feed_mm_min` (blade descent feed). Blade speed
+is clamped inclusively to the machine's positive, ordered
+`blade_speed_sfm = [min, max]`. It is neither converted to RPM nor rounded to
+50. Tool charts and operation overrides do not supply these bandsaw numbers.
 
 For a vertical bandsaw operation with `follows`, the work is hand-fed along
 the scribed line. Descent feed is `not_applicable`, and its absence creates no
@@ -126,6 +126,18 @@ source, a row cannot certify saw speed/feed; a mixed list keeps its real sources
 
 A verified inventory `hand_saw` has no blade speed or machine feed;
 `speeds_feeds` reports `not_applicable` for it.
+
+A mill-mounted `slitting_saw` is a rotating tool, not a bandsaw speed alias.
+For either saw action it selects `operation = "slitting_saw"`: a cited tool
+chart takes priority, otherwise exactly one cited cut row must match material
+class, tool material and the explicit disk OD within `diameter_range`. It
+requires positive `sfm` and `chip_load_mm_per_tooth`, disk `dia_mm` / `dia_in`
+and `flutes` as tooth count. Use the spindle RPM calculation, rounding and
+machine limits above; feed is `RPM × flutes × chip_load_mm_per_tooth`.
+Canonical `operation = "saw_cut"` rows and their descent feed never supply
+rotating-saw numbers. Unknown dimensions, tooth count, source or spindle limits
+leave recommendations unknown. These starting numbers do not establish disk
+engagement, teeth in the work, arbor fit or physical clearance.
 
 ## Material data and citations
 
@@ -166,7 +178,8 @@ field and change no cited cutting value, RPM or feed recommendation.
 ## Cut
 
 The selected operation determines which feed fields apply: chip load for
-rotating-tool rows, feed/revolution for turning and descent feed for saws.
+rotating-tool rows (including `slitting_saw`), feed/revolution for turning and
+descent feed for nonspindle `saw_cut` rows.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|

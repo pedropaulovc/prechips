@@ -15,6 +15,9 @@ PILOT_CASES = (
     ("pivot-bracket", "plan.toml", "expected", 0),
     ("cone-pivot-post", "built-up.toml", "expected/built-up", 4),
 )
+STANDALONE_GOLDEN_CASES = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))[
+    "STANDALONE_CASES"
+]
 GEOMETRY_GOLDEN_CASES = tuple(
     (f"geometry/{part}", plan, expected, exit_code)
     for part, plan, expected, exit_code, *_ in runpy.run_path(
@@ -72,7 +75,10 @@ def _golden(expected):
     }
 
 
-@pytest.mark.parametrize(("part", "plan_filename", "expected_subdir", "exit_code"), PILOT_CASES)
+@pytest.mark.parametrize(
+    ("part", "plan_filename", "expected_subdir", "exit_code"),
+    (*PILOT_CASES, *STANDALONE_GOLDEN_CASES),
+)
 def test_examples_match_reference_bytes_and_repeat(
     tmp_path,
     pilot_kernel_cache,
@@ -121,7 +127,11 @@ def test_every_example_golden_is_byte_compared():
     examples = ROOT / "examples"
     covered = {
         examples / part / expected
-        for part, _, expected, _ in (*PILOT_CASES, *GEOMETRY_GOLDEN_CASES)
+        for part, _, expected, _ in (
+            *PILOT_CASES,
+            *STANDALONE_GOLDEN_CASES,
+            *GEOMETRY_GOLDEN_CASES,
+        )
     }
     goldens = {
         path.parent

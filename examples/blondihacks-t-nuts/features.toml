@@ -1,0 +1,124 @@
+# Catalog-based example design using the video's machining process.
+# NOT an exact replica of either the video's un-dimensioned nut or Carr Lane CL-0-TN.
+# Catalog nominals are published facts selected for this example, not measurements.
+# No manufacturer's tolerance band is adopted as a new released drawing contract.
+part = "blondihacks-t-nuts"
+units = "mm"
+precision = "unknown"
+step = "t-nut.STEP"
+step_sha256 = "456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e"
+construction = "one_piece"
+volume_mm3 = 4707.621531549312
+volume_cite = "geometry-provenance.md: observed FreeCAD export of the selected example design; not physical volume measurement"
+cite_root = "."
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts", "geometry-provenance.md"]
+
+[drawing]
+number = "BH-TN-EXAMPLE"
+revision = "catalog-design-1"
+cite = ["geometry-provenance.md: locally authored catalog-based example design; not an original video drawing or release approval", "https://www.youtube.com/watch?v=TL0OsfFkBL8", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts"]
+
+[material]
+spec = "1018 steel"
+name = "1018 steel"
+finish = "JAX cold-blackened and lightly oiled; oil type and coating specification unknown"
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=239s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=946s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s"]
+
+[notes]
+manufacturing = [
+  "DESIGN BASIS: nominal base width 7/8 inch and overall height 1/2 inch, with actual nominal stem width 0.495 inch, selected from Carr Lane CL-0-TN for a nominal 1/2-inch slot. Not a fit certificate for another table.",
+  "VIDEO BASIS: four nuts, nominal length 1 inch, nominal flange thickness 0.250 inch, centered through 3/8-16 thread, 1018 steel and the demonstrated process route.",
+  "Catalog CL-0-TN uses different length and flange thickness; this combined example is not a commercial part replica or an exact video reconstruction.",
+  "No acceptance tolerance, thread class, surface finish, edge-break size or clamping load rating is established. Record actual slot fit and approved requirements before released machining.",
+  "The STEP's simple nominal-major bore is a visual thread envelope, NOT a tapping drill or finished minor diameter. Threads, edge breaks and bottom-thread staking are not modeled.",
+]
+process = "Retain the source four-piece bar route; STEP shows only one finished nut. Treat all real tool, holder, vise, stock and machine measurements as pending."
+edge_break = "Hand deburr holes and small edges as demonstrated; size not specified."
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts", "README.md", "geometry-provenance.md"]
+
+[general_tolerances]
+linear_1pl = "unknown"
+linear_2pl = "unknown"
+linear_3pl = "unknown"
+angular_deg = "unknown"
+edge_break_r = "unknown"
+chamfer_max = "unknown"
+cite = "No video drawing bands; catalog tolerance bands not adopted as this combined design's acceptance limits."
+
+[frames.model]
+origin = [0.0, 0.0, 0.0]
+x = [1.0, 0.0, 0.0]
+y = [0.0, 1.0, 0.0]
+z = [0.0, 0.0, 1.0]
+binding = "nominal"
+note = "Selected example design: X is 25.4-mm length, Y transverse with symmetric shoulders, Z from flat bottom to nominal 12.7-mm top; hole axis X=Y=0. Frame is not a measured machine pickup."
+cite = ["geometry-provenance.md", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s"]
+
+[features.base-envelope]
+kind = "pocket"
+representation = "stock_minus_part"
+frame = "model"
+binding = "nominal"
+requirements = ["width", "height"]
+width = "unknown"
+width_nominal = 22.225
+height = "unknown"
+height_nominal = 12.7
+faces = ["#57/ADVANCED_FACE[2]/", "#88/ADVANCED_FACE[3]/", "#130/ADVANCED_FACE[4]/", "#223/ADVANCED_FACE[7]/"]
+bounds = { x = [-12.7, 12.7], y = [-11.1125, 11.1125], z = [0.0, 12.7] }
+note = "Example design nominals: Carr Lane CL-0-TN C=7/8-inch base and E=1/2-inch overall height. Actual slot undercut/throat/depth and suitable clearance must be confirmed. No numeric acceptance bands adopted."
+cite = ["https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN, C and E)", "geometry-provenance.md"]
+
+[features.shoulders]
+kind = "pocket"
+representation = "stock_minus_part"
+frame = "model"
+binding = "nominal"
+requirements = ["width", "thickness"]
+width = "unknown"
+width_nominal = 12.573
+thickness = "unknown"
+thickness_nominal = 6.35
+mirror_symmetric = true
+faces = ["#17/ADVANCED_FACE[1]/", "#161/ADVANCED_FACE[5]/", "#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"]
+bounds = { x = [-12.7, 12.7], y = [-11.1125, 11.1125], z = [6.35, 12.7] }
+note = "Selected stem width is catalog actual nominal B=0.495 inch, not nominal slot width 1/2 inch. Flange thickness 0.250 inch is the video's nominal, not the catalog F=9/32 inch. Source +/-0.477-inch cutter-center setting is not transferable to this design without the actual cutter diameter."
+cite = ["https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN, B)", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=410s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=487s", "geometry-provenance.md"]
+
+[features.end-length]
+kind = "face"
+frame = "model"
+binding = "nominal"
+requirements = ["length"]
+length = "unknown"
+length_nominal = 25.4
+faces = ["#304/ADVANCED_FACE[10]/", "#320/ADVANCED_FACE[11]/"]
+bounds = { x = [-12.7, 12.7], y = [-11.1125, 11.1125], z = [0.0, 12.7] }
+note = "Video nominal one-inch length for each of four nuts, not Carr Lane D=7/8 inch. Source end stop makes equal lengths; no numerical finished-length tolerance is stated."
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=737s", "geometry-provenance.md"]
+
+[features.threaded-hole]
+kind = "threaded_hole"
+frame = "model"
+binding = "nominal"
+requirements = ["dia", "position_dia", "thread", "thru"]
+dia = "unknown"
+position_dia = "unknown"
+thread = "3/8-16"
+thru = true
+through_thickness = 12.7
+tap_drill_mm = "unknown"
+at = [0.0, 0.0, 12.7]
+axis = [0.0, 0.0, -1.0]
+faces = ["#287/ADVANCED_FACE[9]/"]
+note = "Centered in finished length/width as demonstrated. Thread class, tapping-drill diameter, positional limits and acceptable stud engagement are unspecified. Cosmetic STEP bore is 9.525-mm nominal major envelope only. Bottom thread must be staked and physically checked; STEP cannot prove it."
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=143s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=885s", "geometry-provenance.md"]
+
+[features.all-surfaces]
+kind = "face"
+frame = "model"
+binding = "nominal"
+requirements = []
+faces = ["#17/ADVANCED_FACE[1]/", "#57/ADVANCED_FACE[2]/", "#88/ADVANCED_FACE[3]/", "#130/ADVANCED_FACE[4]/", "#161/ADVANCED_FACE[5]/", "#192/ADVANCED_FACE[6]/", "#223/ADVANCED_FACE[7]/", "#265/ADVANCED_FACE[8]/", "#287/ADVANCED_FACE[9]/", "#304/ADVANCED_FACE[10]/", "#320/ADVANCED_FACE[11]/"]
+note = "Convenience surface set for hand deburring and finishing only; not an extra geometric/inspection requirement or a claim that coating proves size."
+cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=830s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=918s", "geometry-provenance.md"]

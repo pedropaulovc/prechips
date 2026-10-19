@@ -35,13 +35,17 @@ from prechips.rules.geometry_common import rule_rows
 from prechips.rules.resolution import (
     MANUAL,
     SAW_OPS,
+    SLITTING_SAW_MODEL_REASON,
     UNKNOWN,
+    UNRESOLVED_SAW_MODEL_REASON,
     _citations,
     record,
     rough_leave,
     same_length,
     saw_setup,
     setup_frame_ref,
+    slitting_saw,
+    spindle_saw,
 )
 
 
@@ -106,7 +110,7 @@ def evaluate(bundle):
                 )
             )
             continue
-        if saw_setup(setup):
+        if saw_setup(bundle, setup):
             findings.append(
                 Finding(
                     "travel",
@@ -124,6 +128,18 @@ def evaluate(bundle):
         sourced = {axis: {"cutter-centre path": [], "declared cut extent": []} for axis in "xy"}
         scalar_spans = {axis: [] for axis in AXES}
         complete = {axis: True for axis in AXES}
+        spindle_saws = [op for op in setup["ops"] if spindle_saw(bundle, setup, op)]
+        saw_debt = "; ".join(
+            dict.fromkeys(
+                SLITTING_SAW_MODEL_REASON
+                if slitting_saw(bundle, op)
+                else UNRESOLVED_SAW_MODEL_REASON
+                for op in spindle_saws
+            )
+        )
+        if spindle_saws:
+            missing.append(saw_debt)
+            complete = {axis: False for axis in AXES}
         target, owner = setup_frame_ref(bundle, setup)
         cite.extend(_input_cite(target, f"{owner}.{setup.get('frame', UNKNOWN)}"))
         stock, stock_cite = stock_extents(bundle, setup)
@@ -452,13 +468,15 @@ def evaluate(bundle):
         from .guided_sweep import unmodelled
 
         swept = unmodelled(bundle, setup, "travel")
-        if not operations:
+        if errors:
+            status, sentence = "error", f"{setup['id']}: " + "; ".join(errors) + "."
+        elif not operations and spindle_saws:
+            status, sentence = "unknown", f"{setup['id']}: {saw_debt}."
+        elif not operations:
             status, sentence = (
                 "not_applicable",
                 f"{setup['id']}: no nonmanual mill operations require travel.",
             )
-        elif errors:
-            status, sentence = "error", f"{setup['id']}: " + "; ".join(errors) + "."
         elif any(
             not row["required_verified"] or not row["travel_verified"] for row in checks.values()
         ):
@@ -488,6 +506,14 @@ def evaluate(bundle):
                     "travel_checks": checks,
                     "operations": operations,
                     "measurements": [debts[key] for key in sorted(debts)],
+                    **(
+                        {
+                            "spindle_saw_ops": [op["op"] for op in spindle_saws],
+                            "spindle_saw_debt": saw_debt,
+                        }
+                        if spindle_saws
+                        else {}
+                    ),
                     **({"guided_sweep_debts": swept} if swept else {}),
                 },
                 list(dict.fromkeys(cite)),

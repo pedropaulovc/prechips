@@ -16,13 +16,17 @@ depth is a through hole's local thickness or a blind hole's planned depth.
 Chain drilling uses its before-state entry-to-``to_z`` penetration; no air
 approach, point extension or exit lead is added.
 
-A saw cut (``saw_cut``/``cut_off``) has no spindle: its one canonical
-``operation = "saw_cut"`` row supplies blade linear speed (``sfm``) and descent
+A non-spindle saw cut (``saw_cut``/``cut_off``) uses one canonical
+``operation = "saw_cut"`` row supplying blade linear speed (``sfm``) and descent
 feed (``feed_mm_min``) directly. There is no diameter band, tool chart or
 override; the sourced speed is clamped to the machine's inclusive
 ``blade_speed_sfm`` range and no RPM is derived. A cut made with a verified hand saw
 (:func:`prechips.rules._bench.hand_saw`) has no blade speed or feed at all:
 ``not_applicable``, judged per operation, whatever else its setup runs.
+A mill-mounted ``slitting_saw`` instead selects ``operation = "slitting_saw"``:
+its disk O.D. sets spindle RPM and its tooth count (``flutes``) sets tooth feed,
+using the ordinary cited chart/diameter-band row and spindle-range semantics.
+It never consumes a bandsaw's descent feed or ``blade_speed_sfm`` limits.
 
 A mill op with a ``contour`` path also carries its plunge feed. A drill doing
 ``chain_drill`` is centre-cutting by kind and uses its cited drilling chip load
@@ -44,6 +48,7 @@ from .resolution import (
     MANUAL,
     SAW_OPS,
     UNKNOWN,
+    UNRESOLVED_SAW_MODEL_REASON,
     _citations,
     length_mm,
     manifest_mm,
@@ -51,7 +56,10 @@ from .resolution import (
     op_feature,
     resolve,
     rough_leave,
+    saw_station,
     select,
+    slitting_saw,
+    spindle_saw,
     uncertain,
 )
 from .tip_endpoints import mapping, records
@@ -73,6 +81,8 @@ DRILL_KINDS = frozenset({"drill", "drill_index", "drill_set"})
 
 def _operation(op, tool):
     action = op["do"]
+    if action in SAW_OPS and tool.get("kind") == "slitting_saw":
+        return "slitting_saw"
     if (
         action == "rough_profile"
         and mapping(op.get("contour")).get("method") == "chain_drill"
@@ -432,11 +442,12 @@ def evaluate(bundle):
     depths = _hole_depths(bundle) if records(cutting.get("deep_hole")) else {}
     for setup in bundle.plan["setups"]:
         machine = resolve(bundle, "machines", setup.get("machine")) or {}
-        lathe = machine.get("kind") == "lathe"
         bands = spindle_ranges(machine)
         low, high = spindle_bounds(machine)
         for op in setup["ops"]:
             subject = f"{setup['id']}:{op['op']}"
+            disk = slitting_saw(bundle, op)
+            lathe = machine.get("kind") == "lathe" and not disk
             if op["do"] in MANUAL:
                 result.append(
                     Finding(
@@ -464,7 +475,25 @@ def evaluate(bundle):
                     )
                 )
                 continue
-            if op["do"] in SAW_OPS:
+            if spindle_saw(bundle, setup, op) and not disk:
+                result.append(
+                    Finding(
+                        "speeds_feeds",
+                        subject,
+                        UNKNOWN,
+                        {
+                            "operation": op["do"],
+                            "tool": op.get("tool", UNKNOWN),
+                            "rpm": UNKNOWN,
+                            "feed_mm_min": UNKNOWN,
+                            "model_reason": UNRESOLVED_SAW_MODEL_REASON,
+                        },
+                        ["inventory selected saw kind", "docs/cutting-data.md: Saw speed and feed"],
+                        f"{subject}: {UNRESOLVED_SAW_MODEL_REASON}.",
+                    )
+                )
+                continue
+            if op["do"] in SAW_OPS and not disk:
                 tool = resolve(bundle, "tools", op.get("tool")) or {}
                 result.append(
                     _saw(subject, op, machine, tool, stock, material, material_class, cutting)
@@ -509,6 +538,7 @@ def evaluate(bundle):
                 "operation": action,
                 "tool_material": tool_material,
                 "diameter_in": diameter_in,
+                **({"action": op["do"], "tool_kind": "slitting_saw"} if disk else {}),
                 "flutes": flutes,
                 "sfm": sfm,
                 **deep,
@@ -547,6 +577,7 @@ def evaluate(bundle):
                 or stock.get("material_verify", False)
                 or range_unknown
                 or deep_unknown
+                or (disk and saw_station(bundle, setup, op) != "fits")
             )
             if unknown and tool and (not lathe or op.get("do") in _AXIAL_LATHE_ACTIONS):
                 category, identity, _ = select(bundle, op.get("tool"), "tools")

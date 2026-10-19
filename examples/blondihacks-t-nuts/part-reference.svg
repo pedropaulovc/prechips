@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="450" viewBox="0 0 640 450">
+<title>Nominal finished design — not stock, holding or fit approval</title>
+<desc>Isometric projection of the validated nominal T-nut B-rep. The bore is cosmetic; no helical thread, staking or edge breaks are modeled. STEP SHA-256: 456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e.</desc>
+<rect width="640" height="450" fill="#ffffff"/>
+<g font-family="sans-serif" text-anchor="middle" fill="#222222">
+<text x="320" y="30" font-size="18">Nominal finished design</text>
+<text x="320" y="54" font-size="15">— not stock, holding or fit approval</text>
+</g>
+<svg x="45" y="75" width="550" height="300" viewBox="-20.028928 -20.028928 40.057855 40.057855">
+<g transform="rotate(60)">
+<g fill="none" stroke="rgb(0, 0, 0)" stroke-linecap="butt" stroke-linejoin="miter" stroke-width="0.18" transform="scale(1, -1)">
+<path id="1" d=" M 4.49013 12.91 L 4.49013 16.8504 " />
+<path id="2" d=" M 1.07763 14.8802 L 4.49013 16.8504 " />
+<path id="3" d=" M 8.98026 14.2581 L 4.49013 16.8504 " />
+<path id="4" d=" M -8.98026 -14.2581 L 8.98026 -3.88856 " />
+<path id="5" d=" M 8.98026 -3.88856 L 8.98026 14.2581 " />
+<path id="6" d=" M -8.98026 -14.2581 L -13.4704 -11.6657 " />
+<path id="7" d=" M -13.4704 -11.6657 L 4.49013 -1.29619 " />
+<path id="8" d=" M 8.98026 -3.88856 L 4.49013 -1.29619 " />
+<path id="9" d=" M -13.4704 -11.6657 L -13.4704 -7.72528 " />
+<path id="10" d=" M 4.49013 -1.29619 L 4.49013 2.64422 " />
+<path id="11" d=" M -13.4704 -7.72528 L 4.49013 2.64422 " />
+<path id="12" d=" M -13.4704 -7.72528 L -17.9605 -5.13291 " />
+<path id="13" d=" M -17.9605 -5.13291 L 0 5.2366 " />
+<path id="14" d=" M 4.49013 2.64422 L 0 5.2366 " />
+<path id="15" d=" M -17.9605 -5.13291 L -17.9605 5.13291 " />
+<path id="16" d=" M 0 5.2366 L 0 15.5024 " />
+<path id="17" d=" M -17.9605 5.13291 L 0 15.5024 " />
+<path d="M-5.61266 7.12904 A4.7625 2.74963 60 0 1 -6.59901 9.3092" />
+<path d="M-6.59901 9.3092 A4.7625 2.74963 60 0 1 -11.3615 1.06031" />
+<path d="M-11.3615 1.06031 A4.7625 2.74963 60 0 1 -5.61266 7.12904" />
+<path id="21" d=" M 4.49013 12.91 L 0 15.5024 " />
+</g>
+</g>
+</svg>
+<g font-family="sans-serif" text-anchor="middle" fill="#444444" font-size="13">
+<text x="320" y="392">Catalog-based section; video length and flange thickness</text>
+<text x="320" y="414">Simple bore represents 3/8-16 nominal major diameter only</text>
+<text x="320" y="436">No stock, workholding, thread-stop or physical fit evidence</text>
+</g>
+</svg>

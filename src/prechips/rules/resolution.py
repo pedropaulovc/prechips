@@ -31,12 +31,21 @@ SET_KINDS = {
 HAND_FINISH = frozenset({"file_to_line"})
 MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"} | HAND_FINISH
 SAW_OPS = frozenset({"saw_cut", "cut_off"})
-# Saw tool kind -> the machine kinds it cuts on: a powered bandsaw blade on a mill, bench or
-# bandsaw; a hand saw (hacksaw, junior hacksaw) only at a bench or manual station.
+# Saw tool kind -> the machine kinds it cuts on. A slitting saw is a spindle-mounted
+# disk, not a bandsaw blade or hand saw: recognizing its station proves no arbor fit.
 SAW_MACHINES = {
     "bandsaw": frozenset({"mill", "bench", "bandsaw"}),
     "hand_saw": frozenset({"bench", "manual"}),
+    "slitting_saw": frozenset({"mill"}),
 }
+SLITTING_SAW_MODEL_REASON = (
+    "finite slitting-saw disk reach, arbor assembly and blade/arbor/fixture clearance "
+    "are not modelled by the planar kerf cut"
+)
+UNRESOLVED_SAW_MODEL_REASON = (
+    "the saw tool kind is unresolved; a spindle-mounted disk cannot be excluded, "
+    "so spindle assembly, zero and clearance remain unknown"
+)
 HOLE_KINDS = frozenset({"hole", "counterbore", "thread", "threaded_hole"})
 # The hole actions whose cut can form a hole's claimed point cap.
 COMPLETE_FORM = frozenset({"drill", "ream", "bore", "counterbore"})
@@ -931,12 +940,43 @@ def coating_process(bundle_or_inventory, reference):
     return "services", {"kind": UNKNOWN, "verify": True} if item == UNKNOWN else item
 
 
+def slitting_saw(bundle_or_inventory, op):
+    """Whether a saw op selects a spindle-mounted disk, including dimensional debt.
+
+    Unlike :func:`saw_tool`, this is a model-boundary predicate, not an identity verdict:
+    an unverified disk must never gain a no-spindle waiver.
+    """
+    return (
+        op.get("do") in SAW_OPS
+        and record(resolve(bundle_or_inventory, "tools", op.get("tool"))).get("kind")
+        == "slitting_saw"
+    )
+
+
+def spindle_saw(bundle_or_inventory, setup, op):
+    """Whether a saw needs spindle assessment, including a disk not yet excluded.
+
+    Only known bandsaw and hand-saw kinds establish non-spindle sawing on a mill
+    (or unknown machine). Missing and unrecognized kinds retain spindle assessment.
+    """
+    if op.get("do") not in SAW_OPS:
+        return False
+    kind = record(resolve(bundle_or_inventory, "tools", op.get("tool"))).get("kind", UNKNOWN)
+    if kind == "slitting_saw":
+        return True
+    machine = record(resolve(bundle_or_inventory, "machines", setup.get("machine")))
+    return kind not in {"bandsaw", "hand_saw"} and machine.get("kind", UNKNOWN) in {
+        "mill",
+        UNKNOWN,
+    }
+
+
 def saw_tool(bundle, op):
     """The one classification of a saw op's selected tool every consumer reads (bench
-    waiver, speeds, assembly, saw rule, kernel routing): ``"bandsaw"`` or ``"hand_saw"``
-    for a resolved, verified saw of that kind; ``"unknown"`` for a missing, unlisted or
-    kind-less tool; ``"unverified"`` for one with any verification debt (an item's debt,
-    a kerf's included, is its identity's, as its inventory listing reads it);
+    waiver, speeds, assembly, saw rule, kernel routing): ``"bandsaw"``, ``"hand_saw"``
+    or ``"slitting_saw"`` for a resolved, verified saw of that kind; ``"unknown"`` for a
+    missing, unlisted or kind-less tool; ``"unverified"`` for one with any verification
+    debt (an item's debt, a kerf's included, is its identity's, as its inventory reads it);
     ``"not_a_saw"`` for a verified tool of another kind."""
     item = resolve(bundle, "tools", op.get("tool"))
     if not isinstance(item, dict) or item.get("kind", UNKNOWN) == UNKNOWN:
@@ -974,14 +1014,19 @@ def saw_station(bundle, setup, op):
     return "fits" if "vertical" in modes else "no_vertical_mode"
 
 
-def saw_setup(setup):
-    """A dedicated saw setup: at least one saw op and every non-manual op is a saw op.
+def saw_setup(bundle_or_inventory, setup):
+    """A dedicated non-spindle saw setup: every non-manual op is a saw op.
 
-    An explicitly unknown action is not a saw op, so it keeps the setup assessed.
+    A possible spindle-mounted saw, including an unresolved tool on a mill, still
+    needs spindle assessment and a zero recipe. An unknown action also keeps it assessed.
     """
     actions = [op.get("do", UNKNOWN) for op in setup.get("ops", [])]
     cutting = [action for action in actions if action not in MANUAL]
-    return bool(cutting) and all(action in SAW_OPS for action in cutting)
+    return (
+        bool(cutting)
+        and all(action in SAW_OPS for action in cutting)
+        and not any(spindle_saw(bundle_or_inventory, setup, op) for op in setup.get("ops", []))
+    )
 
 
 HAND_FED = "hand_fed"

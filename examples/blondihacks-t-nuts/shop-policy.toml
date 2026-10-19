@@ -1,0 +1,40 @@
+# Standalone example policy; not the unrelated illustrative Pedro-shop policy.
+# Required baseline rules follow the shipped example convention. Unknown shop
+# numbers remain debt: the video gives no measured shop acceptance limits.
+revision = 1
+
+[required]
+tool_resolves = "*"
+sizing = "*"
+op_chain = "*"
+blind_depth = "*"
+inspection = "*"
+coordinates = "*"
+zero_check = "*"
+
+[numbers]
+refixture_budget_mm = "unknown"
+thin_wall_floor_mm = "unknown"
+stickout_ld_max = "unknown"
+fixture_make_decimals = "unknown"
+near_jaw_mm = "unknown"
+max_filing_stock_mm = "unknown"
+saw_min_teeth_in_work = "unknown"
+
+[numbers_cite]
+refixture_budget_mm = "Not specified by https://www.youtube.com/watch?v=TL0OsfFkBL8"
+thin_wall_floor_mm = "Not specified by https://www.youtube.com/watch?v=TL0OsfFkBL8"
+stickout_ld_max = "Not specified by https://www.youtube.com/watch?v=TL0OsfFkBL8"
+fixture_make_decimals = "No shop-made fixture drawing or setting precision published in the source video"
+near_jaw_mm = "No numerical jaw clearance established by the source video"
+max_filing_stock_mm = "Hand deburring only; no numerical filing allowance established by the source video"
+saw_min_teeth_in_work = "Blade pitch and measured engagement not established by the source video"
+
+[numbers_verify]
+refixture_budget_mm = true
+thin_wall_floor_mm = true
+stickout_ld_max = true
+fixture_make_decimals = true
+near_jaw_mm = true
+max_filing_stock_mm = true
+saw_min_teeth_in_work = true

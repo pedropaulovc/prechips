@@ -736,15 +736,27 @@ operation list. The records run in authored order.
 
 ### Manual stations and travel scope
 
-For a manual joining, finishing or inspection station, declare the inventory
-machine's `kind = "bench"` (or `"manual"`) and use only `fit`, `inspect`,
-`deburr` and `coating` operations.
+For a manual joining, finishing, layout or inspection station, declare the
+inventory machine's `kind = "bench"` (or `"manual"`) and use only `fit`,
+`inspect`, `deburr`, `coating`, `scribe` or `file_to_line` operations, or
+`saw_cut`/`cut_off` selecting a verified `hand_saw`.
 `zero_check`, `coordinates` and `headroom` are then `not_applicable`: the station
 has no DRO, cutter-centre table, spindle stack or machine travel to check.
-The joint's joining method does not create machine axes. Any cutting or
-explicitly unknown action retains the normal screens; a bench declaration
-cannot waive a machining operation. This does not waive physical joint,
-holding, stock, frame or render requirements.
+The joint's joining method does not create machine axes. Other cutting or
+explicitly unknown actions retain the normal screens; a bench declaration
+cannot waive a machining operation.
+
+The holding rule likewise requires no machine fixed-jaw orientation or stock
+top/bottom Z station for established manual bench work, or for a verified
+bench/manual station used only for known non-spindle saw cuts and manual
+actions. This includes a portable bandsaw cutting work held in a bench vise;
+it does not waive powered-saw cutting data. Mechanical work still needs
+declared holding. Inspection/coating-only work may instead declare
+`hold.note` for its actual handling, but only when no other holding fields
+are supplied; missing or unknown handling is not complete. See
+[manual bench holding and handling](rules-setup.md#manual-bench-holding-and-handling).
+Physical joint, stock, frame, applicable render and mechanical holding checks
+are not waived.
 
 For component stock, an earlier setup output or a joint output, the mill
 headroom X/Y travel screen uses the kernel's setup-entry stock bounding box,
@@ -1036,7 +1048,7 @@ See [hold requirements](rules-setup.md#hold_fields) for applicability and
 | `jaws_along` | `"x"` / `"y"` / `"not_applicable"`: the vise jaw length axis; any other text is bad input (exit 3) |
 | `fixed_jaw` | `str` |
 | `parallels` | `str` |
-| `supports` | `str \| list[str \| Reference]` |
+| `supports` | `str \| list[str \| Reference]`: each string or record's `ref` selects its fixture; list entries print the selected support name, with any operation/rest-setting metadata |
 | `support` | `str` |
 | `support_orientation` | `str` |
 | `grip_on` | `str` |
@@ -2453,10 +2465,14 @@ an inventory blade in `tools`:
 |---|---|
 | `bandsaw` | `mill`, `bench` or `bandsaw` for a straight cut; a scribed-line cut needs a vertical `bandsaw` |
 | `hand_saw` (a hacksaw) | `bench` or `manual` |
+| `slitting_saw` (rotating disk; not a bandsaw alias) | `mill` only; bounded recognition, not physical disk/assembly validation |
 
-A lathe uses `part_off`, a separate action and model. Saw operations need no
-spindle holder, direction or finished-face claim. An authored feature must
-resolve normally; an omitted feature cannot carry inspection checks.
+A lathe uses `part_off`, a separate action and model. Nonspindle bandsaw and
+hand-saw operations need no spindle holder or direction. A slitting saw uses
+the existing selected operation `holder` reference and optional tool `arbor`
+identity; these do not prove its mount or axis. No saw earns finished-face
+coverage. An authored feature must resolve normally; an omitted feature cannot
+carry inspection checks.
 
 ### Straight cut plane and kerf
 
@@ -2480,28 +2496,53 @@ With 1.5 mm kerf, the fragment retains Y ≤ 87 mm, not Y ≤ 87.75 mm.
 The kernel removes kerf and offcut, checks that no finished target was removed,
 and passes the retained stock to later setups.
 
+For a `slitting_saw`, this is ideal planar removal only. Explicit inventory
+`dia_mm` / `dia_in` describes disk OD, separate `kerf_mm` / `kerf_in`
+describes kerf (never inferred from thickness), and `flutes` is tooth count.
+Missing or unverified dimensions and arbor facts remain debt. No new fields
+are required. The plane and retained halfspace do not model finite disk reach,
+mount/axis, arbor assembly, spindle/tool/fixture clearance or engagement.
+`saw_cut`, assembled `tool_resolves`, `accessibility`, `reach` and `saw_teeth`
+therefore remain unknown for physical slitting support, even when ideal stock
+removal can be routed. No planar result certifies safe or complete slitting.
+Bounded slitting recognition is limited to straight `cut_plane` cuts. A
+slitting saw with `follows` remains unknown: the host supplies a
+`scribed_profile.reason` debt and does not route known stock from that cut.
+Arbitrary scribed-region removal is not a finite-disk model.
+
 ### Teeth, holding and starting settings
 
-The blade's coarse-end `tpi` times the crossed work thickness must reach the
-shop policy's `saw_min_teeth_in_work`. A 4/6 TPI blade places 0.39 teeth in
+For bandsaw and hand-saw blades, coarse-end `tpi` times the crossed work
+thickness must reach the shop policy's `saw_min_teeth_in_work`. A 4/6 TPI blade
+places 0.39 teeth in
 a 2.5 mm strap, an error; a 32 TPI blade places 3.15. See
 [saw teeth in the work](rules-geometry.md#saw-teeth-in-the-work).
 
-An all-saw setup can include manual inspection and deburring without a `zero`
-recipe or mill envelope. `zero_check`, `headroom`, `envelope` and `travel`
-report why they are not applicable. A mixed setup still checks its other
-machining ops.
+An all-nonspindle-saw setup can include manual inspection and deburring without
+a `zero` recipe or mill envelope. `zero_check`, `headroom`, `envelope` and
+`travel` report why they are not applicable. A mixed setup still checks its
+other machining ops. Any `slitting_saw` operation, even with unresolved
+dimensions or verification, prevents this waiver: `zero_check` and DRO
+touch-off remain unknown, as do `headroom`, `envelope` and `travel` for the
+missing rotating-disk model. Mixed setups still assess ordinary operations
+while preserving slitting debt; they never certify disk clearance or declare
+it unnecessary.
 
 Holding, `stock_state.top_z/bottom_z`, bound frame and routing still apply.
 Declare an ordinary fixture, such as a saw vise with its jaw/parallels fields,
 to model it. A bandsaw machine identity does not invent an integral vise.
 The exception is [hand-fed work along a scribed line](#hand-fed-on-the-saw-table).
 
-The setup sheet prints blade-centre setting, retained edge in mm, blade speed
-in sfm and descent feed in mm/min. Starting settings come only from the cited
-[`saw_cut` cutting-data row](cutting-data.md), never operation RPM/feed
-overrides. Blade-centre settings, retained edges and sourced speed/feed retain
-their own digits; coarse drawing precision does not round machine settings.
+For bandsaws, the setup sheet prints blade-centre setting, retained edge in mm,
+linear blade speed in sfm and descent feed in mm/min. Those starting settings
+come only from the cited [`saw_cut` cutting-data row](cutting-data.md), never
+operation RPM/feed overrides. A mill slitting saw instead uses a cited
+rotating-tool chart or unique `operation = "slitting_saw"` row selected by
+disk OD: `sfm` and `chip_load_mm_per_tooth` produce spindle-limited RPM and
+`RPM × flutes × chip load` feed. Canonical `saw_cut`/descent rows never supply
+its numbers. Blade-centre settings, retained edges and sourced speed/feed
+retain their own digits; coarse drawing precision does not round machine
+settings. Starting numbers do not certify physical slitting clearance.
 
 ### Hand saw on the bench, straight or to a scribed line
 

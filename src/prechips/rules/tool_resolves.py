@@ -1,8 +1,9 @@
 """Resolve selected identities once, then check each cutting assembly.
 
-A saw cut has no spindle, collet or holder: its assembly is a ``bandsaw`` blade on
-a mill, bench or bandsaw machine, or a ``hand_saw`` at a bench or manual station, and the
-cut is located by ``cut_plane`` or the scribed line it ``follows``. A coating
+A non-spindle saw cut uses a ``bandsaw`` blade on a mill, bench or bandsaw, or a
+``hand_saw`` at a bench or manual station. A mill-mounted ``slitting_saw`` instead needs
+an arbor assembly; its finite disk and mount are not modelled by the planar cut.
+The cut is located by ``cut_plane`` or the scribed line it ``follows``. A coating
 op has no tool: it names its process, an outside service or in-house consumables. A
 shop-made item's make operation names a ``tools`` key and states its cutting data.
 """
@@ -14,7 +15,9 @@ from .resolution import (
     MANUAL,
     SAW_MACHINES,
     SAW_OPS,
+    SLITTING_SAW_MODEL_REASON,
     UNKNOWN,
+    UNRESOLVED_SAW_MODEL_REASON,
     WORKHOLDING_CATEGORIES,
     coating_process,
     identity,
@@ -33,6 +36,8 @@ from .resolution import (
     select,
     setup_items,
     shop_made_item,
+    slitting_saw,
+    spindle_saw,
     uncertain,
 )
 
@@ -81,6 +86,69 @@ def _saw_assembly(bundle, subject, setup, op, tool, machine, machine_ref):
     }
     problems = []
     station = saw_station(bundle, setup, op)
+    if spindle_saw(bundle, setup, op):
+        model_reason = (
+            SLITTING_SAW_MODEL_REASON if slitting_saw(bundle, op) else UNRESOLVED_SAW_MODEL_REASON
+        )
+        holder_ref = op.get("holder", UNKNOWN)
+        holder = record(resolve(bundle, "holders", holder_ref))
+        nums.update(
+            holder=holder_ref,
+            arbor=record(tool).get("arbor", UNKNOWN),
+            arbor_fit=UNKNOWN,
+            spindle_interface=record(record(machine).get("spindle")).get("taper", UNKNOWN),
+            holder_interface=holder.get("taper", holder.get("standard", UNKNOWN)),
+            model_reason=model_reason,
+        )
+        missing = [model_reason]
+        debts = []
+        category, reference, _ = select(bundle, op.get("tool"), "tools")
+        for field, label in (("dia", "blade_diameter_mm"), ("kerf", "kerf_mm")):
+            fact = length_fact(record(tool), field, require_measured=False)
+            value = fact["value"] if fact["verified"] else UNKNOWN
+            nums[label] = value
+            if number(value) and value <= 0:
+                problems.append(f"blade {field} must be positive")
+            elif not number(value):
+                missing.append(f"known, verified positive blade {field}")
+            debt = length_debt(record(tool), field, category, reference)
+            if debt is not None:
+                debts.append(debt)
+        if debts:
+            nums["measurements"] = debts
+        if not holder or uncertain(holder):
+            missing.append("resolved, verified mounted arbor/holder")
+        if machine and holder and not any(uncertain(item) for item in (machine, holder)):
+            spindle_interface = nums["spindle_interface"]
+            holder_interface = nums["holder_interface"]
+            if (
+                all(
+                    isinstance(value, str) and value.strip() and value != UNKNOWN
+                    for value in (spindle_interface, holder_interface)
+                )
+                and spindle_interface != holder_interface
+            ):
+                problems.append("holder interface does not match machine")
+        if station == UNKNOWN:
+            missing.append("resolved, verified slitting saw and mill")
+        if station == "wrong_station":
+            problems.append(
+                f"tool kind {nums['tool_kind']} cannot run a saw cut"
+                if nums["tool_kind"] not in SAW_TOOL_KINDS
+                else f"a spindle-mounted slitting saw cuts only on a mill, not "
+                f"a {nums['machine_kind']}"
+            )
+        return Finding(
+            "tool_resolves",
+            subject,
+            "error" if problems else UNKNOWN,
+            nums,
+            [
+                "inventory spindle, selected holder, blade dia and kerf",
+                "docs/rules-tools.md: Shop-made tooling and saws",
+            ],
+            f"{subject}: " + "; ".join(problems or missing) + ".",
+        )
     scribed_blade = nums["tool_kind"] == "bandsaw" and "follows" in op
     if station == "no_vertical_mode":
         problems.append(

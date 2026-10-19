@@ -69,15 +69,33 @@ known; an unknown fact, an unknown tool or tools list, or a tool still to
 verify (flagged, or its verification or presence unknown) is unknown, never a
 pass, and its printed line stops on the same fact.
 
-Saw cut-off resolves the selected bandsaw blade and a `mill` / `bench` /
-`bandsaw` machine, or a `hand_saw` and a `bench` / `manual` machine, instead of
-a spindle/holder/shank assembly; a hand saw on any other machine, or a bandsaw
-blade on a `manual` one, is an error. A bandsaw blade that follows a scribed
-line needs a `bandsaw` machine whose `saw_modes` include `"vertical"`: other
-machine kinds or modes without it are errors, and undeclared modes stay debt. No holder is
-required; incompatible known machine/tool kinds are errors and unverified
-identities remain debt. A saw naming a groove cannot replace that groove's
-size-setting tool, and a saw does not establish a finished datum.
+For nonspindle saw cut-off, resolve the selected `bandsaw` blade and a `mill` /
+`bench` / `bandsaw` machine, or a `hand_saw` and a `bench` / `manual` machine,
+instead of a spindle/holder/shank assembly. A hand saw on any other machine, or
+a bandsaw blade on a `manual` one, is an error. A bandsaw blade that follows a
+scribed line needs a `bandsaw` machine whose `saw_modes` include `"vertical"`:
+other machine kinds or modes without it are errors, and undeclared modes stay
+debt. These nonspindle tools require no holder.
+
+A real mill-mounted disk uses tool kind `slitting_saw`, never `bandsaw`, under
+`saw_cut` or `cut_off`, and is compatible only with a `mill`. Its disk OD is
+explicit `dia_mm` / `dia_in`, its separate kerf is `kerf_mm` / `kerf_in`, and
+`flutes` is tooth count. The existing optional inventory `arbor` identity and
+operation `holder` reference describe selected equipment, not a proven mounted
+assembly. Missing or unverified dimensions and arbor facts remain debt.
+`tool_resolves` stays unknown for physical slitting-saw assembly fit: finite
+disk reach, mounting/axis, arbor, spindle and cutter/fixture clearance are not
+modelled by the planar kerf cut. A known nonpositive blade diameter or kerf, or
+a verified selected holder taper that disagrees with the verified machine
+spindle taper, is still an error; model debt does not hide a known mismatch.
+Recognizing this kind, even with verification debt, never grants a nonspindle-saw
+or manual-bench waiver. An unresolved or unrecognized tool kind on a mill also
+cannot establish a nonspindle saw, so its spindle assembly and clearance stay
+unknown; a verified non-saw kind still produces a tool-compatibility error.
+
+Incompatible known machine/tool kinds are errors and unverified identities
+remain debt. No saw replaces a groove's size-setting tool or establishes a
+finished datum.
 
 A coating operation resolves its `process` to an outside `services` item or
 in-house `consumables`. An unlisted process is an error. An unknown process or

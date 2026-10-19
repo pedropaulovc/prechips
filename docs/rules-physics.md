@@ -22,6 +22,15 @@ cut) and to an op preparing a plan [process feature](plan.md#process-features),
 which has no drawing acceptance band to deflect out of. An unknown operation or
 applicable machine identity is not a pass.
 
+Mill-mounted `slitting_saw` recognition adds no disk force, engagement or
+physical-clearance model to these proxies. Its starting speed/feed uses the
+rotating-tool chart or unique diameter-matched `operation = "slitting_saw"`
+row described in [cutting data](cutting-data.md#saw-speed-and-feed): surface
+speed becomes spindle-limited RPM, and feed is RPM × `flutes` (teeth) ×
+`chip_load_mm_per_tooth`. Nonspindle `operation = "saw_cut"` linear blade
+speed/descent rows never supply rotating-saw numbers. A recommendation is not
+evidence of disk engagement, teeth in the work, arbor fit or safe clearance.
+
 ## `turning_deflection`
 
 ### Inputs and equation

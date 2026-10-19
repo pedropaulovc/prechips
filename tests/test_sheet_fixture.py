@@ -1686,3 +1686,111 @@ def test_a_member_keeps_its_set_make_operations_only_where_it_is_made(member):
     Inventory.model_validate(bridge({"supply": "made"}))
     with pytest.raises(ValidationError):
         Inventory.model_validate(bridge(member))
+
+
+@pytest.mark.parametrize(
+    ("supports", "metadata"),
+    [
+        (["follow", "fixtures.steady"], ()),
+        (
+            [
+                {
+                    "ref": "fixtures.follow",
+                    "ops": [10, 20],
+                    "jaw_lead_mm": 2.5,
+                    "jaw_side": "turned",
+                },
+                {"ref": "steady", "ops": [30], "at_z_mm": -40},
+            ],
+            (
+                "for ops 10, 20",
+                "behind the tool",
+                "on the diameter just turned",
+                "set on and backed off every pass",
+            ),
+        ),
+        (
+            [
+                {
+                    "ref": "follow",
+                    "ops": [10, 20],
+                    "jaw_lead_mm": 2.5,
+                    "jaw_side": "uncut",
+                },
+                "steady",
+            ],
+            ("for ops 10, 20", "ahead of the tool", "on the uncut stock"),
+        ),
+    ],
+    ids=["strings", "references-with-rest-metadata", "mixed-with-follow-rest-metadata"],
+)
+def test_support_lists_print_fixture_names_not_same_key_items_in_other_categories(
+    supports, metadata
+):
+    data = bundle([{"fixture": "strap", "supports": supports}])
+    data.inventory["fixtures"].update(
+        {
+            "follow": {"kind": "follow_rest", "name": "Traveling roller rest"},
+            "steady": {"kind": "steady_rest", "name": "Fixed three-jaw rest"},
+        }
+    )
+    data.inventory["tools"] = {
+        "follow": {"kind": "accessory", "name": "DECOY follow tool"},
+        "steady": {"kind": "accessory", "name": "DECOY steady tool"},
+    }
+    page = sheets(data)[0]
+    lines = [
+        content(node)
+        for node in descendants(page.markup, "li")
+        if content(node).startswith("Support:")
+    ]
+
+    assert len(lines) == 2
+    assert "Traveling roller rest" in lines[0]
+    assert "Fixed three-jaw rest" in lines[1]
+    assert "DECOY" not in "\n".join(lines)
+    for fact in metadata:
+        assert fact in lines[0]
+    if isinstance(supports[0], dict):
+        jaw_lead = re.search(r"\bjaws\s+([0-9]+(?:\.[0-9]+)?)\s+mm\b", lines[0])
+        assert jaw_lead is not None
+        assert float(jaw_lead.group(1)) == supports[0]["jaw_lead_mm"]
+    if isinstance(supports[1], dict):
+        assert "for op 30" in lines[1]
+
+
+@pytest.mark.parametrize(
+    "supports",
+    [
+        ["unknown", "unverified", "empty", "missing-support"],
+        [
+            {"ref": "unknown"},
+            {"ref": "fixtures.unverified"},
+            {"ref": "empty"},
+            {"ref": "missing-support"},
+        ],
+        ["unknown", {"ref": "unverified"}, "empty", {"ref": "missing-support"}],
+        [{}, {"ref": "unverified"}, {"ref": "empty"}, {"ref": "missing-support"}],
+    ],
+    ids=["strings", "references", "mixed", "missing-ref-field"],
+)
+def test_support_lists_keep_unknown_empty_and_missing_fixture_debt(supports):
+    data = bundle([{"fixture": "strap", "supports": supports}])
+    data.inventory["fixtures"].update({"unverified": "unknown", "empty": {}})
+    data.inventory["tools"] = {
+        key: {"kind": "accessory", "name": "DECOY tool"}
+        for key in ("unverified", "empty", "missing-support")
+    }
+    page = sheets(data)[0]
+    lines = [
+        content(node)
+        for node in descendants(page.markup, "li")
+        if content(node).startswith("Support:")
+    ]
+
+    assert len(lines) == 4
+    assert lines[0] == "Support: ?."
+    assert "? fixtures.unverified" in lines[1]
+    assert "? fixtures.empty" in lines[2]
+    assert "missing support" in lines[3] and "(not in shop list)" in lines[3]
+    assert "DECOY" not in "\n".join(lines)
