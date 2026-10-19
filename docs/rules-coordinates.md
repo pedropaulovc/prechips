@@ -266,11 +266,15 @@ the kernel's `reason`.
 ### Lathe stations and nose compensation
 
 Feature reference centres are distinct from hole tool-tip endpoints (those
-belong to `blind_depth`). Lathe rows carry drawing stations, authored operation
-endpoints, nominal diameter and radius/diameter X display. An authored local Z
-can substitute for an unknown model transform only in an unbound frame; the row
-retains `local_from = {op, field, axis}`. This does not bind fitted shaft length
-to nominal model geometry. Dome axial samples compute
+belong to `blind_depth`). Lathe reference rows carry drawing stations, authored
+operation endpoints and the finished feature's nominal diameter, expressed as
+radius/diameter `x_target_mm`. That diameter is a geometry reference, not a
+current-setup turning instruction: an operation's `to_dia` may describe an
+earlier size or remain explicitly unknown. The sheet resolves those stages
+separately; it does not change these reference records into stage commands.
+An authored local Z can substitute for an unknown model transform only in an
+unbound frame; the row retains `local_from = {op, field, axis}`. This does not
+bind fitted shaft length to nominal model geometry. Dome axial samples compute
 `radius=sqrt(sphere_radius^2-(z-sphere_centre_z)^2)` at authored steps and include
 the exact endpoint.
 
@@ -280,6 +284,22 @@ or stop remains unknown; a feature's `at`, a drawing station or a native
 finished span does not fill the missing endpoint. An independently known
 endpoint and nominal diameter can still print without inventing a
 zero-length cut.
+
+For a feature with an explicit `to_dia` on a profile/turning or boring operation,
+the feature map names the operations owning each diameter stage. Consecutive
+same-target operations can share a row; different targets keep separate rows
+and their own cut windows in authored order. Explicitly unknown targets stay
+unknown, even without reference rows or with a known finished diameter. An
+omitted target in this staged branch also stays unknown rather than implying a
+finish cut. Facing and part-off radial endpoints and manual threading do not
+replace a surface's turning target. A feature with no authored diameter stage
+retains its legacy reference-derived map.
+
+A digital stage retains a located X, including its established aim, only when
+its diameter matches that reference row. A changed or unlocated stage prints
+its authored diameter as `nominal; X ?` and a STOP, not a newly invented DRO
+setting. A handwheel map continues to convert nominal diameter/radius into the
+declared readout units without implying a physical dial setting.
 
 Each row then gets tool-nose compensation. The selected tool must not be
 flagged uncertain, and its nose radius `rn` must be known and ≥ 0. The nose must

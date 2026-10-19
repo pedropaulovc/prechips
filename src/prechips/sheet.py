@@ -106,6 +106,7 @@ from .rules.tip_endpoints import (
     stock_states,
     transfer,
 )
+from .rules.turned_profile import PROFILE_OPS
 from .rules.zero_recipe.touch import DIRECTIONS as _SIGNS
 from .rules.zero_recipe.touch import FACE_Z_TOL_MM
 
@@ -3696,6 +3697,43 @@ class _Traveler:
                 + (" after recording its JOB measurements" if refs else "")
                 + " and reissue this traveler."
             )
+        if route_identities_known(self.plan, setup.get("id")):
+            material = MaterialGraph(self.plan).nodes.get(setup["id"], ())
+            partitions = {(atom.root, atom.split) for atom in material}
+            names = {atom.output for atom in material}
+            if (
+                len(material) == 2
+                and len(partitions) == 1
+                and len(names) == 2
+                and all(atom.split is not None and atom.output is not None for atom in material)
+            ):
+                _, split = next(iter(partitions))
+                producer = next(s for s in self.plan["setups"] if s["id"] == split)
+                parting = next(
+                    (
+                        op
+                        for op in producer.get("ops", [])
+                        if op.get("do") == "part_off" and set(_mapping(op.get("outputs"))) == names
+                    ),
+                    None,
+                )
+                records = _mapping(
+                    _mapping(_mapping(_mapping(self.bundle.kernel).get("setups")).get(split)).get(
+                        "outputs"
+                    )
+                )
+                if parting and any(
+                    _mapping(records.get(name)).get("partition") != f"{split}:{parting['op']}"
+                    or _mapping(records.get(name)).get("reason")
+                    for name in names
+                ):
+                    pieces = " and ".join(map(_text, sorted(names)))
+                    return (
+                        "Setup-entry stock not established — "
+                        f"confirm part-off in Setup {_text(split)} op {parting['op']} leaves both "
+                        f"required pieces ({pieces}); establish the assembled workpiece before "
+                        "cutting and reissue this traveler."
+                    )
         return (
             "Setup-entry stock not established — "
             + self.bench(dependency["reason"])
@@ -6643,7 +6681,7 @@ class _Traveler:
             elif known(target):
                 contact = self.bench(target, setup)
                 if "face" not in touch and "edge" not in touch:
-                    contact = "nominal model reference: " + contact
+                    contact = "nominal reference: " + contact
             else:
                 contact = "? physical contact not established"
             direction = directions.get(axis)
@@ -6670,7 +6708,7 @@ class _Traveler:
             rows.append((axis.upper(), contact, self.bench(procedure, setup), physical))
         pieces.append(
             _table(
-                ["axis", "physical pickup", "source procedure", "physical dial setting"],
+                ["axis", "physical pickup", "pickup procedure", "physical dial setting"],
                 rows,
                 css="zero handwheel-zero",
                 widths=[7, 28, 42, 23],
@@ -7454,6 +7492,21 @@ class _Traveler:
         # surface still lists with its drawing limits and Zs, its X withheld.
         turned = {"diameter": ("turn to Ø", "Ø"), "radius": ("turn to X (radius)", "")}
         heading, prefix = turned.get(display, ("turn to X", None))
+        if lathe and readout_kind(self.bundle) == "handwheel" and display is None:
+            radius = _mapping(self.plan.get("dro")).get("radius_mode")
+            display = "radius" if radius is True else "diameter" if radius is False else None
+            heading, prefix = turned.get(display, ("turn to X", None))
+        surface_ops = {}
+        surface_actions = PROFILE_OPS | {"bore"}
+        for op in setup.get("ops", []):
+            feature = op.get("feature")
+            if isinstance(feature, str) and op.get("do") in surface_actions:
+                surface_ops.setdefault(feature, []).append(op)
+        staged = {
+            feature: ops
+            for feature, ops in surface_ops.items()
+            if any("to_dia" in op for op in ops)
+        }
         o = self.readout
         grouped = {}
         aims = []
@@ -7481,6 +7534,7 @@ class _Traveler:
                     {
                         "dia": x,
                         "nominal_dia": record.get("dia_nominal"),
+                        "located": True,
                         "z": [],
                         "done": done,
                     },
@@ -7502,24 +7556,49 @@ class _Traveler:
         if lathe:
             # A known diameter remains useful even when every authored cut end is
             # unknown. A feature point or finished/native span is not a cut window.
-            radius = _mapping(self.plan.get("dro")).get("radius_mode")
-            if readout_kind(self.bundle) == "handwheel" and display is None:
-                display = "radius" if radius is True else "diameter" if radius is False else None
-                heading, prefix = turned.get(display, ("turn to X", None))
             for op in setup.get("ops", []):
                 feature = op.get("feature")
                 if not isinstance(feature, str) or feature not in cut or feature in grouped:
                     continue
                 diameter = _mapping(self.features.get(feature)).get("dia_nominal")
-                if not _known(diameter):
+                if not _known(diameter) and feature not in staged:
                     continue
-                x = diameter / 2 if display == "radius" else diameter
+                x = diameter / 2 if _known(diameter) and display == "radius" else diameter
                 grouped[feature] = {
                     "dia": x,
                     "nominal_dia": diameter,
+                    "located": False,
                     "z": [],
                     "done": self.ops_done(setup, before=op.get("op")),
                 }
+            targets = []
+            for feature, entry in grouped.items():
+                if feature not in staged:
+                    targets.append((feature, entry))
+                    continue
+                # Coordinate rows reference finished-feature geometry, not an authored
+                # stage. Once staged, an omitted target cannot imply a later finish cut.
+                reference = entry.get("nominal_dia")
+                stages = []
+                for op in staged[feature]:
+                    diameter = op.get("to_dia", "unknown")
+                    if stages and diameter == stages[-1]["nominal_dia"]:
+                        stages[-1]["ops"].append(op)
+                        continue
+                    located = entry["located"] and _known(entry["dia"]) and diameter == reference
+                    nominal_only = readout_kind(self.bundle) != "handwheel" and not located
+                    x = diameter / 2 if _known(diameter) and display == "radius" else diameter
+                    stages.append(
+                        {
+                            "dia": entry["dia"] if located else x,
+                            "nominal_dia": diameter,
+                            "nominal_only": nominal_only,
+                            "ops": [op],
+                            "z": [],
+                            "done": self.ops_done(setup, before=op.get("op")),
+                        }
+                    )
+                targets.extend((feature, stage) for stage in stages)
         if not grouped:
             return ""
         if lathe:
@@ -7527,16 +7606,21 @@ class _Traveler:
             # drawing's own limits (a drawing feature only) apart from the size turned to.
             drawing = _mapping(self.bundle.features.get("features"))
             rows = []
-            for feature, entry in grouped.items():
+            unknown_stage = nominal_stage = False
+            for feature, entry in targets:
                 band = _mapping(drawing.get(feature)).get("dia")
                 drawn = "—"
                 if isinstance(band, list) and len(band) == 2 and all(map(_known, band)):
                     drawn = "Ø" + self.band(band, feature, "dia")
-                cutting = [
-                    op
-                    for op in setup.get("ops", [])
-                    if op.get("feature") == feature and op.get("do") not in MANUAL
-                ]
+                cutting = (
+                    entry["ops"]
+                    if "ops" in entry
+                    else [
+                        op
+                        for op in setup.get("ops", [])
+                        if op.get("feature") == feature and op.get("do") not in MANUAL
+                    ]
+                )
                 complete = cutting and all(
                     _known(op.get(key)) for op in cutting for key in ("z_from", "z_to")
                 )
@@ -7551,15 +7635,29 @@ class _Traveler:
                         max(starts) if starts and all(map(_known, starts)) else "unknown",
                         min(stops) if stops and all(map(_known, stops)) else "unknown",
                     )
-                rows.append(
-                    (
-                        self.feature_name(feature),
-                        drawn,
+                label = self.feature_name(feature)
+                if "ops" in entry:
+                    owners = ", ".join(str(op["op"]) for op in cutting)
+                    label += f" — {'op' if len(cutting) == 1 else 'ops'} {owners}"
+                if "ops" in entry and not _known(entry["nominal_dia"]):
+                    target = "?"
+                    unknown_stage = True
+                elif entry.get("nominal_only"):
+                    target = f"Ø{o(entry['nominal_dia'])} nominal; X ?"
+                    nominal_stage = True
+                else:
+                    target = (
                         "Ø" + o(entry["nominal_dia"])
                         if prefix is None and readout_kind(self.bundle) == "handwheel"
                         else "?"
                         if prefix is None
-                        else prefix + o(entry["dia"]),
+                        else prefix + o(entry["dia"])
+                    )
+                rows.append(
+                    (
+                        label,
+                        drawn,
+                        target,
                         *(
                             o(self.surface_z(setup, z, face=feature, done=entry["done"], path=True))
                             for z in ends
@@ -7574,6 +7672,8 @@ class _Traveler:
                 "and end, not the finished extent: a later cut (relief, part-off, next setup) "
                 "may shorten the surface."
             )
+            if staged:
+                note += " Named operations own each diameter stage and its cut limits."
             units = readout_units(self.bundle)
             if readout_kind(self.bundle) == "handwheel" or units != self.units:
                 headings = [
@@ -7613,6 +7713,18 @@ class _Traveler:
             note = "The op table gives the tool targets."
             note += "".join(f" {text}" for text in dict.fromkeys(filter(None, aims)))
         table = _table(headings, rows, css="feature-map", widths=widths, context=note)
+        if lathe and unknown_stage:
+            table += _p(
+                "STOP: operation diameter target not set; the finished-feature diameter "
+                "is not a substitute.",
+                "stop",
+            )
+        if lathe and nominal_stage:
+            table += _p(
+                "STOP: nominal Ø is a size only, not an established DRO X setting for this "
+                "stage. Establish the pickup and checked stage target before cutting.",
+                "stop",
+            )
         if lathe and prefix is None:
             table += _p(
                 (

@@ -1694,7 +1694,7 @@ execution order; `op` is its within-setup identity.
 | `stock_to_leave_mm` | `float` |
 | `z_from` | `float` |
 | `z_to` | `float` |
-| `to_dia` | `float` |
+| `to_dia` | `float`: this operation's target diameter in manifest units; an explicit `"unknown"` does not inherit the finished feature's nominal diameter |
 | `rpm` | `float`: optional authored spindle-speed request in rev/min; see [authored spindle speed](#authored-spindle-speed) |
 | `feed_mm_min` | `float` |
 | `doc_mm` | `float` |

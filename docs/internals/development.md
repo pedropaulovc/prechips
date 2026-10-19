@@ -83,7 +83,9 @@ This is a full testmon measurement run, including supported Python subprocess co
 | No discovered FreeCAD, default settings | Tests using `freecad_kernel` skip with `FreeCAD kernel not found`. Host and explicit absent-kernel contracts still run. |
 | `PRECHIPS_REQUIRE_KERNEL=1` | Missing FreeCAD is a pytest session error, not a successful geometry skip. |
 | No discovered print browser, default settings | Optional browser-print tests can skip. |
-| `PRECHIPS_REQUIRE_PRINT_BROWSER=1` | A missing or unlaunchable print browser fails the session. |
+| `PRECHIPS_REQUIRE_PRINT_BROWSER=1` | A missing or unlaunchable print browser, or an unreadable preflight PDF, fails the session before tests are scheduled. |
+
+The required-browser preflight runs once in the controller at session startup, before xdist creates workers. It prints a local temporary HTML page through the same headless, isolated-profile helper as the print tests and opens the resulting PDF to confirm that it contains a readable page. A browser version command alone is not proof that printing works. Workers do not repeat this global preflight; their individual print tests still exercise the real browser.
 
 For an intentionally kernel-free check, the existing override contract supports this POSIX-shell command:
 
@@ -133,6 +135,11 @@ uv run pytest tests/test_cli.py::test_installed_artifact_console_script_matches_
 ```
 
 Repeat for both wheel and sdist. Without that environment variable the test skips, which is not package validation. The test uses an isolated `uv` consumer, confirms the imports/console script come from the installed artifact, compares `prechips` with `python -m prechips.cli`, and exercises actual traveler/report output with an intentionally unavailable kernel. See the [CI workflow](../../.github/workflows/ci.yml) and [test implementation](../../tests/test_cli.py).
+
+The test stages identical artifact bytes under a SHA-256 directory before
+invoking `uv`. This prevents a rebuilt local artifact with the same filename and
+version from silently reusing the previous build, while retaining dependency
+and repeated-consumer environment caching.
 
 ## Check the printed output
 

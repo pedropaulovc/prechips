@@ -86,6 +86,19 @@ def native_facts():
     }
 
 
+def stock_stop_sheet(plan, sid, reason):
+    sheet = sheet_for(plan)
+    sheet.bundle = SimpleNamespace(kernel={"setups": {sid: {"stock_reason": reason}}})
+    sheet.features = {}
+    sheet.findings = [
+        Finding("consistency", sid, "unknown", {}, [], "Incoming stock is unresolved.")
+    ]
+    sheet.setup_findings = lambda setup: sheet.findings
+    sheet.bench = lambda value: value
+    setup = next(setup for setup in plan["setups"] if setup["id"] == sid)
+    return sheet, setup
+
+
 def test_magic_sibling_routes_keep_one_original_bar_and_actual_producer_history(retained_plan):
     graph = MaterialGraph(retained_plan, validate=True)
     assert graph.roots("A1") == frozenset({"stock"})
@@ -182,6 +195,172 @@ def test_named_output_keeps_the_actual_upstream_stock_stopper(retained_plan):
     dependency = sheet.stock_dependency(receiver)
     assert dependency["source"] is retained_plan["setups"][1]
     assert dependency["op"] is retained_plan["setups"][1]["ops"][0]
+
+
+@pytest.mark.parametrize(
+    "cap_name,body_name,piece_labels",
+    [
+        ("cap_return", "body_blank", "body blank and cap return"),
+        ("bar_remnant", "tube_blank", "bar remnant and tube blank"),
+    ],
+)
+@pytest.mark.parametrize("sid", ["A1", "A2", "A3"])
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "stock_in sibling partition geometry is unproven",
+        "A diagnostic with no source name or operation number",
+    ],
+)
+def test_unproven_sibling_stock_stop_identifies_actual_cut_and_pieces(
+    retained_plan, sid, reason, cap_name, body_name, piece_labels
+):
+    producer = retained_plan["setups"][1]
+    producer["id"] = "S9"
+    parting = producer["ops"][0]
+    parting["op"] = 70
+    outputs = parting["outputs"]
+    parting["outputs"] = {
+        cap_name: outputs["cone"],
+        body_name: outputs["tube"],
+    }
+    retained_plan["setups"][2]["stock_in"] = f"stock_out.{cap_name}"
+    retained_plan["setups"][3]["stock_in"] = f"stock_out.{body_name}"
+    retained_plan["setups"].extend(
+        [
+            {"id": "A2", "stock_in": "A1", "ops": []},
+            {"id": "A3", "stock_in": "A2", "ops": []},
+        ]
+    )
+    sheet, setup = stock_stop_sheet(retained_plan, sid, reason)
+    sheet.bundle.kernel["setups"]["S9"] = {
+        "outputs": {
+            cap_name: {"reason": "Output registration is unresolved"},
+            body_name: {"reason": "Output registration is unresolved"},
+        }
+    }
+    before = json.dumps([retained_plan, sheet.bundle.kernel], sort_keys=True)
+
+    stop = sheet.upstream_stock_stop(setup)
+
+    assert "stock not established" in stop
+    assert "part-off in Setup S9 op 70" in stop
+    assert f"both required pieces ({piece_labels})" in stop
+    assert "assembled workpiece before cutting" in stop
+    assert "reissue this traveler" in stop
+    assert reason not in stop
+    assert cap_name not in stop
+    assert body_name not in stop
+    assert json.dumps([retained_plan, sheet.bundle.kernel], sort_keys=True) == before
+
+
+@pytest.mark.parametrize("proof", ["missing", "partial", "wrong_partition", "reason"])
+def test_sibling_stock_stop_requires_both_matching_native_partition_records(retained_plan, proof):
+    reason = "Entry geometry is unresolved"
+    sheet, setup = stock_stop_sheet(retained_plan, "A1", reason)
+    records = native_facts()["setups"]["P3"]["outputs"]
+    if proof == "missing":
+        records = {}
+    elif proof == "partial":
+        del records["tube"]
+    elif proof == "wrong_partition":
+        records["tube"]["partition"] = "P3:99"
+    else:
+        records["tube"]["reason"] = "This output is unresolved"
+    sheet.bundle.kernel["setups"]["P3"] = {"outputs": records}
+
+    stop = sheet.upstream_stock_stop(setup)
+
+    assert "part-off in Setup P3 op 30" in stop
+    assert "both required pieces (cone and tube)" in stop
+    assert "before cutting" in stop
+    assert "reissue" in stop
+    assert reason not in stop
+
+
+def test_proved_sibling_partition_preserves_independent_join_failure(retained_plan):
+    reason = "Prepared shoulders cannot be seated in the declared joining pose"
+    sheet, setup = stock_stop_sheet(retained_plan, "A1", reason)
+    sheet.bundle.kernel["setups"]["P3"] = native_facts()["setups"]["P3"]
+
+    assert sheet.upstream_stock_stop(setup) == (
+        "Setup-entry stock not established — "
+        + reason
+        + "; resolve the upstream stock prerequisite and reissue this traveler."
+    )
+
+
+@pytest.mark.parametrize("route", ["single_child", "independent_supply"])
+def test_stock_stop_does_not_invent_sibling_cut_context(retained_plan, route):
+    reason = "The input workpiece has no established geometry"
+    if route == "single_child":
+        sid = "C1"
+    else:
+        sid = "A1"
+        retained_plan["stock"]["components"] = [{"id": "extra"}]
+        retained_plan["setups"][-1]["stock_in"] = ["C1", "stock.extra"]
+    sheet, setup = stock_stop_sheet(retained_plan, sid, reason)
+
+    assert sheet.upstream_stock_stop(setup) == (
+        "Setup-entry stock not established — "
+        + reason
+        + "; resolve the upstream stock prerequisite and reissue this traveler."
+    )
+
+
+def test_sibling_stock_stop_preserves_an_exported_source_operation(retained_plan):
+    reason = "P3:30 actual retained output geometry is unresolved"
+    sheet, setup = stock_stop_sheet(retained_plan, "A1", reason)
+    sheet.bundle.kernel["setups"]["P3"] = {"stock_out_reason": reason}
+
+    stop = sheet.upstream_stock_stop(setup)
+
+    assert "Depends on Setup P3 op 30" in stop
+    assert reason in stop
+    assert "both required pieces" not in stop
+
+
+@pytest.mark.parametrize("has_unknown", [False, True])
+def test_sibling_stock_presentation_never_downgrades_or_hides_known_error(
+    retained_plan, has_unknown
+):
+    reason = "Missing native split geometry"
+    sheet, setup = stock_stop_sheet(retained_plan, "A1", reason)
+    if not has_unknown:
+        sheet.findings.clear()
+    failure = "Known thread size mismatch prevents the declared assembly"
+    sheet.findings.append(Finding("joint_thread", "A1", "error", {}, [], failure))
+    before = json.dumps([finding.to_dict() for finding in sheet.findings], sort_keys=True)
+
+    prerequisite = sheet.upstream_stock_stop(setup)
+    stops, cautions, topics = sheet.status_lines(sheet.findings, setup)
+    if prerequisite:
+        stops.append(prerequisite)
+    html = sheet.status_boxes(stops, cautions, topics)
+
+    assert failure in stops
+    assert "STOP" in html
+    assert failure in html
+    assert json.dumps([finding.to_dict() for finding in sheet.findings], sort_keys=True) == before
+    if has_unknown:
+        assert topics
+        assert "both required pieces (cone and tube)" in html
+    else:
+        assert prerequisite is None
+        assert topics == []
+
+
+@pytest.mark.parametrize("identity", [None, "", "unknown"])
+def test_sibling_stock_stop_preserves_unresolved_rendering_identity(retained_plan, identity):
+    retained_plan["setups"][-1]["id"] = identity
+    reason = "Incoming material has not been established"
+    sheet, setup = stock_stop_sheet(retained_plan, identity, reason)
+
+    assert sheet.upstream_stock_stop(setup) == (
+        "Setup-entry stock not established — "
+        + reason
+        + "; resolve the upstream stock prerequisite and reissue this traveler."
+    )
 
 
 def test_named_output_flip_uses_the_splitting_setup_frame(retained_plan):

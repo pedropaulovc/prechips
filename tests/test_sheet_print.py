@@ -6,9 +6,12 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import os
 import re
 import struct
+import subprocess
 import sys
+import textwrap
 import zlib
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -38,6 +41,184 @@ def machinist_review():
         sys.modules["machinist_review"] = module
         spec.loader.exec_module(module)
     return module
+
+
+def _preflight_pdf():
+    """Independent one-page PDF fixture, including a real cross-reference table."""
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Contents 4 0 R >>",
+        b"<< /Length 0 >>\nstream\n\nendstream",
+    ]
+    result = b"%PDF-1.4\n"
+    offsets = [0]
+    for index, body in enumerate(objects, 1):
+        offsets.append(len(result))
+        result += f"{index} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref = len(result)
+    result += b"xref\n0 5\n0000000000 65535 f \n"
+    result += b"".join(f"{offset:010} 00000 n \n".encode() for offset in offsets[1:])
+    return result + f"trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+
+
+def _browser_gate_session(tmp_path, behavior, *, required=True, consumer_fails=False):
+    """Run the real session hook and print helper with an owned browser double."""
+    directory = tmp_path / "session"
+    directory.mkdir()
+    (directory / "conftest.py").write_bytes((ROOT / "tests" / "conftest.py").read_bytes())
+    browser = directory / "browser-double"
+    if behavior != "missing":
+        browser.write_text("Only the child-process browser double may open this.", encoding="utf-8")
+    (directory / "one-page.pdf").write_bytes(_preflight_pdf())
+    (directory / "gate_browser.py").write_text(
+        textwrap.dedent(
+            """\
+            import json
+            import os
+            import subprocess
+            from pathlib import Path
+
+            import pytest
+            from test_sheet_print import machinist_review
+
+            root = Path(__file__).resolve().parent
+            behavior = os.environ["GATE_BROWSER_BEHAVIOR"]
+            original_run = subprocess.run
+
+
+            def browser_run(command, *args, **kwargs):
+                if str(command[0]) != os.environ["PRECHIPS_CHROME"]:
+                    return original_run(command, *args, **kwargs)
+                with (root / "browser-jobs").open("a", encoding="utf-8") as stream:
+                    stream.write(f"{os.getpid()}\\n")
+                if behavior == "unlaunchable":
+                    raise PermissionError(13, "owned browser refused", command[0])
+                if behavior == "timeout":
+                    raise subprocess.TimeoutExpired(command, 30)
+                target = next(
+                    (arg.split("=", 1)[1] for arg in command
+                     if arg.startswith("--print-to-pdf=")),
+                    None,
+                )
+                if target is not None and behavior != "absent":
+                    content = {
+                        "success": (root / "one-page.pdf").read_bytes(),
+                        "empty": b"",
+                        "invalid": b"not a PDF document",
+                    }[behavior]
+                    Path(target).write_bytes(content)
+                return subprocess.CompletedProcess(command, 0, "", "")
+
+
+            machinist_review().subprocess.run = browser_run
+
+
+            @pytest.hookimpl(optionalhook=True)
+            def pytest_testnodeready(node):
+                with (root / "workers-started").open("a", encoding="utf-8") as stream:
+                    stream.write(f"{node.gateway.id}\\n")
+
+
+            @pytest.hookimpl(wrapper=True, tryfirst=True)
+            def pytest_cmdline_main(config):
+                try:
+                    return (yield)
+                except pytest.UsageError as exc:
+                    cause = exc.__cause__
+                    (root / "failure-cause.json").write_text(
+                        json.dumps({"type": type(cause).__name__}),
+                        encoding="utf-8",
+                    )
+                    raise
+            """
+        ),
+        encoding="utf-8",
+    )
+    for index in range(2):
+        consumer = (
+            "from pathlib import Path\n\n\ndef test_consumer():\n"
+            f"    Path({str(directory / f'consumer-{index}')!r}).touch()\n"
+        )
+        if consumer_fails and index == 0:
+            consumer += "    raise AssertionError('owned consumer failure')\n"
+        (directory / f"test_consumer_{index}.py").write_text(consumer, encoding="utf-8")
+    # Match the isolated-subprocess convention while retaining Windows startup variables.
+    env = {name: value for name, value in os.environ.items() if not name.startswith("PYTEST_")}
+    env.update(
+        PYTHONPATH=os.pathsep.join((str(directory), str(ROOT / "tests"))),
+        PYTEST_DISABLE_PLUGIN_AUTOLOAD="1",
+        PRECHIPS_REQUIRE_KERNEL="0",
+        PRECHIPS_REQUIRE_PRINT_BROWSER="1" if required else "0",
+        PRECHIPS_CHROME=str(browser),
+        GATE_BROWSER_BEHAVIOR=behavior,
+    )
+    process = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            "-p",
+            "xdist.plugin",
+            "-p",
+            "gate_browser",
+            "-n",
+            "2",
+            "--dist",
+            "loadscope",
+            str(directory / "test_consumer_0.py"),
+            str(directory / "test_consumer_1.py"),
+        ],
+        cwd=directory,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return process, directory
+
+
+@pytest.mark.parametrize(
+    ("behavior", "cause"),
+    [
+        ("missing", "FileNotFoundError"),
+        ("unlaunchable", "PermissionError"),
+        ("timeout", "TimeoutExpired"),
+        ("absent", "RuntimeError"),
+        ("empty", "RuntimeError"),
+        ("invalid", "PdfiumError"),
+    ],
+)
+def test_required_browser_failure_ends_the_session_before_workers(tmp_path, behavior, cause):
+    process, directory = _browser_gate_session(tmp_path, behavior)
+    assert process.returncode == pytest.ExitCode.USAGE_ERROR, process.stdout + process.stderr
+    assert json.loads((directory / "failure-cause.json").read_text("utf-8"))["type"] == cause
+    assert not (directory / "workers-started").exists()
+    assert not list(directory.glob("consumer-*"))
+
+
+def test_required_browser_success_allows_parallel_consumers_after_one_print_job(tmp_path):
+    process, directory = _browser_gate_session(tmp_path, "success")
+    assert process.returncode == pytest.ExitCode.OK, process.stdout + process.stderr
+    assert all((directory / f"consumer-{index}").is_file() for index in range(2))
+    assert len((directory / "browser-jobs").read_text("utf-8").splitlines()) == 1
+    assert len((directory / "workers-started").read_text("utf-8").splitlines()) == 2
+
+
+def test_optional_browser_does_not_block_a_session_with_an_unlaunchable_browser(tmp_path):
+    process, directory = _browser_gate_session(tmp_path, "unlaunchable", required=False)
+    assert process.returncode == pytest.ExitCode.OK, process.stdout + process.stderr
+    assert all((directory / f"consumer-{index}").is_file() for index in range(2))
+    assert not (directory / "browser-jobs").exists()
+
+
+def test_required_browser_success_does_not_hide_a_consumer_failure(tmp_path):
+    process, directory = _browser_gate_session(tmp_path, "success", consumer_fails=True)
+    assert process.returncode == pytest.ExitCode.TESTS_FAILED, process.stdout + process.stderr
+    assert all((directory / f"consumer-{index}").is_file() for index in range(2))
 
 
 def printed_pages(html, tmp_path):

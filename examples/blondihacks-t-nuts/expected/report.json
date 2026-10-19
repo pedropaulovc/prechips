@@ -5669,7 +5669,7 @@
           },
           "plan": {
             "path": "examples/blondihacks-t-nuts/plan.toml",
-            "sha256": "2796ff6dda830641f105d6b09f10b2e91479e66572855a24767b43f5b3d7eee8"
+            "sha256": "6ee80fbfc45ab20f27ce5a13eaec1e0036f4e3c055c7f229d13376a4f92d71ef"
           },
           "shop_policy": {
             "path": "examples/blondihacks-t-nuts/shop-policy.toml",
@@ -18030,7 +18030,7 @@
       "message": "base-envelope actual_slot_fit: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
         "gauge": "actual-slot",
-        "inspection_method": "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results; no numerical fit-clearance band is supplied by the video.",
+        "inspection_method": "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results. HOLD for approved fit-clearance limits before release.",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
@@ -18146,7 +18146,7 @@
       "message": "end-length actual_slot_fit: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
         "gauge": "actual-slot",
-        "inspection_method": "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results; no numerical fit-clearance band is supplied by the video.",
+        "inspection_method": "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results. HOLD for approved fit-clearance limits before release.",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
@@ -18242,7 +18242,7 @@
       "message": "shoulders actual_slot_fit: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
         "gauge": "actual-slot",
-        "inspection_method": "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results; no numerical fit-clearance band is supplied by the video.",
+        "inspection_method": "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results. HOLD for approved fit-clearance limits before release.",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
@@ -18358,7 +18358,7 @@
       "message": "threaded-hole actual_slot_fit: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
         "gauge": "actual-slot",
-        "inspection_method": "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results; no numerical fit-clearance band is supplied by the video.",
+        "inspection_method": "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results. HOLD for approved fit-clearance limits before release.",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:10",
@@ -41554,7 +41554,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "271cc3e0db7d2e488e2a4a9f18adf07d871dd568a334681443606d494f8f45d7",
+  "hash": "0a20d1f1f663cead15bc5b11117df506e9f22eedf1eab26a40dc2364dae33597",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-t-nuts/cutting-data.toml",
@@ -41570,7 +41570,7 @@
     },
     "plan": {
       "path": "examples/blondihacks-t-nuts/plan.toml",
-      "sha256": "2796ff6dda830641f105d6b09f10b2e91479e66572855a24767b43f5b3d7eee8"
+      "sha256": "6ee80fbfc45ab20f27ce5a13eaec1e0036f4e3c055c7f229d13376a4f92d71ef"
     },
     "shop_policy": {
       "path": "examples/blondihacks-t-nuts/shop-policy.toml",

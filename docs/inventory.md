@@ -1102,6 +1102,13 @@ items. It does not gain unrelated local fixture/machine blanks. An unresolved
 stock prerequisite with no attributable dimensional consumer keeps its real
 STOP reason without an invented measurement.
 
+When assembled stock depends on two retained siblings whose split is still
+unproven, the operator STOP names the producing part-off, both required pieces
+and the assembled workpiece to establish before cutting. It does not expose
+the partition-proof diagnostic as a machining instruction. Native/report
+reasons and finding statuses remain unchanged. Successful producer partition
+records do not relabel an independent joining failure as a missing split.
+
 Eligibility is per decision. Independently evaluated engagement, speeds/feeds,
 cutting direction or saw kerf keep the facts they consumed even if stock is
 blocked. A native refusal list alone does not prove a local consumer.

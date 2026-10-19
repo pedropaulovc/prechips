@@ -753,7 +753,7 @@ parallels = "not_applicable"
 jaw_above_parallels_mm = "not_applicable"
 stop = "unknown"
 stickout_mm = "unknown"
-clamp = "Grip the protected excess tail, indicate the base at the four-jaw, then use the source rolling-bearing aligner at the free end only after approving a safe alignment procedure. Withdraw the bearing and all indicator equipment completely before cutting."
+clamp = "Grip the protected excess tail, indicate the base at the four-jaw, then use the rolling-bearing aligner at the free end only after approving a safe alignment procedure. Withdraw the bearing and all indicator equipment completely before cutting."
 note = "HOLD until grip, stickout, runout, bending/deflection, wall thickness, thread seating, actual cut load and chuck/tool clearance are approved for this unsupported assembly. The roughly 0.005-inch alignment TIR shown is not a finished tolerance or safe limit. Withdraw the aligning bearing before turning; it is not continuous support."
 [setups.zero.x]
 dial_setting = "unknown"

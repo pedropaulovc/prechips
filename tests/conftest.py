@@ -1,28 +1,48 @@
-"""Optional real-kernel tests, with a fail-closed kernel-required session gate."""
+"""Optional native/print tests, with fail-closed required-dependency startup gates."""
 
 import os
 import subprocess
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 
 from prechips import kernel
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_sessionstart(session):
     if os.environ.get("PRECHIPS_REQUIRE_KERNEL") == "1" and kernel.discover_kernel() is None:
         raise pytest.UsageError("FreeCAD kernel not found")
 
-
-def pytest_collection_finish(session):
-    if os.environ.get("PRECHIPS_REQUIRE_PRINT_BROWSER") != "1":
+    if os.environ.get("PRECHIPS_REQUIRE_PRINT_BROWSER") != "1" or hasattr(
+        session.config, "workerinput"
+    ):
         return
-    from test_sheet_print import machinist_review
-
     try:
-        chrome = machinist_review().find_chrome()
-        subprocess.run([str(chrome), "--version"], check=True, capture_output=True, timeout=30)
-    except (OSError, subprocess.SubprocessError) as exc:
+        import pypdfium2 as pdfium
+        from test_sheet_print import machinist_review
+
+        review = machinist_review()
+        chrome = review.find_chrome()
+        with TemporaryDirectory(prefix="prechips-print-preflight-") as directory:
+            source = Path(directory) / "preflight.html"
+            pdf = Path(directory) / "preflight.pdf"
+            source.write_text(
+                '<!doctype html><html><head><meta charset="utf-8"></head>'
+                "<body><p>Prechips print preflight.</p></body></html>",
+                encoding="utf-8",
+            )
+            review.print_traveler_pdf(source, pdf, chrome=chrome, timeout_s=30)
+            with pdfium.PdfDocument(str(pdf)) as document:
+                if not len(document):
+                    raise ValueError("Print preflight PDF has no pages")
+                page = document[0]
+                try:
+                    page.get_size()
+                finally:
+                    page.close()
+    except (ImportError, OSError, subprocess.SubprocessError, RuntimeError, ValueError) as exc:
         raise pytest.UsageError(f"Required print browser unavailable: {exc}") from exc
 
 

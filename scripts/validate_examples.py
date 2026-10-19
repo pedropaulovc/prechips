@@ -1125,6 +1125,11 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
     def has(rule: str, subject: str) -> None:
         require((rule, subject) in findings, f"missing finding {rule}:{subject}")
 
+    # Missing-requirement declarations replace a known empty feature's bare N/A row,
+    # but unknown requirement identities/applicability still need their own subjects.
+    for subject in inspection_subjects(plan, definitions):
+        has("inspection", subject)
+
     for name, feature in features["features"].items():
         requirements = feature.get("requirements")
         require(
@@ -1166,16 +1171,12 @@ def check_subjects(plan: dict, features: dict, findings: dict, inventory: dict) 
         tolerances = set(tolerance_requirements(feature)) - {"unknown"}
         if requirements == "unknown" or "unknown" in requirements:
             subject = f"{name}:unknown"
-            has("inspection", subject)
             require(
                 findings["inspection", subject]["status"] == "unknown",
                 f"{subject}: unresolved requirement must remain unknown",
             )
-        if not tolerances and requirements != "unknown" and "unknown" not in requirements:
-            has("inspection", name)
         for requirement in tolerances:
             subject = f"{name}:{requirement}"
-            has("inspection", subject)
             finishing = [
                 op
                 for setup in plan["setups"]
@@ -4660,8 +4661,10 @@ def check_speeds(
     """Hold a speeds_feeds row to the RPM and feed the authored inputs give: the plan's
     material and the cutting data's alias, the selected tool's chart (else the one cited
     cut row its material, the op and its diameter select), the machine's spindle range,
-    the plan-derived hole depth (:func:`check_endpoints`) and its deep-hole derate. No
-    reported operand enters the arithmetic; each is compared with its source."""
+    the plan-derived hole depth (:func:`check_endpoints`) and its deep-hole derate. An
+    authored RPM overrides the computed recommendation, not its unresolved-input debt;
+    known request/limit contradictions remain errors. No reported operand enters the
+    arithmetic; each is compared with its source."""
     where = f"{setup['id']}:{op['op']}"
     row = finding["numbers"]
     if op["do"] in MANUAL:
@@ -4795,7 +4798,37 @@ def check_speeds(
         if numeric(speed) and speed > 0 and numeric(diameter_in)
         else "unknown"
     )
-    rpm = available_rpm(nearest50(raw, low, high), machine)
+    computed_rpm = available_rpm(nearest50(raw, low, high), machine)
+    rpm = computed_rpm
+    authored = "rpm" in op
+    rpm_error = False
+    authored_fields = {"requested_rpm", "computed_rpm", "rpm_basis", "rpm_status", "rpm_reason"}
+    if authored:
+        require(authored_fields <= row.keys(), f"{where}: missing authored RPM evidence")
+        requested = op["rpm"]
+        rpm = requested if positive(requested) else "unknown"
+        bands = spindle_bands(machine)
+        spindle = machine.get("spindle") if isinstance(machine.get("spindle"), dict) else {}
+        minimum, maximum = spindle.get("rpm_min", "unknown"), spindle.get("rpm_max", "unknown")
+        rpm_error = requested != "unknown" and not positive(requested)
+        if positive(requested):
+            rpm_error |= (
+                (numeric(minimum) and requested < minimum)
+                or (numeric(maximum) and requested > maximum)
+                or (
+                    bands != "unknown"
+                    and not any(start <= requested <= end for start, end in bands)
+                )
+            )
+        same(row["requested_rpm"], requested, f"{where}: requested RPM")
+        near(row["computed_rpm"], computed_rpm, f"{where}: computed RPM")
+        require(row["rpm_basis"] == "authored", f"{where}: authored RPM basis")
+        require(
+            isinstance(row["rpm_reason"], str) and row["rpm_reason"].strip() not in {"", "unknown"},
+            f"{where}: missing authored RPM reason",
+        )
+    else:
+        require(not authored_fields & row.keys(), f"{where}: unauthored RPM evidence")
     near(row.get("rpm", "unknown"), rpm, f"{where}: RPM")
     operands = (rpm, per_rev) if lathe else (rpm, flutes, chip)
     feed = math.prod(operands) if all(map(positive, operands)) else "unknown"
@@ -4813,10 +4846,22 @@ def check_speeds(
         or range_verify
         or tool_unverified(tool, entries)
         or (disk and saw_station(entries.inventory, setup, op) != "fits")
+        or (
+            authored
+            and (
+                bands == "unknown"
+                or not numeric(raw)
+                or not entries.record(tool, "tools")
+                or not machine
+            )
+        )
     )
-    # The checker certifies a sourced RPM and feed, else leaves it unknown.
+    # A request stays visible through debt; a known contradiction cannot become unknown.
+    status = "error" if rpm_error else "unknown" if unsettled else "pass"
+    if authored:
+        require(row["rpm_status"] == status, f"{where}: authored RPM verdict")
     require(
-        finding["status"] == ("unknown" if unsettled else "pass"),
+        finding["status"] == status,
         f"{where}: the RPM and feed verdict is not the one its inputs settle",
     )
 
@@ -6108,14 +6153,14 @@ def same_segments(reported, expected: list) -> bool:
 
 
 def held_stock(setup: dict, plan: dict):
-    """The chucked stock's diameter as ``stickout.held_diameter`` counts it: the stock
-    state's ``od_mm``, else the bar's ``dia_mm`` only while the plan does not flag the
-    bar's form for verification (``stock.form_verify`` true or unknown); a stock state
-    declared unknown has none. Unknown unless a positive number: an unverified fallback
-    is never a held diameter."""
+    """The declared held-stock OD: the setup's ``od_mm``, else the plan stock's
+    ``dia_mm`` unless its form is marked for verification. An omitted stock state uses
+    that fallback; an explicitly unknown state or OD does not. Only positive numbers
+    count, and a nominal declaration is not evidence of a measured physical diameter."""
     state = setup.get("stock_state")
-    if not isinstance(state, dict):
+    if state == "unknown":
         return "unknown"
+    state = state if isinstance(state, dict) else {}
     if "od_mm" in state:
         value = state["od_mm"]
     else:

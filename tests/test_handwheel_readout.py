@@ -272,6 +272,158 @@ def test_manual_unknown_x_scale_keeps_nominal_diameter_but_stops_physical_settin
     assert "physical dial settings" in printed.lower()
 
 
+@pytest.mark.parametrize("with_rows", [True, False])
+@pytest.mark.parametrize("units", ["mm", "in"])
+@pytest.mark.parametrize("radius_mode", [False, True, "unknown"])
+def test_manual_map_uses_setup_diameter_not_final_feature_geometry(with_rows, units, radius_mode):
+    bundle = _manual(units=units, radius_mode=radius_mode)
+    bundle.features["features"]["journal"].update(dia_nominal=17.4625, dia=[17.45, 17.48])
+    bundle.plan["setups"][0]["ops"] = [
+        {
+            "op": number,
+            "do": action,
+            "feature": "journal",
+            "to_dia": 17.78,
+            "z_from": 12.7,
+            "z_to": "unknown",
+        }
+        for number, action in [(10, "rough_turn"), (20, "finish_turn")]
+    ]
+    sheet, setup = _sheet(bundle)
+    numbers = sheet.records[("coordinates", "S1")]
+    assert any(row.get("dia_nominal") == 17.4625 for row in numbers["rows"])
+    if not with_rows:
+        numbers["rows"] = []
+    html = sheet.feature_map(setup)
+    cells = _map_cells(html)
+    assert len(cells) == 5, cells
+    expected = 17.78 / (2 if radius_mode is True else 1) / (25.4 if units == "in" else 1)
+    assert float(cells[2].removeprefix("Ø")) == pytest.approx(expected)
+    assert [float(value) for value in re.findall(r"\d+(?:\.\d+)?", cells[1])] == [17.45, 17.48]
+    assert cells[-1] == "?"
+    assert "physical dial settings" in _text(html)
+    assert "Axis Set" not in _text(html)
+    if radius_mode == "unknown":
+        assert "STOP" in _text(html)
+
+
+@pytest.mark.parametrize("with_rows", [True, False])
+@pytest.mark.parametrize("kind", ["digital", "handwheel"])
+@pytest.mark.parametrize("nominal", [12.7, 17.4625])
+def test_unknown_turning_diameter_never_uses_final_geometry_or_facing_endpoint(
+    with_rows, kind, nominal
+):
+    bundle = _manual(kind=kind, radius_mode=False)
+    bundle.features["features"]["journal"].update(dia_nominal=nominal, dia="unknown")
+    bundle.plan["setups"][0]["ops"] = [
+        {"op": 10, "do": "face", "feature": "journal", "to_dia": 0.0, "to_z": 0.0},
+        {
+            "op": 30,
+            "do": "turn",
+            "feature": "journal",
+            "to_dia": "unknown",
+            "z_from": 12.7,
+            "z_to": 0.0,
+        },
+        {"op": 40, "do": "part_off", "feature": "journal", "to_dia": 0.0, "to_z": 0.0},
+    ]
+    sheet, setup = _sheet(bundle)
+    numbers = sheet.records[("coordinates", "S1")]
+    assert any(row.get("dia_nominal") == nominal for row in numbers["rows"])
+    if not with_rows:
+        numbers["rows"] = []
+    html = sheet.feature_map(setup)
+    cells = _map_cells(html)
+    assert len(cells) == 5, cells
+    assert cells[2] == "?", cells
+    assert re.findall(r"\d+", cells[0]) == ["30"]
+    assert "STOP" in _text(html)
+
+
+@pytest.mark.parametrize("with_rows", [True, False])
+@pytest.mark.parametrize("last_target", [{"to_dia": "unknown"}, {}])
+def test_different_turning_stages_keep_their_own_target_and_cut_window(with_rows, last_target):
+    bundle = _manual(radius_mode=True)
+    bundle.features["features"]["journal"].update(dia_nominal=17.4625)
+    bundle.plan["setups"][0]["ops"] = [
+        {
+            "op": 30,
+            "do": "rough_turn",
+            "feature": "journal",
+            "to_dia": 17.78,
+            "z_from": 12.7,
+            "z_to": 0.0,
+        },
+        {
+            "op": 10,
+            "do": "finish_turn",
+            "feature": "journal",
+            "to_dia": 17.4625,
+            "z_from": 6.35,
+            "z_to": 0.0,
+        },
+        {
+            "op": 20,
+            "do": "turn",
+            "feature": "journal",
+            "z_from": "unknown",
+            "z_to": 0.0,
+            **last_target,
+        },
+        {"op": 40, "do": "part_off", "feature": "journal", "to_dia": 0.0, "to_z": 0.0},
+    ]
+    sheet, setup = _sheet(bundle)
+    if not with_rows:
+        sheet.records[("coordinates", "S1")]["rows"] = []
+    cells = _map_cells(sheet.feature_map(setup))
+    assert len(cells) == 15, cells
+    rows = [cells[index : index + 5] for index in range(0, len(cells), 5)]
+    assert [re.findall(r"\d+", row[0]) for row in rows] == [["30"], ["10"], ["20"]]
+    assert [float(row[2]) for row in rows[:2]] == pytest.approx([0.35, 0.34375])
+    assert rows[2][2] == "?"
+    assert [float(rows[0][-2]), float(rows[1][-2])] == pytest.approx([0.5, 0.25])
+    assert rows[2][-2] == "?"
+    assert [float(row[-1]) for row in rows] == pytest.approx([0.0, 0.0, 0.0])
+
+
+@pytest.mark.parametrize("with_rows", [True, False])
+@pytest.mark.parametrize("radius_mode", [False, True, "unknown"])
+def test_digital_stage_does_not_relabel_a_final_reference_as_a_new_dro_setting(
+    with_rows, radius_mode
+):
+    bundle = _manual(kind="digital", units="mm", radius_mode=radius_mode)
+    op = bundle.plan["setups"][0]["ops"][0]
+    op["to_dia"] = 17.78
+    sheet, setup = _sheet(bundle)
+    numbers = sheet.records[("coordinates", "S1")]
+    if not with_rows:
+        numbers["rows"] = []
+    html = sheet.feature_map(setup)
+    cells = _map_cells(html)
+    assert len(cells) == 5, cells
+    assert [float(value) for value in re.findall(r"\d+(?:\.\d+)?", cells[2])] == [17.78]
+    assert "nominal" in cells[2]
+    assert "X ?" in cells[2]
+    assert "STOP" in _text(html)
+
+
+@pytest.mark.parametrize("staged", [False, True])
+@pytest.mark.parametrize("radius_mode,x", [(False, 18.42), (True, 9.21)])
+def test_an_unchanged_digital_diameter_preserves_its_located_dro_target(staged, radius_mode, x):
+    bundle = _manual(kind="digital", units="mm", radius_mode=radius_mode)
+    if staged:
+        bundle.plan["setups"][0]["ops"][0]["to_dia"] = 18.415
+    sheet, setup = _sheet(bundle)
+    # The producer also emits a centre-only row: it has no diameter/X provenance.
+    rows = [row for row in sheet.records[("coordinates", "S1")]["rows"] if "x_target_mm" in row]
+    assert rows and all(row["dia_nominal"] == 18.415 for row in rows)
+    for row in rows:
+        row["x_target_mm"] = x
+    cells = _map_cells(sheet.feature_map(setup))
+    assert len(cells) == 5, cells
+    assert float(cells[2].removeprefix("Ø")) == pytest.approx(x)
+
+
 @pytest.mark.parametrize("kind", ["handwheel", "unknown"])
 def test_legacy_blade_touches_cannot_manufacture_digital_readings_for_manual_scale(kind):
     bundle = lathe(

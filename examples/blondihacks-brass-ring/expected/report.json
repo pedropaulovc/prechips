@@ -7555,7 +7555,7 @@
           },
           "plan": {
             "path": "examples/blondihacks-brass-ring/plan.toml",
-            "sha256": "a329aa0a1a60071ab0f4f0eb6f43600f3efa860dbbfa5f3f509b5e32546695a3"
+            "sha256": "50edc853dcb8431cda7fd795611a9532517fdb368bd27092b2eb6c35359b8a64"
           },
           "shop_policy": {
             "path": "examples/blondihacks-brass-ring/shop-policy.toml",
@@ -20769,7 +20769,7 @@
       "subject": "L1"
     }
   ],
-  "hash": "f63d09a299506ff55f020cecce65edd466bd8e8b9427e1f3c3622045ac56c0a6",
+  "hash": "f178d21bd8adc25292e32a504fbad0a4c1558913446add8f120d7dcb3d9d1b3f",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-brass-ring/cutting-data.toml",
@@ -20785,7 +20785,7 @@
     },
     "plan": {
       "path": "examples/blondihacks-brass-ring/plan.toml",
-      "sha256": "a329aa0a1a60071ab0f4f0eb6f43600f3efa860dbbfa5f3f509b5e32546695a3"
+      "sha256": "50edc853dcb8431cda7fd795611a9532517fdb368bd27092b2eb6c35359b8a64"
     },
     "shop_policy": {
       "path": "examples/blondihacks-brass-ring/shop-policy.toml",

@@ -15356,7 +15356,7 @@
           },
           "plan": {
             "path": "examples/blondihacks-magic-tube/plan.toml",
-            "sha256": "cadfe4a7df6899f919db4c45e059eb7c9a91c368bf5e4c9d6c7b5e249f81896a"
+            "sha256": "2eb23536bd788ab74b716dd2c5ff8969e38e14ee1d7996d3fca6da414b6aecae"
           },
           "shop_policy": {
             "path": "examples/blondihacks-magic-tube/shop-policy.toml",
@@ -24736,7 +24736,7 @@
         "deburr_mm": "unknown",
         "fixture": "four-jaw",
         "hold": {
-          "clamp": "Grip the protected excess tail, indicate the base at the four-jaw, then use the source rolling-bearing aligner at the free end only after approving a safe alignment procedure. Withdraw the bearing and all indicator equipment completely before cutting.",
+          "clamp": "Grip the protected excess tail, indicate the base at the four-jaw, then use the rolling-bearing aligner at the free end only after approving a safe alignment procedure. Withdraw the bearing and all indicator equipment completely before cutting.",
           "fixed_jaw": "not_applicable",
           "fixture": "four-jaw",
           "grip_mm": "unknown",
@@ -57121,7 +57121,7 @@
       "subject": "T2"
     }
   ],
-  "hash": "8efa0df85bbf7e3ab412f079d5e0227b5599a8524ed21a16a747461b2655e684",
+  "hash": "d4172ce3ee93e357109efd072f119f4b325faf36fd2fe63442f1eab5979ed3e8",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-magic-tube/cutting-data.toml",
@@ -57137,7 +57137,7 @@
     },
     "plan": {
       "path": "examples/blondihacks-magic-tube/plan.toml",
-      "sha256": "cadfe4a7df6899f919db4c45e059eb7c9a91c368bf5e4c9d6c7b5e249f81896a"
+      "sha256": "2eb23536bd788ab74b716dd2c5ff8969e38e14ee1d7996d3fca6da414b6aecae"
     },
     "shop_policy": {
       "path": "examples/blondihacks-magic-tube/shop-policy.toml",

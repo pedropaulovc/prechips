@@ -811,14 +811,14 @@ op = 30
 do = "coating"
 feature = "all-surfaces"
 process = ["rinse-water", "paper-towel"]
-note = "Rinse to stop the reaction, dry, and buff off loose black residue. Optional: scuff with #000 steel wool and repeat the clean/dip/rinse cycle. No coating thickness or finish tolerance is stated."
+note = "Rinse to stop the reaction, dry, and buff off loose black residue. Optional: scuff with #000 steel wool and repeat the clean/dip/rinse cycle. HOLD: resolve coating-thickness and finish requirements before release."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=955s"
 [[setups.ops]]
 op = 40
 do = "coating"
 feature = "all-surfaces"
 process = "oil"
-note = "Apply a light coat of oil and wipe off excess and loose residue. No particular oil is required; product and viscosity remain unspecified."
+note = "HOLD: establish the oil product and viscosity before use. Apply a light coat of oil and wipe off excess and loose residue."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s"
 
 [[setups]]
@@ -833,6 +833,6 @@ op = 10
 do = "inspect"
 feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
 missing_requirements = { actual_slot_fit = "actual-slot", below_table_top = "actual-slot", shoulder_bearing = "actual-slot", stud_retention = "mating-hardware" }
-inspection_methods = { actual_slot_fit = "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results; no numerical fit-clearance band is supplied by the video.", below_table_top = "Verify the nut's top stays below the table surface so the intended workpiece rests on the table, not the nut. Record the check for every nut.", shoulder_bearing = "Confirm the flange shoulders engage and pull up under the slot lips rather than wedging or bottoming; establish the actual contact before using a clamp.", stud_retention = "With the intended hardware, check the rod stops at the staked bottom thread and tightening the upper nut does not turn it through onto the table. Confirm useful engagement without forcing the deformation." }
+inspection_methods = { actual_slot_fit = "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results. HOLD for approved fit-clearance limits before release.", below_table_top = "Verify the nut's top stays below the table surface so the intended workpiece rests on the table, not the nut. Record the check for every nut.", shoulder_bearing = "Confirm the flange shoulders engage and pull up under the slot lips rather than wedging or bottoming; establish the actual contact before using a clamp.", stud_retention = "With the intended hardware, check the rod stops at the staked bottom thread and tightening the upper nut does not turn it through onto the table. Confirm useful engagement without forcing the deformation." }
 note = "HOLD until the actual slot/hardware checks and approved dimensional requirements are complete. Functional checks do not establish a certified load rating or physical machining acceptance."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s"

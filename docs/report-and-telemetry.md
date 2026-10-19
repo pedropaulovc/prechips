@@ -1019,6 +1019,22 @@ X as the DRO displays it, and the start/end Z of the setup's cuts. X says
 `turn to Ø` for diameter display or `turn to X (radius)` for radius display.
 Unstated `dro.radius_mode` prints `?` and a STOP.
 
+An authored turning/profile or boring `to_dia` belongs to that operation's
+stage, not automatically to the finished feature. Staged rows name their
+operations and use only those operations' cut limits. Equal consecutive
+targets may share a row. Unknown targets remain `?`; a later or finished
+diameter never fills them, and a facing/part-off endpoint does not replace the
+turning size. Missing targets in a staged feature also remain unresolved.
+Unstaged legacy feature maps retain their reference-derived targets.
+
+The coordinate report's feature-row nominal diameter and `x_target_mm` remain
+finished-feature geometry references. An unchanged digital stage can retain
+the located reference X, including its aim. A different or unlocated stage
+shows the authored diameter as `nominal; X ?` with a STOP until its pickup and
+checked X target are established. Mechanical-scale values remain nominal
+diameter/radius targets, converted to the declared readout units, not physical
+dial settings. Drawing limits remain separate from every process-stage size.
+
 A mill map gives feature, the reference point X/Y/Z stand on, and X/Y/Z values.
 The point may be a hole/boss axis, arc centre or face, at entry, exit or Z0.
 A face square to setup Z is omitted unless it carries an aim: its centre is no
