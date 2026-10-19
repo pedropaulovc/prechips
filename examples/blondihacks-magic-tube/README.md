@@ -47,6 +47,12 @@ measured shop limit or automatic physics pass. The selected nominal wall below
 the thread is 2.778125 mm, derived from OD and tap-drill nominal; the actual
 thread-root wall, drilled hole and stock must still be established.
 
+The approximately 0.805-in reading after the initial cleanup pass (video
+02:37–03:01) is a process observation, not a raw-bar dimension or an acceptance
+limit. The setup sheets give the operator actions directly; source chronology,
+unused alternatives and older-article differences remain in this provenance
+record rather than being repeated at each operation.
+
 ## Actual separate-piece model
 
 `magic-tube.STEP` contains **two distinct solids** in the nominal closed

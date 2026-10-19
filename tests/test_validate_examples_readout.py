@@ -23,7 +23,7 @@ from test_handwheel_readout import (
 from test_lathe_zero import lathe
 from test_tool_change_touch import carried_native_datum_bundle
 
-from prechips.inputs import load_bundle
+from prechips.inputs import Bundle, load_bundle
 from prechips.measurements import measurement_checklist
 from prechips.rules import coordinates
 from prechips.rules.zero_recipe import rule as zero_rule
@@ -393,7 +393,17 @@ def test_explicit_unknown_digital_units_cannot_borrow_measured_grid_trust(valida
 
 
 def test_legacy_digital_same_unit_grid_and_zero_remain_unchanged(validator):
-    implicit = lathe()
+    legacy = lathe()
+    implicit = Bundle(
+        plan=legacy.plan,
+        features=legacy.features,
+        inventory=legacy.inventory,
+        policy={},
+        cutting_data={},
+        paths={},
+        hashes={},
+        root=ROOT,
+    )
     implicit.plan["dro"].pop("kind", None)
     explicit = deepcopy(implicit)
     explicit.plan["dro"]["kind"] = "digital"
@@ -435,12 +445,16 @@ def test_actual_traveler_keeps_nominal_units_and_physical_zero_distinct(
     if not radius_mode:
         assert re.search(r"\b0\.0010*\s+in\b", zero_text), zero_text
         assert "radial" in zero_text.lower()
-    expected_x = 0.3625 if radius_mode else 0.725
-    assert any(
-        re.fullmatch(r"[ØX ]*" + re.escape(f"{expected_x:.4f}") + r"0*", cell) for cell in cells
-    ), cells
-    assert float(cells[-2]) == pytest.approx(0.500)
-    assert float(cells[-1]) == pytest.approx(0.0)
+    unit_mm = {"mm": 1.0, "in": 25.4}
+    conversion = unit_mm[data.features["units"]] / unit_mm[data.plan["dro"]["units"]]
+    nominal_diameter = data.features["features"]["journal"]["dia_nominal"]
+    expected_x = nominal_diameter * conversion / (2 if radius_mode else 1)
+    printed_x = re.fullmatch(r"[ØX ]*(-?\d+(?:\.\d+)?)", cells[2])
+    assert printed_x is not None, cells
+    assert float(printed_x[1]) == pytest.approx(expected_x)
+    op = setup["ops"][0]
+    assert float(cells[-2]) == pytest.approx(op["z_from"] * conversion)
+    assert float(cells[-1]) == pytest.approx(op["z_to"] * conversion)
     assert "nominal" in map_text.lower()
     assert "physical dial setting" in map_text.lower()
     assert "18.415 in" not in map_text

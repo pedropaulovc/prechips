@@ -123,6 +123,40 @@ def test_assembly_arrival_never_invents_two_independent_supplies(retained_plan):
 
 
 @pytest.mark.parametrize(
+    "sid,pieces",
+    [
+        ("C1", ["bar remnant"]),
+        ("T2", ["tube blank"]),
+        ("A1", ["bar remnant", "tube blank"]),
+    ],
+)
+def test_retained_arrival_humanizes_output_labels_without_changing_route_identity(
+    retained_plan, sid, pieces
+):
+    outputs = retained_plan["setups"][1]["ops"][0]["outputs"]
+    retained_plan["setups"][1]["ops"][0]["outputs"] = {
+        "bar_remnant": outputs["cone"],
+        "tube_blank": outputs["tube"],
+    }
+    retained_plan["setups"][2]["stock_in"] = "stock_out.bar_remnant"
+    retained_plan["setups"][3]["stock_in"] = "stock_out.tube_blank"
+    before = json.dumps(retained_plan, sort_keys=True)
+    setup = next(setup for setup in retained_plan["setups"] if setup["id"] == sid)
+
+    arrival = sheet_for(retained_plan).arrival(setup)
+
+    for piece in pieces:
+        assert f"the {piece} retained piece" in arrival
+    assert "bar_remnant" not in arrival
+    assert "tube_blank" not in arrival
+    assert json.dumps(retained_plan, sort_keys=True) == before
+    assert {atom.output for atom in MaterialGraph(retained_plan).nodes["A1"]} == {
+        "bar_remnant",
+        "tube_blank",
+    }
+
+
+@pytest.mark.parametrize(
     "refs", [["C1", "C1"], ["C1", "stock_out.cone"], ["C1", "stock"], ["C1", "P3"]]
 )
 def test_validator_rejects_overlapping_or_reused_material_not_sibling_roots(retained_plan, refs):
@@ -619,3 +653,17 @@ def test_validator_threaded_join_cannot_pass_a_synthetic_native_bbox(retained_pl
     rows["joint_thread", "A1"]["status"] = "pass"
     with pytest.raises(ValueError, match="unmodeled threaded geometry cannot approve"):
         check(retained_plan, {"features": {}}, rows, lambda: facts)
+
+
+@pytest.mark.parametrize("identity", [None, "", "unknown"])
+def test_incomplete_rendering_route_names_no_known_arrival_or_causal_owner(retained_plan, identity):
+    target = retained_plan["setups"][-1]
+    target["id"] = identity
+    sheet = sheet_for(retained_plan)
+    assert sheet.arrival(target) == "? unknown stock route; setup identity unresolved"
+    reason = "P3:30 unresolved retained partition"
+    sheet.bundle = SimpleNamespace(kernel={"setups": {identity: {"stock_reason": reason}}})
+    sheet.setup_findings = lambda setup: [
+        Finding("consistency", identity, "unknown", {}, [], "Setup-entry stock is unresolved.")
+    ]
+    assert sheet.stock_dependency(target) == {"reason": reason, "source": None, "op": None}

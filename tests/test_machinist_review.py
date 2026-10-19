@@ -193,6 +193,65 @@ def _fake_codex(calls: list[dict[str, Any]]):
     return run
 
 
+@pytest.mark.parametrize("diagnostic_source", ["result", "assistant", "error", "stderr"])
+def test_failed_claude_reports_provider_diagnostic(
+    tmp_path: Path, monkeypatch, diagnostic_source: str
+) -> None:
+    page = tmp_path / "page-1.png"
+    page.write_bytes(b"png")
+    package = mr.ReviewPackage(
+        name="p", report_dir=tmp_path / "r", pages=(page,), provenance={"source_kind": "png"}
+    )
+    reason = "API Error: provider safeguards flagged this message [general_harms]"
+    unrelated = "PRIVATE_PAPER_OR_TOOL_PAYLOAD"
+    events = [
+        {"type": "user", "message": {"content": unrelated}},
+        {"type": "assistant", "message": {"content": [{"type": "text", "text": unrelated}]}},
+        {"type": "tool_result", "content": unrelated, "is_error": True},
+        {"type": "image", "source": {"type": "base64", "data": unrelated}},
+        {"type": "result", "is_error": False, "result": unrelated},
+    ]
+    stderr = ""
+    if diagnostic_source == "stderr":
+        stderr = "  " + reason + "  \n"
+        events.append({"type": "result", "is_error": True, "result": "not stderr"})
+    elif diagnostic_source == "result":
+        events.append({"type": "result", "subtype": "success", "is_error": True, "result": reason})
+    elif diagnostic_source == "assistant":
+        events.append(
+            {
+                "type": "assistant",
+                "error": "invalid_request",
+                "message": {
+                    "content": [
+                        {"type": "image", "source": {"data": unrelated}},
+                        {"type": "tool_use", "input": {"text": unrelated}},
+                        {"type": "text", "text": reason},
+                    ]
+                },
+            }
+        )
+    else:
+        events.append({"type": "error", "error": {"message": reason, "payload": unrelated}})
+    stdout = "\n".join(json.dumps(event) for event in events) + "\n"
+
+    def run(cmd, **kwargs):
+        return subprocess.CompletedProcess(cmd, 1, stdout=stdout, stderr=stderr)
+
+    monkeypatch.setattr(mr.subprocess, "run", run)
+    review = mr.review_package(package, reviewer="claude", executable="claude", retries=0)
+    recorded = json.loads((package.report_dir / "review.json").read_text(encoding="utf-8"))
+    attempt = recorded["extra"]["evidence"]["attempts"][0]
+    assert review.verdict is None and not review.passed
+    assert recorded["verdict"] is None and not recorded["passed"]
+    assert attempt["outcome"] == "failed" and attempt["exit_code"] == 1
+    for error in (review.error, recorded["error"], attempt["error"]):
+        assert error and "claude exit 1:" in error
+        assert reason in error
+        assert unrelated not in error
+        assert "not stderr" not in error
+
+
 @pytest.mark.parametrize(
     "with_handbook, reference_note",
     [(False, ""), (True, ""), (True, "# changed-reference-é\n")],

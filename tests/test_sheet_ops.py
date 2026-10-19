@@ -1420,7 +1420,7 @@ def _lathe_sheet(ops, hands):
 )
 def test_a_tool_row_prints_the_shank_where_it_differs_from_the_cutting_diameter(tool, shank):
     sheet = shop({})
-    sheet.bundle.inventory = {"tools": {"drill": {"kind": "drill", **tool}}}
+    sheet.bundle = replace(sheet.bundle, inventory={"tools": {"drill": {"kind": "drill", **tool}}})
     detail = sheet.tool_detail("drill")
     assert [d for d in detail if d.startswith("shank")] == ([shank] if shank else [])
 
@@ -2419,7 +2419,12 @@ def test_feature_map_qualification_is_part_of_its_repeatable_table_header():
         kind="lathe",
     )
     markup = Markup(
-        sheet.feature_map({"id": "S1", "ops": [{"op": 10, "do": "turn", "feature": "body"}]})
+        sheet.feature_map(
+            {
+                "id": "S1",
+                "ops": [{"op": 10, "do": "turn", "feature": "body", "z_from": 0.0, "z_to": -20.0}],
+            }
+        )
     )
     table = markup.find("feature-map")[0]
     qualification = markup.find("table-context", table)[0]
@@ -2429,7 +2434,15 @@ def test_feature_map_qualification_is_part_of_its_repeatable_table_header():
     assert "later cut" in content(qualification)
     body = next(node for node in markup.nodes if node["tag"] == "tbody")
     assert markup.nodes.index(qualification) < markup.nodes.index(body)
-    assert all(value in content(body) for value in ("Ø9.900–10.100", "Ø10.000", "-20.000"))
+    cells = [
+        node for node in markup.nodes if node["tag"] == "td" and node["parent"]["parent"] is body
+    ]
+    assert [content(cell) for cell in cells[:1]] == ["body"]
+    assert all(content(cell).startswith("Ø") for cell in cells[1:3])
+    assert [
+        [float(value) for value in re.findall(r"-?\d+(?:\.\d+)?", content(cell))]
+        for cell in cells[1:]
+    ] == [[9.9, 10.1], [10.0], [0.0], [-20.0]]
 
 
 @pytest.mark.parametrize("list_only", [False, True])

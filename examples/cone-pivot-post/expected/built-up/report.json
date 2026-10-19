@@ -21132,6 +21132,7 @@
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/cone_pivot_post_spec.py:1-10",
         "harmonic-analyzer/cad/scripts/build_cone_pivot_post.py:10-16,372-395",
+        "plan.setups.S11.ops.10.stock_removal_bounds",
         "coordinates.S11: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -21195,16 +21196,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -25.500239754836223,
-                25.500239754836223
+                -26.2,
+                26.2
               ],
               "y": [
-                -25.500239754836223,
-                25.500239754836223
+                -26.2,
+                26.2
               ],
               "z": [
-                59.4,
-                86.0
+                86.0,
+                87.0
               ]
             },
             "feature": "head",
@@ -26406,7 +26407,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "beed4bafbbee3b7becae55b5722cb2b175a511fa83bc06865f82e3c809919169",
+  "hash": "86eb7fd6e254b07338de0246f46b21d62c47f1f7400317b4a19ec98a660e9d09",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

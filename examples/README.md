@@ -110,9 +110,9 @@ The frozen `expected/report.json` file SHA-256 values are:
 
 | Bundle | SHA-256 |
 | --- | --- |
-| `blondihacks-t-nuts` | `a49b8666e71ad803e821516839182f5b8f1da6d0dfde0fcf2ba07798ea87eb39` |
-| `blondihacks-brass-ring` | `bb41307f4ec32eab23e0f65c386642d39858a2e8529aac65c0628df2c2afa8c7` |
-| `blondihacks-magic-tube` | `a4e3ce54e7e25cb77dcda43c35d20136e0c4ef10757e649c4fb8b998724b1668` |
+| `blondihacks-t-nuts` | `75f7ee11586f0cdd74203f33ac45812974d4da914dc1e45164586020082d3b80` |
+| `blondihacks-brass-ring` | `f0433be74a4148adfb7dcf1c55c0e816d0718fe27b80d579c59a51729948d839` |
+| `blondihacks-magic-tube` | `bba56843b04472b8792f9d049bb33b32989ce43e48f3df8c8acf5832d0e437e3` |
 
 These are generated-output integrity and repeatability records, not source
 measurements, full-suite or full-validator acceptance, independent blind

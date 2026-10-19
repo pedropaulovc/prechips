@@ -96,6 +96,18 @@ def setup_index(plan: dict) -> dict[str, dict]:
     return result
 
 
+def route_identities_known(plan: dict, sid: Any) -> bool:
+    """Whether route queries can bind identities in a potentially incomplete rendering.
+
+    This is only a query precondition, never material proof or relaxed plan validation.
+    Strict loading still uses ``setup_index`` and rejects unresolved setup identities.
+    """
+    identities = [sid, *(setup.get("id") for setup in plan.get("setups", []))]
+    return all(
+        isinstance(value, str) and value.strip() and value != UNKNOWN for value in identities
+    )
+
+
 def producer_setup(plan: dict, ref: str) -> str | None:
     """The producing setup of a setup/output reference; a supply has no producer."""
     for setup in plan.get("setups", []):

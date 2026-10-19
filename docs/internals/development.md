@@ -159,6 +159,8 @@ uv run scripts/machinist_review.py --reviewer codex --png page-1.png --png page-
 
 The script records `review.json`, `review.md`, reviewer events, per-attempt artifacts with resume commands and page PNGs under the report directory's package subdirectories. Traveler/bundle reviews also retain the printed PDF and generated output as applicable. `index.md` summarizes packages. Provenance records page SHA-256 values, source PDF hashes where present, and HTML/report/PDF identities for generated sheets. The event stream enforces blindness: unauthorized tool/path access fails the review; Claude must read every supplied page.
 
+A nonzero reviewer exit remains a failed review, not a machining verdict. Its report includes a bounded diagnostic from stderr, or an explicit structured provider error when stderr is empty; unrelated page/tool payloads are not used as diagnostics. The retained stdout, stderr and events remain available for investigation.
+
 A review exits 0 only when every package remains blind, the verdict is `CLEAR` and there are no blocker, clutter or clarity findings. Minor findings are recorded but do not gate. The reviewer judges speeds, feeds, depths of cut, stickouts and tool choices against the material, tool and machine, including values labeled as examples. Tool-breaking, machine-exceeding or part-scrapping values are blockers. Substantially inaccurate but survivable values, or an important value without an established reference range, are clarity findings. The summary must identify the comparison basis.
 
 ### Handbook references

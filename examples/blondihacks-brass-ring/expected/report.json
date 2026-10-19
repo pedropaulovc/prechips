@@ -7555,7 +7555,7 @@
           },
           "plan": {
             "path": "examples/blondihacks-brass-ring/plan.toml",
-            "sha256": "fa2a51037df4785064dc8c6eac67bf4ec5ec978ea02ee75636abb4d3473d1be1"
+            "sha256": "a329aa0a1a60071ab0f4f0eb6f43600f3efa860dbbfa5f3f509b5e32546695a3"
           },
           "shop_policy": {
             "path": "examples/blondihacks-brass-ring/shop-policy.toml",
@@ -7799,7 +7799,7 @@
             "z_to": "unknown"
           },
           {
-            "direction": "radially_inward",
+            "direction": "plunge_radial",
             "do": "groove",
             "feature": "back-face",
             "op": 100,
@@ -7863,7 +7863,7 @@
           "graduation": 0.002,
           "graduation_mm": 0.0508,
           "kind": "handwheel",
-          "procedure": "For OD turning, touch the stock surface, withdraw clear and rotate the cross-slide graduation ring to the closest whole number; read subsequent DIAMETER reductions from that physical dial. The exact starting dial number is unrecorded. Set the groove's ring-side Z edge with the machinist scale.",
+          "procedure": "For OD turning, touch the stock surface, withdraw clear and rotate the cross-slide graduation ring to the closest whole number; record the starting dial number and read subsequent DIAMETER reductions from that physical dial. Set the groove's ring-side Z edge with the machinist scale.",
           "units": "in",
           "x_radial_graduation_mm": 0.0254,
           "x_scale": "diameter"
@@ -9710,10 +9710,10 @@
         "deburr_mm": "unknown",
         "fixture": "unknown",
         "hold": {
-          "clamp": "Source holds the small ring in fingers while manually twisting a conical hand deburring tool; approved mechanical retention/contact remains unknown.",
+          "clamp": "The demonstration holds the small ring in fingers for manual twists of the conical hand deburring tool. HOLD until safe mechanical retention/contact is established and approved.",
           "fixture": "unknown",
           "grip_mm": "unknown",
-          "note": "HOLD until safe retention for this small sharp ring is established. Source hand-held demonstration is not an engineered fixture or capacity measurement. Both inner edges must be safe before wear. EDITORIAL MATERIAL HOLD: CDA C36000 lists 2.5-3.0% lead (Pb), not lead-free brass (https://alloys.copper.org/alloy/C36000). Verify actual stock identity/composition and applicable wear/gift requirements; no child-jewelry or adult-wear acceptance follows from this checker result.",
+          "note": "HOLD until safe retention for this small sharp ring is established. Finger holding does not establish safe mechanical retention or holding capacity. Both inner edges must be safe before wear.",
           "stop": "unknown"
         },
         "missing": [
@@ -9734,10 +9734,10 @@
       "message": "L1: holding declarations need hold.stop, hold.grip_mm, deburr_mm, stock_state.north_end_z, stock_state.south_end_z.",
       "numbers": {
         "align_due": "not_applicable",
-        "coolant": "Turning demonstrated dry; cutting oil for spotting/drilling; product unknown",
+        "coolant": "Turn dry; use cutting oil for spotting/drilling. Confirm the actual oil product before use.",
         "cut_directions": {
           "10": "radially_inward",
-          "100": "radially_inward",
+          "100": "plunge_radial",
           "20": "toward_chuck",
           "40": "toward_chuck",
           "50": "toward_chuck",
@@ -9750,10 +9750,10 @@
           "fixed_jaw": "not_applicable",
           "fixture": "three-jaw-chuck",
           "grip_mm": "unknown",
-          "grip_on": "Unmachined brass scrap behind the short exposed working end; actual engagement unmeasured",
+          "grip_on": "Unmachined brass scrap behind the short exposed working end; measure and approve actual engagement before power",
           "jaw_above_parallels_mm": "not_applicable",
           "jaws_along": "not_applicable",
-          "note": "BEFORE LOADING: confirm intended ring size, actual alloy and material suitability for wear. EDITORIAL MATERIAL HOLD: CDA C36000 composition includes 2.5-3.0% Pb, not lead-free brass; do not treat the video's separate 12L14 warning as covering this different alloy or as wear approval (https://alloys.copper.org/alloy/C36000). Record actual stock length/diameter/old step, chuck grip and exposed length. With power isolated, check the whole turning and grooving travel against the rotating jaw envelope; the source uses a rule and witness mark, not a measured clearance. Confirm tool centre height, toolpost clamping, tailstock alignment/lock and drill grip. HOLD for an approved final-drill breakthrough and loose-ring retention method: the video releases the ring onto the drill, which is not certified by this model. No tailstock centre support is used; the tailstock carries the drill chuck only.",
+          "note": "BEFORE LOADING: confirm intended ring size. Record actual stock length/diameter/old step, chuck grip and exposed length. With power isolated, check the whole turning and grooving travel against the jaw envelope using the rule and witness mark; measure and approve clearance before power. Confirm tool centre height, toolpost clamping, tailstock alignment/lock and drill grip. HOLD for an approved final-drill breakthrough and loose-ring retention method. No tailstock centre support is used; the tailstock carries the drill chuck only.",
           "parallels": "not_applicable",
           "stickout_mm": "unknown",
           "stop": "unknown",
@@ -20711,7 +20711,7 @@
             "feature": "spindle_axis",
             "gauge": "dial-caliper",
             "method": "trial_cut_measure",
-            "procedure": "Source 10:15-10:46: touch the OD, withdraw the tool clear and set the cross-slide ring to the closest whole dial number. The actual starting dial reading is unknown. Its engraved 0.002-inch graduations indicate diameter reduction, not radial travel; nominal spindle-axis X0 is not a physical dial setting.",
+            "procedure": "Touch the OD, withdraw the tool clear and set the cross-slide ring to the closest whole dial number; record that starting reading before cutting. Its engraved 0.002-inch graduations indicate diameter reduction, not radial travel; nominal spindle-axis X0 is not a physical dial setting.",
             "tool": "turning-tool"
           },
           "z": {
@@ -20719,8 +20719,8 @@
             "face": "raw exposed brass end, then the faced front annulus",
             "feature": "unknown",
             "gauge": "unknown",
-            "method": "Touch the raw face until a first chip appears; withdraw radially, advance the carriage for facing and lock. Establish the faced end as the later nominal axial reference. Actual initial end station and sign/reversal checks remain unrecorded.",
-            "procedure": "Source 07:24-07:45: touch the raw exposed face, withdraw radially, advance the carriage for facing and lock it. The resulting front face is the axial reference. For the later groove tool, source 14:36-14:54 sets the ring-side cutting edge 0.100 inch behind that face with a machinist scale and locks the carriage; no paper/top retouch is scheduled after op 80.",
+            "method": "Touch the raw face until a first chip appears; withdraw radially, advance the carriage for facing and lock. Establish the faced end as the later nominal axial reference. Record the actual initial end station and verify sign/reversal checks before relying on this pickup.",
+            "procedure": "Touch the raw exposed face, withdraw radially, advance the carriage for facing and lock it. The resulting front face is the axial reference. For the groove tool in L1 op 100, set the ring-side cutting edge 0.100 inch behind that face with a machinist scale and lock the carriage. Use this scale pickup; do not make a paper/top retouch after L1 op 80.",
             "tool": "turning-tool"
           }
         },
@@ -20740,7 +20740,7 @@
           "graduation": 0.002,
           "graduation_mm": 0.0508,
           "kind": "handwheel",
-          "procedure": "For OD turning, touch the stock surface, withdraw clear and rotate the cross-slide graduation ring to the closest whole number; read subsequent DIAMETER reductions from that physical dial. The exact starting dial number is unrecorded. Set the groove's ring-side Z edge with the machinist scale.",
+          "procedure": "For OD turning, touch the stock surface, withdraw clear and rotate the cross-slide graduation ring to the closest whole number; record the starting dial number and read subsequent DIAMETER reductions from that physical dial. Set the groove's ring-side Z edge with the machinist scale.",
           "units": "in",
           "x_radial_graduation_mm": 0.0254,
           "x_scale": "diameter"
@@ -20757,7 +20757,7 @@
             "paper_mm": "unknown",
             "tool": "parting-tool",
             "x_face": "outer-diameter",
-            "x_method": "Source 15:19: touch the finished OD and read diameter reduction on the physical handwheel. Actual initial dial reading and a verified backlash/take-up procedure remain unknown; resolve these before cutting.",
+            "x_method": "Touch the finished OD and read diameter reduction on the physical handwheel. Record the initial dial reading and verify the backlash/take-up procedure before cutting.",
             "z_face": "front-face",
             "z_gauge": "machinist-scale",
             "z_offset_mm": -2.54
@@ -20769,7 +20769,7 @@
       "subject": "L1"
     }
   ],
-  "hash": "3f1ea46b527a3699240d628c17e6c1c200d9583568dd7920063cdc4a473a08c7",
+  "hash": "f63d09a299506ff55f020cecce65edd466bd8e8b9427e1f3c3622045ac56c0a6",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-brass-ring/cutting-data.toml",
@@ -20785,7 +20785,7 @@
     },
     "plan": {
       "path": "examples/blondihacks-brass-ring/plan.toml",
-      "sha256": "fa2a51037df4785064dc8c6eac67bf4ec5ec978ea02ee75636abb4d3473d1be1"
+      "sha256": "a329aa0a1a60071ab0f4f0eb6f43600f3efa860dbbfa5f3f509b5e32546695a3"
     },
     "shop_policy": {
       "path": "examples/blondihacks-brass-ring/shop-policy.toml",

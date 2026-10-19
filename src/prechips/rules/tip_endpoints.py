@@ -11,6 +11,7 @@ from prechips.material_routes import (
     feature_material_status,
     producer_setup,
     reference_frame,
+    route_identities_known,
     setup_lineage,
 )
 from prechips.measurements import angle_fact, length_debt
@@ -777,6 +778,8 @@ def stock_states(bundle, setup):
 
 def lineage(bundle, setup):
     """Producer history, oldest first; feature survival requires separate material proof."""
+    if not route_identities_known(bundle.plan, setup.get("id")):
+        return []
     earlier = setup_lineage(bundle.plan, setup.get("id")) - {setup.get("id")}
     return [other for other in bundle.plan.get("setups", []) if other.get("id") in earlier]
 
@@ -906,6 +909,8 @@ def transfer(bundle, setup):
     such a transfer carries none, and its ``shift`` is None."""
     from .coordinates import dro_grid, dro_z, frame_axes, mapping_vector
 
+    if not route_identities_known(bundle.plan, setup.get("id")):
+        return None
     source, before = setup.get("stock_in"), None
     producer = producer_setup(bundle.plan, source) if isinstance(source, str) else None
     for other in bundle.plan.get("setups", []):
@@ -963,6 +968,9 @@ def transfer(bundle, setup):
 
 def _carried(bundle, setup):
     """:func:`transfer`'s carried Zs; unknown, not nominal, across an unplaced output."""
+    if not route_identities_known(bundle.plan, setup.get("id")):
+        state = mapping(setup.get("stock_state"))
+        return {key: (state[key], UNKNOWN) for key in ARRIVAL_ZS if number(state.get(key))}
     move = transfer(bundle, setup)
     if move:
         return move["carried"]
@@ -990,6 +998,9 @@ def arrival_zs(bundle, setup):
     else on its grid (``dro_z``)."""
     from .coordinates import dro_grid, dro_z
 
+    if not route_identities_known(bundle.plan, setup.get("id")):
+        state = mapping(setup.get("stock_state"))
+        return {key: (state[key], UNKNOWN) for key in ARRIVAL_ZS if number(state.get(key))}
     carried = _carried(bundle, setup)
     state, received = mapping(setup.get("stock_state")), {}
     for key in ARRIVAL_ZS:
@@ -1109,6 +1120,8 @@ def forms_face(bundle, setup, op):
 
 def _producer(bundle, setup, value, face, done, source, path=False, debts=None, credited=None):
     """Resolve the existing producer; optionally collect its whole eligible face refs."""
+    if not route_identities_known(bundle.plan, setup.get("id")):
+        return UNKNOWN
     ops = setup.get("ops", [])
     features = bundle.feature_definitions
     if source is None and face == "top" and done:

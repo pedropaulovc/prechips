@@ -1,13 +1,17 @@
 """A stopped-spindle die route selects real hand tooling, not a spindle stack."""
 
+import re
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from test_sheet_ops import Markup, content
 
-from prechips.inputs import Bundle
+from prechips.inputs import Bundle, load_bundle
 from prechips.rules import tool_resolves
 from prechips.rules.resolution import HAND_FINISH, HAND_THREAD, MANUAL, resolve, tool_numbers
 from prechips.rules.zero_recipe.tool_setting import tool_changes, tool_setting
+from prechips.sheet import render_traveler
 
 
 @pytest.fixture
@@ -235,6 +239,69 @@ def tap_bundle(die_bundle):
     op = die_bundle.plan["setups"][0]["ops"][0]
     op.update(do="hand_tap", tool="taps/quarter", holder="tools.wrench")
     return die_bundle
+
+
+@pytest.mark.parametrize(
+    "example,expected",
+    [
+        (
+            "blondihacks-magic-tube",
+            [
+                ("C1", "die_thread", "die", ("tailstock", "die holder"), "1/2-20"),
+                ("T2", "hand_tap", "tap", ("tap wrench",), "1/2-20"),
+            ],
+        ),
+        (
+            "blondihacks-t-nuts",
+            [("D1", "hand_tap", "tap", ("tap follower",), "3/8-16")],
+        ),
+    ],
+)
+def test_public_tool_pull_lists_hand_threads_with_their_actual_holders(example, expected):
+    bundle = load_bundle(Path(__file__).resolve().parents[1] / "examples" / example / "plan.toml")
+    markup = Markup(render_traveler(bundle, [], {}))
+    for setup_id, action, tool_role, holder_roles, thread in expected:
+        setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == setup_id)
+        op = next(op for op in setup["ops"] if op["do"] == action)
+        (page,) = [
+            page
+            for page in markup.find("page")
+            if page["attrs"]["data-sheet"] == f"SETUP {setup_id} sheet 1"
+        ]
+        (table,) = markup.find("tools", page)
+        rows = []
+        for row in markup.nodes:
+            if (
+                row["tag"] == "tr"
+                and row["parent"]["tag"] == "tbody"
+                and row["parent"]["parent"] is table
+            ):
+                rows.append(
+                    [
+                        content(cell).strip()
+                        for cell in markup.nodes
+                        if cell["tag"] == "td" and cell["parent"] is row
+                    ]
+                )
+        (pulled,) = [row for row in rows if str(op["op"]) in row[4].split(", ")]
+        assert re.fullmatch(r"T[1-9]\d*", pulled[0])
+        assert thread in pulled[1]
+        assert re.search(rf"\b{tool_role}\b", pulled[1], re.IGNORECASE)
+        for role in holder_roles:
+            assert role in pulled[3].casefold()
+        (operation,) = [
+            node
+            for node in markup.find("operation", page)
+            if node["attrs"]["data-op"] == str(op["op"])
+        ]
+        (tool_field,) = markup.find("op-tool", operation)
+        (tool_value,) = [
+            node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is tool_field
+        ]
+        assert " ".join(content(tool_value).split()) == pulled[0]
+        # These source selections have no measured physical dimensions. A nominal
+        # thread designation must not become a tool OD, projection or measurement debt.
+        assert not re.search(r"\d|Ø|projection", pulled[2], re.IGNORECASE)
 
 
 @pytest.mark.parametrize("fixture_name", ["die_bundle", "tap_bundle"])

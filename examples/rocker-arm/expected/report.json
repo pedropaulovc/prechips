@@ -59800,6 +59800,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
+        "plan.setups.P1.ops.10.stock_removal_bounds",
         "coordinates.P1: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -59822,16 +59823,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -2.5,
-                342.5
+                -4.5,
+                344.5
               ],
               "y": [
-                -5.600000000000001,
+                -5.6,
                 70.6
               ],
               "z": [
                 0.0,
-                0.0
+                1.525
               ]
             },
             "feature": "blank_top",
@@ -59928,6 +59929,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
+        "plan.setups.P2.ops.10.stock_removal_bounds",
         "coordinates.P2: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -59950,16 +59952,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -2.5,
-                342.5
+                -4.5,
+                344.5
               ],
               "y": [
                 -17.525,
-                1.5250000000000004
+                0.0
               ],
               "z": [
                 0.0,
-                0.0
+                5.6
               ]
             },
             "feature": "blank_datum_edge",
@@ -60056,6 +60058,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
+        "plan.setups.P3.ops.10.stock_removal_bounds",
         "coordinates.P3: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -60078,16 +60081,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -2.5,
-                342.5
+                -4.5,
+                344.5
               ],
               "y": [
                 -17.525,
-                1.5250000000000004
+                0.0
               ],
               "z": [
                 0.0,
-                0.0
+                5.6
               ]
             },
             "feature": "blank_opposite_edge",
@@ -60184,6 +60187,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
+        "plan.setups.P4.ops.10.stock_removal_bounds",
         "coordinates.P4: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -60206,16 +60210,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -2.5,
-                342.5
+                -4.5,
+                344.5
               ],
               "y": [
-                -70.6,
-                5.600000000000001
+                -65.0,
+                0.0
               ],
               "z": [
                 0.0,
-                0.0
+                1.525
               ]
             },
             "feature": "blank_bottom",
@@ -60312,6 +60316,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:1-11",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
+        "plan.setups.P5.ops.10.stock_removal_bounds",
         "inventory.tools.endmills-lms-6784/3-4in-4fl.dia",
         "coordinates.P5: printed cutter-centre path of op 10",
         "inventory.holders.r8-collets-lms-4860/3-4in.gauge_len",
@@ -60322,6 +60327,7 @@
         "plan.setups.P5.ops.20",
         "features.features.blank_left_end.bounds/at",
         "AUTHOR'S CHOICE: side-milled in the same P5 setup because the 340 length then comes from one DRO move",
+        "plan.setups.P5.ops.20.stock_removal_bounds",
         "coordinates.P5: printed cutter-centre path of op 20",
         "plan.setups.P5.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.P5.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
@@ -60340,16 +60346,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                0.0,
+                -2.5,
                 0.0
               ],
               "y": [
-                -70.6,
-                5.600000000000001
+                -67.0,
+                2.0
               ],
               "z": [
-                -17.525,
-                1.5250000000000004
+                -16.5,
+                0.0
               ]
             },
             "feature": "blank_right_end",
@@ -60399,15 +60405,15 @@
             "extent_mm": {
               "x": [
                 340.0,
-                340.0
+                342.5
               ],
               "y": [
-                -70.6,
-                5.600000000000001
+                -67.0,
+                2.0
               ],
               "z": [
-                -17.525,
-                1.5250000000000004
+                -16.5,
+                0.0
               ]
             },
             "feature": "blank_left_end",
@@ -60513,6 +60519,7 @@
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
+        "plan.setups.S1.ops.5.stock_removal_bounds",
         "coordinates.S1: printed cutter-centre path of op 5",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
@@ -60521,6 +60528,7 @@
         "plan.setups.S1.ops.5: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S1.ops.10",
+        "plan.setups.S1.ops.10.stock_removal_bounds",
         "coordinates.S1: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
@@ -60532,10 +60540,12 @@
         "harmonic-analyzer/cad/scripts/draw_pivot_shaft.py:66-70",
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:28-28",
+        "plan.setups.S1.ops.20.stock_removal_bounds",
         "coordinates.S1: printed cutter-centre path of op 20",
         "plan.setups.S1.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S1.ops.25",
+        "plan.setups.S1.ops.25.stock_removal_bounds",
         "coordinates.S1: printed cutter-centre path of op 25",
         "plan.setups.S1.ops.25.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.25: stock_states current top and local entry; hole tip/exit endpoints",
@@ -60551,6 +60561,7 @@
         "plan.setups.S1.ops.30.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.30: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S1.ops.32",
+        "plan.setups.S1.ops.32.stock_removal_bounds",
         "coordinates.S1: printed cutter-centre path of op 32",
         "plan.setups.S1.ops.32.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.32: stock_states current top and local entry; hole tip/exit endpoints",
@@ -60565,6 +60576,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42",
+        "plan.setups.S1.ops.40.stock_removal_bounds",
         "coordinates.S1: printed cutter-centre path of op 40",
         "plan.setups.S1.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.40: stock_states current top and local entry; hole tip/exit endpoints",
@@ -60574,6 +60586,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:48-48",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:87-87",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:88-88",
+        "plan.setups.S1.ops.50.stock_removal_bounds",
         "inventory.tools.endmills-lms-6784/1-4in-2fl.dia",
         "coordinates.S1: printed cutter-centre path of op 50",
         "inventory.tools.endmills-lms-6784/1-4in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
@@ -60612,16 +60625,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -5.1,
-                5.1
+                -160.0,
+                160.0
               ],
               "y": [
-                -5.1,
-                5.1
+                -20.0,
+                31.7
               ],
               "z": [
-                -7.0565,
-                0.0
+                0.0,
+                5.0
               ]
             },
             "feature": "hub_faces",
@@ -60670,16 +60683,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -5.1,
-                5.1
+                -160.0,
+                160.0
               ],
               "y": [
-                -5.1,
-                5.1
+                -20.0,
+                31.7
               ],
               "z": [
-                -7.0565,
-                0.0
+                0.0,
+                5.0
               ]
             },
             "feature": "hub_faces",
@@ -60728,16 +60741,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -146.2546,
-                146.2546
+                -160.0,
+                160.0
               ],
               "y": [
-                -8.0,
-                21.2946
+                -20.0,
+                31.7
               ],
               "z": [
                 -2.27825,
-                -2.27825
+                5.0
               ]
             },
             "feature": "strap_datum_b",
@@ -60786,16 +60799,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -146.2546,
-                146.2546
+                -160.0,
+                160.0
               ],
               "y": [
-                -8.0,
-                21.2946
+                -20.0,
+                31.7
               ],
               "z": [
                 -2.27825,
-                -2.27825
+                5.0
               ]
             },
             "feature": "strap_datum_b",
@@ -60893,16 +60906,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -146.2546,
-                146.2546
+                -8.0,
+                8.0
               ],
               "y": [
                 -8.0,
-                21.2946
+                8.0
               ],
               "z": [
                 -2.27825,
-                -2.27825
+                5.0
               ]
             },
             "feature": "strap_datum_b",
@@ -60946,14 +60959,23 @@
           },
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 340.0,
-              "y": 65.0,
-              "z": 16.0
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "rough_profile",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -160.0,
+                160.0
+              ],
+              "y": [
+                -20.0,
+                27.0
+              ],
+              "z": [
+                -3.32825,
+                5.0
+              ]
+            },
             "feature": "profile_outer",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
@@ -60995,14 +61017,23 @@
           },
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 340.0,
-              "y": 65.0,
-              "z": 16.0
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "rough_profile",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -160.0,
+                160.0
+              ],
+              "y": [
+                3.24,
+                31.7
+              ],
+              "z": [
+                -3.32825,
+                5.0
+              ]
+            },
             "feature": "top_edge",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
@@ -61233,6 +61264,7 @@
         "features.frames.model",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:396-403",
         "harmonic-analyzer/cad/scripts/build_rocker_arm.py:424-434",
+        "plan.setups.S2.ops.5.stock_removal_bounds",
         "coordinates.S2: printed cutter-centre path of op 5",
         "inventory.tools.endmills-lms-6784/3-8in-2fl.dia",
         "inventory.holders.r8-collets-lms-4860/3-8in.gauge_len",
@@ -61241,6 +61273,7 @@
         "plan.setups.S2.ops.5: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S2.ops.10",
+        "plan.setups.S2.ops.10.stock_removal_bounds",
         "coordinates.S2: printed cutter-centre path of op 10",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.dia",
         "inventory.tools.endmills-lms-6784/3-8in-4fl.projection_mm.r8-collets-lms-4860/3-8in",
@@ -61251,13 +61284,12 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:28-28",
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:66-93",
         "harmonic-analyzer/cad/config/title_block.yaml:linear_2pl.display",
+        "plan.setups.S2.ops.15.stock_removal_bounds",
         "coordinates.S2: printed cutter-centre path of op 15",
-        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
-        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
-        "plan.setups.stock_state: physical supported stock height",
         "plan.setups.S2.ops.15.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.15: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.20",
+        "plan.setups.S2.ops.20.stock_removal_bounds",
         "coordinates.S2: printed cutter-centre path of op 20",
         "plan.setups.S2.ops.20.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.20: stock_states current top and local entry; hole tip/exit endpoints",
@@ -61266,9 +61298,13 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:112-112",
         "harmonic-analyzer/cad/scripts/rocker_arm_notes.py:33-33",
         "coordinates.S2: printed cutter-centre path of op 28",
+        "kernel.setups.S2.stock_bbox_mm: setup-entry stock in the setup frame",
+        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
+        "plan.setups.stock_state: physical supported stock height",
         "plan.setups.S2.ops.28.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.28: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.S2.ops.29",
+        "plan.setups.S2.ops.29.stock_removal_bounds",
         "coordinates.S2: printed cutter-centre path of op 29",
         "plan.setups.S2.ops.29.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.29: stock_states current top and local entry; hole tip/exit endpoints",
@@ -61309,6 +61345,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:49-49",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:31-31",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:42-42",
+        "plan.setups.S2.ops.40.stock_removal_bounds",
         "coordinates.S2: printed cutter-centre path of op 40",
         "plan.setups.S2.ops.40.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S2.ops.40: stock_states current top and local entry; hole tip/exit endpoints",
@@ -61318,6 +61355,7 @@
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:48-48",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:87-87",
         "harmonic-analyzer/cad/scripts/rocker_arm_spec.py:88-88",
+        "plan.setups.S2.ops.50.stock_removal_bounds",
         "inventory.tools.endmills-lms-6784/1-4in-2fl.dia",
         "coordinates.S2: printed cutter-centre path of op 50",
         "inventory.tools.endmills-lms-6784/1-4in-2fl.projection_mm.r8-collets-lms-4860/3-8in",
@@ -61338,16 +61376,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -5.1,
-                5.1
+                -160.0,
+                160.0
               ],
               "y": [
-                -5.1,
-                5.1
+                -31.7,
+                20.0
               ],
               "z": [
-                -7.08,
-                -0.0235000000000003
+                0.0,
+                5.0
               ]
             },
             "feature": "hub_faces",
@@ -61396,16 +61434,16 @@
             "endpoint": "not_applicable",
             "extent_mm": {
               "x": [
-                -5.1,
-                5.1
+                -160.0,
+                160.0
               ],
               "y": [
-                -5.1,
-                5.1
+                -31.7,
+                20.0
               ],
               "z": [
-                -7.08,
-                -0.0235000000000003
+                0.0,
+                5.0
               ]
             },
             "feature": "hub_faces",
@@ -61449,14 +61487,23 @@
           },
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 340.0,
-              "y": 65.0,
-              "z": 16.0
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "rough_face",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -160.0,
+                160.0
+              ],
+              "y": [
+                -31.7,
+                20.0
+              ],
+              "z": [
+                -2.27825,
+                5.0
+              ]
+            },
             "feature": "strap_faces",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
@@ -61498,14 +61545,23 @@
           },
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 340.0,
-              "y": 65.0,
-              "z": 16.0
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "finish_face",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -160.0,
+                160.0
+              ],
+              "y": [
+                -31.7,
+                20.0
+              ],
+              "z": [
+                -2.27825,
+                5.0
+              ]
+            },
             "feature": "strap_faces",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
@@ -61596,14 +61652,23 @@
           },
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 340.0,
-              "y": 65.0,
-              "z": 16.0
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "finish_face",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -8.0,
+                8.0
+              ],
+              "y": [
+                -8.0,
+                8.0
+              ],
+              "z": [
+                -2.27825,
+                5.0
+              ]
+            },
             "feature": "strap_faces",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
@@ -61836,14 +61901,23 @@
           },
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 340.0,
-              "y": 65.0,
-              "z": 16.0
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "rough_profile",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -160.0,
+                160.0
+              ],
+              "y": [
+                -27.0,
+                20.0
+              ],
+              "z": [
+                -3.32825,
+                5.0
+              ]
+            },
             "feature": "profile_outer",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
@@ -61885,14 +61959,23 @@
           },
           {
             "approach_mm": 5.0,
-            "conservative_stock_spans_mm": {
-              "x": 340.0,
-              "y": 65.0,
-              "z": 16.0
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "rough_profile",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                -160.0,
+                160.0
+              ],
+              "y": [
+                -31.7,
+                -3.24
+              ],
+              "z": [
+                -3.32825,
+                5.0
+              ]
+            },
             "feature": "top_edge",
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
@@ -64752,7 +64835,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "e761ded474df1dc5756f5b117820863a06c6b4e5098fd543bc85530452190028",
+  "hash": "91f72a224af5ed1f1815c8dc6fa899d21d064185592f5688895898959eac839e",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

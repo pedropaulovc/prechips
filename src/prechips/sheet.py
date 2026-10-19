@@ -26,6 +26,7 @@ from .material_routes import (
     input_refs,
     producer_setup,
     reference_frame,
+    route_identities_known,
     setup_lineage,
 )
 from .measurements import angle_fact, length_debt, length_fact, measurement_entry, record_trusted
@@ -53,6 +54,7 @@ from .rules.inspection import ZONES, go_no_go_pair
 from .rules.resolution import (
     HAND_FED,
     HAND_FINISH,
+    HAND_THREAD,
     LENGTH_TOLERANCE_MM,
     MAKE_OP_FIELDS,
     MANUAL,
@@ -169,6 +171,8 @@ th { background: var(--color-header); }
 thead { display: table-header-group; }
 tr, tbody { break-inside: avoid; page-break-inside: avoid; }
 table.tools tbody, table.tools tr { break-inside: avoid; page-break-inside: avoid; }
+table.handwheel-zero th:first-child {
+padding-inline: var(--space-xs); white-space: nowrap; }
 .measurement-ref { white-space: nowrap; overflow-wrap: normal; }
 .measurement-stop { break-inside: auto; page-break-inside: auto; }
 table.measurement-actions col.record-column {
@@ -2972,7 +2976,7 @@ class _Traveler:
         for setup in self.plan.get("setups", []):
             frame = setup.get("frame")
             if isinstance(frame, str) and frame != "unknown":
-                self.frames.setdefault(frame, []).append(setup["id"])
+                self.frames.setdefault(frame, []).append(_text(setup["id"]))
         self.setup = None
         self.setup_stops = {}
         self._job_measurements = {}
@@ -3453,7 +3457,7 @@ class _Traveler:
                     continue
                 numbers = tool_numbers(self.bundle, setup)
                 marks.extend(
-                    f"{setup['id']} {number}"
+                    f"{_text(setup['id'])} {number}"
                     for (tool, _), number in numbers.items()
                     if tool == (category, key)
                 )
@@ -3582,6 +3586,8 @@ class _Traveler:
         # The kernel exports the stopper's subject only as the leading token of
         # stock_out_reason, propagated unchanged as stock_reason. Validate it against
         # the actual route and source op; never infer a source from a diagnostic union.
+        if not route_identities_known(self.plan, setup.get("id")):
+            return {"reason": reason, "source": None, "op": None}
         routes = {s["id"]: s for s in self.plan.get("setups", [])}
         ancestors = setup_lineage(self.plan, setup["id"]) - {setup["id"]}
         match = re.match(r"([^:\s]+):(\d+)\b", str(reason))
@@ -3920,7 +3926,9 @@ class _Traveler:
             )
             if sources:
                 subject += (
-                    " — source Setup" + ("s " if len(sources) > 1 else " ") + ", ".join(sources)
+                    " — source Setup"
+                    + ("s " if len(sources) > 1 else " ")
+                    + ", ".join(map(_text, sources))
                 )
             html += (
                 '<table class="measurement-actions"><colgroup><col>'
@@ -4193,7 +4201,7 @@ class _Traveler:
         return name.replace("_", " ")
 
     def zero_name(self, setup):
-        return f"Setup {setup['id']} zero"
+        return f"Setup {_text(setup['id'])} zero"
 
     def frame_tag(self, setup=None):
         """`` (from Setup <id> zero)`` after an op row's setup-frame coordinates when the
@@ -4305,7 +4313,7 @@ class _Traveler:
             requirement = _REQUIREMENT_NAMES.get(op, _text(op)) if op else ""
             return (self.feature_name(sid) + " " + requirement).strip()
         if any(sid == s["id"] for s in self.plan.get("setups", [])):
-            return f"Setup {sid}" + (f" op {op}" if op else "")
+            return f"Setup {_text(sid)}" + (f" op {op}" if op else "")
         return ""
 
     def plain_error(self, rule, message, subject):
@@ -4768,9 +4776,10 @@ class _Traveler:
             method = self.bench(method, setup) if method else "? not written"
             rows.append((key, f"{limit}: {method}", gauge(key)))
         return (
-            f"<h2>CHECK THE BLANK — before SETUP {escape(receiver)}</h2>"
+            f"<h2>CHECK THE BLANK — before SETUP {escape(_text(receiver))}</h2>"
             + _p(
-                f"Process limits for the squared blank, not drawing limits: SETUP {receiver} "
+                "Process limits for the squared blank, not drawing limits: "
+                f"SETUP {_text(receiver)} "
                 "locates on these faces. File the edge burrs off and wipe the blank first."
             )
             + _table(
@@ -4959,7 +4968,7 @@ class _Traveler:
         if not isinstance(reference, str) or key not in uses:
             return ""
         home = self.shop_made_home(setup, key, uses)
-        return f" (shop-made: SHOP-MADE FIXTURE table, Setup {home})"
+        return f" (shop-made: SHOP-MADE FIXTURE table, Setup {_text(home)})"
 
     @functools.cached_property
     def mill_grid(self):
@@ -5308,9 +5317,12 @@ class _Traveler:
             title = f"SHOP-MADE FIXTURE — {self.reference(reference, category)}"
             html += (
                 f"<h2>{escape(title)}</h2>"
-                + _p(f"Make before Setup {setup['id']}.")
+                + _p(f"Make before Setup {_text(setup['id'])}.")
                 + (
-                    _p(f"Sizes and positions: SHOP-MADE FIXTURE table, Setup {table} sheet 2.")
+                    _p(
+                        "Sizes and positions: SHOP-MADE FIXTURE table, "
+                        f"Setup {_text(table)} sheet 2."
+                    )
                     if table
                     else ""
                 )
@@ -5501,7 +5513,7 @@ class _Traveler:
                 body += f" {EXAMPLE_MARK}"
                 self.example_marks = True
             rows.append([body, size, [LOOSE_TEXT if loose else "? not posed"], "—", "—"])
-        frame = f"its own frame ({LOOSE_TEXT})" if loose else f"Setup {sid}"
+        frame = f"its own frame ({LOOSE_TEXT})" if loose else f"Setup {_text(sid)}"
         headings = [
             "Component",
             "Size mm",
@@ -5521,13 +5533,13 @@ class _Traveler:
         first = self.make_homes[0].get(self.holding_identity(setup, reference))
         first = first if first and make_ops(item) else sid
         intro = (
-            f"Make before Setup {first}. Make-to-drawing expected dimensions and positions, "
+            f"Make before Setup {_text(first)}. Make-to-drawing expected dimensions and positions, "
             "not physical installed measurements. "
             + (
-                f"Nothing poses it in the Setup {sid} frame: set it where the HOLD says. "
+                f"Nothing poses it in the Setup {_text(sid)} frame: set it where the HOLD says. "
                 "Positions are in the item's own frame"
                 if loose
-                else f"Positions are in the Setup {sid} frame"
+                else f"Positions are in the Setup {_text(sid)} frame"
             )
             + ": boxes give their X / Y / Z extents, cylinders their axis."
         )
@@ -5554,7 +5566,7 @@ class _Traveler:
             + (_p("Make operations, in order:") if operations else "")
             + "".join(_p(line) for line in operations)
             + (
-                _p(f"Make operations: Setup {first} sheet 2.")
+                _p(f"Make operations: Setup {_text(first)} sheet 2.")
                 if first != sid and make_ops(item)
                 else ""
             )
@@ -6660,7 +6672,7 @@ class _Traveler:
             _table(
                 ["axis", "physical pickup", "source procedure", "physical dial setting"],
                 rows,
-                css="zero",
+                css="zero handwheel-zero",
                 widths=[7, 28, 42, 23],
             )
         )
@@ -6668,7 +6680,11 @@ class _Traveler:
         for touch in touches if isinstance(touches, list) else []:
             name = self.touched_tool(touch.get("tool"), tools, "tools")
             methods = [touch.get("x_method"), touch.get("method")]
-            words = "; ".join(self.bench(_METHODS.get(m, m), setup) for m in methods if known(m))
+            words = "; ".join(
+                self.bench(_METHODS.get(m, m).rstrip().rstrip(".;:!?").rstrip(), setup)
+                for m in methods
+                if known(m)
+            )
             before = touch.get("before_ops")
             when = (
                 "Before " + _ops_label(before) + ": " if isinstance(before, list) and before else ""
@@ -7074,7 +7090,7 @@ class _Traveler:
         """``EDGE FINDER box`` with the sheet that prints it when another setup's does."""
         key = self.finder_key(reference, setup.get("machine"))
         home = self.finder_homes.get(key, setup["id"])
-        return "EDGE FINDER box" + ("" if home == setup["id"] else f", Setup {home} sheet 1")
+        return "EDGE FINDER box" + ("" if home == setup["id"] else f", Setup {_text(home)} sheet 1")
 
     def finder_box(self, reference, machine, finder):
         """The one edge-finding procedure every X/Y pick-up with ``reference`` on
@@ -7190,7 +7206,7 @@ class _Traveler:
                 html.append(
                     _p(
                         f"{name}: bought finished, accepted on receipt — PURCHASED TOOLING / "
-                        f"RECEIPT CHECK table, Setup {home} sheet 1."
+                        f"RECEIPT CHECK table, Setup {_text(home)} sheet 1."
                     )
                 )
                 continue
@@ -7708,7 +7724,7 @@ class _Traveler:
         rows, by_tool = {}, {}
         for op in setup.get("ops", []):
             reference = op.get("tool")
-            if op.get("do") in MANUAL or reference in (None, "unknown"):
+            if op.get("do") in MANUAL - HAND_THREAD or reference in (None, "unknown"):
                 continue
             holder = op.get("holder")
             pair = self.tool_pair(reference, holder)
@@ -7784,7 +7800,9 @@ class _Traveler:
             if not _known(endpoint.get("tip_z")):
                 parts[0] = f"Z {o(entry)} → depth not set"
                 geometry = (
-                    "reamer chamfer / lead length unknown"
+                    "establish hand-tap penetration, allowing for tap lead and bottom clearance"
+                    if op.get("do") == "hand_tap"
+                    else "reamer chamfer / lead length unknown"
                     if op.get("do") == "ream" and not _known(endpoint.get("lead_mm"))
                     else "drill point length unknown"
                     if op.get("do") != "ream"
@@ -8114,7 +8132,7 @@ class _Traveler:
         works its readings (``{name}`` fields) through two or more calculation lines on a
         worksheet of its own, numbered from ``sheets["worksheets"]``, any other as a
         numbered INSPECTION NOTE on ``sheets["notes"]``; the cell names where."""
-        sid = setup["id"]
+        sid = _text(setup["id"])
 
         def place(item):
             if isinstance(item, _Steps) and _readings(item[1]) and len(item[2]) >= 2:
@@ -8322,7 +8340,7 @@ class _Traveler:
         scene = _mapping(sketch.get("scene"))
         width, height = scene.get("width_px"), scene.get("height_px")
         panels = scene.get("print_panels")
-        identity = f"Setup {setup['id']} op {op['op']} {requirement}"
+        identity = f"Setup {_text(setup['id'])} op {op['op']} {requirement}"
         if (
             width != 1600
             or type(width) is not int
@@ -8847,7 +8865,11 @@ class _Traveler:
         """
         ops = setup.get("ops", [])
         rows, inspection_notes, worksheets = [], [], []
-        where = {kind: f"{setup['id']} sheet {number}" for kind, number in sheets.items() if number}
+        where = {
+            kind: f"{_text(setup['id'])} sheet {number}"
+            for kind, number in sheets.items()
+            if number
+        }
         saw_table = any(op.get("do") in SAW_OPS for op in ops)
         # A bench of hand steps, hand-saw cuts among them, runs no machine either.
         bench = manual_bench(self.bundle, setup) is not None
@@ -9124,7 +9146,7 @@ class _Traveler:
             rows,
             "operations",
             widths,
-            continued=f"SETUP {setup['id']} — sheet 1 (continued): {title}",
+            continued=f"SETUP {_text(setup['id'])} — sheet 1 (continued): {title}",
         )
         notes_html = (
             f'<div class="keep"><h2>INSPECTION NOTES</h2>{_list(inspection_notes)}</div>'
@@ -10028,7 +10050,7 @@ class _Traveler:
             op = operations.get(op_id, {})
             # Each block names its setup: a contour sheet that runs onto a second page
             # still says which setup it belongs to.
-            title = f"{setup['id']} op {op_id} — {self.feature_name(op.get('feature'))}"
+            title = f"{_text(setup['id'])} op {op_id} — {self.feature_name(op.get('feature'))}"
             tool = self.setup_tool(tools, op.get("tool"))
             if tool:
                 title += f" · {tool}"
@@ -10195,6 +10217,8 @@ class _Traveler:
 
     # ---------------------------------------------------------------- picture
     def arrival(self, setup):
+        if not route_identities_known(self.plan, setup.get("id")):
+            return "? unknown stock route; setup identity unresolved"
         source = setup.get("stock_in")
         sources = source if isinstance(source, list) else [source]
         graph = MaterialGraph(self.plan)
@@ -10206,7 +10230,7 @@ class _Traveler:
                 pieces = sorted({atom.output for atom in atoms if atom.output is not None})
                 splits = sorted({atom.split for atom in atoms if atom.split is not None})
                 if pieces:
-                    name = "the " + " + ".join(pieces)
+                    name = "the " + " + ".join(map(_text, pieces))
                     name += " retained piece" if len(pieces) == 1 else " retained-piece assembly"
                     producer = producer_setup(self.plan, ref)
                     if producer not in splits:
@@ -10269,17 +10293,19 @@ class _Traveler:
         scene = _mapping(render.get("scene"))
         hold = _mapping(setup.get("hold"))
         fixture = self.reference(hold.get("fixture"), "workholding")
-        caption = [f"Setup {setup['id']} — {self.arrival(setup)}, held in the {fixture}."]
+        caption = [f"Setup {_text(setup['id'])} — {self.arrival(setup)}, held in the {fixture}."]
         debts = scene.get("debts") or []
         unheld = hand_fed(self.bundle, setup)[0] == "admitted"
         if unheld:
             # Nothing holds the work, so no fixture is missing from the picture.
             caption = [
-                f"Setup {setup['id']} — {self.arrival(setup)}, fed by hand on the saw table."
+                f"Setup {_text(setup['id'])} — {self.arrival(setup)}, fed by hand on the saw table."
             ]
         elif unfixtured_handling(manual_bench(self.bundle, setup), hold):
             unheld = True
-            caption = [f"Setup {setup['id']} — {self.arrival(setup)}, manual bench handling."]
+            caption = [
+                f"Setup {_text(setup['id'])} — {self.arrival(setup)}, manual bench handling."
+            ]
         if unheld:
             debts = [debt for debt in debts if not str(debt).startswith("fixture not drawn:")]
         lines = []
@@ -10299,11 +10325,13 @@ class _Traveler:
         width, height = scene["width_px"], scene["height_px"]
         panels = scene["print_panels"]
         if not panels or not all(type(value) is int and value > 0 for value in (width, height)):
-            raise ValueError(f"Setup {setup['id']} has no complete printable image geometry")
+            raise ValueError(f"Setup {_text(setup['id'])} has no complete printable image geometry")
         path = escape(render["path"], quote=True)
         part = _text(self.plan.get("part"))
         revision = self.drawing_revision()
-        context = f"{part} · Setup {setup['id']}" + (f" · rev {revision}" if revision else "")
+        context = f"{part} · Setup {_text(setup['id'])}" + (
+            f" · rev {revision}" if revision else ""
+        )
         result = []
         next_top = 0
         for index, panel in enumerate(panels, start=1):
@@ -10316,7 +10344,7 @@ class _Traveler:
                 or top + panel_height > height
             ):
                 raise ValueError(
-                    f"Setup {setup['id']} printable panels omit or repeat image content"
+                    f"Setup {_text(setup['id'])} printable panels omit or repeat image content"
                 )
             next_top += panel_height
             label = (
@@ -10336,7 +10364,7 @@ class _Traveler:
                 'preserveAspectRatio="none"></image></svg></figure>'
             )
         if next_top != height:
-            raise ValueError(f"Setup {setup['id']} printable panels omit image content")
+            raise ValueError(f"Setup {_text(setup['id'])} printable panels omit image content")
         result.extend(_p(line, "render-debt") for line in lines)
         return "".join(result)
 
@@ -10694,7 +10722,7 @@ class _Traveler:
             for op in setup.get("ops", []):
                 for hold in op.get("process_holds", []):
                     reading, gauge, drawing, _ = self.process_hold_parts(hold)
-                    where = f"{setup['id']} op {op['op']}"
+                    where = f"{_text(setup['id'])} op {op['op']}"
                     rows.append((where, reading, gauge, drawing, self.bench(hold["reason"])))
         if not rows:
             return ""
@@ -10882,7 +10910,7 @@ class _Traveler:
         if self.bundle.features.get("step_sha256", "unknown") == "unknown":
             topics.append("3D model / drawing pairing")
         cautions.extend(str(w) for w in self.approval.get("warnings", []))
-        stopped = [sid for sid, count in self.setup_stops.items() if count]
+        stopped = [_text(sid) for sid, count in self.setup_stops.items() if count]
         if stopped:
             stops.append(
                 f"Setup{'s' if len(stopped) > 1 else ''} {', '.join(stopped)}: STOP items on "
@@ -10900,7 +10928,8 @@ class _Traveler:
                 for entry in self.stock_source_measurements(dependency)
             )
             stops.append(
-                f"Setups {', '.join(dependents)}: upstream stock depends on Setup {source} op {op}"
+                f"Setups {', '.join(map(_text, dependents))}: upstream stock depends on "
+                f"Setup {_text(source)} op {op}"
                 + (
                     f" — source JOB measurements {refs}"
                     if refs
@@ -10952,7 +10981,7 @@ class _Traveler:
             ["setup", "starts from", "machine", "holding"],
             [
                 (
-                    s["id"],
+                    _text(s["id"]),
                     self.arrival(s),
                     self.reference(s.get("machine"), "machines"),
                     self.route_holding(s),
@@ -11032,7 +11061,7 @@ class _Traveler:
             stops.append(f"{label[:1].upper() + label[1:]} — {text}")
         count = 1 + bool(details) + bool(contours) + len(worksheets)
         title = (
-            f"SETUP {sid} — {machine}"
+            f"SETUP {_text(sid)} — {machine}"
             + (f" ({_text(kind)})" if kind and _text(kind) not in machine else "")
             + f" · sheet 1 of {count}"
         )
@@ -11069,7 +11098,7 @@ class _Traveler:
         ]
 
         def attached(number, subject, blocks):
-            heading = f"<h2>SETUP {escape(sid)} — sheet {number} of {count}: {subject}</h2>"
+            heading = f"<h2>SETUP {escape(_text(sid))} — sheet {number} of {count}: {subject}</h2>"
             return [heading + blocks[0], *blocks[1:]]
 
         result = [[block for block in front if block]]
@@ -11100,7 +11129,7 @@ class _Traveler:
         pages = [("job page", [self.header(setups)], True)]
         for setup, setup_sheets in zip(setups, sheets, strict=True):
             pages.extend(
-                (f"SETUP {setup['id']} sheet {index + 1}", blocks, index == 0)
+                (f"SETUP {_text(setup['id'])} sheet {index + 1}", blocks, index == 0)
                 for index, blocks in enumerate(setup_sheets)
             )
         drawing = self.plan.get("drawing", {})

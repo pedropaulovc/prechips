@@ -864,6 +864,11 @@ One tool/holder pair gets one `T#`, based on selected identity: `tools.drill` an
 keeps its number across all setups on that machine regardless of reference
 spelling.
 
+Spindle-stopped `die_thread` and `hand_tap` selections also appear in this
+pull list with their selected die stock, tap wrench or follower. Their
+operation rows use the same `T#`. A nominal thread designation does not
+supply a physical cutting diameter, projection or powered-tool touch-off.
+
 #### DRO zero and acquisition
 
 `DRO ZERO` does not print on bench setups: a `bench` or `manual` machine running

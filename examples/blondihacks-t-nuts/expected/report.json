@@ -5669,7 +5669,7 @@
           },
           "plan": {
             "path": "examples/blondihacks-t-nuts/plan.toml",
-            "sha256": "d64729791cbc4201b7c78f5db37ba9e62506554e41c0545bd3636200408b80b6"
+            "sha256": "2796ff6dda830641f105d6b09f10b2e91479e66572855a24767b43f5b3d7eee8"
           },
           "shop_policy": {
             "path": "examples/blondihacks-t-nuts/shop-policy.toml",
@@ -15870,7 +15870,7 @@
         "stock_top_above_jaws_mm": "unknown",
         "stock_top_z": "unknown",
         "sum_mm": "unknown",
-        "support_blocks_mm": "unknown",
+        "support_blocks_mm": 0,
         "tool_oal_mm": "unknown",
         "travel_checks": {
           "x": {
@@ -16555,17 +16555,17 @@
         "tool_oal_mm": "unknown",
         "travel_checks": {
           "x": {
-            "basis": "declared cut extent",
-            "minimum_required_mm": 25.4,
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": "unknown",
-            "required_mm": 25.4,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
-            "basis": "declared cut extent",
-            "minimum_required_mm": 22.225,
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": "unknown",
-            "required_mm": 22.225,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           }
         }
@@ -16754,17 +16754,17 @@
         "tool_oal_mm": "unknown",
         "travel_checks": {
           "x": {
-            "basis": "declared cut extent",
-            "minimum_required_mm": 25.4,
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": "unknown",
-            "required_mm": 25.4,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
-            "basis": "declared cut extent",
-            "minimum_required_mm": 12.7,
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": "unknown",
-            "required_mm": 12.7,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           }
         }
@@ -16953,17 +16953,17 @@
         "tool_oal_mm": "unknown",
         "travel_checks": {
           "x": {
-            "basis": "declared cut extent",
-            "minimum_required_mm": 25.4,
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": "unknown",
-            "required_mm": 25.4,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
-            "basis": "declared cut extent",
-            "minimum_required_mm": 12.7,
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": "unknown",
-            "required_mm": 12.7,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           }
         }
@@ -17169,17 +17169,17 @@
         "tool_oal_mm": "unknown",
         "travel_checks": {
           "x": {
-            "basis": "declared cut extent",
-            "minimum_required_mm": 25.4,
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": "unknown",
-            "required_mm": 25.4,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           },
           "y": {
-            "basis": "declared cut extent",
-            "minimum_required_mm": 22.225,
+            "basis": "unknown",
+            "minimum_required_mm": "unknown",
             "part_mm": "unknown",
-            "required_mm": 22.225,
+            "required_mm": "unknown",
             "travel_mm": "unknown"
           }
         }
@@ -17477,7 +17477,7 @@
           "clamp": "Support the nut in the vise for the punch operation as shown, with the bottom thread accessible.",
           "fixture": "bench-vise",
           "grip_mm": "unknown",
-          "note": "Editorial safeguard: support the part against the punch load without damaging the bearing shoulders or distorting the usable upper threads. Exact support and punch deformation are not specified by the source.",
+          "note": "Support the part against the punch load without damaging the bearing shoulders or distorting the usable upper threads. Exact support and punch deformation remain unspecified.",
           "stop": "unknown"
         },
         "missing": [
@@ -17503,7 +17503,7 @@
         "deburr_mm": "not_applicable",
         "fixture": "not_applicable",
         "hold": {
-          "note": "EDITORIAL HOLD: confirm the actual JAX product label/SDS, chemical-compatible container, ventilation, splash protection, solvent/fire precautions and waste handling before starting. Chemical gloves belong only in this stopped-machine chemical task, never near a rotating spindle. The source is not a complete chemical-safety procedure."
+          "note": "HOLD: confirm the actual JAX product label/SDS, chemical-compatible container, ventilation, splash protection, solvent/fire precautions and waste handling before starting. Chemical gloves belong only in this stopped-machine chemical task, never near a rotating spindle. Establish a complete chemical-safety procedure before starting."
         },
         "hold_scope": "bench_handling",
         "missing": []
@@ -17529,7 +17529,7 @@
           "fixture": "mill-vise",
           "grip_mm": "unknown",
           "jaws_along": "x",
-          "note": "HOLD: establish the actual upright grip, safe support of the upper cut-off, and full disk/arbor/jaw clearance. No added retention guard is claimed shown. Never catch the top piece or reach toward a running saw; stop fully before retrieval.",
+          "note": "HOLD: establish the actual upright grip, safe support of the upper cut-off, and full disk/arbor/jaw clearance. Never catch the top piece or reach toward a running saw; stop fully before retrieval.",
           "stop": "unknown"
         },
         "missing": [
@@ -17565,12 +17565,9 @@
           "grip_mm": "unknown",
           "jaw_protection": "Paper is between the cutting workpiece and jaw, not on the balancing nut; thickness/contact unmeasured.",
           "jaws_along": "x",
-          "note": "EDITORIAL HOLD: do not run until work and offcut retention, balanced jaw contact and complete saw/arbor/jaw clearance are established. No added guard or fixture is claimed present in the video. Do not catch the cut-off; stop fully before retrieving it.",
+          "note": "HOLD: do not run until work and offcut retention, balanced jaw contact and complete saw/arbor/jaw clearance are established. Do not catch the cut-off; stop fully before retrieving it.",
           "stop": "unknown",
-          "support": "balancing-piece",
-          "supports": [
-            "balancing-piece"
-          ]
+          "support": "balancing-piece"
         },
         "missing": [
           "hold.stop",
@@ -17605,7 +17602,7 @@
           "grip_mm": "unknown",
           "jaw_above_parallels_mm": "unknown",
           "jaws_along": "x",
-          "note": "HOLD: establish tap-drill diameter, drilling depth including point, complete under-work breakout clearance, tap/follower reach and engagement. Do not drill into parallels/vise. Editorial safeguard: no gloves near rotating spindle; stop spindle for manual tapping.",
+          "note": "HOLD: establish tap-drill diameter, drilling depth including point, complete under-work breakout clearance, tap/follower reach and engagement. Do not drill into parallels/vise. No gloves near a rotating spindle; stop the spindle for manual tapping.",
           "parallels": "parallels",
           "stop": "Seat each finished nut to the same repeatable stop.",
           "stop_fixture": "end-stop"
@@ -17643,7 +17640,7 @@
           "grip_mm": "unknown",
           "jaw_above_parallels_mm": "unknown",
           "jaws_along": "x",
-          "note": "HOLD: establish the overhang and full-depth cutter clearance past both jaws and supports. Stop attachment, grip and seating remain unmeasured. No gloves near rotating spindle (editorial).",
+          "note": "HOLD: establish the overhang and full-depth cutter clearance past both jaws and supports. Stop attachment, grip and seating remain unmeasured. No gloves near a rotating spindle.",
           "parallels": "parallels",
           "stop": "Rod stop from the right locates the opposite retained end; keep the left cutting end free.",
           "stop_fixture": "end-stop"
@@ -17704,7 +17701,7 @@
           "grip_mm": "unknown",
           "jaw_above_parallels_mm": "unknown",
           "jaws_along": "x",
-          "note": "HOLD: actual jaw contact, raw-stock position, cutter projection and jaw clearance are unmeasured. Editorial safeguard: no gloves near a rotating spindle; the video's glove anecdote is not adopted.",
+          "note": "HOLD: establish actual jaw contact and raw-stock position; measure cutter projection and check jaw clearance before spindle start. These remain unmeasured. No gloves near a rotating spindle.",
           "stop": "unknown"
         },
         "missing": [
@@ -17739,14 +17736,14 @@
         "deburr_mm": "unknown",
         "fixture": "mill-vise",
         "hold": {
-          "clamp": "Before loading, establish the editorial fixed-jaw Y0 pickup. Then place the first machined face against that jaw, use the round bar at the moving jaw, and seat and clamp the bar.",
+          "clamp": "Before loading, establish the fixed-jaw Y0 pickup. Then place the first machined face against that jaw, use the round bar at the moving jaw, and seat and clamp the bar.",
           "fixed_jaw": "rear",
           "fixture": "mill-vise",
           "grip_mm": "unknown",
           "jaw_above_parallels_mm": "unknown",
           "jaw_bar": "round-bar",
           "jaws_along": "x",
-          "note": "HOLD: round-bar diameter/length, seating, vise alignment, engagement and cutter clearance are unmeasured. Round-bar contact is a source method, not a qualified fixture design.",
+          "note": "HOLD: round-bar diameter/length, seating, vise alignment, engagement and cutter clearance are unmeasured. Establish secure round-bar contact before cutting.",
           "stop": "unknown"
         },
         "missing": [
@@ -17778,13 +17775,13 @@
         "deburr_mm": "unknown",
         "fixture": "mill-vise",
         "hold": {
-          "clamp": "Before loading, establish the editorial fixed-jaw Y0 pickup. Then seat the previously machined 90-degree corner at the lower fixed-jaw side and clamp.",
+          "clamp": "Before loading, establish the fixed-jaw Y0 pickup. Then seat the previously machined 90-degree corner at the lower fixed-jaw side and clamp.",
           "fixed_jaw": "rear",
           "fixture": "mill-vise",
           "grip_mm": "unknown",
           "jaw_above_parallels_mm": "unknown",
           "jaws_along": "x",
-          "note": "HOLD: actual seating, jaw engagement, clearance and approved acceptance limits must be established. Selected catalog nominal base width is 22.225 mm; it is not a measured slot-fit clearance.",
+          "note": "HOLD: establish actual seating, jaw engagement, clearance and approved acceptance limits. Nominal base width is 22.225 mm; actual slot-fit clearance remains unmeasured.",
           "stop": "unknown"
         },
         "missing": [
@@ -17822,7 +17819,7 @@
           "grip_mm": "unknown",
           "jaw_above_parallels_mm": "unknown",
           "jaws_along": "x",
-          "note": "HOLD: parallel height, grip and cutter/jaw clearance remain unmeasured; selected catalog overall-height nominal is 12.7 mm. Source rigidity practice: head close, quill mostly retracted and locked for each pass; lock the unused axis on heavy cuts. No gloves at rotating spindle (editorial).",
+          "note": "HOLD: measure parallel height and grip, and check cutter/jaw clearance before cutting; these remain unmeasured. Nominal overall height is 12.7 mm. Keep the head close and the quill mostly retracted and locked for each pass; lock the unused axis on heavy cuts. No gloves at a rotating spindle.",
           "parallels": "parallels",
           "stop": "unknown"
         },
@@ -17862,7 +17859,7 @@
           "grip_mm": "unknown",
           "jaw_above_parallels_mm": "unknown",
           "jaws_along": "x",
-          "note": "HOLD before spindle start: measure actual grip, shoulder depth, cutter/flute reach, holder projection and jaw clearance throughout both passes. The source explicitly checks this relationship; the model cannot prove this unmeasured hold. No gloves near rotating spindle (editorial safeguard).",
+          "note": "HOLD before spindle start: measure actual grip, shoulder depth, cutter/flute reach, holder projection and jaw clearance throughout both passes. No gloves near a rotating spindle.",
           "parallels": "parallels",
           "stop": "unknown"
         },
@@ -33773,6 +33770,7 @@
         "features.frames.model",
         "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
+        "plan.setups.Q1.ops.10.stock_removal_bounds",
         "plan.setups.Q1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.Q1.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
@@ -33780,7 +33778,7 @@
         "inventory.machines.video-mill.envelope.travel.y",
         "inventory.machines.video-mill.envelope.travel.z"
       ],
-      "message": "Q1: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for milling-holder in inventory and author plan.setups.Q1.ops.10.holder; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.Q1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.Q1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed.",
+      "message": "Q1: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for milling-holder in inventory and author plan.setups.Q1.ops.10.holder; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure and author plan.setups.Q1.ops.10.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.Q1.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path; author: Measure plan.setups.Q1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.Q1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed.",
       "numbers": {
         "measurements": [
           {
@@ -33838,6 +33836,14 @@
           },
           {
             "cite": [
+              "plan.setups.Q1.ops.10.stock_removal_bounds; plan.setups.Q1.ops.10.contour"
+            ],
+            "id": "plan.setups.Q1.ops.10.xy_geometry",
+            "instruction": "author: Measure and author plan.setups.Q1.ops.10.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.Q1.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path",
+            "units": "mm"
+          },
+          {
+            "cite": [
               "plan.setups.Q1.ops.10"
             ],
             "id": "plan.setups.Q1.ops.10.z_geometry",
@@ -33851,20 +33857,7 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "face",
             "endpoint": "not_applicable",
-            "extent_mm": {
-              "x": [
-                -12.7,
-                12.7
-              ],
-              "y": [
-                -11.1125,
-                11.1125
-              ],
-              "z": [
-                -12.7,
-                0.0
-              ]
-            },
+            "extent_mm": "unknown",
             "feature": "base-envelope",
             "holder": "milling-holder",
             "holder_gauge_len_mm": "unknown",
@@ -33880,14 +33873,8 @@
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
-              "x": [
-                -12.7,
-                12.7
-              ],
-              "y": [
-                -11.1125,
-                11.1125
-              ]
+              "x": "unknown",
+              "y": "unknown"
             },
             "z_bounds_mm": "unknown",
             "z_verified": false
@@ -33895,24 +33882,24 @@
         ],
         "travel_checks": {
           "x": {
-            "basis": "declared cut extent",
-            "located_span_mm": 25.4,
+            "basis": "unknown",
+            "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
-            "minimum_required_mm": 25.4,
-            "required_mm": 25.4,
-            "required_verified": true,
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
           "y": {
-            "basis": "declared cut extent",
-            "located_span_mm": 22.225,
+            "basis": "unknown",
+            "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
-            "minimum_required_mm": 22.225,
-            "required_mm": 22.225,
-            "required_verified": true,
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
@@ -33950,6 +33937,7 @@
         "features.frames.model",
         "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
+        "plan.setups.Q2.ops.10.stock_removal_bounds",
         "plan.setups.Q2.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.Q2.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
@@ -33957,7 +33945,7 @@
         "inventory.machines.video-mill.envelope.travel.y",
         "inventory.machines.video-mill.envelope.travel.z"
       ],
-      "message": "Q2: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for milling-holder in inventory and author plan.setups.Q2.ops.10.holder; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.Q2.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.Q2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed.",
+      "message": "Q2: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for milling-holder in inventory and author plan.setups.Q2.ops.10.holder; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure and author plan.setups.Q2.ops.10.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.Q2.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path; author: Measure plan.setups.Q2.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.Q2.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed.",
       "numbers": {
         "measurements": [
           {
@@ -34015,6 +34003,14 @@
           },
           {
             "cite": [
+              "plan.setups.Q2.ops.10.stock_removal_bounds; plan.setups.Q2.ops.10.contour"
+            ],
+            "id": "plan.setups.Q2.ops.10.xy_geometry",
+            "instruction": "author: Measure and author plan.setups.Q2.ops.10.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.Q2.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path",
+            "units": "mm"
+          },
+          {
+            "cite": [
               "plan.setups.Q2.ops.10"
             ],
             "id": "plan.setups.Q2.ops.10.z_geometry",
@@ -34028,20 +34024,7 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "face",
             "endpoint": "not_applicable",
-            "extent_mm": {
-              "x": [
-                -12.7,
-                12.7
-              ],
-              "y": [
-                -12.7,
-                0.0
-              ],
-              "z": [
-                -22.225,
-                0.0
-              ]
-            },
+            "extent_mm": "unknown",
             "feature": "base-envelope",
             "holder": "milling-holder",
             "holder_gauge_len_mm": "unknown",
@@ -34057,14 +34040,8 @@
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
-              "x": [
-                -12.7,
-                12.7
-              ],
-              "y": [
-                -12.7,
-                0.0
-              ]
+              "x": "unknown",
+              "y": "unknown"
             },
             "z_bounds_mm": "unknown",
             "z_verified": false
@@ -34072,24 +34049,24 @@
         ],
         "travel_checks": {
           "x": {
-            "basis": "declared cut extent",
-            "located_span_mm": 25.4,
+            "basis": "unknown",
+            "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
-            "minimum_required_mm": 25.4,
-            "required_mm": 25.4,
-            "required_verified": true,
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
           "y": {
-            "basis": "declared cut extent",
-            "located_span_mm": 12.7,
+            "basis": "unknown",
+            "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
-            "minimum_required_mm": 12.7,
-            "required_mm": 12.7,
-            "required_verified": true,
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
@@ -34127,6 +34104,7 @@
         "features.frames.model",
         "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
+        "plan.setups.Q3.ops.10.stock_removal_bounds",
         "plan.setups.Q3.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.Q3.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
@@ -34134,7 +34112,7 @@
         "inventory.machines.video-mill.envelope.travel.y",
         "inventory.machines.video-mill.envelope.travel.z"
       ],
-      "message": "Q3: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for milling-holder in inventory and author plan.setups.Q3.ops.10.holder; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.Q3.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.Q3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed.",
+      "message": "Q3: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for milling-holder in inventory and author plan.setups.Q3.ops.10.holder; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure and author plan.setups.Q3.ops.10.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.Q3.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path; author: Measure plan.setups.Q3.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.Q3.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed.",
       "numbers": {
         "measurements": [
           {
@@ -34192,6 +34170,14 @@
           },
           {
             "cite": [
+              "plan.setups.Q3.ops.10.stock_removal_bounds; plan.setups.Q3.ops.10.contour"
+            ],
+            "id": "plan.setups.Q3.ops.10.xy_geometry",
+            "instruction": "author: Measure and author plan.setups.Q3.ops.10.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.Q3.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path",
+            "units": "mm"
+          },
+          {
+            "cite": [
               "plan.setups.Q3.ops.10"
             ],
             "id": "plan.setups.Q3.ops.10.z_geometry",
@@ -34205,20 +34191,7 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "face",
             "endpoint": "not_applicable",
-            "extent_mm": {
-              "x": [
-                -12.7,
-                12.7
-              ],
-              "y": [
-                -12.7,
-                0.0
-              ],
-              "z": [
-                -22.225,
-                0.0
-              ]
-            },
+            "extent_mm": "unknown",
             "feature": "base-envelope",
             "holder": "milling-holder",
             "holder_gauge_len_mm": "unknown",
@@ -34234,14 +34207,8 @@
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
-              "x": [
-                -12.7,
-                12.7
-              ],
-              "y": [
-                -12.7,
-                0.0
-              ]
+              "x": "unknown",
+              "y": "unknown"
             },
             "z_bounds_mm": "unknown",
             "z_verified": false
@@ -34249,24 +34216,24 @@
         ],
         "travel_checks": {
           "x": {
-            "basis": "declared cut extent",
-            "located_span_mm": 25.4,
+            "basis": "unknown",
+            "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
-            "minimum_required_mm": 25.4,
-            "required_mm": 25.4,
-            "required_verified": true,
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
           "y": {
-            "basis": "declared cut extent",
-            "located_span_mm": 12.7,
+            "basis": "unknown",
+            "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
-            "minimum_required_mm": 12.7,
-            "required_mm": 12.7,
-            "required_verified": true,
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
@@ -34304,6 +34271,7 @@
         "features.frames.model",
         "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
+        "plan.setups.Q4.ops.10.stock_removal_bounds",
         "plan.setups.Q4.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.Q4.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
@@ -34311,7 +34279,7 @@
         "inventory.machines.video-mill.envelope.travel.y",
         "inventory.machines.video-mill.envelope.travel.z"
       ],
-      "message": "Q4: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for milling-holder in inventory and author plan.setups.Q4.ops.10.holder; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.Q4.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.Q4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed.",
+      "message": "Q4: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for milling-holder in inventory and author plan.setups.Q4.ops.10.holder; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure and author plan.setups.Q4.ops.10.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.Q4.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path; author: Measure plan.setups.Q4.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.Q4.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed.",
       "numbers": {
         "measurements": [
           {
@@ -34369,6 +34337,14 @@
           },
           {
             "cite": [
+              "plan.setups.Q4.ops.10.stock_removal_bounds; plan.setups.Q4.ops.10.contour"
+            ],
+            "id": "plan.setups.Q4.ops.10.xy_geometry",
+            "instruction": "author: Measure and author plan.setups.Q4.ops.10.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.Q4.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path",
+            "units": "mm"
+          },
+          {
+            "cite": [
               "plan.setups.Q4.ops.10"
             ],
             "id": "plan.setups.Q4.ops.10.z_geometry",
@@ -34382,20 +34358,7 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "face",
             "endpoint": "not_applicable",
-            "extent_mm": {
-              "x": [
-                -12.7,
-                12.7
-              ],
-              "y": [
-                -11.1125,
-                11.1125
-              ],
-              "z": [
-                -12.7,
-                0.0
-              ]
-            },
+            "extent_mm": "unknown",
             "feature": "base-envelope",
             "holder": "milling-holder",
             "holder_gauge_len_mm": "unknown",
@@ -34411,14 +34374,8 @@
             "tool_radius_mm": "unknown",
             "tool_radius_verified": false,
             "xy_cutter_bounds_mm": {
-              "x": [
-                -12.7,
-                12.7
-              ],
-              "y": [
-                -11.1125,
-                11.1125
-              ]
+              "x": "unknown",
+              "y": "unknown"
             },
             "z_bounds_mm": "unknown",
             "z_verified": false
@@ -34426,24 +34383,24 @@
         ],
         "travel_checks": {
           "x": {
-            "basis": "declared cut extent",
-            "located_span_mm": 25.4,
+            "basis": "unknown",
+            "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
-            "minimum_required_mm": 25.4,
-            "required_mm": 25.4,
-            "required_verified": true,
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
           "y": {
-            "basis": "declared cut extent",
-            "located_span_mm": 22.225,
+            "basis": "unknown",
+            "located_span_mm": "unknown",
             "lower_bound_margin_mm": "unknown",
             "margin_mm": "unknown",
-            "minimum_required_mm": 22.225,
-            "required_mm": 22.225,
-            "required_verified": true,
+            "minimum_required_mm": "unknown",
+            "required_mm": "unknown",
+            "required_verified": false,
             "travel_mm": "unknown",
             "travel_verified": false
           },
@@ -34483,12 +34440,14 @@
         "features.frames.model",
         "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=162s",
+        "plan.setups.S1.ops.10.stock_removal_bounds",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=464s",
         "inventory.tools.shoulder-rougher.dia",
         "plan.setups.S1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
         "plan.setups.S1.ops.20",
+        "plan.setups.S1.ops.20.stock_removal_bounds",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s",
         "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=747s",
         "inventory.tools.finishing-endmill.dia",
@@ -34498,7 +34457,7 @@
         "inventory.machines.video-mill.envelope.travel.y",
         "inventory.machines.video-mill.envelope.travel.z"
       ],
-      "message": "S1: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for milling-holder in inventory and author plan.setups.S1.ops.20.holder; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Measure plan.setups.S1.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: finishing-endmill selected cutter diameter, micrometer, mm; measure: shoulder-rougher selected cutter diameter, micrometer, mm.",
+      "message": "S1: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for milling-holder in inventory and author plan.setups.S1.ops.20.holder; measure: video-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: video-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure and author plan.setups.S1.ops.10.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.S1.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; author: Measure and author plan.setups.S1.ops.20.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.S1.ops.20 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path; author: Measure plan.setups.S1.ops.20 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.20.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; measure: finishing-endmill selected cutter diameter, micrometer, mm; measure: shoulder-rougher selected cutter diameter, micrometer, mm.",
       "numbers": {
         "measurements": [
           {
@@ -34556,10 +34515,10 @@
           },
           {
             "cite": [
-              "features.features.shoulders.bounds/at; plan.stock"
+              "plan.setups.S1.ops.10.stock_removal_bounds; plan.setups.S1.ops.10.contour"
             ],
             "id": "plan.setups.S1.ops.10.xy_geometry",
-            "instruction": "author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
+            "instruction": "author: Measure and author plan.setups.S1.ops.10.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.S1.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path",
             "units": "mm"
           },
           {
@@ -34572,10 +34531,10 @@
           },
           {
             "cite": [
-              "features.features.shoulders.bounds/at; plan.stock"
+              "plan.setups.S1.ops.20.stock_removal_bounds; plan.setups.S1.ops.20.contour"
             ],
             "id": "plan.setups.S1.ops.20.xy_geometry",
-            "instruction": "author: Measure plan.setups.S1.ops.20 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
+            "instruction": "author: Measure and author plan.setups.S1.ops.20.stock_removal_bounds as the actual full removal footprint in the setup frame with calipers, a height gauge or CMM in mm. Declare plan.setups.S1.ops.20 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path",
             "units": "mm"
           },
           {
@@ -34619,20 +34578,7 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "rough_profile",
             "endpoint": "not_applicable",
-            "extent_mm": {
-              "x": [
-                -12.7,
-                12.7
-              ],
-              "y": [
-                -11.1125,
-                11.1125
-              ],
-              "z": [
-                -6.35,
-                0.0
-              ]
-            },
+            "extent_mm": "unknown",
             "feature": "shoulders",
             "holder": "milling-holder",
             "holder_gauge_len_mm": "unknown",
@@ -34659,20 +34605,7 @@
             "conservative_stock_spans_mm": "not_applicable",
             "do": "profile",
             "endpoint": "not_applicable",
-            "extent_mm": {
-              "x": [
-                -12.7,
-                12.7
-              ],
-              "y": [
-                -11.1125,
-                11.1125
-              ],
-              "z": [
-                -6.35,
-                0.0
-              ]
-            },
+            "extent_mm": "unknown",
             "feature": "shoulders",
             "holder": "milling-holder",
             "holder_gauge_len_mm": "unknown",
@@ -40571,7 +40504,7 @@
         "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN E=1/2 inch)",
         "geometry-provenance.md"
       ],
-      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown. The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed.",
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown. The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed. A Z touch cannot be certified on an unverified DRO grid (the Z zero touch on top (coverage unknown for base-envelope: stock_removal_bounds.x/y is missing or malformed); the retouch after op 10 on top (coverage unknown for base-envelope: stock_removal_bounds.x/y is missing or malformed); the retouch after op 20 on top (coverage unknown for base-envelope: stock_removal_bounds.x/y is missing or malformed)): its Axis Set is not known.",
       "numbers": {
         "axes": {
           "x": {
@@ -40669,8 +40602,26 @@
           "mode": "abs",
           "radius_mode": "unknown"
         },
+        "dro_grid_debt": "machine video-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "frame": "top-up",
         "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
+              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s",
+              "inventory.machines.video-mill.resolution"
+            ],
+            "field": [
+              "resolution"
+            ],
+            "id": "machines.video-mill.resolution",
+            "identity": "video-mill",
+            "instruction": "measure: video-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
           {
             "category": "tools",
             "cite": [
@@ -40727,7 +40678,7 @@
         "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN E=1/2 inch)",
         "geometry-provenance.md"
       ],
-      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown. The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed.",
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown. The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed. A Z touch cannot be certified on an unverified DRO grid (the Z zero touch on top (coverage unknown for base-envelope: stock_removal_bounds.x/y is missing or malformed)): its Axis Set is not known.",
       "numbers": {
         "axes": {
           "x": {
@@ -40825,8 +40776,26 @@
           "mode": "abs",
           "radius_mode": "unknown"
         },
+        "dro_grid_debt": "machine video-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "frame": "top-up",
         "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
+              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s",
+              "inventory.machines.video-mill.resolution"
+            ],
+            "field": [
+              "resolution"
+            ],
+            "id": "machines.video-mill.resolution",
+            "identity": "video-mill",
+            "instruction": "measure: video-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
           {
             "category": "tools",
             "cite": [
@@ -41087,7 +41056,7 @@
             "finder_verify": false,
             "from": "-y",
             "jog_mm": "unknown",
-            "method": "Editorial pickup: edge-find the fixed-jaw face before loading the bar and set Y0. Seat the first machined face on that same reference; do not try to touch a face hidden by the loaded jaw.",
+            "method": "Edge-find the fixed-jaw face before loading the bar and set Y0. Seat the first machined face on that same reference; do not try to touch a face hidden by the loaded jaw.",
             "mirrored_reading": "unknown",
             "paper_mm": "not_applicable",
             "radius_mm": "unknown",
@@ -41223,7 +41192,7 @@
             "finder_verify": false,
             "from": "-y",
             "jog_mm": "unknown",
-            "method": "Editorial pickup: establish Y0 on the accessible fixed-jaw face before loading, then seat the reference corner on it. Do not attempt a pickup through the jaw.",
+            "method": "Establish Y0 on the accessible fixed-jaw face before loading, then seat the reference corner on it. Do not attempt a pickup through the jaw.",
             "mirrored_reading": "unknown",
             "paper_mm": "not_applicable",
             "radius_mm": "unknown",
@@ -41427,7 +41396,7 @@
         "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN E=1/2 inch)",
         "geometry-provenance.md"
       ],
-      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown. The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed.",
+      "message": "Touch, Axis Set the compensated value, then jog without retouching and compare expected versus mirrored readings. Measured setup/tool or trial-cut verification remains unknown. The edge finder's type, tip Ø, rpm range or the spindle's rpm range is not stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed. A Z touch cannot be certified on an unverified DRO grid (the Z zero touch on top (coverage unknown for base-envelope: stock_removal_bounds.x/y is missing or malformed)): its Axis Set is not known.",
       "numbers": {
         "axes": {
           "x": {
@@ -41524,8 +41493,26 @@
           "mode": "abs",
           "radius_mode": "unknown"
         },
+        "dro_grid_debt": "machine video-mill declares no positive numeric DRO resolution, so its grid is provisional",
         "frame": "top-up",
         "measurements": [
+          {
+            "category": "machines",
+            "cite": [
+              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=324s",
+              "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=477s",
+              "inventory.machines.video-mill.resolution"
+            ],
+            "field": [
+              "resolution"
+            ],
+            "id": "machines.video-mill.resolution",
+            "identity": "video-mill",
+            "instruction": "measure: video-mill installed DRO least readable step, installed readout and indicator check, mm",
+            "reason": "No numeric length with explicit millimetre or inch units is recorded.",
+            "status": "missing",
+            "units": "mm"
+          },
           {
             "category": "tools",
             "cite": [
@@ -41567,7 +41554,7 @@
       "subject": "S1"
     }
   ],
-  "hash": "133bc9679154fec74aadaaba4d7b68d45b3820973d427d6addca81c19f387c5e",
+  "hash": "271cc3e0db7d2e488e2a4a9f18adf07d871dd568a334681443606d494f8f45d7",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-t-nuts/cutting-data.toml",
@@ -41583,7 +41570,7 @@
     },
     "plan": {
       "path": "examples/blondihacks-t-nuts/plan.toml",
-      "sha256": "d64729791cbc4201b7c78f5db37ba9e62506554e41c0545bd3636200408b80b6"
+      "sha256": "2796ff6dda830641f105d6b09f10b2e91479e66572855a24767b43f5b3d7eee8"
     },
     "shop_policy": {
       "path": "examples/blondihacks-t-nuts/shop-policy.toml",

@@ -54,7 +54,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, -1.0, 0.0]
 z = [0.0, 0.0, -1.0]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: bar length X, first long reference bottom face up at nominal Z0; physical pickup and incoming stock envelope remain unmeasured."
+note = "Bar length X; first long reference bottom face up at nominal Z0. HOLD: measure the incoming stock envelope and establish the physical pickup before cutting; both remain unmeasured."
 cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=183s", "geometry-provenance.md"]
 
 [frames.side-one-up]
@@ -63,7 +63,7 @@ x = [-1.0, 0.0, 0.0]
 y = [0.0, 0.0, -1.0]
 z = [0.0, -1.0, 0.0]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: adjacent long face up at the selected catalog base-width boundary; first machined face against fixed jaw. Nominal orientation, not a measured pickup."
+note = "Adjacent long face up at the nominal base-width boundary; first machined face against the fixed jaw. Establish the actual pickup before cutting."
 cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN C=7/8 inch)", "geometry-provenance.md"]
 
 [frames.side-two-up]
@@ -72,7 +72,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 0.0, -1.0]
 z = [0.0, 1.0, 0.0]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: opposite long face up at the selected catalog base-width boundary; re-pick the actual stock after turning. Nominal orientation, not a measured pickup."
+note = "Opposite long face up at the nominal base-width boundary. Re-pick the actual stock after turning; the physical pickup remains unmeasured."
 cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN C=7/8 inch)", "geometry-provenance.md"]
 
 [frames.top-up]
@@ -81,7 +81,7 @@ x = [1.0, 0.0, 0.0]
 y = [0.0, 1.0, 0.0]
 z = [0.0, 0.0, 1.0]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: finished bottom down, length X, transverse centerline Y0, selected catalog 12.7-mm top at Z0. Part bottom is nominal Z-12.7 and video 6.35-mm shoulder shelf is nominal Z-6.35. Not a measured physical pickup."
+note = "Finished bottom down, length X, transverse centerline Y0; nominal 12.7-mm top at Z0. Part bottom is nominal Z-12.7 mm and the 6.35-mm shoulder shelf is nominal Z-6.35 mm. Establish the actual physical pickup before cutting."
 cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=403s", "https://www.carrlane.com/product/clamping-hardware/studs-bolts-t-nuts/t-nuts (CL-0-TN E=1/2 inch)", "geometry-provenance.md"]
 
 [frames.end-up]
@@ -90,7 +90,7 @@ x = [0.0, 1.0, 0.0]
 y = [0.0, 0.0, 1.0]
 z = [1.0, 0.0, 0.0]
 binding = "nominal"
-note = "AUTHOR'S CHOICE: upright separation frame, model length X along machine Z. The horizontal slitting disk cuts off the top piece; the lower remainder stays clamped. Origin is a nominal finished-part end, not a measured batch-bar seat or cut-line height."
+note = "Stand the bar upright with its length along machine Z. The horizontal slitting disk cuts off the top piece; the lower remainder stays clamped. Establish the actual batch-bar seat and cut-line height; the origin marks only the nominal finished-part end."
 cite = ["AUTHOR'S CHOICE", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=665s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=690s", "geometry-provenance.md"]
 
 # B0: source slot/hardware survey and rough bar cutoff.
@@ -100,7 +100,7 @@ machine = "video-bench"
 stock_in = "stock"
 coolant = "unknown"
 deburr_mm = "unknown"
-note = "Once for the four-piece batch. Complete and record the recipient-slot/hardware survey before loading stock; it is a prerequisite, not inspection of an already-made nut. HOLD until fit targets and a safe raw-bar cutoff length are approved."
+note = "Once for the four-piece batch. Complete and record the recipient-slot/hardware survey before loading stock. HOLD until fit targets and a safe raw-bar cutoff length are approved."
 [setups.hold]
 fixture = "bench-vise"
 stop = "unknown"
@@ -124,7 +124,7 @@ frame = "bottom-up"
 stock_in = "B0"
 coolant = "unknown"
 deburr_mm = "unknown"
-note = "First long face on the whole bar. Video calls precision squaring optional for utility; this example retains the demonstrated route. No end facing yet."
+note = "Skim the first long face on the whole bar. Complete all four long-face squaring setups Q1-Q4 before cutting the shoulders in S1. Do not face the ends yet."
 [setups.stock_state]
 top_z = "unknown"
 bottom_z = "unknown"
@@ -137,7 +137,7 @@ align = "unknown"
 grip_mm = "unknown"
 jaw_above_parallels_mm = "unknown"
 clamp = "Hold the raw bar securely in the vise for a cleanup skim."
-note = "HOLD: actual jaw contact, raw-stock position, cutter projection and jaw clearance are unmeasured. Editorial safeguard: no gloves near a rotating spindle; the video's glove anecdote is not adopted."
+note = "HOLD: establish actual jaw contact and raw-stock position; measure cutter projection and check jaw clearance before spindle start. These remain unmeasured. No gloves near a rotating spindle."
 [setups.zero.x]
 edge = "accessible raw bar end"
 edge_mm = "unknown"
@@ -163,20 +163,21 @@ feature = "base-envelope"
 faces = ["#88/ADVANCED_FACE[3]/"]
 tool = "roughing-endmill"
 holder = "milling-holder"
+stock_removal_bounds = "unknown"
 to_z = 0.0
 rpm = "unknown"
 feed_mm_min = "unknown"
 doc_mm = "unknown"
 approach_mm = "unknown"
 direction = "conventional"
-note = "Skim the first long face flat and mark it as the reference. Actual cleanup depth and safe cutting data must be set for the measured tool and source mill, not copied from a sample pass."
+note = "Skim the first long face flat and mark it as the reference. Set actual cleanup depth and safe cutting data for the measured tool and mill; do not copy a sample pass."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=183s"
 [[setups.ops]]
 op = 20
 do = "deburr"
 feature = "base-envelope"
 tool = "needle-files"
-note = "With spindle stopped, remove seating burrs before the next hold. Editorial choice: use the video's later hand files for this between-setup deburring; tool identity during the early deburring is not established. No edge-break size is specified."
+note = "With spindle stopped, use the needle files to remove seating burrs before the next hold. The early deburring tool is unidentified; no edge-break size is specified."
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=234s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s"]
 
 [[setups]]
@@ -198,8 +199,8 @@ stop = "unknown"
 jaw_bar = "round-bar"
 grip_mm = "unknown"
 jaw_above_parallels_mm = "unknown"
-clamp = "Before loading, establish the editorial fixed-jaw Y0 pickup. Then place the first machined face against that jaw, use the round bar at the moving jaw, and seat and clamp the bar."
-note = "HOLD: round-bar diameter/length, seating, vise alignment, engagement and cutter clearance are unmeasured. Round-bar contact is a source method, not a qualified fixture design."
+clamp = "Before loading, establish the fixed-jaw Y0 pickup. Then place the first machined face against that jaw, use the round bar at the moving jaw, and seat and clamp the bar."
+note = "HOLD: round-bar diameter/length, seating, vise alignment, engagement and cutter clearance are unmeasured. Establish secure round-bar contact before cutting."
 [setups.zero.x]
 edge = "accessible bar end after turning"
 edge_mm = "unknown"
@@ -210,7 +211,7 @@ check_jog_mm = "unknown"
 edge = "accessible fixed-jaw face, before loading"
 edge_mm = 0.0
 from = "-y"
-method = "Editorial pickup: edge-find the fixed-jaw face before loading the bar and set Y0. Seat the first machined face on that same reference; do not try to touch a face hidden by the loaded jaw."
+method = "Edge-find the fixed-jaw face before loading the bar and set Y0. Seat the first machined face on that same reference; do not try to touch a face hidden by the loaded jaw."
 tool = "edge-finder"
 check_jog_mm = "unknown"
 [setups.zero.z]
@@ -226,20 +227,21 @@ feature = "base-envelope"
 faces = ["#130/ADVANCED_FACE[4]/"]
 tool = "roughing-endmill"
 holder = "milling-holder"
+stock_removal_bounds = "unknown"
 to_z = 0.0
 rpm = "unknown"
 feed_mm_min = "unknown"
 doc_mm = "unknown"
 approach_mm = "unknown"
 direction = "conventional"
-note = "Face the adjacent long side square to the first reference. Establish cleanup from the actual bar; no squareness tolerance is invented."
+note = "Face the adjacent long side square to the first reference. Establish cleanup from the actual bar; the squareness tolerance remains unknown."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=246s"
 [[setups.ops]]
 op = 20
 do = "deburr"
 feature = "base-envelope"
 tool = "needle-files"
-note = "Spindle stopped: remove only seating burrs. Editorial file selection as in Q1; retain the reference corner."
+note = "Spindle stopped: use the needle files to remove only seating burrs; retain the reference corner."
 
 [[setups]]
 id = "Q3"
@@ -248,7 +250,7 @@ frame = "side-two-up"
 stock_in = "Q2"
 coolant = "unknown"
 deburr_mm = "unknown"
-note = "Whole bar: use the machined right-angle corner against the lower/rear vise references; face the opposite long side to selected catalog nominal base width 22.225 mm (7/8 inch). Acceptance band and actual slot fit remain pending."
+note = "Whole bar: seat the machined right-angle corner against the lower/rear vise references; face the opposite long side to nominal base width 22.225 mm (7/8 inch). Acceptance band and actual slot fit remain pending."
 [setups.stock_state]
 top_z = "unknown"
 bottom_z = "unknown"
@@ -259,8 +261,8 @@ fixed_jaw = "rear"
 stop = "unknown"
 grip_mm = "unknown"
 jaw_above_parallels_mm = "unknown"
-clamp = "Before loading, establish the editorial fixed-jaw Y0 pickup. Then seat the previously machined 90-degree corner at the lower fixed-jaw side and clamp."
-note = "HOLD: actual seating, jaw engagement, clearance and approved acceptance limits must be established. Selected catalog nominal base width is 22.225 mm; it is not a measured slot-fit clearance."
+clamp = "Before loading, establish the fixed-jaw Y0 pickup. Then seat the previously machined 90-degree corner at the lower fixed-jaw side and clamp."
+note = "HOLD: establish actual seating, jaw engagement, clearance and approved acceptance limits. Nominal base width is 22.225 mm; actual slot-fit clearance remains unmeasured."
 [setups.zero.x]
 edge = "accessible bar end"
 edge_mm = "unknown"
@@ -271,7 +273,7 @@ check_jog_mm = "unknown"
 edge = "accessible fixed-jaw face, before loading"
 edge_mm = 0.0
 from = "-y"
-method = "Editorial pickup: establish Y0 on the accessible fixed-jaw face before loading, then seat the reference corner on it. Do not attempt a pickup through the jaw."
+method = "Establish Y0 on the accessible fixed-jaw face before loading, then seat the reference corner on it. Do not attempt a pickup through the jaw."
 tool = "edge-finder"
 check_jog_mm = "unknown"
 [setups.zero.z]
@@ -287,13 +289,14 @@ feature = "base-envelope"
 faces = ["#57/ADVANCED_FACE[2]/"]
 tool = "roughing-endmill"
 holder = "milling-holder"
+stock_removal_bounds = "unknown"
 to_z = 0.0
 rpm = "unknown"
 feed_mm_min = "unknown"
 doc_mm = "unknown"
 approach_mm = "unknown"
 direction = "conventional"
-note = "Face the third long surface; measure the developing width with calipers. The video's demonstrated 0.070-inch pass is not prescribed for an unmeasured cutter/mill setup."
+note = "Face the third long surface; measure the developing width with calipers. HOLD: establish the actual pass depth from verified tool and material data and machine limits before cutting."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=282s"
 [[setups.ops]]
 op = 20
@@ -301,13 +304,13 @@ do = "inspect"
 feature = "base-envelope"
 checks = { width = "calipers" }
 inspection_methods = { width = "Measure across the two long base sides at several positions after clearing burrs; record readings and compare only with the approved slot-fit drawing, whose limits remain pending." }
-note = "Record the base width. A catalog nominal or model width is not a tolerance band or a demonstrated clearance in the reader's slot."
+note = "Record the base width. HOLD for approved width limits and measured clearance in the actual slot; nominal width alone is not an acceptance band."
 [[setups.ops]]
 op = 30
 do = "deburr"
 feature = "base-envelope"
 tool = "needle-files"
-note = "Spindle stopped: remove seating burrs before turning onto parallels. Editorial file selection as in Q1."
+note = "Spindle stopped: use the needle files to remove seating burrs before turning onto parallels."
 
 [[setups]]
 id = "Q4"
@@ -316,7 +319,7 @@ frame = "top-up"
 stock_in = "Q3"
 coolant = "unknown"
 deburr_mm = "unknown"
-note = "Whole bar: fourth long face up, on parallels. Retain the source rigidity checks for the larger cuts."
+note = "Whole bar: fourth long face up, on parallels. Check rigidity before the larger cuts."
 [setups.stock_state]
 top_z = "unknown"
 bottom_z = "unknown"
@@ -329,7 +332,7 @@ parallels = "parallels"
 grip_mm = "unknown"
 jaw_above_parallels_mm = "unknown"
 clamp = "Seat the squared corner and support the bar on parallels; clamp securely."
-note = "HOLD: parallel height, grip and cutter/jaw clearance remain unmeasured; selected catalog overall-height nominal is 12.7 mm. Source rigidity practice: head close, quill mostly retracted and locked for each pass; lock the unused axis on heavy cuts. No gloves at rotating spindle (editorial)."
+note = "HOLD: measure parallel height and grip, and check cutter/jaw clearance before cutting; these remain unmeasured. Nominal overall height is 12.7 mm. Keep the head close and the quill mostly retracted and locked for each pass; lock the unused axis on heavy cuts. No gloves at a rotating spindle."
 [setups.zero.x]
 edge = "accessible bar end"
 edge_mm = "unknown"
@@ -355,13 +358,14 @@ feature = "base-envelope"
 faces = ["#223/ADVANCED_FACE[7]/"]
 tool = "roughing-endmill"
 holder = "milling-holder"
+stock_removal_bounds = "unknown"
 to_z = 0.0
 rpm = "unknown"
 feed_mm_min = "unknown"
 doc_mm = "unknown"
 approach_mm = "unknown"
 direction = "conventional"
-note = "Face the fourth long surface to selected catalog nominal overall height 12.7 mm (1/2 inch). Measure the actual section and establish a safe pass size; raw cleanup depth and acceptance limits are not inferred."
+note = "Face the fourth long surface to nominal overall height 12.7 mm (1/2 inch). Measure the actual section and establish a safe pass size; raw cleanup depth and acceptance limits remain unknown."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=352s"
 [[setups.ops]]
 op = 20
@@ -369,7 +373,7 @@ do = "inspect"
 feature = "base-envelope"
 checks = { height = "calipers", width = "calipers" }
 inspection_methods = { height = "Measure bottom-to-top thickness along the whole bar; record actual readings against the selected 12.7-mm nominal. Confirm the actual slot will leave the nut below the table before release.", width = "Recheck base width against selected 22.225-mm nominal; confirm actual slot undercut clearance and approved acceptance limits." }
-note = "Catalog-based design nominals are known; physical measurements, fit clearances and acceptance bands remain pending."
+note = "Record physical measurements. HOLD for approved fit clearances and acceptance bands; nominal dimensions alone do not release the bar."
 [[setups.ops]]
 op = 30
 do = "deburr"
@@ -398,7 +402,7 @@ parallels = "parallels"
 grip_mm = "unknown"
 jaw_above_parallels_mm = "unknown"
 clamp = "Select parallel height so enough stock projects above the jaws for both shoulders while preserving positive jaw engagement; seat and clamp."
-note = "HOLD before spindle start: measure actual grip, shoulder depth, cutter/flute reach, holder projection and jaw clearance throughout both passes. The source explicitly checks this relationship; the model cannot prove this unmeasured hold. No gloves near rotating spindle (editorial safeguard)."
+note = "HOLD before spindle start: measure actual grip, shoulder depth, cutter/flute reach, holder projection and jaw clearance throughout both passes. No gloves near a rotating spindle."
 [setups.zero.x]
 edge = "accessible end of batch bar"
 edge_mm = "unknown"
@@ -433,6 +437,7 @@ feature = "shoulders"
 tool = "shoulder-rougher"
 faces = ["#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"]
 holder = "milling-holder"
+stock_removal_bounds = "unknown"
 to_z = -6.35
 stock_to_leave_mm = 0.254
 rpm = "unknown"
@@ -440,7 +445,7 @@ feed_mm_min = "unknown"
 doc_mm = "unknown"
 approach_mm = "unknown"
 direction = "conventional"
-note = "Rough both shoulder walls with separate conventional straight passes, leaving 0.010 inch (0.254 mm) on the WALLS only. Cut the shelf floors to nominal Z-6.35. Selected stem width is 12.573 mm; derive positions from the measured cutter, not the video's cutter-center setting."
+note = "Rough both shoulder walls with separate conventional straight passes, leaving 0.010 inch (0.254 mm) on the WALLS only. Cut the shelf floors to this operation's Z target. Nominal stem width is 12.573 mm; derive positions from the measured cutter, not a demonstrated cutter-center setting."
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=407s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=500s"]
 [[setups.ops]]
 op = 20
@@ -448,20 +453,21 @@ do = "profile"
 feature = "shoulders"
 tool = "finishing-endmill"
 holder = "milling-holder"
+stock_removal_bounds = "unknown"
 to_z = -6.35
 rpm = "unknown"
 feed_mm_min = "unknown"
 doc_mm = "unknown"
 approach_mm = "unknown"
 direction = "conventional"
-note = "Touch the finishing cutter on the rough-cut shoulder floor and set Z-6.35; no paper is shown for this touch. Finish both walls to nominal stem width 12.573 mm without lowering the shelf floors. Nominal cutter-center Y = +/-(12.573/2 + measured cutter diameter/2) mm. HOLD until the tool and clearance are measured."
+note = "Touch the finishing cutter directly on the rough-cut shoulder floor and use the Axis Set value in the DRO ZERO tool-touch row; do not add paper to this touch. Finish both walls to nominal stem width 12.573 mm without lowering the shelf floors. Nominal cutter-center Y = +/-(12.573/2 + measured cutter diameter/2) mm. HOLD until the tool and clearance are measured."
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=583s"]
 [[setups.ops]]
 op = 30
 do = "inspect"
 feature = "shoulders"
 checks = { thickness = "calipers", width = "calipers" }
-inspection_methods = { thickness = "Measure bottom-to-shelf thickness on both shoulders at both bar ends; record against video nominal 6.35 mm (0.250 inch), with acceptance limits pending.", width = "Measure the finished stem across both long walls at several stations; record against selected catalog nominal 12.573 mm (0.495 inch), then prove actual slot-throat clearance before release." }
+inspection_methods = { thickness = "Measure bottom-to-shelf thickness on both shoulders at both bar ends; record against nominal target 6.35 mm (0.250 inch), with acceptance limits pending.", width = "Measure the finished stem across both long walls at several stations; record against selected catalog nominal 12.573 mm (0.495 inch), then prove actual slot-throat clearance before release." }
 note = "Record flange thickness and stem width before committing the batch to separation."
 [[setups.ops]]
 op = 40
@@ -489,7 +495,7 @@ fixed_jaw = "rear"
 stop = "unknown"
 grip_mm = "unknown"
 clamp = "Stand the profiled bar on end and grip its lower portion securely in the vise; keep the horizontal cut above the jaws."
-note = "HOLD: establish the actual upright grip, safe support of the upper cut-off, and full disk/arbor/jaw clearance. No added retention guard is claimed shown. Never catch the top piece or reach toward a running saw; stop fully before retrieval."
+note = "HOLD: establish the actual upright grip, safe support of the upper cut-off, and full disk/arbor/jaw clearance. Never catch the top piece or reach toward a running saw; stop fully before retrieval."
 [setups.zero.x]
 edge = "accessible transverse edge of the upright bar"
 edge_mm = "unknown"
@@ -514,7 +520,7 @@ op = 10
 do = "scribe"
 feature = "end-length"
 tool = "layout-marker"
-note = "Mark the separation lines with the source's Sharpie layout method after measuring actual blade kerf and required end cleanup. Four finished lengths are nominally 1 inch each; no numerical raw cut pitch is established."
+note = "Mark the separation lines with the Sharpie layout method after measuring actual blade kerf and required end cleanup. Four finished lengths are nominally 1 inch each; no numerical raw cut pitch is established."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=630s"
 [[setups.ops]]
 op = 20
@@ -546,11 +552,10 @@ jaws_along = "x"
 fixed_jaw = "rear"
 stop = "unknown"
 support = "balancing-piece"
-supports = ["balancing-piece"]
 grip_mm = "unknown"
 jaw_protection = "Paper is between the cutting workpiece and jaw, not on the balancing nut; thickness/contact unmeasured."
 clamp = "Grip the short upright remainder at the vise end. Place an already-separated nut at the opposite jaw end; add paper with the piece being cut so it is held slightly tighter."
-note = "EDITORIAL HOLD: do not run until work and offcut retention, balanced jaw contact and complete saw/arbor/jaw clearance are established. No added guard or fixture is claimed present in the video. Do not catch the cut-off; stop fully before retrieving it."
+note = "HOLD: do not run until work and offcut retention, balanced jaw contact and complete saw/arbor/jaw clearance are established. Do not catch the cut-off; stop fully before retrieving it."
 [setups.zero.x]
 edge = "accessible transverse reference of the short upright remainder"
 edge_mm = "unknown"
@@ -580,7 +585,7 @@ cut_plane = { axis = "z", value = "unknown", keep = "below" }
 rpm = "unknown"
 feed_mm_min = "unknown"
 approach_mm = "unknown"
-note = "Complete the final saw separation only with the approved retained hold and clearance. Stop the spindle fully before removing pieces or changing the saw. Source puts a wood block below a cutter for stopped-spindle drawbar removal rather than grasping its edges; no glove is allowed at a rotating spindle (editorial safeguard)."
+note = "Complete the final saw separation only with the approved retained hold and clearance. Stop the spindle fully before removing pieces or changing the saw. For stopped-spindle drawbar removal, place a wood block below the cutter rather than grasping its edges. No gloves at a rotating spindle."
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=691s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=712s"]
 
 # E1/D1: repeat on each separated nut, using the source end stop.
@@ -605,7 +610,7 @@ stop = "Rod stop from the right locates the opposite retained end; keep the left
 grip_mm = "unknown"
 jaw_above_parallels_mm = "unknown"
 clamp = "Clamp at the left vise end with the end to be milled overhanging BOTH jaws and any support. Seat the opposite end against the stop."
-note = "HOLD: establish the overhang and full-depth cutter clearance past both jaws and supports. Stop attachment, grip and seating remain unmeasured. No gloves near rotating spindle (editorial)."
+note = "HOLD: establish the overhang and full-depth cutter clearance past both jaws and supports. Stop attachment, grip and seating remain unmeasured. No gloves near a rotating spindle."
 [setups.zero.x]
 edge = "free left end, clear of the stop"
 edge_mm = "unknown"
@@ -638,7 +643,7 @@ feed_mm_min = "unknown"
 doc_mm = "unknown"
 approach_mm = "unknown"
 direction = "conventional"
-note = "Side-mill the free overhanging end to nominal finished length 25.4 mm, keeping the opposite end against the repeatable stop. Verify cutter clearance beyond jaws/supports down to Z-12.7. Repeat the setting on all four; acceptance limits remain pending."
+note = "Side-mill the free overhanging end to nominal finished length 25.4 mm, keeping the opposite end against the repeatable stop. Verify cutter clearance beyond jaws/supports to this operation's full Z target depth. Repeat the setting on all four; acceptance limits remain pending."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=737s"
 [[setups.ops]]
 op = 20
@@ -646,7 +651,7 @@ do = "inspect"
 feature = "end-length"
 checks = { length = "calipers" }
 inspection_methods = { length = "Measure end-to-end length on every nut after removing seating burrs; record all four readings and compare with the approved drawing once its acceptance limits exist." }
-note = "Confirm equal nominal lengths without inventing a tolerance band."
+note = "Confirm equal nominal lengths; the acceptance band remains unknown."
 
 [[setups]]
 id = "D1"
@@ -669,7 +674,7 @@ stop = "Seat each finished nut to the same repeatable stop."
 grip_mm = "unknown"
 jaw_above_parallels_mm = "unknown"
 clamp = "Seat and clamp the nut for centre drilling, through drilling and guided hand tapping."
-note = "HOLD: establish tap-drill diameter, drilling depth including point, complete under-work breakout clearance, tap/follower reach and engagement. Do not drill into parallels/vise. Editorial safeguard: no gloves near rotating spindle; stop spindle for manual tapping."
+note = "HOLD: establish tap-drill diameter, drilling depth including point, complete under-work breakout clearance, tap/follower reach and engagement. Do not drill into parallels/vise. No gloves near a rotating spindle; stop the spindle for manual tapping."
 [setups.zero.x]
 edge = "free left finished end, opposite the stop"
 edge_mm = -12.7
@@ -700,7 +705,7 @@ depth_mm = "unknown"
 rpm = "unknown"
 feed_mm_min = "unknown"
 approach_mm = "unknown"
-note = "At the X/Y midpoint start the hole with the source centre drill. Its size, pilot length and safe depth are not established; stop rather than substituting an arbitrary depth."
+note = "At the X/Y midpoint start the hole with the centre drill. HOLD: its size, pilot length and safe depth remain unknown."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=772s"
 [[setups.ops]]
 op = 20
@@ -713,7 +718,7 @@ exit_mm = "unknown"
 rpm = "unknown"
 feed_mm_min = "unknown"
 approach_mm = "unknown"
-note = "Re-touch for the drill and drill the tapping hole through with an approved point-inclusive breakthrough depth and clear space below. Source says tapping drill for 3/8-16 but does not publish its diameter. The STEP bore is not the tap-drill size."
+note = "Re-touch for the drill and drill the 3/8-16 tapping hole through with an approved point-inclusive breakthrough depth and clear space below. HOLD: tap-drill diameter remains unknown; establish it before drilling."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s"
 [[setups.ops]]
 op = 30
@@ -725,7 +730,7 @@ depth_mm = "unknown"
 rpm = "unknown"
 feed_mm_min = "unknown"
 approach_mm = "unknown"
-note = "With the spindle STOPPED, tap 3/8-16 by hand using the spring-loaded follower and cutting fluid as shown. Confirm follower travel and complete taper-lead breakthrough clearance; no powered tapping or invented tap speed is instructed."
+note = "With the spindle STOPPED, tap 3/8-16 by hand using the spring-loaded follower and cutting fluid. Confirm follower travel and complete taper-lead breakthrough clearance. Do not power tap."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=804s"
 [[setups.ops]]
 op = 40
@@ -748,7 +753,7 @@ fixture = "bench-vise"
 stop = "unknown"
 grip_mm = "unknown"
 clamp = "Support the nut in the vise for the punch operation as shown, with the bottom thread accessible."
-note = "Editorial safeguard: support the part against the punch load without damaging the bearing shoulders or distorting the usable upper threads. Exact support and punch deformation are not specified by the source."
+note = "Support the part against the punch load without damaging the bearing shoulders or distorting the usable upper threads. Exact support and punch deformation remain unspecified."
 [[setups.ops]]
 op = 10
 do = "deburr"
@@ -761,7 +766,7 @@ op = 20
 do = "deburr"
 feature = "all-surfaces"
 tool = "needle-files"
-note = "Hand-file the small outside edges and remove sharp handling burrs on every nut; preserve the flat shoulder bearing surfaces. The video uses needle files, not a specified chamfer dimension."
+note = "Use the needle files to hand-file the small outside edges and remove sharp handling burrs on every nut; preserve the flat shoulder bearing surfaces. No chamfer dimension is specified."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=845s"
 [[setups.ops]]
 op = 30
@@ -784,9 +789,9 @@ note = "HOLD any nut whose stud passes through, whose upper threads are damaged,
 id = "B2"
 machine = "video-bench"
 stock_in = "B1"
-note = "Four-piece batch: the video's optional appearance/corrosion finish. Perform only after hand finishing and retention checks; not near operating machinery."
+note = "Optional appearance/corrosion finish for the four-piece batch. Perform only after hand finishing and retention checks in B1; not near operating machinery."
 [setups.hold]
-note = "EDITORIAL HOLD: confirm the actual JAX product label/SDS, chemical-compatible container, ventilation, splash protection, solvent/fire precautions and waste handling before starting. Chemical gloves belong only in this stopped-machine chemical task, never near a rotating spindle. The source is not a complete chemical-safety procedure."
+note = "HOLD: confirm the actual JAX product label/SDS, chemical-compatible container, ventilation, splash protection, solvent/fire precautions and waste handling before starting. Chemical gloves belong only in this stopped-machine chemical task, never near a rotating spindle. Establish a complete chemical-safety procedure before starting."
 [[setups.ops]]
 op = 10
 do = "coating"
@@ -799,28 +804,28 @@ op = 20
 do = "coating"
 feature = "all-surfaces"
 process = "jax-blackener"
-note = "Source immerses the clean nuts in JAX Metal Blackener for about 30 seconds. This records the demonstration, not an overriding recipe for an unconfirmed formulation: follow its actual label/SDS, and do not invent bath concentration or temperature."
+note = "Immerse the clean nuts in JAX Metal Blackener only after confirming its formulation and actual label/SDS instructions. The demonstrated immersion is about 30 seconds; it does not override the product instructions. Bath concentration and temperature remain unknown."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=946s"
 [[setups.ops]]
 op = 30
 do = "coating"
 feature = "all-surfaces"
 process = ["rinse-water", "paper-towel"]
-note = "Rinse to stop the reaction, dry, and buff off loose black residue as shown. Source offers optional #000 steel-wool scuffing and a repeated clean/dip/rinse cycle; no coating thickness or finish tolerance is stated."
+note = "Rinse to stop the reaction, dry, and buff off loose black residue. Optional: scuff with #000 steel wool and repeat the clean/dip/rinse cycle. No coating thickness or finish tolerance is stated."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=955s"
 [[setups.ops]]
 op = 40
 do = "coating"
 feature = "all-surfaces"
 process = "oil"
-note = "Apply a light coat of oil and wipe off excess and loose residue; the source says any oil will work. Product and viscosity are not specified."
+note = "Apply a light coat of oil and wipe off excess and loose residue. No particular oil is required; product and viscosity remain unspecified."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=989s"
 
 [[setups]]
 id = "F1"
 machine = "video-bench"
 stock_in = "B2"
-note = "Final functional checks on every nut in the ACTUAL recipient table. Neither a successful render nor a catalog nominal certifies slot fit, strength or safe clamping."
+note = "Check every nut in the ACTUAL recipient table for sliding fit, below-table clearance, shoulder support and stud retention. Establish safe clamping separately; nominal dimensions alone do not prove fit or strength."
 [setups.hold]
 note = "Mill stopped: use the actual table slot and intended stud/workpiece. Do not use a nut that rocks, jams, stands proud, lacks shoulder support or lets the stud reach the table bottom."
 [[setups.ops]]
@@ -829,5 +834,5 @@ do = "inspect"
 feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
 missing_requirements = { actual_slot_fit = "actual-slot", below_table_top = "actual-slot", shoulder_bearing = "actual-slot", stud_retention = "mating-hardware" }
 inspection_methods = { actual_slot_fit = "Slide each finished nut into the actual T-slot by hand; it must move freely, without binding or obvious rocking. Record all four results; no numerical fit-clearance band is supplied by the video.", below_table_top = "Verify the nut's top stays below the table surface so the intended workpiece rests on the table, not the nut. Record the check for every nut.", shoulder_bearing = "Confirm the flange shoulders engage and pull up under the slot lips rather than wedging or bottoming; establish the actual contact before using a clamp.", stud_retention = "With the intended hardware, check the rod stops at the staked bottom thread and tightening the upper nut does not turn it through onto the table. Confirm useful engagement without forcing the deformation." }
-note = "HOLD until the actual slot/hardware checks and approved dimensional requirements are complete. A functional demonstration is not a certified load rating or physical machining acceptance for the reader's installation."
+note = "HOLD until the actual slot/hardware checks and approved dimensional requirements are complete. Functional checks do not establish a certified load rating or physical machining acceptance."
 note_cite = "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s"

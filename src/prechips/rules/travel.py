@@ -7,6 +7,9 @@ plan input), never a pass. An op whose cutter-centre XY the traveler prints
 (``coordinates.printed_xy``: arc rows, join lines, linear-table outlines and face raster
 passes) is that printed path, approach and exit included, instead of its declared extent
 (#297). Each X/Y axis names its basis: the path, the declared extent or the stock span.
+An authored ``stock_removal_bounds`` scopes material rather than cutter motion: its
+presence, even unknown, forbids substitution of the finished feature or stock span.
+Without a printed path, its setup-frame limits remain evidence only and XY stays unknown.
 A child feature (``hole``/``parent``) without its own ``at`` is located at its
 parent's ``at`` in the parent's frame; it inherits no parent bounds.
 Saw cuts drive no spindle cutter and are skipped.
@@ -203,6 +206,9 @@ def evaluate(bundle):
             point = _point(locator, locator_source, target) if manifest_mm else UNKNOWN
             if op.get("do") in CENTRE_OPS:
                 extent = point
+            # An operation's material mask changes XY scope, not the independently
+            # declared feature/point Z band or the commanded tip and safe approach.
+            tip_extent = extent
             action = op.get("do", UNKNOWN)
             action_known = isinstance(action, str) and action not in {UNKNOWN, ""}
             if not action_known:
@@ -225,6 +231,22 @@ def evaluate(bundle):
                 )
             base_action = action.removeprefix("rough_").removeprefix("finish_")
             broad = base_action in {"profile", "face", "pocket"}
+            # Presence is semantic: an authored removal footprint scopes this operation,
+            # even when unknown. The finished feature's box is not a substitute for it.
+            # Unlike feature bounds, this box is already in setup coordinates.
+            removal_scoped = broad and "stock_removal_bounds" in op
+            if removal_scoped:
+                removal = record(op["stock_removal_bounds"])
+                extent = (
+                    {axis: removal[axis] for axis in AXES}
+                    if manifest_mm
+                    and all(
+                        _band(removal.get(axis)) and removal[axis][0] < removal[axis][1]
+                        for axis in AXES
+                    )
+                    else UNKNOWN
+                )
+                cite.append(f"{label}.stock_removal_bounds")
             radius_needed = base_action == "profile"
             tool_category, tool_key, tool = selected_item(bundle, "tools", tool_ref)
             diameter = (
@@ -234,7 +256,7 @@ def evaluate(bundle):
             )
             radius = diameter["value"] / 2 if _known(diameter["value"]) else UNKNOWN
             radius_known = diameter["verified"] and _known(radius) and radius > 0
-            fallback = broad and not isinstance(extent, dict)
+            fallback = broad and not removal_scoped and not isinstance(extent, dict)
             if fallback and invalid_stock:
                 errors.append(
                     f"op {op['op']} conservative stock requires positive plan.stock."
@@ -303,7 +325,12 @@ def evaluate(bundle):
                     op_xy_complete = False
             for axis in () if fixture_driven or path else ("x", "y"):
                 band = record(extent).get(axis)
-                located = record(point).get(axis) if fallback else band
+                # A material-removal box is neither a cutter-centre path nor a lower
+                # bound on its stroke: it can extend past stock, and the cutter can
+                # clear its edges without its centre reaching them.
+                located = (
+                    UNKNOWN if removal_scoped else record(point).get(axis) if fallback else band
+                )
                 if path_known and _band(located) and _known(padding):
                     xy[axis] = [located[0] - padding, located[1] + padding]
                     _include(bands[axis], xy[axis])
@@ -330,12 +357,31 @@ def evaluate(bundle):
                         stock_only = True
                     complete[axis] = False
                     op_xy_complete = False
-                elif not _band(band) or not _known(padding):
+                elif removal_scoped or not _band(band) or not _known(padding):
                     complete[axis] = False
                     op_xy_complete = False
             if fallback:
                 cite.extend(stock_cite)
-            if not op_xy_complete:
+            if removal_scoped and not (fixture_driven or path):
+                missing.append(
+                    (
+                        f"Measure and author {label}.stock_removal_bounds as the actual full "
+                        "removal footprint in the setup frame with calipers, a height gauge "
+                        "or CMM in mm. "
+                        if not isinstance(extent, dict)
+                        else ""
+                    )
+                    + f"Declare {label} full cutter-centre X/Y path, including approach and "
+                    "exit, with a contour the traveler prints; the finished feature bounds "
+                    "and the material-removal box do not establish that path"
+                )
+                authoring_entry(
+                    debts,
+                    f"{label}.xy_geometry",
+                    missing[-1],
+                    f"{label}.stock_removal_bounds; {label}.contour",
+                )
+            if not op_xy_complete and not removal_scoped:
                 geometry_pending = (
                     fallback
                     and path_known
@@ -382,7 +428,7 @@ def evaluate(bundle):
                     )
             endpoint = endpoints.get((setup["id"], op["op"], name))
             assembly = spindle_nose_band(
-                bundle, op, before, extent, endpoint, debts, cite, missing, errors, label
+                bundle, op, before, tip_extent, endpoint, debts, cite, missing, errors, label
             )
             z_band = assembly["nose_band_mm"]
             z_complete = assembly["verified"] and path_known

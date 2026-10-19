@@ -3,6 +3,7 @@
 import math
 import re
 import subprocess
+from copy import deepcopy
 from html import unescape
 from types import SimpleNamespace
 
@@ -34,7 +35,7 @@ def paragraphs(html):
 def bundle(machine, zero, ops, stock_state=None):
     data = SimpleNamespace(
         plan={
-            "dro": DRO,
+            "dro": deepcopy(DRO),
             "setups": [
                 {
                     "id": "S1",
@@ -92,6 +93,22 @@ def bundle(machine, zero, ops, stock_state=None):
         },
     )
     return data
+
+
+def test_bundles_own_their_readout_configuration(monkeypatch):
+    changed = bundle("mill", {}, [])
+    monkeypatch.setitem(changed.plan["dro"], "kind", "unknown")
+    monkeypatch.setitem(changed.plan["dro"], "mode", "incremental")
+    monkeypatch.setitem(changed.plan["dro"]["direction"], "z", "unknown")
+    fresh = bundle("mill", {}, [])
+    expected = {
+        "controller": "el400",
+        "mode": "abs",
+        "radius_mode": False,
+        "direction": {"x": "away_from_spindle_axis", "y": "away", "z": "toward_exposed_end"},
+    }
+    assert fresh.plan["dro"] == expected
+    assert DRO == expected
 
 
 def op(number, do, feature, tool, **extra):

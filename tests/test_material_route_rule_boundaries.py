@@ -600,3 +600,22 @@ def test_incomplete_rendering_identity_has_no_known_process_arrival_footprint(
         "preparation": {"id": "end", "kind": "end_face"},
     }
     assert arriving_bounds(bundle, first, definition) is None
+
+
+@pytest.mark.parametrize("identity", [None, "", "unknown"])
+@pytest.mark.parametrize("unresolved_target", [False, True])
+def test_incomplete_rendering_route_cannot_credit_printed_surface_producers(
+    identity, unresolved_target
+):
+    bundle = routed_bundle(owner="source:left-solid")
+    target = setup(bundle, "LEFT")
+    target["stock_state"] = {"top_z": 3, "bottom_z": 1, "north_end_z": 4}
+    setup(bundle, "LEFT" if unresolved_target else "RIGHT")["id"] = identity
+    assert tip_endpoints.lineage(bundle, target) == []
+    assert tip_endpoints.transfer(bundle, target) is None
+    assert tip_endpoints.operative_z(bundle, target, 3, face="land") == "unknown"
+    assert tip_endpoints.arrival_zs(bundle, target) == {
+        "top_z": (3, "unknown"),
+        "bottom_z": (1, "unknown"),
+        "north_end_z": (4, "unknown"),
+    }

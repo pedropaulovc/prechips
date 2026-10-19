@@ -19,7 +19,7 @@ import math
 from typing import Any
 
 from prechips.inputs import BadInput
-from prechips.material_routes import MaterialGraph, feature_material_status
+from prechips.material_routes import MaterialGraph, feature_material_status, route_identities_known
 from prechips.model import UNKNOWN, setup_lineage
 
 LABEL_PREFIX = "plan.process_features."
@@ -190,8 +190,7 @@ def arriving_bounds(bundle, setup: dict, definition: dict) -> dict | None:
     bounds, own = definition.get("bounds"), process_of(definition)
     if not bounds or not own:
         return bounds
-    identities = [setup.get("id"), *(other.get("id") for other in bundle.plan.get("setups", []))]
-    if any(not isinstance(sid, str) or not sid.strip() or sid == UNKNOWN for sid in identities):
+    if not route_identities_known(bundle.plan, setup.get("id")):
         # Public rendering may inspect an incomplete setup. Its process footprint is
         # unresolved, while strict complete-plan loading still rejects this identity.
         return None

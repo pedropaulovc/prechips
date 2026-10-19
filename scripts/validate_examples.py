@@ -769,8 +769,7 @@ def check_frames(features: dict, plan: dict) -> None:
     for name, frame in planned.items():
         require(frame.get("binding") is not None, f"plan frame {name}: binding must be stated")
         require(
-            "AUTHOR'S CHOICE" in frame.get("cite", [])
-            and "AUTHOR'S CHOICE" in frame.get("note", ""),
+            "AUTHOR'S CHOICE" in frame.get("cite", []),
             f"plan frame {name}: author's choice must be distinguished from source geometry",
         )
     exported = features["frames"] if isinstance(features["frames"], dict) else {}

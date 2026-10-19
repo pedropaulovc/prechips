@@ -65,6 +65,25 @@ ROOT = Path(__file__).resolve().parents[1]
 VALIDATOR = runpy.run_path(str(ROOT / "scripts" / "validate_examples.py"))
 
 
+def test_authored_frame_provenance_is_carried_by_its_citation():
+    frame = {
+        "origin": [0.0, 0.0, 0.0],
+        "x": [1.0, 0.0, 0.0],
+        "y": [0.0, 1.0, 0.0],
+        "z": [0.0, 0.0, 1.0],
+        "binding": "nominal",
+        "cite": ["AUTHOR'S CHOICE"],
+        "note": "Establish the physical pickup before cutting.",
+    }
+    plan = {"frames": {"setup-frame": frame}}
+    check = VALIDATOR["check_frames"]
+    check({"frames": {}}, plan)
+    frame["cite"] = []
+    frame["note"] = "AUTHOR'S CHOICE"
+    with pytest.raises(ValueError):
+        check({"frames": {}}, plan)
+
+
 def test_speed_oracle_preserves_unknown_cutting_collections_as_debt():
     data = drill_bundle()
     data.cutting_data.update(cut="unknown", deep_hole="unknown")

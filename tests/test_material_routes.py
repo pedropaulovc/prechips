@@ -661,3 +661,20 @@ def test_unsplit_predecessor_of_named_partition_is_still_exclusive():
     plan["setups"].insert(1, {"id": "other_use", "stock_in": "P1"})
     with pytest.raises(ValueError, match="already consumed"):
         Plan.model_validate(plan)
+
+
+@pytest.mark.parametrize("identity", [None, "", "unknown"])
+def test_rendering_route_precondition_never_relaxes_strict_identity_validation(identity):
+    from prechips.material_routes import route_identities_known
+
+    plan = route()
+    Plan.model_validate(plan)
+    assert route_identities_known(plan, "T2")
+    plan["setups"][2]["id"] = identity
+    assert not route_identities_known(plan, "T2")
+    assert not route_identities_known(plan, identity)
+    with pytest.raises(ValueError):
+        Plan.model_validate(plan)
+    # The sole mutation is this setup's identity, not a different route violation.
+    plan["setups"][2]["id"] = "C1"
+    Plan.model_validate(plan)

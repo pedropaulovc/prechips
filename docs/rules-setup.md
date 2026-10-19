@@ -786,6 +786,17 @@ debt naming the operation's `feature.bounds`; an exceeded lower bound still
 errors. Each X/Y check records its `basis` as `cutter-centre path`,
 `declared cut extent`, both, or `stock span`.
 
+An explicit `stock_removal_bounds` takes precedence over finished-feature
+bounds for a broad operation's declared material scope. Its coordinates are
+already in the setup frame. `"unknown"` or incomplete limits prevent fallback
+to a one-part feature or stock span; this is required when facing a whole batch
+bar whose actual extent is unrecorded. A known removal box also supplies no exact
+or minimum X/Y stroke: it can extend beyond the arriving stock, while the
+cutter can travel through air outside it. Without a printed cutter-centre path,
+X/Y stays unknown and names the full cutting, approach and exit path to author.
+Omitting the field preserves the feature/stock fallback above. Independent
+known Z checks and overtravel errors remain active.
+
 Z is the union of spindle-nose positions:
 
 `tip + holder gauge + tool projection`

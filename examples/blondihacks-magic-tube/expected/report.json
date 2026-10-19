@@ -15356,7 +15356,7 @@
           },
           "plan": {
             "path": "examples/blondihacks-magic-tube/plan.toml",
-            "sha256": "90bfc1a7213cb924125b54b7557f16b0e154220710dbacb22beb81dbb1300ca3"
+            "sha256": "cadfe4a7df6899f919db4c45e059eb7c9a91c368bf5e4c9d6c7b5e249f81896a"
           },
           "shop_policy": {
             "path": "examples/blondihacks-magic-tube/shop-policy.toml",
@@ -15703,7 +15703,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -15806,7 +15806,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -15970,7 +15970,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -16137,7 +16137,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -16358,7 +16358,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -16469,7 +16469,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -16583,7 +16583,7 @@
         "measurements": [],
         "operations": [
           {
-            "direction": "radially_inward",
+            "direction": "plunge_radial",
             "do": "groove",
             "feature": "tube-blank-tail",
             "op": 10,
@@ -16622,7 +16622,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -16717,7 +16717,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -24699,7 +24699,7 @@
           "jaw_above_parallels_mm": "not_applicable",
           "jaw_protection": "jaw-protectors",
           "jaws_along": "not_applicable",
-          "note": "HOLD until actual thread engagement, seating, cut direction and retention under tool load are established. Source explains right-hand thread tightens under its forward counterclockwise-view cutting, but crossing the axis reverses torque and unscrews the cap. Do NOT reproduce that mistake: never cross the spindle centre; stop if the cap moves. No extra unshown antirotation fixture is claimed, and thread safety remains unresolved.",
+          "note": "HOLD until actual thread engagement, seating, cut direction and retention under tool load are established. Verify the forward cutting direction tightens the right-hand thread; crossing the axis reverses torque and can unscrew the cap. Never cross the spindle centre; stop if the cap moves. Safe thread retention remains unresolved.",
           "parallels": "not_applicable",
           "stickout_mm": "unknown",
           "stop": "unknown",
@@ -24736,7 +24736,7 @@
         "deburr_mm": "unknown",
         "fixture": "four-jaw",
         "hold": {
-          "clamp": "Grip the protected excess tail, indicate the base at the four-jaw chuck, then use the source rolling-bearing aligner at the free end only after approving a safe alignment procedure. Withdraw the bearing and all indicator equipment completely before cutting.",
+          "clamp": "Grip the protected excess tail, indicate the base at the four-jaw, then use the source rolling-bearing aligner at the free end only after approving a safe alignment procedure. Withdraw the bearing and all indicator equipment completely before cutting.",
           "fixed_jaw": "not_applicable",
           "fixture": "four-jaw",
           "grip_mm": "unknown",
@@ -24744,7 +24744,7 @@
           "jaw_above_parallels_mm": "not_applicable",
           "jaw_protection": "jaw-protectors",
           "jaws_along": "not_applicable",
-          "note": "HOLD until grip, stickout, runout, bending/deflection, wall thickness, thread seating, actual cut load and chuck/tool clearance are approved for this unsupported assembly. Source bearing alignment brings roughly 0.005-inch TIR, not a finished tolerance or certified safe limit. Aligning bearing is not continuous support and is not left in contact for the turn.",
+          "note": "HOLD until grip, stickout, runout, bending/deflection, wall thickness, thread seating, actual cut load and chuck/tool clearance are approved for this unsupported assembly. The roughly 0.005-inch alignment TIR shown is not a finished tolerance or safe limit. Withdraw the aligning bearing before turning; it is not continuous support.",
           "parallels": "not_applicable",
           "stickout_mm": "unknown",
           "stop": "unknown",
@@ -24787,7 +24787,7 @@
           "jaw_above_parallels_mm": "not_applicable",
           "jaw_protection": "jaw-protectors",
           "jaws_along": "not_applicable",
-          "note": "HOLD until actual blade width/edge reference, parting position relative to the blind floor, cap seating and safe separated-part retention are established. Do not catch the tube beside a running chuck. The adapted base thickness is nominally 12.7 mm; neither raw stock nor actual bore tip position has been measured.",
+          "note": "HOLD until actual blade width/edge reference, parting position relative to the blind floor, cap seating and safe separated-part retention are established. Do not catch the tube beside a running chuck. Base thickness is nominally 12.7 mm; measure actual stock and bore-tip position.",
           "parallels": "not_applicable",
           "stickout_mm": "unknown",
           "stop": "unknown",
@@ -24901,7 +24901,7 @@
           "grip_on": "sound unmachined bar behind the irregular end",
           "jaw_above_parallels_mm": "not_applicable",
           "jaws_along": "not_applicable",
-          "note": "HOLD until engagement, stock projection, jaw position and tool centre height are established. Editorial safeguard: no gloves near a rotating spindle. Keep hands and loose items clear.",
+          "note": "HOLD until engagement, stock projection, jaw position and tool centre height are established. No gloves near a rotating spindle. Keep hands and loose items clear.",
           "parallels": "not_applicable",
           "stickout_mm": "unknown",
           "stop": "unknown",
@@ -24947,7 +24947,7 @@
           "grip_on": "sound raw bar behind the long tube blank and future parting plane",
           "jaw_above_parallels_mm": "not_applicable",
           "jaws_along": "not_applicable",
-          "note": "HOLD: actual excess, grip, centre-seat fit/angle, quill extension and deflection/clearance remain unknown. The source recommends a couple of extra inches but does not supply a measured blank or a certified projection.",
+          "note": "HOLD: establish actual excess, grip, centre-seat fit/angle, quill extension and deflection/clearance. Allow the suggested couple of extra inches only after measuring enough stock for the actual grip and parting allowance; that suggestion is not a safe projection limit.",
           "parallels": "not_applicable",
           "quill_extension_mm": "unknown",
           "stickout_mm": "unknown",
@@ -24978,7 +24978,7 @@
         "align_due": "not_applicable",
         "coolant": "cutting-oil",
         "cut_directions": {
-          "10": "radially_inward",
+          "10": "plunge_radial",
           "30": "radially_inward"
         },
         "deburr_mm": "unknown",
@@ -24991,7 +24991,7 @@
           "grip_on": "same sound bar in the chuck; tube projects beyond the parting plane",
           "jaw_above_parallels_mm": "not_applicable",
           "jaws_along": "not_applicable",
-          "note": "HOLD until a safe parting plane, blade width, tube retention and catch arrangement are established. Do not catch or retrieve a loose cutoff near a rotating chuck. No unshown retention fixture is claimed.",
+          "note": "HOLD until a safe parting plane, blade width, tube retention and catch arrangement are established. Do not catch or retrieve a loose cutoff near a rotating chuck.",
           "parallels": "not_applicable",
           "stickout_mm": "unknown",
           "stop": "unknown",
@@ -25034,7 +25034,7 @@
           "jaw_above_parallels_mm": "not_applicable",
           "jaw_protection": "jaw-protectors",
           "jaws_along": "not_applicable",
-          "note": "HOLD: measure usable drill flute/reach, drill point, actual blank length, intended hole depth, tap lead and bottom clearance before drilling. The adapted nominal three-inch cavity does not prove a drill reaches safely. Stop spindle before every tailstock sliding/chip-clearance movement and before hand tapping.",
+          "note": "HOLD: measure usable drill flute/reach, drill point, actual blank length, intended hole depth, tap lead and bottom clearance before drilling. Verify actual reach for the nominal three-inch cavity. Stop spindle before every tailstock sliding/chip-clearance movement and before hand tapping.",
           "parallels": "not_applicable",
           "stickout_mm": "unknown",
           "stop": "unknown",
@@ -25155,7 +25155,7 @@
       "message": "all-surfaces burrs_and_chips: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
         "gauge": "unknown",
-        "inspection_method": "Inspect exposed ends, threads and interior for loose chips, sharp burrs, cracking or a parted-face pip. Stop for a controlled corrective procedure if needed; no extra unshown source finishing phase is claimed.",
+        "inspection_method": "Inspect exposed ends, threads and interior for loose chips, sharp burrs, cracking or a parted-face pip. Stop for a controlled corrective procedure if needed.",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:20",
@@ -25174,7 +25174,7 @@
       "message": "all-surfaces hidden_seam: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
         "gauge": "unknown",
-        "inspection_method": "Close the cap fully and inspect the complete circumference under suitable light; record whether the seam remains visible. No quantified cosmetic gap/step limit is invented.",
+        "inspection_method": "Close the cap fully and inspect the complete circumference under suitable light; record whether the seam remains visible. Cosmetic gap/step acceptance limits remain unknown.",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:20",
@@ -25193,7 +25193,7 @@
       "message": "all-surfaces smooth_open_close: requirement is absent from the exported manifest; acceptance limits are unresolved.",
       "numbers": {
         "gauge": "unknown",
-        "inspection_method": "Open and close the real cap by hand repeatedly, checking for clean starts, smooth running and solid shoulder seating without looseness or forcing. Record the result; no numeric torque or engagement limit is supplied.",
+        "inspection_method": "Open and close the cap by hand repeatedly, checking for clean starts, smooth running and solid shoulder seating without looseness or forcing. Record the result; torque and engagement acceptance limits remain unknown.",
         "limits": "unknown",
         "missing_requirement": true,
         "op": "F1:20",
@@ -56638,7 +56638,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -56650,11 +56650,11 @@
             ],
             "edge_mm": 12.7,
             "gauge": "caliper",
-            "method": "After op 20, touch the standing outside head face with spindle stopped and establish this chamfer bit's axial reference. The preceding facing operation targets nominal Z12.7; actual pickup compensation remains unknown. Recheck cap retention and clearance before cutting.",
+            "method": "After op 20, touch the standing outside head face with spindle stopped and establish this chamfer bit's axial reference. The preceding facing operation targets nominal Z12.7; HOLD until actual pickup compensation is established. Recheck cap retention and clearance before cutting.",
             "paper_mm": "unknown",
             "tool": "chamfer-tool",
             "x_face": "cap-head",
-            "x_method": "AUTHOR'S CHOICE release safeguard: with spindle stopped and cap securely seated, measure its actual head OD using the source caliper and establish this chamfer bit's radial contact/reference. Hold until bit geometry, contact compensation and actual setting are established; do not inherit a different tool's setting.",
+            "x_method": "With spindle stopped and cap securely seated, measure its actual head OD using the caliper and establish this chamfer bit's radial contact/reference. HOLD until bit geometry, contact compensation and actual setting are established; do not inherit a different tool's setting.",
             "x_paper_mm": "unknown",
             "z_face": "cap-head-length",
             "z_offset_mm": "unknown"
@@ -56713,7 +56713,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -56772,7 +56772,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -56808,7 +56808,7 @@
             "face": "lightly faced cap male tip",
             "feature": "unknown",
             "gauge": "indicator",
-            "method": "Take a light face so the tool is exactly on the end. Preload/zero the carriage indicator, count 0.500 inch of travel, then reposition/preload/zero it at the shoulder limit. Verify indicator direction and travel; do not mistake five dial turns for a universal indicator range.",
+            "method": "Take a light face so the tool is exactly on the end. Preload/zero the carriage indicator, count 0.500 inch of travel/five turns, then reposition/preload/zero it at the shoulder limit. Verify indicator direction and travel; do not mistake five dial turns for a universal indicator range.",
             "procedure": "unknown",
             "tool": "turning-tool"
           }
@@ -56831,7 +56831,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -56893,7 +56893,7 @@
             "face": "irregular bar end, then newly faced mouth",
             "feature": "unknown",
             "gauge": "unknown",
-            "method": "Use a light facing pass to establish the actual end; establish a repeatable mechanical-scale datum and verify handwheel direction. Raw-end position and compensation are unknown.",
+            "method": "Use a light facing pass to establish the actual end; establish a repeatable mechanical-scale datum and verify handwheel direction. HOLD until raw-end position and compensation are established.",
             "procedure": "unknown",
             "tool": "turning-tool"
           }
@@ -56916,7 +56916,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -56975,7 +56975,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -57011,7 +57011,7 @@
             "face": "P1 faced mouth",
             "feature": "unknown",
             "gauge": "unknown",
-            "method": "Locate the selected raw blank cutoff behind final body length, future grip and final parting allowance. Account for the ACTUAL blade edge and width; blank cutoff station is unknown.",
+            "method": "Locate the selected raw blank cutoff behind final body length, future grip and final parting allowance. Account for the ACTUAL blade edge and width; HOLD until the blank cutoff station is established.",
             "procedure": "unknown",
             "tool": "parting-blade"
           }
@@ -57034,7 +57034,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -57070,7 +57070,7 @@
             "face": "original P1 tube mouth",
             "feature": "unknown",
             "gauge": "unknown",
-            "method": "Touch each stationary tailstock tool to the actual mouth and establish its quill depth reference. Mark the approved depth on each drill/tap as shown; a pen line is not a precision depth stop. Allow for drill point and tap lead explicitly.",
+            "method": "Touch each stationary tailstock tool to the actual mouth and establish its quill depth reference. Mark the approved depth on each drill/tap; a pen line is not a precision depth stop. Allow for drill point and tap lead explicitly. Retain the quill reference while withdrawing the whole tailstock with the spindle stopped.",
             "procedure": "unknown",
             "tool": "pilot-drill"
           }
@@ -57093,7 +57093,7 @@
           "graduation": "unknown",
           "graduation_mm": "unknown",
           "kind": "handwheel",
-          "procedure": "Use the source manual handwheel/quill scales and separate dial indicator, not an invented DRO. C1 source 05:20-05:45: lightly face, preload/zero the carriage indicator, count 0.500-inch travel/five turns, then reposition/preload/zero it for the shoulder stop. T2 uses actual mouth touch and marked blind depth, retaining the quill reference while the whole tailstock is withdrawn with the spindle stopped. AUTHOR'S CHOICE release safeguard: before cutting, establish each actual scale's graduation, motion sense, backlash and repeatable final approach; do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. Source nominal travel is not a calibration certificate; per-tool pickup and compensation remain HOLD.",
+          "procedure": "Use the mechanical handwheel/quill scales and separate dial indicator. Before cutting, establish each scale's graduation, motion sense, backlash and repeatable final approach. Do not reverse onto an uncorrected dial mark or transfer another tool's setting without its stated touch. HOLD until per-tool pickup and compensation are established.",
           "units": "in",
           "x_radial_graduation_mm": "unknown",
           "x_scale": "unknown"
@@ -57105,11 +57105,11 @@
             ],
             "edge_mm": 0.0,
             "gauge": "caliper",
-            "method": "With spindle stopped, establish this chamfer bit's axial contact at the actual mouth annulus, not the body base. Recheck handwheel direction, tool centre height, retention and clearance before chamfering. The nominal mouth is Z0; actual pickup compensation is unresolved.",
+            "method": "With spindle stopped, establish this chamfer bit's axial contact at the actual mouth annulus, not the body base. Recheck handwheel direction, tool centre height, retention and clearance before chamfering. The nominal mouth is Z0; HOLD until actual pickup compensation is established.",
             "paper_mm": "unknown",
             "tool": "chamfer-tool",
             "x_face": "body-od",
-            "x_method": "AUTHOR'S CHOICE release safeguard: with spindle stopped, measure the actual turned OD using the source caliper and establish this chamfer bit's radial contact/reference on that standing outer surface. Actual bit geometry, contact compensation and reference remain HOLD; do not reuse a drill's centreline reference as a qualified turning-tool setting.",
+            "x_method": "With spindle stopped, measure the actual turned OD using the caliper and establish this chamfer bit's radial contact/reference on that standing outer surface. HOLD until actual bit geometry, contact compensation and reference are established; do not reuse a drill's centreline reference as a turning-tool setting.",
             "x_paper_mm": "unknown",
             "z_face": "body-length",
             "z_offset_mm": "unknown"
@@ -57121,7 +57121,7 @@
       "subject": "T2"
     }
   ],
-  "hash": "4b73fb2547c97fc27bd41f027acbcf65a7ded8dab632d9de2d7ad27d76c8c125",
+  "hash": "8efa0df85bbf7e3ab412f079d5e0227b5599a8524ed21a16a747461b2655e684",
   "inputs": {
     "cutting_data": {
       "path": "examples/blondihacks-magic-tube/cutting-data.toml",
@@ -57137,7 +57137,7 @@
     },
     "plan": {
       "path": "examples/blondihacks-magic-tube/plan.toml",
-      "sha256": "90bfc1a7213cb924125b54b7557f16b0e154220710dbacb22beb81dbb1300ca3"
+      "sha256": "cadfe4a7df6899f919db4c45e059eb7c9a91c368bf5e4c9d6c7b5e249f81896a"
     },
     "shop_policy": {
       "path": "examples/blondihacks-magic-tube/shop-policy.toml",

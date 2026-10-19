@@ -2065,10 +2065,8 @@
         "features.features.step.bounds/at",
         "examples/geometry/author_solids.py: step_block (synthetic test specification)",
         "features.frames.model",
+        "plan.setups.S1.ops.10.stock_removal_bounds",
         "inventory.tools.em-preparation.dia",
-        "kernel.setups.S1.stock_bbox_mm: setup-entry stock in the setup frame",
-        "kernel.bbox_mm: already-present STEP bounding box transformed to setup frame",
-        "plan.setups.stock_state: physical supported stock height",
         "plan.setups.S1.ops.10.approach_mm/to_z/z_from/z_to/depth_mm/exit_mm",
         "plan.setups.S1.ops.10: stock_states current top and local entry; hole tip/exit endpoints",
         "plan.setups.stock_state.top_z/entry_z/local_thickness",
@@ -2076,7 +2074,7 @@
         "inventory.machines.test-mill.envelope.travel.y",
         "inventory.machines.test-mill.envelope.travel.z"
       ],
-      "message": "S1: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-preparation selected cutter diameter, micrometer, mm.",
+      "message": "S1: declared operation travel remains unmeasured or unresolved. resolve: add or select an owned holder for unknown in inventory and author plan.setups.S1.ops.10.holder; measure: test-mill X safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Y safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; measure: test-mill Z safe usable travel, stop-to-stop, calibrated DRO or indicator, mm; author: Declare plan.setups.S1.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path; author: Measure plan.setups.S1.ops.10 current stock top from the setup datum with a height gauge or touch-off; record plan.setups.stock_state.top_z in mm; Author plan.setups.S1.ops.10.approach_mm >= 0 in mm above the current stock top from the intended safe Z approach; no approach is assumed; Measure and declare plan.setups.S1.ops.10 commanded to_z, z_from/z_to or depth_mm from the setup datum with a depth gauge or machine Z readout in mm; measure: em-preparation selected cutter diameter, micrometer, mm.",
       "numbers": {
         "measurements": [
           {
@@ -2134,10 +2132,10 @@
           },
           {
             "cite": [
-              "features.features.step.bounds/at; plan.stock"
+              "plan.setups.S1.ops.10.stock_removal_bounds; plan.setups.S1.ops.10.contour"
             ],
             "id": "plan.setups.S1.ops.10.xy_geometry",
-            "instruction": "author: Measure plan.setups.S1.ops.10 full feature.bounds x/y/z or point-operation feature.at in its declared frame with calipers, a height gauge or CMM, in mm; for a broad cut record plan.stock.length_mm and section_mm/dia_mm with calipers instead of using a nominal feature width",
+            "instruction": "author: Declare plan.setups.S1.ops.10 full cutter-centre X/Y path, including approach and exit, with a contour the traveler prints; the finished feature bounds and the material-removal box do not establish that path",
             "units": "mm"
           },
           {
@@ -2165,14 +2163,23 @@
         "operations": [
           {
             "approach_mm": "unknown",
-            "conservative_stock_spans_mm": {
-              "x": 60.0,
-              "y": 40.0,
-              "z": 20.0
-            },
+            "conservative_stock_spans_mm": "not_applicable",
             "do": "rough_profile",
             "endpoint": "not_applicable",
-            "extent_mm": "unknown",
+            "extent_mm": {
+              "x": [
+                0.0,
+                60.0
+              ],
+              "y": [
+                0.0,
+                40.0
+              ],
+              "z": [
+                10.0,
+                21.0
+              ]
+            },
             "feature": "step",
             "holder": "unknown",
             "holder_gauge_len_mm": "unknown",
@@ -2603,7 +2610,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "53877334883d7be452fb95580c41df3b74207e4371cef82b5becc4dad54dc8ed",
+  "hash": "bca1eaa1d816a9e135c90a3d19378e00704d98a0078dc6f9af1a953439a3bf41",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",

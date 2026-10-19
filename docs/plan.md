@@ -114,8 +114,10 @@ that exported frames may omit:
 - `binding` must be stated, if only as `"unknown"`. `"nominal"` lets the
   transform place model geometry in setup coordinates; `"unknown"` keeps the
   numeric transform for display while operation Z endpoints stay setup-local.
-- `cite` must be non-empty. The bundled examples begin it, and the `note`, with
-  `AUTHOR'S CHOICE` before the drawing/model citations the transform rests on.
+- `cite` must be non-empty. The bundled examples mark authored transforms with
+  `AUTHOR'S CHOICE` in that citation, before their drawing/model sources.
+  The operator-facing `note` describes orientation and physical pickup debt;
+  it need not repeat the citation marker.
 
 A setup's `frame` resolves to the exported manifest frame of that name, otherwise
 to the plan frame. A plan frame whose name is already exported (including an
@@ -2031,6 +2033,10 @@ of a chain-drilled-and-chiselled break-out footprint. It is not capped to the
 claimed faces' X/Y box dilated by cutter radius. A known cutter radius is
 still required: an unknown radius leaves the bounds `?` with that reason,
 and later stock unresolved.
+
+This material mask does not bound cutter travel through air. The
+[`travel` rule](rules-setup.md#travel-required-table-and-spindle-stroke)
+distinguishes an omitted field from an explicit `"unknown"` or known mask.
 
 #### Removal and stock propagation
 
