@@ -777,6 +777,7 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
     const statusContents = [...(section.querySelector(":scope > .banner")?.childNodes || [])]
       .map((node) => node.cloneNode(true));
     const compactRunning = ["pro", "hobby"].includes(document.body.dataset.detail);
+    const compactTitle = section.dataset.jobTitle || section.dataset.part;
     const quantity = section.dataset.quantity ? "qty " + section.dataset.quantity : "";
     const title = [section.dataset.part, section.dataset.drawing,
       section.dataset.revision ? "rev " + section.dataset.revision : "REV NOT CONFIRMED",
@@ -1106,13 +1107,14 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       if (originalText(el) && fits(box(el).bottom)) return () => box(el).bottom;
       return relax && prepareFields(el) ? pageProgress(el, false, firstPrefixOnly) : null;
     }
-    function compactContext(el, suffix = "") {
+    function compactContext(el, suffix = "", operationOnly = false) {
       const references = locatorNodes(el, "[" + LOCATOR_REF + "]")
         .map((ref) => ref.cloneNode(true));
       const identity = /^.*?\bop\s+\d+\b/.exec(el.textContent);
       if (!identity) return false;
       const authored = el.dataset.pageContext?.split(/\s+[—·]\s+/, 1)[0].trim(),
-        label = authored && el.textContent.startsWith(authored) ? authored : identity[0];
+        label = !operationOnly && authored && el.textContent.startsWith(authored)
+          ? authored : identity[0];
       const range = document.createRange(),
         walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       range.selectNodeContents(el);
@@ -1127,6 +1129,184 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       }
       return false;
     }
+    const sharedOwners = new Map();
+    function sharedPhysicalOwners(raw) {
+      if (!sharedOwners.has(raw)) {
+        let values;
+        try { values = JSON.parse(raw); } catch { values = null; }
+        sharedOwners.set(raw, Array.isArray(values) && values.length
+          && values.every((value) => value && typeof value.setup_id === "string"
+            && value.setup_id.trim() && (value.workpiece == null
+              || typeof value.workpiece === "string"))
+          ? values.map((value) => ({ setup: value.setup_id,
+            member: "", workpiece: value.workpiece || "" })) : []);
+      }
+      return sharedOwners.get(raw);
+    }
+    const PAGE_REFERENCE = '[data-page-reference="final-inspection"]',
+      routeOrder = new Map();
+    function registerRoute(scope, setup) {
+      const key = JSON.stringify([scope, setup]);
+      if (setup && !routeOrder.has(key)) routeOrder.set(key, routeOrder.size);
+      return routeOrder.get(key);
+    }
+    // Register original route scopes before fragmentation; their token survives
+    // splitting. Separate fresh wrappers remain separate even with identical labels.
+    const routeScopes = [...section.querySelectorAll("[data-setup-title]")].filter(
+      (node) => !node.closest(PAGE_REFERENCE)
+        && !node.parentElement.closest("[data-setup-title]"));
+    routeScopes.forEach((scope, index) => {
+      scope.dataset.printOwnerScope = String(index);
+      let members;
+      try { members = JSON.parse(scope.dataset.setupMembers || "[]"); }
+      catch { members = []; }
+      if (Array.isArray(members)) members.filter(
+        (value) => typeof value === "string" && value.trim()
+      ).forEach((setup) => registerRoute(String(index), setup));
+      registerRoute(String(index), physicalOwner(scope).setup);
+      // Shared operation lists retain authored route order even when a selected
+      // picture for a later member precedes the common operation in the DOM.
+      for (const node of scope.querySelectorAll("[data-physical-ops]")) {
+        if (node.closest(PAGE_REFERENCE)) continue;
+        sharedPhysicalOwners(node.dataset.physicalOps).forEach(
+          (owner) => registerRoute(String(index), owner.setup));
+      }
+      for (const node of scope.querySelectorAll("[data-setup-id]")) {
+        if (node.closest(PAGE_REFERENCE)) continue;
+        registerRoute(String(index), physicalOwner(node).setup);
+      }
+    });
+    function sourcePhysicalOwners(element) {
+      if (element.closest(PAGE_REFERENCE)) return [];
+      const source = element.closest("[data-setup-id],[data-physical-ops]");
+      if (!source) return [];
+      const scope = source.closest("[data-print-owner-scope]")?.dataset.printOwnerScope,
+        owners = source.hasAttribute("data-physical-ops")
+          ? sharedPhysicalOwners(source.dataset.physicalOps)
+          : [physicalOwner(element)].filter((owner) => owner.setup);
+      return owners.map((owner) => {
+        const member = owner.member === owner.workpiece ? "" : owner.member,
+          key = JSON.stringify([scope ?? null, owner.setup, member, owner.workpiece]);
+        return { ...owner, member, scope, key,
+          order: registerRoute(scope ?? null, owner.setup) };
+      });
+    }
+    const physicalLabels = [...new Set([...section.querySelectorAll(
+      "[data-setup-id],[data-physical-ops]")].flatMap(
+      (node) => sourcePhysicalOwners(node).map((owner) => owner.setup)))];
+    function reservePageOwners(count) {
+      // Reserve the widest possible endpoint pair before any source fitting.
+      // Filling the actual range after splitting must not change header geometry.
+      if (!physicalLabels.length) return;
+      const slot = document.createElement("span");
+      slot.className = "cont-page-owners";
+      slot.style.cssText = "display:inline-block;white-space:nowrap;vertical-align:bottom";
+      count.append(slot);
+      let widest = "", width = 0;
+      for (const label of physicalLabels) {
+        slot.textContent = label;
+        const measured = slot.getBoundingClientRect().width;
+        if (measured > width) { widest = label; width = measured; }
+      }
+      slot.textContent = " · Setups " + widest + " (continued) → " + widest;
+      const bounds = slot.getBoundingClientRect(), range = document.createRange();
+      range.selectNodeContents(slot);
+      const ink = range.getBoundingClientRect(),
+        above = Math.max(0, bounds.top - ink.top),
+        below = Math.max(0, ink.bottom - bounds.bottom);
+      // Tight working leading can be shorter than the actual glyph envelope.
+      // Keep its measured baseline and reserve that overhang before source fitting,
+      // as for locator ink; a fixed line-box height alone would leave ink outside.
+      slot.style.paddingTop = above + "px";
+      slot.style.paddingBottom = below + "px";
+      slot.style.width = bounds.width + "px";
+      slot.style.height = bounds.height + above + below + "px";
+      slot.textContent = "";
+    }
+    function finishPageOwners() {
+      if (!compactRunning) return;
+      const starts = [section, ...section.querySelectorAll(".cont-head")],
+        owners = starts.map(() => []), seenSetups = new Set(),
+        setupKey = (owner) => JSON.stringify([owner.scope, owner.setup]);
+      const walker = document.createTreeWalker(section,
+        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const node = walker.currentNode, element = node.nodeType === Node.TEXT_NODE
+          ? node.parentElement : node;
+        if (node.nodeType === Node.TEXT_NODE ? !node.textContent.trim()
+            : !element.matches("img,svg")) continue;
+        if (element.closest("[" + ADDED + "],.record-continuation,.fixed-locator-reference")
+            || !locatorVisible(element)) continue;
+        const sourceOwners = sourcePhysicalOwners(element);
+        if (!sourceOwners.length) continue;
+        const range = document.createRange();
+        range.selectNode(node);
+        if (![...range.getClientRects()].some((rect) => rect.width && rect.height)) continue;
+        // Retained DOM boundaries, not page-number guesses or interior headings,
+        // decide membership. Fragments inherit the original physical metadata.
+        const start = starts.findLastIndex((head) => head === element
+          || !!(head.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
+        for (const owner of sourceOwners) {
+          if (start >= 0 && !owners[start].some((entry) => entry.key === owner.key)) {
+            owners[start].push(owner);
+          }
+        }
+      }
+      owners.forEach((entries, index) => {
+        entries.sort((left, right) => left.order - right.order);
+        const head = starts[index], first = entries[0],
+          continued = !!first && first.scope !== undefined && seenSetups.has(setupKey(first));
+        // The qualifier describes a setup, not an individual member's record.
+        // Preserve full member identities above, but resume the scoped setup even
+        // when this page opens on its first workpiece-specific inspection record.
+        entries.filter((entry) => entry.scope !== undefined)
+          .forEach((entry) => seenSetups.add(setupKey(entry)));
+        if (!index) return;
+        head.dataset.pageOwners = JSON.stringify(entries.map(
+          ({ setup, member, workpiece }) => ({ setup, member, workpiece })));
+        head.dataset.ownerRangeStart = first?.setup || "";
+        head.dataset.ownerRangeEnd = entries.at(-1)?.setup || "";
+        head.dataset.ownerContinued = String(continued);
+        const slot = head.querySelector(".cont-page-owners");
+        if (!slot || !first) return;
+        const setups = [...new Set(entries.map((entry) => entry.setup))];
+        slot.textContent = " · Setups " + first.setup + (continued ? " (continued)" : "")
+          + (setups.length > 1 ? " → " + entries.at(-1).setup : "");
+        if (slot.scrollWidth > slot.clientWidth + 1) throw new Error(
+          "A physical owner range exceeds its measured running-header reservation.");
+      });
+    }
+    function physicalOwnerWrapper(origin) {
+      let wrapper = origin.closest("[data-setup-id],[data-setup-title]");
+      if (!wrapper) return null;
+      const id = wrapper.dataset.setupId || "", title = wrapper.dataset.setupTitle || "";
+      if (!id && !title) return null;
+      for (let parent = wrapper.parentElement; parent && parent !== section;
+          parent = parent.parentElement) {
+        if (id ? parent.dataset.setupId === id
+            : !parent.dataset.setupId && parent.dataset.setupTitle === title) wrapper = parent;
+      }
+      return wrapper;
+    }
+    function openingOwnerHeadingVisible(wrapper) {
+      // Only the owner's direct original opening heading can supply its identity.
+      // An inner READINGS/HOLD/etc. heading cannot make a continued tail fresh.
+      const first = [...wrapper.children].find((node) => !node.hasAttribute(ADDED));
+      const selector = wrapper.matches(".setup-variant") ? ".variant-label" : "h2";
+      if (!first?.matches(selector) || first.closest("[" + ADDED + "]")
+          || !locatorVisible(first)) return false;
+      for (let node = wrapper.firstChild; node !== first; node = node.nextSibling) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) return false;
+      }
+      const left = section.getBoundingClientRect().left,
+        right = left + Number(document.documentElement.dataset.printWidth),
+        within = (rect) => rect.left >= left - .01 && rect.right <= right + .01
+          && rect.top >= pageTop - .01 && rect.bottom <= pageTop + CAP + .01;
+      const range = document.createRange();
+      range.selectNodeContents(first);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width && rect.height);
+      return rects.length > 0 && rects.every(within);
+    }
     function breakAt(el, origin = el) {
       pages += 1;
       const head = document.createElement("p");
@@ -1135,9 +1315,9 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       const running = document.createElement("span");
       running.className = "cont-title";
       const setup = physicalOwner(origin), owner = origin.closest("[data-page-context]");
-      running.textContent = [compactRunning ? section.dataset.part || title : title,
-        compactRunning && section.dataset.part ? quantity : "",
-        setup.identity === "Job" ? "" : setup.identity]
+      running.textContent = (compactRunning
+        ? [compactTitle || title, compactTitle ? quantity : ""]
+        : [title, setup.identity === "Job" ? "" : setup.identity])
         .filter(Boolean).join(" · ") + (compactRunning ? "" : " (continued)");
       for (const [key, value] of Object.entries({ setupTitle: setup.title,
         setupId: setup.setup, member: setup.member, workpiece: setup.workpiece })) {
@@ -1171,14 +1351,19 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       // digits cannot change the title wrapping or the preserved working context.
       head.append(running, "\n", count);
       el.before(head);
+      if (compactRunning) reservePageOwners(count);
       head.style.breakBefore = "page";
       pageTop = box(head).top;
       pageStart = el;
       const source = owner && contextHeads.get(owner.dataset.printContext);
-      if (owner) {
+      const wrapper = compactRunning && !owner ? physicalOwnerWrapper(origin) : null,
+        freshOwner = wrapper && (el === wrapper || el.contains(wrapper));
+      const localOwner = compactRunning && !owner && setup.identity !== "Job"
+        && (!freshOwner || !openingOwnerHeadingVisible(wrapper));
+      if (owner || localOwner) {
         const context = document.createElement("span");
         context.className = "cont-context";
-        context.dataset.pageContext = owner.dataset.pageContext;
+        if (owner) context.dataset.pageContext = owner.dataset.pageContext;
         if (source) {
           context.append(...[...source.heading.childNodes].map((node) => node.cloneNode(true)));
           // The copied destination counters were reserved in the original heading.
@@ -1187,16 +1372,11 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
           for (const [property, value] of source.typography) {
             context.style.setProperty(property, value);
           }
-        } else context.textContent = owner.dataset.pageContext;
+        } else context.textContent = owner
+          ? owner.dataset.pageContext
+          : setup.identity + (freshOwner ? "" : " (continued)");
         cleanLocatorCopy(context);
-        const label = context.textContent.trim().replace(/\s+/g, " "),
-          duplicateOwner = compactRunning && label
-            && (" " + setup.identity.replace(/\s+/g, " ") + " ").includes(" " + label + " ")
-            && !context.querySelector(ORDINARY_EXCLUSIONS);
-        // Keep ownership metadata and every authored caption. Only this generated
-        // text-only copy can be absent when its complete label is already visible
-        // in the running owner; locator/instruction context is never suppressed.
-        if (!duplicateOwner) head.append("\n", context);
+        head.append("\n", context);
         const titleKey = source?.heading.querySelector("[data-title-source]")?.dataset.titleSource;
         if (titleKey) {
           // Prefer the complete authored heading when it opens this page. A full
@@ -1214,8 +1394,13 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
           for (const repeated of el.querySelectorAll(".record-continuation")) {
             compactContext(repeated, " (continued)");
           }
-          if (!compactContext(context)) context.textContent = owner.dataset.pageContext;
-          if (!pageProgress(el)) throw new Error(
+          if (!compactContext(context)) context.textContent = owner
+            ? owner.dataset.pageContext : setup.identity + " (continued)";
+          // Authored context may itself be a complete over-page instruction.
+          // If its preferred prefix still blocks source, repeat only the scoped
+          // operation identity; keep the complete original heading as source.
+          if (!pageProgress(el)
+              && (!compactContext(context, "", true) || !pageProgress(el))) throw new Error(
             "A continuation owner cannot share a page with original source progress.");
         }
       }
@@ -1968,6 +2153,7 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
       if (height > CAP) refuseFigure(figure, height);
     }
     walk(section);
+    finishPageOwners();
     section.querySelectorAll(".cont-head").forEach((head) => {
       head.querySelector(".cont-page-total").textContent = String(pages);
     });
@@ -2070,11 +2256,11 @@ body[data-detail="hobby"] .fixture-render { margin: 4pt 0; }
   addEventListener("beforeprint", run);
 })();
 </script></head><body data-detail="hobby">
-<section class="page" data-sheet="job" data-title="JOB" data-part="rocker-arm" data-quantity="?" data-drawing="?" data-revision="">
+<section class="page" data-sheet="job" data-title="JOB" data-part="rocker-arm" data-job-title="Rocker Arm" data-quantity="?" data-drawing="?" data-revision="">
 <p class="job-identity"><strong>Rocker Arm</strong> · qty ? · ? · Hobby · REV NOT CONFIRMED</p>
 <div class="banner">PLANNED — NOT APPROVED</div>
-<div class="decision caution" data-decision="caution" data-source="blind_depth" data-status="unknown" data-scope="pivot_bore" data-decision-evidence="[{&quot;source&quot;: &quot;blind_depth&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;pivot_bore&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;blind_depth&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;rod_hole&quot;, &quot;kind&quot;: &quot;caution&quot;}]"><p>Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.</p></div><div class="decision stop" data-decision="block" data-source="coverage" data-status="error" data-scope="rocker-arm" data-decision-evidence="[{&quot;source&quot;: &quot;coverage&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;rocker-arm&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>faces have no cutting op or as-stock claim: rod hole, pivot bore, hub od, hub od, profile outer, profile outer, tip land (+X side), top edge, tip land (−X side), profile outer, strap (datum B), strap faces, hub faces, hub od, hub od, hub faces, pivot bore, rod hole.</p></div><div class="decision caution" data-decision="caution" data-source="datum_consistency" data-status="unknown" data-scope="hub_od" data-decision-evidence="[{&quot;source&quot;: &quot;datum_consistency&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;hub_od&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;datum_consistency&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;rod_hole&quot;, &quot;kind&quot;: &quot;caution&quot;}]"><p>Datum cuts or the re-fixture acceptance budget remain unresolved.</p></div><div class="decision stop" data-decision="block" data-source="finish_coverage" data-status="error" data-scope="pivot_bore" data-decision-evidence="[{&quot;source&quot;: &quot;finish_coverage&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;pivot_bore&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>finish-required faces lack a finishing cut.</p></div><div class="decision caution" data-decision="caution" data-source="finish_route" data-status="warn" data-scope="rocker-arm" data-decision-evidence="[{&quot;source&quot;: &quot;finish_route&quot;, &quot;status&quot;: &quot;warn&quot;, &quot;scope&quot;: &quot;rocker-arm&quot;, &quot;kind&quot;: &quot;caution&quot;}]"><p>the drawing finish (matte black oxide) has no coating step in the route.</p></div><div class="decision stop" data-decision="block" data-source="inspection" data-status="error" data-scope="hub_faces:length" data-decision-evidence="[{&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;hub_faces:length&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;hub_od:coaxiality_dia&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;hub_od:dia&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;pivot_bore:dia&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;pivot_bore:finish_ra&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;profile_outer:bottom_arc_len&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;profile_outer:bottom_radius&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;rod_hole:dia&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;rod_hole:position_dia&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;strap_faces:thickness&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;tip_land_neg_x:land_angle_deg&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;tip_land_neg_x:tip_land&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;tip_land_pos_x:land_angle_deg&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;tip_land_pos_x:tip_land&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>no requirement-keyed inspection check.</p></div><div class="decision stop" data-decision="block" data-source="op_chain" data-status="error" data-scope="pivot_bore" data-decision-evidence="[{&quot;source&quot;: &quot;op_chain&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;pivot_bore&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>no drill operation; no spot operation; required ream operation absent.</p></div><div class="decision stop" data-decision="block" data-source="op_chain" data-status="error" data-scope="rod_hole" data-decision-evidence="[{&quot;source&quot;: &quot;op_chain&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;rod_hole&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>no drill operation; no spot operation.</p></div><div class="decision caution" data-decision="caution" data-source="sizing" data-status="unknown" data-scope="pivot_bore" data-decision-evidence="[{&quot;source&quot;: &quot;sizing&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;pivot_bore&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;sizing&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;rod_hole&quot;, &quot;kind&quot;: &quot;caution&quot;}]"><p>selected finishing tool or its measured size is unresolved.</p></div><div class="decision stop" data-decision="block" data-source="drawing_revision" data-status="unknown" data-scope="drawing" data-decision-evidence="[{&quot;source&quot;: &quot;drawing_revision&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;drawing&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>Drawing revision not confirmed — match the drawing before execution.</p></div><p>Blocked setups: S1. Resolve their stated prerequisites before execution.</p><p class="job-summary">Drawing material: Low-carbon steel or gray iron. We use: <span class="reading">1018</span> low-carbon steel. Stock: rectangular bar <span class="reading">292.509 × 29.2946 × 9.0565 mm</span> long. bench; bandsaw. Millimetres unless marked. Starting speeds/feeds. DRO resolution: bandsaw — no coordinate targets.</p><p>Inspection requirement not assigned — pivot bore: <span class="reading">Ø 6.50–6.53 mm</span>; Ra <span class="reading">1.6</span></p><p>Inspection requirement not assigned — rod hole: <span class="reading">Ø 2.00–2.09 mm</span>; position <span class="reading">Ø 0.20 mm</span></p><p>Inspection requirement not assigned — hub od: coaxiality <span class="reading">Ø 0.50 mm</span>; <span class="reading">Ø 9.69–10.71 mm</span></p><p>Inspection requirement not assigned — hub faces: length <span class="reading">7.057–7.106 mm</span></p><p>Inspection requirement not assigned — strap faces: thickness <span class="reading">1.99–3.01 mm</span></p><p>Inspection requirement not assigned — top edge: arc length <span class="reading">291.59–292.61 mm</span>; height over pivot <span class="reading">8.00–8.50 mm</span>; <span class="reading">R 799.49–800.51 mm</span></p><p>Inspection requirement not assigned — profile outer: bottom arc length <span class="reading">266.19–267.21 mm</span>; bottom <span class="reading">R 815.49–816.51 mm</span></p><p>Inspection requirement not assigned — tip land (+X side): land angle ° <span class="reading">89–91 °</span>; tip land <span class="reading">5.08–6.10 mm</span></p><p>Inspection requirement not assigned — tip land (−X side): land angle ° <span class="reading">89–91 °</span>; tip land <span class="reading">5.08–6.10 mm</span></p><p>All edges: REMOVE BURRS AND BREAK SHARP EDGES <span class="reading">R0.25</span> OR CHAMFER <span class="reading">0.25</span> MAX</p><div class="tool-settings"><h2>Tools / settings — RPM / feed (mm/min); lengths (mm)</h2><table class="settings-key"><colgroup><col style="width:10%"><col style="width:90%"></colgroup><tbody><tr><th scope="row">T1</th><td><span class="tool-setting-entry" data-physical-ops="[&quot;S2:10&quot;]"><span class="reading">10/14</span> pitch bi-metal blade, <span class="reading">12.7</span> x <span class="reading">0.64 mm</span> <span class="reading">200 sfm</span> / by hand; kerf <span class="reading">1</span>.</span></td></tr></tbody></table><p>Coolant — none: dry cut (not in shop list): S2. </p></div>
-<section class="setup-flow" data-setup-title="S1" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-workpiece=""><h2>S1</h2><span class="route-prelude" data-setup-members="[&quot;S1&quot;]">Blue the upper face and scribe the <span class="reading">R800</span> top edge from the template. Holding remains measurement debt. Stop: ?. ?. Grip mm: ? not set.</span> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p class="route-operation" data-features="[&quot;top_edge&quot;]"><strong>top edge:</strong> scribe</p><span class="see">Layout: blue the part; scribe <span class="reading">R800 mm</span> about the centre <span class="reading">X 0</span>, <span class="reading">Y 808</span> (from Setup S1 zero), with profile gauge; arc ends <span class="reading">X -145.24</span>, <span class="reading">Y 21.295</span> and <span class="reading">X 145.24</span>, <span class="reading">Y 21.295</span> (from Setup S1 zero).</span></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><figure class="fixture-render" data-panel-id="setup" data-selection-group="setup" data-panel-role="setup" data-panel-top="0" data-panel-height="1041" data-page-context="Setup S1"><figcaption>rocker-arm · Setup S1 — SETUP S1  /  ISOMETRIC VIEW</figcaption><p class="stock-fixture-caption">Stock: the stock blank; fixture: ?</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1041" width="1600" height="1041" role="img" aria-label="rocker-arm · Setup S1 — SETUP S1  /  ISOMETRIC VIEW"><title>rocker-arm · Setup S1 — SETUP S1  /  ISOMETRIC VIEW</title><image href="setup-S1.png" x="0" y="0" width="1600" height="1041" preserveAspectRatio="none"></image></svg></figure><p class="render-debt">NOT SHOWN: fixture not drawn: Fixture solids are not declared for this holding kind.</p></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="datum_consistency" data-status="unknown" data-scope="top_edge" data-decision-evidence="[{&quot;source&quot;: &quot;datum_consistency&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;top_edge&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>Datum cuts or the re-fixture acceptance budget remain unresolved.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="fixture_interference" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;fixture_interference&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding parts clash: holding identity is unknown.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="hold_fields" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;hold_fields&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding declarations need hold.fixture, hold.stop, hold.grip mm, hold.clamp.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="inspection" data-status="error" data-scope="top_edge:arc_len" data-decision-evidence="[{&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;top_edge:arc_len&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;top_edge:height_above_pivot&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;top_edge:radius&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>no requirement-keyed inspection check.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="stock_diameter" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;stock_diameter&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>selected collet/chuck identity is unresolved.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="thin_wall_under_clamp" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;thin_wall_under_clamp&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;vise&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding identity is unknown.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="hold_fields" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;hold_fields&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>STOP: holding not chosen — do not run.</p></div></div> </section>
-<section class="setup-flow" data-setup-title="S2" data-setup-id="S2" data-setup-members="[&quot;S2&quot;]" data-workpiece=""><h2>S2</h2><span class="route-prelude" data-setup-members="[&quot;S2&quot;]">Saw the crescent of waste off above the top edge in vertical mode, just outside the scribed line. Measured from Setup S2 zero, <span class="reading">8 mm</span> up the bar from its bottom edge, the blank spans <span class="reading">Y -8.000</span> to <span class="reading">21.295</span>: the <span class="reading">R800</span> top edge ends on its +Y face at X +/<span class="reading">-145.240</span> and dips to <span class="reading">Y 8.000</span> at <span class="reading">X 0</span>. Fed by hand on the saw table, sawing guided by the line scribed in S1 op <span class="reading">10</span>; no vise or clamp holds the work. Upper blade guide: <span class="reading">6 mm</span> above the top of the work. Push aid: push stick. Start the cut at the -X end of the line: feed the work toward -X into the blade, its trailing end behind, as the arrows in the picture run. End of the cut: finish it with the push aid, never the hands. bar flat on the saw table, scribed face up.</span> <span class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><span data-setup-id="S2" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><span class="route-operation" data-features="[]"><strong>T1:</strong> saw cut, guided by the line scribed in S1 op <span class="reading">10</span> leave at least <span class="reading">0.45 mm</span> on the waste side of the scribed line; Enter at <span class="reading">X -142.741</span>, <span class="reading">Y 21.295</span> and leave at <span class="reading">X 142.741</span>, <span class="reading">Y 21.295</span> on the +Y face (from Setup S2 zero): where the cut, <span class="reading">0.45 mm</span> off the scribed line on the waste side, meets the +Y face.; feed from +X toward -X</span></span> </span> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><figure class="fixture-render" data-panel-id="setup" data-selection-group="setup" data-panel-role="setup" data-panel-top="0" data-panel-height="951" data-page-context="Setup S2"><figcaption>rocker-arm · Setup S2 — SETUP S2  /  ISOMETRIC VIEW</figcaption><p class="stock-fixture-caption">Stock: part as it arrives from Setup S1</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 951" width="1600" height="951" role="img" aria-label="rocker-arm · Setup S2 — SETUP S2  /  ISOMETRIC VIEW"><title>rocker-arm · Setup S2 — SETUP S2  /  ISOMETRIC VIEW</title><image href="setup-S2.png" x="0" y="0" width="1600" height="1931" preserveAspectRatio="none"></image></svg></figure><figure class="fixture-render" data-panel-id="path_detail:1" data-selection-group="path_detail:1" data-panel-role="path_detail" data-panel-top="951" data-panel-height="980" data-page-context="Setup S2"><figcaption>rocker-arm · Setup S2 — PROFILE SKETCH / XY</figcaption><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 951 1600 980" width="1600" height="980" role="img" aria-label="rocker-arm · Setup S2 — PROFILE SKETCH / XY"><title>rocker-arm · Setup S2 — PROFILE SKETCH / XY</title><image href="setup-S2.png" x="0" y="0" width="1600" height="1931" preserveAspectRatio="none"></image></svg></figure></div> </section>
+<div class="decision caution" data-decision="caution" data-source="blind_depth" data-status="unknown" data-scope="pivot_bore" data-decision-evidence="[{&quot;source&quot;: &quot;blind_depth&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;pivot_bore&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;blind_depth&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;rod_hole&quot;, &quot;kind&quot;: &quot;caution&quot;}]"><p>Hole endpoints need the missing or unverified entry, tool geometry or depth inputs.</p></div><div class="decision stop" data-decision="block" data-source="coverage" data-status="error" data-scope="rocker-arm" data-decision-evidence="[{&quot;source&quot;: &quot;coverage&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;rocker-arm&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>faces have no cutting op or as-stock claim: rod hole, pivot bore, hub od, hub od, profile outer, profile outer, tip land (+X side), top edge, tip land (−X side), profile outer, strap (datum B), strap faces, hub faces, hub od, hub od, hub faces, pivot bore, rod hole.</p></div><div class="decision caution" data-decision="caution" data-source="datum_consistency" data-status="unknown" data-scope="hub_od" data-decision-evidence="[{&quot;source&quot;: &quot;datum_consistency&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;hub_od&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;datum_consistency&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;rod_hole&quot;, &quot;kind&quot;: &quot;caution&quot;}]"><p>Datum cuts or the re-fixture acceptance budget remain unresolved.</p></div><div class="decision stop" data-decision="block" data-source="finish_coverage" data-status="error" data-scope="pivot_bore" data-decision-evidence="[{&quot;source&quot;: &quot;finish_coverage&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;pivot_bore&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>finish-required faces lack a finishing cut.</p></div><div class="decision caution" data-decision="caution" data-source="finish_route" data-status="warn" data-scope="rocker-arm" data-decision-evidence="[{&quot;source&quot;: &quot;finish_route&quot;, &quot;status&quot;: &quot;warn&quot;, &quot;scope&quot;: &quot;rocker-arm&quot;, &quot;kind&quot;: &quot;caution&quot;}]"><p>the drawing finish (matte black oxide) has no coating step in the route.</p></div><div class="decision stop" data-decision="block" data-source="inspection" data-status="error" data-scope="hub_faces:length" data-decision-evidence="[{&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;hub_faces:length&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;hub_od:coaxiality_dia&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;hub_od:dia&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;pivot_bore:dia&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;pivot_bore:finish_ra&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;profile_outer:bottom_arc_len&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;profile_outer:bottom_radius&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;rod_hole:dia&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;rod_hole:position_dia&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;strap_faces:thickness&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;tip_land_neg_x:land_angle_deg&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;tip_land_neg_x:tip_land&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;tip_land_pos_x:land_angle_deg&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;tip_land_pos_x:tip_land&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>no requirement-keyed inspection check.</p></div><div class="decision stop" data-decision="block" data-source="op_chain" data-status="error" data-scope="pivot_bore" data-decision-evidence="[{&quot;source&quot;: &quot;op_chain&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;pivot_bore&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>no drill operation; no spot operation; required ream operation absent.</p></div><div class="decision stop" data-decision="block" data-source="op_chain" data-status="error" data-scope="rod_hole" data-decision-evidence="[{&quot;source&quot;: &quot;op_chain&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;rod_hole&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>no drill operation; no spot operation.</p></div><div class="decision caution" data-decision="caution" data-source="sizing" data-status="unknown" data-scope="pivot_bore" data-decision-evidence="[{&quot;source&quot;: &quot;sizing&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;pivot_bore&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;sizing&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;rod_hole&quot;, &quot;kind&quot;: &quot;caution&quot;}]"><p>selected finishing tool or its measured size is unresolved.</p></div><div class="decision stop" data-decision="block" data-source="drawing_revision" data-status="unknown" data-scope="drawing" data-decision-evidence="[{&quot;source&quot;: &quot;drawing_revision&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;drawing&quot;, &quot;kind&quot;: &quot;block&quot;}]"><p>Drawing revision not confirmed — match the drawing before execution.</p></div><p>Blocked setups: S1. Resolve their stated prerequisites before execution.</p><p class="job-summary">Drawing material: Low-carbon steel or gray iron. We use: <span class="reading">1018</span> low-carbon steel. Stock: rectangular bar <span class="reading">292.509 × 29.2946 × 9.0565 mm</span> long. bench; bandsaw. Millimetres unless marked. Starting speeds/feeds. DRO resolution: bandsaw — no coordinate targets.</p><p>Inspection requirement not assigned — pivot bore: <span class="reading">Ø 6.50–6.53 mm</span>; Ra <span class="reading">1.6</span></p><p>Inspection requirement not assigned — rod hole: <span class="reading">Ø 2.00–2.09 mm</span>; position <span class="reading">Ø 0.20 mm</span></p><p>Inspection requirement not assigned — hub od: coaxiality <span class="reading">Ø 0.50 mm</span>; <span class="reading">Ø 9.69–10.71 mm</span></p><p>Inspection requirement not assigned — hub faces: length <span class="reading">7.057–7.106 mm</span></p><p>Inspection requirement not assigned — strap faces: thickness <span class="reading">1.99–3.01 mm</span></p><p>Inspection requirement not assigned — top edge: arc length <span class="reading">291.59–292.61 mm</span>; height over pivot <span class="reading">8.00–8.50 mm</span>; <span class="reading">R 799.49–800.51 mm</span></p><p>Inspection requirement not assigned — profile outer: bottom arc length <span class="reading">266.19–267.21 mm</span>; bottom <span class="reading">R 815.49–816.51 mm</span></p><p>Inspection requirement not assigned — tip land (+X side): land angle ° <span class="reading">89–91 °</span>; tip land <span class="reading">5.08–6.10 mm</span></p><p>Inspection requirement not assigned — tip land (−X side): land angle ° <span class="reading">89–91 °</span>; tip land <span class="reading">5.08–6.10 mm</span></p><p>All edges: REMOVE BURRS AND BREAK SHARP EDGES <span class="reading">R0.25</span> OR CHAMFER <span class="reading">0.25</span> MAX</p><div class="tool-settings"><h2>Tools / settings — RPM / feed (mm/min unless marked); lengths (mm)</h2><table class="settings-key"><colgroup><col style="width:10%"><col style="width:90%"></colgroup><tbody><tr><th scope="row">T1</th><td><span class="tool-setting-entry" data-physical-ops="[&quot;S2:10&quot;]"><span class="reading">10/14</span> pitch bi-metal blade, <span class="reading">12.7</span> x <span class="reading">0.64 mm</span> <span class="reading">200 sfm</span> / by hand; kerf <span class="reading">1</span>.</span></td></tr></tbody></table><p>Coolant — none: dry cut (not in shop list): S2. </p></div>
+<section class="setup-flow" data-setup-title="S1" data-setup-id="S1" data-setup-members="[&quot;S1&quot;]" data-workpiece=""><h2>S1</h2><span class="route-prelude" data-setup-members="[&quot;S1&quot;]">Blue the upper face and scribe the <span class="reading">R800</span> top edge from the template. Holding remains measurement debt. Stop: ?. ?. Grip mm: ? not set.</span> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div data-setup-id="S1" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S1&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p class="route-operation" data-features="[&quot;top_edge&quot;]"><b>10.</b> <strong>top edge:</strong> scribe</p><span class="see">Layout: blue the part; scribe <span class="reading">R800 mm</span> about the centre <span class="reading">X 0</span>, <span class="reading">Y 808</span> (from Setup S1 zero), with profile gauge; arc ends <span class="reading">X -145.24</span>, <span class="reading">Y 21.295</span> and <span class="reading">X 145.24</span>, <span class="reading">Y 21.295</span> (from Setup S1 zero).</span></div> </div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><figure class="fixture-render" data-panel-id="setup" data-selection-group="setup" data-panel-role="setup" data-panel-top="0" data-panel-height="1041" data-page-context="Setup S1"><p class="stock-fixture-caption">Stock: the stock blank; fixture: ?</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1041" width="1600" height="1041" role="img" aria-label="Setup S1 — SETUP S1  /  ISOMETRIC VIEW"><title>Setup S1 — SETUP S1  /  ISOMETRIC VIEW</title><image href="setup-S1.png" x="0" y="0" width="1600" height="1041" preserveAspectRatio="none"></image></svg></figure><p class="render-debt">NOT SHOWN: fixture not drawn: Fixture solids are not declared for this holding kind.</p></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="datum_consistency" data-status="unknown" data-scope="top_edge" data-decision-evidence="[{&quot;source&quot;: &quot;datum_consistency&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;top_edge&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>Datum cuts or the re-fixture acceptance budget remain unresolved.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="fixture_interference" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;fixture_interference&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding parts clash: holding identity is unknown.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="hold_fields" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;hold_fields&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding declarations need hold.fixture, hold.stop, hold.grip mm, hold.clamp.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="inspection" data-status="error" data-scope="top_edge:arc_len" data-decision-evidence="[{&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;top_edge:arc_len&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;top_edge:height_above_pivot&quot;, &quot;kind&quot;: &quot;block&quot;}, {&quot;source&quot;: &quot;inspection&quot;, &quot;status&quot;: &quot;error&quot;, &quot;scope&quot;: &quot;top_edge:radius&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>no requirement-keyed inspection check.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="stock_diameter" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;stock_diameter&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>selected collet/chuck identity is unresolved.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision caution" data-decision="caution" data-source="thin_wall_under_clamp" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;thin_wall_under_clamp&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}, {&quot;source&quot;: &quot;vise&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;caution&quot;}]" data-setup-id="S1" data-op=""><p>holding identity is unknown.</p></div></div> <div class="setup-variant" data-setup-title="Setup S1" data-setup-id="S1" data-workpiece=""><div class="decision stop" data-decision="block" data-source="hold_fields" data-status="unknown" data-scope="S1" data-decision-evidence="[{&quot;source&quot;: &quot;hold_fields&quot;, &quot;status&quot;: &quot;unknown&quot;, &quot;scope&quot;: &quot;S1&quot;, &quot;kind&quot;: &quot;block&quot;}]" data-setup-id="S1" data-op=""><p>STOP: holding not chosen — do not run.</p></div></div> </section>
+<section class="setup-flow" data-setup-title="S2" data-setup-id="S2" data-setup-members="[&quot;S2&quot;]" data-workpiece=""><h2>S2</h2><span class="route-prelude" data-setup-members="[&quot;S2&quot;]">Saw the crescent of waste off above the top edge in vertical mode, just outside the scribed line. Measured from Setup S2 zero, <span class="reading">8 mm</span> up the bar from its bottom edge, the blank spans <span class="reading">Y -8.000</span> to <span class="reading">21.295</span>: the <span class="reading">R800</span> top edge ends on its +Y face at X +/<span class="reading">-145.240</span> and dips to <span class="reading">Y 8.000</span> at <span class="reading">X 0</span>. Fed by hand on the saw table, sawing guided by the line scribed in S1 op <span class="reading">10</span>; no vise or clamp holds the work. Upper blade guide: <span class="reading">6 mm</span> above the top of the work. Push aid: push stick. Start the cut at the -X end of the line: feed the work toward -X into the blade, its trailing end behind, as the arrows in the picture run. End of the cut: finish it with the push aid, never the hands. bar flat on the saw table, scribed face up.</span> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><div data-setup-id="S2" data-op="10" data-physical-ops="[{&quot;setup_id&quot;: &quot;S2&quot;, &quot;op_id&quot;: 10, &quot;workpiece&quot;: null}]"><p class="route-operation" data-features="[]"><b>10.</b> <strong>T1:</strong> saw cut leave at least <span class="reading">0.45 mm</span> on the waste side of the scribed line; Enter at <span class="reading">X -142.741</span>, <span class="reading">Y 21.295</span> and leave at <span class="reading">X 142.741</span>, <span class="reading">Y 21.295</span> on the +Y face (from Setup S2 zero): where the cut, <span class="reading">0.45 mm</span> off the scribed line on the waste side, meets the +Y face.; feed from +X toward -X</p></div> </div> <div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" data-workpiece=""><figure class="fixture-render" data-panel-id="setup" data-selection-group="setup" data-panel-role="setup" data-panel-top="0" data-panel-height="951" data-page-context="Setup S2"><p class="stock-fixture-caption">Stock: part as it arrives from Setup S1</p><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 951" width="1600" height="951" role="img" aria-label="Setup S2 — SETUP S2  /  ISOMETRIC VIEW"><title>Setup S2 — SETUP S2  /  ISOMETRIC VIEW</title><image href="setup-S2.png" x="0" y="0" width="1600" height="1931" preserveAspectRatio="none"></image></svg></figure><figure class="fixture-render" data-panel-id="path_detail:1" data-selection-group="path_detail:1" data-panel-role="path_detail" data-panel-top="951" data-panel-height="980" data-page-context="Setup S2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 951 1600 980" width="1600" height="980" role="img" aria-label="Setup S2 — PROFILE SKETCH / XY"><title>Setup S2 — PROFILE SKETCH / XY</title><image href="setup-S2.png" x="0" y="0" width="1600" height="1931" preserveAspectRatio="none"></image></svg></figure></div> </section>
 
 </section></body></html>
