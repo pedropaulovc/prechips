@@ -122,6 +122,13 @@ The example validator must also run locally when examples, goldens or printed se
 
 Selected examples also store `expected/traveler-pedantic.html` as a sidecar fixture. Register each sidecar in `PEDANTIC_GOLDEN_CASES` in `tests/test_examples.py`: the test runs the ordinary CLI with `--detail pedantic`, compares its HTML bytes with the sidecar, and preserves the default report/PNG byte contracts and output filename set. The sidecar is not an additional CLI output or part of the default golden file set. The coverage guard requires every registered sidecar to exist and every stored sidecar to have a CLI consumer.
 
+Tests that need writable example inputs use `copy_examples(tmp_path)` from
+`tests/test_cli.py`. It preserves every input and its relative path in independent
+copies, but omits all `expected/` trees. Consumers that read or mutate copied golden
+artifacts, including validator fixtures, explicitly request `mode="with-expected"`.
+Keep every required input and parameter/plan domain; do not share mutable copies
+or hardlink them to save space.
+
 To inspect a current sheet without overwriting an example directory, use an explicit scratch destination:
 
 ```sh

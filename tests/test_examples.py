@@ -93,7 +93,7 @@ def test_examples_match_reference_bytes_and_repeat(
     expected_subdir,
     exit_code,
 ):
-    examples = copy_examples(tmp_path)
+    examples = copy_examples(tmp_path, mode="with-expected")
     bundle = examples / part
     pilot_kernel_cache(bundle / plan_filename)
     outputs = []
@@ -118,7 +118,7 @@ def test_pedantic_examples_match_reference_bytes(
     expected_subdir,
     exit_code,
 ):
-    bundle = copy_examples(tmp_path) / part
+    bundle = copy_examples(tmp_path, mode="with-expected") / part
     pilot_kernel_cache(bundle / plan_filename)
     out = tmp_path / "out"
     result, report, _ = traveler(bundle / plan_filename, out, "--detail", "pedantic")
@@ -143,7 +143,7 @@ def test_geometry_examples_match_reference_bytes(
     exit_code,
 ):
     """One run each: the pilots above already pin repeat-run determinism."""
-    bundle = copy_examples(tmp_path) / part
+    bundle = copy_examples(tmp_path, mode="with-expected") / part
     pilot_kernel_cache(bundle / plan_filename)
     out = tmp_path / "out"
     result, report, _ = traveler(bundle / plan_filename, out)
