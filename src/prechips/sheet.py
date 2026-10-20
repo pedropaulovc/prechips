@@ -10874,19 +10874,17 @@ class _Traveler:
                                 + (f"; Z{row[5]}" if not depth_line else "")
                             )
                     pieces.append(("Centre: " + "; ".join(lines) + ".", ""))
-                    routine = ordinary_entry and not entry["stops"] and not entry.get("unresolved")
-                    if self.detail != "pro" or not routine:
-                        if entry.get("raster_lifts"):
-                            pieces.append(
-                                (
-                                    "Lift Z "
-                                    + " / ".join(dict.fromkeys(entry["raster_lifts"]))
-                                    + " between passes; return at lift height.",
-                                    "",
-                                )
+                    if entry.get("raster_lifts"):
+                        pieces.append(
+                            (
+                                "Lift Z "
+                                + " / ".join(dict.fromkeys(entry["raster_lifts"]))
+                                + " between passes; return at lift height.",
+                                "",
                             )
-                        else:
-                            pieces.append((description + "; return at lift height.", ""))
+                        )
+                    else:
+                        pieces.append((description + "; return at lift height.", ""))
                 elif headings == ["P", "angle °", "X", "Y", "Z", "handwheel axis"] and rows:
                     points, previous = [], None
                     for row in rows:
@@ -13873,7 +13871,11 @@ class _Traveler:
                 )
         facing_rules = [
             _p(
-                (", ".join(owners) + ": " if len(facing_levels) > 1 else "")
+                (
+                    ", ".join(owners) + ": "
+                    if len(facing_levels) > 1 or len(facing) != len(group)
+                    else ""
+                )
                 + f"Each Y: lower to Z{z} "
                 + ("in air at start" if entry_kind == "air" else "at tangent start")
                 + "; feed X start→end one-way; "
