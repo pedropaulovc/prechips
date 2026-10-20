@@ -1264,7 +1264,8 @@ def test_worksheet_shaped_inspection_method_still_splits_its_readings_table(
         SETUP_ONE,
         "S1",
         "nut1",
-        '<div class="inspection-method worksheet" data-page-context="Inspection readings">'
+        '<div class="inspection-method worksheet" data-page-context="Inspection readings"'
+        ' data-worksheet-title="Inspection readings" data-reading-context="[]">'
         '<span class="page-context">Inspection readings</span>'
         '<table class="readings"><thead><tr><th>READINGS</th><th>Target</th></tr></thead>'
         + rows

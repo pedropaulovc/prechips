@@ -18,7 +18,7 @@ from test_bench_hold_fields import handling_bundle
 from test_geometry_rules import rules_bundle
 from test_kernel_outputs import _png
 from test_procedure_boxes import mill_bundle
-from test_sheet_inspection_targets import inspection_job
+from test_sheet_inspection_targets import inspection_job, plan_finding
 from test_sheet_measurement_debt import stopped_setup
 from test_sheet_ops import Markup, content
 
@@ -3915,7 +3915,9 @@ def test_mounted_saw_missing_position_does_not_borrow_generic_pickup_or_invent_z
     finding.numbers["axes"]["z"]["mounted_saw"] = mounted
     original = deepcopy(finding.to_dict())
     setup = data.plan["setups"][0]
-    sheet = _Traveler(data, [finding], build_report(data, [finding]), None, detail=detail)
+    # Exercise the native-record display guard directly: nonfinite records are
+    # deliberately not serializable as public report JSON.
+    sheet = _Traveler(data, [finding], {}, None, detail=detail)
     sheet.dro(setup, {}, procedure="separate")
     text = sheet._route_datum_axes[setup["id"]]["z"]
     label = "Blade-body contact" if field == "point_mm" else "arbor axis"
@@ -4229,14 +4231,40 @@ def test_shared_empty_criterion_ids_do_not_move_a_later_debt_to_the_wrong_requir
     ]
     text = content(criterion).casefold()
     assert "width" in text and "depth" not in text and "?" in text
-    assert ancestor_with_class(criterion, "family-common") is not None
-    (depth,) = [
+    if detail == "pedantic":
+        owner = ancestor_with_class(criterion, "setup-variant")
+        assert owner is not None and owner["attrs"]["data-setup-id"] == finals[-1]["id"]
+    else:
+        assert ancestor_with_class(criterion, "family-common") is not None
+    depths = [
         node
         for node in markup.find("inspection-criterion")
         if re.search(r"\bdepth\b", content(node), re.IGNORECASE)
     ]
-    assert json.loads(depth["attrs"]["data-inspection-ids"]) == []
-    assert "?" in content(depth)
+    if detail == "pedantic":
+        shown_owners = []
+        for depth in depths:
+            owner = ancestor_with_class(depth, "family-common") or ancestor_with_class(
+                depth, "setup-variant"
+            )
+            assert owner is not None
+            if "data-physical-ops" in owner["attrs"]:
+                shown_owners.extend(
+                    (item["setup_id"], item["workpiece"])
+                    for item in json.loads(owner["attrs"]["data-physical-ops"])
+                )
+            else:
+                shown_owners.append(
+                    (owner["attrs"]["data-setup-id"], owner["attrs"]["data-workpiece"])
+                )
+        assert shown_owners == [
+            (setup["id"], operation_members(data, setup, setup["ops"][0])[0]) for setup in finals
+        ]
+    else:
+        assert len(depths) == 1
+    for depth in depths:
+        assert json.loads(depth["attrs"]["data-inspection-ids"]) == []
+        assert "?" in content(depth)
     assert len(markup.find("checkpoint-result")) == len(finals)
 
 
@@ -4263,3 +4291,92 @@ def test_pedantic_plain_criterion_preserves_authored_writing_field_and_identity(
     assert "bore" in content(field).casefold() and "reading" in content(field).casefold()
     assert "{bore_reading}" not in content(visible)
     assert not markup.find("result-field")
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+@pytest.mark.parametrize("one_unknown", [False, True])
+def test_interleaved_gauges_keep_visible_criterion_ids_and_member_unknowns_together(
+    detail, one_unknown
+):
+    data, _, finals = inspection_family_job()
+    data.inventory["gauges"]["alternate-calipers"] = {
+        "kind": "caliper",
+        "name": "Alternate calipers",
+    }
+    for setup in finals:
+        setup["ops"][0].update(
+            feature=["base-envelope", "shoulders"],
+            checks={
+                "base-envelope": {
+                    "height": "gauges.calipers",
+                    "width": "gauges.alternate-calipers",
+                },
+                "shoulders": {"thickness": "gauges.calipers"},
+            },
+            inspection_methods={},
+        )
+    targets = [
+        (setup, target)
+        for setup in finals
+        for target in op_check_targets(data, setup, setup["ops"][0])
+    ]
+    assert [target["gauge"] for setup, target in targets if setup is finals[0]] == [
+        "gauges.calipers",
+        "gauges.alternate-calipers",
+        "gauges.calipers",
+    ]
+    expected, findings, statuses = {}, [], {}
+    unknown_subject = None
+    for setup, target in targets:
+        identity = target["identity"]
+        status = (
+            "unknown"
+            if one_unknown and setup is finals[-1] and identity["requirement"] == "height"
+            else "pass"
+        )
+        subject = target["subject"]
+        expected[subject] = identity
+        statuses[subject] = status
+        if status == "unknown":
+            unknown_subject = subject
+        findings.append(
+            plan_finding(
+                subject,
+                setup_id=setup["id"],
+                op_id=target["op_id"],
+                feature=identity["feature_owner"],
+                requirement=identity["requirement"],
+                member=identity["workpiece"],
+                status=status,
+            )
+        )
+    sheet, _, markup = collected_family(data, finals, findings, detail=detail)
+    observed = []
+    criteria = markup.find("inspection-criterion")
+    for criterion in criteria:
+        subjects = json.loads(criterion["attrs"]["data-inspection-ids"])
+        assert subjects and all(subject in expected for subject in subjects)
+        owners = {
+            (expected[subject]["feature_owner"], expected[subject]["requirement"])
+            for subject in subjects
+        }
+        assert len(owners) == 1
+        feature, requirement = next(iter(owners))
+        text = content(criterion).casefold()
+        assert sheet.feature_name(feature).casefold() in text
+        assert requirement in text
+        states = {statuses[subject] for subject in subjects}
+        assert len(states) == 1
+        assert ("?" in text) is (states == {"unknown"})
+        observed.extend(subjects)
+    assert sorted(observed) == sorted(expected)
+    assert len(markup.find("checkpoint-result")) == len(finals)
+    if one_unknown:
+        (unknown,) = [
+            criterion
+            for criterion in criteria
+            if unknown_subject in json.loads(criterion["attrs"]["data-inspection-ids"])
+        ]
+        assert json.loads(unknown["attrs"]["data-inspection-ids"]) == [unknown_subject]
+        owner = ancestor_with_class(unknown, "setup-variant")
+        assert owner is not None and owner["attrs"]["data-setup-id"] == finals[-1]["id"]

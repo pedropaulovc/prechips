@@ -1027,6 +1027,35 @@ def test_sheet_accepts_owned_undeclared_centre_support_debt(tmp_path):
         VALIDATOR["check_sheet"](tmp_path, report)
 
 
+@pytest.mark.parametrize("mutation", ["none", "wrong_owner", "hidden", "clear"])
+def test_sheet_requires_owned_visible_holding_declaration_need(tmp_path, mutation):
+    report, path, html, decision = sheet_disclosure_fixture(tmp_path, grouped=False)
+    report["findings"] = [
+        {
+            "rule": "hold_fields",
+            "subject": "D1a",
+            "status": "error",
+            "numbers": {"missing": ["hold.align"]},
+        }
+    ]
+    owner = "D1b" if mutation == "wrong_owner" else "D1a"
+    prose = (
+        "All clear; proceed." if mutation == "clear" else "holding declarations need hold.align."
+    )
+    replacement = (
+        '<div class="decision stop" data-decision="block" data-source="hold_fields" '
+        f'data-status="error" data-scope="{owner}"><p>{prose}</p></div>'
+    )
+    if mutation == "hidden":
+        replacement = f"<div hidden>{replacement}</div>"
+    path.write_text(html.replace(decision, replacement), encoding="utf-8")
+    if mutation == "none":
+        VALIDATOR["check_sheet"](tmp_path, report)
+    else:
+        with pytest.raises(ValueError, match="sheet hides"):
+            VALIDATOR["check_sheet"](tmp_path, report)
+
+
 @pytest.mark.parametrize(
     "criterion",
     [
@@ -1159,7 +1188,7 @@ def test_generated_final_inspection_debt_is_visible_to_validator(tmp_path, freec
     ):
         (tmp_path / name).write_text(text, encoding="utf-8")
     out = tmp_path / "expected"
-    result = run_cli("check", tmp_path / "plan.toml", "--out", out, "--detail", detail)
+    result = run_cli("traveler", tmp_path / "plan.toml", "--out", out, "--detail", detail)
     assert result.returncode == 4, result.stderr
     report = json.loads((out / "report.json").read_text(encoding="utf-8"))
     finding = next(
@@ -3426,7 +3455,9 @@ def test_make_operation_oracle_holds_each_row_to_its_own_verdict(listing, fact, 
             check({**findings, key: {**native, "numbers": numbers}})
 
 
-def test_geometry_validation_holds_a_make_operation_to_its_own_verdict(freecad_kernel, monkeypatch):
+def test_geometry_validation_holds_a_make_operation_to_its_own_verdict(
+    tmp_path, freecad_kernel, monkeypatch
+):
     """A geometry bundle's report exits 2 on its expected fixture errors, so its exit
     cannot speak for a make operation's verdict: the row is held to the verdict the
     validator gives it, never forged from unknown to a pass or waived, nor restated with
@@ -3451,6 +3482,30 @@ def test_geometry_validation_holds_a_make_operation_to_its_own_verdict(freecad_k
     assert (row["status"], row["numbers"]["unknown"]) == ("unknown", ["rpm"])
     golden = json.loads((folder / "expected" / "report.json").read_bytes())
     validate = VALIDATOR["validate_geometry_fixture"]
+    from prechips.sheet import render_traveler
+
+    # The injected make operation is absent from the committed sheet. Render
+    # the edited inventory and its real debt, rather than asking that old HTML
+    # to disclose a finding which did not exist when it was generated.
+    sheet_rows = [r for r in golden["findings"] if r["rule"] != "tool_resolves"] + native
+    sheet_report = {**golden, "findings": sheet_rows}
+    sheet_findings = [
+        Finding(r["rule"], r["subject"], r["status"], r["numbers"], r["cite"], r["message"])
+        for r in sheet_rows
+    ]
+    rendered_bundle = replace(load_bundle(folder / "plan.toml"), inventory=inventory)
+    rendered = tmp_path / "expected"
+    rendered.mkdir()
+    (rendered / "traveler.html").write_text(
+        render_traveler(rendered_bundle, sheet_findings, sheet_report),
+        encoding="utf-8",
+    )
+    check_sheet = validate.__globals__["check_sheet"]
+    monkeypatch.setitem(
+        validate.__globals__,
+        "check_sheet",
+        lambda _folder, report, _subdir: check_sheet(tmp_path, report),
+    )
 
     def check(make_row):
         # The report re-hashed on the edited inventory: the checker's own tool_resolves

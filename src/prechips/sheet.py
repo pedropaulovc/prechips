@@ -1394,14 +1394,30 @@ def _inspection_identity_attributes(subjects):
     return f'data-inspection-ids="{escape(json.dumps(subjects))}"'
 
 
-def _inspection_criteria(checks):
+def _inspection_gauge_groups(check):
+    groups = {}
+    for gauge_id, gauge, criterion in check.compact_criteria:
+        groups.setdefault((gauge_id, gauge), []).append(criterion)
+    return groups
+
+
+def _inspection_criteria(checks, *, compact=False):
     """Keep criterion identity separate from physical recording-field ownership."""
     for check in checks:
         if isinstance(check, _Criterion):
             yield check
         elif isinstance(check, _Inspection):
             if check.compact_criteria:
-                for _, _, criterion in check.compact_criteria:
+                criteria = (
+                    (
+                        criterion
+                        for group in _inspection_gauge_groups(check).values()
+                        for criterion in group
+                    )
+                    if compact
+                    else (criterion for _, _, criterion in check.compact_criteria)
+                )
+                for criterion in criteria:
                     yield (
                         criterion
                         if isinstance(criterion, _Criterion)
@@ -13035,9 +13051,7 @@ class _Traveler:
             attributes = " " + _inspection_attributes(check) if reading_owner else ""
             inspection_start = len(content)
             content += f'<div class="route-inspection"{attributes}>'
-            gauges, placed_methods = {}, set()
-            for gauge_id, gauge, criterion in check.compact_criteria:
-                gauges.setdefault((gauge_id, gauge), []).append(criterion)
+            gauges, placed_methods = _inspection_gauge_groups(check), set()
             if not gauges:
                 content += "<p>" + _criterion_html(next(_inspection_criteria((check,)))) + "</p>"
             for (_, gauge), criteria in gauges.items():
@@ -13761,7 +13775,7 @@ class _Traveler:
             )
             if row is None:
                 return html
-            criteria.append(tuple(_inspection_criteria(row[-1])))
+            criteria.append(tuple(_inspection_criteria(row[-1], compact=self.detail != "pedantic")))
         opening = '<span class="inspection-criterion" '
         parts = html.split(opening)
         for index, corresponding in enumerate(zip(*criteria, strict=True), 1):

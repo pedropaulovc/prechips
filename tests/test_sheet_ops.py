@@ -915,9 +915,13 @@ def raster_notes(html):
 
 
 def raster_note(bundle, units="mm", removal=None, records=None):
-    """The raster note op 10 prints: its passes at Y 1 and 2 run X -13.765 to 13.765 with a
-    4.76 cutter radius over the area X -9..9, entering from the open -Y side."""
-    sheet = shop(records or contour_records(None))
+    """Plan-unit pass coordinates with a fixed 4.76 mm physical cutter radius."""
+    records = deepcopy(records or contour_records(None))
+    scale = 25.4 if units == "in" else 1.0
+    for profile in records[("coordinates", "S1")]["profiles"]:
+        # _raster stores its converted plan-unit radius despite this field's suffix.
+        profile["raster"]["clearance_mm"] /= scale
+    sheet = shop(records)
     sheet.bundle, sheet.units = bundle, units
     op = {**POCKET["ops"][0]}
     if removal is not None:
@@ -1194,7 +1198,7 @@ def test_direct_raster_clearance_uses_each_finite_disk_not_its_axis_bounding_box
         "raster": {
             "run_axis": "x",
             "ends": ends,
-            "clearance_mm": 5.0,
+            "clearance_mm": 5.0 / scale,
             "entry_pass": points[0][1],
             "open_side": "-y",
         },
@@ -1231,7 +1235,7 @@ def test_direct_raster_side_claims_require_that_sides_own_positive_margin(
         "raster": {
             "run_axis": "x",
             "ends": [point[0] for point in points],
-            "clearance_mm": 5.0,
+            "clearance_mm": 5.0 / scale,
             "entry_pass": points[0][1],
             "open_side": "-y",
         },
