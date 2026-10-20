@@ -69,6 +69,8 @@ The loader hashes the exact files it reads. A content or formatting edit changes
 
 `Bundle.features` retains the original manifest. `Bundle.feature_definitions` adds resolved plan joint/process features for rule evaluation. Transient preparation does not earn finished drawing coverage, and synthetic preparation labels cannot masquerade as exported STEP faces. `Bundle` freezes attribute assignment but not nested dictionaries. The application treats operative contents as unchanged once loaded; geometry is a non-operative memo for that state.
 
+`rules.resolution.operations()` returns an eager list. When filtering by workpiece, its direct membership checks share one invocation-local material graph and read each operation's current claims. The graph is discarded on return: another call sees in-place changes to nested routes or claims, without bundle-wide or global caching. Nested explicit-ownership checks retain their own resolution path.
+
 Measurement trust is fact-local. A parent item's identity or measurement record does not qualify every child dimension. Where a consumer requires a measurement, it needs that fact's complete measured record and no local verification refusal; bare nominal facts are usable only where that consumer permits them. Missing, assumed, illustrative and explicitly unknown facts remain debt. The [inventory reference](../inventory.md) owns the field-level contract; the [example provenance](../../examples/README.md) distinguishes demonstration metadata from actual shop observations.
 
 ## Native boundary and cache

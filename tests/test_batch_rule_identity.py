@@ -11,6 +11,7 @@ from prechips.rules.resolution import (
     member_protection_status,
     operation_material_status,
     operation_members,
+    operations,
 )
 from prechips.rules.zero_recipe.faces import x_face_state
 from prechips.rules.zero_recipe.tool_setting import face_stands
@@ -116,6 +117,67 @@ def test_nested_descendant_keeps_only_its_selected_member_producer():
     assert operation_material_status(bundle, leaf, root, "land", producer_op=producer) is True
     producer["workpiece_faces"] = {"nut2": ["#1"]}
     assert operation_material_status(bundle, leaf, root, "land", producer_op=producer) is False
+
+
+def test_operations_rebuilds_nested_routes_between_eager_calls():
+    bundle, _, _, leaf = batch_bundle()
+    cut = {"op": 30, "do": "turn", "feature": "land"}
+    leaf["ops"].append(cut)
+    before = operations(bundle, "land", workpiece_id="nut3")
+    assert isinstance(before, list)
+    assert (leaf, cut) in before
+    assert (leaf, cut) not in operations(bundle, "land", workpiece_id="nut4")
+
+    outputs = bundle.plan["setups"][3]["ops"][0]["outputs"]
+    outputs["nut3"]["carries_workpieces"][:] = ["nut4"]
+    outputs["nut4"]["carries_workpieces"][:] = ["nut3"]
+
+    assert (leaf, cut) not in operations(bundle, "land", workpiece_id="nut3")
+    assert (leaf, cut) in operations(bundle, "land", workpiece_id="nut4")
+    assert operation_members(bundle, leaf) == ("nut4",)
+    # Selection was eager, although returned setup/op objects remain shared.
+    assert (leaf, cut) in before
+
+
+@pytest.mark.parametrize("owned", [False, True])
+def test_operations_reads_in_place_claim_changes_between_calls(owned):
+    bundle, root, producer, _ = batch_bundle()
+    if owned:
+        producer["feature"] = "different_feature"
+    assert (root, producer) in operations(bundle, "land", owned=owned, workpiece_id="nut3")
+    assert (root, producer) not in operations(bundle, "land", owned=owned, workpiece_id="nut2")
+
+    claims = producer["workpiece_faces"]
+    claims.clear()
+    claims["nut2"] = ["#1"]
+
+    assert (root, producer) not in operations(bundle, "land", owned=owned, workpiece_id="nut3")
+    assert (root, producer) in operations(bundle, "land", owned=owned, workpiece_id="nut2")
+    assert operation_members(bundle, root, producer) == ("nut2",)
+
+
+def test_operations_reuses_one_graph_for_direct_member_selection(monkeypatch):
+    from prechips import material_routes
+
+    bundle, root, producer, leaf = batch_bundle()
+    first = {"op": 30, "do": "turn", "feature": "land"}
+    second = {"op": 40, "do": "turn", "feature": "land"}
+    leaf["ops"].extend([first, second])
+    original = material_routes.MaterialGraph
+    built = []
+
+    def graph(plan):
+        built.append(plan)
+        return original(plan)
+
+    monkeypatch.setattr(material_routes, "MaterialGraph", graph)
+    assert operations(bundle, "land", workpiece_id="nut3") == [
+        (root, producer),
+        (leaf, first),
+        (leaf, second),
+    ]
+    assert len(built) == 1
+    assert built[0] is bundle.plan
 
 
 def test_shared_ancestor_unqualified_producer_is_debt_not_member_credit():

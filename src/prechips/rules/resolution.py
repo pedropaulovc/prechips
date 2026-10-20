@@ -322,7 +322,11 @@ def operation_members(bundle, setup, op=None):
     if not isinstance(bundle.plan.get("workpieces"), dict):
         return None
     sid = setup.get("id") if isinstance(setup, dict) else setup
-    live = MaterialGraph(bundle.plan).members(sid)
+    return _members_from_live(MaterialGraph(bundle.plan).members(sid), op)
+
+
+def _members_from_live(live, op):
+    """Apply current operation claims to the supplied live material members."""
     if live is None:
         return None
     if isinstance(op, dict) and "workpiece_faces" in op:
@@ -1425,11 +1429,25 @@ def operations(bundle, feature=None, owned=False, *, workpiece_id=None):
     Complete explicit claims may own another feature only when ``owned`` is true.
     A member selector never admits an ambiguous or different-member operation.
     """
+    from prechips.material_routes import MaterialGraph
+
+    graph = None
+
+    def selected_members(setup, op):
+        nonlocal graph
+        if not registered_workpieces(bundle):
+            return ()
+        if not isinstance(bundle.plan.get("workpieces"), dict):
+            return None
+        if graph is None:
+            graph = MaterialGraph(bundle.plan)
+        return _members_from_live(graph.members(setup.get("id")), op)
+
     return [
         (setup, op)
         for setup in bundle.plan["setups"]
         for op in setup["ops"]
-        if (workpiece_id is None or workpiece_id in (operation_members(bundle, setup, op) or ()))
+        if (workpiece_id is None or workpiece_id in (selected_members(setup, op) or ()))
         and (
             feature is None
             or feature in op_features(op)
