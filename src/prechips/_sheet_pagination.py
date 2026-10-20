@@ -3,7 +3,9 @@
 Integration contract: embed ``JOB_PRINT_JS`` once in the document head. Supply one
 ``section.page[data-sheet="job"]`` with human ``data-job-title`` and unchanged outer
 ``data-part``, ``data-drawing`` and ``data-revision``. Compact running titles identify
-only the job; local continuation context identifies physical owners. Setup/family
+only the job; measured running ranges summarize retained physical source owners,
+including whether the first owner continues from an earlier page. Local operation
+context remains separate from that physical range. Setup/family
 wrappers carry ``data-setup-title``; physical setup, member and workpiece owners
 retain ``data-setup-id``, ``data-member`` and ``data-workpiece``. Nested inspection/
 contour owners keep ``data-page-context`` and their direct ``.page-context`` heading.
@@ -842,6 +844,139 @@ JOB_PRINT_JS = r"""(() => {
       }
       return false;
     }
+    const sharedOwners = new Map();
+    function sharedPhysicalOwners(raw) {
+      if (!sharedOwners.has(raw)) {
+        let values;
+        try { values = JSON.parse(raw); } catch { values = null; }
+        sharedOwners.set(raw, Array.isArray(values) && values.length
+          && values.every((value) => value && typeof value.setup_id === "string"
+            && value.setup_id.trim() && (value.workpiece == null
+              || typeof value.workpiece === "string"))
+          ? values.map((value) => ({ setup: value.setup_id,
+            member: "", workpiece: value.workpiece || "" })) : []);
+      }
+      return sharedOwners.get(raw);
+    }
+    const routeOrder = new Map();
+    function registerRoute(scope, setup) {
+      const key = JSON.stringify([scope, setup]);
+      if (setup && !routeOrder.has(key)) routeOrder.set(key, routeOrder.size);
+      return routeOrder.get(key);
+    }
+    // Register original route scopes before fragmentation; their token survives
+    // splitting. Separate fresh wrappers remain separate even with identical labels.
+    const routeScopes = [...section.querySelectorAll("[data-setup-title]")].filter(
+      (node) => !node.parentElement.closest("[data-setup-title]"));
+    routeScopes.forEach((scope, index) => {
+      scope.dataset.printOwnerScope = String(index);
+      let members;
+      try { members = JSON.parse(scope.dataset.setupMembers || "[]"); }
+      catch { members = []; }
+      if (Array.isArray(members)) members.filter(
+        (value) => typeof value === "string" && value.trim()
+      ).forEach((setup) => registerRoute(String(index), setup));
+      registerRoute(String(index), physicalOwner(scope).setup);
+      // Shared operation lists retain authored route order even when a selected
+      // picture for a later member precedes the common operation in the DOM.
+      for (const node of scope.querySelectorAll("[data-physical-ops]")) {
+        sharedPhysicalOwners(node.dataset.physicalOps).forEach(
+          (owner) => registerRoute(String(index), owner.setup));
+      }
+      for (const node of scope.querySelectorAll("[data-setup-id]")) {
+        registerRoute(String(index), physicalOwner(node).setup);
+      }
+    });
+    function sourcePhysicalOwners(element) {
+      const source = element.closest("[data-setup-id],[data-physical-ops]");
+      if (!source) return [];
+      const scope = source.closest("[data-print-owner-scope]")?.dataset.printOwnerScope,
+        owners = source.hasAttribute("data-physical-ops")
+          ? sharedPhysicalOwners(source.dataset.physicalOps)
+          : [physicalOwner(element)].filter((owner) => owner.setup);
+      return owners.map((owner) => {
+        const member = owner.member === owner.workpiece ? "" : owner.member,
+          key = JSON.stringify([scope ?? null, owner.setup, member, owner.workpiece]);
+        return { ...owner, member, scope, key,
+          order: registerRoute(scope ?? null, owner.setup) };
+      });
+    }
+    const physicalLabels = [...new Set([...section.querySelectorAll(
+      "[data-setup-id],[data-physical-ops]")].flatMap(
+      (node) => sourcePhysicalOwners(node).map((owner) => owner.setup)))];
+    function reservePageOwners(count) {
+      // Reserve the widest possible endpoint pair before any source fitting.
+      // Filling the actual range after splitting must not change header geometry.
+      if (!physicalLabels.length) return;
+      const slot = document.createElement("span");
+      slot.className = "cont-page-owners";
+      slot.style.cssText = "display:inline-block;white-space:nowrap;vertical-align:bottom";
+      count.append(slot);
+      let widest = "", width = 0;
+      for (const label of physicalLabels) {
+        slot.textContent = label;
+        const measured = slot.getBoundingClientRect().width;
+        if (measured > width) { widest = label; width = measured; }
+      }
+      slot.textContent = " · Setups " + widest + " (continued) → " + widest;
+      const bounds = slot.getBoundingClientRect();
+      slot.style.width = bounds.width + "px";
+      slot.style.height = bounds.height + "px";
+      slot.textContent = "";
+    }
+    function finishPageOwners() {
+      if (!compactRunning) return;
+      const starts = [section, ...section.querySelectorAll(".cont-head")],
+        owners = starts.map(() => []), seenSetups = new Set(),
+        setupKey = (owner) => JSON.stringify([owner.scope, owner.setup]);
+      const walker = document.createTreeWalker(section,
+        NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const node = walker.currentNode, element = node.nodeType === Node.TEXT_NODE
+          ? node.parentElement : node;
+        if (node.nodeType === Node.TEXT_NODE ? !node.textContent.trim()
+            : !element.matches("img,svg")) continue;
+        if (element.closest("[" + ADDED + "],.record-continuation,.fixed-locator-reference")
+            || !locatorVisible(element)) continue;
+        const sourceOwners = sourcePhysicalOwners(element);
+        if (!sourceOwners.length) continue;
+        const range = document.createRange();
+        range.selectNode(node);
+        if (![...range.getClientRects()].some((rect) => rect.width && rect.height)) continue;
+        // Retained DOM boundaries, not page-number guesses or interior headings,
+        // decide membership. Fragments inherit the original physical metadata.
+        const start = starts.findLastIndex((head) => head === element
+          || !!(head.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
+        for (const owner of sourceOwners) {
+          if (start >= 0 && !owners[start].some((entry) => entry.key === owner.key)) {
+            owners[start].push(owner);
+          }
+        }
+      }
+      owners.forEach((entries, index) => {
+        entries.sort((left, right) => left.order - right.order);
+        const head = starts[index], first = entries[0],
+          continued = !!first && first.scope !== undefined && seenSetups.has(setupKey(first));
+        // The qualifier describes a setup, not an individual member's record.
+        // Preserve full member identities above, but resume the scoped setup even
+        // when this page opens on its first workpiece-specific inspection record.
+        entries.filter((entry) => entry.scope !== undefined)
+          .forEach((entry) => seenSetups.add(setupKey(entry)));
+        if (!index) return;
+        head.dataset.pageOwners = JSON.stringify(entries.map(
+          ({ setup, member, workpiece }) => ({ setup, member, workpiece })));
+        head.dataset.ownerRangeStart = first?.setup || "";
+        head.dataset.ownerRangeEnd = entries.at(-1)?.setup || "";
+        head.dataset.ownerContinued = String(continued);
+        const slot = head.querySelector(".cont-page-owners");
+        if (!slot || !first) return;
+        const setups = [...new Set(entries.map((entry) => entry.setup))];
+        slot.textContent = " · Setups " + first.setup + (continued ? " (continued)" : "")
+          + (setups.length > 1 ? " → " + entries.at(-1).setup : "");
+        if (slot.scrollWidth > slot.clientWidth + 1) throw new Error(
+          "A physical owner range exceeds its measured running-header reservation.");
+      });
+    }
     function physicalOwnerWrapper(origin) {
       let wrapper = origin.closest("[data-setup-id],[data-setup-title]");
       if (!wrapper) return null;
@@ -917,6 +1052,7 @@ JOB_PRINT_JS = r"""(() => {
       // digits cannot change the title wrapping or the preserved working context.
       head.append(running, "\n", count);
       el.before(head);
+      if (compactRunning) reservePageOwners(count);
       head.style.breakBefore = "page";
       pageTop = box(head).top;
       pageStart = el;
@@ -1718,6 +1854,7 @@ JOB_PRINT_JS = r"""(() => {
       if (height > CAP) refuseFigure(figure, height);
     }
     walk(section);
+    finishPageOwners();
     section.querySelectorAll(".cont-head").forEach((head) => {
       head.querySelector(".cont-page-total").textContent = String(pages);
     });

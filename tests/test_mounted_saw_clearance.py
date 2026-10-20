@@ -16,7 +16,7 @@ def clearance_types():
     """Load the real producer binding and consumer methods without a native seat."""
     tree = ast.parse(ENGINE.read_text(encoding="utf-8"))
     functions = {"_number", "_positive", "_r", "_op_number", "_sawn"}
-    constants = {"UNKNOWN", "SAW_ACTIONS"}
+    constants = {"UNKNOWN", "SAW_ACTIONS", "PLANE_TOL"}
     nodes = [
         node
         for node in tree.body
@@ -31,7 +31,7 @@ def clearance_types():
     ]
     assert {node.name for node in nodes if isinstance(node, ast.FunctionDef)} == functions
     for name, wanted in (
-        ("_FiniteSaw", {"_clearance_binding", "_numeric", "_vector"}),
+        ("_FiniteSaw", {"_clearance_binding", "_numeric", "_vector", "_stopped_setting_touch"}),
         ("_Setup", {"_blade_paths", "_cut_clearances"}),
     ):
         cls = deepcopy(
@@ -95,6 +95,7 @@ def _consumer(clearance_types, *, distance=0.625):
             "stage": "post_cut",
         },
     }
+    proof["sweeps"] = [{"minimum": deepcopy(proof["minimum"]), "stage": "post_cut"}]
     setup.saws = {id(op): {"saw": {"fixture_clearance": proof}}}
     return setup, op, proof
 
@@ -181,3 +182,97 @@ def test_closest_mounted_operation_is_selected_before_render_rounding(clearance_
     second["binding"] = finite._clearance_binding(setup, second_op)
     _, closest = setup._cut_clearances([], True, {}, [], {})
     assert closest["op"] == "20" and closest["mm"] == 0.625
+
+
+@pytest.mark.parametrize(
+    "stage,delta,stages,identified",
+    [
+        ("pre_cut", 2e-6, {"pre_cut"}, True),
+        ("pre_cut", 0.0, {"pre_cut"}, False),
+        ("cut", 0.0, {"pre_cut", "cut"}, False),
+        ("post_cut", 0.5e-6, {"pre_cut", "post_cut"}, False),
+        ("cut", -0.5e-6, {"pre_cut", "cut"}, False),
+        ("unknown", 0.0, {"pre_cut", "unknown"}, False),
+    ],
+)
+def test_tied_operation_minima_do_not_hide_a_running_gap_or_disagreeing_phase(
+    clearance_types, stage, delta, stages, identified
+):
+    finite, _ = clearance_types
+    setup, op, first = _consumer(clearance_types, distance=0.05)
+    op["mounted_saw"].update(
+        zero={"touches": [{"surface": {"kind": "fixture", "name": "setting-pad", "side": "+z"}}]},
+        trajectory={
+            "start_mm": [-140.0, -100.0, 11.574],
+            "moves": [{"to_mm": [-140.0, -100.0, 80.0], "mode": "clear"}],
+        },
+    )
+    first["minimum"].update(
+        tag="setting-pad",
+        component="blade_body",
+        move_index=0,
+        mode="clear",
+        stage="pre_cut",
+        from_mm=[-118.0, -100.0, 10.05],
+        to_mm=[-118.0, -100.0, 10.0],
+    )
+    first["sweeps"] = [
+        {
+            "minimum": deepcopy(first["minimum"]),
+            **{
+                key: first["minimum"][key]
+                for key in ("component", "move_index", "mode", "stage")
+            },
+        }
+    ]
+    setup.saws[id(op)]["saw"]["zero"] = {
+        "status": "pass",
+        "reasons": [],
+        "selected": 0,
+        "touches": [
+            {
+                "index": 0,
+                "status": "pass",
+                "reasons": [],
+                "collisions": [],
+                "spindle_state": "stopped",
+                "blade_side": "minus_z",
+                "surface_side": "+z",
+                "axis_xy_mm": [-140.0, -100.0],
+                "point_mm": [-118.0, -100.0, 10.0],
+                "cutting_midplane_z_mm": 11.574,
+                "body_face_z_mm": 10.05,
+                "paper_mm": 0.05,
+            }
+        ],
+    }
+    second_op, second = deepcopy(op), deepcopy(first)
+    second_op["subject"] = "C2:20"
+    second["minimum"].update(mm=0.05 + delta, stage="cut" if stage == "unknown" else stage)
+    if delta < 0:
+        second["minimum"]["tag"] = "running-pad"
+    second["minimum"]["from_mm"][2] = 10.05 + delta
+    second["sweeps"] = [{"minimum": deepcopy(second["minimum"]), "stage": stage}]
+    setup.ops.append(second_op)
+    setup.saws[id(second_op)] = {"saw": {"fixture_clearance": second}}
+    first["binding"] = finite._clearance_binding(setup, op)
+    second["binding"] = finite._clearance_binding(setup, second_op)
+    _, closest = setup._cut_clearances([], True, {}, [], {})
+    expected = first if delta >= 0 else second
+    assert closest["op"] == ("10" if delta >= 0 else "20")
+    assert closest["mm"] == pytest.approx(expected["minimum"]["mm"], abs=0.5e-6)
+    assert closest["stage"] == expected["minimum"]["stage"]
+    assert closest["tag"] == expected["minimum"]["tag"]
+    assert set(closest["minimum_stages"]) == stages
+    assert ("stopped_setting_touch" in closest) is identified
+    included = closest.get("included_stopped_setting_touch")
+    if identified or "unknown" in stages:
+        assert included is None
+    else:
+        assert included == {
+            "touch_index": 0,
+            "paper_mm": 0.05,
+            "mm": 0.05,
+            "tag": "setting-pad",
+            "op": "10",
+        }

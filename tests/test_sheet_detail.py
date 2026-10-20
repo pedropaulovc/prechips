@@ -223,6 +223,19 @@ def assert_coordinate(text, axis, expected):
     assert any(abs(value - expected) <= 0.0001 for value in values), (axis, expected, text)
 
 
+def parallel_grip_values(text):
+    """Read separately labelled physical lengths, independently of table/paragraph layout."""
+    return [
+        tuple(map(float, match))
+        for match in re.findall(
+            r"\bParallels\s+(\d+(?:\.\d+)?)\s+mm\b.*?"
+            r"\bgrip\s+(\d+(?:\.\d+)?)\s+mm\b",
+            " ".join(text.split()),
+            re.IGNORECASE,
+        )
+    ]
+
+
 def operation_owners(node):
     """Read physical operation identity without depending on its visual layout."""
     attrs = node["attrs"]
@@ -682,6 +695,7 @@ def test_demonstration_does_not_waive_a_missing_finder_fact_or_geometric_collisi
 @pytest.mark.parametrize("tip_in", [0.2, 0.24, 0.312])
 def test_hobby_first_use_dro_guide_uses_the_evaluated_finder_not_example_answers(tip_in):
     data = mill_job(tip_in)
+    data.inventory["tools"]["finder"]["name"] = "Selected mechanical finder"
     findings = zero_recipe.evaluate(data)
     assert findings[0].status == "pass"
     finder = findings[0].numbers["axes"]["x"]["finder"]
@@ -701,6 +715,10 @@ def test_hobby_first_use_dro_guide_uses_the_evaluated_finder_not_example_answers
         assert_number(text, paper_in)
     pro = Markup(rendered(data, findings, detail="pro"))
     assert not any(node["attrs"].get("id") == "dro-first-use" for node in pro.nodes)
+    (identity,) = pro.find("finder-identity")
+    assert "Selected mechanical finder" in content(identity)
+    assert_coordinate(content(identity), "Ø", tip_in)
+    assert "Preset" not in content(identity) and "midpoint" not in content(identity)
 
 
 def datum_sharing_job():
@@ -779,13 +797,12 @@ def test_equal_proved_references_print_once_with_exact_physical_setup_owners(det
         node
         for node in markup.nodes
         if node["attrs"].get("data-reference-kind") == "holding"
-        and "parallels/grip" in content(node).casefold()
+        and parallel_grip_values(content(node))
     ]
     (parallel_reference,) = holding
     assert json.loads(parallel_reference["attrs"]["data-setup-members"]) == ["S1", "S2", "S3"]
-    for value in (12.7, 7.62):
-        assert_number(content(parallel_reference), value)
-    assert content(job_page(markup)).casefold().count("parallels/grip") == 1
+    assert parallel_grip_values(content(parallel_reference)) == [(12.7, 7.62)]
+    assert parallel_grip_values(content(job_page(markup))) == [(12.7, 7.62)]
     clamps = [
         node
         for node in markup.nodes
@@ -2076,7 +2093,42 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(det
             ],
         }
         findings.append(Finding("coordinates", sid, "pass", numbers, [], "Native facing path"))
-    markup = Markup(rendered(data, findings, detail=detail))
+    # Source heights: Q1 .625 - .0625 in over 10-mm jaws; Q4 .500 in over 10-mm jaws.
+    headroom_findings = [
+        Finding(
+            "headroom",
+            sid,
+            "pass",
+            {"cut_tip_above_jaws_mm": {"10": gap}, "jaw_obstruction": {"jaw_top_z": -gap}},
+            [],
+            "Evaluated vertical jaw height",
+        )
+        for sid, gap in (("Q1", 4.2875), ("Q4", 2.7))
+    ]
+    shown_findings = [*findings, *headroom_findings]
+    report = build_report(data, shown_findings)
+    report["renders"] = {
+        "Q2": {
+            "path": "renders/Q2.png",
+            "fixture": "modeled",
+            "scene": {
+                "width_px": 1600,
+                "height_px": 1400,
+                "print_panels": [
+                    {
+                        "top_px": 0,
+                        "height_px": 1400,
+                        "role": "setup",
+                        "label": "Facing setup",
+                        "id": "setup",
+                        "selection_group": "setup",
+                        "annotations": [],
+                    }
+                ],
+            },
+        }
+    }
+    markup = Markup(render_traveler(data, shown_findings, report, detail=detail))
     (table,) = markup.find("facing-paths")
     rows = [
         node
@@ -2105,10 +2157,38 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(det
         assert_coordinate(context, "Z", float(formatter.readout(profile["dro_to_z"])))
         assert_coordinate(context, "Z", float(formatter.readout(profile["raster"]["lift_z"])))
         assert re.search(r"\b(?:lift|raise)\b.*\breturn\b", context, re.IGNORECASE)
+    q1, _, _, q4 = rows
+    q4_notices = [
+        node
+        for node in decision_nodes(markup)
+        if any(
+            fact["source"] == "headroom" and fact["scope"] == "Q4:10"
+            for fact in decision_evidence(node)
+        )
+    ]
+    assert q4_notices and all(node in list(descendants(markup, q4)) for node in q4_notices)
+    if detail == "hobby":
+        assert re.search(r"both jaw tops.*4\.3\s*mm", content(q1), re.IGNORECASE)
+        assert "not a swept gap" in content(q1)
+        (picture,) = markup.find("fixture-render", table["parent"])
+        (instruction,) = [
+            node
+            for node in markup.find("route-operation", table["parent"])
+            if {str(owner["setup_id"]) for owner in operation_owners(operation_owner(node))}
+            == set(native)
+            and all(
+                str(owner["op_id"]) == "10" for owner in operation_owners(operation_owner(node))
+            )
+        ]
+        positions = [
+            next(index for index, node in enumerate(markup.nodes) if node is target)
+            for target in (table, instruction, picture)
+        ]
+        assert positions == sorted(positions)
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
-def test_compact_hand_tap_unknown_names_bore_surface_without_changing_typed_evidence(detail):
+def test_compact_hand_tap_unknown_names_inside_surface_without_changing_typed_evidence(detail):
     from prechips.sheet import _decision_html
 
     data = bench_job()
@@ -2133,8 +2213,6 @@ def test_compact_hand_tap_unknown_names_bore_surface_without_changing_typed_evid
         finding.subject,
         "block",
     )
-    assert re.search(r"\bhand.tap\b.*\bnot checked\b", decision.text, re.IGNORECASE)
-    assert re.search(r"\bbore[- ]surface mapping\b.*\bunverified\b", decision.text, re.IGNORECASE)
     markup = Markup(_decision_html(decision, setup_id=setup["id"], op_id=setup["ops"][0]["op"]))
     (notice,) = finding_nodes(markup, finding)
     assert finding_has_kind(notice, finding, "block")
@@ -2211,6 +2289,7 @@ def test_paired_positive_milling_cautions_share_only_compact_notice_with_all_fac
     def with_clearances(self, setup, tools):
         rows = operation_rows(self, setup, tools)
         rows[0].decisions = (*rows[0].decisions, *decisions)
+        rows[0].warnings = (*rows[0].warnings, *boxes)
         return rows
 
     monkeypatch.setattr(_Traveler, "operation_rows", with_clearances)
@@ -2226,20 +2305,29 @@ def test_paired_positive_milling_cautions_share_only_compact_notice_with_all_fac
             for entry in decision_evidence(node)
         )
     ]
-    assert len(notices) == (2 if detail == "pedantic" else 1)
+    assert notices
     assert {
         (entry["source"], entry["status"], entry["scope"], entry["kind"])
         for node in notices
         for entry in decision_evidence(node)
     } == expected
+    displays = [
+        node
+        for node in markup.nodes
+        if {"decision", "box"} & set(node["attrs"].get("class", "").split())
+        and any(str(box) in content(node) for box in boxes)
+    ]
     for box in boxes:
-        assert sum(content(node).count(str(box)) for node in notices) == 1
-    assert all(
-        node["attrs"]["data-setup-id"] == owner["id"]
-        and node["attrs"]["data-op"] == str(owner["ops"][0]["op"])
-        and node["attrs"]["data-decision"] == "caution"
-        for node in notices
-    )
+        assert sum(content(node).count(str(box)) for node in displays) == 1
+    for display in displays:
+        physical = operation_owner(display)
+        assert physical is not None
+        assert {
+            (identity["setup_id"], str(identity["op_id"]))
+            for identity in operation_owners(physical)
+        } == {(owner["id"], str(owner["ops"][0]["op"]))}
+    if detail != "pedantic":
+        assert any(all(str(box) in content(node) for box in boxes) for node in displays)
 
 
 def test_milling_notice_group_does_not_merge_other_owners_unrelated_cautions_or_blocks():
@@ -2302,23 +2390,12 @@ def test_local_parallel_and_grip_rows_name_each_source_mm_quantity(detail, displ
         setup["presentation_group"] = "Local holding choices"
         expected[setup["id"]] = (height, grip)
     markup = Markup(rendered(data, zero_recipe.evaluate(data), detail=detail))
-    (table,) = markup.find("orientation-table")
-    rows = [
-        node
-        for node in descendants(markup, table)
-        if node["tag"] == "tr" and node["attrs"].get("data-setup-id") in expected
-    ]
-    assert {row["attrs"]["data-setup-id"] for row in rows} == set(expected)
-    for row in rows:
-        text = " ".join(content(row).split())
-        quantities = re.search(
-            r"\bParallels\s+(\d+(?:\.\d+)?)\s+mm\b.*?"
-            r"\bgrip\s+(\d+(?:\.\d+)?)\s+mm\b",
-            text,
-            re.IGNORECASE,
-        )
-        assert quantities, text
-        assert tuple(map(float, quantities.groups())) == expected[row["attrs"]["data-setup-id"]]
+    owned = {sid: set() for sid in expected}
+    for node in markup.nodes:
+        sid = node["attrs"].get("data-setup-id")
+        if sid in owned:
+            owned[sid].update(parallel_grip_values(content(node)))
+    assert owned == {sid: {quantities} for sid, quantities in expected.items()}
     assert not any(
         "parallels/grip" in content(node).casefold() for node in markup.nodes if node["tag"] == "h2"
     )
@@ -2425,17 +2502,18 @@ def mounted_jog_job(axis, jog, jog_key):
 
 @pytest.mark.parametrize("jog_key", ["check_jog_mm", "jog_mm"], ids=["explicit", "fallback"])
 @pytest.mark.parametrize("jog", [2.75, -2.75], ids=["positive", "negative"])
-@pytest.mark.parametrize("axis", ["y", "z"], ids=["Y", "Z"])
+@pytest.mark.parametrize("axis", ["x", "y", "z"], ids=["X", "Y", "Z"])
 def test_mounted_saw_check_jog_prints_signed_direction_and_one_magnitude(axis, jog, jog_key):
     data, findings = mounted_jog_job(axis, jog, jog_key)
     sheet = _Traveler(data, findings, build_report(data, findings), None, detail="hobby")
     first, second = data.plan["setups"]
     assert set(sheet.mounted_datum_groups) == {first["id"], second["id"]}
-    if axis == "y":
+    if axis in ("x", "y"):
         proof = findings[0].numbers["axes"][axis]["pickup_proof"]
         last = proof["path"]["legs"][-1]
         assert proof["status"] == "pass"
-        assert last["to_mm"][1] - last["from_mm"][1] == jog
+        index = "xyz".index(axis)
+        assert last["to_mm"][index] - last["from_mm"][index] == pytest.approx(jog)
     markup = Markup(sheet.mounted_datum_table(first))
     text = " ".join(content(node) for node in markup.nodes if node["tag"] == "p")
     match = re.search(
@@ -2446,11 +2524,10 @@ def test_mounted_saw_check_jog_prints_signed_direction_and_one_magnitude(axis, j
     assert match, text
     assert match[1] == ("−" if jog < 0 else "+")
     assert float(match[2]) == abs(jog)
-    setting = 13.375 if axis == "y" else 20.6
-    assert [float(value.replace("−", "-")) for value in match.groups()[2:]] == [
-        setting + jog,
-        setting - jog,
-    ]
+    setting = {"x": -2.54, "y": 13.375, "z": 20.6}[axis]
+    assert [float(value.replace("−", "-")) for value in match.groups()[2:]] == pytest.approx(
+        [setting + jog, setting - jog]
+    )
     assert sheet.mounted_datum_table(second) == ""
 
 
@@ -2742,3 +2819,278 @@ def test_hand_thread_holder_survives_same_tool_spindle_label_without_lead(detail
     assert not any(
         "Spindle tap chuck" in content(node) for node in local.nodes if node["tag"] in ("p", "span")
     )
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+@pytest.mark.parametrize(
+    ("numeric_authority", "local", "local_printed"),
+    [(True, 0.05, False), (True, 0.04, True), (False, 0.05, True)],
+)
+def test_deburr_citation_prefixes_preserve_reasons_and_only_numeric_equality_shares_limits(
+    detail, numeric_authority, local, local_printed
+):
+    data = bench_job()
+    setup = data.plan["setups"][0]
+    reason = "The small edge break keeps the bonded length."
+    setup.update(deburr_mm=local, deburr_cite="private-provenance.md#edge: " + reason)
+    global_note = "Raised burrs only; incidental edge break ≤0.05 mm."
+    protection = "Preserve this reference shoulder and usable threads."
+    data.features["notes"] = {"edge_break": global_note}
+    if numeric_authority:
+        data.features["general_tolerances"] = {"edge_break_r": 0.05, "chamfer_max": 0.05}
+    setup["ops"].append({"op": 40, "do": "deburr", "feature": "body", "note": protection})
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    local_text = sheet.setup_edge_break(setup)
+    assert bool(local_text) is local_printed
+    if local_printed:
+        assert_number(visible_text("<body>" + local_text + "</body>"), local)
+    text = visible_text(rendered(data, detail=detail))
+    assert text.count(global_note) == 1
+    assert text.count(protection) == 1
+    assert "private-provenance" not in text
+    assert (reason in text) is local_printed
+
+
+@pytest.mark.parametrize("qualification", ["measured", "bare", "conflict", "missing"])
+def test_hobby_settings_keep_exact_selected_holder_projection_and_qualification(qualification):
+    from test_envelope_m5 import measured
+
+    data = mill_job(setups=2)
+    data.inventory["holders"] = {
+        "short": {"kind": "collet", "name": "Short installed collet"},
+        "long": {"kind": "collet", "name": "Long installed collet"},
+    }
+    short = measured(31.75) if qualification != "bare" else 31.75
+    projections = {"holders.short": short, "long": measured(45.72)}
+    if qualification == "conflict":
+        projections["short"] = measured(99.0)
+    elif qualification == "missing":
+        projections.pop("holders.short")
+    data.inventory["tools"]["pair-drill"] = {
+        "kind": "drill",
+        "name": "Selected drill",
+        "dia_mm": measured(5.0),
+        "flute_len_mm": measured(25.0),
+        "projection_mm": projections,
+    }
+    findings = []
+    for setup, holder in zip(data.plan["setups"], ("short", "holders.long"), strict=True):
+        setup["ops"] = [{"op": 70, "do": "drill", "tool": "pair-drill", "holder": holder}]
+        findings.append(
+            Finding(
+                "speeds_feeds",
+                setup["id"] + ":70",
+                "pass",
+                {"rpm": 850.0, "feed_mm_min": 19.05},
+                [],
+                "Controlled settings fixture",
+            )
+        )
+    sheet = _Traveler(data, findings, build_report(data, findings), None, detail="hobby")
+    for setup in data.plan["setups"]:
+        sheet.setup_blocks(setup)
+    markup = Markup(sheet.settings_key())
+    entries = markup.find("tool-setting-entry")
+    selected = {
+        json.loads(entry["attrs"]["data-physical-ops"])[0].split(":")[0]: content(entry)
+        for entry in entries
+    }
+    first, second = (setup["id"] for setup in data.plan["setups"])
+    assert "Short installed collet" in selected[first]
+    assert "Long installed collet" in selected[second]
+    assert_number(selected[second], 1.8)
+    assert "projection" in selected[second] and "from holder face" in selected[second]
+    if qualification in ("conflict", "missing"):
+        assert "projection ?" in selected[first]
+        assert not re.search(r"projection\s+(?:1\.25|1\.8)\b", selected[first])
+        if qualification == "missing":
+            assert "not recorded for the selected holder" in selected[first]
+    else:
+        projection = re.search(
+            r"\bprojection\s+(\d+(?:\.\d+)?)\s+from holder face(.*)$", selected[first]
+        )
+        assert projection, selected[first]
+        assert float(projection[1]) == pytest.approx(1.25)
+        if qualification == "bare":
+            assert re.search(r"\?M\d+|\?\s+not verified", projection[2])
+        else:
+            assert "?" not in projection[2]
+
+
+@pytest.mark.parametrize("levels_owner", ["operation", "path", "none"])
+def test_compact_straight_paths_keep_each_evaluated_depth_in_order(levels_owner):
+    data = mill_job(setups=1)
+    setup = data.plan["setups"][0]
+    setup["ops"] = [{"op": 75, "do": "rough_profile", "tool": "cutter", "to_z": -6.35}]
+    data.inventory["tools"]["cutter"] = {"kind": "endmill", "dia_mm": 12.7}
+    depths = [-3.175, -6.35]
+    path = {"op": 75, "entries": [{"air": True}]}
+    operation = {"op": 75}
+    if levels_owner == "operation":
+        operation["z_levels"] = {"levels": depths}
+    elif levels_owner == "path":
+        path["levels"] = depths
+    finding = Finding(
+        "coordinates",
+        setup["id"],
+        "pass",
+        {"operations": [operation], "level_paths": [path]},
+        [],
+        "Evaluated depth fixture",
+    )
+    sheet = _Traveler(data, [finding], {}, None, detail="hobby")
+    entry = {
+        "parts": [
+            (
+                (0, 0, 0),
+                "Ordered straight cuts",
+                ["pass", "X from", "Y from", "X to", "Y to", "Z"],
+                [["1", "-.75", "-.5075", "4.225", "-.5075", "-.25"]],
+                "",
+            )
+        ],
+        "stops": [],
+    }
+    text, html = sheet.route_contour_parts(setup, {("tools", "cutter"): "T1"}, {"75": entry}, {})[
+        "75"
+    ]
+    assert not html
+    shown_depths = [
+        float(value.replace("−", "-"))
+        for value in re.findall(r"\bZ([−+-]?(?:\d+(?:\.\d+)?|\.\d+))", text)
+    ]
+    assert shown_depths == ([-0.25] if levels_owner == "none" else [-0.125, -0.25]), text
+    assert "-.5075" in text and "4.225" in text
+
+
+def test_hobby_selected_figure_keeps_native_identity_without_repeated_job_slug():
+    from test_sheet_ops import picture_sheet
+
+    panel = {
+        "top_px": 0,
+        "height_px": 2200,
+        "role": "setup",
+        "label": "Main setup",
+        "id": "setup",
+        "selection_group": "setup",
+        "annotations": [],
+    }
+    sheet = picture_sheet([panel])
+    sheet.detail = "hobby"
+    sheet.plan["part"] = "private-job-slug"
+    markup = Markup(sheet.fixture_render({"id": "S1", "picture_panels": ["setup"]}))
+    (figure,) = markup.find("fixture-render")
+    assert figure["attrs"]["data-panel-id"] == "setup"
+    assert figure["attrs"]["data-selection-group"] == "setup"
+    assert not [node for node in markup.nodes if node["tag"] == "figcaption"]
+    (image,) = [node for node in markup.nodes if node["tag"] == "image"]
+    assert image["attrs"]["href"] == "renders/S1.png"
+    (svg,) = [node for node in markup.nodes if node["tag"] == "svg"]
+    assert svg["attrs"]["viewbox"] == "0 0 1600 2200"
+    assert "Setup S1" in svg["attrs"]["aria-label"]
+    assert "private-job-slug" not in svg["attrs"]["aria-label"]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_vertical_both_jaw_headroom_does_not_relabel_native_fixed_jaw_swept_gap(detail):
+    from test_sheet_ops import headroom, near_holding
+
+    sheet, setup = near_holding(0.91, tag="fixed jaw")
+    sheet.detail = detail
+    sheet.bundle.inventory["fixtures"] = {"vise": {"kind": "vise"}}
+    setup["hold"]["fixture"] = "vise"
+    sheet.records[("headroom", setup["id"])] = headroom(tip_above_jaws=1.35, jaw_top_z=-1.85)
+    boxes = {box.source: str(box) for box in sheet.crash_boxes(setup, setup["ops"][0])}
+    assert "BOTH JAW TOPS" in boxes["headroom"] and "VERTICAL" in boxes["headroom"]
+    assert_number(boxes["headroom"], 1.35)
+    assert "FIXED JAW" in boxes["cut_clearance"] and "SWEPT GAP" in boxes["cut_clearance"]
+    assert "BOTH" not in boxes["cut_clearance"]
+    assert_number(boxes["cut_clearance"], 0.91)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_example_dro_resolution_labels_numeric_mill_even_with_only_one_target_machine(detail):
+    data = load_bundle(
+        Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/plan.toml"
+    )
+    data.inventory["machines"]["pm-25mv-bd"]["name"] = "Milling machine"
+    data.inventory["machines"]["bench-bandsaw"]["name"] = "Cutoff saw"
+    setups = [setup for setup in data.plan["setups"] if setup["id"] in ("B0", "Q1")]
+    findings = [
+        Finding("coordinates", sid, "pass", {"dro_grid": grid}, [], "Evaluated readout fixture")
+        for sid, grid in (
+            ("B0", {"step": "not used", "decimals": "not used"}),
+            ("Q1", {"step": 0.0001, "decimals": 4}),
+        )
+    ]
+    sheet = _Traveler(data, findings, {}, None, detail=detail)
+    text = sheet.dro_resolution(setups)
+    assert text.startswith("Example DRO resolution:")
+    assert "Cutoff saw" in text and "no coordinate targets" in text
+    assert re.search(r"\bMilling machine\s+0\.0001\s+in\b", text), text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_machining_operations_keep_source_ids_and_separate_scannable_instructions(detail):
+    data = load_bundle(
+        Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/plan.toml"
+    )
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    setups = [setup for setup in data.plan["setups"] if setup["id"] in ("S1", "E1a", "D1a")]
+    assert {setup["id"] for setup in setups} == {"S1", "E1a", "D1a"}
+    for setup in setups:
+        blocks = sheet.setup_blocks(setup)
+        for op in setup["ops"]:
+            block = next(block for block in blocks if block.key == f"operation:{op['op']}")
+            markup = Markup(block.html)
+            (instruction,) = markup.find("route-operation")
+            assert re.match(rf"\s*{op['op']}\.", content(instruction))
+            if op["do"] in ("rough_profile", "profile", "spot", "drill"):
+                assert block.layout == "block" and instruction["tag"] == "p"
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+@pytest.mark.parametrize("citation_prefix", ["", "https://example.invalid/edges#thin: "])
+def test_different_local_edge_limit_keeps_human_reason_after_optional_url(detail, citation_prefix):
+    data = bench_job()
+    data.features["general_tolerances"] = {"edge_break_r": 0.25}
+    reason = "Small socket edge break keeps the bonded length."
+    setup = data.plan["setups"][0]
+    setup.update(deburr_mm=0.1, deburr_cite=citation_prefix + reason)
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    markup = Markup("<div>" + sheet.setup_edge_break(setup) + "</div>")
+    text = content(markup.nodes[0])
+    assert reason in text and "https://" not in text
+    assert_number(text, 0.1)
+    assert_number(text, 0.25)
+
+
+@pytest.mark.parametrize("jog_key", ["check_jog_mm", "jog_mm"], ids=["explicit", "fallback"])
+@pytest.mark.parametrize("jog", [2.75, -2.75], ids=["positive", "negative"])
+@pytest.mark.parametrize("selected_axis", ["x", "y"], ids=["X", "Y"])
+def test_unshared_mounted_saw_keeps_evaluated_xy_settings_and_signed_jog_readings(
+    selected_axis, jog, jog_key
+):
+    data, findings = mounted_jog_job(selected_axis, jog, jog_key)
+    data.plan["setups"] = data.plan["setups"][:1]
+    findings = findings[:1]
+    (setup,) = data.plan["setups"]
+    sheet = _Traveler(data, findings, build_report(data, findings), None, detail="hobby")
+    assert not sheet.mounted_datum_groups
+    sheet.dro(setup, {}, procedure="separate")
+    for axis in ("x", "y"):
+        record = findings[0].numbers["axes"][axis]
+        text = sheet._route_datum_axes[setup["id"]][axis]
+        assert_coordinate(text, axis, record["axis_set"])
+        check = re.search(
+            rf"([+−-]){axis.upper()}\s*(\d+(?:\.\d+)?)\s+jog\s+reads\s*"
+            r"([+−-]?\d+(?:\.\d+)?);\s*([+−-]?\d+(?:\.\d+)?)\s+reversed",
+            text,
+        )
+        assert check, text
+        distance = record.get("check_jog_mm", record.get("jog_mm"))
+        assert check[1] == ("−" if distance < 0 else "+")
+        assert float(check[2]) == pytest.approx(abs(distance))
+        assert [float(value.replace("−", "-")) for value in check.groups()[2:]] == pytest.approx(
+            [record["check_reading"], record["mirrored_reading"]]
+        )

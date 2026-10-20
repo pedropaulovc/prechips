@@ -339,9 +339,11 @@ def test_compact_job_title_and_local_owners_distinguish_fresh_headings_from_tail
                 .find(node => onPage(node, page) && !node.closest('[data-job-print]')
                   && node.closest('[data-setup-id]')?.dataset.setupId === head.dataset.setupId);
               return {title: head.querySelector('.cont-title').textContent,
-                setup: head.dataset.setupId, member: head.dataset.member ?? '',
+                setup: head.dataset.setupId ?? '', member: head.dataset.member ?? '',
                 workpiece: head.dataset.workpiece ?? '', context: context?.textContent ?? '',
                 freshHeading: freshHeading?.textContent ?? '',
+                familyHeading: [...section.querySelectorAll('.setup-family > h2')]
+                  .some(node => onPage(node, page) && !node.closest('[data-job-print]')),
                 copies: head.querySelectorAll(
                   '[data-locator-target],.writing-blank,figure').length};
             }),
@@ -369,6 +371,10 @@ def test_compact_job_title_and_local_owners_distinguish_fresh_headings_from_tail
     for head in details["heads"]:
         assert head["title"] == JOB_TITLE + " · qty 4 · EXAMPLE ONLY · PLANNED"
         assert head["copies"] == 0
+    unowned = [head for head in details["heads"] if not head["setup"]]
+    for head in unowned:
+        assert head["familyHeading"] or "E1–E4" in head["context"]
+        assert head["member"] == head["workpiece"] == ""
     for setup in ("S1", "E1"):
         owned = [head for head in details["heads"] if head["setup"] == setup]
         assert any(head["freshHeading"] and not head["context"] for head in owned)
@@ -851,3 +857,255 @@ def test_grouped_final_results_remain_one_full_size_horizontal_row(printed_sheet
     assert all(
         left["right"] <= right["left"] for left, right in zip(details, details[1:], strict=False)
     )
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_running_range_tracks_mixed_source_owners_and_continued_tails(
+    printed_sheet, detail
+):
+    source = (
+        '<div class="setup" data-setup-title="S1 first hold" data-setup-id="S1" '
+        'data-workpiece="nut1" style="display:contents">'
+        '<h2>S1 first hold</h2><p data-source-position="first">First original hold.</p>'
+        '<p style="break-before:page" data-source-position="tail">First hold tail.</p>'
+        "<h2>NOT-A-PHYSICAL-SETUP</h2></div>"
+        + _setup(
+            SETUP_TWO, "S2", "nut2", '<p data-source-position="second">Second original hold.</p>'
+        )
+        + _setup(
+            "S3 third hold",
+            "S3",
+            "nut3",
+            f"<p>Third hold initial source.</p><p>{_positioned_words('Third', 750)}</p>",
+        )
+    )
+    _, details = printed_sheet(
+        source,
+        r"""pageOf => {
+          const section = document.querySelector('section.page');
+          const original = node => !node.closest('[data-job-print],.record-continuation');
+          return {
+            positions: [...section.querySelectorAll('[data-source-position]')]
+              .filter(original).map(node => ({key:node.dataset.sourcePosition,
+                page:pageOf(node), setup:node.closest('[data-setup-id]').dataset.setupId})),
+            heads: [...section.querySelectorAll('.cont-head')].map(head => {
+              const slot = head.querySelector('.cont-page-owners');
+              const range = document.createRange();
+              range.selectNodeContents(slot);
+              const ink = range.getBoundingClientRect(), box = slot.getBoundingClientRect();
+              return {page:pageOf(head), owners:JSON.parse(head.dataset.pageOwners),
+                continued:head.dataset.ownerContinued === 'true', range:slot.textContent,
+                fits:ink.left >= box.left-.1 && ink.right <= box.right+.1
+                  && ink.top >= box.top-.1 && ink.bottom <= box.bottom+.1,
+                copies:head.querySelectorAll('figure,.writing-blank,[data-locator-target]').length};
+            })
+          };
+        }""",
+        prepare=f"""() => {{
+          document.body.dataset.detail = {json.dumps(detail)};
+          document.querySelector('section.page').dataset.jobTitle = {json.dumps(JOB_TITLE)};
+        }}""",
+    )
+    positions = details["positions"]
+    assert [position["key"] for position in positions] == [
+        "first",
+        "tail",
+        "second",
+        *[f"Third{index:04d}" for index in range(750)],
+    ]
+    mixed_page = next(position["page"] for position in positions if position["key"] == "tail")
+    assert next(position["page"] for position in positions if position["key"] == "second") == (
+        mixed_page
+    )
+    assert next(position["page"] for position in positions if position["key"] == "first") < (
+        mixed_page
+    )
+    mixed = next(head for head in details["heads"] if head["page"] == mixed_page)
+    assert [owner["setup"] for owner in mixed["owners"]] == ["S1", "S2", "S3"]
+    assert mixed["continued"]
+    assert mixed["range"].index("S1") < mixed["range"].index("S3")
+    tails = [head for head in details["heads"] if head["page"] > mixed_page]
+    assert tails
+    assert all(
+        [owner["setup"] for owner in head["owners"]] == ["S3"] and head["continued"]
+        for head in tails
+    )
+    assert all(
+        head["fits"] and not head["copies"] and "NOT-A-PHYSICAL-SETUP" not in head["range"]
+        for head in details["heads"]
+    )
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_range_uses_shared_physical_metadata_without_inventing_unknown_owners(
+    printed_sheet, detail
+):
+    identities = [
+        {"setup_id": setup, "op_id": 10, "workpiece": workpiece}
+        for setup, workpiece in (("Q1", None), ("Q2", "nut2"), ("Q4", None))
+    ]
+    source = (
+        '<p>Original job introduction.</p><div data-setup-title="Facing holds" '
+        'data-setup-id="" data-setup-members=\'["Q1","Q2","Q4"]\' style="break-before:page">'
+        "<h2>NOT-AN-OWNER</h2><div data-physical-ops='"
+        + json.dumps(identities)
+        + "'><p>Common original operation.</p></div>"
+        '<div data-physical-ops="invalid"><p>Unresolved owner.</p></div>'
+        '<div data-setup-id=""><p>Unknown owner.</p></div></div>'
+    )
+    _, details = printed_sheet(
+        source,
+        r"""() => [...document.querySelectorAll('.cont-head')].map(head => ({
+          owners:JSON.parse(head.dataset.pageOwners),
+          continued:head.dataset.ownerContinued === 'true',
+          text:head.querySelector('.cont-page-owners').textContent,
+          copies:head.querySelectorAll('figure,.writing-blank,[data-locator-target]').length
+        }))""",
+        prepare=f"""() => {{
+          document.body.dataset.detail = {json.dumps(detail)};
+          document.querySelector('section.page').dataset.jobTitle = {json.dumps(JOB_TITLE)};
+        }}""",
+    )
+    assert len(details) == 1
+    assert details[0]["owners"] == [
+        {"setup": item["setup_id"], "member": "", "workpiece": item["workpiece"] or ""}
+        for item in identities
+    ]
+    assert not details[0]["continued"] and details[0]["copies"] == 0
+    assert details[0]["text"].index("Q1") < details[0]["text"].index("Q4")
+    assert "NOT-AN-OWNER" not in details[0]["text"] and "Job" not in details[0]["text"]
+
+
+@pytest.mark.parametrize("picture_first", [True, False])
+def test_compact_range_orders_relocated_picture_and_shared_owners_by_authored_route(
+    printed_sheet, picture_first
+):
+    identities = [
+        {"setup_id": setup, "op_id": 10, "workpiece": None if setup != "Q2" else "nut2"}
+        for setup in ("Q1", "Q2", "Q3", "Q4")
+    ]
+    picture = (
+        '<figure data-setup-id="Q2" data-member="nut2" data-workpiece="nut2">'
+        "<figcaption>Selected second hold view.</figcaption>"
+        f'<img src="{IMAGE}" width="240" height="120" '
+        'style="display:block;width:240px;height:120px" alt="Original second hold"></figure>'
+    )
+    shared = (
+        "<div data-physical-ops='" + json.dumps(identities) + "'><p>Common facing cycle.</p></div>"
+    )
+    source = (
+        "<p>Original job introduction.</p>"
+        '<section class="setup-family" data-setup-title="Facing holds" data-setup-id="" '
+        'data-setup-members=\'["Q1","Q2","Q3","Q4"]\' style="break-before:page">'
+        "<h2>Facing holds</h2>"
+        + (picture + shared if picture_first else shared + picture)
+        + '<div data-setup-id="Q2" data-workpiece="nut2" data-physical-ops=\''
+        + json.dumps([identities[1]])
+        + f"'><p>{_positioned_words('Q2Tail', 650)}</p></div></section>"
+    )
+    _, details = printed_sheet(
+        source,
+        r"""pageOf => ({
+          figures:[...document.querySelectorAll('figure')].map(node => ({
+            page:pageOf(node), original:!node.closest('[data-job-print]')})),
+          heads:[...document.querySelectorAll('.cont-head')].map(head => ({
+            page:pageOf(head), owners:JSON.parse(head.dataset.pageOwners),
+            start:head.dataset.ownerRangeStart, end:head.dataset.ownerRangeEnd,
+            continued:head.dataset.ownerContinued === 'true',
+            text:head.querySelector('.cont-page-owners').textContent
+          }))
+        })""",
+        prepare="() => { document.body.dataset.detail = 'hobby'; }",
+    )
+    assert len(details["figures"]) == 1 and details["figures"][0]["original"]
+    first, *tails = details["heads"]
+    assert first["page"] == details["figures"][0]["page"]
+    assert (first["start"], first["end"]) == ("Q1", "Q4")
+    assert first["text"].index("Q1") < first["text"].index("Q4")
+    assert [owner["setup"] for owner in first["owners"]] == ["Q1", "Q2", "Q3", "Q4"]
+    assert first["owners"][1] == {"setup": "Q2", "member": "", "workpiece": "nut2"}
+    assert not first["continued"]
+    assert tails and all(
+        head["start"] == head["end"] == "Q2"
+        and head["owners"] == [{"setup": "Q2", "member": "", "workpiece": "nut2"}]
+        and head["continued"]
+        for head in tails
+    )
+
+
+def test_compact_reference_records_and_fresh_same_label_do_not_create_continuations(printed_sheet):
+    source = (
+        '<div class="checkpoint-result" data-setup-id="F1" data-member="nut1" '
+        'data-workpiece="nut1"><p>Front-page result reference.</p></div>'
+        '<div class="setup" data-setup-title="F1 final hold" data-setup-id="F1" '
+        'data-workpiece="nut1" style="break-before:page"><h2>F1 final hold</h2>'
+        '<div data-setup-id="F1" data-physical-ops=\''
+        + json.dumps([{"setup_id": "F1", "op_id": 10, "workpiece": "nut1"}])
+        + "'><p>First fresh physical hold.</p></div></div>"
+        '<div class="setup" data-setup-title="F1 final hold" data-setup-id="F1" '
+        'data-workpiece="nut1" style="break-before:page"><h2>F1 final hold</h2>'
+        "<p>Another fresh physical hold with the same source labels.</p></div>"
+        '<div style="break-before:page"><h2>NOT-A-SETUP</h2>'
+        '<div data-physical-ops="invalid"><p>Unresolved source owner.</p></div>'
+        '<div data-setup-id=""><p>Unknown source owner.</p></div></div>'
+    )
+    _, details = printed_sheet(
+        source,
+        r"""() => [...document.querySelectorAll('.cont-head')].map(head => ({
+          owners:JSON.parse(head.dataset.pageOwners),
+          start:head.dataset.ownerRangeStart, end:head.dataset.ownerRangeEnd,
+          continued:head.dataset.ownerContinued === 'true',
+          text:head.querySelector('.cont-page-owners').textContent
+        }))""",
+        prepare="() => { document.body.dataset.detail = 'hobby'; }",
+    )
+    assert len(details) == 3
+    for fresh in details[:2]:
+        assert fresh["start"] == fresh["end"] == "F1"
+        assert fresh["owners"] == [{"setup": "F1", "member": "", "workpiece": "nut1"}]
+        assert not fresh["continued"]
+    unknown = details[2]
+    assert unknown["owners"] == []
+    assert unknown["start"] == unknown["end"] == unknown["text"] == ""
+    assert not unknown["continued"]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_setup_continues_when_page_opens_on_its_first_member_record(printed_sheet, detail):
+    operation_owners = json.dumps([{"setup_id": "S1", "op_id": 10, "workpiece": None}])
+    source = (
+        '<section class="setup-flow" data-setup-title="S1 batch hold" data-setup-id="S1" '
+        'data-setup-members=\'["S1"]\' data-workpiece="" style="display:contents">'
+        '<h2>S1 batch hold</h2><div data-setup-id="S1" data-physical-ops=\''
+        + operation_owners
+        + "'><p>Original shared operations before the record.</p></div>"
+        '<div data-setup-id="S1" data-member="nut2" data-workpiece="nut2" '
+        'style="break-before:page"><p>Original second member record '
+        + _writing_field("nut2 observed")
+        + '</p></div><div data-setup-id="S1" data-physical-ops=\''
+        + operation_owners
+        + "'><p>Original shared operations after the record.</p></div></section>"
+    )
+    _, details = printed_sheet(
+        source,
+        r"""pageOf => ({
+          heads:[...document.querySelectorAll('.cont-head')].map(head => ({
+            owners:JSON.parse(head.dataset.pageOwners),
+            start:head.dataset.ownerRangeStart, end:head.dataset.ownerRangeEnd,
+            continued:head.dataset.ownerContinued === 'true', page:pageOf(head)
+          })),
+          fields:[...document.querySelectorAll('[data-locator-target]')].map(node => ({
+            member:node.closest('[data-member]').dataset.member, page:pageOf(node),
+            original:!node.closest('[data-job-print]')
+          }))
+        })""",
+        prepare=f"() => {{ document.body.dataset.detail = {json.dumps(detail)}; }}",
+    )
+    assert len(details["heads"]) == 1
+    head = details["heads"][0]
+    assert head["start"] == head["end"] == "S1" and head["continued"]
+    assert head["owners"] == [
+        {"setup": "S1", "member": "", "workpiece": "nut2"},
+        {"setup": "S1", "member": "", "workpiece": ""},
+    ]
+    assert details["fields"] == [{"member": "nut2", "page": head["page"], "original": True}]

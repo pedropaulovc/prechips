@@ -3508,6 +3508,127 @@ def test_the_picture_cut_names_the_op_it_belongs_to_and_never_a_guessed_one(name
 
 
 @pytest.mark.parametrize(
+    "stage,minimum_stages,phase",
+    [
+        ("pre_cut", ["pre_cut"], "PRE-CUT"),
+        ("cut", ["cut"], "CUT"),
+        ("post_cut", ["post_cut"], "POST-CUT"),
+        ("pre_cut", ["pre_cut", "cut"], "CYCLE"),
+        ("pre_cut", ["pre_cut", "post_cut"], "CYCLE"),
+        ("pre_cut", ["unknown"], "CYCLE"),
+    ],
+)
+def test_native_saw_phase_never_infers_stopped_calibration_from_a_clear_move(
+    stage, minimum_stages, phase
+):
+    meshes, spec = _vise_spec(12)
+    spec["closest_cut"] = {
+        "mm": 0.0508,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 6, 10.0508],
+        "to_mm": [0, 6, 10],
+        "scope": "machining_trajectory",
+        "component": "blade_body",
+        "move_index": 0,
+        "mode": "cut" if stage == "cut" else "clear",
+        "stage": stage,
+        "minimum_stages": minimum_stages,
+    }
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    labels = [label for label, _ in detail.leaders if label.startswith("SAW ")]
+    assert len(labels) == 1
+    assert labels[0].startswith(f"SAW {phase} ")
+    assert "FROM FIXED JAW" in labels[0]
+    assert not any(
+        "STOPPED" in callout.label or "PAPER" in callout.label for callout in detail.callouts
+    )
+
+
+def test_verified_stopped_setting_prints_source_paper_without_replacing_the_canonical_distance():
+    meshes, spec = _vise_spec(12)
+    spec["decimals"] = 2
+    spec["closest_cut"] = {
+        "mm": 0.0508,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 6, 10.0508],
+        "to_mm": [0, 6, 10],
+        "op": "10",
+        "scope": "machining_trajectory",
+        "component": "blade_body",
+        "move_index": 0,
+        "mode": "clear",
+        "stage": "pre_cut",
+        "stopped_setting_touch": {"touch_index": 0, "paper_mm": 0.0508},
+    }
+    supplied = json.dumps(spec, sort_keys=True)
+    _, debts, panels = render_diagram(meshes, spec)
+    assert debts == []
+    assert json.dumps(spec, sort_keys=True) == supplied
+    assert sum("closest_cut" in panel["annotations"] for panel in panels) == 1
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    labels = [label for label, _ in detail.leaders if "STOPPED BODY" in label]
+    assert len(labels) == 1
+    assert "SETTING" in labels[0] and "0.0508 mm PAPER" in labels[0]
+    assert "AT FIXED JAW" in labels[0] and "(OP 10)" in labels[0]
+    assert "FROM" not in labels[0] and "SAW CYCLE" not in labels[0]
+
+
+@pytest.mark.parametrize("decimals,distance", [(2, "0.05"), (3, "0.051"), (4, "0.0508")])
+@pytest.mark.parametrize(
+    "witness_owner",
+    [None, ("10", "fixed_jaw"), ("20", "calibration-pad")],
+)
+def test_cycle_minimum_names_an_included_stopped_setting_only_from_an_explicit_witness(
+    witness_owner, decimals, distance
+):
+    meshes, spec = _vise_spec(12)
+    spec["decimals"] = decimals
+    spec["closest_cut"] = {
+        "mm": 0.0508,
+        "tag": "fixed_jaw",
+        "from_mm": [0, 6, 10.0508],
+        "to_mm": [0, 6, 10],
+        "op": "10",
+        "scope": "machining_trajectory",
+        "component": "blade_body",
+        "move_index": 0,
+        "mode": "clear",
+        "stage": "pre_cut",
+        "minimum_stages": ["pre_cut", "post_cut"],
+    }
+    if witness_owner is not None:
+        op, tag = witness_owner
+        spec["closest_cut"]["included_stopped_setting_touch"] = {
+            "touch_index": 0,
+            "paper_mm": 0.0508,
+            "mm": 0.0508,
+            "tag": tag,
+            "op": op,
+        }
+    _, debts, panels = render_diagram(meshes, spec)
+    assert debts == []
+    assert sum("closest_cut" in panel["annotations"] for panel in panels) == 1
+    main = _Diagram(meshes, spec)
+    main.render()
+    (detail,) = _holding_details(meshes, spec, main)
+    labels = [label for label, _ in detail.leaders if label.startswith("SAW CYCLE")]
+    assert len(labels) == 1
+    assert f"{distance} mm FROM FIXED JAW (OP 10)" in labels[0]
+    assert labels[0].count(" mm") == 1
+    if witness_owner is None:
+        assert "INCLUDES" not in labels[0] and "STOPPED" not in labels[0]
+    else:
+        assert labels[0].startswith("SAW CYCLE MINIMUM ")
+        assert "INCLUDES STOPPED BODY/PAPER SETTING" in labels[0]
+        if witness_owner[0] != "10":
+            assert "AT CALIBRATION PAD, OP 20" in labels[0]
+
+
+@pytest.mark.parametrize(
     ("zero_x", "fixed", "moving"),
     [
         (-0.0025, "0.005", "12.005"),

@@ -3714,9 +3714,36 @@ An ordinary saw's path is its kerf slab across stock and holding, never its
 falling offcut (`blade: true`, its saw op named, else keyed `(SAW BLADE)`).
 A mounted saw instead consumes the matching `saw.fixture_clearance` evidence
 above, never this broad slab, even when finite evidence is missing. Its label
-is `SAW CYCLE <mm> mm FROM <holder> (OP <op>)`, because clear moves and the
-arbor contribute too; `closest_cut` retains the component, move, stage and
-binding. Incomplete evidence leaves the annotation unknown rather than falling
+uses `SAW PRE-CUT`, `SAW CUT` or `SAW POST-CUT` before the distance and holder,
+because clear moves and the arbor contribute too. A phase-specific label requires
+all minima tied within 0.000001 mm, across component sweeps and operations, to
+agree on that phase. Mixed or unresolved phases say `SAW CYCLE`.
+`closest_cut.minimum_stages` records those tied phases without changing the
+selected minimum's component, move, stage, binding or nearest points.
+A pre-cut clear move does not by itself prove the spindle is stopped. Only when
+the selected native body-side calibration passes, its resolved fixture/contact
+plane matches the minimum, and the first axial lift starts at that exact setting
+pose with the same paper separation, the label can identify a
+`STOPPED BODY SETTING` and its source-derived paper thickness at that fixture.
+This label also requires every other sweep/operation minimum to exceed the
+selected distance by more than 0.000001 mm; a tied return or running pass is
+never hidden behind a stopped-setting label.
+The optional `closest_cut.stopped_setting_touch` records the selected
+`touch_index` and `paper_mm`; it classifies the unchanged cycle minimum, never
+substitutes the separate calibration distance or proves a running cutting gap.
+When a separately verified move-0 setting row is within 0.000001 mm of the
+cycle minimum but other minima tie, the engine can instead retain
+`closest_cut.included_stopped_setting_touch`. This witness keeps its own
+`touch_index`, `paper_mm`, native `mm`, fixture `tag` and `op`, even when another
+operation owns the selected minimum. The label remains `SAW CYCLE MINIMUM` and
+adds `INCLUDES STOPPED BODY/PAPER SETTING`; the native cycle minimum is the
+only printed distance, avoiding duplicate values at different precisions.
+A different witness fixture or operation is named separately. Its native `mm`
+is published at the same six-place rounding as the selected minimum; the
+source `paper_mm` remains unchanged in the witness. This describes the setting
+as included in the whole cycle, not the other tied moves as stopped and not the
+paper as a running clearance. Unknown tied phases withhold this witness too.
+Incomplete clearance evidence leaves the annotation unknown rather than falling
 back to a plane. Both saw kinds retain the canonical `closest_cut` panel
 annotation/selection ownership and carry no CLEARANCE table row. A cut whose
 op is unknown or absent names no op (and its consistency check is unknown).
