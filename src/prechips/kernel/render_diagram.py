@@ -1921,18 +1921,19 @@ class _Diagram:
                 stages = cut.get("minimum_stages", [cut.get("stage")])
                 names = {"pre_cut": "PRE-CUT", "cut": "CUT", "post_cut": "POST-CUT"}
                 if len(stages) == 1:
-                    phase = names.get(stages[0], "CYCLE")
+                    phase = "SAW " + names.get(stages[0], "CYCLE")
                 elif stages and all(stage in names for stage in stages):
                     if set(stages) == {"pre_cut", "post_cut"}:
-                        phase = "PRE/POST-CUT MINIMUM"
+                        phase = "PRE/POST-CUT"
+                    elif set(stages) == set(names):
+                        phase = "PRE/CUT/POST"
                     else:
                         phase = "/".join(names[stage] for stage in names if stage in stages)
-                        phase += " MINIMUM"
                 else:
-                    phase = "CYCLE"
+                    phase = "SAW CYCLE"
                 if included is not None:
-                    phase = "CYCLE MINIMUM"
-                label = f"SAW {phase} {self._dro(cut['mm'])} mm FROM {holder.upper()}"
+                    phase = "SAW CYCLE MINIMUM"
+                label = f"{phase} {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         else:
             label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         op = cut.get("op")
