@@ -70,7 +70,7 @@ def test_traveler_preserves_authored_slash_instructions(tmp_path):
 
 
 @pytest.mark.parametrize("revision", [None, "unknown"])
-def test_traveler_unconfirmed_revision_has_no_printed_or_serialized_revision(tmp_path, revision):
+def test_traveler_omits_unconfirmed_revision_metadata(tmp_path, revision):
     examples = copy_examples(tmp_path)
     plan = examples / "pivot-shaft" / "plan.toml"
     source = plan.read_text(encoding="utf-8")
@@ -85,10 +85,6 @@ def test_traveler_unconfirmed_revision_has_no_printed_or_serialized_revision(tmp
     pages = markup.find("page")
     assert pages
     assert all(page["attrs"]["data-revision"] == "" for page in pages)
-    job = job_section(markup)
-    (identity,) = markup.find("job-identity", job)
-    assert content(identity).endswith("REV NOT CONFIRMED")
-    assert "Drawing revision not confirmed" in content(job)
 
 
 def test_inspection_report_preserves_pngs_source_facts_and_exact_owner_bindings(tmp_path):

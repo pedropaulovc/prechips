@@ -585,6 +585,10 @@ Compact facing cycles retain their evaluated entry kind: uniformly proved air
 entries may say to lower in air; uniformly tangent entries retain tangent
 wording. Mixed or unresolved entries are not folded into either cycle, and
 different entry kinds do not share a cycle merely because depth/lift match.
+Differing cycles retain explicit owner labels, as does a single cycle whose
+owners cover only part of the setup family.
+Raster paths not extracted into a shared cycle retain their operation-specific
+lift and return instruction in both compact modes.
 Raster stock-clearance claims still require the actual incoming-stock proof.
 A radius allowance refers to the planned cut area only when evaluated area/end
 bounds establish it; that allowance is not a stock-clearance proof.

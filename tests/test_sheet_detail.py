@@ -2088,7 +2088,7 @@ def test_compact_saw_stops_before_first_withdrawal_and_holds_capture_through_cal
 
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
 @pytest.mark.parametrize("display_units", ["mm", "in"])
-@pytest.mark.parametrize("entry_mode", ["legacy_tangent", "air", "mixed_family"])
+@pytest.mark.parametrize("entry_mode", ["legacy_tangent", "air", "mixed_family", "subset_family"])
 def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(
     detail, display_units, entry_mode
 ):
@@ -2107,7 +2107,7 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(
     air_starts = {"Q1": -24.765, "Q2": -113.03, "Q3": -24.765, "Q4": -24.765}
     air_owners = (
         set(native)
-        if entry_mode == "air"
+        if entry_mode in ("air", "subset_family")
         else {"Q1", "Q2"}
         if entry_mode == "mixed_family"
         else set()
@@ -2117,6 +2117,11 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(
         native[sid] = (air_starts[sid], end, ys)
     findings = []
     for sid, (start, end, ys) in native.items():
+        # Controlled mixed-depth input: only Q1/Q4 may use the single-depth cycle.
+        # These mutations exercise renderer ownership, not new native geometry proof.
+        multiple_depths = entry_mode == "subset_family" and sid in ("Q2", "Q3")
+        depths = [2.8, 0.0] if multiple_depths else [0.0]
+        lift = 10.6 if multiple_depths else 6.525 if entry_mode == "subset_family" else 4.1275
         profile = {
             "op": 10,
             "stage": "finish",
@@ -2130,19 +2135,19 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(
                 "run_axis": "x",
                 "passes": len(ys),
                 "step_mm": 12.7,
-                "lift_z": 4.1275,
+                "lift_z": lift,
             },
         }
         numbers = {
-            "operations": [{"op": 10, "dro_to_z": 0.0, "z_levels": {"levels": [0.0]}}],
+            "operations": [{"op": 10, "dro_to_z": 0.0, "z_levels": {"levels": depths}}],
             "profiles": [profile],
             "level_paths": [
                 {
                     "op": 10,
                     "raster": True,
                     "closed": False,
-                    "from_z": 1.5875,
-                    "levels": [0.0],
+                    "from_z": 3.175 if multiple_depths else 1.5875,
+                    "levels": depths,
                     "raise_z": profile["raster"]["lift_z"],
                     "raise_clear": True,
                     "entries": [
@@ -2157,7 +2162,18 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(
                 }
             ],
         }
-        findings.append(Finding("coordinates", sid, "pass", numbers, [], "Native facing path"))
+        findings.append(
+            Finding(
+                "coordinates",
+                sid,
+                "pass",
+                numbers,
+                [],
+                "Controlled mixed-depth render fixture"
+                if entry_mode == "subset_family"
+                else "Native facing path",
+            )
+        )
     # Source heights: Q1 .625 - .0625 in over 10-mm jaws; Q4 .500 in over 10-mm jaws.
     headroom_findings = [
         Finding(
@@ -2204,6 +2220,16 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(
     formatter = _Traveler(data, [], {}, None, detail=detail)
     cycles = markup.find("facing-cycle", table["parent"])
     assert len(cycles) == (2 if entry_mode == "mixed_family" else 1)
+    cycle_owners = [set(re.findall(r"\bQ[1-4]:10\b", content(cycle))) for cycle in cycles]
+    if entry_mode == "subset_family":
+        assert cycle_owners == [{"Q1:10", "Q4:10"}]
+    elif entry_mode == "mixed_family":
+        assert {frozenset(owners) for owners in cycle_owners} == {
+            frozenset({"Q1:10", "Q2:10"}),
+            frozenset({"Q3:10", "Q4:10"}),
+        }
+    else:
+        assert cycle_owners == [set()]
     air_endpoints = (
         {
             "Q1": [-24.765, 110.49],
@@ -2220,11 +2246,29 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(
         }
     )
     for row, finding in zip(rows, findings, strict=True):
-        (path,) = markup.find("facing-path", row)
-        assert path["attrs"]["data-op-id"] == "10"
+        paths = markup.find("facing-path", row)
         formatter.setup = next(
             setup for setup in data.plan["setups"] if setup["id"] == finding.subject
         )
+        if entry_mode == "subset_family" and finding.subject in ("Q2", "Q3"):
+            assert not paths
+            owned_instructions = [
+                node
+                for node in operation_nodes(markup)
+                if any(
+                    owner["setup_id"] == finding.subject and str(owner["op_id"]) == "10"
+                    for owner in operation_owners(node)
+                )
+            ]
+            assert owned_instructions
+            local = " ".join(content(node) for node in owned_instructions)
+            for depth in (2.8, 0.0):
+                assert_coordinate(local, "Z", float(formatter.readout(depth)))
+            assert_coordinate(local, "Z", float(formatter.readout(10.6)))
+            assert re.search(r"\b(?:lift|raise)\b", local, re.IGNORECASE)
+            continue
+        (path,) = paths
+        assert path["attrs"]["data-op-id"] == "10"
         profile = finding.numbers["profiles"][0]
         first, *_, last = profile["cutter_centre"]
         expected = [
@@ -2264,6 +2308,9 @@ def test_compact_facing_table_keeps_all_native_pass_centres_and_clear_return(
     if detail == "hobby":
         assert re.search(r"both jaw tops.*4\.3\s*mm", content(q1), re.IGNORECASE)
         references = markup.find("setup-view-reference", table)
+        if entry_mode == "subset_family":
+            assert not references
+            return
         (reference,) = references
         reference_text = content(reference)
         assert "Q2" in reference_text
