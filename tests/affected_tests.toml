@@ -33,10 +33,12 @@ ignore = [
 "src/prechips/kernel/boolean_pool.py" = "freecad_kernel"
 "src/prechips/kernel/chain_boundary.py" = "freecad_kernel"
 "src/prechips/kernel/freecad_job.py" = "freecad_kernel"
+"src/prechips/kernel/inspection_preservation.py" = "freecad_kernel"
 "src/prechips/kernel/render_diagram.py" = "freecad_kernel"
 "src/prechips/kernel/render_png.py" = "freecad_kernel"
 "src/prechips/kernel/saw_engagement.py" = "freecad_kernel"
 "src/prechips/kernel/step_faces.py" = "freecad_kernel"
+"src/prechips/kernel/thread_material.py" = "freecad_kernel"
 "src/prechips/kernel/zero_pickup.py" = "freecad_kernel"
 "src/prechips/cli.py" = "run_cli("
 
@@ -137,6 +139,22 @@ ignore = [
 [sources]
 # New modules have explicit conservative consumers until the next coordinated
 # coverage-map rebuild; native modules also appear in [consumers] above.
+"src/prechips/_sheet_pagination.py" = [
+    "tests/test_sheet_pagination.py",
+    "tests/test_sheet_inspection_targets.py",
+    "tests/test_sheet_print.py",
+    "tests/test_sheet_ops.py",
+    "tests/test_sheet_detail.py",
+]
+"src/prechips/kernel/inspection_preservation.py" = [
+    "tests/test_kernel_inspection_preservation_native.py",
+    "tests/test_kernel_practical_inspection_inputs.py",
+    "tests/test_kernel_thread_material_native.py",
+]
+"src/prechips/kernel/thread_material.py" = [
+    "tests/test_kernel_practical_inspection_inputs.py",
+    "tests/test_kernel_thread_material_native.py",
+]
 "src/prechips/kernel/mounted_saw.py" = [
     "tests/test_mounted_saw_inputs.py",
     "tests/test_mounted_saw_rules.py",
@@ -674,6 +692,7 @@ ignore = [
     "tests/test_sheet_manual_arc.py",
 ]
 "src/prechips/kernel/freecad_job.py" = [
+    "tests/test_kernel_guard_diagnostics.py",
     "tests/test_guided_sweep.py",
     "tests/test_kernel_checkpoints.py",
     "tests/test_render_png.py",
@@ -1426,6 +1445,7 @@ ignore = [
     "tests/test_validate_examples.py",
 ]
 "src/prechips/rules/centre_support.py" = [
+    "tests/test_centre_support_placed.py",
     "tests/test_arithmetic.py",
     "tests/test_auxiliary_measurement_debts.py",
     "tests/test_built_up_prejoin.py",
@@ -1998,6 +2018,7 @@ ignore = [
     "tests/test_validate_examples.py",
 ]
 "src/prechips/rules/headroom.py" = [
+    "tests/test_headroom_placed_support.py",
     "tests/test_arithmetic.py",
     "tests/test_auxiliary_measurement_debts.py",
     "tests/test_bench_routed_screens.py",
@@ -3434,6 +3455,7 @@ ignore = [
     "tests/test_validate_examples.py",
 ]
 "src/prechips/rules/zero_recipe/rule.py" = [
+    "tests/test_zero_opposed_midpoint.py",
     "tests/test_arithmetic.py",
     "tests/test_auxiliary_measurement_debts.py",
     "tests/test_bench_routed_screens.py",
@@ -3557,6 +3579,7 @@ ignore = [
     "tests/test_validate_examples.py",
 ]
 "src/prechips/rules/zero_recipe/touch.py" = [
+    "tests/test_zero_opposed_midpoint.py",
     "tests/test_arithmetic.py",
     "tests/test_auxiliary_measurement_debts.py",
     "tests/test_bench_routed_screens.py",

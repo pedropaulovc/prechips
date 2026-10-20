@@ -326,7 +326,15 @@ def test_setup_png_refuses_clipped_annotations(failure):
     width, height, _ = _decode_png(png)
     assert width == 1600
     assert panels == [
-        {"top_px": 0, "height_px": height, "role": "setup", "label": "SETUP S1  /  LATHE VIEW"}
+        {
+            "top_px": 0,
+            "height_px": height,
+            "role": "setup",
+            "label": "SETUP S1  /  LATHE VIEW",
+            "id": "setup",
+            "selection_group": "setup",
+            "annotations": [],
+        }
     ]
     assert height / width * 7.5 <= 8.4
     if failure == "clipping":
@@ -723,7 +731,15 @@ def test_production_png_protects_nominal_dimension_text_from_a_plain_end_leader(
     assert width == 1600
     assert 0 < height <= 1792
     assert panels == [
-        {"top_px": 0, "height_px": height, "role": "setup", "label": "SETUP S3  /  LATHE VIEW"}
+        {
+            "top_px": 0,
+            "height_px": height,
+            "role": "setup",
+            "label": "SETUP S3  /  LATHE VIEW",
+            "id": "setup",
+            "selection_group": "setup",
+            "annotations": [],
+        }
     ]
     diagram, observed_png = _composed_diagram(meshes, spec, debts)
     assert observed_png == png
@@ -2643,6 +2659,23 @@ def test_setup_text_footer_continues_in_complete_readable_owned_bands(overflow, 
         + ["holding_detail"] * len(diagram.holding_details)
         + ["guide_axis"] * len(diagram.guide_details)
     )
+    setup_panels = panels[: 1 + len(diagram.footer_details)]
+    assert [
+        (panel["id"], panel["selection_group"], panel["annotations"]) for panel in setup_panels
+    ] == [("setup", "setup", [])] + [
+        (f"setup:{ordinal}", "setup", []) for ordinal in range(1, len(setup_panels))
+    ]
+    other_panels = panels[len(setup_panels) :]
+    assert other_panels
+    assert all(panel["selection_group"] == panel["id"] for panel in other_panels)
+    assert all(panel["annotations"] == [] for panel in other_panels)
+    assert len({panel["id"] for panel in panels}) == len(panels)
+    # Adding KEY/SETUP NOTES bands never renumbers or changes another selectable view.
+    assert [(panel["id"], panel["selection_group"]) for panel in other_panels] == [
+        (panel["id"], panel["selection_group"])
+        for panel in baseline.print_panels
+        if panel["selection_group"] != "setup"
+    ]
     # No geometry, dimension, leader or detached sketch is refitted by footer text.
     assert diagram.footer_top == baseline.footer_top
     assert diagram.viewport == baseline.viewport
@@ -2820,6 +2853,11 @@ def test_a_clearance_no_detail_band_keys_is_dimensioned_on_the_setup_picture(mon
     assert diagram.print_panels == panels
     text = " ".join(box[0] for box in diagram.canvas.text_boxes)
     assert "CUT 0 MM FROM FIXED JAW" in text, text
+    assert [
+        (panel["id"], panel["selection_group"])
+        for panel in panels
+        if "closest_cut" in panel["annotations"]
+    ] == [("setup", "setup")]
 
 
 @pytest.mark.parametrize(
@@ -2843,6 +2881,9 @@ def test_small_work_in_its_holding_gets_an_enlarged_contact_detail(size, touchin
                 "height_px": detail.canvas.height,
                 "role": "holding_detail",
                 "label": detail._title(),
+                "id": "holding_detail:1",
+                "selection_group": "holding_detail:1",
+                "annotations": [],
             }
         )
         top += detail.canvas.height
@@ -2908,7 +2949,14 @@ def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_own
         "height_px": detail.canvas.height,
         "role": "holding_detail",
         "label": detail._title(),
+        "id": "holding_detail:1",
+        "selection_group": "holding_detail:1",
+        "annotations": ["closest_cut"],
     }
+    assert panels[0]["annotations"] == []
+    assert [
+        panel["selection_group"] for panel in panels if "closest_cut" in panel["annotations"]
+    ] == ["holding_detail:1"]
     assert band["top_px"] + band["height_px"] == height
     diagram, observed_png = _compose_diagram(main, [detail])
     assert observed_png == png
@@ -3661,7 +3709,10 @@ def test_a_named_void_at_numbered_positions_is_keyed_by_their_badges_not_leaders
     assert " ".join(lines).count("PAD SLOTS AT L1-L3, R1") == 1, lines
 
 
-def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_once():
+@pytest.mark.parametrize("with_clearance", [False, True])
+def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_once(
+    with_clearance,
+):
     # A 300 x 12 mm bar seen from above: its holding heights cannot show in the plan, and
     # one band across the whole length would draw the bar hardly larger than the plan.
     stock = [0, 0, 10, 300, 12, 18]
@@ -3697,10 +3748,18 @@ def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_onc
         ],
         "contacts": contacts,
     }
+    if with_clearance:
+        spec["closest_cut"] = {
+            "mm": 6.0,
+            "tag": "fx:rail-shim-ru",
+            "from_mm": [274, 2, 18],
+            "to_mm": [274, 2, 12],
+        }
     main, _ = _main_diagram(meshes, spec)
     details = _holding_details(meshes, spec, main)
 
     assert len(details) == 2
+    assert [detail.keyed_cut for detail in details] == [False, with_clearance]
     drawn = _stock_short_side(main.canvas, stock)
     keyed = []
     for detail in details:
@@ -3718,6 +3777,18 @@ def test_long_thin_plan_work_gets_split_details_that_key_each_contact_height_onc
     assert [p["label"] for p in panels if p["role"] == "holding_detail"] == [
         detail._title() for detail in details
     ]
+    assert [(panel["id"], panel["selection_group"]) for panel in panels] == [
+        ("setup", "setup"),
+        ("holding_detail:1", "holding_detail:1"),
+        ("holding_detail:2", "holding_detail:2"),
+    ]
+    assert [panel["annotations"] for panel in panels] == [
+        [],
+        [],
+        ["closest_cut"] if with_clearance else [],
+    ]
+    if with_clearance:
+        assert any(callout.label.startswith("CUT 6 mm FROM ") for callout in details[1].callouts)
     diagram, observed_png = _compose_diagram(main, details)
     assert observed_png == png
     assert diagram.print_panels == panels
@@ -3871,6 +3942,9 @@ def test_an_inspection_sketch_stands_the_part_on_the_plate_and_points_each_readi
             "role": "inspection",
             "label": view["title"],
             "view_ordinal": ordinal,
+            "id": f"inspection:{ordinal}",
+            "selection_group": f"inspection:{ordinal}",
+            "annotations": [],
         }
         assert 0 < c.height <= 1792
         assert pixels[cursor * width * 3 : (cursor + c.height) * width * 3] == c.rgb
@@ -3938,6 +4012,9 @@ def test_an_inspection_sketch_wraps_a_long_title_and_owns_each_aid_apart_from_th
             "role": "inspection",
             "label": title,
             "view_ordinal": 1,
+            "id": "inspection:1",
+            "selection_group": "inspection:1",
+            "annotations": [],
         }
     ]
 
@@ -4022,6 +4099,13 @@ def test_two_operations_that_need_full_width_keep_complete_separate_annotation_b
     assert observed_png == png
     assert panels == diagram.print_panels
     assert len(diagram.annotation_details) == 2
+    assert [panel["id"] for panel in panels] == ["setup", "path_detail:1", "path_detail:2"]
+    assert [panel["selection_group"] for panel in panels] == [
+        "setup",
+        "path_detail:1",
+        "path_detail:2",
+    ]
+    assert all(panel["annotations"] == [] for panel in panels)
     width, height, pixels = _decode_png(png)
     cursor = panels[0]["height_px"]
     for op, owner, panel in zip(("90", "10"), diagram.annotation_details, panels[1:], strict=True):

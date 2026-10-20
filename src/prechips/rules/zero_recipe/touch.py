@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 
 from ...material_routes import producer_setup, setup_lineage
@@ -133,6 +134,29 @@ def axis_recipe(edge_mm, radius_mm, approach, axis, jog_mm, sign=1, scale=1, pap
         "check_reading": shown + increment if number(shown) and number(increment) else UNKNOWN,
         "mirrored_reading": shown - increment if number(shown) and number(increment) else UNKNOWN,
         "sign": sign,
+    }
+
+
+def _opposed_midpoint_recipe(center_mm, jog_mm, sign=1):
+    """Set the authored center only after moving to two actual opposed contacts' mean.
+
+    C− and C+ are readings taken with the same unchanged finder, before resetting
+    this axis. Their equal and opposite radius corrections cancel. These symbols
+    are instructions for a future setup, never recorded contact measurements.
+    """
+    known = all(
+        number(value) and math.isfinite(value) for value in (center_mm, jog_mm)
+    ) and sign in {-1, 1}
+    increment = sign * jog_mm if known else UNKNOWN
+    return {
+        "axis_set": center_mm if known else UNKNOWN,
+        "check_reading": center_mm + increment if known else UNKNOWN,
+        "mirrored_reading": center_mm - increment if known else UNKNOWN,
+        "sign": sign,
+        "actual_contact_readings": ["C−", "C+"],
+        "midpoint_move": "(C− + C+)/2",
+        "axis_set_at": "measured_opposed_midpoint",
+        "part_result": "not_recorded",
     }
 
 

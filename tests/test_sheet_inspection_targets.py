@@ -1,0 +1,483 @@
+"""Inspection criteria retain their explicit physical recording owner on the sheet."""
+
+from dataclasses import replace
+
+from test_batch_material_routes import batch
+from test_sheet_ops import Markup, content, shop
+
+from prechips.findings import Finding
+from prechips.sheet import _Inspection, _ledger_row, _readings, _Row, _Steps, _Traveler
+
+MEMBERS = ["nut1", "nut2", "nut3", "nut4"]
+SECTION_SUBJECTS = {
+    "S1:30/base-envelope:width",
+    "S1:30/base-envelope:height",
+    "S1:30/shoulders:thickness",
+    "S1:30/shoulders:width",
+}
+SLOT_CRITERIA = [
+    "Slide freely by hand without objectionable rocking.",
+    "Shoulders bear without bottoming or wedging; top remains below the table.",
+]
+STUD_CRITERIA = ["The intended stud enters by hand and stops before exiting at the bottom."]
+
+
+def inspection_job():
+    """Use real nested member routing, without claiming measured or native results."""
+    plan = batch()
+    plan["dro"] = {"kind": "digital", "units": "mm"}
+    section = plan["setups"][0]
+    section["id"] = "S1"
+    section["ops"] = [
+        {"op": 20, "do": "mill_profile", "feature": "shoulders"},
+        {
+            "op": 30,
+            "do": "inspect",
+            "feature": ["base-envelope", "shoulders"],
+            "inspect_workpieces": MEMBERS.copy(),
+            "inspection_scope": {"after": "S1:20", "before": "C1a:10"},
+            "checks": {
+                "width": "gauges.calipers",
+                "height": "gauges.calipers",
+                "thickness": "gauges.calipers",
+            },
+            "inspection_methods": {
+                "width": "Measure the section at every future blank station.",
+                "height": "Measure the overall bar height.",
+                "thickness": "Measure the shoulder thickness at each station.",
+            },
+        },
+    ]
+    plan["setups"][1]["stock_in"] = "S1"
+    finals = plan["setups"][-4:]
+    for index, setup in enumerate(finals, 1):
+        setup["id"] = f"F1{chr(96 + index)}"
+        setup["ops"] = [
+            {
+                "op": 10,
+                "do": "inspect",
+                "feature": "end-length",
+                "checks": {
+                    "length": "gauges.calipers",
+                    "actual_slot_fit": "gauges.actual-slot",
+                    "stud_retention": "gauges.mating-hardware",
+                },
+                "inspection_methods": {
+                    "length": "Measure the two finished end faces with calipers.",
+                    "actual_slot_fit": "Try this nut in the actual mating slot.",
+                    "stud_retention": "Try the intended stud in this nut by hand.",
+                },
+            }
+        ]
+    features = {
+        "units": "mm",
+        "precision": 3,
+        "features": {
+            "base-envelope": {
+                "kind": "prism",
+                "requirements": ["width", "height"],
+                "width": [22.1742, 22.2758],
+                "height": [12.6492, 12.7508],
+            },
+            "shoulders": {
+                "kind": "prism",
+                "requirements": ["thickness", "width"],
+                "thickness": [6.2992, 6.4008],
+                "width": [12.5222, 12.6238],
+            },
+            "end-length": {
+                "kind": "end_face",
+                "requirements": ["length"],
+                "length": [25.3492, 25.4508],
+            },
+            "threaded-hole": {
+                "kind": "threaded_hole",
+                "requirements": [],
+                "dia_nominal": 9.525,
+            },
+        },
+        "acceptance": {
+            "actual_slot_fit": {
+                "features": ["base-envelope", "shoulders", "end-length"],
+                "contract": {
+                    "kind": "manual",
+                    "gauge_kind": "mating_part",
+                    "accept": SLOT_CRITERIA.copy(),
+                    "cite": "Authored functional slot acceptance",
+                },
+            },
+            "stud_retention": {
+                "features": ["threaded-hole"],
+                "contract": {
+                    "kind": "manual",
+                    "gauge_kind": "mating_hardware",
+                    "accept": STUD_CRITERIA.copy(),
+                    "cite": "Authored functional stud acceptance",
+                },
+            },
+        },
+    }
+    bundle = replace(
+        shop({}).bundle,
+        plan=plan,
+        features=features,
+        inventory={
+            "gauges": {
+                "calipers": {"kind": "caliper", "name": "Calipers"},
+                "actual-slot": {"kind": "mating_part", "name": "Actual slot comparator"},
+                "mating-hardware": {"kind": "mating_hardware", "name": "Intended stud comparator"},
+            }
+        },
+    )
+    return _Traveler(bundle, [], {}, None), section, finals
+
+
+def plan_finding(
+    subject, *, setup_id, op_id, feature, requirement, member=None, covered=(), status="pass"
+):
+    return Finding(
+        rule="inspection",
+        subject=subject,
+        status=status,
+        sentence="Comparator is unavailable" if status == "error" else "Inspection plan complete",
+        cite=["Synthetic inspection-plan routing evidence; no physical result"],
+        numbers={
+            "identity": {"workpiece": member, "feature_owner": feature, "requirement": requirement},
+            "setup_id": setup_id,
+            "op_id": op_id,
+            "shared_check_id": "S1:30" if covered else None,
+            "covered_workpieces": list(covered),
+            "evaluation": "inspection_plan",
+            "part_result": "not_recorded",
+        },
+    )
+
+
+def inspection_markup(sheet, setup, op=None):
+    op = op or setup["ops"][-1]
+    checks = sheet.inspection(setup, op)
+    row = _Row(
+        (str(op["op"]), "Part", "—", "Inspect", checks),
+        setup_id=setup["id"],
+        op_id=op["op"],
+    )
+    return Markup(_ledger_row(row, ["step", "feature", "gauge", "action", "inspect"])), checks
+
+
+def subject_ids(record):
+    import json
+
+    return set(json.loads(record["attrs"]["data-inspection-ids"]))
+
+
+def test_one_batch_checkpoint_and_four_individual_final_records_remain_blank():
+    import json
+
+    sheet, section, finals = inspection_job()
+    batch_markup, batch_checks = inspection_markup(sheet, section)
+    (batch_record,) = batch_markup.find("inspection-record")
+    assert subject_ids(batch_record) == SECTION_SUBJECTS
+    assert json.loads(batch_record["attrs"]["data-covered-workpieces"]) == MEMBERS
+    assert batch_record["attrs"]["data-shared-check"] == "S1:30"
+    assert batch_record["attrs"]["data-workpiece"] == ""
+    assert len(batch_markup.find("result-field", batch_record)) == 1
+    assert batch_checks[0].subjects and len(batch_checks[0].subjects) == 4
+
+    final_records = []
+    for index, setup in enumerate(finals, 1):
+        markup, _ = inspection_markup(sheet, setup)
+        (record,) = markup.find("inspection-record")
+        final_records.append((markup, record))
+        assert subject_ids(record) == {
+            f"nut{index}/end-length:length",
+            f"nut{index}/part:actual_slot_fit",
+            f"nut{index}/part:stud_retention",
+        }
+        assert record["attrs"]["data-workpiece"] == f"nut{index}"
+        assert record["attrs"]["data-shared-check"] == ""
+        assert json.loads(record["attrs"]["data-covered-workpieces"]) == []
+        assert all(criterion in content(record) for criterion in SLOT_CRITERIA + STUD_CRITERIA)
+        assert "25.350–25.450 mm" in content(record)
+        methods = markup.find("inspection-method", record)
+        assert len(methods) == 3
+        assert all(
+            any(method in content(owner) for owner in methods)
+            for method in setup["ops"][0]["inspection_methods"].values()
+        )
+        assert len(markup.find("result-field", record)) == 1
+    assert len({record["attrs"]["data-record-title"] for _, record in final_records}) == 4
+    for markup, record in [(batch_markup, batch_record), *final_records]:
+        (blank,) = markup.find("writing-blank", record)
+        assert content(blank) == ""
+
+
+def test_manual_relationships_have_part_ownership_not_participant_feature_copies():
+    import json
+
+    sheet, _, finals = inspection_job()
+    setup = finals[0]
+    op = setup["ops"][0]
+    del op["feature"]
+    del op["checks"]["length"]
+    del op["inspection_methods"]["length"]
+    markup, checks = inspection_markup(sheet, setup)
+    (record,) = markup.find("inspection-record")
+    assert subject_ids(record) == {"nut1/part:actual_slot_fit", "nut1/part:stud_retention"}
+    assert json.loads(record["attrs"]["data-features"]) == []
+    assert checks[0].qualitative and checks[0].unit == ""
+    for clause in SLOT_CRITERIA + STUD_CRITERIA:
+        assert content(record).count(clause) == 1
+    assert "Actual slot comparator" in content(record)
+    assert "Intended stud comparator" in content(record)
+    assert len(markup.find("writing-blank")) == 1
+    assert len(checks[0].methods) == len(markup.find("inspection-method", record)) == 2
+
+
+def test_missing_numeric_manual_and_authored_requirements_stay_visible_without_fake_results():
+    sheet, section, finals = inspection_job()
+    sheet.features["shoulders"]["thickness"] = "unknown"
+    shared, _ = inspection_markup(sheet, section)
+    (record,) = shared.find("inspection-record")
+    assert subject_ids(record) == SECTION_SUBJECTS - {"S1:30/shoulders:thickness"}
+    assert any(
+        "thickness" in content(node) and "?" in content(node)
+        for node in shared.find("inspection-message")
+    )
+
+    sheet.bundle.features["acceptance"]["actual_slot_fit"]["contract"] = "unknown"
+    op = finals[0]["ops"][0]
+    op["checks"]["stud_retention"] = "unknown"
+    op["inspection_methods"]["stud_retention"] = "unknown"
+    op["missing_requirements"] = {"below_table_top": "unknown"}
+    op["process_holds"] = [
+        {
+            "feature": "end-length",
+            "requirement": "length",
+            "band": [25.37, 25.43],
+            "gauge": "gauges.calipers",
+            "reason": "Retain the authored process margin.",
+        }
+    ]
+    markup, checks = inspection_markup(sheet, finals[0])
+    (record,) = markup.find("inspection-record")
+    assert subject_ids(record) == {"nut1/end-length:length", "nut1/part:stud_retention"}
+    messages = markup.find("inspection-message")
+    assert any("actual slot fit" in content(node) and "?" in content(node) for node in messages)
+    assert any(
+        "below table top" in content(node) and "no drawing limit" in content(node)
+        for node in messages
+    )
+    assert any(
+        "PROCESS HOLD" in content(node) and "25.370–25.430" in content(node) for node in messages
+    )
+    assert all(not markup.find("writing-blank", node) for node in messages)
+    assert "?" in content(record)
+    assert all(
+        not isinstance(check, _Inspection) or "nut1/part:actual_slot_fit" not in check.subjects
+        for check in checks
+    )
+
+
+def test_authored_method_readings_stay_inline_at_the_explicit_physical_checkpoint():
+    sheet, section, finals = inspection_job()
+    section["ops"][-1]["inspection_methods"]["height"] = [
+        "Read the bar at the first station: {first}",
+        "Read the bar at the last station: {last}",
+        "Calculate: station difference = first - last = {difference}",
+        "Calculate: final station result = difference = {station_result}",
+    ]
+    markup, checks = inspection_markup(sheet, section)
+    (checkpoint,) = [check for check in checks if isinstance(check, _Inspection)]
+    (record,) = markup.find("inspection-record")
+    assert checkpoint.shared_check_id == "S1:30"
+    assert checkpoint.covered_workpieces == tuple(MEMBERS)
+    assert subject_ids(record) == set(checkpoint.subjects) == SECTION_SUBJECTS
+    (steps,) = [method for method in checkpoint.methods if isinstance(method, _Steps)]
+    assert _readings(steps[1]) == [(1, "first"), (2, "last")]
+    (worksheet,) = markup.find("worksheet", record)
+    assert [content(label) for label in markup.find("field-label", worksheet)] == [
+        "first",
+        "last",
+        "difference",
+        "station_result",
+    ]
+    assert len(markup.find("writing-blank", worksheet)) == 4
+    # The height readings do not also record the other three section criteria.
+    assert not checkpoint.reading_owned
+    assert len(markup.find("result-field", record)) == 1
+    assert len(markup.find("writing-blank", record)) == 5
+    assert all(content(blank) == "" for blank in markup.find("writing-blank", record))
+
+    finals[0]["ops"][0]["inspection_methods"]["length"] = (
+        "Measure the finished ends; record {finished_length}."
+    )
+    final, checks = inspection_markup(sheet, finals[0])
+    (checkpoint,) = [check for check in checks if isinstance(check, _Inspection)]
+    (record,) = final.find("inspection-record")
+    assert checkpoint.workpiece == "nut1"
+    assert subject_ids(record) == {
+        "nut1/end-length:length",
+        "nut1/part:actual_slot_fit",
+        "nut1/part:stud_retention",
+    }
+    assert len(checkpoint.methods) == len(final.find("inspection-method", record)) == 3
+    authored = [
+        node
+        for method in final.find("inspection-method", record)
+        for node in final.find("field-label", method)
+    ]
+    assert [content(label) for label in authored] == ["finished_length"]
+    assert not checkpoint.reading_owned
+    assert len(final.find("result-field", record)) == 1
+    assert len(final.find("writing-blank", record)) == 2
+    assert all(content(blank) == "" for blank in final.find("writing-blank", record))
+
+
+def test_a_reading_owned_checkpoint_has_no_second_overall_result_blank():
+    sheet, _, finals = inspection_job()
+    op = finals[0]["ops"][0]
+    op["checks"] = {"length": "gauges.calipers"}
+    op["inspection_methods"] = {"length": "Measure the ends; record {finished_length}."}
+    markup, checks = inspection_markup(sheet, finals[0])
+    (checkpoint,) = checks
+    (record,) = markup.find("inspection-record")
+    assert checkpoint.reading_owned
+    assert subject_ids(record) == {"nut1/end-length:length"}
+    assert not markup.find("result-field", record)
+    assert [content(label) for label in markup.find("field-label", record)] == ["finished_length"]
+    (blank,) = markup.find("writing-blank", record)
+    assert content(blank) == ""
+
+
+def test_legacy_distinct_bands_keep_independent_results_and_one_inline_reading():
+    sheet = shop({})
+    features = {
+        "left": {"requirements": ["length"], "length": [6.33, 6.35]},
+        "right": {"requirements": ["length"], "length": [8.01, 8.03]},
+    }
+    sheet.bundle = replace(
+        sheet.bundle,
+        features={"units": "mm", "precision": 3, "features": features},
+        inventory={"gauges": {"calipers": {"kind": "caliper", "name": "Calipers"}}},
+    )
+    sheet.features = features
+    setup = {
+        "id": "L1",
+        "ops": [
+            {
+                "op": 10,
+                "do": "inspect",
+                "feature": ["left", "right"],
+                "checks": {"length": "gauges.calipers"},
+                "inspection_methods": {"length": "Use the calipers; record {observed}."},
+            }
+        ],
+    }
+    sheet.plan["setups"] = [setup]
+    markup, checks = inspection_markup(sheet, setup)
+    records = markup.find("inspection-record")
+    assert len(records) == len(checks) == 2
+    assert [check.features for check in checks] == [("left",), ("right",)]
+    assert all(not check.workpiece and not check.shared_check_id for check in checks)
+    assert all(not check.reading_owned for check in checks)
+    for record, check, band, other in zip(
+        records,
+        checks,
+        ("6.330–6.350", "8.010–8.030"),
+        ("8.010–8.030", "6.330–6.350"),
+        strict=True,
+    ):
+        assert subject_ids(record) == set(check.subjects)
+        assert band in content(record) and other not in content(record)
+        assert len(markup.find("result-field", record)) == 1
+    (method,) = markup.find("inspection-method")
+    assert [content(label) for label in markup.find("field-label", method)] == ["observed"]
+    assert len(markup.find("writing-blank", method)) == 1
+    assert len(markup.find("writing-blank")) == 3
+    assert all(content(blank) == "" for blank in markup.find("writing-blank"))
+
+
+def test_structured_findings_route_and_match_without_decoding_diagnostic_subjects():
+    sheet, section, finals = inspection_job()
+    finding = plan_finding(
+        "opaque diagnostic identity / not a qualified feature",
+        setup_id="F1a",
+        op_id=10,
+        feature=None,
+        requirement="actual_slot_fit",
+        member="nut1",
+        status="error",
+    )
+    sheet.findings = [finding]
+    assert sheet.setup_findings(finals[0]) == [finding]
+    assert sheet.setup_findings(finals[1]) == []
+    assert sheet.setup_findings(section) == []
+    stops, _, _ = sheet.status_lines([finding], finals[0])
+    assert len(stops) == 1 and "10" in stops[0] and finding.sentence in stops[0]
+    own_html, _ = sheet.operations(finals[0], {})
+    sibling_html, _ = sheet.operations(finals[1], {})
+    assert finding.sentence in own_html
+    assert finding.sentence not in sibling_html
+
+    # A capability-plan pass is associated by explicit identity, not by subject parsing,
+    # and cannot become a recorded physical result or another nut's evidence.
+    op = finals[0]["ops"][0]
+    op["checks"] = {"actual_slot_fit": "gauges.actual-slot"}
+    sheet.findings = [replace(finding, status="pass")]
+    markup, _ = inspection_markup(sheet, finals[0])
+    (record,) = markup.find("inspection-record")
+    assert "?" not in content(record)
+    assert subject_ids(record) == {"nut1/part:actual_slot_fit"}
+    assert content(markup.find("writing-blank", record)[0]) == ""
+    sibling_op = finals[1]["ops"][0]
+    sibling_op["checks"] = {"actual_slot_fit": "gauges.actual-slot"}
+    sibling, _ = inspection_markup(sheet, finals[1])
+    assert "?" in content(sibling.find("inspection-record")[0])
+
+
+def test_shared_plan_evidence_stays_at_its_batch_checkpoint_with_a_blank_result():
+    sheet, section, finals = inspection_job()
+    sheet.findings = [
+        plan_finding(
+            f"opaque batch diagnostic {index}",
+            setup_id="S1",
+            op_id=30,
+            feature=feature,
+            requirement=requirement,
+            covered=MEMBERS,
+        )
+        for index, (feature, requirement) in enumerate(
+            [
+                ("base-envelope", "width"),
+                ("base-envelope", "height"),
+                ("shoulders", "thickness"),
+                ("shoulders", "width"),
+            ]
+        )
+    ]
+    markup, _ = inspection_markup(sheet, section)
+    (record,) = markup.find("inspection-record")
+    assert subject_ids(record) == SECTION_SUBJECTS
+    assert "?" not in content(record)
+    assert content(markup.find("writing-blank", record)[0]) == ""
+    assert sheet.setup_findings(section) == sheet.findings
+    assert all(sheet.setup_findings(setup) == [] for setup in finals)
+    sheet.findings[0].numbers["covered_workpieces"] = ["nut1", "nut2", "nut3"]
+    unresolved, _ = inspection_markup(sheet, section)
+    assert "?" in content(unresolved.find("inspection-record")[0])
+
+
+def test_member_owned_missing_check_does_not_spread_to_another_final_nut():
+    sheet, _, finals = inspection_job()
+    finding = plan_finding(
+        "uninterpreted missing-check diagnostic",
+        setup_id=None,
+        op_id=None,
+        feature="end-length",
+        requirement="length",
+        member="nut2",
+        status="error",
+    )
+    sheet.findings = [finding]
+    assert sheet.setup_findings(finals[1]) == [finding]
+    assert all(sheet.setup_findings(setup) == [] for setup in [finals[0], finals[2], finals[3]])

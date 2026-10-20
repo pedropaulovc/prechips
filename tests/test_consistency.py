@@ -101,6 +101,48 @@ def test_text_restating_the_chucking_is_an_error_whatever_the_transfer_says(
     assert "same chucking" in found and "keep_clamped" in found and "drop" in found
 
 
+@pytest.mark.parametrize("owner", ["setup", "hold", "operation"])
+def test_hidden_authored_note_claims_still_reach_consistency(owner):
+    from prechips.model import note_text
+
+    note = [
+        {"text": "Use the selected cutter.", "detail": "pro"},
+        {"text": "Use T1 (2-flute) for this cut.", "detail": "pedantic"},
+    ]
+    setup = {"ops": [dict(FACE)]}
+    target = setup if owner == "setup" else setup.setdefault("hold", {})
+    if owner == "operation":
+        target = setup["ops"][0]
+    target["note"] = note
+    data = bundle([setup])
+    subject = "S1:10" if owner == "operation" else "S1"
+    assert "2-flute" not in note_text(note, detail="pro")
+    assert "4 flutes" in errors(data)[subject]
+    assert target["note"] is note
+
+
+@pytest.mark.parametrize("owner", ["setup", "hold", "operation"])
+def test_reference_discovery_reads_every_authored_note_segment(owner):
+    from prechips.rules.resolution import setup_named_references
+
+    note = [
+        {"text": "Use tools.em4.", "detail": "pro"},
+        {"text": "Prepare gauges.hidden-calipers.", "detail": "pedantic"},
+    ]
+    setup = {"ops": [dict(FACE)]}
+    target = setup if owner == "setup" else setup.setdefault("hold", {})
+    if owner == "operation":
+        target = setup["ops"][0]
+    target["note"] = note
+    data = bundle([setup])
+    references = setup_named_references(data, data.plan["setups"][0])
+    assert references == {
+        "tools.em4": ["Setup S1"],
+        "gauges.hidden-calipers": ["Setup S1"],
+    }
+    assert target["note"] is note
+
+
 @pytest.mark.parametrize(
     "note",
     [
@@ -714,6 +756,15 @@ def gauged(method):
 )
 def test_text_passing_the_no_go_plug_through_contradicts_the_go_no_go_check(method):
     assert "NO-GO" in errors(bundle([{"ops": [gauged(method)]}]))["S1:34"]
+
+
+def test_hidden_operation_note_cannot_pass_a_no_go_plug():
+    op = gauged("Offer the NO-GO gently; it must not enter.")
+    op["note"] = [
+        {"text": "Clean the inspection faces.", "detail": "pro"},
+        {"text": "Push the NO-GO plug through the hole.", "detail": "pedantic"},
+    ]
+    assert "NO-GO" in errors(bundle([{"ops": [op]}]))["S1:34"]
 
 
 @pytest.mark.parametrize(

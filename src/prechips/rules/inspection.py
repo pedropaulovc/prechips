@@ -13,6 +13,17 @@ An op's ``checks``, ``go_no_go`` and ``inspection_methods`` are read per feature
 :func:`.resolution.op_entry`: a multi-feature inspect op's entry scoped to the feature,
 else its flat requirement entry, so each listed feature is judged with its own gauge.
 
+Inspection-plan passes describe a capable declared checkpoint, never an observed part:
+``evaluation="inspection_plan"`` and ``part_result="not_recorded"``. Physical results stay
+blank. Registered final checks own exactly one member; typed manual acceptance belongs
+once to that part, not once to each participating feature, and grants no machining credit.
+The shared target selector is :func:`.resolution.op_check_targets`.
+
+Ordinary unscoped checks retain final-cutter ordering. A scoped shared dimensional check
+may precede later work only with requirement-specific native supporting-surface survival
+through every member's actual descendant route. Registered containment alone is not that
+proof. Explicit unknown scope, comparator identity or capability remains unresolved.
+
 A ``go_no_go`` pair (an op's, per requirement, or a hold's) is a limit check: the GO size
 must pass the work and the NO-GO size must not, so both must lie inside the band they
 accept, the drawing check's band as printed, a hold's own band. Otherwise the gauge
@@ -65,16 +76,23 @@ from ._profile import (
 from .resolution import (
     HOLE_KINDS,
     UNKNOWN,
+    _citations,
     drawing_precision,
     identity,
+    inspection_preservation_evidence,
     length_mm,
     number,
+    op_check_targets,
     op_entry,
+    op_features,
+    operation_members,
     operations,
     printed_band,
     record,
+    registered_workpieces,
     resolve,
     same_length,
+    thread_class_acceptance,
     uncertain,
 )
 
@@ -301,7 +319,14 @@ def process_holds(bundle, setup, op):
             "has none), read by a capable gauge",
         )
     )
-    numbers = {"process_holds": rows}
+    numbers = {
+        "process_holds": rows,
+        "setup_id": setup["id"],
+        "op_id": op["op"],
+        "op": subject,
+        "evaluation": "inspection_plan",
+        "part_result": "not_recorded",
+    }
     if status == UNKNOWN:
         debts = {entry["id"]: entry for row in rows for entry in row.get("measurements", [])}
         if debts:
@@ -652,13 +677,25 @@ def _capability(
     return status, message
 
 
-def requirement_check(bundle, name, requirement, op):
-    """``(status, message, nums)`` of ``op``'s check of ``name``'s ``requirement``, graded
-    as the final check is in :func:`evaluate` (a ``[0, r]`` radius band as a limit check)."""
+def requirement_check(bundle, name, requirement, op, *, setup=None, workpiece=None):
+    """Inspection-plan capability, preserving the historical four-argument/triple API.
+
+    ``name=None`` selects a typed part relationship. An inspection-plan pass never
+    records a measured result or certifies the physical part.
+    """
+    if name is None:
+        return _manual_check(bundle, requirement, op, setup=setup, workpiece=workpiece)
     feature = record(bundle.feature_definitions.get(name))
     value, _ = _limits(bundle, name, requirement, feature)
     gauge_ref = op_entry(op, "checks", name, requirement)
-    nums = {"requirement": requirement, "limits": value, "gauge": gauge_ref}
+    nums = {
+        "requirement": requirement,
+        "limits": value,
+        "gauge": gauge_ref,
+        "identity": {"workpiece": workpiece, "feature_owner": name, "requirement": requirement},
+        "evaluation": "inspection_plan",
+        "part_result": "not_recorded",
+    }
     tilt = _tilt(bundle, name, requirement, feature, nums)
     accept = printed_band(value, drawing_precision(bundle, name, requirement))
     accept = accept or _drawing_band(requirement, value)
@@ -672,11 +709,179 @@ def requirement_check(bundle, name, requirement, op):
         nums,
         (go_no_go_pair(op, name, requirement), accept),
         tilt,
+        name=name,
     )
+    if setup is not None:
+        nums.update(setup_id=setup["id"], op_id=op["op"], op=f"{setup['id']}:{op['op']}")
+        if workpiece is not None and registered_workpieces(bundle):
+            targets = [
+                target
+                for target in op_check_targets(bundle, setup, op)
+                if target["identity"]["feature_owner"] == name
+                and target["identity"]["requirement"] == requirement
+            ]
+            if any(target["selection_status"] == UNKNOWN for target in targets):
+                if status != "error":
+                    status, message = UNKNOWN, "inspection workpiece identity is unresolved"
+            elif not any(
+                target["identity"]["workpiece"] == workpiece
+                or workpiece in target["covered_workpieces"]
+                for target in targets
+            ):
+                status, message = "error", "inspection belongs to a different workpiece"
     return status, message, nums
 
 
-def evaluate(bundle):
+def _manual_check(bundle, requirement, op, *, setup=None, workpiece=None):
+    from prechips.thread_specs import match, mating_classes, selected_class_status
+
+    relationship = record(record(bundle.features.get("acceptance")).get(requirement))
+    contract = record(relationship.get("contract"))
+    gauge_ref = op_entry(op, "checks", None, requirement)
+    method = op_entry(op, "inspection_methods", None, requirement)
+    nums = {
+        "requirement": requirement,
+        "identity": {"workpiece": workpiece, "feature_owner": None, "requirement": requirement},
+        "gauge": gauge_ref,
+        "inspection_method": method if method is not None else UNKNOWN,
+        "contract": relationship.get("contract", UNKNOWN),
+        "participants": relationship.get("features", []),
+        "evaluation": "inspection_plan",
+        "part_result": "not_recorded",
+    }
+    errors, debts = [], []
+    clauses = contract.get("accept")
+    if contract.get("kind") != "manual":
+        debts.append("manual acceptance contract is unresolved")
+    if not (
+        isinstance(clauses, list)
+        and clauses
+        and all(
+            isinstance(text, str) and text.strip() and text.strip() != UNKNOWN for text in clauses
+        )
+    ):
+        debts.append("manual acceptance clauses are unresolved")
+    if not _citations(contract.get("cite")):
+        debts.append("manual acceptance source is unresolved")
+    if not procedure_known(method):
+        debts.append("manual inspection method is unresolved")
+    gauge = resolve(bundle, "gauges", gauge_ref)
+    if gauge is None:
+        if gauge_ref in (None, UNKNOWN):
+            debts.append("comparator identity is unresolved")
+        else:
+            errors.append("named comparator is not listed")
+    elif not isinstance(gauge, dict):
+        debts.append("comparator identity is unresolved")
+    else:
+        kind = gauge.get("kind", UNKNOWN)
+        expected = contract.get("gauge_kind", UNKNOWN)
+        nums.update(gauge_kind=kind, required_gauge_kind=expected)
+        if kind == UNKNOWN or expected == UNKNOWN:
+            debts.append("comparator kind is unresolved")
+        elif kind != expected:
+            errors.append("named comparator has the wrong kind")
+        if gauge.get("present") is False:
+            errors.append("named comparator is not present")
+        elif uncertain(gauge):
+            debts.append("named comparator identity or presence needs verification")
+        if expected == "mating_hardware" and kind == expected:
+            for name in relationship.get("features", []):
+                feature = record(bundle.feature_definitions.get(name))
+                if feature.get("kind") not in {"thread", "threaded_hole"}:
+                    continue
+                matched = match(feature.get("thread"), gauge.get("thread"))
+                if matched is False:
+                    errors.append(f"{name}: comparator thread designation differs")
+                elif matched is None:
+                    debts.append(f"{name}: comparator thread designation is unresolved")
+                hands = (feature.get("thread_hand"), gauge.get("thread_hand"))
+                if all(hand in {"right", "left"} for hand in hands):
+                    if hands[0] != hands[1]:
+                        errors.append(f"{name}: comparator thread hand differs")
+                else:
+                    debts.append(f"{name}: comparator thread hand is unresolved")
+                class_status = selected_class_status(
+                    feature, gauge, acceptance=thread_class_acceptance(bundle, name)
+                )
+                if class_status != "not_adopted":
+                    classes = mating_classes(feature.get("thread_class"), gauge.get("thread_class"))
+                    if classes is False:
+                        errors.append(f"{name}: comparator thread class has the wrong mating role")
+                    elif classes is None:
+                        debts.append(f"{name}: comparator thread class is unresolved")
+    if setup is not None:
+        nums.update(setup_id=setup["id"], op_id=op["op"], op=f"{setup['id']}:{op['op']}")
+        if registered_workpieces(bundle):
+            targets = [
+                target
+                for target in op_check_targets(bundle, setup, op)
+                if target["kind"] == "manual" and target["identity"]["requirement"] == requirement
+            ]
+            if workpiece is None or any(
+                target["selection_status"] == UNKNOWN for target in targets
+            ):
+                debts.append("inspection workpiece identity is unresolved")
+            elif not any(target["identity"]["workpiece"] == workpiece for target in targets):
+                errors.append("inspection belongs to a different workpiece")
+    nums.update(errors=errors, unresolved=debts)
+    if errors:
+        return "error", "; ".join(errors), nums
+    if debts:
+        return UNKNOWN, "; ".join(debts), nums
+    return "pass", "declared manual comparator and method cover the acceptance contract", nums
+
+
+def _dimensional_finding(name, workpiece, subject, status, nums, cite, sentence):
+    nums.update(
+        identity={
+            "workpiece": workpiece,
+            "feature_owner": name,
+            "requirement": nums.get("requirement"),
+        },
+        kind="dimensional",
+        shared_check_id=None,
+        covered_workpieces=[],
+        evaluation="inspection_plan",
+        part_result="not_recorded",
+    )
+    return Finding(
+        "inspection",
+        f"{workpiece}/{subject}" if workpiece is not None else subject,
+        status,
+        nums,
+        cite,
+        sentence,
+    )
+
+
+def _target_applies(bundle, setup, target, workpiece):
+    if target["identity"]["workpiece"] == workpiece:
+        return True
+    if target["selection_status"] != UNKNOWN:
+        return False
+    if workpiece is None:
+        return True
+    from prechips.material_routes import MaterialGraph
+
+    return workpiece in (MaterialGraph(bundle.plan).members(setup["id"]) or ())
+
+
+def _selected_target(bundle, setup, op, name, requirement, workpiece):
+    return next(
+        (
+            target
+            for target in op_check_targets(bundle, setup, op)
+            if target["identity"]["feature_owner"] == name
+            and target["identity"]["requirement"] == requirement
+            and target["shared_check_id"] is None
+            and _target_applies(bundle, setup, target, workpiece)
+        ),
+        None,
+    )
+
+
+def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()):
     result = []
     for name, feature in bundle.feature_definitions.items():
         requirements = tolerance_requirements(feature)
@@ -686,15 +891,25 @@ def evaluate(bundle):
             *(source_cite(feature) or ["features requirement manifest"]),
             "inventory gauge range/resolution/verification",
         ]
-        route = operations(bundle, name)
+        route = [
+            (setup, op)
+            for setup, op in operations(bundle, name)
+            if workpiece is None
+            or workpiece in (operation_members(bundle, setup, op) or ())
+            or any(
+                _target_applies(bundle, setup, target, workpiece)
+                for target in op_check_targets(bundle, setup, op)
+            )
+        ]
         missing_checks = False
         for setup, op in route:
             for requirement, gauge in record(op.get("missing_requirements")).items():
                 missing_checks = True
                 method = op_entry(op, "inspection_methods", name, requirement)
                 result.append(
-                    Finding(
-                        "inspection",
+                    _dimensional_finding(
+                        name,
+                        workpiece,
                         f"{name}:{requirement}",
                         "unknown",
                         {
@@ -703,6 +918,8 @@ def evaluate(bundle):
                             "limits": "unknown",
                             "gauge": gauge,
                             "op": f"{setup['id']}:{op['op']}",
+                            "setup_id": setup["id"],
+                            "op_id": op["op"],
                             "inspection_method": UNKNOWN if method is None else method,
                         },
                         cite,
@@ -710,13 +927,20 @@ def evaluate(bundle):
                         "manifest; acceptance limits are unresolved.",
                     )
                 )
+        if requirements and all(
+            (workpiece, name, requirement) in shared_coverage for requirement in requirements
+        ):
+            continue
         if feature["kind"] == "unknown" or any(o["do"] == "unknown" for _, o in route):
             for requirement in requirements or [None]:
+                if (workpiece, name, requirement) in shared_coverage:
+                    continue
                 subject = f"{name}:{requirement}" if requirement else name
                 nominal_error = _nominal_band_error(feature, requirement)
                 result.append(
-                    Finding(
-                        "inspection",
+                    _dimensional_finding(
+                        name,
+                        workpiece,
                         subject,
                         "error" if nominal_error else "unknown",
                         {"requirement": requirement or "unknown", **nominal_error},
@@ -730,8 +954,9 @@ def evaluate(bundle):
             continue
         if not requirements and not missing_checks:
             result.append(
-                Finding(
-                    "inspection",
+                _dimensional_finding(
+                    name,
+                    workpiece,
                     name,
                     "not_applicable",
                     {"requirements": []},
@@ -746,10 +971,13 @@ def evaluate(bundle):
             and o["do"] not in {"spot", "deburr", "coating", "release"}
         ]
         for requirement in requirements:
+            if (workpiece, name, requirement) in shared_coverage:
+                continue
             if requirement == "unknown":
                 result.append(
-                    Finding(
-                        "inspection",
+                    _dimensional_finding(
+                        name,
+                        workpiece,
                         f"{name}:unknown",
                         "unknown",
                         {"requirement": "unknown"},
@@ -762,7 +990,7 @@ def evaluate(bundle):
             checks = [
                 (s, o)
                 for s, o in finishing[cutters[-1] if cutters else 0 :]
-                if op_entry(o, "checks", name, requirement) is not None
+                if _selected_target(bundle, s, o, name, requirement, workpiece) is not None
             ]
             value, profile_band = _limits(bundle, name, requirement, feature)
             nums = {"requirement": requirement, "limits": value, "gauge": "unknown"}
@@ -785,6 +1013,8 @@ def evaluate(bundle):
                     message = "no requirement-keyed inspection check"
             else:
                 setup, op = checks[-1]
+                target = _selected_target(bundle, setup, op, name, requirement, workpiece)
+                nums.update(target)
                 gauge_ref = op_entry(op, "checks", name, requirement)
                 nums.update(gauge=gauge_ref, op=f"{setup['id']}:{op['op']}")
                 pair = go_no_go_pair(op, name, requirement)
@@ -802,6 +1032,8 @@ def evaluate(bundle):
                     tilt,
                     name=name,
                 )
+                if target["selection_status"] == UNKNOWN and status != "error":
+                    status, message = UNKNOWN, "inspection workpiece identity is unresolved"
             # Every other op's GO / NO-GO pair for this requirement also prints the drawing
             # band, so it must accept only that band too.
             final = checks[-1][1] if checks else None
@@ -844,8 +1076,9 @@ def evaluate(bundle):
                 if debts:
                     nums["measurements"] = [debts[key] for key in sorted(debts)]
             result.append(
-                Finding(
-                    "inspection",
+                _dimensional_finding(
+                    name,
+                    workpiece,
                     f"{name}:{requirement}",
                     status,
                     nums,
@@ -853,7 +1086,202 @@ def evaluate(bundle):
                     f"{name} {requirement}: {message}.",
                 )
             )
-    for setup, op in operations(bundle):
+    return result
+
+
+def _shared_finding(bundle, setup, op, target, route):
+    from prechips.material_routes import MaterialGraph
+
+    name = target["identity"]["feature_owner"]
+    requirement = target["identity"]["requirement"]
+    feature = record(bundle.feature_definitions.get(name))
+    status, message, nums = requirement_check(bundle, name, requirement, op, setup=setup)
+    nums.update(target)
+    if feature.get("kind") == UNKNOWN and status != "error":
+        status, message = UNKNOWN, "inspection feature applicability is unresolved"
+    scope = record(op.get("inspection_scope"))
+    positions = {f"{s['id']}:{o['op']}": index for index, (s, o) in enumerate(route)}
+    endpoints = [scope.get(key) for key in ("after", "before")]
+    scope_status, scope_message = "pass", ""
+    if not all(isinstance(value, str) and value != UNKNOWN for value in endpoints):
+        scope_status, scope_message = UNKNOWN, "shared inspection scope is unresolved"
+    elif (
+        any(value not in positions for value in endpoints)
+        or not positions[endpoints[0]] < positions[target["op"]] < positions[endpoints[1]]
+    ):
+        scope_status, scope_message = "error", "shared inspection timing violates its scope"
+    proofs = []
+    if scope_status == "pass":
+        graph = MaterialGraph(bundle.plan)
+        for member in target["covered_workpieces"]:
+            receivers = [
+                current
+                for current in bundle.plan["setups"]
+                if member in (graph.members(current["id"]) or ())
+            ]
+            proof = (
+                inspection_preservation_evidence(
+                    bundle, receivers[-1], op, name, requirement, member
+                )
+                if receivers
+                else {"status": UNKNOWN, "reasons": [], "proof": {}}
+            )
+            proofs.append({"workpiece_id": member, **proof})
+        worst = max(proofs, key=lambda row: _SEVERITY[row["status"]], default=None)
+        if worst is None or worst["status"] != "pass":
+            scope_status = worst["status"] if worst else UNKNOWN
+            scope_message = (
+                "a later operation changes the inspected dimensional region"
+                if scope_status == "error"
+                else "requirement-specific native inspection preservation is unresolved"
+            )
+    nums.update(inspection_scope=op.get("inspection_scope", UNKNOWN), preservation=proofs)
+    if _SEVERITY[scope_status] > _SEVERITY[status]:
+        status, message = scope_status, scope_message
+    others = []
+    for other_setup, other in operations(bundle, name):
+        if other is op or go_no_go_pair(other, name, requirement) is None:
+            continue
+        other_status, other_message, row = requirement_check(
+            bundle, name, requirement, other, setup=other_setup
+        )
+        row.update(
+            op=f"{other_setup['id']}:{other['op']}", status=other_status, message=other_message
+        )
+        others.append(row)
+        if _SEVERITY[other_status] > _SEVERITY[status]:
+            status, message = other_status, f"{row['op']}: {other_message}"
+    if others:
+        nums["other_go_no_go"] = others
+    nominal_error = _nominal_band_error(feature, requirement)
+    if nominal_error:
+        nums.update(nominal_error)
+        status, message = "error", "exported nominal is outside the requirement band"
+    return Finding(
+        "inspection",
+        target["subject"],
+        status,
+        nums,
+        [
+            "PLAN.md §4.1 inspection",
+            *(source_cite(feature) or ["features requirement manifest"]),
+            "native requirement-specific material preservation",
+            "inventory gauge range/resolution/verification",
+        ],
+        f"{name} {requirement}: {message}.",
+    )
+
+
+def _manual_findings(bundle, selected, route, members):
+    from prechips.material_routes import MaterialGraph
+
+    graph = MaterialGraph(bundle.plan) if registered_workpieces(bundle) else None
+    result = []
+    for requirement, relationship in record(bundle.features.get("acceptance")).items():
+        relationship = record(relationship)
+        participants = relationship.get("features", [])
+        contract = relationship.get("contract", UNKNOWN)
+        for member in members:
+            candidates = [
+                (index, setup, op, target)
+                for index, setup, op, target in selected
+                if target["kind"] == "manual"
+                and target["identity"]["requirement"] == requirement
+                and (
+                    target["identity"]["workpiece"] == member
+                    or target["selection_status"] == UNKNOWN
+                    and (graph is None or member in (graph.members(setup["id"]) or ()))
+                )
+            ]
+            last_change = max(
+                (
+                    index
+                    for index, (setup, op) in enumerate(route)
+                    if op.get("do") not in {"inspect", "spot", "release", "scribe"}
+                    and any(name in participants for name in op_features(op))
+                    and (graph is None or member in (graph.members(setup["id"]) or ()))
+                ),
+                default=-1,
+            )
+            subject = f"part:{requirement}"
+            if member is not None:
+                subject = f"{member}/{subject}"
+            nums = {
+                "identity": {
+                    "workpiece": member,
+                    "feature_owner": None,
+                    "requirement": requirement,
+                },
+                "requirement": requirement,
+                "kind": "manual",
+                "contract": contract,
+                "participants": participants,
+                "shared_check_id": None,
+                "covered_workpieces": [],
+                "evaluation": "inspection_plan",
+                "part_result": "not_recorded",
+            }
+            if not candidates:
+                status, message = "error", "no requirement-keyed manual inspection check"
+                if any(op.get("checks") == UNKNOWN for _, op in route):
+                    status, message = UNKNOWN, "inspection checks are explicitly unknown"
+            else:
+                index, setup, op, target = candidates[-1]
+                status, message, capability = requirement_check(
+                    bundle, None, requirement, op, setup=setup, workpiece=member
+                )
+                nums.update(capability)
+                nums.update(target)
+                if index < last_change:
+                    status, message = (
+                        "error",
+                        "manual inspection precedes later work on its participants",
+                    )
+                elif target["selection_status"] == UNKNOWN and status != "error":
+                    status, message = UNKNOWN, "inspection workpiece identity is unresolved"
+            result.append(
+                Finding(
+                    "inspection",
+                    subject,
+                    status,
+                    nums,
+                    [
+                        "PLAN.md §4.1 inspection",
+                        f"features.acceptance.{requirement}",
+                        *_citations(record(contract).get("cite")),
+                        "inventory comparator identity/presence/verification",
+                    ],
+                    f"{requirement}: {message}.",
+                )
+            )
+    return result
+
+
+def evaluate(bundle):
+    route = operations(bundle)
+    selected = [
+        (index, setup, op, target)
+        for index, (setup, op) in enumerate(route)
+        for target in op_check_targets(bundle, setup, op)
+    ]
+    shared_coverage = set()
+    result = []
+    for _, setup, op, target in selected:
+        if target["kind"] != "dimensional" or target["shared_check_id"] is None:
+            continue
+        result.append(_shared_finding(bundle, setup, op, target, route))
+        shared_coverage.update(
+            (member, target["identity"]["feature_owner"], target["identity"]["requirement"])
+            for member in target["covered_workpieces"]
+        )
+    registered = bundle.plan.get("workpieces")
+    members = tuple(registered) if isinstance(registered, dict) and registered else (None,)
+    for member in members:
+        result.extend(
+            _dimensional_findings(bundle, workpiece=member, shared_coverage=shared_coverage)
+        )
+    result.extend(_manual_findings(bundle, selected, route, members))
+    for setup, op in route:
         if "process_holds" in op:
             result.append(process_holds(bundle, setup, op))
     return result

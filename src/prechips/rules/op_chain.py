@@ -10,7 +10,7 @@ from ..findings import Finding
 from ..material_routes import setup_lineage
 from ..measurements import angle_fact, length_debt
 from ..process_features import process_of
-from ..thread_specs import match
+from ..thread_specs import match, selected_class_status
 from .resolution import (
     TAP_OPS,
     UNKNOWN,
@@ -25,6 +25,7 @@ from .resolution import (
     same_length,
     select,
     setup_frame,
+    thread_class_acceptance,
     uncertain,
 )
 
@@ -524,14 +525,10 @@ def evaluate(bundle):
                 hand, actual_hand = feature.get("thread_hand"), tap.get("thread_hand")
                 required_class = feature.get("thread_class", UNKNOWN)
                 selected_class = tap.get("thread_class", UNKNOWN)
-                class_match = (
-                    required_class.strip().casefold() == selected_class.strip().casefold()
-                    if isinstance(required_class, str)
-                    and isinstance(selected_class, str)
-                    and required_class.strip().casefold() not in {"", UNKNOWN}
-                    and selected_class.strip().casefold() not in {"", UNKNOWN}
-                    else None
+                class_status = selected_class_status(
+                    feature, tap, acceptance=thread_class_acceptance(bundle, name)
                 )
+                class_match = {"match": True, "mismatch": False}.get(class_status)
                 tap_checks.append(
                     {
                         "operation": _label(setup, op),
@@ -545,6 +542,8 @@ def evaluate(bundle):
                         "class_match": class_match,
                     }
                 )
+                if class_status == "not_adopted":
+                    tap_checks[-1]["class_adoption"] = "not_adopted"
                 if designation is False:
                     errors.append("selected tap thread differs from feature thread designation")
                 elif designation is None:
@@ -556,7 +555,7 @@ def evaluate(bundle):
                     unknown.append("feature or selected tap thread hand is unresolved")
                 if class_match is False:
                     errors.append("selected tap class differs from feature thread class")
-                elif class_match is None:
+                elif class_status == UNKNOWN:
                     unknown.append("feature or selected tap thread class is unresolved")
                 if not tap or uncertain(tap):
                     unknown.append("the selected tap identity is unresolved or unconfirmed")

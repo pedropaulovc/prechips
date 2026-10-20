@@ -163,6 +163,53 @@ def test_complete_host_recipe_is_deterministic_and_uses_existing_fixture_primiti
     assert kernel._engine_op(op)["mounted_saw"] == op["mounted_saw"]
 
 
+@pytest.mark.parametrize("diameter", [12.69, 12.7, 12.71])
+def test_bore_sized_components_at_body_faces_are_not_flanges(tmp_path, diameter):
+    data = saw_bundle(tmp_path)
+    components = data.inventory["holders"]["arbor"]["mounted_saw_arbor"]["components"]
+    components.extend(
+        [
+            cylinder("pilot", 12.69, -21.525, -18.475),
+            cylinder("bore_sized_stem", diameter, -18.475, 40),
+        ]
+    )
+    recipe = inputs(data)
+    assert recipe["status"] == "pass"
+    assert recipe["assembly_reasons"] == {}
+    assert recipe["assembly_errors"] == {}
+    assert {component["id"] for component in recipe["arbor"]["components"]} >= {
+        "pilot",
+        "bore_sized_stem",
+    }
+
+
+@pytest.mark.parametrize("side", ["lower", "upper"])
+def test_bore_sized_component_cannot_supply_missing_flange_contact(tmp_path, side):
+    data = saw_bundle(tmp_path)
+    components = data.inventory["holders"]["arbor"]["mounted_saw_arbor"]["components"]
+    flange = next(component for component in components if component["id"] == f"{side}_flange")
+    flange["dia_mm"] = measured(12.7)
+    recipe = inputs(data)
+    assert recipe["status"] == "unknown"
+    assert (
+        "arbor flange contact with both flat blade-body sides is not established"
+        in recipe["assembly_reasons"].values()
+    )
+
+
+@pytest.mark.parametrize("diameter", [90, 91])
+def test_body_face_flange_still_must_remain_inside_tooth_root(tmp_path, diameter):
+    data = saw_bundle(tmp_path)
+    components = data.inventory["holders"]["arbor"]["mounted_saw_arbor"]["components"]
+    components[0]["dia_mm"] = measured(diameter)
+    recipe = inputs(data)
+    assert recipe["status"] == "error"
+    assert (
+        "arbor flange must overlap the flat body annulus inside the tooth root"
+        in recipe["assembly_errors"].values()
+    )
+
+
 def test_signed_offset_and_component_bounds_convert_without_positive_length_clamping(tmp_path):
     data = saw_bundle(tmp_path)
     blade = data.inventory["tools"]["saw"]

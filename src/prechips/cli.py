@@ -17,7 +17,7 @@ from pathlib import Path
 from prechips import __version__, telemetry
 from prechips.findings import Finding, exit_code
 from prechips.inputs import BadInput, Bundle, load_bundle, load_inventory
-from prechips.model import profiled
+from prechips.model import TRAVELER_DETAILS, profiled
 from prechips.report import (
     build_report,
     canonical_bytes,
@@ -57,6 +57,13 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument("plan", type=Path)
         _common(command)
         command.add_argument("--approval", type=Path)
+        if verb == "traveler":
+            command.add_argument(
+                "--detail",
+                choices=TRAVELER_DETAILS,
+                default="hobby",
+                help="Printed instruction detail (default: hobby); checks stay unchanged.",
+            )
     tools = verbs.add_parser("tools")
     tools.add_argument("query", nargs="?", default="")
     tools.add_argument("--inventory")
@@ -765,7 +772,7 @@ def _run(args, tracing: telemetry.Telemetry) -> int:
     if args.verb == "traveler":
         from prechips.sheet import render_traveler
 
-        html = render_traveler(bundles[0], findings[0], report, approval)
+        html = render_traveler(bundles[0], findings[0], report, approval, detail=args.detail)
     outputs = {destinations[0]: canonical_bytes(report)}
     if html is not None:
         outputs[destinations[1]] = html.encode("utf-8")

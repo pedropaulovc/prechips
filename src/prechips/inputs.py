@@ -235,18 +235,45 @@ def _prepared_blank(plan: dict, ids: list[str]) -> None:
         )
 
 
-def _inspection_tables(where: str, op: dict, names: list[str], definitions: dict) -> None:
+def _inspection_tables(
+    where: str, op: dict, names: list[str], definitions: dict, acceptance: dict | None = None
+) -> None:
     """An op's ``checks``, ``go_no_go`` and ``inspection_methods``: requirement-keyed, or on
     a multi-feature inspect op scoped to one listed feature (``{ <feature> = { <requirement>
     = ... } }``). A scoped requirement is one its feature exports, a requirement is flat or
     scoped in one table, never both, and a GO / NO-GO pair or scoped method has a checks gauge
-    for every feature it applies to."""
+    for every feature it applies to. Typed part relationships are flat, never cloned under
+    their participating features."""
     from prechips.rules.resolution import INSPECTION_TABLES, op_entries, op_entry
 
     exported = {name: set(_exported(definitions[name])) for name in names}
     every = set().union(*exported.values())
+    relationships = acceptance or {}
     for table in INSPECTION_TABLES:
         for key, value in (op.get(table) if isinstance(op.get(table), dict) else {}).items():
+            if key in relationships:
+                if op.get("do") != "inspect":
+                    raise BadInput(
+                        f"{where}: manual acceptance checks belong to inspect operations."
+                    )
+                targets = op.get("inspect_workpieces")
+                if isinstance(targets, list) and len(targets) > 1:
+                    raise BadInput(
+                        f"{where} {table}.{key}: manual acceptance requires one workpiece, "
+                        "not a shared inspection."
+                    )
+                participants = set(relationships[key]["features"])
+                if not participants <= set(names):
+                    raise BadInput(
+                        f"{where} {table}.{key}: the op must list every acceptance participant "
+                        f"({', '.join(sorted(participants))})."
+                    )
+                if table == "go_no_go" or isinstance(value, dict):
+                    raise BadInput(
+                        f"{where} {table}.{key}: a manual acceptance relationship is a flat "
+                        "checks or inspection_methods entry, "
+                        "not a feature scope or GO / NO-GO pair."
+                    )
             # A table of entries, never a flat value (a GO / NO-GO pair is a table too).
             scoping = isinstance(value, dict) and not (
                 table == "go_no_go" and {"go", "no_go"} & set(value)
@@ -276,7 +303,12 @@ def _inspection_tables(where: str, op: dict, names: list[str], definitions: dict
         entries = op_entries(op, table)
         flat = {requirement for scope, requirement, _ in entries if scope is None}
         for scope, requirement, _ in entries:
-            if scope is None and table == "checks" and requirement not in every:
+            if (
+                scope is None
+                and table == "checks"
+                and requirement not in every
+                and requirement not in relationships
+            ):
                 raise BadInput(
                     f"{where} checks.{requirement} is not in the exported requirements; use "
                     "missing_requirements for an absent requirement."
@@ -307,6 +339,104 @@ def _inspection_tables(where: str, op: dict, names: list[str], definitions: dict
                     f"{where} go_no_go.{requirement} names no checks gauge; a GO / NO-GO pair "
                     "needs its checks entry."
                 )
+
+
+def _inspection_scopes(plan: dict, features: dict) -> None:
+    """Bind declared shared inspection boundaries; native code proves later preservation."""
+    from prechips.material_routes import MaterialGraph, setup_lineage
+    from prechips.rules.resolution import op_features
+
+    selected = [
+        (setup, op)
+        for setup in plan["setups"]
+        for op in setup["ops"]
+        if {"inspect_workpieces", "inspection_scope"} & op.keys()
+    ]
+    if not selected:
+        return
+    graph = MaterialGraph(plan)
+    registered = graph.registrations
+    operations = {
+        f"{setup['id']}:{op['op']}": (position, setup, op)
+        for position, (setup, op) in enumerate(
+            (setup, op) for setup in plan["setups"] for op in setup["ops"]
+        )
+    }
+
+    def material(setup: dict) -> tuple:
+        return tuple((atom.root, atom.path) for atom in graph.nodes[setup["id"]])
+
+    def partition_before(position: int, sid: str) -> bool:
+        return any(
+            index < position
+            and entry_setup["id"] == sid
+            and isinstance(entry_op.get("outputs"), dict)
+            for index, entry_setup, entry_op in operations.values()
+        )
+
+    for setup, op in selected:
+        subject = f"{setup['id']}:{op['op']}"
+        targets = op.get("inspect_workpieces", "unknown")
+        scope = op.get("inspection_scope", "unknown")
+        if isinstance(targets, list):
+            if registered is None or not set(targets) <= registered.keys():
+                raise BadInput(f"{subject}: inspect_workpieces must name registered workpieces.")
+            live = graph.members(setup["id"])
+            if live is not None and not set(targets) <= live:
+                raise BadInput(f"{subject}: inspect_workpieces must name live incoming workpieces.")
+            if len(targets) > 1 and (
+                "inspection_scope" not in op
+                or isinstance(scope, dict)
+                and not {"after", "before"} <= scope.keys()
+            ):
+                raise BadInput(f"{subject}: a shared inspection requires a complete scope.")
+            if "inspection_scope" in op and live is not None and set(targets) != live:
+                raise BadInput(
+                    f"{subject}: scoped inspect_workpieces must include "
+                    "complete descendant membership."
+                )
+        if any(name not in features["features"] for name in op_features(op)):
+            raise BadInput(f"{subject}: scoped inspection must check registered finished features.")
+        if not isinstance(scope, dict):
+            continue
+        position = operations[subject][0]
+        incoming = material(setup)
+        for name in ("after", "before"):
+            reference = scope.get(name, "unknown")
+            if reference == "unknown":
+                continue
+            if reference not in operations:
+                raise BadInput(
+                    f"{subject}: inspection_scope.{name} names no operation: {reference!r}."
+                )
+            boundary_position, boundary_setup, boundary_op = operations[reference]
+            if not (
+                boundary_position < position if name == "after" else position < boundary_position
+            ):
+                raise BadInput(
+                    f"{subject}: inspection scope order must be after < inspect < before."
+                )
+            upstream, downstream = (
+                (boundary_setup, setup) if name == "after" else (setup, boundary_setup)
+            )
+            if (
+                len(incoming) != 1
+                or material(boundary_setup) != incoming
+                or upstream["id"] not in setup_lineage(plan, downstream["id"])
+                or name == "after"
+                and isinstance(boundary_op.get("outputs"), dict)
+                or partition_before(boundary_position, boundary_setup["id"])
+            ):
+                raise BadInput(
+                    f"{subject}: inspection scope boundaries must share the same incoming "
+                    "material lineage."
+                )
+        # A setup descriptor is its incoming state. An earlier split in that setup
+        # cannot be hidden by comparing the descriptor to itself.
+        if partition_before(position, setup["id"]):
+            raise BadInput(
+                f"{subject}: inspection follows a partition without a receiving material."
+            )
 
 
 _AREA_FORM = 'hold.area = { ref = "<consumables adhesive_tape id>", on = "<fixture solid>" }'
@@ -569,8 +699,13 @@ def load_bundle(
                         + (f" (remove {', '.join(authored)})." if authored else ".")
                     )
             label = "/".join(names)
-            exported = {item for name in names for item in _exported(definitions[name])}
-            _inspection_tables(f"{setup['id']}:{op['op']}: {label}", op, names, definitions)
+            acceptance = features.get("acceptance", {})
+            exported = {
+                item for name in names for item in _exported(definitions[name])
+            } | acceptance.keys()
+            _inspection_tables(
+                f"{setup['id']}:{op['op']}: {label}", op, names, definitions, acceptance
+            )
             missing = op.get("missing_requirements")
             if isinstance(missing, dict):
                 for requirement in missing:
@@ -605,6 +740,7 @@ def load_bundle(
                 f"{setup['id']}: frame {frame!r} is neither exported in the manifest "
                 "nor declared in plan.frames."
             )
+    _inspection_scopes(plan, features)
     exported_frames = features["frames"] if isinstance(features["frames"], dict) else {}
     shadowed = sorted(set(planned_frames) & set(exported_frames))
     if shadowed:

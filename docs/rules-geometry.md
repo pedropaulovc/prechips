@@ -2253,6 +2253,8 @@ crop must contain the finished material in the box. Every Boolean in the
 construction must be valid; one that meets nothing is empty, but faces
 without a solid are debt, never taken as empty. Only arc joins qualify, and
 each consumer subtracts only inside its own box.
+Failed local arc offsets report the window bounds and original failure as
+offset debt; the diagnostic does not supply a replacement guard or prove clearance.
 
 The lineage band of a lower-leave op needs no whole-part offset by the carried
 leave. Its candidates are the carried-leave skin of the claimed faces: each face

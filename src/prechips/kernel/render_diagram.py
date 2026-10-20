@@ -1526,7 +1526,15 @@ class _Diagram:
         self._footer()
         self.canvas.assert_text_layout(min_scale=_BODY_SCALE)
         self.print_panels = [
-            {"top_px": 0, "height_px": self.canvas.height, "role": "setup", "label": self._title()}
+            {
+                "top_px": 0,
+                "height_px": self.canvas.height,
+                "role": "setup",
+                "label": self._title(),
+                "id": "setup",
+                "selection_group": "setup",
+                "annotations": ["closest_cut"] if self.keyed_cut else [],
+            }
         ]
         self.annotation_details = []
         return self.canvas.png()
@@ -3123,8 +3131,8 @@ def _footer_details(diagram):
     return details
 
 
-def _append_panel(diagram, detail, role, label):
-    """Append a complete independently laid-out canvas; metadata uses its actual extent."""
+def _append_panel(diagram, detail, role, label, *, selection_group=None):
+    """Append a complete canvas with a unique physical ID and its selectable owner."""
     canvas, source = diagram.canvas, detail.canvas
     if any(
         getattr(detail, name, 0) > 0
@@ -3145,8 +3153,20 @@ def _append_panel(diagram, detail, role, label):
         (diagram.hidden_leaders, detail.hidden_leaders),
     ):
         target.extend((text, [(x, y + top) for x, y in path]) for text, path in leaders)
+    occurrence = 1 + sum(
+        panel["role"] == role and panel["id"] != "setup" for panel in diagram.print_panels
+    )
+    panel_id = f"{role}:{occurrence}"
     diagram.print_panels.append(
-        {"top_px": top, "height_px": source.height, "role": role, "label": label}
+        {
+            "top_px": top,
+            "height_px": source.height,
+            "role": role,
+            "label": label,
+            "id": panel_id,
+            "selection_group": selection_group if selection_group is not None else panel_id,
+            "annotations": ["closest_cut"] if getattr(detail, "keyed_cut", False) else [],
+        }
     )
 
 
@@ -3275,6 +3295,13 @@ def render_diagram(meshes, spec):
     Bands cover the final PNG exactly once; no picture, leader or local key is cropped
     away to meet the print height. Debts also appear in the picture's own notes.
 
+    Each band has a unique physical ``id``: ``setup`` for the main stage, then
+    ``<role>:<occurrence>`` for appended bands, numbered within each role. The main
+    stage and its consecutive setup-footer continuations share ``selection_group``
+    ``setup``; all other bands own their ID as their group. ``annotations`` contains
+    ``closest_cut`` only on bands that actually keyed it. These describe the complete
+    canonical asset, independently of any traveler's audience or picture selection.
+
     ``meshes`` contain numeric setup-frame XYZ triples, triangle index triples,
     RGB, optionally a removal-hatch flag and the tag of the solid each draws. ``spec``
     is the kernel's plain JSON diagram record; optional ``lathe_profiles`` contain
@@ -3329,7 +3356,7 @@ def _compose_diagram(diagram, holding_details):
     diagram.holding_details = [d for d in holding_details if not isinstance(d, _GuideView)]
     diagram.guide_details = [d for d in holding_details if isinstance(d, _GuideView)]
     for detail in diagram.footer_details:
-        _append_panel(diagram, detail, detail.role, detail._title())
+        _append_panel(diagram, detail, detail.role, detail._title(), selection_group="setup")
     for detail in diagram.annotation_details:
         _append_panel(diagram, detail, detail.role, detail._title())
     for detail in diagram.holding_details:
@@ -4170,6 +4197,9 @@ def render_inspection(views):
             "role": "inspection",
             "label": diagram._title(),
             "view_ordinal": 1,
+            "id": "inspection:1",
+            "selection_group": "inspection:1",
+            "annotations": [],
         }
     ]
     for ordinal, band in enumerate(bands[1:], 2):

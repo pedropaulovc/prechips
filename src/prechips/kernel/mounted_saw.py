@@ -2,6 +2,7 @@
 
 Fixture primitives and poses deliberately use the ordinary host transport. A disk's
 projection is its body midplane to the selected holder's gauge plane, never OAL minus grip.
+Explicitly posed fixture supports can supply the same named calibration faces as clamps.
 """
 
 from __future__ import annotations
@@ -305,6 +306,19 @@ def _zero(host, bundle, setup, op, capture):
                                 reasons,
                             )
                         )
+                supports = hold.get("supports")
+                for support in supports if isinstance(supports, list) else []:
+                    support = record(support)
+                    ref = support.get("ref")
+                    if (
+                        support.get("placement") == "posed"
+                        and ref not in (None, UNKNOWN)
+                        and identity(bundle, ref, "fixtures")
+                        == identity(bundle, reference, "fixtures")
+                    ):
+                        placements.append(
+                            _placed(host, bundle, ref, support.get("pose"), "calibration", reasons)
+                        )
                 fixtures = [
                     p
                     for p in placements
@@ -544,10 +558,12 @@ def prepare(bundle, setup, op):
         and raw_components
     ):
         lo, hi = -p_raw - body / 2, -p_raw + body / 2
+        # A pilot or stem ending at a body face is not contact with its flat annulus.
         flanges = [
             c
             for c in raw_components
             if all(number(c[key]) for key in ("dia", "z_min", "z_max"))
+            and c["dia"] > bore[1]
             and (abs(c["z_min"] - hi) <= 1e-7 or abs(c["z_max"] - lo) <= 1e-7)
         ]
         lower = [c for c in flanges if abs(c["z_max"] - lo) <= 1e-7]

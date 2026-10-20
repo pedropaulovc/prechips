@@ -137,6 +137,41 @@ def test_note_only_handling_requires_no_fixture_cutting_or_axis_declarations(kin
     assert row.numbers["hold"]["note"] == NOTE
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_segmented_handling_uses_full_note_and_preserves_authored_evidence(detail):
+    from prechips.model import note_text
+
+    data = handling_bundle()
+    note = [
+        {
+            "text": "Support the part on the clean felt pad; turn it by hand for inspection. "
+            "Stop the spindle before handling.",
+            "detail": "pedantic",
+        },
+    ]
+    setup_of(data)["hold"]["note"] = note
+    rendered = note_text(note, detail=detail)
+    row = finding(data)
+    assert row.status == "pass"
+    assert row.numbers["missing"] == []
+    assert row.numbers["hold"]["note"] == note
+    assert setup_of(data)["hold"]["note"] is note
+    assert bool(rendered) is (detail == "pedantic")
+
+
+@pytest.mark.parametrize("text", ["none", "not_applicable", " \t\n"])
+def test_segmented_note_cannot_bypass_missing_handling(text):
+    data = handling_bundle()
+    setup_of(data)["hold"]["note"] = [{"text": text, "detail": "pedantic"}]
+    if text.strip():
+        row = finding(data)
+        assert row.status == "error"
+        assert row.numbers["missing"] == ["hold.note"]
+    else:
+        with pytest.raises(ValueError, match="known and non-empty"):
+            finding(data)
+
+
 @pytest.mark.parametrize(
     "note,status",
     [

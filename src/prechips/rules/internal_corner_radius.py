@@ -2,7 +2,7 @@
 
 from prechips.findings import Finding
 from prechips.rules.geometry_common import fact_reason, op_contexts, with_measurement_debts
-from prechips.rules.resolution import UNKNOWN, _citations, number, record, same_length
+from prechips.rules.resolution import HAND_THREAD, UNKNOWN, _citations, number, record, same_length
 
 # STEP exports round radii to 5–6 significant digits; below this a corner is CAD-sharp.
 CAD_SHARP_MM = 0.005
@@ -34,6 +34,19 @@ def evaluate(bundle):
     for setup, op, _, detail, inputs, cite, blocked in op_contexts(
         bundle, "internal_corner_radius", stock=False
     ):
+        if op.get("do") in HAND_THREAD:
+            subject = f"{setup['id']}:{op['op']}"
+            rows.append(
+                Finding(
+                    "internal_corner_radius",
+                    subject,
+                    "not_applicable",
+                    {"action": op["do"]},
+                    cite,
+                    f"{subject}: a rotary cutter-corner check does not evaluate hand threading.",
+                )
+            )
+            continue
         if blocked:
             rows.append(blocked)
             continue

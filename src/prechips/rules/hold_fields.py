@@ -13,7 +13,7 @@ import math
 
 from prechips.findings import Finding
 from prechips.material_routes import setup_lineage
-from prechips.model import HAND_FEEDING
+from prechips.model import HAND_FEEDING, note_text
 from prechips.rules._bench import BENCH_KINDS, manual_bench, unfixtured_handling
 from prechips.rules.level_entry import stock_box
 from prechips.rules.resolution import (
@@ -462,9 +462,7 @@ def evaluate(bundle):
             "hold.clamp": hold.get("clamp"),
         }
         if handling:
-            note = hold.get("note")
-            if isinstance(note, str):
-                note = note.strip()
+            note = note_text(hold.get("note")).strip()
             required = {"hold.note": None if note in ("none", "not_applicable") else note}
         if scope != "fixture":
             # A stated hand-fed kind whose saw is unresolved owes that scope, not the kind.

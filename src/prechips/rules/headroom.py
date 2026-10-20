@@ -15,6 +15,10 @@ Hand-saw-only setups have no spindle stack. Mounted disks require complete nativ
 assembly and spindle-nose bounds, translated from setup Z using the same supported
 stock/fixture stack as envelope; no axial insertion allowance is invented for them.
 
+Explicitly posed auxiliary supports are native obstacles, not underpart stack
+layers. Legacy support references still contribute their declared heights;
+malformed placements and unresolved legacy heights never become zero.
+
 A lathe setup's envelope is its swing and length: the stock and chuck body
 diameters against swing over the bed, the stock against swing over the cross
 slide (the carriage passes under the whole turned length), and the stick-out
@@ -31,8 +35,11 @@ spindle stack or travel.
 
 from fractions import Fraction
 
+from pydantic import ValidationError
+
 from prechips.findings import Finding
 from prechips.measurements import length_debt, length_fact, measurement_entry
+from prechips.model import PlacedSupport, Reference
 from prechips.rules._bench import manual_bench, not_applicable
 from prechips.rules._envelope import _band, entry_stock, fixture_height, stock_extents
 from prechips.rules.coordinates import printed_xy
@@ -43,6 +50,7 @@ from prechips.rules.resolution import (
     SAW_OPS,
     SLITTING_SAW_MODEL_REASON,
     UNRESOLVED_SAW_MODEL_REASON,
+    identity,
     length_mm,
     projection_holder,
     resolve,
@@ -81,6 +89,93 @@ def _height(item, orientation=None):
         if selected in item.get("size_in", []):
             return selected * 25.4
     return _UNKNOWN
+
+
+def _support_stack(bundle, hold, consumed):
+    """Legacy bearing heights only; posed auxiliary clearance belongs to native."""
+    declared = hold.get("supports", hold.get("riser"))
+    values = declared if isinstance(declared, list) else [declared]
+    heights, unverified, legacy = [], False, 0
+    seen = set()
+    for value in values:
+        if isinstance(value, dict) and "placement" in value:
+            try:
+                placed = PlacedSupport.model_validate(value)
+            except ValidationError:
+                heights.append(_UNKNOWN)
+                continue
+            if placed.id in seen:
+                heights.append(_UNKNOWN)
+                continue
+            seen.add(placed.id)
+            # Source geometry and placement remain in the native obstacle proof.
+            # An unresolved inventory source is not a known auxiliary.
+            if placed.ref is not None:
+                item = resolve(bundle, "fixtures", placed.ref)
+                if not item or item.get("kind") == _UNKNOWN:
+                    heights.append(_UNKNOWN)
+                unverified |= uncertain(item)
+            continue
+        legacy += 1
+        if isinstance(value, dict):
+            try:
+                Reference.model_validate(value)
+            except ValidationError:
+                heights.append(_UNKNOWN)
+                continue
+        elif isinstance(declared, list) and not isinstance(value, str):
+            heights.append(_UNKNOWN)
+            continue
+        reference = value.get("ref", _UNKNOWN) if isinstance(value, dict) else value
+        if isinstance(value, dict) and (
+            not isinstance(reference, str)
+            or reference in ("", "none", "not_applicable")
+            or any(key in value for key in ("jaw_side", "jaw_lead_mm", "at_z_mm", "engage_at_z_mm"))
+        ):
+            # A rest/jaw role is not a declared bearing layer, nor an absent item.
+            heights.append(_UNKNOWN)
+            continue
+        if reference in (None, "none", "not_applicable"):
+            legacy -= 1
+            continue
+        item = resolve(bundle, "fixtures", reference) or {}
+        orientation = (
+            value.get("orientation", hold.get("support_orientation"))
+            if isinstance(value, dict)
+            else hold.get("support_orientation")
+        )
+        height = _height(item, orientation)
+        heights.append(height)
+        unverified |= uncertain(item)
+        if item and not _numeric(height):
+            _length(bundle, item, "height", "fixtures", reference, consumed)
+    # Multiple listed supports do not declare serial bearing layers: they may
+    # stand side by side. Only an explicit riser selects a primary bearing item.
+    riser_ref = hold.get("riser")
+    if riser_ref not in (None, "none", "not_applicable"):
+        height, debt = _support_stack(
+            bundle,
+            {"supports": riser_ref, "support_orientation": hold.get("support_orientation")},
+            consumed,
+        )
+        # Valid posed auxiliaries add no layer. Other listed legacy declarations
+        # retain their debt rather than silently overriding the selected riser.
+        riser_identity = identity(bundle, riser_ref, "fixtures")
+        other = [
+            value
+            for value in values
+            if not (isinstance(value, dict) and value.get("placement") == "posed")
+            and (value.get("ref") if isinstance(value, dict) else value)
+            not in (None, "none", "not_applicable")
+            and identity(bundle, value.get("ref") if isinstance(value, dict) else value, "fixtures")
+            != riser_identity
+        ]
+        if other or any(not _numeric(value) for value in heights):
+            return _UNKNOWN, unverified or debt
+        return height, unverified or debt
+    if legacy > 1:
+        return _UNKNOWN, unverified
+    return _sum(*heights), unverified
 
 
 def _mapping(value):
@@ -270,17 +365,9 @@ def evaluate(bundle):
         parallel_height = (
             0 if parallels_ref in (None, "none", "not_applicable") else _height(parallels)
         )
-        support_ref = hold.get("supports", hold.get("riser"))
-        support = resolve(bundle, "fixtures", support_ref) or {}
-        support_height = (
-            0
-            if support_ref in (None, "none", "not_applicable")
-            else _height(support, hold.get("support_orientation"))
-        )
+        support_height, support_unverified = _support_stack(bundle, hold, consumed)
         if parallels and not _numeric(parallel_height):
             _length(bundle, parallels, "height", "fixtures", parallels_ref, consumed)
-        if support and not _numeric(support_height):
-            _length(bundle, support, "height", "fixtures", support_ref, consumed)
         # The legacy riser declaration selects a 1-in block; without an explicit
         # orientation preserve the unknown rather than inventing a stack height.
         bottom = state.get("retained_rail_bottom_z", state.get("bottom_z", _UNKNOWN))
@@ -344,7 +431,8 @@ def evaluate(bundle):
         unknown = (
             not fixture
             or not machine
-            or any(uncertain(item) for item in (fixture, parallels, support) if item)
+            or any(uncertain(item) for item in (fixture, parallels) if item)
+            or support_unverified
         )
         unknown |= not _numeric(work_top if head else stock_height) or (
             fixture.get("kind") == "vise" and not _numeric(jaw)
@@ -435,9 +523,11 @@ def evaluate(bundle):
                 if _numeric(spindle["value"]) and _numeric(stack)
                 else _UNKNOWN
             )
-            verified = not any(
-                uncertain(item) for item in (fixture, parallels, support, tool, holder) if item
-            ) and bool(tool and holder and fixture)
+            verified = (
+                not support_unverified
+                and not any(uncertain(item) for item in (fixture, parallels, tool, holder) if item)
+                and bool(tool and holder and fixture)
+            )
             numbers["stacks"].append(
                 {
                     "op": op["op"],

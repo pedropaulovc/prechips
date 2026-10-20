@@ -1,13 +1,65 @@
-# Offline source-only cutting data. The source identifies 1018 and an HSS TiCN
-# squaring cutter, but supplies no reliable complete diameter/speed/feed selection.
-# Spoken cut increments and the 0.477-in cutter-center position are demonstrations,
-# not a transferable cutting-data table. No handbook/catalog values are imported.
-# Every machining operation therefore retains starting-speed/feed/depth debt.
-revision = 1
-cut = "unknown"
-material = "unknown"
-deep_hole = "unknown"
-plunge = "unknown"
+# EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT
+# Author-selected1018 at120 HB, not a measured hardness or video-derived setting.
+# Controlling numeric bindings are the fixed Handbook/catalogue sources cited per row.
+# No dormant Kc/E/force, plunge or deep-hole factors: this route does not consume them.
+# Milling feeds are derived from selected operation rpm × flutes × chip load;
+# operation feeds must not override these rows. Manual tapping has no powered row.
+revision = 2
 
 [aliases]
-"1018 steel" = "1018 steel"
+"1018 steel" = "1018/HB120"
+"1018" = "1018/HB120"
+"1018/HB120" = "1018/HB120"
+
+[[cut]]
+material_class = "1018/HB120"
+tool_material = "HSS"
+operation = "face"
+diameter_range = [19.05, 19.177]
+sfm = 110
+chip_load_mm_per_tooth = 0.0762
+cite = ["C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; author adopts120 HB as example selection", "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:3/4 in HSS .003 in/tooth; selected500 rpm gives98.175 sfm and152.4 mm/min"]
+
+[[cut]]
+material_class = "1018/HB120"
+tool_material = "HSS"
+operation = "profile"
+diameter_range = [12.7, 12.827]
+sfm = 110
+chip_load_mm_per_tooth = 0.0254
+cite = ["C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1366.md, Table11, printed1045: HSS1018 at100–125 HB,110 sfm; example120 HB selection", "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1375.md, Table15a, printed1054:1/2 in HSS .001 in/tooth at cited .250 in DOC; selected750 rpm gives98.175 sfm and76.2 mm/min"]
+
+[[cut]]
+material_class = "1018/HB120"
+tool_material = "HSS"
+operation = "spot"
+diameter_range = [2.75, 2.80]
+sfm = 100
+chip_load_mm_per_tooth = 0.0127
+cite = "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm; under1/8 in .001–.003 in/rev. Author selects .001 in/rev divided by2 flutes=.0005 in/tooth;1200 rpm yields30.48 mm/min; example selection, not shop observation."
+
+[[cut]]
+material_class = "1018/HB120"
+tool_material = "HSS"
+operation = "drill"
+diameter_range = [7.9375, 7.95]
+sfm = 100
+chip_load_mm_per_tooth = 0.0762
+cite = "C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/pages/1381.md and1382.md, printed1060/1061: HSS1018 drilling100 sfm;1/4–1/2 in .004–.010 in/rev. Author selects .006 in/rev divided by2 flutes=.003 in/tooth;1200 rpm yields182.88 mm/min; example selection, not video evidence."
+
+[[cut]]
+material_class = "1018/HB120"
+tool_material = "HSS"
+operation = "slitting_saw"
+diameter_range = [50.8, 50.8]
+sfm = 80
+chip_load_mm_per_tooth = 0.01016
+cite = "https://www.maritool.com/product_info.php?products_id=25574 —301-2.0-.50-.125-36T, HSS,80–100 sfm/.0004–.0018 in/tooth, flood/high-pressure coolant. Author selects80 sfm and .0004 in/tooth;160 rpm×36T yields58.5216 mm/min. Example tool/route selection, not video identification."
+
+[[cut]]
+material_class = "1018/HB120"
+tool_material = "HSS"
+operation = "saw_cut"
+sfm = 300
+feed_mm_min = 25.4
+cite = "Author-selected illustrative non-spindle14 TPI bandsaw setting,300 sfm within adopted100–350 sfm bench capability and25.4 mm/min descent. Example value (realistic, not a shop measurement), not an unconditional transplant of coolant/section-dependent Handbook bandsaw tables."

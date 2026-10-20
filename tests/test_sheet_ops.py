@@ -25,6 +25,7 @@ ROCKER = Path(__file__).resolve().parents[1] / "examples/rocker-arm/plan.toml"
 
 def bare(precision):
     sheet = _Traveler.__new__(_Traveler)
+    sheet.detail = "pedantic"
     sheet.precision = lambda feature, dimension: precision
     return sheet
 
@@ -153,14 +154,10 @@ def test_blank_line_paragraphs_print_as_numbered_steps():
     assert sheet.steps("One paragraph.") == "One paragraph."
 
 
-def shop(records, kind="mill"):
-    """A bare sheet over ``records`` printing millimetres at three decimals, with no kernel
-    result."""
-    sheet = bare(3)
-    sheet.records = records
-    sheet.report = {}
-    sheet.bundle = Bundle(
-        features={"units": "mm"},
+def shop(records, kind="mill", *, detail="pedantic"):
+    """A real sheet over synthetic rule records, with no native-kernel result."""
+    bundle = Bundle(
+        features={"units": "mm", "features": {}},
         inventory={},
         plan={"dro": {"kind": "digital", "units": "mm"}, "setups": []},
         policy={},
@@ -169,8 +166,9 @@ def shop(records, kind="mill"):
         hashes={},
         root=Path("."),
     )
-    sheet.findings = []
-    sheet.plan = sheet.bundle.plan
+    sheet = _Traveler(bundle, [], {}, None, detail=detail)
+    sheet.precision = lambda feature, dimension: 3
+    sheet.records = records
     sheet.units = "mm"
     sheet.bench = lambda text, setup=None: text
     sheet.machine = lambda setup: {"kind": kind}
@@ -1135,6 +1133,21 @@ def worksheet_readings(markup):
     return result
 
 
+def inspection_html(checks, op=20, *, detail="hobby", setup_id="S1"):
+    """Render semantic inspection items through the real audience-aware consumer."""
+    from prechips.sheet import _Row
+
+    sheet = shop({}, detail=detail)
+    setup = {"id": setup_id, "ops": [{"op": op, "do": "inspect", "feature": "bore"}]}
+    sheet.plan["setups"] = [setup]
+    row = _Row(
+        [str(op), "bore", "—", "Inspect original bore", checks],
+        setup_id=setup_id,
+        op_id=op,
+    )
+    return sheet.operation_table(setup, [row])
+
+
 @pytest.mark.parametrize(
     ("procedure", "worksheet"),
     [
@@ -1146,19 +1159,21 @@ def worksheet_readings(markup):
 def test_readings_worked_through_several_calculations_get_a_worksheet_of_their_own(
     procedure, worksheet
 ):
-    from prechips.sheet import _worksheet
+    from prechips.sheet import _Steps
 
     sheet = shop({})
-    notes, worksheets = ["an earlier note"], []
     op = {"op": 110, "feature": "bore", "inspection_note": procedure}
-    sheets = {"notes": 2, "worksheets": 4}
-    cell = sheet.inspection({"id": "S11"}, op, notes, worksheets, sheets)
+    setup = {"id": "S11", "ops": [op]}
+    sheet.plan["setups"] = [setup]
+    checks = sheet.inspection(setup, op)
+    assert len(checks) == 1 and isinstance(checks[0], _Steps)
+    markup = Markup(inspection_html(checks, op=110, setup_id="S11"))
+    assert bool(markup.find("worksheet")) is worksheet
     if not worksheet:
-        assert cell == ["see S11 sheet 2 note 2"] and not worksheets
+        assert len(markup.find("writing-blank")) == len(
+            re.findall(r"\{[^{}]+\}", " ".join(procedure))
+        )
         return
-    assert cell == ["see S11 sheet 4 worksheet"] and notes == ["an earlier note"]
-    html = _worksheet(worksheets[0])
-    markup = Markup(html)
     steps = markup.find("steps")[0]
     assert not markup.find("field", steps)  # steps refer to readings, not extra value boxes
     assert [
@@ -1183,25 +1198,21 @@ def test_readings_worked_through_several_calculations_get_a_worksheet_of_their_o
 
 
 def test_underscore_prompts_never_classify_as_named_worksheet_readings():
-    from prechips.sheet import _list, _readings
+    from prechips.sheet import _readings
 
     procedure = ["Read the dial: _____", "Calculate: a = _____", "Calculate: b = _____"]
     sheet = shop({})
-    notes, worksheets = [], []
-    rows = sheet.inspection(
-        {"id": "S1"},
-        {"op": 10, "inspection_note": procedure},
-        notes,
-        worksheets,
-        {"notes": 2, "worksheets": 3},
-    )
-    assert rows == ["see S1 sheet 2 note 1"] and not worksheets
+    op = {"op": 10, "inspection_note": procedure}
+    setup = {"id": "S1", "ops": [op]}
+    sheet.plan["setups"] = [setup]
+    markup = Markup(inspection_html(sheet.inspection(setup, op), op=10))
     assert _readings(procedure) == []
-    assert len(Markup(_list(notes)).find("writing-blank")) == 3
+    assert not markup.find("worksheet")
+    assert len(markup.find("writing-blank")) == 3
 
 
-@pytest.mark.parametrize("details", [False, True])
-def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(details):
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_real_cone_worksheet_keeps_source_steps_equations_and_inline_owner(detail):
     from prechips.inputs import load_bundle
 
     bundle = load_bundle(
@@ -1211,29 +1222,25 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
     authored = next(op for op in setup["ops"] if op["op"] == 110)["inspection_methods"][
         "angularity_dia"
     ]
-    sheet = _Traveler(bundle, [], {}, None)
-    # Exercise both routing branches without invoking a native renderer.
+    sheet = _Traveler(bundle, [], {}, None, detail=detail)
     sheet.fixture_render = lambda setup: ""
     sheet.shop_made_tables = lambda setup: ""
     sheet.clearance = lambda setup, tools: ""
-    sheet.feature_map = lambda setup: "<h2>FEATURE MAP</h2>" if details else ""
     sheet.blank_checks = lambda setup: ""
-    sheet.contours = lambda setup, tools, stops: "<h2>CONTOURS</h2>"
-    original_operations = sheet.operations
-
-    def operations(setup, tools, sheets):
-        table, notes, worksheets, stops = original_operations(setup, tools, sheets)
-        return table, notes if details else "", worksheets, stops
-
-    sheet.operations = operations
+    sheet.contours = lambda setup, tools, decisions: "<h2>CONTOURS</h2>"
     sections = sheet.setup_section(setup)
-    assert len(sections) == (4 if details else 3)
-    front = Markup("<div>" + "".join(sections[0]) + "</div>")
-    assert f"S11 sheet {len(sections)} worksheet" in content(front.nodes[0])
-    assert "CONTOURS" in "".join(sections[-2])
-    worksheet = "".join(sections[-1])
-    assert "worksheet, S11 op 110 angularity Ø" in worksheet
-    markup = Markup(worksheet)
+    assert len(sections) == 1
+    html = "".join(sections[0])
+    markup = Markup(html)
+    (worksheet,) = markup.find("worksheet")
+    owner = worksheet
+    while "inspection-record" not in owner["attrs"].get("class", "").split():
+        owner = owner["parent"]
+    assert owner["attrs"]["data-setup-id"] == "S11"
+    assert owner["attrs"]["data-op-id"] == "110"
+    assert owner["attrs"]["data-requirement"] == "angularity_dia"
+    assert markup.find("inspection-method", owner)
+    assert "CONTOURS" in html
     source_steps = [step for step in authored if not step.startswith("Calculate:")]
     source_calculations = [step for step in authored if step.startswith("Calculate:")]
     readings = [
@@ -1243,7 +1250,7 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
     ]
     assert [name for _, _, name in readings] == ["rJ1", "rC1", "rJ2", "rC2"]
     assert worksheet_readings(markup) == readings
-    (steps,) = markup.find("steps")
+    (steps,) = markup.find("steps", worksheet)
     instruction_rows = [
         node for node in markup.nodes if node["tag"] == "li" and node["parent"] is steps
     ]
@@ -1278,13 +1285,13 @@ def test_real_cone_worksheet_keeps_source_steps_equations_and_attachment_order(d
             if re.fullmatch(r"\[[^\[\]]+\]", content(node))
         ] == [f"[{name}]" for name in re.findall(r"\{([^{}]+)\}", source)]
     assert not markup.find("field", steps)
-    calculations = markup.find("calc")
+    calculations = markup.find("calc", worksheet)
     assert [content(markup.find("field-label", row)[0]) for row in calculations] == [
         "e1",
         "e2",
         "result",
     ]
-    assert len(markup.find("writing-blank")) == 7
+    assert len(markup.find("writing-blank", worksheet)) == 7
     for row, source in zip(calculations, source_calculations, strict=True):
         assert content(row) == re.sub(r"\{([^{}]+)\}", r"\1", source)
 
@@ -1328,7 +1335,7 @@ def test_plans_author_inspection_procedures_as_strings_or_step_lists():
 PAINT_NOTE = "Mask the bores; brush RAL 6005 to 50-75 um dry film."
 
 
-def _bench_sheet(ops, **setup):
+def _bench_sheet(ops, *, detail="hobby", **setup):
     from prechips.inputs import Bundle
 
     data = Bundle(
@@ -1345,18 +1352,19 @@ def _bench_sheet(ops, **setup):
         root=Path("."),
         kernel={"status": "ok", "ops": {}},
     )
-    sheet = _Traveler(data, [], {}, None)
-    html, _, _, _ = sheet.operations(data.plan["setups"][0], {}, {"notes": 2})
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    html, _ = sheet.operations(data.plan["setups"][0], {})
     return html
 
 
-def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_columns():
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_columns(detail):
     paint = {"op": 10, "do": "coating", "feature": "body", "process": "ral-6005"}
     html = _bench_sheet(
-        [{**paint, "note": PAINT_NOTE}, {"op": 20, "do": "deburr", "feature": "body"}]
+        [{**paint, "note": PAINT_NOTE}, {"op": 20, "do": "deburr", "feature": "body"}],
+        detail=detail,
     )
     markup = Markup(html)
-    assert "<h2>ASSEMBLY / FINISHING</h2>" in html and "<h2>OPERATIONS</h2>" not in html
     painted, deburred = markup.find("operation")
     assert [node["attrs"]["data-op"] for node in (painted, deburred)] == ["10", "20"]
     assert content(markup.find("op-feature", painted)[0]).endswith("body")
@@ -1365,7 +1373,7 @@ def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_co
     assert content(painted).count("brush RAL 6005") == 1
     assert "deburr" in content(markup.find("op-action", deburred)[0])
     for operation in (painted, deburred):
-        assert len(markup.find("performed-mark", operation)) == 1
+        assert len(markup.find("performed-mark", operation)) == (detail == "pedantic")
         assert not markup.find("inspection-message", operation)
         assert not markup.find("inspection-record", operation)
         for css in ("op-speed", "op-feed", "op-target", "op-direction", "op-tool"):
@@ -1375,11 +1383,10 @@ def test_a_bench_finishing_setup_prints_a_finishing_table_not_empty_machining_co
 def test_a_setup_with_any_cutting_op_keeps_the_machining_table():
     paint = {"op": 10, "do": "coating", "feature": "body", "process": "ral-6005"}
     html = _bench_sheet([paint, {"op": 20, "do": "drill", "feature": "body"}])
-    assert "<h2>OPERATIONS</h2>" in html and "FINISHING" not in html
     assert "rpm" in content(Markup(html).find("op-speed")[0])
 
 
-def _lathe_sheet(ops, hands):
+def _lathe_sheet(ops, hands, *, detail="hobby"):
     from prechips.inputs import Bundle
 
     tools = {name: {"kind": "lathe_tool_bit", "name": name} for name in hands}
@@ -1389,7 +1396,9 @@ def _lathe_sheet(ops, hands):
     data = Bundle(
         plan={"setups": [{"id": "S1", "machine": "lathe", "ops": ops}]},
         inventory={"machines": {"lathe": {"kind": "lathe"}}, "tools": tools},
-        features={"features": {"body": {"kind": "cylinder"}}},
+        features={
+            "features": {"body": {"kind": "cylinder", "requirements": ["dia"], "dia": [10.0, 10.2]}}
+        },
         policy={},
         cutting_data={},
         paths={},
@@ -1397,17 +1406,16 @@ def _lathe_sheet(ops, hands):
         root=Path("."),
         kernel={"status": "ok", "ops": {}},
     )
-    sheet = _Traveler(data, [], {}, None)
-    html, _, _, stops = sheet.operations(data.plan["setups"][0], {}, {"notes": 2})
-    rows = {}
-    markup = Markup(html)
-    for operation in markup.find("operation"):
-        speed = markup.find("op-speed", operation)[0]
-        value = next(
-            node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is speed
-        )
-        rows[operation["attrs"]["data-op"]] = " ".join(value["text"]).split()
-    return html, rows, stops
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    setup = data.plan["setups"][0]
+    semantic = sheet.operation_rows(setup, {})
+    assert all(len(row) == 9 for row in semantic)
+    html, decisions = sheet.operations(setup, {})
+    rows = {
+        str(row[0]): " ".join(row[4] if isinstance(row[4], list) else [row[4]]).split()
+        for row in semantic
+    }
+    return html, rows, decisions
 
 
 @pytest.mark.parametrize(
@@ -1533,59 +1541,70 @@ def test_each_lathe_op_that_turns_the_spindle_names_which_way_from_its_tool_hand
     # An edge-up turning tool of either hand: the work turns down onto it.
     assert rows["10"][-1] == rows["20"][-1] == "FORWARD"
     assert rows["30"][-1] == "REVERSE" and rows["40"] == ["—"]
-    assert (
-        "<h2>OPERATIONS — spindle FORWARD: the top of the work turns toward you; "
-        "spindle REVERSE: the top of the work turns away from you</h2>"
-    ) in html
-    assert "spindle direction not known" not in stops
+    markup = Markup(html)
+    speeds = [content(node) for node in markup.find("op-speed")]
+    assert sum(text.count("FORWARD") for text in speeds) == 2
+    assert sum(text.count("REVERSE") for text in speeds) == 1
+    assert not any("spindle direction" in decision.text for decision in stops)
 
 
-def test_a_lathe_setup_turning_one_way_says_so_once_and_its_rpm_cells_carry_only_the_rpm():
+def test_each_known_lathe_turn_remains_in_its_own_rpm_cell():
     ops = [
         {"op": 10, "do": "face", "feature": "body", "tool": "rh"},
         {"op": 20, "do": "rough_turn", "feature": "body", "tool": "lh"},
         {"op": 30, "do": "inspect", "feature": "body"},
     ]
     html, rows, stops = _lathe_sheet(ops, {"rh": "right", "lh": "left"})
-    assert "FORWARD" not in rows["10"] + rows["20"]
-    assert (
-        "<h2>OPERATIONS — spindle FORWARD whenever it runs: the top of the work turns toward "
-        "you</h2>"
-    ) in html
-    assert "spindle direction not known" not in stops
+    assert rows["10"][-1] == rows["20"][-1] == "FORWARD"
+    assert rows["30"] == ["—"]
+    speeds = [content(node) for node in Markup(html).find("op-speed")]
+    assert sum(text.count("FORWARD") for text in speeds) == 2
+    assert all("REVERSE" not in text for text in speeds)
+    assert not any("spindle direction" in decision.text for decision in stops)
 
 
 def test_a_lathe_op_whose_turn_is_unknown_leaves_the_known_turns_in_their_cells():
-    # One STOP among FORWARD ops: the heading cannot say one turn for every op.
+    # An unknown turn must not erase another operation's known direction.
     ops = [
         {"op": 10, "do": "face", "feature": "body", "tool": "rh"},
         {"op": 20, "do": "rough_turn", "feature": "body", "tool": "bit"},
     ]
     html, rows, stops = _lathe_sheet(ops, {"rh": "right", "bit": None})
     assert rows["10"][-1] == "FORWARD"
-    assert "whenever it runs" not in html
-    assert stops["spindle direction not known — the tool's hand is not declared"] == ["20"]
+    blockers = [decision for decision in stops if "spindle direction" in decision.text]
+    assert [(decision.source, decision.kind, decision.scope) for decision in blockers] == [
+        ("producer", "block", "S1:20")
+    ]
 
 
-def test_a_lathe_tool_without_a_declared_hand_is_a_stop_not_a_guessed_direction():
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_a_lathe_tool_without_a_declared_hand_is_a_stop_not_a_guessed_direction(detail):
     ops = [{"op": 10, "do": "face", "feature": "body", "tool": "bit"}]
-    html, rows, stops = _lathe_sheet(ops, {"bit": None})
-    assert "STOP: spindle direction not known" in " ".join(rows["10"])
-    assert stops["spindle direction not known — the tool's hand is not declared"] == ["10"]
+    html, rows, stops = _lathe_sheet(ops, {"bit": None}, detail=detail)
+    assert "spindle direction" in " ".join(rows["10"])
+    blockers = [decision for decision in stops if "spindle direction" in decision.text]
+    assert [(decision.source, decision.kind, decision.scope) for decision in blockers] == [
+        ("producer", "block", "S1:10")
+    ]
     assert "FORWARD" not in html
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
 @pytest.mark.parametrize("checked", [True, False])
-def test_a_lathe_op_table_says_to_stop_the_spindle_before_any_gauge_touches_the_work(checked):
+def test_a_lathe_op_table_says_to_stop_the_spindle_before_any_gauge_touches_the_work(
+    checked, detail
+):
     # A lathe op inspected in the chuck is measured stopped, the tool withdrawn: said once
     # over the op rows; a table with nothing measured says nothing about measuring.
     finish = {"op": 10, "do": "finish_turn", "feature": "body", "tool": "rh"}
     if checked:
         finish["checks"] = {"dia": "mic"}
-    html, _, _ = _lathe_sheet([finish], {"rh": "right"})
-    (heading,) = re.findall(r"<h2>OPERATIONS.*?</h2>", html)
-    stopped = "measure only with the spindle stopped and the tool withdrawn" in heading
-    assert stopped is checked, heading
+    html, _, _ = _lathe_sheet([finish], {"rh": "right"}, detail=detail)
+    markup = Markup(html)
+    text = " ".join(content(node) for node in markup.nodes if node["parent"] is None)
+    stopped = bool(re.search(r"spindle stopped|stop(?:ped)? the spindle", text, re.IGNORECASE))
+    withdrawn = "withdraw" in text.casefold()
+    assert (stopped and withdrawn) is checked, text
 
 
 @pytest.mark.parametrize(
@@ -1853,15 +1872,19 @@ def test_a_runout_limit_prints_as_declared(limit):
     assert printed and float(printed.group(1)) == limit, line
 
 
-def ledger(features, ops):
+def ledger(features, ops, *, detail="hobby"):
     """Exercise the actual operation assembly with already-computed machining fields."""
     from prechips.sheet import _Box
 
-    sheet = shop({})
+    sheet = shop({}, detail=detail)
     sheet.features = features
     sheet.units = "mm"
     sheet.findings = []
-    sheet.bundle = replace(sheet.bundle, inventory={"tools": {"c": {}}})
+    sheet.bundle = replace(
+        sheet.bundle,
+        features={**sheet.bundle.features, "features": features},
+        inventory={"tools": {"c": {}}},
+    )
     sheet.setup = {"id": "S1", "ops": ops}
     sheet.plan["setups"] = [sheet.setup]
     sheet.feature_name = lambda feature: feature.replace("_", " ")
@@ -1881,25 +1904,30 @@ def ledger(features, ops):
     sheet.manual_arc_lines = lambda setup, op: []
     sheet.tip_note = lambda setup, op: None
     sheet.direction = lambda direction: direction
-    html, notes, worksheets, stops = sheet.operations(sheet.setup, T4, {"notes": 2, "contours": 3})
-    assert not worksheets
-    return Markup(html), notes, stops
+    rows = sheet.operation_rows(sheet.setup, T4)
+    assert all(len(row) in (5, 9) for row in rows)
+    assert [row.op_id for row in rows] == [op["op"] for op in ops]
+    assert all(row.setup_id == "S1" for row in rows)
+    html, decisions = sheet.operations(sheet.setup, T4)
+    return Markup(html), rows, decisions
 
 
-def test_empty_inspection_has_no_placeholder_row_but_real_checks_and_messages_remain():
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_empty_inspection_has_no_placeholder_row_but_real_checks_and_messages_remain(detail):
     markup, _, _ = ledger(
-        {"bore": {"kind": "hole", "dia": [6.33, 6.35]}},
+        {"bore": {"kind": "hole", "requirements": ["dia"], "dia": [6.33, 6.35]}},
         [
             {"op": 10, "do": "face", "feature": "bore", "tool": "c"},
             {"op": 20, "do": "inspect", "feature": "bore", "tool": "c", "checks": {"dia": "mic"}},
             {"op": 30, "do": "inspect", "feature": "bore", "tool": "c", "checks": "unknown"},
         ],
+        detail=detail,
     )
     empty, checked, unknown = markup.find("operation")
     assert not markup.find("inspection-message", within=empty)
     assert not markup.find("inspection-record", within=empty)
     assert not markup.find("writing-blank", within=empty)
-    assert len(markup.find("performed-mark", within=empty)) == 1
+    assert len(markup.find("performed-mark", within=empty)) == (detail == "pedantic")
     (record,) = markup.find("inspection-record", within=checked)
     assert record["attrs"]["data-requirement"] == "dia"
     assert json.loads(record["attrs"]["data-features"]) == ["bore"]
@@ -1908,11 +1936,12 @@ def test_empty_inspection_has_no_placeholder_row_but_real_checks_and_messages_re
     assert len(markup.find("writing-blank", within=record)) == 1
     assert not markup.find("inspection-message", within=checked)
     (message,) = markup.find("inspection-message", within=unknown)
-    assert content(message) == "? inspection checks not set"
+    assert "?" in content(message)
     assert not markup.find("inspection-record", within=unknown)
 
 
-def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safety():
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safety(detail):
     ops = [
         {
             "op": 30,
@@ -1928,25 +1957,33 @@ def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safe
         },
         {"op": 10, "do": "inspect", "feature": "bore", "tool": "c", "direction": "not_applicable"},
     ]
-    markup, notes, _ = ledger(
-        {"bore": {"dia": [6.33, 6.35], "position_dia": [0.0, 0.025], "position_datums": ["A"]}},
+    markup, rows, decisions = ledger(
+        {
+            "bore": {
+                "requirements": ["dia", "position_dia"],
+                "dia": [6.33, 6.35],
+                "position_dia": [0.0, 0.025],
+                "position_datums": ["A"],
+            }
+        },
         ops,
+        detail=detail,
     )
     operations = markup.find("operation")
     assert [node["attrs"]["data-op"] for node in operations] == ["30", "10"]
-    for node, op in zip(operations, ops, strict=True):
-        assert len(markup.find("performed-mark", node)) == 1
-        action_text = content(markup.find("op-action", node)[0])
-        assert all(action in action_text for action in op.get("action", [op["do"]]))
-        for css, values in {
-            "op-feature": ["bore"],
-            "op-tool": ["T4"],
-            "op-speed": ["1234"],
-            "op-feed": ["0.025 mm/rev", "(31 mm/min)"],
-            "op-target": ["X -25.000, Y +1.250", "Z -3.125 mm"],
-            "op-direction": [op["direction"]],
+    for node, row, op in zip(operations, rows, ops, strict=True):
+        assert len(markup.find("performed-mark", node)) == (detail == "pedantic")
+        assert all(action in str(row[1]) for action in op.get("action", [op["do"]]))
+        for column, values in {
+            2: ["bore"],
+            3: ["T4"],
+            4: ["1234"],
+            5: ["0.025 mm/rev", "(31 mm/min)"],
+            6: ["X -25.000, Y +1.250", "Z -3.125 mm"],
+            7: [op["direction"]],
         }.items():
-            assert all(value in content(markup.find(css, node)[0]) for value in values)
+            assert all(value in str(row[column]) for value in values)
+        assert all(action in content(node) for action in op.get("action", [op["do"]]))
     first = operations[0]
     assert ops[0]["safety"] in content(first)
     assert ops[0]["note"] in content(markup.find("op-note", first)[0])
@@ -1957,20 +1994,23 @@ def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safe
     assert all(len(markup.find("result-field", node)) == 1 for node in records)
     assert "6.330–6.350" in content(records[0])
     assert "0.000–0.025" in content(records[1]) and "A" in content(records[1])
-    note_markup = Markup(notes)
-    note_entries = [node for node in note_markup.nodes if node["tag"] == "li"]
-    assert len(note_entries) == 1
-    note = note_entries[0]
-    context = note_markup.find("page-context", note)[0]
-    assert note["attrs"]["data-page-context"] == content(context)
-    assert "S1 op 30" in content(context) and "position" in content(context)
-    assert ops[0]["inspection_methods"]["position_dia"] in content(note)
-    assert "S1 sheet 2 note 1" in content(records[1])
+    (method,) = markup.find("inspection-method", records[1])
+    assert ops[0]["inspection_methods"]["position_dia"] in content(method)
+    assert records[1]["attrs"]["data-setup-id"] == "S1"
+    assert records[1]["attrs"]["data-op-id"] == "30"
+    for record, check in zip(records, rows[0][-1], strict=True):
+        assert json.loads(record["attrs"]["data-inspection-ids"]) == list(check.subjects)
+        assert record["attrs"]["data-workpiece"] == (check.workpiece or "")
+    assert any(
+        decision.kind == "block" and decision.scope == "S1:30" and decision.text == ops[0]["safety"]
+        for decision in decisions
+    )
+    assert any(decision.kind == "block" for decision in rows[0].decisions)
 
 
 def test_shared_owner_limit_is_read_once_with_one_associated_result():
-    markup, notes, _ = ledger(
-        {"left": {"dia": [6.33, 6.35]}, "right": {"dia": [6.33, 6.35]}},
+    markup, _, _ = ledger(
+        {name: {"requirements": ["dia"], "dia": [6.33, 6.35]} for name in ("left", "right")},
         [
             {
                 "op": 50,
@@ -1986,12 +2026,16 @@ def test_shared_owner_limit_is_read_once_with_one_associated_result():
     assert json.loads(records[0]["attrs"]["data-features"]) == ["left", "right"]
     assert content(records[0]).count("6.330–6.350") == 1
     assert len(markup.find("result-field", records[0])) == 1
-    assert notes.count("Use the micrometer.") == 1
+    (method,) = markup.find("inspection-method", records[0])
+    assert content(method).count("Use the micrometer.") == 1
 
 
 def test_distinct_owner_bands_keep_their_result_and_method_associations():
-    markup, notes, _ = ledger(
-        {"left": {"dia": [6.33, 6.35]}, "right": {"dia": [8.01, 8.03]}},
+    markup, _, _ = ledger(
+        {
+            "left": {"requirements": ["dia"], "dia": [6.33, 6.35]},
+            "right": {"requirements": ["dia"], "dia": [8.01, 8.03]},
+        },
         [
             {
                 "op": 50,
@@ -2010,18 +2054,28 @@ def test_distinct_owner_bands_keep_their_result_and_method_associations():
     ):
         assert expected in content(node) and other not in content(node)
         assert "? " in content(node)
-        assert "S1 sheet 2 note 1" in content(node)
-        assert len(markup.find("writing-blank", node)) == 1
-    assert notes.count("Use the micrometer.") == 1
-    method = Markup(notes)
-    assert [content(label) for label in method.find("field-label")] == ["method_reading"]
-    assert len(method.find("writing-blank")) == 1
-    assert content(method.find("writing-blank")[0]) == ""
+        assert node["attrs"]["data-setup-id"] == "S1"
+        assert node["attrs"]["data-op-id"] == "50"
+        assert len(markup.find("result-field", node)) == 1
+    methods = markup.find("inspection-method")
+    assert len(methods) == 1
+    method = methods[0]
+    assert content(method).count("Use the micrometer.") == 1
+    assert [content(label) for label in markup.find("field-label", method)] == ["method_reading"]
+    assert len(markup.find("writing-blank", method)) == 1
+    assert content(markup.find("writing-blank", method)[0]) == ""
+    assert len(markup.find("writing-blank")) == 3
 
 
 def test_missing_requirements_identities_and_process_holds_do_not_get_fake_results():
-    markup, notes, _ = ledger(
-        {"bore": {"dia": [6.33, 6.35], "position_dia": "unknown"}},
+    markup, _, _ = ledger(
+        {
+            "bore": {
+                "requirements": ["dia", "position_dia"],
+                "dia": [6.33, 6.35],
+                "position_dia": "unknown",
+            }
+        },
         [
             {
                 "op": 50,
@@ -2058,14 +2112,15 @@ def test_missing_requirements_identities_and_process_holds_do_not_get_fake_resul
     assert any("position Ø ?" in content(node) for node in messages)
     assert any("inspection checks not set" in content(node) for node in messages)
     assert all(not markup.find("writing-blank", node) for node in messages)
-    assert "Seat datum A; method remains required." in notes
-    assert "Keep the drawing at the bench." in notes
+    methods = markup.find("inspection-method")
+    assert any("Seat datum A; method remains required." in content(node) for node in methods)
+    assert any("Keep the drawing at the bench." in content(node) for node in methods)
 
 
 def test_long_authored_method_and_qualitative_limit_check_keep_their_association():
     method = "Compare the GO and NO-GO sizes without forcing the gauge. " * 400
-    markup, notes, _ = ledger(
-        {"edge": {"kind": "shaft", "dia": [6.33, 6.35]}},
+    markup, _, _ = ledger(
+        {"edge": {"kind": "shaft", "requirements": ["dia"], "dia": [6.33, 6.35]}},
         [
             {
                 "op": 80,
@@ -2078,12 +2133,14 @@ def test_long_authored_method_and_qualitative_limit_check_keep_their_association
         ],
     )
     record = markup.find("inspection-record")[0]
-    assert method.strip() in notes
+    (method_owner,) = markup.find("inspection-method", record)
+    assert method.strip() in content(method_owner)
     assert json.loads(record["attrs"]["data-features"]) == ["edge"]
     assert record["attrs"]["data-requirement"] == "dia"
     assert "GO 6.330 passes over" in content(record)
     assert "NO-GO 6.350 does not" in content(record)
-    assert "S1 sheet 2 note 1" in content(record)
+    assert record["attrs"]["data-setup-id"] == "S1"
+    assert record["attrs"]["data-op-id"] == "80"
     assert len(markup.find("writing-blank", record)) == 1
     label = content(markup.find("field-label", record)[0])
     assert "mm" not in label and "°" not in label
@@ -2093,7 +2150,10 @@ def test_one_shared_shoulder_dimension_keeps_both_faces_and_one_recording_area()
     note = "Shoulder length: caliper across the Ø10 shoulder, north face to thrust face."
     owners = ["shoulder_north_face", "shoulder_thrust"]
     markup, _, _ = ledger(
-        {owner: {"kind": "face", "length": [0.99, 2.01]} for owner in owners},
+        {
+            owner: {"kind": "face", "requirements": ["length"], "length": [0.99, 2.01]}
+            for owner in owners
+        },
         [
             {
                 "op": 71,
@@ -2116,7 +2176,7 @@ def test_one_shared_shoulder_dimension_keeps_both_faces_and_one_recording_area()
 def test_authored_multi_location_note_stays_with_one_freeform_requirement_record():
     note = "Mic at both ends and the middle for taper before moving on."
     markup, _, _ = ledger(
-        {"pivot_bearing": {"dia": [6.33, 6.35]}},
+        {"pivot_bearing": {"requirements": ["dia"], "dia": [6.33, 6.35]}},
         [
             {
                 "op": 30,
@@ -2139,7 +2199,7 @@ def test_authored_multi_location_note_stays_with_one_freeform_requirement_record
 
 def picture_sheet(panels):
     sheet = shop({})
-    sheet.plan = {"part": "Bracket"}
+    sheet.plan.update({"part": "Bracket"})
     sheet.arrival = lambda setup: "stock blank"
     sheet.reference = lambda reference, category: "vise"
     sheet.drawing_revision = lambda: "B"
@@ -2163,8 +2223,24 @@ def picture_sheet(panels):
 
 def test_printable_picture_windows_cover_the_canonical_image_once_at_one_scale():
     panels = [
-        {"top_px": 0, "height_px": 1400, "role": "setup", "label": "Main setup"},
-        {"top_px": 1400, "height_px": 800, "role": "holding_detail", "label": "Rear clamp"},
+        {
+            "top_px": 0,
+            "height_px": 1400,
+            "role": "setup",
+            "label": "Main setup",
+            "id": "setup",
+            "selection_group": "setup",
+            "annotations": [],
+        },
+        {
+            "top_px": 1400,
+            "height_px": 800,
+            "role": "holding_detail",
+            "label": "Rear clamp",
+            "id": "holding_detail:1",
+            "selection_group": "holding_detail:1",
+            "annotations": [],
+        },
     ]
     html = picture_sheet(panels).fixture_render({"id": "S1", "hold": {"fixture": "vise"}})
     markup = Markup(html)
@@ -2192,14 +2268,35 @@ def test_printable_picture_windows_cover_the_canonical_image_once_at_one_scale()
 @pytest.mark.parametrize(
     "panels",
     [
-        [{"top_px": 0, "height_px": 1400, "role": "setup", "label": "Incomplete"}],
         [
-            {"top_px": 0, "height_px": 1400, "role": "setup", "label": "Main"},
+            {
+                "top_px": 0,
+                "height_px": 1400,
+                "role": "setup",
+                "label": "Incomplete",
+                "id": "setup",
+                "selection_group": "setup",
+                "annotations": [],
+            }
+        ],
+        [
+            {
+                "top_px": 0,
+                "height_px": 1400,
+                "role": "setup",
+                "label": "Main",
+                "id": "setup",
+                "selection_group": "setup",
+                "annotations": [],
+            },
             {
                 "top_px": 1300,
                 "height_px": 900,
                 "role": "holding_detail",
                 "label": "Repeated pixels",
+                "id": "holding_detail:1",
+                "selection_group": "holding_detail:1",
+                "annotations": [],
             },
         ],
     ],
@@ -2225,7 +2322,8 @@ def example_sheet(relative):
     ],
 )
 @pytest.mark.parametrize("field", ["operation.note", "operation.inspection_note", "hold.note"])
-def test_rendered_traveler_preserves_authored_slash_instructions(instruction, field):
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_rendered_traveler_preserves_authored_slash_instructions(instruction, field, detail):
     from prechips.sheet import render_traveler
 
     bundle = example_sheet("rocker-arm/plan.toml").bundle
@@ -2235,34 +2333,23 @@ def test_rendered_traveler_preserves_authored_slash_instructions(instruction, fi
     url_citation = "https://example.invalid/slash-fidelity"
     owner = setup["hold"] if field == "hold.note" else operation
     owner[field.rsplit(".", 1)[-1]] = f"{instruction} {repo_citation} {url_citation}"
-    html = render_traveler(bundle, [], {})
+    html = render_traveler(bundle, [], {}, detail=detail)
     markup = Markup(html)
     setup_id, operation_id = setup["id"], str(operation["op"])
-    pages = [
-        page
-        for page in markup.find("page")
-        if page["attrs"]["data-sheet"].startswith(f"SETUP {setup_id} sheet ")
+    (setup_owner,) = [
+        node
+        for node in markup.nodes
+        if node["attrs"].get("data-setup-id") == setup_id and "data-setup-title" in node["attrs"]
     ]
+    pages = [setup_owner]
     if field == "operation.inspection_note":
-        blocks = [
+        (operation_owner,) = [
             node
-            for page in pages
-            for node in markup.find("keep", page)
-            if any(
-                child["parent"] is node and content(child) == "INSPECTION NOTES"
-                for child in markup.nodes
-            )
+            for node in markup.find("operation", setup_owner)
+            if node["attrs"]["data-op"] == operation_id
         ]
-        prefix = f"{setup_id} op {operation_id}: "
-        notes = [
-            node
-            for block in blocks
-            for node in markup.nodes
-            if node["tag"] == "li"
-            and node["parent"]["parent"] is block
-            and content(node).startswith(prefix)
-        ]
-        assert [content(node).removeprefix(prefix) for node in notes] == [instruction]
+        methods = markup.find("inspection-method", operation_owner)
+        assert sum(content(method).count(instruction) for method in methods) == 1
     elif field == "operation.note":
         operations = [
             node
@@ -2285,12 +2372,8 @@ def test_rendered_traveler_preserves_authored_slash_instructions(instruction, fi
         assert [content(node).removeprefix("Note: ").removesuffix(".") for node in notes] == [
             instruction
         ]
-    instruction_blocks = [
-        node
-        for node in markup.nodes
-        if node["tag"] == "li" or "op-note" in node["attrs"].get("class", "").split()
-    ]
-    assert sum(content(node).count(instruction) for node in instruction_blocks) == 1
+    (body,) = [node for node in markup.nodes if node["tag"] == "body"]
+    assert content(body).count(instruction) == 1
     assert repo_citation not in html
     assert url_citation not in html
 
@@ -2493,7 +2576,7 @@ def test_contour_intros_share_operation_tool_and_all_depth_levels(list_only):
 
 def test_operation_readings_keep_authored_sign_precision_and_unit_in_one_inline_token():
     markup, _, _ = ledger(
-        {"surface": {"kind": "face", "length": [3.0, 3.2]}},
+        {"surface": {"kind": "face", "requirements": ["length"], "length": [3.0, 3.2]}},
         [{"op": 10, "do": "face", "feature": "surface", "tool": "c"}],
     )
     operation = markup.find("operation")[0]
@@ -2622,7 +2705,7 @@ def test_coating_optional_space_is_not_a_dimensional_inspection_record():
 
 def test_coating_does_not_duplicate_existing_requirement_or_authored_prompt_areas():
     checked, _, _ = ledger(
-        {"body": {"kind": "cylinder", "dia": [10.0, 10.2]}},
+        {"body": {"kind": "cylinder", "requirements": ["dia"], "dia": [10.0, 10.2]}},
         [
             {
                 "op": 10,
@@ -2888,7 +2971,7 @@ def test_printed_manual_finishing_action_is_working_body_below_its_step(printed_
     assert content(action[0]) == note
     head = original.find("op-head", operation)[0]
     assert not original.find("op-action", head)
-    assert len(original.find("performed-mark", operation)) == 1
+    assert not original.find("performed-mark", operation)
     assert not any(original.find(css, operation) for css in ("op-speed", "op-feed", "op-target"))
     printed, layout = printed_sheet(
         source,
@@ -2904,7 +2987,7 @@ def test_printed_manual_finishing_action_is_working_body_below_its_step(printed_
         }""",
     )
     assert [content(node) for node in printed.find("op-action")] == [note]
-    assert len(printed.find("performed-mark")) == 1
+    assert not printed.find("performed-mark")
     assert not any(printed.find(css) for css in ("op-speed", "op-feed", "op-target"))
     assert "Step" in layout["heading"] and "10" in layout["heading"]
     assert note not in layout["heading"]
@@ -2919,7 +3002,8 @@ def printed_sheet(tmp_path):
     """Read the real browser's final, reprinted DOM without an extra test dependency."""
     from test_machinist_review import mr
 
-    from prechips.sheet import _CSS, _DUPLEX_JS
+    from prechips._sheet_pagination import JOB_PRINT_JS
+    from prechips.sheet import _CSS
 
     variable = (
         "PRECHIPS_TEST_BROWSER" if "PRECHIPS_TEST_BROWSER" in os.environ else "PRECHIPS_CHROME"
@@ -2954,13 +3038,20 @@ def printed_sheet(tmp_path):
     canary = f"http://127.0.0.1:{proxy.server_port}/browser-fixture-positive-control"
 
     def print_html(source, probe, prepare=None, *, expected_error=None):
+        owned_source = source
+        if not any("data-setup-title" in node["attrs"] for node in Markup(source).nodes):
+            owned_source = (
+                '<div class="setup-flow" data-setup-id="S1" data-setup-title="SETUP S1">'
+                + source
+                + "</div>"
+            )
         document = tmp_path / "traveler.html"
         document.write_text(
             '<!doctype html><html><head><meta charset="utf-8">'
-            f"<style>{_CSS}</style><script>{_DUPLEX_JS}</script></head><body>"
-            '<section class="page" data-sheet="SETUP S1 sheet 1" data-part="boundary part" '
-            'data-drawing="boundary drawing" data-revision="A">'
-            + source
+            f"<style>{_CSS}</style><script>{JOB_PRINT_JS}</script></head><body>"
+            '<section class="page" data-sheet="job" data-title="Job traveler" '
+            'data-part="boundary part" data-drawing="boundary drawing" data-revision="A">'
+            + owned_source
             + '</section><img style="position:absolute;width:0;height:0" '
             + f'src="{canary}" alt=""><script>'
             + (f"addEventListener('DOMContentLoaded', {prepare});" if prepare else "")
@@ -2981,7 +3072,7 @@ def printed_sheet(tmp_path):
             + "Number(document.documentElement.dataset.pageCapacity) + .01).length;"
             + f"return {{html: section.innerHTML, details: ({probe})(pageOf), overflows, "
             + "pages: Number(section.dataset.pages), "
-            + "blankBack: !!section.nextElementSibling?.classList.contains('blank-side'), "
+            + "blankSides: document.querySelectorAll('.blank-side').length, "
             + "error: document.documentElement.dataset.paginationError || null}; };"
             + "const first = capture(); dispatchEvent(new Event('beforeprint'));"
             + "const result = capture(); result.idempotent = "
@@ -3033,7 +3124,7 @@ def printed_sheet(tmp_path):
         if expected_error is not None:
             return Markup(output["html"]), output["details"]
         assert output["overflows"] == 0
-        assert output["blankBack"] == (output["pages"] % 2 == 1)
+        assert output["blankSides"] == 0
         return Markup(output["html"]), output["details"]
 
     try:
@@ -3063,7 +3154,7 @@ def test_printed_tools_refuse_an_oversized_whole_row_instead_of_splitting_it(pri
     printed, _ = printed_sheet(
         source, "() => null", expected_error="A complete TOOLS row cannot fit on a print page."
     )
-    assert not any("data-duplex-fragment" in node["attrs"] for node in printed.nodes)
+    assert not any("data-job-print-fragment" in node["attrs"] for node in printed.nodes)
     assert [content(node) for node in printed.nodes if node["tag"] == "td"] == expected
 
 
@@ -3197,7 +3288,7 @@ def test_printed_contour_fragments_keep_their_exact_local_introduction(printed_s
         contexts = [content(node) for node in printed.find("table-context", table)]
         assert contexts.count(local) == 1
         assert set(contexts).intersection(introductions.values()) == {local}
-        if "data-duplex-split" in table["attrs"]:
+        if "data-job-print-split" in table["attrs"]:
             for note in op_notes:
                 assert contexts.count(note) == 1
                 assert contexts.index(note) < contexts.index(local)
@@ -3423,11 +3514,11 @@ def test_printed_unbounded_authored_context_makes_finite_original_progress(print
         source,
         """pageOf => {
           const section = document.querySelector('section.page');
-          const authored = el => !el.closest('[data-duplex], thead, .record-continuation');
+          const authored = el => !el.closest('[data-job-print], thead, .record-continuation');
           const join = selector => [...section.querySelectorAll(selector)]
             .filter(authored).map(el => el.textContent).join('');
           const pages = new Set();
-          for (const row of section.querySelectorAll('tbody > tr:not([data-duplex])')) {
+          for (const row of section.querySelectorAll('tbody > tr:not([data-job-print])')) {
             pages.add(pageOf(row));
           }
           for (const el of section.querySelectorAll('p.table-intro, li')) {
@@ -3561,7 +3652,8 @@ def test_printed_running_header_retains_working_context_and_measured_final_count
     for page, head in enumerate(details["heads"], 2):
         assert head["context"] == context
         assert head["font"] == details["workingFont"]
-        assert f"(continued)\n · page {page} of {details['pages']}\n{context}" in head["text"]
+        label = re.search(r"\bpage\s+(\d+)\s+of\s+(\d+)\b", head["text"], re.IGNORECASE)
+        assert label and tuple(map(int, label.groups())) == (page, details["pages"])
         assert {"text": "Z -3.125 mm", "lines": 1} in head["readings"]
         assert head["countFits"]
         assert head["before"] == head["reserved"] == head["after"]
@@ -3646,7 +3738,7 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
           const heads = [...section.querySelectorAll('.cont-head')];
           const tops = [section.getBoundingClientRect().top,
             ...heads.map(head => head.getBoundingClientRect().top)];
-          const original = el => !el.closest('[data-duplex], .record-continuation, .cont-head');
+          const original = el => !el.closest('[data-job-print], .record-continuation, .cont-head');
           const selector = window.nearCapInput.kind === 'caption'
             ? '.authored-label, .authored-blank .field-label' : '.page-context';
           const sourceText = el => {
@@ -3661,7 +3753,7 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
           for (const item of section.querySelectorAll('li')) {
             if (!original(item)) continue;
             const own = item.cloneNode(true);
-            own.querySelectorAll('[data-duplex], .record-continuation, .writing-blank, '
+            own.querySelectorAll('[data-job-print], .record-continuation, .writing-blank, '
               + '.fixed-locator-reference')
               .forEach(el => el.remove());
             if (/[\\p{L}\\p{N}]/u.test(own.textContent)) sourcePages.add(pageOf(item));
@@ -3670,7 +3762,7 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
             input: window.nearCapInput, reconstructed, pages: Number(section.dataset.pages),
             sourcePages: [...sourcePages].sort((a, b) => a - b),
             contextFont: getComputedStyle(section.querySelector('.page-context')).fontSize,
-            identity: section.dataset.title || section.dataset.sheet,
+            identity: section.querySelector('[data-setup-title]').dataset.setupTitle,
             pointers: [...section.querySelectorAll('.fixed-locator-reference')].filter(ref =>
               ref.getClientRects().length && getComputedStyle(ref).visibility !== 'hidden')
               .map(ref => ({
@@ -3719,7 +3811,7 @@ def test_printed_near_cap_atomic_source_uses_its_actual_continuation_body(printe
     )
 
 
-def recording_traveler(relative, setup_ids, records=None, change=None):
+def recording_traveler(relative, setup_ids, records=None, change=None, *, detail="hobby"):
     """Public output over authored examples and explicitly synthetic resolved records.
 
     These display fixtures do not execute or claim a kernel verification.
@@ -3735,10 +3827,11 @@ def recording_traveler(relative, setup_ids, records=None, change=None):
         SimpleNamespace(rule=rule, subject=subject, numbers=numbers, status="pass")
         for (rule, subject), numbers in (records or {}).items()
     ]
-    return Markup(render_traveler(bundle, findings, {})), bundle
+    return Markup(render_traveler(bundle, findings, {}, detail=detail)), bundle
 
 
-def test_public_measured_setup_destinations_keep_distinct_owned_acquisitions():
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_public_measured_setup_destinations_keep_distinct_owned_acquisitions(detail):
     records = {
         ("zero_check", setup): {
             "axes": {
@@ -3752,7 +3845,9 @@ def test_public_measured_setup_destinations_keep_distinct_owned_acquisitions():
         }
         for setup, offset in (("P3", 64.95), ("P4", 15.95))
     }
-    markup, bundle = recording_traveler("rocker-arm/plan.toml", {"P3", "P4"}, records)
+    markup, bundle = recording_traveler(
+        "rocker-arm/plan.toml", {"P3", "P4"}, records, detail=detail
+    )
     fields = markup.find("setup-measurement")
     assert [content(markup.find("field-label", field)[0]) for field in fields] == [
         "P3 Z M (mm)",
@@ -3762,15 +3857,20 @@ def test_public_measured_setup_destinations_keep_distinct_owned_acquisitions():
         assert len(markup.find("writing-blank", field)) == 1
         assert content(markup.find("writing-blank", field)[0]) == ""
         section = field
-        while section["tag"] != "section":
+        while "data-setup-title" not in section["attrs"]:
             section = section["parent"]
-        assert section["attrs"]["data-sheet"].startswith(f"SETUP {setup['id']} ")
+        assert section["attrs"]["data-setup-id"] == setup["id"]
+        outer = section
+        while "page" not in outer["attrs"].get("class", "").split():
+            outer = outer["parent"]
+        assert outer["attrs"]["data-sheet"] == "job"
         assert not markup.find("inspection-record", field)
         assert setup["zero"]["z"].get("measure_before_hold") is not True
 
 
-def test_public_before_hold_measurement_reuses_its_original_destination():
-    markup, bundle = recording_traveler("pivot-shaft/plan.toml", {"S2"})
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_public_before_hold_measurement_reuses_its_original_destination(detail):
+    markup, bundle = recording_traveler("pivot-shaft/plan.toml", {"S2"}, detail=detail)
     fields = [
         node
         for node in markup.find("field")
@@ -3786,14 +3886,15 @@ def test_public_before_hold_measurement_reuses_its_original_destination():
     assert setup["zero"]["z"]["measure_before_hold"] is True
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
 @pytest.mark.parametrize("units", ["in", "unknown"])
-def test_public_setup_measurement_does_not_invent_units_or_hide_unknowns(units):
+def test_public_setup_measurement_does_not_invent_units_or_hide_unknowns(units, detail):
     def change(bundle):
         bundle.features["units"] = units
         touch = bundle.plan["setups"][0]["zero"]["z"]
         touch.update(offset_mm="unknown", gauge="unknown", measure="unknown")
 
-    markup, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=change)
+    markup, _ = recording_traveler("rocker-arm/plan.toml", {"P3"}, change=change, detail=detail)
     (field,) = markup.find("setup-measurement")
     expected = "P3 Z M (in)" if units == "in" else "P3 Z M"
     assert content(markup.find("field-label", field)[0]) == expected
@@ -3842,7 +3943,9 @@ def test_public_measurements_are_axis_owned_and_require_a_resolved_setup(setup_i
     assert not unresolved.find("setup-measurement")
 
 
-def recording_paths(levels=(-0.25, -0.5, -0.6), mode="numbered", tool_missing=False):
+def recording_paths(
+    levels=(-0.25, -0.5, -0.6), mode="numbered", tool_missing=False, *, detail="hobby"
+):
     """Two authored operations with synthetic kernel line tables, never native geometry."""
     records = {("coordinates", "S1"): {"operations": [], "line_table": []}}
     numbers = records[("coordinates", "S1")]
@@ -3890,11 +3993,12 @@ def recording_paths(levels=(-0.25, -0.5, -0.6), mode="numbered", tool_missing=Fa
             for op in setup["ops"]:
                 op["tool"] = "unknown"
 
-    return recording_traveler("rocker-arm/plan.toml", {"S1"}, records, change)[0]
+    return recording_traveler("rocker-arm/plan.toml", {"S1"}, records, change, detail=detail)[0]
 
 
-def test_public_path_progress_has_one_owned_pair_and_read_only_table_locators():
-    markup = recording_paths()
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_public_path_progress_has_one_owned_pair_and_read_only_table_locators(detail):
+    markup = recording_paths(detail=detail)
     owners = markup.find("contour")
     assert len(owners) == 2
     for owner, op in zip(owners, (30, 40), strict=True):

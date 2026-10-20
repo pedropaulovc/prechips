@@ -431,6 +431,99 @@ def test_tap_name_and_prose_do_not_supply_missing_thread_identity(prepared_hole)
     assert hole_row(prepared_hole).status == "unknown"
 
 
+def _manual_fit_without_formal_class(bundle):
+    feature = bundle.features["features"]["socket"]
+    feature.pop("thread_class")
+    feature["requirements"] = ["dia"]
+    bundle.inventory["tools"]["tap"].pop("thread_class")
+    bundle.features["acceptance"] = {
+        "stud_retention": {
+            "features": ["socket"],
+            "contract": {
+                "kind": "manual",
+                "gauge_kind": "mating_hardware",
+                "accept": ["The intended stud enters by hand and stops before leaving the bottom."],
+                "cite": "synthetic authored functional acceptance",
+            },
+        }
+    }
+
+
+@pytest.mark.parametrize("action", ["tap", "hand_tap"])
+def test_both_absent_unrequired_classes_need_explicit_manual_acceptance(prepared_hole, action):
+    _manual_fit_without_formal_class(prepared_hole)
+    receiving_setup(prepared_hole)["ops"][-1]["do"] = action
+    row = hole_row(prepared_hole)
+    assert row.status == "pass"
+    [tap] = row.numbers["tap_tools"]
+    assert tap["class_adoption"] == "not_adopted"
+    assert tap["class_match"] is None
+    assert tap["required_class"] == tap["selected_class"] == "unknown"
+
+
+@pytest.mark.parametrize("owner", ["feature", "tool"])
+@pytest.mark.parametrize("value", ["unknown", "2B"])
+def test_manual_acceptance_does_not_waive_one_sided_or_unknown_class(prepared_hole, owner, value):
+    _manual_fit_without_formal_class(prepared_hole)
+    item = (
+        prepared_hole.features["features"]["socket"]
+        if owner == "feature"
+        else prepared_hole.inventory["tools"]["tap"]
+    )
+    item["thread_class"] = value
+    row = hole_row(prepared_hole)
+    assert row.status == "unknown"
+    assert "class_adoption" not in row.numbers["tap_tools"][0]
+
+
+@pytest.mark.parametrize("requirements", ["unknown", ["unknown"], ["thread_class"], None])
+def test_unknown_or_required_class_never_becomes_unadopted(prepared_hole, requirements):
+    _manual_fit_without_formal_class(prepared_hole)
+    feature = prepared_hole.features["features"]["socket"]
+    if requirements is None:
+        feature.pop("requirements")
+    else:
+        feature["requirements"] = requirements
+    assert hole_row(prepared_hole).status == "unknown"
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "absent",
+        "unknown_contract",
+        "unknown_clauses",
+        "unknown_citation",
+        "wrong_kind",
+        "other_feature",
+    ],
+)
+def test_unresolved_or_unrelated_manual_acceptance_cannot_waive_class(prepared_hole, change):
+    _manual_fit_without_formal_class(prepared_hole)
+    acceptance = prepared_hole.features["acceptance"]
+    relationship = acceptance["stud_retention"]
+    if change == "absent":
+        acceptance.clear()
+    elif change == "unknown_contract":
+        relationship["contract"] = "unknown"
+    elif change == "unknown_clauses":
+        relationship["contract"]["accept"] = "unknown"
+    elif change == "unknown_citation":
+        relationship["contract"]["cite"] = "unknown"
+    elif change == "wrong_kind":
+        relationship["contract"]["gauge_kind"] = "mating_part"
+    else:
+        relationship["features"] = ["other"]
+    assert hole_row(prepared_hole).status == "unknown"
+
+
+@pytest.mark.parametrize("field,value", [("thread", "1/2-13 UNC"), ("thread_hand", "left")])
+def test_manual_acceptance_without_class_preserves_wrong_tap_errors(prepared_hole, field, value):
+    _manual_fit_without_formal_class(prepared_hole)
+    prepared_hole.inventory["tools"]["tap"][field] = value
+    assert hole_row(prepared_hole).status == "error"
+
+
 @pytest.fixture
 def external_thread(tmp_path):
     return Bundle(

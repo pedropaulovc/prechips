@@ -207,6 +207,7 @@ import chain_boundary  # noqa: E402
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
 import saw_engagement  # noqa: E402
+from inspection_preservation import preserve_inspections  # noqa: E402
 from render_diagram import (  # noqa: E402
     _common_plane,
     _nominal_outline_deflection,
@@ -215,6 +216,7 @@ from render_diagram import (  # noqa: E402
     render_inspection,
 )
 from step_faces import FaceRefError, StepError, StepFile  # noqa: E402
+from thread_material import ThreadMaterialMixin  # noqa: E402
 
 UNKNOWN = "unknown"
 LIFT = 1e-3  # mm: cylinders shrink radially and lift off the sample by this clearance
@@ -384,7 +386,7 @@ def _sawn(op):
 
 
 def _retained_metadata(op):
-    """Only explicit non-material metadata may follow a published stock output.
+    """Only explicit non-material metadata carries stock without a native cut.
 
     Host recipes normally omit these manual actions. A direct native caller
     must not smuggle cutting geometry through an inspection or layout label.
@@ -5274,6 +5276,7 @@ class _Job:
                     "finished_names": state["finished_names"],
                     "registrations": state.get("registrations", {}),
                     "member_transforms": state.get("member_transforms", {}),
+                    "material_bounds": runner._material_state(),
                 }
                 if sid in self.formed_rows:
                     facts["forms"] = self.formed_rows[sid]
@@ -5304,6 +5307,7 @@ class _Job:
                     lineage[ref] = {sid, *lineage[sid]}
                 runners.append((sid, runner))
         with _timed(phases, "cross_setup"):
+            preserve_inspections(result, runners, lineage)
             for sid, runner in runners:
                 # Rule A′: a printed checkpoint must not remove stock a later setup contacts.
                 runner._finish_checkpoints(
@@ -5769,6 +5773,10 @@ class _Job:
                 state["member_transforms"].update(transforms)
             if len(refs) == 1:
                 state["registrations"] = dict(self.states[refs[0]].get("registrations", {}))
+            bounded = [self.states[ref].get("material_bounds") for ref in refs]
+            if len(refs) > 1 and any(bounded):
+                raise _Unknown("joining uncertain threaded material is not modeled")
+            state["material_bounds"] = bounded[0] if len(refs) == 1 else None
             if (
                 isinstance(stock_in, list)
                 and sum(len(self.states[ref]["components"]) > 1 for ref in refs) > 1
@@ -6658,7 +6666,9 @@ class _Job:
         return sorted({self.mapping[ref] for ref in refs})
 
 
-class _Setup:
+class _Setup(ThreadMaterialMixin):
+    _VISE_KEYS_FOR_BOUNDS = _VISE_FACTS
+
     def __init__(
         self,
         owner,
@@ -6811,6 +6821,13 @@ class _Setup:
         self.corridors = {}  # (profile walls, radius, to_z) -> (cutter corridor or None, why)
         self.neighbours = None  # finished face index -> indices sharing an edge with it
         self.timing = None
+        self.thread_regions = []
+        self.arriving_thread_regions = []
+        self.manual_threads = {}
+        self.thread_overlap = {}
+        self.lower_part = None
+        self.lower_out = None
+        self.lower_cuts = {}
 
     @property
     def material_target(self):
@@ -6854,8 +6871,14 @@ class _Setup:
             if self.protection_reason is not None:
                 reasons.append(self.protection_reason)
             target = self._registered_target(name)
-            outside = self.held is not None and target.cut(self.held).Volume > HIT_MM3
-            if self.held is None or outside:
+            bounds = self.state.get("material_bounds")
+            common_target = target
+            if bounds:
+                for region in bounds["regions"]:
+                    common_target = common_target.cut(region["shape"])
+            present = bounds["lower"] if bounds else self.held
+            outside = present is not None and common_target.cut(present).Volume > HIT_MM3
+            if present is None or outside:
                 reasons.append("whole finished target is not contained in actual arriving stock")
             facts[name] = {
                 "workpiece_id": name,
@@ -6865,6 +6888,8 @@ class _Setup:
                 "partition_path": self._partition_path(),
                 "volume_mm3": _r(target.Volume),
                 "bbox_mm": [_r(v) for v in _bbox(self._placed(target))],
+                "geometry": "registered_target",
+                "protection": "common_exterior" if bounds else "exact",
             }
         return facts
 
@@ -6951,6 +6976,7 @@ class _Setup:
         if self.stock_reason is None:
             self._use(self._placed(self.held))
             self.box = _bbox(self.part)
+            self._init_thread_material()
             facts["stock_bbox_mm"] = [_r(v) for v in self.box]
             facts["stock_volume_mm3"] = _r(self.part.Volume)
             holes = self._tooling_presence()
@@ -6965,6 +6991,7 @@ class _Setup:
                     }
             with _timed(phases, "fixture"):
                 self._fixture(facts)
+                self._bounded_fixture(facts)
                 if getattr(self.owner, "workpieces", {}):
                     facts["workpieces"] = self._workpiece_facts()
                     if any(row["status"] != "pass" for row in facts["workpieces"].values()):
@@ -6985,7 +7012,11 @@ class _Setup:
             facts["zero_pickups"] = self._zero_pickups()
         # Lathe chucks grip radially: their thin-wall fact is the run of material under each
         # jaw. ``chuck`` is set only once the fixture-solid model has placed a chuck.
-        if self.stock_reason is None and self.chuck is not None:
+        if (
+            self.stock_reason is None
+            and self.chuck is not None
+            and not self.arriving_thread_regions
+        ):
             with _timed(phases, "chuck_walls"):
                 self._chuck_walls(facts)
         # Turned setups: each declared feature's faces of revolution about setup Z (finished
@@ -7010,8 +7041,13 @@ class _Setup:
         for op in self.ops:
             with _timed(op_clocks, self._subject(op)):
                 result = self._op(op)
+                if _sawn(op):
+                    self._bound_saw_facts(result)
                 if getattr(self.owner, "workpieces", {}):
                     result["workpiece_faces"] = self._qualified_claims(op) or {}
+                if id(op) in self.thread_overlap:
+                    self._unproven(result, self.thread_overlap[id(op)])
+                    result["material_reason"] = self.thread_overlap[id(op)]
                 if self.stock_reason is not None and not _sawn(op) and not _hand(op):
                     self._unproven(result, self.stock_reason)
                 if self.protection_reason is not None and not _hand(op):
@@ -7037,6 +7073,11 @@ class _Setup:
                 png, scene = self._render()
             facts["render_png_base64"] = base64.b64encode(png).decode("ascii")
             facts["render_scene"] = scene
+            if self.thread_regions:
+                scene["material"] = self._material_facts(
+                    self.part, self.lower_part, self.arriving_thread_regions
+                )
+                scene["material"]["geometry"] = "upper_bound"
             facts["fixture_rendered"] = (
                 self.fixture_ready and bool(scene["components"]) and not scene["debts"]
             )
@@ -7049,7 +7090,7 @@ class _Setup:
                 }
                 facts["inspection_scenes"] = inspection_scenes
             scene["render_debts"] = scene["render_debts"] + sketch_debts
-            if any(_turned(op) for op in self.ops):
+            if any(_turned(op) for op in self.ops) and not self.thread_regions:
                 self._stock_profile(facts)
             saws = [
                 {"subject": self._subject(op), **ops[self._subject(op)]}
@@ -7059,8 +7100,17 @@ class _Setup:
             if saws:
                 scene["saw_cuts"] = saws
             if self.stock_out_reason is None:
-                facts["stock_out_volume_mm3"] = _r(self.stock_out.Volume)
-                facts["stock_out_bbox_mm"] = [_r(v) for v in _bbox(self.stock_out)]
+                if self.thread_regions:
+                    lower_model = self.lower_out.copy()
+                    lower_model.transformShape(self.matrix.inverse())
+                    facts["stock_out_material"] = self._material_facts(
+                        self.stock_out, lower_model, self.thread_regions
+                    )
+                    if facts["stock_out_material"]["bbox_status"] == "common":
+                        facts["stock_out_bbox_mm"] = [_r(v) for v in _bbox(self.stock_out)]
+                else:
+                    facts["stock_out_volume_mm3"] = _r(self.stock_out.Volume)
+                    facts["stock_out_bbox_mm"] = [_r(v) for v in _bbox(self.stock_out)]
                 facts["completed_joint_features"] = sorted(self.completed)
         if self.stock_out_reason is not None:
             facts["stock_out_reason"] = self.stock_out_reason
@@ -7166,6 +7216,8 @@ class _Setup:
         ]
         if self.stock_reason is not None:
             reasons.append(self.stock_reason)
+        if self.arriving_thread_regions:
+            reasons.append("exact pickup geometry is unavailable for bounded thread material")
         if not self.fixture_ready:
             reasons.append(self.fixture_reason or "actual fixture scene is unresolved")
         reasons.extend(
@@ -7247,6 +7299,12 @@ class _Setup:
             if any(self.material_target.common(prism).Volume > HIT_MM3 for prism in beyond):
                 return {"reason": f"finished material stands {word} of the face of {name}"}
             behind = [face.extrude(V(0, 0, -sign * COVER_MM)) for face in faces]
+            if any(
+                prism.common(region["shape"]).Volume > HIT_MM3
+                for prism in (*beyond, *behind)
+                for region in self.arriving_thread_regions
+            ):
+                return {"reason": "stock face footprint intersects unmodeled thread material"}
             if any(slab.common(self.part).Volume <= HIT_MM3 for slab in behind):
                 return {"reason": f"the entering stock does not carry the face of {name}"}
             over = [
@@ -7290,6 +7348,8 @@ class _Setup:
         """The largest diameter of the stock as held when it is a solid of revolution, else
         None: about setup Z on a lathe, else about a box axis whose cross-section is square
         (round bar lying on a mill). The picture then prints that Ø, not a bounding box."""
+        if self.arriving_thread_regions:
+            return None
         box = self.box
         sizes = [box[i + 3] - box[i] for i in range(3)]
         axes = (
@@ -7793,8 +7853,11 @@ class _Setup:
         """
         where = self._where()
         stock, stopped = self.part, None
+        self.lower_out = self.lower_part
         self.stock_states = [stock]
         stock, stopped = self._keep_after(None, stock, where)
+        if stopped is None:
+            self.lower_out = self.lower_out.common(stock) if self.thread_regions else stock
         for op in self.ops:
             subject = self._subject(op)
             if stopped is not None:
@@ -7803,9 +7866,18 @@ class _Setup:
             before = stock
             plan = None
             try:
-                if self.output_records and _retained_metadata(op):
-                    # The output is already a proved terminal material state.
-                    # Inspection/release/layout metadata does not replay a cut.
+                if _retained_metadata(op):
+                    # Pure metadata carries both material bounds without a cut.
+                    self.lower_cuts[id(op)] = (self.lower_out, self.lower_out, None)
+                    continue
+                if op.get("do") == "hand_tap":
+                    lower_before = self.lower_out
+                    lower_after, why = self._bounded_thread(op, stock, lower_before)
+                    if why is not None:
+                        stopped = f"{subject}: {why}; {where}"
+                    else:
+                        self.lower_out = lower_after
+                    self.lower_cuts[id(op)] = (lower_before, self.lower_out, why)
                     continue
                 if _sawn(op):
                     after, detail = self._saw_stock(op, stock)
@@ -7815,6 +7887,7 @@ class _Setup:
                         stopped = f"{subject}: {why}; {where}"
                     else:
                         stock = after
+                        self._advance_lower(op, before, after, (before.cut(after), []))
                         self.stock_states.append(stock)
                     continue
                 plan, why = self._cut(op, stock)
@@ -7846,6 +7919,8 @@ class _Setup:
                         stopped = f"{subject}: {exc}; {where}"
                     else:
                         self._certify_joint(op, after)
+                if stopped is None:
+                    self._advance_lower(op, before, after, plan)
                 if stopped is None and after is not stock:
                     stock = after
                     self.stock_states.append(stock)
@@ -7860,6 +7935,8 @@ class _Setup:
                     self.stopped_plan = plan
                 else:
                     stock, stopped = self._keep_after(subject, stock, where)
+                    if stopped is None and self.thread_regions:
+                        self.lower_out = self.lower_out.common(stock)
                     if stopped is None and op.get("outputs"):
                         outputs, records, reason = self._retained_outputs(op, before, stock)
                         if reason is not None:
@@ -7885,6 +7962,8 @@ class _Setup:
                                         )
                                         for member in members
                                     }
+                                inverse, _ = _frame_matrix(self.output_specs[ref]["pose"])
+                                self._bounded_named_output(ref, name, inverse.inverse())
         return (None, stopped) if stopped is not None else (stock, None)
 
     def _retained_outputs(self, op, before, after):
@@ -8490,13 +8569,14 @@ class _Setup:
         where = self._where()
         try:
             for op in self.ops:
-                if self.output_records and _retained_metadata(op):
+                if _retained_metadata(op):
                     # The builder accepted this as metadata, not a milling
                     # claim whose walls must be cleared by another cut.
                     continue
                 if (
                     isinstance(op.get("joint_cut"), dict)
                     or isinstance(op.get("process_cut"), dict)
+                    or isinstance(op.get("manual_thread"), dict)
                     or _sawn(op)
                     or _turned(op)
                     or _rotary(op)
@@ -9727,7 +9807,7 @@ class _Setup:
         except Exception as exc:
             return None, (
                 f"protected finished material offset by its {_r(leave)} mm rough_allowance_mm "
-                f"leave within [{', '.join(_r(v) for v in window)}] failed (arc joins: {exc})"
+                f"leave within [{', '.join(str(_r(v)) for v in window)}] failed (arc joins: {exc})"
             )
         return pieces, None
 
@@ -10462,6 +10542,11 @@ class _Setup:
                     shape, reason = source
                     if shape is None or reason is not None:
                         raise _Unknown(reason or "borrowed support geometry is unknown")
+                    if state.get("material_bounds"):
+                        raise _Unknown(
+                            "borrowed support has bounded thread material; "
+                            "exact support-contact geometry is unmodeled"
+                        )
                     if any(
                         not self.owner.partition_proofs.get(split)
                         for paths in state.get("partitions", {}).values()
@@ -11925,6 +12010,11 @@ class _Setup:
                     f"Jaw-end profile is a window; this setup's cuts continue to Z {_r(beyond, 2)}"
                     " (main view)."
                 )
+        if self.thread_regions:
+            spec["notes"].append(
+                "Threaded region is unmodeled; drawing shows the material upper bound, "
+                "not exact helical or finished thread geometry."
+            )
         scene.update(
             {
                 "view": view,
@@ -11975,7 +12065,9 @@ class _Setup:
         # The CLEARANCE table's per-op fixture rows and the picture's dimension, the least
         # of them; any holding debt leaves them unknown.
         scene["cut_clearances"], spec["closest_cut"] = (
-            ([], None) if lathe else self._cut_clearances(held, not debts, by_op, blades, undecided)
+            ([], None)
+            if lathe or self.thread_regions
+            else self._cut_clearances(held, not debts, by_op, blades, undecided)
         )
         scene["closest_cut"] = spec["closest_cut"]
         scene["guide_stops"] = [stop["tag"] for stop in stops]
@@ -12260,6 +12352,12 @@ class _Setup:
         ``after`` (the stock arriving when that is None), not the stock the setup leaves.
         Of a stock in pieces, only those holding the finished part: scrap a cut before it
         released is off the part (all of them when none does or a boolean fails)."""
+        if getattr(self, "thread_regions", None):
+            return (
+                None,
+                "inspection snapshot crosses bounded thread material; "
+                "exact stock geometry is unmodeled",
+            )
         if "after" not in inspection:
             return None, "its place in the setup's route is not given"
         subject, unresolved = inspection["after"], (self.built or (None, self.stock_reason))[1]
@@ -14390,7 +14488,11 @@ class _Setup:
                 op.get("manual_thread", {}).get("reason")
                 or "helical thread removal is unmodelled; stock after manual threading is unknown"
             )
-            return self._op_unknown(op, reason)
+            facts = self._op_unknown(op, reason)
+            if id(op) in getattr(self, "manual_threads", {}):
+                facts["manual_thread"] = self.manual_threads[id(op)]
+                facts["represented_thread_envelope"] = self._represented_envelope(op)
+            return facts
         if _sawn(op):
             # The stock builder's facts; otherwise why the stock before this saw is unknown.
             if self.stock_reason is not None:
@@ -14398,6 +14500,10 @@ class _Setup:
             if id(op) in self.saws:
                 return self.saws[id(op)]
             return self._saw_facts(op, self.cuts[id(op)][2])
+        if self.thread_regions:
+            return self._op_unknown(
+                op, "exact operation geometry is unavailable for bounded thread material"
+            )
         if self.protection_reason is not None:
             # Nominal raw-stock cuts may be derived before a retained output
             # is posed, but no finished-material or coverage fact is proved.
@@ -15880,6 +15986,8 @@ class _Setup:
         """
         if self.stock_reason is not None:
             return None, f"in-process stock unknown: {self.stock_reason}"
+        if getattr(self, "thread_regions", None):
+            return None, "exact cutting-stock geometry is unavailable for bounded thread material"
         entry = self.cuts.get(id(op), (None, None, "the stock builder skipped it"))
         if entry[2] is not None:
             return None, f"the stock this op meets is unknown ({entry[2]})"

@@ -1,5 +1,13 @@
 # T-nut geometry provenance
 
+**EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT**
+
+The authored inputs now complete a four-member demonstration route. Source-video
+and catalogue facts remain distinct from the explicitly adopted acceptance bands,
+equipment selections and commissioning fixtures described below. No physical
+measurement, executed inspection, first-article approval or machining success is
+claimed.
+
 Source: Blondihacks, <https://www.youtube.com/watch?v=TL0OsfFkBL8>.
 The local MP4 inspected for this reconstruction is the actual downloaded video,
 1920 × 1080, duration 1085.3 seconds; the adjacent `en-orig.vtt` provides captions.
@@ -106,6 +114,14 @@ volume **4707.621531549312 mm³**.
 STEP SHA-256:
 `456cdbe656f84b5b3236b8878c820f1e64a21944a61bdc6165fd39fe2fe5336e`.
 
+The frozen file contains one `MANIFOLD_SOLID_BREP`, entity `#15` with an empty
+label, enclosing `CLOSED_SHELL` entity `#16`. The manifest names that source
+`canonical-nut = "#15/MANIFOLD_SOLID_BREP[1]/"`; the source shell contains faces
+`#17`, `#57`, `#88`, `#130`, `#161`, `#192`, `#223`, `#265`, `#287`, `#304`
+and `#320`. These are source-text identities, not imported-solid indices or a
+claim of four solids in the STEP. The four authored `plan.workpieces` registrations
+instantiate this one canonical source with their separately declared poses.
+
 The repository's existing `examples/geometry/author_solids.py -- faces` tool
 derived these references from STEP surface geometry, not guessed face order.
 Normals below point out of the solid; all plane positions are in model mm.
@@ -127,3 +143,380 @@ geometry/export changes.
 | +X end | `#320/ADVANCED_FACE[11]/` | +X plane X=12.7 |
 
 No tests, package build, lint, or formatter were run for this geometry work.
+
+## Demonstration acceptance and source exceptions
+
+The video establishes the process and the nominal identities above, not a released
+drawing. The example deliberately adds five **author-selected demonstration**
+acceptance bands; it does not adopt the catalogue product's tolerances:
+
+| Requirement | Acceptance, mm | Inch equivalent |
+| --- | --- | --- |
+| Base width | 22.1742–22.2758 | .875 ± .002 |
+| Overall height | 12.6492–12.7508 | .500 ± .002 |
+| Both flange thicknesses | 6.2992–6.4008 | .250 ± .002 |
+| Stem width | 12.5222–12.6238 | .495 ± .002 |
+| Finished length | 25.3492–25.4508 | 1.000 ± .002 |
+
+The centered 3/8-16 right-hand through thread retains its source identity. No
+minor-diameter, position-diameter, formal class, six-thread count, numerical
+recess/overlap or load-rating acceptance is invented. The frozen STEP's 9.525-mm
+major-diameter cylinder is explicitly `representation="thread_envelope"`; it is
+neither the 7.9375-mm tap drill nor an exact helical solid. Manual tapping carries
+a bounded unmodeled thread region, not fabricated helical-kernel proof.
+
+Two inspection checkpoints replace redundant intermediate paperwork:
+
+- **S1:30**, after S1:20 and before C1a:20: one batch-owned caliper check of the
+  four cross-section requirements at all future blank stations, explicitly
+  covering nut1–nut4. Both flange thicknesses are checked. One blank overall
+  batch result is not four claimed physical measurements.
+- **F1a–F1d:10**: separate final checkpoint/result for each nut. Caliper length
+  uses the band above. `actual_slot_fit` requires free hand sliding without
+  objectionable rocking, both shelves bearing without bottoming/wedging, and
+  the pulled-up top below the table. `stud_retention` requires intended-stud
+  entry by hand, bottom deformation preventing exit/table contact, and no nut
+  rotation or pass-through in the intended slot. The same checkpoint includes
+  uniform black/oiled finish, no loose residue and unobstructed fit/threads;
+  finish is not a third typed relationship or separate result.
+
+The Q3/Q4/E1/D1/B1 inspection operations and their unknown diameter/position and
+missing-functional-requirement placeholders are superseded by these explicit
+contracts, not hidden at a presentation level. No micrometer, formal working
+thread gauge, locator gauge or thread-axis worksheet is required by this design.
+The DTI remains for vise alignment only.
+
+The actual-slot comparator's note discloses **example**, not measured PM-25 table,
+dimensions: throat 12.7, undercut 22.86, total depth 13.97 and lip depth 6.985 mm;
+the resulting undercut height is 6.985 mm. They are not a numeric fit certificate.
+The comparator is the actual intended slot; the hardware comparator is the
+intended 3/8-16 right-hand stud/nut, not an M10 × 1.5 near-fit.
+
+### Demonstration measurement convention
+
+Installed/commissioning measured records use the repository's exact disclosure:
+
+```toml
+measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" }
+```
+
+This exercises the same checker branch as a measured shop input without claiming
+a shop observation. The checker must not interpret the attribution prose as a
+trust override. Bare `Number`/`Vector` plan and capability fields retain their legal
+shape with adjacent example-value attribution/citations; no fabricated wrapper is
+introduced. Catalogue nominals remain catalogue facts, while installed projection,
+body/kerf, holder/fixture dimensions and effective machine limits have separate
+fact-local example records. All added equipment is an adopted example selection,
+not identified as equipment in the video.
+
+The current inventory schema represents the tap-wrench 5–12-mm capacity band as
+`range_mm=[5,12]`, not the scalar `capacity_mm`. The follower uses the engine's
+exact selected tool identity `fits="tools.taper-tap"` rather than an unsupported
+designation list. Its note preserves the 3/8-16 right-hand identity. It guides;
+it does not grip or drive the tap, and no follower-based tool projection, powered
+tap RPM/feed or automatic class certification is supplied.
+
+## Demonstration stock and registration
+
+The adopted raw 1018/HB120 flat bar is 1 × .625 × 5 inch: model origin
+[0,-12.7,-1.5875] mm, length axis +X, section axis +Y. The .001-inch-per-inch
+starting-end squareness is an explicitly disclosed example raw-stock input, not a
+completed preparation result or `stock.prepared` claim. B0's .889-mm kerf is
+centered at B0 setup X101.4095 (batch/model X114.1095), 4.4925 inch from the starting face. It leaves
+113.665 mm (4.475 inch) of batch bar and 12.446 mm (.490 inch) of scrap.
+Nut4's raw starting end is later removed by its .635-mm E1d cleanup.
+
+Q1–Q4 face only the four long faces. The 113.665-mm prepared section is exactly
+four 26.035-mm blanks plus three 3.175-mm kerfs. In the upright end-up frame,
+bottom is Z0:
+
+| Physical cut | Kerf center Z, mm | Upper retained output Z | Lower retained output Z |
+| --- | ---: | --- | --- |
+| C1a:20 | 86.0425 | nut1_blank: 87.630–113.665 | bar_a: 0–84.455 |
+| C1b:10 | 56.8325 | nut2_blank: 58.420–84.455 | bar_b: 0–55.245 |
+| C2:10 | 27.6225 | nut3_blank: 29.210–55.245 | nut4_blank: 0–26.035 |
+
+The unchanged canonical STEP spans X−12.7..+12.7, **not X0..25.4**. Correct
+finished-target translations are [100.33,0,0], [71.12,0,0], [41.91,0,0], and
+[13.335,0,0] mm; nut4 alone is rotated Rz180°. This preserves each retained #304
+saw end and leaves .635 mm at its free #320 end. Output registration uses inverse
+translations for nut1–nut3; nut4's rotated transform is self-inverse.
+Q2 therefore claims #130 for nut1–nut3 but #57 for nut4; Q3 is the mirror.
+No sibling borrows an untransformed face claim.
+
+The named manifest surface `retained-saw-end` binds **only** canonical face
+`#304/ADVANCED_FACE[10]/` (model −X plane X−12.7). E1/D1 `hold.stop_face`
+references use that feature identity, not a raw STEP-face string, the ambiguous
+two-ended `end-length` feature, or a generic `stock_end`. This is a locating
+designation of existing frozen geometry with no additional size/inspection
+requirement; top-up-reversed places it at setup X+12.7 against the rod's zero end.
+
+The physical route is **29 setups / 65 operations / 14 presentation families**:
+B0, Q1–Q4, S1, C1a, C1b, C2, then E1a–d, D1a–d, B1a–d, B2a–d, F1a–d.
+Each downstream setup names one explicit incoming retained output/setup. E1,
+D1, B1, B2 and F1 groups share presentation instructions only; their physical
+operation identities, findings and results remain separate. The canonical STEP
+bytes, SHA-256 and geometry export observations above are unchanged.
+
+## Finite saw and native pickup design
+
+The saw, arbor, vises, supports and capture are explicit demonstration inputs, not
+a universal sawing recipe or dynamic clamp-capacity certification. The 2-inch
+36-tooth saw has .125-inch kerf, .120-inch body, 48-mm tooth root, measured-example
+bore [12.700,12.710] mm and zero kerf offset. Installed body-midplane-to-gauge
+projection is 45 mm; the arbor's complete holder/stem/flange/pilot/lower-retainer
+envelope is separately recorded in inventory. CW teeth viewed from above and a
+lower right-hand retainer are the selected placement-specific cutting/tightening
+combination.
+
+The independent capture is a pre-made, table-anchored assembly, not a hand-held
+catch and not C2's balancing blank. Its widened head, both pad contacts, screw
+housing/screw/handle envelopes, collar hardware, anchored post/base and M8 bolt
+heads are occupied geometry. Each head is posed at its actual cut center; pads
+contact the upper child's flange 12–24 mm above it. M6 pad/collar targets are
+8 N·m and M8 base targets 18 N·m: instructions, not verified holding force.
+No unused 1000-N rating remains.
+
+All custom-solid coordinates are fixture-local and all placed-support/capture
+poses are setup-local millimetres, applied once. Upright table is Z−75.
+The setting-post origin is [−119.38,0,−75], with local stem Z0..83.16 and a
+2×2×2-mm boss above it; boss top is setup Z10.16. The lower blade body touches
+at [−119.38,0,10.16] with arbor XY[−139.7,0] through .0508-mm paper:
+
+`cutting-midplane Z = 10.16 + .0508 + 3.048/2 = 11.7348 mm = +.462 inch`.
+
+Use actual body thickness, not kerf or radius. A +.250-inch check reads +.712,
+not mirrored +.212. Each separate saw installation has its own fresh body-side
+record; an earlier setting cannot silently transfer.
+
+Before saw installation, find front Y0 first at a physical point by eye within
+±.300 inch of its center, not an unset X readout; the native point uses X0.
+Then find left stem X−6.2865 at Y10.541. Finder lowest-tip Z is
+111.125/81.915/52.705 mm for C1a/C1b/C2, .100 inch below each current top.
+The .100-inch lateral approach and .500-inch above-stock retract clearance
+include descent, lateral contact, vertical withdrawal and signed check jog.
+E1's accessible retained-end pickup similarly uses Y−.200/Z−.100, above the
+stop, rather than touching the rough free end or through the stop.
+
+Every saw cycle starts at calibration [−139.7,0,11.7348]. With spindle stopped,
+move one axis at a time: Z130.175 → Y−10.541 → X−53.34 → Zcut → X−37.1475.
+The sole cutting segment feeds +X to +37.1475 at 160 RPM / 58.5216 mm/min
+with flood. Stop fully with capture still clamped. Withdraw Y−60.325, raise
+Z130.175, then return X−139.7 → Y0 → Z11.7348. Both children and capture
+remain obstacles until this complete stopped return; only then release/retrieve,
+adjust capture and perform the next setup's pickups/setting. Lowering first and
+crossing at the next height is not an allowed clear-return shortcut.
+
+C2 borrows the already-produced `stock_out.nut1_blank` at origin [62.7,0,11.1125],
+local x=setup+X, local z=setup+Y (local y=setup−Z). It is a temporary
+obstacle/support, not duplicated/consumed material or a substitute upper hold.
+Paper .0508 mm is at the cutting-piece/moving-jaw contact, not on this balancer.
+Return nut1 before E1a.
+
+The ledger's analytical expectations are retainer/jaw clearance 1.0985 mm,
+flange/stock lateral gap 1.016 mm, descent pad clearance 2.444 mm and established
+engagement about 41.6864° / mean 4.1686 teeth / guaranteed 4. They are design
+expectations, **not native results exercised by this authoring change**; entry
+and exit transitions are separate. Full finite motion, mounting, capture,
+material/target protection and native pickups must supply actual checker proof.
+
+## Cutting-data sources
+
+The local offline reference root is
+`C:/src/harmonic-analyzer/references/machinerys-handbook/corpus/`.
+Do not bundle the copyrighted corpus or fetch it during checks.
+
+| Fact | Source and selected use |
+| --- | --- |
+| 1018/HSS 110 sfm at 100–125 HB | `pages/1366.md`, Table11, printed1045; HB120 is a disclosed example material selection. |
+| ¾-inch HSS .003 in/tooth; ½-inch .001 in/tooth at cited .250-inch DOC | `1375.md`, Table15a, printed1054; selected 500/750 RPM both give 98.175 sfm. |
+| HSS 1018 drilling 100 sfm; under⅛-inch .001–.003 in/rev, ¼–½-inch .004–.010 in/rev | `1381.md`/`1382.md`, printed1060/1061; adopted spot/drill rows are within these feed bands. |
+| 3/8-16 commercial tap drill 5/16 inch | `2254.md`, Table3, printed1933; not recovered from the video. |
+| 5/16 jobber LOC3-3/16/OAL4-1/2 inch; #3 centre drill ¼-inch body, 7/64-inch pilot/length, OAL2 inch | `1182.md`, printed861; `1194.md`, Table6, printed873. |
+| Adopted PM-25MV-BD R8/1HP/speed ranges and nominal travel/headroom | [Manufacturer manual §2, UCSB mirror](https://microfluidics.cnsi.ucsb.edu/wiki/lib/exe/fetch.php?media=tools:precisionsmillingmachine:pm-25mv_manual.pdf); effective envelope limits are separate measured-example facts, not video mill identification. |
+| 2-inch × .125-inch × ½-inch bore, 36T HSS saw; 80–100 sfm, .0004–.0018 in/tooth, flood guidance | [MariTool301-2.0-.50-.125-36T](https://www.maritool.com/product_info.php?products_id=25574); body, kerf and installation dimensions are separate example facts. |
+| .375-inch body/.200-inch finder contact; generic 750–1500 RPM guidance | [Starrett827A](https://www.starrett.com/products/precision-shop-tools/edge-and-center-finders/827A), [Travers finder guidance](https://solutions.travers.com/how-to-use-a-.200-edge-finder-travers-tool-co); adopted 1000 RPM is not a Starrett speed certificate. |
+| Conditional corroboration of approximately100-sfm HSS practice | [Practical Machinist1018 discussion](https://www.practicalmachinist.com/forum/threads/1018-speeds-feed-and-removal-amount.120956/); not controlling numerical authority. |
+
+The face/profile/spot/drill/saw rows produce respectively 152.4, 76.2, 30.48,
+182.88 and 58.5216 mm/min at their authored 500/750/1200/1200/160 RPM.
+Mill feed is derived, not overridden by operation feed fields. The nonspindle
+bandsaw's 300-sfm / 25.4-mm/min setting is an illustrative author choice within
+its example blade-speed range, not an unconditional Handbook bandsaw prescription.
+Only consumed policy floors remain: refixture .0254 mm, thin wall 1 mm,
+minimum established saw engagement 3 teeth. No dormant Kc/E, load rating,
+lathe-only stickout/near-jaw, filing-to-shape limit or print-precision override
+is introduced.
+
+A3 workflow explanations are short paraphrases only: PDF16/printed7 batching and
+related surfaces before resetting; PDF18/printed9 true arbor/reference retention;
+PDF20/printed11 touch/remove excess/remeasure; PDF24/printed15 indicate the fixed
+jaw, tighten/recheck and seat duplicate work on parallels. No A3 part dimensions
+or copyrighted page content is transplanted.
+
+## Mandatory finish
+
+The example selects JAX **Iron/Steel/Nickel Blackener**, not an unspecified
+formulation. Follow [directions](https://jaxchemical.com/wp-content/uploads/2016/08/Directions-Iron-Steel-and-Nickel-Blackener.pdf)
+and the [2024-10-04 SDS](https://jaxchemical.com/wp-content/uploads/2024/10/JAX-Iron-Steel-Nickel-Blackener-SDS.pdf):
+degrease, final detergent-clean, use the supplied neat product, rinse, dry and oil.
+No universal dwell, bath-temperature or coating-thickness requirement is invented.
+Ventilation, splash protection, chemical-compatible gloves and segregated waste
+remain core instructions in every detail level. ISO-VG32 oil and 5% water-miscible
+semi-synthetic flood fluid are disclosed example product selections, not video
+identifications. Optional steel-wool/reblackening work is removed; blackening is
+mandatory and checked within each final overall result.
+
+## Demonstration deburr maximum
+
+The mechanically held B0/Q1–Q4/S1/C1a/C1b/C2/E1a–d/D1a–d/B1a–d setups
+declare `deburr_mm=0.05` mm as an **author-selected demonstration maximum
+incidental edge break**. This keeps the existing required input rather than
+waiving its check. The video establishes hand burr removal but supplies no
+numerical edge-break dimension; 0.05 mm is not attributed to the video, a
+catalogue or a physical measurement.
+
+The intended process is light raised-burr removal, not deliberate chamfering:
+remove the raised burr, preserve bearing/locating flats and usable entry threads,
+and do not make an intentional hole-mouth countersink. The 0.05-mm ceiling is
+smaller than the 0.0508-mm half-width of the adopted size bands; it does **not**
+enlarge those bands or permit an undersize bearing surface. Original dimensional,
+slot-fit and stud-retention acceptance remains unchanged. This is plausible
+example process data, not a demonstrated result or a new source drawing limit.
+Note-only chemical handling and final-comparison setups do not acquire a
+mechanical deburring requirement or extra operation.
+
+## Physical input completion
+
+The first actual native-generation attempt identified missing fact qualification
+and contact selectors. The corrective input declarations remain illustrative;
+they do not turn the example into a physical measurement or a ready-to-run job.
+
+- Saw X/Y pickups select the **actual arriving stock** with `stock:-x` and
+  `stock:-y`, respectively. Their separately authored transverse coordinates and
+  lowest tip heights select the exposed stem and front-flange planes; the native
+  contact proof must still establish that the selected plane is reached without
+  another part of the finder/holder contacting stock or fixtures. No canonical
+  face from an arbitrary one of the still-joined members is substituted.
+- E1a–d X pickups name `retained-saw-end`, the exact single canonical #304 plane
+  on that setup's sole carried member. This is the exposed upper part of the
+  retained end, not a contact through the rod stop.
+- S1's linear-table sweep names the retained stem envelope over the **whole raw
+  batch length**, model X0..113.665 and Y±6.2865 mm. Offsetting its two long
+  walls by the .500-inch cutter radius plus .010-inch rough allowance produces
+  rough centre Y±12.8905 mm (±.5075 inch); the finish radius alone produces
+  Y±12.6365 mm (±.4975 inch). The connecting returns stand beyond the raw ends:
+  rough setup X−19.304/+107.569 and finish X−19.05/+107.315 mm. They do not shorten
+  either end or substitute four short per-member paths. Clear-air depth entry
+  and end returns remain subject to the real path/fixture checks.
+- Each D1 setup explicitly declares the centered hole's nominal entry Z0 and
+  local section thickness 12.7 mm. These are derived from the adopted nominal
+  design, not caliper readings. The 15.621-mm point-inclusive drill depth and
+  2.921-mm exit allowance are unchanged; actual prior spot/drill material and
+  retained-hole survival still require native evidence.
+- B0's example bandsaw cut and B1's stopped hand deburring/staking explicitly
+  declare `coolant="none"`. This completes the existing holding declaration;
+  it does not waive its coolant/deburring checks or change the source process.
+
+The setting post remains a separately **posed auxiliary support**, at
+setup [−119.38,0,−75] mm. Its actual local `boss` top is 85.16 mm, so its
+setup top is 10.16 mm. It is not relabelled as a workpiece stop or clamp to
+avoid a missing engine placement path. The saw stem/pilot and real flange
+envelopes likewise remain physically distinct; a stem touching the body plane
+does not become an annular flange.
+
+The inventory correction qualifies the existing physical numbers locally rather
+than adding different nominal dimensions to silence the checker:
+
+| Installed demonstration fact | Adopted value | Source boundary |
+| --- | --- | --- |
+| Mill DRO resolution | .0001 inch | Author-selected example capability, not a physical calibration or video identification. |
+| Squaring / shoulder / finishing cutter diameters | 19.05 / 12.7 / 12.7 mm | Existing selected nominal sizes, now locally qualified as example installed dimensions. |
+| Finder contact / shank | 5.08 / 9.525 mm | Starrett 827A's .200/.375-inch catalogue identities; installed qualification is illustrative, not a measured shop result. |
+| #3 centre-drill pilot diameter / pilot and flute length / shank | 2.778125 / 2.778125 / 6.35 mm | Handbook `pages/1194.md:30–51`, Table 6, printed 873, for the selected pilot/body identity; no recovered video-tool measurement. |
+| Centre-drill point angle | 118° | Author-selected illustrative pilot-point geometry, not a catalogue measurement; the 60° centre cone is a different surface. |
+| Tap-drill diameter / flute length / shank | 7.9375 / 80.9625 / 7.9375 mm | Selected 5/16-inch tap drill: `pages/2254.md:83–84`, Table 3, printed 1933; jobber lengths `pages/1182.md:26–27`, printed 861. |
+| Tap-drill point angle | 118° | Author-selected illustrative drill-point geometry, not observed from the video. |
+| Drill-chuck maximum shank | 13 mm = 0.5118110236220472 inch | Existing example .5–13-mm capacity; explicit legal `max_shank_in` supplies the same upper limit, not an enlarged chuck. |
+
+Each qualified measurement record carries the exact repository-required marker:
+
+```toml
+measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" }
+```
+
+Fields whose schema is a bare scalar, including `resolution_in` and
+`max_shank_in`, retain that legal form with the full disclosure beside them.
+The marker denotes a realistic fixture value; **no physical measurement or
+machine calibration occurred**. Tool projections, effective machine travel and
+headroom, jaw/parallel geometry, saw body/bore/root dimensions, arbor positions
+and the .500-inch qualified manual-tap lead retain their disclosed values.
+No plunge cutting-data row was added: the authored shoulder/end paths descend
+outside the stock, and unresolved native geometry is not a reason to invent a
+different entry motion.
+
+## Batch datum correction
+
+The registered target poses are canonical-to-**batch model** transforms, not
+distances from a setup's local X datum. They remain exactly
+[100.33,0,0], [71.12,0,0], [41.91,0,0] and [13.335,0,0] mm, with Rz180 only
+for nut4. The unchanged centered canonical STEP therefore occupies these batch
+X intervals:
+
+| Target | Batch model X, mm | Its retained blank |
+| --- | --- | --- |
+| nut1 | 87.630..113.030 | 87.630..113.665 |
+| nut2 | 58.420..83.820 | 58.420..84.455 |
+| nut3 | 29.210..54.610 | 29.210..55.245 |
+| nut4, Rz180 | .635..26.035 | 0..26.035 |
+
+The raw supply now starts at batch X0 and ends at X127. B0 retains
+X0..113.665; its kerf spans X113.665..114.554, leaving 12.446 mm of scrap.
+This fixes a real draft coordinate inconsistency: the old supply and B0 frame
+retained only batch X−12.7..100.965, which intersected nut1's declared target.
+The native target-loss refusal was correct; no safety predicate or registered
+target is changed to conceal it.
+
+To retain the approved **operator-local** coordinates, only the batch preparation
+frame origins move +12.7 mm in batch X:
+
+| Frame | Batch model origin, mm |
+| --- | --- |
+| B0 `bench-raw` | [12.7,0,0] |
+| Q1 `batch-bottom-up` | [12.7,0,0] |
+| Q2 `side-one-up` | [12.7,−11.1125,0] |
+| Q3 `side-two-up` | [12.7,11.1125,0] |
+| Q4/S1 `top-up` | [12.7,0,12.7] |
+| C1a/C1b/C2 `end-up` | [0,0,0] |
+
+Axes are unchanged. Q1 gets a distinct batch frame so B1's released-member
+`bottom-up` frame stays canonical at [0,0,0]. E1/D1 `top-up-reversed` also stays
+canonical after each retained output's declared inverse registration. All three
+upright cut heights, B0's 4.475-inch retained length, jaw/support positions and
+printed X coordinates remain unchanged. S1's model-frame sweep bounds now name
+X0..113.665; its setup-frame material-removal bounds and cutter centers are
+unchanged. There is still one B0 cut and exactly three partition cuts.
+
+B0 is the actual bed-seated hold: its raw stock bottom and bed top are setup
+Z−1.5875. With no parallels and 25-mm bench jaws, the jaw tops are Z23.4125;
+`jaw_above_parallels_mm=25` is their actual elevation above that seat, while
+`grip_mm=15.875` is the smaller stock-contact height. The saw remains 20 mm
+beyond the jaw end; extra jaw height is not a reason to invent a lower vise.
+
+## B1 flange hold without a false bed seat
+
+The adopted B1 hold is bottom-up **between the jaws**, not flange-on-bed or
+stem-on-bed. In the released-member frame the flange spans Z−6.35..0 and the
+stem extends down to Z−12.7. Put the exposed bottom face flush with the jaw
+tops at Z0; the jaws grip the outer flange side flats through 6.35 mm.
+The native jaw-zone height above the lowest stock point is consequently
+12.7 mm, not the contact grip of 6.35 mm.
+
+For this disclosed example bench vise's 25-mm-high jaws, the bed/jaw foot is
+Z−25, giving 12.3 mm clearance below the stem. No parallels are fitted.
+`parallels="none"` declares their absence; it is not evidence that the work
+rests on the bed. The clamp instruction requires the outer flange contacts and
+under-stem clearance to be rechecked before staking. Reholding for manual mouth
+and exterior deburring is retained; the final bottom-thread staking remains
+the same physical operation. These are plausible, explicitly adopted fixture
+positions, not video-derived measurements or demonstrated holding strength.

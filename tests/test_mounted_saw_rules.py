@@ -406,3 +406,117 @@ def test_refused_diameter_keeps_host_diagnostic_without_admitting_geometry(monke
     assert row.status == "error"
     assert row.numbers["blade_diameter_mm"] == diameter
     assert row.numbers["mounted_saw"]["blade"]["dia_mm"] == "unknown"
+
+
+def support_calibration_case():
+    data = slitting_bundle()
+    setup = data.plan["setups"][0]
+    data.features["units"] = "mm"
+    pose = {"origin_mm": [-119.38, 0, -75], "x": [1, 0, 0], "z": [0, 0, 1]}
+    setup["hold"] = {
+        "supports": [
+            {"placement": "posed", "id": "setting-post", "ref": "saw-setting-post", "pose": pose}
+        ]
+    }
+    setup["zero"] = {
+        "z": {
+            "method": "mounted_saw_side",
+            "tool": "blade",
+            "holder": "holder",
+            "face": "fixture:fixtures.saw-setting-post/boss:+z",
+            "edge_mm": 10.16,
+            "paper_mm": 0.05,
+            "mounted_saw": {
+                "spindle_state": "stopped",
+                "blade_side": "minus_z",
+                "axis_xy_mm": [-139.7, 0],
+                "point_mm": [-119.38, 0, 10.16],
+            },
+        }
+    }
+    data.inventory["fixtures"]["saw-setting-post"] = {
+        "kind": "custom",
+        "solids": [
+            {"name": "boss", "shape": "box", "at_mm": [-1, -1, 83.16], "size_mm": [2, 2, 2]}
+        ],
+    }
+    return data, setup
+
+
+def support_calibration(data, setup):
+    from prechips.kernel.mounted_saw import _zero
+
+    return _zero(kernel, data, setup, setup["ops"][0], {"components": []})
+
+
+@pytest.mark.parametrize("reference", ["saw-setting-post", "fixtures.saw-setting-post"])
+def test_mounted_saw_calibration_resolves_posed_support_canonical_component(reference):
+    data, setup = support_calibration_case()
+    setup["hold"]["supports"][0]["ref"] = reference
+    zero = support_calibration(data, setup)
+    assert zero["selected"] == 0
+    assert zero["reasons"] == []
+    assert zero["errors"] == []
+    assert zero["touches"][0]["surface"] == {
+        "kind": "fixture",
+        "name": f"{reference}:boss",
+        "side": "+z",
+    }
+    [fixture] = zero["fixtures"]
+    assert fixture["pose"] == setup["hold"]["supports"][0]["pose"]
+    assert fixture["solids"][0]["local"] == "boss"
+    assert fixture["solids"][0]["size_mm"] == [2, 2, 2]
+
+
+def test_mounted_saw_calibration_support_unknown_pose_remains_debt():
+    data, setup = support_calibration_case()
+    setup["hold"]["supports"][0]["pose"] = "unknown"
+    zero = support_calibration(data, setup)
+    assert zero["fixtures"][0]["pose"] == "unknown"
+    assert "calibration needs an orthonormal setup-mm pose" in zero["reasons"]
+
+
+@pytest.mark.parametrize("debt", ["dimension", "verification"])
+def test_mounted_saw_calibration_support_unknown_solid_remains_debt(debt):
+    data, setup = support_calibration_case()
+    solid = data.inventory["fixtures"]["saw-setting-post"]["solids"][0]
+    if debt == "dimension":
+        solid["size_mm"] = "unknown"
+    else:
+        solid["verify"] = True
+    zero = support_calibration(data, setup)
+    assert zero["fixtures"][0]["solids"] == []
+    assert zero["reasons"]
+    assert zero["touches"][0]["surface"]["name"] == "unknown"
+    assert "mounted-saw calibration names no solid component in its fixture" in zero["errors"]
+
+
+@pytest.mark.parametrize("other_role", ["support", "clamp"])
+def test_mounted_saw_calibration_repeated_support_fixture_is_ambiguous(other_role):
+    data, setup = support_calibration_case()
+    support = setup["hold"]["supports"][0]
+    if other_role == "support":
+        setup["hold"]["supports"].append({**support, "id": "second-setting-post"})
+    else:
+        setup["hold"]["clamps"] = [{"ref": support["ref"], "pose": support["pose"]}]
+    zero = support_calibration(data, setup)
+    assert len(zero["fixtures"]) == 2
+    assert zero["touches"][0]["surface"]["name"] == "unknown"
+    assert "mounted-saw calibration fixture placement is ambiguous" in zero["reasons"]
+
+
+@pytest.mark.parametrize(
+    "support",
+    [
+        "saw-setting-post",
+        {"ref": "saw-setting-post"},
+        {"placement": "posed", "id": "borrowed-stock", "stock_ref": "saw-setting-post"},
+    ],
+)
+def test_mounted_saw_calibration_does_not_infer_support_fixture_placement(support):
+    data, setup = support_calibration_case()
+    setup["hold"]["supports"] = [support]
+    zero = support_calibration(data, setup)
+    assert zero["fixtures"] == []
+    assert zero["touches"][0]["surface"]["name"] == "unknown"
+    assert "mounted-saw calibration fixture has no explicit posed placement" in zero["reasons"]

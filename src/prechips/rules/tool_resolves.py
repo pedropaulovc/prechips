@@ -11,6 +11,7 @@ shop-made item's make operation names a ``tools`` key and states its cutting dat
 from ..findings import Finding
 from ..measurements import length_debt, length_fact, limits_fact
 from ..thread_specs import match as thread_match
+from ..thread_specs import selected_class_status
 from .geometry_common import (
     _AXIAL_LATHE_ACTIONS,
     mounted_saw_assembly_evidence,
@@ -43,6 +44,7 @@ from .resolution import (
     shop_made_item,
     slitting_saw,
     spindle_saw,
+    thread_class_acceptance,
     uncertain,
 )
 
@@ -328,6 +330,18 @@ def _manual_thread(bundle, subject, op):
         nums[field] = {"required": required, cutter: actual}
         if field == "thread":
             matches = thread_match(required, actual)
+        elif field == "thread_class":
+            class_status = selected_class_status(
+                feature,
+                record(tool),
+                acceptance=thread_class_acceptance(bundle, op.get("feature"))
+                if tapping
+                else "formal",
+            )
+            if class_status == "not_adopted":
+                nums[field]["adoption"] = "not_adopted"
+                continue
+            matches = {"match": True, "mismatch": False}.get(class_status)
         else:
             matches = (
                 required.strip().casefold() == actual.strip().casefold()

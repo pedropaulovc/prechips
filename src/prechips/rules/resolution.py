@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from fractions import Fraction
+from typing import Literal
 
 UNKNOWN = "unknown"
 # Inch fields convert by float multiplication (3/8 in -> 9.524999999999999 mm), so a
@@ -183,6 +184,117 @@ def op_entry(op, table, feature, requirement):
     return flat.get(requirement)
 
 
+def thread_class_acceptance(bundle, name) -> Literal["formal", "manual_functional"]:
+    """The explicit class policy authorized by a complete hardware-fit contract.
+
+    This does not establish thread identity, class, machining or physical fit.
+    """
+    feature = record(record(getattr(bundle, "feature_definitions", {})).get(name))
+    if feature.get("kind") not in {"thread", "threaded_hole"}:
+        return "formal"
+    for relationship in record(record(getattr(bundle, "features", {})).get("acceptance")).values():
+        relationship = record(relationship)
+        contract = record(relationship.get("contract"))
+        clauses = contract.get("accept")
+        if (
+            name in relationship.get("features", [])
+            and contract.get("kind") == "manual"
+            and contract.get("gauge_kind") == "mating_hardware"
+            and isinstance(clauses, list)
+            and bool(clauses)
+            and all(
+                isinstance(text, str) and text.strip() and text.strip() != UNKNOWN
+                for text in clauses
+            )
+            and _citations(contract.get("cite"))
+        ):
+            return "manual_functional"
+    return "formal"
+
+
+def op_check_targets(bundle, setup, op):
+    """Authored dimensional/part checks with explicit inspection, not geometry, ownership.
+
+    One shared record covers its explicit members; a final record selects only its
+    arriving member. Unknown selection never borrows the canonical or a sibling part.
+    ``op_entry`` remains the sole flat/scoped inspection-table precedence.
+    """
+    from prechips.model import tolerance_requirements
+
+    shared = op.get("inspect_workpieces")
+    shared_known = isinstance(shared, list) and bool(shared)
+    members = operation_members(bundle, setup, op)
+    selected = (
+        not registered_workpieces(bundle)
+        or shared_known
+        or "inspect_workpieces" not in op
+        and members is not None
+        and len(members) == 1
+    )
+    workpiece = (
+        shared[0]
+        if shared_known and len(shared) == 1
+        else members[0]
+        if not shared_known and members and len(members) == 1
+        else None
+    )
+    operation = f"{setup['id']}:{op['op']}"
+    targets = []
+
+    def append(name, requirement, kind, contract=None):
+        gauge = op_entry(op, "checks", name, requirement)
+        if gauge is None:
+            return
+        batch = (
+            kind == "dimensional" and shared_known and (len(shared) > 1 or "inspection_scope" in op)
+        )
+        resolved = selected and (kind != "manual" or not shared_known or len(shared) == 1)
+        owner = name if name is not None else "part"
+        subject = f"{owner}:{requirement}"
+        if batch:
+            subject = f"{operation}/{subject}"
+        elif workpiece is not None:
+            subject = f"{workpiece}/{subject}"
+        targets.append(
+            {
+                "identity": {
+                    "workpiece": None if batch else workpiece,
+                    "feature_owner": name,
+                    "requirement": requirement,
+                },
+                "kind": kind,
+                "setup_id": setup["id"],
+                "op_id": op["op"],
+                "op": operation,
+                "subject": subject,
+                "gauge": gauge,
+                "method": op_entry(op, "inspection_methods", name, requirement),
+                "contract": contract,
+                "shared_check_id": operation if batch else None,
+                "covered_workpieces": list(shared) if batch else [],
+                "selection_status": "pass" if resolved else UNKNOWN,
+            }
+        )
+
+    for name in op_features(op):
+        feature = record(bundle.feature_definitions.get(name))
+        requirements = (
+            tolerance_requirements(feature)
+            if feature
+            else [
+                requirement
+                for scope, requirement, _ in op_entries(op, "checks")
+                if scope in (None, name)
+                and requirement not in record(bundle.features.get("acceptance"))
+            ]
+        )
+        for requirement in dict.fromkeys(requirements):
+            append(name, requirement, "dimensional")
+    for requirement, relationship in record(bundle.features.get("acceptance")).items():
+        append(None, requirement, "manual", record(relationship).get("contract", UNKNOWN))
+    return targets
+
+
 def op_feature(op):
     """The one feature an op cuts or works on; ``None`` when absent or an inspect list."""
     feature = op.get("feature")
@@ -357,6 +469,129 @@ def member_protection_evidence(bundle, setup, member, facts=None):
     )
     if status == "error" and not reasons:
         reasons = ["the registered target is not contained in actual arriving stock"]
+    return {**result, "status": status, "reasons": reasons, "proof": proof}
+
+
+def inspection_preservation_evidence(bundle, receiver, op, feature, requirement, member):
+    """Requirement-specific native survival proof, never mere target containment.
+
+    The native ledger binds the descendant route, current registration and partition,
+    and exact scoped check/producer. Missing or mismatched proof remains debt.
+    """
+    from prechips.kernel import inspection_preservation_inputs, workpiece_inputs
+    from prechips.material_routes import MaterialGraph
+
+    sid = receiver.get("id") if isinstance(receiver, dict) else receiver
+    setup = _operation_setup(bundle, op)
+    scope = record(op.get("inspection_scope"))
+    check_id = f"{setup['id']}:{op['op']}" if setup is not None else None
+    result = {"status": UNKNOWN, "reasons": [], "proof": {}, "receiver": sid}
+    if (
+        check_id is None
+        or member not in (op.get("inspect_workpieces") or [])
+        or not all(
+            isinstance(scope.get(key), str) and scope[key] != UNKNOWN for key in ("after", "before")
+        )
+    ):
+        return result
+    requests = [
+        row
+        for row in inspection_preservation_inputs(bundle)
+        if row.get("check_id") == check_id
+        and row.get("feature") == feature
+        and row.get("requirement") == requirement
+        and row.get("workpiece_id") == member
+        and row.get("after") == scope["after"]
+        and row.get("before") == scope["before"]
+    ]
+    if len(requests) != 1:
+        return result
+    nominal = requests[0]["nominal_mm"]
+    graph = MaterialGraph(bundle.plan)
+    paths = [
+        [{"split": edge.split, "output": edge.output} for edge in atom.path]
+        for atom in graph.nodes.get(sid, ())
+        if atom.workpieces is not None and member in atom.workpieces
+    ]
+    registration = record(
+        workpiece_inputs(bundle.plan.get("workpieces"), bundle.features.get("units"))
+    ).get(member)
+    facts = record(getattr(bundle, "kernel", None))
+    if (
+        len(paths) != 1
+        or not isinstance(registration, dict)
+        or not isinstance(registration.get("pose"), dict)
+        or facts.get("status") != "ok"
+    ):
+        return result
+    rows = record(record(facts.get("setups")).get(sid)).get("inspection_preservation")
+    if not isinstance(rows, list):
+        return result
+    expected = {
+        "model": "requirement_preservation_v1",
+        "check_id": check_id,
+        "feature": feature,
+        "requirement": requirement,
+        "workpiece_id": member,
+        "after": scope["after"],
+        "before": scope["before"],
+        "producer": scope["after"],
+        "receiver": sid,
+        "registration": registration,
+        "partition_path": paths[0],
+    }
+    matching = [
+        row
+        for row in rows
+        if isinstance(row, dict) and all(row.get(key) == value for key, value in expected.items())
+    ]
+    if len(matching) != 1:
+        return result
+    proof = matching[0]
+    reasons = proof.get("reasons")
+    reasons = (
+        [text for text in reasons if isinstance(text, str)] if isinstance(reasons, list) else []
+    )
+    if proof.get("status") == "error":
+        return {**result, "status": "error", "reasons": reasons, "proof": proof}
+    region = record(proof.get("region"))
+    indices, axis, planes = (region.get(key) for key in ("indices", "axis", "planes_mm"))
+    ledger = proof.get("operations")
+    expected_ops = {scope["after"]}
+    active = False
+    for current, action in operations(bundle):
+        subject = f"{current['id']}:{action['op']}"
+        active |= subject == scope["after"]
+        if active and member in (graph.members(current["id"]) or ()):
+            kind = action.get("do")
+            if kind not in MANUAL or kind in HAND_FINISH | HAND_THREAD:
+                expected_ops.add(subject)
+        if current["id"] == sid and action is current["ops"][-1]:
+            break
+    complete = (
+        region.get("model") == "planar_support_v1"
+        and isinstance(indices, list)
+        and bool(indices)
+        and all(
+            isinstance(index, int) and not isinstance(index, bool) and index >= 0
+            for index in indices
+        )
+        and isinstance(axis, list)
+        and len(axis) == 3
+        and all(number(value) and math.isfinite(value) for value in axis)
+        and sum(value * value for value in axis) > 0
+        and isinstance(planes, list)
+        and len(planes) == 2
+        and all(number(value) and math.isfinite(value) for value in planes)
+        and planes[0] != planes[1]
+        and number(region.get("nominal_mm"))
+        and region.get("nominal_mm") == nominal
+        and same_length(abs(planes[1] - planes[0]), nominal)
+        and active
+        and isinstance(ledger, list)
+        and expected_ops <= {text for text in ledger if isinstance(text, str)}
+    )
+    status = "pass" if proof.get("status") == "pass" and complete else UNKNOWN
     return {**result, "status": status, "reasons": reasons, "proof": proof}
 
 

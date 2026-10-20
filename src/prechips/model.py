@@ -21,6 +21,8 @@ from pydantic import (
 
 type Unknown = Literal["unknown"]
 UNKNOWN: Unknown = "unknown"
+type TravelerDetail = Literal["pro", "hobby", "pedantic"]
+TRAVELER_DETAILS = ("pro", "hobby", "pedantic")
 type Number = float | Unknown
 type Vector = list[Number] | Unknown
 type Citations = str | list[str]
@@ -90,6 +92,42 @@ def reference_only(feature: dict[str, Any], requirement: str) -> bool:
 
 class InputModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, allow_inf_nan=False)
+
+
+def _note_segment_text(value: str) -> str:
+    if not value.strip() or value.strip() == UNKNOWN:
+        raise ValueError("A note segment text must be known and non-empty.")
+    return value
+
+
+class NoteSegment(InputModel):
+    """Authored prose with its minimum printed detail; rules always read every segment."""
+
+    text: Annotated[str, AfterValidator(_note_segment_text)]
+    detail: TravelerDetail
+
+
+type AuthoredNote = str | Annotated[list[NoteSegment], Field(min_length=1)]
+
+
+def note_text(value, *, detail: TravelerDetail = "pedantic") -> str:
+    """Read prose without changing its authored input or hiding text from the checker."""
+    if detail not in TRAVELER_DETAILS:
+        raise ValueError("detail must be pro, hobby, or pedantic")
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, list) or not value:
+        raise ValueError("An authored note is a string or a non-empty list of note segments.")
+    segments = [
+        NoteSegment.model_validate(item.model_dump() if isinstance(item, NoteSegment) else item)
+        for item in value
+    ]
+    rank = TRAVELER_DETAILS.index(detail)
+    return " ".join(
+        segment.text for segment in segments if TRAVELER_DETAILS.index(segment.detail) <= rank
+    )
 
 
 def record(name: str, fields: dict[str, Any], *, indexed: tuple[str, ...] = ()) -> type[InputModel]:
@@ -406,9 +444,10 @@ Hold = record(
         "feed_from": Literal["+X", "-X", "+Y", "-Y"],
         **texts(
             "fixture fixed_jaw parallels support support_orientation "
-            "grip_on stop clamp note centre_lubrication riser method orientation locator "
+            "grip_on stop clamp centre_lubrication riser method orientation locator "
             "release jaw_protection locate chuck riser_up riser_along parallels_along"
         ),
+        "note": AuthoredNote,
         "grip_mm": Number | Literal["not_applicable"],
         "jaw_above_parallels_mm": Number | Literal["not_applicable"],
         "stickout_mm": Number,
@@ -828,6 +867,31 @@ class RetainedOutput(InputModel):
         return self
 
 
+class InspectionScope(InputModel):
+    """Operation boundaries for one shared dimensional inspection plan."""
+
+    after: str | Unknown
+    before: str | Unknown
+
+    @model_validator(mode="after")
+    def boundaries(self) -> InspectionScope:
+        for name in ("after", "before"):
+            value = getattr(self, name)
+            if value == UNKNOWN:
+                continue
+            sid, separator, op = value.rpartition(":")
+            if (
+                not separator
+                or not sid.strip()
+                or sid != sid.strip()
+                or sid == UNKNOWN
+                or not op.isdecimal()
+                or str(int(op)) != op
+            ):
+                raise ValueError(f"Inspection scope {name} must name an operation as setup:op.")
+        return self
+
+
 Operation = record(
     "Operation",
     {
@@ -836,7 +900,8 @@ Operation = record(
         # One manifest feature; an inspect op may name several (one drawing dimension
         # split across features is read once).
         "feature": str | Annotated[list[str], Field(min_length=2)],
-        **texts("tool holder direction note layout"),
+        **texts("tool holder direction layout"),
+        "note": AuthoredNote,
         "prerequisites": PreparationWitness,
         # The finished feature whose piece stays when the work is in pieces after this op:
         # every other piece is discarded (the kernel's stock pass; keep_piece reports it).
@@ -865,6 +930,9 @@ Operation = record(
         "missing_requirements": dict[str, str],
         # Requirement -> procedure; scoped per listed feature like `checks`.
         "inspection_methods": dict[str, Procedure | dict[str, Procedure]],
+        # Inspection targets are independent of geometry ownership / workpiece_faces.
+        "inspect_workpieces": Annotated[list[str], Field(min_length=1)],
+        "inspection_scope": InspectionScope,
         # Requirement -> the labelled sketches its flat inspection method's worksheet prints.
         "inspection_views": dict[str, Annotated[list[InspectionView], Field(min_length=1)]],
         "to_z_band": Vector,
@@ -1234,7 +1302,9 @@ class ThreadedJoint(InputModel):
 Setup = record(
     "Setup",
     {
-        **texts("id machine frame coolant note"),
+        **texts("id machine frame coolant presentation_group"),
+        "note": AuthoredNote,
+        "picture_panels": list[str],
         "stock_in": str | Annotated[list[str], Field(min_length=1)],
         "deburr_mm": Number,
         "deburr_cite": Citations,
@@ -1265,6 +1335,7 @@ def stock_ancestry(plan: dict) -> dict[str, frozenset[str]]:
 class Plan(InputModel):
     part: str
     features: str
+    purpose: Literal["shop", "demonstration"] = "shop"
     construction: Literal["one_piece", "built_up"] | Unknown = UNKNOWN
     step: str | Unknown = UNKNOWN
     quantity: int | Unknown = UNKNOWN
@@ -1295,6 +1366,55 @@ class Plan(InputModel):
         return self
 
     @model_validator(mode="after")
+    def presentation(self) -> Plan:
+        """Presentation may share instructions, never infer a missing physical member."""
+        setup_ids = {setup.id for setup in self.setups}
+        groups: dict[str, list[tuple[int, Any]]] = {}
+        for index, setup in enumerate(self.setups):
+            if "picture_panels" in setup.model_fields_set and isinstance(
+                setup.picture_panels, list
+            ):
+                panels = setup.picture_panels
+                if len(panels) != len(set(panels)):
+                    raise ValueError(f"Setup {setup.id}: picture_panels must be distinct.")
+                for panel in panels:
+                    _known_text(panel, f"Setup {setup.id} picture panel group")
+            if "presentation_group" not in setup.model_fields_set:
+                continue
+            group = setup.presentation_group
+            _known_text(group, f"Setup {setup.id} presentation_group")
+            if group in setup_ids:
+                raise ValueError(f"Presentation group {group!r} must differ from every setup id.")
+            groups.setdefault(group, []).append((index, setup))
+        for group, members in groups.items():
+            indices = [index for index, _ in members]
+            if len(members) < 2 or indices != list(range(indices[0], indices[-1] + 1)):
+                raise ValueError(
+                    f"Presentation group {group!r} requires at least two contiguous setups."
+                )
+            first = members[0][1]
+            _known_text(first.machine, f"Presentation group {group!r} machine")
+            if not isinstance(first.ops, list):
+                raise ValueError(f"Presentation group {group!r} requires a known operation ladder.")
+            ladder = [(op.op, op.do) for op in first.ops]
+            if any(
+                not isinstance(number, int) or action == UNKNOWN or not action.strip()
+                for number, action in ladder
+            ):
+                raise ValueError(f"Presentation group {group!r} requires a known operation ladder.")
+            for _, member in members[1:]:
+                if member.machine != first.machine:
+                    raise ValueError(f"Presentation group {group!r} requires the same machine.")
+                if (
+                    not isinstance(member.ops, list)
+                    or [(op.op, op.do) for op in member.ops] != ladder
+                ):
+                    raise ValueError(
+                        f"Presentation group {group!r} requires the same ordered (op, do) ladder."
+                    )
+        return self
+
+    @model_validator(mode="after")
     def named_frames(self) -> Plan:
         if isinstance(self.frames, dict) and any(
             not name.strip() or name == UNKNOWN for name in self.frames
@@ -1317,6 +1437,25 @@ class Plan(InputModel):
                             raise ValueError(f"{where}: workpiece faces must be distinct.")
                         for face in faces:
                             _known_text(face, f"{where} canonical face reference")
+                if {"inspect_workpieces", "inspection_scope"} & op.model_fields_set:
+                    if op.do != "inspect":
+                        raise ValueError(
+                            f"{where}: only an inspect op declares inspect_workpieces "
+                            "or inspection_scope."
+                        )
+                if isinstance(op.inspect_workpieces, list):
+                    members = op.inspect_workpieces
+                    if len(members) != len(set(members)):
+                        raise ValueError(f"{where}: inspect_workpieces must be distinct.")
+                    for member in members:
+                        _known_text(member, f"{where} inspected workpiece id")
+                    if (
+                        not isinstance(self.workpieces, dict)
+                        or not set(members) <= self.workpieces.keys()
+                    ):
+                        raise ValueError(
+                            f"{where}: inspect_workpieces must name registered workpieces."
+                        )
                 if isinstance(op.feature, list):
                     if op.do != "inspect":
                         raise ValueError(f"{where}: only an inspect op may name a feature list.")
@@ -1790,6 +1929,39 @@ Feature = record(
 )
 
 
+class ManualAcceptance(InputModel):
+    """An authored comparator relationship, not a numeric or measured-part approval."""
+
+    kind: Literal["manual"]
+    gauge_kind: Literal["mating_part", "mating_hardware"] | Unknown = UNKNOWN
+    accept: Annotated[list[str], Field(min_length=1)] | Unknown = UNKNOWN
+    cite: Citations = UNKNOWN
+
+    @model_validator(mode="after")
+    def clauses(self) -> ManualAcceptance:
+        if isinstance(self.accept, list):
+            for clause in self.accept:
+                _known_text(clause, "A manual acceptance clause")
+        if self.cite != UNKNOWN and not _cited(self.cite):
+            raise ValueError("A manual acceptance citation must be known and non-empty.")
+        return self
+
+
+class AcceptanceRelationship(InputModel):
+    """One part-level relationship among existing canonical feature identities."""
+
+    features: Annotated[list[str], Field(min_length=1)]
+    contract: ManualAcceptance | Unknown = UNKNOWN
+
+    @model_validator(mode="after")
+    def participants(self) -> AcceptanceRelationship:
+        if len(self.features) != len(set(self.features)):
+            raise ValueError("Manual acceptance participants must be distinct features.")
+        for name in self.features:
+            _known_text(name, "A manual acceptance participant")
+        return self
+
+
 class Features(InputModel):
     part: str
     units: Literal["mm", "in"] | Unknown = UNKNOWN
@@ -1808,6 +1980,8 @@ class Features(InputModel):
     frames: dict[str, Frame | Unknown] | Unknown
     datums: dict[str, Datum | Unknown] | Unknown = UNKNOWN
     features: dict[str, Feature]
+    # Additive part relationships; unknown contracts cannot erase drawing requirements.
+    acceptance: dict[str, AcceptanceRelationship] = Field(default_factory=dict)
     # Complete source-owned MANIFOLD_SOLID_BREP reference map; never imported solid indices.
     solids: dict[str, str] = Field(default_factory=dict)
 
@@ -1835,6 +2009,27 @@ class Features(InputModel):
                     continue
                 if requirement not in feature.model_fields_set:
                     raise ValueError(f"{name}: missing required field {requirement}")
+        return self
+
+    @model_validator(mode="after")
+    def acceptance_identities(self) -> Features:
+        identities = set(self.features)
+        for name, feature in self.features.items():
+            requirements = feature.requirements
+            for requirement in requirements if isinstance(requirements, list) else ():
+                identities.update((requirement, f"{name}:{requirement}"))
+        for name, relationship in self.acceptance.items():
+            _known_text(name, "A manual acceptance identity")
+            if name in identities:
+                raise ValueError(
+                    f"Acceptance {name!r} collides with a feature or feature-requirement identity."
+                )
+            missing = set(relationship.features) - self.features.keys()
+            if missing:
+                raise ValueError(
+                    f"Acceptance {name!r} participants must name existing features: "
+                    f"{', '.join(sorted(missing))}."
+                )
         return self
 
     @model_validator(mode="after")

@@ -241,6 +241,72 @@ def tap_bundle(die_bundle):
     return die_bundle
 
 
+@pytest.fixture
+def manual_fit_tap(tap_bundle):
+    feature = tap_bundle.features["features"]["stud"]
+    feature.pop("thread_class")
+    feature["requirements"] = []
+    tap_bundle.inventory["tools"]["taps"]["members"]["quarter"].pop("thread_class")
+    tap_bundle.features["acceptance"] = {
+        "stud_retention": {
+            "features": ["stud"],
+            "contract": {
+                "kind": "manual",
+                "gauge_kind": "mating_hardware",
+                "accept": ["The intended stud enters by hand and cannot leave the bottom."],
+                "cite": "synthetic authored functional acceptance",
+            },
+        }
+    }
+    return tap_bundle
+
+
+def test_hand_tap_both_absent_unrequired_classes_use_explicit_manual_fit(manual_fit_tap):
+    row = assembly(manual_fit_tap)
+    assert row.status == "pass"
+    assert row.numbers["thread_class"]["adoption"] == "not_adopted"
+    assert row.numbers["thread_class"]["required"] == "unknown"
+    assert row.numbers["thread_class"]["tap"] == "unknown"
+
+
+def test_hand_tap_class_omission_without_functional_contract_stays_unknown(manual_fit_tap):
+    manual_fit_tap.features["acceptance"].clear()
+    assert assembly(manual_fit_tap).status == "unknown"
+
+
+@pytest.mark.parametrize("owner", ["feature", "tool"])
+@pytest.mark.parametrize("value", ["unknown", "2B"])
+def test_hand_tap_manual_fit_preserves_unknown_and_one_sided_class(manual_fit_tap, owner, value):
+    item = (
+        manual_fit_tap.features["features"]["stud"]
+        if owner == "feature"
+        else manual_fit_tap.inventory["tools"]["taps"]["members"]["quarter"]
+    )
+    item["thread_class"] = value
+    row = assembly(manual_fit_tap)
+    assert row.status == "unknown"
+    assert "adoption" not in row.numbers["thread_class"]
+
+
+def test_hand_tap_manual_fit_does_not_waive_wrong_known_class(manual_fit_tap):
+    manual_fit_tap.features["features"]["stud"]["thread_class"] = "2B"
+    manual_fit_tap.inventory["tools"]["taps"]["members"]["quarter"]["thread_class"] = "3B"
+    assert assembly(manual_fit_tap).status == "error"
+
+
+@pytest.mark.parametrize("field,value", [("thread", "1/4-28 UNF"), ("thread_hand", "left")])
+def test_hand_tap_manual_fit_preserves_wrong_designation_and_hand(manual_fit_tap, field, value):
+    manual_fit_tap.inventory["tools"]["taps"]["members"]["quarter"][field] = value
+    assert assembly(manual_fit_tap).status == "error"
+
+
+def test_die_class_omission_is_not_a_hand_tap_waiver(die_bundle):
+    die_bundle.features["features"]["stud"].pop("thread_class")
+    die_bundle.features["features"]["stud"]["requirements"] = []
+    member(die_bundle).pop("thread_class")
+    assert assembly(die_bundle).status == "unknown"
+
+
 @pytest.mark.parametrize(
     "example,expected",
     [

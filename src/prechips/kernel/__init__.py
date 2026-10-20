@@ -25,7 +25,7 @@ from prechips.measurements import (
     record_debt,
     record_trusted,
 )
-from prechips.model import profiled
+from prechips.model import UNIT_TOLERANCE, profiled
 from prechips.rules._envelope import selected_item, tool_projection
 from prechips.rules.geometry_common import (
     TURNING_BLADE_KEYS,
@@ -299,6 +299,210 @@ def mounted_saw_inputs(bundle, setup, op):
     return prepare(bundle, setup, op)
 
 
+def _manual_thread_region(bundle, setup, op, feature, depth, errors, missing):
+    """Resolve the actual directed span through the existing feature/registration frames."""
+    from prechips.material_routes import MaterialGraph, retained_outputs
+    from prechips.rules.coordinates import frame_point, located_by, model_point
+    from prechips.rules.op_chain import _geometry
+    from prechips.rules.resolution import operation_members, registered_workpieces
+
+    units = bundle.features.get("units", UNKNOWN)
+    scale = {"mm": 1.0, "in": 25.4}.get(units)
+    locator, _, _ = located_by(bundle.feature_definitions, op_feature(op), feature)
+    axis = feature.get("axis", locator.get("axis"))
+    if not _vector(axis) or not all(math.isfinite(value) for value in axis):
+        missing.append("the thread's actual directed axis is unresolved")
+    elif abs(math.hypot(*axis) - 1.0) > UNIT_TOLERANCE:
+        errors.append("the thread's actual directed axis must be a unit vector")
+    point, direction = _geometry(bundle, op_feature(op))
+    poses, member = [], None
+    if registered_workpieces(bundle):
+        members = operation_members(bundle, setup, op)
+        if members is None or len(members) != 1:
+            missing.append("the hand tap must select one resolved live workpiece")
+            return UNKNOWN, member
+        member = members[0]
+        graph = MaterialGraph(bundle.plan)
+        material = [
+            atom
+            for atom in graph.nodes.get(setup["id"], ())
+            if atom.workpieces is not None and member in atom.workpieces
+        ]
+        if len(material) != 1:
+            missing.append("the selected workpiece's material partition is unresolved")
+            return UNKNOWN, member
+        poses.append(record(record(bundle.plan["workpieces"]).get(member)).get("pose"))
+        setups = {entry["id"]: entry for entry in bundle.plan["setups"]}
+        poses.extend(
+            record(retained_outputs(setups[edge.split]).get(edge.output)).get("pose")
+            for edge in material[0].path
+        )
+    if scale is None or not all(
+        _vector(value) and all(math.isfinite(component) for component in value)
+        for value in (point, direction)
+    ):
+        missing.append("the thread entry or direction in model coordinates is unresolved")
+        return UNKNOWN, member
+    # Frame helpers own all rotations/translations; points and origins convert to mm once.
+    start = [value * scale for value in point]
+    ahead = [value + delta for value, delta in zip(start, direction, strict=True)]
+    for pose in poses:
+        registration = _registration_inputs(pose, units)
+        start, ahead = (model_point(value, registration) for value in (start, ahead))
+    frame = _registration_inputs(setup_frame(bundle, setup), units, require_binding=False)
+    start, ahead = (frame_point(value, frame) for value in (start, ahead))
+    if not all(
+        _vector(value)
+        and all(number(component) and math.isfinite(component) for component in value)
+        for value in (start, ahead)
+    ):
+        missing.append("the thread's registered operation-frame location or axis is unresolved")
+        return UNKNOWN, member
+    direction = [b - a for a, b in zip(start, ahead, strict=True)]
+    if abs(math.hypot(*direction) - 1.0) > UNIT_TOLERANCE:
+        missing.append(
+            "the thread's registered operation-frame axis is not resolved as unit length"
+        )
+        return UNKNOWN, member
+    if depth == UNKNOWN:
+        return UNKNOWN, member
+    return {"at_mm": start, "axis": direction, "depth_mm": depth}, member
+
+
+def _manual_thread_inputs(bundle, setup, op):
+    """Only an explicit internal thread envelope can transport bounded helical material."""
+    from prechips.rules.resolution import (
+        LENGTH_TOLERANCE_MM,
+        select,
+        thread_class_acceptance,
+        uncertain,
+    )
+    from prechips.rules.tip_endpoints import _feature_depth_mm, hole_depth_mm
+    from prechips.thread_specs import basic_major_mm, match, selected_class_status
+
+    result = {"reason": "helical thread removal unmodeled; no nominal-major cylinder stand-in"}
+    feature = record(record(getattr(bundle, "feature_definitions", None)).get(op_feature(op)))
+    if (
+        op.get("do") != "hand_tap"
+        or feature.get("kind") != "threaded_hole"
+        or feature.get("representation") != "thread_envelope"
+    ):
+        return result
+    errors, missing = [], []
+    tool = measurement_item(bundle, "tools", op.get("tool"))
+    selected = resolve(bundle, "tools", op.get("tool"))
+    kind = tool.get("kind", UNKNOWN)
+    if kind not in {"tap", "tap_set", "tap_die_set", UNKNOWN}:
+        errors.append(f"selected hand-tap tool has wrong kind {kind}")
+    elif not selected or uncertain(selected) or kind == UNKNOWN:
+        missing.append("the selected tap identity is unresolved or unconfirmed")
+    _, reference, _ = select(bundle, op.get("tool"), "tools")
+    if selected is None and isinstance(reference, str) and "/" in reference:
+        root, _, member = reference.partition("/")
+        parent = record(select(bundle, root, "tools")[2])
+        if isinstance(parent.get("members"), dict) and member not in parent["members"]:
+            errors.append("the selected tap member is not declared in its set")
+    thread, tool_thread = feature.get("thread", UNKNOWN), tool.get("thread", UNKNOWN)
+    matched = match(thread, tool_thread)
+    if matched is False:
+        errors.append("selected tap thread differs from the feature thread designation")
+    elif matched is None:
+        missing.append("feature or selected tap thread designation is unresolved")
+    hand, tool_hand = feature.get("thread_hand", UNKNOWN), tool.get("thread_hand", UNKNOWN)
+    if hand in {"right", "left"} and tool_hand in {"right", "left"}:
+        if hand != tool_hand:
+            errors.append("selected tap hand differs from the feature thread hand")
+    else:
+        missing.append("feature or selected tap thread hand is unresolved")
+    class_status = selected_class_status(
+        feature,
+        tool,
+        acceptance=thread_class_acceptance(bundle, op_feature(op)),
+    )
+    if class_status == "mismatch":
+        errors.append("selected tap class differs from the feature thread class")
+    elif class_status == UNKNOWN:
+        missing.append("feature or selected tap thread class is unresolved")
+    if number(op.get("rpm")) and op["rpm"] != 0:
+        errors.append("hand tapping requires a stopped spindle")
+    major = basic_major_mm(thread)
+    if major is None or not math.isfinite(major) or major <= 0:
+        major = UNKNOWN
+        missing.append("the thread's basic major diameter is unresolved")
+    diameter = _accepted_length(tool, "dia")
+    if not number(diameter) or not math.isfinite(diameter):
+        diameter = UNKNOWN
+        missing.append("the selected tap cutting diameter is unqualified or unresolved")
+    elif diameter <= 0:
+        diameter = UNKNOWN
+        errors.append("the selected tap cutting diameter must be positive")
+    units = bundle.features.get("units", UNKNOWN)
+    span_field = (
+        "thread_depth"
+        if "thread_depth" in feature
+        else "depth"
+        if "depth" in feature
+        else "through_thickness"
+        if feature.get("thru") is True
+        else None
+    )
+    depth = _feature_depth_mm(feature, span_field, units) if span_field else UNKNOWN
+    tip = hole_depth_mm(op, feature, units)
+    lead = _accepted_length(tool, "lead")
+    flute = _accepted_length(tool, "flute_len")
+    dimensions = {
+        "threaded span": depth,
+        "tap tip travel": tip,
+        "tap lead": lead,
+        "tap cutting length": flute,
+    }
+    for label, value in dimensions.items():
+        if not number(value) or not math.isfinite(value):
+            missing.append(f"the {label} has no resolved qualified finite length")
+            dimensions[label] = UNKNOWN
+        elif value < 0 or (label != "tap lead" and value == 0):
+            errors.append(
+                f"the {label} must be {'nonnegative' if label == 'tap lead' else 'positive'}"
+            )
+            dimensions[label] = UNKNOWN
+    depth, tip, lead, flute = dimensions.values()
+    formed = tip - lead if all(number(value) for value in (tip, lead)) else UNKNOWN
+    if number(formed) and number(depth) and formed < depth - LENGTH_TOLERANCE_MM:
+        errors.append("tap tip travel does not fully form the resolved threaded span past its lead")
+    if number(flute) and number(tip) and flute < tip - LENGTH_TOLERANCE_MM:
+        errors.append("tap tip travel exceeds its qualified cutting length")
+    region, member = _manual_thread_region(bundle, setup, op, feature, depth, errors, missing)
+    result.update(
+        model="bounded_thread_envelope_v1",
+        status="error" if errors else UNKNOWN if missing else "ready",
+        reasons=errors + missing,
+        kind=feature["kind"],
+        representation=feature["representation"],
+        feature=op_feature(op),
+        workpiece_id=member,
+        tool=_inventory_identity(bundle, op.get("tool"), "tools"),
+        tool_kind=kind,
+        thread=thread,
+        tool_thread=tool_thread,
+        thread_hand=hand,
+        tool_thread_hand=tool_hand,
+        major_diameter_mm=major,
+        tap_diameter_mm=diameter,
+        tip_depth_mm=tip,
+        lead_mm=lead,
+        formed_depth_mm=formed,
+        flute_len_mm=flute,
+        diameter_mm=(
+            max(major, diameter) if all(number(value) for value in (major, diameter)) else UNKNOWN
+        ),
+        region=region,
+    )
+    for field, owner in (("thread_class", feature), ("tool_thread_class", tool)):
+        if "thread_class" in owner:
+            result[field] = owner["thread_class"]
+    return result
+
+
 @_collect_debts
 def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     """One op's kernel inputs; ``tables`` is its setup's coordinates numbers, whose printed
@@ -332,9 +536,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "finishing": subject
             in (finishing_subjects(bundle) if finishing is None else finishing),
             **declared,
-            "manual_thread": {
-                "reason": "helical thread removal unmodeled; no nominal-major cylinder stand-in"
-            },
+            "manual_thread": _manual_thread_inputs(bundle, setup, op),
         }
     if op.get("do") in {"saw_cut", "cut_off"}:
         units = bundle.features.get("units", UNKNOWN)
@@ -2084,6 +2286,67 @@ def _material_inputs(graph, setup_id, owners, units):
     return descriptor
 
 
+def inspection_preservation_inputs(bundle):
+    """Shared dimensional request identities, never gauge capability or geometry ownership."""
+    from prechips.model import LENGTH_REQUIREMENTS
+    from prechips.rules.resolution import op_check_targets
+
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    if scale is None:
+        return []
+    exported = record(bundle.features.get("features"))
+    requests = []
+    for setup in bundle.plan["setups"]:
+        for op in setup["ops"]:
+            members = op.get("inspect_workpieces")
+            scope = record(op.get("inspection_scope"))
+            if (
+                op.get("do") != "inspect"
+                or not isinstance(members, list)
+                or not members
+                or any(
+                    not isinstance(member, str) or member.strip() in ("", UNKNOWN)
+                    for member in members
+                )
+                or any(
+                    not isinstance(scope.get(key), str) or scope[key].strip() in ("", UNKNOWN)
+                    for key in ("after", "before")
+                )
+            ):
+                continue
+            for target in op_check_targets(bundle, setup, op):
+                identity = target["identity"]
+                name, requirement = identity["feature_owner"], identity["requirement"]
+                if target["kind"] != "dimensional" or requirement not in LENGTH_REQUIREMENTS:
+                    continue
+                feature = record(exported.get(name))
+                value = feature.get(requirement)
+                values = value if isinstance(value, list) and len(value) == 2 else [value]
+                if not all(number(limit) and math.isfinite(limit) for limit in values):
+                    continue
+                nominal = feature.get(
+                    f"{requirement}_nominal", feature.get(f"nominal_{requirement}", UNKNOWN)
+                )
+                if not number(nominal) or not math.isfinite(nominal) or nominal <= 0:
+                    continue
+                nominal_mm = nominal * scale
+                if not math.isfinite(nominal_mm):
+                    continue
+                requests.extend(
+                    {
+                        "check_id": target["shared_check_id"],
+                        "feature": name,
+                        "requirement": requirement,
+                        "workpiece_id": member,
+                        "after": scope["after"],
+                        "before": scope["before"],
+                        "nominal_mm": nominal_mm,
+                    }
+                    for member in members
+                )
+    return requests
+
+
 def _setup_inputs(bundle, setup, coordinates, finishing, complete, graph, owners):
     """One shared operative setup projection, without rendering or pickup recursion."""
     from prechips.joint_features import setup_joint
@@ -2104,6 +2367,7 @@ def _setup_inputs(bundle, setup, coordinates, finishing, complete, graph, owners
             for op in sent
         ],
         "stock_in": setup.get("stock_in", UNKNOWN),
+        "inspection_preservation": inspection_preservation_inputs(bundle),
         **({"material": _material_inputs(graph, setup["id"], owners, units)} if graph else {}),
         **({"keep": keeps} if keeps else {}),
         "joint": setup_joint(bundle, setup),
@@ -2507,6 +2771,7 @@ def _engine_setup(setup):
         "hold": _engine_hold(setup["hold"]),
         "ops": [_engine_op(op) for op in setup["ops"]],
         "stock_in": setup["stock_in"],
+        "inspection_preservation": setup.get("inspection_preservation", []),
         **({"material": setup["material"]} if "material" in setup else {}),
         **({"keep": setup["keep"]} if setup.get("keep") else {}),
         **({"zero_pickups": setup["zero_pickups"]} if "zero_pickups" in setup else {}),
@@ -2605,10 +2870,12 @@ ENGINE_SOURCES = (
     "boolean_pool.py",
     "chain_boundary.py",
     "freecad_job.py",
+    "inspection_preservation.py",
     "render_diagram.py",
     "render_png.py",
     "saw_engagement.py",
     "step_faces.py",
+    "thread_material.py",
     "zero_pickup.py",
 )
 

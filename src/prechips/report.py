@@ -245,6 +245,8 @@ def build_report(
         "step_sha256": bundle.features.get("step_sha256", "unknown"),
         "verification": "checked" if result == 0 else "planned",
     }
+    if bundle.plan.get("purpose", "shop") == "demonstration":
+        report["purpose"] = "demonstration"
     if renders:
         report["renders"] = renders
     report["hash"] = report_hash(report)
