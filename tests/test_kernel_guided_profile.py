@@ -399,6 +399,23 @@ result["short_path"] = {
 
 # Authored broad removal remains authoritative even with absent printed paths.
 # Compare native broad behavior with the selector absent; never redefine it here.
+runner = scene()
+# Future drills own the bore columns: broad sidewall clearing must preserve them.
+# Declare them before this fresh scene's first planned-hole inventory.
+runner.owner.job["setups"].append({
+    "id": "S2", "stock_in": "S1",
+    "frame": copy.deepcopy(runner.setup["frame"]),
+    "material": {"workpieces": sorted(runner.owner.workpieces)},
+    "ops": [{
+        "subject": "S2:drill-" + name, "do": "drill",
+        "workpiece_faces": {name: ["#287/ADVANCED_FACE[9]/"]}, "radius_mm": 4.7625,
+        "flute_len_mm": 25.4, "oal_mm": 80, "projection_mm": 40,
+        "holder_radius_mm": 10, "holder_gauge_len_mm": 6,
+        "shank_radius_mm": 4.7625, "shank_from_mm": 25.4,
+        "to_z": -12.7, "rough_allowance_mm": 0,
+        "hole": {"thru": True, "depth_mm": 12.7, "entry_z_mm": 0},
+    } for name in sorted(runner.owner.workpieces)],
+})
 runner.leave_in = 0
 op = operation(0)
 op["stock_removal_bounds"] = {"x": [-12.7, 100.965], "y": [-11.1125, 11.1125], "z": [-6.35, 0]}
