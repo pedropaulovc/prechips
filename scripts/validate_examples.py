@@ -6021,7 +6021,7 @@ def check_sheet_disclosures(parser: SheetText, report: dict) -> None:
     )
     error_words = re.compile(
         r"✗|\b(?:stop|error|fail\w*|cannot|not\b|no\b|outside|exceed\w*|"
-        r"mismatch\w*|must|required|invalid|unsafe|collid\w*|intersect\w*|"
+        r"mismatch\w*|must|required|needs?|invalid|unsafe|collid\w*|intersect\w*|"
         r"missing|disagree\w*|clash\w*|hits|insufficient|away)\b",
         re.I,
     )
