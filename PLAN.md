@@ -1472,10 +1472,11 @@ first-article acceptance.
    inspection destinations; hobby adds DRO guidance and selected complete
    figures, while pedantic expands setup content. All modes use continuous
    measured Letter flow without automatic blank-back/setup-front padding.
-   The requested pro ≤2 / hobby ≤5 physical-page caps have not been met.
-   Page-cap work, final validation and independent rendered-page reviews remain
-   pending; implementation does not establish physical paper acceptance or
-   real-shop readiness. See the
+   The T-nut demonstration now prints as 2 pro / 5 hobby physical Letter pages;
+   PDF counts agree with continuation labels and both CLI modes exit 0.
+   Final integration validation and independent rendered-page reviews remain
+   pending; this does not establish physical paper acceptance or real-shop
+   readiness. See the
    [current output contract](docs/report-and-telemetry.md#traveler-detail-modes).
 
    **Bench hand saw shipped (2026-10-16, #249):** a `hand_saw` tool on a

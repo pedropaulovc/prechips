@@ -462,6 +462,353 @@ def final_multiowner_bundle():
     return bundle
 
 
+@pytest.mark.parametrize("known", [False, True])
+def test_missing_authored_check_is_an_error_even_with_unresolved_cut_ownership(known):
+    bundle = final_multiowner_bundle()
+    if known:
+        bundle.plan["setups"][0]["ops"][0]["workpiece_faces"] = {
+            member: ["#2"] for member in MEMBERS
+        }
+    for member in MEMBERS:
+        final_op(bundle, member)["checks"]["shoulders"].pop("width")
+    rows = {
+        row.subject: row
+        for row in inspection.evaluate(bundle)
+        if row.subject.endswith("/shoulders:width")
+    }
+    assert set(rows) == {f"{member}/shoulders:width" for member in MEMBERS}
+    assert all(row.status == "error" for row in rows.values())
+
+
+@pytest.mark.parametrize("owners", [None, MEMBERS, ("nut1",)])
+def test_unresolved_later_cut_is_possible_work_not_an_absent_member(owners):
+    bundle = final_multiowner_bundle()
+    setup = bundle.plan["setups"][0]
+    cut = setup["ops"][0]
+    if owners is not None:
+        cut["workpiece_faces"] = {member: ["#2"] for member in owners}
+    setup["ops"][:0] = [
+        {
+            "op": index,
+            "do": "inspect",
+            "feature": "shoulders",
+            "inspect_workpieces": [member],
+            "checks": {"width": "calipers"},
+        }
+        for index, member in enumerate(MEMBERS, 10)
+    ]
+    for member in MEMBERS:
+        final_op(bundle, member)["checks"]["shoulders"].pop("width")
+    # Isolate member selection from the later saw-partition preservation question.
+    bundle.plan["setups"] = [setup]
+    rows = {
+        row.subject: row
+        for row in inspection.evaluate(bundle)
+        if row.subject.endswith("/shoulders:width")
+    }
+    assert set(rows) == {f"{member}/shoulders:width" for member in MEMBERS}
+    for member in MEMBERS:
+        row = rows[f"{member}/shoulders:width"]
+        expected = "unknown" if owners is None else "error" if member in owners else "pass"
+        assert row.status == expected
+        if owners is None:
+            assert row.numbers["unresolved_cut_ownership"] == ["S1:20"]
+
+
+def test_unresolved_cut_cannot_affect_a_known_detached_sibling():
+    bundle = final_multiowner_bundle()
+    setup = bundle.plan["setups"][0]
+    setup["ops"].extend(
+        {
+            "op": index,
+            "do": "inspect",
+            "feature": "shoulders",
+            "inspect_workpieces": [member],
+            "checks": {"width": "calipers"},
+        }
+        for index, member in enumerate(MEMBERS[1:], 30)
+    )
+    later = next(setup for setup in bundle.plan["setups"] if setup["id"] == "C1b")
+    later["ops"].insert(0, {"op": 5, "do": "finish_profile", "feature": "shoulders"})
+    for member in MEMBERS[1:]:
+        final_op(bundle, member)["checks"]["shoulders"].pop("width")
+    detached = bundle.plan["setups"].pop(4)
+    bundle.plan["setups"].insert(2, detached)
+    rows = {
+        row.subject: row.status
+        for row in inspection.evaluate(bundle)
+        if row.subject.endswith("/shoulders:width")
+    }
+    assert rows == {
+        "nut1/shoulders:width": "pass",
+        "nut2/shoulders:width": "unknown",
+        "nut3/shoulders:width": "unknown",
+        "nut4/shoulders:width": "unknown",
+    }
+
+
+@pytest.mark.parametrize("alias_name", ["other-label", "all-surfaces"])
+@pytest.mark.parametrize("registered", [False, True], ids=["legacy", "registered"])
+@pytest.mark.parametrize(
+    "faces,status",
+    [(["#2"], "error"), (["#99"], "pass"), ("unknown", "unknown")],
+    ids=["same-face", "disjoint-face", "unresolved-face"],
+)
+def test_later_physical_alias_changes_numeric_and_manual_acceptance(
+    registered, faces, status, alias_name
+):
+    bundle = final_multiowner_bundle()
+    bundle.features["features"][alias_name] = {
+        "kind": "profile",
+        "faces": faces,
+        "requirements": [],
+    }
+    alias = {
+        "op": 20,
+        "do": "finish_profile",
+        "feature": alias_name,
+        "workpiece_faces": {"nut4": faces},
+    }
+    bundle.plan["setups"][-1]["ops"].append(alias)
+    if not registered:
+        bundle.plan.pop("workpieces")
+        for setup in bundle.plan["setups"]:
+            for op in setup["ops"]:
+                op.pop("workpiece_faces", None)
+                op.pop("inspect_workpieces", None)
+        alias["faces"] = faces
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    prefix = "nut4/" if registered else ""
+    assert rows[f"{prefix}shoulders:width"].status == status
+    assert rows[f"{prefix}part:actual_slot_fit"].status == status
+    if registered:
+        assert rows["nut1/shoulders:width"].status == "pass"
+        assert rows["nut1/part:actual_slot_fit"].status == "pass"
+
+
+@pytest.mark.parametrize("action", ["release", "scribe"])
+def test_nonmaterial_alias_does_not_invalidate_final_checks(action):
+    bundle = final_multiowner_bundle()
+    bundle.features["features"]["other-label"] = {
+        "kind": "profile",
+        "faces": ["#2"],
+        "requirements": [],
+    }
+    bundle.plan["setups"][-1]["ops"].append(
+        {
+            "op": 20,
+            "do": action,
+            "feature": "other-label",
+            "workpiece_faces": {"nut4": ["#2"]},
+        }
+    )
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    assert rows["nut4/shoulders:width"].status == "pass"
+    assert rows["nut4/part:actual_slot_fit"].status == "pass"
+
+
+@pytest.mark.parametrize("explicit_unknown", [False, True])
+def test_unbound_legacy_alias_effect_remains_unknown_after_final_check(explicit_unknown):
+    bundle = final_multiowner_bundle()
+    bundle.plan.pop("workpieces")
+    for feature in bundle.features["features"].values():
+        feature.pop("faces")
+    for setup in bundle.plan["setups"]:
+        for op in setup["ops"]:
+            op.pop("workpiece_faces", None)
+            op.pop("inspect_workpieces", None)
+    bundle.features["features"]["other-label"] = {
+        "kind": "profile",
+        "requirements": [],
+    }
+    if explicit_unknown:
+        bundle.features["features"]["other-label"]["faces"] = "unknown"
+    bundle.plan["setups"][-1]["ops"].append(
+        {"op": 20, "do": "finish_profile", "feature": "other-label"}
+    )
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    assert rows["shoulders:width"].status == "unknown"
+    assert rows["part:actual_slot_fit"].status == "unknown"
+
+
+def test_partial_face_overlap_invalidates_a_check_without_granting_full_feature_ownership():
+    bundle = final_multiowner_bundle()
+    bundle.features["features"]["shoulders"]["faces"] = ["#2", "#5"]
+    bundle.features["features"]["other-label"] = {
+        "kind": "profile",
+        "faces": ["#2"],
+        "requirements": [],
+    }
+    bundle.plan["setups"][-1]["ops"].append(
+        {
+            "op": 20,
+            "do": "finish_profile",
+            "feature": "other-label",
+            "workpiece_faces": {"nut4": ["#2"]},
+        }
+    )
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    assert rows["nut4/shoulders:width"].status == "error"
+    assert rows["nut4/part:actual_slot_fit"].status == "error"
+    assert rows["nut3/shoulders:width"].status == "pass"
+
+
+def test_unknown_later_alias_does_not_hide_a_known_postcheck_cut():
+    bundle = final_multiowner_bundle()
+    bundle.features["features"]["other-label"] = {
+        "kind": "profile",
+        "faces": "unknown",
+        "requirements": [],
+    }
+    bundle.plan["setups"][-1]["ops"].extend(
+        [
+            {"op": 20, "do": "finish_profile", "feature": "shoulders"},
+            {"op": 30, "do": "finish_profile", "feature": "other-label"},
+        ]
+    )
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    assert rows["nut4/shoulders:width"].status == "error"
+    assert rows["nut4/part:actual_slot_fit"].status == "error"
+
+
+def shared_final_bundle():
+    bundle = final_multiowner_bundle()
+    bundle.plan["setups"][0]["ops"].append(deepcopy(shared_op(practical_bundle())))
+    return bundle
+
+
+def test_passing_shared_check_does_not_erase_an_explicit_stale_member_check():
+    bundle = shared_final_bundle()
+    setup = bundle.plan["setups"][0]
+    setup["ops"][0]["workpiece_faces"] = {member: ["#1", "#2"] for member in MEMBERS}
+    setup["ops"].insert(
+        0,
+        {
+            "op": 10,
+            "do": "inspect",
+            "feature": "base",
+            "inspect_workpieces": ["nut1"],
+            "checks": {"width": "calipers"},
+        },
+    )
+    final_op(bundle, "nut1")["checks"]["base"].pop("width")
+    install_preservation(bundle)
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    assert rows["S1:30/base:width"].status == "pass"
+    assert rows["nut1/base:width"].status == "error"
+    assert all(rows[f"{member}/base:width"].status == "pass" for member in MEMBERS[1:])
+
+
+@pytest.mark.parametrize(
+    "gauge,status",
+    [
+        ({"kind": "caliper", "range_mm": [0.0, 10.0], "resolution_mm": 0.01}, "error"),
+        ({"kind": "roughness_gauge"}, "error"),
+        ("unknown", "unknown"),
+        ({"kind": "caliper", "range_mm": [0.0, 150.0], "resolution_mm": 0.01}, "pass"),
+    ],
+)
+def test_shared_coverage_never_hides_an_authored_final_gauge(gauge, status):
+    bundle = shared_final_bundle()
+    install_preservation(bundle)
+    bundle.inventory["gauges"]["final-calipers"] = gauge
+    final_op(bundle)["checks"]["base"]["width"] = "final-calipers"
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    assert rows["S1:30/base:width"].status == "pass"
+    assert rows["nut1/base:width"].status == status
+    assert rows["nut1/base:width"].numbers["gauge"] == "final-calipers"
+    assert rows["nut1/base:width"].numbers["op"] == "E1:10"
+    assert all(rows[f"{member}/base:width"].status == "pass" for member in MEMBERS[1:])
+
+
+def test_shared_coverage_cannot_hide_explicitly_unknown_final_checks():
+    bundle = shared_final_bundle()
+    install_preservation(bundle)
+    final_op(bundle)["checks"] = "unknown"
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    assert rows["S1:30/base:width"].status == "pass"
+    assert rows["nut1/base:width"].status == "unknown"
+    assert rows["nut1/shoulders:width"].status == "unknown"
+    assert rows["nut2/base:width"].status == "pass"
+
+
+def test_later_final_checks_supersede_only_unproved_shared_preservation():
+    bundle = shared_final_bundle()
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    shared = rows["S1:30/base:width"]
+    assert shared.status == "not_applicable"
+    assert shared.numbers["superseded_status"] == "unknown"
+    assert "preservation" in shared.numbers["superseded_reason"]
+    assert [proof["status"] for proof in shared.numbers["preservation"]] == ["unknown"] * 4
+    assert shared.numbers["superseded_by"] == [
+        {"workpiece_id": member, "subject": f"{member}/base:width", "op": f"E{index}:10"}
+        for index, member in enumerate(MEMBERS, 1)
+    ]
+    assert all(rows[f"{member}/base:width"].status == "pass" for member in MEMBERS)
+    assert all(rows[f"{member}/base:height"].status == "pass" for member in MEMBERS)
+    assert all(rows[f"{member}/shoulders:width"].status == "pass" for member in MEMBERS)
+    assert all(rows[f"{member}/shoulders:thickness"].status == "pass" for member in MEMBERS)
+
+
+@pytest.mark.parametrize("missing", ["member", "requirement", "identity", "timing"])
+def test_shared_unknown_needs_a_capable_later_final_for_each_exact_owner(missing):
+    bundle = shared_final_bundle()
+    if missing == "member":
+        final_op(bundle, "nut2")["checks"]["base"].pop("width")
+    elif missing == "requirement":
+        final_op(bundle, "nut1")["checks"]["base"].pop("width")
+    elif missing == "identity":
+        final_op(bundle, "nut1")["inspect_workpieces"] = "unknown"
+    else:
+        bundle.plan["setups"][-4]["ops"].append(
+            {"op": 20, "do": "finish_profile", "feature": "base"}
+        )
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    assert rows["S1:30/base:width"].status == "unknown"
+    assert "superseded_by" not in rows["S1:30/base:width"].numbers
+    assert rows["nut3/base:width"].status == "pass"
+    if missing == "identity":
+        assert rows["nut1/base:width"].status == "unknown"
+    elif missing == "timing":
+        assert rows["nut1/base:width"].status == "error"
+
+
+@pytest.mark.parametrize(
+    "mutation,status",
+    [
+        ("scope-unknown", "unknown"),
+        ("timing", "error"),
+        ("gauge-unknown", "unknown"),
+        ("gauge-error", "error"),
+        ("preservation-error", "error"),
+    ],
+)
+def test_final_checks_do_not_erase_shared_input_or_physical_errors(mutation, status):
+    bundle = shared_final_bundle()
+    if mutation == "scope-unknown":
+        shared_op(bundle)["inspection_scope"] = "unknown"
+    elif mutation == "timing":
+        shared_op(bundle)["inspection_scope"]["after"] = "C1a:10"
+    elif mutation == "gauge-unknown":
+        shared_op(bundle)["checks"]["width"] = "unknown"
+    elif mutation == "gauge-error":
+        bundle.inventory["gauges"]["short"] = {
+            "kind": "caliper",
+            "range_mm": [0.0, 10.0],
+            "resolution_mm": 0.01,
+        }
+        shared_op(bundle)["checks"]["width"] = "short"
+    else:
+        install_preservation(bundle)
+        bundle.kernel["setups"]["E1"]["inspection_preservation"][0].update(
+            status="error", reasons=["original supporting plane was cut away"]
+        )
+    rows = {row.subject: row for row in inspection.evaluate(bundle)}
+    assert rows["S1:30/base:width"].status == status
+    assert "superseded_by" not in rows["S1:30/base:width"].numbers
+    assert all(rows[f"{member}/base:width"].status == "pass" for member in MEMBERS)
+
+
 def test_four_final_checkpoints_keep_every_numeric_and_manual_owner_without_preservation():
     bundle = final_multiowner_bundle()
     numeric = [*DIMENSIONS, ("end", "length")]

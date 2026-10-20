@@ -666,6 +666,77 @@ def _saw_bounds(value):
     )
 
 
+def _saw_union_bounds(bounds, addition):
+    """Keep each known range; an incomplete original remains separate proof debt."""
+    result = list(addition)
+    if isinstance(bounds, list) and len(bounds) == 6:
+        for axis in range(3):
+            band = [bounds[axis], bounds[axis + 3]]
+            if _saw_band(band):
+                result[axis] = min(result[axis], band[0])
+                result[axis + 3] = max(result[axis + 3], band[1])
+    return result
+
+
+def _saw_machine_bounds(saw, keys):
+    """Union trajectory and selected calibration ranges, never omitting unknown motion."""
+    missing = [key for key in keys if not _saw_bounds(saw.get(key))]
+    zero = record(saw.get("zero"))
+    selected, touches = zero.get("selected"), zero.get("touches")
+    chosen = [
+        record(touch)
+        for touch in (touches if isinstance(touches, list) else [])
+        if record(touch).get("index") == selected
+    ]
+    if (
+        not isinstance(selected, int)
+        or isinstance(selected, bool)
+        or selected < 0
+        or len(chosen) != 1
+        or not isinstance(chosen[0].get("index"), int)
+        or isinstance(chosen[0]["index"], bool)
+    ):
+        return saw, [*missing, "selected calibration approach"]
+    touch = chosen[0]
+    if zero.get("status") not in ("pass", "error") or touch.get("status") not in ("pass", "error"):
+        missing.append("selected calibration approach")
+    axis = touch.get("axis_xy_mm")
+    endpoints = [touch.get(key) for key in ("approach_start_z_mm", "approach_end_z_mm")]
+    band = saw.get("cutting_band_mm")
+    nose, kerf_offset = saw.get("spindle_nose_z_mm"), touch.get("kerf_offset_mm")
+    if not (
+        isinstance(axis, list)
+        and len(axis) == 2
+        and all(_saw_number(value) for value in [*axis, *endpoints, nose, kerf_offset])
+        and endpoints[0] != endpoints[1]
+        and _saw_band(band)
+        and band[0] < band[1]
+    ):
+        return saw, [*missing, "calibration axis and spindle-nose ranges"]
+    # The cutting band is centred on the operation's cutting midplane. The
+    # nose offset is fixed by this measured mounted assembly, also during setting.
+    nose_offset = nose - (band[0] + band[1]) / 2
+    axis_z = [z + offset for z in endpoints for offset in (-kerf_offset, nose_offset)]
+    nose_z = [z + nose_offset for z in endpoints]
+    result = {
+        **saw,
+        "axis_path_bounds_mm": _saw_union_bounds(
+            saw.get("axis_path_bounds_mm"), [*axis, min(axis_z), *axis, max(axis_z)]
+        ),
+        "spindle_nose_bounds_mm": _saw_union_bounds(
+            saw.get("spindle_nose_bounds_mm"), [*axis, min(nose_z), *axis, max(nose_z)]
+        ),
+    }
+    swept = touch.get("assembly_swept_bounds_mm")
+    if _saw_bounds(swept):
+        result["assembly_swept_bounds_mm"] = _saw_union_bounds(
+            saw.get("assembly_swept_bounds_mm"), swept
+        )
+    else:
+        missing.append("calibration assembly_swept_bounds_mm")
+    return result, list(dict.fromkeys(missing))
+
+
 def finite_saw_evidence(detail, check):
     """Consume complete evidence for one check, never a model or status marker alone."""
     detail = record(detail)
@@ -679,11 +750,11 @@ def finite_saw_evidence(detail, check):
             if check == "travel"
             else ("assembly_swept_bounds_mm", "spindle_nose_bounds_mm")
         )
-        missing = [key for key in keys if not _saw_bounds(saw.get(key))]
+        evidence, missing = _saw_machine_bounds(saw, keys)
         return (
-            (UNKNOWN, [f"finite saw {', '.join(missing)} are unresolved"], saw)
+            (UNKNOWN, [f"finite saw {', '.join(missing)} are unresolved"], evidence)
             if missing
-            else ("pass", [], saw)
+            else ("pass", [], evidence)
         )
     if check == "engagement":
         engagement = record(saw.get("engagement"))

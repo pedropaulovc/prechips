@@ -77,9 +77,11 @@ from .resolution import (
     HOLE_KINDS,
     UNKNOWN,
     _citations,
+    claim_refs,
     drawing_precision,
     identity,
     inspection_preservation_evidence,
+    known_refs,
     length_mm,
     number,
     op_check_targets,
@@ -867,6 +869,40 @@ def _target_applies(bundle, setup, target, workpiece):
     return workpiece in (MaterialGraph(bundle.plan).members(setup["id"]) or ())
 
 
+def _operation_applies(bundle, setup, op, workpiece):
+    """Unresolved ownership may affect any live member, never a known sibling."""
+    if workpiece is None:
+        return True
+    members = operation_members(bundle, setup, op)
+    if members is not None:
+        return workpiece in members
+    from prechips.material_routes import MaterialGraph
+
+    live = MaterialGraph(bundle.plan).members(setup["id"])
+    return live is None or workpiece in live
+
+
+def _feature_effect(bundle, setup, op, name, workpiece) -> bool | None:
+    """Known physical overlap, known disjointness, or unresolved member/face effect."""
+    if op.get("do") in {"release", "scribe"}:
+        return False
+    if not _operation_applies(bundle, setup, op, workpiece):
+        return False
+    if name in op_features(op):
+        return (
+            None if workpiece is not None and operation_members(bundle, setup, op) is None else True
+        )
+    refs = record(bundle.feature_definitions.get(name)).get("faces")
+    claims = claim_refs(bundle, op, setup)
+    if not known_refs(refs) or not known_refs(claims):
+        return None
+    if registered_workpieces(bundle):
+        if workpiece is None:
+            return None
+        refs = [(workpiece, ref) for ref in refs]
+    return not set(refs).isdisjoint(claims)
+
+
 def _selected_target(bundle, setup, op, name, requirement, workpiece):
     return next(
         (
@@ -893,16 +929,36 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
         ]
         route = [
             (setup, op)
-            for setup, op in operations(bundle, name)
-            if workpiece is None
-            or workpiece in (operation_members(bundle, setup, op) or ())
+            for setup, op in operations(bundle)
+            if _feature_effect(bundle, setup, op, name, workpiece) is not False
             or any(
                 _target_applies(bundle, setup, target, workpiece)
+                and target["identity"]["feature_owner"] == name
                 for target in op_check_targets(bundle, setup, op)
             )
         ]
+        explicit = {
+            requirement
+            for requirement in requirements
+            if any(
+                _selected_target(bundle, setup, op, name, requirement, workpiece) is not None
+                or op.get("checks") == UNKNOWN
+                for setup, op in route
+            )
+        }
+
+        def covered(requirement, feature=name, authored=explicit):
+            # Shared coverage substitutes for an absent check, never an authored one.
+            return (
+                workpiece,
+                feature,
+                requirement,
+            ) in shared_coverage and requirement not in authored
+
         missing_checks = False
         for setup, op in route:
+            if name not in op_features(op):
+                continue
             for requirement, gauge in record(op.get("missing_requirements")).items():
                 missing_checks = True
                 method = op_entry(op, "inspection_methods", name, requirement)
@@ -927,13 +983,11 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
                         "manifest; acceptance limits are unresolved.",
                     )
                 )
-        if requirements and all(
-            (workpiece, name, requirement) in shared_coverage for requirement in requirements
-        ):
+        if requirements and all(covered(requirement) for requirement in requirements):
             continue
         if feature["kind"] == "unknown" or any(o["do"] == "unknown" for _, o in route):
             for requirement in requirements or [None]:
-                if (workpiece, name, requirement) in shared_coverage:
+                if covered(requirement):
                     continue
                 subject = f"{name}:{requirement}" if requirement else name
                 nominal_error = _nominal_band_error(feature, requirement)
@@ -971,7 +1025,7 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
             and o["do"] not in {"spot", "deburr", "coating", "release"}
         ]
         for requirement in requirements:
-            if (workpiece, name, requirement) in shared_coverage:
+            if covered(requirement):
                 continue
             if requirement == "unknown":
                 result.append(
@@ -1009,8 +1063,46 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
                 ):
                     message = "inspection checks are explicitly unknown"
                 else:
-                    status = "error"
-                    message = "no requirement-keyed inspection check"
+                    last_check = max(
+                        (
+                            index
+                            for index, (setup, op) in enumerate(finishing)
+                            if _selected_target(bundle, setup, op, name, requirement, workpiece)
+                            is not None
+                        ),
+                        default=-1,
+                    )
+                    later = [
+                        (setup, op)
+                        for setup, op in finishing[last_check + 1 :]
+                        if op["do"] != "inspect"
+                    ]
+                    unresolved = [
+                        f"{setup['id']}:{op['op']}"
+                        for setup, op in later
+                        if _feature_effect(bundle, setup, op, name, workpiece) is None
+                    ]
+                    known_change = any(
+                        _feature_effect(bundle, setup, op, name, workpiece) is True
+                        for setup, op in later
+                    )
+                    if last_check >= 0 and unresolved and not known_change:
+                        nums["unresolved_cut_effects"] = unresolved
+                        ownership = [
+                            f"{setup['id']}:{op['op']}"
+                            for setup, op in later
+                            if operation_members(bundle, setup, op) is None
+                        ]
+                        if ownership:
+                            nums["unresolved_cut_ownership"] = ownership
+                        message = "later finishing effect is unresolved; no proven final check"
+                    else:
+                        status = "error"
+                        message = (
+                            "inspection check precedes later finishing work"
+                            if last_check >= 0
+                            else "no requirement-keyed inspection check"
+                        )
             else:
                 setup, op = checks[-1]
                 target = _selected_target(bundle, setup, op, name, requirement, workpiece)
@@ -1089,7 +1181,7 @@ def _dimensional_findings(bundle, *, workpiece=None, shared_coverage=frozenset()
     return result
 
 
-def _shared_finding(bundle, setup, op, target, route):
+def _shared_finding(bundle, setup, op, target, route, final_checks):
     from prechips.material_routes import MaterialGraph
 
     name = target["identity"]["feature_owner"]
@@ -1110,6 +1202,7 @@ def _shared_finding(bundle, setup, op, target, route):
         or not positions[endpoints[0]] < positions[target["op"]] < positions[endpoints[1]]
     ):
         scope_status, scope_message = "error", "shared inspection timing violates its scope"
+    timing_status = scope_status
     proofs = []
     if scope_status == "pass":
         graph = MaterialGraph(bundle.plan)
@@ -1135,6 +1228,7 @@ def _shared_finding(bundle, setup, op, target, route):
                 if scope_status == "error"
                 else "requirement-specific native inspection preservation is unresolved"
             )
+    preservation_only = status == "pass" and timing_status == "pass" and scope_status == UNKNOWN
     nums.update(inspection_scope=op.get("inspection_scope", UNKNOWN), preservation=proofs)
     if _SEVERITY[scope_status] > _SEVERITY[status]:
         status, message = scope_status, scope_message
@@ -1157,6 +1251,32 @@ def _shared_finding(bundle, setup, op, target, route):
     if nominal_error:
         nums.update(nominal_error)
         status, message = "error", "exported nominal is outside the requirement band"
+    if (
+        status == UNKNOWN
+        and preservation_only
+        and all(row["status"] == "pass" for row in others)
+        and target["covered_workpieces"]
+        and all(
+            (member, name, requirement) in final_checks
+            and positions[final_checks[member, name, requirement].numbers["op"]]
+            > positions[target["op"]]
+            for member in target["covered_workpieces"]
+        )
+    ):
+        nums.update(
+            superseded_status=UNKNOWN,
+            superseded_reason=message,
+            superseded_by=[
+                {
+                    "workpiece_id": member,
+                    "subject": final_checks[member, name, requirement].subject,
+                    "op": final_checks[member, name, requirement].numbers["op"],
+                }
+                for member in target["covered_workpieces"]
+            ],
+        )
+        status = "not_applicable"
+        message = "early preservation credit is superseded by capable later per-member checks"
     return Finding(
         "inspection",
         target["subject"],
@@ -1193,16 +1313,17 @@ def _manual_findings(bundle, selected, route, members):
                     and (graph is None or member in (graph.members(setup["id"]) or ()))
                 )
             ]
-            last_change = max(
-                (
-                    index
-                    for index, (setup, op) in enumerate(route)
-                    if op.get("do") not in {"inspect", "spot", "release", "scribe"}
-                    and any(name in participants for name in op_features(op))
-                    and (graph is None or member in (graph.members(setup["id"]) or ()))
-                ),
-                default=-1,
-            )
+            changes = []
+            for position, (setup, op) in enumerate(route):
+                if op.get("do") in {"inspect", "spot", "release", "scribe"}:
+                    continue
+                effects = [
+                    _feature_effect(bundle, setup, op, name, member) for name in participants
+                ]
+                if any(effect is True for effect in effects):
+                    changes.append((position, True))
+                elif any(effect is None for effect in effects):
+                    changes.append((position, None))
             subject = f"part:{requirement}"
             if member is not None:
                 subject = f"{member}/{subject}"
@@ -1232,10 +1353,16 @@ def _manual_findings(bundle, selected, route, members):
                 )
                 nums.update(capability)
                 nums.update(target)
-                if index < last_change:
+                later = [effect for position, effect in changes if position > index]
+                if any(effect is True for effect in later):
                     status, message = (
                         "error",
                         "manual inspection precedes later work on its participants",
+                    )
+                elif later and status != "error":
+                    status, message = (
+                        UNKNOWN,
+                        "later work on manual inspection participants is unresolved",
                     )
                 elif target["selection_status"] == UNKNOWN and status != "error":
                     status, message = UNKNOWN, "inspection workpiece identity is unresolved"
@@ -1264,22 +1391,37 @@ def evaluate(bundle):
         for index, (setup, op) in enumerate(route)
         for target in op_check_targets(bundle, setup, op)
     ]
-    shared_coverage = set()
-    result = []
-    for _, setup, op, target in selected:
-        if target["kind"] != "dimensional" or target["shared_check_id"] is None:
-            continue
-        result.append(_shared_finding(bundle, setup, op, target, route))
-        shared_coverage.update(
-            (member, target["identity"]["feature_owner"], target["identity"]["requirement"])
-            for member in target["covered_workpieces"]
-        )
+    shared_targets = [
+        (setup, op, target)
+        for _, setup, op, target in selected
+        if target["kind"] == "dimensional" and target["shared_check_id"] is not None
+    ]
+    shared_coverage = {
+        (member, target["identity"]["feature_owner"], target["identity"]["requirement"])
+        for _, _, target in shared_targets
+        for member in target["covered_workpieces"]
+    }
     registered = bundle.plan.get("workpieces")
     members = tuple(registered) if isinstance(registered, dict) and registered else (None,)
-    for member in members:
-        result.extend(
-            _dimensional_findings(bundle, workpiece=member, shared_coverage=shared_coverage)
-        )
+    dimensional = [
+        row
+        for member in members
+        for row in _dimensional_findings(bundle, workpiece=member, shared_coverage=shared_coverage)
+    ]
+    final_checks = {
+        (
+            row.numbers["identity"]["workpiece"],
+            row.numbers["identity"]["feature_owner"],
+            row.numbers["identity"]["requirement"],
+        ): row
+        for row in dimensional
+        if row.status == "pass" and row.numbers["identity"]["workpiece"] is not None
+    }
+    result = [
+        _shared_finding(bundle, setup, op, target, route, final_checks)
+        for setup, op, target in shared_targets
+    ]
+    result.extend(dimensional)
     result.extend(_manual_findings(bundle, selected, route, members))
     for setup, op in route:
         if "process_holds" in op:

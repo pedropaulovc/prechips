@@ -885,9 +885,8 @@ def _picture_cut(bundle, setup):
     cannot certify their printed agreement. A saw's blade path carries no row, so the cut
     it names restates none."""
     from prechips.kernel import run_geometry
-    from prechips.kernel.render_diagram import _dro
+    from prechips.kernel.render_diagram import _dro, operative_text
     from prechips.rules.coordinates import dro_grid, dro_grid_debt
-    from prechips.sheet import _number
 
     facts = record(record(record(run_geometry(bundle)).get("setups")).get(setup["id"]))
     scene = record(facts.get("render_scene"))
@@ -930,7 +929,7 @@ def _picture_cut(bundle, setup):
     if row is None or not number(row.get("mm")):
         state = "has no CLEARANCE row" if row is None else "CLEARANCE row is not computed"
         return 1, [], [f"the setup picture prints {said}, but op {op} {state}"]
-    value = _number(row["mm"], decimals)
+    value = operative_text(row["mm"], decimals)
     if row.get("tag") == cut.get("tag") and value == _dro(cut["mm"], decimals):
         return 1, [], []
     given = f"op {op}'s cut as {value} beside the {_holder(row.get('tag'))}"

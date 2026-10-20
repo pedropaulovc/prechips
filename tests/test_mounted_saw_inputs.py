@@ -373,6 +373,86 @@ def test_unknown_intervening_spindle_pair_invalidates_setting(tmp_path):
     assert inputs(data)["zero"]["selected"] == "unknown"
 
 
+@pytest.mark.parametrize("setter", ["endmill", "other_saw", "other_holder"])
+@pytest.mark.parametrize("later_boundary", [False, True])
+def test_another_pairs_z_touch_invalidates_mounted_zero_without_a_cut(
+    tmp_path, setter, later_boundary
+):
+    data = saw_bundle(tmp_path)
+    setup = data.plan["setups"][0]
+    if later_boundary:
+        setup["ops"].insert(0, {"op": 5, "do": "inspect"})
+    touch = deepcopy(setup["zero"]["z"])
+    touch.update(before_ops=[10])
+    if setter == "endmill":
+        touch.update(method="paper", tool="em", holder="holder", z_face="top")
+        touch.pop("mounted_saw")
+    elif setter == "other_saw":
+        data.inventory["tools"]["other_saw"] = deepcopy(data.inventory["tools"]["saw"])
+        touch["tool"] = "other_saw"
+    else:
+        data.inventory["holders"]["other_arbor"] = deepcopy(data.inventory["holders"]["arbor"])
+        touch["holder"] = "other_arbor"
+    setup["zero"]["tool_touches"] = [touch]
+    zero = inputs(data)["zero"]
+    assert zero["selected"] == "unknown"
+    assert zero["errors"] == []
+    assert zero["reasons"] == [
+        "no current mounted_saw_side touch matches the installed tool-holder pair"
+    ]
+
+
+@pytest.mark.parametrize("fresh_last", [False, True])
+def test_same_boundary_touch_order_can_restore_or_replace_a_mounted_setting(tmp_path, fresh_last):
+    data = saw_bundle(tmp_path)
+    setup = data.plan["setups"][0]
+    fresh = {**deepcopy(setup["zero"]["z"]), "before_ops": [10]}
+    ordinary = {
+        "method": "paper",
+        "tool": "em",
+        "holder": "holder",
+        "z_face": "top",
+        "edge_mm": 11,
+        "paper_mm": 0.05,
+        "before_ops": [10],
+    }
+    setup["zero"]["tool_touches"] = [ordinary, fresh] if fresh_last else [fresh, ordinary]
+    recipe = inputs(data)
+    assert recipe["zero"]["selected"] == (1 if fresh_last else "unknown")
+    assert recipe["status"] == ("pass" if fresh_last else "unknown")
+    if fresh_last:
+        assert recipe["zero"]["touches"][1]["position"] == 0
+        assert recipe["zero"]["reasons"] == []
+
+
+def test_metadata_keeps_authored_touch_ordinal_and_same_pair_setting(tmp_path):
+    data = saw_bundle(tmp_path)
+    setup = data.plan["setups"][0]
+    saw = setup["ops"][0]
+    setup["ops"] = [
+        {"op": 1, "do": "inspect"},
+        {"op": 2, "do": "cut_off", "tool": "saw", "holder": "arbor"},
+        {"op": 3, "do": "scribe"},
+        saw,
+    ]
+    assert inputs(data)["zero"]["selected"] == 0
+    setup["zero"]["tool_touches"] = [{**deepcopy(setup["zero"]["z"]), "before_ops": [3, 10]}]
+    zero = inputs(data)["zero"]
+    assert zero["selected"] == 1
+    assert zero["touches"][1]["position"] == 2
+
+
+def test_unresolved_touch_boundary_cannot_preserve_an_earlier_mounted_zero(tmp_path):
+    data = saw_bundle(tmp_path)
+    setup = data.plan["setups"][0]
+    setup["zero"]["tool_touches"] = [
+        {**deepcopy(setup["zero"]["z"]), "before_ops": [10, "missing"]}
+    ]
+    zero = inputs(data)["zero"]
+    assert zero["touches"][1]["position"] == "unknown"
+    assert zero["selected"] == "unknown"
+
+
 def test_legacy_touch_lengths_convert_but_explicit_setup_mm_coordinates_do_not(tmp_path):
     data = saw_bundle(tmp_path)
     data.features["units"] = "in"

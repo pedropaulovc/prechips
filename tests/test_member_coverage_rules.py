@@ -186,6 +186,40 @@ def test_missing_member_datum_cannot_borrow_other_members_producer(monkeypatch):
     assert {item["workpiece_id"] for item in row.numbers["relationships"]} == {"one"}
 
 
+@pytest.mark.parametrize("feature", ["face", "datum"])
+@pytest.mark.parametrize("known", [False, True])
+def test_unresolved_recut_survives_the_combined_datum_guard(monkeypatch, feature, known):
+    bundle = _datum_bundle()
+    ref = REF if feature == "face" else "#20"
+    cut = {"op": 30, "do": "finish_face", "feature": feature}
+    if known:
+        cut["workpiece_faces"] = {"two": [ref]}
+    bundle.plan["setups"][-1]["ops"].append(cut)
+    # Isolate already-proved material survival; real membership and cut selection
+    # must still keep an unresolved producer out of a passing relationship.
+    monkeypatch.setattr(datum_consistency, "operation_material_status", lambda *args, **kw: True)
+    assert [
+        f"{setup['id']}:{op['op']}" for _, setup, op in datum_consistency._cuts(bundle, feature)
+    ] == (["one:20", "two:20", "two:30"] if feature == "face" else ["one:10", "two:10", "two:30"])
+    row = next(row for row in datum_consistency.evaluate(bundle) if row.subject == "face")
+    assert row.status == ("pass" if known else "unknown")
+
+
+def test_unresolved_ream_does_not_demote_known_member_pilots():
+    bundle = _bundle(
+        [
+            _setup("one", _op("one", "drill")),
+            _setup("two", _op("two", "drill")),
+            _setup("ambiguous", {"op": 10, "do": "ream", "feature": "face"}),
+        ]
+    )
+    assert [setup["id"] for _, setup, _ in datum_consistency._cuts(bundle, "face")] == [
+        "one",
+        "two",
+        "ambiguous",
+    ]
+
+
 def test_indicated_transfer_does_not_borrow_sibling_source(monkeypatch):
     datum_op = _op("one", feature="datum")
     finish_op = _op("one")

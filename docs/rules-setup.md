@@ -717,6 +717,24 @@ envelopes or an unresolved possible spindle assembly remain unknown unless a
 known error is stronger. Mixed setups retain other mill-cut checks. Holding
 and native material preservation remain required by their own rules.
 
+Mounted-saw bounds include the selected stopped-blade calibration approach as
+well as the complete cutting/withdrawal trajectory. At the touch's declared
+XY, both approach endpoints are cutting-midplane Z values. Axis travel includes
+each endpoint minus the signed kerf offset and each endpoint plus the fixed
+midplane-to-spindle-nose distance. Nose limits use that same nose offset;
+the assembly envelope includes every blade and arbor component's swept solid.
+The approach starts beyond the obstacle heights whose closed XY bounding boxes
+intersect the full assembly's calibration column. Provably XY-disjoint obstacles
+do not force an unnecessary lift or descent; exact component sweeps still test
+every stock, fixture and capture obstacle, including those outside that column.
+Unknown or incomplete selected-approach evidence cannot provide a range pass,
+but an already-proved excess remains an error despite other missing evidence.
+The local calibration collision proof covers the authored stock, fixture and
+capture scene, not the machine table or whole machine. A clear approach from
+below is therefore not automatically reachable: `envelope` must also admit its
+lowest spindle-nose position above the measured lower stop. A sufficiently
+raised, measured fixture can make the same locally clear motion reachable.
+
 Registered-member cuts use only matched current member protection; a sibling's
 geometry cannot clear measurement or physical-space debt. Requested
 [transverse pickup paths](plan.md#transverse-pickup-path) likewise use
@@ -889,6 +907,10 @@ including across merged feature labels and face owners. Rough work, manual
 nonfinishing `spot`, `transfer` and saw operations do not establish final
 datums. A bench `file_to_line` does. A datum name mapping to no feature has
 no cuts; it never borrows every operation.
+Registered members keep independent cut sets: a sibling's reaming does not
+replace another member's pilot. Unresolved feature or datum recut ownership
+remains in the combined route as debt, rather than silently selecting an older
+producer.
 
 Relationships include position datums, angularity datums, surface-profile
 datums, a coaxial feature and a `height_from` feature. Each

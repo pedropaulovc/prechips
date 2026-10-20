@@ -4408,9 +4408,10 @@ class _FiniteSaw:
                     "bbox_mm": [_r(v) for v in _bbox(common)],
                 }
             )
+        return common
 
     def _fixture_distance(self, shape, component, index, mode):
-        """Measure this already collision-tested occupied sweep, never its box or stock."""
+        """Record fixture collisions and occupied distances from the same exact sweep."""
         proof = self.saw["fixture_clearance"]
         row = {
             "component": component,
@@ -4424,8 +4425,17 @@ class _FiniteSaw:
         }
         nearest = None
         for obstacle in self.scene:
+            common = self._collision(
+                shape, component, obstacle, index, mode, self.saw["collisions"]
+            )
             try:
-                distance, pairs, _ = _distance(shape, obstacle["solid"])
+                if common is not None and common.Volume > 0:
+                    # OCC CompSolid distance can miss a wholly enclosed fixture.
+                    # Shared native material proves zero occupied-volume distance.
+                    distance = 0.0
+                    pairs = [(vertex.Point, vertex.Point) for vertex in common.Vertexes]
+                else:
+                    distance, pairs, _ = _distance(shape, obstacle["solid"])
                 if not self._numeric(distance) or distance < 0 or not pairs:
                     raise ValueError("native distance or nearest points are unresolved")
                 # The proof retains native precision; only the drawing rounds its points.
@@ -4629,20 +4639,49 @@ class _FiniteSaw:
                     if expected != actual:
                         wrong.append(f"calibration {key} does not match the installed saw pair")
             position = touch.get("position")
-            touch_stock = self.stock
-            if isinstance(position, int) and not isinstance(position, bool):
-                if position == 0:
-                    touch_stock = self.setup.part
-                elif 0 < position <= len(self.setup.ops):
-                    _, touch_stock, why = self.setup.cuts.get(
-                        id(self.setup.ops[position - 1]), (None, None, "touch stock is unresolved")
-                    )
-                    if why or touch_stock is None:
-                        local.append("stock at the calibration touch is unresolved")
-                else:
-                    local.append("calibration touch operation position is invalid")
-            else:
+            touch_stock = self.setup.part
+            if self.setup.stock_reason is not None:
+                local.append(self.setup.stock_reason)
+            if self.setup.arriving_thread_regions or (position and self.setup.thread_regions):
+                local.append("exact calibration stock is unavailable for bounded thread material")
+            if not isinstance(position, int) or isinstance(position, bool) or position < 0:
                 local.append("calibration touch operation position is unknown")
+            elif position:
+                from inspection_preservation import _operation_ledger
+
+                try:
+                    ledger = _operation_ledger(self.setup)
+                    op_index = next(
+                        index
+                        for index, entry in enumerate(ledger)
+                        if entry["subject"] == self.setup._subject(self.op)
+                    )
+                    if position > op_index:
+                        local.append("calibration touch belongs to a future operation boundary")
+                    elif any(entry["effect"] == "unmodeled" for entry in ledger[:position]):
+                        local.append(
+                            "stock at calibration includes an unmodeled preceding bench step"
+                        )
+                    else:
+                        native = {self.setup._subject(op): op for op in self.setup.ops}
+                        for ledger_entry in ledger[:position]:
+                            if ledger_entry["effect"] != "native":
+                                continue
+                            previous = native[ledger_entry["subject"]]
+                            before, after, why = self.setup.cuts.get(
+                                id(previous), (None, None, "touch stock is unresolved")
+                            )
+                            if (
+                                before is None
+                                or after is None
+                                or why is not None
+                                or id(previous) == self.setup.stopped_cut
+                            ):
+                                local.append("stock at the calibration touch is unresolved")
+                                break
+                            touch_stock = after
+                except (ValueError, StopIteration) as exc:
+                    local.append(f"calibration touch operation boundary is unresolved ({exc})")
             contact, surface = touch.get("mounted_saw", {}), touch.get("surface", {})
             side = contact.get("blade_side")
             point, axis = contact.get("point_mm"), contact.get("axis_xy_mm")
@@ -4751,13 +4790,32 @@ class _FiniteSaw:
             if not exposed < radius < self.root:
                 wrong.append("contact is not on the exposed flat blade-body annulus")
             obstacles = [{"name": "stock", "solid": touch_stock}, *self.scene]
-            extents = [_bbox(obstacle["solid"]) for obstacle in obstacles]
-            if sign == 1:
-                start = max(box[5] for box in extents) - min(c[3] for c in self.components) + 1
-                start = max(start, mid + 1)
-            else:
-                start = min(box[2] for box in extents) - max(c[4] for c in self.components) - 1
-                start = min(start, mid - 1)
+            # A remote tall fixture does not require raising the calibration pose.
+            # Use the full assembly's closed XY column as a conservative broadphase;
+            # every obstacle still participates in the exact component sweeps below.
+            column_radius = max(c[2] for c in self.components)
+            extents = [
+                box
+                for obstacle in obstacles
+                if not (
+                    (box := _bbox(obstacle["solid"]))[3] < axis[0] - column_radius
+                    or box[0] > axis[0] + column_radius
+                    or box[4] < axis[1] - column_radius
+                    or box[1] > axis[1] + column_radius
+                )
+            ]
+            start = mid + sign
+            if extents:
+                if sign == 1:
+                    start = max(
+                        start,
+                        max(box[5] for box in extents) - min(c[3] for c in self.components) + 1,
+                    )
+                else:
+                    start = min(
+                        start,
+                        min(box[2] for box in extents) - max(c[4] for c in self.components) - 1,
+                    )
             entry.update(
                 plane_z_mm=point[2],
                 plane_normal_z=sign,
@@ -4771,16 +4829,60 @@ class _FiniteSaw:
                 approach_start_z_mm=start,
                 approach_end_z_mm=mid,
             )
+            sweep_bounds = []
             for c in self.components:
                 swept = self._sweep(c, [*axis, start], [*axis, mid])
+                sweep_bounds.append(_bbox(swept))
                 for obstacle in obstacles:
                     self._collision(swept, c[0], obstacle, -1, "calibration", entry["collisions"])
+            entry["assembly_swept_bounds_mm"] = [
+                (min if coordinate < 3 else max)(box[coordinate] for box in sweep_bounds)
+                for coordinate in range(6)
+            ]
             if entry["collisions"]:
                 wrong.append("complete assembly collides during the axial calibration approach")
             self._finish(entry, local, wrong)
             reasons.extend(local)
             errors.extend(wrong)
         return self._finish(result, reasons, errors)
+
+    def _include_calibration_bounds(self):
+        """Machine-limit extents include the complete selected axial setting move."""
+        zero = self.saw["zero"]
+        selected = zero.get("selected")
+        touches = zero.get("touches", [])
+        chosen = [touch for touch in touches if touch.get("index") == selected]
+        if len(chosen) != 1:
+            return
+        touch = chosen[0]
+        axis = touch.get("axis_xy_mm")
+        endpoints = [touch.get(key) for key in ("approach_start_z_mm", "approach_end_z_mm")]
+        swept = touch.get("assembly_swept_bounds_mm")
+        if not (
+            isinstance(axis, list)
+            and len(axis) == 2
+            and all(self._numeric(value) for value in [*axis, *endpoints])
+            and isinstance(swept, list)
+            and len(swept) == 6
+            and all(self._numeric(value) for value in swept)
+        ):
+            return
+        nose_offset = self.gauge + self.arbor["gauge_len_mm"]
+        axis_z = [
+            z + offset for z in endpoints for offset in (-self.blade["kerf_offset_mm"], nose_offset)
+        ]
+        nose_z = [z + nose_offset for z in endpoints]
+        for key, bounds in (
+            ("axis_path_bounds_mm", [*axis, min(axis_z), *axis, max(axis_z)]),
+            ("spindle_nose_bounds_mm", [*axis, min(nose_z), *axis, max(nose_z)]),
+            ("assembly_swept_bounds_mm", swept),
+        ):
+            previous = self.saw.get(key)
+            if isinstance(previous, list) and len(previous) == 6:
+                self.saw[key] = [
+                    (min if coordinate < 3 else max)(previous[coordinate], bounds[coordinate])
+                    for coordinate in range(6)
+                ]
 
     def run(self):
         facts = self.setup._saw_facts(self.op)
@@ -4997,10 +5099,6 @@ class _FiniteSaw:
                     for c in self.components:
                         swept = self._sweep(c, start, end)
                         sweep_boxes.append(_bbox(swept))
-                        for obstacle in self.scene:
-                            self._collision(
-                                swept, c[0], obstacle, index, mode, self.saw["collisions"]
-                            )
                         self._fixture_distance(swept, c[0], index, mode)
                         if mode == "clear" or c[0].startswith("arbor:"):
                             if index > self.cut_index and len(pieces) == 2:
@@ -5058,6 +5156,8 @@ class _FiniteSaw:
             self.saw["zero"].update(
                 status=UNKNOWN, reasons=[f"native calibration proof failed ({_failure_text(exc)})"]
             )
+        if assembly_ready and path_ready:
+            self._include_calibration_bounds()
         try:
             blade = self.blade
             if path_ready and all(
@@ -7304,6 +7404,7 @@ class _Setup(ThreadMaterialMixin):
                         **component,
                         "role": "clamp" if component["role"] == "moving_clamp" else "fixture",
                         "owner": "capture:" + key,
+                        "label": "Capture fixture",
                         "bbox": _bbox(component["solid"]),
                         "box": None,
                         "envelope": component["solid"],
@@ -13203,7 +13304,7 @@ class _Setup(ThreadMaterialMixin):
             code = None
             if role == "clamp":
                 clamp = next((c for c in annotation.get("clamps", []) if c["owner"] == owner), None)
-                label = clamp["label"] if clamp else owner.replace("_", " ")
+                label = clamp["label"] if clamp else component.get("label", owner.replace("_", " "))
                 if clamp:
                     # The declared clamp number and kind, as the HOLD text prints it.
                     code = clamp["code"]

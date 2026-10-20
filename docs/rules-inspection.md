@@ -47,6 +47,17 @@ entry is an error, while literal `"unknown"` is an unresolved method. An entire
 named gauge's missing-item error belongs to `tool_resolves`; inspection reports
 its capability as unknown.
 
+For registered workpieces, unresolved cut ownership is not proof that the cut
+belongs to another member. It remains a possible later cut for each live member;
+an earlier check cannot pass final-ordering on that basis. A later capable check
+on the explicitly selected member can establish its own final checkpoint.
+Finishing work under another feature label also counts when its resolved
+physical face claims overlap any inspected face of that member. A partial
+overlap can invalidate a check without proving complete machining ownership.
+Known disjoint faces do not invalidate it; unresolved overlap remains debt.
+Names such as `all-surfaces` have no wildcard meaning. Manual acceptance uses
+the same physical-face relation for its participating features.
+
 Loading rejects any `checks.<requirement>` absent from that operation's feature
 exported `requirements` list, including when the list is wholly unknown. A name
 exported on another feature does not establish ownership. An `inspect` op naming
@@ -101,6 +112,15 @@ to preserve flats, or a native no-op snapshot does not supply a bounded material
 effect. When that proof is unavailable, put the required size measurements at a
 truthful final inspection after the relevant bench work instead of claiming
 that an early measurement survived it.
+
+Shared coverage does not suppress an authored per-member check: its selected
+gauge, capability, identity and final-cutter order are still evaluated. When every
+covered member has a passing later check for the exact same feature and
+requirement, unknown preservation on the early shared check becomes
+`not_applicable`, not a pass. Evidence keeps the original preservation debt and
+identifies the replacing final checks. An uncovered member keeps that debt;
+unknown shared scope or gauge capability, bad timing, an incapable gauge, and
+proved destruction remain unresolved or errors even with capable final checks.
 
 ### Gauge kinds and datum methods
 

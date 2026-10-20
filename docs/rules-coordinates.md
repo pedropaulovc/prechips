@@ -2196,8 +2196,12 @@ projection and complete holder envelope. The native model requires an actual
 authored tool-axis point must lie inside both that patch and the flat-end
 projection. The cutter disk may overhang the face; its entire circumference
 need not fit. The finite land must lie wholly inside one connected positive-area
-component of the actual disk/top contact. Other separate contact components may
-exist; their area cannot repair a missing land on the selected component.
+component of the actual disk/top contact. Coplanar fragments connect through
+positive-area overlap or a shared boundary segment, not an isolated touch point
+or proximity. The native check uses the face common for area and the B-rep
+section for shared edges and points; the selected patch is their actual fused
+area, with overlap counted once. Other separate contact components may exist;
+their area cannot repair a missing land on the selected component.
 The report's selected patch bounds and area describe that component, while
 total contact and uncovered areas account for the complete disk. No enclosing
 box or union of disconnected areas substitutes for the selected land. This is

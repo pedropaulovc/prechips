@@ -49,21 +49,25 @@ def _cuts(bundle, feature, workpiece_id=None):
         selected = {id(op) for member in members for _, _, op in _cuts(bundle, feature, member)}
         return [
             (index, setup, op)
-            for index, setup in enumerate(bundle.plan["setups"])
-            for op in setup["ops"]
-            if id(op) in selected
+            for index, setup, op in _cuts_unselected(bundle, feature)
+            if id(op) in selected or operation_members(bundle, setup, op) is None
         ]
+    cuts = _cuts_unselected(bundle, feature, workpiece_id)
+    # A pilot is not the final datum when reaming happens in a later setup.
+    if any(op.get("do") in TAP_OPS | {"ream", "bore"} for _, _, op in cuts):
+        cuts = [(index, setup, op) for index, setup, op in cuts if op.get("do") != "drill"]
+    return cuts
+
+
+def _cuts_unselected(bundle, feature, workpiece_id=None):
+    """Keep potential cuts until ownership is checked, before granting datum credit."""
     order = {id(setup): index for index, setup in enumerate(bundle.plan["setups"])}
-    cuts = [
+    return [
         (order[id(setup)], setup, op)
         for setup, op in operations(bundle, feature, owned=True, workpiece_id=workpiece_id)
         if op.get("do", UNKNOWN) not in _NONFINISH | (MANUAL - HAND_FINISH - HAND_THREAD)
         and not op.get("do", UNKNOWN).startswith("rough")
     ]
-    # A pilot is not the final datum when reaming happens in a later setup.
-    if any(op.get("do") in TAP_OPS | {"ream", "bore"} for _, _, op in cuts):
-        cuts = [(index, setup, op) for index, setup, op in cuts if op.get("do") != "drill"]
-    return cuts
 
 
 def _label(cut):
@@ -219,6 +223,9 @@ def evaluate(bundle):
         for datum_name, datum_feature, tolerance in relationships:
             datum_cuts = _cuts(bundle, datum_feature)
             numbers["datums"][datum_name] = [_label(cut) for cut in datum_cuts]
+            unknown |= any(
+                operation_members(bundle, setup, op) is None for _, setup, op in datum_cuts
+            )
             numbers["tolerance_mm"] = tolerance
             if "coaxial_to" in feature:
                 numbers["coaxial_to"] = feature["coaxial_to"]

@@ -12,12 +12,14 @@ Required native smoke (PowerShell, from the repository root)::
 """
 
 import hashlib
+import json
 import math
+import os
 import subprocess
 from copy import deepcopy
 
 import pytest
-from test_kernel_geometry import IDENTITY, Engine
+from test_kernel_geometry import ENGINE, IDENTITY, Engine
 
 from prechips.kernel.step_faces import StepFile
 
@@ -499,20 +501,22 @@ def test_complete_finite_geometry_has_two_physical_children_and_conserves_stock(
     assert following["stock_bbox_mm"] == pytest.approx([0.0, 0.0, 0.0, 40.0, 12.7, 30.0])
 
 
-def test_assembly_axis_and_nose_bounds_cover_the_entire_withdrawal(native_cases):
+def test_assembly_axis_and_nose_bounds_cover_calibration_and_the_entire_withdrawal(native_cases):
     _, saw = _detail(native_cases, "positive")
-    assert saw["axis_path_bounds_mm"] == pytest.approx([-35.0, -60.0, 15.0, 75.0, -10.541, 128.0])
+    assert saw["axis_path_bounds_mm"] == pytest.approx(
+        [-140.0, -100.0, 11.574, 75.0, -10.541, 128.0]
+    )
     assert saw["assembly_swept_bounds_mm"] == pytest.approx(
-        [-60.4, -85.4, 11.0, 100.4, 14.859, 128.0]
+        [-165.4, -125.4, 7.574, 100.4, 14.859, 128.0]
     )
     assert saw["spindle_nose_bounds_mm"] == pytest.approx(
-        [-35.0, -60.0, 63.0, 75.0, -10.541, 128.0]
+        [-140.0, -100.0, 59.574, 75.0, -10.541, 128.0]
     )
     _, precut = _detail(native_cases, "pre-cut-clear-positive")
     assert precut["status"] == "pass", precut
     assert precut["cut_move_index"] == 1
     assert precut["axis_path_bounds_mm"] == pytest.approx(
-        [-35.0, -60.0, 15.0, 75.0, -10.541, 128.0]
+        [-140.0, -100.0, 11.574, 75.0, -10.541, 128.0]
     )
     assert precut["collisions"] == []
 
@@ -768,6 +772,10 @@ def test_stopped_lower_body_touch_uses_body_thickness_not_kerf(native_cases):
     assert touch["exposed_inner_radius_mm"] == pytest.approx(9.525)
     assert touch["root_radius_mm"] == pytest.approx(24.0)
     assert touch["approach_start_z_mm"] > touch["approach_end_z_mm"]
+    assert touch["approach_start_z_mm"] == pytest.approx(15.0)
+    assert touch["assembly_swept_bounds_mm"] == pytest.approx(
+        [-165.4, -125.4, 7.574, -114.6, -74.6, 63.0]
+    )
     assert touch["collisions"] == []
 
 
@@ -789,6 +797,47 @@ def test_upper_body_and_signed_kerf_offset_setting_arithmetic(native_cases):
     (shifted,) = offset["zero"]["touches"]
     assert shifted["cutting_midplane_z_mm"] == pytest.approx(11.614)
     assert shifted["body_face_z_mm"] == pytest.approx(10.05)
+
+
+def test_from_below_local_clearance_does_not_certify_lower_stop_reachability(
+    native_cases, monkeypatch
+):
+    from test_envelope_m5 import measured
+    from test_mounted_saw_limits import mounted_bundle
+
+    from prechips.rules import envelope
+
+    _, saw = _detail(native_cases, "upper-body-zero")
+    assert saw["zero"]["status"] == "pass", saw["zero"]
+    assert saw["spindle_nose_bounds_mm"][2] == pytest.approx(4.0)
+    data, evidence = mounted_bundle(monkeypatch)
+    evidence.clear()
+    evidence.update(deepcopy(saw))
+    setup = data.plan["setups"][0]
+    data.plan["stock"].update(length_mm=40, section_mm=[12.7, 30])
+    setup["stock_state"].update(top_z=30, bottom_z=0)
+    data.inventory["fixtures"]["vise"]["bed_height_mm"] = measured(0)
+    data.inventory["fixtures"]["parallel"]["height_mm"] = measured(0)
+    limits = data.inventory["machines"]["mill"]["envelope"]
+    limits["spindle_to_table_min_mm"] = measured(5)
+    row = envelope.evaluate(data)[0]
+    assert row.status == "error", row.sentence
+    assert row.numbers["stacks"][0]["spindle_nose_table_band_mm"][0] == pytest.approx(4)
+    # This same locally clear from-below motion is not categorically forbidden:
+    # a measured raised fixture moves the whole pose above the lower stop.
+    data.inventory["fixtures"]["vise"]["bed_height_mm"] = measured(10)
+    row = envelope.evaluate(data)[0]
+    assert row.status == "pass", row.sentence
+    assert row.numbers["stacks"][0]["spindle_nose_table_band_mm"][0] == pytest.approx(14)
+
+
+def test_missing_touch_does_not_invent_calibration_extents(native_cases):
+    _, saw = _detail(native_cases, "missing-zero")
+    assert saw["zero"]["status"] == "unknown"
+    assert saw["axis_path_bounds_mm"] == pytest.approx([-35.0, -60.0, 15.0, 75.0, -10.541, 128.0])
+    assert saw["spindle_nose_bounds_mm"] == pytest.approx(
+        [-35.0, -60.0, 63.0, 75.0, -10.541, 128.0]
+    )
 
 
 @pytest.mark.parametrize(
@@ -929,12 +978,34 @@ def test_fixture_distance_includes_clear_and_arbor_sweeps(
 
 def test_native_zero_distance_is_not_replaced_with_a_positive_clearance(native_cases):
     _, saw = _detail(native_cases, "mid-sweep-obstacle")
+    assert saw["status"] == "error", saw
+    # The stop is wholly inside both occupied sweeps. A CompSolid's positive
+    # boundary-to-boundary distance must not replace their actual shared material.
+    hits = [
+        hit
+        for hit in saw["collisions"]
+        if hit["obstacle"] == "mid-sweep-stop" and hit["move_index"] == 0
+    ]
+    assert {hit["component"] for hit in hits} == {"blade_cutting", "blade_body"}
+    assert all(hit["volume_mm3"] == pytest.approx(4.0, abs=1e-6) for hit in hits)
     proof = saw["fixture_clearance"]
     assert proof["status"] == "complete", proof
     near = proof["minimum"]
     assert near["mm"] == 0.0 and near["tag"] == "mid-sweep-stop"
     assert near["component"] == "blade_cutting" and near["stage"] == "cut"
     assert near["from_mm"] == pytest.approx(near["to_mm"], abs=1e-6)
+    rows = [
+        row
+        for row in proof["sweeps"]
+        if row["move_index"] == 0 and row["component"] in {"blade_cutting", "blade_body"}
+    ]
+    assert len(rows) == 2
+    for row in rows:
+        minimum = row["minimum"]
+        assert minimum["mm"] == 0.0 and minimum["tag"] == "mid-sweep-stop"
+        assert minimum["from_mm"] == pytest.approx(minimum["to_mm"], abs=1e-6)
+    cut = native_cases["mid-sweep-obstacle"]["setups"]["S1"]["render_scene"]["closest_cut"]
+    assert cut["mm"] == 0.0 and cut["tag"] == "mid-sweep-stop"
 
 
 @pytest.mark.parametrize(
@@ -961,3 +1032,206 @@ def test_calibration_contact_does_not_replace_machining_cycle_minimum(native_cas
             "request_sha256"
         ]
     )
+
+
+_ZERO_STAGES = r"""
+import importlib.util
+import json
+import os
+import sys
+from copy import deepcopy
+from types import SimpleNamespace
+import FreeCAD
+import Part
+
+directory = sys.argv[sys.argv.index("--") + 1]
+source = os.environ["MOUNTED_SAW_KERNEL_SOURCE"]
+sys.path.insert(0, os.path.dirname(source))
+spec = importlib.util.spec_from_file_location("mounted_stage_job", source)
+job = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(job)
+V = FreeCAD.Vector
+with open(directory + "/cases.json", encoding="utf-8") as handle:
+    payload = json.load(handle)
+answers = {}
+for name, case in payload["cases"].items():
+    base = Part.makeBox(40, 12.7, 30)
+    boss = Part.makeBox(4, 4, 55, V(-142, -102, 0))
+    arriving = base if case.get("clear_arrival") else Part.makeCompound([base, boss])
+    unrelated = Part.makeBox(1, 1, 1, V(39, 11.7, 29))
+    after_b = (base if case.get("clear_after_b") else arriving).cut(unrelated)
+    after_c = base.cut(unrelated)
+    ops = [
+        {"subject": "S1:B", "do": "mill"},
+        {"subject": "S1:C", "do": "mill"},
+        {"subject": "S1:D", "do": "cut_off", "mounted_saw": deepcopy(payload["mounted"])},
+    ]
+    ledger = [
+        {"subject": op["subject"], "do": op["do"], "effect": "native"} for op in ops
+    ]
+    if case.get("metadata", True):
+        ledger.insert(0, {"subject": "S1:A", "do": "inspect", "effect": "metadata"})
+    if case.get("unmodeled"):
+        ledger[0].update(do="file", effect="unmodeled")
+    native_setup = {"id": "S1", "ops": ops, "preservation_ledger": ledger}
+    if case.get("missing_ledger"):
+        native_setup.pop("preservation_ledger")
+    pad = Part.makeBox(2, 2, 5, V(-119, -101, 5))
+    fixtures = [{"name": "setting-pad", "envelope": pad}]
+    if "obstacle_at" in case:
+        fixtures.append({
+            "name": "tall-calibration-obstacle",
+            "envelope": Part.makeBox(4, 4, 500, V(*case["obstacle_at"])),
+        })
+    if "nose_dia_mm" in case:
+        ops[-1]["mounted_saw"]["arbor"]["components"][-1]["dia_mm"] = case["nose_dia_mm"]
+    setup = SimpleNamespace(
+        setup=native_setup, ops=ops, part=arriving,
+        cuts={
+            id(ops[0]): (arriving, after_b, case.get("prior_reason")),
+            id(ops[1]): (after_b, after_c, None),
+        },
+        stopped_cut=id(ops[0]) if case.get("stopped") else None,
+        stock_reason="arriving stock unresolved" if case.get("unknown_arrival") else None,
+        arriving_thread_regions=[{}] if case.get("bounded_arrival") else [],
+        thread_regions=[{}] if case.get("bounded_touch") else [],
+        fixture=fixtures,
+        fixture_ready=True, fixture_debts=[], fixture_gaps=[], undrawn=[], fixture_possible=[],
+        _subject=lambda op: op["subject"], owner=SimpleNamespace(job={}),
+    )
+    touch = ops[-1]["mounted_saw"]["zero"]["touches"][0]
+    touch["position"] = case.get("position", 2)
+    saw = job._FiniteSaw(setup, ops[-1], after_c)
+    assembly = saw._assembly()
+    assert assembly and not saw.reasons and not saw.errors, (saw.reasons, saw.errors)
+    answers[name] = saw._zero(assembly)
+with open(directory + "/answers.json", "w", encoding="utf-8") as handle:
+    json.dump(answers, handle)
+"""
+
+
+@pytest.fixture(scope="module")
+def native_zero_stages(tmp_path_factory, freecad_kernel):
+    """Real stock/contact/sweep proofs, isolated from unrelated full-job geometry."""
+    directory = tmp_path_factory.mktemp("mounted-zero-stages")
+    cases = {
+        "filtered": {},
+        "unfiltered": {"metadata": False, "position": 1},
+        "filtered-clear": {"clear_after_b": True},
+        "unfiltered-clear": {"metadata": False, "position": 1, "clear_after_b": True},
+        "initial": {"position": 0},
+        "initial-clear": {"position": 0, "clear_arrival": True},
+        "metadata-only": {"position": 1},
+        "metadata-only-clear": {"position": 1, "clear_arrival": True},
+        "before-saw": {"position": 3},
+        "remote-tall": {"position": 0, "clear_arrival": True, "obstacle_at": [-100, -102, 0]},
+        "column-tall": {"position": 0, "clear_arrival": True, "obstacle_at": [-142, -102, 0]},
+        "outer-nose-tall": {
+            "position": 0,
+            "clear_arrival": True,
+            "obstacle_at": [-110, -102, 0],
+            "nose_dia_mm": 70,
+        },
+        "unmodeled": {"unmodeled": True},
+        "missing-ledger": {"missing_ledger": True},
+        "future": {"position": 4},
+        "stopped": {"stopped": True},
+        "unresolved-prior": {"position": 3, "prior_reason": "prior cut was not derived"},
+        "bounded-arrival": {"position": 0, "bounded_arrival": True},
+        "bounded-touch": {"bounded_touch": True},
+        "unknown-arrival": {"position": 0, "unknown_arrival": True},
+    }
+    (directory / "cases.json").write_text(
+        json.dumps({"mounted": _mounted(), "cases": cases}), encoding="utf-8"
+    )
+    script = directory / "probe.py"
+    script.write_text(_ZERO_STAGES, encoding="utf-8")
+    process = subprocess.run(
+        [freecad_kernel, str(script), "--", str(directory)],
+        env={**os.environ, "MOUNTED_SAW_KERNEL_SOURCE": str(ENGINE)},
+        capture_output=True,
+        text=True,
+        errors="replace",
+        timeout=120,
+    )
+    answers = directory / "answers.json"
+    assert answers.exists(), process.stdout[-2000:] + process.stderr[-2000:]
+    return json.loads(answers.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("case", ["filtered", "unfiltered", "initial", "metadata-only"])
+def test_mounted_touch_sweeps_stock_at_its_authored_boundary(native_zero_stages, case):
+    zero = native_zero_stages[case]
+    assert zero["status"] == "error", zero
+    assert zero["reasons"] == ["complete assembly collides during the axial calibration approach"]
+    touch = zero["touches"][0]
+    assert touch["contact_radius_mm"] == pytest.approx(22)
+    assert touch["approach_start_z_mm"] == pytest.approx(60)
+    assert {collision["component"] for collision in touch["collisions"]} == {
+        "arbor:lower-flange",
+        "arbor:upper-flange",
+        "arbor:pilot",
+        "arbor:stem",
+    }
+    assert all(collision["obstacle"] == "stock" for collision in touch["collisions"])
+    assert all(collision["volume_mm3"] > 600 for collision in touch["collisions"])
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["filtered-clear", "unfiltered-clear", "initial-clear", "metadata-only-clear", "before-saw"],
+)
+def test_mounted_touch_keeps_valid_clear_and_initial_stock_proofs(native_zero_stages, case):
+    zero = native_zero_stages[case]
+    assert zero["status"] == "pass", zero
+    assert zero["reasons"] == []
+    assert zero["touches"][0]["collisions"] == []
+    assert zero["touches"][0]["approach_start_z_mm"] == pytest.approx(15)
+
+
+def test_remote_tall_obstacle_does_not_raise_the_local_calibration_start(native_zero_stages):
+    zero = native_zero_stages["remote-tall"]
+    assert zero["status"] == "pass", zero
+    touch = zero["touches"][0]
+    assert touch["approach_start_z_mm"] == pytest.approx(15)
+    assert touch["assembly_swept_bounds_mm"][5] == pytest.approx(63)
+    assert touch["collisions"] == []
+
+
+@pytest.mark.parametrize("case", ["column-tall", "outer-nose-tall"])
+def test_calibration_column_keeps_tall_obstacles_for_every_assembly_component(
+    native_zero_stages, case
+):
+    zero = native_zero_stages[case]
+    assert zero["status"] == "error", zero
+    touch = zero["touches"][0]
+    assert touch["approach_start_z_mm"] == pytest.approx(505)
+    hits = [
+        collision
+        for collision in touch["collisions"]
+        if collision["obstacle"] == "tall-calibration-obstacle"
+    ]
+    assert hits, touch
+    assert all(collision["volume_mm3"] > 0 for collision in hits)
+    if case == "outer-nose-tall":
+        assert any(collision["component"] == "arbor:nose" for collision in hits)
+
+
+@pytest.mark.parametrize(
+    ("case", "reason"),
+    [
+        ("unmodeled", "unmodeled preceding bench step"),
+        ("missing-ledger", "authored operation ledger is missing"),
+        ("future", "future operation boundary"),
+        ("stopped", "stock at the calibration touch is unresolved"),
+        ("unresolved-prior", "stock at the calibration touch is unresolved"),
+        ("bounded-arrival", "bounded thread material"),
+        ("bounded-touch", "bounded thread material"),
+        ("unknown-arrival", "arriving stock unresolved"),
+    ],
+)
+def test_mounted_touch_refuses_unproved_material_boundaries(native_zero_stages, case, reason):
+    zero = native_zero_stages[case]
+    assert zero["status"] == "unknown", zero
+    assert any(reason in item for item in zero["reasons"])
+    assert zero["touches"][0]["collisions"] == []

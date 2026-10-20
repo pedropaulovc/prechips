@@ -201,6 +201,84 @@ def test_complete_mounted_axis_zero_keeps_positive_and_mirrored_jogs_distinct(mo
     assert z["mirrored_reading"] == pytest.approx(6.575)
 
 
+@pytest.mark.parametrize("setter", ["endmill", "other_saw", "other_holder"])
+def test_a_passing_native_proof_does_not_override_the_last_z_setter(monkeypatch, setter):
+    data, setup, mounted = normalized_zero(monkeypatch)
+    prove_zero(data, mounted)
+    touch = deepcopy(setup["zero"]["tool_touches"][0])
+    if setter == "endmill":
+        touch.update(method="paper", tool="centre/1")
+        touch.pop("mounted_saw")
+    elif setter == "other_saw":
+        touch["tool"] = "another-saw"
+    else:
+        touch["holder"] = "another-arbor"
+    setup["zero"]["tool_touches"].append(touch)
+    # Deliberately retain the earlier host/native pass: setter tracking is its own gate.
+    setting = mounted_saw_settings(data, setup)["20"]
+    assert setting["status"] == "pass"
+    assert tool_changes(
+        data,
+        setup,
+        setup["zero"],
+        False,
+        "unknown",
+        setup["zero"]["tool_touches"],
+        mounted={"20": setting},
+    )[2]
+    assert rule.evaluate(data)[0].status == "unknown"
+
+
+def test_fresh_matching_mounted_touch_after_another_setter_remains_usable(monkeypatch):
+    data, setup, mounted = normalized_zero(monkeypatch)
+    prove_zero(data, mounted)
+    setup["zero"]["tool_touches"].insert(
+        0,
+        {
+            "tool": "centre/1",
+            "z_face": "deck",
+            "edge_mm": 10,
+            "paper_mm": 0.05,
+            "before_ops": [20],
+        },
+    )
+    setting = mounted_saw_settings(data, setup)["20"]
+    assert setting["status"] == "pass"
+    assert not tool_changes(
+        data,
+        setup,
+        setup["zero"],
+        False,
+        "unknown",
+        setup["zero"]["tool_touches"],
+        mounted={"20": setting},
+    )[2]
+    assert rule.evaluate(data)[0].status == "pass"
+
+
+@pytest.mark.parametrize("before_ops", [[999, 20], [999]])
+def test_unresolved_mounted_boundary_stays_unknown_with_a_stale_native_pass(
+    monkeypatch, before_ops
+):
+    data, setup, mounted = normalized_zero(monkeypatch)
+    prove_zero(data, mounted)
+    setup["zero"]["tool_touches"][0]["before_ops"] = before_ops
+    mounted["zero"]["touches"][0]["before_ops"] = before_ops
+    setting = mounted_saw_settings(data, setup)["20"]
+    assert setting["status"] == "unknown"
+    assert "mounted-saw touch operation boundary is unresolved" in setting["reasons"]
+    assert tool_changes(
+        data,
+        setup,
+        setup["zero"],
+        False,
+        "unknown",
+        setup["zero"]["tool_touches"],
+        mounted={"20": {"status": "pass", "selected": 0}},
+    )[2]
+    assert rule.evaluate(data)[0].status == "unknown"
+
+
 @pytest.mark.parametrize(
     "field", ["point_mm", "axis_xy_mm", "blade_side", "spindle_state", "body_thickness_mm"]
 )

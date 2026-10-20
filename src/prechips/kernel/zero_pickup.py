@@ -407,7 +407,13 @@ def _contact_land_patch(contact, land, *, area_tol, length_tol):
             joined = []
             for index in remaining:
                 common = faces[current].common(faces[index])
-                if common.Area > area_tol or common.Length > length_tol:
+                # Face common keeps overlap area, but OCC drops a shared edge
+                # or point from it. Section preserves that lower-dimensional
+                # topology; only a segment, not an isolated vertex, joins faces.
+                if (
+                    common.Area > area_tol
+                    or faces[current].section(faces[index]).Length > length_tol
+                ):
                     joined.append(index)
             remaining.difference_update(joined)
             frontier.extend(joined)

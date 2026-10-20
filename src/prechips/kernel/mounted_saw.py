@@ -160,11 +160,12 @@ def _capture(host, bundle, setup, value):
 
 
 def _touch_position(ops, touch, kind):
-    from prechips.rules.zero_recipe.touch import _position
+    from prechips.rules.zero_recipe.faces import _boundary
 
     if kind == "axis" and "after_op" not in touch:
         return 0
-    return _position(ops, touch)
+    position = _boundary(ops, touch)
+    return None if position == UNKNOWN else position
 
 
 def _zero(host, bundle, setup, op, capture):
@@ -191,11 +192,14 @@ def _zero(host, bundle, setup, op, capture):
     sources = [("axis", record(zero.get("z")))]
     if isinstance(zero.get("tool_touches"), list):
         sources.extend(("tool", record(touch)) for touch in zero["tool_touches"])
-    selected = UNKNOWN
-    for kind, source in sources:
-        if source.get("method") != "mounted_saw_side":
-            continue
+    selected, events = UNKNOWN, []
+    for order, (kind, source) in enumerate(sources):
         position = _touch_position(ops, source, kind)
+        sets_z = bool(source) if kind == "axis" else bool(source.get("z_face"))
+        if source.get("method") != "mounted_saw_side":
+            if sets_z:
+                events.append((position, order, UNKNOWN))
+            continue
         touch = {
             "kind": kind,
             "axis": "z",
@@ -213,18 +217,27 @@ def _zero(host, bundle, setup, op, capture):
             **{key: source[key] for key in ("before_ops", "after_op") if key in source},
         }
         touches.append(touch)
+        events.append((position, order, len(touches) - 1))
         if touch["mounted_saw"].get("spindle_state") == "running":
             errors.append("mounted-saw calibration touch requires a stopped spindle")
+    # The last Z-setting action wins, including another tool's touch without a cut.
+    # Equal-boundary actions follow axis zero, then authored tool_touches order.
+    if op_position is not None and not any(position is None for position, _, _ in events):
+        current = [event for event in events if event[0] <= op_position]
+        if current:
+            position, order, selected = max(current, key=lambda event: event[:2])
+    if selected != UNKNOWN:
+        touch = touches[selected]
+        source = sources[order][1]
+        kind, position = touch["kind"], touch["position"]
         if pair != (touch["tool"], touch["holder"]):
-            continue
-        if position is None or op_position is None or position > op_position:
-            continue
-        if (
+            selected = UNKNOWN
+        elif (
             kind == "tool"
             and isinstance(source.get("before_ops"), list)
             and op.get("op") not in source["before_ops"]
         ):
-            continue
+            selected = UNKNOWN
         intervening = [
             candidate
             for candidate in ops[position:op_position]
@@ -238,9 +251,7 @@ def _zero(host, bundle, setup, op, capture):
             != pair
             for candidate in intervening
         ):
-            continue
-        if selected == UNKNOWN or touches[selected]["position"] <= position:
-            selected = len(touches) - 1
+            selected = UNKNOWN
     if selected == UNKNOWN:
         reasons.append("no current mounted_saw_side touch matches the installed tool-holder pair")
     else:

@@ -668,7 +668,23 @@ def test_small_actual_plane_offset_leaves_stock_not_target_face_creation(batch_n
     )
     output = result["setups"]["S1"]["outputs"]["blank1"]
     assert output["status"] == "pass"
-    assert output["bbox_mm"][2] == pytest.approx(TARGET_BOXES["nut1"][2] - 0.01, abs=1e-6)
+    # Retained-output boxes are registered-model coordinates, not setup coordinates.
+    # The identity output pose and this signed-permutation FRAME make transformed
+    # box corners exact geometry extrema; no production registration helper is used.
+    box = output["bbox_mm"]
+    setup_z = [
+        sum((point[i] - FRAME["origin"][i]) * FRAME["z"][i] for i in range(3))
+        for point in (
+            (x, y, z) for x in (box[0], box[3]) for y in (box[1], box[4]) for z in (box[2], box[5])
+        )
+    ]
+    stock_boundary = TARGET_BOXES["nut1"][2] - 0.01
+    assert min(setup_z) == pytest.approx(stock_boundary, abs=1e-6)
+    assert output["volume_mm3"] == pytest.approx(
+        AREA * (STOCK["length_mm"] - stock_boundary), abs=1e-5
+    )
+    # The routed physical stock retains the extra .01 mm; the finished target does not.
+    assert result["setups"]["N1"]["stock_bbox_mm"][2] == pytest.approx(stock_boundary, abs=1e-6)
     target = result["setups"]["N1"]["workpieces"]["nut1"]
     assert target["status"] == "pass" and target["bbox_mm"] == pytest.approx(TARGET_BOXES["nut1"])
     rows = detail["saw_face_credit"]["faces"]
@@ -817,14 +833,14 @@ def test_capture_debt_does_not_become_an_empty_fixture_pass(batch_native):
     ), detail
 
 
-def test_return_path_sweeps_whole_assembly_not_only_cutting_move(batch_native):
-    for number, z in enumerate(CUTS, 1):
+def test_return_path_and_calibration_sweep_whole_assembly_not_only_cutting_move(batch_native):
+    for number, _ in enumerate(CUTS, 1):
         saw = _result(batch_native)["ops"][f"S{number}:10"]["saw"]
-        assert saw["axis_path_bounds_mm"] == pytest.approx([-47.7, -60, z, 47.7, -16.891, 228])
+        assert saw["axis_path_bounds_mm"] == pytest.approx([-140, -100, 11.574, 47.7, -16.891, 228])
         assert saw["spindle_nose_bounds_mm"] == pytest.approx(
-            [-47.7, -60, z + 48, 47.7, -16.891, 228]
+            [-140, -100, 59.574, 47.7, -16.891, 228]
         )
-        assert saw["assembly_swept_bounds_mm"][2] == pytest.approx(z - 4)
+        assert saw["assembly_swept_bounds_mm"][2] == pytest.approx(7.574)
         assert saw["assembly_swept_bounds_mm"][5] == pytest.approx(228)
 
 

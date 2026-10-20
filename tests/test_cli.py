@@ -202,23 +202,32 @@ def test_installed_artifact_console_script_matches_module(tmp_path):
             assert "usage" in (installed.stdout + installed.stderr).lower()
 
     reports = []
-    travelers = []
-    for name, entry in [("console", console), ("module", module)]:
-        out = tmp_path / name
-        result = invoke(entry, "traveler", plan, "--out", out)
-        assert result.returncode == 4, result.stderr
-        report_bytes = (out / "report.json").read_bytes()
-        report = json.loads(report_bytes)
-        assert report["hash"] == report_hash(report)
-        assert report["expected_exit"] == 4
-        assert report["verification"] == "planned"
-        assert any(row["status"] == "unknown" for row in report["findings"])
-        html = (out / "traveler.html").read_text(encoding="utf-8")
-        assert html.strip()
-        reports.append(report_bytes)
-        travelers.append(html)
-    assert reports[0] == reports[1]
-    assert travelers[0] == travelers[1]
+    travelers = {}
+    for detail in (None, "pro", "hobby", "pedantic"):
+        selected = detail or "hobby"
+        rendered = []
+        for name, entry in [("console", console), ("module", module)]:
+            out = tmp_path / f"{name}-{detail or 'default'}"
+            args = ["traveler", plan, "--out", out]
+            if detail is not None:
+                args.extend(["--detail", detail])
+            result = invoke(entry, *args)
+            assert result.returncode == 4, result.stderr
+            report_bytes = (out / "report.json").read_bytes()
+            report = json.loads(report_bytes)
+            assert report["hash"] == report_hash(report)
+            assert report["expected_exit"] == 4
+            assert report["verification"] == "planned"
+            assert any(row["status"] == "unknown" for row in report["findings"])
+            html = (out / "traveler.html").read_text(encoding="utf-8")
+            assert re.search(rf'<body\b[^>]*\bdata-detail="{selected}"', html)
+            assert f'<meta name="prechips-detail" content="{selected}">' in html
+            reports.append(report_bytes)
+            rendered.append(html)
+        assert rendered[0] == rendered[1]
+        travelers[detail] = rendered[0]
+    assert len(set(reports)) == 1
+    assert travelers[None] == travelers["hobby"]
 
 
 @pytest.mark.parametrize(

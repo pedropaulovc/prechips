@@ -204,17 +204,23 @@ def decimal_text(value, places):
     return text.removeprefix("-") if float(text) == 0 else text
 
 
+def operative_text(value, places):
+    """A rounded coordinate or clearance, without insignificant fractional zeroes."""
+    text = decimal_text(value, places)
+    return text.rstrip("0").rstrip(".") if places > 0 else text
+
+
 def _mm(value):
-    return decimal_text(value, 2).rstrip("0").rstrip(".")
+    return operative_text(value, 2)
 
 
 def _dro(value, decimals):
-    """A setup coordinate or clearance as the traveler's tables print it
-    (``_Traveler.operative``): at the setup's DRO ``decimals`` when the spec names them,
-    so a picture and its table never show one value rounded two ways; else :func:`_mm`."""
+    """A setup coordinate or clearance rounded as the traveler's tables print it
+    (``_Traveler.operative``), without insignificant fractional zeroes: at the setup's
+    DRO ``decimals`` when named, else :func:`_mm`."""
     if not isinstance(decimals, int) or isinstance(decimals, bool) or decimals < 0:
         return _mm(value)
-    return decimal_text(value, decimals)
+    return operative_text(value, decimals)
 
 
 def _corners(box):

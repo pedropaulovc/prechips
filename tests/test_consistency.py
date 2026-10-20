@@ -1243,10 +1243,22 @@ def test_a_picture_cut_printed_as_its_op_s_row_passes(cut, op, resolution):
     assert (row.status, row.numbers["claims"]) == ("pass", 1)
 
 
-def test_a_half_way_value_prints_one_way_on_both_surfaces():
+@pytest.mark.parametrize(
+    ("value", "resolution"),
+    [(2.8045, None), (4.2875, 0.00001), (-8.8125, 0.00001), (10, 1), (0, 0.001)],
+)
+def test_a_half_way_value_prints_one_way_on_both_surfaces(value, resolution):
+    from prechips.kernel.render_diagram import _dro
+    from prechips.rules.coordinates import dro_grid
+    from prechips.sheet import _Traveler
+
     # One clearance, 2.8045: the picture and the table both round the written decimal
     # half up (2.805), not the binary float (2.804), so they restate one value.
-    row = rows(pictured((2.8045, COLLAR, {"op": "27"}), ("27", 2.8045, COLLAR)))["S1"]
+    data = pictured((value, COLLAR, {"op": "27"}), ("27", value, COLLAR), resolution=resolution)
+    decimals = dro_grid(data, data.plan["setups"][0])[1]
+    traveler = _Traveler(data, [], {}, None)
+    assert traveler.operative(value, decimals) == _dro(value, decimals)
+    row = rows(data)["S1"]
     assert (row.status, row.numbers["claims"]) == ("pass", 1)
 
 

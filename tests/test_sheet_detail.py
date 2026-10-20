@@ -268,13 +268,6 @@ def operation_owner(node):
     return None
 
 
-def settings_text(markup, row):
-    """Separate table cells as the browser does, rather than joining drill500."""
-    cells = [node for node in markup.nodes if node["parent"] is row and node["tag"] in ("td", "th")]
-    assert cells
-    return " ".join(content(cell) for cell in cells)
-
-
 def assert_displayed_block(markup, owner, message):
     """Check the notice, not the ledger wrapper that aggregates its evidence."""
     if "data-decision" in owner["attrs"]:
@@ -969,7 +962,7 @@ def test_compact_projection_hides_acquisition_paperwork_not_consumed_unknowns_or
                 if owner in json.loads(node["attrs"].get("data-physical-ops", "[]"))
             ]
             for value in (500, 25):
-                assert_number(settings_text(markup, settings), value)
+                assert_number(content(settings), value)
     assert [finding.to_dict() for finding in findings] == original
     assert snapshots[0] == snapshots[1] == snapshots[2]
 
@@ -1154,7 +1147,7 @@ def test_family_operative_differences_remain_named_member_variants(detail, chang
             if json.loads(node["attrs"]["data-physical-ops"]) == [f"{last['id']}:10"]
         ]
         assert len(owned) == 1
-        assert_number(settings_text(settings_markup, owned[0]), findings[-1].numbers["rpm"])
+        assert_number(content(owned[0]), findings[-1].numbers["rpm"])
         unchanged = [
             node
             for node in settings
@@ -1162,7 +1155,7 @@ def test_family_operative_differences_remain_named_member_variants(detail, chang
             == {f"{setup['id']}:10" for setup in finals[:-1]}
         ]
         assert len(unchanged) == 1
-        assert_number(settings_text(settings_markup, unchanged[0]), findings[0].numbers["rpm"])
+        assert_number(content(unchanged[0]), findings[0].numbers["rpm"])
     elif changed_field == "feature":
         expected = sheet.feature_label(last["ops"][0]["feature"], marked=False)
         assert any(expected in content(variant) for variant in variants)
@@ -1928,3 +1921,150 @@ def test_selected_detail_note_keeps_plain_manual_work_inline_but_readings_local(
     else:
         assert not fields
         assert "Keep the witness face upright." in content(owner)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_saw_stops_before_first_withdrawal_and_holds_capture_through_calibration(detail):
+    data = load_bundle(
+        Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/plan.toml"
+    )
+    cycles = [
+        (setup, op)
+        for setup in data.plan["setups"]
+        for op in setup.get("ops", [])
+        if "saw_trajectory" in op
+    ]
+    assert len(cycles) == 3
+
+    def position(sheet, scale, text, setup_id, axis, value, start):
+        target = re.escape(sheet.readout(value / scale)).replace(r"\-", "[−-]")
+        match = re.search(rf"\b{'XYZ'[axis]}\s*{target}(?!\d|\.\d)", text[start:])
+        assert match is not None, (setup_id, axis, value, text)
+        return start + match.end()
+
+    for setup, op in cycles:
+        # A fresh composer makes this physical cycle the reference rather than a repeat.
+        sheet = _Traveler(data, [], {}, None, detail=detail)
+        sheet.setup = setup
+        text = content(Markup(sheet.saw_cycle(setup, op)).find("route-cycle")[0])
+        moves = op["saw_trajectory"]["moves"]
+        last_cut = max(index for index, move in enumerate(moves) if move["mode"] == "cut")
+        previous = moves[last_cut - 1]["to_mm"] if last_cut else op["saw_trajectory"]["start_mm"]
+        cut_point = moves[last_cut]["to_mm"]
+        axis = next(index for index in range(3) if previous[index] != cut_point[index])
+        scale = {"mm": 1.0, "in": 25.4}[sheet.units]
+
+        cut_word = re.search(r"\bcut\s+", text, re.IGNORECASE)
+        assert cut_word is not None
+        cut_end = position(sheet, scale, text, setup["id"], axis, cut_point[axis], cut_word.end())
+        stop = re.search(r"\bSTOP\s+fully\b", text[cut_end:], re.IGNORECASE)
+        assert stop is not None
+        stop_end = cut_end + stop.end()
+        held = re.search(r"\bcapture\b[^.;]*\b(?:clamped|held)\b", text[stop_end:], re.IGNORECASE)
+        assert held is not None
+        held_end = stop_end + held.end()
+        cursor = cut_end
+        previous = cut_point
+        for move in moves[last_cut + 1 :]:
+            assert move["mode"] == "clear"
+            point = move["to_mm"]
+            axis = next(index for index in range(3) if previous[index] != point[index])
+            cursor = position(sheet, scale, text, setup["id"], axis, point[axis], cursor)
+            assert stop_end < cursor, (setup["id"], text)
+            assert held_end < cursor, (setup["id"], text)
+            previous = point
+        # Include the final paper-gap calibration, not just the raised return pose.
+        assert previous == op["saw_trajectory"]["start_mm"]
+        assert not re.search(r"\b(?:release|retrieve)\b", text[:cursor], re.IGNORECASE)
+        capture_return = re.search(
+            r"\bcapture\b[^.;]*\b(?:clamped|held)\b[^.;]*\b(?:full|whole|complete)\s+return\b",
+            text,
+            re.IGNORECASE,
+        )
+        assert capture_return is not None
+        release = re.search(r"\b(?:release|retrieve)\b", text[cursor:], re.IGNORECASE)
+        assert release is not None
+        assert cursor + release.start() > capture_return.end()
+
+
+@pytest.mark.parametrize("display_units", ["mm", "in"])
+def test_hobby_facing_table_keeps_all_native_pass_centres_and_clear_return(display_units):
+    data = load_bundle(
+        Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/plan.toml"
+    )
+    data.plan["dro"]["units"] = display_units
+    # Native Q1-Q4 coordinate findings, report findings 154-157: retain the actual
+    # snapped middle Y, not an interpolated or reviewer-invented two-pass recipe.
+    native = {
+        "Q1": (-22.225, 110.49, [-12.7, 0.0, 12.7]),
+        "Q2": (-110.49, 22.225, [-14.2875, -7.14248, 0.0]),
+        "Q3": (-22.225, 110.49, [-14.2875, -7.14248, 0.0]),
+        "Q4": (-22.225, 110.49, [-11.1125, 0.0, 11.1125]),
+    }
+    findings = []
+    for sid, (start, end, ys) in native.items():
+        profile = {
+            "op": 10,
+            "stage": "finish",
+            "to_z": 0.0,
+            "dro_to_z": 0.0,
+            "cut_order": "conventional",
+            "spindle_rotation": "cw",
+            "cutter_centre": [[[start, y], [end, y]] for y in ys],
+            "raster": {
+                "cycle": "one_way",
+                "run_axis": "x",
+                "passes": len(ys),
+                "step_mm": 12.7,
+                "lift_z": 4.1275,
+            },
+        }
+        numbers = {
+            "operations": [{"op": 10, "dro_to_z": 0.0, "z_levels": {"levels": [0.0]}}],
+            "profiles": [profile],
+            "level_paths": [
+                {
+                    "op": 10,
+                    "raster": True,
+                    "closed": False,
+                    "from_z": 1.5875,
+                    "levels": [0.0],
+                    "raise_z": profile["raster"]["lift_z"],
+                    "raise_clear": True,
+                    "entries": [
+                        {"xy": segment[0], "pass": True, "air": False, "contact": "tangent"}
+                        for segment in profile["cutter_centre"]
+                    ],
+                }
+            ],
+        }
+        findings.append(Finding("coordinates", sid, "pass", numbers, [], "Native facing path"))
+    markup = Markup(rendered(data, findings, detail="hobby"))
+    (table,) = markup.find("facing-paths")
+    rows = [
+        node
+        for node in descendants(markup, table)
+        if node["tag"] == "tr" and node["attrs"].get("data-setup-id") in native
+    ]
+    assert [row["attrs"]["data-setup-id"] for row in rows] == list(native)
+    formatter = _Traveler(data, [], {}, None, detail="hobby")
+    for row, finding in zip(rows, findings, strict=True):
+        (path,) = markup.find("facing-path", row)
+        assert path["attrs"]["data-op-id"] == "10"
+        formatter.setup = next(
+            setup for setup in data.plan["setups"] if setup["id"] == finding.subject
+        )
+        profile = finding.numbers["profiles"][0]
+        first, *_, last = profile["cutter_centre"]
+        expected = [
+            formatter.readout(first[0][0]),
+            formatter.readout(last[1][0]),
+            *(formatter.readout(segment[0][1]) for segment in profile["cutter_centre"]),
+        ]
+        # Numeric order preserves both feed endpoints and every actual Y centre.
+        assert numeric_values(content(path)) == [float(value) for value in expected]
+        (cycle,) = markup.find("facing-cycle", table["parent"])
+        context = content(cycle)
+        assert_coordinate(context, "Z", float(formatter.readout(profile["raster"]["lift_z"])))
+        assert re.search(r"\bone.way\b", context, re.IGNORECASE)
+        assert re.search(r"\b(?:lift|raise)\b.*\breturn\b", context, re.IGNORECASE)

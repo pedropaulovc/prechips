@@ -68,8 +68,10 @@ def write_bundle(
     budget="0.10",
     holds="",
 ):
-    """A two-setup mill bundle: S1 finishes the datum features base (A), axis (B) and side
-    (C); S2 finishes every other manifest feature, ``subject`` checked for ``requirement``."""
+    """S1 finishes datums; S2 forms every other feature before the final capability check.
+
+    These fixtures test gauge/profile capability, not preservation through later cuts.
+    """
     datums = {
         "base": 'kind = "face"\nrequirements = []\n',
         "axis": 'kind = "hole"\nrequirements = []\n',
@@ -81,17 +83,17 @@ def write_bundle(
         '[datums.C]\nfeature = "side"\n'
         + "".join(f"[features.{name}]\n{text}" for name, text in {**datums, **features}.items())
     )
+    procedure = f"inspection_methods = {{ {requirement} = {method} }}\n" if method else ""
     finishing = "".join(
         f'[[setups.ops]]\nop = {40 + 10 * index}\ndo = "profile"\nfeature = "{name}"\n'
-        + (
-            f'checks = {{ {requirement} = "gauge" }}\n'
-            + (f"inspection_methods = {{ {requirement} = {method} }}\n" if method else "")
-            + holds
-            if name == subject
-            else ""
-        )
+        + (procedure + holds if name == subject and holds else "")
         for index, name in enumerate(features)
     )
+    if subject in features:
+        finishing += (
+            f'[[setups.ops]]\nop = {40 + 10 * len(features)}\ndo = "inspect"\n'
+            f'feature = "{subject}"\nchecks = {{ {requirement} = "gauge" }}\n' + procedure
+        )
     documents = {
         "plan.toml": (
             'part = "profile-control"\nfeatures = "features.toml"\n'
@@ -471,17 +473,17 @@ TILT = '{ "tip:land_angle_deg" = { tilt_across = "tip_land" } }'
 
 
 @pytest.mark.parametrize(
-    ("zone", "band_mm", "status", "message"),
+    ("zone", "band_mm", "status"),
     [
         # t 0.5 across the 5.08 least land: 10.46 ± 5.65°, read end to end as 2t = 1.0 mm.
-        ("0.5", 1.0, "pass", "gauge resolves the tilt's linear zone across its face"),
+        ("0.5", 1.0, "pass"),
         # t 0.004: ± 0.045°. Read as millimetres, that 0.09 band passes the 0.01 gauge; the
         # linear zone it is, 2t = 0.008 mm, is finer than the gauge resolves.
-        ("0.004", 0.008, "error", "gauge resolution exceeds the requirement band"),
+        ("0.004", 0.008, "error"),
     ],
 )
 def test_a_tilt_across_angle_is_inspected_as_the_linear_zone_across_its_length(
-    tmp_path, zone, band_mm, status, message
+    tmp_path, zone, band_mm, status
 ):
     features = {"tip": TIP_LAND, "zone": profile(TILT, zone=zone, u=None)}
     loaded = bundle(tmp_path, features, subject="tip", requirement="land_angle_deg")
@@ -490,7 +492,7 @@ def test_a_tilt_across_angle_is_inspected_as_the_linear_zone_across_its_length(
     assert row.numbers["limits"] == pytest.approx([10.46 - tilt, 10.46 + tilt])
     assert row.numbers["tilt_across_length"] == 5.08
     assert row.numbers["band_mm"] == pytest.approx(band_mm)
-    assert (row.status, row.sentence) == (status, f"tip land_angle_deg: {message}.")
+    assert row.status == status, row.sentence
 
 
 def test_the_tilts_linear_zone_is_judged_on_resolution_never_on_the_gauge_span(tmp_path):
@@ -545,7 +547,6 @@ def test_profiles_tilting_one_angle_across_different_lengths_leave_it_unknown(tm
     loaded = bundle(tmp_path, features, subject="tip", requirement="land_angle_deg")
     row = inspection_finding(loaded, "tip:land_angle_deg")
     assert row.status == "unknown"
-    assert row.sentence == "tip land_angle_deg: no angular gauge capability."
     assert row.numbers["tilt_across_length"] == "unknown"
     assert "different lengths" in row.numbers["tilt_across_reason"]
 

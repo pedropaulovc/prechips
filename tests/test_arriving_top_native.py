@@ -268,8 +268,9 @@ for name, faces in fragments.items():
             if j <= i:
                 continue
             common = first.common(second)
+            section = first.section(second)
             pairs.append({"pair": [i, j], "area_mm2": common.Area,
-                          "length_mm": common.Length, "vertices": len(common.Vertexes)})
+                          "length_mm": section.Length, "vertices": len(section.Vertexes)})
     land = rectangle(-0.25, -0.25, 0.25, 0.25)
     selected = zero_pickup._contact_land_patch(
         contact, land, area_tol=job.AREA_ABS, length_tol=job.PLANE_TOL)
@@ -787,6 +788,10 @@ def test_real_fragment_land_selection_uses_actual_area_or_shared_boundary(
         assert contact["missing_land_area_mm2"] == pytest.approx(0, abs=1e-8)
     else:
         assert contact["patch_area_mm2"] is None
+    if name == "overlap":
+        # The selected union counts its shared area once, unlike the compound.
+        assert contact["area_mm2"] == pytest.approx(5)
+        assert contact["patch_area_mm2"] == pytest.approx(4)
     if name == "disconnected":
         assert contact["total_missing_land_mm2"] == pytest.approx(0.1)
         assert all(0 < missing < 0.25 for missing in contact["fragment_land_missing_mm2"])

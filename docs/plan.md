@@ -3006,6 +3006,9 @@ Use `method = "mounted_saw_side"` on the Z `AxisZero` or a `ToolTouch`.
 A tool touch also names its `holder`. Its `mounted_saw` record declares
 `blade_side = "minus_z" | "plus_z"`, `axis_xy_mm`, `point_mm` and
 `spindle_state = "stopped" | "running"` (each may be unknown).
+`axis_xy_mm` and `point_mm` are literal setup-frame millimetres regardless of
+the plan's units; the legacy `edge_mm`, `paper_mm` and `check_jog_mm` touch
+lengths continue to use the plan's units.
 A running touch errors; unknown state remains debt.
 Name a stock face/z-face or a posed
 `fixture:<inventory-reference>/<component-id>:+z` or `:-z` face.
@@ -3015,6 +3018,15 @@ The proof requires the exposed flat body annulus outside every flange and
 inside the tooth root, the correct body side and plane normal, and a clear
 axial calibration approach. A broad stock top is not automatically a setting
 pad. Each new or reinstalled tool/holder pair needs a matching setting.
+Touches use the full authored operation order, including inspection and other
+metadata steps. Calibration uses the stock at that boundary, never a later cut's
+stock; an earlier unmodeled material change or bounded thread stock leaves the
+proof unknown. A later Z touch by another tool or holder replaces the mounted
+setting even if no cut intervenes. At one boundary, tool touches run in their
+listed order after the axis zero; a fresh matching mounted touch restores the
+setting.
+Every declared `before_ops` or `after_op` name must resolve; a partly unresolved
+boundary cannot establish or preserve the mounted setting.
 
 For plane Z `E`, paper thickness `p`, body thickness `B` and signed kerf offset
 `C`, lower body side on a +Z plane sets cutting-midplane DRO to

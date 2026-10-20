@@ -64,6 +64,10 @@ representation = "stock_minus_part"
 frame = "model"
 binding = "nominal"
 requirements = ["width", "height"]
+# AUTHOR'S CHOICE example display precision, in this manifest's mm units:
+# four decimals preserve the exact converted .002-inch acceptance limits.
+# This is neither source-drawing precision nor a physical measurement resolution.
+precision = { width = 4, height = 4 }
 width = [22.1742, 22.2758]
 width_nominal = 22.225
 height = [12.6492, 12.7508]
@@ -79,6 +83,8 @@ representation = "stock_minus_part"
 frame = "model"
 binding = "nominal"
 requirements = ["width", "thickness"]
+# Same authored mm display choice; keep the adopted inch-derived limits exact.
+precision = { width = 4, thickness = 4 }
 width = [12.5222, 12.6238]
 width_nominal = 12.573
 thickness = [6.2992, 6.4008]
@@ -94,6 +100,8 @@ kind = "face"
 frame = "model"
 binding = "nominal"
 requirements = ["length"]
+# Same authored mm display choice; not vendor/original-drawing precision.
+precision = { length = 4 }
 length = [25.3492, 25.4508]
 length_nominal = 25.4
 faces = ["#304/ADVANCED_FACE[10]/", "#320/ADVANCED_FACE[11]/"]

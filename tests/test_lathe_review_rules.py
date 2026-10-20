@@ -771,6 +771,21 @@ def test_an_unknown_later_band_does_not_hide_a_known_band_holding_the_start():
     assert "which op 10 leaves anywhere in 1.5 to 2;" in row.sentence
 
 
+def _operation_texts(markup, css, setup_id):
+    """Read original operation ownership, including explicitly shared instructions."""
+    from test_sheet_detail import operation_owner, operation_owners
+
+    texts = {}
+    for node in markup.find(css):
+        owner = operation_owner(node)
+        if owner is None:
+            continue
+        for identity in operation_owners(owner):
+            if identity["setup_id"] == setup_id:
+                texts.setdefault(str(identity["op_id"]), []).append(content(node))
+    return texts
+
+
 def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before_the_cut(
     tmp_path,
 ):
@@ -798,10 +813,8 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
     ]
     page = render_traveler(bundle, clear, {})
     markup = Markup(page)
-    [setup_page] = [
-        node for node in markup.find("page") if node["attrs"]["data-sheet"] == "SETUP S1 sheet 1"
-    ]
-    operations = {node["attrs"]["data-op"]: node for node in markup.find("operation", setup_page)}
+    notes = _operation_texts(markup, "see", "S1")
+    targets = _operation_texts(markup, "route-operation", "S1")
     # Hands go near the work only once it has stopped, and the cut resumes on a running spindle.
     order = [
         "stop the feed, then the spindle",
@@ -811,18 +824,17 @@ def test_the_follow_rest_goes_on_with_the_spindle_stopped_and_it_restarts_before
         "then resume the feed",
     ]
     for number in (10, 30):
-        owner = operations[str(number)]
-        [step] = [
-            content(node)
-            for node in markup.find("see", owner)
-            if "set the follow-rest jaws" in content(node)
-        ]
+        [step] = [text for text in notes[str(number)] if "set the follow-rest jaws" in text]
         assert "at Z 152.00:" in step
         found = [step.find(words) for words in order]
         assert -1 not in found and found == sorted(found), step
-        [target] = markup.find("op-target", owner)
-        assert content(target).count("follow rest on: Z 152.00") == 1
-    assert sum("set the follow-rest jaws" in content(node) for node in markup.find("see")) == 2
+        [target] = targets[str(number)]
+        assert target.count("follow rest on: Z 152.00") == 1
+    assert {
+        number
+        for number, texts in notes.items()
+        if any("set the follow-rest jaws" in text for text in texts)
+    } == {"10", "30"}
 
 
 def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares(tmp_path):
@@ -859,19 +871,12 @@ def test_each_op_sets_the_follow_rest_on_the_side_its_own_support_entry_declares
         for op, z in ((10, 152.0), (30, 151.0))
     ]
     markup = Markup(render_traveler(bundle, findings, {}))
-    [setup_page] = [
-        node for node in markup.find("page") if node["attrs"]["data-sheet"] == "SETUP S1 sheet 1"
-    ]
-    operations = {node["attrs"]["data-op"]: node for node in markup.find("operation", setup_page)}
+    notes = _operation_texts(markup, "see", "S1")
     for op, z, side in (
         (10, 152.0, "on the diameter just turned"),
         (30, 151.0, "on the uncut stock ahead of the tool"),
     ):
-        [step] = [
-            content(node)
-            for node in markup.find("see", operations[str(op)])
-            if "set the follow-rest jaws" in content(node)
-        ]
+        [step] = [text for text in notes[str(op)] if "set the follow-rest jaws" in text]
         assert f"at Z {z:.2f}:" in step
         assert side in step, step
 

@@ -136,19 +136,19 @@ note = "Pre-made example support; local coordinates equal bench-raw setup coordi
 solids = [{ name = "pedestal", shape = "box", at_mm = [103, -12.7, -36.5875], size_mm = [10, 25.4, 35], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }]
 
 [fixtures.saw-setting-post]
-name = "Saw setting post"
+name = "Pre-made saw setting post"
 kind = "custom"
 shop_made = false
 present = true
 verify = false
-note = "Fixture-local stem and boss. Plan places origin at [−119.38,0,−75] once; boss top becomes setup Z10.16. Lower body side touches stopped through .0508 mm paper, arbor axis [−139.7,0]; contact radius20.32 is outside flange and inside root."
+note = "Pre-made illustrative fixture, supplied before this job; not hardware identified in the video. Fixture-local stem and boss dimensions are declared below. Plan places origin at [−119.38,0,−75] once; boss top becomes setup Z10.16. Lower body side touches stopped through .0508 mm paper, arbor axis [−139.7,0]; contact radius20.32 is outside flange and inside root."
 solids = [
   { name = "stem", shape = "cylinder", at_mm = [0, 0, 0], axis = [0, 0, 1], dia_mm = 12, length_mm = 83.16, supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
   { name = "boss", shape = "box", at_mm = [-1, -1, 83.16], size_mm = [2, 2, 2], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } },
 ]
 
 [fixtures.capture-post]
-name = "Anchored capture post/base"
+name = "Pre-made anchored capture post/base"
 kind = "custom"
 shop_made = false
 present = true
@@ -200,7 +200,7 @@ note = "Local+Z points setup+X, press acts−X. Plan origin[11.1125,3,zc+18], lo
 solids = [{ name = "moving-pad", shape = "box", at_mm = [-2, -6, 0], size_mm = [4, 12, 8.8875], supply = "existing", measured = { status = "measured", by = "example value (realistic, not a shop measurement)", date = "2026-10-11", instrument = "example fixture (no physical measurement)" } }]
 
 [tools.roughing-endmill]
-name = "3/4 in HSS TiCN squaring mill"
+name = "3/4 in HSS TiCN squarer"
 kind = "endmill"
 material = "HSS"
 coating = "TiCN"
@@ -235,7 +235,7 @@ projection_mm = { "holders.collet-12" = { value = 34.925, measured = { status = 
 cite = "Author-selected demonstration tool, example value (realistic, not a shop measurement); not identified by video cutter colour"
 
 [tools.finishing-endmill]
-name = "1/2 in HSS finishing mill"
+name = "1/2 in HSS finisher"
 kind = "endmill"
 material = "HSS"
 present = true
@@ -350,7 +350,7 @@ note = "Example nominal tap-size capacity5–12 mm, represented by legal range_m
 cite = "Author-selected example value (realistic, not a shop measurement), 2026-10-11"
 
 [tools.initial-stock-saw]
-name = "14 TPI HSS bandsaw blade"
+name = "14 TPI HSS bandsaw"
 kind = "bandsaw"
 material = "HSS"
 present = true
@@ -440,7 +440,7 @@ grip_mm = { value = 19.05, measured = { status = "measured", by = "example value
 cite = "Author-selected R8 chuck/capacity, example value (realistic, not a shop measurement); tool projections are independent installed pair facts"
 
 [holders.saw-arbor]
-name = "Complete R8 saw arbor"
+name = "R8 saw arbor; upper flange/lower retainer Ø0.750 in"
 kind = "arbor"
 taper = "R8"
 present = true
@@ -465,7 +465,7 @@ components = [
 ]
 
 [holders.tap-follower]
-name = "3/8-16 tap follower"
+name = "3/8-16 follower"
 kind = "tap_follower"
 present = true
 verify = false
@@ -519,7 +519,7 @@ name = "Cutting oil"
 products = ["Cutting oil; author-selected example product, not video identification"]
 
 [consumables.flood-fluid]
-name = "5% semi-synthetic flood fluid"
+name = "5% semi-synthetic flood"
 products = ["Water-miscible semi-synthetic flood fluid at5% in water; author-selected example product/concentration, not video identification"]
 
 [consumables.paper-shim]

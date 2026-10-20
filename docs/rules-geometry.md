@@ -1705,10 +1705,14 @@ including blade cutting/body annuli and every arbor component. Stock and both
 children are collision obstacles but never fixture-distance candidates. The
 stopped setting approach remains separately discoverable under `saw.zero`;
 an intended calibration contact cannot replace the machining-cycle minimum.
-For every component/move, `sweeps` records its native `distToShape` minimum,
-nearest setup-frame points and fixture identity; `minimum` identifies the
-least of those with `component`, `move_index`, `mode` and `stage`
-(`pre_cut`, `cut`, `post_cut`). Distances and points retain native precision
+For every component/move, `sweeps` records the minimum between occupied
+material, nearest setup-frame points and fixture identity. A positive-volume
+native intersection proves zero distance, with coincident points taken from
+vertices of that exact shared material. This includes a fixture wholly enclosed
+by a sweep, even when OCC's compound-solid boundary distance is positive.
+Otherwise the native `distToShape` minimum supplies the distance and points.
+`minimum` identifies the least of those with `component`, `move_index`, `mode`
+and `stage` (`pre_cut`, `cut`, `post_cut`). Distances and points retain native precision
 in this proof. `binding` names the STEP SHA-256, canonical complete input-job
 SHA-256, setup and operation; `source = "finite_occupied_sweeps"`,
 `model = "finite_disk_v1"` and `frame = "setup"` state the geometry source.
@@ -3798,6 +3802,10 @@ every fixed-decimal number on the sheet goes through one rounding,
 `render_diagram.decimal_text`: the float's written decimal, a half-way value
 rounded away from zero (2.8045 at three places prints 2.805, never 2.804), so a
 picture and its table never print one value two ways.
+Coordinate and clearance labels in pictures and operative table cells share
+`render_diagram.operative_text`, omitting insignificant fractional zeroes after
+that rounding (`1.35000` becomes `1.35`); integer zeroes remain (`10` stays `10`).
+This does not change drawing-limit precision or the table's numeric value.
 
 ### Guided-file stops and guide-axis views
 

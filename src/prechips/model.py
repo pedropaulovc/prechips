@@ -500,6 +500,7 @@ MountedSawTouch = record(
     "MountedSawTouch",
     {
         "blade_side": Literal["minus_z", "plus_z"],
+        # Literal setup-frame millimetres, independent of the plan's length units.
         "axis_xy_mm": Annotated[list[Number], Field(min_length=2, max_length=2)],
         "point_mm": Point3,
         "spindle_state": Literal["stopped", "running"],

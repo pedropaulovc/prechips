@@ -503,9 +503,13 @@ def test_public_wide_stock_and_stickout_rows_preserve_glyphs_and_projection(stic
     assert json.dumps({"meshes": meshes, "spec": spec}, sort_keys=True) == supplied
     assert width == 1600
     stock_label = f"STOCK X {stock[3] - stock[0]:g} mm"
-    stickout_caption = f"STICKOUT {stickout:.3f} MM"
     (stock_text,) = [box for box in diagram.canvas.text_boxes if box[0] == stock_label.upper()]
-    (stickout_text,) = [box for box in diagram.canvas.text_boxes if box[0] == stickout_caption]
+    (stickout_text,) = [
+        box
+        for box in diagram.canvas.text_boxes
+        if (match := re.fullmatch(r"STICKOUT (\d+(?:\.\d+)?) MM", box[0]))
+        and float(match[1]) == stickout
+    ]
     assert stock_text[2] - stickout_text[4] >= 4
     diagram.canvas.assert_text_layout(min_scale=5)
     for box, colour in ((stock_text, _INK), (stickout_text, render_module._BLUE)):
@@ -3084,26 +3088,36 @@ def test_holding_print_band_preserves_contact_planes_closest_cut_and_feature_own
 
 
 @pytest.mark.parametrize(
-    ("decimals", "cut", "plane"), [(3, "6.655", "12.000"), (4, "6.6547", "12.0000")]
+    ("decimals", "clearance", "cut", "plane"),
+    [
+        (3, 6.6547, "6.655", "12"),
+        (4, 6.6547, "6.6547", "12"),
+        (0, 10, "10", "12"),
+        (0, 0.0001, "0", "12"),
+        (5, 1.35, "1.35", "12"),
+        (5, 8.8125, "8.8125", "12"),
+        (5, 0.0508, "0.0508", "12"),
+    ],
 )
 def test_picture_coordinates_and_clearances_print_as_the_setup_tables_print_them(
-    decimals, cut, plane
+    decimals, clearance, cut, plane
 ):
-    # The kernel measures the jaw tops 6.6547 below the cut; the setup's tables print that
-    # at its DRO decimals, and so must the picture: never 6.65 beside a table's 6.655.
+    # Pictures retain the table's rounded numeric value, without fractional zero
+    # padding; a zero-place setting must not trim the integer zero from 10.
     meshes, spec = _vise_spec(12)
     spec["decimals"] = decimals
-    spec["jaw_front_z_mm"] = -6.6547
+    spec["jaw_front_z_mm"] = -clearance
     spec["closest_cut"] = {
-        "mm": 6.6547,
+        "mm": clearance,
         "tag": "fixed_jaw",
         "from_mm": [0, 6, 10],
-        "to_mm": [0, 6, 10 - 6.6547],
+        "to_mm": [0, 6, 10 - clearance],
     }
     main, _ = _main_diagram(meshes, spec)
     (detail,) = _holding_details(meshes, spec, main)
     text = " ".join(box[0] for drawn in (main, detail) for box in drawn.canvas.text_boxes)
-    assert f"JAW FRONT Z -{cut} MM" in text, text
+    front = "0" if cut == "0" else f"-{cut}"
+    assert f"JAW FRONT Z {front} MM" in text, text
     assert f"CUT {cut} MM FROM" in text, text
     assert f"CONTACT AT X {plane}" in text, text
 
@@ -3496,8 +3510,8 @@ def test_the_picture_cut_names_the_op_it_belongs_to_and_never_a_guessed_one(name
     ("zero_x", "fixed", "moving"),
     [
         (-0.0025, "0.005", "12.005"),
-        (0.0025, "-0.005", "12.000"),
-        (-0.0074999999, "0.010", "12.010"),
+        (0.0025, "-0.005", "12"),
+        (-0.0074999999, "0.01", "12.01"),
     ],
 )
 def test_a_contact_half_a_dro_step_off_rounds_as_the_fixture_tables_set_it(zero_x, fixed, moving):

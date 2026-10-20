@@ -4,6 +4,7 @@ from copy import deepcopy
 
 import pytest
 from test_envelope_m5 import bundle, measured
+from test_mounted_saw_rules import finite_saw, zero_evidence
 
 from prechips import kernel
 from prechips.rules import envelope, headroom, travel
@@ -25,10 +26,14 @@ def mounted_bundle(monkeypatch, *, mixed=False):
         "model": "finite_disk_v1",
         "status": "pass",
         "reasons": [],
-        "axis_path_bounds_mm": [-20, -5, -10, 30, 5, 20],
+        "cutting_band_mm": [-1.5875, 1.5875],
+        "spindle_nose_z_mm": 50.0,
+        "axis_path_bounds_mm": [-20, -5, -10, 30, 5, 80],
         "assembly_swept_bounds_mm": [-45, -30, -12, 55, 30, 80],
         "spindle_nose_bounds_mm": [-20, -5, 50, 30, 5, 80],
+        "zero": zero_evidence(),
     }
+    evidence["zero"]["touches"][0]["assembly_swept_bounds_mm"][5] = 66.575
     data.kernel = {"status": "ok", "ops": {"S1:20": {"saw": evidence}}}
 
     def refuse_kernel_launch(*args, **kwargs):
@@ -92,6 +97,20 @@ def test_setup_to_table_transform_uses_supported_stock_top(monkeypatch, rule):
     for key in ("assembly_swept_bounds_mm", "spindle_nose_bounds_mm", "axis_path_bounds_mm"):
         for index in (2, 5):
             evidence[key][index] += 100
+    evidence["spindle_nose_z_mm"] += 100
+    evidence["cutting_band_mm"] = [value + 100 for value in evidence["cutting_band_mm"]]
+    touch = evidence["zero"]["touches"][0]
+    touch["point_mm"][2] += 100
+    for key in (
+        "plane_z_mm",
+        "body_face_z_mm",
+        "cutting_midplane_z_mm",
+        "approach_start_z_mm",
+        "approach_end_z_mm",
+    ):
+        touch[key] += 100
+    for index in (2, 5):
+        touch["assembly_swept_bounds_mm"][index] += 100
     assert rule.evaluate(data)[0].numbers["stacks"][0]["spindle_nose_table_band_mm"] == [112, 142]
 
 
@@ -202,3 +221,124 @@ def test_complete_saw_does_not_repair_ordinary_pair_debt(monkeypatch, rule):
     data, _ = mounted_bundle(monkeypatch, mixed=True)
     data.inventory["tools"]["cutter"]["projection_mm"]["holder"] = "unknown"
     assert rule.evaluate(data)[0].status == "unknown"
+
+
+@pytest.mark.parametrize("rule", [envelope, headroom])
+def test_calibration_nose_maximum_cannot_hide_behind_the_cut_nose(monkeypatch, rule):
+    data, evidence = mounted_bundle(monkeypatch)
+    evidence.clear()
+    evidence.update(finite_saw())
+    limits = data.inventory["machines"]["mill"]["envelope"]
+    # The cut nose is 53; the setting approach reaches 64.575 in setup Z.
+    # With the fixture's 62 mm table offset, 122 admits the cut but not setting.
+    limits["spindle_to_table_max_mm"] = measured(122)
+    row = rule.evaluate(data)[0]
+    assert row.status == "error", row.sentence
+    assert row.numbers["stacks"][0]["spindle_nose_table_band_mm"] == [115, 126.575]
+    limits["spindle_to_table_max_mm"] = measured(126.575)
+    row = rule.evaluate(data)[0]
+    assert row.status == "pass", row.sentence
+    limits["spindle_to_table_max_mm"] = measured(126.574)
+    assert rule.evaluate(data)[0].status == "error"
+
+
+def test_calibration_from_below_uses_actual_nose_minimum_not_a_blanket_refusal(monkeypatch):
+    data, evidence = mounted_bundle(monkeypatch)
+    evidence.clear()
+    evidence.update(finite_saw())
+    touch = evidence["zero"]["touches"][0]
+    touch.update(
+        blade_side="plus_z",
+        surface_side="-z",
+        plane_normal_z=-1,
+        body_face_z_mm=9.95,
+        cutting_midplane_z_mm=8.425,
+        approach_start_z_mm=-49.0,
+        approach_end_z_mm=8.425,
+        assembly_swept_bounds_mm=[-25.4, -25.4, -50.5875, 25.4, 25.4, 56.425],
+    )
+    limits = data.inventory["machines"]["mill"]["envelope"]
+    # Nose -1 in setup Z is 61 above this fixture's table, so it is reachable
+    # when the measured lower stop is 61, but not when it is 61.001.
+    limits["spindle_to_table_min_mm"] = measured(61)
+    row = envelope.evaluate(data)[0]
+    assert row.status == "pass", row.sentence
+    assert row.numbers["stacks"][0]["spindle_nose_table_band_mm"][0] == 61
+    limits["spindle_to_table_min_mm"] = measured(61.001)
+    assert envelope.evaluate(data)[0].status == "error"
+
+
+@pytest.mark.parametrize("axis,required", [("x", 140), ("y", 60.541), ("z", 59.575)])
+def test_calibration_axis_move_extends_travel_beyond_the_cut_trajectory(
+    monkeypatch, axis, required
+):
+    data, evidence = mounted_bundle(monkeypatch)
+    evidence.clear()
+    evidence.update(finite_saw())
+    touch = evidence["zero"]["touches"][0]
+    touch.update(
+        axis_xy_mm=[100.0, 50.0],
+        point_mm=[115.0, 50.0, 10.0],
+        assembly_swept_bounds_mm=[74.6, 24.6, 9.9875, 125.4, 75.4, 64.575],
+    )
+    limits = data.inventory["machines"]["mill"]["envelope"]["travel_mm"]
+    limits[axis] = measured(required)
+    row = travel.evaluate(data)[0]
+    assert row.status == "pass", row.sentence
+    assert row.numbers["travel_checks"][axis]["required_mm"] == pytest.approx(required)
+    assert row.numbers["travel_checks"][axis]["margin_mm"] == 0
+    limits[axis] = measured(required - 0.001)
+    assert travel.evaluate(data)[0].status == "error"
+
+
+@pytest.mark.parametrize("rule", [envelope, headroom, travel])
+@pytest.mark.parametrize(
+    "section,key,bad",
+    [
+        ("saw", "zero", None),
+        ("saw", "cutting_band_mm", "unknown"),
+        ("saw", "spindle_nose_z_mm", "unknown"),
+        ("zero", "selected", "unknown"),
+        ("zero", "selected", True),
+        ("zero", "status", "unknown"),
+        ("touch", "status", "unknown"),
+        ("touch", "index", False),
+        ("touch", "axis_xy_mm", [0, "unknown"]),
+        ("touch", "approach_start_z_mm", "unknown"),
+        ("touch", "approach_end_z_mm", float("nan")),
+        ("touch", "kerf_offset_mm", "unknown"),
+        ("touch", "assembly_swept_bounds_mm", None),
+    ],
+)
+def test_incomplete_calibration_never_clears_machine_limit_debt(
+    monkeypatch, rule, section, key, bad
+):
+    data, evidence = mounted_bundle(monkeypatch)
+    owner = {
+        "saw": evidence,
+        "zero": evidence["zero"],
+        "touch": evidence["zero"]["touches"][0],
+    }[section]
+    owner[key] = deepcopy(bad)
+    row = rule.evaluate(data)[0]
+    assert row.status == "unknown", row.sentence
+    assert "calibration" in row.numbers["spindle_saw_debt"]
+
+
+@pytest.mark.parametrize("rule", [envelope, headroom, travel])
+def test_ambiguous_selected_calibration_does_not_supply_a_range_pass(monkeypatch, rule):
+    data, evidence = mounted_bundle(monkeypatch)
+    evidence["zero"]["touches"].append(deepcopy(evidence["zero"]["touches"][0]))
+    assert rule.evaluate(data)[0].status == "unknown"
+
+
+@pytest.mark.parametrize("rule", [envelope, headroom])
+def test_known_calibration_excess_survives_incomplete_component_sweep(monkeypatch, rule):
+    data, evidence = mounted_bundle(monkeypatch)
+    evidence.clear()
+    evidence.update(finite_saw())
+    evidence["zero"]["touches"][0].pop("assembly_swept_bounds_mm")
+    data.inventory["machines"]["mill"]["envelope"]["spindle_to_table_max_mm"] = measured(122)
+    row = rule.evaluate(data)[0]
+    assert row.status == "error", row.sentence
+    assert "calibration" in row.numbers["spindle_saw_debt"]
