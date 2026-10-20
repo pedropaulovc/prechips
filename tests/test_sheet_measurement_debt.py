@@ -15,8 +15,9 @@ from test_sheet_ops import Markup, content
 from prechips.findings import Finding
 from prechips.inputs import Bundle
 from prechips.measurements import length_debt, measurement_entry
+from prechips.report import build_report
 from prechips.rules._envelope import measurement_item
-from prechips.sheet import _Box, _Plain, _Traveler
+from prechips.sheet import _Box, _Plain, _Traveler, render_traveler
 
 
 def actions(markup):
@@ -353,6 +354,68 @@ def stopped_setup():
         ],
     ]
     return bundle, findings, cutter, lead
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_public_measurement_debt_uses_current_owner_tool_number_and_selected_holder(detail):
+    bundle = data(
+        tools={
+            "first": {"kind": "endmill", "name": "First cutter", "dia_mm": 8.0},
+            "cutter": {"kind": "endmill", "name": "Shared cutter", "dia_mm": 6.35},
+        }
+    )
+    first = bundle.plan["setups"][0]
+    first["ops"][0]["tool"] = "first"
+    bundle.inventory["holders"]["second"] = {"kind": "collet", "name": "Second collet"}
+    overall = measurement_entry("tools", "cutter", ("oal",))
+    findings = []
+    for sid, holder in (("S2", "collet"), ("S3", "second")):
+        setup = deepcopy(first)
+        setup["id"] = sid
+        setup["ops"][0].update(tool="tools.cutter", holder=f"holders.{holder}")
+        bundle.plan["setups"].append(setup)
+        projection = measurement_entry("tools", "cutter", ("projection", holder))
+        findings.append(finding("headroom", sid, {"measurements": [overall, projection]}))
+    before = deepcopy((bundle.plan, bundle.inventory, [item.to_dict() for item in findings]))
+    markup = Markup(
+        render_traveler(bundle, findings, build_report(bundle, findings), detail=detail)
+    )
+    for sid, holder_name, other_sid, other_holder in (
+        ("S2", "Test collet", "S3", "Second collet"),
+        ("S3", "Second collet", "S2", "Test collet"),
+    ):
+        notices = decision_nodes(markup, "measurement", sid)
+        assert notices
+        text = " ".join(content(node) for node in notices)
+        number = "T1" if detail == "pedantic" else "T2"
+        assert re.search(rf"\b{sid} {number}\b.*Shared cutter.*overall length \?", text)
+        assert re.search(
+            rf"\b{sid} {number}\b.*Shared cutter in {holder_name} installed projection \?", text
+        )
+        assert other_sid not in text and other_holder not in text
+        assert "First cutter" not in text
+        if detail != "pedantic":
+            assert not re.search(r"\bT1\b", text)
+        (flow,) = [
+            node
+            for node in markup.nodes
+            if node["tag"] == "section"
+            and sid in json.loads(node["attrs"].get("data-setup-members", "[]"))
+        ]
+        if detail != "pedantic":
+            assert any(
+                re.match(r"\s*10\.\s*T2\b", content(node))
+                for node in markup.find("route-operation", flow)
+            )
+    if detail == "pedantic":
+        records = actions(markup)
+        assert set(records) == {
+            "tools.cutter.oal",
+            "tools.cutter.projection.collet",
+            "tools.cutter.projection.second",
+        }
+        assert "source Setups S2, S3" in content(records["tools.cutter.oal"]["parent"]["parent"])
+    assert (bundle.plan, bundle.inventory, [item.to_dict() for item in findings]) == before
 
 
 def test_setup_consumers_cover_contour_cutter_and_depth_debt_once_per_consumed_input():

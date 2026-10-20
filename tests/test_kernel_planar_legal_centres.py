@@ -15,6 +15,7 @@ import pytest
 from test_kernel_geometry import Engine, _op, _setup, _vise
 
 from prechips import kernel
+from prechips.material_routes import MaterialGraph
 
 _AUTHOR = r"""
 import math, sys
@@ -880,3 +881,131 @@ def test_public_facing_removes_crossing_core_but_never_credits_later_drilling_or
     assert held["tool_hits"] == 0 and held["holder_hits"] > 0, held
     assert "part" in held["obstacles"]["holder"], held
     assert "bounds_unreached" not in held, held
+
+
+@pytest.fixture(scope="module")
+def registered_future_holes(tmp_path_factory, solids, freecad_kernel):
+    directory = tmp_path_factory.mktemp("registered-future-holes")
+    engine = Engine(directory, freecad_kernel)
+    step = solids["blind-core"]
+    cap = engine.refs(step, (27, 17, 10), (33, 23, 10), kind="Plane")
+    bore = engine.refs(step, (27, 17, 10), (33, 23, 20), kind="Cylinder")
+    assert len(cap) == len(bore) == 1
+    registrations = {
+        member: {
+            "pose": {
+                "origin": [offset, 0, 0],
+                "x": [1, 0, 0],
+                "y": [0, 1, 0],
+                "z": [0, 0, 1],
+                "binding": "independently authored canonical-to-stock placement",
+            }
+        }
+        for member, offset in (("left", 0), ("right", 80))
+    }
+    jobs = {}
+    for case, member in (("qualified", "left"), ("sibling", "right"), ("ambiguous", None)):
+        clearing = {
+            **_op("S1:10", "cap", 3, 5, 20, holder_radius=3),
+            "workpiece_faces": {"left": cap},
+            "to_z": 10,
+            "stock_removal_bounds": {"x": [27, 33], "y": [17, 23], "z": [10, 20]},
+        }
+        future = {
+            **_op("S2:10", "bore", 3, 25, 30),
+            "do": "bore",
+            "hole": {"thru": False, "depth_mm": 10, "entry_z_mm": 20},
+        }
+        if member is not None:
+            future["workpiece_faces"] = {member: bore}
+        job = engine.job(
+            step,
+            {"cap": cap, "bore": bore},
+            [
+                _setup([clearing], _vise(0.5, centre=70)),
+                _setup([future], _vise(0.5, centre=70), setup_id="S2"),
+            ],
+            stock={**BLANK, "length_mm": 140},
+        )
+        # Use the real registration/material producers, not fabricated face maps or
+        # inconsistent carried-member state. Both setups carry both actual targets.
+        plan = {**job, "workpieces": registrations}
+        graph = MaterialGraph(plan, validate=True)
+        job["workpieces"] = kernel.workpiece_inputs(registrations, "mm")
+        for setup in job["setups"]:
+            setup["material"] = kernel._material_inputs(graph, setup["id"], {}, "mm")
+            assert setup["material"]["workpieces"] == ["left", "right"]
+        jobs[case] = job
+    payload = engine.run({"jobs": list(jobs.values())})
+    assert len(payload["results"]) == len(jobs), payload
+    return {
+        "results": dict(zip(jobs, payload["results"], strict=True)),
+        "jobs": jobs,
+        "cap": cap[0],
+        "bore": bore[0],
+    }
+
+
+def _registered_clearing_result(registered_future_holes, case):
+    result = registered_future_holes["results"][case]
+    assert result["status"] == "ok", result
+    assert result["mapping_errors"] == {}, result
+    mapping = result["workpiece_mapping"]
+    assert set(mapping) == {"left", "right"}, mapping
+    assert set(mapping["left"].values()).isdisjoint(mapping["right"].values()), mapping
+    setup = result["setups"]["S1"]
+    assert setup["stock_volume_mm3"] == pytest.approx(112000, rel=0, abs=1e-4), setup
+    for member, box in (
+        ("left", [0, 0, 0, 60, 40, 20]),
+        ("right", [80, 0, 0, 140, 40, 20]),
+    ):
+        target = setup["workpieces"][member]
+        assert target["status"] == "pass", target
+        assert target["bbox_mm"] == pytest.approx(box, rel=0, abs=1e-6), target
+    clearing = result["ops"]["S1:10"]
+    assert clearing["workpiece_faces"] == {"left": [registered_future_holes["cap"]]}, clearing
+    assert clearing["claimed_indices"] == [mapping["left"][registered_future_holes["cap"]]], (
+        clearing
+    )
+    return result
+
+
+def test_registered_future_hole_qualified_control_reserves_actual_member_core(
+    registered_future_holes,
+):
+    qualified = _registered_clearing_result(registered_future_holes, "qualified")
+    sibling = _registered_clearing_result(registered_future_holes, "sibling")
+    core_volume = math.pi * 3**2 * 10
+    for result, member, removed in ((qualified, "left", 0), (sibling, "right", core_volume)):
+        setup = result["setups"]["S1"]
+        assert "stock_out_reason" not in setup, setup
+        assert setup["stock_out_volume_mm3"] == pytest.approx(112000 - removed, rel=0, abs=1e-4), (
+            setup
+        )
+        assert result["setups"]["S2"]["stock_volume_mm3"] == pytest.approx(
+            112000 - removed, rel=0, abs=1e-4
+        ), result["setups"]["S2"]
+        future = result["ops"]["S2:10"]
+        assert future["claimed_indices"] == [
+            result["workpiece_mapping"][member][registered_future_holes["bore"]]
+        ], future
+    # The very same valid clearing window removes a real R3 x 10 mm core only
+    # when its future hole belongs to the other member, outside that window.
+    assert qualified["setups"]["S1"]["stock_out_volume_mm3"] - sibling["setups"]["S1"][
+        "stock_out_volume_mm3"
+    ] == pytest.approx(core_volume, rel=0, abs=1e-4)
+
+
+def test_ambiguous_registered_future_hole_blocks_valid_bounded_clearing(
+    registered_future_holes,
+):
+    result = _registered_clearing_result(registered_future_holes, "ambiguous")
+    future = registered_future_holes["jobs"]["ambiguous"]["setups"][1]["ops"][0]
+    assert "workpiece_faces" not in future and "faces" not in future
+    setup = result["setups"]["S1"]
+    assert "stock_out_reason" in setup, setup
+    assert "planned-hole openings are undefined" in setup["stock_out_reason"], setup
+    assert "stock_out_volume_mm3" not in setup, setup
+    arriving = result["setups"]["S2"]
+    assert "planned-hole openings are undefined" in arriving["stock_reason"], arriving
+    assert "stock_volume_mm3" not in arriving, arriving

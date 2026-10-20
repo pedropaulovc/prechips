@@ -4,6 +4,7 @@ import copy
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 from test_input_contracts import PLAN, bundle_files
 from test_material_routes import SOLIDS, STEP
 
@@ -216,6 +217,43 @@ def test_invalid_member_routes_are_rejected_before_native(case, reason):
         plan["setups"][-1].pop("stock_in")
     with pytest.raises(ValueError, match=reason):
         Plan.model_validate(plan)
+
+
+@pytest.mark.parametrize(
+    "case,fields",
+    [
+        ("missing_trajectory", ("cut_plane", "saw_trajectory")),
+        ("legacy_selector", ("carries_workpieces",)),
+        ("one_output", ("outputs",)),
+    ],
+)
+def test_finite_cutoff_output_errors_identify_the_failing_setup_and_op(case, fields):
+    plan = batch()
+    op = plan["setups"][2]["ops"][0]
+    op["op"] = 37
+    if case == "missing_trajectory":
+        # Keep cut_plane so saw_shapes accepts the cut and stock_routes owns the error.
+        op.pop("saw_trajectory")
+    elif case == "legacy_selector":
+        entry = op["outputs"]["nut2_b"]
+        entry.pop("carries_workpieces")
+        entry.pop("side")
+        entry["carries"] = "face"
+    else:
+        op["outputs"].pop("nut2_b")
+
+    with pytest.raises(ValidationError) as caught:
+        Plan.model_validate(plan)
+
+    (error,) = caught.value.errors()
+    assert error["type"] == "value_error"
+    assert error["loc"] == ()
+    assert isinstance(error["ctx"]["error"], ValueError)
+    assert "Setup C1b op 37:" in error["msg"]
+    for field in fields:
+        assert field in error["msg"]
+    if case == "one_output":
+        assert "exactly two" in error["msg"]
 
 
 def test_preexisting_alias_cannot_consume_nested_parent_again():

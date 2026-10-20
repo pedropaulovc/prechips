@@ -54,6 +54,14 @@ def _banded_starts(bundle):
                 continue
             maybe = []  # later ops whose partly unknown band may hold the start
             for earlier in reversed(ops[:index]):
+                to_z, band = earlier.get("to_z"), earlier.get("to_z_band")
+                banded = isinstance(band, list) and len(band) == 2
+                known = banded and all(number(v) for v in band)
+                if not number(to_z):
+                    continue
+                same = same_length(to_z, start)
+                if not same and not (banded and (not known or min(band) <= start <= max(band))):
+                    continue
                 selected = operation_members(bundle, setup, op)
                 prior = operation_members(bundle, setup, earlier)
                 if selected and prior is not None and not set(selected) <= set(prior):
@@ -62,14 +70,6 @@ def _banded_starts(bundle):
                     maybe.append(
                         f"{setup['id']} op {earlier['op']} start-face member is unresolved"
                     )
-                    continue
-                to_z, band = earlier.get("to_z"), earlier.get("to_z_band")
-                banded = isinstance(band, list) and len(band) == 2
-                known = banded and all(number(v) for v in band)
-                if not number(to_z):
-                    continue
-                same = same_length(to_z, start)
-                if not same and not (banded and (not known or min(band) <= start <= max(band))):
                     continue
                 if not banded:
                     break

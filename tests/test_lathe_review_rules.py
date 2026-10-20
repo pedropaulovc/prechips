@@ -87,6 +87,76 @@ _IDENTITY = {
 }
 
 
+def _registered_start_chain(priors):
+    setup = _setup([*priors, {**_FORM, "workpiece_faces": {"one": ["#1"]}}])
+    setup["stock_in"] = "stock"
+    bundle = _bundle([setup], {"dome": dict(_DOME)})
+    bundle.plan["workpieces"] = {
+        name: {
+            "pose": {**_IDENTITY, "origin": [x, 0.0, 0.0]},
+            "cite": "synthetic registered start-face regression",
+        }
+        for name, x in (("one", 0.0), ("two", 20.0))
+    }
+    return next(row for row in op_chain.evaluate(bundle) if row.subject == "dome")
+
+
+@pytest.mark.parametrize(
+    "irrelevant",
+    [
+        {"op": 15, "do": "inspect", "feature": "dome"},
+        {"op": 15, "do": "face", "feature": "dome", "to_z": "unknown"},
+        {"op": 15, "do": "face", "feature": "dome", "to_z": 3.0},
+        {
+            "op": 15,
+            "do": "cut_to_fit",
+            "feature": "dome",
+            "to_z": 3.0,
+            "to_z_band": [2.5, 3.5],
+        },
+        {**_PART, "op": 15, "workpiece_faces": {"two": ["#1"]}},
+    ],
+    ids=["no-Z", "unknown-Z", "different-Z", "different-band", "different-member"],
+)
+def test_registered_start_ignores_producers_without_relevant_z_or_member(irrelevant):
+    face = {**_PART, "workpiece_faces": {"one": ["#1"]}}
+    control = _registered_start_chain([face])
+    assert control.status == "not_applicable"
+    row = _registered_start_chain([face, irrelevant])
+    assert row.status == control.status
+    assert "unknown_starts" not in row.numbers
+    assert "banded_starts" not in row.numbers
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        {"to_z": 1.75},
+        {"to_z": 2.25, "to_z_band": [1.5, 2.5]},
+        {"to_z": 2.25, "to_z_band": [2.0, "unknown"]},
+    ],
+    ids=["same-Z", "containing-band", "potential-band"],
+)
+def test_registered_relevant_start_producer_keeps_unknown_member_debt(target):
+    face = {**_PART, "workpiece_faces": {"one": ["#1"]}}
+    row = _registered_start_chain(
+        [face, {"op": 15, "do": "cut_to_fit", "feature": "dome", **target}]
+    )
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["unknown_starts"]
+    assert "banded_starts" not in row.numbers
+
+
+def test_registered_unknown_member_does_not_hide_a_known_start_band_error():
+    banded = {**_PART, "to_z_band": [1.5, 2.0], "workpiece_faces": {"one": ["#1"]}}
+    later = {**_PART, "op": 15, "to_z": 2.25, "to_z_band": [2.0, "unknown"]}
+    control = _registered_start_chain([banded])
+    row = _registered_start_chain([banded, later])
+    assert control.status == row.status == "error"
+    assert row.numbers["banded_starts"] == control.numbers["banded_starts"]
+    assert "unknown_starts" not in row.numbers
+
+
 def _lathe(ops, features, tools, units="mm", zero=None):
     """A one-setup lathe bundle in an identity frame (setup Z = model Z, +Z free end)."""
     setup = {

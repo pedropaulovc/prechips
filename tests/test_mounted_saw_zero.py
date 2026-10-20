@@ -321,6 +321,75 @@ def test_trajectory_dro_rows_reference_spindle_xy_and_cutting_midplane(monkeypat
     assert finding.status != "pass"
 
 
+@pytest.mark.parametrize("defect", ["trajectory", "setting"])
+def test_mounted_saw_coordinate_errors_are_not_lathe_blade_band_errors(monkeypatch, defect):
+    from prechips.rules import coordinates
+
+    data, setup, mounted = normalized_zero(monkeypatch)
+    zero = prove_zero(data, mounted)
+    mounted["trajectory"] = {
+        "start_mm": [-20, -10, 11.575],
+        "moves": [{"to_mm": [20, -10, 11.575], "mode": "cut"}],
+    }
+    saw = data.kernel["ops"]["S1:20"]["saw"]
+    saw.update(
+        status="pass",
+        reasons=[],
+        body_band_mm=[10.05, 13.1],
+        cutting_band_mm=[10.0, 13.2],
+        axis_path_bounds_mm=[-20, -10, 11.575, 20, -10, 11.575],
+        assembly_swept_bounds_mm=[-50, -40, 10.0, 50, 20, 40],
+        spindle_nose_bounds_mm=[-25, -15, 40, 25, -5, 45],
+        gauge_plane_z_mm=40.0,
+        spindle_nose_z_mm=40.0,
+        cut_move_index=0,
+        feed_direction=[1, 0, 0],
+        collisions=[],
+        capture={
+            "status": "pass",
+            "reasons": [],
+            "contacts": ["moving pad"],
+            "moving_clamp_contact": True,
+        },
+        required_kerf_volume_mm3=100.0,
+        uncovered_kerf_volume_mm3=0.0,
+        removed_kerf_volume_mm3=100.0,
+        unintended_removal_volume_mm3=0.0,
+        stock_volume_before_mm3=1000.0,
+        stock_volume_after_mm3=900.0,
+        outputs=[
+            {"side": "below", "volume_mm3": 450.0, "bbox_mm": [-10, -10, 0, 10, 10, 10]},
+            {"side": "above", "volume_mm3": 450.0, "bbox_mm": [-10, -10, 14, 10, 10, 20]},
+        ],
+    )
+    status, _, _ = geometry_common.finite_saw_evidence(data.kernel["ops"]["S1:20"], "geometry")
+    assert status == "pass"
+    assert mounted_saw_settings(data, setup)["20"]["status"] == "pass"
+    control = coordinates.evaluate(data)[0]
+    assert "mounted_saw_errors" not in control.numbers
+    assert "blade_band_errors" not in control.numbers
+    if defect == "trajectory":
+        saw["collisions"] = [{"part": "arbor", "volume_mm3": 1.0}]
+    else:
+        zero["cutting_midplane_z_mm"] = 12.05
+    row = coordinates.evaluate(data)[0]
+    assert row.status == "error", row.sentence
+    assert row.numbers["mounted_saw_errors"]
+    assert "blade_band_errors" not in row.numbers
+    assert "Mounted saw trajectory/zero error:" in row.sentence
+    assert "Blade target band error:" not in row.sentence
+    path = next(
+        entry["mounted_saw_trajectory"] for entry in row.numbers["operations"] if entry["op"] == 20
+    )
+    assert path["moves"] == mounted["trajectory"]["moves"]
+    assert path["proof"] is saw
+    if defect == "trajectory":
+        assert path["status"] == "error"
+    else:
+        assert path["status"] == "pass"
+        assert path["setting"]["status"] == "error"
+
+
 def test_pre_kernel_coordinates_do_not_build_a_recursive_mounted_job(monkeypatch):
     from prechips.rules import coordinates
 

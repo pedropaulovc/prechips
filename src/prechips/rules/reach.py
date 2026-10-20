@@ -76,7 +76,7 @@ def _represented_hand_tap_reach(bundle, setup, op, facts, inputs, cite, blocked)
     from prechips.kernel import op_inputs
     from prechips.rules.coverage import represented_thread_envelope
 
-    if blocked is not None and blocked.status == "error":
+    if blocked is not None and (blocked.status == "error" or facts.get("status") != "ok"):
         return blocked
     subject = f"{setup['id']}:{op['op']}"
     request = record(op_inputs(bundle, setup, op).get("manual_thread"))

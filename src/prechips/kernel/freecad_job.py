@@ -15743,12 +15743,16 @@ class _Setup(ThreadMaterialMixin):
                             if isinstance(names, list)
                             else None
                         )
-                        if claims is not None:
-                            indices.update(
-                                self.owner.workpiece_mapping[member][ref]
-                                for member, refs in claims.items()
-                                for ref in refs
+                        if claims is None:
+                            raise ValueError(
+                                f"planned hole op {self._subject(op)} has unresolved registered "
+                                "face ownership"
                             )
+                        indices.update(
+                            self.owner.workpiece_mapping[member][ref]
+                            for member, refs in claims.items()
+                            for ref in refs
+                        )
                     else:
                         refs, _ = self._claim_refs(op)
                         found = self.owner._feature(refs)

@@ -1144,6 +1144,117 @@ def test_family_shares_identical_instructions_but_keeps_every_physical_checkpoin
 
 
 @pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_public_bracket_measured_top_fields_and_member_limits_precede_facing(detail):
+    data = load_bundle(Path(__file__).resolve().parents[1] / "examples/pivot-bracket/plan.toml")
+    markup = Markup(rendered(data, zero_recipe.evaluate(data), detail=detail))
+    positions = {id(node): index for index, node in enumerate(markup.nodes)}
+    instructions = markup.find("operation" if detail == "pedantic" else "route-operation")
+    number = r"(\d+(?:\.\d+)?)"
+    for sid, offset, top, cap in (
+        ("P3", 26.2, 2.775, 1.4),
+        ("P4", 18.0, 0.525, 0.525),
+        ("P6", 34.2, 1.9, 1.9),
+    ):
+        (field,) = [
+            node
+            for node in markup.find("setup-measurement")
+            if content(node).strip() == f"{sid} Z M (mm)"
+        ]
+        (blank,) = markup.find("writing-blank", field)
+        assert content(blank) == ""
+        owner = ancestor_with_class(field, "setup-variant")
+        assert owner is not None and owner["attrs"]["data-setup-id"] == sid
+        (correction,) = [
+            node
+            for node in descendants(markup, owner)
+            if content(node).startswith("M puts the raw top at Z =")
+        ]
+        text = " ".join(content(correction).split())
+        condition = re.fullmatch(
+            rf"M puts the raw top at Z = M − {number}; the ops' levels start from Z {number}\. "
+            rf"If M − {number} is above Z {number}, first face the top down to Z {number}, "
+            rf"no more than {number} per pass\.",
+            text,
+        )
+        assert condition is not None, text
+        assert tuple(map(float, condition.groups())) == (offset, top, offset, top, top, cap)
+        facing = [
+            node
+            for node in instructions
+            if any(
+                owner["setup_id"] == sid and str(owner["op_id"]) == "10"
+                for owner in operation_owners(operation_owner(node))
+            )
+        ]
+        assert facing
+        assert (
+            positions[id(field)]
+            < positions[id(correction)]
+            < min(positions[id(node)] for node in facing)
+        )
+    if detail == "pro":
+        assert not markup.find("dro-guide")
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+@pytest.mark.parametrize(
+    ("part", "expected"),
+    [
+        (
+            "pivot-bracket",
+            (
+                ("S1", "30", "foot_profile", "width", "foot profile width"),
+                ("S1", "30", "foot_profile", "length", "foot profile length"),
+                ("S3", "70", "hold_down_a", "dia", "hold down a Ø"),
+                ("S3", "70", "hold_down_a", "station", "hold down a station"),
+                ("S3", "90", "hold_down_b", "dia", "hold down b Ø"),
+                ("S3", "90", "hold_down_b", "station", "hold down b station"),
+                ("S4", "50", "cross_bore", "dia", "cross bore Ø"),
+                ("S4", "50", "cross_bore", "height", "cross bore height"),
+            ),
+        ),
+        (
+            "pivot-shaft",
+            (
+                ("S1", "30", "pivot_bearing", "dia", "pivot bearing Ø"),
+                ("S1", "30", "pivot_bearing", "finish_ra", "pivot bearing Ra"),
+                ("S1", "50", "south_relief", "dia", "south relief Ø"),
+                ("S1", "50", "south_relief", "width", "south relief width"),
+                ("S2", "30", "pivot_journal", "dia", "pivot journal Ø"),
+                ("S2", "30", "pivot_journal", "finish_ra", "pivot journal Ra"),
+                ("S2", "40", "north_relief", "dia", "north relief Ø"),
+                ("S2", "40", "north_relief", "width", "north relief width"),
+            ),
+        ),
+    ],
+)
+def test_public_checkpoint_results_distinguish_criteria_without_internal_ids(
+    detail, part, expected
+):
+    data = load_bundle(Path(__file__).resolve().parents[1] / "examples" / part / "plan.toml")
+    markup = Markup(rendered(data, detail=detail))
+    records = markup.find("checkpoint-result")
+    labels = []
+    for sid, op, feature, requirement, criterion in expected:
+        (record,) = [
+            node
+            for node in records
+            if node["attrs"]["data-setup-id"] == sid
+            and node["attrs"]["data-op-id"] == op
+            and node["attrs"]["data-feature"] == feature
+            and node["attrs"]["data-requirement"] == requirement
+        ]
+        (label,) = markup.find("field-label", record)
+        assert content(label) == f"{sid} op {op} — {criterion}"
+        assert feature not in content(label)
+        assert "finish_ra" not in content(label)
+        labels.append(content(label))
+        (blank,) = markup.find("writing-blank", record)
+        assert content(blank) == ""
+    assert len(set(labels)) == len(expected)
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
 @pytest.mark.parametrize("changed_field", ["rpm", "feature", "fixture"])
 def test_family_operative_differences_remain_named_member_variants(detail, changed_field):
     data, finals, findings = milling_family_job()
@@ -1781,6 +1892,8 @@ def assert_terminal_results(markup, *, reading_owned=False):
         }
         (blank,) = markup.find("writing-blank", record)
         assert content(blank) == ""
+        (label,) = markup.find("field-label", record)
+        assert content(label) == member
     return records
 
 
@@ -3230,6 +3343,40 @@ def test_hobby_selected_figure_keeps_native_identity_without_repeated_job_slug()
     assert svg["attrs"]["viewbox"] == "0 0 1600 2200"
     assert "Setup S1" in svg["attrs"]["aria-label"]
     assert "private-job-slug" not in svg["attrs"]["aria-label"]
+
+
+@pytest.mark.parametrize("detail", ["hobby", "pedantic"])
+def test_public_render_debts_have_one_not_shown_prefix_without_losing_warnings(detail):
+    data = bench_job()
+    sid = data.plan["setups"][0]["id"]
+    data.kernel["setups"][sid] = {
+        "render_png_base64": base64.b64encode(_png((80, 100, 120))).decode("ascii"),
+        "fixture_rendered": True,
+        "render_scene": {
+            "width_px": 1,
+            "height_px": 1,
+            "print_panels": [
+                {
+                    "id": "setup",
+                    "selection_group": "setup",
+                    "annotations": [],
+                    "role": "setup",
+                    "label": "Synthetic debt fixture",
+                    "top_px": 0,
+                    "height_px": 1,
+                }
+            ],
+            "debts": ["The stop is outside this view."],
+            "render_debts": ["NOT SHOWN: PARALLELS is hidden in this view, so it has no leader."],
+        },
+    }
+    report = build_report(data, [], assets=render_assets(data))
+    markup = Markup(render_traveler(data, [], report, detail=detail))
+    warnings = [content(node) for node in markup.find("render-debt")]
+    assert warnings == [
+        "NOT SHOWN: The stop is outside this view.",
+        "NOT SHOWN: PARALLELS is hidden in this view, so it has no leader.",
+    ]
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby"])

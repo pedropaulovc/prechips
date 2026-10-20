@@ -3474,7 +3474,7 @@ def _stairs(tables, allowance, cap, label, recut=None):
     stock = allowance + max(table["stair_cusp_mm"] for table in tables)
     for table in tables:
         table.update(stock_left_mm=stock, **_leaves(cap, recut))
-    if recut:
+    if recut and recut != UNKNOWN:
         return errors, debts
     more, debts = _filed(stock, cap, f"{label} stairs")
     return errors + more, debts
@@ -3482,7 +3482,7 @@ def _stairs(tables, allowance, cap, label, recut=None):
 
 def _leaves(cap, recut):
     """Who takes a rough's leftover stock: a later rough (``recut_by``) or the file (cap)."""
-    return {"recut_by": recut} if recut else {"stock_cap_mm": cap}
+    return {"recut_by": recut} if recut and recut != UNKNOWN else {"stock_cap_mm": cap}
 
 
 def _holes(arc, walls, drill, allowance, label, scale):
@@ -3615,7 +3615,7 @@ def _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut=None):
     stock = max(table["stock_left_mm"] for table in tables)
     for table in tables:
         table.update(stock_left_mm=stock, **_leaves(cap, recut))
-    if not recut:
+    if not recut or recut == UNKNOWN:
         more, unknown = _filed(stock, cap, f"{label} chain drill")
         errors.extend(more)
         debts.extend(unknown)
@@ -4266,11 +4266,15 @@ def _manual(bundle, setup, op, stage, allowance, arcs, lines, walls, label, scal
     cap = filing_cap(bundle)
     recut = _recut_by(bundle, op)
     if method == "stairs":
-        return _stairs([*arcs, *lines], allowance, cap, label, recut)
-    if method == "chain_drill":
+        errors, debts = _stairs([*arcs, *lines], allowance, cap, label, recut)
+    elif method == "chain_drill":
         drill = arc["cutter_radius_mm"]
         drill = drill / scale if number(drill) else UNKNOWN
-        return _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut)
+        errors, debts = _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut)
+    if method in ROUGH_METHODS:
+        if recut == UNKNOWN:
+            debts.append(f"{label}: whether a later rough recuts its stock is unresolved")
+        return errors, debts
     features, frames = bundle.feature_definitions, mapping(bundle.features.get("frames"))
     feature = mapping(features.get(arc["feature"]))
     table = rotary_table(bundle, setup)
@@ -4370,6 +4374,7 @@ def evaluate(bundle, *, pre_kernel=False):
             readings = blade_readings(bundle, setup)
         blade_unknown = False
         allowed_errors = []  # blade targets forming their face outside the op's to_z_band
+        saw_errors = []
         for done, (entry, (op, before, _)) in enumerate(
             zip(numbers["operations"], states, strict=True)
         ):
@@ -4421,7 +4426,7 @@ def evaluate(bundle, *, pre_kernel=False):
                 grid_consumed = True
                 reasons = [*saw_reasons, *setting.get("reasons", [])]
                 if saw_status == "error" or setting.get("status") == "error":
-                    allowed_errors.extend(
+                    saw_errors.extend(
                         reasons or [f"op {op['op']} mounted-saw trajectory/zero error"]
                     )
                 elif (
@@ -4907,6 +4912,7 @@ def evaluate(bundle, *, pre_kernel=False):
             or grid_errors
             or band_errors
             or allowed_errors
+            or saw_errors
             or leave_errors
             else "unknown"
             if unknown or unordered or clip_debts or unproven or arc_debts or plan_debts
@@ -4952,6 +4958,9 @@ def evaluate(bundle, *, pre_kernel=False):
         if allowed_errors:
             numbers["blade_band_errors"] = allowed_errors
             sentence += " Blade target band error: " + "; ".join(allowed_errors) + "."
+        if saw_errors:
+            numbers["mounted_saw_errors"] = saw_errors
+            sentence += " Mounted saw trajectory/zero error: " + "; ".join(saw_errors) + "."
         if unproven:
             sentence += " Moves between rows are unproven: " + "; ".join(unproven) + "."
         if arc_errors:
