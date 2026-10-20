@@ -552,10 +552,12 @@ def test_long_rough_and_finish_lathe_tables_keep_continuous_count_and_setup_owne
     normalized = [" ".join(text.split()) for text in texts]
     status = content(markup.find("banner", sections[0])[0])
     assert status and all(status in text for text in normalized)
-    labels = [LABEL.search(text) for text in texts[1:]]
+    # Compact jobs count their original first page as well as every continuation.
+    first_counted_page = 1 if detail in ("pro", "hobby") else 2
+    labels = [LABEL.search(text) for text in texts[first_counted_page - 1 :]]
     assert all(labels), texts
     assert [(int(match[1]), int(match[2])) for match in labels] == [
-        (page, len(texts)) for page in range(2, len(texts) + 1)
+        (page, len(texts)) for page in range(first_counted_page, len(texts) + 1)
     ]
     for owner in setup_owners:
         assert any(owner["attrs"]["data-setup-title"] in text for text in normalized)

@@ -1,7 +1,11 @@
 """Kind-aware shop actions keep canonical identities and fact-local trust unchanged."""
 
+from copy import deepcopy
+
 import pytest
 from test_headroom import bundle
+from test_mounted_saw_inputs import inputs as saw_inputs
+from test_mounted_saw_inputs import saw_bundle
 
 from prechips import kernel
 from prechips.measurements import (
@@ -175,6 +179,103 @@ def test_display_context_preserves_units_citations_and_structured_identity(statu
         assert displayed["instruction"].endswith(f"({status} value, not physically measured)")
     else:
         assert "not physically measured" not in displayed["instruction"]
+
+
+@pytest.mark.parametrize("kind", ["slitting_saw", "endmill", "center_drill", None])
+def test_projection_datums_follow_tool_kind_not_tool_or_holder_identity(kind):
+    pair = "holders.saw_arbor/6.5mm"
+    entry = measurement_entry(
+        "tools",
+        "endmill/6.5mm",
+        ("projection_mm", pair),
+        item={"kind": kind},
+    )
+    instruction = entry["instruction"]
+    if kind == "slitting_saw":
+        assert "blade body midplane to holder gauge plane" in instruction
+        assert "positive toward the spindle" in instruction
+        assert "tool tip" not in instruction
+    else:
+        assert "holder face to mounted tool tip" in instruction
+        assert "midplane" not in instruction
+    assert entry["id"] == f"tools.endmill/6.5mm.projection.{pair}"
+    assert entry["field"] == ["projection", pair]
+    assert entry["units"] == "mm"
+    assert entry["cite"] == [f"inventory.tools.endmill/6.5mm.projection.{pair}"]
+
+
+@pytest.mark.parametrize(
+    ("identity", "kind", "has_saw_descriptor"),
+    [
+        ("collet", "arbor", True),
+        ("collet", "collet", True),
+        ("saw_arbor", "saw_arbor", False),
+        ("saw_arbor", "arbor", False),
+    ],
+)
+def test_gauge_length_datums_follow_mounted_saw_descriptor_not_kind_or_identity(
+    tmp_path, identity, kind, has_saw_descriptor
+):
+    item = saw_bundle(tmp_path).inventory["holders"]["arbor"]
+    item["kind"] = kind
+    if not has_saw_descriptor:
+        del item["mounted_saw_arbor"]
+    entry = measurement_entry("holders", identity, "gauge_len_mm", item=item)
+    instruction = entry["instruction"]
+    if has_saw_descriptor:
+        assert "arbor gauge plane to spindle nose" in instruction
+        assert "positive toward the spindle" in instruction
+        assert "exit face" not in instruction
+    else:
+        assert "spindle nose to mounted holder exit face" in instruction
+        assert "gauge plane" not in instruction
+    assert entry["id"] == f"holders.{identity}.gauge_len"
+    assert entry["field"] == ["gauge_len"]
+    assert entry["units"] == "mm"
+    assert entry["cite"] == [f"inventory.holders.{identity}.gauge_len"]
+
+
+@pytest.mark.parametrize(
+    "state", ["missing", "assumed", "illustrative", "bare", "incomplete", "verify"]
+)
+def test_mounted_saw_consumed_debts_request_the_correct_bound_datums(tmp_path, state):
+    data = saw_bundle(tmp_path)
+    tool = data.inventory["tools"]["saw"]
+    holder = data.inventory["holders"]["arbor"]
+    holder["kind"] = "arbor"
+    pair = "holders.arbor"
+    for owner, field in ((tool["projection_mm"], pair), (holder, "gauge_len_mm")):
+        if state == "missing":
+            del owner[field]
+        elif state == "bare":
+            owner[field] = owner[field]["value"]
+        elif state == "incomplete":
+            del owner[field]["measured"]["instrument"]
+        elif state == "verify":
+            owner[field]["verify"] = True
+        else:
+            owner[field]["measured"]["status"] = state
+    before = deepcopy((data.plan, data.inventory))
+
+    recipe = saw_inputs(data)
+
+    debts = {entry["id"]: entry for entry in recipe["measurement_debts"]}
+    projection_pair = "arbor" if state == "missing" else pair
+    projection = debts[f"tools.saw.projection.{projection_pair}"]
+    gauge = debts["holders.arbor.gauge_len"]
+    assert projection["category"] == "tools" and projection["identity"] == "saw"
+    assert projection["field"] == ["projection", projection_pair]
+    assert "blade body midplane to holder gauge plane" in projection["instruction"]
+    assert "positive toward the spindle" in projection["instruction"]
+    assert "tool tip" not in projection["instruction"]
+    assert gauge["category"] == "holders" and gauge["identity"] == "arbor"
+    assert gauge["field"] == ["gauge_len"]
+    assert "arbor gauge plane to spindle nose" in gauge["instruction"]
+    assert "exit face" not in gauge["instruction"]
+    assert projection["units"] == gauge["units"] == "mm"
+    assert recipe["arbor"]["projection_mm"] == recipe["arbor"]["gauge_len_mm"] == "unknown"
+    assert recipe["status"] == "unknown"
+    assert (data.plan, data.inventory) == before
 
 
 def test_length_and_limits_debts_preserve_fact_local_status_reason_and_source_cites():

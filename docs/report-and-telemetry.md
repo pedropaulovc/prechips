@@ -538,7 +538,7 @@ or first-article evidence.
 | Mode | Printed content |
 | --- | --- |
 | `pro` | Compact working instructions, datum targets, tooling/settings and inspection checkpoints. Omits setup figures and first-use DRO teaching. |
-| `hobby` | Compact instructions with first-use DRO guidance and selected complete setup figure groups. The plan's [`picture_panels`](plan.md#setup-fields) controls the selection. |
+| `hobby` | Compact instructions with first-use DRO guidance and selected complete setup figure groups, with reading-order references where needed rather than fixed page references. The plan's [`picture_panels`](plan.md#setup-fields) controls the selection. |
 | `pedantic` | Expanded setup content, including detailed stock, tooling, fixture, feature and clearance tables, full DRO worksheets, all setup figure groups and performed marks. |
 
 Only setup, hold and operation `note` fields support
@@ -568,6 +568,8 @@ separate.
 
 Compact identity lines retain the drawing number and actual revision without a
 visible audience token; the selected detail remains in document metadata.
+They include the first page's number and the actual local page total;
+continuation headers retain their page numbering.
 After a setup-local instruction, a shared compact instruction restates its
 visible family scope without changing its physical owners or comparison.
 
@@ -603,12 +605,16 @@ coordinates. Setup-local operative constraints stay associated with the work.
 
 Mounted-saw recipes distinguish the body-contact point from the arbor-axis
 position using the canonical zero record. Shared pro saw settings retain the
-numeric X/Y Axis Set targets without importing the hobby jog lesson. Hobby
-tool keys show selected-holder installed projections explicitly in source
-millimetres, preserving their verification/debt markers; other tool lengths
-retain their existing display units. Tap chamfer/lead and threaded cutting
-length labels do not relabel a reamer's geometry. Unknown hand-tap coverage
-still identifies both the unchecked movement and unidentified bore surface.
+numeric X/Y Axis Set targets without importing the hobby jog lesson. Tool keys
+in both compact modes show selected holders and installed projections explicitly
+in source millimetres, preserving their verification/debt markers; other tool
+lengths retain their existing display units. Axial projections run from the
+holder exit face to the tool tip. Mounted-saw projection runs from the blade
+body midplane to the holder gauge plane, positive spindleward, not from the
+holder face to a cutting tip. Tap chamfer/lead and threaded cutting length
+labels do not relabel a reamer's geometry. Compact hand-tap warnings retain
+the unchecked movement; the report and pedantic detail retain the unidentified
+bore-surface cause.
 
 Result cells are emitted in consecutive grids of at most four, without
 cloning or reordering physical inspection records. A trailing single cell may
