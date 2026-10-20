@@ -1,8 +1,16 @@
 """Check authored execution order, not numeric operation sorting."""
 
 from ..findings import Finding
-from ..material_routes import feature_material_status
-from .resolution import HAND_THREAD, MANUAL, TAP_OPS, op_feature, operations, record
+from .resolution import (
+    HAND_THREAD,
+    MANUAL,
+    TAP_OPS,
+    op_feature,
+    operation_material_status,
+    operation_members,
+    operations,
+    record,
+)
 
 
 def evaluate(bundle):
@@ -46,10 +54,14 @@ def evaluate(bundle):
                 ):
                     errors.append(f"op {op['op']} {action} precedes its drill")
             if action == "drill" and any(
-                o.get("feature") == feature and o["do"] == "spot" for _, o in after
+                o.get("feature") == feature
+                and o["do"] == "spot"
+                and operation_material_status(bundle, s, setup, feature, op=o, producer_op=op)
+                is not False
+                for s, o in after
             ):
                 spotted = [
-                    feature_material_status(bundle.plan, sid, s["id"], feature, bundle)
+                    operation_material_status(bundle, setup, s, feature, op=op, producer_op=o)
                     for s, o in before
                     if o.get("feature") == feature and o["do"] == "spot"
                 ]
@@ -60,9 +72,17 @@ def evaluate(bundle):
             if action == "spot":
                 # Face the entry surface in this setup, or explicitly receive a prior setup's
                 # faced stock.
-                faces = [(s, o) for s, o in route if o["do"] in {"face", "finish_face"}]
+                faces = [
+                    (s, o)
+                    for s, o in route
+                    if o["do"] in {"face", "finish_face"}
+                    and operation_material_status(
+                        bundle, setup, s, op_feature(o), op=op, producer_op=o
+                    )
+                    is not False
+                ]
                 if any(s["id"] == sid for s, _ in faces) and not any(
-                    s["id"] == sid and o["do"] in {"face", "finish_face"} for s, o in before
+                    s["id"] == sid and (s, o) in faces for s, o in before
                 ):
                     errors.append(f"op {op['op']} spots before facing")
             if action.startswith("rough_"):
@@ -71,6 +91,10 @@ def evaluate(bundle):
                     s["id"] == sid
                     and prev.get("feature") == feature
                     and prev["do"] == "finish_" + base
+                    and operation_material_status(
+                        bundle, setup, s, feature, op=op, producer_op=prev
+                    )
+                    is not False
                     for s, prev in before
                 ):
                     errors.append(f"op {op['op']} roughs after finishing {feature}")
@@ -86,10 +110,10 @@ def evaluate(bundle):
                     if o.get("feature") == prerequisite_feature and o["do"] == "drill"
                 ]
                 prepared = [
-                    feature_material_status(
-                        bundle.plan, sid, source["id"], prerequisite_feature, bundle
+                    operation_material_status(
+                        bundle, setup, source, prerequisite_feature, op=op, producer_op=cut
                     )
-                    for source, _ in earlier
+                    for source, cut in earlier
                 ]
                 if earlier and True not in prepared:
                     if None in prepared:
@@ -100,7 +124,11 @@ def evaluate(bundle):
                         transfer = record(record(setup.get("zero")).get("transfer"))
                         drilled_ids = {s["id"] for s, _ in earlier}
                         # A legacy datum transfer cannot certify an explicit material route.
-                        if "stock_in" in setup or transfer.get("from") not in drilled_ids:
+                        if (
+                            "stock_in" in setup
+                            or operation_members(bundle, setup, op) != ()
+                            or transfer.get("from") not in drilled_ids
+                        ):
                             errors.append(
                                 f"op {op['op']} has no incoming route from the drilled setup"
                             )

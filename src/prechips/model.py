@@ -363,6 +363,30 @@ def _swivel_angle(value: float) -> float:
     return value
 
 
+class PlacedSupport(InputModel):
+    """An explicitly placed auxiliary; borrowing stock never consumes its route."""
+
+    placement: Literal["posed"]
+    id: str
+    ref: str | None = None
+    stock_ref: str | None = None
+    pose: Pose | Unknown
+    note: str
+
+    @model_validator(mode="after")
+    def source(self) -> PlacedSupport:
+        _known_text(self.id, "A placed support id")
+        _known_text(self.note, "A placed support note")
+        sources = self.model_fields_set & {"ref", "stock_ref"}
+        if len(sources) != 1:
+            raise ValueError("A placed support declares exactly one of ref or stock_ref.")
+        value = getattr(self, next(iter(sources)))
+        if value is None:
+            raise ValueError("A placed support source must be known and non-empty.")
+        _known_text(value, "A placed support source")
+        return self
+
+
 # The feeding a hand-fed hold declares (Plan.hand_fed_holds).
 HAND_FEEDING = frozenset({"guide_above_mm", "push_aid", "end_support", "feed_from"})
 Hold = record(
@@ -395,7 +419,7 @@ Hold = record(
         "jaws_angle_deg": Annotated[float, AfterValidator(_swivel_angle)],
         "parallels_centres_mm": Annotated[PlanCentres, Field(min_length=2, max_length=2)],
         "riser_centres_mm": Annotated[PlanCentres, Field(min_length=1)],
-        "supports": str | list[str | Reference],
+        "supports": str | list[str | Reference | PlacedSupport],
         **flags("grip_mm_verify jaw_above_parallels_mm_verify"),
         "index": Index,
         "pose": Pose,
@@ -452,11 +476,13 @@ AxisZero = record(
         "dial_setting": Number,
         "from": str,
         **numbers("edge_mm radius_mm paper_mm check_jog_mm offset_mm"),
+        "approach_mm": Annotated[float, Field(gt=0)],
+        "retract_clearance_mm": Annotated[float, Field(gt=0)],
         "retouch_after": list[int],
         "after_op": int,
         "measure_before_hold": bool,
-        # Where a Z touch lands, [x, y] in the setup frame: an area hold's recipe A touches
-        # the seat face here, off the work (docs/design/area-hold.md).
+        # Transverse setup-frame coordinates: X=[Y,Z], Y=[X,Z], Z=[X,Y].
+        # For X/Y, Z is the lowest finder tip point, not its centre.
         "at_mm": Annotated[list[Number], Field(min_length=2, max_length=2)],
         "mounted_saw": MountedSawTouch,
     },
@@ -770,15 +796,33 @@ class PreparationWitness(InputModel):
 
 
 class RetainedOutput(InputModel):
-    """One real part-off piece, registered by its entire carried finished solid."""
+    """A retained piece selected by legacy solid ownership or registered members."""
 
-    carries: str
+    carries: str | None = None
+    carries_workpieces: Annotated[list[str], Field(min_length=1)] | None = None
+    side: Literal["below", "above"] | None = None
     pose: PlanFrame | Unknown
     cite: Citations
 
     @model_validator(mode="after")
     def source_bound(self) -> RetainedOutput:
-        _known_text(self.carries, "A retained output carries feature")
+        selectors = self.model_fields_set & {"carries", "carries_workpieces"}
+        if len(selectors) != 1:
+            raise ValueError("A retained output declares exactly one carries selector.")
+        if "carries" in selectors:
+            if self.carries is None:
+                raise ValueError("A retained output carries feature must be known and non-empty.")
+            _known_text(self.carries, "A retained output carries feature")
+            if "side" in self.model_fields_set:
+                raise ValueError("A retained output side belongs to carries_workpieces.")
+        else:
+            members = self.carries_workpieces
+            if not members or len(members) != len(set(members)):
+                raise ValueError("A retained output carries_workpieces names distinct members.")
+            for member in members:
+                _known_text(member, "A carried workpiece id")
+            if self.side is None:
+                raise ValueError("A carries_workpieces output must declare side below or above.")
         if not _cited(self.cite):
             raise ValueError("A retained output must cite its selector and authored registration.")
         return self
@@ -809,6 +853,9 @@ Operation = record(
         "to_z_cite": Citations,
         "note_cite": Citations,
         "faces": Annotated[list[str], Field(min_length=1)],
+        "workpiece_faces": Annotated[
+            dict[str, Annotated[list[str], Field(min_length=1)]], Field(min_length=1)
+        ],
         # Requirement -> gauge. A multi-feature inspect op may scope entries to one of its
         # listed features instead: feature -> {requirement -> gauge}.
         "checks": dict[str, str | dict[str, str]],
@@ -1228,6 +1275,8 @@ class Plan(InputModel):
     dro: Dro | Unknown = UNKNOWN
     # Author-declared setup frames in model coordinates; never feature source frames.
     frames: dict[str, PlanFrame] | Unknown = UNKNOWN
+    # Canonical STEP instances registered in batch/model coordinates, not source solids.
+    workpieces: dict[str, WorkpieceInstance] | Unknown = UNKNOWN
     setups: list[Setup]
     # Plan-owned transient joint cylinders keyed by id; never exported finished features.
     joint_features: dict[str, JointFeature] = Field(default_factory=dict)
@@ -1259,6 +1308,15 @@ class Plan(InputModel):
         for setup in self.setups:
             for op in setup.ops if isinstance(setup.ops, list) else ():
                 where = f"Setup {setup.id} op {op.op}"
+                if {"faces", "workpiece_faces"} <= op.model_fields_set:
+                    raise ValueError(f"{where}: faces and workpiece_faces are exclusive.")
+                if isinstance(op.workpiece_faces, dict):
+                    for member, faces in op.workpiece_faces.items():
+                        _known_text(member, f"{where} workpiece_faces member")
+                        if len(faces) != len(set(faces)):
+                            raise ValueError(f"{where}: workpiece faces must be distinct.")
+                        for face in faces:
+                            _known_text(face, f"{where} canonical face reference")
                 if isinstance(op.feature, list):
                     if op.do != "inspect":
                         raise ValueError(f"{where}: only an inspect op may name a feature list.")
@@ -1437,23 +1495,30 @@ class Plan(InputModel):
                     "scribe",
                 }:
                     raise ValueError(
-                        f"Setup {setup.id} op {op.op}: named outputs require the part_off "
+                        f"Setup {setup.id} op {op.op}: named outputs require the cut "
                         "to be the final material-changing operation."
                     )
                 if "outputs" not in op.model_fields_set:
                     continue
-                if op.do != "part_off":
+                if op.do not in {"part_off", "cut_off"}:
                     raise ValueError(
-                        f"Setup {setup.id} op {op.op}: only part_off declares outputs."
+                        f"Setup {setup.id} op {op.op}: only part_off or cut_off declares outputs."
                     )
+                if op.do == "cut_off":
+                    if not {"cut_plane", "saw_trajectory"} <= op.model_fields_set:
+                        raise ValueError(
+                            "Finite cut_off outputs require cut_plane and saw_trajectory."
+                        )
+                    if not isinstance(op.outputs, dict) or any(
+                        entry.carries_workpieces is None for entry in op.outputs.values()
+                    ):
+                        raise ValueError("Finite cut_off outputs require carries_workpieces.")
                 if "keep" in op.model_fields_set:
                     raise ValueError(
                         f"Setup {setup.id} op {op.op}: keep and outputs are exclusive."
                     )
                 if not isinstance(op.outputs, dict) or len(op.outputs) != 2:
-                    raise ValueError(
-                        "A part_off outputs table must name exactly two retained pieces."
-                    )
+                    raise ValueError("An outputs table must name exactly two retained pieces.")
                 if split:
                     raise ValueError(f"Setup {setup.id}: named outputs may be declared only once.")
                 for name in op.outputs:
@@ -1602,7 +1667,21 @@ class PlanFrame(Frame):
         return self
 
 
+class WorkpieceInstance(InputModel):
+    """A cited placement of the immutable canonical finished STEP part."""
+
+    pose: PlanFrame | Unknown
+    cite: Citations
+
+    @model_validator(mode="after")
+    def source_bound(self) -> WorkpieceInstance:
+        if not _cited(self.cite):
+            raise ValueError("A workpiece instance must cite its canonical registration.")
+        return self
+
+
 RetainedOutput.model_rebuild()
+Plan.model_rebuild()
 
 
 Datum = record("Datum", {**texts("feature surface"), "cite": Citations})
@@ -2286,6 +2365,8 @@ InventoryItem = record(
                 "pilot_len",
                 "pilot_len_mm",
                 "pilot_len_in",
+                "finder_tip_length_mm",
+                "finder_tip_length_in",
                 "gauge_dia",
                 "gauge_dia_mm",
                 "gauge_dia_in",
@@ -2517,6 +2598,7 @@ _INVENTORY_LENGTH_STEMS |= {"rail_travel", "pin_dia", "rail_width", "rail_height
 _INVENTORY_LENGTH_STEMS |= {"dowel_reading", "carrier_length", "carrier_width"}
 _INVENTORY_LENGTH_STEMS |= {"carrier_thickness"}
 _INVENTORY_LENGTH_STEMS |= {"root_dia", "kerf_offset", "bore_dia_limits"}
+_INVENTORY_LENGTH_STEMS |= {"finder_tip_length"}
 
 
 def _inventory_lengths(

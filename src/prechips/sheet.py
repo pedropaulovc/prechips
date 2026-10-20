@@ -3700,21 +3700,20 @@ class _Traveler:
             )
         if route_identities_known(self.plan, setup.get("id")):
             material = MaterialGraph(self.plan).nodes.get(setup["id"], ())
-            partitions = {(atom.root, atom.split) for atom in material}
-            names = {atom.output for atom in material}
-            if (
-                len(material) == 2
-                and len(partitions) == 1
-                and len(names) == 2
-                and all(atom.split is not None and atom.output is not None for atom in material)
-            ):
-                _, split = next(iter(partitions))
+            edges = [atom.path[-1] for atom in material if atom.path]
+            partitions = {
+                (atom.root, atom.path[:-1], atom.path[-1].split) for atom in material if atom.path
+            }
+            names = {edge.output for edge in edges}
+            if len(material) == len(edges) == 2 and len(partitions) == 1 and len(names) == 2:
+                _, _, split = next(iter(partitions))
                 producer = next(s for s in self.plan["setups"] if s["id"] == split)
                 parting = next(
                     (
                         op
                         for op in producer.get("ops", [])
-                        if op.get("do") == "part_off" and set(_mapping(op.get("outputs"))) == names
+                        if op.get("do") in {"part_off", "cut_off"}
+                        and set(_mapping(op.get("outputs"))) == names
                     ),
                     None,
                 )
@@ -3729,9 +3728,10 @@ class _Traveler:
                     for name in names
                 ):
                     pieces = " and ".join(map(_text, sorted(names)))
+                    action = "part-off" if parting["do"] == "part_off" else "saw cut"
                     return (
                         "Setup-entry stock not established — "
-                        f"confirm part-off in Setup {_text(split)} op {parting['op']} leaves both "
+                        f"confirm {action} in Setup {_text(split)} op {parting['op']} leaves both "
                         f"required pieces ({pieces}); establish the assembled workpiece before "
                         "cutting and reissue this traveler."
                     )
@@ -4534,6 +4534,9 @@ class _Traveler:
                 )
         for support in supports if isinstance(supports, list) else []:
             support = {"ref": support} if isinstance(support, str) else _mapping(support)
+            if support.get("placement") == "posed":
+                steps.append(self.placed_support(setup, support, uses))
+                continue
             line = "Support: " + self.reference(support.get("ref", UNKNOWN), "fixtures")
             if support.get("ops"):
                 line += f" for {_ops_label(support['ops'])}"
@@ -4959,14 +4962,45 @@ class _Traveler:
         one the setup's hold selects (:func:`_holding_slot`)."""
         return shop_made_item(self.bundle, reference, _holding_slot(setup, reference))
 
+    def placed_support(self, setup, support, uses):
+        """A posed auxiliary names its actual source, not a second stock purchase."""
+        borrowed = support.get("stock_ref")
+        if isinstance(borrowed, str) and borrowed != UNKNOWN:
+            name = _text(borrowed.removeprefix(OUTPUT_PREFIX))
+            source = f"temporarily use the {name} retained piece"
+        else:
+            reference = support.get("ref", UNKNOWN)
+            source = self.reference(reference, "fixtures")
+            source += self.shop_made_pointer(setup, reference, uses)
+        line = f"Support {_text(support.get('id', UNKNOWN))}: {source}"
+        axes = _pose_axes(support.get("pose"))
+        if axes is None:
+            line += "; STOP: support placement is unresolved"
+        else:
+            origin = ", ".join(
+                f"{axis} {_number(value)}" for axis, value in zip("XYZ", axes[0], strict=True)
+            )
+            line += f"; local origin {origin} mm"
+            for label, vector in (("X", axes[1]), ("Z", axes[3])):
+                aligned = _setup_axis(vector)
+                direction = (
+                    ("+" if aligned[1] > 0 else "−") + "XYZ"[aligned[0]]
+                    if aligned
+                    else "(" + ", ".join(map(_number, vector)) + ")"
+                )
+                line += f"; local +{label} toward {direction}"
+        if support.get("note"):
+            line += ". " + self.bench(support["note"], setup)
+        return line.rstrip(".") + "."
+
     def shop_made_uses(self, setup):
         """``{identity: (reference, [(label, pose)])}`` for each shop-made item the hold
         uses, keyed by the item its reference selects (:meth:`holding_identity`) with its
         first spelling for print, in HOLD
         order: the fixture at ``hold.pose``, each clamp entry at its own pose (labelled by
-        :func:`clamp_labels`), the work stop at ``stop_pose``. An item whose solids nothing
-        poses, because the HOLD places it (a vise's own jaw plates, the riser, supports,
-        jaw buttons: the kernel builds those from their facts), is :data:`LOOSE`."""
+        :func:`clamp_labels`), the work stop at ``stop_pose``, and each tagged support at
+        its own pose. Unposed built-in items (vise jaws, risers, legacy supports and jaw
+        buttons) are :data:`LOOSE`; borrowed stock is not a shop-made inventory item."""
         hold = _mapping(setup.get("hold"))
         clamps = hold.get("clamps") if isinstance(hold.get("clamps"), list) else []
         fixture = hold.get("fixture")
@@ -4977,7 +5011,22 @@ class _Traveler:
             for label, clamp in zip(clamp_labels(hold), clamps, strict=True)
         ]
         placed.append((hold.get("stop_fixture"), "stop", hold.get("stop_pose")))
-        placed += [(hold.get(key), None, LOOSE) for key in ("riser", "supports", "jaw_buttons")]
+        placed += [(hold.get(key), None, LOOSE) for key in ("riser", "jaw_buttons")]
+        supports = hold.get("supports")
+        if isinstance(supports, str):
+            placed.append((supports, None, LOOSE))
+        for support in supports if isinstance(supports, list) else []:
+            support = {"ref": support} if isinstance(support, str) else _mapping(support)
+            if "stock_ref" in support:
+                continue
+            posed = support.get("placement") == "posed"
+            placed.append(
+                (
+                    support.get("ref"),
+                    support.get("id") if posed else None,
+                    support.get("pose") if posed else LOOSE,
+                )
+            )
         uses = {}
         for reference, label, pose in placed:
             key = self.holding_identity(setup, reference)
@@ -6891,6 +6940,9 @@ class _Traveler:
                 contact.append(self.mounted_saw_contact(computed))
             elif method not in (None, "paper", "touch"):
                 contact.append(_METHODS.get(method, _text(method)))
+            pickup = self.pickup_contact(axis, computed)
+            if pickup:
+                contact.append(pickup)
             if tool and not indicate:
                 contact.append(tool)
             if _CORNERS.get(computed.get("reference_corner")):
@@ -7003,11 +7055,16 @@ class _Traveler:
             )
         )
         pieces.extend(measurements)
-        if not lathe and any(row[0] in ("X", "Y") for row in rows):
+        ordinary_jog_axes = [
+            row[0]
+            for row in rows
+            if row[0] in ("X", "Y") and not _mapping(axes.get(row[0].lower())).get("pickup_proof")
+        ]
+        if not lathe and ordinary_jog_axes:
             # From a side pickup, +X / +Y runs the finder over the work at pickup height.
             # Its line leads in the steps: the pagination keeps it with them.
             pieces.append(
-                _p("X and Y check jog, after each Axis Set:", "lead-in")
+                _p(" and ".join(ordinary_jog_axes) + " check jog, after each Axis Set:", "lead-in")
                 + _list(
                     [
                         "raise Z only (X and Y stay put) until the edge finder or indicator tip "
@@ -7119,6 +7176,68 @@ class _Traveler:
             if record.get("note"):
                 pieces.append(_p(self.bench(record["note"])))
         return "".join(pieces)
+
+    def pickup_contact(self, axis, computed):
+        """Print only the matching native pickup path supplied by zero_check."""
+        evidence = _mapping(computed.get("pickup_proof"))
+        if not evidence:
+            return None
+        if evidence.get("status") != "pass":
+            reasons = evidence.get("reasons") or ["physical pickup path is unproved"]
+            return f"STOP: {axis.upper()} pickup — " + "; ".join(
+                self.bench(reason) for reason in reasons
+            )
+        path = _mapping(evidence.get("path"))
+        point = path.get("contact_mm")
+        height = path.get("retract_height_mm")
+        top = path.get("stock_top_mm")
+        approach = _mapping(evidence.get("request")).get("approach_mm")
+        if not (
+            isinstance(point, list)
+            and len(point) == 3
+            and all(_known(value) for value in point)
+            and _known(height)
+            and _known(top)
+            and _known(approach)
+        ):
+            return f"STOP: {axis.upper()} pickup path is incomplete"
+        clearance = height - top
+        depth = top - point[2]
+        lines = [
+            f"start with the tip {_number(clearance)} mm above the current stock top, "
+            f"{_number(approach)} mm back from contact"
+        ]
+        window = _mapping(evidence.get("window"))
+        transverse = window.get("transverse_axis")
+        intervals = window.get("intervals_mm")
+        if transverse in ("x", "y") and isinstance(intervals, list):
+            centre = point["xy".index(transverse)]
+            span = next(
+                (
+                    pair
+                    for pair in intervals
+                    if isinstance(pair, list)
+                    and len(pair) == 2
+                    and all(_known(value) for value in pair)
+                    and pair[0] <= centre <= pair[1]
+                ),
+                None,
+            )
+            if span:
+                lines.append(
+                    f"physical {transverse.upper()} contact span {_number(span[1] - span[0])} mm, "
+                    f"finder centre {_number(centre - span[0])} mm "
+                    f"from its −{transverse.upper()} end"
+                )
+        lines.append(
+            f"lower the tip to {_number(abs(depth))} mm "
+            f"{'below' if depth >= 0 else 'above'} the current top, then approach the face"
+        )
+        lines.append(
+            f"after Axis Set, raise the tip back to {_number(clearance)} mm "
+            "above the current top before the jog"
+        )
+        return "; ".join(lines)
 
     @functools.cached_property
     def finder_homes(self):
@@ -10368,12 +10487,12 @@ class _Traveler:
         sources = source if isinstance(source, list) else [source]
         graph = MaterialGraph(self.plan)
         supplies = {ref: graph.roots(ref) for ref in sources}
-        if any(atom.split is not None for ref in sources for atom in graph.nodes.get(ref, ())):
+        if any(atom.path for ref in sources for atom in graph.nodes.get(ref, ())):
             names = []
             for ref in sources:
                 atoms = graph.nodes.get(ref, ())
-                pieces = sorted({atom.output for atom in atoms if atom.output is not None})
-                splits = sorted({atom.split for atom in atoms if atom.split is not None})
+                pieces = sorted({atom.path[-1].output for atom in atoms if atom.path})
+                splits = sorted({atom.path[-1].split for atom in atoms if atom.path})
                 if pieces:
                     name = "the " + " + ".join(map(_text, pieces))
                     name += " retained piece" if len(pieces) == 1 else " retained-piece assembly"

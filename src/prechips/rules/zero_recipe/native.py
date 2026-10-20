@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from prechips.material_routes import feature_material_status, producer_setup
+from prechips.material_routes import producer_setup
 from prechips.rules.zero_recipe.faces import _rectangle, _uncut
 from prechips.rules.zero_recipe.touch import (
     MEASURED,
@@ -26,12 +26,18 @@ from ..resolution import (
     HAND_THREAD,
     LENGTH_TOLERANCE_MM,
     UNKNOWN,
+    canonical_face_mapping,
+    feature_mapping,
     known_refs,
     length_mm,
     number,
     op_feature,
+    operation_material_status,
+    operation_members,
+    registered_workpieces,
     resolve,
     setup_frame,
+    setup_member_geometry,
     uncertain,
 )
 from ..tip_endpoints import (
@@ -47,6 +53,140 @@ from ..tip_endpoints import (
 
 # Native rigid-transform eligibility, not authored included-angle equality.
 _NATIVE_DIRECTION_TOLERANCE_DEG = 1e-6
+
+
+def _pickup_proof_complete(request, proof):
+    """Require the native contact/path payload, not a passing model marker alone."""
+
+    def vector(value, size):
+        return (
+            isinstance(value, list)
+            and len(value) == size
+            and all(number(item) and math.isfinite(item) for item in value)
+        )
+
+    contact = mapping(proof.get("resolved_contact"))
+    path = mapping(proof.get("path"))
+    window = mapping(proof.get("window"))
+    legs = records(path.get("legs"))
+    obstacles = records(proof.get("obstacles"))
+    if not (
+        contact.get("surface") == request.get("surface")
+        and all(vector(contact.get(key), 3) for key in ("axis_mm", "point_mm", "normal"))
+        and all(vector(contact.get(key), 2) for key in ("tip_span_mm", "contact_z_mm"))
+        and number(contact.get("plane_mm"))
+        and window.get("scope") == "contact_only"
+        and window.get("transverse_axis") == {"x": "y", "y": "x"}.get(request.get("axis"))
+        and all(
+            number(window.get(key)) and math.isfinite(window[key])
+            for key in ("centre_min_mm", "centre_max_mm", "at_mm")
+        )
+        and window["centre_min_mm"] <= window["centre_max_mm"]
+        and vector(window.get("contact_z_mm"), 2)
+        and all(vector(path.get(key), 3) for key in ("start_mm", "contact_mm"))
+        and path["contact_mm"] == contact["axis_mm"]
+        and all(
+            number(path.get(key)) and math.isfinite(path[key])
+            for key in ("retract_height_mm", "stock_top_mm", "jog_mm")
+        )
+        and path["jog_mm"] == request.get("check_jog_mm")
+        and any(mapping(obstacle).get("name") == "stock" for obstacle in obstacles)
+        and all(
+            isinstance(mapping(obstacle).get("name"), str)
+            and vector(mapping(obstacle).get("bbox_mm"), 6)
+            for obstacle in obstacles
+        )
+        and [mapping(leg).get("kind") for leg in legs]
+        == ["descend", "approach", "retract", "check_jog"]
+    ):
+        return False
+    previous = path["start_mm"]
+    for index, leg in enumerate(map(mapping, legs)):
+        components = records(leg.get("components"))
+        if not (
+            leg.get("index") == index
+            and vector(leg.get("from_mm"), 3)
+            and vector(leg.get("to_mm"), 3)
+            and leg["from_mm"] == previous
+            and {mapping(component).get("id") for component in components}
+            == {"tip", "shank", "holder"}
+            and all(vector(mapping(component).get("bbox_mm"), 6) for component in components)
+        ):
+            return False
+        previous = leg["to_mm"]
+    return legs[1]["to_mm"] == path["contact_mm"]
+
+
+def zero_pickup_evidence(bundle, setup, axis, *, normalized=None, facts=None):
+    """Match an explicitly requested pickup to this setup's current native recipe.
+
+    This accessor never runs geometry. Arithmetic-only recipes return ``None``;
+    requested but incomplete, absent or stale proof returns explicit clearance debt.
+    """
+    from prechips.kernel import zero_pickup_inputs
+
+    recipe = mapping(mapping(setup.get("zero")).get(axis))
+    if axis not in ("x", "y") or "at_mm" not in recipe:
+        return None
+    normalized = zero_pickup_inputs(bundle, setup) if normalized is None else normalized
+    request = mapping(mapping(normalized.get("requests")).get(axis))
+    facts = mapping(getattr(bundle, "kernel", None)) if facts is None else facts
+    proof = mapping(
+        mapping(mapping(mapping(facts.get("setups")).get(setup["id"])).get("zero_pickups")).get(
+            axis
+        )
+    )
+    errors = list(records(request.get("errors")))
+    reasons = list(records(request.get("reasons")))
+    matched = (
+        request.get("model") == "transverse_finder_v1"
+        and request.get("axis") == axis
+        and isinstance(request.get("recipe_id"), str)
+        and request["recipe_id"] not in ("", UNKNOWN)
+        and proof.get("model") == request["model"]
+        and proof.get("setup_id") == setup["id"]
+        and proof.get("axis") == axis
+        and proof.get("recipe_id") == request["recipe_id"]
+        and proof.get("request") == request
+    )
+    if matched:
+        errors.extend(records(proof.get("errors")))
+        reasons.extend(records(proof.get("reasons")))
+        if proof.get("status") == "error" and not errors:
+            errors.append("the current native pickup path failed")
+        if records(proof.get("collisions")) and not errors:
+            errors.append("the current native pickup path collides")
+    else:
+        reasons.append("no matching native proof for the current pickup recipe")
+    contact, path, window = (
+        mapping(proof.get(key)) if matched else {} for key in ("resolved_contact", "path", "window")
+    )
+    complete = (
+        matched
+        and facts.get("status") == "ok"
+        and proof.get("status") == "pass"
+        and _pickup_proof_complete(request, proof)
+    )
+    if not complete and matched and not errors:
+        reasons.append("the requested native pickup contact or complete path remains unresolved")
+    status = "error" if errors else "pass" if complete and not reasons else UNKNOWN
+    return {
+        "requested": True,
+        "status": status,
+        "model": request.get("model", "transverse_finder_v1"),
+        "setup_id": setup["id"],
+        "axis": axis,
+        "recipe_id": request.get("recipe_id", UNKNOWN),
+        "reasons": list(dict.fromkeys([*errors, *reasons])),
+        "request": request,
+        "proof": proof if matched else {},
+        "resolved_contact": contact,
+        "path": path,
+        "window": window,
+        "collisions": records(proof.get("collisions")) if matched else [],
+        "obstacles": records(proof.get("obstacles")) if matched else [],
+        "measurement_debts": records(normalized.get("measurement_debts")),
+    }
 
 
 def _native_unit(vector):
@@ -76,15 +216,16 @@ def _native_normal_up(normal, axes):
     )
 
 
-def _native_plane_geometry(bundle, source, face, refs):
+def _native_plane_geometry(bundle, source, face, refs, *, workpiece_id=None):
     """An exact selected native end plane and radius, never another plane's radius."""
     from ..coordinates import UNIT_MM
 
     kernel = mapping(getattr(bundle, "kernel", None))
     target = mapping(bundle.feature_definitions.get(face))
     declared = records(target.get("faces"))
-    indices = mapping(kernel.get("features")).get(face)
-    mapped = [mapping(kernel.get("mapping")).get(ref) for ref in declared]
+    indices = feature_mapping(bundle, kernel, source, workpiece_id=workpiece_id).get(face)
+    matched = canonical_face_mapping(bundle, kernel, source, workpiece_id=workpiece_id)
+    mapped = [matched.get(ref) for ref in declared]
     if not (
         declared
         and set(refs) <= set(declared)
@@ -95,9 +236,9 @@ def _native_plane_geometry(bundle, source, face, refs):
         and set(indices) == set(mapped)
     ):
         return None
-    fact = mapping(
-        mapping(mapping(kernel.get("setups")).get(source.get("id"))).get("revolved")
-    ).get(face)
+    fact = setup_member_geometry(bundle, source, "revolved", kernel, workpiece_id=workpiece_id).get(
+        face
+    )
     fact = mapping(fact)
     zs, radii, ends = fact.get("z_mm"), fact.get("end_radii_mm"), fact.get("end_faces")
     if not (
@@ -122,7 +263,9 @@ def _native_plane_geometry(bundle, source, face, refs):
     ):
         return None
     scale = UNIT_MM[bundle.features["units"]]
-    boxes, _ = _kernel_face_boxes(bundle, target, setup_frame(bundle, source))
+    boxes, _ = _kernel_face_boxes(
+        bundle, target, setup_frame(bundle, source), setup=source, workpiece_id=workpiece_id
+    )
     tolerance = LENGTH_TOLERANCE_MM
     if set(refs) == set(declared) and zs[1] - zs[0] <= tolerance:
         # Exact native source geometry wins over the exported world AABB.
@@ -147,6 +290,7 @@ def _native_plane_geometry(bundle, source, face, refs):
         return None
     return {
         "source": source["id"],
+        **({"workpiece_id": workpiece_id} if registered_workpieces(bundle) else {}),
         "frame": setup_frame(bundle, source),
         "z_mm": height,
         "normal_z": matched[0]["normal_z"],
@@ -345,12 +489,17 @@ def _primitive_spares_plane(bundle, setup, op, plane):
             kernel = mapping(getattr(bundle, "kernel", None))
             definition = mapping(bundle.feature_definitions.get(name))
             expected = {
-                mapping(kernel.get("mapping")).get(ref) for ref in records(definition.get("faces"))
+                canonical_face_mapping(
+                    bundle, kernel, setup, workpiece_id=plane.get("workpiece_id")
+                ).get(ref)
+                for ref in records(definition.get("faces"))
             }
-            indices = mapping(kernel.get("features")).get(name)
+            indices = feature_mapping(
+                bundle, kernel, setup, workpiece_id=plane.get("workpiece_id")
+            ).get(name)
             claims, away, invalid = op_claims(bundle, kernel, setup, op)
-            native = mapping(
-                mapping(mapping(kernel.get("setups")).get(setup["id"])).get("revolved")
+            native = setup_member_geometry(
+                bundle, setup, "revolved", kernel, workpiece_id=plane.get("workpiece_id")
             ).get(name)
             native = mapping(native)
             radii = native.get("radii_mm")
@@ -482,7 +631,13 @@ def _carry_boxes(bundle, setup, target, plane):
     """Existing selected boxes translated only by a proved source cut's offset."""
     from ..coordinates import UNIT_MM, frame_axes
 
-    boxes, _ = _kernel_face_boxes(bundle, target, setup_frame(bundle, setup))
+    boxes, _ = _kernel_face_boxes(
+        bundle,
+        target,
+        setup_frame(bundle, setup),
+        setup=setup,
+        workpiece_id=mapping(plane).get("workpiece_id"),
+    )
     if boxes is None or plane is None or "formed_z_mm" not in plane:
         return boxes
     delta = (plane["formed_z_mm"] - plane["z_mm"]) / UNIT_MM[bundle.features["units"]]
@@ -567,15 +722,15 @@ def _carry_cut(bundle, setup, op, target, plane=None, excluded=None, previous=0.
     return not _primitive_spares_plane(bundle, setup, op, plane)
 
 
-def _native_scene_plane(bundle, setup, face, geometry=None, *, normal_z=1):
+def _native_scene_plane(bundle, setup, face, geometry=None, *, normal_z=1, workpiece_id=None):
     """Raw setup-Z of this exact datum's stock-proven native outline, or None."""
     from ..coordinates import UNIT_MM
 
     kernel = mapping(getattr(bundle, "kernel", None))
     target = mapping(bundle.feature_definitions.get(face))
     refs = target.get("faces")
-    indices = mapping(kernel.get("features")).get(face)
-    matched = mapping(kernel.get("mapping"))
+    indices = feature_mapping(bundle, kernel, setup, workpiece_id=workpiece_id).get(face)
+    matched = canonical_face_mapping(bundle, kernel, setup, workpiece_id=workpiece_id)
     if (
         not known_refs(refs)
         or not isinstance(indices, list)
@@ -591,7 +746,15 @@ def _native_scene_plane(bundle, setup, face, geometry=None, *, normal_z=1):
         if isinstance(datum, dict) and datum.get("feature") == face
     }
     scene = mapping(mapping(mapping(kernel.get("setups")).get(setup.get("id"))).get("render_scene"))
-    datums = [d for d in records(scene.get("datums")) if mapping(d).get("label") in labels]
+    members = (workpiece_id,) if workpiece_id is not None else operation_members(bundle, setup)
+    if registered_workpieces(bundle) and (members is None or len(members) != 1):
+        return None
+    datums = [
+        d
+        for d in records(scene.get("datums"))
+        if mapping(d).get("label") in labels
+        and (not registered_workpieces(bundle) or mapping(d).get("workpiece_id") == members[0])
+    ]
     if len(datums) != 1:
         return None
     datum = datums[0]
@@ -626,6 +789,7 @@ def _native_scene_plane(bundle, setup, face, geometry=None, *, normal_z=1):
             geometry.update(
                 source=setup["id"],
                 frame=setup_frame(bundle, setup),
+                **({"workpiece_id": workpiece_id} if registered_workpieces(bundle) else {}),
                 z_mm=max(heights),
                 normal_z=normal_z,
                 outer_radius_mm=radius,
@@ -652,7 +816,7 @@ def _component_supply_plane(bundle, setup, source, face, ref):
     ]
     if not sides:
         return missing("component root needs its named pre-cut stock face")
-    measured = mapping(mapping(facts.get("stock_faces_mm")).get(face))
+    measured = mapping(setup_member_geometry(bundle, setup, "stock_faces_mm", kernel).get(face))
     if measured.get("reason"):
         return missing(f"pre-cut stock face is unresolved ({measured['reason']})")
     plane = _native_plane_geometry(bundle, setup, face, [ref])
@@ -679,7 +843,7 @@ def _component_supply_plane(bundle, setup, source, face, ref):
     return plane, None
 
 
-def _native_surface_planes(bundle, setup, face, to_z):
+def _native_surface_planes(bundle, setup, face, to_z, *, workpiece_id=None):
     """Eligible raw planes at a cut's height; None for authored/legacy surfaces.
 
     Owning a feature proves no planar datum: an unbounded facing cut can wholly
@@ -691,7 +855,7 @@ def _native_surface_planes(bundle, setup, face, to_z):
 
     target = mapping(bundle.feature_definitions.get(face))
     refs = target.get("faces")
-    if "bounds" in target or not known_refs(refs):
+    if ("bounds" in target and not registered_workpieces(bundle)) or not known_refs(refs):
         return None
     if not number(to_z) or not math.isfinite(to_z):
         return []
@@ -699,12 +863,14 @@ def _native_surface_planes(bundle, setup, face, to_z):
     if scale is None:
         return []
     tolerance = LENGTH_TOLERANCE_MM / scale
-    boxes, _ = _kernel_face_boxes(bundle, target, setup_frame(bundle, setup))
+    boxes, _ = _kernel_face_boxes(
+        bundle, target, setup_frame(bundle, setup), setup=setup, workpiece_id=workpiece_id
+    )
     kernel = mapping(getattr(bundle, "kernel", None))
     kinds = {
         item.get("index"): item.get("kind") for item in map(mapping, records(kernel.get("faces")))
     }
-    matched = mapping(kernel.get("mapping"))
+    matched = canonical_face_mapping(bundle, kernel, setup, workpiece_id=workpiece_id)
     # A thin cylinder is not an axial plane merely because its box fits the
     # length tolerance. Keep bbox-only proof only where no contrary type is known.
     possible = [ref for ref in refs if kinds.get(matched.get(ref)) in (None, UNKNOWN, "Plane")]
@@ -720,18 +886,20 @@ def _native_surface_planes(bundle, setup, face, to_z):
     if eligible:
         return eligible
     for ref in possible:
-        plane = _native_plane_geometry(bundle, setup, face, [ref])
+        plane = _native_plane_geometry(bundle, setup, face, [ref], workpiece_id=workpiece_id)
         if plane is not None and abs(plane["z_mm"] / scale - to_z) <= tolerance:
             eligible.append(ref)
     if eligible:
         return eligible
     if len(possible) != len(refs):
         return []
-    height = _native_scene_plane(bundle, setup, face)
+    height = _native_scene_plane(bundle, setup, face, workpiece_id=workpiece_id)
     return list(refs) if number(height) and abs(height - to_z) <= tolerance else []
 
 
-def _carried_native_plane_groups(bundle, route, setup, face, boxes, *, current=False):
+def _carried_native_plane_groups(
+    bundle, route, setup, face, boxes, *, current=False, workpiece_id=None
+):
     """Raw receiving planes, before any stock or as-cut credit; None for proof gaps."""
     from ..coordinates import UNIT_MM
 
@@ -741,7 +909,7 @@ def _carried_native_plane_groups(bundle, route, setup, face, boxes, *, current=F
     kinds = {
         item.get("index"): item.get("kind") for item in map(mapping, records(kernel.get("faces")))
     }
-    matched = mapping(kernel.get("mapping"))
+    matched = canonical_face_mapping(bundle, kernel, setup, workpiece_id=workpiece_id)
     target = mapping(bundle.feature_definitions.get(face))
     heights = []
     for ref, box in boxes:
@@ -758,10 +926,12 @@ def _carried_native_plane_groups(bundle, route, setup, face, boxes, *, current=F
             for source in route:
                 if not current and source.get("id") == setup.get("id"):
                     continue
-                plane = _native_plane_geometry(bundle, source, face, [ref])
+                plane = _native_plane_geometry(
+                    bundle, source, face, [ref], workpiece_id=workpiece_id
+                )
                 if plane is None and target.get("faces") == [ref]:
                     geometry = {}
-                    _native_scene_plane(bundle, source, face, geometry)
+                    _native_scene_plane(bundle, source, face, geometry, workpiece_id=workpiece_id)
                     plane = geometry or None
                 if plane is not None:
                     native = _plane_in_frame(bundle, plane, setup, physical=False)
@@ -805,6 +975,10 @@ def _carried_face_z(
         return UNKNOWN
 
     target = mapping(bundle.feature_definitions.get(face))
+    members = operation_members(bundle, setup)
+    if registered_workpieces(bundle) and (members is None or len(members) != 1):
+        return unknown(f"{face} receiving workpiece is unresolved")
+    member = members[0] if registered_workpieces(bundle) else None
     route = _stock_route(bundle, setup)
     if route is None and current_refs is not None and "stock_in" not in setup:
         # Legacy local recipes name no incoming route. A whole local producer
@@ -818,7 +992,9 @@ def _carried_face_z(
     components = {f"stock.{component['id']}" for component in records(stock.get("components"))}
     if not _native_basis(frame_axes(setup_frame(bundle, setup))):
         return unknown(f"{face} has no finite unit-axis receiving setup frame")
-    boxes, reason = _kernel_face_boxes(bundle, target, setup_frame(bundle, setup))
+    boxes, reason = _kernel_face_boxes(
+        bundle, target, setup_frame(bundle, setup), setup=setup, workpiece_id=member
+    )
     if boxes is None:
         roots = [
             source
@@ -837,7 +1013,7 @@ def _carried_face_z(
     scale = UNIT_MM[bundle.features["units"]]
     tolerance = LENGTH_TOLERANCE_MM / scale
     groups = _carried_native_plane_groups(
-        bundle, route, setup, face, boxes, current=current_refs is not None
+        bundle, route, setup, face, boxes, current=current_refs is not None, workpiece_id=member
     )
     if not groups:
         return unknown(
@@ -846,7 +1022,7 @@ def _carried_face_z(
         )
     refs = [ref for ref, _ in boxes]
     kernel = mapping(getattr(bundle, "kernel", None))
-    mapping_refs = mapping(kernel.get("mapping"))
+    mapping_refs = canonical_face_mapping(bundle, kernel, setup, workpiece_id=member)
     supply_gaps = []
     outputs = {}
 
@@ -883,7 +1059,7 @@ def _carried_face_z(
         if producer not in outputs:
             return seed(current, incoming, source, ref)
         row = outputs[producer][ref]
-        material = feature_material_status(bundle.plan, current["id"], producer, face, bundle)
+        material = operation_material_status(bundle, current, producer, face, workpiece_id=member)
         if material is True or row["present"] is False:
             return row
         return {
@@ -920,10 +1096,12 @@ def _carried_face_z(
             plane = carrying[0]["plane"] if carrying else None
             normal = carrying[0]["normal"] if carrying else None
             if plane is None and present is True and "stock" in incoming:
-                plane = _native_plane_geometry(bundle, current, face, [ref])
+                plane = _native_plane_geometry(bundle, current, face, [ref], workpiece_id=member)
                 if plane is None and {**target, "faces": [ref]} == target:
                     supplied_geometry = {}
-                    _native_scene_plane(bundle, current, face, supplied_geometry)
+                    _native_scene_plane(
+                        bundle, current, face, supplied_geometry, workpiece_id=member
+                    )
                     plane = supplied_geometry or None
             state[ref] = {
                 "present": present,
@@ -949,6 +1127,21 @@ def _carried_face_z(
             if cuts is False:
                 continue
             claims, away, invalid = op_claims(bundle, kernel, current, op)
+            material = (
+                operation_material_status(
+                    bundle, current, current, face, workpiece_id=member, producer_op=op
+                )
+                if registered_workpieces(bundle)
+                else True
+            )
+            if material is False:
+                continue
+            if material is None:
+                for row in state.values():
+                    if row["present"] is not False:
+                        row["present"] = UNKNOWN
+                        row["area_unknown"] = True
+                continue
             forms = forms_face(bundle, current, op)
             framed = _framed(current, op)
             for ref in refs:
@@ -989,7 +1182,11 @@ def _carried_face_z(
                     row["plane"] = row["normal"] = None
                     row["area_unknown"] = True
                     continue
-                coverage = cut_coverage(bundle, current, op, target) if potential else None
+                coverage = (
+                    cut_coverage(bundle, current, op, target, workpiece_id=member)
+                    if potential
+                    else None
+                )
                 if coverage == UNKNOWN:
                     row["present"] = UNKNOWN
                     row["plane"] = row["normal"] = None
@@ -998,7 +1195,13 @@ def _carried_face_z(
                 if (
                     potential
                     and coverage == "whole"
-                    and ref in (_native_surface_planes(bundle, current, face, op.get("to_z")) or ())
+                    and ref
+                    in (
+                        _native_surface_planes(
+                            bundle, current, face, op.get("to_z"), workpiece_id=member
+                        )
+                        or ()
+                    )
                 ):
                     formed = formed_z(bundle, current, op)
                     if not number(formed) or not math.isfinite(formed):
@@ -1007,8 +1210,16 @@ def _carried_face_z(
                         row["present"] = UNKNOWN
                         row["plane"] = row["normal"] = None
                         continue
-                    plane = _native_plane_geometry(bundle, current, face, [ref])
-                    native, _ = _kernel_face_boxes(bundle, surface, setup_frame(bundle, current))
+                    plane = _native_plane_geometry(
+                        bundle, current, face, [ref], workpiece_id=member
+                    )
+                    native, _ = _kernel_face_boxes(
+                        bundle,
+                        surface,
+                        setup_frame(bundle, current),
+                        setup=current,
+                        workpiece_id=member,
+                    )
                     to_z = op.get("to_z")
                     if native is not None and number(to_z):
                         produced = all(
@@ -1019,7 +1230,9 @@ def _carried_face_z(
                             produced = abs(plane["z_mm"] / scale - to_z) <= tolerance
                         elif surface == target:
                             scene_geometry = {}
-                            height = _native_scene_plane(bundle, current, face, scene_geometry)
+                            height = _native_scene_plane(
+                                bundle, current, face, scene_geometry, workpiece_id=member
+                            )
                             produced = number(height) and abs(height - to_z) <= tolerance
                             plane = scene_geometry or None
                     if produced and plane is not None:
@@ -1050,6 +1263,11 @@ def _carried_face_z(
                             normal = [side * v for v in frame_axes(source_frame)[2]]
                             plane = {
                                 "source": current["id"],
+                                **(
+                                    {"workpiece_id": member}
+                                    if registered_workpieces(bundle)
+                                    else {}
+                                ),
                                 "frame": source_frame,
                                 "z_mm": to_z * scale,
                                 "formed_z_mm": formed * scale,
@@ -1109,7 +1327,7 @@ def _carried_face_z(
                 [plane]
                 if plane is not None
                 else [
-                    _native_plane_geometry(bundle, source, face, [ref])
+                    _native_plane_geometry(bundle, source, face, [ref], workpiece_id=member)
                     for source in route
                     if source.get("id") != setup.get("id")
                 ]

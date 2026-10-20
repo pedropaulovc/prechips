@@ -67,6 +67,13 @@ class Bundle:
         """Source STEP ownership, independent of native import order and containment."""
         return _finished_feature_owners(self.features, self.paths.get("step"))
 
+    @cached_property
+    def workpiece_registrations(self) -> dict[str, dict] | None:
+        """Authored canonical-to-batch poses, never replacement source ownership."""
+        from prechips.material_routes import workpiece_registrations
+
+        return workpiece_registrations(self.plan)
+
 
 def _finished_feature_owners(features: dict, path: Path | None) -> dict[str, str | None]:
     from prechips.kernel.step_faces import FaceRefError, StepError, StepFile
@@ -125,6 +132,68 @@ def _selector_owner(features: dict, owners: dict, name: str, where: str) -> str 
             f"{where}: feature {name!r} must belong to exactly one named finished solid."
         )
     return owner
+
+
+def _workpiece_faces(bundle: Bundle) -> None:
+    """Bind qualified claims to immutable canonical STEP refs, before native execution."""
+    from prechips.kernel.step_faces import FaceRefError, StepError, StepFile
+
+    registrations = bundle.workpiece_registrations
+    claims = [
+        (setup, op)
+        for setup in bundle.plan["setups"]
+        for op in setup["ops"]
+        if isinstance(op.get("workpiece_faces"), dict)
+    ]
+    if registrations is None and not claims:
+        return
+    if registrations is not None and not bundle.features.get("solids"):
+        raise BadInput("Registered workpieces require features.solids source identities.")
+    path = bundle.paths.get("step")
+    if path is None:
+        raise BadInput("Qualified workpiece faces require the exact source STEP bytes.")
+    try:
+        source = StepFile(path.read_bytes().decode("latin-1"))
+        owned_faces = {
+            face
+            for ref in bundle.features.get("solids", {}).values()
+            for face in source.solid_faces(ref)
+        }
+        for setup, op in claims:
+            for member, refs in op["workpiece_faces"].items():
+                for ref in refs:
+                    source.resolve(ref)
+                    if ref not in owned_faces:
+                        raise BadInput(
+                            f"{setup['id']}:{op['op']}: workpiece_faces.{member} face "
+                            f"{ref!r} is outside canonical finished solids."
+                        )
+    except (OSError, StepError, FaceRefError) as exc:
+        raise BadInput(f"Cannot bind qualified workpiece faces to the source STEP: {exc}") from exc
+
+
+def _placed_supports(plan: dict, inventory: dict) -> None:
+    """Known posed inventory sources must resolve; incomplete geometry remains debt."""
+    from prechips.rules.resolution import select
+
+    for setup in plan["setups"]:
+        hold = setup.get("hold")
+        supports = hold.get("supports") if isinstance(hold, dict) else None
+        for entry in supports if isinstance(supports, list) else []:
+            if (
+                not isinstance(entry, dict)
+                or entry.get("placement") != "posed"
+                or "ref" not in entry
+            ):
+                continue
+            category, _, item = select(inventory, entry["ref"], "workholding")
+            if category in {"workholding", "fixtures"} and item == "unknown":
+                continue
+            if category not in {"workholding", "fixtures"} or not isinstance(item, dict):
+                raise BadInput(
+                    f"{setup['id']}: posed support {entry['id']!r} ref {entry['ref']!r} "
+                    "must name an inventory fixture or workholding item."
+                )
 
 
 def operative_definitions(plan: dict, features: dict) -> dict[str, dict]:
@@ -449,7 +518,7 @@ def load_bundle(
             for name, output in (
                 op["outputs"] if isinstance(op.get("outputs"), dict) else {}
             ).items():
-                if output["carries"] not in features["features"]:
+                if "carries" in output and output["carries"] not in features["features"]:
                     raise BadInput(
                         f"{setup['id']}:{op['op']}: output {name!r} carries must name an "
                         "exported finished feature, not a transient preparation feature."
@@ -487,7 +556,11 @@ def load_bundle(
                 )
             preparing = [name for name in names if process_features.process_of(definitions[name])]
             if preparing:
-                authored = [key for key in ("faces", "checks", "missing_requirements") if key in op]
+                authored = [
+                    key
+                    for key in ("faces", "workpiece_faces", "checks", "missing_requirements")
+                    if key in op
+                ]
                 if authored or len(names) != 1:
                     raise BadInput(
                         f"{setup['id']}:{op['op']}: plan.process_features.{preparing[0]} is "
@@ -603,6 +676,7 @@ def load_bundle(
     _blank_assets(plan, plan_path.parent, root, paths, hashes)
     _area_holds(plan, resolved["inventory"])
     _hand_fed_holds(plan, resolved["inventory"])
+    _placed_supports(plan, resolved["inventory"])
     step_digest = features.get("step_sha256", "unknown")
     if step_digest != "unknown":
         if len(step_digest) != 64 or any(char not in "0123456789abcdef" for char in step_digest):
@@ -622,6 +696,7 @@ def load_bundle(
     # Seed the cached operative mapping already resolved above; it is built once.
     bundle.__dict__["feature_definitions"] = definitions
     owners = bundle.finished_feature_owners
+    _workpiece_faces(bundle)
     for setup in setups:
         for op in setup["ops"]:
             outputs = op.get("outputs")
@@ -629,6 +704,8 @@ def load_bundle(
                 continue
             if not features.get("solids"):
                 raise BadInput("Named retained outputs require features.solids source identities.")
+            if all("carries_workpieces" in entry for entry in outputs.values()):
+                continue
             carried = [
                 _selector_owner(features, owners, entry["carries"], f"{setup['id']}:{op['op']}")
                 for entry in outputs.values()

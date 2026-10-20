@@ -37,6 +37,7 @@ ignore = [
 "src/prechips/kernel/render_png.py" = "freecad_kernel"
 "src/prechips/kernel/saw_engagement.py" = "freecad_kernel"
 "src/prechips/kernel/step_faces.py" = "freecad_kernel"
+"src/prechips/kernel/zero_pickup.py" = "freecad_kernel"
 "src/prechips/cli.py" = "run_cli("
 
 # Non-Python inputs, read by tests that coverage cannot attribute them to.
@@ -145,6 +146,10 @@ ignore = [
 "src/prechips/kernel/saw_engagement.py" = [
     "tests/test_mounted_saw_native.py",
     "tests/test_saw_engagement.py",
+]
+"src/prechips/kernel/zero_pickup.py" = [
+    "tests/test_batch_native.py",
+    "tests/test_zero_pickup_native.py",
 ]
 "src/prechips/thread_specs.py" = [
     "tests/test_chain_boundary.py",

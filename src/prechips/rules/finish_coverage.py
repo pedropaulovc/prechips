@@ -24,6 +24,7 @@ from prechips.rules.geometry_common import (
 from prechips.rules.resolution import (
     SAW_OPS,
     claim_refs,
+    face_mapping,
     known_refs,
     op_feature,
     operations,
@@ -31,10 +32,10 @@ from prechips.rules.resolution import (
 )
 
 
-def _unresolved(bundle, mapping, op, doubtful):
+def _unresolved(bundle, mapping, setup, op, doubtful):
     """Record the faces an unresolved claim may finish in ``doubtful``; ``True`` when its
     refs are unknown or unmapped, so the claim bounds no feature and every row is debt."""
-    refs = claim_refs(bundle, op)
+    refs = claim_refs(bundle, op, setup)
     if known_refs(refs) and all(ref in mapping for ref in refs):
         doubtful.update(mapping[ref] for ref in refs)
         return False
@@ -50,7 +51,7 @@ def evaluate(bundle):
     unsupported = set()
     doubtful = set()  # faces an unresolved claim may finish: debt only for their features
     unformed, cap_pending = set(), {}  # cap index -> why its formation is unknown
-    mapping, op_facts = record(facts.get("mapping")), record(facts.get("ops"))
+    mapping, op_facts = face_mapping(bundle, facts), record(facts.get("ops"))
     for setup, op in operations(bundle):
         if record(record(bundle.feature_definitions.get(op_feature(op))).get("joint")):
             # Transient preparation finishes only the final STEP faces the kernel certifies.
@@ -62,7 +63,7 @@ def evaluate(bundle):
             continue
         subject = f"{setup['id']}:{op['op']}"
         if cutting_action(op) is None:
-            debt = _unresolved(bundle, mapping, op, doubtful) or debt
+            debt = _unresolved(bundle, mapping, setup, op, doubtful) or debt
         # A thread's tap drill owns its caps but is no finisher once the tap follows.
         completion = record(record(op_facts.get(subject)).get("cap_completion"))
         caps = completion.get("caps")
@@ -77,7 +78,7 @@ def evaluate(bundle):
         indices, _, invalid = op_claims(bundle, facts, setup, op)
         invalid_refs.extend(invalid)
         if indices is None:
-            refs = claim_refs(bundle, op)
+            refs = claim_refs(bundle, op, setup)
             if (
                 approach_model_reason(bundle, setup, op)
                 and known_refs(refs)
@@ -85,7 +86,7 @@ def evaluate(bundle):
             ):
                 unsupported.update(mapping[ref] for ref in refs)
             else:
-                debt = _unresolved(bundle, mapping, op, doubtful) or debt
+                debt = _unresolved(bundle, mapping, setup, op, doubtful) or debt
         else:
             # A rotary finishing claim names faces its window merely intersects; only the
             # finishing ops' window union finishes a face, and as-stock never does.

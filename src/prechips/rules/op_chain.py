@@ -7,7 +7,7 @@ duplicate on a finished hole. Contour/form starts must still be deterministic fa
 import math
 
 from ..findings import Finding
-from ..material_routes import feature_material_status, setup_lineage
+from ..material_routes import setup_lineage
 from ..measurements import angle_fact, length_debt
 from ..process_features import process_of
 from ..thread_specs import match
@@ -17,6 +17,8 @@ from .resolution import (
     length_mm,
     number,
     op_feature,
+    operation_material_status,
+    operation_members,
     operations,
     record,
     resolve,
@@ -51,6 +53,15 @@ def _banded_starts(bundle):
                 continue
             maybe = []  # later ops whose partly unknown band may hold the start
             for earlier in reversed(ops[:index]):
+                selected = operation_members(bundle, setup, op)
+                prior = operation_members(bundle, setup, earlier)
+                if selected and prior is not None and not set(selected) <= set(prior):
+                    continue
+                if selected is None or prior is None:
+                    maybe.append(
+                        f"{setup['id']} op {earlier['op']} start-face member is unresolved"
+                    )
+                    continue
                 to_z, band = earlier.get("to_z"), earlier.get("to_z_band")
                 banded = isinstance(band, list) and len(band) == 2
                 known = banded and all(number(v) for v in band)
@@ -85,9 +96,11 @@ def _label(setup, op):
     return f"{setup['id']}:{op['op']}"
 
 
-def _material(bundle, setup, producer, name):
+def _material(bundle, setup, producer, name, *, op=None, producer_op=None):
     """Retained-material proof; missing routing is debt, never a different blank."""
-    status = feature_material_status(bundle.plan, setup["id"], producer["id"], name, bundle)
+    status = operation_material_status(
+        bundle, setup, producer, name, op=op, producer_op=producer_op
+    )
     if setup["id"] == producer["id"]:
         return status
     lineage = setup_lineage(bundle.plan, setup["id"])
@@ -188,7 +201,7 @@ def _spot_witness(bundle, setup, op, target, route, positions, *, preparation=No
     elif sum(a * b for a, b in zip(source_axis, target_axis, strict=True)) < 1 - 1e-9:
         errors.append("spot prerequisite and target hole have different directed axes")
     for name in (source, target):
-        material = _material(bundle, setup, other, name)
+        material = _material(bundle, setup, other, name, op=op, producer_op=cut)
         if material is False:
             errors.append(f"spot prerequisite does not belong to the target material ({name})")
         elif material is None:
@@ -241,7 +254,7 @@ def _earlier(bundle, setup, op, target, action, route, positions):
     for other, cut in reversed(route[: positions[id(op)]]):
         if op_feature(cut) not in (target, UNKNOWN) or cut.get("do") not in {action, UNKNOWN}:
             continue
-        material = _material(bundle, setup, other, target)
+        material = _material(bundle, setup, other, target, op=op, producer_op=cut)
         if material is not False:
             certain = cut.get("do") == action and op_feature(cut) == target
             return other, cut, material if certain else None
@@ -264,7 +277,7 @@ def _drill_preparation(bundle, setup, op, target, route, positions, prepared):
     for earlier_setup, earlier in reversed(route[: positions[id(op)]]):
         if op_feature(earlier) != target or earlier.get("do") != "drill":
             continue
-        carried = _material(bundle, setup, earlier_setup, target)
+        carried = _material(bundle, setup, earlier_setup, target, op=op, producer_op=earlier)
         if carried is False:
             continue
         bad, debt, source, _ = prepared[id(earlier)]
@@ -290,7 +303,9 @@ def _drill_preparation(bundle, setup, op, target, route, positions, prepared):
                 errors.extend(bad)
                 unknown.extend(debt)
             else:
-                survives = _material(bundle, setup, source_setup, target)
+                survives = _material(
+                    bundle, setup, source_setup, target, op=op, producer_op=source_op
+                )
                 if survives is False:
                     errors.append(f"{_label(setup, op)} initial spot is on different material")
                 elif survives is None:
@@ -318,7 +333,9 @@ def _turned_blank(bundle, setup, op, name, route, positions):
     errors, unknown, candidates = [], [], []
     for other, cut in route[: positions[id(op)]]:
         if op_feature(cut) == name and cut.get("do") in {"rough_turn", "finish_turn", "turn"}:
-            candidates.append((other, cut, _material(bundle, setup, other, name)))
+            candidates.append(
+                (other, cut, _material(bundle, setup, other, name, op=op, producer_op=cut))
+            )
     if not candidates:
         return [], ["no earlier turned male blank/shoulder preparation is established"], UNKNOWN
     eligible = [candidate for candidate in candidates if candidate[2] is not False]
@@ -415,7 +432,7 @@ def evaluate(bundle):
             for setup, op in route:
                 if op["do"] != "die_thread":
                     continue
-                if _material(bundle, setup, setup, name) is False:
+                if _material(bundle, setup, setup, name, op=op, producer_op=op) is False:
                     errors.append("external thread die operation is on different retained material")
                 bad, debt, producer = _turned_blank(bundle, setup, op, name, all_ops, positions)
                 errors.extend(bad)

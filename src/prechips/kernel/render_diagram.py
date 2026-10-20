@@ -1778,6 +1778,8 @@ class _Diagram:
             label = _plain(datum["label"]).upper()
             if datum.get("kind") != "end" and not label.startswith("DATUM "):
                 label = "DATUM " + label
+            if datum.get("workpiece_id"):
+                label = _plain(datum["workpiece_id"]).upper() + ": " + label
             facing = []
             normal = datum.get("normal")
             if normal is not None and normal[2] <= -0.99:
@@ -1801,7 +1803,10 @@ class _Diagram:
             c.circle(*point, 11, outline=_AMBER)
             c.circle(*point, 8, outline=_AMBER)
             c.circle(*point, 3, fill=_AMBER)
-            self.callouts.append(_Callout(_plain(target["label"]), [point], _AMBER))
+            label = _plain(target["label"])
+            if target.get("workpiece_id"):
+                label = _plain(target["workpiece_id"]) + ": " + label
+            self.callouts.append(_Callout(label, [point], _AMBER))
         arc = self.spec.get("index_arc")
         if arc:
             pixels = [c.project(p) for p in arc["points_mm"]]

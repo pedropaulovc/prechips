@@ -284,14 +284,16 @@ def test_native_as_is_plane_ledger_does_not_leak_across_partition(monkeypatch, o
     plane = {"source": "BASE", "frame": FRAME, "normal_z": 1, "z_mm": 0}
     monkeypatch.setattr(native, "setup_frame", lambda *args: FRAME)
     monkeypatch.setattr(
-        native, "_kernel_face_boxes", lambda *args: ([("F-land", [[0, 1], [0, 1], [0, 0]])], None)
+        native,
+        "_kernel_face_boxes",
+        lambda *args, **kwargs: ([("F-land", [[0, 1], [0, 1], [0, 0]])], None),
     )
     monkeypatch.setattr(
         native,
         "_carried_native_plane_groups",
         lambda *args, **kwargs: [{"z": 0, "refs": ["F-land"]}],
     )
-    monkeypatch.setattr(native, "_native_plane_geometry", lambda *args: deepcopy(plane))
+    monkeypatch.setattr(native, "_native_plane_geometry", lambda *args, **kwargs: deepcopy(plane))
     monkeypatch.setattr(native, "_plane_in_frame", lambda *args, **kwargs: 0)
     # Isolate route identity: the parting cut is independently proven to spare this face.
     monkeypatch.setattr(native, "_carry_cut", lambda *args: False)

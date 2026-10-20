@@ -40,7 +40,10 @@ from ..resolution import (
     SAW_OPS,
     UNKNOWN,
     identity,
+    member_protection_status,
     number,
+    operation_members,
+    registered_workpieces,
     resolve,
     saw_setup,
     spindle_saw,
@@ -679,6 +682,14 @@ def face_stands(
     never metadata on the input dicts.
     """
     from ..coordinates import formed_z
+
+    native_face = mapping(setup.get("stock_state")).get("top_feature") if face == "top" else face
+    if registered_workpieces(bundle) and native_face in bundle.feature_definitions:
+        members = operation_members(bundle, setup)
+        if not members or member_protection_status(bundle, setup, members[0]) is not True:
+            if debts is not None:
+                debts.append(f"{native_face} has no uniquely selected native-protected member")
+            return UNKNOWN
 
     if not number(edge):
         # An unknown top can itself be missing its footprint; retain that input debt.

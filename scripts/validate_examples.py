@@ -1934,9 +1934,7 @@ def derive_prepared_blank(plan: dict, features: dict, inventory: dict, prepared:
         return "unknown", numbers, []
     if tolerance is None or any(t < 0 for t in tolerance):
         return "unknown", numbers, []
-    partitioned = any(
-        atom.split is not None for atom in MaterialGraph(plan).nodes.get(receiver, ())
-    )
+    partitioned = any(atom.path for atom in MaterialGraph(plan).nodes.get(receiver, ()))
     if partitioned:
         # The original bar's analytic box is not the receiving child's geometry.
         # Require every selected split's own native proof, then measure that child.

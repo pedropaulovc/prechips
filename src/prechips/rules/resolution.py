@@ -189,36 +189,289 @@ def op_feature(op):
     return feature if isinstance(feature, str) else None
 
 
-def claim_refs(bundle, op):
-    """The face refs an op claims: its explicit ``faces``, else its feature's ``faces``; a
-    plan-owned transient (joint or process) feature claims its one plan label."""
+def registered_workpieces(bundle):
+    """Whether the plan explicitly requests instance ownership, including unknown input."""
+    return "workpieces" in bundle.plan
+
+
+def operation_members(bundle, setup, op=None):
+    """Selected live member ids, ``()`` for legacy plans, or unresolved ``None``.
+
+    Explicit qualified claims select only their named live members. Unqualified claims
+    select a member only when exactly one arrives; no canonical-face sibling fallback.
+    """
+    from prechips.material_routes import MaterialGraph
+
+    if not registered_workpieces(bundle):
+        return ()
+    if not isinstance(bundle.plan.get("workpieces"), dict):
+        return None
+    sid = setup.get("id") if isinstance(setup, dict) else setup
+    live = MaterialGraph(bundle.plan).members(sid)
+    if live is None:
+        return None
+    if isinstance(op, dict) and "workpiece_faces" in op:
+        claims = op["workpiece_faces"]
+        if (
+            not isinstance(claims, dict)
+            or not claims
+            or "faces" in op
+            or any(not known_refs(refs) for refs in claims.values())
+            or not set(claims) <= live
+        ):
+            return None
+        return tuple(claims)
+    return tuple(live) if len(live) == 1 else None
+
+
+def _operation_setup(bundle, op):
+    return next(
+        (setup for setup in bundle.plan["setups"] if any(item is op for item in setup["ops"])),
+        None,
+    )
+
+
+def claim_refs(bundle, op, setup=None):
+    """Current face identities: canonical refs for legacy, ``(member, ref)`` for instances."""
+    if "workpiece_faces" in op:
+        setup = setup if setup is not None else _operation_setup(bundle, op)
+        members = operation_members(bundle, setup, op)
+        if members is None or not registered_workpieces(bundle):
+            return UNKNOWN
+        return [(member, ref) for member in members for ref in op["workpiece_faces"][member]]
     if "faces" in op:
-        return op["faces"]
-    feature = record(bundle.feature_definitions.get(op_feature(op)))
-    owner = record(feature.get("joint")) or record(feature.get("preparation"))
-    return [owner["label"]] if owner else feature.get("faces", UNKNOWN)
+        refs = op["faces"]
+    else:
+        feature = record(bundle.feature_definitions.get(op_feature(op)))
+        owner = record(feature.get("joint")) or record(feature.get("preparation"))
+        refs = [owner["label"]] if owner else feature.get("faces", UNKNOWN)
+    if not registered_workpieces(bundle):
+        return refs
+    setup = setup if setup is not None else _operation_setup(bundle, op)
+    members = operation_members(bundle, setup, op)
+    if members is None or not known_refs(refs):
+        return UNKNOWN
+    return [(members[0], ref) for ref in refs]
 
 
 def known_refs(refs):
-    return isinstance(refs, list) and bool(refs) and UNKNOWN not in refs
+    def known(ref):
+        if isinstance(ref, tuple):
+            return len(ref) == 2 and all(known(value) for value in ref)
+        return isinstance(ref, str) and ref.strip() not in {"", UNKNOWN}
+
+    return isinstance(refs, list) and bool(refs) and all(known(ref) for ref in refs)
 
 
-def owns_feature(bundle, op, name):
-    """Whether an op's explicit ``faces`` claim every declared face of feature ``name``.
+def face_identity_text(identity):
+    """Human-readable member-qualified face label; never an identity lookup key."""
+    return f"{identity[0]}:{identity[1]}" if isinstance(identity, tuple) else str(identity)
 
-    Ownership needs a known, nonempty feature face list and a known, nonempty explicit
-    claim that contains all of it; empty, unknown, malformed or partial claims never
-    establish it, and a label alone never does. A hole-family feature is owned only by a
-    complete-form action (drill/ream/bore/counterbore): a spot, tap, pilot or profile op
-    never becomes a hole's owner through its claim.
+
+def workpiece_face_mapping(bundle, facts, workpiece_id):
+    """Exact explicit member face lookup; the lookup alone does not prove protection."""
+    if workpiece_id not in record(bundle.plan.get("workpieces")):
+        return {}
+    return record(record(facts.get("workpiece_mapping")).get(workpiece_id))
+
+
+def face_mapping(bundle, facts, setup=None, workpiece_id=None):
+    """Native face lookup in the same identity domain as :func:`claim_refs`."""
+    if not registered_workpieces(bundle):
+        return record(facts.get("mapping"))
+    if workpiece_id is not None:
+        if workpiece_id not in record(bundle.plan.get("workpieces")):
+            return {}
+        members = (workpiece_id,)
+    elif setup is not None:
+        from prechips.material_routes import MaterialGraph
+
+        members = MaterialGraph(bundle.plan).members(
+            setup.get("id") if isinstance(setup, dict) else setup
+        )
+    else:
+        members = record(bundle.plan.get("workpieces"))
+    return {
+        (member, ref): index
+        for member in members or ()
+        for ref, index in workpiece_face_mapping(bundle, facts, member).items()
+    }
+
+
+def member_protection_evidence(bundle, setup, member, facts=None):
+    """Bound native protection evidence, separate from declared live membership.
+
+    ``not_live`` means the identity does not belong to this arriving material. A
+    matching native containment ``error`` is a physical failure, never that identity
+    verdict; it must retain its reasons even while causal credit remains unavailable.
     """
-    if "faces" not in op:
+    from prechips.kernel import workpiece_inputs
+    from prechips.material_routes import MaterialGraph
+
+    sid = setup.get("id") if isinstance(setup, dict) else setup
+    result = {
+        "setup_id": sid,
+        "workpiece_id": member,
+        "status": UNKNOWN,
+        "reasons": [],
+        "proof": {},
+    }
+    registrations = bundle.plan.get("workpieces")
+    if not isinstance(registrations, dict):
+        return result
+    if member not in registrations:
+        return {**result, "status": "not_live"}
+    graph = MaterialGraph(bundle.plan)
+    live = graph.members(sid)
+    if live is not None and member not in live:
+        return {**result, "status": "not_live"}
+    if live is None:
+        return result
+    facts = record(getattr(bundle, "kernel", None)) if facts is None else facts
+    if facts.get("status") != "ok":
+        return result
+    detail = record(record(record(facts.get("setups")).get(sid)).get("workpieces"))
+    proof = record(detail.get(member))
+    paths = [
+        [{"split": edge.split, "output": edge.output} for edge in atom.path]
+        for atom in graph.nodes.get(sid, ())
+        if atom.workpieces is not None and member in atom.workpieces
+    ]
+    registration = record(workpiece_inputs(registrations, bundle.features.get("units"))).get(member)
+    if (
+        proof.get("workpiece_id") != member
+        or len(paths) != 1
+        or proof.get("partition_path") != paths[0]
+        or not isinstance(registration, dict)
+        or not isinstance(registration.get("pose"), dict)
+        or proof.get("registration") != registration
+    ):
+        return result
+    status = proof.get("status")
+    status = status if status in ("pass", "error") else UNKNOWN
+    reasons = proof.get("reasons")
+    reasons = (
+        [reason for reason in reasons if isinstance(reason, str)]
+        if isinstance(reasons, list)
+        else []
+    )
+    if status == "error" and not reasons:
+        reasons = ["the registered target is not contained in actual arriving stock"]
+    return {**result, "status": status, "reasons": reasons, "proof": proof}
+
+
+def member_protection_status(bundle, setup, member, facts=None):
+    """True only for protected material; False only for a non-live identity.
+
+    A native containment error withholds credit (None), but is not a different
+    material identity. Geometry rules consume ``member_protection_evidence`` to
+    report that known physical error without suppressing authored order errors.
+    """
+    status = member_protection_evidence(bundle, setup, member, facts)["status"]
+    return False if status == "not_live" else True if status == "pass" else None
+
+
+def canonical_face_mapping(bundle, facts, setup, *, workpiece_id=None):
+    """Canonical labels for one proved arriving member; never a global sibling map."""
+    if not registered_workpieces(bundle):
+        return record(facts.get("mapping"))
+    members = (workpiece_id,) if workpiece_id is not None else operation_members(bundle, setup)
+    if not members or member_protection_status(bundle, setup, members[0], facts) is not True:
+        return {}
+    return workpiece_face_mapping(bundle, facts, members[0])
+
+
+def feature_mapping(bundle, facts, setup, *, workpiece_id=None):
+    """Canonical feature labels for one proved arriving member's native faces."""
+    if not registered_workpieces(bundle):
+        return record(facts.get("features"))
+    members = (workpiece_id,) if workpiece_id is not None else operation_members(bundle, setup)
+    if not members or member_protection_status(bundle, setup, members[0], facts) is not True:
+        return {}
+    return record(record(facts.get("workpiece_features")).get(members[0]))
+
+
+def setup_member_geometry(bundle, setup, field, facts=None, *, workpiece_id=None):
+    """Select per-member setup geometry explicitly, retaining the legacy field contract."""
+    facts = record(getattr(bundle, "kernel", None)) if facts is None else facts
+    sid = setup.get("id") if isinstance(setup, dict) else setup
+    detail = record(record(facts.get("setups")).get(sid))
+    if not registered_workpieces(bundle):
+        return record(detail.get(field))
+    members = (workpiece_id,) if workpiece_id is not None else operation_members(bundle, setup)
+    if not members or member_protection_status(bundle, setup, members[0], facts) is not True:
+        return {}
+    qualified = record(detail.get(f"workpiece_{field}"))
+    if members[0] in qualified:
+        return record(qualified[members[0]])
+    return {
+        name: row
+        for name, row in record(detail.get(field)).items()
+        if isinstance(row, dict) and row.get("workpiece_id") == members[0]
+    }
+
+
+def operation_material_status(
+    bundle, receiver, producer, feature, *, op=None, producer_op=None, workpiece_id=None
+):
+    """Member-aware causal survival; native protection never comes from a sibling."""
+    from prechips.material_routes import feature_material_status
+
+    target = receiver.get("id") if isinstance(receiver, dict) else receiver
+    source = producer.get("id") if isinstance(producer, dict) else producer
+    if not registered_workpieces(bundle):
+        return feature_material_status(bundle.plan, target, source, feature, bundle)
+    members = (
+        (workpiece_id,) if workpiece_id is not None else operation_members(bundle, receiver, op)
+    )
+    if members is None:
+        return None
+    prior = operation_members(bundle, producer, producer_op) if producer_op is not None else None
+    selected = operation_members(bundle, receiver, op) if op is not None else None
+    statuses = []
+    for member in members:
+        if (
+            prior is not None
+            and member not in prior
+            or selected is not None
+            and member not in selected
+        ):
+            statuses.append(False)
+            continue
+        status = feature_material_status(
+            bundle.plan, target, source, feature, bundle, workpiece_id=member
+        )
+        protected = member_protection_status(bundle, receiver, member)
+        statuses.append(
+            False
+            if status is False or protected is False
+            else None
+            if producer_op is not None and prior is None or op is not None and selected is None
+            else status and protected
+        )
+    return False if False in statuses else True if statuses and all(statuses) else None
+
+
+def owns_feature(bundle, op, name, *, setup=None, workpiece_id=None):
+    """Whether a complete explicit claim owns every face of the selected member's feature."""
+    if "faces" not in op and "workpiece_faces" not in op:
         return False
     feature = record(bundle.feature_definitions.get(name))
     if feature.get("kind") in HOLE_KINDS and op.get("do") not in COMPLETE_FORM:
         return False
-    claimed, declared = op["faces"], feature.get("faces", UNKNOWN)
-    return known_refs(claimed) and known_refs(declared) and set(declared) <= set(claimed)
+    claimed, declared = claim_refs(bundle, op, setup), feature.get("faces", UNKNOWN)
+    if not known_refs(claimed) or not known_refs(declared):
+        return False
+    if not registered_workpieces(bundle):
+        return set(declared) <= set(claimed)
+    members = operation_members(bundle, setup or _operation_setup(bundle, op), op)
+    if members is None:
+        return False
+    selected = (workpiece_id,) if workpiece_id is not None else members
+    return any(
+        member in members and {(member, ref) for ref in declared} <= set(claimed)
+        for member in selected
+    )
 
 
 EXPORTED_FRAMES = "features.frames"
@@ -910,21 +1163,22 @@ def jaw_top_z(bundle, setup, hold, scale):
     return (min(bottom, rail) if rail is not None else bottom) + jaw / scale
 
 
-def operations(bundle, feature=None, owned=False):
-    """Every (setup, op), or those naming ``feature``; ``owned`` adds complete claimers.
+def operations(bundle, feature=None, owned=False, *, workpiece_id=None):
+    """Every (setup, op), optionally scoped by feature and physical member.
 
-    An inspect op naming a feature list selects each feature it names. With ``owned`` an
-    op also selects a feature it does not name when its explicit faces claim the whole
-    feature (``owns_feature``). Labels keep describing the op's own feature, so
-    label-scoped callers (chains, sizing, inspection) keep the default.
+    Complete explicit claims may own another feature only when ``owned`` is true.
+    A member selector never admits an ambiguous or different-member operation.
     """
     return [
         (setup, op)
         for setup in bundle.plan["setups"]
         for op in setup["ops"]
-        if feature is None
-        or feature in op_features(op)
-        or (owned and owns_feature(bundle, op, feature))
+        if (workpiece_id is None or workpiece_id in (operation_members(bundle, setup, op) or ()))
+        and (
+            feature is None
+            or feature in op_features(op)
+            or (owned and owns_feature(bundle, op, feature, setup=setup, workpiece_id=workpiece_id))
+        )
     ]
 
 

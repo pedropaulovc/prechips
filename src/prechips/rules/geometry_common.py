@@ -21,12 +21,17 @@ from prechips.rules.resolution import (
     UNRESOLVED_SAW_MODEL_REASON,
     _citations,
     claim_refs,
+    face_identity_text,
+    face_mapping,
     known_refs,
+    member_protection_status,
     number,
     op_feature,
+    operation_members,
     operations,
     plan_frame_cite,
     record,
+    registered_workpieces,
     resolve,
     select,
     setup_frame,
@@ -125,11 +130,15 @@ def finishing_subjects(bundle):
     # A saw cut removes stock but never finishes a target face; nor does stock
     # preparation of a plan process feature (it has no drawing face to finish). A file to
     # the line does.
+    members = (
+        record(bundle.plan.get("workpieces")) if registered_workpieces(bundle) else {None: None}
+    )
     return {
         f"{setup['id']}:{op['op']}"
+        for member in members
         for name, definition in bundle.feature_definitions.items()
         if not record(record(definition).get("preparation"))
-        for _, setup, op in _cuts(bundle, name)
+        for _, setup, op in _cuts(bundle, name, workpiece_id=member)
         if (cutting_action(op) is True or op.get("do") in HAND_FINISH)
         and op.get("do") not in SAW_OPS | {"coating"}
     }
@@ -145,7 +154,13 @@ def complete_form_subjects(bundle):
     for setup in bundle.plan["setups"]:
         for op in setup["ops"]:
             if op.get("do") in COMPLETE_FORM:
-                owners[op_feature(op)] = f"{setup['id']}:{op['op']}"
+                members = (
+                    operation_members(bundle, setup, op)
+                    if registered_workpieces(bundle)
+                    else (None,)
+                )
+                for member in members or ():
+                    owners[member, op_feature(op)] = f"{setup['id']}:{op['op']}"
     return set(owners.values())
 
 
@@ -217,10 +232,10 @@ def unavailable(bundle, rule, subject, facts, cite):
     )
 
 
-def mapped_feature(bundle, facts, name):
+def mapped_feature(bundle, facts, name, workpiece_id=None):
+    """Exact required native indices, preserving every registered physical member."""
     feature = record(bundle.feature_definitions.get(name))
     if record(feature.get("preparation")):
-        # Stock preparation maps to no finished face: it is never drawing coverage.
         return set(), []
     joint = record(feature.get("joint"))
     refs = [joint["label"]] if joint else feature.get("faces", UNKNOWN)
@@ -229,17 +244,36 @@ def mapped_feature(bundle, facts, name):
         invalid = [ref for ref in refs if ref != UNKNOWN and ref in errors]
         if invalid:
             return None, invalid
-    indices = record(facts.get("features")).get(name, UNKNOWN)
-    if (
-        not isinstance(refs, list)
-        or not refs
-        or UNKNOWN in refs
-        or not isinstance(indices, list)
-        or not indices
-    ):
+    if not known_refs(refs):
         return None, []
-    if len(indices) != len(set(indices)) or not all(
-        isinstance(i, int) and not isinstance(i, bool) and i >= 0 for i in indices
+    if registered_workpieces(bundle):
+        members = (
+            (workpiece_id,) if workpiece_id is not None else record(bundle.plan.get("workpieces"))
+        )
+        if not members:
+            return None, []
+        groups = [
+            record(record(facts.get("workpiece_features")).get(member)).get(name, UNKNOWN)
+            for member in members
+        ]
+        mapped = face_mapping(bundle, facts, workpiece_id=workpiece_id)
+        if any(
+            not isinstance(indices, list)
+            or not indices
+            or not all(_face_index(index) for index in indices)
+            or not all(_face_index(mapped.get((member, ref))) for ref in refs)
+            or set(indices) != {mapped.get((member, ref)) for ref in refs}
+            for member, indices in zip(members, groups, strict=True)
+        ):
+            return None, []
+        indices = [index for group in groups for index in group]
+    else:
+        indices = record(facts.get("features")).get(name, UNKNOWN)
+    if (
+        not isinstance(indices, list)
+        or not indices
+        or not all(_face_index(index) for index in indices)
+        or len(indices) != len(set(indices))
     ):
         return None, []
     return set(indices), []
@@ -258,7 +292,7 @@ def op_claims(bundle, facts, setup, op):
     measurably leaves as its own surface, and otherwise an empty set (never debt). A plan
     process-feature op (stock preparation) credits no finished face at all.
     """
-    refs = claim_refs(bundle, op)
+    refs = claim_refs(bundle, op, setup)
     if record(record(bundle.feature_definitions.get(op_feature(op))).get("preparation")):
         return set(), [], []
     errors = record(facts.get("mapping_errors"))
@@ -266,8 +300,16 @@ def op_claims(bundle, facts, setup, op):
     reported = detail.get("mapping_errors")
     named = [ref for ref in (refs if isinstance(refs, list) else []) if ref != UNKNOWN]
     invalid = sorted(
-        {ref for ref in named if ref in errors}
-        | {ref for ref in (reported if isinstance(reported, list) else []) if ref != UNKNOWN}
+        {
+            face_identity_text(ref)
+            for ref in named
+            if ref in errors or isinstance(ref, tuple) and ref[1] in errors
+        }
+        | {
+            face_identity_text(ref)
+            for ref in (reported if isinstance(reported, list) else [])
+            if ref != UNKNOWN
+        }
     )
     if invalid or not known_refs(refs):
         return None, [], invalid
@@ -279,10 +321,26 @@ def op_claims(bundle, facts, setup, op):
     if joint:
         return _certified(facts, detail), away, []
     indices = detail.get("claimed_indices", UNKNOWN)
-    if not isinstance(indices, list) or not all(
-        isinstance(i, int) and not isinstance(i, bool) and i >= 0 for i in indices
-    ):
+    if not isinstance(indices, list) or not all(_face_index(index) for index in indices):
         return None, away, []
+    if registered_workpieces(bundle):
+        members = operation_members(bundle, setup, op)
+        expected = {
+            member: [ref for selected, ref in refs if selected == member]
+            for member in members or ()
+        }
+        mapped = face_mapping(bundle, facts, setup)
+        if (
+            not members
+            or detail.get("workpiece_faces") != expected
+            or any(
+                member_protection_status(bundle, setup, member, facts) is not True
+                for member in members
+            )
+            or any(ref not in mapped or not _face_index(mapped[ref]) for ref in refs)
+            or not set(indices) <= {mapped[ref] for ref in refs}
+        ):
+            return None, away, []
     return set(indices), away, []
 
 
@@ -990,7 +1048,7 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                     rule, subject, "unknown", {}, cite, f"{subject}: cutting action is unknown."
                 )
             else:
-                _, away, invalid = op_claims(bundle, facts, setup, op)
+                claims, away, invalid = op_claims(bundle, facts, setup, op)
                 if detail.get("joint_error"):
                     blocked = Finding(
                         rule,
@@ -1009,10 +1067,16 @@ def op_contexts(bundle, rule, required=(), fixture=False, stock=True, turning=No
                         cite,
                         f"{subject}: invalid STEP face reference(s): {', '.join(invalid)}.",
                     )
-                elif not known_refs(claim_refs(bundle, op)) or (
-                    approach_reason
-                    and any(
-                        ref not in record(facts.get("mapping")) for ref in claim_refs(bundle, op)
+                elif (
+                    registered_workpieces(bundle)
+                    and claims is None
+                    or not known_refs(claim_refs(bundle, op, setup))
+                    or (
+                        approach_reason
+                        and any(
+                            ref not in face_mapping(bundle, facts, setup)
+                            for ref in claim_refs(bundle, op, setup)
+                        )
                     )
                 ):
                     blocked = Finding(

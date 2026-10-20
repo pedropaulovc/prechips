@@ -30,7 +30,9 @@ from prechips.rules.resolution import (
     SAW_OPS,
     UNKNOWN,
     claim_refs,
+    face_mapping,
     known_refs,
+    member_protection_evidence,
     op_entry,
     op_feature,
     operations,
@@ -40,6 +42,12 @@ from prechips.rules.resolution import (
 CLAIM_DEBT = "cutting claims are unknown, unmapped or undecided, or as-stock refs are unknown"
 # The band a joint-formed feature's joined corner is admitted against and read in.
 FORMED_REQUIREMENT = "radius"
+
+
+def _face_name(face):
+    """Keep a member's missing surface distinguishable from its canonical siblings."""
+    ref = face.get("canonical_ref", face.get("ref"))
+    return f"{face['workpiece_id']}:{ref}" if face.get("workpiece_id") else ref
 
 
 def _downstream(plan, sid):
@@ -139,12 +147,35 @@ def evaluate(bundle):
     cite = provenance(bundle, "coverage") + [
         "plan.stock.as_is_faces; union of each cutting op's direction-valid face claims"
     ]
+    containment = []
+    for setup in bundle.plan["setups"]:
+        for member in record(bundle.plan.get("workpieces")):
+            evidence = member_protection_evidence(bundle, setup, member, facts)
+            if evidence["status"] != "error":
+                continue
+            owner = f"{setup['id']}:{member}"
+            reasons = "; ".join(map(str, evidence["reasons"]))
+            containment.append(
+                Finding(
+                    "coverage",
+                    owner,
+                    "error",
+                    {
+                        "setup_id": setup["id"],
+                        "workpiece_id": member,
+                        "member_containment": evidence,
+                    },
+                    cite + [f"kernel.setups.{setup['id']}.workpieces.{member}"],
+                    f"{owner}: "
+                    f"{reasons or 'registered target is not contained in arriving stock'}.",
+                )
+            )
     blocked = unavailable(bundle, "coverage", subject, facts, cite)
     if blocked:
-        return [blocked]
+        return containment + [blocked]
     faces = facts.get("faces")
     if not isinstance(faces, list) or not faces:
-        return [
+        return containment + [
             Finding(
                 "coverage",
                 subject,
@@ -157,7 +188,7 @@ def evaluate(bundle):
     all_faces = {face["index"] for face in faces}
     claimed, rotary, errors, debt = set(), set(), [], False
     unsupported = set()
-    mapping = record(facts.get("mapping"))
+    mapping = face_mapping(bundle, facts)
     for setup, op in operations(bundle):
         if record(record(bundle.feature_definitions.get(op_feature(op))).get("joint")):
             # Transient preparation, even with an explicit face override, credits only the
@@ -177,7 +208,7 @@ def evaluate(bundle):
         indices, _, invalid = op_claims(bundle, facts, setup, op)
         errors.extend(invalid)
         if indices is None:
-            refs = claim_refs(bundle, op)
+            refs = claim_refs(bundle, op, setup)
             if (
                 approach_model_reason(bundle, setup, op)
                 and known_refs(refs)
@@ -190,20 +221,32 @@ def evaluate(bundle):
             # A rotary claim names faces its window merely intersects: the union decides.
             (rotary if approach(bundle, setup, op) == ROTARY else claimed).update(indices)
     refs = record(bundle.plan.get("stock")).get("as_is_faces", "unknown")
-    mapping, invalid = record(facts.get("mapping")), record(facts.get("mapping_errors"))
+    mapping, invalid = face_mapping(bundle, facts), record(facts.get("mapping_errors"))
     # A profiled blank's as-is face counts only once supplied as cut within its bands; a
     # refused one is listed in ``as_is_withheld`` (blank_credit's row prints why).
-    credits = blank_credit.credit(bundle, facts)
+    members = bundle.plan.get("workpieces")
+    member_credits = (
+        {member: blank_credit.credit(bundle, facts, workpiece_id=member) for member in members}
+        if isinstance(members, dict)
+        else {}
+    )
+    credits = {} if isinstance(members, dict) else blank_credit.credit(bundle, facts)
     withheld = []
-    if credits:
+    if credits or any(member_credits.values()):
         cite.append("blank_credit: profiled-blank as-is faces on the blank and within bands")
     if isinstance(refs, list):
+        # An as-stock declaration applies independently to each registered target,
+        # never through the canonical single-part index map.
+        if isinstance(bundle.plan.get("workpieces"), dict):
+            refs = [(member, ref) for member in bundle.plan["workpieces"] for ref in refs]
         for ref in refs:
-            verdict = record(credits.get(ref)).get("verdict", blank_credit.CREDITED)
-            if ref == "unknown":
+            canonical = ref[1] if isinstance(ref, tuple) else ref
+            supplied = member_credits.get(ref[0], {}) if isinstance(ref, tuple) else credits
+            verdict = record(supplied.get(canonical)).get("verdict", blank_credit.CREDITED)
+            if canonical == "unknown":
                 debt = True
-            elif ref in invalid:
-                errors.append(ref)
+            elif canonical in invalid:
+                errors.append(canonical)
             elif ref not in mapping:
                 debt = True
             elif verdict == blank_credit.CREDITED:
@@ -230,7 +273,7 @@ def evaluate(bundle):
     values = {
         "face_count": len(all_faces),
         "claimed_face_count": len(all_faces & claimed),
-        "unclaimed_faces": [face.get("ref") for face in faces if face["index"] in unclaimed],
+        "unclaimed_faces": [_face_name(face) for face in faces if face["index"] in unclaimed],
         "unclaimed_indices": unclaimed,
     }
     if gaps:
@@ -268,10 +311,10 @@ def evaluate(bundle):
             unclaimed = sorted(set(unclaimed) - unsupported)
             gaps = {index: gap for index, gap in gaps.items() if index not in unsupported}
             values.update(
-                unclaimed_faces=[face.get("ref") for face in faces if face["index"] in unclaimed],
+                unclaimed_faces=[_face_name(face) for face in faces if face["index"] in unclaimed],
                 unclaimed_indices=unclaimed,
                 unsupported_faces=[
-                    face.get("ref") for face in faces if face["index"] in candidates
+                    _face_name(face) for face in faces if face["index"] in candidates
                 ],
                 unsupported_indices=sorted(candidates),
             )
@@ -281,7 +324,7 @@ def evaluate(bundle):
         problems = []
         if unclaimed:
             names = [
-                face.get("ref") or f"imported face index {face['index']}"
+                _face_name(face) or f"imported face index {face['index']}"
                 for face in faces
                 if face["index"] in unclaimed
             ]
@@ -300,4 +343,6 @@ def evaluate(bundle):
             if formed
             else "every imported face is claimed by a cutting op or declared as-stock",
         )
-    return [Finding("coverage", subject, status, values, cite, f"{subject}: {message}.")]
+    return containment + [
+        Finding("coverage", subject, status, values, cite, f"{subject}: {message}.")
+    ]

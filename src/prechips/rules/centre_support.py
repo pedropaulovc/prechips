@@ -28,13 +28,13 @@ interpenetration.
 import re
 
 from prechips.findings import Finding
-from prechips.material_routes import feature_material_status
 from prechips.model import setup_lineage
 from prechips.process_features import ACTIONS, centre_depth_mm, label, process_of
 from prechips.rules.resolution import (
     UNKNOWN,
     identity,
     number,
+    operation_material_status,
     record,
     resolve,
     same_length,
@@ -111,7 +111,7 @@ def _makers(bundle, setup, name):
             if other["id"] not in earlier:
                 after.append(made)
                 continue
-            material = feature_material_status(bundle.plan, setup["id"], other["id"], name, bundle)
+            material = operation_material_status(bundle, setup, other, name, producer_op=op)
             if material is False:
                 rejected.append(made)
             elif material is None or op.get("feature") == UNKNOWN or op.get("do") == UNKNOWN:

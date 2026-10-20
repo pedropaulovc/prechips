@@ -4115,6 +4115,12 @@ def _recut_by(bundle, op, lineage=None):
     the opposite face), and the face claim does not compare depth. A claim without
     ``faces`` is the whole feature. Given ``lineage`` (a filing's workpiece setups), work on
     another stock branch neither recuts nor files the faces."""
+    from .resolution import operation_material_status, registered_workpieces
+
+    producer = next(
+        (setup for setup in bundle.plan["setups"] if any(cut is op for cut in setup["ops"])),
+        None,
+    )
     name, faces = op.get("feature"), op.get("faces")
     passed, last = False, None
     for setup in bundle.plan["setups"]:
@@ -4126,6 +4132,14 @@ def _recut_by(bundle, op, lineage=None):
                 continue
             if not passed or other.get("feature") != name:
                 continue
+            if registered_workpieces(bundle):
+                material = operation_material_status(
+                    bundle, setup, producer, name, op=other, producer_op=op
+                )
+                if material is False:
+                    continue
+                if material is None:
+                    return UNKNOWN
             if other.get("do") in HAND_FINISH:
                 return last
             later = other.get("faces")

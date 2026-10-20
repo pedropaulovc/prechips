@@ -70,6 +70,13 @@ Measurement conventions (setup frame, tool axis +Z):
   op releases a column whose bore opens on a claimed +Z face above that face's cut
   height, inside the box, guard window and its own outer-loop sweep. Before joining,
   a column is kept only inside the ownership regions of the branch's components.
+* Registered workpieces bind canonical STEP faces before applying instance poses.
+  Their physical face identities are member-qualified and their finished targets are
+  protected independently. Retained cuts prove two complete, conserving children;
+  ordered partition paths distinguish nested siblings from overlapping ancestors.
+  Posed/borrowed supports and capture use identical actual solids for native contact,
+  collision and rendering. Requested transverse pickups sweep the complete measured
+  finder/holder against that arriving-stock scene, independently of ordinary zero math.
 * Modelled placement only: each sample gets one prescribed tool pose, so a hit
   means that pose collides, not that no other pose reaches the face.
 * Vise: stock seated at its lowest z; jaw zone z in [seat, seat +
@@ -4555,11 +4562,20 @@ class _FiniteSaw:
             elif surface.get("kind") == "stock":
                 # A named face is resolved against actual arriving stock, not edge alone.
                 named = surface.get("face", touch.get("face"))
-                indices = self.setup.owner.features.get(named, [])
-                indices = indices if isinstance(indices, list) else []
-                indices = set(indices) | {
-                    index for index, ref in enumerate(self.setup.owner.labels) if ref == named
-                }
+                indices = self.setup._feature_indices(named, surface.get("workpiece_id"))
+                if not isinstance(indices, list):
+                    indices = []
+                if getattr(self.setup.owner, "workpieces", {}):
+                    member = surface.get("workpiece_id")
+                    claim = (
+                        {"workpiece_faces": {member: [named]}}
+                        if member is not None
+                        else {"faces": [named]}
+                    )
+                    direct = self.setup._indices(claim)
+                else:
+                    direct = self.setup.owner._feature([named])
+                indices = set(indices) | (set(direct) if isinstance(direct, list) else set())
                 for face_index in indices:
                     if face_index >= len(self.setup.faces):
                         continue
@@ -4674,7 +4690,7 @@ class _FiniteSaw:
             try:
                 if not isinstance(capture.get("components"), list) or not capture["components"]:
                     raise _Unknown("upper capture physical component geometry is unknown")
-                self.capture_scene = self._place(capture.get("components"), "capture")
+                self.capture_scene = self.setup._capture_scene(self.op)
                 for c in self.capture_scene:
                     if c["solid"].common(self.stock).Volume > HIT_MM3:
                         capture_errors.append(
@@ -5017,6 +5033,9 @@ class _Job:
         self.multisolid = False
         # Component -> ownership region (:meth:`_init_joints`); absent is unrestricted.
         self.owned_regions = {}
+        self.workpieces = {}
+        self.workpiece_mapping = {}
+        self.workpiece_features = {}
         if timing is not None:
             timing["setups"] = {}
 
@@ -5136,6 +5155,10 @@ class _Job:
                     )
                     for name, ref in declared_solids.items()
                 }
+            if "workpieces" in job:
+                self._init_workpieces(result)
+                solid = self.solid
+                signatures = [_signature(face) for face in solid.Faces]
             if aimed_facts:
                 result["aimed_faces"] = aimed_facts
             setups = job.get("setups", [])
@@ -5143,10 +5166,13 @@ class _Job:
                 raise ValueError("job setups is not a list")
         with _timed(phases, "stock_prep"):
             self.as_is_contact = {}
+            self.workpiece_as_is_contact = {}
             supplies, (stock, reason) = self._supplies()
             self.raw_supplies = supplies
             if self.as_is_contact:
                 result["as_is_contact"] = dict(sorted(self.as_is_contact.items()))
+            if self.workpiece_as_is_contact:
+                result["workpiece_as_is_contact"] = self.workpiece_as_is_contact
             # Each profiled blank's own box: the traveler's receiving size for a bought blank.
             blanks = {
                 name: [_r(v) for v in _bbox(solid)]
@@ -5163,7 +5189,8 @@ class _Job:
                     "consumed": set(),
                     "formed": set(),
                     "partitions": {},
-                    "finished_names": None,
+                    "finished_names": set(self.workpieces) if self.workpieces else None,
+                    "member_transforms": {name: FreeCAD.Matrix() for name in self.workpieces},
                 }
                 for ref in supplies
             }
@@ -5180,6 +5207,20 @@ class _Job:
             self.exclusive_refs = set().union(
                 *(self.joint_ancestors.get(sid, set()) for sid in self.split_setup_ids)
             )
+            # Registered members identify one actual initial supply. Legacy raw
+            # envelopes remain reusable for unrelated ordinary setup fan-out.
+            if self.workpieces:
+                self.exclusive_refs.update(
+                    ref
+                    for setup in setups
+                    if setup["id"] in self.exclusive_refs
+                    for ref in (
+                        setup["stock_in"]
+                        if isinstance(setup.get("stock_in"), list)
+                        else [setup.get("stock_in")]
+                    )
+                    if ref in self.raw_supplies
+                )
             self._init_process(stock if reason is None else None)
             result["transient_faces"] = [
                 {"index": len(signatures) + index, "label": self.labels[len(signatures) + index]}
@@ -5191,6 +5232,7 @@ class _Job:
                 else {"reason": reason}
             )
             outputs = dict(supplies)
+            self.outputs = outputs
             leaves = dict.fromkeys(outputs, 0.0)  # largest known rough leave each lineage carries
             rotary = any(
                 _rotary(op)
@@ -5231,6 +5273,7 @@ class _Job:
                     "partitions": state["partitions"],
                     "finished_names": state["finished_names"],
                     "registrations": state.get("registrations", {}),
+                    "member_transforms": state.get("member_transforms", {}),
                 }
                 if sid in self.formed_rows:
                     facts["forms"] = self.formed_rows[sid]
@@ -5248,9 +5291,15 @@ class _Job:
                     self.states[ref] = runner.output_states[ref]
                     if output[1] is None:
                         pose, _ = _frame_matrix(runner.output_specs[ref]["pose"])
+                        forward = pose.inverse()
+                        prior = state.get("registrations", {})
                         self.states[ref]["registrations"] = {
-                            ancestor: pose.inverse() for ancestor in {sid, *lineage[sid]}
+                            ancestor: prior.get(ancestor, FreeCAD.Matrix()).multiply(
+                                forward.inverse()
+                            )
+                            for ancestor in {sid, *lineage[sid]}
                         }
+                        self.states[ref]["registrations"][sid] = forward.inverse()
                     leaves[ref] = runner.leave_out
                     lineage[ref] = {sid, *lineage[sid]}
                 runners.append((sid, runner))
@@ -5267,6 +5316,89 @@ class _Job:
                 }
         return result
 
+    def _init_workpieces(self, result):
+        """Instantiate only after exact canonical STEP binding has completed."""
+        specs = self.job["workpieces"]
+        if not isinstance(specs, dict) or not specs:
+            raise _Unknown("workpiece registrations are unknown")
+        stock = self.job.get("stock")
+        if isinstance(stock, dict) and stock.get("components"):
+            raise ValueError("registered workpieces require one canonical stock supply")
+        canonical = self.solid
+        canonical_mapping = dict(self.mapping)
+        canonical_features = dict(self.features)
+        targets, labels, rows = [], [], []
+        face_solids, finished_solids = {}, {}
+        count = len(canonical.Faces)
+        refs_by_index = {row["index"]: row["ref"] for row in result["faces"]}
+        for number, (name, spec) in enumerate(sorted(specs.items())):
+            if not isinstance(name, str) or not name.strip() or not isinstance(spec, dict):
+                raise ValueError("workpiece identity or registration is invalid")
+            inverse, reason = _frame_matrix(spec.get("pose"))
+            if reason is not None:
+                raise _Unknown(f"workpiece {name} registration is unknown ({reason})")
+            target = canonical.copy()
+            target.transformShape(inverse.inverse())
+            if not target.isValid() or target.Volume <= HIT_MM3:
+                raise _Unknown(f"workpiece {name} registration yields invalid finished material")
+            for other, placed in finished_solids.items():
+                if target.common(placed).Volume > HIT_MM3:
+                    raise ValueError(f"workpieces {other} and {name} overlap finished material")
+            offset = number * count
+            mapping = {ref: offset + index for ref, index in canonical_mapping.items()}
+            self.workpieces[name] = spec
+            self.workpiece_mapping[name] = mapping
+            self.workpiece_features[name] = {
+                feature: (
+                    [offset + index for index in indices] if isinstance(indices, list) else UNKNOWN
+                )
+                for feature, indices in canonical_features.items()
+            }
+            for index, face in enumerate(target.Faces):
+                native = offset + index
+                ref = refs_by_index.get(index)
+                face_solids[native] = name
+                labels.append(f"{name}: {ref or f'imported face index {index}'}")
+                kind, area, box, _ = _signature(face)
+                rows.append(
+                    {
+                        "ref": ref,
+                        "canonical_ref": ref,
+                        "workpiece_id": name,
+                        "index": native,
+                        "kind": kind,
+                        "bbox_mm": [_r(v) for v in box],
+                        "area_mm2": _r(area),
+                        "fills_bbox": _fills_bbox(face),
+                    }
+                )
+            finished_solids[name] = target
+            targets.append(target)
+        self.solid = Part.makeCompound(targets)
+        self.finished_solids = finished_solids
+        self.face_solids = face_solids
+        self.labels = labels
+        self.multisolid = True
+        self.features = {
+            feature: (
+                sorted(
+                    index
+                    for features in self.workpiece_features.values()
+                    for index in features[feature]
+                )
+                if isinstance(indices, list)
+                else UNKNOWN
+            )
+            for feature, indices in canonical_features.items()
+        }
+        result.update(
+            bbox_mm=[_r(v) for v in _bbox(self.solid)],
+            faces=rows,
+            features=self.features,
+            workpiece_mapping=self.workpiece_mapping,
+            workpiece_features=self.workpiece_features,
+        )
+
     def _collect_rotary_portions(self, runner):
         """Retain known portions and unresolved contributions; empty/away claims add neither."""
         inverse = runner.matrix.inverse() if runner.matrix is not None else None
@@ -5277,17 +5409,20 @@ class _Job:
             claim_reason = runner.protection_reason
             if not isinstance(indices, list):
                 refs, _ = runner._claim_refs(op)
-                indices = (
-                    sorted(
-                        {
-                            self.mapping[ref]
-                            for ref in refs
-                            if isinstance(ref, str) and ref in self.mapping
-                        }
+                if self.workpieces:
+                    indices = []
+                else:
+                    indices = (
+                        sorted(
+                            {
+                                self.mapping[ref]
+                                for ref in refs
+                                if isinstance(ref, str) and ref in self.mapping
+                            }
+                        )
+                        if isinstance(refs, list)
+                        else []
                     )
-                    if isinstance(refs, list)
-                    else []
-                )
                 claim_reason = "claimed face references are unknown or unmapped"
             if inverse is None:
                 claim_reason = runner.stock_out_reason or "setup frame is unusable"
@@ -5473,13 +5608,37 @@ class _Job:
                     "as-is face reference(s) unmapped, so their supplied-stock surfaces cannot "
                     "be checked: " + ", ".join(unmapped)
                 )
+            if self.workpieces:
+                self.workpiece_as_is_contact = {
+                    member: {
+                        ref: {
+                            **self._as_is_contact(ref, solid, pieces, mapping[ref]),
+                            "workpiece_id": member,
+                            "registration": self.workpieces[member],
+                        }
+                        for ref in refs
+                    }
+                    for member, mapping in self.workpiece_mapping.items()
+                }
             if _profiled(self.job.get("stock")):
-                self.as_is_contact = {ref: self._as_is_contact(ref, solid, pieces) for ref in refs}
+                if not self.workpieces:
+                    self.as_is_contact = {
+                        ref: self._as_is_contact(ref, solid, pieces) for ref in refs
+                    }
                 return solid, None
             shell = Part.makeCompound(solid.Shells)
             off = []
-            for ref in refs:
-                samples, _ = _face_samples(self.solid.Faces[self.mapping[ref]], 1.0)
+            candidates = (
+                [
+                    (f"{member}: {ref}", mapping[ref])
+                    for member, mapping in self.workpiece_mapping.items()
+                    for ref in refs
+                ]
+                if self.workpieces
+                else [(ref, self.mapping[ref]) for ref in refs]
+            )
+            for ref, index in candidates:
+                samples, _ = _face_samples(self.solid.Faces[index], 1.0)
                 if not samples or any(
                     shell.distToShape(Part.Vertex(point))[0] > STOCK_TOL for point, _ in samples
                 ):
@@ -5491,14 +5650,14 @@ class _Job:
                 )
         return solid, None
 
-    def _as_is_contact(self, ref, solid, pieces):
+    def _as_is_contact(self, ref, solid, pieces, index=None):
         """Whether one as-is face lies on the joined raw supply's boundary within
         STOCK_TOL (``max_gap_mm``: its farthest sample's distance), so a face spanning
         adjacent components counts. ``supplies`` names every raw supply sharing a
         positive area of the face (the exact face/solid common, SUPPLY_MM2): each one's
         cut answers for the face however narrow its share, while a neighbour meeting it
         only along an edge does not. A failed common leaves the contact unknown."""
-        face = self.solid.Faces[self.mapping[ref]]
+        face = self.solid.Faces[self.mapping[ref] if index is None else index]
         samples, _ = _face_samples(face, 1.0)
         if not samples:
             return {"contact": UNKNOWN, "reason": "the face yields no samples"}
@@ -5557,8 +5716,7 @@ class _Job:
                 derived = [
                     ref
                     for ref in refs
-                    if ref not in self.raw_supplies
-                    and (
+                    if (
                         ref in self.exclusive_refs
                         or any(self.states.get(ref, {}).get("partitions", {}).values())
                     )
@@ -5579,12 +5737,19 @@ class _Job:
                 for root in state["components"] & upstream["components"]:
                     prior = state["partitions"].get(root, set())
                     incoming = upstream.get("partitions", {}).get(root, set())
-                    if not prior or not incoming or prior & incoming:
-                        raise ValueError("stock_in branches share component ancestry")
-                    if len({split for split, _ in prior | incoming}) != 1:
-                        raise ValueError("stock_in branches have unproven material overlap")
-                    if not all(self.partition_proofs.get(split) for split, _ in prior | incoming):
-                        raise _Unknown("stock_in sibling partition geometry is unproven")
+                    for first in prior or {()}:
+                        for second in incoming or {()}:
+                            differing = next(
+                                ((a, b) for a, b in zip(first, second, strict=False) if a != b),
+                                None,
+                            )
+                            if differing is None:
+                                raise ValueError("stock_in branches share component ancestry")
+                            a, b = differing
+                            if a[0] != b[0] or a[1] == b[1]:
+                                raise ValueError("stock_in branches have unproven material overlap")
+                            if not self.partition_proofs.get(a[0]):
+                                raise _Unknown("stock_in sibling partition geometry is unproven")
                 for root, tokens in upstream.get("partitions", {}).items():
                     state["partitions"].setdefault(root, set()).update(tokens)
                 state["components"].update(upstream["components"])
@@ -5596,6 +5761,12 @@ class _Job:
             state["finished_names"] = (
                 set().union(*names) if all(value is not None for value in names) else None
             )
+            state["member_transforms"] = {}
+            for ref in refs:
+                transforms = self.states[ref].get("member_transforms", {})
+                if state["member_transforms"].keys() & transforms.keys():
+                    raise ValueError("stock_in branches repeat a workpiece identity")
+                state["member_transforms"].update(transforms)
             if len(refs) == 1:
                 state["registrations"] = dict(self.states[refs[0]].get("registrations", {}))
             if (
@@ -6428,15 +6599,21 @@ class _Job:
         return features if isinstance(features, dict) else {}
 
     def _claims(self):
-        """Explicit ``faces`` lists of every op in the job."""
+        """Canonical references in explicit ordinary and member-qualified op claims."""
         setups = self.job.get("setups")
-        return [
-            op["faces"]
-            for setup in (setups if isinstance(setups, list) else ())
-            if isinstance(setup, dict) and isinstance(setup.get("ops"), list)
-            for op in setup["ops"]
-            if isinstance(op, dict) and isinstance(op.get("faces"), list)
-        ]
+        claims = []
+        for setup in setups if isinstance(setups, list) else ():
+            if not isinstance(setup, dict):
+                continue
+            for op in setup.get("ops", []):
+                if not isinstance(op, dict):
+                    continue
+                if isinstance(op.get("faces"), list):
+                    claims.append(op["faces"])
+                qualified = op.get("workpiece_faces")
+                if isinstance(qualified, dict):
+                    claims.extend(qualified.values())
+        return claims
 
     def _job_refs(self, step, mapping, errors):
         refs = []
@@ -6444,6 +6621,17 @@ class _Job:
         aimed = self.job.get("aimed_faces")
         aimed = aimed if isinstance(aimed, list) else []
         faces = [spec.get("face") for spec in aimed if isinstance(spec, dict)]
+        for setup in self.job.get("setups", []):
+            for request in setup.get("zero_pickups", {}).values():
+                if isinstance(request, dict):
+                    surface = request.get("surface", {})
+                    if (
+                        isinstance(surface, dict)
+                        and surface.get("kind") == "stock"
+                        and isinstance(surface.get("face"), str)
+                        and not surface["face"].startswith("stock:")
+                    ):
+                        faces.append(surface["face"])
         for value in declared + [self.job.get("as_is_faces"), faces]:
             if isinstance(value, list):
                 refs.extend(ref for ref in value if isinstance(ref, str) and ref != UNKNOWN)
@@ -6522,7 +6710,11 @@ class _Setup:
                     "completed": {},
                     "finished_names": None,
                     "partitions": {
-                        root: {(self._subject(op), name)} for root in self.state["components"]
+                        root: {
+                            (*path, (self.setup["id"], name))
+                            for path in self.state["partitions"].get(root, {()})
+                        }
+                        for root in self.state["components"]
                     },
                 }
         # Setup-frame stock entering the setup and after each op that changes it.
@@ -6567,6 +6759,10 @@ class _Setup:
         # Placed fixture components: {name, role, solid, bbox, box, rotating}; their union is
         # the fixture obstacle. ``possible`` are (name, box) regions a jaw may also occupy.
         self.fixture = []
+        self.capture_fixture = []
+        self.capture_scenes = {}
+        self.capture_debts = []
+        self.fixture_errors = []
         self.fixture_possible = []
         self.fixture_possible_shapes = []  # each possible region's own solid, for the picture
         self.jaw_frame_box = None  # a swivelled vise's stock box in its jaw frame
@@ -6631,6 +6827,46 @@ class _Setup:
         return names is not None and self.owner.face_solids.get(index) in names
 
     # ------------------------------------------------------------------ setup facts
+    def _registered_target(self, name):
+        target = self.owner.finished_solids[name].copy()
+        transform = self.state.get("member_transforms", {}).get(name)
+        if transform is not None:
+            target.transformShape(transform)
+        return target
+
+    def _partition_path(self):
+        paths = [
+            [{"split": split, "output": output} for split, output in path]
+            for root in sorted(self.state["components"])
+            for path in sorted(self.state["partitions"].get(root, {()}))
+        ]
+        return paths[0] if len(paths) == 1 else None
+
+    def _workpiece_facts(self):
+        names = self.state.get("finished_names")
+        facts = {}
+        for name in sorted(names or ()):
+            if name not in getattr(self.owner, "workpieces", {}):
+                continue
+            reasons = []
+            if self.stock_reason is not None:
+                reasons.append(self.stock_reason)
+            if self.protection_reason is not None:
+                reasons.append(self.protection_reason)
+            target = self._registered_target(name)
+            outside = self.held is not None and target.cut(self.held).Volume > HIT_MM3
+            if self.held is None or outside:
+                reasons.append("whole finished target is not contained in actual arriving stock")
+            facts[name] = {
+                "workpiece_id": name,
+                "registration": self.owner.workpieces[name],
+                "status": "error" if outside else UNKNOWN if reasons else "pass",
+                "reasons": reasons,
+                "partition_path": self._partition_path(),
+                "volume_mm3": _r(target.Volume),
+                "bbox_mm": [_r(v) for v in _bbox(self._placed(target))],
+            }
+        return facts
 
     def run(self):
         clocks = self.timing
@@ -6643,7 +6879,12 @@ class _Setup:
             "reasons": {},
         }
         if matrix is not None:
-            finished = self.owner.solid.copy()
+            if getattr(self.owner, "workpieces", {}):
+                finished = Part.makeCompound(
+                    [self._registered_target(name) for name in sorted(self.owner.workpieces)]
+                )
+            else:
+                finished = self.owner.solid.copy()
             try:
                 finished.transformShape(matrix)
             except Exception as exc:
@@ -6656,7 +6897,7 @@ class _Setup:
                 names = self.state["finished_names"]
                 if self.owner.multisolid:
                     owned = (
-                        [self.owner.finished_solids[name] for name in names]
+                        [self._registered_target(name) for name in sorted(names)]
                         if names and all(name in self.owner.finished_solids for name in names)
                         else []
                     )
@@ -6700,6 +6941,8 @@ class _Setup:
                     for ref in self.named_outputs
                 }
             ops = {}
+            if self.setup.get("zero_pickups"):
+                facts["zero_pickups"] = self._zero_pickups()
             for op in self.ops:
                 with _timed(op_clocks, self._subject(op)):
                     ops[self._subject(op)] = self._op_unknown(op, frame_reason)
@@ -6715,8 +6958,20 @@ class _Setup:
                 facts["tooling_holes"] = holes
             if self.setup.get("stock_features"):
                 facts["stock_faces_mm"] = self._stock_faces()
+                if getattr(self.owner, "workpieces", {}):
+                    facts["workpiece_stock_faces_mm"] = {
+                        member: self._stock_faces(member)
+                        for member in sorted(self.state.get("finished_names") or ())
+                    }
             with _timed(phases, "fixture"):
                 self._fixture(facts)
+                if getattr(self.owner, "workpieces", {}):
+                    facts["workpieces"] = self._workpiece_facts()
+                    if any(row["status"] != "pass" for row in facts["workpieces"].values()):
+                        self.protection_reason = (
+                            "registered finished targets are not wholly present in arriving stock"
+                        )
+                self._prepare_captures()
         else:
             # Only protected material belonging to these received components is certain.
             # Other components and the permitted socket void are not present on this branch.
@@ -6725,6 +6980,9 @@ class _Setup:
             facts["stock_reason"] = self.fixture_reason = self.stock_reason
             for key in _VISE_FACTS:
                 facts["reasons"][key] = self.stock_reason
+        if self.setup.get("zero_pickups"):
+            self.fixture_errors = list(facts.get("fixture_clashes", []))
+            facts["zero_pickups"] = self._zero_pickups()
         # Lathe chucks grip radially: their thin-wall fact is the run of material under each
         # jaw. ``chuck`` is set only once the fixture-solid model has placed a chuck.
         if self.stock_reason is None and self.chuck is not None:
@@ -6752,6 +7010,8 @@ class _Setup:
         for op in self.ops:
             with _timed(op_clocks, self._subject(op)):
                 result = self._op(op)
+                if getattr(self.owner, "workpieces", {}):
+                    result["workpiece_faces"] = self._qualified_claims(op) or {}
                 if self.stock_reason is not None and not _sawn(op) and not _hand(op):
                     self._unproven(result, self.stock_reason)
                 if self.protection_reason is not None and not _hand(op):
@@ -6832,14 +7092,116 @@ class _Setup:
             facts["reason"] = unknown[0]
         return facts, ops
 
-    def _stock_faces(self):
+    def _feature_indices(self, feature, member=None):
+        if not getattr(self.owner, "workpieces", {}):
+            return self.owner.features.get(feature)
+        names = self.state.get("finished_names")
+        if names is None:
+            return UNKNOWN
+        if member is None:
+            if len(names) != 1:
+                return UNKNOWN
+            member = next(iter(names))
+        if member not in names:
+            return UNKNOWN
+        return self.owner.workpiece_features.get(member, {}).get(feature, UNKNOWN)
+
+    def _capture_scene(self, op):
+        key = self._subject(op)
+        if key not in self.capture_scenes:
+            mounted = op.get("mounted_saw", {})
+            scene = _FiniteSaw(self, op, self.part)._place(
+                mounted.get("capture", {}).get("components"), "capture"
+            )
+            if not scene:
+                raise _Unknown("upper capture physical component geometry is unknown")
+            self.capture_scenes[key] = scene
+            for component in scene:
+                self.capture_fixture.append(
+                    {
+                        **component,
+                        "role": "clamp" if component["role"] == "moving_clamp" else "fixture",
+                        "owner": "capture:" + key,
+                        "bbox": _bbox(component["solid"]),
+                        "box": None,
+                        "envelope": component["solid"],
+                        "envelope_bbox": _bbox(component["solid"]),
+                        "capture_subject": key,
+                    }
+                )
+        return self.capture_scenes[key]
+
+    def _prepare_captures(self):
+        for op in self.ops:
+            if isinstance(op.get("mounted_saw"), dict):
+                try:
+                    self._capture_scene(op)
+                except Exception as exc:
+                    self.capture_debts.append(f"capture obstacle is unresolved ({exc})")
+
+    def _zero_pickups(self):
+        import zero_pickup
+
+        model_faces = {}
+        if getattr(self.owner, "workpieces", {}):
+            names = self.state.get("finished_names") or set()
+            for member in sorted(names):
+                for ref, index in self.owner.workpiece_mapping.get(member, {}).items():
+                    if index < len(self.faces):
+                        model_faces[(member, ref)] = self.faces[index]
+                        if len(names) == 1:
+                            model_faces[ref] = self.faces[index]
+        else:
+            model_faces = {
+                ref: self.faces[index]
+                for ref, index in self.owner.mapping.items()
+                if index < len(self.faces)
+            }
+        reasons = [
+            *self.setup.get("zero_pickup_reasons", []),
+            *self.fixture_debts,
+            *self.fixture_gaps,
+            *self.undrawn,
+            *self.capture_debts,
+        ]
+        if self.stock_reason is not None:
+            reasons.append(self.stock_reason)
+        if not self.fixture_ready:
+            reasons.append(self.fixture_reason or "actual fixture scene is unresolved")
+        reasons.extend(
+            f"{name} possible fixture extension is unresolved" for name, _ in self.fixture_possible
+        )
+        return zero_pickup.prove_pickups(
+            FreeCAD,
+            Part,
+            {
+                **self.setup,
+                "zero_pickup_reasons": list(dict.fromkeys(reasons)),
+                "zero_pickup_errors": [
+                    *self.setup.get("zero_pickup_errors", []),
+                    *self.fixture_errors,
+                ],
+            },
+            None if self.stock_reason is not None or self.matrix is None else self.part,
+            [*self.fixture, *self.capture_fixture],
+            helpers={
+                "sweep": _FiniteSaw._sweep,
+                "bbox": _bbox,
+                "model_faces": model_faces,
+                "plane_tol": PLANE_TOL,
+                "hit_mm3": HIT_MM3,
+                "area_tol": AREA_ABS,
+            },
+        )
+
+    def _stock_faces(self, member=None):
         """stock_faces_mm: each named feature's horizontal finished faces as held, by outward
         side, ``up`` (+Z) and ``down`` (-Z): ``{face_z, stock_z}``, their one Z and the
         entering stock's highest point over their footprint (lowest under it; the face's own
         Z once it is cut), else ``{reason}``. A feature without resolved faces is ``{reason}``."""
         result = {}
         for name in self.setup["stock_features"]:
-            indices = self.owner.features.get(name)
+            indices = self._feature_indices(name, member)
             if not (isinstance(indices, list) and indices):
                 result[name] = {"reason": f"feature {name} has no resolved faces"}
                 continue
@@ -6851,6 +7213,17 @@ class _Setup:
             result[name] = {
                 side: self._stock_over(name, side, faces) for side, faces in sides.items()
             }
+            selected = member
+            names = self.state.get("finished_names")
+            if (
+                selected is None
+                and getattr(self.owner, "workpieces", {})
+                and names
+                and len(names) == 1
+            ):
+                selected = next(iter(names))
+            if selected is not None:
+                result[name]["workpiece_id"] = selected
         return result
 
     def _stock_over(self, name, side, faces):
@@ -7494,24 +7867,40 @@ class _Setup:
                         else:
                             self.named_outputs.update(outputs)
                             self.output_records.update(records)
-                            self.owner.partition_proofs[subject] = True
+                            self.owner.partition_proofs[self.setup["id"]] = True
                             for name, record in records.items():
                                 ref = "stock_out." + name
-                                self.output_states[ref]["finished_names"] = {
-                                    record["finished_solid"]
-                                }
+                                members = record.get("carries_workpieces")
+                                self.output_states[ref]["finished_names"] = (
+                                    set(members) if members else {record["finished_solid"]}
+                                )
+                                if members:
+                                    inverse, _ = _frame_matrix(self.output_specs[ref]["pose"])
+                                    forward = inverse.inverse()
+                                    self.output_states[ref]["member_transforms"] = {
+                                        member: forward.multiply(
+                                            self.state.get("member_transforms", {}).get(
+                                                member, FreeCAD.Matrix()
+                                            )
+                                        )
+                                        for member in members
+                                    }
         return (None, stopped) if stopped is not None else (stock, None)
 
     def _retained_outputs(self, op, before, after):
         """Prove two physical siblings before registering either posed output.
 
-        The selector is the entire source-owned finished solid, not a feature
-        point or an imported-shape index. Pose maps incoming model coordinates
-        forward; ``_frame_matrix`` is the inverse of that convention.
+        Legacy selectors name an entire source-owned finished solid; registered
+        outputs name complete live member sets. Neither uses a feature point or
+        imported-shape order. Output pose maps incoming model coordinates forward.
         """
         specs = op.get("outputs")
-        if op.get("do") != "part_off" or not isinstance(specs, dict) or len(specs) != 2:
-            return {}, {}, "retained outputs require exactly two names on a part_off"
+        if (
+            op.get("do") not in {"part_off", "cut_off"}
+            or not isinstance(specs, dict)
+            or len(specs) != 2
+        ):
+            return {}, {}, "retained outputs require exactly two names on a part_off or cut_off"
         if self.setup.get("keep"):
             return {}, {}, "retained outputs cannot be combined with setup keep"
         operations = self.setup.get("ops", [])
@@ -7535,8 +7924,8 @@ class _Setup:
                         f"later operation {later_subject} may change stock"
                     ),
                 )
-        if self.state.get("partitions"):
-            return {}, {}, "named nested partitions are unsupported"
+        if getattr(self.owner, "workpieces", {}):
+            return self._batch_retained_outputs(op, before, after)
         if before is None or after is None or self.matrix is None:
             return {}, {}, "retained output cut geometry is unknown"
         try:
@@ -7604,6 +7993,114 @@ class _Setup:
         except Exception as exc:
             return {}, {}, f"retained partition proof failed ({exc})"
 
+    def _batch_retained_outputs(self, op, before, after):
+        """Prove every live registered target belongs wholly to one real child."""
+        if before is None or after is None or self.matrix is None:
+            return {}, {}, "retained output cut geometry is unknown"
+        names = self.state.get("finished_names")
+        if not names or self.protection_reason is not None:
+            return {}, {}, "registered target protection and incoming ownership are unproven"
+        try:
+            pieces = sorted(after.Solids, key=lambda piece: _bbox(piece)[2])
+            if (
+                len(before.Solids) != 1
+                or len(pieces) != 2
+                or not before.isValid()
+                or not after.isValid()
+                or not all(piece.Volume > HIT_MM3 for piece in pieces)
+                or after.cut(before).Volume > HIT_MM3
+                or pieces[0].common(pieces[1]).Volume > HIT_MM3
+            ):
+                return {}, {}, "retained cut requires exactly two disjoint physical children"
+            removed = before.cut(after)
+            volume_error = abs(
+                before.Volume - removed.Volume - sum(piece.Volume for piece in pieces)
+            )
+            if removed.Volume <= HIT_MM3 or volume_error > HIT_MM3:
+                return {}, {}, "retained two-child material conservation failed"
+            if _bbox(pieces[0])[5] > _bbox(pieces[1])[2] + PLANE_TOL:
+                return {}, {}, "retained children are not separated below and above the cut"
+            assigned, selected, outputs, records = set(), set(), {}, {}
+            specs = op["outputs"]
+            if {spec.get("side") for spec in specs.values()} != {"below", "above"}:
+                return {}, {}, "retained outputs require one below and one above child"
+            actual_carriers = {}
+            for member in sorted(names):
+                if member not in self.owner.workpieces:
+                    return {}, {}, f"unknown retained workpiece {member}"
+                target = self._placed(self._registered_target(member))
+                if target.cut(before).Volume > HIT_MM3:
+                    return {}, {}, f"{member}: whole target is absent from incoming material"
+                if target.common(removed).Volume > HIT_MM3:
+                    return {}, {}, f"{member}: kerf removes protected finished target material"
+                carriers = [
+                    index
+                    for index, piece in enumerate(pieces)
+                    if target.cut(piece).Volume <= HIT_MM3
+                ]
+                if len(carriers) != 1:
+                    return {}, {}, f"{member}: no unique whole-finished-target carrier"
+                actual_carriers[member] = carriers[0]
+            for name, spec in specs.items():
+                if "stock_out." + name in getattr(self.owner, "outputs", {}):
+                    return {}, {}, f"retained output name {name} is already produced"
+                members = spec.get("carries_workpieces")
+                if (
+                    not isinstance(members, list)
+                    or not members
+                    or not all(isinstance(member, str) for member in members)
+                    or len(set(members)) != len(members)
+                    or set(members) & assigned
+                    or not set(members) <= names
+                ):
+                    return {}, {}, "retained workpiece ownership is repeated, missing or unknown"
+                index = 0 if spec["side"] == "below" else 1
+                if index in selected or any(actual_carriers[member] != index for member in members):
+                    return (
+                        {},
+                        {},
+                        f"{name}: declared ownership does not match its whole-target child",
+                    )
+                inverse, reason = _frame_matrix(spec.get("pose"))
+                if reason is not None:
+                    return {}, {}, f"{name}: retained output pose is unknown ({reason})"
+                output = pieces[index].copy()
+                output.transformShape(self.matrix.inverse())
+                output.transformShape(inverse.inverse())
+                if not output.isValid() or abs(output.Volume - pieces[index].Volume) > HIT_MM3:
+                    return {}, {}, f"{name}: output registration changes physical material"
+                assigned.update(members)
+                selected.add(index)
+                ref = "stock_out." + name
+                outputs[ref] = output, None
+                paths = [
+                    [
+                        {"split": split, "output": child}
+                        for split, child in (*path, (self.setup["id"], name))
+                    ]
+                    for root in sorted(self.state["components"])
+                    for path in sorted(self.state["partitions"].get(root, {()}))
+                ]
+                records[name] = {
+                    "status": "pass",
+                    "side": spec["side"],
+                    "carries_workpieces": list(members),
+                    "partition": self._subject(op),
+                    "partition_path": paths[0] if len(paths) == 1 else None,
+                    "volume_mm3": _r(output.Volume),
+                    "bbox_mm": [_r(v) for v in _bbox(output)],
+                    "whole_targets": list(members),
+                    "stock_volume_before_mm3": _r(before.Volume),
+                    "removed_kerf_volume_mm3": _r(removed.Volume),
+                    "children_volume_mm3": [_r(piece.Volume) for piece in pieces],
+                    "conservation_error_mm3": _r(volume_error),
+                }
+            if assigned != names or selected != {0, 1}:
+                return {}, {}, "retained outputs leave unaccounted finished-target material"
+            return outputs, records, None
+        except Exception as exc:
+            return {}, {}, f"retained batch partition proof failed ({exc})"
+
     def _keep_after(self, subject, stock, where):
         """(the stock once every ``keep`` placed after ``subject`` (None: on the entering
         stock) has dropped its offcuts, or None, and why it cannot be derived).
@@ -7644,7 +8141,7 @@ class _Setup:
 
         if not isinstance(feature, str) or feature == UNKNOWN:
             return refused("keep is unknown; name the finished feature the kept piece carries")
-        indices = self.owner.features.get(feature)
+        indices = self._feature_indices(feature)
         # A finished feature of the part only: a plan joint feature is a transient surface.
         if feature not in self.owner._declared():
             return refused(
@@ -8305,7 +8802,7 @@ class _Setup:
             return None, facts
 
     def _saw_stock(self, op, stock):
-        """Keep one side of the blade slab; the kerf and offcut never enter later setups."""
+        """Derive actual saw stock; finite mounted cuts retain both physical children."""
         if isinstance(op.get("mounted_saw"), dict):
             return _FiniteSaw(self, op, stock).run()
         if op.get("saw_tool") == "slitting_saw":
@@ -9485,8 +9982,44 @@ class _Setup:
 
     # ------------------------------------------------------------------ claims
 
+    def _qualified_claims(self, op, names=None):
+        """Resolve only explicit members or one actually carried member."""
+        if not getattr(self.owner, "workpieces", {}):
+            return None
+        names = self.state.get("finished_names") if names is None else names
+        if "workpiece_faces" in op:
+            if "faces" in op:
+                return None
+            claims = op["workpiece_faces"]
+            if not isinstance(claims, dict) or not claims:
+                return None
+        else:
+            if names is None or len(names) != 1:
+                return None
+            refs, _ = self._claim_refs(op)
+            claims = {next(iter(names)): refs}
+        if names is None:
+            return None
+        for member, refs in claims.items():
+            mapping = self.owner.workpiece_mapping.get(member)
+            if member not in names or not isinstance(mapping, dict):
+                return None
+            if not isinstance(refs, list) or not refs or any(ref not in mapping for ref in refs):
+                return None
+        return claims
+
     def _claim_refs(self, op):
         """(refs, what) an op claims: its explicit ``faces``, else its feature's faces."""
+        if "workpiece_faces" in op:
+            claims = op["workpiece_faces"]
+            if not isinstance(claims, dict) or "faces" in op:
+                return None, f"op {self._subject(op)} member face claims are invalid"
+            if any(not isinstance(refs, list) for refs in claims.values()):
+                return None, f"op {self._subject(op)} member face references are unknown"
+            return (
+                [ref for refs in claims.values() for ref in refs],
+                f"op {self._subject(op)} member faces",
+            )
         if "faces" in op:
             return op["faces"], f"op {self._subject(op)} faces"
         name = op.get("feature")
@@ -9507,6 +10040,17 @@ class _Setup:
         process = op.get("process_cut")
         if isinstance(process, dict):
             return self.owner.process_indices.get(process.get("process_feature")) or UNKNOWN
+        if getattr(self.owner, "workpieces", {}):
+            claims = self._qualified_claims(op)
+            if claims is None:
+                return UNKNOWN
+            return sorted(
+                {
+                    self.owner.workpiece_mapping[member][ref]
+                    for member, refs in claims.items()
+                    for ref in refs
+                }
+            )
         refs, _ = self._claim_refs(op)
         indices = self.owner._feature(refs)
         return indices if indices != UNKNOWN and indices else UNKNOWN
@@ -9880,6 +10424,74 @@ class _Setup:
             clamps.append((clamp["name"], solids, locators))
         return clamps
 
+    def _place_supports(self, hold):
+        """Borrowed material is an obstacle/support only, never stock consumption."""
+        seen = set()
+        for support in hold.get("supports", []):
+            if not isinstance(support, dict) or support.get("placement") != "posed":
+                continue
+            name = support.get("id")
+            try:
+                if not isinstance(name, str) or not name.strip() or name in seen:
+                    raise ValueError("posed supports require unique nonblank identities")
+                seen.add(name)
+                reasons = support.get("reasons", [])
+                if reasons:
+                    raise _Unknown("; ".join(map(str, reasons)))
+                if ("ref" in support) == ("stock_ref" in support):
+                    raise ValueError("posed support requires exactly one inventory or stock source")
+                pose = support.get("pose")
+                if not isinstance(pose, dict):
+                    raise _Unknown("posed support placement is unknown")
+                matrix = _pose_matrix(pose)
+                owner = "support:" + name
+                if "stock_ref" in support:
+                    ref = support["stock_ref"]
+                    source = getattr(self.owner, "outputs", {}).get(ref)
+                    state = self.owner.states.get(ref)
+                    if (
+                        source is None
+                        or state is None
+                        or ref in self.owner.raw_supplies
+                        or ref in self.owner.split_setup_ids
+                        or ref in self.owner.consumed_refs
+                    ):
+                        raise _Unknown(
+                            "borrowed support is not an available earlier produced state"
+                        )
+                    shape, reason = source
+                    if shape is None or reason is not None:
+                        raise _Unknown(reason or "borrowed support geometry is unknown")
+                    if any(
+                        not self.owner.partition_proofs.get(split)
+                        for paths in state.get("partitions", {}).values()
+                        for path in paths
+                        for split, _ in path
+                    ):
+                        raise _Unknown("borrowed support partition geometry is unproven")
+                    own = self.state.get("finished_names")
+                    borrowed = state.get("finished_names")
+                    if own is not None and borrowed is not None and own & borrowed:
+                        raise ValueError("borrowed support aliases the actual cutting stock")
+                    component = self._add_local(name, "fixture", shape, matrix, owner=owner)
+                    component["stock_ref"] = ref
+                    component["support_id"] = name
+                else:
+                    specs = support.get("solids")
+                    if not isinstance(specs, list) or not specs:
+                        raise _Unknown("posed inventory support geometry is incomplete")
+                    before = len(self.fixture)
+                    self._add_owned(specs, "fixture", matrix, owner)
+                    if len(self.fixture) == before:
+                        raise _Unknown("posed inventory support has no actual solids")
+                    for component in self.fixture[before:]:
+                        component["support_id"] = name
+                        component["ref"] = support["ref"]
+            except Exception as exc:
+                reason = f"support {name}: {exc}"
+                self.fixture_gaps.append(reason)
+                self.undrawn.append(reason)
+
     def _accessories(self):
         """Parallels, riser blocks and clamps of a declared hold, plus host-side debts."""
         hold = self.hold
@@ -9924,6 +10536,7 @@ class _Setup:
         self.clamp_locators = {name: locators for name, _, locators in clamps}
         self.fixture_debts.extend(str(debt) for debt in hold.get("debts", []))
         self.fixture_gaps.extend(str(gap) for gap in hold.get("gaps", []))
+        self._place_supports(hold)
         self._place_steady_rests(hold)
         if hold.get("kind") == "vise":
             return
@@ -11012,7 +11625,9 @@ class _Setup:
         debts += self.fixture_debts
         debts += [f"not drawn: {gap}" for gap in self.fixture_gaps]
         # Jaws, then the possible-jaw strips, then the rest: the z-buffer keeps first-drawn ties.
-        for component in sorted(self.fixture, key=lambda c: c["role"] != "jaw"):
+        for component in sorted(
+            [*self.fixture, *self.capture_fixture], key=lambda c: c["role"] != "jaw"
+        ):
             colour = _COLOURS.get(component["name"]) or _COLOURS[component["role"]]
             solids.append((component["name"], component["solid"], colour))
             if component["name"] == "moving_jaw":
@@ -11055,8 +11670,14 @@ class _Setup:
                     "name": c["name"],
                     "role": c["role"],
                     "exact": jaws == "exact" or c["role"] != "jaw",
+                    "bbox_mm": [_r(v) for v in c["bbox"]],
+                    **{
+                        key: c[key]
+                        for key in ("support_id", "stock_ref", "ref", "capture_subject")
+                        if key in c
+                    },
                 }
-                for c in self.fixture
+                for c in [*self.fixture, *self.capture_fixture]
             ]
             + [
                 {
@@ -11122,7 +11743,7 @@ class _Setup:
         # ``drawn`` is the solid meshed above: retained output, else the arriving stock.
         surface = Part.Compound(drawn.Faces) if drawn is not None else None
         for datum in annotation.get("datums", []):
-            indices = self.owner.features.get(datum["feature"])
+            indices = self._feature_indices(datum["feature"], datum.get("workpiece_id"))
             if isinstance(indices, list) and indices:
                 # A datum is drawn only once this setup's stock carries its surface.
                 if surface is None or not all(
@@ -11136,6 +11757,7 @@ class _Setup:
                 record = {
                     "label": _setup_axis_words(datum["label"], self._turn),
                     "point_mm": [(box[i] + box[i + 3]) / 2 for i in range(3)],
+                    **({"workpiece_id": datum["workpiece_id"]} if "workpiece_id" in datum else {}),
                 }
                 normal = _common_normal([self.faces[i] for i in indices])
                 if normal is not None:
@@ -11280,11 +11902,14 @@ class _Setup:
         if section_view is not None:
             spec["camera"], spec["view_note"] = section_view[3], section_view[4]
         target = annotation.get("target")
-        indices = self.owner.features.get(target["feature"]) if target else None
+        indices = (
+            self._feature_indices(target["feature"], target.get("workpiece_id")) if target else None
+        )
         if isinstance(indices, list) and indices:
             boxes = [self.face_boxes[i] for i in indices]
             spec["target"] = {
                 "label": target["label"],
+                **({"workpiece_id": target["workpiece_id"]} if "workpiece_id" in target else {}),
                 "point_mm": [
                     (min(b[i] for b in boxes) + max(b[i + 3] for b in boxes)) / 2 for i in range(3)
                 ],
@@ -11313,6 +11938,11 @@ class _Setup:
                 "jaw_front_oblique": jaw_front_oblique,
             }
         )
+        if getattr(self.owner, "workpieces", {}):
+            scene["workpieces"] = self._workpiece_facts()
+            scene["workpiece_claims"] = {
+                self._subject(op): self._qualified_claims(op) or {} for op in self.ops
+            }
         if section_view is not None:
             scene["section"] = {"axis": "xy"[section_view[0]], "at_mm": _r(section_view[2])}
         details = [c for c in components if c["role"] == "detail"]
@@ -11555,6 +12185,14 @@ class _Setup:
 
         for inspection in inspections:
             name = f"op {inspection['op']} {inspection['requirement']} sketch"
+            if (
+                getattr(self.owner, "workpieces", {})
+                and "workpiece_faces" in inspection
+                and self._qualified_claims({"workpiece_faces": inspection["workpiece_faces"]})
+                is None
+            ):
+                debts.append(f"{name}: NOT SHOWN: member face ownership is unresolved.")
+                continue
             stock, why = self._stock_after(inspection)
             if stock is None:
                 debts.append(f"{name}: NOT SHOWN: {why}, so it is not drawn.")
@@ -11600,6 +12238,18 @@ class _Setup:
                 "width_px": int.from_bytes(png[16:20], "big"),
                 "height_px": int.from_bytes(png[20:24], "big"),
                 "print_panels": panels,
+                **(
+                    {"workpiece_id": next(iter(self.state["finished_names"]))}
+                    if getattr(self.owner, "workpieces", {})
+                    and self.state.get("finished_names")
+                    and len(self.state["finished_names"]) == 1
+                    else {}
+                ),
+                **(
+                    {"workpiece_faces": inspection["workpiece_faces"]}
+                    if "workpiece_faces" in inspection
+                    else {}
+                ),
             }
             debts += [f"{name}: {debt}" for debt in drawn]
         return sketches, scenes, debts
@@ -12000,7 +12650,7 @@ class _Setup:
         """Callout assemblies, keeping every exact solid in the actual drawing. ``named``
         calls out each shop-made fixture solid (pins, saddles, stops) by its own name."""
         grouped = {}
-        for component in self.fixture:
+        for component in [*self.fixture, *self.capture_fixture]:
             name, owner, role = component["name"], component["owner"], component["role"]
             local = name.rsplit(":", 1)[-1]
             key = owner if role == "clamp" or owner == "stop" else local
@@ -13741,10 +14391,6 @@ class _Setup:
                 or "helical thread removal is unmodelled; stock after manual threading is unknown"
             )
             return self._op_unknown(op, reason)
-        if self.protection_reason is not None:
-            # Nominal raw-stock cuts may be derived before a retained output
-            # is posed, but no finished-material or coverage fact is proved.
-            return self._op_unknown(op, self.protection_reason)
         if _sawn(op):
             # The stock builder's facts; otherwise why the stock before this saw is unknown.
             if self.stock_reason is not None:
@@ -13752,6 +14398,10 @@ class _Setup:
             if id(op) in self.saws:
                 return self.saws[id(op)]
             return self._saw_facts(op, self.cuts[id(op)][2])
+        if self.protection_reason is not None:
+            # Nominal raw-stock cuts may be derived before a retained output
+            # is posed, but no finished-material or coverage fact is proved.
+            return self._op_unknown(op, self.protection_reason)
         owner = self.owner
         process = op.get("process_cut")
         process_reason = None
@@ -14215,10 +14865,25 @@ class _Setup:
                     and not isinstance(op.get("joint_cut"), dict)
                     and isinstance(op.get("hole"), dict)
                 ):
-                    refs, _ = self._claim_refs(op)
-                    found = self.owner._feature(refs)
-                    if found != UNKNOWN:
-                        indices.update(found)
+                    if getattr(self.owner, "workpieces", {}):
+                        material = setup.get("material", {})
+                        names = material.get("workpieces") if isinstance(material, dict) else None
+                        claims = (
+                            self._qualified_claims(op, set(names))
+                            if isinstance(names, list)
+                            else None
+                        )
+                        if claims is not None:
+                            indices.update(
+                                self.owner.workpiece_mapping[member][ref]
+                                for member, refs in claims.items()
+                                for ref in refs
+                            )
+                    else:
+                        refs, _ = self._claim_refs(op)
+                        found = self.owner._feature(refs)
+                        if found != UNKNOWN:
+                            indices.update(found)
         return indices
 
     @staticmethod
@@ -17335,7 +18000,7 @@ class _Setup:
         facts["min_wall_mm"] = _r(min(runs))
         reasons.pop("min_wall_mm", None)
 
-    def _revolution_facts(self, facts, names=None):
+    def _revolution_facts(self, facts, names=None, member=None):
         """revolved: each declared feature's finished faces of revolution about setup Z.
 
         ``z_mm`` is their axial extent and ``radii_mm`` the least/greatest distance from the
@@ -17355,7 +18020,9 @@ class _Setup:
         limits the measurement to those features (every declared feature when None).
         """
         revolved, reasons, off_axis = {}, {}, {}
-        features = self.owner.features
+        features = {
+            feature: self._feature_indices(feature, member) for feature in self.owner.features
+        }
         if names is not None:
             features = {name: features.get(name) for name in names}
         for name, indices in sorted(features.items()):
@@ -17412,9 +18079,28 @@ class _Setup:
                 "kinds": sorted(kinds),
                 "end_faces": sorted(ends, key=lambda end: (end["z_mm"], end["normal_z"])),
             }
+            selected = member
+            members = self.state.get("finished_names")
+            if (
+                selected is None
+                and getattr(self.owner, "workpieces", {})
+                and members
+                and len(members) == 1
+            ):
+                selected = next(iter(members))
+            if selected is not None:
+                revolved[name]["workpiece_id"] = selected
         facts["revolved"] = revolved
         facts["revolved_reasons"] = reasons
         facts["revolved_off_axis"] = off_axis
+        if member is None and getattr(self.owner, "workpieces", {}):
+            for key in ("revolved", "revolved_reasons", "revolved_off_axis"):
+                facts["workpiece_" + key] = {}
+            for carried in sorted(self.state.get("finished_names") or ()):
+                local = {}
+                self._revolution_facts(local, names, carried)
+                for key in ("revolved", "revolved_reasons", "revolved_off_axis"):
+                    facts["workpiece_" + key][carried] = local[key]
 
 
 WORKERS_ENV = "PRECHIPS_KERNEL_WORKERS"  # pool worker processes; 0 runs every boolean here

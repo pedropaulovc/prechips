@@ -116,8 +116,10 @@ def test_same_bar_siblings_route_to_one_threaded_assembly_without_new_supplies()
     assert graph.descriptor("P3", OWNERS.finished_feature_owners)["finished_solids"] is None
     assert graph.descriptor("C1", OWNERS.finished_feature_owners) == {
         "roots": ["stock"],
-        "partitions": [{"split": "P3", "output": "bar_remnant"}],
+        "partitions": [{"root": "stock", "path": [{"split": "P3", "output": "bar_remnant"}]}],
         "finished_solids": ["cap"],
+        "workpieces": None,
+        "registrations": None,
     }
     assert graph.descriptor("A1", OWNERS.finished_feature_owners)["finished_solids"] == [
         "body",
@@ -653,7 +655,7 @@ def test_named_partition_does_not_make_unrelated_ordinary_setup_states_single_us
     graph = MaterialGraph(Plan.model_validate(plan).model_dump(exclude_unset=True), validate=True)
     assert graph.roots("A1") == {"stock.bar"}
     assert graph.roots("plate_second") == graph.roots("plate_rework") == {"stock.plate"}
-    assert all(atom.split is None for atom in graph.nodes["plate_rework"])
+    assert all(not atom.path for atom in graph.nodes["plate_rework"])
 
 
 def test_unsplit_predecessor_of_named_partition_is_still_exclusive():

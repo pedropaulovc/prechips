@@ -13,7 +13,7 @@ import math
 from dataclasses import replace
 
 from prechips.findings import Finding
-from prechips.material_routes import MaterialGraph, feature_material_status
+from prechips.material_routes import MaterialGraph
 from prechips.measurements import length_debt, length_fact, tooth_pitch_fact
 from prechips.rules.geometry_common import (
     finite_saw_evidence,
@@ -30,8 +30,10 @@ from prechips.rules.resolution import (
     UNKNOWN,
     _citations,
     number,
+    operation_material_status,
     operations,
     record,
+    registered_workpieces,
     resolve,
     saw_station,
     saw_tool,
@@ -72,7 +74,7 @@ def scribe_material_status(bundle, setup, op):
     and registration before a pre-partition scribe can locate its cut.
     """
     material = MaterialGraph(bundle.plan).nodes.get(setup["id"], ())
-    if material and all(atom.split is None for atom in material):
+    if material and all(not atom.path for atom in material) and not registered_workpieces(bundle):
         return True
     sid, separator, number_ = str(op.get("follows", UNKNOWN)).partition(":")
     if not separator:
@@ -93,7 +95,7 @@ def scribe_material_status(bundle, setup, op):
     feature = scribe.get("feature")
     if not isinstance(feature, str) or feature == UNKNOWN:
         return None
-    return feature_material_status(bundle.plan, setup["id"], earlier["id"], feature, bundle)
+    return operation_material_status(bundle, setup, earlier, feature, op=op, producer_op=scribe)
 
 
 def evaluate(bundle):

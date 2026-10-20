@@ -7,7 +7,15 @@ import re
 from ...material_routes import producer_setup, setup_lineage
 from ...measurements import length_keys
 from ..geometry_common import TURNING_BLADE_KINDS
-from ..resolution import UNKNOWN, length_mm, number, resolve, setup_frame, uncertain
+from ..resolution import (
+    UNKNOWN,
+    length_mm,
+    number,
+    resolve,
+    setup_frame,
+    setup_member_geometry,
+    uncertain,
+)
 from ..speeds_feeds import spindle_ranges
 from ..tip_endpoints import mapping, records
 
@@ -228,7 +236,7 @@ def face_normal_z(bundle, setup, face, edge):
         return UNKNOWN
     if setup_frame(bundle, setup).get("binding", UNKNOWN) == UNKNOWN:
         return UNKNOWN
-    revolved = mapping(mapping(mapping(kernel.get("setups")).get(setup["id"])).get("revolved"))
+    revolved = setup_member_geometry(bundle, setup, "revolved", kernel)
     ends = [
         end
         for end in records(mapping(revolved.get(face)).get("end_faces"))

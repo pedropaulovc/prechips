@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from prechips.rules.zero_recipe.faces import _boundary, _tops, paper_offset, x_face_state
-from prechips.rules.zero_recipe.native import _retouch_recipe
+from prechips.rules.zero_recipe.native import _retouch_recipe, zero_pickup_evidence
 from prechips.rules.zero_recipe.tool_setting import (
     TOOL_SETTING_CITES,
     _carried_setting,
@@ -163,6 +163,19 @@ def evaluate(bundle):
         frame = setup_frame(bundle, setup)
         lathe = lathe_setup(bundle, setup)
         zero = mapping(setup.get("zero"))
+        from prechips.kernel import zero_pickup_inputs
+
+        pickup_inputs = (
+            zero_pickup_inputs(bundle, setup)
+            if any("at_mm" in mapping(zero.get(axis)) for axis in ("x", "y"))
+            else {}
+        )
+        pickups = {
+            axis: proof
+            for axis in ("x", "y")
+            if (proof := zero_pickup_evidence(bundle, setup, axis, normalized=pickup_inputs))
+            is not None
+        }
         ops = records(setup.get("ops"))
         states = list(stock_states(bundle, setup))
         spindle_tools = {
@@ -204,6 +217,7 @@ def evaluate(bundle):
             or dro.get("radius_mode") == UNKNOWN
             or dro.get("mode", UNKNOWN) == UNKNOWN
         )
+        unknown |= any(proof["status"] != "pass" for proof in pickups.values())
         bad = dro.get("mode", UNKNOWN) not in {"abs", UNKNOWN} or any(
             row["status"] == "error" for row in mounted.values()
         )
@@ -418,6 +432,9 @@ def evaluate(bundle):
                 or not tool
                 or uncertain(tool)
             )
+        for axis, proof in pickups.items():
+            if axis in axes:
+                axes[axis]["pickup_proof"] = proof
         retouch = []
         recipe = mapping(zero.get("z"))
         paper = recipe.get("paper_mm", UNKNOWN)
@@ -596,6 +613,11 @@ def evaluate(bundle):
             "missing_touches": missing,
             **spindle_numbers,
         }
+        if pickups:
+            numbers["zero_pickups"] = pickups
+            pickup_debts = records(pickup_inputs.get("measurement_debts"))
+            if pickup_debts:
+                numbers["measurements"] = measurement_checklist([], debts=pickup_debts)
         touched = [axis for axis in ("x", "y") if swept and not isinstance(zero.get(axis), dict)]
         if touched:
             numbers["touch_set"] = {
@@ -606,7 +628,9 @@ def evaluate(bundle):
         grid_debt = dro_grid_debt(bundle, setup) if face_unknowns else None
         if grid_debt:
             numbers["dro_grid_debt"] = grid_debt
-            numbers["measurements"] = dro_grid_measurements(bundle, setup)
+            numbers["measurements"] = measurement_checklist(
+                [], debts=[*numbers.get("measurements", []), *dro_grid_measurements(bundle, setup)]
+            )
         if tip_measurements:
             numbers["measurements"] = measurement_checklist(
                 [], debts=[*numbers.get("measurements", []), *tip_measurements]
@@ -634,6 +658,7 @@ def evaluate(bundle):
             or x_errors
             or finder_error
             or railed_errors
+            or any(proof["status"] == "error" for proof in pickups.values())
         )
         status = "error" if errors else "unknown" if unknown else "pass"
         sentence = (
@@ -726,6 +751,13 @@ def evaluate(bundle):
             )
         if spindle_debt:
             sentence += f" {spindle_debt}."
+        for axis, proof in pickups.items():
+            if proof["status"] != "pass":
+                sentence += (
+                    f" The requested {axis.upper()} pickup path is {proof['status']}: "
+                    + "; ".join(proof["reasons"])
+                    + ". Arithmetic Axis Sets do not establish pickup clearance."
+                )
         result.append(
             Finding(
                 "zero_check",

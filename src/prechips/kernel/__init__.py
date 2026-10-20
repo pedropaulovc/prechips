@@ -165,9 +165,9 @@ def _host_only_debt(item, field):
         state["host_only"].add(measurement_entry(category, key, prefix + field, item=item)["id"])
 
 
-def _projection(bundle, op):
+def _projection(bundle, op, *, require_measured=False):
     debts = {}
-    result = tool_projection(bundle, op, debts, [], require_measured=False)
+    result = tool_projection(bundle, op, debts, [], require_measured=require_measured)
     tool = measurement_item(bundle, "tools", op.get("tool"))
     pair, conflict = projection_holder(bundle, tool, op.get("holder"))
     if pair is not None or conflict:
@@ -179,10 +179,12 @@ def _projection(bundle, op):
             for key, entry in debts.items():
                 state["debts"][key] = {**entry, "status": UNKNOWN, "reason": conflict}
     elif pair is not None:
-        _length_debt(tool, ("projection", pair), False)
+        _length_debt(tool, ("projection", pair), require_measured)
     else:
-        _length_debt(tool, "oal", False)
-        _length_debt(measurement_item(bundle, "holders", op.get("holder")), "grip", False)
+        _length_debt(tool, "oal", require_measured)
+        _length_debt(
+            measurement_item(bundle, "holders", op.get("holder")), "grip", require_measured
+        )
     return result
 
 
@@ -198,12 +200,12 @@ def _accepted_angle(item, field):
     return fact["value"] if fact["verified"] else UNKNOWN
 
 
-def _measured_length(item, field):
-    """A positive measured length fact, else unknown (rest jaws and bodies)."""
+def _measured_length(item, field, *, positive=True):
+    """A measured length; retain signed invalid facts only for an explicit error consumer."""
     fact = length_fact(item, field, require_measured=True)
     _length_debt(item, field, True)
     value = fact["value"] if fact["verified"] else UNKNOWN
-    return value if number(value) and value > 0 else UNKNOWN
+    return value if number(value) and (not positive or value > 0) else UNKNOWN
 
 
 def _shank_from(tool, values):
@@ -319,6 +321,9 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
     from prechips.rules.tip_endpoints import HOLE_OPS, hole_depth_mm, stock_states
 
     subject = f"{setup['id']}:{op['op']}"
+    declared = {key: op[key] for key in ("faces", "workpiece_faces") if key in op}
+    if isinstance(op.get("outputs"), dict):
+        declared["outputs"] = _retained_output_inputs(op["outputs"], bundle.features.get("units"))
     if op.get("do") in HAND_THREAD:
         return {
             "subject": subject,
@@ -326,7 +331,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "do": op["do"],
             "finishing": subject
             in (finishing_subjects(bundle) if finishing is None else finishing),
-            **({"faces": op["faces"]} if "faces" in op else {}),
+            **declared,
             "manual_thread": {
                 "reason": "helical thread removal unmodeled; no nominal-major cylinder stand-in"
             },
@@ -372,6 +377,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
                 else removal_bounds(bounds, units),
                 **({} if profile is None else {"scribed_profile": profile}),
                 **saw_tool_marker,
+                **declared,
             }
             if slitting_saw(bundle, op):
                 from .mounted_saw import prepare
@@ -385,6 +391,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             "kerf_mm": _accepted_length(tool, "kerf"),
             "cut_plane": saw_plane(op.get("cut_plane"), units),
             **saw_tool_marker,
+            **declared,
         }
         if slitting_saw(bundle, op):
             from .mounted_saw import prepare
@@ -392,7 +399,7 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
             result["mounted_saw"] = prepare(bundle, setup, op)
         return result
     if op.get("do") in HAND_FINISH:
-        return _hand_inputs(bundle, setup, op, subject, finishing)
+        return {**_hand_inputs(bundle, setup, op, subject, finishing), **declared}
     model = approach(bundle, setup, op)
     turned = model == TURNING
     if turned:
@@ -426,9 +433,8 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         "feature": op.get("feature", UNKNOWN),
         "do": op.get("do", UNKNOWN),
         "finishing": subject in (finishing_subjects(bundle) if finishing is None else finishing),
+        **declared,
     }
-    if isinstance(op.get("outputs"), dict):
-        result["outputs"] = _retained_output_inputs(op["outputs"], bundle.features.get("units"))
     joint_cut = joint_operation(bundle, op, result["finishing"])
     if joint_cut is not None:
         if op.get("do") in {"spot", "drill", "ream"}:
@@ -486,8 +492,6 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
                 result.setdefault("refusal_reasons", []).append("process_cut")
             process_cut.update(tooling)
         result["process_cut"] = process_cut
-    if "faces" in op:
-        result["faces"] = op["faces"]
     if model in (TURNING, ROTARY):
         result["approach"] = model
     units = bundle.features.get("units", UNKNOWN)
@@ -1646,7 +1650,48 @@ def _steady_rest(setup, entry, item, reference):
     return {**record_, **values}, None
 
 
-def _supports_inputs(bundle, setup, hold, result, debts, gaps):
+def _inventory_identity(bundle, reference, slot):
+    category, key = identity(bundle, reference, slot)
+    return f"{category}.{key}" if category and key not in (None, "", UNKNOWN) else UNKNOWN
+
+
+def _posed_support_inputs(bundle, value):
+    """One actual auxiliary placement; unknown geometry never becomes an empty obstacle."""
+    name = value.get("id", UNKNOWN)
+    pose = _pose(value.get("pose"))
+    reasons = []
+    result = {
+        "placement": "posed",
+        "id": name,
+        "name": name,
+        "pose": pose if pose is not None else UNKNOWN,
+    }
+    if not isinstance(name, str) or name.strip() in ("", UNKNOWN):
+        reasons.append("posed support needs a unique nonblank id")
+    if pose is None:
+        reasons.append(f"support {name!r} needs an orthonormal setup-mm pose")
+    sources = [key for key in ("ref", "stock_ref") if key in value]
+    if len(sources) != 1:
+        reasons.append(f"support {name!r} needs exactly one inventory ref or stock_ref")
+    elif sources[0] == "stock_ref":
+        result["stock_ref"] = value["stock_ref"]
+        if not isinstance(value["stock_ref"], str) or value["stock_ref"].strip() in ("", UNKNOWN):
+            reasons.append(f"support {name!r} stock_ref is unknown")
+    else:
+        reference = value["ref"]
+        result["ref"] = _inventory_identity(bundle, reference, "fixtures")
+        item = measurement_item(bundle, "fixtures", reference)
+        solids, missing = _solids(item, f"support {name}")
+        reasons.extend(missing)
+        if not item:
+            reasons.append(f"support {name!r} inventory ref does not resolve")
+        # A partial inventory envelope is not the complete collision/contact support.
+        result["solids"] = solids if not missing else []
+    result["reasons"] = reasons
+    return result
+
+
+def _supports_inputs(bundle, setup, hold, result, debts, gaps, collision_gaps):
     """Rests become engine records; any other undrawn support is a gap (or a vise debt).
 
     A follow rest rides the carriage, so it is no static solid: the engine poses its jaws
@@ -1659,8 +1704,15 @@ def _supports_inputs(bundle, setup, hold, result, debts, gaps):
     drawn = record(result.get("riser")).get("name")
     # The riser drawn from ``supports`` is that item however the entry spells it.
     riser = identity(bundle, drawn, "fixtures") if drawn is not None else None
-    follow, steady = [], []
+    follow, steady, placed = [], [], []
     for value in values:
+        if record(value).get("placement") == "posed":
+            support = _posed_support_inputs(bundle, value)
+            if any(other["id"] == support["id"] for other in placed):
+                support["reasons"].append(f"posed support id {support['id']!r} is repeated")
+            placed.append(support)
+            collision_gaps.extend(support["reasons"])
+            continue
         reference = record(value).get("ref", UNKNOWN) if isinstance(value, dict) else value
         if reference in _ABSENT or identity(bundle, reference, "fixtures") == riser:
             continue
@@ -1688,6 +1740,8 @@ def _supports_inputs(bundle, setup, hold, result, debts, gaps):
         result["follow_rests"] = follow
     if steady:
         result["steady_rests"] = steady
+    if placed:
+        result["supports"] = placed
 
 
 @_collect_debts
@@ -1743,9 +1797,9 @@ def hold_inputs(bundle, setup):
                 result["stop"] = {"pose": stop_pose, "solids": stop_solids}
     _parallels_inputs(bundle, hold, result)
     _clamp_inputs(bundle, hold, result, gaps)
-    # Vise supports sit below the seat (render-only); elsewhere an undrawn support may collide.
+    # Legacy vise rests sit below the seat; explicitly posed supports remain real obstacles.
     support_gaps = []
-    _supports_inputs(bundle, setup, hold, result, debts, support_gaps)
+    _supports_inputs(bundle, setup, hold, result, debts, support_gaps, gaps)
     (debts if kind == "vise" else gaps).extend(support_gaps)
     result["debts"], result["gaps"] = debts, gaps
     return result
@@ -1756,11 +1810,11 @@ def _inspections_after(setup, sent, render):
     subject of the last op sent to the kernel (``sent``) before it in the setup's route,
     or None when none precedes it. The kernel draws the stock as it stands there."""
     for inspection in render.get("inspections", []):
-        before = [
-            op
-            for op in setup["ops"][: inspection.pop("position")]
-            if any(op is other for other in sent)
-        ]
+        position = inspection.pop("position")
+        source = setup["ops"][position]
+        if "workpiece_faces" in source:
+            inspection["workpiece_faces"] = source["workpiece_faces"]
+        before = [op for op in setup["ops"][:position] if any(op is other for other in sent)]
         inspection["after"] = f"{setup['id']}:{before[-1]['op']}" if before else None
     return render
 
@@ -1784,46 +1838,387 @@ def _keeps(setup, sent):
     return keeps
 
 
+def _registration_inputs(pose, units, *, require_binding=True):
+    """Normalize a model frame to mm once, without changing its axes."""
+    frame = (
+        {key: pose.get(key, UNKNOWN) for key in ("origin", "x", "y", "z")}
+        if isinstance(pose, dict)
+        else {}
+    )
+    if (
+        units not in {"mm", "in"}
+        or not isinstance(pose, dict)
+        or (require_binding and pose.get("binding", UNKNOWN) == UNKNOWN)
+        or not all(_vector(value) for value in frame.values())
+    ):
+        return UNKNOWN
+    if units == "in":
+        frame["origin"] = [value * 25.4 for value in frame["origin"]]
+    return frame
+
+
+def workpiece_inputs(workpieces, units):
+    """Canonical-to-batch registrations in native mm, without modifying authored frames."""
+    if not isinstance(workpieces, dict):
+        return UNKNOWN
+    return {
+        name: {"pose": _registration_inputs(record(instance).get("pose"), units)}
+        for name, instance in workpieces.items()
+    }
+
+
 def _retained_output_inputs(outputs, units):
-    """Normalize model-point registrations exactly once; unknown binding stays unknown."""
-    result = {}
-    for name, output in outputs.items():
-        pose = output["pose"]
-        frame = (
-            {key: pose.get(key, UNKNOWN) for key in ("origin", "x", "y", "z")}
-            if isinstance(pose, dict)
-            else {}
+    """Keep both legacy selectors and batch memberships on every native cut branch."""
+    return {
+        name: {
+            **{
+                key: output[key]
+                for key in ("carries", "side", "carries_workpieces", "cite")
+                if key in output
+            },
+            "pose": _registration_inputs(output.get("pose"), units),
+        }
+        for name, output in outputs.items()
+    }
+
+
+def _pickup_surface(bundle, setup, hold, face, axis, reasons, errors):
+    """Resolve the selected identity, never a face inferred from a numeric edge."""
+    if not isinstance(face, str) or face.strip() in ("", UNKNOWN):
+        reasons.append("pickup needs an explicit selected stock or fixture face")
+        return UNKNOWN
+    if face.startswith("fixture:"):
+        target, separator, side = face.removeprefix("fixture:").rpartition(":")
+        reference, slash, component = target.rpartition("/")
+        if not separator or not slash or not component or side not in (f"+{axis}", f"-{axis}"):
+            errors.append("pickup fixture face needs fixture:<reference>/<component>:<axis side>")
+            return UNKNOWN
+        raw = record(setup.get("hold"))
+        placements = [
+            (raw.get("fixture"), hold),
+            (raw.get("stop_fixture"), record(hold.get("stop"))),
+        ]
+        clamps = raw.get("clamps") if isinstance(raw.get("clamps"), list) else []
+        for index, clamp in enumerate(clamps, start=1):
+            owner = _clamp_owner(index, record(clamp).get("ref"))
+            placements.extend(
+                (record(clamp).get("ref"), placed)
+                for placed in hold.get("clamps", [])
+                if placed.get("name") == owner
+            )
+        for placed in hold.get("supports", []):
+            if placed.get("id") == reference or identity(
+                bundle, placed.get("ref"), "fixtures"
+            ) == identity(bundle, reference, "fixtures"):
+                placements.append((reference, placed))
+        matches = [
+            solid["name"]
+            for ref, placement in placements
+            if ref not in (None, UNKNOWN)
+            and identity(bundle, ref, "fixtures") == identity(bundle, reference, "fixtures")
+            for solid in placement.get("solids", [])
+            if solid.get("local") == component and not solid.get("void")
+        ]
+        if len(matches) != 1:
+            reasons.append("selected pickup fixture component is missing or ambiguously placed")
+            return {"kind": "fixture", "name": UNKNOWN, "side": side}
+        return {"kind": "fixture", "name": matches[0], "side": side}
+    if face.startswith("stock:"):
+        side = face.removeprefix("stock:")
+        if side not in (f"+{axis}", f"-{axis}"):
+            errors.append("pickup stock face side must agree with the picked axis")
+            return UNKNOWN
+        return {"kind": "stock", "face": face, "side": side}
+    selected = face
+    if not selected.startswith("#"):
+        refs = record(bundle.feature_definitions.get(face)).get("faces")
+        if not isinstance(refs, list) or len(refs) != 1:
+            reasons.append("pickup feature must select one exact canonical STEP face")
+            return UNKNOWN
+        selected = refs[0]
+    surface = {"kind": "stock", "face": selected}
+    if "workpieces" in bundle.plan:
+        from prechips.material_routes import MaterialGraph
+
+        members = MaterialGraph(bundle.plan).members(setup["id"])
+        if members is None or len(members) != 1:
+            reasons.append("canonical pickup face needs exactly one known carried workpiece")
+        else:
+            surface["workpiece_id"] = next(iter(members))
+    return surface
+
+
+def _pickup_scene_id(bundle, setup, hold, lineage=None, model=None):
+    """Bind local pickup evidence to the current normalized stock and fixture scene."""
+    from prechips.material_routes import MaterialGraph
+
+    units = bundle.features.get("units", UNKNOWN)
+    context = {
+        "setup_id": setup["id"],
+        "frame": _registration_inputs(setup_frame(bundle, setup), units, require_binding=False),
+        "stock_in": setup.get("stock_in", UNKNOWN),
+        "model": _cache_recipe(_model_inputs(bundle) if model is None else model),
+        "lineage": _pickup_lineage_inputs(bundle, setup, lineage),
+        "hold": _engine_hold(hold),
+        "captures": [
+            mounted_saw_inputs(bundle, setup, op).get("capture", UNKNOWN)
+            for op in setup.get("ops", [])
+            if "saw_capture" in op
+        ],
+    }
+    if bundle.features.get("solids") or "workpieces" in bundle.plan:
+        owners = bundle.finished_feature_owners if bundle.features.get("solids") else {}
+        context["material"] = _material_inputs(
+            MaterialGraph(bundle.plan), setup["id"], owners, units
         )
+    return hashlib.sha256(_json(context).encode()).hexdigest()
+
+
+@_collect_debts
+def zero_pickup_inputs(bundle, setup, hold=None, *, lineage=None, model=None):
+    """Requested transverse finder proof inputs; absence of at_mm stays arithmetic-only."""
+    from prechips.measurements import length_keys
+
+    requests = {}
+    scale = {"mm": 1.0, "in": 25.4}.get(bundle.features.get("units"))
+    prepared_hold = hold if hold is not None else hold_inputs(bundle, setup)
+    scene_id = None
+    for axis in ("x", "y"):
+        source = record(record(setup.get("zero")).get(axis))
+        if "at_mm" not in source:
+            continue
+        if scene_id is None:
+            scene_id = _pickup_scene_id(bundle, setup, prepared_hold, lineage, model)
+        reasons, errors = [], []
+        tool_ref = _inventory_identity(bundle, source.get("tool"), "spindle")
+        holder_ref = _inventory_identity(bundle, source.get("holder"), "holders")
+        tool = measurement_item(bundle, "spindle", tool_ref)
+        holder = measurement_item(bundle, "holders", holder_ref)
+        if record(tool).get("kind") != "edge_finder":
+            reasons.append("requested transverse proof needs a selected edge finder")
+        if not holder:
+            reasons.append("requested transverse proof needs a selected holder")
+        tip_field = "tip" if length_keys(tool, "tip", tool.get("units"), bare=True) else "dia"
+        projection = _projection(
+            bundle, {"tool": tool_ref, "holder": holder_ref}, require_measured=True
+        )
+        finder = {
+            "tip_dia_mm": _measured_length(tool, tip_field, positive=False),
+            "tip_length_mm": _measured_length(tool, "finder_tip_length", positive=False),
+            "shank_dia_mm": _measured_length(tool, "shank", positive=False),
+            "projection_mm": projection["value"] if projection["verified"] else UNKNOWN,
+            "holder_dia_mm": _measured_length(holder, "gauge_dia", positive=False),
+            "holder_gauge_len_mm": _measured_length(holder, "gauge_len", positive=False),
+        }
+        for field, value in finder.items():
+            if not number(value):
+                reasons.append(f"finder.{field} needs a positive measured fact")
+            elif value <= 0:
+                errors.append(f"finder.{field} must be positive")
         if (
-            units not in {"mm", "in"}
-            or not isinstance(pose, dict)
-            or pose.get("binding", UNKNOWN) == UNKNOWN
-            or not all(_vector(value) for value in frame.values())
+            number(finder["tip_length_mm"])
+            and number(finder["projection_mm"])
+            and finder["projection_mm"] <= finder["tip_length_mm"]
         ):
-            frame = UNKNOWN
-        elif units == "in":
-            frame["origin"] = [value * 25.4 for value in frame["origin"]]
-        result[name] = {"carries": output["carries"], "pose": frame, "cite": output["cite"]}
-    return result
+            errors.append("selected finder projection must extend above its tip length")
+        if not projection["verified"]:
+            reasons.append("selected finder-holder projection is unresolved")
+
+        def length(field, source=source):
+            value = source.get(field, UNKNOWN)
+            return value * scale if number(value) and scale else UNKNOWN
+
+        at = source.get("at_mm")
+        at = (
+            [value * scale for value in at]
+            if isinstance(at, list) and len(at) == 2 and all(map(number, at)) and scale
+            else UNKNOWN
+        )
+        direction = source.get("from", UNKNOWN)
+        direction = direction.lower() if isinstance(direction, str) else UNKNOWN
+        request = {
+            "model": "transverse_finder_v1",
+            "axis": axis,
+            "scene_id": scene_id,
+            "from": direction,
+            "method": source.get("method", UNKNOWN),
+            "face": source.get("face", source.get("feature", UNKNOWN)),
+            "tool": tool_ref,
+            "holder": holder_ref,
+            "finder": finder,
+            "at_mm": at,
+            **{
+                field: length(field)
+                for field in ("edge_mm", "approach_mm", "retract_clearance_mm", "check_jog_mm")
+            },
+            **({"after_op": source["after_op"]} if "after_op" in source else {}),
+        }
+        if direction not in (f"+{axis}", f"-{axis}"):
+            reasons.append("pickup approach side must name the picked axis")
+        if at == UNKNOWN:
+            reasons.append("requested pickup needs two numeric transverse at_mm coordinates")
+        for field in ("edge_mm", "check_jog_mm", "approach_mm", "retract_clearance_mm"):
+            value = request[field]
+            if not number(value):
+                reasons.append(f"requested pickup {field} is unknown")
+            elif field in ("approach_mm", "retract_clearance_mm") and value <= 0:
+                errors.append(f"requested pickup {field} must be positive")
+        if "after_op" in source:
+            reasons.append("requested native pickup is only modeled on arriving stock before ops")
+        request["surface"] = _pickup_surface(
+            bundle, setup, prepared_hold, request["face"], axis, reasons, errors
+        )
+        request["reasons"], request["errors"] = reasons, errors
+        request["recipe_id"] = hashlib.sha256(_json(request).encode()).hexdigest()
+        requests[axis] = request
+    return {"requests": requests}
+
+
+def _material_inputs(graph, setup_id, owners, units):
+    descriptor = graph.descriptor(setup_id, owners)
+    if isinstance(descriptor.get("registrations"), dict):
+        descriptor["registrations"] = {
+            name: {**instance, "pose": _registration_inputs(record(instance).get("pose"), units)}
+            for name, instance in descriptor["registrations"].items()
+        }
+    return descriptor
+
+
+def _setup_inputs(bundle, setup, coordinates, finishing, complete, graph, owners):
+    """One shared operative setup projection, without rendering or pickup recursion."""
+    from prechips.joint_features import setup_joint
+    from prechips.rules.coordinates import revolved_located
+    from prechips.rules.geometry_common import cutting_action
+
+    units = bundle.features.get("units", UNKNOWN)
+    sent = [
+        op for op in setup["ops"] if cutting_action(op) is not False or op.get("do") in HAND_FINISH
+    ]
+    keeps = _keeps(setup, sent)
+    return {
+        "id": setup["id"],
+        "frame": _registration_inputs(setup_frame(bundle, setup), units, require_binding=False),
+        "hold": hold_inputs(bundle, setup),
+        "ops": [
+            op_inputs(bundle, setup, op, finishing, complete, coordinates.get(setup["id"]))
+            for op in sent
+        ],
+        "stock_in": setup.get("stock_in", UNKNOWN),
+        **({"material": _material_inputs(graph, setup["id"], owners, units)} if graph else {}),
+        **({"keep": keeps} if keeps else {}),
+        "joint": setup_joint(bundle, setup),
+        # A lathe's spindle is setup Z; native fixture solids revolve about it.
+        "machine_kind": record(resolve(bundle, "machines", setup.get("machine"))).get(
+            "kind", UNKNOWN
+        ),
+        "locate_revolved": revolved_located(setup, bundle.feature_definitions),
+        "stock_features": sorted(
+            {
+                name
+                for name in (
+                    record(setup.get("stock_state")).get(key)
+                    for key in ("top_feature", "bottom_feature")
+                )
+                if isinstance(name, str) and name not in ("", UNKNOWN)
+            }
+        ),
+    }, sent
+
+
+def _pickup_lineage_inputs(bundle, setup, prepared=None):
+    """Exact operative producer inputs, including borrowed support source histories."""
+    from prechips.material_routes import MaterialGraph, producer_setup, setup_lineage
+    from prechips.rules.coordinates import evaluate as coordinate_findings
+    from prechips.rules.geometry_common import complete_form_subjects, finishing_subjects
+
+    needed = setup_lineage(bundle.plan, setup["id"])
+    pending = list(needed)
+    by_id = {entry["id"]: entry for entry in bundle.plan["setups"]}
+    while pending:
+        current = by_id[pending.pop()]
+        supports = record(current.get("hold")).get("supports", [])
+        for support in supports if isinstance(supports, list) else []:
+            source = record(support).get("stock_ref")
+            producer = producer_setup(bundle.plan, source) if isinstance(source, str) else None
+            if producer is not None:
+                extra = setup_lineage(bundle.plan, producer) - needed
+                needed.update(extra)
+                pending.extend(extra)
+    needed.discard(setup["id"])
+    if not needed:
+        return []
+    if prepared is None:
+        solids = bundle.features.get("solids")
+        graph = MaterialGraph(bundle.plan) if solids or "workpieces" in bundle.plan else None
+        owners = bundle.finished_feature_owners if solids else {}
+        coordinates = {
+            finding.subject: finding.numbers
+            for finding in coordinate_findings(bundle, pre_kernel=True)
+        }
+        finishing, complete = finishing_subjects(bundle), complete_form_subjects(bundle)
+        prepared = [
+            _setup_inputs(bundle, entry, coordinates, finishing, complete, graph, owners)[0]
+            for entry in bundle.plan["setups"]
+            if entry["id"] in needed
+        ]
+    return [
+        {
+            key: value
+            for key, value in _engine_setup(entry).items()
+            if key not in ("render", "zero_pickups")
+        }
+        for entry in prepared
+        if entry["id"] in needed
+    ]
+
+
+def _model_inputs(bundle):
+    """The shared native model projection, without rendering-only metadata."""
+    from prechips.joint_features import dia_bands_mm, primitives_mm
+    from prechips.process_features import primitives_mm as process_primitives_mm
+    from prechips.rules.coordinates import faced_aims
+
+    solids = bundle.features.get("solids")
+    aimed = faced_aims(bundle)
+    units = bundle.features.get("units", UNKNOWN)
+    return {
+        "step_sha256": bundle.features.get("step_sha256", UNKNOWN),
+        "features": {
+            name: feature.get("faces", UNKNOWN)
+            for name, feature in bundle.features["features"].items()
+        },
+        **(
+            {"finished_solids": solids, "feature_solids": bundle.finished_feature_owners}
+            if solids
+            else {}
+        ),
+        **(
+            {"workpieces": workpiece_inputs(bundle.plan["workpieces"], units)}
+            if "workpieces" in bundle.plan
+            else {}
+        ),
+        "joint_features": primitives_mm(bundle),
+        "dia_bands": dia_bands_mm(bundle),
+        "process_features": process_primitives_mm(bundle),
+        "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
+        **({"aimed_faces": aimed} if aimed else {}),
+        "stock": stock_inputs(bundle),
+    }
 
 
 def build_job(bundle):
-    from prechips.joint_features import dia_bands_mm, primitives_mm, setup_joint
     from prechips.material_routes import MaterialGraph
-    from prechips.process_features import primitives_mm as process_primitives_mm
     from prechips.rules.coordinates import evaluate as coordinate_findings
-    from prechips.rules.coordinates import faced_aims, revolved_located
     from prechips.rules.geometry_common import (
         complete_form_subjects,
-        cutting_action,
         finishing_subjects,
     )
 
-    units = bundle.features.get("units", UNKNOWN)
     setups = []
     solids = bundle.features.get("solids")
-    graph = MaterialGraph(bundle.plan) if solids else None
+    graph = MaterialGraph(bundle.plan) if solids or "workpieces" in bundle.plan else None
     owners = bundle.finished_feature_owners if solids else {}
+    model = _model_inputs(bundle)
     # The kernel request: a bounded op's printed tables go whole, for the kernel to clip.
     coordinates = {
         finding.subject: finding.numbers for finding in coordinate_findings(bundle, pre_kernel=True)
@@ -1831,86 +2226,37 @@ def build_job(bundle):
     finishing = finishing_subjects(bundle)
     complete = complete_form_subjects(bundle)
     for setup in bundle.plan["setups"]:
-        frame = setup_frame(bundle, setup)
-        transformed = {key: frame.get(key, UNKNOWN) for key in ("origin", "x", "y", "z")}
-        if units not in {"mm", "in"} or not all(
-            isinstance(value, list) and len(value) == 3 and all(number(v) for v in value)
-            for value in transformed.values()
-        ):
-            transformed = UNKNOWN
-        elif units == "in":
-            transformed["origin"] = [value * 25.4 for value in transformed["origin"]]
-        sent = [
-            op
-            for op in setup["ops"]
-            if cutting_action(op) is not False or op.get("do") in HAND_FINISH
-        ]
-        keeps = _keeps(setup, sent)
-        setups.append(
-            {
-                "id": setup["id"],
-                "frame": transformed,
-                "hold": hold_inputs(bundle, setup),
-                "ops": [
-                    op_inputs(bundle, setup, op, finishing, complete, coordinates.get(setup["id"]))
-                    for op in sent
-                ],
-                "stock_in": setup.get("stock_in", UNKNOWN),
-                **({"material": graph.descriptor(setup["id"], owners)} if graph else {}),
-                **({"keep": keeps} if keeps else {}),
-                "render": _inspections_after(
-                    setup, sent, setup_annotations(bundle, setup, coordinates.get(setup["id"], {}))
-                ),
-                "joint": setup_joint(bundle, setup),
-                # A lathe setup's spindle axis is setup Z: rotating fixture solids revolve.
-                "machine_kind": record(resolve(bundle, "machines", setup.get("machine"))).get(
-                    "kind", UNKNOWN
-                ),
-                # Located features with neither ``at`` nor a parent locator: the engine
-                # measures their faces of revolution about setup Z in any setup (a turning
-                # setup measures every feature) so the axis through X0 Y0 can locate them.
-                "locate_revolved": revolved_located(setup, bundle.feature_definitions),
-                # The features whose faces stock_state's top_z / bottom_z name: the engine
-                # gives their heights and the entering stock's over them (consistency).
-                "stock_features": sorted(
-                    {
-                        name
-                        for name in (
-                            record(setup.get("stock_state")).get(key)
-                            for key in ("top_feature", "bottom_feature")
-                        )
-                        if isinstance(name, str) and name not in ("", UNKNOWN)
-                    }
-                ),
-            }
+        native, sent = _setup_inputs(bundle, setup, coordinates, finishing, complete, graph, owners)
+        pickups = zero_pickup_inputs(bundle, setup, native["hold"], lineage=setups, model=model)
+        render = _inspections_after(
+            setup, sent, setup_annotations(bundle, setup, coordinates.get(setup["id"], {}))
         )
+        members = graph.members(setup["id"]) if graph else None
+        if members is not None and len(members) == 1:
+            member = next(iter(members))
+            for datum in render.get("datums", []):
+                datum["workpiece_id"] = member
+            if isinstance(render.get("target"), dict):
+                render["target"]["workpiece_id"] = member
+        native["render"] = render
+        if pickups["requests"]:
+            native["zero_pickups"] = pickups["requests"]
+        setups.append(native)
         debts = {
             entry["id"]: entry
             for entry in [
                 *setups[-1]["hold"]["measurement_debts"],
+                *pickups["measurement_debts"],
                 *coordinates.get(setup["id"], {}).get("measurements", []),
             ]
         }
         setups[-1]["measurement_debts"] = [debts[key] for key in sorted(debts)]
-    aimed = faced_aims(bundle)
     return {
         "version": 1,
         "step_path": str(Path(bundle.paths["step"]).resolve())
         if "step" in bundle.paths
         else UNKNOWN,
-        "step_sha256": bundle.features.get("step_sha256", UNKNOWN),
-        "features": {
-            name: feature.get("faces", UNKNOWN)
-            for name, feature in bundle.features["features"].items()
-        },
-        **({"finished_solids": solids, "feature_solids": owners} if solids else {}),
-        "joint_features": primitives_mm(bundle),
-        "dia_bands": dia_bands_mm(bundle),
-        "process_features": process_primitives_mm(bundle),
-        "as_is_faces": record(bundle.plan.get("stock")).get("as_is_faces", UNKNOWN),
-        # The part the plan cuts: its faced aims move those finished faces.
-        **({"aimed_faces": aimed} if aimed else {}),
-        "stock": stock_inputs(bundle),
+        **model,
         "setups": setups,
         "measurement_debts": {
             "setups": {setup["id"]: setup["measurement_debts"] for setup in setups},
@@ -2018,6 +2364,7 @@ _ENGINE_OP = (
     "mounted_saw",
     "feature",
     "faces",
+    "workpiece_faces",
     "joint_cut",
     "process_cut",
     "outputs",
@@ -2103,6 +2450,7 @@ _ENGINE_COMMON = (
     "gaps",
     "follow_rests",
     "steady_rests",
+    "supports",
     "refused_fields",
 )
 
@@ -2151,6 +2499,25 @@ def _engine_op(op):
     return result
 
 
+def _engine_setup(setup):
+    """The one native/cache allowlist, shared by jobs and pickup scene identity."""
+    return {
+        "id": setup["id"],
+        "frame": setup["frame"],
+        "hold": _engine_hold(setup["hold"]),
+        "ops": [_engine_op(op) for op in setup["ops"]],
+        "stock_in": setup["stock_in"],
+        **({"material": setup["material"]} if "material" in setup else {}),
+        **({"keep": setup["keep"]} if setup.get("keep") else {}),
+        **({"zero_pickups": setup["zero_pickups"]} if "zero_pickups" in setup else {}),
+        "joint": setup.get("joint"),
+        "machine_kind": setup["machine_kind"],
+        "locate_revolved": setup["locate_revolved"],
+        "render": setup.get("render", {}),
+        "stock_features": setup.get("stock_features", []),
+    }
+
+
 def engine_job(job):
     """Only the fields freecad_job.py reads; host-only inputs never key the geometry cache."""
     return {
@@ -2158,6 +2525,7 @@ def engine_job(job):
         "step_path": job["step_path"],
         "step_sha256": job["step_sha256"],
         "features": job["features"],
+        **({"workpieces": job["workpieces"]} if "workpieces" in job else {}),
         **(
             {
                 "finished_solids": job["finished_solids"],
@@ -2172,23 +2540,7 @@ def engine_job(job):
         "as_is_faces": job["as_is_faces"],
         **({"aimed_faces": job["aimed_faces"]} if job.get("aimed_faces") else {}),
         "stock": job["stock"],
-        "setups": [
-            {
-                "id": setup["id"],
-                "frame": setup["frame"],
-                "hold": _engine_hold(setup["hold"]),
-                "ops": [_engine_op(op) for op in setup["ops"]],
-                "stock_in": setup["stock_in"],
-                **({"material": setup["material"]} if "material" in setup else {}),
-                **({"keep": setup["keep"]} if setup.get("keep") else {}),
-                "joint": setup.get("joint"),
-                "machine_kind": setup["machine_kind"],
-                "locate_revolved": setup["locate_revolved"],
-                "render": setup.get("render", {}),
-                "stock_features": setup.get("stock_features", []),
-            }
-            for setup in job["setups"]
-        ],
+        "setups": [_engine_setup(setup) for setup in job["setups"]],
     }
 
 
@@ -2257,6 +2609,7 @@ ENGINE_SOURCES = (
     "render_png.py",
     "saw_engagement.py",
     "step_faces.py",
+    "zero_pickup.py",
 )
 
 
