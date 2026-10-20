@@ -40,7 +40,13 @@ from prechips.material_routes import (
     setup_lineage,
 )
 from prechips.measurements import length_debt, length_fact, record_debt
-from prechips.model import UNIT_TOLERANCE, Inventory, Plan, tolerance_requirements
+from prechips.model import (
+    TOLERANCE_REQUIREMENTS,
+    UNIT_TOLERANCE,
+    Inventory,
+    Plan,
+    tolerance_requirements,
+)
 from prechips.process_features import ACTIONS as PROCESS_ACTIONS
 from prechips.process_features import ANGLE_TOLERANCE_DEG
 from prechips.process_features import LABEL_PREFIX as PROCESS_PREFIX
@@ -802,8 +808,15 @@ def check_frames(features: dict, plan: dict) -> None:
     planned = plan_frames(plan, features)
     for name, frame in planned.items():
         require(frame.get("binding") is not None, f"plan frame {name}: binding must be stated")
+        citations = frame.get("cite", [])
+        if isinstance(citations, str):
+            citations = [citations]
         require(
-            "AUTHOR'S CHOICE" in frame.get("cite", []),
+            any(
+                isinstance(citation, str)
+                and re.search(r"\bAUTHOR'S CHOICE\b", citation) is not None
+                for citation in citations
+            ),
             f"plan frame {name}: author's choice must be distinguished from source geometry",
         )
     exported = features["frames"] if isinstance(features["frames"], dict) else {}
@@ -6003,7 +6016,7 @@ def check_sheet_disclosures(parser: SheetText, report: dict) -> None:
     """
     unknown_words = re.compile(
         r"\?|\b(?:unknown|unmapped|unverified|unresolved|unsupported|missing|uncertain|"
-        r"confirm|cannot|not\b|no\b)",
+        r"undeclared|confirm|cannot|not\b|no\b)",
         re.I,
     )
     error_words = re.compile(
@@ -6073,21 +6086,160 @@ def check_sheet_disclosures(parser: SheetText, report: dict) -> None:
             for row in evidence
         )
 
-    def legacy(node, finding):
-        if (
-            finding["status"] == "unknown"
-            and finding["rule"] == "inspection"
-            and node.tag == "tr"
-            and ":" in finding["subject"]
+    criterion_ancestors = {
+        id(parent)
+        for node in parser.nodes
+        if "inspection-criterion" in node.classes
+        for parent in node.ancestors
+    }
+
+    requirement_names = set(TOLERANCE_REQUIREMENTS) | set(SHEET_REQUIREMENTS)
+    requirement_names.update(
+        finding["subject"].rsplit(":", 1)[-1]
+        for finding in report["findings"]
+        if finding["rule"] == "inspection"
+    )
+    requirement_labels = {
+        SHEET_REQUIREMENTS.get(name, name.replace("_", " ")) for name in requirement_names
+    }
+    requirement_labels |= {label + " ref" for label in requirement_labels}
+
+    def inspection_identity(finding):
+        """Distinguish dimension/acceptance identities from setup:op process holds."""
+        numbers = finding.get("numbers", {})
+        identity = numbers.get("identity")
+        if isinstance(identity, dict):
+            return identity
+        subject = finding["subject"]
+        if ":" not in subject:
+            return None
+        feature, requirement = subject.rsplit(":", 1)
+        if requirement.isdigit():
+            return None
+        return {"feature_owner": feature, "requirement": requirement, "workpiece": None}
+
+    def shop_name(feature):
+        feature = re.sub(r"_pos_([xyz])$", lambda m: f" (+{m[1].upper()} side)", feature)
+        feature = re.sub(r"_neg_([xyz])$", lambda m: f" (−{m[1].upper()} side)", feature)
+        feature = re.sub(r"_datum_([a-z])$", lambda m: f" (datum {m[1].upper()})", feature)
+        return feature.replace("_", " ")
+
+    def inspection_criterion(node, finding, identity):
+        """Parse a full criterion heading; never search for an owner's word suffix."""
+        ancestry = (node, *reversed(node.ancestors))
+        semantic = "inspection-criterion" in node.classes
+        if semantic and "data-inspection-ids" not in node.attrs:
+            return False
+        if not semantic and not (
+            node.tag == "tr"
+            or node.tag == "p"
+            and any(
+                parent.classes & {"route-inspection", "setup-variant"} for parent in node.ancestors
+            )
         ):
-            feature, requirement = finding["subject"].rsplit(":", 1)
-            label = SHEET_REQUIREMENTS.get(requirement, requirement.replace("_", " "))
-            if normalized(feature) in normalized(" ".join(node.text)) and re.search(
-                rf"{re.escape(label)}\s*(?:\?|unknown|unverified|not\s+set)",
-                " ".join(node.text),
-                re.I,
+            return False
+        # Once explicit criterion boundaries exist, an ancestor must not combine
+        # their text or identities back into one permissive disclosure candidate.
+        if not semantic and id(node) in criterion_ancestors:
+            return False
+        records = [parent for parent in ancestry if "data-inspection-ids" in parent.attrs]
+        subject = finding["subject"]
+        if records and subject not in decoded(records[0].attrs, "data-inspection-ids"):
+            return False
+        workpiece = identity.get("workpiece")
+        physical = next(
+            (parent for parent in ancestry if "data-physical-ops" in parent.attrs), None
+        )
+        physical_rows = decoded(physical.attrs, "data-physical-ops") if physical else []
+        physical_member = isinstance(physical_rows, list) and any(
+            isinstance(row, dict) and row.get("workpiece") == workpiece for row in physical_rows
+        )
+        if workpiece and (
+            not records
+            or physical is not None
+            and not physical_member
+            or not (
+                physical_member
+                or any(parent.attrs.get("data-workpiece") == workpiece for parent in ancestry)
+            )
+        ):
+            return False
+        if any(
+            parent.attrs.get("data-workpiece")
+            and parent.attrs["data-workpiece"] != (workpiece or "")
+            for parent in ancestry
+        ):
+            return False
+        feature = identity.get("feature_owner")
+        requirement = identity.get("requirement")
+        if not isinstance(requirement, str):
+            return False
+        label = SHEET_REQUIREMENTS.get(requirement, requirement.replace("_", " "))
+
+        def owns(heading):
+            if feature is None:
+                return bool(records) and not heading
+            owners = [" ".join(owner.split()).casefold() for owner in heading.split(",")]
+            return shop_name(feature).casefold() in owners
+
+        text = " ".join(" ".join(node.text).split())
+        if re.match(r"PROCESS\s+HOLD\b", text, re.I):
+            return False
+        marker = r"(?:\?|unknown\b|unverified\b|not\s+set\b)"
+        # Pedantic: the entire owner list precedes the dash and the marker.
+        pedantic = re.fullmatch(rf"(.+?)\s+[—–]\s+{marker}\s+(.+)", text, re.I)
+        if pedantic:
+            owners_text, criterion = pedantic.groups()
+            if not re.match(rf"{re.escape(label)}(?:\s+|:\s*)\S", criterion, re.I):
+                return False
+            # String-valued bands and '(no drawing limit)' are real criteria.
+            # Reject a longer registered requirement, not every nonnumeric value.
+            if any(
+                other.casefold().startswith(label.casefold() + " ")
+                and re.match(rf"{re.escape(other)}(?:\s|:|$)", criterion, re.I)
+                for other in requirement_labels
             ):
-                return True
+                return False
+        else:
+            # Compact: an optional gauge prefix, then marker + complete heading.
+            compact = re.fullmatch(rf"(?:[^:]+:\s*)?{marker}\s+(.+)", text, re.I)
+            if compact:
+                criterion = compact[1]
+                header = re.split(r"\s+(?=[+-]?\d|\?)|:", criterion, maxsplit=1)[0]
+                if header == criterion:
+                    return False
+                suffix = " " + label
+                if header.casefold().endswith(suffix.casefold()):
+                    owners_text = header[: -len(suffix)]
+                elif (
+                    feature
+                    and re.split(r"[-_\s]+", shop_name(feature))[-1].casefold() == label.casefold()
+                ):
+                    # The renderer elides a redundant 'length' in 'end-length'.
+                    owners_text = header
+                elif feature is None and header.casefold() == label.casefold():
+                    owners_text = ""
+                else:
+                    return False
+            else:
+                # Historical table cells: owner, requirement, trailing marker.
+                # Require an actual end/separator after it, not the next
+                # criterion's leading '? owner ...'.
+                historical = re.fullmatch(
+                    rf"(.+?)\s+{re.escape(label)}\s*{marker}(?:\s*;.*)?",
+                    text,
+                    re.I,
+                )
+                if not historical or node.tag != "tr":
+                    return False
+                owners_text = historical[1]
+        return owns(owners_text)
+
+    def legacy(node, finding):
+        if finding["status"] == "unknown" and finding["rule"] == "inspection":
+            identity = inspection_identity(finding)
+            if identity is not None:
+                return inspection_criterion(node, finding, identity)
         wanted = "stop" if finding["status"] == "error" else "unverified"
         if wanted not in node.classes or "decision" in node.classes:
             return False

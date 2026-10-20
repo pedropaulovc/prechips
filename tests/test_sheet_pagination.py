@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 from test_sheet_ops import printed_sheet as printed_sheet
@@ -1187,3 +1188,234 @@ def test_hoisted_final_reference_keeps_records_but_not_physical_setup_ranges(pri
         }
         for label, reference in (("reference observed", True), ("final observed", False))
     ]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("container_class", ["inspection-method", "mixed-prose"])
+def test_mixed_direct_prose_keeps_every_reading_and_tail_on_counted_pages(
+    tmp_path, printed_sheet, detail, container_class
+):
+    words = _words("Method", 520).split()
+    prose = " ".join(
+        f'{word} <span class="reading">{index}.125 mm</span>' if index % 40 == 0 else word
+        for index, word in enumerate(words)
+    )
+    expected = [
+        token
+        for index, word in enumerate(words)
+        for token in ([word, f"{index}.125 mm"] if index % 40 == 0 else [word])
+    ]
+    source = _setup(
+        SETUP_ONE,
+        "S1",
+        "nut1",
+        '<p style="height:760px">Original inspection prelude.</p>'
+        f'<div class="{container_class}" data-page-context="Inspection:">'
+        '<span class="page-context">Inspection:</span> '
+        + prose
+        + " SafetyTailDoNotCut.</div><p>Original following work.</p>",
+    )
+    _, details = printed_sheet(
+        source,
+        r"""pageOf => {
+          const section = document.querySelector('section.page');
+          const original = section.cloneNode(true);
+          original.querySelectorAll('[data-job-print],.record-continuation')
+            .forEach(node => node.remove());
+          const starts = [section, ...section.querySelectorAll('.cont-head')]
+            .map(node => node.getBoundingClientRect().top);
+          const cap = Number(document.documentElement.dataset.pageCapacity);
+          const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
+          const range = document.createRange(), escaped = [];
+          let node;
+          while ((node = walker.nextNode())) {
+            if (!node.textContent.trim() || node.parentElement.closest(
+              '[data-job-print],.record-continuation')) continue;
+            range.selectNodeContents(node);
+            for (const rect of range.getClientRects()) {
+              const page = starts.findLastIndex(top => top <= rect.top + .1);
+              if (rect.bottom > starts[page] + cap + .1) escaped.push(node.textContent);
+            }
+          }
+          return {tokens:original.textContent.match(/Method\d{4}|\d+\.125 mm/g), escaped,
+            tails:original.textContent.match(/SafetyTailDoNotCut/g),
+            readings:[...original.querySelectorAll('.reading')].map(n => n.textContent)};
+        }""",
+        prepare=f"() => {{ document.body.dataset.detail = {json.dumps(detail)}; }}",
+    )
+    assert details["tokens"] == expected
+    assert details["readings"] == [f"{index}.125 mm" for index in range(0, len(words), 40)]
+    assert details["tails"] == ["SafetyTailDoNotCut"] and not details["escaped"]
+    pages = printed_pages(_job(source, detail=detail), tmp_path)
+    assert len(pages) > 1
+    text = " ".join(" ".join(pages).split())
+    assert re.findall(r"Method\d{4}|\d+\.125 mm", text) == expected
+    assert text.count("SafetyTailDoNotCut") == 1
+
+
+def test_worksheet_shaped_inspection_method_still_splits_its_readings_table(
+    tmp_path, printed_sheet
+):
+    rows = "".join(
+        f"<tbody><tr><td>Worksheet{index:03d}</td><td>12.700 mm</td></tr></tbody>"
+        for index in range(90)
+    )
+    source = _setup(
+        SETUP_ONE,
+        "S1",
+        "nut1",
+        '<div class="inspection-method worksheet" data-page-context="Inspection readings">'
+        '<span class="page-context">Inspection readings</span>'
+        '<table class="readings"><thead><tr><th>READINGS</th><th>Target</th></tr></thead>'
+        + rows
+        + "</table></div>",
+    )
+    _, details = printed_sheet(
+        source,
+        r"""pageOf => {
+          const tables = [...document.querySelectorAll('table.readings')];
+          return {words:tables.flatMap(table => [...table.tBodies].flatMap(
+            body => [...body.rows].map(row => row.cells[0].textContent))),
+            pages:tables.map(pageOf),
+            headers:tables.map(table => table.tHead.textContent)};
+        }""",
+        prepare="() => { document.body.dataset.detail = 'hobby'; }",
+    )
+    assert details["words"] == [f"Worksheet{index:03d}" for index in range(90)]
+    assert len(set(details["pages"])) > 1
+    assert all("READINGS" in header for header in details["headers"])
+    pages = printed_pages(_job(source), tmp_path)
+    assert re.findall(r"Worksheet\d{3}", " ".join(pages)) == details["words"]
+    assert all("READINGS" in page for page in pages)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+@pytest.mark.parametrize("page_count", [10, 18])
+def test_final_page_total_fits_its_reserved_header_and_keeps_warnings_whole(
+    tmp_path, printed_sheet, detail, page_count
+):
+    blocks = []
+    for index in range(page_count):
+        start = ' style="break-before:page"' if index else ""
+        blocks.append(
+            f'<div{start}><p style="height:{780 if index else 600}px">'
+            f"OriginalPage{index:02d}</p>"
+            f'<div class="decision stop"><p>Warning{index:02d}: '
+            "STOP: preserve the complete holding and zero checks before cutting."
+            "</p></div></div>"
+        )
+    source = _setup(SETUP_ONE, "S1", "nut1", "".join(blocks))
+    _, details = printed_sheet(
+        source,
+        r"""pageOf => {
+          const section = document.querySelector('section.page');
+          const starts = [section, ...section.querySelectorAll('.cont-head')];
+          const cap = Number(document.documentElement.dataset.pageCapacity);
+          return {pages:Number(section.dataset.pages),
+            headers:starts.slice(1).map(head => {
+              const total = head.querySelector('.cont-page-total'), value = total.textContent;
+              const geometry = () => ({height:head.getBoundingClientRect().height,
+                width:total.getBoundingClientRect().width});
+              const filled = geometry();
+              total.textContent = '';
+              const empty = geometry();
+              total.textContent = value;
+              const restored = geometry(), range = document.createRange();
+              range.selectNodeContents(total);
+              const ink = range.getBoundingClientRect(), box = total.getBoundingClientRect();
+              return {value,filled,empty,restored,
+                contained:ink.left >= box.left-.01 && ink.right <= box.right+.01
+                  && ink.top >= box.top-.01 && ink.bottom <= box.bottom+.01};
+            }),
+            warnings:[...section.querySelectorAll('.decision.stop')].map(warning => {
+              const page = pageOf(warning), bounds = warning.getBoundingClientRect();
+              return {text:warning.textContent, page,
+                fits:bounds.bottom <= starts[page].getBoundingClientRect().top+cap+.1};
+            })};
+        }""",
+        prepare=f"() => {{ document.body.dataset.detail = {json.dumps(detail)}; }}",
+    )
+    assert details["pages"] == page_count
+    assert len(details["headers"]) == page_count - 1
+    for head in details["headers"]:
+        assert head["value"] == str(page_count) and head["contained"]
+        assert head["filled"] == head["empty"] == head["restored"]
+        assert head["filled"]["width"] > 0
+    assert [warning["page"] for warning in details["warnings"]] == list(range(page_count))
+    assert all(warning["fits"] for warning in details["warnings"])
+    pages = printed_pages(_job(source, detail=detail), tmp_path)
+    assert len(pages) == page_count
+    for index, page in enumerate(pages):
+        assert re.findall(r"Warning\d{2}", page) == [f"Warning{index:02d}"]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_five_checkpoint_results_keep_order_and_full_size_counted_rows(
+    tmp_path, printed_sheet, detail
+):
+    from prechips.sheet import _checkpoint_results, _Inspection
+
+    records = [
+        _Inspection(
+            text="Original final acceptance criterion.",
+            features=(f"feature-{index}",),
+            requirement="length",
+            subjects=(f"physical-{index}",),
+            setup_id="S1",
+            op_id=10,
+            workpiece=f"checkpoint-nut-{index}",
+        )
+        for index in range(5)
+    ]
+    source = _setup(
+        SETUP_ONE,
+        "S1",
+        "batch",
+        '<p style="height:780px">Original final checkpoint criteria.</p>'
+        + _checkpoint_results(records),
+    )
+    _, details = printed_sheet(
+        source,
+        r"""pageOf => {
+          const section = document.querySelector('section.page');
+          const starts = [section, ...section.querySelectorAll('.cont-head')];
+          const cap = Number(document.documentElement.dataset.pageCapacity);
+          return [...section.querySelectorAll('.checkpoint-results')].map(row =>
+            [...row.children].map(cell => {
+              const blank = cell.querySelector('.writing-blank');
+              const bounds = blank.getBoundingClientRect(), style = getComputedStyle(blank);
+              const page = pageOf(cell), label = cell.querySelector('.field-label');
+              return {ids:JSON.parse(cell.dataset.inspectionIds), feature:cell.dataset.feature,
+                setup:cell.dataset.setupId, op:cell.dataset.opId, workpiece:cell.dataset.workpiece,
+                page,top:cell.getBoundingClientRect().top,left:bounds.left,right:bounds.right,
+                width:bounds.width-parseFloat(style.borderLeftWidth)-parseFloat(style.borderRightWidth),
+                height:bounds.height-parseFloat(style.borderTopWidth)-parseFloat(style.borderBottomWidth),
+                labelAbove:label.getBoundingClientRect().bottom <= bounds.top,
+                fits:bounds.bottom <= starts[page].getBoundingClientRect().top+cap+.1,
+                original:!cell.closest('[data-job-print]')};
+            }));
+        }""",
+        prepare=f"() => {{ document.body.dataset.detail = {json.dumps(detail)}; }}",
+    )
+    cells = [cell for row in details for cell in row]
+    assert [cell["ids"] for cell in cells] == [[f"physical-{index}"] for index in range(5)]
+    for index, cell in enumerate(cells):
+        assert cell["feature"] == f"feature-{index}"
+        assert (cell["setup"], cell["op"], cell["workpiece"]) == (
+            "S1",
+            "10",
+            f"checkpoint-nut-{index}",
+        )
+        assert cell["width"] >= 35 * 96 / 25.4 - 0.1
+        assert cell["height"] >= 20 * 96 / 25.4 - 0.1
+        assert cell["labelAbove"] and cell["fits"] and cell["original"]
+    for row in details:
+        assert 1 <= len(row) <= 4 and len({cell["page"] for cell in row}) == 1
+        assert max(cell["top"] for cell in row) - min(cell["top"] for cell in row) < 0.1
+        assert all(
+            left["right"] <= right["left"] for left, right in zip(row, row[1:], strict=False)
+        )
+    pages = printed_pages(_job(source, detail=detail), tmp_path)
+    assert len(pages) > 1
+    text = " ".join(pages)
+    assert all(f"checkpoint-nut-{index}" in text for index in range(5))

@@ -2446,7 +2446,6 @@ def ledger(features, ops, *, detail="hobby"):
     sheet.short_reference = lambda reference, category: f"Gauge {reference}"
     sheet.contour_ops = set()
     sheet.lathe = lambda setup: False
-    sheet.cut_depths = lambda setup, op, lathe: op.get("action", [op["do"]])
     sheet.coating = lambda op: op.get("process", "unknown")
     sheet.speeds = lambda setup, op, saw: ("1234", ["0.025 mm/rev", "(31 mm/min)"], False)
     sheet.hole_xy = lambda setup, op: ["tool axis X -25.000, Y +1.250"]
@@ -2502,7 +2501,8 @@ def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safe
             "do": "finish_turn",
             "feature": "bore",
             "tool": "c",
-            "action": ["Inspect at -3.125 mm", "retain +0.025 mm"],
+            "rough_allowance_mm": 0.025,
+            "doc_mm": 0.125,
             "direction": "toward −Z",
             "checks": {"dia": "mic", "position_dia": "dti"},
             "inspection_methods": {"position_dia": "Seat datum A; read at -25.000 mm."},
@@ -2527,7 +2527,12 @@ def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safe
     assert [node["attrs"]["data-op"] for node in operations] == ["30", "10"]
     for node, row, op in zip(operations, rows, ops, strict=True):
         assert len(markup.find("performed-mark", node)) == (detail == "pedantic")
-        assert all(action in str(row[1]) for action in op.get("action", [op["do"]]))
+        actions = (
+            ["finish turn", "leave 0.025 mm per side", "0.125 mm axial per pass"]
+            if op["op"] == 30
+            else ["inspect"]
+        )
+        assert all(action in str(row[1]) for action in actions)
         for column, values in {
             2: ["bore"],
             3: ["T4"],
@@ -2537,7 +2542,7 @@ def test_task_ledger_preserves_authored_operation_order_fields_and_attached_safe
             7: [op["direction"]],
         }.items():
             assert all(value in str(row[column]) for value in values)
-        assert all(action in content(node) for action in op.get("action", [op["do"]]))
+        assert all(action in content(node) for action in actions)
     first = operations[0]
     assert ops[0]["safety"] in content(first)
     assert ops[0]["note"] in content(markup.find("op-note", first)[0])
@@ -4193,11 +4198,14 @@ def test_printed_running_header_retains_working_context_and_measured_final_count
               const context = head.querySelector('.cont-context');
               const count = head.querySelector('.cont-count');
               const total = head.querySelector('.cont-page-total');
-              const before = head.getBoundingClientRect().height;
-              if (total) total.textContent = '?';
-              const reserved = head.getBoundingClientRect().height;
-              if (total) total.textContent = String(pages);
-              const after = head.getBoundingClientRect().height;
+              const before = {height: head.getBoundingClientRect().height,
+                width: total.getBoundingClientRect().width};
+              total.textContent = '';
+              const reserved = {height: head.getBoundingClientRect().height,
+                width: total.getBoundingClientRect().width};
+              total.textContent = String(pages);
+              const after = {height: head.getBoundingClientRect().height,
+                width: total.getBoundingClientRect().width};
               return {
                 text: head.textContent, context: context?.textContent || null,
                 font: context ? getComputedStyle(context).fontSize : null,
@@ -4684,8 +4692,12 @@ def test_public_paths_keep_owned_depths_and_coordinates_with_optional_pedantic_p
             ladder = re.search(r"\bZ (-?\d+(?:\.\d+)?(?:, -?\d+(?:\.\d+)?){2})", content(heading))
             assert ladder and [float(z) for z in ladder[1].split(", ")] == [-0.25, -0.5, -0.6]
         else:
-            ladder = re.search(r"\bZ (-?\d+(?:\.\d+)?(?: → -?\d+(?:\.\d+)?){2})", content(owner))
-            assert ladder and [float(z) for z in ladder[1].split(" → ")] == [-0.25, -0.5, -0.6]
+            (path,) = markup.find("route-path", owner)
+            depth_heading = next(
+                node for node in markup.nodes if node["tag"] == "p" and node["parent"] is path
+            )
+            depths = re.findall(r"\bZ\s*([+−-]?\d+(?:\.\d+)?)", content(depth_heading))
+            assert [float(z.replace("−", "-")) for z in depths] == [-0.25, -0.5, -0.6]
         tables = markup.find("coords", owner)
         assert len(tables) == 2
         rows = []
@@ -4927,11 +4939,15 @@ def test_mounted_saw_hobby_y_record_uses_local_source_readings_without_x_or_z_re
     sheet.mounted_datum_groups = {setup["id"]: group for setup in setups}
     markup = Markup(sheet.mounted_datum_table(setups[0]))
     text = " ".join(" ".join(content(node).split()) for node in markup.nodes if node["tag"] == "p")
+    # The shared table owns X, Y and Z once. The Y acquisition itself must not
+    # borrow another axis's source values or repeat its pickup/jog instructions.
+    assert text.count(axes["y"]["edge"]) == 1
+    y_clause = re.split(r"\.\s+(?=[A-Z])", text.split(axes["y"]["edge"], 1)[1], maxsplit=1)[0]
     y_record = re.search(
         r"Axis Set Y\s*([+−-]?\d+(?:\.\d+)?).*?"
         r"\+Y\s*([+−-]?\d+(?:\.\d+)?)\s+check\s*([+−-]?\d+(?:\.\d+)?).*?"
         r"([+−-]?\d+(?:\.\d+)?)\s+reversed",
-        text,
+        y_clause,
         re.IGNORECASE,
     )
     if detail == "hobby":
@@ -4940,10 +4956,14 @@ def test_mounted_saw_hobby_y_record_uses_local_source_readings_without_x_or_z_re
             float(sheet.readout(value))
             for value in (axis_set, jog, axes["y"]["check_reading"], axes["y"]["mirrored_reading"])
         ]
-        assert re.match(r"\s*:\s*STOP\b", text[y_record.end() :], re.IGNORECASE)
+        assert re.match(r"\s*:\s*STOP\b", y_clause[y_record.end() :], re.IGNORECASE)
     else:
         assert y_record is None
-    assert not re.search(r"\bAxis Set X\b|\+X\s*[+−-]?\d+.*?\bcheck\b", text, re.IGNORECASE)
+    assert not re.search(r"\bAxis Set [XZ]\b|[+−-][XZ]\s*[+−-]?\d+", y_clause)
+    assert len(re.findall(r"\bAxis Set X", text, re.IGNORECASE)) == 1
+    assert len(re.findall(r"\+X\s*[+−-]?\d+(?:\.\d+)?\s+check\b", text)) == (
+        1 if detail == "hobby" else 0
+    )
     assert len(re.findall(r"\bAxis Set cutting midplane Z", text, re.IGNORECASE)) == 1
     assert len(re.findall(r"\+Z\s*[+−-]?\d+(?:\.\d+)?\s+check\b", text, re.IGNORECASE)) == (
         1 if detail == "hobby" else 0

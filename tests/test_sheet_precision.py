@@ -685,7 +685,7 @@ def test_job_page_states_each_machine_dro_grid(tmp_path):
     (summary,) = markup.find("job-summary", job_page(markup))
     resolution = content(summary)
     assert "PM-30MV" in resolution
-    assert re.search(r"DRO resolution: 0\.005 mm\b", resolution)
+    assert re.search(r"DRO resolution:[^;]*\bPM-30MV\b[^;]*\b0\.005 mm\b", resolution)
     assert "grid not verified; EL400 installed readout step" in resolution
     assert "?" in resolution
     assert resolution.count("not verified") == 1
@@ -706,7 +706,7 @@ def test_job_page_states_each_machine_dro_grid(tmp_path):
     (summary,) = measured_markup.find("job-summary", job_page(measured_markup))
     measured_resolution = content(summary)
     assert "PM-30MV" in measured_resolution
-    assert re.search(r"DRO resolution: 0\.005 mm\b", measured_resolution)
+    assert re.search(r"DRO resolution:[^;]*\bPM-30MV\b[^;]*\b0\.005 mm\b", measured_resolution)
     assert "grid not verified" not in measured_resolution
     assert "default grid" not in measured_resolution
     stripped, removed = re.subn(
@@ -721,7 +721,7 @@ def test_job_page_states_each_machine_dro_grid(tmp_path):
     (summary,) = markup.find("job-summary", job_page(markup))
     resolution = content(summary)
     assert "PM-30MV" in resolution
-    assert re.search(r"DRO resolution: 0\.001 mm\b", resolution)
+    assert re.search(r"DRO resolution:[^;]*\bPM-30MV\b[^;]*\b0\.001 mm\b", resolution)
     assert "default grid" in resolution
 
 
