@@ -2229,13 +2229,41 @@ pass to 0.1 mm above the floor samples there, matching its own cut, so the
 skin it leaves is stock below the tip rather than a hit, and a later
 full-depth pass removes that skin as its own cut. An unknown
 authored leave makes the op's accessibility `unknown` and later stock that
-depends on it debt. The protected solid is built by offsetting the finished
-solid outward by the leave. Where that offset's arc join cannot be built (a
+depends on it debt. For claim- or clearing-box-based removal, the protected
+solid is built by offsetting the finished
+solid outward by the leave. A disconnected batch is offset one protected solid
+at a time: OCC cannot offset the multi-solid compound directly. Each member's
+offset must be a valid finite enclosing solid before the offsets are unioned;
+the union must retain every member's leave and the original solid count.
+Where that offset's arc join cannot be built (a
 blind cone can make it fail), an intersection-join offset may be used
 instead, but only if it is valid, contains the finished solid and keeps the
 same solid count. It is conservative and leaves extra material at convex
 corners, never less than the leave, and there is never a fallback to the
 nominal finished solid or a zero leave.
+
+#### Explicit guided profiles
+
+A profile with authored `contour.sweep_bounds` and no
+`stock_removal_bounds` uses its complete printed cutter-centre paths as the
+authoritative removal. The current native contract supports finite
+`linear_table` paths. Each segment sweeps the measured cutter radius from its
+printed tip through the arriving stock; neither a nominal wall corridor nor a
+later operation's lineage band adds clearance. This preserves material between
+registered finished targets when the actual passes leave it intact.
+
+The complete sweep must preserve every finished target and the rough leave
+normal to each claimed face. A planar rough claim has an exact finite normal
+prism; another rough surface remains unknown. The explicit tip controls the
+axial cut: roughing only vertical walls does not invent an axial leave on an
+unclaimed shoulder shelf. Target or normal-leave penetration is an error, not
+a cut silently clipped to its guard. Missing, empty, malformed or unsupported
+paths remain unknown; no nominal corridor or broad-box fallback replaces them.
+Checkpoint checks use the same claim-normal guard.
+
+An authored `stock_removal_bounds` retains its existing full multipass
+clearing-volume contract, even when the contour also has `sweep_bounds`.
+Omit that broad box when the intended cut is only the explicit guided passes.
 
 #### Local offset construction
 
@@ -3195,6 +3223,24 @@ Numbers: `min_wall_mm`, `thin_wall_floor_mm`, `method` and, when present,
 - wall < floor, unknown method: `wall is below the shop floor and protective holding method is unknown.` (unknown)
 - wall < floor, other method: `wall is below the shop floor; name soft jaws, mandrel or wax, or hold it by area (hold.area).` (error)
 - otherwise `grip-zone wall thickness or shop thin-wall floor is unmeasured.` (unknown)
+
+When thread material is bounded rather than exact, the kernel may instead supply
+`min_wall_bounds_mm = {lower, upper}` with a successful, identified native
+material-wall proof. These are bounds on the minimum loaded wall, not an exact
+`min_wall_mm`. The rule passes only when the lower bound meets the verified
+policy floor, errors when the upper bound is below it, and remains unknown when
+the interval straddles the floor. A named protective method does not turn a
+bounded below-floor result into an exact-wall approval. Missing or unproven bound
+identity, nonfinite or reversed bounds, and an unresolved policy floor remain
+unknown. Existing measurement and unresolved-clamp debts still prevent a pass.
+
+The accepted native identity is `material_wall.model = "bounded_wall_rays_v1"`,
+with `status = "pass"`, `state = "bounded"`,
+`metric = "contact_loaded_ligament"` and a positive integer `sample_count`.
+It also requires `stock_material` with model `bounded_material_v1` and state
+`bounded`, plus `material_contact` with model `common_exterior_v1`, status `pass`
+and `outside_unmodeled_regions = "proved"`. The scalar remains unknown; a
+conflicting numeric scalar is not accepted as interval evidence.
 
 The [example policy](../examples/shop-policy.toml) declares
 `thin_wall_floor_mm = 1.5` with its `numbers_verify` entry false. Its citation

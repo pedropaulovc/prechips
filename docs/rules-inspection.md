@@ -75,6 +75,33 @@ check is after cutting the scribe-to-face target but before S3:20 doming:
 measure the cut face while recutting is still possible, then follow the
 existing forward instruction to verify the cylinder end after doming.
 
+#### Shared dimensions and later bench work
+
+`inspect_workpieces` names the registered members an inspection checks. A
+single-member final check without `inspection_scope` uses that member's own
+feature requirements. One inspect operation can measure several feature-owned
+dimensions and check manual fit relationships at one physical checkpoint;
+combining the paper record does not merge requirements or replace numerical
+limits with a fit test. The result remains an inspection plan, not a recorded
+measurement or approval.
+
+A shared dimensional check needs explicit `inspection_scope.after` and `before`
+operation boundaries. Earlier dimensional credit also needs native proof that
+the original supporting surfaces survive through each member's actual later
+material route. The operation ledger includes bench work as well as machine
+cuts. `fit`, `deburr` and `coating` are potentially shape-changing actions, not
+proof of unchanged size. An unsupported effect leaves preservation unknown,
+even if the nominal solid is unchanged or the operation names another feature.
+Only `inspect`, `release` and `scribe` are non-material metadata.
+
+Native proof must bind the current ordered operations, member registration,
+partition path and requirement-specific supports. A later producer label cannot
+erase an earlier unmodeled effect. A manual relationship check, an instruction
+to preserve flats, or a native no-op snapshot does not supply a bounded material
+effect. When that proof is unavailable, put the required size measurements at a
+truthful final inspection after the relevant bench work instead of claiming
+that an early measurement survived it.
+
 ### Gauge kinds and datum methods
 
 Gauge kinds must suit the requirement. Roughness needs a roughness gauge,

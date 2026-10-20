@@ -2391,6 +2391,16 @@ See [coordinates](rules-coordinates.md).
 | `keep_out` | list of `{ at = [x, y], dia_mm = d }` circles |
 | `sweep` | `GuidedSweep` (`guided_sweep`: its guide, master and sweep) |
 
+A profile action with explicit `contour.sweep_bounds` and no
+`stock_removal_bounds` removes only its complete native-validated printed
+`linear_table` cutter sweeps. The retained guide does not authorize machining
+the spaces between disconnected finished targets. Rough leave applies normal
+to the claimed planar faces; the printed tip determines the axial cut.
+Missing or unsupported guided paths stay unknown. An authored
+`stock_removal_bounds` still takes precedence as a full multipass clearing
+volume; it is not merely a clipping fence around the guide. See
+[explicit guided profiles](rules-geometry.md#explicit-guided-profiles).
+
 ### Chain-drilling cutting data
 
 A `rough_profile` with `method = "chain_drill"` and a resolved drill-kind

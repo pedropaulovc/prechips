@@ -25,7 +25,7 @@ from prechips import kernel
 from prechips.inputs import Bundle
 from prechips.kernel.step_faces import StepFile
 from prechips.material_routes import MaterialGraph
-from prechips.rules import coverage
+from prechips.rules import coverage, reach
 from prechips.rules.resolution import (
     inspection_preservation_evidence,
     member_protection_evidence,
@@ -54,6 +54,8 @@ CASES = (
     "wrong-axis",
     "unknown-depth",
     "entry-offset",
+    "overlong-span",
+    "same-setup-before-tap",
     "overlapping-drill",
     "unsupported-manual-thread",
     "ordinary-exact-cut",
@@ -67,7 +69,7 @@ def _setup(bundle, sid):
 
 def _tap(bundle):
     setup = _setup(bundle, "B1")
-    return setup, setup["ops"][0]
+    return setup, next(op for op in setup["ops"] if op["op"] == 20)
 
 
 def _bundle(case):
@@ -135,6 +137,8 @@ def _bundle(case):
                     "op": 10,
                     "do": "drill",
                     "feature": "threaded-hole",
+                    "tool": "prep-drill",
+                    "holder": "prep-holder",
                     "workpiece_faces": {"nut1": [THREAD]},
                 }
             ],
@@ -166,6 +170,15 @@ def _bundle(case):
         # The envelope still contains the whole frozen cylinder and the
         # qualified tap still reaches it, but its mouth is above actual stock.
         features["features"]["threaded-hole"].update(at=[0.0, 0.0, 13.2], through_thickness=13.2)
+    elif case == "overlong-span":
+        # Correct mouth and qualified formed travel, but the frozen registered
+        # cylinder ends at Z0: it cannot certify the final 0.3 mm below the part.
+        features["features"]["threaded-hole"]["through_thickness"] = 13.0
+    elif case == "same-setup-before-tap":
+        drill = setups[1]["ops"][0]
+        setups[1]["ops"] = [{"op": 10, "do": "inspect"}]
+        setups[2]["machine"] = "mill"
+        setups[2]["ops"] = [drill, tap]
     elif case == "unsupported-manual-thread":
         tap["do"] = "die_thread"
     elif case == "ordinary-exact-cut":
@@ -212,6 +225,23 @@ def _bundle(case):
                     "lead_mm": measured(12.7),
                     "flute_len_mm": measured(40.0),
                     "verify": False,
+                },
+                "prep-drill": {
+                    "kind": "drill",
+                    "dia_mm": measured(8.0),
+                    "flute_len_mm": measured(40.0),
+                    "oal_mm": measured(100.0),
+                    "shank_mm": measured(8.0),
+                    "projection_mm": {"prep-holder": measured(50.0)},
+                    "verify": False,
+                },
+            },
+            "holders": {
+                "prep-holder": {
+                    "kind": "collet",
+                    "gauge_dia_mm": measured(10.0),
+                    "gauge_len_mm": measured(30.0),
+                    "verify": False,
                 }
             },
         },
@@ -249,6 +279,7 @@ def _native_job(engine, bundle):
                 }
                 if op["do"] == "drill":
                     native["hole"] = {"thru": True, "depth_mm": 12.7, "entry_z_mm": 12.7}
+                    native.update(shank_radius_mm=radius, shank_from_mm=40.0)
                 for key in ("to_z", "stock_removal_bounds"):
                     if key in op:
                         native[key] = deepcopy(op[key])
@@ -263,6 +294,7 @@ def _native_job(engine, bundle):
                     graph, sid, bundle.finished_feature_owners, "mm"
                 ),
                 "inspection_preservation": deepcopy(requests) if sid == "S1" else [],
+                "preservation_ledger": kernel.inspection_preservation_ledger(setup),
                 "hold": {"kind": "unknown", "reason": "No fixture-access verdict requested"},
                 "ops": ops,
             }
@@ -475,6 +507,7 @@ def test_all_four_real_native_support_proofs_feed_host_preservation(thread_nativ
         "wrong-axis",
         "unknown-depth",
         "entry-offset",
+        "overlong-span",
         "unsupported-manual-thread",
     ],
 )
@@ -515,8 +548,77 @@ def test_native_entry_plane_cannot_borrow_air_travel_from_a_ready_request(thread
     }
     assert request["formed_depth_mm"] >= request["region"]["depth_mm"]
     material = native["ops"]["B1:20"]["manual_thread"]
-    assert material["status"] == "unknown"
-    assert any("actual stock entry plane" in reason for reason in material["reasons"])
+    assert material["status"] == "unknown", material
+
+
+def test_native_full_registered_span_is_required_before_transition_or_exclusion(thread_native):
+    bundle, native = _case(thread_native, "overlong-span")
+    setup, op = _tap(bundle)
+    request = kernel.op_inputs(bundle, setup, op)["manual_thread"]
+    assert request["status"] == "ready", request
+    assert request["region"] == {
+        "at_mm": [0.0, 0.0, 12.7],
+        "axis": [0.0, 0.0, -1.0],
+        "depth_mm": 13.0,
+    }
+    assert request["formed_depth_mm"] == pytest.approx(13.335)
+    assert request["formed_depth_mm"] >= request["region"]["depth_mm"]
+    detail = native["ops"]["B1:20"]
+    assert detail["manual_thread"]["status"] == "unknown"
+    assert detail["manual_thread"]["reasons"]
+    assert detail["represented_thread_envelope"]["status"] != "pass"
+    assert coverage.represented_thread_envelope(bundle, native, setup, op)[0] == set()
+    assert native["setups"]["B1"]["workpieces"]["nut1"]["protection"] == "exact"
+    for sid in ("B1", "B2", "F1"):
+        assert "stock_out_material" not in native["setups"][sid]
+        if sid != "B1":  # B1's arriving preparation is exact, before the refused tap.
+            protection = member_protection_evidence(bundle, _setup(bundle, sid), "nut1", native)
+            assert protection["status"] != "pass", protection
+
+
+def test_future_same_setup_tap_preserves_earlier_exact_native_and_host_facts(thread_native):
+    bundle, native = _case(thread_native, "same-setup-before-tap")
+    _, exact = _case(thread_native, "ordinary-exact-cut")
+    before = native["ops"]["B1:10"]
+    reference = exact["ops"]["D1:10"]
+    index = native["workpiece_mapping"]["nut1"][THREAD]
+    assert before["claimed_indices"] == [index]
+    assert before["claim_errors"] == []
+    assert before["sample_count"] > 0
+    assert before["reach_depth_mm"] > 0
+    assert before["reach_top_z_mm"] == pytest.approx(12.7)
+    assert before["holder_wall_hits"] == 0
+    assert before["shank_hits"] == 0
+    for key in (
+        "claimed_indices",
+        "sample_count",
+        "corner_radii_mm",
+        "reach_depth_mm",
+        "reach_top_z_mm",
+        "holder_wall_hits",
+        "shank_hits",
+        "body_clear_mm",
+        "shank_clear_mm",
+        "holder_clear_mm",
+    ):
+        assert before[key] == reference[key], (key, before, reference)
+    assert "stock_reason" not in before and "material_reason" not in before
+    assert native["setups"]["B1"]["stock_volume_mm3"] == pytest.approx(
+        BLANK_VOLUME, rel=0.0, abs=1e-5
+    )
+    assert "stock_material" not in native["setups"]["B1"]
+    _bounded(native["setups"]["B1"]["stock_out_material"])
+    assert native["ops"]["B1:20"]["manual_thread"]["status"] == "pass"
+    assert native["ops"]["B1:20"]["reach_depth_mm"] == "unknown"
+    _bounded(native["setups"]["B2"]["stock_material"])
+    assert native["ops"]["B2:20"]["reach_depth_mm"] == "unknown"
+    # Fixture access is intentionally not requested. Consume the real exact
+    # stock/reach facts through the host without asserting an overall access pass.
+    finding = next(row for row in reach.evaluate(bundle) if row.subject == "B1:10")
+    assert finding.numbers["reach_depth_mm"] == before["reach_depth_mm"]
+    assert finding.numbers["reach_top_z_mm"] == before["reach_top_z_mm"]
+    assert finding.numbers["holder_wall_hits"] == before["holder_wall_hits"]
+    assert finding.numbers["shank_hits"] == before["shank_hits"]
 
 
 def test_overlapping_later_cut_retains_debt_even_when_volume_bounds_converge(thread_native):

@@ -165,20 +165,25 @@ major-diameter cylinder is explicitly `representation="thread_envelope"`; it is
 neither the 7.9375-mm tap drill nor an exact helical solid. Manual tapping carries
 a bounded unmodeled thread region, not fabricated helical-kernel proof.
 
-Two inspection checkpoints replace redundant intermediate paperwork:
+The approved timing is **four final inspections only**, after each nut's
+cutting, deburring, bottom-thread staking, blackening, rinsing, drying and oiling.
+There is no mandatory S1 batch checkpoint or intermediate inspection result.
+The earlier shared-bar plan is superseded by this explicit timing change; it is
+not retained as hidden acceptance credit.
 
-- **S1:30**, after S1:20 and before C1a:20: one batch-owned caliper check of the
-  four cross-section requirements at all future blank stations, explicitly
-  covering nut1–nut4. Both flange thicknesses are checked. One blank overall
-  batch result is not four claimed physical measurements.
-- **F1a–F1d:10**: separate final checkpoint/result for each nut. Caliper length
-  uses the band above. `actual_slot_fit` requires free hand sliding without
-  objectionable rocking, both shelves bearing without bottoming/wedging, and
-  the pulled-up top below the table. `stud_retention` requires intended-stud
-  entry by hand, bottom deformation preventing exit/table contact, and no nut
-  rotation or pass-through in the intended slot. The same checkpoint includes
-  uniform black/oiled finish, no loose residue and unobstructed fit/threads;
-  finish is not a third typed relationship or separate result.
+**F1a–F1d:10** each produces one separate, initially unfilled overall result for
+its own nut. Using the same qualified calipers, check every numeric band above:
+base width, overall height, **both** bottom-to-shelf flange thicknesses, stem
+width and finished length. Both flange readings must satisfy their common
+band; one result does not mean only one flange is measured.
+Then `actual_slot_fit` requires free hand sliding without objectionable
+rocking, both shelves bearing without bottoming/wedging, and the pulled-up top
+below the table. `stud_retention` requires intended-stud entry by hand, bottom
+deformation preventing exit/table contact, and no nut rotation or pass-through
+in the intended slot. Manual fit does **not** replace any numeric size check.
+The same checkpoint includes uniform black/oiled finish, no loose residue and
+unobstructed fit/threads; finish remains an explicit visual instruction, not a
+third typed relationship, invented gauge or separate result.
 
 The Q3/Q4/E1/D1/B1 inspection operations and their unknown diameter/position and
 missing-functional-requirement placeholders are superseded by these explicit
@@ -251,7 +256,7 @@ two-ended `end-length` feature, or a generic `stock_end`. This is a locating
 designation of existing frozen geometry with no additional size/inspection
 requirement; top-up-reversed places it at setup X+12.7 against the rod's zero end.
 
-The physical route is **29 setups / 65 operations / 14 presentation families**:
+The physical route is **29 setups / 64 operations / 14 presentation families**:
 B0, Q1–Q4, S1, C1a, C1b, C2, then E1a–d, D1a–d, B1a–d, B2a–d, F1a–d.
 Each downstream setup names one explicit incoming retained output/setup. E1,
 D1, B1, B2 and F1 groups share presentation instructions only; their physical
@@ -276,6 +281,51 @@ heads are occupied geometry. Each head is posed at its actual cut center; pads
 contact the upper child's flange 12–24 mm above it. M6 pad/collar targets are
 8 N·m and M8 base targets 18 N·m: instructions, not verified holding force.
 No unused 1000-N rating remains.
+
+The original ledger's unbored collar and screw envelopes intersected the
+independent rectangular post. The adopted pre-made mechanism now has a real
+slotted-post through-clamp: a guided U-collar, bored front boss, removable rear
+strap and rear M6 nut. This is a disclosed **illustrative fixture correction**,
+not hardware identified in the video. The post/base, pad/arm geometry, moving
+pad, base-bolt envelopes and all three placement poses are unchanged.
+
+Head-local dimensions below are millimetres:
+
+| Element | Adopted geometry |
+| --- | --- |
+| Collar post window | Box min [−20.25,40,29], size [40.5,11,8], subtracting only `rear-rail-collar`; .25-mm clearance on each X side of the 40-mm-wide post. |
+| Front screw boss | Box min [−6,20,27], size [12,20,12], joined to the rail; the extra height leaves material around the screw bore. |
+| Front screw bore | Ø6.5, +Y from [0,19,33], length22; subtracts only the rail and boss. |
+| Rear clamping strap | Box min [−28,50,27], size [56,4,12], bearing on the post's rear Y50 plane and closing across the collar's side ends. |
+| Rear strap bore | Ø6.5, +Y from [0,49,33], length6; subtracts only the strap. |
+| Collar M6 screw | Original axis X0/Z33, Ø6, now Y20..60; the original Y20..56 occupied envelope is retained and extended, not hidden. |
+| Rear M6 nut | Ø12 ×5 envelope at Y54..59; screw projects1 mm beyond it. Its Ø6 nominal thread-envelope void cuts the nut only, not the screw, and is not a helical-thread or thread-fit proof. |
+
+The fixed post has a Ø6.5-wide vertical obround slot through its Y40..50
+thickness. In post-local coordinates its straight void is min
+[−3.25,39,60.6225], size [6.5,12,58.42], joined to Ø6.5 end voids centered
+at X0/Z60.6225 and X0/Z119.0425 along +Y from Y39 for12 mm.
+These subtract **only the post**. The rounded slot spans Z57.3725..122.2925,
+covering all three actual screw centers `zc+33`:
+60.6225/89.8325/119.0425, with .25-mm radial screw clearance.
+Post material remains connected beside, above and below the slot.
+
+The nominal clamping stack has screw-head/boss bearing at Y20,
+collar/post bearing at Y40, post/strap bearing at Y50 and strap/nut
+bearing at Y54. The bolt closes that stack through the real bores and slot;
+the connected arms carry the two flange pads. Targeted voids do not subtract
+another fixture owner's material or erase occupied hardware. All added
+dimensions carry the same exact example-value measurement marker as the other
+installed fixture facts. None is a recovered shop measurement or a holding-force
+rating.
+
+The anchored post and connected clamping hardware are **authored fixture
+facts**, not a native anchorage certification. The finite-saw model checks
+occupied geometry, its collisions and the fixed/moving pad contacts with the
+upper child. Those checks do not establish an assembly load path, anchor-bolt
+strength, slip resistance or dynamic capture capacity. The physical connection
+must be present in the adopted fixture; neither the two pad contacts nor the
+8/18-N·m tightening instructions prove its strength.
 
 All custom-solid coordinates are fixture-local and all placed-support/capture
 poses are setup-local millimetres, applied once. Upright table is Z−75.
@@ -409,6 +459,15 @@ they do not turn the example into a physical measurement or a ready-to-run job.
   rough setup X−19.304/+107.569 and finish X−19.05/+107.315 mm. They do not shorten
   either end or substitute four short per-member paths. Clear-air depth entry
   and end returns remain subject to the real path/fixture checks.
+  Both shoulder operations use that explicit guided profile **without**
+  `stock_removal_bounds`: material removal belongs to the complete finite
+  printed side passes, not to the complement of four separated final targets
+  inside a broad clearing box. The stem stays continuous through all future
+  kerf and end-trim gaps until the three explicit partition cuts and later end
+  cleanups. Rough allowance is .254 mm normal to the stem walls only; the
+  shoulder floors still finish at setup Z−6.35, with no invented axial leave.
+  This authored path contract does not substitute for native target, allowance,
+  stock and cutter/fixture evidence.
 - Each D1 setup explicitly declares the centered hole's nominal entry Z0 and
   local section thickness 12.7 mm. These are derived from the adopted nominal
   design, not caliper readings. The 15.621-mm point-inclusive drill depth and
@@ -493,9 +552,10 @@ Axes are unchanged. Q1 gets a distinct batch frame so B1's released-member
 `bottom-up` frame stays canonical at [0,0,0]. E1/D1 `top-up-reversed` also stays
 canonical after each retained output's declared inverse registration. All three
 upright cut heights, B0's 4.475-inch retained length, jaw/support positions and
-printed X coordinates remain unchanged. S1's model-frame sweep bounds now name
-X0..113.665; its setup-frame material-removal bounds and cutter centers are
-unchanged. There is still one B0 cut and exactly three partition cuts.
+printed X coordinates remain unchanged. S1's model-frame sweep bounds name
+X0..113.665 and retain the same operator-local cutter centers; its explicit
+guided profile has no broad material-clearing box. There is still one B0 cut
+and exactly three partition cuts.
 
 B0 is the actual bed-seated hold: its raw stock bottom and bed top are setup
 Z−1.5875. With no parallels and 25-mm bench jaws, the jaw tops are Z23.4125;

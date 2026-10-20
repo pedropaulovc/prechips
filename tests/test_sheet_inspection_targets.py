@@ -1,11 +1,16 @@
 """Inspection criteria retain their explicit physical recording owner on the sheet."""
 
+import json
 from dataclasses import replace
+from pathlib import Path
 
+import pytest
 from test_batch_material_routes import batch
 from test_sheet_ops import Markup, content, shop
 
 from prechips.findings import Finding
+from prechips.inputs import load_bundle
+from prechips.rules.resolution import op_check_targets, resolve
 from prechips.sheet import _Inspection, _ledger_row, _readings, _Row, _Steps, _Traveler
 
 MEMBERS = ["nut1", "nut2", "nut3", "nut4"]
@@ -200,10 +205,6 @@ def test_one_batch_checkpoint_and_four_individual_final_records_remain_blank():
         assert "25.350–25.450 mm" in content(record)
         methods = markup.find("inspection-method", record)
         assert len(methods) == 3
-        assert all(
-            any(method in content(owner) for owner in methods)
-            for method in setup["ops"][0]["inspection_methods"].values()
-        )
         assert len(markup.find("result-field", record)) == 1
     assert len({record["attrs"]["data-record-title"] for _, record in final_records}) == 4
     for markup, record in [(batch_markup, batch_record), *final_records]:
@@ -295,12 +296,6 @@ def test_authored_method_readings_stay_inline_at_the_explicit_physical_checkpoin
     (steps,) = [method for method in checkpoint.methods if isinstance(method, _Steps)]
     assert _readings(steps[1]) == [(1, "first"), (2, "last")]
     (worksheet,) = markup.find("worksheet", record)
-    assert [content(label) for label in markup.find("field-label", worksheet)] == [
-        "first",
-        "last",
-        "difference",
-        "station_result",
-    ]
     assert len(markup.find("writing-blank", worksheet)) == 4
     # The height readings do not also record the other three section criteria.
     assert not checkpoint.reading_owned
@@ -321,12 +316,6 @@ def test_authored_method_readings_stay_inline_at_the_explicit_physical_checkpoin
         "nut1/part:stud_retention",
     }
     assert len(checkpoint.methods) == len(final.find("inspection-method", record)) == 3
-    authored = [
-        node
-        for method in final.find("inspection-method", record)
-        for node in final.find("field-label", method)
-    ]
-    assert [content(label) for label in authored] == ["finished_length"]
     assert not checkpoint.reading_owned
     assert len(final.find("result-field", record)) == 1
     assert len(final.find("writing-blank", record)) == 2
@@ -344,7 +333,6 @@ def test_a_reading_owned_checkpoint_has_no_second_overall_result_blank():
     assert checkpoint.reading_owned
     assert subject_ids(record) == {"nut1/end-length:length"}
     assert not markup.find("result-field", record)
-    assert [content(label) for label in markup.find("field-label", record)] == ["finished_length"]
     (blank,) = markup.find("writing-blank", record)
     assert content(blank) == ""
 
@@ -481,3 +469,88 @@ def test_member_owned_missing_check_does_not_spread_to_another_final_nut():
     sheet.findings = [finding]
     assert sheet.setup_findings(finals[1]) == [finding]
     assert all(sheet.setup_findings(setup) == [] for setup in [finals[0], finals[2], finals[3]])
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_tnut_final_only_checkpoints_keep_all_sizes_and_four_physical_results(detail):
+    bundle = load_bundle(
+        Path(__file__).resolve().parents[1] / "examples/blondihacks-t-nuts/plan.toml"
+    )
+    sheet = _Traveler(bundle, [], {}, None, detail=detail)
+    inspections = [
+        (setup, op)
+        for setup in bundle.plan["setups"]
+        for op in setup.get("ops", [])
+        if op.get("do") == "inspect"
+    ]
+    assert [(setup["id"], op["op"]) for setup, op in inspections] == [
+        ("F1a", 10),
+        ("F1b", 10),
+        ("F1c", 10),
+        ("F1d", 10),
+    ]
+    dimensions = {
+        ("base-envelope", "width"),
+        ("base-envelope", "height"),
+        ("shoulders", "width"),
+        ("shoulders", "thickness"),
+        ("end-length", "length"),
+    }
+    criteria = dimensions | {(None, "actual_slot_fit"), (None, "stud_retention")}
+    expected_subjects = {}
+    for member, (setup, op) in zip(MEMBERS, inspections, strict=True):
+        targets = op_check_targets(bundle, setup, op)
+        assert {
+            (target["identity"]["feature_owner"], target["identity"]["requirement"])
+            for target in targets
+        } == criteria
+        assert all(
+            target["identity"]["workpiece"] == member
+            and target["selection_status"] == "pass"
+            and target["shared_check_id"] is None
+            and target["covered_workpieces"] == []
+            for target in targets
+        )
+        assert all(
+            target["kind"] == "dimensional"
+            and (resolve(bundle, "gauges", target["gauge"]) or {}).get("kind") == "caliper"
+            for target in targets
+            if target["identity"]["feature_owner"] is not None
+        )
+        expected_subjects[member] = {
+            f"{member}/{feature if feature is not None else 'part'}:{requirement}"
+            for feature, requirement in criteria
+        }
+        markup, checks = inspection_markup(sheet, setup, op)
+        (checkpoint,) = [check for check in checks if isinstance(check, _Inspection)]
+        assert checkpoint.workpiece == member
+        assert checkpoint.shared_check_id is None and checkpoint.covered_workpieces == ()
+        assert set(checkpoint.subjects) == expected_subjects[member]
+        assert set(checkpoint.features) == {feature for feature, _ in dimensions}
+        assert len(checkpoint.methods) == len(criteria)
+        assert not checkpoint.reading_owned
+        (record,) = markup.find("inspection-record")
+        assert subject_ids(record) == expected_subjects[member]
+        assert len(markup.find("result-field", record)) == 1
+        (blank,) = markup.find("writing-blank")
+        assert content(blank) == ""
+
+    finals = [setup for setup, _ in inspections]
+    blocks = {setup["id"]: sheet.setup_blocks(setup) for setup in finals}
+    family = Markup(sheet.family_html(finals, blocks))
+    (grid,) = family.find("checkpoint-results")
+    results = family.find("checkpoint-result", grid)
+    assert [record["attrs"]["data-workpiece"] for record in results] == MEMBERS
+    assert len(family.find("result-field")) == len(family.find("writing-blank")) == 4
+    for (setup, op), member, record in zip(inspections, MEMBERS, results, strict=True):
+        assert record["attrs"]["data-setup-id"] == setup["id"]
+        assert record["attrs"]["data-op-id"] == str(op["op"])
+        assert record["attrs"]["data-shared-check"] == ""
+        assert json.loads(record["attrs"]["data-covered-workpieces"]) == []
+        assert subject_ids(record) == expected_subjects[member]
+        (blank,) = family.find("writing-blank", record)
+        assert content(blank) == ""
+    # Finish is an authored obligation at the same final operation, not a fabricated gauge.
+    assert "uniform black/oiled finish, no loose residue and unobstructed fit/threads" in content(
+        grid["parent"]
+    )

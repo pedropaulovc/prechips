@@ -750,6 +750,11 @@ def _positive(record, key):
     return float(value) if _number(value) and value > 0 else None
 
 
+def _guided_profile(op):
+    """An explicitly guided profile without a broad multipass clearing-box contract."""
+    return op.get("profile_model") == "guided_sweep" and "stock_removal_bounds" not in op
+
+
 def _unbounded_chain(op):
     """Whether ``op`` is an unbounded chain-drill profile: a profile action with no
     ``stock_removal_bounds`` whose printed ``checkpoints`` carry at least one nonempty path
@@ -6743,6 +6748,7 @@ class _Setup(ThreadMaterialMixin):
         self.checkpoint_jobs = []
         self.run_outs = {}  # id(op) -> (its printed run-out sweep or None, why unknown)
         self.designs = {}  # id(op) -> a printed profile op's claim sweeps before its run-out
+        self.guided_errors = {}  # id(op) -> a proved target/claimed-normal-leave intrusion
         self.clamp_parts = []
         self.clamp_restraints = {}  # clamp name -> declared restraint (press/locate/none)
         # clamp name -> [(primitive name, solid, declared bearing kind)] declaring locates
@@ -7042,7 +7048,7 @@ class _Setup(ThreadMaterialMixin):
             with _timed(op_clocks, self._subject(op)):
                 result = self._op(op)
                 if _sawn(op):
-                    self._bound_saw_facts(result)
+                    self._bound_saw_facts(result, op)
                 if getattr(self.owner, "workpieces", {}):
                     result["workpiece_faces"] = self._qualified_claims(op) or {}
                 if id(op) in self.thread_overlap:
@@ -7859,6 +7865,7 @@ class _Setup(ThreadMaterialMixin):
         if stopped is None:
             self.lower_out = self.lower_out.common(stock) if self.thread_regions else stock
         for op in self.ops:
+            self._begin_thread_material_op(op)
             subject = self._subject(op)
             if stopped is not None:
                 self.cuts[id(op)] = (None, None, stopped)
@@ -7929,6 +7936,7 @@ class _Setup(ThreadMaterialMixin):
             except Exception as exc:
                 stopped = f"in-process stock boolean failed ({exc}); {where}"
             finally:
+                self._end_thread_material_op(op)
                 self.cuts[id(op)] = (before, stock, None)
                 if stopped is not None:
                     self.stopped_cut = id(op)
@@ -8236,11 +8244,7 @@ class _Setup(ThreadMaterialMixin):
         try:
             pieces = list(stock.Solids)
             rows = [
-                {
-                    "piece": number,
-                    "volume_mm3": _r(piece.Volume),
-                    "bbox_mm": [_r(v) for v in _bbox(piece)],
-                }
+                {"piece": number, **self._material_piece_facts(piece)}
                 for number, piece in enumerate(pieces, start=1)
             ]
             for number, piece in enumerate(pieces, start=1):
@@ -8421,6 +8425,9 @@ class _Setup(ThreadMaterialMixin):
         radius = _positive(op, "radius_mm")
         if keep[0] and radius is None:
             return None, "contour.keep_out leaves unknown stock: missing measured cutter radius_mm"
+        if _guided_profile(op):
+            removal, why = self._guided_removal(op, stock)
+            return (None, why) if why is not None else ((removal, []), None)
         leave, why = self._guarded(op)
         if why is not None:
             return None, why
@@ -9323,6 +9330,76 @@ class _Setup(ThreadMaterialMixin):
         solid = pieces[0].fuse(pieces[1:]).removeSplitter() if len(pieces) > 1 else pieces[0]
         return _valid(solid, "a flat skin's end cusp")
 
+    def _guided_removal(self, op, stock):
+        """Only the actual explicit cutter-centre paths remove stock.
+
+        A retained guide is not a clearing box: neither a nominal wall corridor nor the
+        complement of disconnected finished targets describes what its cutter traverses.
+        Every complete path must be known, and its whole sweep must preserve finished
+        material and the leave normal to the claimed faces. No guard clips an invalid path
+        into a different, apparently safe cut.
+        """
+        if op.get("do") not in PROFILE_ACTIONS:
+            return None, "an explicit guided cut requires a profile action"
+        table = op.get("checkpoints")
+        if not isinstance(table, dict) or table.get("reason"):
+            reason = table.get("reason") if isinstance(table, dict) else "missing checkpoints"
+            return None, f"its explicit guided paths are unknown ({reason})"
+        paths = table.get("paths")
+        if not isinstance(paths, list) or not paths:
+            return None, "its explicit guided paths are empty or unknown"
+        for path in paths:
+            points = path.get("xy_mm") if isinstance(path, dict) else None
+            if (
+                not isinstance(path, dict)
+                or path.get("method") != "linear_table"
+                or not _number(path.get("tip_z_mm"))
+                or not isinstance(points, list)
+                or len(points) < 2
+                or not all(
+                    isinstance(point, list) and len(point) == 2 and all(_number(v) for v in point)
+                    for point in points
+                )
+                or not any(a != b for a, b in zip(points, points[1:], strict=False))
+            ):
+                return None, "its explicit guided paths are not complete finite linear tables"
+        radius = _positive(op, "radius_mm")
+        if radius is None:
+            return None, "its explicit guided cutter radius is unknown"
+        guards, leave, why = self._guided_guard(op)
+        if why is not None:
+            return None, why
+        swept, why = self._run_out(op, radius)
+        if why is not None or swept is None:
+            return None, why or "its explicit guided cutter sweep is empty"
+        try:
+            if (
+                not swept.isValid()
+                or not swept.Solids
+                or not all(math.isfinite(v) for v in _bbox(swept))
+                or swept.Volume <= 0
+            ):
+                raise ValueError("not a valid finite solid sweep")
+            for index, guard in enumerate(guards):
+                intrusion = swept.common(guard).Volume
+                if intrusion > HIT_MM3:
+                    obstacle = (
+                        "protected finished material"
+                        if index == 0
+                        else f"its {_r(leave)} mm claimed-face normal rough leave"
+                    )
+                    why = (
+                        f"its explicit guided cutter sweep removes {_r(intrusion)} mm^3 "
+                        f"of {obstacle}"
+                    )
+                    self.guided_errors[id(op)] = why
+                    return None, why
+            removal = _valid(stock.common(swept), "its explicit guided removal")
+        except Exception as exc:
+            return None, f"its explicit guided removal is unknown ({exc})"
+        self.designs[id(op)] = swept
+        return removal, None
+
     def _removal(self, op, valid, to_z, leave):
         """(stock outside the op's guard its claims sweep (:meth:`_op_sweep`), or None, and
         why not).
@@ -9641,6 +9718,9 @@ class _Setup(ThreadMaterialMixin):
         """
         if self.protection_reason is not None:
             return None, self.protection_reason
+        if _guided_profile(op):
+            _, leave, why = self._guided_guard(op)
+            return leave, why
         leave, why = _leave(op)
         if why is None:
             why = self._guard(leave)[1]
@@ -9652,6 +9732,50 @@ class _Setup(ThreadMaterialMixin):
                     break
             why = None if debt is None else f"{why}; {debt}"
         return (leave, None) if why is None else (None, why)
+
+    def _guided_guard(self, op):
+        """Finished targets and finite claim-normal leave, never an unclaimed shelf skin.
+
+        A guided profile's allowance belongs to its claimed surfaces; its explicit tip
+        independently determines its axial cut. Planar claims have an exact normal prism.
+        Another surface remains unknown rather than borrowing an isotropic whole-part
+        guard that would silently change the authored passes.
+        """
+        if self.protection_reason is not None:
+            return None, None, self.protection_reason
+        leave, why = _leave(op)
+        if why is not None:
+            return None, None, why
+        key = ("guided", id(op), leave)
+        if key in self.guards:
+            return self.guards[key]
+        valid, away, why = self._claims(op)
+        if why is not None or not isinstance(valid, list) or not valid or away:
+            return None, None, why or "its explicit guided claims are empty or face away"
+        pieces = [self.protected]
+        try:
+            if self.protected.isNull() or not self.protected.Solids:
+                raise ValueError("protected finished material is unknown")
+            for index in valid if leave else ():
+                face = self.faces[index]
+                if not isinstance(face.Surface, Part.Plane):
+                    raise ValueError("a claimed normal rough leave is not proven planar")
+                normal = _normal_at(face, face.CenterOfMass)
+                slab = face.extrude(normal * leave)
+                if (
+                    not slab.isValid()
+                    or len(slab.Solids) != 1
+                    or not all(math.isfinite(v) for v in _bbox(slab))
+                    or slab.Volume <= 0
+                ):
+                    raise ValueError("a claimed normal rough leave is not a valid finite prism")
+                pieces.append(slab)
+        except Exception as exc:
+            result = (None, None, f"its explicit guided normal-leave guard is unknown ({exc})")
+        else:
+            result = (pieces, leave, None)
+        self.guards[key] = result
+        return result
 
     def _windows(self, op, leave):
         """(setup-frame boxes in which this op's consumers subtract its own guard, or why
@@ -9722,7 +9846,10 @@ class _Setup(ThreadMaterialMixin):
         Arc joins give the exact offset; where OCC cannot build them (a drill-point apex)
         sharp intersection joins give a superset that keeps more stock. The leave stays
         stock: a valid finite solid containing the branch's protected material, or named
-        debt, never the nominal solid in its place.
+        debt, never the nominal solid in its place. Offset each protected solid separately:
+        OCC's offset builder cannot process a compound of disconnected solids. Union their
+        guards only after each offsets to one valid enclosing solid; the union must still
+        preserve the protected solid count and every member's leave.
 
         With a ``window`` box: the exact offset's pieces inside it, as
         :meth:`_window_guard` builds them.
@@ -9740,7 +9867,26 @@ class _Setup(ThreadMaterialMixin):
             errors = []
             for join in (0, 2):
                 try:
-                    guard = _offset(self.protected, leave, join)
+                    solids = self.protected.Solids
+                    pieces = []
+                    for solid in solids:
+                        piece = _offset(solid, leave, join)
+                        if len(solids) > 1:
+                            if (
+                                not piece.isValid()
+                                or len(piece.Solids) != 1
+                                or not all(math.isfinite(v) for v in _bbox(piece))
+                                or piece.Volume <= solid.Volume
+                            ):
+                                raise ValueError(
+                                    "a member offset is not a valid finite enclosing solid"
+                                )
+                            if solid.cut(piece).Volume > STOCK_MM3:
+                                raise ValueError(
+                                    "a member offset does not contain its protected material"
+                                )
+                        pieces.append(piece)
+                    guard = pieces[0].multiFuse(pieces[1:]) if len(pieces) > 1 else pieces[0]
                     if (
                         not guard.isValid()
                         or len(guard.Solids) != len(self.protected.Solids)
@@ -9750,6 +9896,12 @@ class _Setup(ThreadMaterialMixin):
                         raise ValueError("not a valid finite enclosing solid")
                     if self.protected.cut(guard).Volume > STOCK_MM3:
                         raise ValueError("it does not contain the branch's protected material")
+                    if len(pieces) > 1 and any(
+                        piece.cut(guard).Volume > STOCK_MM3 for piece in pieces
+                    ):
+                        raise ValueError(
+                            "the guard union does not contain every member's rough leave"
+                        )
                     self.guards[leave] = (guard, None)
                     break
                 except Exception as exc:
@@ -11542,19 +11694,21 @@ class _Setup(ThreadMaterialMixin):
         rows, unheld = [], []
         anchors = [c for c in self.fixture if c["role"] in _ANCHOR_ROLES]
         for number, piece in enumerate(pieces, start=1):
-            row = {
-                "piece": number,
-                "volume_mm3": _r(piece.Volume),
-                "bbox_mm": [_r(v) for v in _bbox(piece)],
-            }
+            row = {"piece": number, **self._material_piece_facts(piece)}
             witness = self._pressed(piece, anchors) if self.fixture_ready else None
             row["held"] = witness is not None
             row.update(witness or {})
             rows.append(row)
             if witness is None:
+                measure = (
+                    f"upper-bound volume {_r(piece.Volume)} mm^3, upper-bound bbox "
+                    f"{[_r(v) for v in _bbox(piece)]}"
+                    if self.thread_regions
+                    else f"{row['volume_mm3']} mm^3, bbox {row['bbox_mm']}"
+                )
                 unheld.append(
-                    f"piece {number} ({row['volume_mm3']} mm^3, bbox {row['bbox_mm']}) has no "
-                    "press-clamp load path to an anchored support"
+                    f"piece {number} ({measure}) has no press-clamp load path "
+                    "to an anchored support"
                 )
         if not self.fixture_ready:
             unheld.insert(0, f"the holding is not placed ({self.fixture_reason})")
@@ -13185,6 +13339,9 @@ class _Setup(ThreadMaterialMixin):
         """([(window or None, guard solids)], the op's rough leave, or None, and why
         unknown): the guard (:meth:`_guard`) no printed checkpoint may cut into, whole or,
         where OCC cannot build that, within each window its consumers protect."""
+        if _guided_profile(op):
+            pieces, leave, why = self._guided_guard(op)
+            return (None, None, why) if why is not None else ([(None, pieces)], leave, None)
         leave, why = self._guarded(op)
         if why is not None:
             return None, None, f"its guard is unknown ({why})"
@@ -14500,7 +14657,7 @@ class _Setup(ThreadMaterialMixin):
             if id(op) in self.saws:
                 return self.saws[id(op)]
             return self._saw_facts(op, self.cuts[id(op)][2])
-        if self.thread_regions:
+        if self._op_has_thread_material(op):
             return self._op_unknown(
                 op, "exact operation geometry is unavailable for bounded thread material"
             )
@@ -14575,6 +14732,8 @@ class _Setup(ThreadMaterialMixin):
             return self._rotary_op(op, indices)
         valid, away, undefined = self._split(indices)
         facts = {"reasons": {}}
+        if id(op) in self.guided_errors:
+            facts["stock_removal_error"] = self.guided_errors[id(op)]
         reasons = facts["reasons"]
         facts["claim_errors"] = sorted(owner.labels[index] for index in away)
         if (
@@ -15986,7 +16145,7 @@ class _Setup(ThreadMaterialMixin):
         """
         if self.stock_reason is not None:
             return None, f"in-process stock unknown: {self.stock_reason}"
-        if getattr(self, "thread_regions", None):
+        if self._op_has_thread_material(op, side):
             return None, "exact cutting-stock geometry is unavailable for bounded thread material"
         entry = self.cuts.get(id(op), (None, None, "the stock builder skipped it"))
         if entry[2] is not None:

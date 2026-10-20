@@ -210,7 +210,8 @@ def evaluate(bundle):
         midpoint_failures = []
         # X/Y pick-ups a swivelled vise leaves unproven: the work's edges stand at the
         # swivel to the travel, so only an indicated centre sets X or Y (#300).
-        swivel = swivel_angle(mapping(setup.get("hold"))) if swivelled(bundle, setup) else 0.0
+        declared_swivel = swivel_angle(mapping(setup.get("hold")))
+        swivel = declared_swivel if swivelled(bundle, setup) else 0.0
         slanted = []
 
         unknown = (
@@ -302,7 +303,10 @@ def evaluate(bundle):
             tool = resolve(bundle, "spindle", recipe.get("tool")) or {}
             method = recipe.get("method")
             indicated = recipe.get("from") == "indicated" and method != "opposed_edge_midpoint"
-            if swivel and axis != "z" and not indicated:
+            # An unresolved fixture kind must not turn a stated swivel into a square
+            # pickup for the two-contact midpoint method.
+            pickup_swivel = declared_swivel if method == "opposed_edge_midpoint" else swivel
+            if pickup_swivel and axis != "z" and not indicated:
                 slanted.append(axis.upper())
             radius = (
                 "not_applicable"
@@ -383,7 +387,7 @@ def evaluate(bundle):
                     midpoint_debts.append(
                         "one transverse pickup point does not prove two opposed contact paths"
                     )
-                if swivel:
+                if pickup_swivel:
                     midpoint_debts.append(
                         "opposed contacts are not proved perpendicular to the table axis"
                     )
@@ -774,7 +778,7 @@ def evaluate(bundle):
                 "stated: its procedure (speed, kick-out, tip-radius offset) cannot be printed."
             )
         if slanted:
-            turned = "an unknown angle" if swivel == UNKNOWN else f"{swivel:g}°"
+            turned = "an unknown angle" if declared_swivel == UNKNOWN else f"{declared_swivel:g}°"
             sentence += (
                 f" The vise is swivelled {turned}: the work's edges stand off the table "
                 "travel, so a touch on an edge does not set "

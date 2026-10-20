@@ -369,6 +369,150 @@ def test_later_cross_section_change_is_an_error_not_missing_proof():
     ]
 
 
+@pytest.mark.parametrize("action", ["fit", "deburr", "coating"])
+def test_unmodeled_bench_step_cannot_borrow_early_dimensional_credit(action):
+    bundle = practical_bundle()
+    install_preservation(bundle)
+    final = bundle.plan["setups"][-4]
+    final["ops"].insert(0, {"op": 5, "do": action, "feature": "thread"})
+    # Even a stale pass that merely lists the new subject is not bounded proof
+    # of its material effect. A functional stud check is not a size measurement.
+    for proof in bundle.kernel["setups"]["E1"]["inspection_preservation"]:
+        proof["operations"].append("E1:5")
+    evidence = inspection_preservation_evidence(
+        bundle, final, shared_op(bundle), "base", "height", "nut1"
+    )
+    assert evidence["status"] == "unknown"
+    assert evidence["reasons"] == ["material effects are unmodeled for E1:5"]
+    row = next(row for row in shared_rows(bundle) if row.subject == "S1:30/base:height")
+    assert row.status == "unknown"
+    assert [proof["status"] for proof in row.numbers["preservation"]] == [
+        "unknown",
+        "pass",
+        "pass",
+        "pass",
+    ]
+
+
+def test_later_producer_does_not_erase_unmodeled_incoming_bench_effect():
+    bundle = practical_bundle()
+    install_preservation(bundle)
+    check = shared_op(bundle)
+    bundle.plan["setups"][0]["ops"].insert(0, {"op": 10, "do": "fit", "feature": "thread"})
+    evidence = inspection_preservation_evidence(bundle, "E1", check, "base", "height", "nut1")
+    assert evidence["status"] == "unknown"
+    assert evidence["reasons"] == ["material effects are unmodeled for S1:10"]
+
+
+@pytest.mark.parametrize("action", ["inspect", "release", "scribe"])
+def test_nonmaterial_metadata_does_not_create_preservation_debt(action):
+    bundle = practical_bundle()
+    install_preservation(bundle)
+    final = bundle.plan["setups"][-4]
+    final["ops"].insert(0, {"op": 5, "do": action})
+    assert (
+        inspection_preservation_evidence(
+            bundle, final, shared_op(bundle), "base", "height", "nut1"
+        )["status"]
+        == "pass"
+    )
+
+
+@pytest.mark.parametrize("mutation", ["extra", "repeated", "reordered"])
+def test_native_operation_ledger_must_match_current_exact_order(mutation):
+    bundle = practical_bundle()
+    install_preservation(bundle)
+    proof = bundle.kernel["setups"]["E1"]["inspection_preservation"][0]
+    if mutation == "extra":
+        proof["operations"].append("other-part:10")
+    elif mutation == "repeated":
+        proof["operations"].append("C1a:10")
+    else:
+        proof["operations"].reverse()
+    assert (
+        inspection_preservation_evidence(bundle, "E1", shared_op(bundle), "base", "width", "nut1")[
+            "status"
+        ]
+        == "unknown"
+    )
+
+
+def final_multiowner_bundle():
+    bundle = practical_bundle()
+    bundle.plan["setups"][0]["ops"].pop()
+    for member in MEMBERS:
+        op = final_op(bundle, member)
+        op["inspect_workpieces"] = [member]
+        op["checks"] = {
+            "base": {"width": "calipers", "height": "calipers"},
+            "shoulders": {"width": "calipers", "thickness": "calipers"},
+            "end": {"length": "calipers"},
+            "actual_slot_fit": "actual-slot",
+            "stud_retention": "stud",
+        }
+        op["inspection_methods"].update(
+            base={"width": "Measure the base width.", "height": "Measure overall height."},
+            shoulders={
+                "width": "Measure the stem width.",
+                "thickness": "Measure both flange thicknesses; each must meet the band.",
+            },
+            end={"length": "Measure the finished length."},
+        )
+        op["inspection_methods"].pop("length")
+    return bundle
+
+
+def test_four_final_checkpoints_keep_every_numeric_and_manual_owner_without_preservation():
+    bundle = final_multiowner_bundle()
+    numeric = [*DIMENSIONS, ("end", "length")]
+    for index, member in enumerate(MEMBERS, 1):
+        setup = next(setup for setup in bundle.plan["setups"] if setup["id"] == f"E{index}")
+        targets = op_check_targets(bundle, setup, final_op(bundle, member))
+        assert len(targets) == 7
+        assert {
+            (target["identity"]["feature_owner"], target["identity"]["requirement"])
+            for target in targets
+        } == {*numeric, (None, "actual_slot_fit"), (None, "stud_retention")}
+        assert all(target["identity"]["workpiece"] == member for target in targets)
+        assert all(target["shared_check_id"] is None for target in targets)
+        assert all(target["covered_workpieces"] == [] for target in targets)
+    rows = [
+        row
+        for row in inspection.evaluate(bundle)
+        if row.numbers.get("requirement")
+        in {"width", "height", "thickness", "length", "actual_slot_fit", "stud_retention"}
+    ]
+    assert len(rows) == 28
+    assert all(row.status == "pass" for row in rows)
+    assert {row.subject for row in rows} == {
+        f"{member}/{owner}:{requirement}"
+        for member in MEMBERS
+        for owner, requirement in [
+            *numeric,
+            ("part", "actual_slot_fit"),
+            ("part", "stud_retention"),
+        ]
+    }
+    assert {row.numbers["op"] for row in rows} == {"E1:10", "E2:10", "E3:10", "E4:10"}
+    assert all(row.numbers["part_result"] == "not_recorded" for row in rows)
+    assert all("preservation" not in row.numbers for row in rows)
+
+
+def test_one_final_record_never_waives_missing_numeric_owner_or_borrows_a_sibling_check():
+    bundle = final_multiowner_bundle()
+    final_op(bundle, "nut2")["checks"]["base"].pop("height")
+    rows = {
+        row.subject: row
+        for row in inspection.evaluate(bundle)
+        if row.subject.endswith("/base:height")
+    }
+    assert set(rows) == {f"{member}/base:height" for member in MEMBERS}
+    assert rows["nut2/base:height"].status == "error"
+    assert all(
+        rows[f"{member}/base:height"].status == "pass" for member in ("nut1", "nut3", "nut4")
+    )
+
+
 @pytest.mark.parametrize(
     "scope",
     ["unknown", {"after": "unknown", "before": "C1a:10"}, {"after": "S1:20", "before": "unknown"}],

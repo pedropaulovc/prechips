@@ -522,6 +522,54 @@ def test_shared_requests_reach_each_setup_and_operative_cache_without_inventory_
     assert kernel._json(changed) != kernel._json(recipe)
 
 
+def test_preservation_ledger_keeps_unmodeled_bench_steps_out_of_tool_geometry(tmp_path):
+    data = shared_bundle(tmp_path)
+    setup = data.plan["setups"][0]
+    setup["ops"].extend(
+        {"op": index, "do": action}
+        for index, action in (
+            (40, "deburr"),
+            (50, "fit"),
+            (60, "coating"),
+            (70, "release"),
+            (80, "scribe"),
+        )
+    )
+    source = deepcopy(setup)
+    normalized, sent = kernel._setup_inputs(
+        data, setup, {}, set(), set(), MaterialGraph(data.plan), {}
+    )
+    expected = [
+        {"subject": "S1:20", "do": "finish_profile", "effect": "native"},
+        {"subject": "S1:30", "do": "inspect", "effect": "metadata"},
+        {"subject": "S1:40", "do": "deburr", "effect": "unmodeled"},
+        {"subject": "S1:50", "do": "fit", "effect": "unmodeled"},
+        {"subject": "S1:60", "do": "coating", "effect": "unmodeled"},
+        {"subject": "S1:70", "do": "release", "effect": "metadata"},
+        {"subject": "S1:80", "do": "scribe", "effect": "metadata"},
+    ]
+    assert normalized["preservation_ledger"] == expected
+    assert kernel._engine_setup(normalized)["preservation_ledger"] == expected
+    assert [op["op"] for op in sent] == [20]
+    assert [op["subject"] for op in normalized["ops"]] == ["S1:20"]
+    assert setup == source
+    recipe = kernel._cache_recipe({"stock": {}, "setups": [kernel._engine_setup(normalized)]})
+    changed = deepcopy(recipe)
+    changed["setups"][0]["preservation_ledger"][3]["do"] = "deburr"
+    assert kernel._json(changed) != kernel._json(recipe)
+
+
+def test_unknown_operation_cannot_disappear_as_bench_metadata(tmp_path):
+    data = shared_bundle(tmp_path)
+    setup = data.plan["setups"][0]
+    setup["ops"].append({"op": 40, "do": "unknown"})
+    assert kernel.inspection_preservation_ledger(setup)[-1] == {
+        "subject": "S1:40",
+        "do": "unknown",
+        "effect": "native",
+    }
+
+
 @pytest.mark.parametrize(
     "mutation",
     [

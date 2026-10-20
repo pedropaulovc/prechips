@@ -311,7 +311,6 @@ feature = "shoulders"
 workpiece_faces = { nut1 = ["#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut2 = ["#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut3 = ["#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut4 = ["#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"] }
 tool = "shoulder-rougher"
 holder = "collet-12"
-stock_removal_bounds = { x = [-12.7, 100.965], y = [-11.1125, 11.1125], z = [-6.35, 0.0] }
 contour = { method = "linear_table", sweep_frame = "model", sweep_bounds = { x = [0.0, 113.665], y = [-6.2865, 6.2865], z = [6.35, 12.7] } }
 to_z = -6.35
 stock_to_leave_mm = 0.254
@@ -328,7 +327,6 @@ feature = "shoulders"
 workpiece_faces = { nut1 = ["#17/ADVANCED_FACE[1]/", "#161/ADVANCED_FACE[5]/", "#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut2 = ["#17/ADVANCED_FACE[1]/", "#161/ADVANCED_FACE[5]/", "#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut3 = ["#17/ADVANCED_FACE[1]/", "#161/ADVANCED_FACE[5]/", "#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"], nut4 = ["#17/ADVANCED_FACE[1]/", "#161/ADVANCED_FACE[5]/", "#192/ADVANCED_FACE[6]/", "#265/ADVANCED_FACE[8]/"] }
 tool = "finishing-endmill"
 holder = "collet-12"
-stock_removal_bounds = { x = [-12.7, 100.965], y = [-11.1125, 11.1125], z = [-6.35, 0.0] }
 contour = { method = "linear_table", sweep_frame = "model", sweep_bounds = { x = [0.0, 113.665], y = [-6.2865, 6.2865], z = [6.35, 12.7] } }
 to_z = -6.35
 rpm = 750.0
@@ -338,16 +336,6 @@ approach_mm = 2.54
 direction = "conventional"
 note = [{ text = "Touch actual rough floor without paper: Axis Set Z-.250; +.250 jog reads 0. Finish walls at centre Y+/-.4975; do not lower the floors. Cross to the opposite shoulder beyond the raw end, not across the top.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=460s", "https://www.youtube.com/watch?v=TL0OsfFkBL8&t=583s", "geometry-provenance.md: AUTHOR'S CHOICE derived cutter centres"]
-[[setups.ops]]
-op = 30
-do = "inspect"
-feature = ["base-envelope", "shoulders"]
-inspect_workpieces = ["nut1", "nut2", "nut3", "nut4"]
-inspection_scope = { after = "S1:20", before = "C1a:20" }
-checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" } }
-inspection_methods = { base-envelope = { width = "Caliper across both base sides at every future blank station; .873-.877 inch.", height = "Caliper bottom-to-top at every future blank station; .498-.502 inch." }, shoulders = { thickness = "Caliper bottom-to-shelf on BOTH shoulders at every future blank station; .248-.252 inch.", width = "Caliper across both stem walls at every future blank station; .493-.497 inch." } }
-note = [{ text = "Caliper base width, height, both flange thicknesses and stem width across all future blank stations; one overall batch result.", detail = "pro" }]
-note_cite = "geometry-provenance.md#demonstration-acceptance-and-source-exceptions: AUTHOR'S CHOICE shared caliper checkpoint"
 [[setups.ops]]
 op = 40
 do = "deburr"
@@ -1074,16 +1062,16 @@ presentation_group = "F1"
 machine = "bench-bandsaw"
 stock_in = "B2a"
 picture_panels = []
-note = [{ text = "Final acceptance separately for each nut: caliper length, actual-slot fit, intended-stud retention and visual finish; one overall pass/fail result per nut.", detail = "pro" }]
+note = [{ text = "Final acceptance separately for each finished nut: caliper all required size bands, then actual-slot fit, intended-stud retention and visual finish; one overall pass/fail result per nut.", detail = "pro" }]
 hold = { note = [{ text = "With powered tools stopped, support the nut at the bench and handle it securely by hand for calipers and the actual intended slot/stud comparison. Keep fingers clear of pinch points; do not apply a clamp load or force a wedged part or stud.", detail = "pro" }] }
 [[setups.ops]]
 op = 10
 do = "inspect"
 feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
 inspect_workpieces = ["nut1"]
-checks = { end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
-inspection_methods = { end-length = { length = "Caliper end-to-end length .998-1.002 inch after clearing burrs." }, actual_slot_fit = "In the actual intended slot, slide freely by hand without binding or objectionable rocking; pull up and confirm both shelves bear without bottoming/wedging and the top stays below table top.", stud_retention = "The intended 3/8-16 RH stud enters from the top by hand and stops before exiting at the bottom; do not force it. Confirm the nut does not rotate or pass through the intended slot." }
-note = [{ text = "One overall result for this nut covers length, actual-slot fit and intended-stud retention. Also require uniform black finish, no loose residue and unobstructed fit/threads; no separate finish record. This is a functional check, not a load-rating or thread-class certificate.", detail = "pro" }]
+checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
+inspection_methods = { base-envelope = { width = "Caliper across both finished base sides; .873-.877 inch.", height = "Caliper finished bottom-to-top height; .498-.502 inch." }, shoulders = { thickness = "Caliper finished bottom-to-shelf thickness on BOTH shoulders; each .248-.252 inch.", width = "Caliper across both finished stem walls; .493-.497 inch." }, end-length = { length = "Caliper finished end-to-end length; .998-1.002 inch." }, actual_slot_fit = "In the actual intended slot, slide freely by hand without binding or objectionable rocking; pull up and confirm both shelves bear without bottoming/wedging and the top stays below table top.", stud_retention = "The intended 3/8-16 RH stud enters from the top by hand and stops before exiting at the bottom; do not force it. Confirm the nut does not rotate or pass through the intended slot." }
+note = [{ text = "One overall result for this nut covers caliper base width, height, BOTH flange thicknesses, stem width and length, plus actual-slot fit and intended-stud retention. Also require uniform black/oiled finish, no loose residue and unobstructed fit/threads; no separate finish record. Manual fit does not replace any numeric size check or establish a load rating or thread class.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]
 
 [[setups]]
@@ -1092,16 +1080,16 @@ presentation_group = "F1"
 machine = "bench-bandsaw"
 stock_in = "B2b"
 picture_panels = []
-note = [{ text = "Final acceptance separately for each nut: caliper length, actual-slot fit, intended-stud retention and visual finish; one overall pass/fail result per nut.", detail = "pro" }]
+note = [{ text = "Final acceptance separately for each finished nut: caliper all required size bands, then actual-slot fit, intended-stud retention and visual finish; one overall pass/fail result per nut.", detail = "pro" }]
 hold = { note = [{ text = "With powered tools stopped, support the nut at the bench and handle it securely by hand for calipers and the actual intended slot/stud comparison. Keep fingers clear of pinch points; do not apply a clamp load or force a wedged part or stud.", detail = "pro" }] }
 [[setups.ops]]
 op = 10
 do = "inspect"
 feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
 inspect_workpieces = ["nut2"]
-checks = { end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
-inspection_methods = { end-length = { length = "Caliper end-to-end length .998-1.002 inch after clearing burrs." }, actual_slot_fit = "In the actual intended slot, slide freely by hand without binding or objectionable rocking; pull up and confirm both shelves bear without bottoming/wedging and the top stays below table top.", stud_retention = "The intended 3/8-16 RH stud enters from the top by hand and stops before exiting at the bottom; do not force it. Confirm the nut does not rotate or pass through the intended slot." }
-note = [{ text = "One overall result for this nut covers length, actual-slot fit and intended-stud retention. Also require uniform black finish, no loose residue and unobstructed fit/threads; no separate finish record. This is a functional check, not a load-rating or thread-class certificate.", detail = "pro" }]
+checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
+inspection_methods = { base-envelope = { width = "Caliper across both finished base sides; .873-.877 inch.", height = "Caliper finished bottom-to-top height; .498-.502 inch." }, shoulders = { thickness = "Caliper finished bottom-to-shelf thickness on BOTH shoulders; each .248-.252 inch.", width = "Caliper across both finished stem walls; .493-.497 inch." }, end-length = { length = "Caliper finished end-to-end length; .998-1.002 inch." }, actual_slot_fit = "In the actual intended slot, slide freely by hand without binding or objectionable rocking; pull up and confirm both shelves bear without bottoming/wedging and the top stays below table top.", stud_retention = "The intended 3/8-16 RH stud enters from the top by hand and stops before exiting at the bottom; do not force it. Confirm the nut does not rotate or pass through the intended slot." }
+note = [{ text = "One overall result for this nut covers caliper base width, height, BOTH flange thicknesses, stem width and length, plus actual-slot fit and intended-stud retention. Also require uniform black/oiled finish, no loose residue and unobstructed fit/threads; no separate finish record. Manual fit does not replace any numeric size check or establish a load rating or thread class.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]
 
 [[setups]]
@@ -1110,16 +1098,16 @@ presentation_group = "F1"
 machine = "bench-bandsaw"
 stock_in = "B2c"
 picture_panels = []
-note = [{ text = "Final acceptance separately for each nut: caliper length, actual-slot fit, intended-stud retention and visual finish; one overall pass/fail result per nut.", detail = "pro" }]
+note = [{ text = "Final acceptance separately for each finished nut: caliper all required size bands, then actual-slot fit, intended-stud retention and visual finish; one overall pass/fail result per nut.", detail = "pro" }]
 hold = { note = [{ text = "With powered tools stopped, support the nut at the bench and handle it securely by hand for calipers and the actual intended slot/stud comparison. Keep fingers clear of pinch points; do not apply a clamp load or force a wedged part or stud.", detail = "pro" }] }
 [[setups.ops]]
 op = 10
 do = "inspect"
 feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
 inspect_workpieces = ["nut3"]
-checks = { end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
-inspection_methods = { end-length = { length = "Caliper end-to-end length .998-1.002 inch after clearing burrs." }, actual_slot_fit = "In the actual intended slot, slide freely by hand without binding or objectionable rocking; pull up and confirm both shelves bear without bottoming/wedging and the top stays below table top.", stud_retention = "The intended 3/8-16 RH stud enters from the top by hand and stops before exiting at the bottom; do not force it. Confirm the nut does not rotate or pass through the intended slot." }
-note = [{ text = "One overall result for this nut covers length, actual-slot fit and intended-stud retention. Also require uniform black finish, no loose residue and unobstructed fit/threads; no separate finish record. This is a functional check, not a load-rating or thread-class certificate.", detail = "pro" }]
+checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
+inspection_methods = { base-envelope = { width = "Caliper across both finished base sides; .873-.877 inch.", height = "Caliper finished bottom-to-top height; .498-.502 inch." }, shoulders = { thickness = "Caliper finished bottom-to-shelf thickness on BOTH shoulders; each .248-.252 inch.", width = "Caliper across both finished stem walls; .493-.497 inch." }, end-length = { length = "Caliper finished end-to-end length; .998-1.002 inch." }, actual_slot_fit = "In the actual intended slot, slide freely by hand without binding or objectionable rocking; pull up and confirm both shelves bear without bottoming/wedging and the top stays below table top.", stud_retention = "The intended 3/8-16 RH stud enters from the top by hand and stops before exiting at the bottom; do not force it. Confirm the nut does not rotate or pass through the intended slot." }
+note = [{ text = "One overall result for this nut covers caliper base width, height, BOTH flange thicknesses, stem width and length, plus actual-slot fit and intended-stud retention. Also require uniform black/oiled finish, no loose residue and unobstructed fit/threads; no separate finish record. Manual fit does not replace any numeric size check or establish a load rating or thread class.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]
 
 [[setups]]
@@ -1128,14 +1116,14 @@ presentation_group = "F1"
 machine = "bench-bandsaw"
 stock_in = "B2d"
 picture_panels = []
-note = [{ text = "Final acceptance separately for each nut: caliper length, actual-slot fit, intended-stud retention and visual finish; one overall pass/fail result per nut.", detail = "pro" }]
+note = [{ text = "Final acceptance separately for each finished nut: caliper all required size bands, then actual-slot fit, intended-stud retention and visual finish; one overall pass/fail result per nut.", detail = "pro" }]
 hold = { note = [{ text = "With powered tools stopped, support the nut at the bench and handle it securely by hand for calipers and the actual intended slot/stud comparison. Keep fingers clear of pinch points; do not apply a clamp load or force a wedged part or stud.", detail = "pro" }] }
 [[setups.ops]]
 op = 10
 do = "inspect"
 feature = ["base-envelope", "shoulders", "end-length", "threaded-hole"]
 inspect_workpieces = ["nut4"]
-checks = { end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
-inspection_methods = { end-length = { length = "Caliper end-to-end length .998-1.002 inch after clearing burrs." }, actual_slot_fit = "In the actual intended slot, slide freely by hand without binding or objectionable rocking; pull up and confirm both shelves bear without bottoming/wedging and the top stays below table top.", stud_retention = "The intended 3/8-16 RH stud enters from the top by hand and stops before exiting at the bottom; do not force it. Confirm the nut does not rotate or pass through the intended slot." }
-note = [{ text = "One overall result for this nut covers length, actual-slot fit and intended-stud retention. Also require uniform black finish, no loose residue and unobstructed fit/threads; no separate finish record. This is a functional check, not a load-rating or thread-class certificate.", detail = "pro" }]
+checks = { base-envelope = { width = "calipers", height = "calipers" }, shoulders = { thickness = "calipers", width = "calipers" }, end-length = { length = "calipers" }, actual_slot_fit = "actual-slot", stud_retention = "mating-hardware" }
+inspection_methods = { base-envelope = { width = "Caliper across both finished base sides; .873-.877 inch.", height = "Caliper finished bottom-to-top height; .498-.502 inch." }, shoulders = { thickness = "Caliper finished bottom-to-shelf thickness on BOTH shoulders; each .248-.252 inch.", width = "Caliper across both finished stem walls; .493-.497 inch." }, end-length = { length = "Caliper finished end-to-end length; .998-1.002 inch." }, actual_slot_fit = "In the actual intended slot, slide freely by hand without binding or objectionable rocking; pull up and confirm both shelves bear without bottoming/wedging and the top stays below table top.", stud_retention = "The intended 3/8-16 RH stud enters from the top by hand and stops before exiting at the bottom; do not force it. Confirm the nut does not rotate or pass through the intended slot." }
+note = [{ text = "One overall result for this nut covers caliper base width, height, BOTH flange thicknesses, stem width and length, plus actual-slot fit and intended-stud retention. Also require uniform black/oiled finish, no loose residue and unobstructed fit/threads; no separate finish record. Manual fit does not replace any numeric size check or establish a load rating or thread class.", detail = "pro" }]
 note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=1027s", "geometry-provenance.md#demonstration-acceptance-and-source-exceptions"]

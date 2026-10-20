@@ -112,13 +112,15 @@ GEOMETRY_RULES = [
 RULES.extend(GEOMETRY_RULES)
 
 
-def required_coverage(bundle: Bundle, findings: list[Finding]) -> list[Finding]:
-    """A shop cannot accidentally obtain checked readiness by naming a missing rule."""
+def required_coverage(
+    bundle: Bundle, findings: list[Finding], *, policy: dict | None = None
+) -> list[Finding]:
+    """Require positive subject coverage, not merely a finding in the named rule."""
     from prechips.model import tolerance_requirements
     from prechips.rules.resolution import HOLE_KINDS
 
     rows = []
-    required = bundle.policy.get("required", "unknown")
+    required = (bundle.policy if policy is None else policy).get("required", "unknown")
     if required == "unknown":
         required = {"required_policy": "*"}
     for name, selector in required.items():

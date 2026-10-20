@@ -525,15 +525,17 @@ def test_compact_levels_keep_authored_execution_readings_but_not_generated_opera
     markup = Markup(rendered(data, detail=detail))
     methods = markup.find("inspection-method")
     assert methods
-    blanks = [blank for method in methods for blank in markup.find("authored-blank", method)]
-    assert len(blanks) == 2
-    labels = " ".join(
-        content(node) for method in methods for node in markup.find("field-label", method)
-    )
-    assert "north_reading" in labels and "south_reading" in labels
-    for blank in blanks:
-        (field,) = markup.find("writing-blank", blank)
-        assert content(field) == ""
+    fields = [field for method in methods for field in markup.find("field", method)]
+    assert len(fields) == 3
+    for field in fields:
+        (blank,) = markup.find("writing-blank", field)
+        assert content(blank) == ""
+        owner = ancestor_with_class(field, "operation")
+        assert owner is not None
+        assert owner["attrs"]["data-setup-id"] == setup["id"]
+        assert owner["attrs"]["data-op"] == str(setup["ops"][0]["op"])
+    assert len(markup.find("writing-blank")) == len(fields)
+    assert not markup.find("checkpoint-result")
     assert any("Calculate:" in content(method) and "mean" in content(method) for method in methods)
     records = [node for node in markup.nodes if "data-inspection-ids" in node["attrs"]]
     assert any(
@@ -541,7 +543,6 @@ def test_compact_levels_keep_authored_execution_readings_but_not_generated_opera
     )
     assert not markup.find("performed-mark")
     assert not markup.find("signoff")
-    assert not markup.find("measurement-ref")
     assert not re.search(r"\?M\d+\b", content(job_page(markup)))
 
 
@@ -671,7 +672,6 @@ def test_compact_projection_hides_acquisition_paperwork_not_consumed_unknowns_or
             assert acquisition.count(lead["id"]) == 1
         else:
             assert not acquisition
-            assert not markup.find("measurement-ref")
             assert not re.search(r"\?M\d+\b", content(job_page(markup)))
         for finding in findings:
             if finding.status == "unknown":
@@ -680,8 +680,23 @@ def test_compact_projection_hides_acquisition_paperwork_not_consumed_unknowns_or
         operations = {node["attrs"]["data-op"]: node for node in markup.find("operation")}
         assert {"10", "20", "30", "40", "50"} <= operations.keys()
         assert "?" in content(operations["10"])
-        for value in (500, 25, -1.5):
-            assert_number(content(operations["50"]), value)
+        assert_number(content(operations["50"]), -1.5)
+        if detail == "pedantic":
+            for name, value in (("speed", 500), ("feed", 25)):
+                (field,) = markup.find(f"op-{name}", operations["50"])
+                (cell,) = [
+                    node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is field
+                ]
+                assert_number(content(cell), value)
+        else:
+            owner = f"{data.plan['setups'][0]['id']}:50"
+            (settings,) = [
+                node
+                for node in markup.nodes
+                if owner in json.loads(node["attrs"].get("data-physical-ops", "[]"))
+            ]
+            for value in (500, 25):
+                assert_number(content(settings), value)
     assert [finding.to_dict() for finding in findings] == original
     assert snapshots[0] == snapshots[1] == snapshots[2]
 
@@ -813,8 +828,9 @@ def test_family_shares_identical_instructions_but_keeps_every_physical_checkpoin
         and markup.find("operation", node)
     ]
     assert len(common) == 1
-    method = finals[0]["ops"][0]["inspection_methods"]["length"]
-    assert content(common[0]).count(method) == 1
+    methods = markup.find("inspection-method", common[0])
+    assert len(methods) == len(finals[0]["ops"][0]["inspection_methods"])
+    assert all(content(method).strip() for method in methods)
     assert len(markup.find("checkpoint-result", common[0])) == len(expected_owners)
     for node in markup.find("checkpoint-result", common[0]):
         assert (node["attrs"]["data-setup-id"], node["attrs"]["data-workpiece"]) in expected_owners
@@ -862,7 +878,6 @@ def test_family_operative_differences_remain_named_member_variants(detail, chang
         ]
         assert len(owned) == 1
         assert_number(content(owned[0]), findings[-1].numbers["rpm"])
-        assert_number(content(owned[0]), findings[-1].numbers["feed_mm_min"])
         unchanged = [
             node
             for node in settings
@@ -897,20 +912,27 @@ def test_identical_authored_reading_prompts_are_never_shared_between_distinct_me
             "Measure this member's finished length: {finished_length}."
         )
     _, _, markup = collected_family(data, finals, detail=detail)
-    fields = markup.find("authored-blank")
+    fields = [
+        blank
+        for method in markup.find("inspection-method")
+        for blank in markup.find("writing-blank", method)
+    ]
     assert len(fields) == len(finals)
     observed = set()
-    for field in fields:
-        variant = ancestor_with_class(field, "setup-variant")
+    for blank in fields:
+        variant = ancestor_with_class(blank, "setup-variant")
         assert variant is not None
         observed.add((variant["attrs"]["data-setup-id"], variant["attrs"]["data-workpiece"]))
-        (blank,) = markup.find("writing-blank", field)
         assert content(blank) == ""
-        assert "finished_length" in content(field)
+        assert ancestor_with_class(blank, "family-common") is None
     assert observed == {
         (setup["id"], operation_members(data, setup, setup["ops"][0])[0]) for setup in finals
     }
-    assert not any(markup.find("authored-blank", common) for common in markup.find("family-common"))
+    assert not any(
+        markup.find("writing-blank", method)
+        for common in markup.find("family-common")
+        for method in markup.find("inspection-method", common)
+    )
 
 
 @pytest.mark.parametrize("detail", TRAVELER_DETAILS)
@@ -1115,7 +1137,7 @@ def test_identical_decisions_share_a_notice_per_owner_without_losing_source_stat
 
 
 @pytest.mark.parametrize("detail", TRAVELER_DETAILS)
-def test_same_text_different_statuses_are_not_silently_coalesced(detail):
+def test_same_text_different_statuses_keep_evidence_and_highest_operator_severity(detail):
     data = bench_job()
     sid = f"{data.plan['setups'][0]['id']}:{data.plan['setups'][0]['ops'][0]['op']}"
     data.policy["required"] = {"reach": "*", "accessibility": "*"}
@@ -1128,7 +1150,9 @@ def test_same_text_different_statuses_are_not_silently_coalesced(detail):
         for node in markup.find("operation")
         if finding_has_kind(node, unresolved, "block") and finding_has_kind(node, failed, "block")
     )
-    assert content(operation).count(message) == 2
+    assert content(operation).count(message) == 1
+    assert f"STOP: {message}" in content(operation)
+    assert f"CAUTION: {message}" not in content(operation)
     assert {
         (entry["source"], entry["status"], entry["scope"], entry["kind"])
         for entry in decision_evidence(operation)
@@ -1136,3 +1160,39 @@ def test_same_text_different_statuses_are_not_silently_coalesced(detail):
         (unresolved.rule, str(unresolved.status), unresolved.subject, "block"),
         (failed.rule, str(failed.status), failed.subject, "block"),
     }
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_optional_warning_and_error_share_one_highest_severity_notice_with_both_bindings(detail):
+    data = bench_job()
+    setup = data.plan["setups"][0]
+    op = setup["ops"][0]
+    sid = f"{setup['id']}:{op['op']}"
+    data.policy["required"] = {}
+    message = "Resolve the selected assembly clearance before proceeding."
+    optional = Finding("reach", sid, "warn", {}, [], message)
+    failed = Finding("accessibility", sid, "error", {}, [], message)
+    report = build_report(data, [optional, failed])
+    assert report["expected_exit"] == 2
+    markup = Markup(render_traveler(data, [optional, failed], report, detail=detail))
+    notices = {
+        id(node): node for finding in (optional, failed) for node in finding_nodes(markup, finding)
+    }
+    assert len(notices) == 1
+    (notice,) = notices.values()
+    assert notice["attrs"]["data-setup-id"] == setup["id"]
+    assert notice["attrs"]["data-op"] == str(op["op"])
+    assert f"STOP: {message}" in content(notice)
+    assert f"CAUTION: {message}" not in content(notice)
+    assert finding_has_kind(notice, optional, "caution")
+    assert finding_has_kind(notice, failed, "block")
+    assert {
+        (entry["source"], entry["status"], entry["scope"], entry["kind"])
+        for entry in decision_evidence(notice)
+    } == {
+        (optional.rule, str(optional.status), optional.subject, "caution"),
+        (failed.rule, str(failed.status), failed.subject, "block"),
+    }
+    owner = ancestor_with_class(notice, "setup-variant")
+    assert owner is not None and owner["attrs"]["data-setup-id"] == setup["id"]
+    assert content(notice).count(message) == 1

@@ -506,6 +506,145 @@ def test_unverified_thin_wall_floor_is_not_a_numeric_gate(bundle):
     assert finding(thin_wall_under_clamp, bundle).status == "unknown"
 
 
+def _bounded_clamp_wall(bundle, lower=2.0, upper=3.0):
+    detail = bundle.kernel["setups"]["S1"]
+    detail.update(
+        min_wall_mm="unknown",
+        min_wall_bounds_mm={"lower": lower, "upper": upper},
+        material_wall={
+            "model": "bounded_wall_rays_v1",
+            "status": "pass",
+            "state": "bounded",
+            "metric": "contact_loaded_ligament",
+            "sample_count": 4,
+        },
+        material_contact={
+            "model": "common_exterior_v1",
+            "status": "pass",
+            "outside_unmodeled_regions": "proved",
+        },
+        stock_material={"model": "bounded_material_v1", "state": "bounded"},
+    )
+    return detail
+
+
+@pytest.mark.parametrize(
+    "lower,upper,status",
+    [
+        (2.0, 3.0, "pass"),
+        (2.5, 3.0, "pass"),
+        (2.0, 2.0, "pass"),
+        (0.0, 1.9, "error"),
+        (1.0, 1.999999999, "error"),
+        (1.0, 2.0, "unknown"),
+        (1.999999999, 3.0, "unknown"),
+    ],
+)
+@pytest.mark.parametrize("method", ["hard_jaws", "soft jaws", "unknown"])
+def test_bounded_clamp_wall_uses_proven_interval_not_exact_or_protective_method(
+    bundle, lower, upper, status, method
+):
+    _bounded_clamp_wall(bundle, lower, upper)
+    bundle.plan["setups"][0]["hold"]["method"] = method
+    row = finding(thin_wall_under_clamp, bundle)
+    assert row.status == status
+    assert row.numbers["min_wall_mm"] == "unknown"
+    assert row.numbers["min_wall_bounds_mm"] == {"lower": lower, "upper": upper}
+
+
+@pytest.mark.parametrize(
+    "lower,upper",
+    [
+        ("unknown", 3.0),
+        (2.0, None),
+        (True, 3.0),
+        (2.0, False),
+        (-1.0, 3.0),
+        (3.0, 2.0),
+        (math.nan, 3.0),
+        (2.0, math.nan),
+        (-math.inf, 3.0),
+        (2.0, math.inf),
+    ],
+)
+def test_bounded_clamp_wall_rejects_invalid_interval(bundle, lower, upper):
+    _bounded_clamp_wall(bundle, lower, upper)
+    assert finding(thin_wall_under_clamp, bundle).status == "unknown"
+
+
+@pytest.mark.parametrize(
+    "section,key,value",
+    [
+        ("material_wall", "model", "common_wall_rays_v1"),
+        ("material_wall", "status", "unknown"),
+        ("material_wall", "state", "exact"),
+        ("material_wall", "metric", "total_material_run"),
+        ("material_wall", "sample_count", 0),
+        ("material_wall", "sample_count", True),
+        ("material_wall", "sample_count", 1.5),
+        ("material_contact", "model", "unknown"),
+        ("material_contact", "status", "unknown"),
+        ("material_contact", "outside_unmodeled_regions", "unknown"),
+        ("stock_material", "model", "unknown"),
+        ("stock_material", "state", "exact"),
+    ],
+)
+@pytest.mark.parametrize("lower,upper", [(2.0, 3.0), (0.5, 1.0)])
+def test_bounded_clamp_wall_requires_identified_successful_native_proof(
+    bundle, section, key, value, lower, upper
+):
+    detail = _bounded_clamp_wall(bundle, lower, upper)
+    detail[section][key] = value
+    assert finding(thin_wall_under_clamp, bundle).status == "unknown"
+
+
+@pytest.mark.parametrize("section", ["material_wall", "material_contact", "stock_material"])
+def test_bounded_clamp_wall_cannot_pass_without_native_proof_context(bundle, section):
+    detail = _bounded_clamp_wall(bundle)
+    del detail[section]
+    assert finding(thin_wall_under_clamp, bundle).status == "unknown"
+
+
+@pytest.mark.parametrize("bounds", [None, "unknown", {}, {"lower": 2.0}, [2.0, 3.0]])
+def test_bounded_clamp_wall_rejects_missing_bound_identity(bundle, bounds):
+    detail = _bounded_clamp_wall(bundle)
+    detail["min_wall_bounds_mm"] = bounds
+    assert finding(thin_wall_under_clamp, bundle).status == "unknown"
+
+
+def test_bounded_clamp_wall_rejects_conflicting_exact_scalar(bundle):
+    detail = _bounded_clamp_wall(bundle)
+    detail["min_wall_mm"] = 3.0
+    assert finding(thin_wall_under_clamp, bundle).status == "unknown"
+
+
+@pytest.mark.parametrize("floor", ["unknown", 0, -1, True, math.nan, math.inf])
+def test_bounded_clamp_wall_requires_valid_policy_floor(bundle, floor):
+    _bounded_clamp_wall(bundle)
+    bundle.policy["numbers"]["thin_wall_floor_mm"] = floor
+    assert finding(thin_wall_under_clamp, bundle).status == "unknown"
+
+
+def test_bounded_clamp_wall_requires_verified_policy_floor(bundle):
+    _bounded_clamp_wall(bundle)
+    bundle.policy["numbers_verify"] = {"thin_wall_floor_mm": True}
+    assert finding(thin_wall_under_clamp, bundle).status == "unknown"
+
+
+@pytest.mark.parametrize(
+    "debt",
+    [
+        {"verify": True},
+        {"verify": "unknown"},
+        {"measured": {"status": "measured", "by": "test", "date": "2026-10-03"}},
+    ],
+)
+def test_bounded_clamp_wall_preserves_fixture_measurement_debt(bundle, debt):
+    _bounded_clamp_wall(bundle)
+    bundle.inventory["fixtures"]["vise"]["jaw_depth_mm"] = {"value": 12.0, **debt}
+    assert finding(thin_wall_under_clamp, bundle).status == "unknown"
+
+
 def _strap_hold(bundle, pose=True, verify=False):
     """S1 held on an angle plate under one clamping-kit strap (posed unless told not)."""
     up = {"x": [1.0, 0.0, 0.0], "z": [0.0, 0.0, 1.0]}
@@ -547,6 +686,27 @@ def test_strap_footprint_wall_meets_the_floor_or_errors(bundle, wall, debts, sta
     row = finding(thin_wall_under_clamp, bundle)
     assert row.status == status
     assert all(debt in row.sentence for debt in debts if status == "unknown")
+
+
+@pytest.mark.parametrize(
+    "lower,upper,debts,status",
+    [
+        (2.0, 3.0, [], "pass"),
+        (2.0, 3.0, ["clamp 2 has no sampled footprint bearing"], "unknown"),
+        (0.5, 1.0, ["clamp 2 has no sampled footprint bearing"], "error"),
+        (1.0, 3.0, [], "unknown"),
+    ],
+)
+def test_bounded_strap_wall_preserves_unresolved_other_clamps(bundle, lower, upper, debts, status):
+    _strap_hold(bundle)
+    detail = _bounded_clamp_wall(bundle, lower, upper)
+    detail["strap_wall_debts"] = debts
+    row = finding(thin_wall_under_clamp, bundle)
+    assert row.status == status
+    assert row.numbers["min_wall_mm"] == "unknown"
+    assert "under the strap footprints" in row.sentence or status == "unknown"
+    if debts and status == "unknown":
+        assert debts[0] in row.sentence
 
 
 @pytest.mark.parametrize("pose,verify", [(False, False), (True, True)])

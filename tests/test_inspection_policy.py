@@ -347,3 +347,122 @@ def test_known_manual_comparator_error_still_precedes_policy_nonselection():
     assert missing == []
     assert report["expected_exit"] == 2
     assert report["verification"] == "planned"
+
+
+@pytest.fixture
+def setup_policy_bundle(planned_checks):
+    bundle, _ = planned_checks
+    return replace(
+        bundle,
+        plan={
+            "setups": [
+                {"id": "S2", "ops": [{"op": 10}]},
+                {"id": "S3", "ops": [{"op": 20}]},
+            ]
+        },
+        policy={"required": {"internal_corner_radius": "S2"}},
+    )
+
+
+@pytest.mark.parametrize("status,expected_exit", [("unknown", 4), ("pass", 0)])
+def test_known_setup_selector_restores_legacy_operation_scope(
+    setup_policy_bundle, status, expected_exit
+):
+    bundle = setup_policy_bundle
+    row = Finding("internal_corner_radius", "S2:10", status, {}, [], "Corner check.")
+    assert selector_match(row, "S2", bundle) == "match"
+    assert is_required(row, bundle.policy, bundle)
+    assert required_coverage(bundle, [row]) == []
+    assert exit_code([row], bundle.policy, bundle) == expected_exit
+
+
+@pytest.mark.parametrize(
+    "setup_id,expected",
+    [("S2", "match"), ("S3", "no_match"), ("missing", "unknown"), (None, "unknown")],
+)
+def test_setup_selector_uses_structured_identity_before_display(
+    setup_policy_bundle, setup_id, expected
+):
+    bundle = setup_policy_bundle
+    row = Finding(
+        "internal_corner_radius",
+        "S2:10",
+        "unknown",
+        {"setup_id": setup_id},
+        [],
+        "Structured setup debt.",
+    )
+    assert selector_match(row, "S2", bundle) == expected
+    assert is_required(row, bundle.policy, bundle) == (expected != "no_match")
+    missing = required_coverage(bundle, [row])
+    assert [finding.subject for finding in missing] == ([] if expected == "match" else ["S2"])
+    assert exit_code([row], bundle.policy, bundle) == 4
+
+
+def test_structured_setup_selects_qualified_inspection_without_decoding_subject(
+    setup_policy_bundle,
+):
+    bundle = replace(setup_policy_bundle, policy={"required": {"inspection": "S2"}})
+    row = Finding(
+        "inspection",
+        "nut1/part:actual_slot_fit",
+        "unknown",
+        {"setup_id": "S2", "identity": {"feature_owner": None}},
+        [],
+        "Inspection setup debt.",
+    )
+    assert selector_match(row, "S2", bundle) == "match"
+    assert required_coverage(bundle, [row]) == []
+    assert exit_code([row], bundle.policy, bundle) == 4
+
+
+@pytest.mark.parametrize(
+    "subject", ["S2:99", "S2:10/base:width", "S2/part:actual_slot_fit", "nut1/S2:10"]
+)
+def test_setup_scope_does_not_parse_unowned_or_unauthored_subjects(setup_policy_bundle, subject):
+    bundle = setup_policy_bundle
+    row = Finding("internal_corner_radius", subject, "pass", {}, [], "Unrelated row.")
+    assert selector_match(row, "S2", bundle) == "no_match"
+    assert [finding.subject for finding in required_coverage(bundle, [row])] == ["S2"]
+    # Direct gate calls must reject missing coverage even when the rule is present.
+    assert exit_code([row], bundle.policy, bundle) == 4
+
+
+def test_unknown_structured_inspection_setup_cannot_claim_coverage(setup_policy_bundle):
+    bundle = replace(setup_policy_bundle, policy={"required": {"inspection": "S2"}})
+    row = Finding(
+        "inspection",
+        "S2:10/base:width",
+        "pass",
+        {"identity": {"feature_owner": "base"}},
+        [],
+        "No structured setup owner.",
+    )
+    assert selector_match(row, "S2", bundle) == "unknown"
+    assert [finding.subject for finding in required_coverage(bundle, [row])] == ["S2"]
+    assert exit_code([row], bundle.policy, bundle) == 4
+
+
+def test_explicit_setup_subject_list_does_not_expand_operation_scope(setup_policy_bundle):
+    bundle = replace(setup_policy_bundle, policy={"required": {"internal_corner_radius": ["S2"]}})
+    row = Finding(
+        "internal_corner_radius", "S2:10", "unknown", {"setup_id": "S2"}, [], "Operation debt."
+    )
+    assert selector_match(row, ["S2"], bundle) == "no_match"
+    assert not is_required(row, bundle.policy, bundle)
+    assert [finding.subject for finding in required_coverage(bundle, [row])] == ["S2"]
+    assert exit_code([row], bundle.policy, bundle) == 4
+
+
+def test_direct_gate_uses_supplied_policy_for_subject_coverage(setup_policy_bundle):
+    bundle = setup_policy_bundle
+    row = Finding("internal_corner_radius", "S2:10", "pass", {}, [], "Corner check.")
+    policy = {"required": {"internal_corner_radius": "S3"}}
+    assert exit_code([row], policy, bundle) == 4
+    assert exit_code([row], {"required": {}}, bundle) == 0
+
+
+@pytest.mark.parametrize("selector", ["missing", ["present", "missing"]])
+def test_direct_gate_without_bundle_requires_selected_subject_coverage(selector):
+    row = Finding("inspection", "present", "pass", {}, [], "Only one subject checked.")
+    assert exit_code([row], {"required": {"inspection": selector}}) == 4

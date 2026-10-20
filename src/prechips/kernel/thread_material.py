@@ -47,6 +47,7 @@ class ThreadMaterialMixin:
         self.lower_part = self._placed(bounds["lower"]) if bounds else self.part
         self.lower_out = self.lower_part
         self.lower_cuts = {}
+        self._thread_material_ops = {}
         self.thread_regions = (
             [
                 {"shape": self._placed(row["shape"]), "public": dict(row["public"])}
@@ -64,6 +65,21 @@ class ThreadMaterialMixin:
         for row in self.thread_regions:
             self.protected = self.protected.cut(row["shape"])
             self.certain = self.certain.cut(row["shape"])
+
+    def _begin_thread_material_op(self, op):
+        count = len(self.thread_regions)
+        self._thread_material_ops[id(op)] = (count, count)
+
+    def _end_thread_material_op(self, op):
+        count = len(self.thread_regions)
+        before = self._thread_material_ops.get(id(op), (count, count))[0]
+        self._thread_material_ops[id(op)] = (before, count)
+
+    def _op_has_thread_material(self, op, side=0):
+        counts = getattr(self, "_thread_material_ops", {}).get(id(op))
+        # A missing snapshot proves no exact state. In the normal build both
+        # snapshots exist even for metadata or an operation after a stopped cut.
+        return bool(counts[side]) if counts is not None else bool(self.thread_regions)
 
     def _thread_envelope(self, op):
         spec = op.get("manual_thread", {})
@@ -133,6 +149,7 @@ class ThreadMaterialMixin:
         if not isinstance(indices, list) or not indices:
             return None, "represented thread feature has no resolved native faces"
         origin = FreeCAD.Vector(*at)
+        spans = []
         for index in indices:
             face = self.faces[index]
             surface = face.Surface
@@ -149,6 +166,17 @@ class ThreadMaterialMixin:
                     None,
                     "thread envelope does not contain the complete represented threaded span",
                 )
+            span = [(vertex.Point - origin).dot(direction) for vertex in face.Vertexes]
+            if not span:
+                return None, "represented threaded span has no resolved axial boundaries"
+            spans.append((min(span), max(span)))
+        covered = 0.0
+        for lo, hi in sorted(spans):
+            if lo > covered + _TOL:
+                return None, "registered thread representation has a gap in the resolved span"
+            covered = max(covered, hi)
+        if covered + _TOL < depth:
+            return None, "registered thread representation does not cover the full resolved span"
         return envelope, None
 
     def _thread_identity(self, op):
@@ -234,8 +262,8 @@ class ThreadMaterialMixin:
         self.lower_cuts[id(op)] = (lower, next_lower, None)
         self.lower_out = next_lower
 
-    def _bound_saw_facts(self, facts):
-        if not self.thread_regions:
+    def _bound_saw_facts(self, facts, op):
+        if not self._op_has_thread_material(op):
             return
         upper = {}
 
@@ -268,6 +296,19 @@ class ThreadMaterialMixin:
             "bbox_status": "common" if _same_box(upper, lower) else "different",
             "unmodeled_regions": [row["public"] for row in regions],
         }
+
+    def _material_piece_facts(self, piece):
+        if not self.thread_regions:
+            return {
+                "volume_mm3": round(piece.Volume, 6) or 0.0,
+                "bbox_mm": [round(value, 6) or 0.0 for value in _box(piece)],
+            }
+        lower = self.lower_out.common(piece)
+        material = self._material_facts(piece, lower, self.thread_regions)
+        facts = {"material": material}
+        if material["bbox_status"] == "common":
+            facts["bbox_mm"] = [round(value, 6) or 0.0 for value in _box(piece)]
+        return facts
 
     def _material_state(self):
         if not self.thread_regions or self.stock_out_reason is not None:
@@ -310,9 +351,133 @@ class ThreadMaterialMixin:
         if record["material"]["bbox_status"] != "common":
             record.pop("bbox_mm", None)
 
+    def _bounded_wall_facts(self, facts):
+        """Wall thickness needs common force-ray material, not just exterior contact."""
+        if not self.arriving_thread_regions:
+            return
+        wall_keys = ("min_wall_mm", "wall_map", "strap_wall_map")
+        if not any(key in facts for key in wall_keys):
+            return
+        reason = None
+        bounds, paths = None, []
+        try:
+            uncertain = self.part.cut(self.lower_part)
+            if not uncertain.isNull() and uncertain.Volume > 0:
+                rays = []
+                wall_map = facts.get("wall_map")
+                if isinstance(wall_map, dict):
+                    axis = {"x": 0, "y": 1}.get(wall_map.get("axis"))
+                    angle = wall_map.get("jaws_angle_deg", 0.0)
+                    if axis is None or not _numeric(angle):
+                        raise ValueError("vise wall-ray frame is unresolved")
+                    rotation = FreeCAD.Rotation(FreeCAD.Vector(0, 0, 1), angle)
+                    for row in wall_map.get("lines", []):
+                        along, z = row.get("along_mm"), row.get("z_mm")
+                        if not all(map(_numeric, (along, z))):
+                            raise ValueError("vise wall-ray position is unresolved")
+                        intervals = row.get("intervals_mm", [])
+                        for lo, hi in intervals:
+                            if not all(map(_numeric, (lo, hi))) or hi <= lo:
+                                raise ValueError("vise wall-ray interval is unresolved")
+                            start, end = [0.0, 0.0, z], [0.0, 0.0, z]
+                            start[1 - axis] = end[1 - axis] = along
+                            start[axis], end[axis] = lo, hi
+                            rays.append(
+                                Part.LineSegment(
+                                    rotation.multVec(FreeCAD.Vector(*start)),
+                                    rotation.multVec(FreeCAD.Vector(*end)),
+                                ).toShape()
+                            )
+                        if row.get("loaded") is True and intervals:
+                            start, end = [0.0, 0.0, z], [0.0, 0.0, z]
+                            start[1 - axis] = end[1 - axis] = along
+                            start[axis], end[axis] = intervals[0][0], intervals[-1][1]
+                            first = rotation.multVec(FreeCAD.Vector(*start))
+                            last = rotation.multVec(FreeCAD.Vector(*end))
+                            force = last - first
+                            span = force.Length + 1.0
+                            if force.Length <= _TOL:
+                                raise ValueError("vise wall contact ends coincide")
+                            force.normalize()
+                            paths.extend(((first, force, span), (last, -force, span)))
+                forces = {name: force for name, force, _ in getattr(self, "clamp_parts", [])}
+                for row in facts.get("strap_wall_map", []):
+                    run = row.get("run_mm")
+                    if not _numeric(run):
+                        # No upper material run cannot become loaded in the lower bound.
+                        continue
+                    point, force = row.get("point_mm"), forces.get(row.get("clamp"))
+                    if (
+                        not isinstance(point, list)
+                        or len(point) != 3
+                        or not all(map(_numeric, point))
+                        or force is None
+                        or abs(force.Length - 1.0) > _TOL
+                        or run <= 0
+                    ):
+                        raise ValueError("strap wall-ray position or force is unresolved")
+                    start = FreeCAD.Vector(*point)
+                    rays.append(Part.LineSegment(start, start + force * run).toShape())
+                    paths.append((start, force, self.part.BoundBox.DiagonalLength + 1.0))
+                if not rays and _numeric(facts.get("min_wall_mm")):
+                    raise ValueError("wall thickness has no resolved sampled force rays")
+                if any(uncertain.distToShape(ray)[0] <= _TOL for ray in rays):
+                    reason = "sampled clamp wall ray intersects unmodeled thread material"
+                    if not paths:
+                        raise ValueError("bounded wall has no resolved loaded contact paths")
+                    lower_runs, upper_runs = [], []
+                    for point, force, span in paths:
+                        high = self._strap_run(point, force, span, shape=self.part)
+                        low = self._strap_run(point, force, span, shape=self.lower_part)
+                        low = 0.0 if low is None else low
+                        if (
+                            not all(map(_numeric, (low, high)))
+                            or low < 0
+                            or high < 0
+                            or low > high + _TOL
+                        ):
+                            raise ValueError("loaded wall ligament bounds are unresolved")
+                        lower_runs.append(min(low, high))
+                        upper_runs.append(high)
+                    bounds = {
+                        "lower": math.floor(min(lower_runs) * 1e6) / 1e6,
+                        "upper": math.ceil(min(upper_runs) * 1e6) / 1e6,
+                    }
+        except Exception as exc:
+            reason = f"common clamp wall-ray material is unproven ({exc})"
+        if reason is None:
+            facts["material_wall"] = {
+                "model": "common_wall_rays_v1",
+                "status": "pass",
+                "outside_unmodeled_material": "proved",
+            }
+            return
+        upper = {key: facts.pop(key) for key in wall_keys if key in facts}
+        facts["upper_bound_wall_facts"] = upper
+        facts["min_wall_mm"] = _UNKNOWN
+        facts.setdefault("reasons", {})["min_wall_mm"] = reason
+        if bounds is not None:
+            facts["min_wall_bounds_mm"] = bounds
+            facts["material_wall"] = {
+                "model": "bounded_wall_rays_v1",
+                "status": "pass",
+                "state": "bounded",
+                "metric": "contact_loaded_ligament",
+                "sample_count": len(paths),
+            }
+            return
+        if "strap_wall_map" in upper:
+            facts.setdefault("strap_wall_debts", []).append(reason)
+        facts["material_wall"] = {
+            "model": "common_wall_rays_v1",
+            "status": _UNKNOWN,
+            "reasons": [reason],
+        }
+
     def _bounded_fixture(self, facts):
         if not self.arriving_thread_regions:
             return
+        self._bounded_wall_facts(facts)
         reason = None
         if not self.fixture_ready or not self.fixture:
             reason = self.fixture_reason or "actual fixture-contact geometry is unresolved"

@@ -37,6 +37,7 @@ from prechips.rules.resolution import (
     HAND_FED,
     HAND_FINISH,
     HAND_THREAD,
+    PRESERVATION_METADATA,
     SAW_OPS,
     hand_fed,
     identity,
@@ -637,6 +638,10 @@ def op_inputs(bundle, setup, op, finishing=None, complete=None, tables=None):
         "finishing": subject in (finishing_subjects(bundle) if finishing is None else finishing),
         **declared,
     }
+    if op.get("do") in {"profile", "rough_profile", "finish_profile"} and "sweep_bounds" in record(
+        op.get("contour")
+    ):
+        result["profile_model"] = "guided_sweep"
     joint_cut = joint_operation(bundle, op, result["finishing"])
     if joint_cut is not None:
         if op.get("do") in {"spot", "drill", "ream"}:
@@ -2347,15 +2352,37 @@ def inspection_preservation_inputs(bundle):
     return requests
 
 
+def inspection_preservation_ledger(setup):
+    """Keep every authored operation in order, including unmodeled bench effects.
+
+    This ledger is not a cutting request. Unsupported shape changes cannot acquire
+    material proof by being omitted from the native tool-geometry operations.
+    """
+    from prechips.rules.geometry_common import cutting_action
+
+    return [
+        {
+            "subject": f"{setup['id']}:{op['op']}",
+            "do": op.get("do", UNKNOWN),
+            "effect": "metadata"
+            if op.get("do") in PRESERVATION_METADATA
+            else "native"
+            if cutting_action(op) is not False or op.get("do") in HAND_FINISH
+            else "unmodeled",
+        }
+        for op in setup["ops"]
+    ]
+
+
 def _setup_inputs(bundle, setup, coordinates, finishing, complete, graph, owners):
     """One shared operative setup projection, without rendering or pickup recursion."""
     from prechips.joint_features import setup_joint
     from prechips.rules.coordinates import revolved_located
-    from prechips.rules.geometry_common import cutting_action
 
     units = bundle.features.get("units", UNKNOWN)
+    ledger = inspection_preservation_ledger(setup)
     sent = [
-        op for op in setup["ops"] if cutting_action(op) is not False or op.get("do") in HAND_FINISH
+        op for op, entry in zip(setup["ops"], ledger, strict=True) if entry["effect"] == "native"
     ]
     keeps = _keeps(setup, sent)
     return {
@@ -2368,6 +2395,7 @@ def _setup_inputs(bundle, setup, coordinates, finishing, complete, graph, owners
         ],
         "stock_in": setup.get("stock_in", UNKNOWN),
         "inspection_preservation": inspection_preservation_inputs(bundle),
+        "preservation_ledger": ledger,
         **({"material": _material_inputs(graph, setup["id"], owners, units)} if graph else {}),
         **({"keep": keeps} if keeps else {}),
         "joint": setup_joint(bundle, setup),
@@ -2627,6 +2655,7 @@ _ENGINE_OP = (
     "saw_tool",
     "mounted_saw",
     "feature",
+    "profile_model",
     "faces",
     "workpiece_faces",
     "joint_cut",
@@ -2772,6 +2801,7 @@ def _engine_setup(setup):
         "ops": [_engine_op(op) for op in setup["ops"]],
         "stock_in": setup["stock_in"],
         "inspection_preservation": setup.get("inspection_preservation", []),
+        "preservation_ledger": setup.get("preservation_ledger", []),
         **({"material": setup["material"]} if "material" in setup else {}),
         **({"keep": setup["keep"]} if setup.get("keep") else {}),
         **({"zero_pickups": setup["zero_pickups"]} if "zero_pickups" in setup else {}),

@@ -104,12 +104,24 @@ ignore = [
 "src/prechips/rules/geometry_common.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
 "src/prechips/rules/op_chain.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
 "src/prechips/rules/op_order.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
-"src/prechips/rules/resolution.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
+"src/prechips/rules/resolution.py" = [
+    "tests/test_manual_die_tools.py",
+    "tests/test_thread_preparation.py",
+    "tests/test_threaded_joints.py",
+    "tests/test_manual_thread_boundaries.py",
+    "tests/test_practical_inspection.py",
+]
 "src/prechips/rules/tip_endpoints.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
 "src/prechips/rules/tool_resolves.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
 "src/prechips/rules/zero_recipe/rule.py" = ["tests/test_manual_die_tools.py", "tests/test_thread_preparation.py", "tests/test_threaded_joints.py", "tests/test_manual_thread_boundaries.py"]
 "src/prechips/rules/saw_cut.py" = ["tests/test_material_route_rule_boundaries.py"]
-"src/prechips/kernel/__init__.py" = ["tests/test_material_routes.py", "tests/test_kernel_retained_outputs.py"]
+"src/prechips/kernel/__init__.py" = [
+    "tests/test_material_routes.py",
+    "tests/test_kernel_retained_outputs.py",
+    "tests/test_kernel_practical_inspection_inputs.py",
+    "tests/test_kernel_profile_model_inputs.py",
+    "tests/test_practical_inspection.py",
+]
 "tests/data/kernel/*" = [
     "tests/test_kernel_geometry.py",
     "tests/test_kernel_held_split.py",
@@ -152,6 +164,7 @@ ignore = [
     "tests/test_kernel_thread_material_native.py",
 ]
 "src/prechips/kernel/thread_material.py" = [
+    "tests/test_kernel_thread_material_safety.py",
     "tests/test_kernel_practical_inspection_inputs.py",
     "tests/test_kernel_thread_material_native.py",
 ]
@@ -692,6 +705,9 @@ ignore = [
     "tests/test_sheet_manual_arc.py",
 ]
 "src/prechips/kernel/freecad_job.py" = [
+    "tests/test_kernel_thread_material_safety.py",
+    "tests/test_kernel_guard_frames.py",
+    "tests/test_kernel_guided_profile.py",
     "tests/test_kernel_guard_diagnostics.py",
     "tests/test_guided_sweep.py",
     "tests/test_kernel_checkpoints.py",

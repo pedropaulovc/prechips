@@ -1,5 +1,7 @@
 """Measured grip-zone wall below the shop floor needs a named protective method."""
 
+from math import isfinite
+
 from prechips.findings import Finding
 from prechips.rules._bench import manual_bench, not_applicable, unfixtured_handling
 from prechips.rules.geometry_common import (
@@ -12,6 +14,40 @@ from prechips.rules.resolution import number, record, same_length
 
 # Tape is a typed area hold (hold.area), never a method name.
 _PROTECTED = {"soft_jaws", "soft jaws", "mandrel", "wax"}
+
+
+def _finite_number(value):
+    return number(value) and (isinstance(value, int) or isfinite(value))
+
+
+def _proven_wall_bounds(detail):
+    """Accept only native, common-contact bounds on the same loaded ligament."""
+    bounds = record(detail.get("min_wall_bounds_mm"))
+    proof = record(detail.get("material_wall"))
+    contact = record(detail.get("material_contact"))
+    material = record(detail.get("stock_material"))
+    lower, upper = bounds.get("lower"), bounds.get("upper")
+    samples = proof.get("sample_count")
+    if (
+        detail.get("min_wall_mm", "unknown") != "unknown"
+        or proof.get("model") != "bounded_wall_rays_v1"
+        or proof.get("status") != "pass"
+        or proof.get("state") != "bounded"
+        or proof.get("metric") != "contact_loaded_ligament"
+        or not isinstance(samples, int)
+        or isinstance(samples, bool)
+        or samples <= 0
+        or contact.get("model") != "common_exterior_v1"
+        or contact.get("status") != "pass"
+        or contact.get("outside_unmodeled_regions") != "proved"
+        or material.get("model") != "bounded_material_v1"
+        or material.get("state") != "bounded"
+        or not _finite_number(lower)
+        or not _finite_number(upper)
+        or not 0 <= lower <= upper
+    ):
+        return None
+    return lower, upper
 
 
 def evaluate(bundle):
@@ -59,7 +95,36 @@ def evaluate(bundle):
                 "grip-zone wall thickness or shop thin-wall floor is unmeasured",
             ),
         )
-        if number(wall) and wall > 0 and number(floor) and floor > 0:
+        if "min_wall_bounds_mm" in detail:
+            values["min_wall_bounds_mm"] = detail["min_wall_bounds_mm"]
+            for key in ("material_wall", "material_contact", "stock_material"):
+                if key in detail:
+                    values[key] = detail[key]
+            bounds = _proven_wall_bounds(detail)
+            message = "minimum wall interval or its native material/contact proof is unresolved"
+            if bounds is not None and _finite_number(floor) and floor > 0:
+                lower, upper = bounds
+                if lower >= floor:
+                    status, message = (
+                        "pass",
+                        f"minimum wall lower bound {zone} meets the shop floor",
+                    )
+                    if debts:
+                        status = "unknown"
+                        message = (
+                            "drawn straps meet the shop floor but other clamps are unresolved: "
+                            + "; ".join(debts)
+                        )
+                elif upper < floor:
+                    status, message = (
+                        "error",
+                        f"minimum wall upper bound {zone} is below the shop floor",
+                    )
+                else:
+                    message = "minimum wall interval straddles the shop floor"
+            elif bounds is not None:
+                message = "shop thin-wall floor is unmeasured"
+        elif number(wall) and wall > 0 and number(floor) and floor > 0:
             if wall >= floor or same_length(wall, floor):
                 status, message = "pass", f"minimum wall {zone} meets the shop floor"
                 if debts:

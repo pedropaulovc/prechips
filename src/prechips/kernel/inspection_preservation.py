@@ -6,10 +6,10 @@ ownership.  A nominal dimension selects opposite planar supports, not a guessed
 width/height axis.  Every point of those original supports must remain a boundary.
 The only permitted aperture is a resolved, interior thread-envelope opening.
 
-Runner seam: setup/owner/state, matrix/faces, cuts/built/stopped_cut,
-lower_part/lower_out/lower_cuts, thread_regions, _placed/_registered_target and
-_partition_path.  Shapes and cut snapshots are in setup coordinates; published
-support axes/planes use the original registered model coordinates.  No host-side
+Runner seam: setup/owner/state, setup.preservation_ledger, matrix/faces,
+cuts/built/stopped_cut, lower_part/lower_out/lower_cuts, thread_regions,
+_placed/_registered_target and _partition_path. Shapes and cut snapshots are in
+setup coordinates; support axes/planes use the original registered model coordinates. No host-side
 material graph, inspection result or machining-credit facts participate.
 """
 
@@ -314,6 +314,45 @@ def _metadata(op):
     )
 
 
+def _operation_ledger(runner):
+    """Bind authored order to native operations; omissions are never no-op proof."""
+    ledger = runner.setup.get("preservation_ledger")
+    if not isinstance(ledger, list):
+        raise ValueError(f"{runner.setup.get('id')}: authored operation ledger is missing")
+    native = runner.setup.get("ops", [])
+    by_subject = {op.get("subject"): op for op in native}
+    if len(by_subject) != len(native):
+        raise ValueError("native operation identities are repeated")
+    seen = set()
+    for entry in ledger:
+        if (
+            not isinstance(entry, dict)
+            or set(entry) != {"subject", "do", "effect"}
+            or not isinstance(entry["subject"], str)
+            or not entry["subject"].startswith(f"{runner.setup.get('id')}:")
+            or entry["subject"] in seen
+            or not isinstance(entry["do"], str)
+            or entry["effect"] not in {"native", "metadata", "unmodeled"}
+        ):
+            raise ValueError("authored operation ledger identity or effect is unresolved")
+        subject = entry["subject"]
+        seen.add(subject)
+        op = by_subject.get(subject)
+        if op is not None and op.get("do") != entry["do"]:
+            raise ValueError(f"{subject}: authored/native operation kinds differ")
+        if entry["effect"] == "native" and op is None:
+            raise ValueError(f"{subject}: native operation material proof is missing")
+        if entry["effect"] == "metadata" and (
+            entry["do"] not in _METADATA or op is not None and not _metadata(op)
+        ):
+            raise ValueError(f"{subject}: a material-changing operation is not metadata")
+    if [entry["subject"] for entry in ledger if entry["subject"] in by_subject] != [
+        op.get("subject") for op in native
+    ]:
+        raise ValueError("authored/native operation order or completeness differs")
+    return ledger
+
+
 def _op_state(runner, op):
     state = runner.cuts.get(id(op))
     if state is None or len(state) != 3:
@@ -416,8 +455,39 @@ def _prove(request, source_sid, receiver_sid, runner, runners, lineage, subjects
             raise ValueError("scope boundary does not carry the checked registered member")
         if member not in (after[1].state.get("finished_names") or set()):
             raise ValueError("producer does not carry the checked registered member")
-        supports, region = _supports(after[1], request)
-        row["region"] = region
+        ledgers = {
+            sid: _operation_ledger(stage)
+            for sid, stage in runners
+            if sid == receiver_sid or sid in lineage.get(receiver_sid, set())
+        }
+        after_index = next(
+            index
+            for index, entry in enumerate(ledgers[after[0]])
+            if entry["subject"] == request["after"]
+        )
+        check_entries = [
+            entry
+            for entry in ledgers[source_sid]
+            if entry["subject"] == request.get("check_id") and entry["do"] == "inspect"
+        ]
+        if len(check_entries) != 1:
+            raise ValueError("authored inspection identity is unresolved or repeated")
+        check_index = ledgers[source_sid].index(check_entries[0])
+        before_ledger = _operation_ledger(before[1])
+        before_index = next(
+            index
+            for index, entry in enumerate(before_ledger)
+            if entry["subject"] == request["before"]
+        )
+        if (
+            not (positions[after[0]], after_index)
+            < (
+                positions[source_sid],
+                check_index,
+            )
+            < (positions[before[0]], before_index)
+        ):
+            raise ValueError("authored inspection ledger timing violates its scope")
         route = [
             (sid, stage)
             for sid, stage in runners
@@ -427,12 +497,24 @@ def _prove(request, source_sid, receiver_sid, runner, runners, lineage, subjects
         if not route or route[0][0] != after[0] or route[-1][0] != receiver_sid:
             raise ValueError("complete actual producer-to-receiver lineage is unproven")
         row["operations"] = [
-            op.get("subject")
+            entry["subject"]
             for sid, stage in route
-            for index, op in enumerate(stage.setup.get("ops", []))
-            if (sid != after[0] or index >= after[2])
-            and (op.get("subject") == request["after"] or not _metadata(op))
+            for index, entry in enumerate(ledgers[sid])
+            if (sid != after[0] or index >= after_index)
+            and (entry["subject"] == request["after"] or entry["effect"] != "metadata")
         ]
+        # A later native cut cannot reset unknown incoming bench geometry to the
+        # unchanged nominal model. Earlier unmodeled effects remain material debt.
+        for sid, ledger in ledgers.items():
+            if positions[sid] > positions[after[0]]:
+                continue
+            for index, entry in enumerate(ledger):
+                if sid == after[0] and index >= after_index:
+                    break
+                if entry["effect"] == "unmodeled":
+                    raise ValueError(f"{entry['subject']}: material effects are unmodeled")
+        supports, region = _supports(after[1], request)
+        row["region"] = region
         for sid, stage in route:
             if member not in (stage.state.get("finished_names") or set()) or stage.matrix is None:
                 raise ValueError(f"{sid}: checked member material registration is unresolved")
@@ -461,14 +543,20 @@ def _prove(request, source_sid, receiver_sid, runner, runners, lineage, subjects
                     if status != "pass":
                         row.update(status=status, reasons=[f"{sid}: arriving {reason}"])
                         return row
-            first = after[2] if sid == after[0] else 0
-            for index, op in enumerate(stage.setup.get("ops", [])):
-                if index < first:
+            native = {
+                op.get("subject"): (index, op)
+                for index, op in enumerate(stage.setup.get("ops", []))
+            }
+            for ledger_index, entry in enumerate(ledgers[sid]):
+                if sid == after[0] and ledger_index < after_index:
                     continue
-                subject = op.get("subject")
+                subject = entry["subject"]
                 is_producer = subject == request["after"]
-                if not is_producer and _metadata(op):
+                if entry["effect"] == "unmodeled":
+                    raise ValueError(f"{subject}: material effects are unmodeled")
+                if not is_producer and entry["effect"] == "metadata":
                     continue
+                index, op = native[subject]
                 upper_before, upper, _, lower = _op_state(stage, op)
                 current = (positions[sid], index)
                 active = [

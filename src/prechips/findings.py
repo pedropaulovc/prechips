@@ -135,6 +135,27 @@ def selector_match(
             if any(finding.subject == setup["id"] for setup in bundle.plan["setups"])
             else SelectorMatch.NO_MATCH
         )
+    if bundle is not None and isinstance(selector, str):
+        setups = {setup["id"]: setup for setup in bundle.plan["setups"]}
+        if selector in setups:
+            if "setup_id" in finding.numbers:
+                setup_id = finding.numbers["setup_id"]
+                if not isinstance(setup_id, str) or setup_id not in setups:
+                    return SelectorMatch.UNKNOWN
+                return SelectorMatch.MATCH if setup_id == selector else SelectorMatch.NO_MATCH
+            if finding.subject == selector:
+                return SelectorMatch.MATCH
+            # Legacy operation subjects are exact authored setup/operation pairs.
+            # Do not split member, shared-check or acceptance display subjects.
+            return (
+                SelectorMatch.MATCH
+                if any(
+                    finding.subject == f"{selector}:{op['op']}" for op in setups[selector]["ops"]
+                )
+                else SelectorMatch.UNKNOWN
+                if finding.rule == "inspection" and "identity" in finding.numbers
+                else SelectorMatch.NO_MATCH
+            )
     if selector not in {"holes", "toleranced_features"} and finding.subject == selector:
         return SelectorMatch.MATCH
     if bundle is None:
@@ -205,8 +226,21 @@ def exit_code(findings: list[Finding], policy: dict, bundle: Bundle | None = Non
     unresolved = {Status.WARN, Status.UNKNOWN, Status.UNSUPPORTED}
     if any(f.status in unresolved and is_required(f, policy, bundle) for f in findings):
         return 4
-    # Calling the gate directly must not silently waive an absent required rule.
-    found_rules = {f.rule for f in findings}
-    if any(rule not in found_rules for rule in required):
-        return 4
+    # Rule presence alone cannot prove that the selected subjects were checked.
+    if bundle is not None:
+        from prechips.rules import required_coverage
+
+        if required_coverage(bundle, findings, policy=policy):
+            return 4
+    else:
+        for rule, selector in required.items():
+            family = [finding for finding in findings if finding.rule == rule]
+            selectors = (
+                [[subject] for subject in selector] if isinstance(selector, list) else [selector]
+            )
+            if not family or any(
+                not any(selector_match(finding, item) == SelectorMatch.MATCH for finding in family)
+                for item in selectors
+            ):
+                return 4
     return 0

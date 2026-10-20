@@ -197,9 +197,11 @@ def test_qualified_same_finder_diameter_does_not_offset_the_center(axis, diamete
 
 @pytest.mark.parametrize("axis", ["x", "y"])
 @pytest.mark.parametrize("angle", [30.0, "unknown"])
-def test_swivel_still_leaves_transverse_midpoint_unproven(axis, angle):
+@pytest.mark.parametrize("fixture_known", [True, False])
+def test_swivel_still_leaves_transverse_midpoint_unproven(axis, angle, fixture_known):
     data = midpoint_bundle(axis)
-    data.inventory["workholding"] = {"vise": {"kind": "vise"}}
+    if fixture_known:
+        data.inventory.setdefault("fixtures", {})["vise"] = {"kind": "vise"}
     data.plan["setups"][0]["hold"] = {"fixture": "vise", "jaws_angle_deg": angle}
     finding, row = evaluated_axis(data, axis)
     assert finding.status == "unknown"

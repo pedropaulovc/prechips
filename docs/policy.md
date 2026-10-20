@@ -35,6 +35,7 @@ selector.
 | `"toleranced_features"` | Inspection's tolerance selection, including unknown requirement identities or lists; a manual relationship is selected when a participant meets that selection |
 | Exact subject list | Only the listed finding subjects, including any member or shared-check qualification |
 | Exact subject, feature or relationship | An exact finding subject; a feature also selects its dimensional/member/shared checks and participating manual relationships; a relationship key selects its per-member checks |
+| Known setup ID | Its bare setup finding and operation findings; structured `setup_id` takes precedence over the display subject |
 
 Tolerance selection includes modeled tolerance dimension keys (including groove
 width/depth) and every authored two-element numeric-or-unknown requirement band.
@@ -54,6 +55,12 @@ tolerance.
 Missing or unknown inspection ownership cannot establish that a finding is
 outside a feature selection. Such findings remain readiness debt; unresolved
 ownership is not positive evidence that a required feature was checked.
+
+A named setup selector such as `"S2"` also selects legacy operation subjects
+that exactly match an authored operation, such as `S2:10`. This does not decode
+member or acceptance subjects, and an explicit list such as `["S2"]` still
+selects only the bare subject. Missing or unresolved setup identity cannot
+provide coverage; unresolved structured inspection ownership remains debt.
 
 ## Gate and always-required checks
 

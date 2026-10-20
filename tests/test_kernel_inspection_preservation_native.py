@@ -112,6 +112,11 @@ identity = {"pose": {"origin": [0, 0, 0], "x": [1, 0, 0],
 class Runner:
     def __init__(self, sid, owner, ops, snapshots, lower=None, path=None, transform=None):
         self.setup = {"id": sid, "ops": ops, "inspection_preservation": []}
+        self.setup["preservation_ledger"] = [
+            {"subject": op["subject"], "do": op["do"],
+             "effect": "metadata" if op["do"] in {"inspect", "release", "scribe"} else "native"}
+            for op in ops
+        ]
         self.owner = owner
         self.state = {"finished_names": {"nut1"}, "member_transforms": {}}
         if transform is not None:
@@ -171,7 +176,8 @@ def request(nominal):
 def prove(target, entering=None, after=None, nominal=10, owner=None,
           unsupported=False, missing_lower=False, missing_path=False,
           restored=False, moved=False, sibling=False, projected=False,
-          global_requests=False, unknown_scope=False):
+          global_requests=False, unknown_scope=False, unmodeled=None,
+          before_producer=False, native_noop=False, ledger_mutation=None):
     owner = owner or owner_for(target)
     entering = target if entering is None else entering
     after = target if after is None else after
@@ -196,6 +202,29 @@ def prove(target, entering=None, after=None, nominal=10, owner=None,
         terminal.transformShape(transform)
         path = [{"split": "C", "output": "child"}]
     final = Runner("F", owner, [bench], [(terminal, terminal)], path=path, transform=transform)
+    if unmodeled is not None:
+        stage = source if before_producer else final
+        sid = stage.setup["id"]
+        subject = sid + (":10" if before_producer else ":5")
+        entry = {"subject": subject, "do": unmodeled, "effect": "unmodeled"}
+        stage.setup["preservation_ledger"].insert(0, entry)
+        if native_noop:
+            action = {"subject": subject, "do": unmodeled}
+            stage.setup["ops"].insert(0, action)
+            stage.cuts[id(action)] = (terminal, terminal, None)
+            stage.lower_cuts[id(action)] = (terminal, terminal, None)
+    if ledger_mutation == "missing":
+        final.setup.pop("preservation_ledger")
+    elif ledger_mutation == "order":
+        source.setup["preservation_ledger"].reverse()
+    elif ledger_mutation == "duplicate":
+        final.setup["preservation_ledger"] *= 2
+    elif ledger_mutation == "kind":
+        final.setup["preservation_ledger"][0]["do"] = "fit"
+    elif ledger_mutation == "metadata":
+        final.setup["preservation_ledger"].insert(
+            0, {"subject": "F:5", "do": "fit", "effect": "metadata"}
+        )
     if global_requests:
         cut_runner.setup["inspection_preservation"] = deepcopy(
             source.setup["inspection_preservation"]
@@ -243,6 +272,16 @@ out = {
         caps, nominal=6, owner=owner_for(caps, normal_axis=2, top_only=True)
     ),
 }
+out.update({
+    "bench_" + action: prove(box, unmodeled=action)
+    for action in ("fit", "deburr", "coating")
+})
+out.update({
+    "ledger_" + mutation: prove(box, ledger_mutation=mutation)
+    for mutation in ("missing", "order", "duplicate", "kind", "metadata")
+})
+out["bench_before_producer"] = prove(box, unmodeled="fit", before_producer=True)
+out["bench_noop_snapshots"] = prove(box, unmodeled="fit", native_noop=True)
 
 
 def thread_case(profile=False, exterior=False, stale=False, drill=False):
@@ -333,6 +372,33 @@ def test_any_original_support_loss_is_error_not_reduced_area_proof(support_nativ
 )
 def test_missing_or_ambiguous_native_support_stays_unknown(support_native, case):
     (row,) = support_native[case]
+    assert row["status"] == "unknown", row
+    assert row["reasons"]
+
+
+@pytest.mark.parametrize("action", ["fit", "deburr", "coating"])
+def test_unmodeled_bench_effects_are_explicit_preservation_barriers(support_native, action):
+    (row,) = support_native["bench_" + action]
+    assert row["status"] == "unknown", row
+    assert row["operations"] == ["S:20", "C:10", "F:5", "F:10"]
+    assert row["reasons"] == ["F:5: material effects are unmodeled"]
+
+
+def test_native_noop_snapshots_do_not_clear_unmodeled_bench_debt(support_native):
+    (row,) = support_native["bench_noop_snapshots"]
+    assert row["status"] == "unknown", row
+    assert row["reasons"] == ["F:5: material effects are unmodeled"]
+
+
+def test_native_producer_cannot_reset_preexisting_unmodeled_bench_debt(support_native):
+    (row,) = support_native["bench_before_producer"]
+    assert row["status"] == "unknown", row
+    assert row["reasons"] == ["S:10: material effects are unmodeled"]
+
+
+@pytest.mark.parametrize("mutation", ["missing", "order", "duplicate", "kind", "metadata"])
+def test_missing_or_mismatched_authored_operation_ledger_never_passes(support_native, mutation):
+    (row,) = support_native["ledger_" + mutation]
     assert row["status"] == "unknown", row
     assert row["reasons"]
 

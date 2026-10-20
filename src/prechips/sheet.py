@@ -1194,11 +1194,27 @@ def _action_body(value):
 
 
 def _decision_groups(decisions):
-    """One printed decision per identical meaning, retaining every source and scope."""
+    """Print the highest-severity notice once, retaining every original decision."""
     groups = {}
     for decision in dict.fromkeys(decisions):
-        groups.setdefault((decision.kind, decision.status, decision.text), []).append(decision)
-    return list(groups.values())
+        groups.setdefault(decision.text, []).append(decision)
+    kinds = {"none": 0, "caution": 1, "block": 2}
+    statuses = {
+        "pass": 0,
+        "not_applicable": 0,
+        "warn": 1,
+        "unknown": 2,
+        "unsupported": 2,
+        "error": 3,
+    }
+    return [
+        sorted(
+            group,
+            key=lambda fact: (kinds[fact.kind], statuses.get(fact.status, 2)),
+            reverse=True,
+        )
+        for group in groups.values()
+    ]
 
 
 def _decision_evidence(decisions):

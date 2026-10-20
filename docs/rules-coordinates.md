@@ -976,6 +976,13 @@ placed. The cycle is one way: feed the pass, lift to the op's retract Z (its
 entry stock top plus `approach_mm`) and rapid back to the next pass's start; a
 raster with no known lift Z keeps status unknown.
 
+For a profile with explicit `contour.sweep_bounds` and no broad
+`stock_removal_bounds`, these complete printed `linear_table` paths also
+govern native stock removal. No nominal wall corridor fills the gaps between
+separate finished members, and the checker does not credit an unprinted pass.
+The whole sweep must preserve finished material and the leave normal to its
+claimed planar faces; see [explicit guided profiles](rules-geometry.md#explicit-guided-profiles).
+
 #### Safe-side raster and outline rounding
 
 Every raster value sits on the DRO grid on the safe side:

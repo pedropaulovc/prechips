@@ -34,6 +34,9 @@ HAND_FINISH = frozenset({"file_to_line"})
 HAND_THREAD = frozenset({"die_thread", "hand_tap"})
 TAP_OPS = frozenset({"tap", "hand_tap"})
 MANUAL = {"inspect", "deburr", "coating", "release", "fit", "scribe"} | HAND_FINISH | HAND_THREAD
+# These labels alone do not change material. Other bench actions still need a
+# bounded native effect before an earlier dimensional check can survive them.
+PRESERVATION_METADATA = frozenset({"inspect", "release", "scribe"})
 SAW_OPS = frozenset({"saw_cut", "cut_off"})
 # Saw tool kind -> the machine kinds it cuts on. A slitting saw is a spindle-mounted
 # disk, not a bandsaw blade or hand saw: recognizing its station proves no arbor fit.
@@ -478,7 +481,11 @@ def inspection_preservation_evidence(bundle, receiver, op, feature, requirement,
     The native ledger binds the descendant route, current registration and partition,
     and exact scoped check/producer. Missing or mismatched proof remains debt.
     """
-    from prechips.kernel import inspection_preservation_inputs, workpiece_inputs
+    from prechips.kernel import (
+        inspection_preservation_inputs,
+        inspection_preservation_ledger,
+        workpiece_inputs,
+    )
     from prechips.material_routes import MaterialGraph
 
     sid = receiver.get("id") if isinstance(receiver, dict) else receiver
@@ -557,17 +564,31 @@ def inspection_preservation_evidence(bundle, receiver, op, feature, requirement,
     region = record(proof.get("region"))
     indices, axis, planes = (region.get(key) for key in ("indices", "axis", "planes_mm"))
     ledger = proof.get("operations")
-    expected_ops = {scope["after"]}
+    expected_ops, unmodeled = [], []
     active = False
-    for current, action in operations(bundle):
-        subject = f"{current['id']}:{action['op']}"
-        active |= subject == scope["after"]
-        if active and member in (graph.members(current["id"]) or ()):
-            kind = action.get("do")
-            if kind not in MANUAL or kind in HAND_FINISH | HAND_THREAD:
-                expected_ops.add(subject)
-        if current["id"] == sid and action is current["ops"][-1]:
+    for current in bundle.plan["setups"]:
+        carries_member = member in (graph.members(current["id"]) or ())
+        for entry in inspection_preservation_ledger(current):
+            subject = entry["subject"]
+            active |= subject == scope["after"]
+            if carries_member:
+                if entry["effect"] == "unmodeled":
+                    unmodeled.append(subject)
+                if active and (
+                    subject == scope["after"] or entry["do"] not in PRESERVATION_METADATA
+                ):
+                    expected_ops.append(subject)
+        if current["id"] == sid:
             break
+    if unmodeled:
+        return {
+            **result,
+            "reasons": [
+                *reasons,
+                "material effects are unmodeled for " + ", ".join(unmodeled),
+            ],
+            "proof": proof,
+        }
     complete = (
         region.get("model") == "planar_support_v1"
         and isinstance(indices, list)
@@ -589,7 +610,7 @@ def inspection_preservation_evidence(bundle, receiver, op, feature, requirement,
         and same_length(abs(planes[1] - planes[0]), nominal)
         and active
         and isinstance(ledger, list)
-        and expected_ops <= {text for text in ledger if isinstance(text, str)}
+        and ledger == expected_ops
     )
     status = "pass" if proof.get("status") == "pass" and complete else UNKNOWN
     return {**result, "status": status, "reasons": reasons, "proof": proof}

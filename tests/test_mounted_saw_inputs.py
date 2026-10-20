@@ -175,8 +175,8 @@ def test_bore_sized_components_at_body_faces_are_not_flanges(tmp_path, diameter)
     )
     recipe = inputs(data)
     assert recipe["status"] == "pass"
-    assert recipe["assembly_reasons"] == {}
-    assert recipe["assembly_errors"] == {}
+    assert recipe["assembly_reasons"] == []
+    assert recipe["assembly_errors"] == []
     assert {component["id"] for component in recipe["arbor"]["components"]} >= {
         "pilot",
         "bore_sized_stem",
@@ -193,7 +193,7 @@ def test_bore_sized_component_cannot_supply_missing_flange_contact(tmp_path, sid
     assert recipe["status"] == "unknown"
     assert (
         "arbor flange contact with both flat blade-body sides is not established"
-        in recipe["assembly_reasons"].values()
+        in recipe["assembly_reasons"]
     )
 
 
@@ -206,7 +206,7 @@ def test_body_face_flange_still_must_remain_inside_tooth_root(tmp_path, diameter
     assert recipe["status"] == "error"
     assert (
         "arbor flange must overlap the flat body annulus inside the tooth root"
-        in recipe["assembly_errors"].values()
+        in recipe["assembly_errors"]
     )
 
 
