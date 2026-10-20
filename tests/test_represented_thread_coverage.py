@@ -6,7 +6,9 @@ from types import SimpleNamespace
 import pytest
 
 from prechips import kernel
-from prechips.rules import coverage
+from prechips.findings import Finding, exit_code
+from prechips.measurements import length_debt
+from prechips.rules import coverage, geometry_common, reach
 
 
 @pytest.fixture
@@ -327,3 +329,83 @@ def test_legacy_representation_uses_explicit_null_member_and_current_partition(r
     assert evidence["workpiece_id"] is None
     case.proof["partition_path"] = [{"split": "other", "output": "other"}]
     assert _credit(case)[0] == set()
+
+
+@pytest.fixture
+def represented_reach(represented_thread, monkeypatch):
+    case = represented_thread
+    qualification = {
+        "tool": "tap",
+        "tip_depth_mm": 15.0,
+        "lead_mm": 2.3,
+        "formed_depth_mm": 12.7,
+        "flute_len_mm": 20.0,
+    }
+    case.request.update(qualification)
+    case.material.update(qualification)
+    case.inputs = {"manual_thread": case.request, "measurement_debts": []}
+    case.blocked = None
+    case.cite = ["synthetic represented reach proof"]
+
+    def contexts(*args, **kwargs):
+        blocked = case.blocked or geometry_common.unavailable(
+            case.bundle, "reach", "D1:20", case.facts, case.cite
+        )
+        if blocked is not None:
+            blocked = geometry_common.with_measurement_debts(
+                blocked, case.inputs["measurement_debts"]
+            )
+        case.last_blocker = blocked
+        yield case.setup, case.op, case.facts, {}, case.inputs, case.cite, blocked
+
+    monkeypatch.setattr(reach, "op_contexts", contexts)
+    return case
+
+
+@pytest.mark.parametrize("kernel_status", ["unknown", "error"])
+@pytest.mark.parametrize("request_status", ["ready", "unknown", "error"])
+def test_represented_reach_retains_unavailable_kernel_blocker(
+    represented_reach, kernel_status, request_status
+):
+    case = represented_reach
+    [control] = reach.evaluate(case.bundle)
+    assert control.status == "pass", control
+    assert control.numbers["model"] == "qualified_hand_tap_reach_v1"
+    debt = length_debt({"flute_len_mm": 20.0}, "flute_len", "tools", "tap", require_measured=True)
+    assert debt is not None
+    case.inputs["measurement_debts"] = [debt]
+    case.facts.update(
+        status=kernel_status,
+        kernel_unavailable=True,
+        reason="Synthetic FreeCAD executable is unavailable.",
+    )
+    case.request["status"] = request_status
+    [row] = reach.evaluate(case.bundle)
+    assert row is case.last_blocker
+    assert row.status == ("error" if kernel_status == "error" else "unknown")
+    assert row.numbers["kernel_status"] == kernel_status
+    assert row.numbers["kernel_unavailable"] is True
+    assert "Synthetic FreeCAD executable is unavailable." in row.sentence
+    assert "model" not in row.numbers
+    if kernel_status == "unknown":
+        assert row.numbers["measurements"] == [debt]
+        assert set(debt["cite"]) <= set(row.cite)
+    assert exit_code([row], {"required": {}}, case.bundle) == (2 if kernel_status == "error" else 4)
+
+
+def test_represented_reach_keeps_known_operation_error_before_qualification(represented_reach):
+    case = represented_reach
+    [control] = reach.evaluate(case.bundle)
+    assert control.status == "pass", control
+    case.blocked = Finding(
+        "reach",
+        "D1:20",
+        "error",
+        {"mapping_errors": ["invalid selected STEP face"]},
+        ["plan.setups.D1.ops.20"],
+        "D1:20: invalid selected STEP face.",
+    )
+    case.request["status"] = "unknown"
+    [row] = reach.evaluate(case.bundle)
+    assert row is case.blocked
+    assert exit_code([row], {"required": {}}, case.bundle) == 2

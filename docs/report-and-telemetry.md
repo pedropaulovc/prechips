@@ -581,6 +581,10 @@ check is attached to an inspection or a machining operation; distinct scoped
 methods are not replaced by the first feature's method. These associations do
 not establish physical fit or require duplicate authored prose.
 
+When one operation owns several result cells, each label names its human-readable
+feature and criterion as well as its setup/operation owner. A single physical
+checkpoint covering several criteria still owns one result field per member.
+
 Compact facing cycles retain their evaluated entry kind: uniformly proved air
 entries may say to lower in air; uniformly tangent entries retain tangent
 wording. Mixed or unresolved entries are not folded into either cycle, and
@@ -607,6 +611,10 @@ operation owners.
 Compact datum owners retain evaluated AxisSet targets, distinct from surface
 coordinates. Setup-local operative constraints stay associated with the work.
 
+Measured-M fields and conditional raw-top pre-facing instructions precede the
+dependent operations, including when only later members of a setup family need
+them. Each member retains its own nominal start surface and per-pass limit.
+
 Mounted-saw recipes distinguish the body-contact point from the arbor-axis
 position using the canonical zero record. Shared pro saw settings retain the
 numeric X/Y Axis Set targets without importing the hobby jog lesson. Tool keys
@@ -619,6 +627,12 @@ holder face to a cutting tip. Tap chamfer/lead and threaded cutting length
 labels do not relabel a reamer's geometry. Compact hand-tap warnings retain
 the unchecked movement; the report and pedantic detail retain the unidentified
 bore-surface cause.
+
+Measurement-debt labels use the current setup's tool identity, not a list of all
+setups sharing the measurement. Compact labels use the same job-wide tool number
+as the route and settings key; expanded setup labels retain their local tool
+numbers. Installed-projection debt continues to name the selected holder.
+Setup-picture warnings carry one `NOT SHOWN:` prefix without removing the warning.
 
 Result cells are emitted in consecutive grids of at most four, without
 cloning or reordering physical inspection records. A trailing single cell may

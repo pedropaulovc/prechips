@@ -646,9 +646,13 @@ The initial arrival-top witness is not substituted for that later-stage proof.
   separate.
 - Each D1 setup explicitly declares the centered hole's nominal entry Z0 and
   local section thickness 12.7 mm. These are derived from the adopted nominal
-  design, not caliper readings. The 15.621-mm point-inclusive drill depth and
-  2.921-mm exit allowance are unchanged; actual prior spot/drill material and
-  retained-hole survival still require native evidence.
+  design, not caliper readings. The 15.621-mm nominal full-diameter drilling
+  reach includes the 12.7-mm section and 2.921-mm full-diameter exit allowance.
+  The adopted 7.9375-mm drill's illustrative 118° point adds about 2.3847 mm,
+  giving about 18.0057 mm nominal tip depth. The printed DRO stop Z−.7088 inch
+  (−18.00352 mm) is rounded toward the entry face; it does not guarantee exactly
+  2.921 mm of full-diameter exit. These authored inputs are unchanged; actual
+  prior spot/drill material and retained-hole survival still require native evidence.
 - B0's example bandsaw cut and B1's stopped hand deburring/staking explicitly
   declare `coolant="none"`. This completes the existing holding declaration;
   it does not waive its coolant/deburring checks or change the source process.

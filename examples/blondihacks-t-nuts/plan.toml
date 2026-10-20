@@ -612,8 +612,8 @@ depth_mm = 15.621
 exit_mm = 2.921
 rpm = 1200.0
 approach_mm = 2.54
-note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088; depth 15.621 mm plus exit 2.921 mm clears the .500-inch part.", detail = "pedantic" }]
-note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE point-inclusive depth"]
+note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088. Nominal full-diameter reach 15.621 mm includes the .500-inch section and 2.921 mm exit allowance; the displayed tip is rounded toward the entry face.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE nominal full-diameter reach and exit allowance"]
 [[setups.ops]]
 op = 30
 do = "hand_tap"
@@ -660,8 +660,8 @@ depth_mm = 15.621
 exit_mm = 2.921
 rpm = 1200.0
 approach_mm = 2.54
-note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088; depth 15.621 mm plus exit 2.921 mm clears the .500-inch part.", detail = "pedantic" }]
-note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE point-inclusive depth"]
+note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088. Nominal full-diameter reach 15.621 mm includes the .500-inch section and 2.921 mm exit allowance; the displayed tip is rounded toward the entry face.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE nominal full-diameter reach and exit allowance"]
 [[setups.ops]]
 op = 30
 do = "hand_tap"
@@ -708,8 +708,8 @@ depth_mm = 15.621
 exit_mm = 2.921
 rpm = 1200.0
 approach_mm = 2.54
-note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088; depth 15.621 mm plus exit 2.921 mm clears the .500-inch part.", detail = "pedantic" }]
-note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE point-inclusive depth"]
+note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088. Nominal full-diameter reach 15.621 mm includes the .500-inch section and 2.921 mm exit allowance; the displayed tip is rounded toward the entry face.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE nominal full-diameter reach and exit allowance"]
 [[setups.ops]]
 op = 30
 do = "hand_tap"
@@ -756,8 +756,8 @@ depth_mm = 15.621
 exit_mm = 2.921
 rpm = 1200.0
 approach_mm = 2.54
-note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088; depth 15.621 mm plus exit 2.921 mm clears the .500-inch part.", detail = "pedantic" }]
-note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE point-inclusive depth"]
+note = [{ text = "Drill through.", detail = "pro" }, { text = "Retouch drill after spotting. Drill 5/16 through to computed tip Z-.7088. Nominal full-diameter reach 15.621 mm includes the .500-inch section and 2.921 mm exit allowance; the displayed tip is rounded toward the entry face.", detail = "pedantic" }]
+note_cite = ["https://www.youtube.com/watch?v=TL0OsfFkBL8&t=791s", "geometry-provenance.md#cutting-data-sources: Handbook tap drill and AUTHOR'S CHOICE nominal full-diameter reach and exit allowance"]
 [[setups.ops]]
 op = 30
 do = "hand_tap"

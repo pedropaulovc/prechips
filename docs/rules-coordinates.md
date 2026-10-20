@@ -948,6 +948,10 @@ such op (`recut_by`) instead of the cap. That last op hands the faces to the
 file. The claim test does not compare depth: an intervening op may cut the
 same faces from the other side.
 
+Unresolved registered recut ownership remains `arc_debts`: it does not waive
+the filing cap or name `recut_by`. Arc, join and profile metadata retain
+`stock_cap_mm`; known gouges and break-out crossings remain errors.
+
 Rough methods on a finish stage are errors; `file_to_line` finishes them.
 Finish methods cannot be clipped by `stock_removal_bounds` and stay unknown
 when bounded. Straight joins support only `stairs` and `chain_drill`; other
@@ -1600,6 +1604,10 @@ reading corner, kernel side or blade width leaves `corner_dro_z` unknown with it
 `reason` and the setup `unknown` (exit 4); the sheet prints "blade corner not set"
 for the target and the band and stops, and the face it leaves stands at an
 unknown Z for every later read (`formed_z` unknown), never at its nominal `to_z`.
+
+Mounted-saw trajectory or body-side setting errors instead use
+`mounted_saw_errors` and the “Mounted saw trajectory/zero error” diagnostic;
+they remain errors and retain `mounted_saw_trajectory` evidence.
 
 #### Dome roughing and finishing order
 

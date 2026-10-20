@@ -1512,15 +1512,25 @@ def _inspection_html(check, *, result=True):
 
 
 def _checkpoint_results(records):
+    owners = [
+        "Batch — " + ", ".join(check.covered_workpieces)
+        if check.shared_check_id
+        else check.workpiece or f"{check.setup_id} op {check.op_id}"
+        for check in records
+    ]
     cells = []
-    for check in records:
+    for check, owner in zip(records, owners, strict=True):
         if check.reading_owned:
             continue
-        owner = (
-            "Batch — " + ", ".join(check.covered_workpieces)
-            if check.shared_check_id
-            else check.workpiece or f"{check.setup_id} op {check.op_id}"
-        )
+        if owners.count(owner) > 1:
+            criterion = "; ".join(
+                dict.fromkeys(
+                    criterion.heading
+                    for criterion in _inspection_criteria((check,))
+                    if criterion.heading
+                )
+            ) or _REQUIREMENT_NAMES.get(check.requirement, _text(check.requirement))
+            owner += " — " + criterion
         cells.append(
             f'<div class="checkpoint-result" {_inspection_attributes(check)}>'
             + _writing_field(owner, "result-field")
@@ -2523,24 +2533,32 @@ class _Traveler:
         )
         return self.bench(match[0] if match else controller)
 
-    def measurement_subject(self, entry, *, include_holder=True):
+    def measurement_subject(self, entry, *, setup=None, include_holder=True):
         category, key = entry["category"], entry["identity"]
-        setups = self.plan.get("setups", [])
         if category == "machines" and entry["field"] == ["resolution"]:
             return self.dro_controller_name()
         name = self.reference(f"{category}.{key}", category)
         if category == "tools":
+            reference = f"{category}.{key}"
             marks = []
-            for setup in setups:
-                if setup["id"] not in self.measurement_sources.get(entry["id"], set()):
-                    continue
-                numbers = tool_numbers(self.bundle, setup)
-                marks.extend(
-                    f"{_text(setup['id'])} {number}"
-                    for (tool, _), number in numbers.items()
-                    if tool == (category, key)
+            if self.detail != "pedantic":
+                number = self.route_tool_labels.get((category, key))
+                if number:
+                    marks.append(number)
+            elif setup is not None:
+                holder = (
+                    identity(self.bundle, entry["field"][1], "holders")
+                    if entry["field"][0] == "projection" and len(entry["field"]) > 1
+                    else None
                 )
-            name = " ".join([*dict.fromkeys(marks), self.tool_name(f"{category}.{key}")])
+                marks.extend(
+                    number
+                    for (tool, selected_holder), number in tool_numbers(self.bundle, setup).items()
+                    if tool == (category, key) and (holder is None or selected_holder == holder)
+                )
+            if marks and setup is not None:
+                marks.insert(0, _text(setup["id"]))
+            name = " ".join([*marks, self.tool_name(reference)])
         if include_holder and entry["field"][0] == "projection" and len(entry["field"]) > 1:
             name += " in " + self.reference(entry["field"][1], "holders")
         return name
@@ -2616,7 +2634,7 @@ class _Traveler:
         )
         return category, key, context
 
-    def measurement_lines(self, entries):
+    def measurement_lines(self, entries, setup=None):
         physical = [
             quantity
             for entry in {entry["id"]: entry for entry in entries}.values()
@@ -2628,7 +2646,7 @@ class _Traveler:
             dimension = self.measurement_dimension(entry) + " " + self.measurement_marker(entry)
             groups.setdefault(self.measurement_record(entry), []).append((entry, dimension))
         return [
-            self.measurement_subject(values[0][0])
+            self.measurement_subject(values[0][0], setup=setup)
             + " "
             + "; ".join(dimension for _, dimension in values)
             for values in groups.values()
@@ -2637,11 +2655,14 @@ class _Traveler:
     def measurement_stop(self, op, number, entry):
         if not {"category", "identity", "field"} <= entry.keys():
             return "planned input not established; return traveler for reissue"
-        subject = self.measurement_subject(entry)
+        subject = self.measurement_subject(entry, setup=self.setup)
         if number and (entry["category"], entry["identity"]) == identity(
             self.bundle, op.get("tool"), "tools"
         ):
-            subject = f"{number} {self.tool_name(op.get('tool'))}"
+            label = self.route_tool_label(op["tool"]) if self.detail != "pedantic" else number
+            subject = f"{label} {self.tool_name(op.get('tool'))}"
+            if entry["field"][0] == "projection" and len(entry["field"]) > 1:
+                subject += " in " + self.reference(entry["field"][1], "holders")
         return f"{subject} {self.measurement_dimension(entry)} " + self.measurement_marker(entry)
 
     def stock_dependency(self, setup):
@@ -5425,7 +5446,7 @@ class _Traveler:
         )
         debts = [entry for entry in numbers.get("measurements", []) if entry.get("id") in consumed]
         if debts:
-            lines.extend(decision(line) for line in self.measurement_lines(debts))
+            lines.extend(decision(line) for line in self.measurement_lines(debts, setup))
             if any(entry.get("category") == "fixtures" for entry in debts):
                 lines.append(
                     "Authored fixture coordinates are setup settings, not verified clearance."
@@ -11813,7 +11834,13 @@ class _Traveler:
         debts.extend(str(debt) for debt in scene.get("render_debts") or [])
         if render.get("fixture") != "modeled" and not debts and not unheld:
             debts.append("Part of the holding is not modelled.")
-        result.extend(_p("NOT SHOWN: " + self.bench(debt), "render-debt") for debt in debts)
+        result.extend(
+            _p(
+                "NOT SHOWN: " + self.bench(debt.removeprefix("NOT SHOWN:").lstrip()),
+                "render-debt",
+            )
+            for debt in debts
+        )
         return "".join(result)
 
     # ------------------------------------------------------------------- route
@@ -13561,7 +13588,7 @@ class _Traveler:
         ]
         decisions.extend(
             _Decision("measurement", "unknown", sid, "block", "Unverified decision input — " + line)
-            for line in self.measurement_lines(local)
+            for line in self.measurement_lines(local, setup)
         )
         decisions = list(dict.fromkeys(decisions))
         self.setup_decisions[sid] = decisions
@@ -14146,6 +14173,15 @@ class _Traveler:
                 + "</tbody></table>"
             )
         keys = list(dict.fromkeys(key for mapping in maps for key in mapping))
+        # A later member may be the first to need a measured-M datum/correction.
+        # The union must not put that prerequisite after the first member's cuts.
+        first_operation = next(
+            (index for index, key in enumerate(keys) if key.startswith(("operation:", "role:"))),
+            len(keys),
+        )
+        if "datum" in keys and keys.index("datum") > first_operation:
+            keys.remove("datum")
+            keys.insert(first_operation, "datum")
         last_inline_owners = None
         last_visible_owners = tuple(ids)
         for key in keys:

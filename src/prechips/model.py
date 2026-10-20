@@ -1650,18 +1650,25 @@ class Plan(InputModel):
                 if op.do == "cut_off":
                     if not {"cut_plane", "saw_trajectory"} <= op.model_fields_set:
                         raise ValueError(
+                            f"Setup {setup.id} op {op.op}: "
                             "Finite cut_off outputs require cut_plane and saw_trajectory."
                         )
                     if not isinstance(op.outputs, dict) or any(
                         entry.carries_workpieces is None for entry in op.outputs.values()
                     ):
-                        raise ValueError("Finite cut_off outputs require carries_workpieces.")
+                        raise ValueError(
+                            f"Setup {setup.id} op {op.op}: "
+                            "Finite cut_off outputs require carries_workpieces."
+                        )
                 if "keep" in op.model_fields_set:
                     raise ValueError(
                         f"Setup {setup.id} op {op.op}: keep and outputs are exclusive."
                     )
                 if not isinstance(op.outputs, dict) or len(op.outputs) != 2:
-                    raise ValueError("An outputs table must name exactly two retained pieces.")
+                    raise ValueError(
+                        f"Setup {setup.id} op {op.op}: "
+                        "An outputs table must name exactly two retained pieces."
+                    )
                 if split:
                     raise ValueError(f"Setup {setup.id}: named outputs may be declared only once.")
                 for name in op.outputs:
