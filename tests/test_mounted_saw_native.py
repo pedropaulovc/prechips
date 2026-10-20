@@ -427,6 +427,49 @@ def _cases(engine, paths):
     job["setups"][0]["hold"]["solids"].append(
         _box("pre-cut-stop", [-61.65, -50.0, 14.0], [1.0, 1.0, 2.0])
     )
+    for name, shift_x, spindle in (
+        ("stopped-setting-start", 0.0, "stopped"),
+        ("setting-contact-mismatch", 0.0, "stopped"),
+        ("setting-pose-mismatch", -0.5, "stopped"),
+        ("setting-spindle-unknown", 0.0, "unknown"),
+    ):
+        _, saw = case(name)
+        # Same arbitrary fixture/paper distance in all cases: only a verified
+        # matching calibration pose may identify this pre-cut body minimum.
+        saw["zero"]["touches"][0]["mounted_saw"]["spindle_state"] = spindle
+        x = -140.0 + shift_x
+        saw["trajectory"]["start_mm"] = [x, -100.0, 11.574]
+        saw["trajectory"]["moves"][:0] = [
+            {"to_mm": [x, -100.0, 80.0], "mode": "clear"},
+            {"to_mm": [-35.0, -100.0, 80.0], "mode": "clear"},
+            {"to_mm": [-35.0, -10.541, 80.0], "mode": "clear"},
+            {"to_mm": [-35.0, -10.541, 15.0], "mode": "clear"},
+        ]
+        if name == "setting-contact-mismatch":
+            touch = saw["zero"]["touches"][0]
+            touch["face"] = "fixture:other-pad:+z"
+            touch["surface"]["name"] = "other-pad"
+            touch["mounted_saw"]["point_mm"] = [-120.0, -100.0, 10.0]
+            saw["zero"]["fixtures"].append(
+                {
+                    "name": "other-pad",
+                    "pose": deepcopy(POSE),
+                    "solids": [_box("other-pad", [-121.0, -101.0, 5.0], [2.0, 2.0, 5.0])],
+                }
+            )
+    for name, base in (
+        ("return-to-setting", "stopped-setting-start"),
+        ("return-pose-mismatch", "setting-pose-mismatch"),
+    ):
+        job = jobs[name] = deepcopy(jobs[base])
+        x = _saw_input(job)["trajectory"]["start_mm"][0]
+        _saw_input(job)["trajectory"]["moves"].extend(
+            [
+                {"to_mm": [x, -60.0, 80.0], "mode": "clear"},
+                {"to_mm": [x, -100.0, 80.0], "mode": "clear"},
+                {"to_mm": [x, -100.0, 11.574], "mode": "clear"},
+            ]
+        )
     return jobs
 
 
@@ -1025,6 +1068,8 @@ def test_calibration_contact_does_not_replace_machining_cycle_minimum(native_cas
     proof = saw["fixture_clearance"]
     assert proof["minimum"]["mm"] == pytest.approx(1.0)
     assert saw["zero"]["touches"][0]["body_face_z_mm"] - 10.0 == pytest.approx(0.05)
+    cut = native_cases["positive"]["setups"]["S1"]["render_scene"]["closest_cut"]
+    assert "stopped_setting_touch" not in cut
     assert all(row["mode"] in {"cut", "clear"} for row in proof["sweeps"])
     assert (
         proof["binding"]["request_sha256"]
@@ -1032,6 +1077,56 @@ def test_calibration_contact_does_not_replace_machining_cycle_minimum(native_cas
             "request_sha256"
         ]
     )
+
+
+@pytest.mark.parametrize(
+    "case,identified,zero_status",
+    [
+        ("stopped-setting-start", True, "pass"),
+        ("setting-contact-mismatch", False, "pass"),
+        ("setting-pose-mismatch", False, "pass"),
+        ("setting-spindle-unknown", False, "unknown"),
+        ("return-to-setting", False, "pass"),
+        ("return-pose-mismatch", False, "pass"),
+    ],
+)
+def test_pre_cut_body_minimum_requires_a_verified_matching_stopped_setting(
+    native_cases, case, identified, zero_status
+):
+    _, saw = _detail(native_cases, case)
+    assert saw["status"] == "pass", saw
+    assert saw["zero"]["status"] == zero_status, saw["zero"]
+    near = saw["fixture_clearance"]["minimum"]
+    assert near["mm"] == pytest.approx(0.05, abs=1e-6)
+    assert near["tag"] == "setting-pad" and near["component"] == "blade_body"
+    assert (near["move_index"], near["mode"], near["stage"]) == (0, "clear", "pre_cut")
+    scene = native_cases[case]["setups"]["S1"]["render_scene"]
+    cut = scene["closest_cut"]
+    for key in ("mm", "from_mm", "to_mm"):
+        assert cut[key] == pytest.approx(near[key], abs=1e-6)
+    assert sum("closest_cut" in panel["annotations"] for panel in scene["print_panels"]) == 1
+    if identified:
+        assert cut["stopped_setting_touch"] == {"touch_index": 0, "paper_mm": 0.05}
+    else:
+        assert "stopped_setting_touch" not in cut
+    if case in ("return-to-setting", "return-pose-mismatch"):
+        assert set(cut["minimum_stages"]) == {"pre_cut", "post_cut"}
+        tied = [
+            row
+            for row in saw["fixture_clearance"]["sweeps"]
+            if row["minimum"]["mm"] <= near["mm"] + 1e-6
+        ]
+        assert {row["stage"] for row in tied} == {"pre_cut", "post_cut"}
+    if case == "return-to-setting":
+        assert cut["included_stopped_setting_touch"] == {
+            "touch_index": 0,
+            "paper_mm": 0.05,
+            "mm": 0.05,
+            "tag": "setting-pad",
+            "op": "10",
+        }
+    else:
+        assert "included_stopped_setting_touch" not in cut
 
 
 _ZERO_STAGES = r"""
@@ -1077,6 +1172,10 @@ for name, case in payload["cases"].items():
     if case.get("missing_ledger"):
         native_setup.pop("preservation_ledger")
     pad = Part.makeBox(2, 2, 5, V(-119, -101, 5))
+    if case.get("raised_setting_pad"):
+        # The actual touch stays on the lower top face. A separate 0.02-mm
+        # raised island remains below the 0.05-mm paper-separated body face.
+        pad = pad.fuse(Part.makeBox(0.3, 0.3, 0.02, V(-118.9, -100.9, 10)))
     fixtures = [{"name": "setting-pad", "envelope": pad}]
     if "obstacle_at" in case:
         fixtures.append({
@@ -1105,6 +1204,30 @@ for name, case in payload["cases"].items():
     assembly = saw._assembly()
     assert assembly and not saw.reasons and not saw.errors, (saw.reasons, saw.errors)
     answers[name] = saw._zero(assembly)
+    if case.get("raised_setting_pad"):
+        zero = answers[name]
+        saw.mounted["trajectory"]["start_mm"] = [-140.0, -100.0, 11.574]
+        saw.mounted["trajectory"]["moves"][:0] = [
+            {"to_mm": [-140.0, -100.0, 80.0], "mode": "clear"},
+            {"to_mm": [-35.0, -100.0, 80.0], "mode": "clear"},
+            {"to_mm": [-35.0, -10.541, 80.0], "mode": "clear"},
+            {"to_mm": [-35.0, -10.541, 15.0], "mode": "clear"},
+        ]
+        assert saw._trajectory() and not saw.reasons and not saw.errors
+        index, start, end, mode = saw.moves[0]
+        body = saw.components[1]
+        saw._fixture_distance(saw._sweep(body, start, end), body[0], index, mode)
+        row = saw.saw["fixture_clearance"]["sweeps"][-1]
+        near = {
+            **row["minimum"],
+            **{key: row[key] for key in ("component", "move_index", "mode", "stage")},
+        }
+        answers[name] = {
+            "zero": zero,
+            "minimum": near,
+            "start_mm": start,
+            "setting": saw._stopped_setting_touch(saw.mounted, zero, near),
+        }
 with open(directory + "/answers.json", "w", encoding="utf-8") as handle:
     json.dump(answers, handle)
 """
@@ -1121,6 +1244,11 @@ def native_zero_stages(tmp_path_factory, freecad_kernel):
         "unfiltered-clear": {"metadata": False, "position": 1, "clear_after_b": True},
         "initial": {"position": 0},
         "initial-clear": {"position": 0, "clear_arrival": True},
+        "raised-setting-pad": {
+            "position": 0,
+            "clear_arrival": True,
+            "raised_setting_pad": True,
+        },
         "metadata-only": {"position": 1},
         "metadata-only-clear": {"position": 1, "clear_arrival": True},
         "before-saw": {"position": 3},
@@ -1157,6 +1285,27 @@ def native_zero_stages(tmp_path_factory, freecad_kernel):
     answers = directory / "answers.json"
     assert answers.exists(), process.stdout[-2000:] + process.stderr[-2000:]
     return json.loads(answers.read_text(encoding="utf-8"))
+
+
+def test_a_raised_island_on_the_calibration_fixture_is_not_the_paper_setting_distance(
+    native_zero_stages,
+):
+    result = native_zero_stages["raised-setting-pad"]
+    zero, near = result["zero"], result["minimum"]
+    assert zero["status"] == "pass", zero
+    (touch,) = zero["touches"]
+    assert touch["status"] == "pass" and touch["collisions"] == []
+    assert touch["point_mm"] == [-118.0, -100.0, 10.0]
+    assert touch["paper_mm"] == 0.05
+    assert result["start_mm"] == pytest.approx(
+        [*touch["axis_xy_mm"], touch["cutting_midplane_z_mm"]]
+    )
+    assert near["tag"] == "setting-pad" and near["component"] == "blade_body"
+    assert (near["move_index"], near["mode"], near["stage"]) == (0, "clear", "pre_cut")
+    assert near["mm"] == pytest.approx(0.03, abs=1e-6)
+    assert near["from_mm"][2] == pytest.approx(10.05)
+    assert near["to_mm"][2] == pytest.approx(10.02)
+    assert result["setting"] is None
 
 
 @pytest.mark.parametrize("case", ["filtered", "unfiltered", "initial", "metadata-only"])

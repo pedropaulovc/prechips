@@ -1886,10 +1886,10 @@ class _Diagram:
         return left <= x <= right and top <= y <= bottom
 
     def _closest_cut(self):
-        """Key the owning cut's distance, or the whole mounted ``SAW CYCLE`` distance.
+        """Key the owning cut, saw phase, or independently verified stopped setting.
 
         The canonical ``closest_cut`` annotation still owns the dimension and panel;
-        finite-saw clear moves are not mislabeled as cutting-only clearance.
+        only a native calibration/pose join can identify paper at a stopped body touch.
         """
         cut = self.spec.get("closest_cut")
         if not cut:
@@ -1910,13 +1910,39 @@ class _Diagram:
                 holder = self._component_label(component)
             elif component.get("code"):
                 holder = f"{_plain(component['code'])} {holder}"
-        scope = "SAW CYCLE" if cut.get("scope") == "machining_trajectory" else "CUT"
-        label = f"{scope} {self._dro(cut['mm'])} mm FROM {holder.upper()}"
+        included = None
+        if cut.get("scope") == "machining_trajectory":
+            setting = cut.get("stopped_setting_touch")
+            included = cut.get("included_stopped_setting_touch")
+            if setting is not None:
+                paper = operative_text(setting["paper_mm"], 6)
+                label = f"STOPPED BODY SETTING: {paper} mm PAPER AT {holder.upper()}"
+            else:
+                stages = cut.get("minimum_stages", [cut.get("stage")])
+                phase = (
+                    {"pre_cut": "PRE-CUT", "cut": "CUT", "post_cut": "POST-CUT"}.get(
+                        stages[0], "CYCLE"
+                    )
+                    if len(stages) == 1
+                    else "CYCLE"
+                )
+                if included is not None:
+                    phase = "CYCLE MINIMUM"
+                label = f"SAW {phase} {self._dro(cut['mm'])} mm FROM {holder.upper()}"
+        else:
+            label = f"CUT {self._dro(cut['mm'])} mm FROM {holder.upper()}"
         op = cut.get("op")
         if op not in (None, "", "unknown"):
             label += f" (OP {_plain(op).upper()})"
         elif cut.get("blade"):
             label += " (SAW BLADE)"
+        if included is not None:
+            label += " (INCLUDES STOPPED BODY/PAPER SETTING"
+            if included["tag"] != cut["tag"]:
+                label += f" AT {_solid_name(included['tag'])}"
+            if included["op"] != cut.get("op"):
+                label += f", OP {_plain(included['op'])}"
+            label += ")"
         self.callouts.append(_Callout(label, [middle], _AMBER))
         self.keyed_cut = True
 

@@ -231,6 +231,17 @@ centered at B0 setup X101.4095 (batch/model X114.1095), 4.4925 inch from the sta
 113.665 mm (4.475 inch) of batch bar and 12.446 mm (.490 inch) of scrap.
 Nut4's raw starting end is later removed by its .635-mm E1d cleanup.
 
+B0's pro/hobby retained-length/kerf instruction combines the native numeric
+target with operation20's starting-end, scrap-side and stopped-retrieval wording;
+the authored note does not repeat the target's retained length/kerf numbers.
+Pedantic does not print that native target; its authored note retains the
+113.665-mm batch length and 12.446-mm scrap length.
+The far kerf edge is `4.4925 + .035/2 = 4.510 inch` (114.554 mm).
+The pre-made scrap pedestal starts at setup X103, or `103 + 12.7 = 115.7 mm`
+from the original starting end: 4.555118… inch, printed as about4.56 inch.
+Thus its nearest occupied hardware remains 1.146 mm beyond that far edge;
+the simplified placement prose does not move the support.
+
 Q1–Q4 face only the four long faces. The 113.665-mm prepared section is exactly
 four 26.035-mm blanks plus three 3.175-mm kerfs. In the upright end-up frame,
 bottom is Z0:
@@ -282,6 +293,13 @@ contact the upper child's flange 12–24 mm above it. M6 pad/collar targets are
 8 N·m and M8 base targets 18 N·m: instructions, not verified holding force.
 No unused 1000-N rating remains.
 
+The identity-placed post's occupied XY rectangle is X−20..20/Y40..50 mm;
+the base is X−30..30/Y30..60 mm, from their inventory box origins plus sizes.
+These existing-fixture footprints are placement context, not DRO targets,
+fabrication instructions or a strength rating. They are not the whole head's
+footprint: the head's separate arms, pads, screws and handle remain individually
+modeled occupied solids, with the moving handle extending to X44 mm.
+
 The original ledger's unbored collar and screw envelopes intersected the
 independent rectangular post. The adopted pre-made mechanism now has a real
 slotted-post through-clamp: a guided U-collar, bored front boss, removable rear
@@ -328,10 +346,12 @@ must be present in the adopted fixture; neither the two pad contacts nor the
 8/18-N·m tightening instructions prove its strength.
 
 All custom-solid coordinates are fixture-local and all placed-support/capture
-poses are setup-local millimetres, applied once. Upright table is Z−75.
-The setting-post origin is [−119.38,0,−75], with local stem Z0..83.16 and a
-2×2×2-mm boss above it; boss top is setup Z10.16. The lower blade body touches
-at [−119.38,0,10.16] with arbor XY[−139.7,0] through .0508-mm paper:
+poses are setup-local millimetres, applied once. Upright table is Z−75;
+the upright parallel/support plane is Z0. The setting-post origin is
+[−119.38,0,−75], with local stem Z0..83.16 and a 2×2×2-mm boss above it:
+`−75 + 83.16 + 2 = 10.16 mm = +.400 inch` above that support plane.
+The lower blade body touches at [−119.38,0,10.16] with arbor XY[−139.7,0]
+through .0508-mm paper:
 
 `cutting-midplane Z = 10.16 + .0508 + 3.048/2 = 11.7348 mm = +.462 inch`.
 
@@ -370,16 +390,28 @@ expectations, **not native results exercised by this authoring change**; entry
 and exit transitions are separate. Full finite motion, mounting, capture,
 material/target protection and native pickups must supply actual checker proof.
 
+C2's compact envelope labels use approximate inches, not DRO targets:
+the 101.6-mm jaws centred at X34.8 occupy X−16..85.6 mm
+(−.629921… ..3.370079… inch, displayed −.63..3.37).
+The nut1 balancing blank at X62.7 occupies X50..76.035 mm
+(1.968504… ..2.993504… inch, displayed about1.97..2.99); its top remains
+Z22.225 mm/.875 inch. Capture pad contact stays 12–24 mm above the cut
+(formerly displayed approximately .4724–.9449 inch), not a DRO setting.
+The exact modeled retainer/jaw gap remains `1.0985/25.4 = .04325 inch`;
+the authored compact statement displays **.043 inch (rounded down)**.
+Neither approximation enlarges this clearance or changes occupied geometry.
+
 C2 selects the complete canonical picture group `["setup"]`. The current
 native scene places `closest_cut` in this main group, together with the full
 fixture context and its continuations; no `holding_detail:1` exists in that
 scene. This is one selected C2 setup figure, not a fixed physical band count.
-Its **SAW CYCLE** annotation reports the full-cycle closest approach,
-including calibration and stopped clear moves. The canonical native result
-is .0508 mm at the pre-clear blade-body/setting-boss gap, distinct from the
-cut-stage retainer/jaw clearance 1.0985 mm (.04325 inch). Do not substitute
-the cut-stage value for the full-cycle minimum or claim that selecting a
-picture is itself a clearance proof.
+The annotation distinguishes a verified stopped body-side setting contact from
+ordinary pre-cut/clear approach and cutting clearance; a pre-cut move alone is
+not evidence that the spindle is stopped. The canonical native result is
+.0508 mm at the blade-body/setting-boss paper gap, distinct from the cut-stage
+retainer/jaw clearance 1.0985 mm (.04325 inch). Do not substitute the cut-stage
+value for the full-cycle minimum or claim that selecting a picture is itself
+a clearance proof.
 
 ## Cutting-data sources
 
@@ -446,6 +478,12 @@ incidental edge break**. This keeps the existing required input rather than
 waiving its check. The video establishes hand burr removal but supplies no
 numerical edge-break dimension; 0.05 mm is not attributed to the video, a
 catalogue or a physical measurement.
+
+`features.toml` encodes that same existing limit numerically as
+`general_tolerances.edge_break_r=0.05` and `chamfer_max=0.05`, so the sheet can
+recognize matching setup limits without interpreting free-text provenance.
+Both fields limit incidental removal only; general linear/angular tolerances
+stay unknown, and local reference/bearing/thread protection remains in force.
 
 The intended process is light raised-burr removal, not deliberate chamfering:
 remove the raised burr, preserve bearing/locating flats and usable entry threads,

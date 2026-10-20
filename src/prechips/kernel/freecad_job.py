@@ -4511,6 +4511,83 @@ class _FiniteSaw:
             }
             proof["status"] = "complete"
 
+    @classmethod
+    def _stopped_setting_touch(cls, mounted, zero, near):
+        """Identify the cycle minimum at the verified initial body-side setting pose.
+
+        A clear/pre-cut move alone says nothing about the spindle. Join the selected
+        native calibration to its resolved fixture surface and the first axial lift;
+        the nearest pair must lie on that setting plane, separated by its actual paper.
+        This classifies the existing minimum without replacing any distance or proof.
+        """
+        if (
+            zero.get("status") != "pass"
+            or zero.get("reasons") != []
+            or near.get("component") != "blade_body"
+            or near.get("move_index") != 0
+            or near.get("mode") != "clear"
+            or near.get("stage") != "pre_cut"
+        ):
+            return None
+        selected = zero.get("selected")
+        touches = zero.get("touches", [])
+        sources = mounted.get("zero", {}).get("touches", [])
+        if (
+            not isinstance(selected, int)
+            or isinstance(selected, bool)
+            or not isinstance(sources, list)
+            or not 0 <= selected < len(sources)
+        ):
+            return None
+        chosen = [touch for touch in touches if touch.get("index") == selected]
+        if len(chosen) != 1:
+            return None
+        touch = chosen[0]
+        surface = sources[selected].get("surface", {})
+        side = touch.get("blade_side")
+        if (
+            touch.get("status") != "pass"
+            or touch.get("reasons") != []
+            or touch.get("collisions") != []
+            or touch.get("spindle_state") != "stopped"
+            or side not in ("minus_z", "plus_z")
+            or surface.get("kind") != "fixture"
+            or surface.get("name") != near["tag"]
+            or surface.get("side") != touch.get("surface_side")
+        ):
+            return None
+        axis, point = touch.get("axis_xy_mm"), touch.get("point_mm")
+        mid, body_face, paper = (
+            touch.get(key) for key in ("cutting_midplane_z_mm", "body_face_z_mm", "paper_mm")
+        )
+        trajectory = mounted.get("trajectory", {})
+        start, moves = trajectory.get("start_mm"), trajectory.get("moves")
+        if (
+            not cls._vector(axis, 2)
+            or not cls._vector(point)
+            or not all(cls._numeric(value) for value in (mid, body_face, paper))
+            or paper <= 0
+            or not cls._vector(start)
+            or not isinstance(moves, list)
+            or not moves
+            or moves[0].get("mode") != "clear"
+            or not cls._vector(moves[0].get("to_mm"))
+        ):
+            return None
+        end = moves[0]["to_mm"]
+        sign = 1 if side == "minus_z" else -1
+        if (
+            any(abs(a - b) > PLANE_TOL for a, b in zip(start, [*axis, mid], strict=True))
+            or any(abs(end[i] - start[i]) > PLANE_TOL for i in (0, 1))
+            or sign * (end[2] - start[2]) <= 0
+            or abs(near["mm"] - paper) > PLANE_TOL
+            or abs(near["from_mm"][2] - body_face) > PLANE_TOL
+            or abs(near["to_mm"][2] - point[2]) > PLANE_TOL
+            or any(abs(near["from_mm"][i] - near["to_mm"][i]) > PLANE_TOL for i in (0, 1))
+        ):
+            return None
+        return {"touch_index": selected, "paper_mm": paper}
+
     def _engagement(self, section):
         result = self.saw["engagement"]
         reasons = self._section_messages("reasons", "engagement")
@@ -13045,11 +13122,13 @@ class _Setup(ThreadMaterialMixin):
         back to a slab. ``closest_cut`` is the least known row or saw distance, with its
         nearest points and op (saws marked ``"blade": True``); None if any is unknown."""
         rows, closest, known = [], None, True
+        minima, settings = [], []
         for op in self.ops:
             number = _op_number(op)
             if _sawn(op):
                 if "mounted_saw" in op or op.get("saw_tool") == "slitting_saw":
-                    proof = self.saws.get(id(op), {}).get("saw", {}).get("fixture_clearance", {})
+                    saw = self.saws.get(id(op), {}).get("saw", {})
+                    proof = saw.get("fixture_clearance", {})
                     near = proof.get("minimum")
                     if (
                         not drawn
@@ -13081,6 +13160,46 @@ class _Setup(ThreadMaterialMixin):
                                 for key in ("source", "scope", "frame", "model", "binding")
                             },
                         }
+                    if known:
+                        sweeps = proof.get("sweeps")
+                        if isinstance(sweeps, list) and sweeps and all(
+                            isinstance(row, dict)
+                            and isinstance(row.get("minimum"), dict)
+                            and _FiniteSaw._numeric(row["minimum"].get("mm"))
+                            and row["minimum"]["mm"] >= 0
+                            and row.get("stage") in ("pre_cut", "cut", "post_cut")
+                            for row in sweeps
+                        ):
+                            minima.extend(
+                                (row["minimum"]["mm"], row["stage"]) for row in sweeps
+                            )
+                            for row in sweeps:
+                                if (
+                                    row.get("component") != "blade_body"
+                                    or row.get("move_index") != 0
+                                ):
+                                    continue
+                                setting_near = {
+                                    **row["minimum"],
+                                    **{
+                                        key: row.get(key)
+                                        for key in ("component", "move_index", "mode", "stage")
+                                    },
+                                }
+                                setting = _FiniteSaw._stopped_setting_touch(
+                                    op.get("mounted_saw", {}), saw.get("zero", {}), setting_near
+                                )
+                                if setting is not None:
+                                    settings.append(
+                                        {
+                                            **setting,
+                                            "mm": setting_near["mm"],
+                                            "tag": setting_near["tag"],
+                                            "op": number,
+                                        }
+                                    )
+                        else:
+                            minima.append((near["mm"], "unknown"))
                 continue
             try:
                 held, removal = solids, self._taken_off(op)
@@ -13106,15 +13225,34 @@ class _Setup(ThreadMaterialMixin):
             if near is None:
                 continue
             rows.append({"op": number, "mm": _r(near["mm"]), "tag": near["tag"]})
+            minima.append((near["mm"], "cut"))
             if closest is None or near["mm"] < closest["mm"]:
                 closest = {**near, "op": number}
         if blades:
             known = known and drawn
         for number, blade in blades if drawn else []:
             near = self._nearest([blade], solids)
-            if near is not None and (closest is None or near["mm"] < closest["mm"]):
-                closest = {**near, "op": number, "blade": True}
+            if near is not None:
+                minima.append((near["mm"], "cut"))
+                if closest is None or near["mm"] < closest["mm"]:
+                    closest = {**near, "op": number, "blade": True}
         if known and closest is not None and closest.get("scope") == "machining_trajectory":
+            tied = [stage for mm, stage in minima if mm <= closest["mm"] + PLANE_TOL]
+            closest["minimum_stages"] = sorted(set(tied))
+            witnesses = [
+                setting for setting in settings if setting["mm"] <= closest["mm"] + PLANE_TOL
+            ]
+            if witnesses and "unknown" not in tied:
+                witness = witnesses[0]
+                if len(tied) == 1:
+                    closest["stopped_setting_touch"] = {
+                        key: witness[key] for key in ("touch_index", "paper_mm")
+                    }
+                else:
+                    closest["included_stopped_setting_touch"] = {
+                        **witness,
+                        "mm": _r(witness["mm"]),
+                    }
             closest = {
                 **closest,
                 "mm": _r(closest["mm"]),

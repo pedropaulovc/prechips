@@ -45,9 +45,9 @@ linear_1pl = "unknown"
 linear_2pl = "unknown"
 linear_3pl = "unknown"
 angular_deg = "unknown"
-edge_break_r = "unknown"
-chamfer_max = "unknown"
-cite = "No general tolerance is inferred from the source video. Only the five explicit feature size bands below are adopted as AUTHOR'S CHOICE demonstration acceptance; no position/minor-diameter/thread-class limit is adopted."
+edge_break_r = 0.05
+chamfer_max = 0.05
+cite = "geometry-provenance.md#demonstration-deburr-maximum: AUTHOR'S CHOICE maximum incidental edge break only, matching notes.edge_break and setup deburr_mm; not intentional chamfering, a video dimension or a physical measurement. General linear/angular tolerances remain unknown. Only the five explicit feature size bands below are adopted as demonstration dimensional acceptance; no position/minor-diameter/thread-class limit is adopted."
 
 [frames.model]
 origin = [0.0, 0.0, 0.0]
