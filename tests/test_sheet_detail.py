@@ -1774,9 +1774,18 @@ def test_terminal_inspection_reference_preserves_deferred_execution_and_physical
     ]
     if not deferred:
         assert not references and not links
+        assert not any(
+            node["attrs"].get("data-page-reference") == "final-inspection" for node in markup.nodes
+        )
         return
     (reference,) = references
     assert reference["attrs"]["data-reference-only"] == "true"
+    assert reference["attrs"]["data-page-reference"] == "final-inspection"
+    assert [
+        node
+        for node in markup.nodes
+        if node["attrs"].get("data-page-reference") == "final-inspection"
+    ] == [reference]
     assert json.loads(reference["attrs"]["data-execute-after"]) == ["B2a", "B2b", "B2c", "B2d"]
     assert any(
         re.search(r"\bcomplete\s+only\s+after\s+B2\b", content(node), re.IGNORECASE)
@@ -1784,6 +1793,16 @@ def test_terminal_inspection_reference_preserves_deferred_execution_and_physical
         if node["tag"] in ("p", "h1", "h2", "h3", "h4", "h5", "h6")
     )
     reference_nodes = list(descendants(markup, reference))
+    continuation_titles = [
+        node["attrs"]["data-setup-title"]
+        for node in reference_nodes
+        if node["attrs"].get("data-setup-title")
+    ]
+    assert continuation_titles
+    assert all(
+        re.search(r"\bcomplete\s+only\s+after\s+B2\b", title, re.IGNORECASE)
+        for title in continuation_titles
+    )
     assert all(record in reference_nodes for record in records)
     assert all(owners[sid] in reference_nodes for sid in ("F1a", "F1b", "F1c", "F1d"))
     route = [
@@ -3094,3 +3113,58 @@ def test_unshared_mounted_saw_keeps_evaluated_xy_settings_and_signed_jog_reading
         assert [float(value.replace("−", "-")) for value in check.groups()[2:]] == pytest.approx(
             [record["check_reading"], record["mirrored_reading"]]
         )
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+@pytest.mark.parametrize("reason", ["", "Keeps the bonded length intact."])
+def test_deburr_citation_line_lists_do_not_become_operator_instructions(detail, reason):
+    data = bench_job()
+    data.features["general_tolerances"] = {"edge_break_r": 0.25}
+    setup = data.plan["setups"][0]
+    cite = "harmonic-analyzer/cad/scripts/cone_gear_shaft_spec.py:79-97,111-113"
+    setup.update(deburr_mm=0.1, deburr_cite=cite + (": " + reason if reason else ""))
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    text = visible_text("<body>" + sheet.setup_edge_break(setup) + "</body>")
+    assert_number(text, 0.1)
+    assert_number(text, 0.25)
+    assert "harmonic-analyzer" not in text and "cone_gear_shaft_spec" not in text
+    assert "79-97" not in text and "111-113" not in text
+    if reason:
+        assert reason in text
+
+
+def test_hobby_tool_without_projection_map_does_not_invent_projection_requirement():
+    data = mill_job(setups=1)
+    data.inventory["holders"] = {
+        "installed": {"kind": "collet", "name": "Selected ordinary collet"}
+    }
+    data.inventory["tools"]["plain-drill"] = {
+        "kind": "drill",
+        "name": "Ordinary drill",
+        "dia_mm": 5.0,
+        "flute_len_mm": 25.0,
+    }
+    (setup,) = data.plan["setups"]
+    setup["ops"] = [{"op": 70, "do": "drill", "tool": "plain-drill", "holder": "installed"}]
+    findings = [
+        Finding(
+            "speeds_feeds",
+            setup["id"] + ":70",
+            "pass",
+            {"rpm": 850.0, "feed_mm_min": 19.05},
+            [],
+            "Controlled settings fixture",
+        )
+    ]
+    sheet = _Traveler(data, findings, build_report(data, findings), None, detail="hobby")
+    sheet.setup_blocks(setup)
+    entries = [
+        entry
+        for entry in Markup(sheet.settings_key()).find("tool-setting-entry")
+        if f"{setup['id']}:70" in json.loads(entry["attrs"].get("data-physical-ops", "[]"))
+    ]
+    (entry,) = entries
+    text = content(entry)
+    assert "Selected ordinary collet" in text
+    assert "850" in text
+    assert not re.search(r"\bprojection\b", text)

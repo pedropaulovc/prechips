@@ -895,6 +895,8 @@ def test_compact_running_range_tracks_mixed_source_owners_and_continued_tails(
               const ink = range.getBoundingClientRect(), box = slot.getBoundingClientRect();
               return {page:pageOf(head), owners:JSON.parse(head.dataset.pageOwners),
                 continued:head.dataset.ownerContinued === 'true', range:slot.textContent,
+                ink:[ink.left,ink.top,ink.right,ink.bottom],
+                reserved:[box.left,box.top,box.right,box.bottom],
                 fits:ink.left >= box.left-.1 && ink.right <= box.right+.1
                   && ink.top >= box.top-.1 && ink.bottom <= box.bottom+.1,
                 copies:head.querySelectorAll('figure,.writing-blank,[data-locator-target]').length};
@@ -930,10 +932,9 @@ def test_compact_running_range_tracks_mixed_source_owners_and_continued_tails(
         [owner["setup"] for owner in head["owners"]] == ["S3"] and head["continued"]
         for head in tails
     )
-    assert all(
-        head["fits"] and not head["copies"] and "NOT-A-PHYSICAL-SETUP" not in head["range"]
-        for head in details["heads"]
-    )
+    for head in details["heads"]:
+        assert head["fits"], head
+        assert not head["copies"] and "NOT-A-PHYSICAL-SETUP" not in head["range"], head
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
@@ -1109,3 +1110,80 @@ def test_compact_setup_continues_when_page_opens_on_its_first_member_record(prin
         {"setup": "S1", "member": "", "workpiece": ""},
     ]
     assert details["fields"] == [{"member": "nut2", "page": head["page"], "original": True}]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_hoisted_final_reference_keeps_records_but_not_physical_setup_ranges(printed_sheet, detail):
+    source = (
+        '<section class="setup-family" data-setup-title="Final inspection after B2" '
+        'data-setup-id="" data-setup-members=\'["F1a","F1b"]\' '
+        'data-page-reference="final-inspection" style="display:contents">'
+        "<h2>Final inspection after B2</h2>"
+        '<div class="setup-variant" data-setup-title="F1a final inspection after B2" '
+        'data-setup-id="F1a" data-member="nut1" data-workpiece="nut1" style="display:contents">'
+        '<p class="variant-label">F1a final inspection after B2</p>'
+        "<p>Original hoisted record "
+        + _writing_field("reference observed")
+        + '</p><p data-source-position="reference-only" style="break-before:page">'
+        "Original final-reference continuation.</p>"
+        '<p data-source-position="reference-mixed" style="break-before:page">'
+        "Original reference tail before the physical route.</p></div></section>"
+        + _setup("B0 stock cutoff", "B0", "stock", "<p>Original cutoff instruction.</p>")
+        + _setup("Q4 facing hold", "Q4", "nut4", "<p>Original facing instruction.</p>")
+        + '<section class="setup-flow" data-setup-title="F1a chronological final hold" '
+        'data-setup-id="F1a" data-workpiece="nut1" style="break-before:page">'
+        '<h2>F1a chronological final hold</h2><p data-source-position="chronological-final">'
+        "Original final record in route order "
+        + _writing_field("final observed")
+        + "</p></section>"
+    )
+    _, details = printed_sheet(
+        source,
+        r"""pageOf => ({
+          positions:[...document.querySelectorAll('[data-source-position]')].map(node => ({
+            key:node.dataset.sourcePosition,page:pageOf(node)
+          })),
+          heads:[...document.querySelectorAll('.cont-head')].map(head => ({
+            page:pageOf(head),owners:JSON.parse(head.dataset.pageOwners),
+            start:head.dataset.ownerRangeStart,end:head.dataset.ownerRangeEnd,
+            continued:head.dataset.ownerContinued === 'true',
+            range:head.querySelector('.cont-page-owners')?.textContent ?? '',
+            local:head.querySelector('.cont-context')?.textContent ?? '',
+            copies:head.querySelectorAll('[data-locator-target],.writing-blank').length
+          })),
+          fields:[...document.querySelectorAll('[data-locator-target]')].map(node => ({
+            label:node.closest('.field').querySelector('.field-label').textContent,
+            setup:node.closest('[data-setup-id]').dataset.setupId,
+            workpiece:node.closest('[data-workpiece]').dataset.workpiece,
+            reference:!!node.closest('[data-page-reference="final-inspection"]'),
+            original:!node.closest('[data-job-print]')
+          }))
+        })""",
+        prepare=f"() => {{ document.body.dataset.detail = {json.dumps(detail)}; }}",
+    )
+    pages = {position["key"]: position["page"] for position in details["positions"]}
+    heads = {head["page"]: head for head in details["heads"]}
+    reference_only = heads[pages["reference-only"]]
+    assert reference_only["owners"] == []
+    assert reference_only["start"] == reference_only["end"] == reference_only["range"] == ""
+    assert not reference_only["continued"] and "after B2" in reference_only["local"]
+    mixed = heads[pages["reference-mixed"]]
+    assert [owner["setup"] for owner in mixed["owners"]] == ["B0", "Q4"]
+    assert (mixed["start"], mixed["end"]) == ("B0", "Q4")
+    assert mixed["range"].index("B0") < mixed["range"].index("Q4")
+    assert not mixed["continued"] and "after B2" in mixed["local"]
+    chronological = heads[pages["chronological-final"]]
+    assert chronological["owners"] == [{"setup": "F1a", "member": "", "workpiece": "nut1"}]
+    assert chronological["start"] == chronological["end"] == "F1a"
+    assert not chronological["continued"]
+    assert all(not head["copies"] for head in details["heads"])
+    assert details["fields"] == [
+        {
+            "label": label,
+            "setup": "F1a",
+            "workpiece": "nut1",
+            "reference": reference,
+            "original": True,
+        }
+        for label, reference in (("reference observed", True), ("final observed", False))
+    ]

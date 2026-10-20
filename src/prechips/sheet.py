@@ -13520,6 +13520,7 @@ class _Traveler:
         if self.detail != "pedantic" and (label := self.family_label(group)):
             heading = f"{label} ({title})"
         if heading_note:
+            title += " — " + heading_note
             heading += " — " + heading_note
         owners = {block.workpiece for setup in group for block in blocks_by_setup[setup["id"]]}
         members = list(owners) if len(owners) == 1 and None not in owners else []
@@ -13886,6 +13887,8 @@ class _Traveler:
                     display_label = (
                         label if self.detail == "pedantic" else label.removeprefix("Setup ")
                     )
+                    if heading_note:
+                        label += " — " + heading_note
                     tag = "span" if block.layout == "inline" else "div"
                     common_definition = (
                         inferred
@@ -14007,7 +14010,7 @@ class _Traveler:
                 header += (
                     _p("Execution order: " + route + ".")
                     + '<section id="final-inspection-reference" class="final-reference" '
-                    + 'data-reference-only="true" '
+                    + 'data-reference-only="true" data-page-reference="final-inspection" '
                     + f'data-execute-after="{escape(json.dumps(after))}">'
                     + final_html
                     + "</section>"

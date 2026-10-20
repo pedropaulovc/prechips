@@ -1213,6 +1213,14 @@ for name, case in payload["cases"].items():
             {"to_mm": [-35.0, -10.541, 80.0], "mode": "clear"},
             {"to_mm": [-35.0, -10.541, 15.0], "mode": "clear"},
         ]
+        saw.op["cut_plane"] = {
+            "axis": "z",
+            "value": next(
+                move["to_mm"][2]
+                for move in saw.mounted["trajectory"]["moves"]
+                if move["mode"] == "cut"
+            ),
+        }
         assert saw._trajectory() and not saw.reasons and not saw.errors
         index, start, end, mode = saw.moves[0]
         body = saw.components[1]

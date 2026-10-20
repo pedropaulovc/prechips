@@ -9,6 +9,8 @@ context remains separate from that physical range. Setup/family
 wrappers carry ``data-setup-title``; physical setup, member and workpiece owners
 retain ``data-setup-id``, ``data-member`` and ``data-workpiece``. Nested inspection/
 contour owners keep ``data-page-context`` and their direct ``.page-context`` heading.
+Hoisted final-reference wrappers use ``data-page-reference="final-inspection"``;
+their records retain ownership/local context but do not establish physical route ranges.
 Original fields use ``.field``,
 ``.result-field`` or ``.authored-blank`` with ``.field-label/.writing-blank``.
 
@@ -858,7 +860,8 @@ JOB_PRINT_JS = r"""(() => {
       }
       return sharedOwners.get(raw);
     }
-    const routeOrder = new Map();
+    const PAGE_REFERENCE = '[data-page-reference="final-inspection"]',
+      routeOrder = new Map();
     function registerRoute(scope, setup) {
       const key = JSON.stringify([scope, setup]);
       if (setup && !routeOrder.has(key)) routeOrder.set(key, routeOrder.size);
@@ -867,7 +870,8 @@ JOB_PRINT_JS = r"""(() => {
     // Register original route scopes before fragmentation; their token survives
     // splitting. Separate fresh wrappers remain separate even with identical labels.
     const routeScopes = [...section.querySelectorAll("[data-setup-title]")].filter(
-      (node) => !node.parentElement.closest("[data-setup-title]"));
+      (node) => !node.closest(PAGE_REFERENCE)
+        && !node.parentElement.closest("[data-setup-title]"));
     routeScopes.forEach((scope, index) => {
       scope.dataset.printOwnerScope = String(index);
       let members;
@@ -880,14 +884,17 @@ JOB_PRINT_JS = r"""(() => {
       // Shared operation lists retain authored route order even when a selected
       // picture for a later member precedes the common operation in the DOM.
       for (const node of scope.querySelectorAll("[data-physical-ops]")) {
+        if (node.closest(PAGE_REFERENCE)) continue;
         sharedPhysicalOwners(node.dataset.physicalOps).forEach(
           (owner) => registerRoute(String(index), owner.setup));
       }
       for (const node of scope.querySelectorAll("[data-setup-id]")) {
+        if (node.closest(PAGE_REFERENCE)) continue;
         registerRoute(String(index), physicalOwner(node).setup);
       }
     });
     function sourcePhysicalOwners(element) {
+      if (element.closest(PAGE_REFERENCE)) return [];
       const source = element.closest("[data-setup-id],[data-physical-ops]");
       if (!source) return [];
       const scope = source.closest("[data-print-owner-scope]")?.dataset.printOwnerScope,
@@ -919,9 +926,18 @@ JOB_PRINT_JS = r"""(() => {
         if (measured > width) { widest = label; width = measured; }
       }
       slot.textContent = " · Setups " + widest + " (continued) → " + widest;
-      const bounds = slot.getBoundingClientRect();
+      const bounds = slot.getBoundingClientRect(), range = document.createRange();
+      range.selectNodeContents(slot);
+      const ink = range.getBoundingClientRect(),
+        above = Math.max(0, bounds.top - ink.top),
+        below = Math.max(0, ink.bottom - bounds.bottom);
+      // Tight working leading can be shorter than the actual glyph envelope.
+      // Keep its measured baseline and reserve that overhang before source fitting,
+      // as for locator ink; a fixed line-box height alone would leave ink outside.
+      slot.style.paddingTop = above + "px";
+      slot.style.paddingBottom = below + "px";
       slot.style.width = bounds.width + "px";
-      slot.style.height = bounds.height + "px";
+      slot.style.height = bounds.height + above + below + "px";
       slot.textContent = "";
     }
     function finishPageOwners() {
