@@ -1407,10 +1407,32 @@ first-article acceptance.
    706 tests with `-n2 --dist loadscope` and `PRECHIPS_KERNEL_WORKERS=1`;
    `ruff check .` and `ruff format --check .` passed. This was not the full
    suite, a release or completion of the broader work.
-   Named nested batch lineage (0b), inspection expansion (0c) and detail
-   modes are not implemented. See [inventory](docs/inventory.md#mounted-slitting-saw-assembly),
+   Registered batch lineage (0b) now extends that support as described below;
+   inspection expansion (0c) and detail modes remain unimplemented. See
+   [inventory](docs/inventory.md#mounted-slitting-saw-assembly),
    [operations](docs/plan.md#mounted-slitting-saw-path-and-capture) and
    [geometry limits](docs/rules-geometry.md#saw-cut-off).
+
+   **Registered batch lineage phase 0b implemented; expanded gate running:**
+   `Plan.workpieces`, member-qualified face claims, nested named finite-saw
+   outputs and single-consumption preserve each physical member's material
+   path. Native containment and host credit bind exact member, registration
+   and setup-keyed partition path; operation-partition provenance remains
+   separate. Posed inventory and borrowed available-stock supports enter the
+   actual scene without becoming cutting stock. Requested transverse finder
+   pickups prove tip/shank/holder contact and four-leg clearance against
+   arriving stock, including support and capture obstacles.
+   A standalone native-to-host smoke passed three actual cuts
+   (1024.1915 mm³ kerf each), four distinct retained nuts, host protection and
+   pickup using arriving-stock top 84.455 mm/retract 97.155 mm.
+   Invalid placements withheld geometry with containment errors.
+   `ruff check` and format checks passed across 321 files; the expanded
+   33-suite gate is still running. This is not a full-suite pass, final T-nut
+   exit 0, live-shop evidence or physical holding certification.
+   Input contracts: [members](docs/plan.md#registered-workpieces),
+   [outputs](docs/plan.md#registered-finite-saw-outputs),
+   [supports](docs/plan.md#posed-and-borrowed-supports) and
+   [pickups](docs/plan.md#transverse-pickup-path).
 
    **Bench hand saw shipped (2026-10-16, #249):** a `hand_saw` tool on a
    bench/manual machine keeps the manual-bench waiver and has no blade-speed

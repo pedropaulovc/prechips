@@ -81,6 +81,7 @@ plans. They require the surrounding root fields, setups, features and inventory.
 | `stock` | `Stock \| Unknown` | Optional |
 | `dro` | `Dro \| Unknown` | Optional |
 | `frames` | `dict[str, PlanFrame] \| Unknown` | Optional |
+| `workpieces` | `dict[str, WorkpieceInstance] \| Unknown` | Optional; explicit registered copies of the canonical target |
 | `aims` | `dict[str, Aim]` | Optional |
 | `joint_features` | `dict[str, JointFeature]` | Optional |
 | `process_features` | `dict[str, ProcessFeature]` | Optional |
@@ -137,6 +138,28 @@ An operation's retained-output `pose` uses the same `PlanFrame` record inline,
 not a frame-name reference. Its forward material-registration convention is
 defined under [retained part-off outputs](#retained-part-off-outputs); it is not
 the model-to-setup coordinate conversion.
+
+### Registered workpieces
+
+`[workpieces.<id>]` registers a physical copy of the canonical finished target.
+Each `WorkpieceInstance` has a required `pose: PlanFrame | "unknown"` and
+nonempty `cite`. The forward pose uses the same model-coordinate convention
+as [retained outputs](#retained-part-off-outputs); its origin uses manifest
+units. It does not change canonical STEP bytes, face references or feature
+definitions. Cite an author-selected registration as `AUTHOR'S CHOICE`, not
+as a shop measurement.
+
+Declared membership alone does not prove that the target fits arriving stock.
+Native containment must bind the exact member, registration and current
+material path. Missing registration/protection stays unknown. A target known
+to lie outside actual arriving stock is a containment error and earns no
+geometry credit; another member cannot supply its missing evidence.
+
+Use [member-qualified cutting claims](#member-qualified-cutting-claims) when
+several members arrive together. An unqualified claim selects a registered
+member only when exactly one member is carried. Explicit unknown registration
+is debt, never an inferred empty batch.
+
 
 ## Aims
 
@@ -820,24 +843,25 @@ a retained output's explicit `pose` registers its material into that frame.
 A join reference never applies an implicit assembly transform or a generic
 Boolean union.
 
-Single-consumption applies to the named-retained lineage: each `stock_out`
-reference, each downstream setup state carrying its partition, and the
-unsplit setup predecessors feeding that split may be consumed only once.
-Ordinary setup references outside that lineage retain selectable-state
-fan-out and rework routing, including an unrelated ordinary branch in a plan
-that also contains a named split. Raw `"stock"` and `"stock.<id>"` likewise
-remain supply declarations that alternative routes may start from, not proof
-of additional physical blanks. An assembly cannot join repeated references,
-a parent with its descendant or overlapping same-origin alternatives.
+Named-retained material is single-use: each `stock_out` reference, downstream
+partitioned setup state and unsplit setup predecessor feeding the split may
+be consumed only once. Registered-member routes also consume the original raw
+supply once. Ordinary no-cut fan-out and selectable-state rework outside
+these lineages retain their legacy behavior; raw supply aliases do not create
+extra physical blanks.
 
-At a join, shared supply roots are permitted only for different retained
-children of the same declared partition. Their descendants retain that
-partition identity.
-The host resolver rejects overlapping identities; the kernel must independently
-prove the split and non-overlapping material before those siblings can be used
-together. A producing setup with named outputs cannot be consumed by its setup
-id, and a named split cannot split an already-partitioned or assembled input.
-Ordinary machining and `keep` on a retained child's later setup remain supported.
+A material identity consists of its supply root and ordered partition path.
+Each edge is `{split: <actual setup id>, output: <global output name>}`.
+At the first differing edge, different outputs of the same split are disjoint;
+equal or ancestor/descendant paths overlap. Operation provenance such as
+`S1:10` is recorded separately and is never parsed into a setup identity.
+The host rejects overlapping identities; native geometry independently proves
+the physical split and non-overlap.
+
+A producing setup with named outputs cannot be consumed by its setup id.
+Registered finite-saw outputs can be split again through nested named outputs;
+assembled input is not permission for an arbitrary split. Ordinary machining
+and `keep` on a retained child's later setup remain supported.
 Producer history alone does not prove that a centre, touch face or other
 preparation survived on either child. See
 [causal preparation](rules-operations.md#op_chain).
@@ -1465,6 +1489,7 @@ not proof that its rotation is collision-free or its torque/locking adequate.
 
 A `Reference` is a structured entry in `hold.supports`. It can select a fixture,
 scope it to operations and declare a follow- or steady-rest position.
+The tagged posed branch below is distinct from this legacy reference form.
 
 | Field | Type (also accepts `"unknown"`) |
 |---|---|
@@ -1496,6 +1521,26 @@ The traveler's HOLD prints a follow rest's lead as a distance along the work,
 never beside a Ø sign: `jaws 8.00 mm behind the tool, on the diameter just turned;
 set on and backed off every pass as printed under each op` (trailing jaws ride
 each pass's new diameter), or `jaws … mm ahead of the tool, on the uncut stock`.
+
+### Posed and borrowed supports
+
+A `hold.supports` entry with `placement = "posed"` has `id`, exactly one of
+`ref` or `stock_ref`, required `pose`, and required known nonblank `note`. `id` identifies that placed
+support in the setup. `ref` selects inventory fixture solids; `stock_ref`
+borrows already-produced stock. The existing `Pose` is
+`{ origin_mm = [x, y, z], x = [...], z = [...] }` in setup millimetres with
+orthonormal axes. It is not a manifest-unit `PlanFrame`.
+
+Borrowed stock must already exist, remain available and be disjoint from the
+cutting stock. It is copied/posed once as support, without consumption,
+joining or insertion into cutting stock. This does not authorize reuse of a
+consumed ancestor or a sibling as an extra cutting blank.
+
+Posed supports enter the ordinary native fixture scene alongside the primary
+hold and capture. Their actual solids supply contact, collision and render
+geometry, including on vise setups. Missing source geometry or pose stays a
+scene gap. Tags cannot be mixed with legacy reference/rest fields.
+
 
 ### Follow-rest pass sequence
 
@@ -1578,7 +1623,49 @@ coordinate and method describe what is touched and what the operator sets.
 | `retouch_after` | `list[int]` |
 | `after_op` | `int` |
 | `measure_before_hold` | `bool` (`measure_then_set`: M is read on the part before it is held) |
-| `at_mm` | `[Number, Number]`: where a Z touch lands, setup-frame X, Y. An [area hold](inventory.md#area-holds) that zeroes Z on its seat face will require it; no rule reads it yet |
+| `at_mm` | `[Number, Number]`: X pickup `[Y, Ztip]`, Y pickup `[X, Ztip]`, opting into the transverse path proof below. For Z, `[X, Y]` retains its separate touch-location meaning |
+| `approach_mm` | Positive transverse pickup approach distance |
+| `retract_clearance_mm` | Positive clearance above actual arriving-stock top |
+
+### Transverse pickup path
+
+Presence of X/Y `at_mm` requests `transverse_finder_v1` native proof;
+explicit `"unknown"` requests proof with debt. Despite their `_mm` names,
+authored `at_mm`, `edge_mm`, `approach_mm`, `retract_clearance_mm` and
+`check_jog_mm` follow manifest units and convert once to native mm.
+This differs from posed supports and saw trajectories, which use literal mm.
+`after_op` pickup is not yet modeled; this proof uses arriving stock before cuts.
+Declare matching `from = "+x" | "-x" | "+y" | "-y"`, a selected `edge_finder`
+`tool` and `holder`, numeric edge, positive approach/retract clearance and
+signed check jog. Finder geometry needs fact-local measured/verified tip
+diameter, `finder_tip_length_mm` / `_in`, shank diameter, pair projection,
+selected holder diameter and gauge length. The body/holder cannot be replaced
+by a tip-only collision test.
+
+The target is an exact current face of the uniquely selected carried member,
+an explicit raw-stock side (`stock:-x`, `stock:+x`, `stock:-y`, `stock:+y`), or
+a named posed fixture face such as
+`fixture:<support-id>/<component-id>:+x` (or the matching signed axis).
+An inventory-reference selector is also accepted only when its actual
+placement is unique. Canonical target pickup requires a unique arriving
+member; there is no authored explicit member selector on `AxisZero`.
+Numeric edge is checked against actual contact; it cannot supply a missing
+face. Ambiguous planes remain unknown.
+
+The native job starts outside the contact axis by the authored approach
+distance, with the lowest tip at actual arriving-stock top plus retract
+clearance. It descends to `Ztip`, approaches the face, retracts vertically,
+then performs the signed check jog. Exact sweeps check tip, shank and holder
+against actual stock and the full fixture/support/capture scene on every leg.
+Known collisions error even alongside missing scene facts; full pass requires
+complete geometry, actual tip-span contact and a clear complete path.
+
+Rules and sheet displays accept only proof matching the current setup, axis,
+full request and recipe/scene identity. Missing or stale proof stays unknown.
+The printed physical transverse contact window is not an unestablished DRO
+zero. Ordinary Axis Set arithmetic remains separate. Omit X/Y `at_mm` to
+retain ordinary arithmetic without claiming a proved path; mounted-saw body
+zero and Z area-hold behavior remain separate.
 
 ### Pickup coordinates and retouch schedule
 
@@ -1678,6 +1765,7 @@ execution order; `op` is its within-setup identity.
 | `do` | `str` |
 | `feature` | `str`; an `inspect` op may name a list of two or more distinct features |
 | `faces` | `list[str]` |
+| `workpiece_faces` | `dict[str, list[str]]`: nonempty per-live-member canonical face claims, exclusive with explicit `faces`; see [qualified claims](#member-qualified-cutting-claims) |
 | `tool` | `str` |
 | `holder` | `str` (the tool's `shank` must fit it; a single nominal collet capacity accepts the ISO 286 h6 band below it, [`tool_resolves`](rules-tools.md#tool_resolves)) |
 | `direction` | `str` |
@@ -1719,7 +1807,7 @@ execution order; `op` is its within-setup identity.
 | `follows` | `str`: `"<setup>:<op>"` of an earlier `scribe` op (a saw that follows its line only; an `ends` layout scribes no line, an error) |
 | `allowance_mm` | `Number` > 0: stock a saw that `follows` a line leaves outside it for the file |
 | `keep` | `str` (a finished feature: after a held split, the piece that carries it stays and every other piece is discarded; see [keep piece](rules-geometry.md#keep-piece)) |
-| `outputs` | `dict[str, RetainedOutput]`: exactly two named pieces on a terminal `part_off`; see [retained part-off outputs](#retained-part-off-outputs) |
+| `outputs` | `dict[str, RetainedOutput]`: exactly two named pieces on terminal `part_off` or registered mounted `cut_off`; see [retained outputs](#retained-part-off-outputs) |
 | `prerequisites` | `{ spot = "<setup>:<op>" }`: typed prior preparation witness, or `spot = "unknown"` |
 
 ### Authored spindle speed
@@ -2007,6 +2095,22 @@ A claimed hole cap also needs its feature's last drill/ream/bore/counterbore
 setup to leave it clear of stock; a tap or pilot claim never stands in for that
 (see [geometry](rules-geometry.md#finish_coverage)). No plan field selects that op.
 
+#### Member-qualified cutting claims
+
+For registered workpieces, `workpiece_faces` maps each selected live member id
+to a nonempty list of exact canonical STEP face references. It is mutually
+exclusive with explicit `faces`; source references are validated against the
+bound STEP. Select members explicitly rather than constructing display labels
+or copying a sibling's face evidence.
+
+An unqualified `faces` or feature-default claim is usable only for a unique
+arriving member. A multi-member setup must qualify claims; a sibling's native
+face, earlier operation, stock contact or inspection cannot supply credit.
+Complete explicit ownership applies per member with the same ordinary
+action/finishing filters. Display labels such as `nut1:<face>` are not new
+canonical face references.
+
+
 #### Complete explicit-face ownership
 
 An op owns a feature it does not name when its
@@ -2181,11 +2285,14 @@ Each `[setups.ops.outputs.<name>]` is a required-field `RetainedOutput`:
 
 | Field | Type and meaning |
 |---|---|
-| `carries` | Known exported finished feature id; never a transient joint or process feature |
-| `pose` | Inline `PlanFrame` or `"unknown"` |
-| `cite` | Nonempty citations for the selector and authored registration |
+| `carries` | Legacy terminal `part_off` selector: one known exported finished feature id; exclusive with `carries_workpieces` |
+| `carries_workpieces` | Registered finite-saw branch: nonempty list of carried member ids; exclusive with `carries` |
+| `side` | Registered finite-saw branch: `"below"` or `"above"` |
+| `pose` | Required inline `PlanFrame` or `"unknown"` |
+| `cite` | Required nonempty citations for selection and authored registration |
 
-The manifest must declare [named finished solids](features.md#named-finished-solids).
+For the legacy `carries` branch, the manifest must declare
+[named finished solids](features.md#named-finished-solids).
 The carried feature's bound source faces must resolve to one named finished
 solid. That whole solid selects the piece: containing only a feature point,
 face or local patch is insufficient. A known mixed-solid selector or two
@@ -2232,6 +2339,32 @@ containment after each pose, complete finished-solid accounting and no material
 overlap before it exposes either output. Missing geometry or a failed proof
 leaves the named outputs and downstream stock unresolved. See the
 [native partition contract](rules-geometry.md#retained-part-off-outputs).
+
+#### Registered finite-saw outputs
+
+A terminal mounted `cut_off` may name exactly two retained outputs
+using `carries_workpieces`, one `side = "below"` and one `side = "above"`.
+Together the lists must account for the incoming members exactly once,
+without duplicates or omissions. Each output has its own cited registration.
+This branch uses the [mounted path/capture proof](#mounted-slitting-saw-path-and-capture),
+not the legacy lathe feature selector or parting-blade model.
+Nested retention uses a later setup with `stock_in = "stock_out.<name>"`,
+not recursive output tables. Only `cut_off`, not the `saw_cut` alias, accepts
+named finite-saw outputs. A registered plan cannot use legacy `carries`
+selectors. Unknown output poses parse but cannot publish proved geometry.
+
+The native job must prove exactly two real children, unique whole-target
+containment on the declared sides, no protected kerf loss, conservation of
+stock volume, and non-overlap after registration before publishing either
+output. A descendant can split a retained child again; its ordered material
+path preserves all prior edges. Route membership and canonical face lookup
+alone do not establish any of these physical proofs.
+
+The existing `part_off`/`carries` branch above remains unchanged. Its named
+finished-solid and held-split requirements do not substitute for finite-saw
+capture, and registered membership does not waive either branch's holding
+requirements.
+
 
 ## Contour
 
@@ -2816,8 +2949,8 @@ Contact geometry does not establish dynamic clamp capacity.
 Secure both holds, cut, stop fully with capture clamped, withdraw through the
 proved clear/kerf path, then release/retrieve and adjust while stopped.
 Both physical children remain in the native stock result and remain obstacles
-during withdrawal. Named nested batch outputs and repeated-piece lineage are
-not implemented by this support.
+during withdrawal. Registered [finite-saw outputs](#registered-finite-saw-outputs)
+can route both children and split descendants with explicit member accounting.
 
 ### Mounted-saw Z setting
 

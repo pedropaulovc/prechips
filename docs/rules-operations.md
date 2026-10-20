@@ -150,15 +150,19 @@ that names an earlier drilled setup. Once `stock_in` is explicit, a datum
 transfer from another blank cannot substitute for that material route.
 This check establishes route order, not physical fixture continuity.
 
-Named `part_off` outputs retain their own material identities through
-`stock_out.<name>` references. Preparation from the other child of a split
-does not satisfy an incoming drill or centre requirement. For a part-off
-declaring named outputs, schema validation permits only `inspect`, `deburr`,
-`coating`, `release` or `scribe` after the split. Other material-changing
-operations are bad input, not merely an `order` finding. Allowed finishing or
-handling does not remodel the retained outputs or certify their measurements,
-create a second source, or permit reuse of the unsplit ancestor. See
-[retained outputs](plan.md#retained-part-off-outputs).
+Named retained outputs preserve their own material identities through
+`stock_out.<name>`, including nested registered finite-saw outputs.
+Preparation from a sibling or wrong registered member cannot satisfy an
+incoming drill, centre or touch requirement. Causal credit combines selected
+member identity, descendant material membership and matched native target
+protection. Missing proof or known containment failure withholds credit;
+neither suppresses an independent authored-order error.
+
+For a named terminal split, schema validation permits only `inspect`, `deburr`,
+`coating`, `release` or `scribe` afterward. Other material-changing operations
+are bad input, not merely an `order` finding. Allowed handling does not remodel
+the outputs, certify measurements, create another source or authorize reuse
+of the unsplit ancestor. See [retained outputs](plan.md#retained-part-off-outputs).
 
 For this release-order check, `die_thread` and `hand_tap` count as cutting
 even though the spindle is stopped. They must precede `release` or `part_off`;
@@ -198,6 +202,29 @@ physical-setting debt path before these checks. Handwheel sheets print
 source-authored procedures and nominal targets, not Axis Set, Preset or
 digital-DRO measurement tasks; they do not establish a physical zero. See
 [mechanical readouts](rules-coordinates.md#mechanical-dials-and-unknown-readouts).
+
+### Requested transverse pickup proof
+
+An authored X/Y `at_mm` opts into the
+[full-stack pickup contract](plan.md#transverse-pickup-path).
+The native proof uses actual arriving stock and the same posed support,
+fixture and capture scene used by collision checks and rendering.
+A numeric edge or arithmetic Axis Set does not establish contact or clearance.
+
+Host consumers match model, setup, axis, recipe identity and the full echoed
+request to current inputs. Passing evidence requires actual face contact,
+complete tip/shank/selected-holder sweeps and four continuous ordered legs:
+descend, approach, retract and signed check jog. Missing/stale/wrong-axis proof
+is debt; matched native collision/error is an error even when other scene
+facts are missing. Only matched proof supplies contact/path/window displays;
+clearance is claimed only on pass.
+
+The printed transverse contact window is in physical setup coordinates.
+It does not instruct use of a DRO axis zero that has not yet been established.
+Arithmetic Axis Set remains visible independently. Omitting X/Y `at_mm`
+retains ordinary arithmetic without a new path-proof claim or debt.
+Mounted saw body-side zero remains a separate contract.
+
 
 ### Component-local supply proof
 

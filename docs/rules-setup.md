@@ -39,6 +39,13 @@ stock `top_z` and `bottom_z`. When you supply supports, support orientation,
 parallels, jaw direction, locator or stop-face fields, the rule checks those
 declarations too.
 
+Explicit [posed supports](plan.md#posed-and-borrowed-supports) join the actual
+fixture/contact/collision scene even when the primary hold is a vise.
+Borrowing already-produced stock as a support neither consumes it nor makes
+it cutting stock. Missing poses, source geometry or solids remain scene debt;
+a primary vise cannot hide those gaps. Support geometry and declared contact
+do not establish dynamic holding capacity.
+
 Every nonmanual machining operation needs a holder; nonspindle bandsaw and
 hand-saw cut-off need none. A mill-mounted `slitting_saw`, or a saw whose unknown
 tool kind cannot exclude a spindle-mounted disk on a mill or unresolved machine,
@@ -709,6 +716,12 @@ geometry readiness cannot clear measurement debt. Missing results, incomplete
 envelopes or an unresolved possible spindle assembly remain unknown unless a
 known error is stronger. Mixed setups retain other mill-cut checks. Holding
 and native material preservation remain required by their own rules.
+
+Registered-member cuts use only matched current member protection; a sibling's
+geometry cannot clear measurement or physical-space debt. Requested
+[transverse pickup paths](plan.md#transverse-pickup-path) likewise use
+already-present matched native results. These consumers do not launch a
+second kernel job or replace actual arriving stock with a target envelope.
 
 There is no separate `holder_stack` rule. Selected-holder gauge debt belongs
 to `envelope` or `travel` where consumed; lathe cuts are not asked for a

@@ -374,6 +374,30 @@ sides, so the face is that whole rectangle but for the band; a hole of any size,
 or a notch reaching further in, however little area it takes, makes it false, as
 does a face lying wholly in the band (a rim along three sides).
 
+### Registered member faces and protection
+
+With [registered workpieces](plan.md#registered-workpieces), canonical STEP
+binding runs before instance creation. `workpiece_mapping` selects native face
+indices for one exact member; indices are distinct across members. Aggregate
+feature geometry unions the member instances and cannot let one copy cover
+every other copy. Operation results echo the resolved `workpiece_faces`;
+invalid or unresolved member claims receive no global/canonical fallback.
+
+Each setup's `workpieces[member]` records the original normalized registration,
+current ordered `partition_path`, status/reasons, whole-target volume and
+setup-coordinate bounds. Host credit requires exact member, registration and
+path agreement with the current route. Missing/stale proof is unknown.
+Known absence of the target from real arriving stock is a containment error,
+reported by `coverage` even alongside unavailable geometry or missing faces.
+That error withholds downstream credit without turning the member into a
+sibling or suppressing independent operation-order errors.
+
+Stock-face, revolved-location and as-stock contact evidence is member-local.
+`workpiece_as_is_contact[member][ref]` must match the member and registration;
+a sibling's contact or unannotated legacy row cannot supply blank credit.
+Legacy unqualified lookup remains available only for a uniquely carried member.
+Registrations never rewrite canonical ownership or the source STEP.
+
 ### Joint targets and final-face credit
 
 Plan-owned joint cylinders are separate analytic targets with
@@ -1018,8 +1042,8 @@ Each setup's checks and image use the material explicitly selected by
 [`stock_in`](plan.md#stock-lineage). `"stock"` selects a single supply;
 `"stock.<id>"` selects a built-up component; an earlier setup id selects its
 single output, even when it is not the immediately previous setup.
-`"stock_out.<name>"` selects one named retained part-off piece. A named split's
-producer id is not a combined output.
+`"stock_out.<name>"` selects one named retained part-off or registered finite-saw
+piece. A named split's producer id is not a combined output.
 
 Every array requires a tagged `joint` and exactly two material-disjoint input
 branches. One may be an existing assembly when the other contains one single
@@ -1030,18 +1054,19 @@ authored `"unknown"` as a source. Omitted `stock_in` remains named stock debt,
 never an inferred linear route. An assembly reference applies no implicit
 transform; a named output's explicit pose registers it in model coordinates.
 
-Single-consumption applies only to the
-[named-retained lineage](plan.md#stock-lineage), including its downstream
-states and unsplit setup predecessors, not every ordinary setup output.
-Ordinary setup-reference fan-out, rework and selected-state routing remain
-valid outside that lineage, even in another branch of a plan with a named
-split. Raw supplies may also seed alternative routes, but an assembly cannot
-recombine overlapping ancestry. Shared roots at a join are accepted only
-for different children of the same partition, with distinct identities and
-a native split proof. Parent plus descendant, a repeated child, unproved
-sibling partition geometry or actual material overlap cannot produce joined
-stock. No second independent stock component is manufactured for a derived
-child. The canonical host identity resolver is
+Single-consumption applies to the [named-retained lineage](plan.md#stock-lineage),
+its downstream states and unsplit predecessors. Registered-member routes
+also consume their raw supply once. Unrelated ordinary selectable-state
+fan-out retains its legacy behavior.
+
+Partition identity is an ordered path of actual setup-id/output-name edges.
+Different outputs at the first differing edge are disjoint; equal paths and
+ancestors/descendants overlap. Nested registered finite-saw splits preserve
+the earlier edges. The native engine independently proves partition geometry
+and actual non-overlap; identities alone cannot join overlapping branches.
+Operation-subject provenance is recorded separately from the setup-keyed path.
+No independent stock purchase is manufactured for a derived child.
+The canonical host identity resolver is
 [`material_routes.py`](../src/prechips/material_routes.py); declared identities
 do not replace native containment or non-overlap proof.
 
@@ -1653,9 +1678,10 @@ The result records body/cutting bands, gauge and spindle-nose positions,
 axis-path/assembly/spindle-nose bounds, per-component/obstacle/move collisions,
 required/uncovered/removed/unintended kerf volumes, before/after stock volumes,
 and the two proved children. Mounted cuts retain both physical children;
-their legacy `offcut` volume is zero. Named nested batch outputs are not
-implemented. Planar-only inputs and `slitting_saw` with `follows` remain
-unknown and cannot establish a physical cut or known routed stock.
+their legacy `offcut` volume is zero. Registered named outputs can route
+both children through [nested partitions](#registered-finite-saw-partitions).
+Planar-only inputs and `slitting_saw` with `follows` remain unknown and cannot
+establish a physical cut or known routed stock.
 
 Geometry, established engagement and mounted body-zero evidence have separate
 statuses. A released capture can error geometry while engagement and zero
@@ -1875,7 +1901,8 @@ These are consumed tool and operation facts, not new `outputs` fields.
 The native proof accepts only one incoming solid and exactly two valid,
 positive-volume retained solids after a real nonzero cut. The result may add
 no material outside the input, and the two original pieces must not overlap.
-Nested named partitions are unsupported.
+These legacy selector-based part-off limits do not provide the registered
+finite-saw partition proof below.
 
 The existing [held-split proof](#held-splits) is independent and still
 required: both pieces need press-clamp contact with a load path to an
@@ -1907,6 +1934,31 @@ branches are distinct children of one proved partition and that their actual
 material does not overlap. A source declaration or supported named-solid
 Boolean proof is not certification of a physical cut, holding arrangement or
 threaded join.
+
+#### Registered finite-saw partitions
+
+The [registered output branch](plan.md#registered-finite-saw-outputs) consumes
+the mounted geometry/capture result. Each cut must produce exactly two valid
+physical children and assign every incoming live member to exactly one
+declared side. The whole target must lie in that child, protected kerf removal
+must be zero, and stock/kerf/children volumes must conserve material. Invalid
+placement or containment withholds the outputs and geometry credit; known
+target absence remains an error.
+
+An output's pose transforms its actual child and carried targets once.
+Successive registrations compose rather than replacing earlier transforms.
+Each output records side, membership, whole-target proof, volume/bounds,
+conservation evidence and its ordered `partition_path`. Path edges use the
+actual setup id in `split`; the separate `partition` field retains the cut's
+operation subject, for example `S1:10`. A later cut of a retained child extends
+the path, preserving first-differing-edge disjointness and single-consumption.
+
+At each receiving setup, host causal/coverage rules require the matched
+current member protection proof, not merely a declared route or face lookup.
+Finite-saw engagement and mounted body-zero verdicts remain independent of
+the geometry status. These offline checks certify neither dynamic holding
+capacity nor physical execution.
+
 
 ### Jaw placement
 

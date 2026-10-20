@@ -556,6 +556,21 @@ signal and offset. A mechanical tip runs true then kicks sideways; an
 electronic finder lights. Axis Set is edge − r when approaching from the −
 side, or edge + r from the + side. Every X/Y row names the box.
 
+An authored X/Y `at_mm` requests a
+[full-stack native pickup proof](plan.md#transverse-pickup-path) in addition
+to this arithmetic and speed check. It needs measured/verified tip diameter,
+`finder_tip_length_mm` or `_in` (positive usable tip length), shank diameter,
+installed tool/holder projection, and selected holder gauge diameter/length.
+The selected projection must exceed the tip length. When no explicit tip is
+present, measured cutter `dia` supplies the tip diameter; a bare nominal tip
+does not become a measured fact. Existing measured OAL-minus-holder-grip
+projection fallback remains available for the finder.
+
+Tip, shank and holder are separate swept components. This proof uses actual
+arriving stock and the complete posed scene; the tip offset or a known
+arithmetic Axis Set cannot establish full-stack clearance. Without X/Y
+`at_mm`, the ordinary finder contract above remains unchanged.
+
 ## Purchased tooling
 
 A bought-finished item in any category can declare `purchase`, the item
@@ -1585,6 +1600,7 @@ See [lathe rules](rules-lathe.md) for their geometric use.
 | `tpi` | `{ value, cite, measured, verify }`, blade teeth per inch: one positive number or positive `[coarse, fine]` with coarse < fine; bare numbers are bad input, uncited/flagged records remain debt |
 | `finder_type` | `"mechanical"` / `"electronic"`; [edge finder](#edge-finder) |
 | `tip_in` | `float`, finder tip diameter |
+| `finder_tip_length_mm` / `finder_tip_length_in` | `MeasuredLength`, positive usable finder tip length; required as measured evidence by a requested full-stack pickup proof |
 | `rpm_range` | `[Number, Number]`, maker spindle-speed band; known endpoints satisfy 0 < low ≤ high |
 
 ### Workholding dimensions
