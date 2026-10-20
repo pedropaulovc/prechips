@@ -189,6 +189,7 @@ unregistered = engine._Setup(owner, {"id": "UNREGISTERED", "ops": []}, held=owne
 unregistered.matrix = FreeCAD.Matrix()
 unregistered.part = owner.solid
 unregistered.faces = list(owner.solid.Faces)
+unregistered.finished_face_count = len(unregistered.faces)
 unregistered.protected = Part.Shape()
 unregistered.protection_reason = (
     "finished-solid registration and material ownership are unproven; "
@@ -212,6 +213,7 @@ attribution.matrix = FreeCAD.Matrix()
 attribution.finished = owner.solid
 attribution.protected = owner.finished_solids["right"]
 attribution.faces = [owner.solid.Faces[i] for i in order]
+attribution.finished_face_count = len(attribution.faces)
 attribution.face_boxes = [engine._bbox(face) for face in attribution.faces]
 interface = {
     attribution_owner.face_solids[i]: i
@@ -242,6 +244,60 @@ out["unowned_attribution"] = {
     "candidates": [i for i, face in attribution._ref_candidates((10, 5, 1, 4, 6), -1, set())],
     "turn_refs": sorted(attribution._turn_hit_refs(common, slab, -1)),
 }
+
+# A real setup snapshots source faces before adding the process-plane inventory.
+inventory_job = copy.deepcopy(job)
+inventory_job["process_features"] = {
+    "split": {"kind": "end_face", "at_mm": [0, 0, 5],
+              "axis": [0, 0, -1], "label": "test process plane"},
+}
+inventory_owner = engine._Job(inventory_job)
+inventory_result = inventory_owner.run()
+assert inventory_result["status"] == "ok", inventory_result
+inventory = engine._Setup(
+    inventory_owner,
+    {"id": "INVENTORY", "frame": {"origin": [0, 0, 0], "x": [1, 0, 0],
+                                  "y": [0, 1, 0], "z": [0, 0, 1]}, "ops": []},
+    held=inventory_owner.solid,
+    state={"components": set(inventory_owner.protected), "completed": {}, "joined": set(),
+           "consumed": set(), "finished_names": {"right"}},
+)
+inventory.run()
+source_count = inventory.finished_face_count
+boundary_indices = [0, source_count - 1, *range(source_count, len(inventory.faces))]
+boundary = {
+    "source_count": source_count,
+    "native_source_count": len(inventory.finished.Faces),
+    "inventory_count": len(inventory.faces),
+    "synthetic_count": len(inventory_owner.synthetic_faces),
+    "process_plane_indices": sorted(inventory_owner.process_planes),
+    "source_end_owners": [inventory_owner.face_solids[index] for index in boundary_indices[:2]],
+    "right_source_indices": [index for index in range(source_count)
+                             if inventory_owner.face_solids[index] == "right"],
+    "cases": {},
+}
+for name, names in [("right", {"right"}), ("both", {"left", "right"}), ("unknown", None)]:
+    inventory.state["finished_names"] = names
+    boundary["cases"][name] = {
+        "owned": [inventory._owns_finished_face(index) for index in boundary_indices],
+        "candidates": [index for index, face in
+                       inventory._ref_candidates((10, 5, 100, -1, 20), -1, set())],
+    }
+uninitialized = engine._Setup(inventory_owner, {"id": "UNINITIALIZED", "ops": []})
+boundary["uninitialized_count"] = uninitialized.finished_face_count
+boundary["uninitialized_refused"] = {}
+for name, call in [
+    ("ownership", lambda: uninitialized._owns_finished_face(0)),
+    ("candidates", lambda: list(uninitialized._ref_candidates((10, 5, 100, -1, 20), -1, set()))),
+    ("source", lambda: uninitialized._source(inventory.faces[0])),
+]:
+    try:
+        call()
+    except (AttributeError, TypeError):
+        boundary["uninitialized_refused"][name] = True
+    else:
+        boundary["uninitialized_refused"][name] = False
+out["inventory_boundary"] = boundary
 bad_job = copy.deepcopy(job)
 bad_job["feature_solids"]["left_faces"] = "right"
 try:
@@ -990,6 +1046,34 @@ def test_coincident_interfaces_attribute_only_to_the_branch_owned_finished_solid
 
 def test_unknown_finished_ownership_cannot_attribute_source_or_turning_hits(native):
     assert native["unowned_attribution"] == {"source": None, "candidates": [], "turn_refs": []}
+
+
+def test_cached_source_inventory_preserves_native_ownership_and_synthetic_boundary(native):
+    result = native["inventory_boundary"]
+    count = result["source_count"]
+    assert count == result["native_source_count"]
+    synthetic_count = result["synthetic_count"]
+    assert synthetic_count > 0
+    assert result["inventory_count"] == count + synthetic_count
+    assert result["process_plane_indices"] == list(range(count, count + synthetic_count))
+    assert set(result["source_end_owners"]) == {"left", "right"}
+    cases = result["cases"]
+    assert (
+        cases["right"]["owned"]
+        == [owner == "right" for owner in result["source_end_owners"]] + [True] * synthetic_count
+    )
+    assert cases["both"]["owned"] == [True] * (2 + synthetic_count)
+    assert cases["unknown"]["owned"] == [False, False] + [True] * synthetic_count
+    assert cases["unknown"]["candidates"] == []
+    assert cases["both"]["candidates"] == list(range(count))
+    assert cases["right"]["candidates"] == result["right_source_indices"]
+    assert all(0 <= index < count for case in cases.values() for index in case["candidates"])
+    assert result["uninitialized_count"] is None
+    assert result["uninitialized_refused"] == {
+        "ownership": True,
+        "candidates": True,
+        "source": True,
+    }
 
 
 def _assert_withheld_terminal_outputs(result, reason):

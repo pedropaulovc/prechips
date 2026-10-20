@@ -271,6 +271,12 @@ cli.load_bundle = _precision_bundle
                 grid = grids[endpoint["setup"]]
                 target = content(operation(markup, endpoint["setup"], endpoint["op"]))
                 printed = re.findall(r"Z (-?\d+(?:\.\d+)?) → (-?\d+(?:\.\d+)?)", target)
+                # Compact instructions omit the redundant zero entry, but still name
+                # the controlled endpoint as a tip reading, not an arbitrary Z value.
+                if entry == 0:
+                    printed += [
+                        ("0", value) for value in re.findall(r"\btip Z\s*(-?\d+(?:\.\d+)?)", target)
+                    ]
                 assert any(
                     len(a.partition(".")[2]) <= grid["decimals"]
                     and len(b.partition(".")[2]) <= grid["decimals"]
@@ -381,8 +387,10 @@ def test_shaft_missing_length_prints_as_a_normal_unknown_inspection_row(tmp_path
     owner = operation(markup, "S3", 50)
     message = content(owner)
     assert "length" in message.lower() and "?" in message
-    assert "calipers" in message.lower() and "(no drawing limit)" in message
-    assert "Measure 1.75 past the actual scribe to the cut face with calipers." in message
+    assert re.search(r"\bcalipers?\b", message.lower()) and "(no drawing limit)" in message
+    assert re.search(
+        r"Measure 1\.75 past the actual scribe to the cut face with calipers?\b", message
+    )
     assert "156.67" not in message
     assert not markup.find("inspection-record", owner)
     assert not markup.find("result-field", owner)

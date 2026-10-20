@@ -126,6 +126,7 @@ def setup(name):
     runner.matrix = FreeCAD.Matrix()
     runner.finished = runner.protected = solid
     runner.faces = solid.Faces
+    runner.finished_face_count = len(runner.faces)
     runner.face_boxes = [job._tolerant_box(face) for face in runner.faces]
     runner.certain = runner._certain_material()
     runner._use(solid)

@@ -2322,3 +2322,423 @@ def test_local_parallel_and_grip_rows_name_each_source_mm_quantity(detail, displ
     assert not any(
         "parallels/grip" in content(node).casefold() for node in markup.nodes if node["tag"] == "h2"
     )
+
+
+def mounted_jog_job(axis, jog, jog_key):
+    """Two real setups sharing complete, signed mounted-saw pickup records."""
+    from test_zero_pickup_rule_consumers import native_proof, normalized_request
+
+    data = mill_job(setups=2)
+    data.plan["dro"]["units"] = "mm"
+    data.inventory["tools"]["blade"] = {
+        "kind": "slitting_saw",
+        "dia_mm": 50.8,
+        "kerf_mm": 1.0,
+        "thickness_mm": 0.8,
+        "kerf_offset_mm": 0.0,
+    }
+    data.inventory["holders"] = {
+        "collet": {"kind": "collet"},
+        "arbor": {"kind": "saw_arbor"},
+    }
+    findings = []
+    for setup in data.plan["setups"]:
+        setup["stock_in"] = "stock"
+        setup["ops"] = [
+            {
+                "op": 20,
+                "do": "cut_off",
+                "tool": "blade",
+                "holder": "arbor",
+                "cut_plane": {"axis": "z", "value": 8.5, "keep": "below"},
+            }
+        ]
+        axes = {}
+        for letter in "xyz":
+            signed = jog if letter == axis else 1.25
+            setting = {"x": -2.54, "y": 13.375, "z": 20.6}[letter]
+            touch = {
+                "face": f"stock:-{letter}" if letter != "z" else "top",
+                "from": f"-{letter}" if letter != "z" else "+z",
+                "method": "edge finder" if letter != "z" else "mounted_saw_side",
+                "tool": "finder" if letter != "z" else "blade",
+                "holder": "collet" if letter != "z" else "arbor",
+                "at_mm": [5.0, 8.0],
+            }
+            setup["zero"][letter] = touch
+            record = {
+                **deepcopy(touch),
+                "edge_mm": {"x": 0.0, "y": 15.915, "z": 20.15}[letter],
+                "axis_set_status": "computed",
+                "axis_set": setting,
+                jog_key: signed,
+                "check_reading": setting + signed,
+                "mirrored_reading": setting - signed,
+            }
+            if jog_key == "check_jog_mm":
+                record["jog_mm"] = 8.25  # The explicit signed check jog wins.
+            if letter != "z":
+                request = normalized_request(letter)
+                request["check_jog_mm"] = signed
+                request["edge_mm"] = record["edge_mm"]
+                proof = native_proof(request)
+                proof["setup_id"] = setup["id"]
+                if letter == "y":
+
+                    def in_y(point, edge_mm=record["edge_mm"]):
+                        return [point[1], point[0] + edge_mm, point[2]]
+
+                    def box_in_y(box):
+                        return in_y(box[:3]) + in_y(box[3:])
+
+                    for key in ("start_mm", "contact_mm"):
+                        proof["path"][key] = in_y(proof["path"][key])
+                    for leg in proof["path"]["legs"]:
+                        for key in ("from_mm", "to_mm"):
+                            leg[key] = in_y(leg[key])
+                        for component in leg["components"]:
+                            component["bbox_mm"] = box_in_y(component["bbox_mm"])
+                    for obstacle in proof["obstacles"]:
+                        obstacle["bbox_mm"] = box_in_y(obstacle["bbox_mm"])
+                    for key in ("axis_mm", "point_mm"):
+                        proof["resolved_contact"][key] = in_y(proof["resolved_contact"][key])
+                    normal = proof["resolved_contact"]["normal"]
+                    proof["resolved_contact"]["normal"] = [normal[1], normal[0], normal[2]]
+                    proof["resolved_contact"]["plane_mm"] = record["edge_mm"]
+                    proof["window"]["transverse_axis"] = "x"
+                last = proof["path"]["legs"][-1]
+                last["to_mm"] = list(last["from_mm"])
+                last["to_mm"]["xyz".index(letter)] += signed
+                proof["path"]["jog_mm"] = signed
+                record["pickup_proof"] = proof
+            else:
+                record["mounted_saw_setting"] = {
+                    "blade_side": "minus_z",
+                    "body_thickness_mm": 0.8,
+                    "kerf_offset_mm": 0.0,
+                    "paper_mm": 0.05,
+                }
+            axes[letter] = record
+        findings.append(Finding("zero_check", setup["id"], "pass", {"axes": axes}, [], ""))
+    return data, findings
+
+
+@pytest.mark.parametrize("jog_key", ["check_jog_mm", "jog_mm"], ids=["explicit", "fallback"])
+@pytest.mark.parametrize("jog", [2.75, -2.75], ids=["positive", "negative"])
+@pytest.mark.parametrize("axis", ["y", "z"], ids=["Y", "Z"])
+def test_mounted_saw_check_jog_prints_signed_direction_and_one_magnitude(axis, jog, jog_key):
+    data, findings = mounted_jog_job(axis, jog, jog_key)
+    sheet = _Traveler(data, findings, build_report(data, findings), None, detail="hobby")
+    first, second = data.plan["setups"]
+    assert set(sheet.mounted_datum_groups) == {first["id"], second["id"]}
+    if axis == "y":
+        proof = findings[0].numbers["axes"][axis]["pickup_proof"]
+        last = proof["path"]["legs"][-1]
+        assert proof["status"] == "pass"
+        assert last["to_mm"][1] - last["from_mm"][1] == jog
+    markup = Markup(sheet.mounted_datum_table(first))
+    text = " ".join(content(node) for node in markup.nodes if node["tag"] == "p")
+    match = re.search(
+        rf"([+−-]){axis.upper()}\s*(\d+(?:\.\d+)?)\s+check\s*"
+        r"([+−-]?\d+(?:\.\d+)?);\s*([+−-]?\d+(?:\.\d+)?)\s+reversed:\s*STOP",
+        text,
+    )
+    assert match, text
+    assert match[1] == ("−" if jog < 0 else "+")
+    assert float(match[2]) == abs(jog)
+    setting = 13.375 if axis == "y" else 20.6
+    assert [float(value.replace("−", "-")) for value in match.groups()[2:]] == [
+        setting + jog,
+        setting - jog,
+    ]
+    assert sheet.mounted_datum_table(second) == ""
+
+
+def straight_saw_lineage_job(route):
+    """A translated proved saw plane, with actual direct or inherited supply lineage."""
+    data = rules_bundle(Path("."))
+    data.plan["stock"] = {
+        "components": [
+            {"id": name, "material": "steel", "section_mm": [20.0, 10.0], "length_mm": 130.0}
+            for name in ("a", "b")
+        ]
+    }
+    setup = data.plan["setups"][0]
+    setup["machine"] = "saw"
+    setup["stock_in"] = ["stock.a", "stock.b"] if route == "multiple" else "stock.a"
+    if route.startswith("inherited-"):
+        arrival = {"id": "ARRIVAL", "ops": []}
+        if route == "inherited-multiple":
+            arrival["stock_in"] = ["stock.a", "stock.b"]
+        elif route == "inherited-unknown":
+            arrival["stock_in"] = "unknown"
+        elif route == "inherited-single":
+            arrival["stock_in"] = "stock.a"
+        data.plan["setups"].insert(0, arrival)
+        setup["stock_in"] = "ARRIVAL"
+    if route == "aggregate":
+        setup["stock_in"] = "stock"
+    if route == "unknown":
+        setup["stock_in"] = "unknown"
+    if route == "missing":
+        setup.pop("stock_in")
+    plane = {"axis": "x", "value": 100.0, "keep": "below"}
+    op = {"op": 10, "do": "cut_off", "tool": "blade", "cut_plane": deepcopy(plane)}
+    setup["ops"] = [op]
+    data.inventory["machines"]["saw"] = {"kind": "bandsaw"}
+    data.inventory["tools"]["blade"] = {"kind": "bandsaw", "kerf_mm": 1.5}
+    numbers = {"cut_plane": plane, "retained_boundary_mm": 99.25}
+    native = {**deepcopy(numbers), "stock_bbox_before_mm": [0.0, 0.0, 0.0, 130.0, 20.0, 10.0]}
+    data = replace(data, kernel={"status": "ok", "ops": {"S1:10": native}, "setups": {}})
+    finding = Finding("saw_cut", "S1:10", "pass", numbers, [], "Straight cut proved")
+    return data, setup, op, finding
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize(
+    "route",
+    [
+        "single",
+        "inherited-single",
+        "multiple",
+        "inherited-multiple",
+        "unknown",
+        "missing",
+        "inherited-unknown",
+        "inherited-missing",
+        "aggregate",
+    ],
+)
+def test_straight_saw_stock_end_projection_requires_one_known_arriving_atom(detail, route):
+    from prechips.material_routes import MaterialGraph
+
+    data, setup, op, finding = straight_saw_lineage_job(route)
+    sheet = _Traveler(data, [finding], build_report(data, [finding]), None, detail=detail)
+    before = canonical_bytes(build_report(data, [finding]))
+    graph = MaterialGraph(data.plan)
+    material = graph.nodes[setup["id"]]
+    if route in ("inherited-unknown", "inherited-missing", "aggregate"):
+        assert len(material) == 1
+        assert (
+            material[0].root
+            == {
+                "inherited-unknown": "unknown",
+                "inherited-missing": "ARRIVAL",
+                "aggregate": "stock",
+            }[route]
+        )
+    target = sheet.straight_saw_target(setup, op, finding.numbers)
+    if route in ("single", "inherited-single"):
+        assert len(material) == 1 and material[0].root == "stock.a"
+        assert target is not None
+        assert "lower-X stock end" in target[0]
+        assert_number(target[0], 99.25)
+        assert_number(target[0], 100.0)
+    else:
+        if route in ("multiple", "inherited-multiple"):
+            assert len(material) == 2
+        assert target is None
+        numbers, _, _ = sheet.tool_table(setup)
+        (row,) = sheet.operation_rows(setup, numbers)
+        text = " ".join(str(cell) for cell in row)
+        assert re.search(r"\bretained X edge 99\.25 mm\b", text)
+        assert "stock end" not in text
+    assert canonical_bytes(build_report(data, [finding])) == before
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_missing_contour_tool_retains_distinct_profile_stop_reason_and_evidence(detail):
+    from prechips.rules import coordinates
+
+    data = rules_bundle(Path("."))
+    setup = data.plan["setups"][0]
+    setup["stock_in"] = "stock"
+    setup["ops"][0]["tool"] = "unknown"
+    setup["ops"][0]["contour"] = {
+        "method": "linear_table",
+        "step_mm": "unknown",
+        "open_side": "-x",
+    }
+    (finding,) = coordinates.evaluate(data)
+    (profile,) = finding.numbers["profiles"]
+    reason = profile["raster_reason"]
+    assert "contour.step_mm" in reason and re.search(r"\bpositive\b", reason)
+    assert profile["cutter_centre"] == "unknown"
+    assert reason not in finding.sentence
+    assert finding.status == "unknown"
+    paper_reason = reason.replace("_", " ")
+    data.policy["required"] = {"coordinates": "*"}
+    markup = Markup(rendered(data, [finding], detail=detail))
+    notices = decision_nodes(markup)
+    distinct = [node for node in notices if paper_reason in content(node)]
+    assert len(distinct) == 1
+    assert content(distinct[0]).count(paper_reason) == 1
+    assert any(
+        entry["source"] == "coordinates"
+        and entry["status"] == "unknown"
+        and entry["kind"] == "block"
+        and entry["scope"] == "S1:10"
+        for entry in decision_evidence(distinct[0])
+    )
+    assert any(
+        entry["source"] == "tool_resolves"
+        and entry["kind"] == "block"
+        and entry["scope"] == "S1:10"
+        for node in notices
+        for entry in decision_evidence(node)
+    )
+    assert finding_nodes(markup, finding)
+    assert not markup.find("coords")
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+@pytest.mark.parametrize(
+    "gap", [0.5, -0.5, 0.0, "unknown"], ids=["positive", "collision", "zero", "unknown"]
+)
+def test_swept_clearance_advice_never_feeds_through_collision_or_unproved_gap(detail, gap):
+    from prechips.sheet import _typed_values
+
+    data = rules_bundle(Path("."))
+    setup = data.plan["setups"][0]
+    report = build_report(data, [])
+    report["renders"] = {
+        setup["id"]: {"scene": {"cut_clearances": [{"op": 10, "mm": gap, "tag": "fixture"}]}}
+    }
+    sheet = _Traveler(data, [], report, None, detail=detail)
+    boxes = sheet.crash_boxes(setup, setup["ops"][0])
+    rows = sheet.clearance_rows(setup, {}, {})
+    facts = [
+        *_typed_values(boxes, "S1:10"),
+        *sheet.producer_decisions.get(setup["id"], []),
+    ]
+    assert rows and facts
+    assert all(fact.source == "cut_clearance" and fact.scope == "S1:10" for fact in facts)
+    texts = [*(str(box) for box in boxes), *(str(row[-1]) for row in rows)]
+    if gap == 0.5:
+        assert all((fact.status, fact.kind) == ("warn", "caution") for fact in facts)
+        assert any("hand feed past it" in text for text in texts)
+    else:
+        assert not any("hand feed past it" in text for text in texts)
+        assert any(
+            re.search(r"\b(?:STOP|not computed|does not clear|do not run|no clearance)\b", text)
+            for text in texts
+        )
+        if gap in (-0.5, 0.0):
+            assert all((fact.status, fact.kind) == ("error", "block") for fact in facts)
+            assert not any(fact.notice_group for fact in facts)
+        elif gap == "unknown":
+            assert all((fact.status, fact.kind) == ("unknown", "block") for fact in facts)
+    if isinstance(gap, float):
+        assert any(abs(value - gap) < 0.0001 for text in texts for value in numeric_values(text))
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_zero_swept_gap_keeps_owned_stop_separate_from_positive_tip_caution(monkeypatch, detail):
+    source = rules_bundle(Path("."))
+    source_setup = source.plan["setups"][0]
+    report = build_report(source, [])
+    report["renders"] = {
+        source_setup["id"]: {"scene": {"cut_clearances": [{"op": 10, "mm": 0.0, "tag": "fixture"}]}}
+    }
+    producer = _Traveler(source, [], report, None, detail=detail)
+    producer.records[("headroom", source_setup["id"])] = {"cut_tip_above_jaws_mm": {"10": 0.5}}
+    boxes = producer.crash_boxes(source_setup, source_setup["ops"][0])
+    by_source = {box.source: box for box in boxes}
+    assert set(by_source) == {"cut_clearance", "headroom"}
+    assert (
+        by_source["cut_clearance"].status,
+        by_source["cut_clearance"].kind,
+        by_source["cut_clearance"].notice_group,
+    ) == ("error", "block", "")
+    assert (
+        by_source["headroom"].status,
+        by_source["headroom"].kind,
+        by_source["headroom"].notice_group,
+    ) == ("warn", "caution", "milling-clearance")
+
+    data = bench_job()
+    owner = data.plan["setups"][0]
+    scope = f"{owner['id']}:{owner['ops'][0]['op']}"
+    crash_boxes = _Traveler.crash_boxes
+
+    def with_measured_clearances(self, setup, op):
+        measured = crash_boxes(self, setup, op)
+        if self.bundle is data and setup["id"] == owner["id"] and op["op"] == owner["ops"][0]["op"]:
+            return [*measured, *boxes]
+        return measured
+
+    monkeypatch.setattr(_Traveler, "crash_boxes", with_measured_clearances)
+    sheet = _Traveler(data, [], build_report(data, []), None, detail=detail)
+    blocks = sheet.setup_blocks(owner)
+    assert sheet.setup_stops[owner["id"]] == 1
+    markup = Markup("".join(sheet.block_html(block) for block in blocks))
+    notices = {}
+    for source_name, status, kind, notice_group in (
+        ("cut_clearance", "error", "block", ""),
+        ("headroom", "warn", "caution", "milling-clearance"),
+    ):
+        (fact,) = [
+            fact
+            for fact in sheet.setup_decisions[owner["id"]]
+            if fact.source == source_name and fact.scope == scope
+        ]
+        assert (fact.status, fact.kind, fact.notice_group) == (status, kind, notice_group)
+        (notice,) = [
+            node
+            for node in decision_nodes(markup)
+            if any(
+                entry["source"] == source_name and entry["scope"] == scope
+                for entry in decision_evidence(node)
+            )
+        ]
+        notices[source_name] = notice
+        assert notice["attrs"]["data-setup-id"] == owner["id"]
+        assert notice["attrs"]["data-op"] == str(owner["ops"][0]["op"])
+        assert [
+            entry
+            for entry in decision_evidence(notice)
+            if entry["source"] == source_name and entry["scope"] == scope
+        ] == [{"source": source_name, "status": status, "scope": scope, "kind": kind}]
+    assert_number(content(notices["cut_clearance"]), 0.0)
+    assert_number(content(notices["headroom"]), 0.5)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_hand_thread_holder_survives_same_tool_spindle_label_without_lead(detail):
+    data = mill_job(setups=2)
+    data.inventory["tools"]["m6"] = {
+        "kind": "tap",
+        "name": "M6 hand and machine tap",
+        "dia_mm": 6.0,
+        "flute_len_mm": 15.0,
+    }
+    data.inventory["holders"] = {
+        "machine-holder": {"kind": "collet", "name": "Spindle tap chuck"},
+        "hand-holder": {"kind": "tap_wrench", "name": "Selected crossbar tap wrench"},
+    }
+    first, second = data.plan["setups"]
+    for setup, action, holder in (
+        (first, "tap", "machine-holder"),
+        (second, "hand_tap", "hand-holder"),
+    ):
+        setup["stock_in"] = "stock" if setup is first else first["id"]
+        setup["ops"] = [{"op": 10, "do": action, "tool": "m6", "holder": holder, "depth_mm": 8.0}]
+    sheet = _Traveler(data, [], build_report(data, []), None, detail=detail)
+    assert sheet.route_tool_label("m6") == "T1"
+    blocks = {setup["id"]: sheet.setup_blocks(setup) for setup in (first, second)}
+    key = Markup(sheet.settings_key())
+    hand_key = [
+        node
+        for node in key.nodes
+        if f"{second['id']}:10" in json.loads(node["attrs"].get("data-physical-ops", "[]"))
+        and "Selected crossbar tap wrench" in content(node)
+    ]
+    local = Markup(
+        next(block.html for block in blocks[second["id"]] if block.key == "operation:10")
+    )
+    assert hand_key or "Selected crossbar tap wrench" in " ".join(
+        content(node) for node in local.nodes if node["tag"] in ("p", "span")
+    )
+    assert not any(
+        "Spindle tap chuck" in content(node) for node in local.nodes if node["tag"] in ("p", "span")
+    )

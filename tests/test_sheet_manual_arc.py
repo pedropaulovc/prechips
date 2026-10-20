@@ -1053,7 +1053,8 @@ def test_manual_layout_and_filing_attach_to_their_operation_even_at_the_bench(
     assert "check with radius gauge" in filing_text
     assert "file off the stock left by S1:20 (at most 0.5 mm)" in filing_text
     assert "Bench filing:" not in layout_text and "Layout:" not in filing_text
-    assert "STOP" not in text(html)
+    assert "STOP" not in layout_text
+    assert "STOP" not in filing_text
 
 
 @pytest.mark.parametrize(

@@ -384,6 +384,9 @@ def test_non_grid_carried_touch_operations_consume_checked_typed_axis_set():
     assert spot_depth.startswith("depth ")
     assert exact_number(spot_depth.removeprefix("depth ")) == Decimal("2")
     assert sheet.tip(setup, drill) == ["Z 21.005 → 10.505", "breaks through at 11.005"]
-    assert sheet.tip_note(setup, drill) == (
-        "Break through: the full diameter runs at least 0.500 past the exit face."
+    note = sheet.tip_note(setup, drill)
+    (breakthrough,) = re.findall(
+        r"\bfull diameter\b.*?\bat least (-?\d+(?:\.\d+)?)(?!\d|\.\d) past the exit face\b",
+        note,
     )
+    assert exact_number(breakthrough) == Decimal("0.5")

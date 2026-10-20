@@ -62,6 +62,46 @@ def _words(prefix, count):
     return " ".join(f"{prefix}{index:04d}" for index in range(count))
 
 
+def _positioned_words(prefix, count):
+    return " ".join(
+        f'<span data-source-position="{prefix}{index:04d}">{prefix}{index:04d}</span>'
+        for index in range(count)
+    )
+
+
+_OWNER_SOURCE_POSITIONS = r"""pageOf => {
+  const section = document.querySelector('section.page');
+  const original = node => !node.closest(
+    '[data-job-print],.record-continuation,.fixed-locator-reference');
+  const positions = [...section.querySelectorAll('[data-source-position]')];
+  return {
+    positions: positions.filter(original).map(node => ({
+      key: node.dataset.sourcePosition, text: node.textContent, page: pageOf(node),
+      setup: node.closest('[data-setup-id]').dataset.setupId
+    })),
+    copiedPositions: positions.filter(node => !original(node)).length,
+    headings: [...section.querySelectorAll('[data-original-heading]')].filter(original)
+      .map(node => ({key: node.dataset.originalHeading, text: node.textContent,
+        page: pageOf(node), visible: node.getClientRects().length > 0
+          && getComputedStyle(node).visibility === 'visible'})),
+    heads: [...section.querySelectorAll('.cont-head')].map(head => ({
+      page: pageOf(head), setup: head.dataset.setupId, member: head.dataset.member ?? '',
+      workpiece: head.dataset.workpiece ?? '',
+      title: head.querySelector('.cont-title').textContent,
+      context: head.querySelector('.cont-context')?.textContent ?? '',
+      copiedDestinations: head.querySelectorAll('[data-locator-target],.writing-blank').length
+    })),
+    fields: [...section.querySelectorAll('[data-locator-target]')].map(blank => ({
+      label: blank.closest('.field').querySelector('.field-label').textContent,
+      setup: blank.closest('[data-setup-id]').dataset.setupId,
+      member: blank.closest('[data-member]')?.dataset.member ?? '',
+      workpiece: blank.closest('[data-workpiece]').dataset.workpiece,
+      page: pageOf(blank), original: original(blank)
+    }))
+  };
+}"""
+
+
 def _nested_work():
     inspection = (
         '<ol><li data-page-context="S2 op 20 inspection" data-op-id="20">'
@@ -371,25 +411,10 @@ def test_compact_nested_owner_is_not_suppressed_by_physical_identity(printed_she
     assert all(head == {"title": JOB_TITLE, "context": owner, "owner": owner} for head in contexts)
 
 
-@pytest.mark.parametrize("heading_scope", ["family", "hidden-owner"])
-def test_compact_member_context_requires_its_own_visible_opening_heading(
-    printed_sheet, heading_scope
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_production_nested_setup_starts_fresh_despite_display_title_difference(
+    printed_sheet, detail
 ):
-    if heading_scope == "family":
-        owner = (
-            '<section class="setup-family" data-setup-title="E1–E4" data-setup-id="">'
-            "<h2>Edge family (E1–E4)</h2>"
-            '<div class="setup-variant" data-setup-title="Setup E1 — nut1" '
-            'data-setup-id="E1" data-member="edge-one" data-workpiece="nut1">'
-        )
-        close = "</div></section>"
-    else:
-        owner = (
-            '<section class="setup-flow" data-setup-title="Setup E1 — nut1" '
-            'data-setup-id="E1" data-member="edge-one" data-workpiece="nut1">'
-            '<h2 style="visibility:hidden">E1 — nut1</h2>'
-        )
-        close = "</section>"
     source = (
         _setup(
             "Earlier saw family",
@@ -397,30 +422,193 @@ def test_compact_member_context_requires_its_own_visible_opening_heading(
             "stock",
             '<p style="height:800px;margin:0">EarlierSawSource</p>',
         )
-        + owner
-        + f"<p>{_words('EdgeOwner', 650)}</p>"
-        + close
+        + '<section class="setup-flow" data-setup-title="S2" data-setup-id="S2" '
+        'data-workpiece=""><h2 data-original-heading="setup">S2</h2>'
+        '<div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" '
+        'data-workpiece=""><p>'
+        + _positioned_words("NestedS2Source", 650)
+        + " "
+        + _writing_field("S2 original result")
+        + "</p></div></section>"
     )
-    _, heads = printed_sheet(
+    _, details = printed_sheet(
         source,
-        r"""() => [...document.querySelectorAll('.cont-head')].map(head => ({
-          setup: head.dataset.setupId, member: head.dataset.member,
-          workpiece: head.dataset.workpiece,
-          context: head.querySelector('.cont-context')?.textContent ?? ''
-        }))""",
-        prepare="() => { document.body.dataset.detail = 'hobby'; }",
+        _OWNER_SOURCE_POSITIONS,
+        prepare=f"""() => {{
+          document.body.dataset.detail = {json.dumps(detail)};
+          document.querySelector('section.page').dataset.jobTitle = {json.dumps(JOB_TITLE)};
+        }}""",
     )
-    assert heads
+    positions = details["positions"]
+    assert [position["key"] for position in positions] == _words("NestedS2Source", 650).split()
     assert all(
-        head
-        == {
-            "setup": "E1",
-            "member": "edge-one",
-            "workpiece": "nut1",
-            "context": "Setup E1 — nut1 · edge-one (continued)",
-        }
-        for head in heads
+        position["text"] == position["key"] and position["setup"] == "S2" for position in positions
     )
+    assert details["copiedPositions"] == 0
+    first_page = positions[0]["page"]
+    source_pages = {position["page"] for position in positions}
+    assert first_page > 0 and len(source_pages) > 1
+    assert details["headings"] == [
+        {"key": "setup", "text": "S2", "page": first_page, "visible": True}
+    ]
+    heads = {head["page"]: head for head in details["heads"]}
+    assert heads[first_page]["context"] == ""
+    for page in source_pages - {first_page}:
+        assert "S2" in heads[page]["context"]
+        assert heads[page]["context"].endswith(" (continued)")
+    assert all(
+        head["setup"] == "S2" and head["title"] == JOB_TITLE and head["copiedDestinations"] == 0
+        for head in heads.values()
+    )
+    (field,) = details["fields"]
+    assert field["label"] == "S2 original result"
+    assert field["setup"] == "S2" and field["workpiece"] == "" and field["member"] == ""
+    assert field["original"] and field["page"] >= positions[-1]["page"]
+
+
+@pytest.mark.parametrize(
+    ("detail", "label"),
+    [
+        pytest.param("pro", "visible-label", id="pro-visible-label"),
+        pytest.param("pro", "no-label", id="pro-no-label"),
+        pytest.param("pro", "hidden-label", id="pro-hidden-label"),
+        pytest.param("hobby", "visible-label", id="hobby-visible-label"),
+        pytest.param("hobby", "no-label", id="hobby-no-label"),
+        pytest.param("hobby", "hidden-label", id="hobby-hidden-label"),
+    ],
+)
+def test_compact_fresh_family_member_identity_is_not_a_continuation(printed_sheet, detail, label):
+    member_label = (
+        '<p class="variant-label" data-original-heading="member"'
+        + (' style="visibility:hidden"' if label == "hidden-label" else "")
+        + ">E1 — nut1</p>"
+        if label != "no-label"
+        else ""
+    )
+    source = (
+        _setup(
+            "Earlier saw family",
+            "B1",
+            "stock",
+            '<p style="height:800px;margin:0">EarlierSawSource</p>',
+        )
+        + '<section class="setup-family" data-setup-title="E1–E4" data-setup-id="">'
+        '<h2 data-original-heading="family">Edge family (E1–E4)</h2>'
+        '<div class="setup-variant" data-setup-title="Setup E1 — nut1" '
+        'data-setup-id="E1" data-member="edge-one" data-workpiece="nut1">'
+        + member_label
+        + "<p>"
+        + _positioned_words("FirstE1Source", 650)
+        + " "
+        + _writing_field("E1 original result")
+        + "</p></div></section>"
+    )
+    _, details = printed_sheet(
+        source,
+        _OWNER_SOURCE_POSITIONS,
+        prepare=f"""() => {{
+          document.body.dataset.detail = {json.dumps(detail)};
+          document.querySelector('section.page').dataset.jobTitle = {json.dumps(JOB_TITLE)};
+        }}""",
+    )
+    positions = details["positions"]
+    assert [position["key"] for position in positions] == _words("FirstE1Source", 650).split()
+    assert all(
+        position["text"] == position["key"] and position["setup"] == "E1" for position in positions
+    )
+    assert details["copiedPositions"] == 0
+    first_page = positions[0]["page"]
+    source_pages = {position["page"] for position in positions}
+    assert first_page > 0 and len(source_pages) > 1
+    expected_headings = [
+        {"key": "family", "text": "Edge family (E1–E4)", "page": first_page, "visible": True}
+    ]
+    if label != "no-label":
+        expected_headings.append(
+            {
+                "key": "member",
+                "text": "E1 — nut1",
+                "page": first_page,
+                "visible": label == "visible-label",
+            }
+        )
+    assert details["headings"] == expected_headings
+    heads = {head["page"]: head for head in details["heads"]}
+    fresh_context = heads[first_page]["context"]
+    assert "(continued)" not in fresh_context
+    if label == "visible-label":
+        assert fresh_context == ""
+    else:
+        assert all(owner in fresh_context for owner in ("E1", "nut1", "edge-one"))
+    for page in source_pages - {first_page}:
+        assert all(owner in heads[page]["context"] for owner in ("E1", "nut1", "edge-one"))
+        assert heads[page]["context"].endswith(" (continued)")
+    assert all(
+        head["setup"] == "E1"
+        and head["member"] == "edge-one"
+        and head["workpiece"] == "nut1"
+        and head["title"] == JOB_TITLE
+        and head["copiedDestinations"] == 0
+        for head in heads.values()
+    )
+    (field,) = details["fields"]
+    assert field["label"] == "E1 original result"
+    assert field["setup"] == "E1" and field["workpiece"] == "nut1" and field["member"] == "edge-one"
+    assert field["original"] and field["page"] >= positions[-1]["page"]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_interior_h2_on_a_real_setup_tail_does_not_restart_its_owner(printed_sheet, detail):
+    source = (
+        '<section class="setup-flow" data-setup-title="S2" data-setup-id="S2" '
+        'data-workpiece=""><h2 data-original-heading="setup">S2</h2>'
+        '<div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" '
+        'data-workpiece=""><p style="height:800px;margin:0">'
+        '<span data-source-position="S2Opening">S2Opening</span></p></div>'
+        '<div class="setup-variant" data-setup-title="Setup S2" data-setup-id="S2" '
+        'data-workpiece=""><h2 data-original-heading="interior">READINGS</h2><p>'
+        + _positioned_words("S2TailSource", 650)
+        + " "
+        + _writing_field("S2 tail original result")
+        + "</p></div></section>"
+    )
+    _, details = printed_sheet(
+        source,
+        _OWNER_SOURCE_POSITIONS,
+        prepare=f"""() => {{
+          document.body.dataset.detail = {json.dumps(detail)};
+          document.querySelector('section.page').dataset.jobTitle = {json.dumps(JOB_TITLE)};
+        }}""",
+    )
+    positions = details["positions"]
+    assert [position["key"] for position in positions] == [
+        "S2Opening",
+        *_words("S2TailSource", 650).split(),
+    ]
+    assert all(
+        position["text"] == position["key"] and position["setup"] == "S2" for position in positions
+    )
+    assert details["copiedPositions"] == 0
+    opening_page = positions[0]["page"]
+    tail_page = positions[1]["page"]
+    tail_pages = {position["page"] for position in positions[1:]}
+    assert opening_page == 0 and tail_page > opening_page and len(tail_pages) > 1
+    assert details["headings"] == [
+        {"key": "setup", "text": "S2", "page": opening_page, "visible": True},
+        {"key": "interior", "text": "READINGS", "page": tail_page, "visible": True},
+    ]
+    heads = {head["page"]: head for head in details["heads"]}
+    for page in tail_pages:
+        assert "S2" in heads[page]["context"]
+        assert heads[page]["context"].endswith(" (continued)")
+    assert all(
+        head["setup"] == "S2" and head["title"] == JOB_TITLE and head["copiedDestinations"] == 0
+        for head in heads.values()
+    )
+    (field,) = details["fields"]
+    assert field["label"] == "S2 tail original result"
+    assert field["setup"] == "S2" and field["workpiece"] == "" and field["member"] == ""
+    assert field["original"] and field["page"] >= positions[-1]["page"]
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])

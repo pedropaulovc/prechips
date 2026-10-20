@@ -80,7 +80,11 @@ def test_a_consumable_without_a_name_prints_its_slug(tmp_path):
 
     _, html = run(tmp_path, "pivot-shaft/plan.toml", unnamed)
     markup, coat = operation(html, "S3", 40)
-    assert any("light-machine-oil" in content(tool) for tool in tagged(markup, "strong", coat))
+    (identity,) = tagged(markup, "strong", coat)
+    # The identity heading, not the authored oiling procedure, must name the
+    # unnamed inventory item. Slug separators are presentation, not identity.
+    consumable = content(identity).partition("·")[0].strip().rstrip(":")
+    assert re.split(r"[-\s]+", consumable.lower()) == ["light", "machine", "oil"]
 
 
 def test_mill_xy_check_jogs_are_made_raised_clear_of_the_work(bracket, shaft):
@@ -129,11 +133,13 @@ def test_job_stock_summary_preserves_the_receiving_blank_dimensions():
     # The shaft bar goes to the 0.01 lathe; the rocker blank to the 0.005 mill.
     markup = stock_markup("pivot-shaft", "PM-1127VF-LB", 0.01)
     (stock,) = [content(node) for node in tagged(markup, "p") if content(node).startswith("Stock:")]
-    size = re.search(r"Ø(\d+(?:\.\d+)?) × (\d+(?:\.\d+)?) long", stock)
+    size = re.search(r"Ø(\d+(?:\.\d+)?) × (\d+(?:\.\d+)?) mm long", stock)
     assert size and tuple(map(float, size.groups())) == (10.00, 180.50), stock
+    supply = re.search(r"Supply length: (\d+(?:\.\d+)?) mm", stock)
+    assert supply and float(supply[1]) == 175.0, stock
     markup = stock_markup("rocker-arm", "PM-30MV", 0.005)
     (stock,) = [content(node) for node in tagged(markup, "p") if content(node).startswith("Stock:")]
-    size = re.search(r"(\d+(?:\.\d+)?) × (\d+(?:\.\d+)?) × (\d+(?:\.\d+)?) long", stock)
+    size = re.search(r"(\d+(?:\.\d+)?) × (\d+(?:\.\d+)?) × (\d+(?:\.\d+)?) mm long", stock)
     assert size and tuple(map(float, size.groups())) == (76.200, 19.050, 345.000), stock
     # The prepared blank is printed as CHECK THE BLANK, never as a raw field dump.
     assert "Prepared" not in stock and "{" not in stock, stock

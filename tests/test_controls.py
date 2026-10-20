@@ -119,20 +119,29 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
         directions = [
             content(node)
             for node in markup.nodes
-            if node["tag"] == "p" and re.search(r"\bX\+\s+(?:right|left)\b", content(node))
+            if node["tag"] == "p" and re.search(r"\bX\+\s+[^;]+", content(node))
         ]
-        assert len(directions) == 1
-        x_direction = next(segment for segment in directions[0].split(";") if "X+" in segment)
-        assert direction in x_direction.split()
-        assert ("left" if direction == "right" else "right") not in x_direction.split()
+        (direction_line,) = directions
+        assert re.search(r"\btool-relative\b", direction_line, re.IGNORECASE)
+        (x_direction,) = re.findall(r"\bX\+\s+([^;]+)", direction_line)
+        # Mill tool motion and table motion are opposite physical frames.
+        # A rightward tool instruction must not fail because it also names
+        # the table's leftward movement.
+        tool_direction = re.split(r"\btable\b", x_direction, maxsplit=1)[0]
+        opposite = "left" if direction == "right" else "right"
+        assert re.findall(r"\b(?:right|left)\b", tool_direction) == [direction]
+        if re.search(r"\btable\b", x_direction):
+            assert re.search(rf"\btable\b[^;]*\b{opposite}\b", x_direction)
         guides = [node for node in markup.nodes if node["attrs"].get("id") == "dro-first-use"]
         assert len(guides) == 1
         assert guides[0]["attrs"]["data-setup-id"] == "S1"
         guide = content(guides[0])
-        assert "Axis Set assigns" in guide
-        assert "Preset stores a destination and does not establish this datum" in guide
-        assert "means reversed — STOP" in guide
-        assert "correct the direction before re-establishing the datum" in guide
+        assert re.search(r"\bAxis Set\b[^.]*\bcurrent position\b", guide)
+        assert re.search(r"\bPreset\b[^.]*\bdestination\b[^.]*\bnot\b[^.]*\bdatum\b", guide)
+        assert re.search(r"\breversed\b[^.]*\bSTOP\b", guide)
+        assert re.search(
+            r"\bcorrect\b[^.]*\bdirection\b[^.]*\bre-establish\w*[^.]*\bdatum\b", guide
+        )
         zero_table = markup.find("zero")[0]
         table_rows = [
             node

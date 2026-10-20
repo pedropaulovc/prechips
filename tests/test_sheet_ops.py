@@ -2913,6 +2913,15 @@ def test_rendered_traveler_preserves_authored_slash_instructions(instruction, fi
             if setup_id in json.loads(node["attrs"]["data-setup-members"])
             and instruction in content(node)
         )
+        holding_owners.extend(
+            node
+            for table in markup.find("orientation-table", setup_owner)
+            for node in markup.nodes
+            if node["tag"] == "tr"
+            and node["parent"]["parent"] is table
+            and setup_id in json.loads(node["attrs"].get("data-setup-members", "[]"))
+            and instruction in content(node)
+        )
         assert len(holding_owners) == 1
         holding_owner = holding_owners[0]
         assert content(holding_owner).count(instruction) == 1
@@ -4768,7 +4777,19 @@ def test_public_ineligible_paths_keep_existing_controls_without_progress(
                 for node in markup.nodes
             )
         elif mode == "empty":
-            assert not markup.find("coords", owner)
+            tables = markup.find("coords", owner)
+            if detail == "pedantic":
+                # Header-only legacy tables are not executable path rows.
+                assert tables
+                assert not [
+                    node
+                    for node in markup.nodes
+                    if node["tag"] == "tr"
+                    and node["parent"]["tag"] == "tbody"
+                    and any(node["parent"]["parent"] is table for table in tables)
+                ]
+            else:
+                assert not tables
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
@@ -4844,7 +4865,7 @@ def test_compact_tool_key_keeps_typed_endmill_flutes_and_packed_setting_owners(d
         counts = [int(value) for value in re.findall(r"\b(\d+)[- ]flutes?\b", text, re.IGNORECASE)]
         assert counts == ([] if flutes is None else [flutes])
         for setting in (rpm, feed):
-            assert re.search(rf"(?<![\d.]){re.escape(setting)}(?![\d.])", text), text
+            assert re.search(rf"(?<![\d.]){re.escape(setting)}(?!\d|\.\d)", text), text
         assert entry["parent"]["parent"] is packed_rows[0]
 
 
@@ -5009,7 +5030,7 @@ def straight_saw_sheet(*, detail="hobby", axis="x", keep="below", display_units=
     sheet.bundle = replace(sheet.bundle, kernel={"ops": {"SA:30": native}})
     sheet.finding_statuses[("saw_cut", "SA:30")] = "pass"
     op = {"op": 30, "do": "cut_off", "tool": "blade", "cut_plane": deepcopy(plane)}
-    setup = {"id": "SA", "ops": [op]}
+    setup = {"id": "SA", "stock_in": "stock", "ops": [op]}
     sheet.plan["setups"] = [setup]
     return sheet, setup, op, numbers, native, span
 
