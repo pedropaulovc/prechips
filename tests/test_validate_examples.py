@@ -321,7 +321,7 @@ def test_standalone_validator_rejects_semantic_report_mutations(
     tmp_path, monkeypatch, pilot_kernel_cache, corruption
 ):
     """Valid report hashes do not excuse evidence that contradicts authored inputs."""
-    examples = copy_examples(tmp_path)
+    examples = copy_examples(tmp_path, mode="with-expected")
     case = VALIDATOR["STANDALONE_CASES"][0]
     folder = examples / case[0]
     pilot_kernel_cache(folder / case[1])

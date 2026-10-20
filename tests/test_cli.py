@@ -84,8 +84,12 @@ def run_cli(*args, env=None, setup=""):
     )
 
 
-def copy_examples(tmp_path):
-    return Path(shutil.copytree(ROOT / "examples", tmp_path / "examples"))
+def copy_examples(tmp_path, *, mode="inputs"):
+    """Copy independent inputs, or include golden artifacts with ``with-expected``."""
+    if mode not in {"inputs", "with-expected"}:
+        raise ValueError(f"Unknown example copy mode: {mode!r}")
+    ignore = shutil.ignore_patterns("expected") if mode == "inputs" else None
+    return Path(shutil.copytree(ROOT / "examples", tmp_path / "examples", ignore=ignore))
 
 
 # The rocker's prep: [stock.prepared] and the process faces and frames only P1-P5 use.
