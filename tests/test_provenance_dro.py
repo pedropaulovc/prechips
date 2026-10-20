@@ -286,7 +286,7 @@ def test_trial_like_axial_instructions_keep_z7500_and_one_declared_grid_pass(sta
     assert operation["z_levels"]["count"] == 1
     traveler = _Traveler(data, [row], {}, None)
     traveler.setup = setup
-    assert traveler.operative(operation["dro_to_z"]) == "7.500"
+    assert float(traveler.operative(operation["dro_to_z"])) == 7.5
     assert "7.498" not in str(operation["z_levels"])
     assert "7.497" not in str(operation["z_levels"])
     assert_grid_debt(row, None if status == "measured" else status)

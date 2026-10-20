@@ -1,11 +1,13 @@
 """Measured pagination for the single continuous job traveler.
 
 Integration contract: embed ``JOB_PRINT_JS`` once in the document head. Supply one
-``section.page[data-sheet="job"]`` with outer ``data-part``, ``data-drawing`` and
-``data-revision``. Setup/family wrappers carry ``data-setup-title``; physical setup,
-member and workpiece owners retain ``data-setup-id``, ``data-member`` and
-``data-workpiece``. Nested inspection/contour owners keep ``data-page-context``
-and their direct ``.page-context`` heading. Original fields use ``.field``,
+``section.page[data-sheet="job"]`` with human ``data-job-title`` and unchanged outer
+``data-part``, ``data-drawing`` and ``data-revision``. Compact running titles identify
+only the job; local continuation context identifies physical owners. Setup/family
+wrappers carry ``data-setup-title``; physical setup, member and workpiece owners
+retain ``data-setup-id``, ``data-member`` and ``data-workpiece``. Nested inspection/
+contour owners keep ``data-page-context`` and their direct ``.page-context`` heading.
+Original fields use ``.field``,
 ``.result-field`` or ``.authored-blank`` with ``.field-label/.writing-blank``.
 
 CSS keeps the existing offline Arial/12pt working tokens, Letter/.5in margins,
@@ -488,6 +490,7 @@ JOB_PRINT_JS = r"""(() => {
     const statusContents = [...(section.querySelector(":scope > .banner")?.childNodes || [])]
       .map((node) => node.cloneNode(true));
     const compactRunning = ["pro", "hobby"].includes(document.body.dataset.detail);
+    const compactTitle = section.dataset.jobTitle || section.dataset.part;
     const quantity = section.dataset.quantity ? "qty " + section.dataset.quantity : "";
     const title = [section.dataset.part, section.dataset.drawing,
       section.dataset.revision ? "rev " + section.dataset.revision : "REV NOT CONFIRMED",
@@ -817,13 +820,14 @@ JOB_PRINT_JS = r"""(() => {
       if (originalText(el) && fits(box(el).bottom)) return () => box(el).bottom;
       return relax && prepareFields(el) ? pageProgress(el, false, firstPrefixOnly) : null;
     }
-    function compactContext(el, suffix = "") {
+    function compactContext(el, suffix = "", operationOnly = false) {
       const references = locatorNodes(el, "[" + LOCATOR_REF + "]")
         .map((ref) => ref.cloneNode(true));
       const identity = /^.*?\bop\s+\d+\b/.exec(el.textContent);
       if (!identity) return false;
       const authored = el.dataset.pageContext?.split(/\s+[—·]\s+/, 1)[0].trim(),
-        label = authored && el.textContent.startsWith(authored) ? authored : identity[0];
+        label = !operationOnly && authored && el.textContent.startsWith(authored)
+          ? authored : identity[0];
       const range = document.createRange(),
         walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
       range.selectNodeContents(el);
@@ -838,6 +842,31 @@ JOB_PRINT_JS = r"""(() => {
       }
       return false;
     }
+    function ownerHeadingAtStart(start, identity) {
+      let first = start;
+      // A moved original heading introduces fresh work, not a continued tail.
+      // Descend only through its opening wrappers; a later heading cannot label
+      // source that preceded it, and a family heading cannot stand for a member.
+      while (!first.matches("h2,.variant-label")) {
+        const child = [...first.children].find((node) =>
+          !node.hasAttribute(ADDED) && getComputedStyle(node).display !== "none");
+        if (!child) return false;
+        for (let node = first.firstChild; node !== child; node = node.nextSibling) {
+          if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) return false;
+        }
+        first = child;
+      }
+      if (first.closest("[" + ADDED + "]") || !locatorVisible(first)
+          || physicalOwner(first).identity !== identity) return false;
+      const left = section.getBoundingClientRect().left,
+        right = left + Number(document.documentElement.dataset.printWidth),
+        within = (rect) => rect.left >= left - .01 && rect.right <= right + .01
+          && rect.top >= pageTop - .01 && rect.bottom <= pageTop + CAP + .01;
+      const range = document.createRange();
+      range.selectNodeContents(first);
+      const rects = [...range.getClientRects()].filter((rect) => rect.width && rect.height);
+      return rects.length > 0 && rects.every(within);
+    }
     function breakAt(el, origin = el) {
       pages += 1;
       const head = document.createElement("p");
@@ -846,9 +875,9 @@ JOB_PRINT_JS = r"""(() => {
       const running = document.createElement("span");
       running.className = "cont-title";
       const setup = physicalOwner(origin), owner = origin.closest("[data-page-context]");
-      running.textContent = [compactRunning ? section.dataset.part || title : title,
-        compactRunning && section.dataset.part ? quantity : "",
-        setup.identity === "Job" ? "" : setup.identity]
+      running.textContent = (compactRunning
+        ? [compactTitle || title, compactTitle ? quantity : ""]
+        : [title, setup.identity === "Job" ? "" : setup.identity])
         .filter(Boolean).join(" · ") + (compactRunning ? "" : " (continued)");
       for (const [key, value] of Object.entries({ setupTitle: setup.title,
         setupId: setup.setup, member: setup.member, workpiece: setup.workpiece })) {
@@ -886,10 +915,12 @@ JOB_PRINT_JS = r"""(() => {
       pageTop = box(head).top;
       pageStart = el;
       const source = owner && contextHeads.get(owner.dataset.printContext);
-      if (owner) {
+      const localOwner = compactRunning && !owner && setup.identity !== "Job"
+        && !ownerHeadingAtStart(el, setup.identity);
+      if (owner || localOwner) {
         const context = document.createElement("span");
         context.className = "cont-context";
-        context.dataset.pageContext = owner.dataset.pageContext;
+        if (owner) context.dataset.pageContext = owner.dataset.pageContext;
         if (source) {
           context.append(...[...source.heading.childNodes].map((node) => node.cloneNode(true)));
           // The copied destination counters were reserved in the original heading.
@@ -898,16 +929,10 @@ JOB_PRINT_JS = r"""(() => {
           for (const [property, value] of source.typography) {
             context.style.setProperty(property, value);
           }
-        } else context.textContent = owner.dataset.pageContext;
+        } else context.textContent = owner
+          ? owner.dataset.pageContext : setup.identity + " (continued)";
         cleanLocatorCopy(context);
-        const label = context.textContent.trim().replace(/\s+/g, " "),
-          duplicateOwner = compactRunning && label
-            && (" " + setup.identity.replace(/\s+/g, " ") + " ").includes(" " + label + " ")
-            && !context.querySelector(ORDINARY_EXCLUSIONS);
-        // Keep ownership metadata and every authored caption. Only this generated
-        // text-only copy can be absent when its complete label is already visible
-        // in the running owner; locator/instruction context is never suppressed.
-        if (!duplicateOwner) head.append("\n", context);
+        head.append("\n", context);
         const titleKey = source?.heading.querySelector("[data-title-source]")?.dataset.titleSource;
         if (titleKey) {
           // Prefer the complete authored heading when it opens this page. A full
@@ -925,8 +950,13 @@ JOB_PRINT_JS = r"""(() => {
           for (const repeated of el.querySelectorAll(".record-continuation")) {
             compactContext(repeated, " (continued)");
           }
-          if (!compactContext(context)) context.textContent = owner.dataset.pageContext;
-          if (!pageProgress(el)) throw new Error(
+          if (!compactContext(context)) context.textContent = owner
+            ? owner.dataset.pageContext : setup.identity + " (continued)";
+          // Authored context may itself be a complete over-page instruction.
+          // If its preferred prefix still blocks source, repeat only the scoped
+          // operation identity; keep the complete original heading as source.
+          if (!pageProgress(el)
+              && (!compactContext(context, "", true) || !pageProgress(el))) throw new Error(
             "A continuation owner cannot share a page with original source progress.");
         }
       }

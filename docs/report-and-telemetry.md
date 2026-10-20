@@ -552,6 +552,14 @@ destinations and their member/location ownership. Equal limits do not authorize
 one result for separate workpieces. An explicitly authored shared check retains
 its declared covered members; compact presentation does not create one.
 
+Both compact modes retain operative tool paths and keep each inspection's
+gauge, acceptance band and method together with its physical owner. These
+associations do not establish physical fit or require duplicate authored prose.
+
+Compact datum owners retain evaluated AxisSet targets, distinct from surface
+coordinates. Setup-local operative constraints stay associated with the work; an
+unresolved selected tool withholds contour coordinates.
+
 The expanded job/setup inventories below describe pedantic output. Compact
 modes place settings and acceptance criteria at their working operations and
 avoid repeating them in exhaustive job tables. Unassigned inspection
@@ -677,12 +685,14 @@ Ordinary read-only tables keep the three-row widow/orphan policy when those
 original row groups fit on both sides of a break. Over-tall side-by-side blocks
 stack before splitting.
 
-Continuation headings identify the part, setup context and page count, with
-the original printed approval status as a read-only reminder. Compact modes
-retain the example-only warning in running context; the first page retains the
-drawing/revision and full warning. Pedantic repeats the full identity and
-drawing/revision. These headings do not recompute approval or certify a new
-state. Moved or split operations leave a pointer to the next physical page.
+Continuation headings identify the job and page count, with the original printed
+approval status as a read-only reminder. In compact modes, running-header identity
+is the human job title only; setup/operation ownership stays beside resumed work
+under its local continued heading. Compact modes retain the example-only warning
+in running context; the first page retains the drawing/revision and full warning.
+Pedantic repeats the full identity and drawing/revision. These headings do not
+recompute approval or certify a new state. Moved or split operations leave a
+pointer to the next physical page.
 
 A continuation retains its applicable original operation, table or worksheet
 title and units when these fit beside original content advancing onto the page.

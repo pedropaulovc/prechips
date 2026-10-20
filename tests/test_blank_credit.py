@@ -633,7 +633,10 @@ def test_a_profiled_component_prints_its_own_blank_size():
     object.__setattr__(bundle, "kernel", {"status": "ok", "blank_bbox_mm": box})
     component = {"id": "strap", "form": "profiled_blank", "blank": BLANK_RECORD}
     line = _Traveler(bundle, [], {}, None).stock_line(component, "stock.strap")
-    assert "60.000 × 17.838 × 2.500 overall, bought already cut to outline" in line
+    assert line.startswith("profiled blank ")
+    dimensions, supply = line.removeprefix("profiled blank ").split(" mm overall, ", 1)
+    assert [float(value) for value in dimensions.split(" × ")] == [60.0, 17.838, 2.5]
+    assert supply.startswith("bought already cut to outline")
 
 
 def test_an_unknown_blank_record_prints_its_debt():

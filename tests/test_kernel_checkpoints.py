@@ -3462,6 +3462,7 @@ _DISPATCH = ("_cut", "_removal", "_op_sweep", "_run_out")
 _DISPATCH_HELPERS = {
     "_number",
     "_positive",
+    "_guided_profile",
     "_unbounded_chain",
     "_turned",
     "_rotary",

@@ -503,8 +503,11 @@ def accepted(fact) -> bool:
 
 
 def inventory_provenance_fields(source: str):
-    """Comment/note-labelled physical facts, classified by their actual schema path.
+    """Comment/note-labelled facts, classified by schema-specific qualification.
 
+    Yield ``(path, line, item, value, kind)``: ``measured`` requires a fact-local
+    measured record, ``cited`` permits a fact-local citation or measured record, and
+    ``plain`` requires exact source disclosure on a bare capability.
     TOML supplies the values and quoted identities; source lines supply only adjacent
     comments. Plain capability collections retain bare-nominal handling and exact source
     disclosure, not fictitious length records or automatic item-verification demotions.
@@ -587,32 +590,52 @@ def inventory_provenance_fields(source: str):
         if not any(isinstance(text, str) and marker.search(text) for text in prose):
             continue
         nodes = field_schema(path)
-        record_capable = any(
-            {"value", "measured"} <= branch.get("properties", {}).keys()
+        record_properties = [
+            branch["properties"]
             for node in nodes
             for branch in branches(node)
-        )
+            if {"value", "measured"} <= branch.get("properties", {}).keys()
+        ]
         fact_value = value.get("value", "unknown") if isinstance(value, dict) else value
         physical = (
             numeric(fact_value)
             or (isinstance(fact_value, str) and fraction(fact_value) is not None)
             or (isinstance(fact_value, list) and bool(fact_value) and all(map(numeric, fact_value)))
         )
-        if physical and (record_capable or path[-1] in plain_capabilities and nodes):
-            yield path, line_number, item, value, record_capable
+        if physical and (record_properties or path[-1] in plain_capabilities and nodes):
+            kind = "measured" if record_properties else "plain"
+            if any("cite" in properties for properties in record_properties):
+                kind = "cited"
+            yield path, line_number, item, value, kind
 
 
 def check_inventory_provenance(source: str, where: str = "inventory") -> dict:
-    """No comment-only capability may stand in for a schema-supported fact record."""
+    """Require each marked fact's schema-supported, fact-local qualification.
+
+    Measurement-only records require ``measured``; citation-capable records allow their
+    own usable ``cite`` only when ``measured`` is absent. Plain capabilities retain
+    exact adjacent disclosure.
+    """
     found = {"record_fields": set(), "plain_fields": set()}
     lines = source.splitlines()
-    for path, line, _item, value, record_capable in inventory_provenance_fields(source):
+    for path, line, _item, value, kind in inventory_provenance_fields(source):
         label = ".".join(path)
         location = f"{where}:{line}: {label}"
-        if record_capable:
+        if kind == "measured":
             require(
                 isinstance(value, dict) and isinstance(value.get("measured"), dict),
                 f"{location}: provenance comment/note requires a fact-local measured record",
+            )
+            found["record_fields"].add(path)
+        elif kind == "cited":
+            require(
+                isinstance(value, dict)
+                and (
+                    isinstance(value.get("measured"), dict)
+                    or ("measured" not in value and bool(citations(value.get("cite"))))
+                ),
+                f"{location}: provenance comment/note requires a fact-local citation "
+                "or measured record",
             )
             found["record_fields"].add(path)
         else:

@@ -12,7 +12,7 @@ import pytest
 from test_cli import copy_examples
 from test_consistency import bundle as consistency_bundle
 from test_consistency import errors as consistency_errors
-from test_process_route import append_op, evaluate, inspection_record, op_markup
+from test_process_route import append_op, checkpoint_result, evaluate, op_markup
 from test_sheet_ops import content, ledger
 
 from prechips.inputs import BadInput, load_bundle
@@ -292,7 +292,7 @@ def test_inspection_views_illustrate_a_flat_method_only(tmp_path):
 
 
 def test_the_station_card_prints_each_features_own_gauge():
-    markup, notes, _ = ledger(
+    markup, _, _ = ledger(
         {
             "pivot_bore": {"kind": "hole", "dia": [6.5, 6.53]},
             "hub_od": {"kind": "boss", "dia": [9.69, 10.71]},
@@ -327,16 +327,37 @@ def test_the_station_card_prints_each_features_own_gauge():
     assert "GO 6.500 enters, NO-GO 6.530 does not" in bore
     assert "Gauge mic" in hub and "9.690–10.710" in hub and "GO" not in hub
     assert "Gauge mic" in faces and "7.057–7.106" in faces
-    # Each feature's method is its own note, headed with the feature it reads.
-    assert notes.count("Offer each plug by hand.") == 1
-    assert notes.count("Mike the hub at two places.") == 1
-    assert "S1 op 100 Ø — pivot bore" in notes and "S1 op 100 Ø — hub od" in notes
-    assert "S1 sheet 2 note 1" in bore and "S1 sheet 2 note 2" in hub
-    assert "note" not in faces
+    # Methods remain inline at the feature/gauge owner, not detached page-note pointers.
+    bore_record = next(
+        node
+        for node in markup.find("inspection-record", card)
+        if json.loads(node["attrs"]["data-features"]) == ["pivot_bore"]
+    )
+    hub_record = next(
+        node
+        for node in markup.find("inspection-record", card)
+        if json.loads(node["attrs"]["data-features"]) == ["hub_od"]
+    )
+    faces_record = next(
+        node
+        for node in markup.find("inspection-record", card)
+        if json.loads(node["attrs"]["data-features"]) == ["hub_faces"]
+    )
+    assert "Offer each plug by hand." in content(bore_record)
+    assert "Mike the hub at two places." not in content(bore_record)
+    assert "Mike the hub at two places." in content(hub_record)
+    assert "Offer each plug by hand." not in content(hub_record)
+    assert not markup.find("inspection-method", faces_record)
+    assert content(card).count("Offer each plug by hand.") == 1
+    assert content(card).count("Mike the hub at two places.") == 1
+    for record in (bore_record, hub_record, faces_record):
+        assert record["attrs"]["data-setup-id"] == "S1"
+        assert record["attrs"]["data-op-id"] == "100"
+        assert len(markup.find("result-field", record)) == 1
 
 
 def test_a_flat_method_shared_by_two_gauges_prints_once():
-    markup, notes, _ = ledger(
+    markup, _, _ = ledger(
         {
             "left": {"kind": "hole", "dia": [6.5, 6.53]},
             "right": {"kind": "boss", "dia": [9.7, 10.7]},
@@ -353,8 +374,14 @@ def test_a_flat_method_shared_by_two_gauges_prints_once():
     )
     records = markup.find("inspection-record")
     assert [json.loads(node["attrs"]["data-features"]) for node in records] == [["left"], ["right"]]
-    assert notes.count("Clean, then read.") == 1
-    assert all("S1 sheet 2 note 1" in content(node) for node in records)
+    (method,) = markup.find("inspection-method")
+    assert content(method).count("Clean, then read.") == 1
+    assert "Record" in content(method)
+    assert len(markup.find("field", method)) == 1
+    for record in records:
+        assert record["attrs"]["data-setup-id"] == "S1"
+        assert record["attrs"]["data-op-id"] == "50"
+        assert len(markup.find("result-field", record)) == 1
 
 
 def test_the_traveler_prints_one_station_card_for_the_issue_table(tmp_path):
@@ -362,12 +389,19 @@ def test_the_traveler_prints_one_station_card_for_the_issue_table(tmp_path):
     sid, op = subject.split(":")
     # The traveler's own op assembly, in process, on a synthetic kernel: no native job.
     markup, node = op_markup(plan, sid, op)
-    feature = content(markup.find("op-feature", node)[0])
-    assert all(name.replace("_", " ") in feature for name in STATION)
-    bore = content(inspection_record(markup, node, ["pivot_bore"], "dia"))
-    hub = content(inspection_record(markup, node, ["hub_od"], "dia"))
-    faces = content(inspection_record(markup, node, ["hub_faces"], "length"))
+    (instruction,) = markup.find("route-operation", node)
+    assert json.loads(instruction["attrs"]["data-features"]) == STATION
+    assert all(name.replace("_", " ") in content(instruction) for name in STATION)
+    criteria = markup.find("route-inspection", node)
+    assert len(criteria) == 3
+    bore, hub, faces = map(content, criteria)
     assert "pin" in bore.lower() and "0-1 in mic" not in bore
     assert "0-1 in mic" in hub and "pin" not in hub.lower()
     assert "0-1 in mic" in faces
-    assert len(markup.find("inspection-record", node)) == 3
+    for feature, requirement in (
+        ("pivot_bore", "dia"),
+        ("hub_od", "dia"),
+        ("hub_faces", "length"),
+    ):
+        checkpoint_result(markup, node, sid, op, [feature], requirement)
+    assert len(markup.find("checkpoint-result", node)) == 3

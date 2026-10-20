@@ -497,6 +497,16 @@ def test_tnut_final_only_checkpoints_keep_all_sizes_and_four_physical_results(de
         ("end-length", "length"),
     }
     criteria = dimensions | {(None, "actual_slot_fit"), (None, "stud_retention")}
+    # Criteria, not routine procedure paragraphs, carry the seven acceptance duties.
+    # Keep independent numeric oracles in both printed unit systems.
+    expected_bands = {
+        ("base-envelope", "width"): ("0.873–0.877 in", "22.1742–22.2758 mm"),
+        ("base-envelope", "height"): ("0.498–0.502 in", "12.6492–12.7508 mm"),
+        ("shoulders", "width"): ("0.493–0.497 in", "12.5222–12.6238 mm"),
+        ("shoulders", "thickness"): ("0.248–0.252 in", "6.2992–6.4008 mm"),
+        ("end-length", "length"): ("0.998–1.002 in", "25.3492–25.4508 mm"),
+    }
+    band_index = int(detail == "pedantic")
     expected_subjects = {}
     for member, (setup, op) in zip(MEMBERS, inspections, strict=True):
         targets = op_check_targets(bundle, setup, op)
@@ -527,7 +537,41 @@ def test_tnut_final_only_checkpoints_keep_all_sizes_and_four_physical_results(de
         assert checkpoint.shared_check_id is None and checkpoint.covered_workpieces == ()
         assert set(checkpoint.subjects) == expected_subjects[member]
         assert set(checkpoint.features) == {feature for feature, _ in dimensions}
-        assert len(checkpoint.methods) == len(criteria)
+        assert len(checkpoint.compact_criteria) == len(criteria) == 7
+        by_heading = {
+            criterion.heading: (gauge_id, gauge, criterion)
+            for gauge_id, gauge, criterion in checkpoint.compact_criteria
+        }
+        assert len(by_heading) == 7
+        for (feature, requirement), bands in expected_bands.items():
+            ((gauge_id, gauge, criterion),) = [
+                entry
+                for entry in checkpoint.compact_criteria
+                if feature in entry[2].heading
+                and requirement in entry[2].heading.replace("-", " ").split()
+            ]
+            assert gauge_id == ("gauges", "calipers") and gauge == "Calipers"
+            assert bands[band_index] in criterion, (feature, requirement, criterion)
+        for requirement, gauge_key in (
+            ("actual_slot_fit", "actual-slot"),
+            ("stud_retention", "mating-hardware"),
+        ):
+            gauge_id, gauge, criterion = by_heading[requirement.replace("_", " ")]
+            assert gauge_id == ("gauges", gauge_key)
+            assert gauge == bundle.inventory["gauges"][gauge_key]["name"]
+            for clause in bundle.features["acceptance"][requirement]["contract"]["accept"]:
+                assert clause in criterion
+            method = op["inspection_methods"][requirement]
+            assert any(method in str(note) for note in criterion.methods)
+        flange = by_heading["shoulders thickness"][2]
+        flange_method = op["inspection_methods"]["shoulders"]["thickness"]
+        assert any(flange_method in str(note) for note in flange.methods)
+        for method in (
+            flange_method,
+            op["inspection_methods"]["actual_slot_fit"],
+            op["inspection_methods"]["stud_retention"],
+        ):
+            assert sum(method in str(note) for note in checkpoint.methods) == 1
         assert not checkpoint.reading_owned
         (record,) = markup.find("inspection-record")
         assert subject_ids(record) == expected_subjects[member]
@@ -542,6 +586,15 @@ def test_tnut_final_only_checkpoints_keep_all_sizes_and_four_physical_results(de
     results = family.find("checkpoint-result", grid)
     assert [record["attrs"]["data-workpiece"] for record in results] == MEMBERS
     assert len(family.find("result-field")) == len(family.find("writing-blank")) == 4
+    for bands in expected_bands.values():
+        assert bands[band_index] in content(grid["parent"])
+    for requirement in ("actual_slot_fit", "stud_retention"):
+        for clause in bundle.features["acceptance"][requirement]["contract"]["accept"]:
+            assert clause in content(grid["parent"])
+        assert inspections[0][1]["inspection_methods"][requirement] in content(grid["parent"])
+    assert inspections[0][1]["inspection_methods"]["shoulders"]["thickness"] in content(
+        grid["parent"]
+    )
     for (setup, op), member, record in zip(inspections, MEMBERS, results, strict=True):
         assert record["attrs"]["data-setup-id"] == setup["id"]
         assert record["attrs"]["data-op-id"] == str(op["op"])
@@ -550,7 +603,7 @@ def test_tnut_final_only_checkpoints_keep_all_sizes_and_four_physical_results(de
         assert subject_ids(record) == expected_subjects[member]
         (blank,) = family.find("writing-blank", record)
         assert content(blank) == ""
-    # Finish is an authored obligation at the same final operation, not a fabricated gauge.
-    assert "uniform black/oiled finish, no loose residue and unobstructed fit/threads" in content(
-        grid["parent"]
-    )
+    # Finish remains an authored obligation, not a fabricated gauge or a fifth result.
+    finish = bundle.plan["setups"][-4]["ops"][0]["note"]
+    finish = finish[0]["text"] if isinstance(finish, list) else finish
+    assert finish in content(grid["parent"])

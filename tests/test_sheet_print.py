@@ -320,6 +320,97 @@ def printed_pages(html, tmp_path, *, expect_pagination_error=False):
     return texts
 
 
+def test_tnut_complete_job_respects_physical_letter_page_caps(
+    tmp_path, freecad_kernel, monkeypatch
+):
+    from copy import deepcopy
+    from io import BytesIO
+
+    import pypdfium2 as pdfium
+    from PIL import Image
+
+    from prechips import cli
+    from prechips.kernel import build_job, run_geometries
+    from prechips.report import build_report, render_assets
+    from prechips.sheet import render_traveler
+    from prechips.telemetry import Telemetry
+
+    for name in tuple(os.environ):
+        if name.startswith("OTEL_") or name in {"TRACEPARENT", "TRACESTATE", "NO_COLOR"}:
+            monkeypatch.delenv(name)
+    bundle = load_bundle(ROOT / "examples" / "blondihacks-t-nuts" / "plan.toml")
+    job = build_job(bundle)
+    run_geometries([bundle], [deepcopy(job)])
+    assert bundle.kernel["status"] == "ok", bundle.kernel.get("reason")
+    tracing = Telemetry("traveler")
+    try:
+        findings = cli._evaluate(bundle, job, tracing)
+    finally:
+        tracing.flush()
+    assets = render_assets(bundle)
+    report = build_report(bundle, findings, assets=assets)
+    expected_owners = {"Q2", "S1", "C2", "E1a"}
+    expected_images = {}
+    for owner in sorted(expected_owners):
+        with Image.open(BytesIO(assets[report["renders"][owner]["path"]])) as canonical:
+            pixels = canonical.convert("RGB")
+            expected_images[owner] = (
+                pixels.size,
+                hashlib.sha256(pixels.tobytes()).hexdigest(),
+            )
+    assert len(set(expected_images.values())) == 4
+
+    letter = machinist_review().LETTER_PT
+    for detail, cap in (("pro", 3), ("hobby", 6)):
+        output = tmp_path / detail
+        output.mkdir()
+        for name, data in assets.items():
+            (output / name).write_bytes(data)
+        html = render_traveler(bundle, findings, report, detail=detail)
+        markup = Markup(html)
+        figure_owners = set()
+        for figure in markup.find("fixture-render"):
+            if figure["attrs"].get("data-selection-group") != "setup":
+                continue
+            parent = figure["parent"]
+            while parent is not None and "data-setup-id" not in parent["attrs"]:
+                parent = parent["parent"]
+            assert parent is not None
+            figure_owners.add(parent["attrs"]["data-setup-id"])
+        # A canonical setup may span several whole bands under the same owner.
+        assert figure_owners == (expected_owners if detail == "hobby" else set())
+
+        pages = printed_pages(html, output)
+        assert 0 < len(pages) <= cap, (detail, len(pages))
+        assert all(page.strip() for page in pages), (detail, pages)
+        document = pdfium.PdfDocument(str(output / "traveler.pdf"))
+        printed_images = set()
+        try:
+            for index in range(len(document)):
+                page = document[index]
+                try:
+                    assert page.get_size() == pytest.approx(letter, abs=1.0)
+                    if detail == "hobby":
+                        objects = [
+                            obj
+                            for obj in page.get_objects(max_depth=10)
+                            if isinstance(obj, pdfium.PdfImage)
+                        ]
+                        for obj in objects:
+                            # PDFium owns this foreign bitmap; explicit close() is unsafe.
+                            bitmap = obj.get_bitmap()
+                            pixels = bitmap.to_pil().convert("RGB")
+                            printed_images.add(
+                                (pixels.size, hashlib.sha256(pixels.tobytes()).hexdigest())
+                            )
+                finally:
+                    page.close()
+        finally:
+            document.close()
+        if detail == "hobby":
+            assert set(expected_images.values()) <= printed_images
+
+
 @pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
 def test_long_rough_and_finish_lathe_tables_keep_continuous_count_and_setup_owners(
     tmp_path, detail

@@ -469,6 +469,35 @@ def test_unresolved_fixture_requests_identity_not_height_measurement(field, iden
     debts = {entry["id"]: entry for entry in row.numbers["measurements"]}
     assert f"fixtures.{identity}.height" not in debts
     assert debts[f"fixtures.{identity}.resolve"]["instruction"].startswith("resolve:")
+    if field in {"supports", "riser"}:
+        assert f"plan.setups.S1.hold.{field}.bearing_layer" in debts
+
+
+@pytest.mark.parametrize("supports", [["unowned"], [{"ref": "unowned"}]])
+def test_unresolved_support_list_retains_identity_and_bearing_debt(supports):
+    data = review_bundle()
+    hold = data.plan["setups"][0]["hold"]
+    hold["supports"] = supports
+    row = envelope.evaluate(data)[0]
+    assert row.status == "unknown"
+    debts = {entry["id"]: entry for entry in row.numbers["measurements"]}
+    assert "fixtures.unowned.height" not in debts
+    assert debts["fixtures.unowned.resolve"]["instruction"].startswith("resolve:")
+    assert "plan.setups.S1.hold.supports.bearing_layer" in debts
+    assert hold["supports"] is supports
+
+
+@pytest.mark.parametrize("field", ["supports", "riser"])
+@pytest.mark.parametrize("reference", ["", " \t", " none ", " not_applicable "])
+def test_blank_or_absent_support_reference_owes_role_not_inventory_identity(field, reference):
+    data = review_bundle()
+    data.plan["setups"][0]["hold"][field] = reference
+    row = envelope.evaluate(data)[0]
+    assert row.status == "unknown"
+    debts = {entry["id"]: entry for entry in row.numbers["measurements"]}
+    assert f"plan.setups.S1.hold.{field}.bearing_layer" in debts
+    assert not any(key.startswith("fixtures.") and key.endswith(".resolve") for key in debts)
+    assert data.plan["setups"][0]["hold"][field] == reference
 
 
 def test_machine_hosted_dividing_head_supplies_the_fixture_height():

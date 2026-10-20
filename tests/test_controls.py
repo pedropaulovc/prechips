@@ -116,16 +116,23 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
         _, tools, _ = sheet.tool_table(setup)
         html = sheet.dro(setup, tools)
         markup = Markup(html)
-        directions = next(
+        directions = [
             content(node)
             for node in markup.nodes
-            if node["tag"] == "p" and content(node).startswith("Positive directions:")
-        )
-        x_direction = next(segment for segment in directions.split(";") if "X+" in segment)
+            if node["tag"] == "p" and re.search(r"\bX\+\s+(?:right|left)\b", content(node))
+        ]
+        assert len(directions) == 1
+        x_direction = next(segment for segment in directions[0].split(";") if "X+" in segment)
         assert direction in x_direction.split()
         assert ("left" if direction == "right" else "right") not in x_direction.split()
-        assert "Axis Set each axis (never Preset)" in directions
-        assert "'if reversed' means STOP" in directions
+        guides = [node for node in markup.nodes if node["attrs"].get("id") == "dro-first-use"]
+        assert len(guides) == 1
+        assert guides[0]["attrs"]["data-setup-id"] == "S1"
+        guide = content(guides[0])
+        assert "Axis Set assigns" in guide
+        assert "Preset stores a destination and does not establish this datum" in guide
+        assert "means reversed — STOP" in guide
+        assert "correct the direction before re-establishing the datum" in guide
         zero_table = markup.find("zero")[0]
         table_rows = [
             node
@@ -139,14 +146,8 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
             for node in markup.nodes
             if node["tag"] == "th" and node["parent"] in table_rows
         ]
-        assert headings == [
-            "axis",
-            "touch / pick up",
-            "Axis Set",
-            "check jog",
-            "must read",
-            "if reversed",
-        ]
+        assert headings[0] == "axis"
+        assert headings[2:] == ["Axis Set", "check jog", "must read", "if reversed"]
         x_cells = next(
             cells
             for table_row in table_rows

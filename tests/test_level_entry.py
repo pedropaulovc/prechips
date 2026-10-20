@@ -12,6 +12,7 @@ from test_contour_grid import SLAB, outline
 from test_headroom import coordinate_bundle
 from test_sheet_ops import SPOT, T4, Markup, content, reach_records, shop
 
+from prechips.findings import Finding
 from prechips.inputs import load_bundle
 from prechips.rules import coordinates, speeds_feeds
 from prechips.rules.level_entry import in_air, level_paths
@@ -22,6 +23,7 @@ EXAMPLES = Path(__file__).resolve().parents[1] / "examples"
 # A sheet line that tells the operator to feed a cutter down at a number: the level
 # statement's "plunge … at F mm/min" or the op row's "plunge F mm/min".
 PLUNGE_AT = re.compile(r"plunge[^;]*? at \d+ mm/min|plunge \d+ mm/min")
+NUMBER = r"-?\d+(?:\.\d+)?"
 
 
 def open_path(
@@ -453,10 +455,12 @@ def level_text(record, plunge_mm_min=None):
     )
     bundle.feature_definitions = {}
     paths = {"level_paths": [record]}
-    findings = [SimpleNamespace(rule="coordinates", subject="S1", numbers=paths)]
+    findings = [Finding("coordinates", "S1", "pass", paths, [], "Synthetic level-entry record.")]
     if plunge_mm_min is not None:
         feeds = {"plunge_mm_min": plunge_mm_min}
-        findings.append(SimpleNamespace(rule="speeds_feeds", subject="S1:20", numbers=feeds))
+        findings.append(
+            Finding("speeds_feeds", "S1:20", "pass", feeds, [], "Synthetic plunge feed.")
+        )
     sheet = _Traveler(bundle, findings, {}, None)
     return page_text(sheet.level_entries({"id": "S1"}, {"op": 20}, []))
 
@@ -472,7 +476,10 @@ def test_a_level_the_stock_box_puts_at_or_above_its_top_is_lowered_to_never_plun
     assert record["lowered"] == "top"
     text = level_text(record)
     assert "plunge" not in text, text
-    assert "lower to Z -2.000, the top of the stock this op meets" in text, text
+    lowered = re.search(rf"lower to Z ({NUMBER})", text)
+    assert lowered and float(lowered[1]) == -2.0, text
+    ownership = text[lowered.end() :].split(";")[0]
+    assert re.search(r"\btop\b", ownership) and re.search(r"\bstock\b", ownership), text
 
 
 def test_a_level_at_its_own_start_z_inside_the_stock_box_still_plunges():
@@ -485,7 +492,11 @@ def test_a_level_at_its_own_start_z_inside_the_stock_box_still_plunges():
     assert record["plunge_mm_rev"] == 0.05
     text = level_text(record, plunge_mm_min=45.0)
     # Fed down to the level, never "plunge Z -2.000 → -2.000" nor lowered to it.
-    assert "Enter at X 0.000, Y -5.000: plunge to Z -2.000 at 45 mm/min." in text, text
+    entry = re.search(
+        rf"Enter at X ({NUMBER}), Y ({NUMBER}): plunge to Z ({NUMBER}) at ({NUMBER}) mm/min",
+        text,
+    )
+    assert entry and tuple(map(float, entry.groups())) == (0.0, -5.0, -2.0, 45.0), text
     assert "lower to" not in text and "→" not in text, text
     [record], debts = open_path(box_top=1.0, plunge=False, operation=operation)
     assert "lowered" not in record and record["plunge_mm_rev"] == "unknown"
@@ -512,13 +523,26 @@ def test_a_feature_entry_z_at_its_depth_does_not_prove_the_entry_clear(
     [record] = row.numbers["level_paths"]
     assert record["levels"] == [-1.0] and record["from_z"] == -1.0
     assert "lowered" not in record
-    text = " ".join(page_text(_Traveler(bundle, findings, {}, None).render()).split())
-    assert "lower to Z -1.000" not in text, text
+    html = _Traveler(bundle, findings, {}, None).render()
+    text = page_text(html)
+    assert all(
+        float(match[1]) != -1.0 for match in re.finditer(rf"\blower to Z ({NUMBER})", text)
+    ), text
+    entry = entry_text(html)
+    assert "lower to" not in entry, entry
     if center_cutting:
-        assert re.search(r"Enter at X -8\.300, Y -5\.300: plunge to Z -1\.000 at \d+ mm/min", text)
+        plunge = re.search(
+            rf"Enter at X ({NUMBER}), Y ({NUMBER}): plunge to Z ({NUMBER}) at ({NUMBER}) mm/min",
+            entry,
+        )
+        assert plunge, entry
+        assert tuple(map(float, plunge.groups()[:3])) == (-8.3, -5.3, -1.0)
+        [feed] = [f for f in findings if f.rule == "speeds_feeds" and f.subject == "S1:20"]
+        assert float(plunge[4]) == pytest.approx(feed.numbers["plunge_mm_min"], abs=0.5)
+        assert "STOP" not in entry
     else:
         assert "op 20 plunges into the stock but its plunge feed is unknown" in row.sentence
-        assert "STOP: plunge feed not set" in text
+        assert "STOP: plunge feed not set" in entry
 
 
 def scratch_outline(tmp_path, plunge=True):
@@ -547,6 +571,17 @@ def page_text(html):
     )
 
 
+def entry_text(html):
+    """The single entry instruction, not unrelated setup STOPs or coordinate cells."""
+    markup = Markup(html)
+    [entry] = [
+        content(node)
+        for node in markup.find("contour-context")
+        if "Enter at " in content(node) or "Get down " in content(node)
+    ]
+    return entry
+
+
 def test_every_level_of_a_multi_level_outline_prints_its_own_z_and_entry(tmp_path):
     bundle = scratch_outline(tmp_path)
     [row] = [f for f in coordinates.evaluate(bundle) if f.subject == "S1"]
@@ -561,7 +596,8 @@ def test_every_level_of_a_multi_level_outline_prints_its_own_z_and_entry(tmp_pat
         if node["attrs"]["data-page-context"].startswith("S1 op 20 —")
     ]
     [heading] = markup.find("page-context", owner)
-    assert re.search(r"Z (-1\.000), (-2\.000)(?: ·|$)", content(heading))
+    depths = re.search(rf"\bZ ({NUMBER}), ({NUMBER})(?: ·|$)", content(heading))
+    assert depths and tuple(map(float, depths.groups())) == (-1.0, -2.0)
     [entry] = [
         content(node)
         for node in markup.nodes
@@ -569,9 +605,12 @@ def test_every_level_of_a_multi_level_outline_prints_its_own_z_and_entry(tmp_pat
     ]
     assert "2 depth levels, top first" in entry
     assert "whole path" in entry and "each" in entry
-    assert "X -8.300, Y -5.300: plunge from the level above" in entry
-    assert "level 1 from Z 0.000" in entry
-    assert "Between levels, stay at X -8.300, Y -5.300" in entry
+    start = re.search(rf"X ({NUMBER}), Y ({NUMBER}): plunge from the level above", entry)
+    assert start and tuple(map(float, start.groups())) == (-8.3, -5.3), entry
+    initial_z = re.search(rf"level 1 from Z ({NUMBER})", entry)
+    assert initial_z and float(initial_z[1]) == 0.0, entry
+    returned = re.search(rf"Between levels, stay at X ({NUMBER}), Y ({NUMBER})", entry)
+    assert returned and tuple(map(float, returned.groups())) == (-8.3, -5.3), entry
     assert "the path ends where it starts" in entry
 
 
@@ -620,13 +659,20 @@ def test_only_a_centre_cutting_end_mill_is_told_to_plunge_into_the_stock(
     rows = {(f.rule, f.subject): f for f in findings}
     assert rows[("coordinates", "S1")].status == status, rows[("coordinates", "S1")].sentence
     assert rows[("speeds_feeds", "S1:20")].status == "pass"
-    text = " ".join(page_text(_Traveler(bundle, findings, {}, None).render()).split())
-    entry = re.search(r"Enter at X -8\.300, Y -5\.300: [^;]*?mm/min\.|Enter at [^;]*?STOP", text)
-    assert entry, text
+    html = _Traveler(bundle, findings, {}, None).render()
+    text = " ".join(page_text(html).split())
+    entry = entry_text(html)
+    start = re.search(rf"Enter at X ({NUMBER}), Y ({NUMBER}):", entry)
+    assert start and tuple(map(float, start.groups())) == (-8.3, -5.3), entry
     if center_cutting is True:
-        assert PLUNGE_AT.search(entry[0]) and "STOP" not in entry[0]
+        assert PLUNGE_AT.search(entry) and "STOP" not in entry
+        plunge = re.search(rf"plunge Z ({NUMBER}) → ({NUMBER}) at ({NUMBER}) mm/min", entry)
+        assert plunge and tuple(map(float, plunge.groups()[:2])) == (0.0, -1.0), entry
+        assert float(plunge[3]) == pytest.approx(
+            rows[("speeds_feeds", "S1:20")].numbers["plunge_mm_min"], abs=0.5
+        )
     else:
-        assert PLUNGE_AT.findall(text) == [] and "STOP" in entry[0]
+        assert PLUNGE_AT.findall(text) == [] and "STOP" in entry
         assert rows[("speeds_feeds", "S1:20")].numbers["plunge_mm_min"] == "unknown"
 
 
@@ -641,7 +687,12 @@ def test_an_unknown_level_plan_prints_its_warning_never_a_full_depth_plunge(tmp_
     [record] = row.numbers["level_paths"]
     assert record["levels"] == "unknown"
     text = " ".join(page_text(_Traveler(bundle, findings, {}, None).render()).split())
-    assert not re.search(r"(plunge|lower to) Z [^;]*?-8\.000", text), text
+    for instruction in re.finditer(
+        rf"(?:plunge(?: to)?|lower to) Z ({NUMBER})(?: → ({NUMBER}))?", text
+    ):
+        assert -8.0 not in [float(value) for value in instruction.groups() if value is not None], (
+            text
+        )
     assert "Depth levels not computed" in text
 
 
@@ -701,7 +752,7 @@ def test_the_clearance_table_prints_a_kernel_stock_z_as_that_surface_prints(tmp_
     [(_, _, obstacle, value, _)] = sheet.clearance_rows(setup, numbers, T4)
     assert "stock under the holder at Z 4.475" in obstacle, obstacle
     assert "holder face" in obstacle and "not in shop list" not in obstacle, obstacle
-    assert value == "19.750"
+    assert float(value) == 19.75
     sheet.records[("headroom", "S1")] = numbers
     markup = Markup(sheet.clearance(setup, T4))
     [table] = markup.find("clearance")
@@ -713,11 +764,11 @@ def test_the_clearance_table_prints_a_kernel_stock_z_as_that_surface_prints(tmp_
     assert cells[:2] == ["60", "T4"]
     assert "holder face" in cells[2] and "stock under the holder" in cells[2], cells
     assert re.findall(r"\bZ (-?\d+\.\d+)", cells[2]) == ["4.475"], cells
-    assert cells[3] == "19.750", cells
+    assert float(cells[3]) == 19.75, cells
     # The holder face over the stock top: that top prints Z 0.000, not 0.005.
     records[("reach", "S1:60")]["clearances"] = []
     [(_, _, obstacle, _, _)] = sheet.clearance_rows(setup, numbers, T4)
-    assert "(Z 0.000)" in obstacle, obstacle
+    assert [float(z) for z in re.findall(rf"\bZ ({NUMBER})", obstacle)] == [0.0], obstacle
     markup = Markup(sheet.clearance(setup, T4))
     [table] = markup.find("clearance")
     obstacles = [
@@ -725,7 +776,7 @@ def test_the_clearance_table_prints_a_kernel_stock_z_as_that_surface_prints(tmp_
         for node in markup.nodes
         if node["tag"] == "td" and node["parent"]["parent"]["parent"] is table
     ]
-    assert re.findall(r"\bZ (-?\d+\.\d+)", obstacles[2]) == ["0.000"], obstacles
+    assert [float(z) for z in re.findall(rf"\bZ ({NUMBER})", obstacles[2])] == [0.0], obstacles
 
 
 @pytest.mark.parametrize(

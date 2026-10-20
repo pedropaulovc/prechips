@@ -12,6 +12,7 @@ from prechips._sheet_pagination import JOB_PRINT_JS
 from prechips.sheet import _CSS, _writing_field
 
 PART = "Ownership boundary part"
+JOB_TITLE = "Human-readable boundary job"
 DRAWING = "Ownership drawing 204"
 SETUP_ONE = "S1 first hold"
 SETUP_TWO = "S2 second hold"
@@ -29,7 +30,8 @@ def _job(source, *, detail="hobby", after_load=""):
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         f"<style>{_CSS}</style><script>{JOB_PRINT_JS}</script></head>"
         f'<body data-detail="{detail}"><section class="page" data-sheet="job" '
-        f'data-part="{PART}" data-drawing="{DRAWING}" data-revision="C" '
+        f'data-job-title="{JOB_TITLE}" data-part="{PART}" data-drawing="{DRAWING}" '
+        'data-revision="C" '
         'data-example-only="true" data-continuation-label="EXAMPLE ONLY">'
         f'<div class="meta"><span>{PART}</span><span>{DRAWING} · rev C</span></div>'
         '<div class="banner">EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT · PLANNED</div>'
@@ -105,7 +107,8 @@ def test_two_short_setups_share_one_physical_page(tmp_path, detail):
     assert "PRINT LAYOUT ERROR" not in pages[0]
 
 
-def test_second_setup_nested_continuations_keep_setup_member_and_inner_owner(printed_sheet):
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_second_setup_nested_continuations_keep_setup_member_and_inner_owner(printed_sheet, detail):
     source = _nested_work()
     _, details = printed_sheet(
         source,
@@ -163,6 +166,10 @@ def test_second_setup_nested_continuations_keep_setup_member_and_inner_owner(pri
             }))
           };
         }""",
+        prepare=f"""() => {{
+          document.body.dataset.detail = {json.dumps(detail)};
+          document.querySelector('section.page').dataset.jobTitle = {json.dumps(JOB_TITLE)};
+        }}""",
     )
     assert details["jobs"] == 1
     assert 3 <= details["pages"] < 20
@@ -178,7 +185,12 @@ def test_second_setup_nested_continuations_keep_setup_member_and_inner_owner(pri
     }
     for head in details["heads"]:
         assert head["setup"] == "S2" and head["workpiece"] == "nut2"
-        assert SETUP_TWO in head["title"] and SETUP_ONE not in head["title"]
+        if detail == "pedantic":
+            assert SETUP_TWO in head["title"] and SETUP_ONE not in head["title"]
+            assert "boundary drawing" in head["title"] and "rev A" in head["title"]
+        else:
+            assert head["title"] == JOB_TITLE
+            assert SETUP_ONE not in head["title"] and SETUP_TWO not in head["title"]
         assert head["inner"] in head["context"]
         assert head["copiedDestinations"] == 0
     assert len(details["fields"]) == 3
@@ -221,12 +233,275 @@ def test_nested_owners_and_job_identity_print_on_actual_continuation_pages(tmp_p
         (page, len(pages)) for page in range(2, len(pages) + 1)
     ]
     for text in pages[1:]:
-        assert PART in text
         if detail == "pedantic":
-            assert DRAWING in text and "rev C" in text
-        assert SETUP_TWO in text and "EXAMPLE ONLY" in text
+            assert PART in text and DRAWING in text and "rev C" in text
+            assert SETUP_TWO in text
+        else:
+            assert JOB_TITLE in text
+        assert "EXAMPLE ONLY" in text
         assert "S2 op 20 inspection" in text or "S2 op 30 contour" in text
     assert sum("Original inspection diagram" in text for text in pages) == 1
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_job_title_and_local_owners_distinguish_fresh_headings_from_tails(
+    printed_sheet, detail
+):
+    rows = "".join(
+        f"<tbody><tr><td>EDGE{index:03d}</td><td>Deburr this member only.</td></tr></tbody>"
+        for index in range(72)
+    )
+    source = (
+        '<div class="banner">EXAMPLE ONLY — NOT FOR EXECUTION IN A REAL ENVIRONMENT '
+        "· PLANNED</div>"
+        + _setup(
+            "Earlier saw family",
+            "B1",
+            "stock",
+            '<p style="height:800px;margin:0">EarlierSawSource</p>',
+        )
+        + _setup(
+            SETUP_ONE,
+            "S1",
+            "nut1",
+            f"<p>{_words('SawTail', 650)} " + _writing_field("saw tail observed") + "</p>",
+        )
+        + '<section class="setup-family" data-setup-title="E1–E4" data-setup-id="">'
+        "<h2>Edge family (E1–E4)</h2>"
+        '<p style="height:850px;margin:0">OriginalFamilyPrelude</p>'
+        '<div class="setup-variant" data-setup-title="Setup E1 — nut1" '
+        'data-setup-id="E1" data-member="edge-one" data-workpiece="nut1">'
+        '<p class="variant-label">E1 — nut1</p>'
+        "<table><thead><tr><th>Edge</th><th>Action</th></tr></thead>"
+        + rows
+        + "</table><p>OriginalEdgeRecord "
+        + _writing_field("edge observed")
+        + "</p></div></section>"
+        + _setup("Later drill family", "D1", "nut2", "<p>LaterFamilySource</p>")
+    )
+    _, details = printed_sheet(
+        source,
+        r"""pageOf => {
+          const section = document.querySelector('section.page');
+          const original = section.cloneNode(true);
+          original.querySelectorAll('[data-job-print],.fixed-locator-reference')
+            .forEach(node => node.remove());
+          const starts = [section, ...section.querySelectorAll('.cont-head')];
+          const onPage = (node, page) => pageOf(node) === page;
+          return {
+            part: section.dataset.part,
+            words: original.textContent.match(/SawTail\d{4}/g),
+            edges: original.textContent.match(/EDGE\d{3}/g),
+            later: original.textContent.includes('LaterFamilySource'),
+            heads: [...section.querySelectorAll('.cont-head')].map(head => {
+              const page = starts.indexOf(head), context = head.querySelector('.cont-context');
+              const freshHeading = [...section.querySelectorAll('h2,.variant-label')]
+                .find(node => onPage(node, page) && !node.closest('[data-job-print]')
+                  && node.closest('[data-setup-id]')?.dataset.setupId === head.dataset.setupId);
+              return {title: head.querySelector('.cont-title').textContent,
+                setup: head.dataset.setupId, member: head.dataset.member ?? '',
+                workpiece: head.dataset.workpiece ?? '', context: context?.textContent ?? '',
+                freshHeading: freshHeading?.textContent ?? '',
+                copies: head.querySelectorAll(
+                  '[data-locator-target],.writing-blank,figure').length};
+            }),
+            fields: [...section.querySelectorAll('[data-locator-target]')].map(blank => ({
+              setup: blank.closest('[data-setup-id]').dataset.setupId,
+              member: blank.closest('[data-member]')?.dataset.member ?? '',
+              workpiece: blank.closest('[data-workpiece]').dataset.workpiece,
+              original: !blank.closest('[data-job-print]')
+            }))
+          };
+        }""",
+        prepare=f"""() => {{
+          document.body.dataset.detail = {json.dumps(detail)};
+          const section = document.querySelector('section.page');
+          section.dataset.jobTitle = {json.dumps(JOB_TITLE)};
+          section.dataset.quantity = '4';
+          section.dataset.continuationLabel = 'EXAMPLE ONLY';
+        }}""",
+    )
+    assert details["part"] == "boundary part"
+    assert details["words"] == _words("SawTail", 650).split()
+    assert details["edges"] == [f"EDGE{index:03d}" for index in range(72)]
+    assert details["later"]
+    assert details["heads"]
+    for head in details["heads"]:
+        assert head["title"] == JOB_TITLE + " · qty 4 · EXAMPLE ONLY · PLANNED"
+        assert head["copies"] == 0
+    for setup in ("S1", "E1"):
+        owned = [head for head in details["heads"] if head["setup"] == setup]
+        assert any(head["freshHeading"] and not head["context"] for head in owned)
+        tails = [head for head in owned if not head["freshHeading"]]
+        assert tails
+        for head in tails:
+            assert setup in head["context"] and head["context"].endswith(" (continued)")
+            assert head["workpiece"] in head["context"]
+            if setup == "E1":
+                assert head["member"] == "edge-one" and "edge-one" in head["context"]
+                assert head["context"] != "E1–E4 (continued)"
+    assert details["fields"] == [
+        {"setup": "S1", "member": "", "workpiece": "nut1", "original": True},
+        {"setup": "E1", "member": "edge-one", "workpiece": "nut1", "original": True},
+    ]
+
+
+def test_compact_nested_owner_is_not_suppressed_by_physical_identity(printed_sheet):
+    owner = "S1 first hold · nut1"
+    source = _setup(
+        SETUP_ONE,
+        "S1",
+        "nut1",
+        f'<div data-page-context="{owner}"><h3 class="page-context">{owner}</h3>'
+        f"<p>{_words('NestedOwner', 650)}</p></div>",
+    )
+    _, contexts = printed_sheet(
+        source,
+        r"""() => [...document.querySelectorAll('.cont-head')].map(head => ({
+          title: head.querySelector('.cont-title').textContent,
+          context: head.querySelector('.cont-context')?.textContent ?? '',
+          owner: head.dataset.pageContext
+        }))""",
+        prepare=f"""() => {{
+          document.body.dataset.detail = 'hobby';
+          document.querySelector('section.page').dataset.jobTitle = {json.dumps(JOB_TITLE)};
+        }}""",
+    )
+    assert contexts
+    assert all(head == {"title": JOB_TITLE, "context": owner, "owner": owner} for head in contexts)
+
+
+@pytest.mark.parametrize("heading_scope", ["family", "hidden-owner"])
+def test_compact_member_context_requires_its_own_visible_opening_heading(
+    printed_sheet, heading_scope
+):
+    if heading_scope == "family":
+        owner = (
+            '<section class="setup-family" data-setup-title="E1–E4" data-setup-id="">'
+            "<h2>Edge family (E1–E4)</h2>"
+            '<div class="setup-variant" data-setup-title="Setup E1 — nut1" '
+            'data-setup-id="E1" data-member="edge-one" data-workpiece="nut1">'
+        )
+        close = "</div></section>"
+    else:
+        owner = (
+            '<section class="setup-flow" data-setup-title="Setup E1 — nut1" '
+            'data-setup-id="E1" data-member="edge-one" data-workpiece="nut1">'
+            '<h2 style="visibility:hidden">E1 — nut1</h2>'
+        )
+        close = "</section>"
+    source = (
+        _setup(
+            "Earlier saw family",
+            "B1",
+            "stock",
+            '<p style="height:800px;margin:0">EarlierSawSource</p>',
+        )
+        + owner
+        + f"<p>{_words('EdgeOwner', 650)}</p>"
+        + close
+    )
+    _, heads = printed_sheet(
+        source,
+        r"""() => [...document.querySelectorAll('.cont-head')].map(head => ({
+          setup: head.dataset.setupId, member: head.dataset.member,
+          workpiece: head.dataset.workpiece,
+          context: head.querySelector('.cont-context')?.textContent ?? ''
+        }))""",
+        prepare="() => { document.body.dataset.detail = 'hobby'; }",
+    )
+    assert heads
+    assert all(
+        head
+        == {
+            "setup": "E1",
+            "member": "edge-one",
+            "workpiece": "nut1",
+            "context": "Setup E1 — nut1 · edge-one (continued)",
+        }
+        for head in heads
+    )
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby", "pedantic"])
+def test_long_authored_continuation_context_does_not_displace_its_original_source(
+    printed_sheet, detail
+):
+    words = _words("OwnerSource", 650)
+    title = "S1 op 50 inspection: " + words
+    source = _setup(
+        SETUP_ONE,
+        "S1",
+        "nut1",
+        f'<ol><li data-page-context="{title}"><h3 class="page-context">'
+        'S1 op <span class="reading">50</span> inspection: '
+        + words
+        + "</h3><p>Record the original observed result "
+        + _writing_field("owner source observed")
+        + "</p></li></ol>",
+    )
+    _, details = printed_sheet(
+        source,
+        r"""() => {
+          const section = document.querySelector('section.page');
+          const headings = [...section.querySelectorAll('.page-context')]
+            .filter(node => !node.closest('[data-job-print]'));
+          const sourceText = node => {
+            const copy = node.cloneNode(true);
+            copy.querySelectorAll('.fixed-locator-reference').forEach(ref => ref.remove());
+            return copy.textContent;
+          };
+          return {
+            source: headings.map(sourceText).join(''),
+            font: getComputedStyle(headings[0]).fontSize,
+            contexts: [...section.querySelectorAll('.cont-head .cont-context')].map(node => ({
+              text: node.textContent, font: getComputedStyle(node).fontSize,
+              readings: [...node.querySelectorAll('.reading')].map(reading => reading.textContent),
+              copiedDestinations: node.querySelectorAll(
+                '[data-locator-target],.writing-blank').length
+            })),
+            fields: [...section.querySelectorAll('[data-locator-target]')].map(blank => ({
+              label: blank.closest('.field').querySelector('.field-label').textContent,
+              setup: blank.closest('[data-setup-id]').dataset.setupId,
+              workpiece: blank.closest('[data-workpiece]').dataset.workpiece,
+              original: !blank.closest('[data-job-print]')
+            }))
+          };
+        }""",
+        prepare=f"""() => {{
+          document.body.dataset.detail = {json.dumps(detail)};
+          document.querySelector('section.page').dataset.jobTitle = {json.dumps(JOB_TITLE)};
+        }}""",
+    )
+    assert details["source"] == title
+    assert details["contexts"]
+    assert any(len(context["text"]) < len(title) for context in details["contexts"])
+    for context in details["contexts"]:
+        assert context["text"].startswith("S1 op 50")
+        assert context["font"] == details["font"] and context["readings"] == ["50"]
+        assert context["copiedDestinations"] == 0
+    assert details["fields"] == [
+        {"label": "owner source observed", "setup": "S1", "workpiece": "nut1", "original": True}
+    ]
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("has_part", [True, False])
+def test_compact_running_title_without_human_job_title_retains_manual_part_fallback(
+    printed_sheet, detail, has_part
+):
+    source = _setup(SETUP_ONE, "S1", "nut1", f"<p>{_words('ManualJob', 650)}</p>")
+    _, titles = printed_sheet(
+        source,
+        "() => [...document.querySelectorAll('.cont-title')].map(node => node.textContent)",
+        prepare=f"""() => {{
+          document.body.dataset.detail = {json.dumps(detail)};
+          document.querySelector('section.page').dataset.quantity = '2';
+          if (!{json.dumps(has_part)}) delete document.querySelector('section.page').dataset.part;
+        }}""",
+    )
+    expected = "boundary part · qty 2" if has_part else "boundary drawing · rev A · qty 2"
+    assert titles and all(title == expected for title in titles)
 
 
 def test_repeated_beforeprint_restores_loaded_diagram_and_original_destinations(printed_sheet):

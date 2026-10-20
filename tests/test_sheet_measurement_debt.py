@@ -793,6 +793,7 @@ def test_setup_semantic_stop_union_is_the_union_of_actual_operation_rows(monkeyp
     pages = sheet.setup_section(bundle.plan["setups"][0])
     markup = Markup("".join(block for page in pages for block in page))
     canonical = {str(row.op_id): row for row in sheet._rows_by_setup["S1"]}
+    assert set(canonical) == {str(op["op"]) for op in bundle.plan["setups"][0]["ops"]}
     row_union = set()
     for row in markup.find("operation"):
         op = row["attrs"]["data-op"]
@@ -808,9 +809,15 @@ def test_setup_semantic_stop_union_is_the_union_of_actual_operation_rows(monkeyp
         assert all(fact.text in content(row) for fact in facts)
         row_union.update(facts)
     assert row_union
-    assert {
-        fact for fact in sheet.setup_decisions["S1"] if fact.scope in {f"S1:{op}" for op in canonical}
-    } == row_union
+    op_scopes = {f"S1:{op}" for op in canonical}
+    operation_decisions = {fact for fact in sheet.setup_decisions["S1"] if fact.scope in op_scopes}
+    # The setup retains passing rule evidence too; only active notices belong on rows.
+    inactive = {fact for fact in operation_decisions if fact.kind == "none"}
+    assert {(fact.source, fact.status, fact.scope, fact.kind) for fact in inactive} == {
+        ("speeds_feeds", "pass", f"S1:{op}", "none") for op in (30, 40, 50)
+    }
+    assert operation_decisions - inactive == row_union
+    assert not inactive & row_union
     assert not any(plain in fact.text for fact in sheet.setup_decisions["S1"])
     directive = "Record the measured values here and return this traveler for reissue"
     assert all(directive not in content(row) for row in markup.find("operation"))
@@ -980,9 +987,9 @@ def test_holding_and_dro_measurements_close_in_job_register_with_setup_refs():
     assert "Make-to-drawing expected settings are not installed measurements" in content(
         register.find("measurement-stop")[0]
     )
-    assert {
-        node["attrs"]["data-measurement-ref"] for node in markup.find("measurement-ref")
-    } == {marker for marker, _ in sheet.measurement_registry().values()}
+    assert {node["attrs"]["data-measurement-ref"] for node in markup.find("measurement-ref")} == {
+        marker for marker, _ in sheet.measurement_registry().values()
+    }
 
 
 def test_el400_owns_the_installed_readout_step_action_without_changing_printed_grid():
@@ -1138,8 +1145,7 @@ def test_compact_operation_decisions_retain_each_scope_and_exact_measurement_ref
     ops = sorted({int(op) for owners in stops.values() for op in owners})
     bundle = data(
         ops=[
-            {"op": op, "do": "face", "feature": "deck", "tool": "cutter", "to_z": 8.0}
-            for op in ops
+            {"op": op, "do": "face", "feature": "deck", "tool": "cutter", "to_z": 8.0} for op in ops
         ],
         tools={
             "cutter": {
@@ -1176,7 +1182,9 @@ def test_compact_operation_decisions_retain_each_scope_and_exact_measurement_ref
     markup = Markup("".join(block for page in pages for block in page))
     for text, ops in stops.items():
         # Presentation may share identical notices, never different refs or instructions.
-        (notice,) = [node for node in decision_nodes(markup, "speeds_feeds") if content(node) == text]
+        (notice,) = [
+            node for node in decision_nodes(markup, "speeds_feeds") if content(node) == text
+        ]
         assert decision_evidence(notice) == {
             ("speeds_feeds", "unknown", f"S1:{op}", "block") for op in ops
         }
@@ -1347,9 +1355,7 @@ def test_true_local_unknown_consumer_retains_named_physical_records(category, fi
         register.find("measurement-stop")[0]
     )
     assert not actions(Markup("".join(pages[0])))
-    assert all(
-        sheet.measurement_sources[key] == {"S1"} for key in sheet.measurement_registry()
-    )
+    assert all(sheet.measurement_sources[key] == {"S1"} for key in sheet.measurement_registry())
     assert findings[0].to_dict() == before
 
 
@@ -1438,9 +1444,7 @@ def test_prerequisite_fat_union_blocks_bench_with_source_ref_without_local_recor
     assert "planned speeds, depths, contours" not in summary
     assert not actions(Markup("".join(block for page in pages for block in page)))
     document = Markup(sheet.render())
-    (job,) = [
-        node for node in document.find("page") if node["attrs"].get("data-sheet") == "job"
-    ]
+    (job,) = [node for node in document.find("page") if node["attrs"].get("data-sheet") == "job"]
     (dependent,) = [
         node for node in document.find("setup-flow") if node["attrs"]["data-setup-id"] == "S2"
     ]
@@ -1650,9 +1654,7 @@ def test_shared_upstream_cause_keeps_each_dependent_and_only_source_owned_quanti
     findings.append(finding("fixture_interference", "S3", deepcopy(findings[0].numbers)))
     sheet = _Traveler(bundle, findings, {}, None)
     document = Markup(sheet.render())
-    (job,) = [
-        node for node in document.find("page") if node["attrs"].get("data-sheet") == "job"
-    ]
+    (job,) = [node for node in document.find("page") if node["attrs"].get("data-sheet") == "job"]
     for sid in ("S2", "S3"):
         (dependent,) = [
             node for node in document.find("setup-flow") if node["attrs"]["data-setup-id"] == sid
@@ -1955,9 +1957,7 @@ def test_job_el400_readout_line_has_one_ref_and_one_register_owner():
     assert "EL400" in readout and "PM-30MV" not in readout
     assert re.findall(r"\?M\d+", readout) == [marker_for(sheet, step)]
     document = Markup(sheet.render())
-    (job,) = [
-        node for node in document.find("page") if node["attrs"].get("data-sheet") == "job"
-    ]
+    (job,) = [node for node in document.find("page") if node["attrs"].get("data-sheet") == "job"]
     assert set(actions(document)) == {step["id"]}
     assert len(document.find("writing-blank", job)) == 1
     assert content(actions(document)[step["id"]]).count(full_action(sheet, step)) == 1

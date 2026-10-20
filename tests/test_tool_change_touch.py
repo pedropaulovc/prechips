@@ -36,9 +36,9 @@ def dro_markup(html, *, units="mm", mode="linear"):
         for node in markup.nodes
         if node["tag"] == "h2" and content(node).startswith("DRO ZERO")
     ]
-    assert re.search(
-        rf",\s*{re.escape(units)},\s*{re.escape(mode)}\s+mode\b", content(heading)
-    ), content(heading)
+    assert re.search(rf",\s*{re.escape(units)},\s*{re.escape(mode)}\s+mode\b", content(heading)), (
+        content(heading)
+    )
     return markup
 
 

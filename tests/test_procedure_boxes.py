@@ -63,14 +63,30 @@ def finder_boxes(html):
     ]
 
 
-def assert_finder_pointers(html, home=None):
+def assert_finder_pointers(html, home="S1"):
+    markup = Markup(html)
     rows = [row for row in table_rows(html) if row[0] in ("X", "Y")]
     assert [row[0] for row in rows] == ["X", "Y"]
     for row in rows:
-        assert row[1].count("EDGE FINDER box") == 1
-        assert re.findall(r"Setup (S\d+) sheet (\d+)", row[1]) == (
-            [] if home is None else [(home, "1")]
-        )
+        assert "edge finder" in row[1]
+        assert [float(value) for value in re.findall(r"edge-finder radius (\d+\.\d+)", row[1])] == [
+            2.54
+        ]
+    guides = [node for node in markup.nodes if node["attrs"].get("id") == "dro-first-use"]
+    if guides:
+        (guide,) = guides
+        assert guide["attrs"]["data-setup-id"] == home
+    else:
+        (pointer,) = [
+            node
+            for node in markup.nodes
+            if node["tag"] == "p" and "zero-guide" in node["attrs"].get("class", "").split()
+        ]
+        assert re.findall(r"finder settings in Setup (S\d+)", content(pointer)) == [home]
+        (link,) = [
+            node for node in markup.nodes if node["tag"] == "a" and node["parent"] is pointer
+        ]
+        assert link["attrs"]["href"] == "#dro-first-use"
 
 
 # ------------------------------------------------------------------ edge finder
@@ -99,14 +115,19 @@ def test_a_finder_band_across_a_gap_between_spindle_ranges_runs_only_where_it_tu
     assert finder["rpm"] == [[800, 900], [1500, 1600]]
     data = mill_bundle(wide, spindle=gapped)
     html = _Traveler(data, evaluate(data), {}, {}).dro(data.plan["setups"][0], {})
-    # The first paragraph owns executable speeds, not the finder/mill context bands.
+    # Select executable speeds by their semantic label, not paragraph position:
+    # the finder tip/radius paragraph precedes the speed and context bands.
     markup = Markup(html)
     (box,) = [
         node["parent"]
         for node in markup.nodes
         if node["tag"] == "h3" and content(node).startswith("EDGE FINDER")
     ]
-    speed = next(node for node in markup.nodes if node["tag"] == "p" and node["parent"] is box)
+    (speed,) = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "p" and node["parent"] is box and content(node).startswith("Speed:")
+    ]
     executable = content(speed).split("rpm", 1)[0]
     assert [(int(lo), int(hi)) for lo, hi in re.findall(r"(\d+)–(\d+)", executable)] == [
         (800, 900),
@@ -156,7 +177,7 @@ def test_each_mill_gets_the_finder_speed_it_can_turn():
         for lo, hi in re.findall(r"\b(\d+)\s*–\s*(\d+)\s+rpm\b", html_text(second), re.I)
     ]
     assert (750, 900) not in page_rpm_pairs
-    assert_finder_pointers(second)
+    assert_finder_pointers(second, "S2")
 
 
 @pytest.mark.parametrize("missing", ["finder_type", "rpm_range", "tip_in"])
@@ -305,7 +326,12 @@ def test_the_receipt_check_table_prints_once_where_the_item_is_first_used():
     assert rows[2][2] == KIT["acceptance"][2]["accept"]
     assert KIT["purchase"] in html_text(first)
     assert not table_rows(second) and not printed_band(html_text(second), "mm")
-    assert re.findall(r"Setup (S\d+) sheet (\d+)", html_text(second)) == [("S1", "1")]
+    # Physical item identity owns the one receipt table; a later setup points
+    # back to that setup, not to an incidental paginated sheet number.
+    assert sheet.receipt_homes == {("fixtures", "kit"): "S1"}
+    second_text = html_text(second)
+    assert KIT["name"] in second_text
+    assert re.findall(r"\bSetup (S\d+)\b", second_text) == ["S1"]
 
 
 def test_the_receipt_check_table_stops_on_an_unresolved_gauge():

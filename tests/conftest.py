@@ -32,14 +32,12 @@ def pytest_sessionstart(session):
                 _sections([(0, "<p>Prechips print preflight.</p>")]),
                 encoding="utf-8",
             )
-            declared_pages = review.print_traveler_pdf(
-                source, pdf, chrome=chrome, timeout_s=30
-            )
+            declared_pages = review.print_traveler_pdf(source, pdf, chrome=chrome, timeout_s=30)
             with pdfium.PdfDocument(str(pdf)) as document:
                 if not len(document):
                     raise ValueError("Print preflight PDF has no pages")
                 if len(document) != declared_pages:
-                    raise ValueError("Print preflight PDF count disagrees with pagination")
+                    raise RuntimeError("Print preflight PDF count disagrees with pagination")
                 page = document[0]
                 try:
                     page.get_size()

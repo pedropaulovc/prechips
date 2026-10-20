@@ -43,6 +43,10 @@ Its sheets remain **PLANNED**, with initially blank inspection results.
 Sources are cited offline; generation and validation do not fetch the video,
 vendor pages or reference corpus, and downloaded media is not in the repository.
 
+The bundle [README](blondihacks-t-nuts/README.md) and
+[provenance ledger](blondihacks-t-nuts/geometry-provenance.md) own B0's source-backed
+example band-speed choice, adopted stock/blade conditions and applicability limits.
+
 Generate the report and sheets with **hobby** detail by default, or select a
 presentation explicitly:
 

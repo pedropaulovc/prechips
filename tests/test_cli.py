@@ -301,11 +301,22 @@ def test_approval_evidence_warnings_agree_with_traveler_status(verb, evidence, r
     assert ("first-article evidence" in result.stderr) is not recorded
     assert ("unresolved shop-required checks" in result.stderr) is recorded
     if verb == "traveler":
-        html = (out / "traveler.html").read_text(encoding="utf-8")
-        assert "PLANNED" in html
-        assert "CHECKED —" not in html
-        assert ("no first article is recorded" in html) is not recorded
-        assert ("a first article is recorded for this plan" in html) is recorded
+        from test_sheet_ops import Markup, content
+
+        markup = Markup((out / "traveler.html").read_text(encoding="utf-8"))
+        (banner,) = markup.find("banner")
+        assert "PLANNED — NOT APPROVED" in content(banner)
+        assert "CHECKED" not in content(banner)
+        warnings = [
+            node for node in markup.find("decision") if node["attrs"]["data-source"] == "approval"
+        ]
+        assert len(warnings) == 1
+        (warning,) = warnings
+        assert warning["attrs"]["data-status"] == "warn"
+        assert warning["attrs"]["data-decision"] == "caution"
+        assert warning["attrs"]["data-scope"] == "approval"
+        assert ("first-article evidence" in content(warning)) is not recorded
+        assert ("unresolved shop-required checks" in content(warning)) is recorded
 
 
 @pytest.mark.parametrize(

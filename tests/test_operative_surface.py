@@ -6,6 +6,7 @@ and drills from it: every Z it prints for the face is that as-cut value, and eve
 dials is on its own grid.
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -13,9 +14,9 @@ import pytest
 from test_cli import SYNTHETIC_KERNEL, traveler
 from test_envelope_m5 import measured
 from test_headroom import coordinate_bundle
-from test_sheet_ops import Markup, content
+from test_sheet_ops import Markup, content, operation_instruction
 from test_tool_change_touch import bundle as tool_change_bundle
-from test_tool_change_touch import mill_zero, op, paragraphs, zero_rows
+from test_tool_change_touch import dro_paragraphs, mill_zero, op, zero_rows
 
 from prechips.findings import Finding
 from prechips.inputs import Bundle
@@ -154,12 +155,88 @@ def zero(text, name):
     return tuple(map(float, match.groups()))
 
 
-def endpoint_cell(html, entry):
-    """The operation's target field, not its containing full-width ledger cell."""
+def compact_datum(html, setup_id, name):
+    """Read the operative surface and setting at their physical setup owner."""
     markup = Readings(html)
-    [target] = [node for node in markup.find("op-target") if f"Z {entry:.3f} → " in content(node)]
-    [cell] = [node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is target]
-    return content(cell)
+    values = {"surface": set(), "setting": set()}
+    patterns = {
+        "surface": rf"\b{re.escape(name)}; Z(-?\d+(?:\.\d+)?)(?![\d.])",
+        "setting": r"\bAxis Set Z\s*(-?\d+(?:\.\d+)?)(?![\d.])",
+    }
+    for node in markup.nodes:
+        if node["tag"] not in {"p", "span", "tr"}:
+            continue
+        owner = node
+        while owner is not None:
+            attrs = owner["attrs"]
+            members = json.loads(attrs.get("data-setup-members", "[]"))
+            if attrs.get("data-setup-id") or members:
+                if attrs.get("data-setup-id") == setup_id or setup_id in members:
+                    for field, pattern in patterns.items():
+                        values[field].update(map(float, re.findall(pattern, content(node))))
+                break
+            owner = owner["parent"]
+    (surface,) = values["surface"]
+    (setting,) = values["setting"]
+    return surface, setting
+
+
+def evaluated_zero(report, setup_id):
+    """Retain all checked zero arithmetic even when compact output omits its table."""
+    (finding,) = [
+        row
+        for row in report["findings"]
+        if (row["rule"], row["subject"]) == ("zero_check", setup_id)
+    ]
+    row = finding["numbers"]["axes"]["z"]
+    assert row["axis_set_status"] == "computed"
+    assert row["sign"] == 1
+    setting, jog = row["axis_set"], row["jog_mm"]
+    assert setting == pytest.approx(row["edge_mm"] + row["paper_mm"])
+    assert (row["check_reading"], row["mirrored_reading"]) == pytest.approx(
+        (setting + jog, setting - jog)
+    )
+    return row
+
+
+def first_zero_example(html, setup_id, row, surface):
+    markup = Readings(html)
+    (guide,) = [
+        node
+        for node in markup.nodes
+        if node["attrs"].get("id") == "dro-first-use"
+        and node["attrs"].get("data-setup-id") == setup_id
+    ]
+    match = re.search(
+        r"From Z (-?\d+(?:\.\d+)?), jog \+Z (\d+(?:\.\d+)?) mm: "
+        r"expect (-?\d+(?:\.\d+)?); (-?\d+(?:\.\d+)?) = reversed",
+        content(guide),
+    )
+    assert match is not None
+    setting, jog = surface + row["paper_mm"], row["jog_mm"]
+    assert tuple(map(float, match.groups())) == pytest.approx(
+        (setting, jog, setting + jog, setting - jog)
+    )
+
+
+def endpoint_cell(html, entry, setup_id="S2"):
+    """Read the physical operation's endpoint, independent of ledger/route layout."""
+    markup = Readings(html)
+    owner = operation_instruction(markup, setup_id, 10)
+    targets = markup.find("op-target", within=owner)
+    if targets:
+        (target,) = targets
+        (cell,) = [
+            node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is target
+        ]
+        text = content(cell)
+    else:
+        (instruction,) = markup.find("route-operation", within=owner)
+        # The compact operation owner also carries its causal STOP decisions.
+        text = content(owner)
+    (shown_entry,) = re.findall(r"\bZ (-?\d+(?:\.\d+)?) → ", text)
+    assert float(shown_entry) == entry
+    return text
 
 
 @pytest.mark.parametrize("coarse,checked", [(False, -2.275), (True, -2.27)])
@@ -175,17 +252,19 @@ def test_later_setup_prints_the_checked_as_cut_face(tmp_path, coarse, checked):
     # The face is cut where the DRO stops: rounded up, never deeper, off the authored Z.
     assert (cut["to_z"], face_z) == (NOMINAL, checked)
     text = printed(html)
-    assert [float(z) for z in re.findall(r"top at Z (-?\d+\.\d+)", text)] == [0.0, face_z]
-    surface, paper, axis_set, jog, must, mirrored = zero(text, "target")
+    surface, setting = compact_datum(html, "S2", "target")
     assert surface == face_z
-    assert (axis_set, must, mirrored) == pytest.approx(
-        (face_z + paper, face_z + paper + jog, face_z + paper - jog)
-    )
+    row = evaluated_zero(report, "S2")
+    assert row["paper_mm"] == 0.05
+    assert setting == pytest.approx(face_z + row["paper_mm"])
+    first = evaluated_zero(report, "S1")
+    assert first["axis_set"] == first["paper_mm"]
+    first_zero_example(html, "S1", first, 0.0)
     endpoint_text = endpoint_cell(html, face_z)
     entry, tip, exit_face = map(
         float,
         re.search(
-            r"Z (-?\d+\.\d+) → (-?\d+\.\d+)\nbreaks through at (-?\d+\.\d+)",
+            r"Z (-?\d+(?:\.\d+)?) → (-?\d+(?:\.\d+)?)[;\s]+breaks through at (-?\d+(?:\.\d+)?)",
             endpoint_text,
         ).groups(),
     )
@@ -224,10 +303,12 @@ def test_top_zero_after_an_op_is_the_top_that_op_left(tmp_path):
     operations = ZERO.format("top", "after_op = 10\n") + face(10, NOMINAL) + face(20, -3.0)
     path = bundle(tmp_path, FEATURES.split("[features.hole]")[0], operations)
     _, report, html = traveler(path, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    surface, paper, axis_set, jog, must, mirrored = zero(printed(html), "top")
-    assert (surface, axis_set, must, mirrored) == pytest.approx(
-        (-2.275, -2.275 + paper, -2.275 + paper + jog, -2.275 + paper - jog)
-    )
+    surface, setting = compact_datum(html, "S1", "top")
+    assert surface == -2.275
+    row = evaluated_zero(report, "S1")
+    assert row["paper_mm"] == 0.05
+    assert setting == pytest.approx(surface + row["paper_mm"])
+    first_zero_example(html, "S1", row, surface)
 
 
 @pytest.fixture
@@ -320,7 +401,8 @@ def test_fresh_paper_top_keeps_bound_evaluated_zero_without_lineage_debt(
             (0.0, 0.0508, 0.0508, 6.35, 6.4008, -6.2992)
         )
     else:
-        assert "Z0.0000" in printed(html)
+        (surface,) = re.findall(r"\btop; Z(-?\d+(?:\.\d+)?)(?![\d.])", printed(html))
+        assert float(surface) == 0.0
         assert "Z?" not in printed(html)
     assert numbers["axes"]["z"]["axis_set"] == 0.0508
 
@@ -367,9 +449,15 @@ def test_fresh_paper_top_retouch_keeps_bound_evaluated_setting(fresh_paper_top_p
 
     html = sheet.dro(setup, tools)
 
-    (line,) = [line for line in paragraphs(html) if line.startswith("After op 10")]
+    (line,) = [line for line in dro_paragraphs(html) if line.startswith("After op 10")]
     assert "install T2 drill for op 20" in line
-    assert "touch the top (Z 0.0000) with 0.0508 paper → Axis Set Z 0.0508" in line
+    match = re.search(
+        r"touch the top \(Z (-?\d+(?:\.\d+)?)\) with "
+        r"(\d+(?:\.\d+)?) paper → Axis Set Z (-?\d+(?:\.\d+)?)",
+        line,
+    )
+    assert match is not None
+    assert tuple(map(float, match.groups())) == (0.0, 0.0508, 0.0508)
     assert sheet.producer_decisions.get("S1", []) == []
 
 
@@ -414,7 +502,7 @@ def test_fresh_paper_top_retouch_does_not_borrow_missing_or_misbound_setting(
 
     html = sheet.dro(setup, tools)
 
-    (line,) = [line for line in paragraphs(html) if line.startswith("After op")]
+    (line,) = [line for line in dro_paragraphs(html) if line.startswith("After op")]
     assert "Axis Set Z ?" in line
     assert "Axis Set Z 0.0508" not in line
 
@@ -449,7 +537,11 @@ def test_manual_tap_prints_checked_hand_depth_not_null_spindle_dro(
 
     parts = sheet.tip(setup, operation)
 
-    assert parts == ["hand depth 26.0350 from touching the top"]
+    (line,) = parts
+    wording = "from touching the top" if detail == "pedantic" else "below top"
+    match = re.fullmatch(rf"hand depth (\d+(?:\.\d+)?) {wording}", line)
+    assert match is not None
+    assert float(match[1]) == 26.035
     assert all(not hasattr(part, "source") for part in parts)
     assert all(endpoint[key] is None for key in ("dro_entry_z", "dro_tip_z", "dro_depth_mm"))
     assert sheet.producer_decisions.get("D1", []) == []
@@ -489,11 +581,12 @@ def test_pickup_follows_the_stock_it_received(tmp_path, detour):
     S1's checked face on S1's 0.010 grid, whatever S2 checked."""
     path = plan(tmp_path, coarse=True, detour=detour)
     _, report, html = traveler(path, tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    text = printed(html)
-    arrivals = re.findall(r"arrives from Setup (\S+) — top at Z (-?\d+\.\d+)", text)
-    assert arrivals == [("S1", "-2.270"), ("S1", "-2.270")]
-    zeros = re.findall(r"\|target; [^|]*surface at ([^;|]+);", text)
-    assert [float(z) for z in zeros] == [-2.27, -2.27]
+    for sid in ("S2", "S3"):
+        surface, setting = compact_datum(html, sid, "target")
+        assert surface == -2.27
+        row = evaluated_zero(report, sid)
+        assert row["paper_mm"] == 0.05
+        assert setting == pytest.approx(surface + row["paper_mm"])
     endpoints = {
         row["setup"]: row
         for finding in report["findings"]
@@ -581,12 +674,18 @@ def turned_from(tmp_path, cut, shaft_xy):
     lathe = bundle.plan["setups"][1]
     sheet.setup = lathe
     (row,) = sheet.tip(lathe, lathe["ops"][0])
-    start = re.fullmatch(r"Z (-?\d+\.\d+) → -10\.000", row)[1]
+    match = re.fullmatch(r"Z (-?\d+(?:\.\d+)?) → (-?\d+(?:\.\d+)?)", row)
+    assert match is not None
+    start, end = map(float, match.groups())
+    assert end == -10.0
     # The lathe map prints the drawing Ø limits (here none) apart from the turn-to Ø.
     mapped = re.search(
-        r"\|shaft\|+[^|]*\|+Ø6(?:\.0+)?\|+(-?\d+\.\d+)\|+-10\.000\|",
+        r"\|shaft\|+[^|]*\|+Ø6(?:\.0+)?\|+(-?\d+(?:\.\d+)?)\|+(-?\d+(?:\.\d+)?)\|",
         printed(sheet.feature_map(lathe)),
-    )[1]
+    )
+    assert mapped is not None
+    assert float(mapped[2]) == -10.0
+    mapped = float(mapped[1])
     return start, mapped
 
 
@@ -605,7 +704,7 @@ def test_turned_start_links_only_a_cut_that_covers_it(tmp_path, cut, shaft_xy, p
     X/Y footprint; a disjoint pocket at the same nominal Z, or a shaft with no footprint
     to prove it, starts on the nominal as L2's 0.005 DRO shows it. Its op row and the
     feature map print the same value."""
-    assert turned_from(tmp_path, cut, shaft_xy) == (printed, printed)
+    assert turned_from(tmp_path, cut, shaft_xy) == (float(printed), float(printed))
 
 
 @pytest.mark.parametrize("exit_mm,stopped", [(0.0, True), (STEP, False)])
@@ -642,5 +741,6 @@ def test_rounded_up_depth_outside_its_depth_band_is_a_stop(tmp_path, do, drilled
     shown = endpoint["dro_depth_mm"]
     assert drilled - STEP < shown < drilled
     cell = endpoint_cell(html, -2.275)
-    assert f"depth {shown:.3f}" in cell
+    (printed_depth,) = re.findall(r"\bdepth (-?\d+(?:\.\d+)?)(?![\d.])", cell)
+    assert float(printed_depth) == shown
     assert ("STOP" in cell) is stopped

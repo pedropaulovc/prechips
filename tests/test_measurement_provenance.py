@@ -156,13 +156,17 @@ def test_traveler_prints_make_targets_without_promoting_as_made_fixture_certaint
         return traveler, FixturePage("".join(printed), printed)
 
     # Authored drawing targets are usable settings, not proof of the installed/as-made part;
-    # the record alone, with no decision consuming it, stops nothing and records nothing.
+    # the record alone creates no measurement decision. This fixture-only bundle still
+    # owes unrelated mill prerequisites; they must not be waived by the provenance test.
     traveler, page = render([])
     assert "Make-to-drawing expected dimensions and positions" in page.text
     assert "X 0…10, Y 0…20, Z 0…5" in page.text
     assert ("pad †" in page.text) is not expected_trust
-    assert "STOP — do not run this setup" not in page.text
-    assert traveler.setup_stops["S1"] == 0
+    baseline_stops = traveler.setup_stops["S1"]
+    assert not any(
+        decision.source in {"measurement", "fixture_interference"}
+        for decision in traveler.setup_decisions["S1"]
+    )
     assert not traveler.measurement_registry()
     assert traveler.job_measurement_box() == ""
     assert "Record measured value here [____]" not in page.text
@@ -181,9 +185,13 @@ def test_traveler_prints_make_targets_without_promoting_as_made_fixture_certaint
         assert "Make-to-drawing expected dimensions and positions" in page.text
         assert "X 0…10, Y 0…20, Z 0…5" in page.text
         assert "pad †" in page.text
-        assert "STOP — do not run this setup" in page.text
-        assert traveler.setup_stops["S1"] > 0
-        assert "return this traveler for reissue" in page.text
+        assert traveler.setup_stops["S1"] > baseline_stops
+        assert any(
+            decision.source == "fixture_interference"
+            and decision.status == "unknown"
+            and decision.kind == "block"
+            for decision in traveler.setup_decisions["S1"]
+        )
         assert "Record measured value here [____]" not in page.text
         register = FixturePage(traveler.job_measurement_box())
         assert "Record the measured values here" in register.text

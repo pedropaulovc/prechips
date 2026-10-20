@@ -36,8 +36,8 @@ PLAIN_ANCHORS = {
 def test_worked_inventory_comment_provenance_scan_has_schema_and_plain_anchors():
     source = INVENTORY.read_text(encoding="utf-8")
     fields = list(VALIDATOR["inventory_provenance_fields"](source))
-    supported = {path for path, _, _, _, capable in fields if capable}
-    plain = {path for path, _, _, _, capable in fields if not capable}
+    supported = {path for path, _, _, _, kind in fields if kind in {"measured", "cited"}}
+    plain = {path for path, _, _, _, kind in fields if kind == "plain"}
     assert RECORD_ANCHORS <= supported, RECORD_ANCHORS - supported
     assert PLAIN_ANCHORS <= plain, PLAIN_ANCHORS - plain
     assert VALIDATOR["check_inventory_provenance"](source, str(INVENTORY)) == {
@@ -65,7 +65,7 @@ def test_worked_inventory_comment_provenance_scan_has_schema_and_plain_anchors()
 )
 def test_schema_capable_bare_fact_beside_provenance_is_rejected(source):
     fields = list(VALIDATOR["inventory_provenance_fields"](source))
-    assert len(fields) == 1 and fields[0][-1] is True
+    assert len(fields) == 1 and fields[0][-1] == "measured"
     with pytest.raises(ValueError, match="fact-local measured record"):
         VALIDATOR["check_inventory_provenance"](source)
 
@@ -88,7 +88,7 @@ def test_plain_example_nominal_requires_exact_disclosure_not_item_demotion(
 ):
     source = f"[gauges.example-item]\n{field} = {value} # illustrative example\n{verification}"
     fields = list(VALIDATOR["inventory_provenance_fields"](source))
-    assert len(fields) == 1 and fields[0][-1] is False
+    assert len(fields) == 1 and fields[0][-1] == "plain"
     with pytest.raises(ValueError, match="exact source disclosure marker"):
         VALIDATOR["check_inventory_provenance"](source)
     result = VALIDATOR["check_inventory_provenance"](
@@ -133,6 +133,122 @@ resolution_mm = "unknown" # illustrative example lacks a value
     }
 
 
+@pytest.mark.parametrize(
+    ("source", "path"),
+    [
+        (
+            "[holders.synthetic-arbor]\n"
+            'note = "illustrative example tooling"\n'
+            "[holders.synthetic-arbor.mounted_saw_arbor]\n"
+            "bore_clearance_max_mm = "
+            '{ value = 0.030, cite = "Author-selected engineering clearance limit", '
+            "verify = false }\n",
+            ("holders", "synthetic-arbor", "mounted_saw_arbor", "bore_clearance_max_mm"),
+        ),
+        (
+            "[tools.synthetic-end-mill]\n"
+            'note = "illustrative example tooling"\n'
+            'helix_deg = { value = 30, cite = "Author-selected engineering choice" }\n',
+            ("tools", "synthetic-end-mill", "helix_deg"),
+        ),
+    ],
+)
+def test_schema_cited_records_accept_fact_local_engineering_citations(source, path):
+    fields = list(VALIDATOR["inventory_provenance_fields"](source))
+    assert len(fields) == 1 and fields[0][0] == path
+    assert fields[0][-1] == "cited"
+    assert "measured" not in fields[0][3]
+    assert VALIDATOR["check_inventory_provenance"](source) == {
+        "record_fields": {path},
+        "plain_fields": set(),
+    }
+
+
+def test_cited_record_accepts_fact_local_demo_measurement_without_citation():
+    measurement = {"status": "measured", **VALIDATOR["EXAMPLE_MEASUREMENT"]}
+    metadata = ", ".join(f'{key} = "{value}"' for key, value in measurement.items())
+    source = (
+        "[holders.synthetic-arbor]\n"
+        'note = "illustrative example tooling"\n'
+        "[holders.synthetic-arbor.mounted_saw_arbor]\n"
+        f"bore_clearance_max_mm = {{ value = 0.030, measured = {{ {metadata} }} }}\n"
+    )
+    path = ("holders", "synthetic-arbor", "mounted_saw_arbor", "bore_clearance_max_mm")
+    fields = list(VALIDATOR["inventory_provenance_fields"](source))
+    assert len(fields) == 1 and fields[0][0] == path
+    assert fields[0][-1] == "cited"
+    assert fields[0][3] == {"value": 0.030, "measured": measurement}
+    assert VALIDATOR["check_inventory_provenance"](source) == {
+        "record_fields": {path},
+        "plain_fields": set(),
+    }
+
+
+@pytest.mark.parametrize(
+    "citation", [None, '""', '"   "', '"unknown"', "[]", '["", "unknown", "   "]']
+)
+@pytest.mark.parametrize("measurement", [None, '"unknown"'])
+def test_cited_record_requires_usable_fact_local_citation_or_measurement(citation, measurement):
+    evidence = "" if citation is None else f", cite = {citation}"
+    evidence += "" if measurement is None else f", measured = {measurement}"
+    source = (
+        "[holders.synthetic-arbor]\n"
+        'note = "illustrative example tooling"\n'
+        'cite = "Parent catalogue citation is not this fact-local allowance"\n'
+        "[holders.synthetic-arbor.mounted_saw_arbor]\n"
+        f"# source: {VALIDATOR['EXAMPLE_MEASUREMENT']['by']}; basis: synthetic allowance\n"
+        f"bore_clearance_max_mm = {{ value = 0.030{evidence} }}\n"
+    )
+    fields = list(VALIDATOR["inventory_provenance_fields"](source))
+    assert len(fields) == 1 and fields[0][-1] == "cited"
+    with pytest.raises(ValueError, match="fact-local citation or measured record"):
+        VALIDATOR["check_inventory_provenance"](source)
+
+
+def test_citation_cannot_resolve_an_explicitly_unknown_measurement():
+    source = (
+        "[holders.synthetic-arbor]\n"
+        'note = "illustrative example tooling"\n'
+        "[holders.synthetic-arbor.mounted_saw_arbor]\n"
+        "bore_clearance_max_mm = { value = 0.030, "
+        'cite = "Author-selected engineering clearance limit", measured = "unknown" }\n'
+    )
+    fields = list(VALIDATOR["inventory_provenance_fields"](source))
+    assert len(fields) == 1 and fields[0][-1] == "cited"
+    with pytest.raises(ValueError, match="fact-local citation or measured record"):
+        VALIDATOR["check_inventory_provenance"](source)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("shank_mm", "1.85"), ("bore_dia_limits_mm", "[1.8, 1.9]")],
+)
+def test_physical_records_cannot_use_citations_instead_of_measurements(field, value):
+    source = (
+        "[tools.synthetic-drill]\n"
+        'note = "illustrative example tooling"\n'
+        f'{field} = {{ value = {value}, cite = "Some nominal drawing" }}\n'
+    )
+    fields = list(VALIDATOR["inventory_provenance_fields"](source))
+    assert len(fields) == 1 and fields[0][-1] == "measured"
+    with pytest.raises(ValueError, match="fact-local measured record"):
+        VALIDATOR["check_inventory_provenance"](source)
+
+
+def test_optional_cited_unknowns_are_not_relabelled():
+    source = (
+        "[holders.synthetic-arbor]\n"
+        'note = "illustrative example tooling"\n'
+        "[holders.synthetic-arbor.mounted_saw_arbor]\n"
+        'bore_clearance_max_mm = "unknown" # illustrative example lacks a value\n'
+    )
+    assert list(VALIDATOR["inventory_provenance_fields"](source)) == []
+    assert VALIDATOR["check_inventory_provenance"](source) == {
+        "record_fields": set(),
+        "plain_fields": set(),
+    }
+
+
 @pytest.fixture(scope="module")
 def worked_example_data():
     inventory = tomllib.loads(INVENTORY.read_text(encoding="utf-8"))
@@ -143,7 +259,9 @@ def worked_example_data():
 
 def test_bare_capability_disclosures_preserve_the_existing_nominal_contract():
     source = INVENTORY.read_text(encoding="utf-8")
-    plain = [field for field in VALIDATOR["inventory_provenance_fields"](source) if not field[-1]]
+    plain = [
+        field for field in VALIDATOR["inventory_provenance_fields"](source) if field[-1] == "plain"
+    ]
     assert len(plain) == 34
     assert len({path[:2] for path, _, _, _, _ in plain}) == 30
     assert PLAIN_ANCHORS <= {path for path, _, _, _, _ in plain}

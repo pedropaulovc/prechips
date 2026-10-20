@@ -369,7 +369,6 @@ class _PrintedPagination(HTMLParser):
         return int(count)
 
 
-
 # ---------------------------------------------------------------------------
 # Printing and rasterizing
 
@@ -537,8 +536,7 @@ def prepare_package(
         pages = rasterize_pdf(pdf, report_dir / "pages", require_letter=True)
         if len(pages) != declared_pages:
             raise RuntimeError(
-                f"{pdf} printed {len(pages)} pages; continuous pagination declared "
-                f"{declared_pages}"
+                f"{pdf} printed {len(pages)} pages; continuous pagination declared {declared_pages}"
             )
         provenance.update(
             traveler_html=str(html),

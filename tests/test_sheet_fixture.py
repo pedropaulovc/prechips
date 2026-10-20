@@ -186,7 +186,7 @@ def sheets(data):
     traveler = _Traveler(data, [], {}, None)
     pages = []
     for setup in data.plan["setups"]:
-        printed = ["".join(blocks) for blocks in traveler.setup_section(setup)]
+        printed = [traveler.family_html([setup], {setup["id"]: traveler.setup_blocks(setup)})]
         pages.append(FixturePage("".join(printed), printed))
     return pages
 
@@ -241,7 +241,8 @@ def test_later_setup_points_back_to_the_first_table_at_the_same_pose():
         )
     ]
     headings = [content(node) for node in descendants(owner.markup, "h2")]
-    assert any(heading.startswith("SETUP S1 —") for heading in headings)
+    (setup_owner,) = descendants(owner.markup, "section")
+    assert setup_owner["attrs"]["data-setup-id"] == "S1"
     (title,) = [heading for heading in headings if heading.startswith("SHOP-MADE FIXTURE —")]
     item = title.split(" — ", 1)[1]
     assert "X 80…100, Y 50…60, Z -20…-15" in owner.fixture().position("pad")
@@ -1302,17 +1303,15 @@ def test_jaw_buttons_get_a_make_table_and_the_hold_points_to_it():
             for node in descendants(Markup(html), "h2")
         )
     ]
-    (setup_title,) = [
-        content(node) for node in descendants(owner, "h2") if content(node).startswith("SETUP ")
-    ]
+    (setup_owner,) = descendants(owner, "section")
+    assert setup_owner["attrs"]["data-setup-id"] == "S1"
     (fixture_title,) = [
         content(node)
         for node in descendants(owner, "h2")
         if content(node).startswith("SHOP-MADE FIXTURE —")
     ]
-    setup = re.match(r"SETUP (\S+) —", setup_title).group(1)
     assert fixture_title.split(" — ", 1)[1] in step
-    assert "SHOP-MADE FIXTURE table" in step and f"Setup {setup}" in step
+    assert "SHOP-MADE FIXTURE table" in step and "Setup S1" in step
     assert "Ø20 × 6" in table.text and "loose: placed as the HOLD says" in table.text
 
 
@@ -1651,11 +1650,13 @@ def test_make_operations_print_once_at_the_first_use(holds, tabled):
     assert MAKE_OP["cite"] in line and "STOP" not in line
     assert not make_lines(second) and "Make before Setup S2" not in second.text
     assert make_statuses(data) == ["pass"]
-    # A later make table and the operations before it each name the other's sheet.
+    # References name the physical setup, not a pre-pagination sheet number.
     if 2 in tabled:
-        assert "Setup S1 sheet 2" in second.text
+        reference = re.search(r"\bMake operations:\s+Setup (S\d+)\b", second.text)
+        assert reference and reference[1] == "S1"
     if 1 not in tabled:
-        assert "Setup S2 sheet 2" in first.text
+        reference = re.search(r"\bSizes and positions:[^\n]*\bSetup (S\d+)\b", first.text)
+        assert reference and reference[1] == "S2"
 
 
 @pytest.mark.parametrize(
