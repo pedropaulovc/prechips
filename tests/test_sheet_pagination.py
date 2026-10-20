@@ -1420,3 +1420,177 @@ def test_five_checkpoint_results_keep_order_and_full_size_counted_rows(
     assert len(pages) > 1
     text = " ".join(pages)
     assert all(f"checkpoint-nut-{index}" in text for index in range(5))
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("word_count,counter_size", [(20, 16), (4200, 22)])
+def test_first_page_and_continuations_share_actual_total_after_reflow(
+    tmp_path, printed_sheet, detail, word_count, counter_size
+):
+    source = (
+        '<p class="job-identity"><strong>Original compact identity</strong>'
+        f'<span class="cont-count first-page-count" style="font-size:{counter_size}px;'
+        'line-height:1.2"> · page 1 of <span class="cont-page-total"></span></span></p>'
+        + _setup(
+            SETUP_ONE,
+            "S1",
+            "nut1",
+            f"<p>{_words('ReflowSource', word_count)}</p>",
+        )
+    )
+    _, details = printed_sheet(
+        source,
+        r"""pageOf => {
+          const section = document.querySelector('section.page');
+          const cap = Number(document.documentElement.dataset.pageCapacity);
+          const starts = [section, ...section.querySelectorAll('.cont-head')]
+            .map(node => node.getBoundingClientRect().top);
+          const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
+          const range = document.createRange(), escaped = [];
+          let node;
+          while ((node = walker.nextNode())) {
+            if (!node.textContent.trim() || node.parentElement.closest(
+              '[data-job-print],.record-continuation')) continue;
+            range.selectNodeContents(node);
+            for (const rect of range.getClientRects()) {
+              const page = starts.findLastIndex(top => top <= rect.top + .1);
+              if (page < 0 || rect.bottom > starts[page]+cap+.1) {
+                escaped.push(node.textContent);
+              }
+            }
+          }
+          return {pages:Number(section.dataset.pages),
+            boundaries:starts.length, escaped,
+            firstCounts:section.querySelectorAll('.first-page-count').length,
+            counts:[...section.querySelectorAll('.cont-count')].map(count => {
+              const total = count.querySelector('.cont-page-total'), value = total.textContent;
+              const owner = count.closest('.job-identity,.cont-head'), page = pageOf(count);
+              const geometry = () => ({width:total.getBoundingClientRect().width,
+                height:owner.getBoundingClientRect().height});
+              const filled = geometry();
+              total.textContent = '';
+              const empty = geometry();
+              total.textContent = value;
+              const restored = geometry(), range = document.createRange();
+              range.selectNodeContents(total);
+              const ink = range.getBoundingClientRect(), box = total.getBoundingClientRect();
+              return {text:count.textContent, page, filled, empty, restored,
+                fontSize:getComputedStyle(total).fontSize,
+                contained:ink.left >= box.left-.01 && ink.right <= box.right+.01
+                  && ink.top >= box.top-.01 && ink.bottom <= box.bottom+.01
+                  && ink.top >= starts[page]-.1 && ink.bottom <= starts[page]+cap+.1};
+            })};
+        }""",
+        prepare=f"() => {{ document.body.dataset.detail = {json.dumps(detail)}; }}",
+    )
+    assert details["firstCounts"] == 1
+    assert not details["escaped"]
+    assert details["boundaries"] == details["pages"] == len(details["counts"])
+    assert details["counts"][0]["fontSize"] == f"{counter_size}px"
+    for index, counter in enumerate(details["counts"], 1):
+        match = re.search(r"\bpage\s+(\d+)\s+of\s+(\d+)\b", counter["text"])
+        assert match and tuple(map(int, match.groups())) == (index, details["pages"])
+        assert counter["page"] == index - 1 and counter["contained"]
+        assert counter["filled"] == counter["empty"] == counter["restored"]
+        assert counter["filled"]["width"] > 0
+    pages = printed_pages(_job(source, detail=detail), tmp_path)
+    if word_count == 20:
+        assert len(pages) == 1
+    else:
+        assert len(pages) >= 10
+    for index, page in enumerate(pages, 1):
+        match = LABEL.search(page)
+        assert match and tuple(map(int, match.groups())) == (index, len(pages))
+    assert (
+        re.findall(r"ReflowSource\d{4}", " ".join(pages))
+        == _words("ReflowSource", word_count).split()
+    )
+
+
+@pytest.mark.parametrize("placement", ["duplicate", "later-page", "outside-identity"])
+def test_malformed_first_page_count_prints_visible_refusal(tmp_path, printed_sheet, placement):
+    count = (
+        '<span class="cont-count first-page-count"> · page 1 of '
+        '<span class="cont-page-total"></span></span>'
+    )
+    identity = '<p class="job-identity">Original compact identity' + count + "</p>"
+    if placement == "duplicate":
+        source = identity + identity
+    elif placement == "later-page":
+        prelude = f"<p>{_words('EarlierSource', 700)}</p>"
+        source = prelude + identity
+        control = prelude + '<p class="job-identity">ControlLaterIdentity</p>'
+        _, placement_details = printed_sheet(
+            control,
+            """pageOf => ({
+              identityPage:pageOf(document.querySelector('.job-identity')),
+              boundaries:document.querySelectorAll('.cont-head').length
+            })""",
+            prepare="() => { document.body.dataset.detail = 'pro'; }",
+        )
+        assert placement_details["boundaries"] > 0
+        assert placement_details["identityPage"] > 0
+        control_pages = printed_pages(_job(control, detail="pro"), tmp_path)
+        assert len(control_pages) > 1
+        assert "ControlLaterIdentity" not in control_pages[0]
+        assert sum("ControlLaterIdentity" in page for page in control_pages[1:]) == 1
+    else:
+        source = "<p>Not an identity" + count + "</p>"
+    error = "A first-page count must be a single original identity on page 1."
+    printed_sheet(
+        source,
+        "() => ({})",
+        prepare="() => { document.body.dataset.detail = 'pro'; }",
+        expected_error=error,
+    )
+    pages = printed_pages(_job(source, detail="pro"), tmp_path, expect_pagination_error=True)
+    text = " ".join(" ".join(pages).split())
+    assert "PRINT LAYOUT ERROR" in text and error in text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_first_page_total_is_reserved_before_boundary_fitting(tmp_path, detail):
+    source = (
+        '<p class="job-identity"><strong style="display:inline-block">Boundary identity</strong>'
+        '<span class="cont-count first-page-count"> · page 1 of '
+        '<span class="cont-page-total"></span></span></p>'
+        '<div class="boundary-fill" style="height:0">Original boundary prelude.</div>'
+        '<div class="decision stop boundary-tail"><p>'
+        "BoundaryTailMustStayWhole: STOP before cutting.</p></div>"
+    )
+    prepare = r"""() => {
+      const section = document.querySelector('section.page'),
+        identity = section.querySelector('.job-identity'),
+        title = identity.querySelector('strong'),
+        count = identity.querySelector('.first-page-count'),
+        filler = section.querySelector('.boundary-fill'),
+        tail = section.querySelector('.boundary-tail');
+      document.documentElement.classList.add('print-measuring');
+      document.body.style.cssText =
+        'max-width:none;width:var(--page-content-width);margin:0;padding:0';
+      const measure = document.createElement('div');
+      measure.style.cssText = 'position:absolute;width:var(--page-content-width);'
+        + 'height:var(--page-content-height)';
+      document.body.append(measure);
+      const capacity = measure.getBoundingClientRect().height
+        - parseFloat(getComputedStyle(document.documentElement)
+          .getPropertyValue('--page-rounding'));
+      measure.remove();
+      // With an empty total the complete count fits on the identity's first line.
+      // Reserving even one digit forces a measured extra line before source fit.
+      title.style.width = (identity.getBoundingClientRect().width
+        - count.getBoundingClientRect().width - 1) + 'px';
+      filler.style.height = (capacity - .25
+        - (tail.getBoundingClientRect().bottom - section.getBoundingClientRect().top)
+        - parseFloat(getComputedStyle(tail).marginBottom)) + 'px';
+    }"""
+    html = _job(source, detail=detail).replace(
+        "</body>", f"<script>addEventListener('DOMContentLoaded', {prepare});</script></body>"
+    )
+    pages = printed_pages(html, tmp_path)
+    assert len(pages) == 2
+    assert "BoundaryTailMustStayWhole" not in pages[0]
+    assert "BoundaryTailMustStayWhole" in pages[1]
+    for index, page in enumerate(pages, 1):
+        match = LABEL.search(page)
+        assert match and tuple(map(int, match.groups())) == (index, len(pages))

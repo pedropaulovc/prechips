@@ -321,10 +321,18 @@ def measurement_entry(category, identity, field, *, status=None, item=None, subj
         description = "spindle rotation direction in the declared viewing convention"
         instrument, units = "safe direction observation", "cw/ccw"
     elif field == "gauge_len":
-        description = "spindle nose to mounted holder exit face"
+        description = (
+            "arbor gauge plane to spindle nose, positive toward the spindle"
+            if isinstance(item.get("mounted_saw_arbor"), dict)
+            else "spindle nose to mounted holder exit face"
+        )
         instrument = "steel rule or height gauge"
     elif field.startswith("projection."):
-        description = "holder face to mounted tool tip"
+        description = (
+            "mounted blade body midplane to holder gauge plane, positive toward the spindle"
+            if kind == "slitting_saw"
+            else "holder face to mounted tool tip"
+        )
     elif field == "bed_height":
         description = (
             "table to vise bed supporting the parallels or part"

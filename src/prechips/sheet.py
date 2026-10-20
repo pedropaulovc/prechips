@@ -1959,6 +1959,7 @@ class _Traveler:
         self._route_hold_steps = {}
         self._route_hold_facts = {}
         self._route_cycles = {}
+        self._route_picture_setups = set()
         self._route_contours = {}
         self._route_facing_paths = {}
         self._route_datum_axes = {}
@@ -3246,7 +3247,11 @@ class _Traveler:
             dimension(
                 ("projection", pair),
                 "projection ",
-                " from holder face",
+                (
+                    " (blade body midplane → holder gauge plane)"
+                    if item.get("kind") == "slitting_saw"
+                    else " from holder face"
+                ),
                 require_measured=True,
             )
         return detail
@@ -3393,10 +3398,7 @@ class _Traveler:
                 for setup in self.plan.get("setups", [])
                 for op in setup.get("ops", [])
             ):
-                return (
-                    "Hand-tap movement is not checked: "
-                    "the hole's inside surface is not identified in the model."
-                )
+                return "Hand-tap movement is not checked."
         if "point away from the setup approach" in message:
             return "faces to cut point away from the tool; they cannot be cut in this setup"
         if rule == "fixture_interference":
@@ -3558,7 +3560,35 @@ class _Traveler:
         lines, mounts = [], {}
         for setups, fields in self.common_mounts.values():
             first = setups[0]
-            name = self.reference(_mapping(first.get("hold")).get("fixture"), "workholding")
+            reference = _mapping(first.get("hold")).get("fixture")
+            name = self.reference(reference, "workholding")
+            fixture = _mapping(resolve(self.bundle, "workholding", reference))
+            if (
+                fixture.get("kind") == "vise"
+                and any(
+                    _mapping(setup.get("hold")).get("parallels")
+                    not in (None, "none", "not_applicable")
+                    for setup in setups
+                )
+                and any(field in fixture for field in ("jaw_height_mm", "jaw_height_in"))
+            ):
+                fact = length_fact(fixture, "jaw_height", require_measured=False)
+                selected = self.holding_identity(first, reference)
+                consumed = next(
+                    (
+                        entry
+                        for _, entry in self.measurement_registry().values()
+                        if (entry["category"], entry["identity"]) == selected
+                        and entry["field"] == ["jaw_height"]
+                    ),
+                    None,
+                )
+                height = f"jaw height {_number(fact['value'])} mm"
+                if not fact["verified"] or consumed:
+                    height += " " + (
+                        self.measurement_reference(consumed) if consumed else "? not verified"
+                    )
+                name += f" ({height})"
             facts = []
             if "jaws_along" in fields:
                 facts.append("jaws " + _text(fields["jaws_along"]).upper())
@@ -11744,6 +11774,8 @@ class _Traveler:
         chosen = [panel for panel in panels if panel["selection_group"] in selected]
         if not chosen:
             return ""
+        if isinstance(requested, list):
+            self._route_picture_setups.add(sid)
         path = escape(render["path"], quote=True)
         context = f"Setup {sid}"
         revision = self.drawing_revision()
@@ -12441,7 +12473,7 @@ class _Traveler:
 
     def settings_key(self):
         """One job key for operative settings; manual tools stay at their operation."""
-        settings, coolants, hand_thread_pairs, projections = {}, {}, set(), {}
+        settings, coolants, projections = {}, {}, {}
         unit = readout_units(self.bundle)
 
         def millimetres(value):
@@ -12519,30 +12551,29 @@ class _Traveler:
                 if manual_unset and not facts:
                     continue
                 holder = op.get("holder")
-                if self.detail == "hobby":
-                    pair_key = (reference, holder)
-                    if pair_key not in projections:
-                        projections[pair_key] = tuple(
-                            str(part)
-                            for part in self.tool_detail(
-                                reference,
-                                holder,
-                                length_format=lambda value: f"{_number(value)} mm",
-                            )
-                            if str(part).startswith("projection ")
+                pair_key = (reference, holder)
+                if pair_key not in projections:
+                    projections[pair_key] = tuple(
+                        str(part)
+                        for part in self.tool_detail(
+                            reference,
+                            holder,
+                            length_format=lambda value: f"{_number(value)} mm",
                         )
-                        if (
-                            not projections[pair_key]
-                            and holder not in (None, "unknown", "not_applicable")
-                            and any(
-                                isinstance(item.get(field), dict)
-                                for field in ("projection_mm", "projection_in")
-                            )
-                        ):
-                            projections[pair_key] = (
-                                "projection ? (not recorded for the selected holder)",
-                            )
-                    facts.extend(projections[pair_key])
+                        if str(part).startswith("projection ")
+                    )
+                    if (
+                        not projections[pair_key]
+                        and holder not in (None, "unknown", "not_applicable")
+                        and any(
+                            isinstance(item.get(field), dict)
+                            for field in ("projection_mm", "projection_in")
+                        )
+                    ):
+                        projections[pair_key] = (
+                            "projection ? (not recorded for the selected holder)",
+                        )
+                facts.extend(projections[pair_key])
                 key = (
                     reference,
                     self.reference(holder, "holders")
@@ -12551,8 +12582,6 @@ class _Traveler:
                     values,
                     tuple(facts),
                 )
-                if op.get("do") in HAND_THREAD:
-                    hand_thread_pairs.add(key[:2])
                 settings.setdefault(key, []).append(f"{setup['id']}:{row[0]}")
         rows = []
         variants = {}
@@ -12565,13 +12594,7 @@ class _Traveler:
             kind = _mapping(resolve(self.bundle, "tools", reference)).get("kind")
             if kind == "endmill" and not re.search(r"\bend[\s-]?mills?\b", description, re.I):
                 description += " endmill"
-            if holder and (
-                self.detail == "hobby"
-                or (reference, holder) in hand_thread_pairs
-                or not values
-                or variants[reference] > 1
-                or kind == "slitting_saw"
-            ):
+            if holder:
                 description += f"; {holder}"
             if variants[reference] > 1:
                 description += " — " + ", ".join(owners)
@@ -12885,7 +12908,7 @@ class _Traveler:
             "route-cycle",
         )
 
-    def route_operation(self, setup, row, *, layout="block", lead_in=""):
+    def route_operation(self, setup, row, *, layout="block", lead_in="", keep_together=False):
         """Project one canonical row without duplicating its ledger and contour prose."""
         op = next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
         authored = note_text(row.authored_note, detail=self.detail)
@@ -13006,7 +13029,8 @@ class _Traveler:
         )
         tag = "span" if layout == "inline" else "p"
         content = (
-            f'<{tag} class="route-operation" data-features="{escape(json.dumps(feature_ids))}">'
+            f'<{tag} class="route-operation{" keep" if keep_together else ""}" '
+            f'data-features="{escape(json.dumps(feature_ids))}">'
             + lead_in
             + (f"<b>{escape(str(row.op_id))}.</b> " if numbered else "")
             + (
@@ -13307,8 +13331,11 @@ class _Traveler:
                         ]
                     )
                 )
-                layout = "inline" if inline else "block"
-                instruction = self.route_operation(setup, row, layout=layout)
+                keep_together = inline and op.get("do") == "deburr"
+                layout = "inline" if inline and not keep_together else "block"
+                instruction = self.route_operation(
+                    setup, row, layout=layout, keep_together=keep_together
+                )
                 comparison_instruction = instruction
                 for criterion in _inspection_criteria(row[-1]):
                     comparison_instruction = comparison_instruction.replace(
@@ -13817,6 +13844,18 @@ class _Traveler:
             f"<h2>{escape(heading)}</h2>"
         ]
         maps = [{block.key: block for block in blocks_by_setup[sid]} for sid in ids]
+        if (
+            self.detail == "hobby"
+            and len(group) == 1
+            and group[0]["id"] in self._route_picture_setups
+            and any(op.get("do") in ("rough_profile", "profile") for op in group[0].get("ops", []))
+        ):
+            result.append(
+                _p(
+                    f"Setup {ids[0]} view follows op {group[0]['ops'][-1]['op']}.",
+                    "setup-view-reference",
+                )
+            )
         facing, facing_levels = {}, {}
         for setup in group:
             for op in setup.get("ops", []):
@@ -13947,7 +13986,7 @@ class _Traveler:
                         html += " " + _fields(datums) if datums else ""
                         html += (". " if datums else " ") + " ".join(facing[setup["id"]])
                         datums = ""
-                        # A vertical tip/jaw height is not the native shortest swept gap.
+                        # This is vertical tip/jaw height, independent of the native minimum.
                         headroom = _mapping(self.records.get(("headroom", setup["id"])))
                         cuts = _mapping(headroom.get("cut_tip_above_jaws_mm"))
                         jaw = _mapping(headroom.get("jaw_obstruction")).get("jaw_top_z")
@@ -13969,7 +14008,7 @@ class _Traveler:
                                     f' <span data-physical-ops="{escape(json.dumps(owners))}">'
                                     + _numeric_html(
                                         f"Tip above {self.jaw_top_scope(setup).lower()} "
-                                        f"≈{value:.1f} mm; not a swept gap."
+                                        f"≈{value:.1f} mm."
                                     )
                                     + "</span>"
                                 )
@@ -13980,6 +14019,14 @@ class _Traveler:
                             ]
                             for key in decision_keys:
                                 html += " " + self.block_html(mapping.pop(key))
+                        if self.detail == "hobby" and setup["id"] in self._route_picture_setups:
+                            html += (
+                                ' <span class="setup-view-reference">'
+                                + escape(
+                                    f"Setup {setup['id']} view follows the common facing cycle."
+                                )
+                                + "</span>"
+                            )
                     orientation_rows.setdefault((html, datums), []).append(setup["id"])
                 table_rows = []
                 for (html, datums), owners in orientation_rows.items():
@@ -14339,7 +14386,8 @@ class _Traveler:
             else f'<p class="job-identity"><strong>{escape(title)}</strong> · qty {quantity} · '
             f"{escape(_text(drawing.get('number')))} · "
             + escape(f"rev {revision}" if revision else "REV NOT CONFIRMED")
-            + "</p>"
+            + '<span class="cont-count first-page-count"> · page 1 of '
+            '<span class="cont-page-total"></span></span></p>'
         )
         banner = "CHECKED — FIRST ARTICLE RECORDED" if self.checked else "PLANNED — NOT APPROVED"
         demonstration = self.plan.get("purpose", "shop") == "demonstration"

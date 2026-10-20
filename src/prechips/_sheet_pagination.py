@@ -21,9 +21,10 @@ are ``data-job-print[-split|-stacked|-fragment]``. ``.cont-head`` starts a physi
 page; setup wrappers do not force page breaks. ``.checkpoint-results`` is one
 horizontal, break-inside-avoid row. Each direct ``.checkpoint-result`` contains a
 labelled original blank with >=35mm interior width and >=20mm interior height.
-Running totals reserve measured source-bound digit envelopes in every detail mode
-before source fitting. Mixed containers with direct prose fragment as ordered
-content; element-only worksheet and step containers retain child/table pagination.
+Running totals, including the original compact identity's ``.first-page-count``,
+reserve measured source-bound digit envelopes before source fitting. Mixed
+containers with direct prose fragment as ordered content; element-only worksheet
+and step containers retain child/table pagination.
 No generated context owns a writing destination, diagram, or machining decision.
 """
 
@@ -757,6 +758,11 @@ JOB_PRINT_JS = r"""(() => {
         });
       }
     });
+    for (const total of section.querySelectorAll(".first-page-count .cont-page-total")) {
+      total.style.fontKerning = "none";
+      reserveRunningSlot(total, Array.from({ length: 10 },
+        (_, digit) => String(digit).repeat(locatorPass.digits)));
+    }
     let pageTop = box(section).top, pages = 1;
     let pageStart = [...section.children].find(
       (el) => !el.classList.contains("meta") && !el.classList.contains("banner")
@@ -1881,8 +1887,17 @@ JOB_PRINT_JS = r"""(() => {
     }
     walk(section);
     finishPageOwners();
-    section.querySelectorAll(".cont-head").forEach((head) => {
-      const total = head.querySelector(".cont-page-total"), value = String(pages);
+    const firstCounts = [...section.querySelectorAll(".first-page-count")],
+      firstHead = section.querySelector(".cont-head");
+    if (firstCounts.length > 1 || firstCounts.some((count) =>
+      !count.closest(".job-identity") || count.closest("[" + ADDED + "]")
+      || locatorPage(count).page !== 1
+      || (firstHead && !(count.compareDocumentPosition(firstHead)
+        & Node.DOCUMENT_POSITION_FOLLOWING)))) throw new Error(
+      "A first-page count must be a single original identity on page 1.");
+    section.querySelectorAll(
+      ".cont-head .cont-page-total,.first-page-count .cont-page-total").forEach((total) => {
+      const value = String(pages);
       if (value.length > locatorPass.digits) throw new Error(
         "A running page total exceeds its source-bound digit reservation.");
       total.textContent = value;
