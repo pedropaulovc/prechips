@@ -703,7 +703,7 @@ def test_hobby_first_use_dro_guide_uses_the_evaluated_finder_not_example_answers
     assert radius_in == pytest.approx(tip_in / 2)
     for detail in ("hobby", "pedantic"):
         markup = Markup(rendered(data, findings, detail=detail))
-        (guide,) = [node for node in markup.nodes if node["attrs"].get("id") == "dro-first-use"]
+        (guide,) = markup.find("dro-guide")
         text = " ".join(content(guide).split())
         assert all(
             concept.casefold() in text.casefold()
@@ -714,7 +714,7 @@ def test_hobby_first_use_dro_guide_uses_the_evaluated_finder_not_example_answers
         paper_in = data.plan["setups"][0]["zero"]["z"]["paper_mm"] / 25.4
         assert_number(text, paper_in)
     pro = Markup(rendered(data, findings, detail="pro"))
-    assert not any(node["attrs"].get("id") == "dro-first-use" for node in pro.nodes)
+    assert not pro.find("dro-guide")
     (identity,) = pro.find("finder-identity")
     assert "Selected mechanical finder" in content(identity)
     assert_coordinate(content(identity), "Ø", tip_in)
@@ -1313,10 +1313,13 @@ def test_declared_mm_stock_dimensions_use_explicit_display_units_not_manifest_un
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("action", ["inspect", "finish_turn", "profile"])
 def test_selected_numeric_acceptance_prints_once_at_its_physical_inspection_not_in_a_global_table(
     detail,
+    action,
 ):
     data = bench_job()
+    data.plan["setups"][0]["ops"][0]["do"] = action
     markup = Markup(rendered(data, detail=detail))
     band = data.features["features"]["body"]["dia"]
 
@@ -3168,3 +3171,539 @@ def test_hobby_tool_without_projection_map_does_not_invent_projection_requiremen
     assert "Selected ordinary collet" in text
     assert "850" in text
     assert not re.search(r"\bprojection\b", text)
+
+
+def physical_flow(markup, setup_id):
+    (flow,) = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "section"
+        and setup_id in json.loads(node["attrs"].get("data-setup-members", "[]"))
+    ]
+    return flow
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+@pytest.mark.parametrize("reverse", [False, True], ids=["male-first", "female-first"])
+@pytest.mark.parametrize("methods_kind", ["scoped", "flat", "override"])
+@pytest.mark.parametrize("requirement", ["thread", "dia"], ids=["unselected", "selected"])
+def test_inspection_methods_keep_scoped_owners_and_only_share_actual_flat_entries(
+    detail, reverse, methods_kind, requirement
+):
+    data = bench_job()
+    owners = ["male", "female"]
+    if reverse:
+        owners.reverse()
+    data.features["features"] = {
+        owner: (
+            {"kind": "thread", "thread": "1/2-20", "thread_class": "unknown"}
+            if requirement == "thread"
+            else {"kind": "shaft", "requirements": ["dia"], "dia": [6.33, 6.35]}
+        )
+        for owner in owners
+    }
+    procedures = {
+        "male": "Try the actual cap by hand; record shoulder seating; thread gauging is unknown.",
+        "female": "Confirm female full threads without tip bottoming and continuous mouth contact.",
+    }
+    shared = "Compare both actual members by hand; this does not establish thread class."
+    methods = (
+        {owner: {requirement: procedures[owner]} for owner in owners}
+        if methods_kind == "scoped"
+        else {requirement: shared}
+    )
+    if methods_kind == "override":
+        methods["female"] = {requirement: procedures["female"]}
+    setup = data.plan["setups"][0]
+    setup["ops"] = [
+        {
+            "op": 10,
+            "do": "inspect",
+            "feature": owners,
+            "checks": {owner: {requirement: "unknown"} for owner in owners},
+            "inspection_methods": methods,
+        }
+    ]
+    markup = Markup(rendered(data, detail=detail))
+    flow = physical_flow(markup, setup["id"])
+    text = content(flow)
+    expected = (
+        list(procedures.values())
+        if methods_kind == "scoped"
+        else [shared, procedures["female"]]
+        if methods_kind == "override"
+        else [shared]
+    )
+    for procedure in expected:
+        assert text.count(procedure) == 1
+        (method,) = [
+            node for node in markup.find("inspection-method", flow) if procedure in content(node)
+        ]
+        owner = operation_owner(method)
+        assert owner is not None
+        assert {(entry["setup_id"], str(entry["op_id"])) for entry in operation_owners(owner)} == {
+            (setup["id"], "10")
+        }
+        if requirement == "thread" and procedure != shared:
+            feature_owner = next(key for key, value in procedures.items() if value == procedure)
+            assert feature_owner in content(method)
+    assert "no gauge chosen" in text
+    if requirement == "thread":
+        assert not markup.find("checkpoint-result", flow)
+        assert not markup.find("writing-blank", flow)
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+@pytest.mark.parametrize("unknown_gauge", [False, True], ids=["resolved", "unknown-gauge"])
+def test_receipt_acceptance_survives_full_render_at_first_use_without_claiming_signoff(
+    detail, unknown_gauge
+):
+    from test_procedure_boxes import KIT, printed_band, table_rows
+
+    from prechips.rules import purchased_tooling
+
+    data = mill_job(setups=2)
+    item = deepcopy(KIT)
+    item.update(
+        name="Purchased boring head",
+        purchase="R8 shank, 7/16-20 drawbar, 0.001 in dial",
+        dial_limits_mm=[0.244, 0.264],
+        note="UNRELATED_CATALOG_TUTORIAL_SENTINEL",
+        acceptance=[
+            {"check": "R8 shank fit", "gauge": "none", "accept": "seats with no rock"},
+            {
+                "check": "dial graduation",
+                "gauge": "dti",
+                "how": "DTI on slide end; move 10 graduations, three times",
+                "limits": "dial_limits_mm",
+            },
+            {"check": "slide lock", "gauge": "none", "accept": "no movement felt at bar tip"},
+        ],
+    )
+    data.inventory.setdefault("fixtures", {})["kit"] = item
+    data.inventory.setdefault("gauges", {})["dti"] = {
+        "kind": "dial_test_indicator",
+        "name": "Receipt DTI",
+    }
+    if unknown_gauge:
+        data.inventory["gauges"].pop("dti")
+    for setup in data.plan["setups"]:
+        setup["presentation_group"] = setup["id"]
+        setup.setdefault("hold", {})["clamps"] = [{"ref": "kit"}]
+    findings = purchased_tooling.evaluate(data)
+    html = rendered(data, findings, detail=detail)
+    markup = Markup(html)
+    first, second = (physical_flow(markup, setup["id"]) for setup in data.plan["setups"])
+    first_text, second_text = content(first), content(second)
+    for check in ("R8 shank fit", "dial graduation", "slide lock"):
+        assert check in first_text
+    (dial_row,) = [row for row in table_rows(html) if row[0] == "dial graduation"]
+    assert printed_band(dial_row[2], "mm") == [tuple(item["dial_limits_mm"])]
+    assert "10 graduations" in first_text and "three times" in first_text
+    assert "10 graduations" not in second_text and "three times" not in second_text
+    assert "return the item if any check fails" in first_text
+    assert data.plan["setups"][0]["id"] in second_text
+    assert "receipt checks before first use" in second_text
+    assert "accepted on receipt" not in content(job_page(markup))
+    assert "UNRELATED_CATALOG_TUTORIAL_SENTINEL" not in content(job_page(markup))
+    if unknown_gauge:
+        unknowns = [finding for finding in findings if finding.status == "unknown"]
+        assert unknowns
+        for finding in unknowns:
+            assert finding_nodes(markup, finding)
+
+
+def lathe_operating_job(ops, hands=None):
+    from test_lathe_review_rules import _lathe
+
+    hands = hands or {"cutter": "right"}
+    tools = {
+        name: {
+            "kind": "lathe_tool_bit",
+            "name": name + " tool",
+            **({"hand": hand} if hand else {}),
+        }
+        for name, hand in hands.items()
+    }
+    data = _lathe(ops, {"body": {"kind": "shaft", "dia": [6.33, 6.35]}}, tools)
+    data.plan["dro"].update(kind="digital", mode="abs", units="mm")
+    data.plan["drawing"] = {"number": "LATHE-FACTS", "revision": "A"}
+    data.inventory.setdefault("fixtures", {})["chuck"] = {"kind": "chuck", "name": "Lathe chuck"}
+    return data
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("mode", ["forward", "reverse", "mixed", "unknown"])
+def test_compact_spindle_context_keeps_nondefault_sense_and_hobby_guidance_at_its_owner(
+    detail, mode
+):
+    ops = [{"op": 10, "do": "finish_turn", "tool": "cutter", "feature": "body", "to_dia": 6.35}]
+    hands = {"cutter": "right"}
+    if mode in ("reverse", "mixed"):
+        hands["axial"] = "left"
+        drill = {"op": 20, "do": "drill", "tool": "axial", "feature": "body", "depth_mm": 2.0}
+        ops = [*ops, drill] if mode == "mixed" else [drill]
+    elif mode == "unknown":
+        hands["cutter"] = None
+    data = lathe_operating_job(ops, hands)
+    markup = Markup(rendered(data, detail=detail))
+    flow = physical_flow(markup, "S1")
+    instructions = markup.find("route-operation", flow)
+    text = " ".join(content(node) for node in instructions)
+    if mode == "forward":
+        assert ("Spindle FORWARD" in content(flow)) is (detail == "hobby")
+        if detail == "pro":
+            assert "FORWARD" not in content(job_page(markup))
+        if detail == "hobby":
+            assert content(flow).count("Spindle FORWARD") == 1
+            assert "top of the work turns toward you" in content(flow)
+    elif mode in ("reverse", "mixed"):
+        reverse_nodes = [
+            node
+            for node in operation_nodes(markup, flow)
+            if "spindle reverse" in content(node).casefold()
+        ]
+        assert reverse_nodes
+        assert any(
+            any(str(owner["op_id"]) == "20" for owner in operation_owners(node))
+            for node in reverse_nodes
+        )
+        if mode == "mixed":
+            assert "spindle FORWARD" in text and "spindle REVERSE" in text
+    else:
+        assert "STOP: spindle direction not known" in content(flow)
+        assert "Spindle FORWARD" not in content(flow)
+
+
+@pytest.mark.parametrize("detail", TRAVELER_DETAILS)
+def test_dro_lessons_follow_machine_family_and_later_links_resolve_to_applicable_guide(detail):
+    data = mill_job(setups=2)
+    lathe = lathe_operating_job([], {"cutter": "right"})
+    lathe_setup = deepcopy(lathe.plan["setups"][0])
+    lathe_setup.update(
+        id="L1",
+        frame=data.plan["setups"][0]["frame"],
+        zero={"x": {"edge_mm": 5.0}, "z": {"edge_mm": 0.0}},
+    )
+    data.inventory["machines"]["lathe"] = lathe.inventory["machines"]["lathe"]
+    data.inventory.setdefault("fixtures", {})["chuck"] = lathe.inventory["fixtures"]["chuck"]
+    data.plan["setups"].insert(0, lathe_setup)
+    findings = zero_recipe.evaluate(data)
+    markup = Markup(rendered(data, findings, detail=detail))
+    guides = markup.find("dro-guide")
+    if detail == "pro":
+        assert not guides
+        return
+    assert len(guides) == 2
+    assert len({guide["attrs"]["id"] for guide in guides}) == 2
+    by_owner = {guide["attrs"]["data-setup-id"]: guide for guide in guides}
+    assert set(by_owner) == {"L1", "S1"}
+    assert "radius" in content(by_owner["L1"]) and "raise Z" not in content(by_owner["L1"])
+    mill_guide = by_owner["S1"]
+    mill_text = content(mill_guide)
+    assert re.search(r"(?:clear vertically|raise Z only)", mill_text, re.IGNORECASE)
+    assert re.search(
+        r"return.*?before lowering.*?without another Axis Set", mill_text, re.IGNORECASE
+    )
+    if detail == "pedantic":
+        later = physical_flow(markup, "S2")
+        (pointer,) = markup.find("zero-guide", later)
+        links = [node for node in descendants(markup, pointer) if node["tag"] == "a"]
+        assert links
+        for link in links:
+            (target,) = [
+                guide for guide in guides if "#" + guide["attrs"]["id"] == link["attrs"]["href"]
+            ]
+            assert target is mill_guide
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("display_units", ["mm", "in"])
+def test_authored_rough_turn_note_does_not_replace_canonical_numeric_operation_facts(
+    detail, display_units
+):
+    note = "Rough the journal and stub together; retain the reference shoulder."
+    op = {
+        "op": 10,
+        "do": "rough_turn",
+        "feature": "body",
+        "tool": "cutter",
+        "z_from": 5.0,
+        "z_to": -7.3,
+        "rough_allowance_mm": 0.2,
+        "doc_mm": 0.5,
+        "passes": 4,
+        "note": note,
+    }
+    data = lathe_operating_job([op])
+    data.plan["dro"]["units"] = display_units
+    finding = Finding(
+        "speeds_feeds",
+        "S1:10",
+        "pass",
+        {"rpm": 600.0, "feed_mm_rev": 0.05, "feed_mm_min": 30.0, "diameter_in": 6.55 / 25.4},
+        [],
+        "Evaluated turning settings",
+    )
+    markup = Markup(rendered(data, [finding], detail=detail))
+    (instruction,) = markup.find("route-operation", physical_flow(markup, "S1"))
+    text = content(instruction)
+    assert note in text
+    divisor = 25.4 if display_units == "in" else 1.0
+    assert_coordinate(text, "Ø", 6.55 / divisor)
+    for value in (0.2, 0.5):
+        assert_number(text, value / divisor)
+    assert "on Ø" in text and "radial per pass" in text and "4 passes" in text
+    if display_units == "in":
+        assert " mm" not in text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("allowance_key", ["rough_allowance_mm", "stock_to_leave_mm"])
+@pytest.mark.parametrize("present", [False, True], ids=["absent", "explicit-zero"])
+def test_compact_preparation_preserves_explicit_zero_allowance_without_inventing_one(
+    detail, allowance_key, present
+):
+    data = mill_job(setups=1)
+    setup = data.plan["setups"][0]
+    op = {
+        "op": 10,
+        "do": "rough_profile",
+        "feature": "hole",
+        "tool": "cutter",
+        "to_z": -6.35,
+        "note": "Prepare the opposed reference faces before finishing.",
+    }
+    if present:
+        op[allowance_key] = 0.0
+    setup["ops"] = [op]
+    data.inventory["tools"]["cutter"] = {"kind": "endmill", "dia_mm": 12.7}
+    markup = Markup(rendered(data, detail=detail))
+    (instruction,) = markup.find("route-operation", physical_flow(markup, setup["id"]))
+    text = content(instruction)
+    assert op["note"] in text
+    assert bool(re.search(r"\bleave\s+0\b.*?\bper side\b", text)) is present
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("owner", ["path", "facing", "table"])
+def test_compact_doc_qualifier_does_not_repeat_owned_paths_or_tables(detail, owner):
+    data = mill_job(setups=1)
+    setup = data.plan["setups"][0]
+    op = {
+        "op": 10,
+        "do": "face" if owner == "facing" else "rough_profile",
+        "feature": "hole",
+        "tool": "cutter",
+        "to_z": -6.35,
+        "doc_mm": 3.175,
+        "stock_to_leave_mm": 0.254,
+        "note": "Retain the reference end.",
+    }
+    setup["ops"] = [op]
+    data.inventory["tools"]["cutter"] = {"kind": "endmill", "dia_mm": 12.7}
+    sheet = _Traveler(data, [], {}, None, detail=detail)
+    rows = sheet.operation_rows(setup, {})
+    sheet._rows_by_setup[setup["id"]] = rows
+    if owner == "path":
+        sheet._route_contours[setup["id"]] = {"10": ("Depths: Z-.125, then Z-.25.", "")}
+    elif owner == "facing":
+        sheet._route_facing_paths[(setup["id"], "10")] = ("0", "1", "0", "1", "0")
+        sheet._route_contours[setup["id"]] = {"10": ("Face Z-.25; maximum stepover 0.1.", "")}
+    else:
+        sheet._route_contours[setup["id"]] = {
+            "10": (
+                "",
+                '<div class="route-path"><table><tr><td>Owned contour</td></tr></table></div>',
+            )
+        }
+    markup = Markup(sheet.route_operation(setup, rows[0]))
+    text = " ".join(content(node) for node in markup.find("route-operation"))
+    assert "axial per pass" not in text
+    assert "leave 0.01" in text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_doc_stays_with_its_setup_when_a_later_setup_reuses_the_op_id(detail):
+    from test_sheet_ops import contour_records
+
+    data = mill_job(setups=2)
+    data.plan["dro"]["units"] = "mm"
+    for setup in data.plan["setups"]:
+        setup["note"] = "Keep the marked face uppermost."
+        setup["ops"] = [
+            {
+                "op": 10,
+                "do": "rough_profile",
+                "feature": "hole",
+                "tool": "cutter",
+                "to_z": -0.6,
+                "doc_mm": 0.25,
+                "note": "Retain the reference end.",
+            }
+        ]
+    data.inventory["tools"]["cutter"] = {"kind": "endmill", "dia_mm": 12.7}
+    first, later = data.plan["setups"]
+    coordinates = contour_records([-0.25, -0.5, -0.6])[("coordinates", "S1")]
+    finding = Finding(
+        "coordinates", later["id"], "pass", coordinates, [], "Evaluated cutter-centre path"
+    )
+    sheet = _Traveler(data, [finding], {}, None, detail=detail)
+    blocks = {setup["id"]: sheet.setup_blocks(setup) for setup in data.plan["setups"]}
+    family = Markup(sheet.family_html(data.plan["setups"], blocks))
+    assert family.find("route-path")
+    (first_instruction,) = [
+        node
+        for node in family.find("route-operation")
+        if any(
+            owner["setup_id"] == first["id"] for owner in operation_owners(operation_owner(node))
+        )
+    ]
+    assert "axial per pass" in content(first_instruction)
+    assert_number(content(first_instruction), 0.25)
+
+    # Re-project the first row with the family-prelude entrypoint after the later
+    # setup has materialized its contour. Do not invent an inspect operation with DOC.
+    first_row = sheet._rows_by_setup[first["id"]][0]
+    projected = Markup(
+        sheet.route_operation(
+            first,
+            first_row,
+            lead_in=f'<span class="route-prelude">{first["note"]} </span>',
+        )
+    )
+    (instruction,) = projected.find("route-operation")
+    assert "axial per pass" in content(instruction)
+    assert_number(content(instruction), 0.25)
+    (owner,) = operation_owners(operation_owner(instruction))
+    assert owner["setup_id"] == first["id"] and str(owner["op_id"]) == "10"
+
+    later_row = sheet._rows_by_setup[later["id"]][0]
+    later_markup = Markup(sheet.route_operation(later, later_row))
+    assert later_markup.find("route-path")
+    (later_instruction,) = later_markup.find("route-operation")
+    assert "axial per pass" not in content(later_instruction)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_alignment_is_due_owned_and_does_not_restore_model_pose_coordinates(detail):
+    from test_hold_align import bundle as alignment_bundle
+    from test_hold_align import setup as alignment_setup
+
+    data = alignment_bundle(
+        alignment_setup("V1", "vise", parallels_centres_mm=[[71.25, -9.5], [71.25, 9.5]]),
+        alignment_setup("V2", "vise", parallels_centres_mm=[[71.25, -9.5], [71.25, 9.5]]),
+    )
+    for setup in data.plan["setups"]:
+        setup["presentation_group"] = setup["id"]
+    findings = hold_fields.evaluate(data)
+    markup = Markup(rendered(data, findings, detail=detail))
+    first, second = (physical_flow(markup, sid) for sid in ("V1", "V2"))
+    text = content(first)
+    assert "fixed jaw" in text and "X travel" in text and "test indicator" in text
+    assert_number(text, 0.0254)
+    assert_number(text, 100.0)
+    assert "tighten and recheck" in text
+    assert "Align the fixed jaw" not in content(second)
+    assert "parallels at" not in content(job_page(markup))
+    assert 71.25 not in numeric_values(content(job_page(markup)))
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_angle_plate_keeps_locating_base_and_face_placement(detail):
+    from test_sheet_fixture import bundle as fixture_bundle
+
+    data = fixture_bundle(
+        [
+            {
+                "fixture": "angle",
+                "pose": {"origin_mm": [10, 0, -5], "x": [0, 1, 0], "z": [0, 0, 1]},
+            }
+        ]
+    )
+    markup = Markup(rendered(data, detail=detail))
+    text = content(physical_flow(markup, "S1"))
+    assert re.search(r"underside at Z\s*[−-]95\b", text)
+    assert re.search(r"working face at X\s*10\b.*?facing \+X", text)
+    assert "two 1/2-13 T-bolts" in text
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+@pytest.mark.parametrize("kind", ["nest", "tapped-existing", "existing-only"])
+def test_compact_construction_retains_only_actual_make_obligations_with_first_use_provenance(
+    detail, kind
+):
+    from test_procedure_boxes import table_rows
+    from test_sheet_fixture import IDENTITY, existing_tapped_fixture
+    from test_sheet_fixture import bundle as fixture_bundle
+
+    if kind == "tapped-existing":
+        data = existing_tapped_fixture(2)
+    else:
+        data = fixture_bundle([{"fixture": "plate", "pose": IDENTITY}])
+        if kind == "existing-only":
+            data.inventory["fixtures"]["plate"]["shop_made"] = False
+            for solid in data.inventory["fixtures"]["plate"]["solids"]:
+                solid["supply"] = "existing"
+    first = data.plan["setups"][0]
+    first["presentation_group"] = first["id"]
+    second = deepcopy(first)
+    second.update(id="S2", presentation_group="S2")
+    data.plan["setups"].append(second)
+    html = rendered(data, detail=detail)
+    markup = Markup(html)
+    home = physical_flow(markup, "S1")
+    later = physical_flow(markup, "S2")
+    tables = markup.find("fixture", home)
+    if kind == "existing-only":
+        assert not tables
+        assert "SHOP-MADE FIXTURE" not in content(home)
+        return
+    assert tables and not markup.find("fixture", later)
+    home_text, table_text = content(home), " ".join(content(table) for table in tables)
+    assert "Make before Setup S1" in home_text
+    assert "not physical installed measurements" in home_text
+    assert "SHOP-MADE FIXTURE table, Setup S1" in content(later)
+    if kind == "nest":
+        for value in (10.0, 20.0, 5.0):
+            assert_number(table_text, value)
+        (pin,) = [row for row in table_rows(html) if row[0] == "pin"]
+        assert_coordinate(pin[1], "Ø", 6.0)
+        assert_number(pin[1], 8.0)
+        assert "M6 stud" in table_text
+    else:
+        assert "existing part: make the holes only" in table_text
+        assert "Feature000" in table_text and "Feature001" in table_text
+        assert_number(table_text, 100.0)
+
+
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_compact_saw_fallback_keeps_geometry_stop_typed_not_flattened_into_action(detail):
+    data = mill_job(setups=1)
+    setup = data.plan["setups"][0]
+    data.inventory["tools"]["blade"] = {
+        "kind": "slitting_saw",
+        "name": "Finite saw",
+        "dia_mm": 63.5,
+        "kerf_mm": 1.0,
+        "thickness_mm": 0.8,
+    }
+    setup["ops"] = [
+        {
+            "op": 20,
+            "do": "cut_off",
+            "tool": "blade",
+            "cut_plane": {"axis": "z", "value": 8.5, "keep": "below"},
+        }
+    ]
+    markup = Markup(rendered(data, detail=detail))
+    (instruction,) = markup.find("route-operation", physical_flow(markup, setup["id"]))
+    assert "STOP:" not in content(instruction)
+    evidence = [
+        entry
+        for node in decision_nodes(markup)
+        for entry in decision_evidence(node)
+        if entry["source"] == "finite_saw" and entry["scope"] == f"{setup['id']}:20"
+    ]
+    assert evidence
+    assert all(entry["status"] == "unknown" and entry["kind"] == "block" for entry in evidence)

@@ -1158,6 +1158,17 @@ class _Inspection:
 
 
 @dataclass(frozen=True)
+class _CutDepths:
+    """Operation facts only; audience formatting never parses authored prose."""
+
+    verb: str
+    rough_diameter_mm: float | None
+    allowances: tuple
+    passes: tuple
+    doc: tuple | None
+
+
+@dataclass(frozen=True)
 class _Block:
     key: str
     html: str
@@ -3581,12 +3592,7 @@ class _Traveler:
                 steps.append(mount.strip("; ") + ".")
             placement = self.fixture_setting(setup, hold, uses)
             alignment = self.align_step(setup, hold)
-            if compact:
-                evidence.extend(placement + alignment)
-            if not compact:
-                steps.extend(placement + alignment)
-            elif swivel_angle(hold):
-                steps.extend(alignment)
+            steps.extend(placement + alignment)
         paired_grip = False
         if stated("parallels") and hold["parallels"] != "unknown":
             line = "Parallels: " + reference(hold["parallels"], "fixtures")
@@ -3875,6 +3881,11 @@ class _Traveler:
                     + " not established; do not run.",
                     source="hold_fields",
                 )
+            ]
+        if getattr(self, "detail", "pedantic") != "pedantic":
+            return [
+                f"Align {face} to {axis} travel with {self.short_reference(gauge, 'gauges')}: "
+                f"≤{_declared(limit)} mm over {_number(over)} mm; tighten and recheck."
             ]
         thing = "vise" if vise else "plate"
         return [
@@ -4249,8 +4260,6 @@ class _Traveler:
         key = self.holding_identity(setup, reference)
         if not isinstance(reference, str) or key not in uses:
             return ""
-        if getattr(self, "detail", "pedantic") != "pedantic":
-            return " (shop-made)"
         home = self.shop_made_home(setup, key, uses)
         return f" (shop-made: SHOP-MADE FIXTURE table, Setup {_text(home)})"
 
@@ -6413,6 +6422,10 @@ class _Traveler:
             widths = [18, *([82 / (len(headings) - 1)] * (len(headings) - 1))]
         return _p(text) + _table(headings, rows, css="mounted-datums", widths=widths)
 
+    def dro_guide_id(self, setup):
+        """A lathe lesson cannot stand in for the milling check-jog procedure."""
+        return "dro-first-use-lathe" if self.lathe(setup) else "dro-first-use-mill"
+
     def dro(self, setup, tools, *, procedure="inline"):
         detail = getattr(self, "detail", "pedantic")
         separate_instructions = procedure == "separate"
@@ -6421,7 +6434,9 @@ class _Traveler:
         pickup_recipes = {}
         compact_debts = []
         mounted_setup = any(spindle_saw(self.bundle, setup, op) for op in setup.get("ops", []))
-        first_lesson = detail == "hobby" and not getattr(self, "_dro_first_use", False)
+        guide_id = self.dro_guide_id(setup)
+        taught = getattr(self, "_dro_guides_seen", set())
+        first_lesson = detail == "hobby" and guide_id not in taught
 
         def unresolved(text, scope, status="unknown", source="zero_check"):
             self.record_decision(setup, source=source, status=status, scope=scope, text=text)
@@ -6945,10 +6960,10 @@ class _Traveler:
             )
             row.zero_surface = zero_surface
             rows.append(row)
-        first_use = detail != "pro" and bool(rows) and not getattr(self, "_dro_first_use", False)
+        first_use = detail != "pro" and bool(rows) and guide_id not in taught
         lesson = []
         if first_use:
-            self._dro_first_use = True
+            self._dro_guides_seen = taught | {guide_id}
             readout_unit_label = (
                 "inches"
                 if units == "in"
@@ -7056,7 +7071,7 @@ class _Traveler:
             pointer = (
                 self.finder_pointer(setup, reference)
                 if reference is not None
-                else '<a href="#dro-first-use">DRO first-use guide</a>'
+                else f'<a href="#{guide_id}">DRO first-use guide</a>'
             )
             pieces.append(
                 '<p class="zero-guide">'
@@ -7108,7 +7123,8 @@ class _Traveler:
             if detail == "hobby":
                 lesson_html = lesson_html.replace("</p><p>", " ")
             guide = (
-                f'<div id="dro-first-use" data-setup-id="{escape(setup.get("id") or "")}">'
+                f'<div class="dro-guide" id="{guide_id}" '
+                f'data-setup-id="{escape(setup.get("id") or "")}">'
                 + "<h3>DRO FIRST USE"
                 + (f" — {escape(_text(setup.get('id')))}" if self._front_reference_layout else "")
                 + "</h3>"
@@ -7116,7 +7132,7 @@ class _Traveler:
                 + "</div>"
             )
             if self._front_reference_layout and separate_instructions:
-                self._front_dro_guide = guide
+                self._front_dro_guide += guide
             else:
                 pieces.insert(1, guide)
         correction = self.measured_top(setup)
@@ -7430,14 +7446,14 @@ class _Traveler:
         )
 
     def finder_pointer(self, setup, reference):
-        """Link to the one DRO lesson and identify this finder/machine's actual data."""
+        """Link to this machine family's DRO lesson and this finder/machine's actual data."""
         if getattr(self, "detail", "pedantic") == "pro":
             return ""
         key = self.finder_key(reference, setup.get("machine"))
         home = self.finder_homes.get(key, setup["id"])
         return (
-            '<a href="#dro-first-use">DRO first-use guide</a>; finder settings in Setup '
-            + escape(_text(home))
+            f'<a href="#{self.dro_guide_id(setup)}">DRO first-use guide</a>; '
+            "finder settings in Setup " + escape(_text(home))
         )
 
     def finder_box(self, reference, machine, finder):
@@ -7610,7 +7626,8 @@ class _Traveler:
             if home != setup["id"]:
                 html.append(
                     _p(
-                        f"{name}: bought finished, accepted on receipt — PURCHASED TOOLING / "
+                        f"{name}: bought finished; receipt checks before first use: "
+                        "PURCHASED TOOLING / "
                         f"RECEIPT CHECK table, Setup {_text(home)}."
                     )
                 )
@@ -8768,18 +8785,25 @@ class _Traveler:
         rows = ["? inspection checks not set"] if op.get("checks") == "unknown" else []
         names = op_features(op)
         missing = _mapping(op.get("missing_requirements"))
-        flat_methods = {r for scope, r, _ in op_entries(op, "inspection_methods") if scope is None}
+        method_scopes = {(scope, r) for scope, r, _ in op_entries(op, "inspection_methods")}
         checked = dict.fromkeys(r for _, r, _ in op_entries(op, "checks"))
         targets = op_check_targets(self.bundle, setup, op)
         placed = set()
 
-        def method_note(requirement, owners, method, shared):
-            flat = requirement in flat_methods
+        def flat_method(requirement, owners):
+            return (None, requirement) in method_scopes and not any(
+                (owner, requirement) in method_scopes for owner in owners if owner is not None
+            )
+
+        def method_note(requirement, owners, method, shared, *, label_owners=False):
+            flat = flat_method(requirement, owners)
             key = (requirement, None if flat else tuple(owners))
             if key in placed:
                 return (), False
             placed.add(key)
             name = _REQUIREMENT_NAMES.get(requirement, _text(requirement))
+            if label_owners and not flat and owners:
+                name += " — " + ", ".join(self.feature_name(owner) for owner in owners)
             item = self.note(name, method)
             if flat:
                 item.sketch = self.inspection_sketch(setup, op, requirement)
@@ -8813,15 +8837,28 @@ class _Traveler:
                     if requirement in missing
                     or op_entry(op, "checks", name, requirement) is not None
                 ]
-                reference, pair, method = resolved(owners[0] if owners else None, requirement)
-                note = (
-                    method_note(requirement, owners, method, False)
-                    if method and method != "unknown"
-                    else None
-                )
-                rows += self.inspection_rows(
-                    requirement, owners, reference, pair, requirement in missing, note, []
-                )
+                partitions = {}
+                for owner in owners or [None]:
+                    values = resolved(owner, requirement)
+                    key = json.dumps([*values, flat_method(requirement, [owner])], sort_keys=True)
+                    partitions.setdefault(key, []).append(owner)
+                for group in partitions.values():
+                    owners = [owner for owner in group if owner is not None]
+                    reference, pair, method = resolved(group[0], requirement)
+                    note = (
+                        method_note(
+                            requirement,
+                            owners,
+                            method,
+                            len(partitions) > 1,
+                            label_owners=True,
+                        )
+                        if method and method != "unknown"
+                        else None
+                    )
+                    rows += self.inspection_rows(
+                        requirement, owners, reference, pair, requirement in missing, note, []
+                    )
                 continue
             partitions = {}
             for target in selected:
@@ -8835,6 +8872,7 @@ class _Traveler:
                         target["gauge"],
                         go_no_go_pair(op, feature, requirement),
                         target["method"],
+                        flat_method(requirement, [feature]),
                     ],
                     sort_keys=True,
                 )
@@ -9579,42 +9617,64 @@ class _Traveler:
         return lines
 
     def cut_depths(self, setup, op, lathe):
-        """The op's action with its allowance, passes and depth of cut in words that say
-        what they measure: a lathe allowance is on Ø (roughing names its Ø target), a face's
-        is on the face, a mill wall's per side; a depth of cut is radial or axial per pass, a
-        plunge's total. A part-off or cut-to-fit plunges to the centre: no DOC prints."""
+        """Structured action, explicit allowances, passes and depth-of-cut basis."""
         do = str(op.get("do", ""))
-        o = self.operative
-        parts = [_text(do)]
-        for key in ("rough_allowance_mm", "stock_to_leave_mm"):
-            if key not in op or (key == "stock_to_leave_mm" and op[key] == 0):
-                continue
-            leave = f"leave {o(op[key])} mm"
-            if do in FACING:
-                parts.append(f"{leave} on the face")
-            elif lathe:
-                numbers = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
-                rough = numbers.get("diameter_in")
-                if do == "rough_turn" and _known(rough):
-                    parts[0] += f" to Ø{o(rough * 25.4)}"
-                parts.append(f"{leave} on Ø")
-            else:
-                parts.append(f"{leave} per side")
-        if "passes" in op:
-            parts.append(f"{_text(op['passes'])} passes")
+        basis = "on the face" if do in FACING else "on Ø" if lathe else "per side"
+        allowances = tuple(
+            (key, op[key], basis)
+            for key in ("rough_allowance_mm", "stock_to_leave_mm")
+            if key in op
+        )
+        numbers = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
+        rough = numbers.get("diameter_in")
+        rough = rough * 25.4 if lathe and do == "rough_turn" and _known(rough) else None
+        doc = None
         if "doc_mm" in op and do not in {"part_off", "cut_to_fit"}:
-            depth = f"{o(op['doc_mm'])} mm"
-            if not lathe:
-                parts.append(f"{depth} axial per pass")
-            elif do in FACING:
-                parts.append(f"{depth} axial per pass (facing)")
-            elif do == "form_relief":
-                parts.append(f"{depth} radial, total plunge depth")
-            elif do == "form_dome":
-                parts.append(f"{depth} per pass, square to the dome")
-            else:
-                parts.append(f"{depth} radial per pass")
-        return parts
+            kind = (
+                "axial per pass"
+                if not lathe
+                else "axial per pass (facing)"
+                if do in FACING
+                else "radial, total plunge depth"
+                if do == "form_relief"
+                else "per pass, square to the dome"
+                if do == "form_dome"
+                else "radial per pass"
+            )
+            doc = (op["doc_mm"], kind)
+        return _CutDepths(
+            _text(do),
+            rough if allowances else None,
+            allowances,
+            (op["passes"],) if "passes" in op else (),
+            doc,
+        )
+
+    def cut_depth_text(self, facts, *, compact=False, omit_doc=False):
+        """Keep ledger millimetres unchanged; compact clauses use the job readout."""
+        scale = {"mm": 1.0, "in": 25.4}.get(self.units)
+        display_units = readout_units(self.bundle)
+
+        def length(value):
+            if compact and scale and display_units in ("mm", "in"):
+                value = _amount(value)
+                return self.readout(value / scale) if _known(value) else "?"
+            return self.operative(value)
+
+        unit = "" if compact and scale and display_units in ("mm", "in") else " mm"
+        parts = [facts.verb]
+        for key, value, basis in facts.allowances:
+            if not compact and key == "stock_to_leave_mm" and value == 0:
+                continue
+            if facts.rough_diameter_mm is not None and (not compact or len(parts) == 1):
+                parts[0] += f" to Ø{length(facts.rough_diameter_mm)}"
+            parts.append(f"leave {length(value)}{unit} {basis}")
+        if facts.passes:
+            parts.append(f"{_text(facts.passes[0])} passes")
+        if facts.doc is not None and not omit_doc:
+            value, kind = facts.doc
+            parts.append(f"{length(value)}{unit} {kind}")
+        return parts if not compact or len(parts) > 1 else []
 
     def manual_arc_lines(self, setup, op):
         """Layout and bench-filing instructions computed for this manual operation. A
@@ -9773,7 +9833,7 @@ class _Traveler:
             number = tool_numbers.get(self.tool_pair(op.get("tool"), op.get("holder")))
             manual = op.get("do") in MANUAL
             saw = op.get("do") in SAW_OPS
-            action = self.cut_depths(setup, op, lathe)
+            action = self.cut_depth_text(self.cut_depths(setup, op, lathe))
             if saw:
                 action.append(self.saw_setting(op))
                 if debt := self._spindle_saw_op_debt(setup, op, "geometry"):
@@ -11902,7 +11962,6 @@ class _Traveler:
                 (target["identity"]["feature_owner"], target["identity"]["requirement"])
                 for setup in self.plan.get("setups", [])
                 for op in setup.get("ops", [])
-                if op.get("do") == "inspect"
                 for target in op_check_targets(self.bundle, setup, op)
             }
             if self.detail != "pedantic"
@@ -12257,7 +12316,9 @@ class _Traveler:
                     str(value)
                     for cell in (row[4:6] if len(row) == 9 else ())
                     for value in (cell if isinstance(cell, (list, tuple)) else [cell])
-                    if value not in ("", "—", None) and not isinstance(value, _Box)
+                    if value not in ("", "—", None)
+                    and not isinstance(value, _Box)
+                    and not (isinstance(value, str) and value in _SPINDLE_TURNS)
                 )
                 evidence = self.records.get(("speeds_feeds", f"{setup['id']}:{op['op']}"), {})
                 if _known(evidence.get("rpm")) and _known(evidence.get("feed_mm_rev")):
@@ -12681,14 +12742,23 @@ class _Traveler:
         cycle_html = self.saw_cycle(setup, op)
         cycle = cycle_html is not None
         self._route_cycles[(setup["id"], row.op_id)] = cycle_html
+        contour_owned = str(row.op_id) in getattr(self, "_route_contours", {}).get(setup["id"], {})
+        path_owned = contour_owned and self.z_levels(setup, op) is not None
+        canonical = ", ".join(
+            self.cut_depth_text(
+                self.cut_depths(setup, op, self.lathe(setup)),
+                compact=True,
+                omit_doc=contour_owned,
+            )
+        )
         parts = [
+            canonical,
             row.instruction_before,
             authored,
             row.instruction_after,
         ]
-        action = " ".join(dict.fromkeys(part for part in parts if part))
+        action = " ".join(dict.fromkeys(part for part in parts if part)) or _text(op.get("do"))
         if len(row) == 5:
-            action = action or row.instruction_fallback
             consumable = row[2]
             tool = (
                 self.route_tool_label(op["tool"])
@@ -12704,10 +12774,6 @@ class _Traveler:
             )
             # The path owns its checked Z ladder; the target retains all other facts.
             values = row[6] if isinstance(row[6], (tuple, list)) else [row[6]]
-            path_owned = (
-                str(row.op_id) in getattr(self, "_route_contours", {}).get(setup["id"], {})
-                and self.z_levels(setup, op) is not None
-            )
             depth_target = self.z_target(setup, op) if path_owned else None
             target = (
                 ""
@@ -12718,7 +12784,6 @@ class _Traveler:
                     if value not in ("", "—", None, depth_target) and not isinstance(value, _Box)
                 )
             )
-            action = action or row[1]
             direction = self.direction(op["direction"]) if cycle and "direction" in op else row[7]
             if (
                 self._route_cut_direction.get((setup["id"], row.op_id)) == op.get("direction")
@@ -12730,12 +12795,19 @@ class _Traveler:
                 direction, _Box
             ):
                 target = "; ".join(filter(None, (target, str(direction))))
-            allowance = op.get("stock_to_leave_mm")
-            scale = {"mm": 1.0, "in": 25.4}.get(self.units)
-            if _known(allowance) and allowance > 0 and scale:
-                target = "; ".join(
-                    filter(None, (target, "allowance " + self.readout(allowance / scale)))
-                )
+            turn = getattr(row, "spindle_turn", None)
+            turns = {
+                getattr(other, "spindle_turn", None)
+                for other in self._rows_by_setup.get(setup["id"], ())
+                if getattr(other, "spindle_turn", None) in _SPINDLE_TURNS
+            }
+            if turn in _SPINDLE_TURNS and (
+                len(turns) > 1 or self.detail == "pro" and turn == "REVERSE"
+            ):
+                sense = "spindle " + turn
+                if self.detail == "hobby":
+                    sense += ": " + _SPINDLE_TURNS[turn]
+                target = "; ".join(filter(None, (target, sense)))
         if (
             op.get("do") in HAND_THREAD
             and not _known(
@@ -13007,11 +13079,12 @@ class _Traveler:
         if self.detail == "pedantic":
             coolant = "" if bench else _p(f"Coolant: {self.bench(setup.get('coolant'))}.")
             add("coolant", coolant)
-            add("purchased", purchased)
+        add("purchased", purchased)
         add("edge-break", self.setup_edge_break(setup))
         if self.detail == "pedantic":
             add("tools", tool_html)
-            add("fixture", fixture_tables)
+        add("fixture", fixture_tables)
+        if self.detail == "pedantic":
             add("features", feature_html)
         if self.detail != "pedantic" and not bench:
             procedure = _mapping(setup.get("zero")).get("procedure")
@@ -13037,6 +13110,21 @@ class _Traveler:
         add("datum", dro_html)
         if self.detail == "pedantic":
             add("clearance", clearance)
+        elif self.detail == "hobby":
+            powered = [row for row in rows if getattr(row, "spindle_turn", None) in _SPINDLE_TURNS]
+            turns = {row.spindle_turn for row in powered}
+            if len(turns) == 1:
+                turn = next(iter(turns))
+                owners = [
+                    {"setup_id": sid, "op_id": row.op_id, "workpiece": row.workpiece}
+                    for row in powered
+                ]
+                add(
+                    "spindle",
+                    f'<p data-physical-ops="{escape(json.dumps(owners))}">'
+                    + escape(f"Spindle {turn}: {_SPINDLE_TURNS[turn]}.")
+                    + "</p>",
+                )
         for row in rows:
             op = next(op for op in setup.get("ops", []) if op["op"] == row.op_id)
             records = tuple(check for check in row[-1] if isinstance(check, _Inspection))

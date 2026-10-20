@@ -88,10 +88,25 @@ def test_a_consumable_without_a_name_prints_its_slug(tmp_path):
 
 
 def test_mill_xy_check_jogs_are_made_raised_clear_of_the_work(bracket, shaft):
-    # The shared first-use guide owns safe check-jog motion; local setups own their
-    # settings. Returning before lowering must not establish a second datum.
-    markup = Markup(bracket[1])
-    (guide,) = [node for node in markup.nodes if node["attrs"].get("id") == "dro-first-use"]
+    # Each family's first-use guide owns safe check-jog motion; local setups own
+    # their settings. Returning before lowering must not establish a second datum.
+    def family_guide(html, folder, family):
+        data = load_bundle(ROOT / "examples" / folder / "plan.toml")
+        owners = [
+            setup["id"]
+            for setup in data.plan["setups"]
+            if data.inventory["machines"][setup["machine"].removeprefix("machines.")]["kind"]
+            == family
+        ]
+        markup = Markup(html)
+        (guide,) = markup.find("dro-guide")
+        assert guide["attrs"]["data-setup-id"] == owners[0]
+        guide_id = guide["attrs"]["id"]
+        (target,) = [node for node in markup.nodes if node["attrs"].get("id") == guide_id]
+        assert target is guide
+        return guide
+
+    guide = family_guide(bracket[1], "pivot-bracket", "mill")
     motion = re.search(r"Clear vertically[^.]*check jog[^.]*\.", content(guide))
     assert motion, content(guide)
     steps = motion[0]
@@ -109,8 +124,7 @@ def test_mill_xy_check_jogs_are_made_raised_clear_of_the_work(bracket, shaft):
     clearance = steps[: steps.index("check jog")]
     assert "work" in clearance and "clamps" in clearance, steps
     # A lathe guide jogs away from the work, never directing a mill-style lift.
-    markup = Markup(shaft[1])
-    (guide,) = [node for node in markup.nodes if node["attrs"].get("id") == "dro-first-use"]
+    guide = family_guide(shaft[1], "pivot-shaft", "lathe")
     assert "Clear vertically" not in content(guide) and "raise Z" not in content(guide)
 
 
