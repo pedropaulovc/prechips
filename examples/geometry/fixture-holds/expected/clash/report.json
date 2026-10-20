@@ -1802,7 +1802,17 @@
       ],
       "message": "top: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "top",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -3398,7 +3408,7 @@
       "subject": "S3"
     }
   ],
-  "hash": "e98241a86bec7bcda3991c0c5cad4c327a43579b7e95672e783c49bc451fada8",
+  "hash": "f48bb41f293e6123c011185b78c0062d5ed3fbae67d2fc608da03af608de99cb",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -3418,15 +3428,15 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "ebe3055f84828c172b8d8c3eded7ab3f9132a219f5bf7c3afc38a5bd0aaf4edf"
+      "sha256": "fd9f2d9b0ff24088b93a032cb5f441e2c15af11f10e1da611d4edfa5c3082575"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "a50c56b2b03b553a06a22aaa7215799fee462ea06a84be7458a53635c0469a1b"
+      "sha256": "9e5d61cf30157bb1074ce58b496f8e54ee2312a6946519a551395320fc6e8962"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "52784529973d391ccb8f6c17e3f8f2679344ca6472a385ef967ee95c59276e18"
+      "sha256": "2c8f14bcf2614ea703c845a106114235d59f1cf57f35cab433f18e5f8df5a698"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -3446,31 +3456,79 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -75.0,
+              15.0,
+              -32.0,
+              75.0,
+              45.0,
+              8.0
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -75.0,
+              -45.0,
+              -32.0,
+              75.0,
+              -15.0,
+              8.0
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -75.0,
+              -14.0,
+              -20.0,
+              75.0,
+              -8.0,
+              0.0
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              -75.0,
+              8.0,
+              -20.0,
+              75.0,
+              14.0,
+              0.0
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              -41.0,
+              -30.0,
+              -30.0,
+              -29.0,
+              30.0,
+              -20.0
+            ],
             "exact": true,
             "name": "riser 1 test-riser-blocks",
             "role": "riser"
           },
           {
+            "bbox_mm": [
+              29.0,
+              -30.0,
+              -30.0,
+              41.0,
+              30.0,
+              -20.0
+            ],
             "exact": true,
             "name": "riser 2 test-riser-blocks",
             "role": "riser"
@@ -3487,7 +3545,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2472,
+        "height_px": 2224,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -3499,16 +3557,22 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1266,
+            "id": "setup",
             "label": "SETUP S1  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 958,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL X2.3",
             "role": "holding_detail",
-            "top_px": 1514
+            "selection_group": "holding_detail:1",
+            "top_px": 1266
           }
         ],
         "render_debts": [],
@@ -3522,7 +3586,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "ebe3055f84828c172b8d8c3eded7ab3f9132a219f5bf7c3afc38a5bd0aaf4edf"
+      "sha256": "fd9f2d9b0ff24088b93a032cb5f441e2c15af11f10e1da611d4edfa5c3082575"
     },
     "S2": {
       "fixture": "unresolved",
@@ -3531,21 +3595,53 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -45.0,
+              -45.0,
+              -10.0,
+              45.0,
+              45.0,
+              0.0
+            ],
             "exact": true,
             "name": "test-tapped-plate:floor",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -6.0,
+              -20.0,
+              20.0,
+              6.0,
+              30.0,
+              28.0
+            ],
             "exact": true,
             "name": "clamp 1 test-clamp-kit/stud-strap:beam",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -3.0,
+              -13.0,
+              -10.0,
+              3.0,
+              -7.0,
+              30.0
+            ],
             "exact": true,
             "name": "clamp 1 test-clamp-kit/stud-strap:stud",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -6.0,
+              -20.0,
+              0.0,
+              6.0,
+              -15.0,
+              20.0
+            ],
             "exact": true,
             "name": "clamp 1 test-clamp-kit/stud-strap:heel",
             "role": "clamp"
@@ -3564,7 +3660,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2472,
+        "height_px": 2251,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -3576,16 +3672,22 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1293,
+            "id": "setup",
             "label": "SETUP S2  /  PLAN VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 958,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL X6.6",
             "role": "holding_detail",
-            "top_px": 1514
+            "selection_group": "holding_detail:1",
+            "top_px": 1293
           }
         ],
         "render_debts": [
@@ -3601,7 +3703,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "a50c56b2b03b553a06a22aaa7215799fee462ea06a84be7458a53635c0469a1b"
+      "sha256": "9e5d61cf30157bb1074ce58b496f8e54ee2312a6946519a551395320fc6e8962"
     },
     "S3": {
       "fixture": "modeled",
@@ -3610,21 +3712,53 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -45.0,
+              -45.0,
+              -10.0,
+              45.0,
+              45.0,
+              0.0
+            ],
             "exact": true,
             "name": "test-tapped-plate:floor",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -6.0,
+              -32.0,
+              20.0,
+              6.0,
+              18.0,
+              28.0
+            ],
             "exact": true,
             "name": "clamp 1 test-clamp-kit/stud-strap:beam",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -3.0,
+              -25.0,
+              -10.0,
+              3.0,
+              -19.0,
+              30.0
+            ],
             "exact": true,
             "name": "clamp 1 test-clamp-kit/stud-strap:stud",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -6.0,
+              -32.0,
+              0.0,
+              6.0,
+              -27.0,
+              20.0
+            ],
             "exact": true,
             "name": "clamp 1 test-clamp-kit/stud-strap:heel",
             "role": "clamp"
@@ -3641,7 +3775,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2472,
+        "height_px": 2251,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -3653,16 +3787,22 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1293,
+            "id": "setup",
             "label": "SETUP S3  /  PLAN VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 958,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL X6.6",
             "role": "holding_detail",
-            "top_px": 1514
+            "selection_group": "holding_detail:1",
+            "top_px": 1293
           }
         ],
         "render_debts": [
@@ -3678,7 +3818,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "52784529973d391ccb8f6c17e3f8f2679344ca6472a385ef967ee95c59276e18"
+      "sha256": "2c8f14bcf2614ea703c845a106114235d59f1cf57f35cab433f18e5f8df5a698"
     }
   },
   "rules_version": "m5-rev12",

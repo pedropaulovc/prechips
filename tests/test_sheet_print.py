@@ -103,13 +103,37 @@ def _browser_gate_session(tmp_path, behavior, *, required=True, consumer_fails=F
                     None,
                 )
                 if target is not None and behavior != "absent":
+                    printed_pdf = (root / "one-page.pdf").read_bytes()
                     content = {
-                        "success": (root / "one-page.pdf").read_bytes(),
+                        "success": printed_pdf,
                         "empty": b"",
                         "invalid": b"not a PDF document",
+                        "missing-proof": printed_pdf,
+                        "in-progress": printed_pdf,
+                        "pagination-error": printed_pdf,
+                        "malformed-count": printed_pdf,
+                        "duplicate-proof": printed_pdf,
+                        "count-mismatch": printed_pdf,
                     }[behavior]
                     Path(target).write_bytes(content)
-                return subprocess.CompletedProcess(command, 0, "", "")
+                dom = (
+                    '<!DOCTYPE html><html class="paged"><head></head><body>'
+                    '<section class="page" data-sheet="job" data-pages="1"></section>'
+                    '</body></html>'
+                )
+                if behavior == "missing-proof":
+                    dom = ""
+                elif behavior == "in-progress":
+                    dom = dom.replace('class="paged"', 'class="paged print-measuring"')
+                elif behavior == "pagination-error":
+                    dom = dom.replace('<html ', '<html data-pagination-error="overflow" ')
+                elif behavior == "malformed-count":
+                    dom = dom.replace('data-pages="1"', 'data-pages="0"')
+                elif behavior == "duplicate-proof":
+                    dom += dom
+                elif behavior == "count-mismatch":
+                    dom = dom.replace('data-pages="1"', 'data-pages="2"')
+                return subprocess.CompletedProcess(command, 0, stdout=dom, stderr="")
 
 
             machinist_review().subprocess.run = browser_run
@@ -191,6 +215,12 @@ def _browser_gate_session(tmp_path, behavior, *, required=True, consumer_fails=F
         ("absent", "RuntimeError"),
         ("empty", "RuntimeError"),
         ("invalid", "PdfiumError"),
+        ("missing-proof", "RuntimeError"),
+        ("in-progress", "RuntimeError"),
+        ("pagination-error", "RuntimeError"),
+        ("malformed-count", "RuntimeError"),
+        ("duplicate-proof", "RuntimeError"),
+        ("count-mismatch", "RuntimeError"),
     ],
 )
 def test_required_browser_failure_ends_the_session_before_workers(tmp_path, behavior, cause):
@@ -222,11 +252,12 @@ def test_required_browser_success_does_not_hide_a_consumer_failure(tmp_path):
     assert all((directory / f"consumer-{index}").is_file() for index in range(2))
 
 
-def printed_pages(html, tmp_path):
+def printed_pages(html, tmp_path, *, expect_pagination_error=False):
     """Each physical page's text as Chrome prints ``html`` with its scripts run: one line
     per printed baseline, top to bottom, its characters left to right. Lines come from the
     glyphs' own positions, not the PDF text heuristic, which can break a line between two
-    glyphs that print side by side."""
+    glyphs that print side by side. An explicitly expected refusal must still contain the
+    actual PDF warning; it never substitutes a count for missing completion evidence."""
     import pypdfium2 as pdfium
     import pypdfium2.raw as pdfium_raw
 
@@ -237,14 +268,32 @@ def printed_pages(html, tmp_path):
         pytest.skip(str(exc))
     source, pdf = tmp_path / "traveler.html", tmp_path / "traveler.pdf"
     source.write_text(html, encoding="utf-8")
-    review.print_traveler_pdf(source, pdf, chrome=chrome)
+    try:
+        declared_pages = review.print_traveler_pdf(source, pdf, chrome=chrome)
+    except RuntimeError as exc:
+        if not expect_pagination_error or re.match(r"Traveler pagination\b", str(exc)) is None:
+            raise
+        declared_pages = None
     document = pdfium.PdfDocument(str(pdf))
     try:
+        printed_count = len(document)
+        if not expect_pagination_error and printed_count != declared_pages:
+            raise RuntimeError(
+                f"{pdf} printed {printed_count} pages; continuous pagination declared "
+                f"{declared_pages}"
+            )
         texts = []
-        for index in range(len(document)):
+        pdf_has_pagination_error = False
+        for index in range(printed_count):
             page = document[index]
             textpage = page.get_textpage()
             try:
+                if "PRINT LAYOUT ERROR" in textpage.get_text_range():
+                    if not expect_pagination_error:
+                        raise RuntimeError(
+                            f"{pdf}: page {index + 1} reports a print pagination error"
+                        )
+                    pdf_has_pagination_error = True
                 lines = {}
                 for i in range(textpage.count_chars()):
                     char = textpage.get_text_range(i, 1)
@@ -266,6 +315,8 @@ def printed_pages(html, tmp_path):
                 page.close()
     finally:
         document.close()
+    if expect_pagination_error:
+        assert pdf_has_pagination_error, "Expected actual PDF PRINT LAYOUT ERROR warning"
     return texts
 
 
@@ -523,7 +574,7 @@ def test_recording_counter_refuses_defective_real_typography(tmp_path, override,
 
     source = _list([_Note("S1 op 20 inspection: Record {observed}.", "S1 op 20 inspection:")])
     html = _sections([(0, source + f"<style>.fixed-locator-digit {{{override}}}</style>")])
-    pages = printed_pages(html, tmp_path)
+    pages = printed_pages(html, tmp_path, expect_pagination_error=True)
     refusal = " ".join(" ".join(pages).split())
     assert "PRINT LAYOUT ERROR" in refusal and reason in refusal
     # Refusal restores the sole original recording area instead of dropping it.
@@ -557,7 +608,12 @@ def test_recording_counter_remeasures_inherited_continuation_line_height(tmp_pat
         + "</div>"
         + override
     )
-    pages = [" ".join(text.split()) for text in printed_pages(_sections([(0, source)]), tmp_path)]
+    pages = [
+        " ".join(text.split())
+        for text in printed_pages(
+            _sections([(0, source)]), tmp_path, expect_pagination_error=changed
+        )
+    ]
     text = " ".join(pages)
     assert all(text.count(label) == 1 for label in fields)
     assert [int(value) for value in re.findall(r"\brow-(\d+)\b", text)] == list(range(1, 61))
@@ -2439,7 +2495,7 @@ def test_single_original_figure_fits_whole_or_refuses_with_measured_bounds(
                 ["<h2>SETUP S1</h2><p>Original setup instructions.</p>", source],
             ]
             html = sheet.render()
-        texts = printed_pages(html, tmp_path)
+        texts = printed_pages(html, tmp_path, expect_pagination_error=True)
         refusal = " ".join(" ".join(texts).split())
         assert "PRINT LAYOUT ERROR" in refusal and "AuthoredWholeView" in refusal
         measured = re.search(

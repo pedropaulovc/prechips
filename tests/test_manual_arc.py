@@ -2258,12 +2258,17 @@ def test_every_unknown_manual_arc_input_stops_its_op_on_the_traveler(
     setup = bundle.plan["setups"][0]
     sheet = _Traveler(bundle, [row], {}, None)
     sheet.setup = setup
-    table, _, _, stops = sheet.operations(setup, {}, {"notes": 2, "contours": None})
+    table, decisions = sheet.operations(setup, {})
     printed = " ".join(unescape(re.sub(r"<[^>]+>", " ", table)).split())
-    # The op's own manual instruction carries the STOP, and the setup's STOP list names it.
+    # The op's own instruction carries the STOP and its typed blocker names the same op.
     step = printed[printed.index("Layout:" if number == 10 else "Bench filing:") :]
     assert "STOP" in step, step
-    assert str(number) in [op for ops in stops.values() for op in ops], stops
+    assert any(
+        decision.kind == "block"
+        and decision.scope == f"S1:{number}"
+        and "manual arc not proven" in decision.text
+        for decision in decisions
+    ), decisions
 
 
 @pytest.mark.parametrize(("layout", "status"), [("'dividers'", "pass"), ("'chalk'", "unknown")])

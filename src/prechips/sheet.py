@@ -12490,6 +12490,8 @@ class _Traveler:
                 target = "; ".join(
                     filter(None, (target, "allowance " + self.readout(allowance / scale)))
                 )
+        if op.get("do") == "coating":
+            tool = self.coating(op)
         feature_ids = op_features(op)
         labels = []
         for feature_id in feature_ids:

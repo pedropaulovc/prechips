@@ -9413,6 +9413,10 @@
       ],
       "message": "S1:50: every process hold lies inside its drawing band (a reference-only dimension has none), read by a capable gauge.",
       "numbers": {
+        "evaluation": "inspection_plan",
+        "op": "S1:50",
+        "op_id": 50,
+        "part_result": "not_recorded",
         "process_holds": [
           {
             "band": [
@@ -9438,7 +9442,8 @@
             "requirement": "dia",
             "resolution_mm": 0.00254
           }
-        ]
+        ],
+        "setup_id": "S1"
       },
       "rule": "inspection",
       "status": "pass",
@@ -9452,6 +9457,10 @@
       ],
       "message": "S2:50: every process hold lies inside its drawing band (a reference-only dimension has none), read by a capable gauge.",
       "numbers": {
+        "evaluation": "inspection_plan",
+        "op": "S2:50",
+        "op_id": 50,
+        "part_result": "not_recorded",
         "process_holds": [
           {
             "band": [
@@ -9477,7 +9486,8 @@
             "requirement": "length",
             "resolution_mm": 0.00254
           }
-        ]
+        ],
+        "setup_id": "S2"
       },
       "rule": "inspection",
       "status": "pass",
@@ -9491,6 +9501,10 @@
       ],
       "message": "S3:50: every process hold lies inside its drawing band (a reference-only dimension has none), read by a capable gauge.",
       "numbers": {
+        "evaluation": "inspection_plan",
+        "op": "S3:50",
+        "op_id": 50,
+        "part_result": "not_recorded",
         "process_holds": [
           {
             "band": [
@@ -9516,7 +9530,8 @@
             "requirement": "length",
             "resolution_mm": 0.00254
           }
-        ]
+        ],
+        "setup_id": "S3"
       },
       "rule": "inspection",
       "status": "pass",
@@ -9531,19 +9546,35 @@
       "message": "body dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999943,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "micrometers/1-2in",
         "gauge_kind": "micrometer_set",
+        "identity": {
+          "feature_owner": "body",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           41.2,
           42.8
         ],
+        "method": null,
         "op": "S11:80",
+        "op_id": 80,
+        "part_result": "not_recorded",
         "range_mm": [
           25.4,
           50.8
         ],
         "requirement": "dia",
-        "resolution_mm": 0.00254
+        "resolution_mm": 0.00254,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "body:dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -9558,19 +9589,35 @@
       "message": "body height: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999943,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "height-gauge",
         "gauge_kind": "height_gauge",
+        "identity": {
+          "feature_owner": "body",
+          "requirement": "height",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           85.2,
           86.8
         ],
+        "method": null,
         "op": "S11:80",
+        "op_id": 80,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           304.79999999999995
         ],
         "requirement": "height",
-        "resolution_mm": 0.0254
+        "resolution_mm": 0.0254,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "body:height"
       },
       "rule": "inspection",
       "status": "pass",
@@ -9582,25 +9629,30 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "cone_boss dia: gauge spans the band at sufficient resolution.",
+      "message": "cone_boss dia: later finishing effect is unresolved; no proven final check.",
       "numbers": {
-        "band_mm": 1.6000000000000014,
-        "gauge": "micrometers/0-1in",
-        "gauge_kind": "micrometer_set",
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "gauge": "unknown",
+        "identity": {
+          "feature_owner": "cone_boss",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           16.4,
           18.0
         ],
-        "op": "S6:20",
-        "range_mm": [
-          0.0,
-          25.4
-        ],
+        "part_result": "not_recorded",
         "requirement": "dia",
-        "resolution_mm": 0.00254
+        "shared_check_id": null,
+        "unresolved_cut_effects": [
+          "S10:10"
+        ]
       },
       "rule": "inspection",
-      "status": "pass",
+      "status": "unknown",
       "subject": "cone_boss:dia"
     },
     {
@@ -9609,22 +9661,27 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "cone_boss_north_face finish_ra: roughness gauge spans requirement.",
+      "message": "cone_boss_north_face finish_ra: later finishing effect is unresolved; no proven final check.",
       "numbers": {
-        "gauge": "roughness-comparator",
-        "gauge_kind": "roughness_comparator",
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "gauge": "unknown",
+        "identity": {
+          "feature_owner": "cone_boss_north_face",
+          "requirement": "finish_ra",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": 1.6,
-        "op": "S2:10",
-        "ra_range": [
-          0.1,
-          12.5
-        ],
-        "range_mm": "unknown",
+        "part_result": "not_recorded",
         "requirement": "finish_ra",
-        "resolution_mm": "unknown"
+        "shared_check_id": null,
+        "unresolved_cut_effects": [
+          "S10:10"
+        ]
       },
       "rule": "inspection",
-      "status": "pass",
+      "status": "unknown",
       "subject": "cone_boss_north_face:finish_ra"
     },
     {
@@ -9633,25 +9690,30 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "cone_boss_north_face length: gauge spans the band at sufficient resolution.",
+      "message": "cone_boss_north_face length: later finishing effect is unresolved; no proven final check.",
       "numbers": {
-        "band_mm": 1.0200000000000031,
-        "gauge": "calipers",
-        "gauge_kind": "caliper",
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "gauge": "unknown",
+        "identity": {
+          "feature_owner": "cone_boss_north_face",
+          "requirement": "length",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           41.5,
           42.52
         ],
-        "op": "S6:30",
-        "range_mm": [
-          0,
-          152.39999999999998
-        ],
+        "part_result": "not_recorded",
         "requirement": "length",
-        "resolution_mm": 0.0127
+        "shared_check_id": null,
+        "unresolved_cut_effects": [
+          "S10:10"
+        ]
       },
       "rule": "inspection",
-      "status": "pass",
+      "status": "unknown",
       "subject": "cone_boss_north_face:length"
     },
     {
@@ -9662,7 +9724,17 @@
       ],
       "message": "cone_boss_south_face: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "cone_boss_south_face",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -9674,25 +9746,41 @@
         "plan.joint_features.cone_socket: JOINT PREPARATION — plan only, not a drawing dimension",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "cone_socket dia: gauge spans the band at sufficient resolution.",
+      "message": "cone_socket dia: later finishing effect is unresolved; no proven final check.",
       "numbers": {
-        "band_mm": 0.019999999999999574,
-        "gauge": "bore-gauge-small",
-        "gauge_kind": "bore_gauge",
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "gauge": "unknown",
+        "identity": {
+          "feature_owner": "cone_socket",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           17.25,
           17.27
         ],
-        "op": "S5:40",
-        "range_mm": [
-          10.0,
-          18.0
-        ],
+        "part_result": "not_recorded",
         "requirement": "dia",
-        "resolution_mm": 0.001
+        "shared_check_id": null,
+        "unresolved_cut_effects": [
+          "S6:20",
+          "S7:20",
+          "S8:20",
+          "S8:30",
+          "S9:20",
+          "S9:30",
+          "S10:10",
+          "S11:10",
+          "S11:40",
+          "S11:50",
+          "S11:60",
+          "S11:70"
+        ]
       },
       "rule": "inspection",
-      "status": "pass",
+      "status": "unknown",
       "subject": "cone_socket:dia"
     },
     {
@@ -9701,25 +9789,51 @@
         "plan.joint_features.cone_spigot: JOINT PREPARATION — plan only, not a drawing dimension",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "cone_spigot dia: gauge spans the band at sufficient resolution.",
+      "message": "cone_spigot dia: later finishing effect is unresolved; no proven final check.",
       "numbers": {
-        "band_mm": 0.012000000000000455,
-        "gauge": "micrometers/0-1in",
-        "gauge_kind": "micrometer_set",
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "gauge": "unknown",
+        "identity": {
+          "feature_owner": "cone_spigot",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           17.194,
           17.206
         ],
-        "op": "S2:30",
-        "range_mm": [
-          0.0,
-          25.4
-        ],
+        "part_result": "not_recorded",
         "requirement": "dia",
-        "resolution_mm": 0.00254
+        "shared_check_id": null,
+        "unresolved_cut_effects": [
+          "S2:40",
+          "S3:10",
+          "S3:30",
+          "S3:40",
+          "S4:20",
+          "S4:30",
+          "S4:40",
+          "S5:20",
+          "S5:30",
+          "S5:40",
+          "S6:20",
+          "S7:20",
+          "S8:20",
+          "S8:30",
+          "S9:20",
+          "S9:30",
+          "S10:10",
+          "S11:10",
+          "S11:40",
+          "S11:50",
+          "S11:60",
+          "S11:70"
+        ]
       },
       "rule": "inspection",
-      "status": "pass",
+      "status": "unknown",
       "subject": "cone_spigot:dia"
     },
     {
@@ -9734,8 +9848,16 @@
           "A",
           "B"
         ],
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "height-gauge",
         "gauge_kind": "height_gauge",
+        "identity": {
+          "feature_owner": "crank_bore",
+          "requirement": "angularity_dia",
+          "workpiece": null
+        },
         "inspection_method": [
           "AUTHOR'S CHOICE: qualify each gauge rod before use. Micrometer it at both ends and the middle: the three readings must agree within 0.0001 in (one division) and match its size. Then lay it in the V-blocks on the surface plate, DTI tip on top over each block and at the middle, and turn it one full turn: each reading must stay within one dial division (0.0005 in). A rod that fails either check is not used.",
           "AUTHOR'S CHOICE: slide the Ø11.405 gauge rod through the crank bore and the Ø12.250 gauge rod through the journal bore, each with about 40 mm out of both ends. By the op 100 and op 110 bore readings each rod is 0.006-0.038 mm under its bore. Seat each rod by gravity on the low line of its bore, pressing it down by hand at both mouths: lying along that line over the full bore length, the rod stays parallel to the bore axis, so the clearance moves both readings of a rise equally and cancels.",
@@ -9751,14 +9873,36 @@
           "Calculate: 0.901 × (rC2 − 16.918) − 1.418 × rJ2 = {e2}",
           "Calculate: √(e1² + e2²) = {result}; accept 0.10 or less."
         ],
+        "kind": "dimensional",
         "limits": 0.1,
+        "method": [
+          "AUTHOR'S CHOICE: qualify each gauge rod before use. Micrometer it at both ends and the middle: the three readings must agree within 0.0001 in (one division) and match its size. Then lay it in the V-blocks on the surface plate, DTI tip on top over each block and at the middle, and turn it one full turn: each reading must stay within one dial division (0.0005 in). A rod that fails either check is not used.",
+          "AUTHOR'S CHOICE: slide the Ø11.405 gauge rod through the crank bore and the Ø12.250 gauge rod through the journal bore, each with about 40 mm out of both ends. By the op 100 and op 110 bore readings each rod is 0.006-0.038 mm under its bore. Seat each rod by gravity on the low line of its bore, pressing it down by hand at both mouths: lying along that line over the full bore length, the rod stays parallel to the bore axis, so the clearance moves both readings of a rise equally and cancels.",
+          "Mount the DTI on the height gauge, tip on top of the rod with the lever lifted to mid-travel (about 0.015 in of its 0.030 in); a higher rod reads +. At each position sweep the tip across the rod and take the highest reading. Write every reading in mm: inch dial × 25.4.",
+          "Seating check, at every position: read, press the rod down with a finger at the far mouth, read again; the two must agree within one dial division (0.0005 in). If not, the rod rocks on a bellmouthed mouth: wipe rod and bore, reseat and repeat. Then roll the rod half a turn in its bore and repeat the rise; record the mean of the two rises, so a bend in the rod cancels.",
+          "Lay a parallel on the plate in line with the rod and stand the second 1-2-3 block at its end as the stop. Position A: height-gauge base against the stop. Position B: the first 1-2-3 block between stop and base, 2 in face (50.8) for the journal rod, 3 in face (76.2) for the crank rod. Rise = reading at B − reading at A.",
+          "Place the stop so position A puts the tip about 4 mm outside the north cap on the journal rod, or about 2 mm outside the flush crank-sleeve end on the crank rod; position B then lands just outside the south cap, or just outside the projecting crank-sleeve end.",
+          "Orientation 1, foot B on the plate. Journal rod rise: {rJ1}",
+          "Orientation 1, foot B on the plate. Crank rod rise: {rC1}",
+          "Orientation 2: lay the post on the plate on its head and body, chocked with a 1 in parallel each side, and wrap tape round the crank rod at its lower mouth so it cannot slide. Roll the post until the journal rod rise reads within ±0.05 with the projecting crank-sleeve end rising. Journal rod rise: {rJ2}",
+          "Orientation 2, crank rod: set the DTI to zero at A, move to B and raise the height gauge until the DTI reads zero again. Height-gauge rise (ideal 76.2 × tan 12.5182° = 16.918): {rC2}",
+          "Calculate: 0.945 × rC1 − 1.384 × rJ1 = {e1}",
+          "Calculate: 0.901 × (rC2 − 16.918) − 1.418 × rJ2 = {e2}",
+          "Calculate: √(e1² + e2²) = {result}; accept 0.10 or less."
+        ],
         "op": "S11:110",
+        "op_id": 110,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           304.79999999999995
         ],
         "requirement": "angularity_dia",
-        "resolution_mm": 0.0254
+        "resolution_mm": 0.0254,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "crank_bore:angularity_dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -9773,19 +9917,35 @@
       "message": "crank_bore dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.02999999999999936,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "bore-gauge-small",
         "gauge_kind": "bore_gauge",
+        "identity": {
+          "feature_owner": "crank_bore",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           11.413,
           11.443
         ],
+        "method": null,
         "op": "S11:110",
+        "op_id": 110,
+        "part_result": "not_recorded",
         "range_mm": [
           10.0,
           18.0
         ],
         "requirement": "dia",
-        "resolution_mm": 0.001
+        "resolution_mm": 0.001,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "crank_bore:dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -9799,17 +9959,36 @@
       ],
       "message": "crank_bore finish_ra: roughness gauge spans requirement.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "bore-replica-kit",
         "gauge_kind": "roughness_comparator",
+        "identity": {
+          "feature_owner": "crank_bore",
+          "requirement": "finish_ra",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": 1.6,
+        "method": [
+          "AUTHOR'S CHOICE: cast the crank bore as op 100 casts the journal bore, before the gauge rods go in: swab it clean and dry, lay the post with the bore level, tape the far mouth, centre the M3 pull rod, fill, cure, peel the tape and pull the cast.",
+          "Under the measuring loupe, in one light, lay the cast beside the kit plate's reamed Ra 1.6 and Ra 3.2 patches. Along its whole length the cast must look no rougher than the Ra 1.6 patch, with no chatter band, tear or score. Write yes or no: {cast}"
+        ],
         "op": "S11:110",
+        "op_id": 110,
+        "part_result": "not_recorded",
         "ra_range": [
           0.4,
           6.3
         ],
         "range_mm": "unknown",
         "requirement": "finish_ra",
-        "resolution_mm": 0.0001
+        "resolution_mm": 0.0001,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "crank_bore:finish_ra"
       },
       "rule": "inspection",
       "status": "pass",
@@ -9824,19 +10003,35 @@
       "message": "crank_bore separation: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.36999999999999744,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "height-gauge",
         "gauge_kind": "height_gauge",
+        "identity": {
+          "feature_owner": "crank_bore",
+          "requirement": "separation",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           39.332,
           39.702
         ],
+        "method": "AUTHOR'S CHOICE: stand the post on foot B on the surface plate. With the DTI on the height gauge, read the top and bottom of each bore at both mouths; each bore centre is the mean of its top and bottom readings. Separation = crank centre - journal centre, accept 39.34-39.70.",
         "op": "S11:110",
+        "op_id": 110,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           304.79999999999995
         ],
         "requirement": "separation",
-        "resolution_mm": 0.0254
+        "resolution_mm": 0.0254,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "crank_bore:separation"
       },
       "rule": "inspection",
       "status": "pass",
@@ -9848,25 +10043,30 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "crank_boss dia: gauge spans the band at sufficient resolution.",
+      "message": "crank_boss dia: later finishing effect is unresolved; no proven final check.",
       "numbers": {
-        "band_mm": 1.5999999999999979,
-        "gauge": "micrometers/0-1in",
-        "gauge_kind": "micrometer_set",
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "gauge": "unknown",
+        "identity": {
+          "feature_owner": "crank_boss",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           21.1,
           22.7
         ],
-        "op": "S7:20",
-        "range_mm": [
-          0.0,
-          25.4
-        ],
+        "part_result": "not_recorded",
         "requirement": "dia",
-        "resolution_mm": 0.00254
+        "shared_check_id": null,
+        "unresolved_cut_effects": [
+          "S10:10"
+        ]
       },
       "rule": "inspection",
-      "status": "pass",
+      "status": "unknown",
       "subject": "crank_boss:dia"
     },
     {
@@ -9875,25 +10075,30 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "crank_boss_faces length: gauge spans the band at sufficient resolution.",
+      "message": "crank_boss_faces length: later finishing effect is unresolved; no proven final check.",
       "numbers": {
-        "band_mm": 1.5999999999999943,
-        "gauge": "calipers",
-        "gauge_kind": "caliper",
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "gauge": "unknown",
+        "identity": {
+          "feature_owner": "crank_boss_faces",
+          "requirement": "length",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           71.2,
           72.8
         ],
-        "op": "S7:30",
-        "range_mm": [
-          0,
-          152.39999999999998
-        ],
+        "part_result": "not_recorded",
         "requirement": "length",
-        "resolution_mm": 0.0127
+        "shared_check_id": null,
+        "unresolved_cut_effects": [
+          "S10:10"
+        ]
       },
       "rule": "inspection",
-      "status": "pass",
+      "status": "unknown",
       "subject": "crank_boss_faces:length"
     },
     {
@@ -9902,25 +10107,30 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "crank_boss_faces station: gauge spans the band at sufficient resolution.",
+      "message": "crank_boss_faces station: later finishing effect is unresolved; no proven final check.",
       "numbers": {
-        "band_mm": 1.0199999999999996,
-        "gauge": "calipers",
-        "gauge_kind": "caliper",
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "gauge": "unknown",
+        "identity": {
+          "feature_owner": "crank_boss_faces",
+          "requirement": "station",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           20.87,
           21.89
         ],
-        "op": "S7:30",
-        "range_mm": [
-          0,
-          152.39999999999998
-        ],
+        "part_result": "not_recorded",
         "requirement": "station",
-        "resolution_mm": 0.0127
+        "shared_check_id": null,
+        "unresolved_cut_effects": [
+          "S10:10"
+        ]
       },
       "rule": "inspection",
-      "status": "pass",
+      "status": "unknown",
       "subject": "crank_boss_faces:station"
     },
     {
@@ -9929,25 +10139,44 @@
         "plan.joint_features.crank_socket: JOINT PREPARATION — plan only, not a drawing dimension",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "crank_socket dia: gauge spans the band at sufficient resolution.",
+      "message": "crank_socket dia: later finishing effect is unresolved; no proven final check.",
       "numbers": {
-        "band_mm": 0.019999999999999574,
-        "gauge": "cone-socket-bore-gauge",
-        "gauge_kind": "bore_gauge",
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "gauge": "unknown",
+        "identity": {
+          "feature_owner": "crank_socket",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           22.0,
           22.02
         ],
-        "op": "S4:40",
-        "range_mm": [
-          18.0,
-          35.0
-        ],
+        "part_result": "not_recorded",
         "requirement": "dia",
-        "resolution_mm": 0.001
+        "shared_check_id": null,
+        "unresolved_cut_effects": [
+          "S5:20",
+          "S5:30",
+          "S5:40",
+          "S6:20",
+          "S7:20",
+          "S8:20",
+          "S8:30",
+          "S9:20",
+          "S9:30",
+          "S10:10",
+          "S11:10",
+          "S11:40",
+          "S11:50",
+          "S11:60",
+          "S11:70"
+        ]
       },
       "rule": "inspection",
-      "status": "pass",
+      "status": "unknown",
       "subject": "crank_socket:dia"
     },
     {
@@ -9956,25 +10185,48 @@
         "plan.joint_features.crank_spigot: JOINT PREPARATION — plan only, not a drawing dimension",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "crank_spigot dia: gauge spans the band at sufficient resolution.",
+      "message": "crank_spigot dia: later finishing effect is unresolved; no proven final check.",
       "numbers": {
-        "band_mm": 0.012000000000000455,
-        "gauge": "micrometers/0-1in",
-        "gauge_kind": "micrometer_set",
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "gauge": "unknown",
+        "identity": {
+          "feature_owner": "crank_spigot",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           21.924,
           21.936
         ],
-        "op": "S3:30",
-        "range_mm": [
-          0.0,
-          25.4
-        ],
+        "part_result": "not_recorded",
         "requirement": "dia",
-        "resolution_mm": 0.00254
+        "shared_check_id": null,
+        "unresolved_cut_effects": [
+          "S3:40",
+          "S4:20",
+          "S4:30",
+          "S4:40",
+          "S5:20",
+          "S5:30",
+          "S5:40",
+          "S6:20",
+          "S7:20",
+          "S8:20",
+          "S8:30",
+          "S9:20",
+          "S9:30",
+          "S10:10",
+          "S11:10",
+          "S11:40",
+          "S11:50",
+          "S11:60",
+          "S11:70"
+        ]
       },
       "rule": "inspection",
-      "status": "pass",
+      "status": "unknown",
       "subject": "crank_spigot:dia"
     },
     {
@@ -9983,22 +10235,27 @@
         "features requirement manifest",
         "inventory gauge range/resolution/verification"
       ],
-      "message": "foot_seat finish_ra: roughness gauge spans requirement.",
+      "message": "foot_seat finish_ra: later finishing effect is unresolved; no proven final check.",
       "numbers": {
-        "gauge": "roughness-comparator",
-        "gauge_kind": "roughness_comparator",
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "gauge": "unknown",
+        "identity": {
+          "feature_owner": "foot_seat",
+          "requirement": "finish_ra",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": 3.2,
-        "op": "S1:10",
-        "ra_range": [
-          0.1,
-          12.5
-        ],
-        "range_mm": "unknown",
+        "part_result": "not_recorded",
         "requirement": "finish_ra",
-        "resolution_mm": "unknown"
+        "shared_check_id": null,
+        "unresolved_cut_effects": [
+          "S10:10"
+        ]
       },
       "rule": "inspection",
-      "status": "pass",
+      "status": "unknown",
       "subject": "foot_seat:finish_ra"
     },
     {
@@ -10010,19 +10267,35 @@
       "message": "head dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.6000000000000014,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "micrometers/1-2in",
         "gauge_kind": "micrometer_set",
+        "identity": {
+          "feature_owner": "head",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           42.0,
           43.6
         ],
+        "method": null,
         "op": "S11:90",
+        "op_id": 90,
+        "part_result": "not_recorded",
         "range_mm": [
           25.4,
           50.8
         ],
         "requirement": "dia",
-        "resolution_mm": 0.00254
+        "resolution_mm": 0.00254,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "head:dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10037,19 +10310,35 @@
       "message": "head height: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.5999999999999979,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "height-gauge",
         "gauge_kind": "height_gauge",
+        "identity": {
+          "feature_owner": "head",
+          "requirement": "height",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           25.8,
           27.4
         ],
+        "method": null,
         "op": "S11:90",
+        "op_id": 90,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           304.79999999999995
         ],
         "requirement": "height",
-        "resolution_mm": 0.0254
+        "resolution_mm": 0.0254,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "head:height"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10064,19 +10353,35 @@
       "message": "journal_bore dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.02999999999999936,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "bore-gauge-small",
         "gauge_kind": "bore_gauge",
+        "identity": {
+          "feature_owner": "journal_bore",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           12.2558,
           12.2858
         ],
+        "method": null,
         "op": "S11:100",
+        "op_id": 100,
+        "part_result": "not_recorded",
         "range_mm": [
           10.0,
           18.0
         ],
         "requirement": "dia",
-        "resolution_mm": 0.001
+        "resolution_mm": 0.001,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "journal_bore:dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10090,17 +10395,38 @@
       ],
       "message": "journal_bore finish_ra: roughness gauge spans requirement.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "bore-replica-kit",
         "gauge_kind": "roughness_comparator",
+        "identity": {
+          "feature_owner": "journal_bore",
+          "requirement": "finish_ra",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": 1.6,
+        "method": [
+          "AUTHOR'S CHOICE: cast the journal bore before any gauge rod goes in. Swab the bore with isopropyl alcohol until the swab comes out clean, and let it dry: any oil spoils the cast.",
+          "Lay the post on its side on the bench, chocked with a parallel each side, so the bore lies level. Tape over the far mouth. Push a 150 mm length of M3 threaded rod in until it touches the tape, centred in the bore, as the pull handle. Fill the bore from the tape end back to the near mouth through the kit's mixing nozzle, withdrawing the nozzle as it fills.",
+          "Wait the kit's cure time (about 5 min). Peel the tape and draw the cast out by the rod in one steady pull.",
+          "Under the measuring loupe, in one light, lay the cast beside the kit plate's reamed Ra 1.6 and Ra 3.2 patches. Along its whole length the cast must look no rougher than the Ra 1.6 patch, with no chatter band, tear or score. Write yes or no: {cast}"
+        ],
         "op": "S11:100",
+        "op_id": 100,
+        "part_result": "not_recorded",
         "ra_range": [
           0.4,
           6.3
         ],
         "range_mm": "unknown",
         "requirement": "finish_ra",
-        "resolution_mm": 0.0001
+        "resolution_mm": 0.0001,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "journal_bore:finish_ra"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10115,19 +10441,35 @@
       "message": "journal_bore height: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.5,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "calipers",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "journal_bore",
+          "requirement": "height",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           33.118,
           33.618
         ],
+        "method": null,
         "op": "S11:100",
+        "op_id": 100,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           152.39999999999998
         ],
         "requirement": "height",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0127,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "journal_bore:height"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10142,19 +10484,35 @@
       "message": "mount_east dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.09999999999999964,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "pin-gauges",
         "gauge_kind": "pin_gauge_set",
+        "identity": {
+          "feature_owner": "mount_east",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           7.14248,
           7.24248
         ],
+        "method": null,
         "op": "S11:50",
+        "op_id": 50,
+        "part_result": "not_recorded",
         "range_mm": [
           0.28,
           12.7
         ],
         "requirement": "dia",
-        "resolution_mm": 0.0254
+        "resolution_mm": 0.0254,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "mount_east:dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10169,19 +10527,35 @@
       "message": "mount_east station: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999996,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "calipers",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "mount_east",
+          "requirement": "station",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           12.47,
           13.49
         ],
+        "method": null,
         "op": "S11:50",
+        "op_id": 50,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           152.39999999999998
         ],
         "requirement": "station",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0127,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "mount_east:station"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10196,19 +10570,35 @@
       "message": "mount_east_counterbore depth: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0200000000000005,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "calipers",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "mount_east_counterbore",
+          "requirement": "depth",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           5.51,
           6.53
         ],
+        "method": null,
         "op": "S11:70",
+        "op_id": 70,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           152.39999999999998
         ],
         "requirement": "depth",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0127,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "mount_east_counterbore:depth"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10223,19 +10613,35 @@
       "message": "mount_east_counterbore dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999996,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "calipers",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "mount_east_counterbore",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           11.0,
           12.02
         ],
+        "method": null,
         "op": "S11:70",
+        "op_id": 70,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           152.39999999999998
         ],
         "requirement": "dia",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0127,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "mount_east_counterbore:dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10250,19 +10656,35 @@
       "message": "mount_west dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.09999999999999964,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "pin-gauges",
         "gauge_kind": "pin_gauge_set",
+        "identity": {
+          "feature_owner": "mount_west",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           7.14248,
           7.24248
         ],
+        "method": null,
         "op": "S11:40",
+        "op_id": 40,
+        "part_result": "not_recorded",
         "range_mm": [
           0.28,
           12.7
         ],
         "requirement": "dia",
-        "resolution_mm": 0.0254
+        "resolution_mm": 0.0254,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "mount_west:dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10277,19 +10699,35 @@
       "message": "mount_west station: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999996,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "calipers",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "mount_west",
+          "requirement": "station",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           12.47,
           13.49
         ],
+        "method": null,
         "op": "S11:40",
+        "op_id": 40,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           152.39999999999998
         ],
         "requirement": "station",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0127,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "mount_west:station"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10304,19 +10742,35 @@
       "message": "mount_west_counterbore depth: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0200000000000005,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "calipers",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "mount_west_counterbore",
+          "requirement": "depth",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           5.51,
           6.53
         ],
+        "method": null,
         "op": "S11:60",
+        "op_id": 60,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           152.39999999999998
         ],
         "requirement": "depth",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0127,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "mount_west_counterbore:depth"
       },
       "rule": "inspection",
       "status": "pass",
@@ -10331,19 +10785,35 @@
       "message": "mount_west_counterbore dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999996,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "calipers",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "mount_west_counterbore",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           11.0,
           12.02
         ],
+        "method": null,
         "op": "S11:60",
+        "op_id": 60,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           152.39999999999998
         ],
         "requirement": "dia",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0127,
+        "selection_status": "pass",
+        "setup_id": "S11",
+        "shared_check_id": null,
+        "subject": "mount_west_counterbore:dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -26407,7 +26877,7 @@
       "subject": "S9"
     }
   ],
-  "hash": "86eb7fd6e254b07338de0246f46b21d62c47f1f7400317b4a19ec98a660e9d09",
+  "hash": "243799e5c56c34be48cca67f9fcf4ae174221c6cb5c8495a2b29b571e397273d",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -26427,15 +26897,15 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "e81b7d9f686f2a5e7b3cebff47cada0cfee6f2f46ad66c894c3acfa02e0e8d17"
+      "sha256": "cd3402b6b7312a96445e392bc08da40ef9531be1b29345709af2437c503b46c3"
     },
     "render:S10": {
       "path": "setup-S10.png",
-      "sha256": "735c94a86bad5190abbeaa234f5b8c0e328d70e5df8fbd9bcf6d19343dd3a510"
+      "sha256": "a0043488cf34d1252e68935882b93a51a2bdea3dcb52e50342024cef64371d17"
     },
     "render:S11": {
       "path": "setup-S11.png",
-      "sha256": "69bde9aa3844c249c64c5411adb7d4d8ef7850ddaf98e9a0932bd5075dc10801"
+      "sha256": "17a5ecaf0cc4cdad45df8368675c9f0dd6aefcd390ab9d495e85907d57b337ea"
     },
     "render:S11:110:angularity_dia": {
       "path": "setup-S11-op110-angularity_dia.png",
@@ -26443,39 +26913,39 @@
     },
     "render:S12": {
       "path": "setup-S12.png",
-      "sha256": "538bdcf0f87ae7890c5a158fccf6c118497cfed97b7227e84e247bf74573eeec"
+      "sha256": "9ee0eae527a6cbc6417725befae4da47bac7bda1f059128a131ad33c08318467"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "137e71893203cd7c7da05fe956c537de976926497805a74dd23bf5c61e8d5f74"
+      "sha256": "7a0506ae93a4fc64f82bded58f202d9df24050c41f680078f57b51a0c8966632"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "f059eac6de728e310a87c68cecdfe3ab7f42453ce84b097258bdc45916897fad"
+      "sha256": "b7593fda8283fece5f3cc3aa01d9b0cf34e21c62401e35458ac65f1f1cda3320"
     },
     "render:S4": {
       "path": "setup-S4.png",
-      "sha256": "e243e5ceff4422e4fde5ff12de31b6594a4740436250f15f096ea28ff9426e48"
+      "sha256": "c5fcda7f7ebc33bde40af0bf22c583959f7ac21d34e835d53edb23987c936def"
     },
     "render:S5": {
       "path": "setup-S5.png",
-      "sha256": "9a370355f6ef1a6646e43225aaa5b94f3b82a7fe0fd7d37d5041a4b454816ae1"
+      "sha256": "3c82334543d3004a2a21c794cf6d1d5a743a1a8b9e00f9c0d468f171df2ff761"
     },
     "render:S6": {
       "path": "setup-S6.png",
-      "sha256": "3337f82338839f7f58fcf56d078c182253f327f4341cbda445221e1ced95af2d"
+      "sha256": "8bc7dc90a052051133f4bc9301f2fdf668c69778864db8464bdb0e20432cf227"
     },
     "render:S7": {
       "path": "setup-S7.png",
-      "sha256": "4f34caf5f7a7a1b856b48ae7114f20b30f97dfa98bbd48924b1b52539631c0bb"
+      "sha256": "6be54848d2c430f79190ddafef1157980dcdf73084a782e747fd2f35e7139ea5"
     },
     "render:S8": {
       "path": "setup-S8.png",
-      "sha256": "e1002efeafb23dc3b64ea6c82bbafcd93663e91aec6f032272246d91286b912c"
+      "sha256": "72164b18ed6df67e2056e07291224a6b6af930ca95085b88684ca1a574246f66"
     },
     "render:S9": {
       "path": "setup-S9.png",
-      "sha256": "c6e0b88f76503235488f03853d87389db64ef5cea3a3b396916706d0ea5f1735"
+      "sha256": "37124cedb79904ebf20821bb5c0509582284c9e89d3d276ea0afda147fe32477"
     },
     "shop_policy": {
       "path": "examples/shop-policy.toml",
@@ -26495,21 +26965,53 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              22.225,
+              -8.0,
+              -125.0,
+              67.225,
+              8.0,
+              -100.0
+            ],
             "exact": true,
             "name": "chuck jaw 1",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -40.540703,
+              15.247415,
+              -125.0,
+              -4.184297,
+              62.218558,
+              -100.0
+            ],
             "exact": true,
             "name": "chuck jaw 2",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -40.540703,
+              -62.218558,
+              -125.0,
+              -4.184297,
+              -15.247415,
+              -100.0
+            ],
             "exact": true,
             "name": "chuck jaw 3",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -79.0,
+              -79.0,
+              -197.0,
+              79.0,
+              79.0,
+              -125.0
+            ],
             "exact": true,
             "name": "chuck body",
             "role": "chuck_body"
@@ -26520,7 +27022,7 @@
         "fixture_kind": "chuck_3jaw",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2376,
+        "height_px": 1994,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -26532,16 +27034,22 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [],
+            "height_px": 1102,
+            "id": "setup",
             "label": "SETUP S1  /  LATHE VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 892,
+            "id": "profile_detail:1",
             "label": "JAW-END PROFILE",
             "role": "profile_detail",
-            "top_px": 1484
+            "selection_group": "profile_detail:1",
+            "top_px": 1102
           }
         ],
         "render_debts": [],
@@ -26555,7 +27063,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "e81b7d9f686f2a5e7b3cebff47cada0cfee6f2f46ad66c894c3acfa02e0e8d17"
+      "sha256": "cd3402b6b7312a96445e392bc08da40ef9531be1b29345709af2437c503b46c3"
     },
     "S10": {
       "fixture": "modeled",
@@ -26579,81 +27087,209 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              2.0,
+              -50.0,
+              -49.0,
+              97.0,
+              50.0,
+              -30.0
+            ],
             "exact": true,
             "name": "cone-saw-cradle:base",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              28.5,
+              -24.0,
+              -30.0,
+              41.5,
+              24.0,
+              -10.0
+            ],
             "exact": true,
             "name": "cone-saw-cradle:head-side-saddle",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              66.0,
+              -24.0,
+              -30.0,
+              80.0,
+              24.0,
+              -10.0
+            ],
             "exact": true,
             "name": "cone-saw-cradle:foot-side-saddle",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              48.63,
+              -14.0,
+              -30.0,
+              56.63,
+              14.0,
+              -21.0055
+            ],
             "exact": true,
             "name": "cone-saw-cradle:north-cap-land",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              2.0,
+              50.0,
+              -49.0,
+              112.0,
+              62.0,
+              11.0
+            ],
             "exact": true,
             "name": "cone-saw-cradle:saw-vise-rear-jaw",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              2.0,
+              -62.0,
+              -49.0,
+              112.0,
+              -50.0,
+              11.0
+            ],
             "exact": true,
             "name": "cone-saw-cradle:saw-vise-front-jaw",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              44.63,
+              -8.0,
+              21.0505,
+              60.63,
+              8.0,
+              27.0505
+            ],
             "exact": true,
             "name": "clamp 1 cone-cap-bridge:pad",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              43.13,
+              -38.0,
+              27.0505,
+              62.13,
+              38.0,
+              39.7505
+            ],
             "exact": true,
             "name": "clamp 1 cone-cap-bridge:beam",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              47.8675,
+              25.2375,
+              -40.955,
+              57.3925,
+              34.7625,
+              54.295
+            ],
             "exact": true,
             "name": "clamp 1 cone-cap-bridge:rear-stud",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              42.31,
+              19.68,
+              39.7505,
+              62.95,
+              40.32,
+              41.3505
+            ],
             "exact": true,
             "name": "clamp 1 cone-cap-bridge:rear-washer",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              44.38,
+              21.75,
+              41.3505,
+              60.88,
+              38.25,
+              49.6805
+            ],
             "exact": true,
             "name": "clamp 1 cone-cap-bridge:rear-nut",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              47.8675,
+              -34.7625,
+              -40.955,
+              57.3925,
+              -25.2375,
+              54.295
+            ],
             "exact": true,
             "name": "clamp 1 cone-cap-bridge:front-stud",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              42.31,
+              -40.32,
+              39.7505,
+              62.95,
+              -19.68,
+              41.3505
+            ],
             "exact": true,
             "name": "clamp 1 cone-cap-bridge:front-washer",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              44.38,
+              -38.25,
+              41.3505,
+              60.88,
+              -21.75,
+              49.6805
+            ],
             "exact": true,
             "name": "clamp 1 cone-cap-bridge:front-nut",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              46.28,
+              -6.35,
+              21.5505,
+              58.98,
+              6.35,
+              25.1505
+            ],
             "exact": true,
             "name": "clamp 1 cone-cap-bridge:pad-screw-head",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              49.455,
+              -3.175,
+              25.1505,
+              55.805,
+              3.175,
+              34.2505
+            ],
             "exact": true,
             "name": "clamp 1 cone-cap-bridge:pad-screw-shank",
             "role": "clamp"
@@ -26686,7 +27322,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2321,
+        "height_px": 2037,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -26698,16 +27334,24 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [],
+            "height_px": 1200,
+            "id": "setup",
             "label": "SETUP S10  /  ELEVATION VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [
+              "closest_cut"
+            ],
             "height_px": 837,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL X2.6",
             "role": "holding_detail",
-            "top_px": 1484
+            "selection_group": "holding_detail:1",
+            "top_px": 1200
           }
         ],
         "render_debts": [],
@@ -26754,7 +27398,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "735c94a86bad5190abbeaa234f5b8c0e328d70e5df8fbd9bcf6d19343dd3a510"
+      "sha256": "a0043488cf34d1252e68935882b93a51a2bdea3dcb52e50342024cef64371d17"
     },
     "S11": {
       "fixture": "modeled",
@@ -26765,16 +27409,22 @@
             "height_px": 1553,
             "print_panels": [
               {
+                "annotations": [],
                 "height_px": 809,
+                "id": "inspection:1",
                 "label": "ORIENTATION 1: FOOT B ON THE PLATE (STEPS 5-6)",
                 "role": "inspection",
+                "selection_group": "inspection:1",
                 "top_px": 0,
                 "view_ordinal": 1
               },
               {
+                "annotations": [],
                 "height_px": 744,
+                "id": "inspection:2",
                 "label": "ORIENTATION 2: ON ITS HEAD AND BODY, JOURNAL ROD LEVEL (STEPS 7-8)",
                 "role": "inspection",
+                "selection_group": "inspection:2",
                 "top_px": 809,
                 "view_ordinal": 2
               }
@@ -26803,31 +27453,79 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              -79.35,
+              24.0055,
+              -12.7,
+              79.35,
+              43.1055,
+              50.8
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -79.35,
+              -43.1505,
+              -12.7,
+              79.35,
+              -24.0505,
+              50.8
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -7.5,
+              19.0055,
+              25.868,
+              7.5,
+              24.0055,
+              40.868
+            ],
             "exact": true,
             "name": "jaw_buttons cone-cap-jaw-buttons fixed",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -7.5,
+              -24.0505,
+              25.868,
+              7.5,
+              -19.0505,
+              40.868
+            ],
             "exact": true,
             "name": "jaw_buttons cone-cap-jaw-buttons moving",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -76.2,
+              -20.9875,
+              -12.7,
+              76.2,
+              -17.8125,
+              0.0
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              -76.2,
+              17.8125,
+              -12.7,
+              76.2,
+              20.9875,
+              0.0
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
@@ -26874,7 +27572,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 3452,
+        "height_px": 3016,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -26886,22 +27584,33 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1078,
+            "id": "setup",
             "label": "SETUP S11  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:1",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 1514
+            "selection_group": "path_detail:1",
+            "top_px": 1078
           },
           {
+            "annotations": [
+              "closest_cut"
+            ],
             "height_px": 958,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL X1.9",
             "role": "holding_detail",
-            "top_px": 2494
+            "selection_group": "holding_detail:1",
+            "top_px": 2058
           }
         ],
         "render_debts": [],
@@ -26916,7 +27625,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "69bde9aa3844c249c64c5411adb7d4d8ef7850ddaf98e9a0932bd5075dc10801"
+      "sha256": "17a5ecaf0cc4cdad45df8368675c9f0dd6aefcd390ab9d495e85907d57b337ea"
     },
     "S12": {
       "fixture": "modeled",
@@ -26925,41 +27634,105 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -40.0,
+              -12.0,
+              -40.0,
+              40.0,
+              122.0,
+              -30.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:base",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -30.0,
+              10.0,
+              -30.0,
+              30.0,
+              20.0,
+              -15.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:body-saddle",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -30.0,
+              100.0,
+              -30.0,
+              30.0,
+              120.0,
+              -15.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:tail-saddle",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -15.0,
+              -12.0,
+              -30.0,
+              15.0,
+              0.0,
+              -15.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:foot-stop",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -2.749305,
+              31.368,
+              -38.163224,
+              4.623599,
+              35.368,
+              -21.67659
+            ],
             "exact": true,
             "name": "cone-bond-cradle:cone-pin-1",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -18.064467,
+              31.368,
+              -38.860237,
+              -9.824564,
+              35.368,
+              -18.468694
+            ],
             "exact": true,
             "name": "cone-bond-cradle:cone-pin-2",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -8.0,
+              70.7,
+              -37.3753,
+              -4.0,
+              74.7,
+              -21.3753
+            ],
             "exact": true,
             "name": "cone-bond-cradle:crank-pin-1",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              4.0,
+              70.7,
+              -37.3753,
+              8.0,
+              74.7,
+              -21.3753
+            ],
             "exact": true,
             "name": "cone-bond-cradle:crank-pin-2",
             "role": "fixture"
@@ -26970,7 +27743,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1484,
+        "height_px": 1086,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -26982,9 +27755,12 @@
         "primary_op": null,
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [],
+            "height_px": 1086,
+            "id": "setup",
             "label": "SETUP S12  /  ELEVATION VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -27002,7 +27778,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "538bdcf0f87ae7890c5a158fccf6c118497cfed97b7227e84e247bf74573eeec"
+      "sha256": "9ee0eae527a6cbc6417725befae4da47bac7bda1f059128a131ad33c08318467"
     },
     "S2": {
       "fixture": "modeled",
@@ -27011,21 +27787,53 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              9.525,
+              -8.0,
+              -52.9945,
+              54.525,
+              8.0,
+              -27.9945
+            ],
             "exact": true,
             "name": "chuck jaw 1",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -34.190703,
+              4.248892,
+              -52.9945,
+              2.165703,
+              51.220035,
+              -27.9945
+            ],
             "exact": true,
             "name": "chuck jaw 2",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -34.190703,
+              -51.220035,
+              -52.9945,
+              2.165703,
+              -4.248892,
+              -27.9945
+            ],
             "exact": true,
             "name": "chuck jaw 3",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -79.0,
+              -79.0,
+              -124.9945,
+              79.0,
+              79.0,
+              -52.9945
+            ],
             "exact": true,
             "name": "chuck body",
             "role": "chuck_body"
@@ -27036,7 +27844,7 @@
         "fixture_kind": "chuck_3jaw",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2286,
+        "height_px": 1904,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -27048,16 +27856,22 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [],
+            "height_px": 1102,
+            "id": "setup",
             "label": "SETUP S2  /  LATHE VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 802,
+            "id": "profile_detail:1",
             "label": "JAW-END PROFILE",
             "role": "profile_detail",
-            "top_px": 1484
+            "selection_group": "profile_detail:1",
+            "top_px": 1102
           }
         ],
         "render_debts": [],
@@ -27071,7 +27885,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "137e71893203cd7c7da05fe956c537de976926497805a74dd23bf5c61e8d5f74"
+      "sha256": "7a0506ae93a4fc64f82bded58f202d9df24050c41f680078f57b51a0c8966632"
     },
     "S3": {
       "fixture": "modeled",
@@ -27080,21 +27894,53 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              12.5,
+              -8.0,
+              -104.0,
+              57.5,
+              8.0,
+              -79.0
+            ],
             "exact": true,
             "name": "chuck jaw 1",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -35.678203,
+              6.825318,
+              -104.0,
+              0.678203,
+              53.796461,
+              -79.0
+            ],
             "exact": true,
             "name": "chuck jaw 2",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -35.678203,
+              -53.796461,
+              -104.0,
+              0.678203,
+              -6.825318,
+              -79.0
+            ],
             "exact": true,
             "name": "chuck jaw 3",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -79.0,
+              -79.0,
+              -176.0,
+              79.0,
+              79.0,
+              -104.0
+            ],
             "exact": true,
             "name": "chuck body",
             "role": "chuck_body"
@@ -27105,7 +27951,7 @@
         "fixture_kind": "chuck_3jaw",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2286,
+        "height_px": 1904,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -27117,16 +27963,22 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [],
+            "height_px": 1102,
+            "id": "setup",
             "label": "SETUP S3  /  LATHE VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 802,
+            "id": "profile_detail:1",
             "label": "JAW-END PROFILE",
             "role": "profile_detail",
-            "top_px": 1484
+            "selection_group": "profile_detail:1",
+            "top_px": 1102
           }
         ],
         "render_debts": [],
@@ -27140,7 +27992,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "f059eac6de728e310a87c68cecdfe3ab7f42453ce84b097258bdc45916897fad"
+      "sha256": "b7593fda8283fece5f3cc3aa01d9b0cf34e21c62401e35458ac65f1f1cda3320"
     },
     "S4": {
       "fixture": "modeled",
@@ -27163,36 +28015,92 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              -125.0,
+              -7.0,
+              22.225,
+              -105.0,
+              7.0,
+              54.225
+            ],
             "exact": true,
             "name": "chuck jaw 1",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              -54.225,
+              -7.0,
+              -105.0,
+              -22.225,
+              7.0
+            ],
             "exact": true,
             "name": "chuck jaw 2",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              -7.0,
+              -54.225,
+              -105.0,
+              7.0,
+              -22.225
+            ],
             "exact": true,
             "name": "chuck jaw 3",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              22.225,
+              -7.0,
+              -105.0,
+              54.225,
+              7.0
+            ],
             "exact": true,
             "name": "chuck jaw 4",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -187.0,
+              -63.5,
+              -63.5,
+              -125.0,
+              63.5,
+              63.5
+            ],
             "exact": true,
             "name": "chuck body",
             "role": "chuck_body"
           },
           {
+            "bbox_mm": [
+              -312.0,
+              -55.0,
+              -75.0,
+              -187.0,
+              55.0,
+              55.0
+            ],
             "exact": true,
             "name": "BS-0:housing",
             "role": "head"
           },
           {
+            "bbox_mm": [
+              -337.0,
+              -75.0,
+              -100.0,
+              -177.0,
+              75.0,
+              -75.0
+            ],
             "exact": true,
             "name": "BS-0:base",
             "role": "head"
@@ -27224,7 +28132,7 @@
         "fixture_kind": "dividing_head",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1484,
+        "height_px": 1199,
         "jaw_front_oblique": true,
         "jaws": "exact",
         "legend": [
@@ -27236,9 +28144,14 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [
+              "closest_cut"
+            ],
+            "height_px": 1199,
+            "id": "setup",
             "label": "SETUP S4  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -27253,7 +28166,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "e243e5ceff4422e4fde5ff12de31b6594a4740436250f15f096ea28ff9426e48"
+      "sha256": "c5fcda7f7ebc33bde40af0bf22c583959f7ac21d34e835d53edb23987c936def"
     },
     "S5": {
       "fixture": "modeled",
@@ -27276,36 +28189,92 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              -125.0,
+              -18.586844,
+              20.179402,
+              -105.0,
+              2.016328,
+              54.453168
+            ],
             "exact": true,
             "name": "chuck jaw 1",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              -54.453168,
+              -18.586844,
+              -105.0,
+              -20.179402,
+              2.016328
+            ],
             "exact": true,
             "name": "chuck jaw 2",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              -2.016328,
+              -54.453168,
+              -105.0,
+              18.586844,
+              -20.179402
+            ],
             "exact": true,
             "name": "chuck jaw 3",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              20.179402,
+              -2.016328,
+              -105.0,
+              54.453168,
+              18.586844
+            ],
             "exact": true,
             "name": "chuck jaw 4",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -187.0,
+              -63.5,
+              -63.5,
+              -125.0,
+              63.5,
+              63.5
+            ],
             "exact": true,
             "name": "chuck body",
             "role": "chuck_body"
           },
           {
+            "bbox_mm": [
+              -312.0,
+              -55.0,
+              -75.0,
+              -187.0,
+              55.0,
+              55.0
+            ],
             "exact": true,
             "name": "BS-0:housing",
             "role": "head"
           },
           {
+            "bbox_mm": [
+              -337.0,
+              -75.0,
+              -100.0,
+              -177.0,
+              75.0,
+              -75.0
+            ],
             "exact": true,
             "name": "BS-0:base",
             "role": "head"
@@ -27337,7 +28306,7 @@
         "fixture_kind": "dividing_head",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1484,
+        "height_px": 1199,
         "jaw_front_oblique": true,
         "jaws": "exact",
         "legend": [
@@ -27349,9 +28318,14 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [
+              "closest_cut"
+            ],
+            "height_px": 1199,
+            "id": "setup",
             "label": "SETUP S5  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -27366,7 +28340,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "9a370355f6ef1a6646e43225aaa5b94f3b82a7fe0fd7d37d5041a4b454816ae1"
+      "sha256": "3c82334543d3004a2a21c794cf6d1d5a743a1a8b9e00f9c0d468f171df2ff761"
     },
     "S6": {
       "fixture": "modeled",
@@ -27375,41 +28349,105 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -40.0,
+              -12.0,
+              -40.0,
+              40.0,
+              122.0,
+              -30.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:base",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -30.0,
+              10.0,
+              -30.0,
+              30.0,
+              20.0,
+              -15.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:body-saddle",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -30.0,
+              100.0,
+              -30.0,
+              30.0,
+              120.0,
+              -15.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:tail-saddle",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -15.0,
+              -12.0,
+              -30.0,
+              15.0,
+              0.0,
+              -15.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:foot-stop",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -2.749305,
+              31.368,
+              -38.163224,
+              4.623599,
+              35.368,
+              -21.67659
+            ],
             "exact": true,
             "name": "cone-bond-cradle:cone-pin-1",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -18.064467,
+              31.368,
+              -38.860237,
+              -9.824564,
+              35.368,
+              -18.468694
+            ],
             "exact": true,
             "name": "cone-bond-cradle:cone-pin-2",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -8.0,
+              70.7,
+              -37.3753,
+              -4.0,
+              74.7,
+              -21.3753
+            ],
             "exact": true,
             "name": "cone-bond-cradle:crank-pin-1",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              4.0,
+              70.7,
+              -37.3753,
+              8.0,
+              74.7,
+              -21.3753
+            ],
             "exact": true,
             "name": "cone-bond-cradle:crank-pin-2",
             "role": "fixture"
@@ -27420,7 +28458,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1484,
+        "height_px": 1086,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -27432,9 +28470,12 @@
         "primary_op": null,
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [],
+            "height_px": 1086,
+            "id": "setup",
             "label": "SETUP S6  /  ELEVATION VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -27452,7 +28493,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "3337f82338839f7f58fcf56d078c182253f327f4341cbda445221e1ced95af2d"
+      "sha256": "8bc7dc90a052051133f4bc9301f2fdf668c69778864db8464bdb0e20432cf227"
     },
     "S7": {
       "fixture": "modeled",
@@ -27461,41 +28502,105 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -40.0,
+              -12.0,
+              -40.0,
+              40.0,
+              122.0,
+              -30.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:base",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -30.0,
+              10.0,
+              -30.0,
+              30.0,
+              20.0,
+              -15.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:body-saddle",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -30.0,
+              100.0,
+              -30.0,
+              30.0,
+              120.0,
+              -15.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:tail-saddle",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -15.0,
+              -12.0,
+              -30.0,
+              15.0,
+              0.0,
+              -15.0
+            ],
             "exact": true,
             "name": "cone-bond-cradle:foot-stop",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -2.749305,
+              31.368,
+              -38.163224,
+              4.623599,
+              35.368,
+              -21.67659
+            ],
             "exact": true,
             "name": "cone-bond-cradle:cone-pin-1",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -18.064467,
+              31.368,
+              -38.860237,
+              -9.824564,
+              35.368,
+              -18.468694
+            ],
             "exact": true,
             "name": "cone-bond-cradle:cone-pin-2",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -8.0,
+              70.7,
+              -37.3753,
+              -4.0,
+              74.7,
+              -21.3753
+            ],
             "exact": true,
             "name": "cone-bond-cradle:crank-pin-1",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              4.0,
+              70.7,
+              -37.3753,
+              8.0,
+              74.7,
+              -21.3753
+            ],
             "exact": true,
             "name": "cone-bond-cradle:crank-pin-2",
             "role": "fixture"
@@ -27506,7 +28611,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1484,
+        "height_px": 1086,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -27518,9 +28623,12 @@
         "primary_op": null,
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [],
+            "height_px": 1086,
+            "id": "setup",
             "label": "SETUP S7  /  ELEVATION VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -27538,7 +28646,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "4f34caf5f7a7a1b856b48ae7114f20b30f97dfa98bbd48924b1b52539631c0bb"
+      "sha256": "6be54848d2c430f79190ddafef1157980dcdf73084a782e747fd2f35e7139ea5"
     },
     "S8": {
       "fixture": "modeled",
@@ -27561,36 +28669,92 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              -125.0,
+              -7.0,
+              0.8497,
+              -105.0,
+              7.0,
+              32.8497
+            ],
             "exact": true,
             "name": "chuck jaw 1",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              -54.225,
+              -28.3753,
+              -105.0,
+              -22.225,
+              -14.3753
+            ],
             "exact": true,
             "name": "chuck jaw 2",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              -7.0,
+              -75.6003,
+              -105.0,
+              7.0,
+              -43.6003
+            ],
             "exact": true,
             "name": "chuck jaw 3",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              22.225,
+              -28.3753,
+              -105.0,
+              54.225,
+              -14.3753
+            ],
             "exact": true,
             "name": "chuck jaw 4",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -187.0,
+              -63.5,
+              -84.8753,
+              -125.0,
+              63.5,
+              42.1247
+            ],
             "exact": true,
             "name": "chuck body",
             "role": "chuck_body"
           },
           {
+            "bbox_mm": [
+              -312.0,
+              -55.0,
+              -96.3753,
+              -187.0,
+              55.0,
+              33.6247
+            ],
             "exact": true,
             "name": "BS-0:housing",
             "role": "head"
           },
           {
+            "bbox_mm": [
+              -337.0,
+              -75.0,
+              -121.3753,
+              -177.0,
+              75.0,
+              -96.3753
+            ],
             "exact": true,
             "name": "BS-0:base",
             "role": "head"
@@ -27617,7 +28781,7 @@
         "fixture_kind": "dividing_head",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1514,
+        "height_px": 1244,
         "jaw_front_oblique": true,
         "jaws": "exact",
         "legend": [
@@ -27629,9 +28793,14 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [
+              "closest_cut"
+            ],
+            "height_px": 1244,
+            "id": "setup",
             "label": "SETUP S8  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -27646,7 +28815,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "e1002efeafb23dc3b64ea6c82bbafcd93663e91aec6f032272246d91286b912c"
+      "sha256": "72164b18ed6df67e2056e07291224a6b6af930ca95085b88684ca1a574246f66"
     },
     "S9": {
       "fixture": "modeled",
@@ -27669,36 +28838,92 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              -125.0,
+              -18.586844,
+              20.179402,
+              -105.0,
+              2.016328,
+              54.453168
+            ],
             "exact": true,
             "name": "chuck jaw 1",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              -54.453168,
+              -18.586844,
+              -105.0,
+              -20.179402,
+              2.016328
+            ],
             "exact": true,
             "name": "chuck jaw 2",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              -2.016328,
+              -54.453168,
+              -105.0,
+              18.586844,
+              -20.179402
+            ],
             "exact": true,
             "name": "chuck jaw 3",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -125.0,
+              20.179402,
+              -2.016328,
+              -105.0,
+              54.453168,
+              18.586844
+            ],
             "exact": true,
             "name": "chuck jaw 4",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -187.0,
+              -63.5,
+              -63.5,
+              -125.0,
+              63.5,
+              63.5
+            ],
             "exact": true,
             "name": "chuck body",
             "role": "chuck_body"
           },
           {
+            "bbox_mm": [
+              -312.0,
+              -55.0,
+              -75.0,
+              -187.0,
+              55.0,
+              55.0
+            ],
             "exact": true,
             "name": "BS-0:housing",
             "role": "head"
           },
           {
+            "bbox_mm": [
+              -337.0,
+              -75.0,
+              -100.0,
+              -177.0,
+              75.0,
+              -75.0
+            ],
             "exact": true,
             "name": "BS-0:base",
             "role": "head"
@@ -27725,7 +28950,7 @@
         "fixture_kind": "dividing_head",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1634,
+        "height_px": 1359,
         "jaw_front_oblique": true,
         "jaws": "exact",
         "legend": [
@@ -27737,9 +28962,14 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1634,
+            "annotations": [
+              "closest_cut"
+            ],
+            "height_px": 1359,
+            "id": "setup",
             "label": "SETUP S9  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -27754,7 +28984,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "c6e0b88f76503235488f03853d87389db64ef5cea3a3b396916706d0ea5f1735"
+      "sha256": "37124cedb79904ebf20821bb5c0509582284c9e89d3d276ea0afda147fe32477"
     }
   },
   "rules_version": "m5-rev12",

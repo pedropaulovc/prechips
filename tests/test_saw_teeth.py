@@ -194,7 +194,7 @@ def test_the_op_row_prints_too_few_teeth_as_a_stop():
     data = bundle()
     finding = teeth(data)
     setup = data.plan["setups"][0]
-    page, _, _, _ = _Traveler(data, [finding], {}, None).operations(setup, {}, {"notes": 2})
+    page, _ = _Traveler(data, [finding], {}, None).operations(setup, {})
     text = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", page)).split())
     assert "STOP: 0.39 teeth" in text
     assert "coarse end is at least 30.5 TPI" in text

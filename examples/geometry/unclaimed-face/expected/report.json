@@ -1393,7 +1393,17 @@
       ],
       "message": "end_face: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "end_face",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -1407,7 +1417,17 @@
       ],
       "message": "step: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "step",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -2610,7 +2630,7 @@
       "subject": "S2"
     }
   ],
-  "hash": "bca1eaa1d816a9e135c90a3d19378e00704d98a0078dc6f9af1a953439a3bf41",
+  "hash": "a54b517bd7322c8215f978d15c3d61f56bed90d61fd141f651ec77fda8803ef8",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -2630,11 +2650,11 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "edf18752107b68218f6a09eb9a9938ae7c774c348bdb9a6f2c5b6eb819db43b6"
+      "sha256": "4ffa5390d6a7afbf7f593f21f2d0ef46b1611fc4a74187d6357fa75a1cbbb49c"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "529d85b1a18e36f3259b12fe2e9489e5aed37216e215feef29bc0f6af8d2f91d"
+      "sha256": "f0e0af43741cfddf66a369035651d7fbe02008e7652129a9d5ede939c8b4b291"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -2666,7 +2686,7 @@
         "fixture_kind": null,
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1484,
+        "height_px": 1176,
         "jaw_front_oblique": false,
         "jaws": "absent",
         "legend": [
@@ -2678,9 +2698,12 @@
         "primary_op": null,
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [],
+            "height_px": 1176,
+            "id": "setup",
             "label": "SETUP S1  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -2696,7 +2719,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "edf18752107b68218f6a09eb9a9938ae7c774c348bdb9a6f2c5b6eb819db43b6"
+      "sha256": "4ffa5390d6a7afbf7f593f21f2d0ef46b1611fc4a74187d6357fa75a1cbbb49c"
     },
     "S2": {
       "fixture": "modeled",
@@ -2705,21 +2728,53 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -45.0,
+              40.0,
+              -32.0,
+              105.0,
+              70.0,
+              8.0
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -45.0,
+              -30.0,
+              -32.0,
+              105.0,
+              0.0,
+              8.0
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -45.0,
+              2.0,
+              -20.0,
+              105.0,
+              8.0,
+              0.0
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              -45.0,
+              32.0,
+              -20.0,
+              105.0,
+              38.0,
+              0.0
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
@@ -2736,7 +2791,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1514,
+        "height_px": 1266,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -2748,9 +2803,12 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1266,
+            "id": "setup",
             "label": "SETUP S2  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -2765,7 +2823,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "529d85b1a18e36f3259b12fe2e9489e5aed37216e215feef29bc0f6af8d2f91d"
+      "sha256": "f0e0af43741cfddf66a369035651d7fbe02008e7652129a9d5ede939c8b4b291"
     }
   },
   "rules_version": "m5-rev12",

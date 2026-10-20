@@ -557,6 +557,13 @@ modes place settings and acceptance criteria at their working operations and
 avoid repeating them in exhaustive job tables. Unassigned inspection
 requirements and unresolved facts remain visible.
 
+The complete four-nut T-nut demonstration has user-approved acceptance ceilings
+of **3 physical Letter pages for `pro` and 6 for `hobby`**, including the hobby
+DRO guide and all four selected complete figures. Preserve 12pt working text,
+0.5-inch margins and required recording-field interiors. These are maxima, not
+page-fill targets: the existing 2/5-page compositions remain valid. Other jobs
+retain long-content behavior without these example-specific total-page caps.
+
 ### Job section
 
 The job page opens with part, drawing number, revision and the approval banner.

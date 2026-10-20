@@ -4,6 +4,7 @@ import math
 import re
 import subprocess
 from copy import deepcopy
+from decimal import Decimal
 from html import unescape
 from types import SimpleNamespace
 
@@ -27,9 +28,42 @@ def sheet_text(html):
     return content(Markup(f"<div>{html}</div>").nodes[0])
 
 
-def paragraphs(html):
+def dro_markup(html, *, units="mm", mode="linear"):
+    """Keep numeric probes in the rendered readout's unit and display-mode context."""
     markup = Markup(html)
+    (heading,) = [
+        node
+        for node in markup.nodes
+        if node["tag"] == "h2" and content(node).startswith("DRO ZERO")
+    ]
+    assert re.search(
+        rf",\s*{re.escape(units)},\s*{re.escape(mode)}\s+mode\b", content(heading)
+    ), content(heading)
+    return markup
+
+
+def dro_paragraphs(html, *, units="mm", mode="linear"):
+    markup = dro_markup(html, units=units, mode=mode)
     return [" ".join(content(node).split()) for node in markup.nodes if node["tag"] == "p"]
+
+
+_NUMBER = r"[+−-]?(?:\d+(?:\.\d+)?|\.\d+)"
+
+
+def exact_number(text):
+    """Parse the whole printed number; padding is immaterial, value changes are not."""
+    assert re.fullmatch(_NUMBER, text.strip()), text
+    return Decimal(text.strip().replace("−", "-"))
+
+
+def axis_set_value(text, axis, *, base=None):
+    """Read one axis's setting, or its offset from a named measured base."""
+    prefix = rf"\bAxis Set\s+{re.escape(axis)}\s+"
+    if base is not None:
+        prefix += rf"{re.escape(base)}\s*\+\s*"
+    # A final full stop is punctuation, never a truncated decimal or identifier.
+    (value,) = re.findall(prefix + rf"({_NUMBER})(?!\w|\.[\w.])", text)
+    return exact_number(value)
 
 
 def bundle(machine, zero, ops, stock_state=None):
@@ -2066,16 +2100,18 @@ def test_a_listed_retouch_installs_the_incoming_tool_and_none_for_the_same_tool(
     sheet, setup = sheet_of(data)
     tools = {("tools", "mill"): "T1 end mill", ("tools", "drill"): "T2 drill"}
     html = sheet.dro(setup, tools)
-    lines = paragraphs(html)
+    lines = dro_paragraphs(html)
     assert not re.search(r"install\s+T1\b", sheet_text(html))
     (retained,) = [line for line in lines if re.search(r"\bAfter op 10\b", line)]
     (incoming,) = [line for line in lines if re.search(r"\bAfter op 20\b", line)]
     assert re.search(r"\bop 20\b", retained) and "T1 end mill" in retained
     assert "install" not in retained
-    assert "top" in retained and "Axis Set Z 0.050" in retained
+    assert "top" in retained
+    assert axis_set_value(retained, "Z") == Decimal("0.05")
     assert re.search(r"\bop 30\b", incoming) and "T2 drill" in incoming
     assert incoming.index("install") < incoming.index("T2 drill") < incoming.index("touch")
-    assert "top" in incoming and "Axis Set Z 0.050" in incoming
+    assert "top" in incoming
+    assert axis_set_value(incoming, "Z") == Decimal("0.05")
     assert finding.numbers["derived_touches"] == []
 
 
@@ -2095,12 +2131,13 @@ def test_several_tool_changes_to_one_touch_name_their_ops_not_the_tools_again():
         ("tools", "drill"): "T3 drill",
     }
     html = sheet.dro(setup, tools)
-    lines = paragraphs(html)
+    lines = dro_paragraphs(html)
     (line,) = [line for line in lines if "install" in line and "Axis Set Z" in line]
     # Both operation identities belong to the one shared touch, independently of list punctuation.
     assert re.findall(r"\d+", line.split(":", 1)[0]) == ["20", "30"], line
     assert line.index("install") < line.index("touch"), line
-    assert "top" in line and "Axis Set Z 0.050" in line, line
+    assert "top" in line, line
+    assert axis_set_value(line, "Z") == Decimal("0.05")
     for name in ("T2 centre drill", "T3 drill"):
         assert name not in sheet_text(html), (name, sheet_text(html))
 
@@ -2109,10 +2146,11 @@ def test_a_mill_tool_touch_installs_its_tool_first():
     ops = [op(10, "spot", "hole", "centre/1"), op(20, "drill", "hole", "drill")]
     sheet, setup = sheet_of(bundle("mill", mill_zero(DECK), ops))
     tools = {("tools", "centre/1"): "T1 centre drill", ("tools", "drill"): "T2 drill"}
-    (line,) = [line for line in paragraphs(sheet.dro(setup, tools)) if "install" in line]
+    (line,) = [line for line in dro_paragraphs(sheet.dro(setup, tools)) if "install" in line]
     assert re.search(r"\bop 20\b", line), line
     assert line.index("install") < line.index("T2 drill") < line.index("touch"), line
-    assert "deck" in line and "Axis Set Z 10.050" in line
+    assert "deck" in line
+    assert axis_set_value(line, "Z") == Decimal("10.05")
 
 
 def _cells(html):
@@ -2136,9 +2174,7 @@ def test_a_tool_keeps_one_t_number_however_its_ops_and_touches_spell_it(qualifie
     assert [cell for cell in cells if re.fullmatch(r"T\d+", cell)] == ["T1", "T2"]
     assert "20, 30" in cells
     # Every op row prints its tool's one number; the zero names the tool that set it.
-    rows, _, _, _ = sheet.operations(setup, numbers, {"notes": 2})
-    printed = " ".join(_cells(rows))
-    assert "T3" not in printed and printed.count("T2") == 2, printed
+    rows, _ = sheet.operations(setup, numbers)
     markup = Markup(rows)
     visible_tools = {}
     for operation in markup.find("operation"):
@@ -2146,10 +2182,12 @@ def test_a_tool_keeps_one_t_number_however_its_ops_and_touches_spell_it(qualifie
         (value,) = [node for node in markup.nodes if node["tag"] == "dd" and node["parent"] is tool]
         visible_tools[operation["attrs"]["data-op"]] = content(value).strip()
     assert visible_tools == {"10": "T1", "20": "T2", "30": "T2"}
+    printed = " ".join(visible_tools.values())
+    assert "T3" not in printed and printed.count("T2") == 2, printed
     [touch] = evaluate(data)[0].numbers["derived_touches"]
     assert touch["before_ops"] == [20]
     assert touch["tool"].removeprefix("tools.") == "drill"
-    (line,) = [line for line in paragraphs(sheet.dro(setup, tools)) if "install" in line]
+    (line,) = [line for line in dro_paragraphs(sheet.dro(setup, tools)) if "install" in line]
     assert re.search(r"\bop 20\b", line) and not re.search(r"\bop 30\b", line), line
     name = tools[("tools", "drill")]
     assert line.index("install") < line.index(name) < line.index("touch")
@@ -2965,13 +3003,14 @@ def test_an_authored_x_touch_prints_its_axis_set_and_stops_on_a_diameter_not_sho
     tools = {("tools", "parter"): "T4 blade", ("tools", "turner"): "T1 turner"}
     (touch,) = [
         line
-        for line in paragraphs(sheet.dro(setup, tools))
+        for line in dro_paragraphs(sheet.dro(setup, tools), mode="diameter")
         if "T4 blade" in line and "Axis Set X" in line
     ]
     assert re.search(r"\bop 40\b", touch), touch
     line = touch.split("X —", 1)[1].split("Z —", 1)[0]
     # The paper counts once on the radius, twice on a diameter display.
-    assert "Axis Set X measured Ø + 0.10" in line, line
+    assert "paper on the measured diameter" in line, line
+    assert axis_set_value(line, "X", base="measured Ø") == Decimal("0.10")
     assert ("STOP" in line) is stop, line
 
 
@@ -3059,11 +3098,38 @@ def credited(data, path, faces):
 
 def zero_rows(html):
     """``{axis: (touch / pick up, Axis Set)}`` of the DRO ZERO table, as printed."""
-    cells = [
-        " ".join(unescape(re.sub(r"<[^>]+>", "", cell)).split())
-        for cell in re.findall(r"<td[^>]*>(.*?)</td>", html)
+    markup = dro_markup(html)
+    headings = ["axis", "touch / datum", "Axis Set", "check jog", "must read", "if reversed"]
+    (table,) = [
+        table
+        for table in markup.nodes
+        if table["tag"] == "table"
+        and [
+            content(cell).strip()
+            for cell in markup.nodes
+            if cell["tag"] == "th" and cell["parent"]["parent"]["parent"] is table
+        ]
+        == headings
     ]
-    return {cells[i]: (cells[i + 1], cells[i + 2]) for i in range(0, len(cells), 6)}
+    rows = {}
+    for row in markup.nodes:
+        if (
+            row["tag"] != "tr"
+            or row["parent"]["tag"] != "tbody"
+            or row["parent"]["parent"] is not table
+        ):
+            continue
+        cells = [
+            " ".join(content(cell).split())
+            for cell in markup.nodes
+            if cell["tag"] == "td" and cell["parent"] is row
+        ]
+        assert len(cells) == len(headings), cells
+        axis, contact, setting, *_ = cells
+        assert axis not in rows, axis
+        rows[axis] = (contact, setting)
+    assert rows
+    return rows
 
 
 def test_a_credited_z_zero_keeps_native_proof_in_the_report_not_the_contact():
@@ -3073,11 +3139,11 @@ def test_a_credited_z_zero_keeps_native_proof_in_the_report_not_the_contact():
     contact, axis_set = zero_rows(sheet.dro(setup, tools))["Z"]
     assert "deck" in contact and "produced plane" not in contact and FACE not in contact, contact
     assert sheet.records[("zero_check", setup["id"])]["axes"]["z"]["credited_faces"] == [FACE]
-    assert axis_set == "10.050"
+    assert exact_number(axis_set) == Decimal("10.05")
     # Native proof metadata never changes the operator's named contact or setting.
     plain, setup = sheet_of(bundle("mill", mill_zero(DECK), ops))
     html = plain.dro(setup, tools)
-    assert zero_rows(html)["Z"][1] == "10.050"
+    assert exact_number(zero_rows(html)["Z"][1]) == Decimal("10.05")
     assert "produced plane" not in sheet_text(html) and "ADVANCED_FACE" not in html
 
 
@@ -3095,8 +3161,9 @@ def test_a_credited_derived_touch_keeps_native_proof_out_of_the_operator_recipe(
     sheet, setup = credited(
         bundle("mill", mill_zero(DECK), ops), ("derived_touches", 0), [FACE, FACE + "b"]
     )
-    (line,) = [line for line in paragraphs(sheet.dro(setup, tools)) if "install" in line]
-    assert "Axis Set Z 10.050." in line and "produced plane" not in line and FACE not in line, line
+    (line,) = [line for line in dro_paragraphs(sheet.dro(setup, tools)) if "install" in line]
+    assert axis_set_value(line, "Z") == Decimal("10.05")
+    assert "produced plane" not in line and FACE not in line, line
     assert sheet.records[("zero_check", setup["id"])]["derived_touches"][0]["credited_faces"] == [
         FACE,
         FACE + "b",
@@ -3114,12 +3181,13 @@ def test_a_credited_listed_retouch_keeps_native_proof_out_of_both_operator_recip
     ops_listed = [row["op"] for row in evaluate(data)[0].numbers["retouch"]]
     sheet, setup = credited(data, ("retouch", ops_listed.index(10)), [FACE])
     tools = {("tools", "mill"): "T1 end mill", ("tools", "drill"): "T2 drill"}
-    lines = paragraphs(sheet.dro(setup, tools))
+    lines = dro_paragraphs(sheet.dro(setup, tools))
     (first,) = [line for line in lines if re.search(r"\bAfter op 10\b", line)]
     (second,) = [line for line in lines if re.search(r"\bAfter op 20\b", line)]
-    assert "Axis Set Z 0.050." in first, first
+    assert axis_set_value(first, "Z") == Decimal("0.05")
     assert "produced plane" not in first and FACE not in first, first
-    assert "Axis Set Z 0.050." in second and "produced plane" not in second, second
+    assert axis_set_value(second, "Z") == Decimal("0.05")
+    assert "produced plane" not in second and FACE not in second, second
     assert sheet.records[("zero_check", setup["id"])]["retouch"][ops_listed.index(10)][
         "credited_faces"
     ] == [FACE]

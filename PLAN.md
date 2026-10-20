@@ -1474,6 +1474,10 @@ first-article acceptance.
    measured Letter flow without automatic blank-back/setup-front padding.
    The T-nut demonstration now prints as 2 pro / 5 hobby physical Letter pages;
    PDF counts agree with continuation labels and both CLI modes exit 0.
+   The user-approved whole-job acceptance ceilings are now 3 pro / 6 hobby
+   physical Letter pages, including the hobby figures and DRO guide. These
+   maxima allow machinist fixes; they do not require padding or expanding the
+   observed 2/5 output.
    Final integration validation and independent rendered-page reviews remain
    pending; this does not establish physical paper acceptance or real-shop
    readiness. See the

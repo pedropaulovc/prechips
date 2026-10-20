@@ -358,7 +358,8 @@ def test_an_unknown_rail_leaves_the_jaw_tops_and_the_work_top_height_unknown(rai
     if rail == "unknown":
         assert derived is None and work_top(data) == UNSET
     else:
-        assert derived == pytest.approx(-21.0 + 13.1953) and work_top(data) == "8.330"
+        assert derived == pytest.approx(-21.0 + 13.1953)
+        assert float(work_top(data)) == pytest.approx(8.33)
 
 
 @pytest.mark.parametrize(

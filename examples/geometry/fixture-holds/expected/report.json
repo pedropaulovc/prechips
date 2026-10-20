@@ -3392,7 +3392,17 @@
       ],
       "message": "top: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "top",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -6472,7 +6482,7 @@
       "subject": "S6"
     }
   ],
-  "hash": "1e5c8b867851e35afbd97f535fda4f7d0533f98b151966799a77e3ca1b75be49",
+  "hash": "a719b0028ad42dab34289a817ef23ff5d4feaf49ac2113bb409ba9a36f22fe7d",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -6492,27 +6502,27 @@
     },
     "render:S1": {
       "path": "setup-S1.png",
-      "sha256": "ebe3055f84828c172b8d8c3eded7ab3f9132a219f5bf7c3afc38a5bd0aaf4edf"
+      "sha256": "fd9f2d9b0ff24088b93a032cb5f441e2c15af11f10e1da611d4edfa5c3082575"
     },
     "render:S2": {
       "path": "setup-S2.png",
-      "sha256": "2e5ad96dd1ee23b97066adeac8ef0644bbee9cbd74705d3ba86f10ea539fc95b"
+      "sha256": "c04ce8e1cd96d430aaf1a6686399037e50ad10d26bc521d5a634129eb6b22b3f"
     },
     "render:S3": {
       "path": "setup-S3.png",
-      "sha256": "ca77f6d2c22e5079d2769e0c4eb53e5679a240f062c4b54a5b183ff77b0d7934"
+      "sha256": "ec3574382012142331a8ec0af6522badbc59624c42a8101a169c56c010bf4baf"
     },
     "render:S4": {
       "path": "setup-S4.png",
-      "sha256": "550661be6a7ce67a980709ac2254429297ed10de4a4e7b8492719801dcaf7ebb"
+      "sha256": "f37988744075a19cfca7cb156f710227ab142dbe5187f3dd7f297e3f868bd82a"
     },
     "render:S5": {
       "path": "setup-S5.png",
-      "sha256": "70962b9eda2abab6d149d890ae267a5c2e2024b2a2f5cab526bc5503be646495"
+      "sha256": "d96f64dcaed8aee39c0e8bbee07dc33d4cd0826433109ae1ae323f8041b139db"
     },
     "render:S6": {
       "path": "setup-S6.png",
-      "sha256": "bb5abe1c49a33406218c7564455fec383233f53973360e8216440c132ad5c5f2"
+      "sha256": "4201fe5fdcf371082929a262e90db27a480ce1d85ad4fbae862629375d96d597"
     },
     "shop_policy": {
       "path": "examples/geometry/shop-policy.toml",
@@ -6532,31 +6542,79 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -75.0,
+              15.0,
+              -32.0,
+              75.0,
+              45.0,
+              8.0
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -75.0,
+              -45.0,
+              -32.0,
+              75.0,
+              -15.0,
+              8.0
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -75.0,
+              -14.0,
+              -20.0,
+              75.0,
+              -8.0,
+              0.0
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              -75.0,
+              8.0,
+              -20.0,
+              75.0,
+              14.0,
+              0.0
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              -65.0,
+              -6.0,
+              -30.0,
+              -5.0,
+              6.0,
+              -20.0
+            ],
             "exact": true,
             "name": "riser 1 test-riser-blocks",
             "role": "riser"
           },
           {
+            "bbox_mm": [
+              5.0,
+              -6.0,
+              -30.0,
+              65.0,
+              6.0,
+              -20.0
+            ],
             "exact": true,
             "name": "riser 2 test-riser-blocks",
             "role": "riser"
@@ -6573,7 +6631,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2472,
+        "height_px": 2224,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -6585,16 +6643,22 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1266,
+            "id": "setup",
             "label": "SETUP S1  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 958,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL X2.3",
             "role": "holding_detail",
-            "top_px": 1514
+            "selection_group": "holding_detail:1",
+            "top_px": 1266
           }
         ],
         "render_debts": [],
@@ -6608,7 +6672,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "ebe3055f84828c172b8d8c3eded7ab3f9132a219f5bf7c3afc38a5bd0aaf4edf"
+      "sha256": "fd9f2d9b0ff24088b93a032cb5f441e2c15af11f10e1da611d4edfa5c3082575"
     },
     "S2": {
       "fixture": "modeled",
@@ -6617,16 +6681,40 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -40.0,
+              15.0,
+              -10.0,
+              40.0,
+              27.0,
+              40.0
+            ],
             "exact": true,
             "name": "test-angle-plate:upright",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -40.0,
+              -40.0,
+              -10.0,
+              40.0,
+              15.0,
+              0.0
+            ],
             "exact": true,
             "name": "test-angle-plate:base",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -30.0,
+              -6.0,
+              20.0,
+              30.0,
+              6.0,
+              28.0
+            ],
             "exact": true,
             "name": "clamp 1 test-clamp-kit/strap:strap",
             "role": "clamp"
@@ -6643,7 +6731,7 @@
         "fixture_kind": "angle_plate",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2472,
+        "height_px": 2224,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -6655,16 +6743,22 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1266,
+            "id": "setup",
             "label": "SETUP S2  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 958,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL X2.3",
             "role": "holding_detail",
-            "top_px": 1514
+            "selection_group": "holding_detail:1",
+            "top_px": 1266
           }
         ],
         "render_debts": [],
@@ -6678,7 +6772,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "2e5ad96dd1ee23b97066adeac8ef0644bbee9cbd74705d3ba86f10ea539fc95b"
+      "sha256": "c04ce8e1cd96d430aaf1a6686399037e50ad10d26bc521d5a634129eb6b22b3f"
     },
     "S3": {
       "fixture": "modeled",
@@ -6687,21 +6781,53 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -45.0,
+              -20.0,
+              -10.0,
+              45.0,
+              20.0,
+              0.0
+            ],
             "exact": true,
             "name": "test-nest:floor",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -45.0,
+              -20.0,
+              0.0,
+              -15.0,
+              20.0,
+              10.0
+            ],
             "exact": true,
             "name": "test-nest:left",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              15.0,
+              -20.0,
+              0.0,
+              45.0,
+              20.0,
+              10.0
+            ],
             "exact": true,
             "name": "test-nest:right",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -6.0,
+              -30.0,
+              20.0,
+              6.0,
+              30.0,
+              28.0
+            ],
             "exact": true,
             "name": "clamp 1 test-clamp-kit/strap:strap",
             "role": "clamp"
@@ -6718,7 +6844,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2472,
+        "height_px": 2251,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -6730,16 +6856,22 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1293,
+            "id": "setup",
             "label": "SETUP S3  /  PLAN VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 958,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL X4.4",
             "role": "holding_detail",
-            "top_px": 1514
+            "selection_group": "holding_detail:1",
+            "top_px": 1293
           }
         ],
         "render_debts": [
@@ -6755,7 +6887,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "ca77f6d2c22e5079d2769e0c4eb53e5679a240f062c4b54a5b183ff77b0d7934"
+      "sha256": "ec3574382012142331a8ec0af6522badbc59624c42a8101a169c56c010bf4baf"
     },
     "S4": {
       "fixture": "modeled",
@@ -6764,36 +6896,92 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              -6.0,
+              15.0,
+              -10.0,
+              6.0,
+              35.0,
+              6.0
+            ],
             "exact": true,
             "name": "chuck jaw 1",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -33.310889,
+              -22.696152,
+              -10.0,
+              -9.990381,
+              -2.303848,
+              6.0
+            ],
             "exact": true,
             "name": "chuck jaw 2",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              9.990381,
+              -22.696152,
+              -10.0,
+              33.310889,
+              -2.303848,
+              6.0
+            ],
             "exact": true,
             "name": "chuck jaw 3",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -50.0,
+              -50.0,
+              -60.0,
+              50.0,
+              50.0,
+              -10.0
+            ],
             "exact": true,
             "name": "chuck body",
             "role": "chuck_body"
           },
           {
+            "bbox_mm": [
+              -60.0,
+              -60.0,
+              -180.0,
+              60.0,
+              60.0,
+              -60.0
+            ],
             "exact": true,
             "name": "test-head:head",
             "role": "head"
           },
           {
+            "bbox_mm": [
+              -9.0,
+              -9.0,
+              20.0,
+              9.0,
+              9.0,
+              80.0
+            ],
             "exact": true,
             "name": "dead centre test-dead-centre",
             "role": "centre"
           },
           {
+            "bbox_mm": [
+              -10.0,
+              -10.0,
+              80.0,
+              10.0,
+              10.0,
+              95.0
+            ],
             "exact": true,
             "name": "tailstock quill",
             "role": "centre"
@@ -6810,7 +6998,7 @@
         "fixture_kind": "dividing_head",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2472,
+        "height_px": 2224,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -6822,16 +7010,22 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1266,
+            "id": "setup",
             "label": "SETUP S4  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 958,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL X2.3",
             "role": "holding_detail",
-            "top_px": 1514
+            "selection_group": "holding_detail:1",
+            "top_px": 1266
           }
         ],
         "render_debts": [],
@@ -6845,7 +7039,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "550661be6a7ce67a980709ac2254429297ed10de4a4e7b8492719801dcaf7ebb"
+      "sha256": "f37988744075a19cfca7cb156f710227ab142dbe5187f3dd7f297e3f868bd82a"
     },
     "S5": {
       "fixture": "modeled",
@@ -6854,26 +7048,66 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              4.242641,
+              4.242641,
+              -16.0,
+              38.183766,
+              38.183766,
+              8.0
+            ],
             "exact": true,
             "name": "chuck jaw 1",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -38.183766,
+              4.242641,
+              -16.0,
+              -4.242641,
+              38.183766,
+              8.0
+            ],
             "exact": true,
             "name": "chuck jaw 2",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -38.183766,
+              -38.183766,
+              -16.0,
+              -4.242641,
+              -4.242641,
+              8.0
+            ],
             "exact": true,
             "name": "chuck jaw 3",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              4.242641,
+              -38.183766,
+              -16.0,
+              38.183766,
+              -4.242641,
+              8.0
+            ],
             "exact": true,
             "name": "chuck jaw 4",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -80.0,
+              -80.0,
+              -86.0,
+              80.0,
+              80.0,
+              -16.0
+            ],
             "exact": true,
             "name": "chuck body",
             "role": "chuck_body"
@@ -6890,7 +7124,7 @@
         "fixture_kind": "chuck_4jaw",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2472,
+        "height_px": 2224,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -6902,16 +7136,22 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1266,
+            "id": "setup",
             "label": "SETUP S5  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 958,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL X2.3",
             "role": "holding_detail",
-            "top_px": 1514
+            "selection_group": "holding_detail:1",
+            "top_px": 1266
           }
         ],
         "render_debts": [],
@@ -6925,7 +7165,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "70962b9eda2abab6d149d890ae267a5c2e2024b2a2f5cab526bc5503be646495"
+      "sha256": "d96f64dcaed8aee39c0e8bbee07dc33d4cd0826433109ae1ae323f8041b139db"
     },
     "S6": {
       "fixture": "modeled",
@@ -6934,21 +7174,53 @@
         "closest_cut": null,
         "components": [
           {
+            "bbox_mm": [
+              15.0,
+              -8.0,
+              -14.0,
+              40.0,
+              8.0,
+              6.0
+            ],
             "exact": true,
             "name": "chuck jaw 1",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -26.928203,
+              8.990381,
+              -14.0,
+              -0.571797,
+              38.641016,
+              6.0
+            ],
             "exact": true,
             "name": "chuck jaw 2",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -26.928203,
+              -38.641016,
+              -14.0,
+              -0.571797,
+              -8.990381,
+              6.0
+            ],
             "exact": true,
             "name": "chuck jaw 3",
             "role": "chuck_jaw"
           },
           {
+            "bbox_mm": [
+              -62.5,
+              -62.5,
+              -74.0,
+              62.5,
+              62.5,
+              -14.0
+            ],
             "exact": true,
             "name": "chuck body",
             "role": "chuck_body"
@@ -6965,7 +7237,7 @@
         "fixture_kind": "chuck_3jaw",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 1514,
+        "height_px": 1266,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -6977,9 +7249,12 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [],
+            "height_px": 1266,
+            "id": "setup",
             "label": "SETUP S6  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           }
         ],
@@ -6994,7 +7269,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "bb5abe1c49a33406218c7564455fec383233f53973360e8216440c132ad5c5f2"
+      "sha256": "4201fe5fdcf371082929a262e90db27a480ce1d85ad4fbae862629375d96d597"
     }
   },
   "rules_version": "m5-rev12",

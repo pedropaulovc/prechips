@@ -45532,7 +45532,7 @@
       "message": "S1: measured part, fixture and tool stacks fit between spindle-to-table minimum and maximum.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
-        "fixture_height_mm": 136.8044,
+        "fixture_height_mm": 111.4044,
         "measurements": [],
         "part_extents_mm": {
           "x": 292.509136,
@@ -45546,200 +45546,200 @@
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 124.31615000000001,
+            "lower_margin_mm": 98.91615,
             "op": 5,
             "spindle_nose_table_band_mm": [
-              185.27615,
-              201.8044
+              159.87615,
+              176.4044
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -7.0565,
               9.47175
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 229.99559999999997,
+            "upper_margin_mm": 255.39559999999994,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 124.31615000000001,
+            "lower_margin_mm": 98.91615,
             "op": 10,
             "spindle_nose_table_band_mm": [
-              185.27615,
-              197.53265
+              159.87615,
+              172.13265
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -7.0565,
               5.2
             ],
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.26734999999996,
+            "upper_margin_mm": 259.66734999999994,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.0944,
+            "lower_margin_mm": 103.69440000000002,
             "op": 20,
             "spindle_nose_table_band_mm": [
-              190.0544,
-              197.33265
+              164.6544,
+              171.93265
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -2.27825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.46734999999995,
+            "upper_margin_mm": 259.86735,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.0944,
+            "lower_margin_mm": 103.69440000000002,
             "op": 25,
             "spindle_nose_table_band_mm": [
-              190.0544,
-              197.33265
+              164.6544,
+              171.93265
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -2.27825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.46734999999995,
+            "upper_margin_mm": 259.86735,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.2944,
+            "lower_margin_mm": 103.8944,
             "op": 30,
             "spindle_nose_table_band_mm": [
-              190.2544,
-              197.33265
+              164.8544,
+              171.93265
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -2.07825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.46734999999995,
+            "upper_margin_mm": 259.86735,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.0944,
+            "lower_margin_mm": 103.69440000000002,
             "op": 32,
             "spindle_nose_table_band_mm": [
-              190.0544,
-              197.33265
+              164.6544,
+              171.93265
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -2.27825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.46734999999995,
+            "upper_margin_mm": 259.86735,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 128.0444,
+            "lower_margin_mm": 102.6444,
             "op": 40,
             "spindle_nose_table_band_mm": [
-              189.0044,
-              197.33265
+              163.6044,
+              171.93265
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -3.32825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.46734999999995,
+            "upper_margin_mm": 259.86735,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 115.04440000000001,
+            "lower_margin_mm": 89.6444,
             "op": 50,
             "spindle_nose_table_band_mm": [
-              176.0044,
-              184.33265
+              150.6044,
+              158.93265
             ],
-            "stack_mm": 183.8044,
+            "stack_mm": 158.4044,
             "tip_z_bounds_mm": [
               -3.32825,
               5.0
             ],
             "tool": "endmills-lms-6784/1-4in-2fl",
             "tool_projection_mm": 25.0,
-            "upper_margin_mm": 247.46734999999995,
+            "upper_margin_mm": 272.86735,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "lower_margin_mm": 205.8444,
+            "lower_margin_mm": 180.44440000000003,
             "op": 60,
             "spindle_nose_table_band_mm": [
-              266.8044,
-              275.33265
+              241.4044,
+              249.93265
             ],
-            "stack_mm": 274.8044,
+            "stack_mm": 249.4044,
             "tip_z_bounds_mm": [
               -3.52825,
               5.0
             ],
             "tool": "center-drills-lms-4859/2",
             "tool_projection_mm": 27.0,
-            "upper_margin_mm": 156.46734999999995,
+            "upper_margin_mm": 181.86734999999996,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "lower_margin_mm": 247.9671912540341,
+            "lower_margin_mm": 222.56719125403407,
             "op": 70,
             "spindle_nose_table_band_mm": [
-              308.9271912540341,
-              329.33265
+              283.52719125403405,
+              303.93264999999997
             ],
-            "stack_mm": 328.8044,
+            "stack_mm": 303.4044,
             "tip_z_bounds_mm": [
               -15.405458745965904,
               5.0
             ],
             "tool": "drill-index-115/D",
             "tool_projection_mm": 81.0,
-            "upper_margin_mm": 102.46734999999995,
+            "upper_margin_mm": 127.86734999999999,
             "verified": true
           }
         ]
@@ -45809,7 +45809,7 @@
       "message": "S2: measured part, fixture and tool stacks fit between spindle-to-table minimum and maximum.",
       "numbers": {
         "basis": "measured fixture bed/height + parallels/supports + supported part height + selected holder gauge + tool/holder projection + tip Z relative to part top; authored approach and deepest cut included; not a collision proof",
-        "fixture_height_mm": 136.8044,
+        "fixture_height_mm": 111.4044,
         "measurements": [],
         "part_extents_mm": {
           "x": 292.509136,
@@ -45823,220 +45823,220 @@
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 124.31614999999998,
+            "lower_margin_mm": 98.91615,
             "op": 5,
             "spindle_nose_table_band_mm": [
-              185.27614999999997,
-              201.8044
+              159.87615,
+              176.4044
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -7.08,
               9.44825
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 229.99559999999997,
+            "upper_margin_mm": 255.39559999999994,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 124.31614999999998,
+            "lower_margin_mm": 98.91615,
             "op": 10,
             "spindle_nose_table_band_mm": [
-              185.27614999999997,
-              197.55615
+              159.87615,
+              172.15615
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -7.08,
               5.2
             ],
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.24384999999995,
+            "upper_margin_mm": 259.64384999999993,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.3179,
+            "lower_margin_mm": 103.91790000000002,
             "op": 15,
             "spindle_nose_table_band_mm": [
-              190.2779,
-              197.35614999999999
+              164.8779,
+              171.95614999999998
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -2.07825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.44384999999997,
+            "upper_margin_mm": 259.84385,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.11790000000002,
+            "lower_margin_mm": 103.7179,
             "op": 20,
             "spindle_nose_table_band_mm": [
-              190.0779,
-              197.35614999999999
+              164.6779,
+              171.95614999999998
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -2.27825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.44384999999997,
+            "upper_margin_mm": 259.84385,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.3179,
+            "lower_margin_mm": 103.91790000000002,
             "op": 28,
             "spindle_nose_table_band_mm": [
-              190.2779,
-              197.35614999999999
+              164.8779,
+              171.95614999999998
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -2.07825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.44384999999997,
+            "upper_margin_mm": 259.84385,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 129.11790000000002,
+            "lower_margin_mm": 103.7179,
             "op": 29,
             "spindle_nose_table_band_mm": [
-              190.0779,
-              197.35614999999999
+              164.6779,
+              171.95614999999998
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -2.27825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-4fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.44384999999997,
+            "upper_margin_mm": 259.84385,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "lower_margin_mm": 205.8444,
+            "lower_margin_mm": 180.44440000000003,
             "op": 32,
             "spindle_nose_table_band_mm": [
-              266.8044,
-              275.35614999999996
+              241.4044,
+              249.95614999999998
             ],
-            "stack_mm": 274.8044,
+            "stack_mm": 249.4044,
             "tip_z_bounds_mm": [
               -3.55175,
               5.0
             ],
             "tool": "center-drills-lms-4859/2",
             "tool_projection_mm": 27.0,
-            "upper_margin_mm": 156.44385,
+            "upper_margin_mm": 181.84384999999997,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "lower_margin_mm": 199.5386039273995,
+            "lower_margin_mm": 174.13860392739952,
             "op": 33,
             "spindle_nose_table_band_mm": [
-              260.4986039273995,
-              272.35614999999996
+              235.0986039273995,
+              246.95614999999998
             ],
-            "stack_mm": 271.8044,
+            "stack_mm": 246.4044,
             "tip_z_bounds_mm": [
               -6.857546072600494,
               5.0
             ],
             "tool": "rocker-rod-pilot-drill/1.85mm",
             "tool_projection_mm": 24.0,
-            "upper_margin_mm": 159.44385,
+            "upper_margin_mm": 184.84384999999997,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "drill-chuck-r8",
             "holder_gauge_len_mm": 95.0,
-            "lower_margin_mm": 209.69440000000003,
+            "lower_margin_mm": 184.2944,
             "op": 34,
             "spindle_nose_table_band_mm": [
-              270.6544,
-              282.35614999999996
+              245.25439999999998,
+              256.95615
             ],
-            "stack_mm": 281.8044,
+            "stack_mm": 256.4044,
             "tip_z_bounds_mm": [
               -6.7017500000000005,
               5.0
             ],
             "tool": "rocker-rod-reamer/2.0mm",
             "tool_projection_mm": 34.0,
-            "upper_margin_mm": 149.44385,
+            "upper_margin_mm": 174.84384999999997,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 128.0679,
+            "lower_margin_mm": 102.66790000000002,
             "op": 40,
             "spindle_nose_table_band_mm": [
-              189.0279,
-              197.35614999999999
+              163.6279,
+              171.95614999999998
             ],
-            "stack_mm": 196.8044,
+            "stack_mm": 171.4044,
             "tip_z_bounds_mm": [
               -3.32825,
               5.0
             ],
             "tool": "endmills-lms-6784/3-8in-2fl",
             "tool_projection_mm": 38.0,
-            "upper_margin_mm": 234.44384999999997,
+            "upper_margin_mm": 259.84385,
             "verified": true
           },
           {
             "approach_mm": 5.0,
             "holder": "r8-collets-lms-4860/3-8in",
             "holder_gauge_len_mm": 6.0,
-            "lower_margin_mm": 115.0679,
+            "lower_margin_mm": 89.66789999999999,
             "op": 50,
             "spindle_nose_table_band_mm": [
-              176.0279,
-              184.35614999999999
+              150.62789999999998,
+              158.95614999999998
             ],
-            "stack_mm": 183.8044,
+            "stack_mm": 158.4044,
             "tip_z_bounds_mm": [
               -3.32825,
               5.0
             ],
             "tool": "endmills-lms-6784/1-4in-2fl",
             "tool_projection_mm": 25.0,
-            "upper_margin_mm": 247.44384999999997,
+            "upper_margin_mm": 272.84385,
             "verified": true
           }
         ]
@@ -48643,6 +48643,10 @@
       ],
       "message": "S2:34: every process hold lies inside its drawing band (a reference-only dimension has none), read by a capable gauge.",
       "numbers": {
+        "evaluation": "inspection_plan",
+        "op": "S2:34",
+        "op_id": 34,
+        "part_result": "not_recorded",
         "process_holds": [
           {
             "accept_band": [
@@ -48673,7 +48677,8 @@
             "requirement": "dia",
             "resolution_mm": 0.001
           }
-        ]
+        ],
+        "setup_id": "S2"
       },
       "rule": "inspection",
       "status": "pass",
@@ -48687,7 +48692,17 @@
       ],
       "message": "blank_bottom: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "blank_bottom",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -48701,7 +48716,17 @@
       ],
       "message": "blank_datum_edge: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "blank_datum_edge",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -48715,7 +48740,17 @@
       ],
       "message": "blank_left_end: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "blank_left_end",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -48729,7 +48764,17 @@
       ],
       "message": "blank_opposite_edge: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "blank_opposite_edge",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -48743,7 +48788,17 @@
       ],
       "message": "blank_right_end: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "blank_right_end",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -48757,7 +48812,17 @@
       ],
       "message": "blank_top: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "blank_top",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -48772,19 +48837,35 @@
       "message": "hub_faces length: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.04999999999999982,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "micrometers/0-1in",
         "gauge_kind": "micrometer_set",
+        "identity": {
+          "feature_owner": "hub_faces",
+          "requirement": "length",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           7.0565,
           7.1065
         ],
+        "method": null,
         "op": "S2:10",
+        "op_id": 10,
+        "part_result": "not_recorded",
         "range_mm": [
           0.0,
           25.4
         ],
         "requirement": "length",
-        "resolution_mm": 0.00254
+        "resolution_mm": 0.00254,
+        "selection_status": "pass",
+        "setup_id": "S2",
+        "shared_check_id": null,
+        "subject": "hub_faces:length"
       },
       "rule": "inspection",
       "status": "pass",
@@ -48798,21 +48879,41 @@
       ],
       "message": "hub_od coaxiality_dia: gauge resolution and declared geometric inspection method cover requirement.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "dial-indicator",
         "gauge_kind": "dial_indicator",
+        "identity": {
+          "feature_owner": "hub_od",
+          "requirement": "coaxiality_dia",
+          "workpiece": null
+        },
         "inspection_method": [
           "After removing the part, support a close-fitting calibrated pin through the reamed bore in the inspection V-block.",
           "Rotate the pin and indicate both hub patches: {upper TIR} {lower TIR}.",
           "Allow for pin clearance and indicator resolution, then compare each reading with the coaxiality limit on the op row."
         ],
+        "kind": "dimensional",
         "limits": 0.5,
+        "method": [
+          "After removing the part, support a close-fitting calibrated pin through the reamed bore in the inspection V-block.",
+          "Rotate the pin and indicate both hub patches: {upper TIR} {lower TIR}.",
+          "Allow for pin clearance and indicator resolution, then compare each reading with the coaxiality limit on the op row."
+        ],
         "op": "S4:60",
+        "op_id": 60,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           25.4
         ],
         "requirement": "coaxiality_dia",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0127,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "hub_od:coaxiality_dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -48827,19 +48928,35 @@
       "message": "hub_od dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0200000000000014,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "calipers",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "hub_od",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           9.69,
           10.71
         ],
+        "method": null,
         "op": "S4:60",
+        "op_id": 60,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           152.39999999999998
         ],
         "requirement": "dia",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0127,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "hub_od:dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -48854,19 +48971,35 @@
       "message": "pivot_bore dia: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.03000000000000025,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "rocker-bore-limit-gauges",
         "gauge_kind": "pin_gauge_set",
+        "identity": {
+          "feature_owner": "pivot_bore",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           6.5,
           6.53
         ],
+        "method": "Clean the bore of oxide residue and oil. The 6.500 GO plug enters through the hub and the 6.530 NO-GO plug does not.",
         "op": "S4:90",
+        "op_id": 90,
+        "part_result": "not_recorded",
         "range_mm": [
           6.5,
           6.53
         ],
         "requirement": "dia",
-        "resolution_mm": 0.001
+        "resolution_mm": 0.001,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "pivot_bore:dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -48880,17 +49013,33 @@
       ],
       "message": "pivot_bore finish_ra: roughness gauge spans requirement.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "roughness-comparator",
         "gauge_kind": "roughness_comparator",
+        "identity": {
+          "feature_owner": "pivot_bore",
+          "requirement": "finish_ra",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": 1.6,
+        "method": null,
         "op": "S3:20",
+        "op_id": 20,
+        "part_result": "not_recorded",
         "ra_range": [
           0.1,
           12.5
         ],
         "range_mm": "unknown",
         "requirement": "finish_ra",
-        "resolution_mm": "unknown"
+        "resolution_mm": "unknown",
+        "selection_status": "pass",
+        "setup_id": "S3",
+        "shared_check_id": null,
+        "subject": "pivot_bore:finish_ra"
       },
       "rule": "inspection",
       "status": "pass",
@@ -48905,19 +49054,39 @@
       "message": "profile_outer bottom_arc_len: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999818,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "rocker-profile-template",
         "gauge_kind": "profile_gauge",
+        "identity": {
+          "feature_owner": "profile_outer",
+          "requirement": "bottom_arc_len",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           266.19,
           267.21
         ],
+        "method": [
+          "Same template set-up. Each bottom-arc end must lie between the bottom blade's two engraved arc-length lines at that end.",
+          "+X end between its lines: {+X, OK / not OK}.",
+          "-X end between its lines: {-X, OK / not OK}."
+        ],
         "op": "S4:40",
+        "op_id": 40,
+        "part_result": "not_recorded",
         "range_mm": [
           0.0,
           900.0
         ],
         "requirement": "bottom_arc_len",
-        "resolution_mm": 0.05
+        "resolution_mm": 0.05,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "profile_outer:bottom_arc_len"
       },
       "rule": "inspection",
       "status": "pass",
@@ -48932,19 +49101,40 @@
       "message": "profile_outer bottom_radius: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999818,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "rocker-profile-template",
         "gauge_kind": "profile_gauge",
+        "identity": {
+          "feature_owner": "profile_outer",
+          "requirement": "bottom_radius",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           815.49,
           816.51
         ],
+        "method": [
+          "Same profile-template set-up as S4 op 30, after op 40. The bottom edge must lie between R815.49 and R816.51 about the template centre (title-block ±0.51 on R816, no CR); with the blade at R817 + d (d + outward), the gap there must be 0.49 + d to 1.51 + d.",
+          "At each bottom-blade gap station (X 0, ±40, ±80, ±120), find the thickest feeler stack, in 0.01 steps, that enters: {g at each station}. Copy that station's d from the calibration report: {d at each station}.",
+          "Calculate at each station: the edge lies between R817 + d - g - 0.01 and R817 + d - g = {low, high at each station}. Accept if every low is at least 815.49 and every high at most 816.51; if a limit falls between low and high at any station, tag the part HOLD with the readings for the shop owner.",
+          "Between stations, slide the thinnest station's stack along the blade, end to end: {no narrower spot, OK / not OK}; if it binds anywhere, gauge that spot as a station using the nearer station's d."
+        ],
         "op": "S4:40",
+        "op_id": 40,
+        "part_result": "not_recorded",
         "range_mm": [
           0.0,
           900.0
         ],
         "requirement": "bottom_radius",
-        "resolution_mm": 0.05
+        "resolution_mm": 0.05,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "profile_outer:bottom_radius"
       },
       "rule": "inspection",
       "status": "pass",
@@ -48962,15 +49152,26 @@
           2.0,
           2.09
         ],
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "rocker-rod-limit-gauges",
         "gauge_kind": "pin_gauge_set",
         "go_mm": 2.0,
+        "identity": {
+          "feature_owner": "rod_hole",
+          "requirement": "dia",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           1.994,
           2.094
         ],
+        "method": "Clean the hole of oxide residue and oil. The drawing GO plug (2.000) must pass by hand through the strap; offer the drawing NO-GO plug (2.090) gently at each mouth: it must not enter. Never force a plug.",
         "no_go_mm": 2.09,
         "op": "S4:95",
+        "op_id": 95,
         "other_go_no_go": [
           {
             "accept_band": [
@@ -48991,12 +49192,17 @@
             "status": "pass"
           }
         ],
+        "part_result": "not_recorded",
         "range_mm": [
           2.0,
           2.09
         ],
         "requirement": "dia",
-        "resolution_mm": 0.001
+        "resolution_mm": 0.001,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "rod_hole:dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -49010,8 +49216,16 @@
       ],
       "message": "rod_hole position_dia: gauge resolution and declared geometric inspection method cover requirement.",
       "numbers": {
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "rocker-position-height-gauge",
         "gauge_kind": "height_gauge",
+        "identity": {
+          "feature_owner": "rod_hole",
+          "requirement": "position_dia",
+          "workpiece": null
+        },
         "inspection_method": [
           "Inspection box (buy and adapt before S4; example dimensions, plausible, not measured): a bought Suburban BXP-050505-G 127 mm cast-iron box parallel, walls about 12.7. Mark its right side. AUTHOR'S CHOICE: the box is sold square within 0.0083 per 100, short of the 0.003 per 100 this check needs, so its actual base-to-right squareness is measured by reversal (steps 5 and 6) and the view-2 reading is corrected for it (step 16).",
           "Box windows, milled on the PM-30MV with light cuts, the box held by toe clamps on parallels, never in the vise: two 32 x 24 clamp windows through the left wall, 12.7 to 44.7 behind the front face, at 38 to 62 and 83 to 107 above the base; one 80 x 80 access window in the back wall. Each window: drill a 7/16 start hole (tools.drill-index-115) at a corner at 500-600 rpm, 0.15 mm/rev, then mill it out with the 3/8 in 4-flute end mill (tools.endmills-lms-6784) at 600-700 rpm, 0.001 in/tooth, 1.0 mm a pass (MH 27th Table 14 p.1052, gray cast iron, taken as ASTM Class 30, 190-220 HB: HSS end milling 70 fpm; Table 15a p.1054 gray cast iron .001 in/tooth for a 1/4-1/2 in cutter at .050 in depth; Table 20 p.1068: HSS drilling 80 fpm, 700 rpm on the 7/16 in, held lower for the interrupted break-through). Drill #29 (tools.drill-index-115) at 1800-2200 rpm, 0.05 mm/rev (Table 20 p.1068: 80 fpm, 2250 rpm on the #29; p.1060: .001-.003 in/rev under 1/8 in) and tap two #8-32 holes 10 deep by hand in the front face, 8 and 28 from the left face, 6.35 above the base.",
@@ -49031,14 +49245,40 @@
           "Calculate: Y corrected = Y - E_box x X / 100 = {Y corrected}. View 2 reads square to the right side, which leans E_box per 100 from square to the base, so over the X lever between the pins it adds E_box x X / 100 to Y.",
           "Calculate: position Ø = 2 × √((X - 132.391)² + (Y corrected - 15.843)²) = {position Ø}; compare it with the drawing limit on the op row (RFS, no bonus). 132.391 and 15.843 are the CAD nominals for this inspection set-up, not the milling X/Y."
         ],
+        "kind": "dimensional",
         "limits": 0.2,
+        "method": [
+          "Inspection box (buy and adapt before S4; example dimensions, plausible, not measured): a bought Suburban BXP-050505-G 127 mm cast-iron box parallel, walls about 12.7. Mark its right side. AUTHOR'S CHOICE: the box is sold square within 0.0083 per 100, short of the 0.003 per 100 this check needs, so its actual base-to-right squareness is measured by reversal (steps 5 and 6) and the view-2 reading is corrected for it (step 16).",
+          "Box windows, milled on the PM-30MV with light cuts, the box held by toe clamps on parallels, never in the vise: two 32 x 24 clamp windows through the left wall, 12.7 to 44.7 behind the front face, at 38 to 62 and 83 to 107 above the base; one 80 x 80 access window in the back wall. Each window: drill a 7/16 start hole (tools.drill-index-115) at a corner at 500-600 rpm, 0.15 mm/rev, then mill it out with the 3/8 in 4-flute end mill (tools.endmills-lms-6784) at 600-700 rpm, 0.001 in/tooth, 1.0 mm a pass (MH 27th Table 14 p.1052, gray cast iron, taken as ASTM Class 30, 190-220 HB: HSS end milling 70 fpm; Table 15a p.1054 gray cast iron .001 in/tooth for a 1/4-1/2 in cutter at .050 in depth; Table 20 p.1068: HSS drilling 80 fpm, 700 rpm on the 7/16 in, held lower for the interrupted break-through). Drill #29 (tools.drill-index-115) at 1800-2200 rpm, 0.05 mm/rev (Table 20 p.1068: 80 fpm, 2250 rpm on the #29; p.1060: .001-.003 in/rev under 1/8 in) and tap two #8-32 holes 10 deep by hand in the front face, 8 and 28 from the left face, 6.35 above the base.",
+          "C stop bar (make before S4; example dimensions, plausible, not measured): hardened O1, lapped 40 x 12.70 x 12.70 (top and bottom 12.700 ±0.002, parallel within 0.002), on the front face at its left end, projecting 12.7 forward; the sequence and hardening route are in the inspection box's c-stop-bar row, with this cutting data. From a bought 1/2 x 1/2 in precision-ground O1 flat bar, annealed (175-225 HB): (a) bandsaw 42 off with the 4/6 bi-metal blade on the 120 ft/min belt step, dry (MH 27th p.1142: O-1 200 fpm with coolant, 30-50% less dry). (b) PM-30MV, bar in the vise on parallels: mill both ends square to 40.0 with the 3/8 in 4-flute end mill (tools.endmills-lms-6784) at 450-500 rpm, 0.001 in/tooth, 0.5 mm a pass (MH 27th Table 12 p.1049, O1 at 175-225 HB: HSS end milling 50 fpm, 509 rpm on the 3/8 in; Table 15a p.1054 tool-steel rows .001-.002 in/tooth). (c) Same vise, a 40 x 12.7 side face up, X/Y picked up with the edge finder from the left end and the fixed-jaw side: centre drill, then drill #16 (0.177 in) through at 8 and 28 from the left end on the face's centre line at 850-950 rpm, 0.05 mm/rev (MH 27th Table 18 p.1066, O1 at 175-225 HB: HSS drilling 45 fpm, 971 rpm on the #16; feed inside p.1060's .001-.003 in/rev for that size), and counterbore each Ø8 x 4.5 deep with the 5/16 in 2-flute end mill (7.94) at 550-600 rpm, a light quill plunge to the stop (Table 12 p.1049: 50 fpm, 611 rpm on the 5/16 in). (d) Harden, temper and lap as the c-stop-bar row says. Box holes, after the windows are milled: stand the box and the bar together on the granite, the bar pressed to the front face at its left end, and spot the front face through both bar holes with the #16 drill turned by hand; then, box on its base on parallels under toe clamps on the PM-30MV, drill #29 (0.136 in; MH 27th Table 4 p.1934) with the quill stop set so the tool tip stops 11.5 into the 12.7 front wall (full Ø to 10.5) at 1800-2200 rpm, 0.05 mm/rev (MH 27th Table 20 p.1068, gray cast iron: HSS drilling 80 fpm, 2247 rpm on the #29), and tap #8-32 UNC-2B by hand, the tools.taps-unc-hand/8-32-plug then the tools.taps-unc-hand/8-32-bottoming to 10 deep. Fit: stand the box and the bar together on the granite, bar pressed to the front face, and tighten its two #8-32 x 5/8 in cap screws (about 7.7 of thread in the wall): its underside is then flush with the base and its lapped top 12.70 above it. No dowels.",
+          "Equilibrate the part, the box, the gauge pins and the gauge blocks on the granite surface plate (gauges.granite-surface-plate) at 20 ±1 °C.",
+          "Box squareness by reversal (each inspection session; never before the windows are milled), on the granite surface plate (gauges.granite-surface-plate), the 1 µm test indicator on the height gauge, a higher contact reading positive: (a) box on its base, indicator over the top face at one slider setting: read 10 in from the left face and 10 in from the right side; p = (right - left) x 100 / 107 = {p}. (b) Right side toward the gauge: read the right side at 10 and at 110 above the granite, moving only the slider; s1 = reading at 110 - reading at 10 = {s1}. (c) Roll the box over onto its top face about the axis square to the right side, so the right side still faces the gauge, and repeat (b): s2 = {s2}.",
+          "Calculate: E_box = (s1 - s2 - p) / 2 = {E_box} per 100 (positive: the right side's top stands out past its foot, so the base-to-right angle is over 90°). The height-gauge column's own lean is in both s1 and s2 and cancels.",
+          "Push the largest freely passing gauge pin through bore A and through the rod hole; copy the actual diameters marked on the pins: {pin A Ø} {rod pin Ø}.",
+          "Fixed-C contact: stand the box on its base, front face toward you. Lay strap datum B (the upper strap face) flat on the front face, rod end down, with the A axis within 5 of the box's left edge, and lower the part until land C (the +X tip land) sits on the stop bar's lapped top; the hub stands clear above the box. Clamp B finger-light with two 3 in toolmaker's parallel clamps through the left windows, without bending or clamping the free span. Keep this C contact and these clamps unchanged through step 14.",
+          "Reading a pin: wring a gauge-block stack of known length beside the pin's top, zero the 1 µm test indicator on the stack, then sweep the pin crown at the same height-gauge setting and read the deviation; a higher contact must read positive. Pin-centre height = stack length + deviation - pin radius. The height gauge only carries the indicator; do not use its scale.",
+          "View 1, box on its base with C down on the bar (hub pin about 132.4 above the rod pin): read each pin within 2 of an accessible bore face: hub-centre height {H1}, rod-centre height {R1}.",
+          "Lean check, view 1: read the hub pin at its accessible mouth {mouth 1} and 10 farther out {out 1}. If they differ by more than 0.005, or B cannot seat without leaning the pin, the readings are not valid: reseat from step 8 and repeat; if it persists, stop and report.",
+          "View 2: without unclamping the part or losing C contact, tip the whole box a quarter turn clockwise as you face its front, onto its marked right side (rod pin now about 15.8 below the hub pin). Read both pins the same way: hub-centre height {H2}, rod-centre height {R2}.",
+          "Reseat check: gently press the non-rod tip toward the stop bar, release, and read both pins again: hub {H3}, rod {R3}. If H3 - R3 and H2 - R2 differ by more than 0.002, the seating did not repeat: reseat from step 8 and redo both views.",
+          "Lean check, view 2, as in step 11: {mouth 2} {out 2}.",
+          "Calculate: X = H1 - R1 = {X}; Y = H3 - R3 = {Y}.",
+          "Calculate: Y corrected = Y - E_box x X / 100 = {Y corrected}. View 2 reads square to the right side, which leans E_box per 100 from square to the base, so over the X lever between the pins it adds E_box x X / 100 to Y.",
+          "Calculate: position Ø = 2 × √((X - 132.391)² + (Y corrected - 15.843)²) = {position Ø}; compare it with the drawing limit on the op row (RFS, no bonus). 132.391 and 15.843 are the CAD nominals for this inspection set-up, not the milling X/Y."
+        ],
         "op": "S4:50",
+        "op_id": 50,
+        "part_result": "not_recorded",
         "range_mm": [
           0.0,
           300.0
         ],
         "requirement": "position_dia",
-        "resolution_mm": 0.001
+        "resolution_mm": 0.001,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "rod_hole:position_dia"
       },
       "rule": "inspection",
       "status": "pass",
@@ -49052,7 +49292,17 @@
       ],
       "message": "strap_datum_b: no tolerance requirement to inspect.",
       "numbers": {
-        "requirements": []
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
+        "identity": {
+          "feature_owner": "strap_datum_b",
+          "requirement": null,
+          "workpiece": null
+        },
+        "kind": "dimensional",
+        "part_result": "not_recorded",
+        "requirements": [],
+        "shared_check_id": null
       },
       "rule": "inspection",
       "status": "not_applicable",
@@ -49067,19 +49317,35 @@
       "message": "strap_faces thickness: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999998,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "micrometers/0-1in",
         "gauge_kind": "micrometer_set",
+        "identity": {
+          "feature_owner": "strap_faces",
+          "requirement": "thickness",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           1.99,
           3.01
         ],
+        "method": null,
         "op": "S2:29",
+        "op_id": 29,
+        "part_result": "not_recorded",
         "range_mm": [
           0.0,
           25.4
         ],
         "requirement": "thickness",
-        "resolution_mm": 0.00254
+        "resolution_mm": 0.00254,
+        "selection_status": "pass",
+        "setup_id": "S2",
+        "shared_check_id": null,
+        "subject": "strap_faces:thickness"
       },
       "rule": "inspection",
       "status": "pass",
@@ -49094,19 +49360,41 @@
       "message": "tip_land_neg_x land_angle_deg: gauge resolves the tilt's linear zone across its face.",
       "numbers": {
         "band_mm": 0.17731644940280047,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "rocker-profile-template",
         "gauge_kind": "profile_gauge",
+        "identity": {
+          "feature_owner": "tip_land_neg_x",
+          "requirement": "land_angle_deg",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           89.0,
           91.0
         ],
+        "method": [
+          "Off the template, bed the op 43 land square's R800 stock face on the part's top edge, the blade end at the -X tip corner and the blade across the -X land.",
+          "Feeler the gap between blade and land at the land's top-edge end {gap at top} and at its bottom-edge end {gap at bottom}.",
+          "Calipers: measure the land length between those two feeler stations {L}.",
+          "Calculate: allowed = L x tan 1° = L / 57.29 = {allowed} (the drawing's 89° to 91°).",
+          "Calculate: difference = gap at top - gap at bottom, ignoring sign = {difference}; the land passes if difference is no more than allowed."
+        ],
         "op": "S4:44",
+        "op_id": 44,
+        "part_result": "not_recorded",
         "range_mm": [
           0.0,
           900.0
         ],
         "requirement": "land_angle_deg",
         "resolution_mm": 0.05,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "tip_land_neg_x:land_angle_deg",
         "tilt_across_length": 5.08
       },
       "rule": "inspection",
@@ -49122,19 +49410,35 @@
       "message": "tip_land_neg_x tip_land: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999996,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "calipers",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "tip_land_neg_x",
+          "requirement": "tip_land",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           5.08,
           6.1
         ],
+        "method": null,
         "op": "S4:44",
+        "op_id": 44,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           152.39999999999998
         ],
         "requirement": "tip_land",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0127,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "tip_land_neg_x:tip_land"
       },
       "rule": "inspection",
       "status": "pass",
@@ -49149,19 +49453,42 @@
       "message": "tip_land_pos_x land_angle_deg: gauge resolves the tilt's linear zone across its face.",
       "numbers": {
         "band_mm": 0.17731644940280047,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "rocker-profile-template",
         "gauge_kind": "profile_gauge",
+        "identity": {
+          "feature_owner": "tip_land_pos_x",
+          "requirement": "land_angle_deg",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           89.0,
           91.0
         ],
+        "method": [
+          "Take the part off the profile template onto a clean bench.",
+          "Bed the land square's R800 stock face on the part's top edge, the blade end at the +X tip corner and the blade across the +X land. The square registers on the top edge, so hole clocking does not affect the reading.",
+          "Feeler the gap between blade and land at the land's top-edge end {gap at top} and at its bottom-edge end {gap at bottom}.",
+          "Calipers: measure the land length between those two feeler stations {L}.",
+          "Calculate: allowed = L x tan 1° = L / 57.29 = {allowed} (the drawing's 89° to 91°).",
+          "Calculate: difference = gap at top - gap at bottom, ignoring sign = {difference}; the land passes if difference is no more than allowed."
+        ],
         "op": "S4:43",
+        "op_id": 43,
+        "part_result": "not_recorded",
         "range_mm": [
           0.0,
           900.0
         ],
         "requirement": "land_angle_deg",
         "resolution_mm": 0.05,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "tip_land_pos_x:land_angle_deg",
         "tilt_across_length": 5.08
       },
       "rule": "inspection",
@@ -49177,19 +49504,35 @@
       "message": "tip_land_pos_x tip_land: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999996,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "calipers",
         "gauge_kind": "caliper",
+        "identity": {
+          "feature_owner": "tip_land_pos_x",
+          "requirement": "tip_land",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           5.08,
           6.1
         ],
+        "method": null,
         "op": "S4:43",
+        "op_id": 43,
+        "part_result": "not_recorded",
         "range_mm": [
           0,
           152.39999999999998
         ],
         "requirement": "tip_land",
-        "resolution_mm": 0.0127
+        "resolution_mm": 0.0127,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "tip_land_pos_x:tip_land"
       },
       "rule": "inspection",
       "status": "pass",
@@ -49204,19 +49547,39 @@
       "message": "top_edge arc_len: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0200000000000387,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "rocker-profile-template",
         "gauge_kind": "profile_gauge",
+        "identity": {
+          "feature_owner": "top_edge",
+          "requirement": "arc_len",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           291.59,
           292.61
         ],
+        "method": [
+          "Same template set-up. Each top-edge tip corner must lie between the top blade's two engraved arc-length lines at its end.",
+          "+X corner between its lines: {+X, OK / not OK}.",
+          "-X corner between its lines: {-X, OK / not OK}."
+        ],
         "op": "S4:30",
+        "op_id": 30,
+        "part_result": "not_recorded",
         "range_mm": [
           0.0,
           900.0
         ],
         "requirement": "arc_len",
-        "resolution_mm": 0.05
+        "resolution_mm": 0.05,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "top_edge:arc_len"
       },
       "rule": "inspection",
       "status": "pass",
@@ -49231,9 +49594,17 @@
       "message": "top_edge height_above_pivot: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 0.5,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "rocker-profile-template",
         "gauge_kind": "profile_gauge",
         "height_from": "pivot_bore",
+        "identity": {
+          "feature_owner": "top_edge",
+          "requirement": "height_above_pivot",
+          "workpiece": null
+        },
         "inspection_method": [
           "Profile template (make before S4; example dimensions, plausible, not measured; AUTHOR'S CHOICE: made to order by the same outside wire-EDM shop as the S4 op 10 outline template, because the shop cannot hold the R799/R817 blade edges to 0.01): ground steel base plate 380 x 110 x 12.7 with a pressed 6.500 h6 pivot pin, a 2.000 diamond pin with radial flats at X 133.067, Y 8.456 from the pivot pin (the nominal rod hole) and a Ø14 x 3 deep relief under the hub.",
           "Template blades: two 2.0 blades, doweled and screwed round the part position, each working edge 1.00 outside the nominal outline given at S4 op 10: top blade R799.00 and bottom blade R817.00, both about the arc centre 808.00 above the pivot pin, each blade edge within 0.01 of its radius.",
@@ -49244,17 +49615,34 @@
           "At the X 0 station, find the thickest feeler stack, built in 0.01 steps, that enters between the top blade and the top edge: {g}. Copy the template's H from its calibration report: {H}.",
           "Calculate: the top edge lies between H - g - 0.01 = {low} and H - g = {high} over the pivot (the 0.01 is the feeler step). Accept if low is at least 8.00 and high at most 8.50, the drawing's limits. If either limit falls between low and high, the reading cannot decide: tag the part HOLD with the readings for the shop owner; it is not accepted or scrapped on this reading."
         ],
+        "kind": "dimensional",
         "limits": [
           8.0,
           8.5
         ],
+        "method": [
+          "Profile template (make before S4; example dimensions, plausible, not measured; AUTHOR'S CHOICE: made to order by the same outside wire-EDM shop as the S4 op 10 outline template, because the shop cannot hold the R799/R817 blade edges to 0.01): ground steel base plate 380 x 110 x 12.7 with a pressed 6.500 h6 pivot pin, a 2.000 diamond pin with radial flats at X 133.067, Y 8.456 from the pivot pin (the nominal rod hole) and a Ø14 x 3 deep relief under the hub.",
+          "Template blades: two 2.0 blades, doweled and screwed round the part position, each working edge 1.00 outside the nominal outline given at S4 op 10: top blade R799.00 and bottom blade R817.00, both about the arc centre 808.00 above the pivot pin, each blade edge within 0.01 of its radius.",
+          "Template engraving: gap stations on the top blade at X 0, ±40, ±80, ±120 and ±140 and on the bottom blade at X 0, ±40, ±80 and ±120 from the pivot pin; arc-length limit lines, radial through the arc centre, on the top blade at X ±144.808 and ±145.309 from the pivot pin (top-edge arc length 291.59 and 292.61) and on the bottom blade at X ±132.668 and ±133.172 (bottom arc length 266.19 and 267.21).",
+          "Template calibration report (supplied with the template by its maker; re-checked yearly): at every gap station, the blade edge's actual deviation d from its radius, + outward (away from the arc centre), each within ±0.01; and the top blade's actual height over the pivot pin at X 0, H (nominally 9.00). The checks below use these actual values, so the drawing limits are the acceptance limits.",
+          "The kit also holds a loose land square (ground steel block with a 40 long convex R800.00 stock face ground with the top blade, and a 12 blade square to the stock face at its end within 0.01 over 10) and a 0.02 to 1.00 feeler set.",
+          "Set-up, after op 40: clean the part and the template. Lower the part over both pins onto its lower strap face with the hub in the relief, turn it counterclockwise against the diamond pin and hold it down by hand.",
+          "At the X 0 station, find the thickest feeler stack, built in 0.01 steps, that enters between the top blade and the top edge: {g}. Copy the template's H from its calibration report: {H}.",
+          "Calculate: the top edge lies between H - g - 0.01 = {low} and H - g = {high} over the pivot (the 0.01 is the feeler step). Accept if low is at least 8.00 and high at most 8.50, the drawing's limits. If either limit falls between low and high, the reading cannot decide: tag the part HOLD with the readings for the shop owner; it is not accepted or scrapped on this reading."
+        ],
         "op": "S4:30",
+        "op_id": 30,
+        "part_result": "not_recorded",
         "range_mm": [
           0.0,
           900.0
         ],
         "requirement": "height_above_pivot",
-        "resolution_mm": 0.05
+        "resolution_mm": 0.05,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "top_edge:height_above_pivot"
       },
       "rule": "inspection",
       "status": "pass",
@@ -49269,19 +49657,40 @@
       "message": "top_edge radius: gauge spans the band at sufficient resolution.",
       "numbers": {
         "band_mm": 1.0199999999999818,
+        "contract": null,
+        "covered_workpieces": [],
+        "evaluation": "inspection_plan",
         "gauge": "rocker-profile-template",
         "gauge_kind": "profile_gauge",
+        "identity": {
+          "feature_owner": "top_edge",
+          "requirement": "radius",
+          "workpiece": null
+        },
+        "kind": "dimensional",
         "limits": [
           799.49,
           800.51
         ],
+        "method": [
+          "Same template set-up as height over pivot. The top edge must lie between R799.49 and R800.51 about the template centre (title-block ±0.51 on R800, no CR); with the blade at R799 + d, the gap there must be 0.49 - d to 1.51 - d.",
+          "At each top-blade gap station (X 0, ±40, ±80, ±120, ±140), find the thickest feeler stack, in 0.01 steps, that enters: {g at each station}. Copy that station's d from the calibration report: {d at each station}.",
+          "Calculate at each station: the edge lies between R799 + d + g and R799 + d + g + 0.01 = {low, high at each station}. Accept if every low is at least 799.49 and every high at most 800.51; if a limit falls between low and high at any station, tag the part HOLD with the readings for the shop owner.",
+          "Between stations, slide the thinnest station's stack along the blade, tip to tip, and look for light under it where the gap narrows: {no narrower spot, OK / not OK}; if it binds anywhere, gauge that spot as a station using the nearer station's d."
+        ],
         "op": "S4:30",
+        "op_id": 30,
+        "part_result": "not_recorded",
         "range_mm": [
           0.0,
           900.0
         ],
         "requirement": "radius",
-        "resolution_mm": 0.05
+        "resolution_mm": 0.05,
+        "selection_status": "pass",
+        "setup_id": "S4",
+        "shared_check_id": null,
+        "subject": "top_edge:radius"
       },
       "rule": "inspection",
       "status": "pass",
@@ -64835,7 +65244,7 @@
       "subject": "S4"
     }
   ],
-  "hash": "91f72a224af5ed1f1815c8dc6fa899d21d064185592f5688895898959eac839e",
+  "hash": "68f216d3b2c542a0e93547d1f97ede882109c9042714b75b085faa7015057fda",
   "inputs": {
     "cutting_data": {
       "path": "examples/cutting-data.toml",
@@ -64855,43 +65264,43 @@
     },
     "render:P1": {
       "path": "setup-S1.png",
-      "sha256": "df19a1d745fdbfdb83c1bbc43f60adea0ad696cc7b943f5cb1b623fc2ae6a354"
+      "sha256": "5058acb7d40e774d41cb28ce5f9771563a67efdd9249b981a0630e838e5230ba"
     },
     "render:P2": {
       "path": "setup-S2.png",
-      "sha256": "2009a8f47de8b888c24d33a63ac47daca8c82f1d557c6df974a32b3b7b483651"
+      "sha256": "f860ca57bd5fff133be6804abc02c1d7e98388f746544715952a57bd26563a1b"
     },
     "render:P3": {
       "path": "setup-S3.png",
-      "sha256": "1e711d8fc49c488bf73f35d85d2a4c452573fe3bca025f4e5af61931c076d384"
+      "sha256": "a6742b976d6b980a2d293788fa1d2e5c4ff8627bf4ff0158dc2cae68eed8a529"
     },
     "render:P4": {
       "path": "setup-S4.png",
-      "sha256": "967d124736e1757c2b8dc5439768e5025dfc630b206f060f8675758d96d9002a"
+      "sha256": "1b9282d683b7d5c25c04b61c86cbbfc74809d39f0469c23536128dc20f2c4074"
     },
     "render:P5": {
       "path": "setup-S5.png",
-      "sha256": "1c95147cfda685e3584525440752dd5cf402e64f45f75465e52c5e0380a0b8ce"
+      "sha256": "ec3301f892ef26d893726bb2441d3526c41ae77f2bf766abcded30680365bbc2"
     },
     "render:S1": {
       "path": "setup-S6.png",
-      "sha256": "86216076cdb1f103049185b23dfd4058a5ba072a8ac6fda768ceb8d92745878a"
+      "sha256": "5522b2425119f3ec1a74bd5930fffcbfda4701b80fcf5d71dbff841fbf644efc"
     },
     "render:S2": {
       "path": "setup-S7.png",
-      "sha256": "eccda3acac220e0b345860dc708506fc8eaa14ee90febc19fabb42aebab27e0e"
+      "sha256": "77c43f1a85d9232c2ec47a314b145582c71883d2fb17ef2804849e8d71d779c2"
     },
     "render:S3": {
       "path": "setup-S8.png",
-      "sha256": "755f5733f4f24d6f5bb7167172b28ae8c16b2c8b40b0f5c32e401026e3db1b56"
+      "sha256": "3da9a27c9f032d31dccbd6237e10d29f24fe88dba0fa1f0ddd33c2df800377f0"
     },
     "render:S3F": {
       "path": "setup-S9.png",
-      "sha256": "aaa6626a78aa3719475bf38edb2febd006644eb6de4fb8a56867cd84b9310bea"
+      "sha256": "e3aaeb98ecf8f4dee37dc8331941fde42c265b93a3d5ebe45fcc0a3171f46a58"
     },
     "render:S4": {
       "path": "setup-S10.png",
-      "sha256": "b55671d4b46e7cdd811141c5addede0f18a9c1602e61f855836ec1affd2eb967"
+      "sha256": "7f92bdcfedbe22671ca52d1e729004d2722e972f3e20ec1071f73014723df62c"
     },
     "render:S4:50:position_dia": {
       "path": "setup-S10-op50-position_dia.png",
@@ -64929,21 +65338,53 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              90.6631,
+              70.6,
+              -49.275,
+              249.3369,
+              88.4054,
+              -4.3297
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              90.6631,
+              -23.4054,
+              -49.275,
+              249.3369,
+              -5.6,
+              -4.3297
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              93.8,
+              -4.5875,
+              -49.275,
+              246.2,
+              -1.4125,
+              -17.525
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              93.8,
+              66.4125,
+              -49.275,
+              246.2,
+              69.5875,
+              -17.525
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
@@ -64960,7 +65401,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2464,
+        "height_px": 1976,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -64972,16 +65413,24 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [
+              "closest_cut"
+            ],
+            "height_px": 996,
+            "id": "setup",
             "label": "SETUP P1  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:1",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 1484
+            "selection_group": "path_detail:1",
+            "top_px": 996
           }
         ],
         "render_debts": [],
@@ -64996,7 +65445,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "df19a1d745fdbfdb83c1bbc43f60adea0ad696cc7b943f5cb1b623fc2ae6a354"
+      "sha256": "5058acb7d40e774d41cb28ce5f9771563a67efdd9249b981a0630e838e5230ba"
     },
     "P2": {
       "fixture": "modeled",
@@ -65019,26 +65468,66 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              90.6631,
+              0.0,
+              -83.3,
+              249.3369,
+              17.8054,
+              -38.3547
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              90.6631,
+              -41.6804,
+              -83.3,
+              249.3369,
+              -23.875,
+              -38.3547
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              93.8,
+              -23.875,
+              -57.65235,
+              246.2,
+              -17.525,
+              -51.30235
+            ],
             "exact": true,
             "name": "jaw_bar jaw-round-bar",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              93.8,
+              -4.0875,
+              -83.3,
+              246.2,
+              -0.9125,
+              -70.6
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              93.8,
+              -16.5875,
+              -83.3,
+              246.2,
+              -13.4125,
+              -70.6
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
@@ -65055,7 +65544,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2464,
+        "height_px": 1976,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -65067,16 +65556,24 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [
+              "closest_cut"
+            ],
+            "height_px": 996,
+            "id": "setup",
             "label": "SETUP P2  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:1",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 1484
+            "selection_group": "path_detail:1",
+            "top_px": 996
           }
         ],
         "render_debts": [],
@@ -65091,7 +65588,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "2009a8f47de8b888c24d33a63ac47daca8c82f1d557c6df974a32b3b7b483651"
+      "sha256": "f860ca57bd5fff133be6804abc02c1d7e98388f746544715952a57bd26563a1b"
     },
     "P3": {
       "fixture": "modeled",
@@ -65114,26 +65611,66 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              90.6631,
+              0.0,
+              -77.7,
+              249.3369,
+              17.8054,
+              -32.7547
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              90.6631,
+              -41.6804,
+              -77.7,
+              249.3369,
+              -23.875,
+              -32.7547
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              93.8,
+              -23.875,
+              -52.05235,
+              246.2,
+              -17.525,
+              -45.70235
+            ],
             "exact": true,
             "name": "jaw_bar jaw-round-bar",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              93.8,
+              -4.0875,
+              -77.7,
+              246.2,
+              -0.9125,
+              -65.0
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              93.8,
+              -16.5875,
+              -77.7,
+              246.2,
+              -13.4125,
+              -65.0
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
@@ -65150,7 +65687,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2464,
+        "height_px": 1976,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -65162,16 +65699,24 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [
+              "closest_cut"
+            ],
+            "height_px": 996,
+            "id": "setup",
             "label": "SETUP P3  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:1",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 1484
+            "selection_group": "path_detail:1",
+            "top_px": 996
           }
         ],
         "render_debts": [],
@@ -65186,7 +65731,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "1e711d8fc49c488bf73f35d85d2a4c452573fe3bca025f4e5af61931c076d384"
+      "sha256": "a6742b976d6b980a2d293788fa1d2e5c4ff8627bf4ff0158dc2cae68eed8a529"
     },
     "P4": {
       "fixture": "modeled",
@@ -65209,21 +65754,53 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              90.6631,
+              0.0,
+              -47.75,
+              249.3369,
+              17.8054,
+              -2.8047
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              90.6631,
+              -82.8054,
+              -47.75,
+              249.3369,
+              -65.0,
+              -2.8047
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              93.8,
+              -4.5875,
+              -47.75,
+              246.2,
+              -1.4125,
+              -16.0
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              93.8,
+              -63.5875,
+              -47.75,
+              246.2,
+              -60.4125,
+              -16.0
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
@@ -65240,7 +65817,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2464,
+        "height_px": 1976,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -65252,16 +65829,24 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [
+              "closest_cut"
+            ],
+            "height_px": 996,
+            "id": "setup",
             "label": "SETUP P4  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:1",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 1484
+            "selection_group": "path_detail:1",
+            "top_px": 996
           }
         ],
         "render_debts": [],
@@ -65276,7 +65861,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "967d124736e1757c2b8dc5439768e5025dfc630b206f060f8675758d96d9002a"
+      "sha256": "1b9282d683b7d5c25c04b61c86cbbfc74809d39f0469c23536128dc20f2c4074"
     },
     "P5": {
       "fixture": "modeled",
@@ -65299,21 +65884,53 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              90.6631,
+              0.0,
+              -47.75,
+              249.3369,
+              17.8054,
+              -2.8047
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              90.6631,
+              -82.8054,
+              -47.75,
+              249.3369,
+              -65.0,
+              -2.8047
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              93.8,
+              -4.5875,
+              -47.75,
+              246.2,
+              -1.4125,
+              -16.0
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              93.8,
+              -63.5875,
+              -47.75,
+              246.2,
+              -60.4125,
+              -16.0
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
@@ -65335,7 +65952,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 2464,
+        "height_px": 1976,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -65347,16 +65964,24 @@
         "primary_op": "10",
         "print_panels": [
           {
-            "height_px": 1484,
+            "annotations": [
+              "closest_cut"
+            ],
+            "height_px": 996,
+            "id": "setup",
             "label": "SETUP P5  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:1",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 1484
+            "selection_group": "path_detail:1",
+            "top_px": 996
           }
         ],
         "render_debts": [],
@@ -65371,7 +65996,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "1c95147cfda685e3584525440752dd5cf402e64f45f75465e52c5e0380a0b8ce"
+      "sha256": "ec3301f892ef26d893726bb2441d3526c41ae77f2bf766abcded30680365bbc2"
     },
     "S1": {
       "fixture": "modeled",
@@ -65394,56 +66019,144 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              -79.3,
+              37.0,
+              -49.62825,
+              79.3738,
+              54.8054,
+              -4.68295
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -79.3,
+              -45.8054,
+              -49.62825,
+              79.3738,
+              -28.0,
+              -4.68295
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -76.2,
+              -27.0875,
+              -24.22825,
+              76.2,
+              -23.9125,
+              -11.52825
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              -76.2,
+              32.9125,
+              -24.22825,
+              76.2,
+              36.0875,
+              -11.52825
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              -78.1,
+              -27.25,
+              -49.62825,
+              -1.9,
+              36.25,
+              -24.22825
+            ],
             "exact": true,
             "name": "riser 1 rocker-riser-bars",
             "role": "riser"
           },
           {
+            "bbox_mm": [
+              1.9,
+              -27.25,
+              -49.62825,
+              78.1,
+              36.25,
+              -24.22825
+            ],
             "exact": true,
             "name": "riser 2 rocker-riser-bars",
             "role": "riser"
           },
           {
+            "bbox_mm": [
+              -109.3,
+              37.5,
+              -29.68295,
+              -79.3,
+              54.5,
+              -5.68295
+            ],
             "exact": true,
             "name": "stop rocker-vise-stop:base",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -100.3,
+              54.5,
+              -23.68295,
+              -88.3,
+              62.5,
+              -11.68295
+            ],
             "exact": true,
             "name": "stop rocker-vise-stop:switch",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -174.5,
+              40.5,
+              -15.68295,
+              -109.3,
+              51.5,
+              -5.68295
+            ],
             "exact": true,
             "name": "stop rocker-vise-stop:arm",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -182.0,
+              0.5,
+              -15.68295,
+              -174.0,
+              51.5,
+              -1.68295
+            ],
             "exact": true,
             "name": "stop rocker-vise-stop:finger",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -174.0,
+              1.5,
+              -7.98295,
+              -170.0,
+              7.5,
+              -1.98295
+            ],
             "exact": true,
             "name": "stop rocker-vise-stop:nose",
             "role": "fixture"
@@ -65505,7 +66218,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 5434,
+        "height_px": 5143,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -65517,34 +66230,51 @@
         "primary_op": "5",
         "print_panels": [
           {
-            "height_px": 1514,
+            "annotations": [
+              "closest_cut"
+            ],
+            "height_px": 1223,
+            "id": "setup",
             "label": "SETUP S1  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:1",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 1514
+            "selection_group": "path_detail:1",
+            "top_px": 1223
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:2",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 2494
+            "selection_group": "path_detail:2",
+            "top_px": 2203
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:3",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 3474
+            "selection_group": "path_detail:3",
+            "top_px": 3183
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:4",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 4454
+            "selection_group": "path_detail:4",
+            "top_px": 4163
           }
         ],
         "render_debts": [],
@@ -65673,7 +66403,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "86216076cdb1f103049185b23dfd4058a5ba072a8ac6fda768ceb8d92745878a"
+      "sha256": "5522b2425119f3ec1a74bd5930fffcbfda4701b80fcf5d71dbff841fbf644efc"
     },
     "S2": {
       "fixture": "modeled",
@@ -65696,96 +66426,248 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              -79.3,
+              28.0,
+              -49.65175,
+              79.3738,
+              45.8054,
+              -4.70645
+            ],
             "exact": true,
             "name": "fixed_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -79.3,
+              -54.8054,
+              -49.65175,
+              79.3738,
+              -37.0,
+              -4.70645
+            ],
             "exact": true,
             "name": "moving_jaw",
             "role": "jaw"
           },
           {
+            "bbox_mm": [
+              -76.2,
+              -36.0875,
+              -24.25175,
+              76.2,
+              -32.9125,
+              -11.55175
+            ],
             "exact": true,
             "name": "parallel 1",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              -76.2,
+              23.9125,
+              -24.25175,
+              76.2,
+              27.0875,
+              -11.55175
+            ],
             "exact": true,
             "name": "parallel 2",
             "role": "parallel"
           },
           {
+            "bbox_mm": [
+              -78.1,
+              -36.25,
+              -49.65175,
+              -1.9,
+              27.25,
+              -24.25175
+            ],
             "exact": true,
             "name": "riser 1 rocker-riser-bars",
             "role": "riser"
           },
           {
+            "bbox_mm": [
+              1.9,
+              -36.25,
+              -49.65175,
+              78.1,
+              27.25,
+              -24.25175
+            ],
             "exact": true,
             "name": "riser 2 rocker-riser-bars",
             "role": "riser"
           },
           {
+            "bbox_mm": [
+              -109.3,
+              28.5,
+              -29.70645,
+              -79.3,
+              45.5,
+              -5.70645
+            ],
             "exact": true,
             "name": "stop rocker-vise-stop:base",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -100.3,
+              45.5,
+              -23.70645,
+              -88.3,
+              53.5,
+              -11.70645
+            ],
             "exact": true,
             "name": "stop rocker-vise-stop:switch",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -174.5,
+              31.5,
+              -15.70645,
+              -109.3,
+              42.5,
+              -5.70645
+            ],
             "exact": true,
             "name": "stop rocker-vise-stop:arm",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -182.0,
+              -8.5,
+              -15.70645,
+              -174.0,
+              42.5,
+              -1.70645
+            ],
             "exact": true,
             "name": "stop rocker-vise-stop:finger",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -174.0,
+              -7.5,
+              -8.00645,
+              -170.0,
+              -1.5,
+              -2.00645
+            ],
             "exact": true,
             "name": "stop rocker-vise-stop:nose",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              35.0,
+              -6.0,
+              -7.80175,
+              45.0,
+              4.0,
+              -4.80175
+            ],
             "exact": true,
             "name": "clamp 1 rocker-s2-support-jack:head",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              36.825,
+              -4.175,
+              -21.30175,
+              43.175,
+              2.175,
+              -7.80175
+            ],
             "exact": true,
             "name": "clamp 1 rocker-s2-support-jack:screw",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              33.585,
+              -7.415,
+              -15.25175,
+              46.415,
+              5.415,
+              -11.28175
+            ],
             "exact": true,
             "name": "clamp 1 rocker-s2-support-jack:locknut",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              32.0,
+              -9.0,
+              -24.25175,
+              48.0,
+              7.0,
+              -15.25175
+            ],
             "exact": true,
             "name": "clamp 1 rocker-s2-support-jack:body",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -45.0,
+              -6.0,
+              -7.80175,
+              -35.0,
+              4.0,
+              -4.80175
+            ],
             "exact": true,
             "name": "clamp 2 rocker-s2-support-jack:head",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -43.175,
+              -4.175,
+              -21.30175,
+              -36.825,
+              2.175,
+              -7.80175
+            ],
             "exact": true,
             "name": "clamp 2 rocker-s2-support-jack:screw",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -46.415,
+              -7.415,
+              -15.25175,
+              -33.585,
+              5.415,
+              -11.28175
+            ],
             "exact": true,
             "name": "clamp 2 rocker-s2-support-jack:locknut",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -48.0,
+              -9.0,
+              -24.25175,
+              -32.0,
+              7.0,
+              -15.25175
+            ],
             "exact": true,
             "name": "clamp 2 rocker-s2-support-jack:body",
             "role": "clamp"
@@ -65852,7 +66734,7 @@
         "fixture_kind": "vise",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 5532,
+        "height_px": 5283,
         "jaw_front_oblique": false,
         "jaws": "exact",
         "legend": [
@@ -65864,34 +66746,51 @@
         "primary_op": "5",
         "print_panels": [
           {
-            "height_px": 1612,
+            "annotations": [
+              "closest_cut"
+            ],
+            "height_px": 1363,
+            "id": "setup",
             "label": "SETUP S2  /  ISOMETRIC VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:1",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 1612
+            "selection_group": "path_detail:1",
+            "top_px": 1363
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:2",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 2592
+            "selection_group": "path_detail:2",
+            "top_px": 2343
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:3",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 3572
+            "selection_group": "path_detail:3",
+            "top_px": 3323
           },
           {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:4",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 4552
+            "selection_group": "path_detail:4",
+            "top_px": 4303
           }
         ],
         "render_debts": [],
@@ -66020,7 +66919,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "eccda3acac220e0b345860dc708506fc8eaa14ee90febc19fabb42aebab27e0e"
+      "sha256": "77c43f1a85d9232c2ec47a314b145582c71883d2fb17ef2804849e8d71d779c2"
     },
     "S3": {
       "fixture": "modeled",
@@ -66043,221 +66942,573 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              -180.0,
+              -70.0,
+              -40.4235,
+              180.0,
+              75.0,
+              -15.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:base",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              10.05,
+              -1.2875,
+              -16.9535,
+              29.95,
+              1.8875,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r1",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -29.95,
+              -1.2875,
+              -16.9535,
+              -10.05,
+              1.8875,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l1",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              30.05,
+              -0.35,
+              -16.9535,
+              49.95,
+              2.45,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r2",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -49.95,
+              -0.35,
+              -16.9535,
+              -30.05,
+              2.45,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l2",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              50.05,
+              1.15,
+              -16.9535,
+              69.95,
+              3.45,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r3",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -69.95,
+              1.15,
+              -16.9535,
+              -50.05,
+              3.45,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l3",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              70.05,
+              3.05,
+              -16.9535,
+              89.95,
+              4.95,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r4",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -89.95,
+              3.05,
+              -16.9535,
+              -70.05,
+              4.95,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l4",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              90.05,
+              5.55,
+              -16.9535,
+              109.95,
+              6.95,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r5",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -109.95,
+              5.55,
+              -16.9535,
+              -90.05,
+              6.95,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l5",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              110.05,
+              7.25,
+              -16.9535,
+              121.95,
+              9.55,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r6",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -121.95,
+              7.25,
+              -16.9535,
+              -110.05,
+              9.55,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l6",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -4.7,
+              -4.7,
+              -16.93,
+              4.7,
+              4.7,
+              -7.13
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:hub-stand",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -4.7,
+              -4.7,
+              -7.13,
+              4.7,
+              4.7,
+              -7.08
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:hub-shim",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              20.1,
+              32.3,
+              -16.0235,
+              39.9,
+              36.4,
+              -12.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-rest-ru",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              20.1,
+              32.3,
+              -12.0235,
+              39.9,
+              36.4,
+              -11.52825
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-shim-ru",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -39.9,
+              32.3,
+              -16.0235,
+              -20.1,
+              36.4,
+              -12.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-rest-lu",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -39.9,
+              32.3,
+              -12.0235,
+              -20.1,
+              36.4,
+              -11.52825
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-shim-lu",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              120.1,
+              -27.4,
+              -16.0235,
+              139.9,
+              -22.6,
+              -12.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-rest-rl",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              120.1,
+              -27.4,
+              -12.0235,
+              139.9,
+              -22.6,
+              -11.52825
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-shim-rl",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -139.9,
+              -27.4,
+              -16.0235,
+              -120.1,
+              -22.6,
+              -12.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-rest-ll",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -139.9,
+              -27.4,
+              -12.0235,
+              -120.1,
+              -22.6,
+              -11.52825
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-shim-ll",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              157.855,
+              -67.145,
+              -25.0235,
+              172.145,
+              -52.855,
+              -15.4985
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-head-rl",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              160.2375,
+              -64.7625,
+              -40.4235,
+              169.7625,
+              -55.2375,
+              -25.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-shank-rl",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -172.145,
+              -67.145,
+              -25.0235,
+              -157.855,
+              -52.855,
+              -15.4985
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-head-ll",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -169.7625,
+              -64.7625,
+              -40.4235,
+              -160.2375,
+              -55.2375,
+              -25.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-shank-ll",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              157.855,
+              57.855,
+              -25.0235,
+              172.145,
+              72.145,
+              -15.4985
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-head-ru",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              160.2375,
+              60.2375,
+              -40.4235,
+              169.7625,
+              69.7625,
+              -25.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-shank-ru",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -172.145,
+              57.855,
+              -25.0235,
+              -157.855,
+              72.145,
+              -15.4985
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-head-lu",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -169.7625,
+              60.2375,
+              -40.4235,
+              -160.2375,
+              69.7625,
+              -25.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-shank-lu",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              60.475,
+              0.27,
+              -2.27825,
+              79.525,
+              6.27,
+              6.0
+            ],
             "exact": true,
             "name": "clamp 1 rocker-hub-strap:toe",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              60.475,
+              0.27,
+              6.0,
+              79.525,
+              70.0,
+              18.7
+            ],
             "exact": true,
             "name": "clamp 1 rocker-hub-strap:beam",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              60.475,
+              60.0,
+              -15.0,
+              79.525,
+              70.0,
+              6.0
+            ],
             "exact": true,
             "name": "clamp 1 rocker-hub-strap:heel",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              65.2375,
+              40.2375,
+              -27.2,
+              74.7625,
+              49.7625,
+              36.3
+            ],
             "exact": true,
             "name": "clamp 1 rocker-hub-strap:stud",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              58.9,
+              33.9,
+              18.7,
+              81.1,
+              56.1,
+              29.8
+            ],
             "exact": true,
             "name": "clamp 1 rocker-hub-strap:nut",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -79.525,
+              0.27,
+              -2.27825,
+              -60.475,
+              6.27,
+              6.0
+            ],
             "exact": true,
             "name": "clamp 2 rocker-hub-strap:toe",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -79.525,
+              0.27,
+              6.0,
+              -60.475,
+              70.0,
+              18.7
+            ],
             "exact": true,
             "name": "clamp 2 rocker-hub-strap:beam",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -79.525,
+              60.0,
+              -15.0,
+              -60.475,
+              70.0,
+              6.0
+            ],
             "exact": true,
             "name": "clamp 2 rocker-hub-strap:heel",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -74.7625,
+              40.2375,
+              -27.2,
+              -65.2375,
+              49.7625,
+              36.3
+            ],
             "exact": true,
             "name": "clamp 2 rocker-hub-strap:stud",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -81.1,
+              33.9,
+              18.7,
+              -58.9,
+              56.1,
+              29.8
+            ],
             "exact": true,
             "name": "clamp 2 rocker-hub-strap:nut",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              130.817402,
+              6.206064,
+              -15.0235,
+              135.317402,
+              10.706064,
+              -9.1235
+            ],
             "exact": true,
             "name": "clamp 3 rocker-rod-diamond-pin:collar",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              131.570402,
+              6.959064,
+              -21.0235,
+              134.564402,
+              9.953064,
+              -15.0235
+            ],
             "exact": true,
             "name": "clamp 3 rocker-rod-diamond-pin:shank",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              132.065652,
+              7.454314,
+              -14.6235,
+              134.069152,
+              9.457814,
+              -2.4235
+            ],
             "exact": true,
             "name": "clamp 3 rocker-rod-diamond-pin:rodlocator",
             "role": "clamp"
@@ -66456,7 +67707,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 3545,
+        "height_px": 2974,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -66468,28 +67719,33 @@
         "primary_op": "20",
         "print_panels": [
           {
-            "height_px": 1785,
+            "annotations": [],
+            "height_px": 1574,
+            "id": "setup",
             "label": "SETUP S3  /  PLAN VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
-            "height_px": 360,
-            "label": "SETUP S3 / KEY + NOTES (CONTINUED)",
-            "role": "setup",
-            "top_px": 1785
-          },
-          {
+            "annotations": [
+              "closest_cut"
+            ],
             "height_px": 700,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL 1 OF 2 X2.8  /  SETUP X -189 TO 0",
             "role": "holding_detail",
-            "top_px": 2145
+            "selection_group": "holding_detail:1",
+            "top_px": 1574
           },
           {
+            "annotations": [],
             "height_px": 700,
+            "id": "holding_detail:2",
             "label": "HOLDING DETAIL 2 OF 2 X2.8  /  SETUP X 0 TO 189",
             "role": "holding_detail",
-            "top_px": 2845
+            "selection_group": "holding_detail:2",
+            "top_px": 2274
           }
         ],
         "render_debts": [],
@@ -66503,7 +67759,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "755f5733f4f24d6f5bb7167172b28ae8c16b2c8b40b0f5c32e401026e3db1b56"
+      "sha256": "3da9a27c9f032d31dccbd6237e10d29f24fe88dba0fa1f0ddd33c2df800377f0"
     },
     "S3F": {
       "fixture": "modeled",
@@ -66526,41 +67782,105 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              -28.245,
+              -50.0,
+              -56.0235,
+              -3.245,
+              50.0,
+              -31.0235
+            ],
             "exact": true,
             "name": "bench-vise-4in:fixed-jaw",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              3.245,
+              -50.0,
+              -56.0235,
+              28.245,
+              50.0,
+              -31.0235
+            ],
             "exact": true,
             "name": "bench-vise-4in:moving-jaw",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -60.0,
+              -50.0,
+              -116.0235,
+              60.0,
+              50.0,
+              -56.0235
+            ],
             "exact": true,
             "name": "bench-vise-4in:body",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -5.1,
+              -5.1,
+              0.0,
+              5.1,
+              5.1,
+              4.0
+            ],
             "exact": true,
             "name": "clamp 1 rocker-hub-filing-buttons:upper-button",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -5.1,
+              -5.1,
+              -11.08,
+              5.1,
+              5.1,
+              -7.08
+            ],
             "exact": true,
             "name": "clamp 1 rocker-hub-filing-buttons:lower-button",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -5.0,
+              -5.0,
+              4.0,
+              5.0,
+              5.0,
+              26.225
+            ],
             "exact": true,
             "name": "clamp 1 rocker-hub-filing-buttons:nut",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -3.245,
+              -3.245,
+              -56.0235,
+              3.245,
+              3.245,
+              17.9765
+            ],
             "exact": true,
             "name": "clamp 1 rocker-hub-filing-buttons:stud",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -4.5,
+              -4.5,
+              -14.08,
+              4.5,
+              4.5,
+              -11.08
+            ],
             "exact": true,
             "name": "clamp 1 rocker-hub-filing-buttons:stud-head",
             "role": "clamp"
@@ -66591,7 +67911,7 @@
           "clamp 1 rocker-hub-filing-buttons:upper-button",
           "clamp 1 rocker-hub-filing-buttons:lower-button"
         ],
-        "height_px": 3457,
+        "height_px": 3377,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -66603,22 +67923,33 @@
         "primary_op": null,
         "print_panels": [
           {
-            "height_px": 1541,
+            "annotations": [],
+            "height_px": 1461,
+            "id": "setup",
             "label": "SETUP S3F  /  ELEVATION VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
+            "annotations": [
+              "closest_cut"
+            ],
             "height_px": 958,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL X4.5  /  SETUP X -7.61 TO 7.61",
             "role": "holding_detail",
-            "top_px": 1541
+            "selection_group": "holding_detail:1",
+            "top_px": 1461
           },
           {
+            "annotations": [],
             "height_px": 958,
+            "id": "guide_axis:1",
             "label": "VIEW ALONG THE BUTTON AXIS X31.2",
             "role": "guide_axis",
-            "top_px": 2499
+            "selection_group": "guide_axis:1",
+            "top_px": 2419
           }
         ],
         "render_debts": [],
@@ -66635,7 +67966,7 @@
         "waypoints": [],
         "width_px": 1600
       },
-      "sha256": "aaa6626a78aa3719475bf38edb2febd006644eb6de4fb8a56867cd84b9310bea"
+      "sha256": "e3aaeb98ecf8f4dee37dc8331941fde42c265b93a3d5ebe45fcc0a3171f46a58"
     },
     "S4": {
       "fixture": "modeled",
@@ -66646,16 +67977,22 @@
             "height_px": 1861,
             "print_panels": [
               {
+                "annotations": [],
                 "height_px": 998,
+                "id": "inspection:1",
                 "label": "VIEW 1 (STEPS 8-11): BOX ON ITS BASE, LAND C DOWN ON THE STOP BAR",
                 "role": "inspection",
+                "selection_group": "inspection:1",
                 "top_px": 0,
                 "view_ordinal": 1
               },
               {
+                "annotations": [],
                 "height_px": 863,
+                "id": "inspection:2",
                 "label": "VIEW 2 (STEPS 12-14): BOX TIPPED A QUARTER TURN CLOCKWISE ONTO ITS RIGHT SIDE",
                 "role": "inspection",
+                "selection_group": "inspection:2",
                 "top_px": 998,
                 "view_ordinal": 2
               }
@@ -66684,271 +68021,703 @@
         },
         "components": [
           {
+            "bbox_mm": [
+              -180.0,
+              -70.0,
+              -40.4235,
+              180.0,
+              75.0,
+              -15.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:base",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              10.05,
+              -1.2875,
+              -16.9535,
+              29.95,
+              1.8875,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r1",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -29.95,
+              -1.2875,
+              -16.9535,
+              -10.05,
+              1.8875,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l1",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              30.05,
+              -0.35,
+              -16.9535,
+              49.95,
+              2.45,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r2",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -49.95,
+              -0.35,
+              -16.9535,
+              -30.05,
+              2.45,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l2",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              50.05,
+              1.15,
+              -16.9535,
+              69.95,
+              3.45,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r3",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -69.95,
+              1.15,
+              -16.9535,
+              -50.05,
+              3.45,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l3",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              70.05,
+              3.05,
+              -16.9535,
+              89.95,
+              4.95,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r4",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -89.95,
+              3.05,
+              -16.9535,
+              -70.05,
+              4.95,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l4",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              90.05,
+              5.55,
+              -16.9535,
+              109.95,
+              6.95,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r5",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -109.95,
+              5.55,
+              -16.9535,
+              -90.05,
+              6.95,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l5",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              110.05,
+              7.25,
+              -16.9535,
+              121.95,
+              9.55,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-r6",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -121.95,
+              7.25,
+              -16.9535,
+              -110.05,
+              9.55,
+              -4.80175
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:pad-l6",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -4.7,
+              -4.7,
+              -16.93,
+              4.7,
+              4.7,
+              -7.13
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:hub-stand",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -4.7,
+              -4.7,
+              -7.13,
+              4.7,
+              4.7,
+              -7.08
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:hub-shim",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              20.1,
+              32.3,
+              -16.0235,
+              39.9,
+              36.4,
+              -12.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-rest-ru",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              20.1,
+              32.3,
+              -12.0235,
+              39.9,
+              36.4,
+              -11.52825
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-shim-ru",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -39.9,
+              32.3,
+              -16.0235,
+              -20.1,
+              36.4,
+              -12.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-rest-lu",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -39.9,
+              32.3,
+              -12.0235,
+              -20.1,
+              36.4,
+              -11.52825
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-shim-lu",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              120.1,
+              -27.4,
+              -16.0235,
+              139.9,
+              -22.6,
+              -12.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-rest-rl",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              120.1,
+              -27.4,
+              -12.0235,
+              139.9,
+              -22.6,
+              -11.52825
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-shim-rl",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -139.9,
+              -27.4,
+              -16.0235,
+              -120.1,
+              -22.6,
+              -12.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-rest-ll",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -139.9,
+              -27.4,
+              -12.0235,
+              -120.1,
+              -22.6,
+              -11.52825
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:rail-shim-ll",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              157.855,
+              -67.145,
+              -25.0235,
+              172.145,
+              -52.855,
+              -15.4985
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-head-rl",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              160.2375,
+              -64.7625,
+              -40.4235,
+              169.7625,
+              -55.2375,
+              -25.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-shank-rl",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -172.145,
+              -67.145,
+              -25.0235,
+              -157.855,
+              -52.855,
+              -15.4985
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-head-ll",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -169.7625,
+              -64.7625,
+              -40.4235,
+              -160.2375,
+              -55.2375,
+              -25.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-shank-ll",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              157.855,
+              57.855,
+              -25.0235,
+              172.145,
+              72.145,
+              -15.4985
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-head-ru",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              160.2375,
+              60.2375,
+              -40.4235,
+              169.7625,
+              69.7625,
+              -25.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-shank-ru",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -172.145,
+              57.855,
+              -25.0235,
+              -157.855,
+              72.145,
+              -15.4985
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-head-lu",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -169.7625,
+              60.2375,
+              -40.4235,
+              -160.2375,
+              69.7625,
+              -25.0235
+            ],
             "exact": true,
             "name": "rocker-profile-fixture:holddown-shank-lu",
             "role": "fixture"
           },
           {
+            "bbox_mm": [
+              -5.0,
+              -5.0,
+              0.0,
+              5.0,
+              5.0,
+              1.5
+            ],
             "exact": true,
             "name": "clamp 1 rocker-pivot-screw:washer",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -4.0,
+              -4.0,
+              1.5,
+              4.0,
+              4.0,
+              5.5
+            ],
             "exact": true,
             "name": "clamp 1 rocker-pivot-screw:head",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -3.245,
+              -3.245,
+              -20.0,
+              3.245,
+              3.245,
+              1.5
+            ],
             "exact": true,
             "name": "clamp 1 rocker-pivot-screw:shoulder",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -2.415,
+              -2.415,
+              -28.5,
+              2.415,
+              2.415,
+              -20.0
+            ],
             "exact": true,
             "name": "clamp 1 rocker-pivot-screw:thread",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              130.817402,
+              6.206064,
+              -15.0235,
+              135.317402,
+              10.706064,
+              -9.1235
+            ],
             "exact": true,
             "name": "clamp 2 rocker-rod-diamond-pin:collar",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              131.570402,
+              6.959064,
+              -21.0235,
+              134.564402,
+              9.953064,
+              -15.0235
+            ],
             "exact": true,
             "name": "clamp 2 rocker-rod-diamond-pin:shank",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              132.065652,
+              7.454314,
+              -14.6235,
+              134.069152,
+              9.457814,
+              -2.4235
+            ],
             "exact": true,
             "name": "clamp 2 rocker-rod-diamond-pin:rodlocator",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              20.475,
+              32.0,
+              4.47175,
+              39.525,
+              65.0,
+              17.17175
+            ],
             "exact": true,
             "name": "clamp 3 rocker-rail-clamp:beam",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              20.475,
+              55.0,
+              -15.0,
+              39.525,
+              65.0,
+              4.47175
+            ],
             "exact": true,
             "name": "clamp 3 rocker-rail-clamp:heel",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              25.2375,
+              40.2375,
+              -27.2,
+              34.7625,
+              49.7625,
+              29.95
+            ],
             "exact": true,
             "name": "clamp 3 rocker-rail-clamp:stud",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              18.9,
+              33.9,
+              17.17175,
+              41.1,
+              56.1,
+              28.27175
+            ],
             "exact": true,
             "name": "clamp 3 rocker-rail-clamp:nut",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -39.525,
+              32.0,
+              4.47175,
+              -20.475,
+              65.0,
+              17.17175
+            ],
             "exact": true,
             "name": "clamp 4 rocker-rail-clamp:beam",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -39.525,
+              55.0,
+              -15.0,
+              -20.475,
+              65.0,
+              4.47175
+            ],
             "exact": true,
             "name": "clamp 4 rocker-rail-clamp:heel",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -34.7625,
+              40.2375,
+              -27.2,
+              -25.2375,
+              49.7625,
+              29.95
+            ],
             "exact": true,
             "name": "clamp 4 rocker-rail-clamp:stud",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -41.1,
+              33.9,
+              17.17175,
+              -18.9,
+              56.1,
+              28.27175
+            ],
             "exact": true,
             "name": "clamp 4 rocker-rail-clamp:nut",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              120.475,
+              -56.0,
+              4.47175,
+              139.525,
+              -23.0,
+              17.17175
+            ],
             "exact": true,
             "name": "clamp 5 rocker-rail-clamp:beam",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              120.475,
+              -56.0,
+              -15.0,
+              139.525,
+              -46.0,
+              4.47175
+            ],
             "exact": true,
             "name": "clamp 5 rocker-rail-clamp:heel",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              125.2375,
+              -40.7625,
+              -27.2,
+              134.7625,
+              -31.2375,
+              29.95
+            ],
             "exact": true,
             "name": "clamp 5 rocker-rail-clamp:stud",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              118.9,
+              -47.1,
+              17.17175,
+              141.1,
+              -24.9,
+              28.27175
+            ],
             "exact": true,
             "name": "clamp 5 rocker-rail-clamp:nut",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -139.525,
+              -56.0,
+              4.47175,
+              -120.475,
+              -23.0,
+              17.17175
+            ],
             "exact": true,
             "name": "clamp 6 rocker-rail-clamp:beam",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -139.525,
+              -56.0,
+              -15.0,
+              -120.475,
+              -46.0,
+              4.47175
+            ],
             "exact": true,
             "name": "clamp 6 rocker-rail-clamp:heel",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -134.7625,
+              -40.7625,
+              -27.2,
+              -125.2375,
+              -31.2375,
+              29.95
+            ],
             "exact": true,
             "name": "clamp 6 rocker-rail-clamp:stud",
             "role": "clamp"
           },
           {
+            "bbox_mm": [
+              -141.1,
+              -47.1,
+              17.17175,
+              -118.9,
+              -24.9,
+              28.27175
+            ],
             "exact": true,
             "name": "clamp 6 rocker-rail-clamp:nut",
             "role": "clamp"
@@ -67162,7 +68931,7 @@
         "fixture_kind": "custom",
         "guide_axis_mm": null,
         "guide_stops": [],
-        "height_px": 4868,
+        "height_px": 4357,
         "jaw_front_oblique": false,
         "jaws": "not_applicable",
         "legend": [
@@ -67174,34 +68943,42 @@
         "primary_op": "25",
         "print_panels": [
           {
-            "height_px": 1767,
+            "annotations": [],
+            "height_px": 1616,
+            "id": "setup",
             "label": "SETUP S4  /  PLAN VIEW",
             "role": "setup",
+            "selection_group": "setup",
             "top_px": 0
           },
           {
-            "height_px": 360,
-            "label": "SETUP S4 / KEY + NOTES (CONTINUED)",
-            "role": "setup",
-            "top_px": 1767
-          },
-          {
+            "annotations": [],
             "height_px": 980,
+            "id": "path_detail:1",
             "label": "PROFILE SKETCH / XY",
             "role": "path_detail",
-            "top_px": 2127
+            "selection_group": "path_detail:1",
+            "top_px": 1616
           },
           {
+            "annotations": [],
             "height_px": 658,
+            "id": "holding_detail:1",
             "label": "HOLDING DETAIL 1 OF 2 X2.8  /  SETUP X -189 TO 0",
             "role": "holding_detail",
-            "top_px": 3107
+            "selection_group": "holding_detail:1",
+            "top_px": 2596
           },
           {
+            "annotations": [
+              "closest_cut"
+            ],
             "height_px": 1103,
+            "id": "holding_detail:2",
             "label": "HOLDING DETAIL 2 OF 2 X2.8  /  SETUP X 0 TO 189",
             "role": "holding_detail",
-            "top_px": 3765
+            "selection_group": "holding_detail:2",
+            "top_px": 3254
           }
         ],
         "render_debts": [],
@@ -67307,7 +69084,7 @@
         ],
         "width_px": 1600
       },
-      "sha256": "b55671d4b46e7cdd811141c5addede0f18a9c1602e61f855836ec1affd2eb967"
+      "sha256": "7f92bdcfedbe22671ca52d1e729004d2722e972f3e20ec1071f73014723df62c"
     }
   },
   "rules_version": "m5-rev12",
