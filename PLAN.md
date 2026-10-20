@@ -1413,7 +1413,7 @@ first-article acceptance.
    [operations](docs/plan.md#mounted-slitting-saw-path-and-capture) and
    [geometry limits](docs/rules-geometry.md#saw-cut-off).
 
-   **Registered batch lineage phase 0b implemented; expanded gate running:**
+   **Registered batch lineage phase 0b implemented; selected expanded gate passed:**
    `Plan.workpieces`, member-qualified face claims, nested named finite-saw
    outputs and single-consumption preserve each physical member's material
    path. Native containment and host credit bind exact member, registration
@@ -1426,9 +1426,11 @@ first-article acceptance.
    (1024.1915 mm³ kerf each), four distinct retained nuts, host protection and
    pickup using arriving-stock top 84.455 mm/retract 97.155 mm.
    Invalid placements withheld geometry with containment errors.
-   `ruff check` and format checks passed across 321 files; the expanded
-   33-suite gate is still running. This is not a full-suite pass, final T-nut
-   exit 0, live-shop evidence or physical holding certification.
+   `ruff check` and format checks passed across 321 files. The selected
+   33-module gate passed 1843 tests in 785.40 s with real FreeCAD required,
+   `-n2 --dist loadscope`, `PRECHIPS_KERNEL_WORKERS=1` and persistent cache.
+   This is not a full-suite pass, final T-nut exit 0, live-shop evidence or
+   physical holding certification.
    Input contracts: [members](docs/plan.md#registered-workpieces),
    [outputs](docs/plan.md#registered-finite-saw-outputs),
    [supports](docs/plan.md#posed-and-borrowed-supports) and
