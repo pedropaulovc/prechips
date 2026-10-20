@@ -1713,9 +1713,14 @@ by a sweep, even when OCC's compound-solid boundary distance is positive.
 Otherwise the native `distToShape` minimum supplies the distance and points.
 `minimum` identifies the least of those with `component`, `move_index`, `mode`
 and `stage` (`pre_cut`, `cut`, `post_cut`). Distances and points retain native precision
-in this proof. `binding` names the STEP SHA-256, canonical complete input-job
-SHA-256, setup and operation; `source = "finite_occupied_sweeps"`,
-`model = "finite_disk_v1"` and `frame = "setup"` state the geometry source.
+in this proof. `binding` names the STEP SHA-256, canonical original input-job
+SHA-256, setup and operation. The request hash is frozen at native job entry,
+before internal checkpoint clipping. Like the geometry cache recipe, it excludes
+only execution-time STEP paths: the finished STEP and any profiled stock or
+profiled stock component. Their declared STEP digests remain in the request,
+and later in-engine mutation does not re-key it.
+`source = "finite_occupied_sweeps"`, `model = "finite_disk_v1"` and `frame = "setup"`
+state the geometry source.
 `status = "complete"` means this modeled distance is complete, not that it
 passes a safety margin. A measured zero remains zero. Missing scene extents,
 incomplete assembly/path or any failed/missing distance leaves `status` and

@@ -207,6 +207,7 @@ import chain_boundary  # noqa: E402
 import FreeCAD  # noqa: E402
 import Part  # noqa: E402
 import saw_engagement  # noqa: E402
+from cache_recipe import _cache_recipe  # noqa: E402
 from inspection_preservation import preserve_inspections  # noqa: E402
 from render_diagram import (  # noqa: E402
     _common_plane,
@@ -4098,13 +4099,11 @@ class _FiniteSaw:
 
     @staticmethod
     def _clearance_binding(setup, op):
-        """Bind native distances to the complete input job, model and operation."""
+        """Bind native distances to the original semantic request, model and operation."""
         job = setup.owner.job
         return {
             "step_sha256": job.get("step_sha256", UNKNOWN),
-            "request_sha256": hashlib.sha256(
-                json.dumps(job, sort_keys=True, separators=(",", ":")).encode("utf-8")
-            ).hexdigest(),
+            "request_sha256": setup.owner.request_sha256,
             "setup": setup.setup.get("id", UNKNOWN),
             "op": setup._subject(op),
         }
@@ -5336,6 +5335,10 @@ class _Job:
     def __init__(self, job, timing=None):
         if not isinstance(job, dict) or job.get("version") != 1:
             raise ValueError("input is not a version-1 prechips geometry job")
+        # Execution clips checkpoint tables in place; identity belongs to the input.
+        self.request_sha256 = hashlib.sha256(
+            json.dumps(_cache_recipe(job), sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
         self.job = job
         self.timing = timing
         self.multisolid = False
