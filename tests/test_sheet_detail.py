@@ -3551,7 +3551,25 @@ def test_compact_doc_stays_with_its_setup_when_a_later_setup_reuses_the_op_id(de
     sheet = _Traveler(data, [finding], {}, None, detail=detail)
     blocks = {setup["id"]: sheet.setup_blocks(setup) for setup in data.plan["setups"]}
     family = Markup(sheet.family_html(data.plan["setups"], blocks))
-    assert family.find("route-path")
+
+    def assert_owned_path(instruction):
+        text = content(instruction)
+        assert "Centre:" in text
+        for depth in coordinates["operations"][0]["z_levels"]["levels"]:
+            assert_coordinate(text, "Z", depth)
+        for stroke in coordinates["profiles"][0]["cutter_centre"]:
+            for point in stroke:
+                for value in point:
+                    assert_number(text, value)
+
+    (later_family_instruction,) = [
+        node
+        for node in family.find("route-operation")
+        if any(
+            owner["setup_id"] == later["id"] for owner in operation_owners(operation_owner(node))
+        )
+    ]
+    assert_owned_path(later_family_instruction)
     (first_instruction,) = [
         node
         for node in family.find("route-operation")
@@ -3561,6 +3579,8 @@ def test_compact_doc_stays_with_its_setup_when_a_later_setup_reuses_the_op_id(de
     ]
     assert "axial per pass" in content(first_instruction)
     assert_number(content(first_instruction), 0.25)
+    (owner,) = operation_owners(operation_owner(first_instruction))
+    assert owner["setup_id"] == first["id"] and str(owner["op_id"]) == "10"
 
     # Re-project the first row with the family-prelude entrypoint after the later
     # setup has materialized its contour. Do not invent an inspect operation with DOC.
@@ -3575,14 +3595,12 @@ def test_compact_doc_stays_with_its_setup_when_a_later_setup_reuses_the_op_id(de
     (instruction,) = projected.find("route-operation")
     assert "axial per pass" in content(instruction)
     assert_number(content(instruction), 0.25)
-    (owner,) = operation_owners(operation_owner(instruction))
-    assert owner["setup_id"] == first["id"] and str(owner["op_id"]) == "10"
 
     later_row = sheet._rows_by_setup[later["id"]][0]
     later_markup = Markup(sheet.route_operation(later, later_row))
-    assert later_markup.find("route-path")
     (later_instruction,) = later_markup.find("route-operation")
     assert "axial per pass" not in content(later_instruction)
+    assert_owned_path(later_instruction)
 
 
 @pytest.mark.parametrize("detail", ["pro", "hobby"])
