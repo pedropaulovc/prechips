@@ -63,7 +63,7 @@ def finder_boxes(html):
     ]
 
 
-def assert_finder_pointers(html, home="S1"):
+def assert_finder_pointers(html, document, home="S1"):
     markup = Markup(html)
     rows = [row for row in table_rows(html) if row[0] in ("X", "Y")]
     assert [row[0] for row in rows] == ["X", "Y"]
@@ -72,10 +72,14 @@ def assert_finder_pointers(html, home="S1"):
         assert [float(value) for value in re.findall(r"edge-finder radius (\d+\.\d+)", row[1])] == [
             2.54
         ]
-    guides = [node for node in markup.nodes if node["attrs"].get("id") == "dro-first-use"]
-    if guides:
-        (guide,) = guides
-        assert guide["attrs"]["data-setup-id"] == home
+    complete = Markup(document)
+    (guide,) = complete.find("dro-guide")
+    assert guide["attrs"]["data-setup-id"] == "S1"
+    local_guides = [
+        node for node in markup.nodes if node["attrs"].get("id") == guide["attrs"]["id"]
+    ]
+    if local_guides:
+        assert len(local_guides) == 1
     else:
         (pointer,) = [
             node
@@ -86,7 +90,10 @@ def assert_finder_pointers(html, home="S1"):
         (link,) = [
             node for node in markup.nodes if node["tag"] == "a" and node["parent"] is pointer
         ]
-        assert link["attrs"]["href"] == "#dro-first-use"
+        href = link["attrs"]["href"]
+        assert href.startswith("#")
+        (target,) = [node for node in complete.nodes if node["attrs"].get("id") == href[1:]]
+        assert target is guide
 
 
 # ------------------------------------------------------------------ edge finder
@@ -177,7 +184,7 @@ def test_each_mill_gets_the_finder_speed_it_can_turn():
         for lo, hi in re.findall(r"\b(\d+)\s*–\s*(\d+)\s+rpm\b", html_text(second), re.I)
     ]
     assert (750, 900) not in page_rpm_pairs
-    assert_finder_pointers(second, "S2")
+    assert_finder_pointers(second, first + second, "S2")
 
 
 @pytest.mark.parametrize("missing", ["finder_type", "rpm_range", "tip_in"])
@@ -220,8 +227,8 @@ def test_one_edge_finder_box_per_traveler_and_every_zero_points_to_it():
     # Half the tip Ø, signed by the side the finder comes from.
     offsets = re.findall(r"Axis Set edge ([−+]) (\d+\.\d+)", content(box))
     assert [(sign, float(value)) for sign, value in offsets] == [("−", 2.54), ("+", 2.54)]
-    assert_finder_pointers(first)
-    assert_finder_pointers(second, "S1")
+    assert_finder_pointers(first, first + second)
+    assert_finder_pointers(second, first + second, "S1")
 
 
 # The finder and the mill are the items they select: a setup spelling them ``tools.finder``
@@ -239,8 +246,8 @@ def test_one_edge_finder_box_however_setups_spell_the_finder_or_the_mill():
     sheet = _Traveler(data, evaluate(data), {}, {})
     one, two = (sheet.dro(setup, {}) for setup in data.plan["setups"])
     assert len(finder_boxes(one)) == 1 and not finder_boxes(two)
-    assert_finder_pointers(one)
-    assert_finder_pointers(two, "S1")
+    assert_finder_pointers(one, one + two)
+    assert_finder_pointers(two, one + two, "S1")
     grid = html_text(sheet.dro_resolution(data.plan["setups"]))
     assert [float(value) for value in re.findall(r"(\d+\.\d+) mm", grid)] == [0.005]
 

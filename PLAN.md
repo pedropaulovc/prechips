@@ -1478,8 +1478,9 @@ first-article acceptance.
    ceilings remain 3 pro / 6 hobby pages, including the four hobby figures
    and DRO guide; shorter complete output is acceptable.
    Three independent reviews per compact PDF completed with raw FIX verdicts.
-   Recurring, evidence-backed corrections are in progress; new output needs
-   fresh print/review evidence. Final integration validation remains pending.
+   Recurring, evidence-backed corrections and renderer-only semantic repairs
+   are implemented; fresh print/review evidence and final integration
+   validation remain pending.
    None of this establishes physical paper acceptance or real-shop readiness.
    See the
    [current output contract](docs/report-and-telemetry.md#traveler-detail-modes).

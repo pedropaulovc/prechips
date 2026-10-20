@@ -120,6 +120,8 @@ The example validator must also run locally when examples, goldens or printed se
 
 [`tests/test_examples.py`](../../tests/test_examples.py) regenerates the pilot outputs twice, compares those runs byte-for-byte and compares them with the stored report/HTML/PNG artifacts. Other geometry controls are also byte-compared. Runtime code must never load `expected/` as its answer. Preserve source bytes, artifacts, manifests, provenance and contractual outputs. Do not replace goldens simply because a check failed; establish the intended behavior change and its review basis first. Ruff formatting of native engine code can change the source digest, cache identity and frozen evidence, so run it before freezing affected outputs.
 
+Selected examples also store `expected/traveler-pedantic.html` as a sidecar fixture. Register each sidecar in `PEDANTIC_GOLDEN_CASES` in `tests/test_examples.py`: the test runs the ordinary CLI with `--detail pedantic`, compares its HTML bytes with the sidecar, and preserves the default report/PNG byte contracts and output filename set. The sidecar is not an additional CLI output or part of the default golden file set. The coverage guard requires every registered sidecar to exist and every stored sidecar to have a CLI consumer.
+
 To inspect a current sheet without overwriting an example directory, use an explicit scratch destination:
 
 ```sh

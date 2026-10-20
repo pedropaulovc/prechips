@@ -552,9 +552,22 @@ destinations and their member/location ownership. Equal limits do not authorize
 one result for separate workpieces. An explicitly authored shared check retains
 its declared covered members; compact presentation does not create one.
 
-Both compact modes retain operative tool paths and keep each inspection's
-gauge, acceptance band and method together with its physical owner. These
-associations do not establish physical fit or require duplicate authored prose.
+Both compact modes retain operative tool paths and canonical operation
+allowances, including explicit zero leave, alongside authored instructions.
+Path-owned depths are not repeated as depth-of-cut prose. Each inspection's
+gauge, acceptance band and method stays with its physical owner, whether its
+check is attached to an inspection or a machining operation; distinct scoped
+methods are not replaced by the first feature's method. These associations do
+not establish physical fit or require duplicate authored prose.
+
+Applicable receipt checks and actual shop-made construction obligations remain
+at their first-use setup, with later-use references; a receipt reference is not
+evidence of acceptance. Compact holding retains locating-fixture placement and
+alignment when due, not exhaustive model-pose coordinates or clearance tables.
+Hobby DRO guidance is shared once per applicable machine family, so a lathe
+lesson cannot replace milling guidance. Pro remains free of routine DRO
+teaching and default forward-spindle narration; nondefault or mixed spindle
+senses and unknown-direction stops retain their operation owners.
 
 Compact datum owners retain evaluated AxisSet targets, distinct from surface
 coordinates. Setup-local operative constraints stay associated with the work.

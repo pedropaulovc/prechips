@@ -132,7 +132,7 @@ def test_reversed_dro_direction_swaps_expected_and_mirrored_readings(tmp_path):
         assert re.findall(r"\b(?:right|left)\b", tool_direction) == [direction]
         if re.search(r"\btable\b", x_direction):
             assert re.search(rf"\btable\b[^;]*\b{opposite}\b", x_direction)
-        guides = [node for node in markup.nodes if node["attrs"].get("id") == "dro-first-use"]
+        guides = markup.find("dro-guide")
         assert len(guides) == 1
         assert guides[0]["attrs"]["data-setup-id"] == "S1"
         guide = content(guides[0])

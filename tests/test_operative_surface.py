@@ -205,10 +205,7 @@ def evaluated_zero(report, setup_id):
 def first_zero_example(html, setup_id, row, surface):
     markup = Readings(html)
     (guide,) = [
-        node
-        for node in markup.nodes
-        if node["attrs"].get("id") == "dro-first-use"
-        and node["attrs"].get("data-setup-id") == setup_id
+        node for node in markup.find("dro-guide") if node["attrs"].get("data-setup-id") == setup_id
     ]
     match = re.search(
         r"From Z (-?\d+(?:\.\d+)?), jog \+Z (\d+(?:\.\d+)?) mm: "
