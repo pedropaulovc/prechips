@@ -557,8 +557,14 @@ gauge, acceptance band and method together with its physical owner. These
 associations do not establish physical fit or require duplicate authored prose.
 
 Compact datum owners retain evaluated AxisSet targets, distinct from surface
-coordinates. Setup-local operative constraints stay associated with the work; an
-unresolved selected tool withholds contour coordinates.
+coordinates. Setup-local operative constraints stay associated with the work.
+An unresolved selected tool withholds contour coordinates without discarding
+independent recorded contour failures, such as an unresolved step size.
+
+A straight-saw distance from the physical stock end requires one incoming
+material reference carrying one atom rooted in a known supply. Missing or
+unknown lineage, multiple supplies and ambiguous aggregate stock retain
+retained-edge/model-plane wording rather than inventing a physical stock end.
 
 The expanded job/setup inventories below describe pedantic output. Compact
 modes place settings and acceptance criteria at their working operations and
@@ -816,17 +822,21 @@ areas nor counts as source progress.
 
 ### Setup overview and operation order
 
-Pedantic expands the setup overview/operations content in this order. Compact
-modes share repeated content and put tooling/settings beside the working
-operations, while preserving their authored sequence and physical ownership:
+All modes use the same continuous setup flow and preserve authored operation
+order and physical ownership. Setup identity, stops and applicable measurement
+references introduce the content:
 
-1. Title, status boxes and applicable measurement references.
+1. Authored setup notes and, in pedantic, incoming stock state.
 2. `HOLD`, then grip/stickout and related holding dimensions.
-3. Coolant, any setup-specific edge break, and applicable purchased-tooling
-   receipt checks.
-4. `TOOLS FOR THIS SETUP`.
-5. `DRO ZERO` where applicable.
+3. Pedantic coolant and purchased-tooling receipt checks, followed by any
+   setup-specific edge break.
+4. Pedantic tool, fixture and feature tables.
+5. Datum prerequisites and `DRO ZERO` where applicable, followed by the
+   pedantic clearance table.
 6. `OPERATIONS`, or `ASSEMBLY / FINISHING` for an all-bench sequence.
+
+Compact modes share repeated content and put tooling/settings beside the
+working operations rather than restoring a separate overview layout.
 
 The following contracts define the content; repeated tables and the job-wide
 measurement register are expanded in pedantic.
@@ -917,8 +927,10 @@ spelling.
 
 Spindle-stopped `die_thread` and `hand_tap` selections also appear in this
 pull list with their selected die stock, tap wrench or follower. Their
-operation rows use the same `T#`. A nominal thread designation does not
-supply a physical cutting diameter, projection or powered-tool touch-off.
+operation rows use the same `T#`. Compact output retains the selected local
+hand-thread holder in its settings key or beside the operation, even when the
+tool already has a number from spindle work. A nominal thread designation does
+not supply a physical cutting diameter, projection or powered-tool touch-off.
 
 #### DRO zero and acquisition
 
@@ -940,6 +952,10 @@ the work and everything clamped to it, checked by eye across the top; jogs the
 table the printed distance and reads it; jogs back to the Axis Set value; then
 lowers. The picked-up value is never set again. The lead-in stays with these
 steps. A lathe check jogs away from the work without a raise step.
+
+A mounted-saw check jog prints its signed axis direction and one positive
+distance. Axis Set, expected display and reversed-axis readings retain their
+signs.
 
 A lathe X trial-cut pickup, for zero or tool change, says
 `take a light trial cut, withdraw along Z without moving X, stop the spindle, measure the diameter`.
@@ -1051,10 +1067,17 @@ For each cutting operation, the row takes the smallest known value among:
 
 A bench file in a machine setup has its own row without a tool, using holding
 nearest the material it removes. Negative clearance or a holder past the flute
-hitting a wall is a STOP. Unknown clearance or unproven holder wall clearance
-requires a check at the machine. Jaw clearance within 3 mm asks for a hand-fed
-approach. Holding within 3 mm of a cutter says `hand feed past the …`; near a
-file it says `keep the file clear of the …`.
+hitting a wall is a STOP. A swept-tool/removal-to-holding distance of zero is
+also a STOP: native distance zero can mean contact or overlap, not proved
+clearance. These swept-clearance stops retain their value and obstacle, count
+toward setup stops, and never merge into a caution. This does not change the
+separate headroom-margin or tip-above-jaw boundaries.
+
+Unknown clearance or unproven holder wall clearance requires a check at the
+machine. Jaw clearance within 3 mm asks for a hand-fed approach. Only a
+strictly positive known swept gap within 3 mm says `hand feed past the …`
+for a cutter or `keep the file clear of the …` for a file. Zero, negative and
+unknown swept gaps never receive that advice.
 
 Operations with the same tool, obstacle, clearance and action share a row. An
 identical nonempty action for every row prints once above the table, explicitly

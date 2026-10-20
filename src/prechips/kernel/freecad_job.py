@@ -6983,6 +6983,7 @@ class _Setup(ThreadMaterialMixin):
         self.built = None
         self.matrix = None
         self.finished = None  # all source finished solids; their face indices stay stable
+        self.finished_face_count = None
         # Imported faces, then analytic transient surfaces; owner.labels indexes both.
         self.faces = []
         self.face_boxes = []
@@ -7070,7 +7071,7 @@ class _Setup(ThreadMaterialMixin):
         """Synthetic process faces are not finished-material ownership claims."""
         if not getattr(self.owner, "multisolid", False):
             return True
-        if index >= len(self.finished.Faces):
+        if index >= self.finished_face_count:
             return True
         names = self.state.get("finished_names")
         return names is not None and self.owner.face_solids.get(index) in names
@@ -7150,6 +7151,7 @@ class _Setup(ThreadMaterialMixin):
                 self.matrix = matrix
                 self.finished = finished
                 self.faces = finished.Faces
+                self.finished_face_count = len(self.faces)
                 self.faces += [self._placed(face) for face in self.owner.synthetic_faces]
                 names = self.state["finished_names"]
                 if self.owner.multisolid:
@@ -8120,7 +8122,7 @@ class _Setup(ThreadMaterialMixin):
         certified = []
         try:
             band = shell(radius)
-            for index in range(len(self.finished.Faces)):
+            for index in range(self.finished_face_count):
                 face, bounds = self.faces[index], self.face_boxes[index]
                 surface = face.Surface
                 if not isinstance(surface, Part.Cylinder):
@@ -10316,7 +10318,7 @@ class _Setup(ThreadMaterialMixin):
             return [], [], None
         if self.neighbours is None:
             self.neighbours = {}
-            for _, a, b in _shared_edges(self.faces, range(len(self.finished.Faces))):
+            for _, a, b in _shared_edges(self.faces, range(self.finished_face_count)):
                 self.neighbours.setdefault(a, set()).add(b)
                 self.neighbours.setdefault(b, set()).add(a)
         slabs = []
@@ -11609,7 +11611,7 @@ class _Setup(ThreadMaterialMixin):
         if point is None:
             return None
         vertex = Part.Vertex(point)
-        for index, box in enumerate(self.face_boxes[: len(self.finished.Faces)]):
+        for index, box in zip(range(self.finished_face_count), self.face_boxes, strict=False):
             if not self._owns_finished_face(index):
                 continue
             if all(box[i] - STOCK_TOL <= point[i] <= box[i + 3] + STOCK_TOL for i in range(3)):
@@ -12429,7 +12431,7 @@ class _Setup(ThreadMaterialMixin):
         for op in self.ops:
             indices = self._indices(op)
             if isinstance(indices, list):
-                cut.extend(i for i in indices if i < len(self.finished.Faces))
+                cut.extend(i for i in indices if i < self.finished_face_count)
         edges = {}
         for index in dict.fromkeys(cut):
             for edge in self.faces[index].Edges:
@@ -15293,7 +15295,7 @@ class _Setup(ThreadMaterialMixin):
         Nor are those bores' own matched caps (:meth:`_own_caps`), which its tool cuts.
         """
         # A process face (a planar blank face) is one analytic plane: no corner of its own.
-        transient = {index for index in indices if index >= len(self.finished.Faces)}
+        transient = {index for index in indices if index >= self.finished_face_count}
         if transient - self.owner.process_planes:
             return "transient joint targets do not establish finished-part corner topology"
         part, faces, labels = self.finished, self.faces, self.owner.labels
@@ -15730,7 +15732,7 @@ class _Setup(ThreadMaterialMixin):
             neighbours, region = {}, None
             if bores:
                 region = self._owned_region()
-                for _, a, b in _shared_edges(self.faces, range(len(self.finished.Faces))):
+                for _, a, b in _shared_edges(self.faces, range(self.finished_face_count)):
                     neighbours.setdefault(a, set()).add(b)
                     neighbours.setdefault(b, set()).add(a)
             for index in bores:
@@ -15862,7 +15864,7 @@ class _Setup(ThreadMaterialMixin):
         """
         if self.floor_adjacency is None:
             walls, failed, pairs = {}, {}, {}
-            for edge, a, b in _shared_edges(self.faces, range(len(self.finished.Faces))):
+            for edge, a, b in _shared_edges(self.faces, range(self.finished_face_count)):
                 pairs.setdefault((min(a, b), max(a, b)), []).append(edge)
                 middle = edge.valueAt((edge.FirstParameter + edge.LastParameter) / 2)
                 for floor, wall in ((a, b), (b, a)):
@@ -16824,7 +16826,7 @@ class _Setup(ThreadMaterialMixin):
     def _ref_candidates(self, cylinder, own, known):
         """(index, face) of each finished face that may bound a hit in ``cylinder``: not
         ``own``, its label not in ``known``, its tolerant box touching the cylinder."""
-        for index in range(len(self.finished.Faces)):
+        for index in range(self.finished_face_count):
             if not self._owns_finished_face(index):
                 continue
             face = self.faces[index]
@@ -17929,7 +17931,7 @@ class _Setup(ThreadMaterialMixin):
         """New refs bounding a turning-tool hit; already-proven union members stay known."""
         box, refs = _bbox(solid), set()
         common_box = _tolerant_box(common)
-        for index in range(len(self.finished.Faces)):
+        for index in range(self.finished_face_count):
             if not self._owns_finished_face(index):
                 continue
             face = self.faces[index]
@@ -17946,7 +17948,7 @@ class _Setup(ThreadMaterialMixin):
     def _turn_corners(self, indices):
         """Sorted concave meridian corner radii between/inside claims, or why unknown."""
         # A process end face is one analytic disc: a plane has no meridian corner of its own.
-        transient = {index for index in indices if index >= len(self.finished.Faces)}
+        transient = {index for index in indices if index >= self.finished_face_count}
         if transient - self.owner.process_planes:
             return "transient joint targets do not establish finished-part corner topology"
         part, faces, labels = self.finished, self.faces, self.owner.labels

@@ -8,6 +8,7 @@ dials is on its own grid.
 
 import json
 import re
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,7 @@ from prechips.sheet import _Traveler
 NOMINAL = -2.27825
 STEP = 0.005
 BLIND = 3.0
+NUMBER = r"-?\d+(?:\.\d+)?(?!\d|\.\d)"
 FEATURES = (
     "kind = 'plane'\nbounds = { x = [0.0, 20.0], y = [0.0, 10.0], z = [-4.0, 0.0] }\n"
     "[features.hole]\nframe = 'model'\nkind = 'hole'\nrequirements = []\n"
@@ -148,11 +150,12 @@ def printed(html):
 def zero(text, name):
     """The Z zero row on ``name``: surface, paper, Axis Set, jog, must read, if reversed."""
     match = re.search(
-        rf"\|{name}; [^|]*surface at ([^;|]+); paper ([\d.]+)[^|]*\|([^|]+)\|\+Z ([^|]+)\|([^|]+)\|"
-        r"([^|]+)\|",
+        rf"\|{name}; [^|]*surface at ({NUMBER}); paper ({NUMBER})[^|]*\|"
+        r"([^|]+)\|\+Z ([^|]+)\|([^|]+)\|([^|]+)\|",
         text,
     )
-    return tuple(map(float, match.groups()))
+    assert match is not None
+    return tuple(map(Decimal, match.groups()))
 
 
 def compact_datum(html, setup_id, name):
@@ -160,8 +163,8 @@ def compact_datum(html, setup_id, name):
     markup = Readings(html)
     values = {"surface": set(), "setting": set()}
     patterns = {
-        "surface": rf"\b{re.escape(name)}; Z(-?\d+(?:\.\d+)?)(?![\d.])",
-        "setting": r"\bAxis Set Z\s*(-?\d+(?:\.\d+)?)(?![\d.])",
+        "surface": rf"\b{re.escape(name)}; Z({NUMBER})",
+        "setting": rf"\bAxis Set Z\s*({NUMBER})",
     }
     for node in markup.nodes:
         if node["tag"] not in {"p", "span", "tr"}:
@@ -232,11 +235,38 @@ def endpoint_cell(html, entry, setup_id="S2"):
         text = content(cell)
     else:
         (instruction,) = markup.find("route-operation", within=owner)
-        # The compact operation owner also carries its causal STOP decisions.
-        text = content(owner)
-    (shown_entry,) = re.findall(r"\bZ (-?\d+(?:\.\d+)?) → ", text)
+        text = content(instruction)
+    (shown_entry,) = re.findall(rf"\bZ ({NUMBER}) → ", text)
     assert float(shown_entry) == entry
     return text
+
+
+def endpoint_stops(html, cause, setup_id="S2", op_id=10):
+    """Find the causal STOP at its physical operation, including sibling blocks."""
+    markup = Readings(html)
+    stops = []
+    for node in markup.find("decision"):
+        attrs = node["attrs"]
+        if attrs.get("data-decision") != "block":
+            continue
+        if not re.search(rf"\bDRO {re.escape(cause)}\b", content(node)):
+            continue
+        owners = json.loads(attrs.get("data-physical-ops", "[]"))
+        if not any(
+            owner["setup_id"] == setup_id and str(owner["op_id"]) == str(op_id) for owner in owners
+        ):
+            continue
+        assert "stop" in attrs.get("class", "").split()
+        assert "STOP" in content(node)
+        evidence = json.loads(attrs["data-decision-evidence"])
+        assert any(
+            (fact["source"], fact["status"], fact["scope"], fact["kind"])
+            == ("producer", "unknown", f"{setup_id}:{op_id}", "block")
+            for fact in evidence
+        )
+        stops.append(node)
+    assert len(stops) <= 1
+    return bool(stops)
 
 
 @pytest.mark.parametrize("coarse,checked", [(False, -2.275), (True, -2.27)])
@@ -378,6 +408,9 @@ def fresh_paper_top_projection(monkeypatch):
         {},
         None,
     )
+    # Bind the physical setup just as setup_blocks does; otherwise this direct
+    # projection would format its 0.0001 mm machine on the default 0.001 mm grid.
+    sheet.setup = data.plan["setups"][0]
     # The real partition route has unknown operative lineage. Isolate that
     # condition without coupling the public-output contract to a helper's shape.
     monkeypatch.setattr(sheet, "datum_z", lambda *args, **kwargs: "unknown")
@@ -397,12 +430,16 @@ def test_fresh_paper_top_keeps_bound_evaluated_zero_without_lineage_debt(
 
     assert sheet.producer_decisions.get("S1", []) == []
     if detail == "pedantic":
-        assert zero(printed(html), "top") == pytest.approx(
-            (0.0, 0.0508, 0.0508, 6.35, 6.4008, -6.2992)
+        assert zero(printed(html), "top") == tuple(
+            map(Decimal, ("0", "0.0508", "0.0508", "6.35", "6.4008", "-6.2992"))
         )
     else:
-        (surface,) = re.findall(r"\btop; Z(-?\d+(?:\.\d+)?)(?![\d.])", printed(html))
+        (surface,) = re.findall(rf"\btop; Z({NUMBER})", printed(html))
         assert float(surface) == 0.0
+        (setting,) = {
+            Decimal(token) for token in re.findall(rf"\bAxis Set Z\s*({NUMBER})", printed(html))
+        }
+        assert setting == Decimal("0.0508")
         assert "Z?" not in printed(html)
     assert numbers["axes"]["z"]["axis_set"] == 0.0508
 
@@ -450,14 +487,14 @@ def test_fresh_paper_top_retouch_keeps_bound_evaluated_setting(fresh_paper_top_p
     html = sheet.dro(setup, tools)
 
     (line,) = [line for line in dro_paragraphs(html) if line.startswith("After op 10")]
-    assert "install T2 drill for op 20" in line
+    assert re.search(r"\bT2 drill\b.*\bop 20\b", line)
     match = re.search(
-        r"touch the top \(Z (-?\d+(?:\.\d+)?)\) with "
-        r"(\d+(?:\.\d+)?) paper → Axis Set Z (-?\d+(?:\.\d+)?)",
+        rf"touch the top \(Z ({NUMBER})\) with "
+        rf"({NUMBER}) paper → Axis Set Z\s*({NUMBER})",
         line,
     )
     assert match is not None
-    assert tuple(map(float, match.groups())) == (0.0, 0.0508, 0.0508)
+    assert tuple(map(Decimal, match.groups())) == tuple(map(Decimal, ("0", "0.0508", "0.0508")))
     assert sheet.producer_decisions.get("S1", []) == []
 
 
@@ -711,22 +748,31 @@ def test_turned_start_links_only_a_cut_that_covers_it(tmp_path, cut, shaft_xy, p
 def test_rounded_up_through_tip_that_stops_short_is_a_stop(tmp_path, exit_mm, stopped):
     """A DRO tip rounded up off a zero break-through stops the drill point short of the
     exit face, so the drill row stops; one grid step of authored break-through clears it."""
-    _, _, html = traveler(plan(tmp_path, exit_mm), tmp_path / "out", setup=SYNTHETIC_KERNEL)
-    cell = endpoint_cell(html, -2.275)
-    assert ("STOP" in cell) is stopped
+    _, report, html = traveler(plan(tmp_path, exit_mm), tmp_path / "out", setup=SYNTHETIC_KERNEL)
+    (endpoint,) = [
+        row
+        for finding in report["findings"]
+        if (finding["rule"], finding["subject"]) == ("blind_depth", "hole")
+        for row in finding["numbers"]["endpoints"]
+    ]
+    assert (endpoint["dro_exit_mm"] < 0) is stopped
+    endpoint_cell(html, -2.275)
+    assert endpoint_stops(html, "tip") is stopped
 
 
 @pytest.mark.parametrize(
-    "do,drilled,depth,stopped",
+    "do,drilled,depth,stopped,printed_depth",
     [
-        ("drill", BLIND, [BLIND, 20.0], True),
-        ("drill", BLIND, [BLIND - STEP, 20.0], False),
-        ("drill", BLIND, 20.0, True),
-        ("tap", 3.001, [3.001, 3.001], True),
-        ("tap", 3.001, [3.0, 3.001], False),
+        ("drill", BLIND, [BLIND, 20.0], True, "2.997"),
+        ("drill", BLIND, [BLIND - STEP, 20.0], False, "2.997"),
+        ("drill", BLIND, 20.0, True, "2.997"),
+        ("tap", 3.001, [3.001, 3.001], True, "3"),
+        ("tap", 3.001, [3.0, 3.001], False, "3"),
     ],
 )
-def test_rounded_up_depth_outside_its_depth_band_is_a_stop(tmp_path, do, drilled, depth, stopped):
+def test_rounded_up_depth_outside_its_depth_band_is_a_stop(
+    tmp_path, do, drilled, depth, stopped, printed_depth
+):
     """Rounded up, the DRO tip leaves a blind hole or thread shallower than authored.
     Below the band's lower end is a STOP; a band that reaches it clears it; a bare upper
     limit leaves the lower end unknown, and unknown is not a pass."""
@@ -741,6 +787,10 @@ def test_rounded_up_depth_outside_its_depth_band_is_a_stop(tmp_path, do, drilled
     shown = endpoint["dro_depth_mm"]
     assert drilled - STEP < shown < drilled
     cell = endpoint_cell(html, -2.275)
-    (printed_depth,) = re.findall(r"\bdepth (-?\d+(?:\.\d+)?)(?![\d.])", cell)
-    assert float(printed_depth) == shown
-    assert ("STOP" in cell) is stopped
+    (depth_token,) = re.findall(rf"\bdepth ({NUMBER})", cell)
+    # From Z -2.275, the 6 mm / 118° drill stops at -7.075:
+    # 4.8 - 3/tan(59°) = 2.997418... mm of full diameter. The tap
+    # has no point cone and stops at -5.275, leaving 3 mm of thread.
+    # Compare the displayed decimals, not a rounded token to a binary float.
+    assert Decimal(depth_token) == Decimal(printed_depth)
+    assert endpoint_stops(html, "depth") is stopped

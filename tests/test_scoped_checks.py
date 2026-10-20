@@ -6,6 +6,7 @@ entries keep applying to every listed feature that exports them.
 """
 
 import json
+import re
 from dataclasses import replace
 
 import pytest
@@ -294,9 +295,9 @@ def test_inspection_views_illustrate_a_flat_method_only(tmp_path):
 def test_the_station_card_prints_each_features_own_gauge():
     markup, _, _ = ledger(
         {
-            "pivot_bore": {"kind": "hole", "dia": [6.5, 6.53]},
-            "hub_od": {"kind": "boss", "dia": [9.69, 10.71]},
-            "hub_faces": {"kind": "face", "length": [7.0565, 7.1065]},
+            "pivot_bore": {"kind": "hole", "requirements": ["dia"], "dia": [6.5, 6.53]},
+            "hub_od": {"kind": "boss", "requirements": ["dia"], "dia": [9.69, 10.71]},
+            "hub_faces": {"kind": "face", "requirements": ["length"], "length": [7.0565, 7.1065]},
         },
         [
             {
@@ -323,10 +324,16 @@ def test_the_station_card_prints_each_features_own_gauge():
     }
     assert set(records) == {("pivot_bore",), ("hub_od",), ("hub_faces",)}
     bore, hub, faces = records[("pivot_bore",)], records[("hub_od",)], records[("hub_faces",)]
-    assert "Gauge pins" in bore and "6.500–6.530" in bore and "Gauge mic" not in bore
-    assert "GO 6.500 enters, NO-GO 6.530 does not" in bore
-    assert "Gauge mic" in hub and "9.690–10.710" in hub and "GO" not in hub
-    assert "Gauge mic" in faces and "7.057–7.106" in faces
+
+    def band(text):
+        (limits,) = re.findall(r"(\d+(?:\.\d+)?)–(\d+(?:\.\d+)?)", text)
+        return tuple(map(float, limits))
+
+    assert "Gauge pins" in bore and band(bore) == (6.5, 6.53) and "Gauge mic" not in bore
+    pair = re.search(r"GO (\d+(?:\.\d+)?) enters, NO-GO (\d+(?:\.\d+)?) does not", bore)
+    assert pair and tuple(map(float, pair.groups())) == (6.5, 6.53)
+    assert "Gauge mic" in hub and band(hub) == (9.69, 10.71) and "GO" not in hub
+    assert "Gauge mic" in faces and band(faces) == (7.057, 7.106)
     # Methods remain inline at the feature/gauge owner, not detached page-note pointers.
     bore_record = next(
         node
@@ -359,8 +366,8 @@ def test_the_station_card_prints_each_features_own_gauge():
 def test_a_flat_method_shared_by_two_gauges_prints_once():
     markup, _, _ = ledger(
         {
-            "left": {"kind": "hole", "dia": [6.5, 6.53]},
-            "right": {"kind": "boss", "dia": [9.7, 10.7]},
+            "left": {"kind": "hole", "requirements": ["dia"], "dia": [6.5, 6.53]},
+            "right": {"kind": "boss", "requirements": ["dia"], "dia": [9.7, 10.7]},
         },
         [
             {
@@ -374,6 +381,13 @@ def test_a_flat_method_shared_by_two_gauges_prints_once():
     )
     records = markup.find("inspection-record")
     assert [json.loads(node["attrs"]["data-features"]) for node in records] == [["left"], ["right"]]
+    for record, gauge, limits in zip(
+        records, ("Gauge pins", "Gauge mic"), ((6.5, 6.53), (9.7, 10.7)), strict=True
+    ):
+        shown = content(record)
+        (band,) = re.findall(r"(\d+(?:\.\d+)?)–(\d+(?:\.\d+)?)", shown)
+        assert tuple(map(float, band)) == limits
+        assert gauge in shown
     (method,) = markup.find("inspection-method")
     assert content(method).count("Clean, then read.") == 1
     assert "Record" in content(method)

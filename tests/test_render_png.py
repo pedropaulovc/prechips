@@ -1969,6 +1969,7 @@ def _mock_outline_renderer(monkeypatch, namespace, paths, edges, waypoints=()):
         owner=SimpleNamespace(features={}, workpieces={}),
         ops=[{"subject": "S1:20"}],
         finished=solid,
+        finished_face_count=len(solid.Faces),
         faces=[face],
         thread_regions=[],
         _rest_render=lambda debts: [],

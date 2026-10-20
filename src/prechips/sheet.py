@@ -5441,7 +5441,9 @@ class _Traveler:
             if cut is not None and _known(cut[0]) and cut[0] <= _CRASH_ZONE_MM:
                 # Named with its distance when another obstacle is the row's closest.
                 check = (
-                    "keep the file clear of it"
+                    "STOP: does not clear; revise the setup before cutting"
+                    if cut[0] <= 0
+                    else "keep the file clear of it"
                     if hand
                     else "hand feed past it; check the cutter clears it"
                 )
@@ -5454,15 +5456,15 @@ class _Traveler:
                     _Box(
                         text,
                         source="cut_clearance",
-                        status="warn",
-                        kind="caution",
+                        status="error" if cut[0] <= 0 else "warn",
+                        kind="block" if cut[0] <= 0 else "caution",
                         scope=scope,
                         notice_group=(
-                            "milling-clearance" if not hand and not self.lathe(setup) else ""
+                            "milling-clearance"
+                            if not hand and not self.lathe(setup) and cut[0] > 0
+                            else ""
                         ),
                     )
-                    if cut[0] >= 0
-                    else text
                 )
             if (
                 _known(value)
@@ -5915,7 +5917,9 @@ class _Traveler:
         if cut is not None and _known(cut[0]) and cut[0] <= _CRASH_ZONE_MM:
             hand = op.get("do") in HAND_FINISH
             check = (
-                "keep the file clear of it"
+                "STOP: does not clear; revise the setup before cutting"
+                if cut[0] <= 0
+                else "keep the file clear of it"
                 if hand
                 else "hand feed past it; check the cutter clears it"
             )
@@ -5925,9 +5929,9 @@ class _Traveler:
                     if self.detail != "pedantic" and not hand
                     else f"{cut[1].upper()} {o(cut[0])} mm FROM THE CUT — {check}",
                     source="cut_clearance",
-                    status="error" if cut[0] < 0 else "warn",
-                    kind="block" if cut[0] < 0 else "caution",
-                    notice_group="milling-clearance" if not hand and cut[0] >= 0 else "",
+                    status="error" if cut[0] <= 0 else "warn",
+                    kind="block" if cut[0] <= 0 else "caution",
+                    notice_group="milling-clearance" if not hand and cut[0] > 0 else "",
                 )
             )
         numbers = self.records.get(("headroom", setup["id"]), {})
@@ -6327,6 +6331,12 @@ class _Traveler:
         def mm(value):
             return self.readout(value / scale) if _known(value) else "?"
 
+        def jog(record, axis):
+            value = record.get("check_jog_mm", record.get("jog_mm"))
+            if not _known(value):
+                return f"{axis}?"
+            return f"{'−' if value < 0 else '+'}{axis}{self.readout(abs(value))}"
+
         xy = []
         for axis, other, record, common in zip(
             "XY", "YX", (axes["x"], axes["y"]), signature[:2], strict=True
@@ -6338,7 +6348,7 @@ class _Traveler:
             if self.detail == "hobby" and axis == "Y":
                 xy[-1] += (
                     f"; Axis Set Y{self.readout(record['axis_set'])}; "
-                    f"+Y{self.readout(record.get('check_jog_mm', record.get('jog_mm')))} "
+                    f"{jog(record, 'Y')} "
                     f"check {self.readout(record['check_reading'])}; "
                     f"{self.readout(record['mirrored_reading'])} reversed: STOP"
                 )
@@ -6362,7 +6372,7 @@ class _Traveler:
                 f" Use {mm(setting.get('body_thickness_mm'))} body thickness/2, "
                 f"plus {mm(setting.get('kerf_offset_mm'))} cutting-band offset; "
                 "not kerf width or blade radius. "
-                f"+Z{self.readout(z.get('check_jog_mm', z.get('jog_mm')))} check "
+                f"{jog(z, 'Z')} check "
                 f"{self.readout(z['check_reading'])}; "
                 f"{self.readout(z['mirrored_reading'])} reversed: STOP."
             )
@@ -7083,9 +7093,9 @@ class _Traveler:
             if detail == "hobby":
                 lesson_html = lesson_html.replace("</p><p>", " ")
             guide = (
-                f'<div id="dro-first-use" data-setup-id="{escape(setup["id"])}">'
+                f'<div id="dro-first-use" data-setup-id="{escape(setup.get("id") or "")}">'
                 + "<h3>DRO FIRST USE"
-                + (f" — {escape(setup['id'])}" if self._front_reference_layout else "")
+                + (f" — {escape(_text(setup.get('id')))}" if self._front_reference_layout else "")
                 + "</h3>"
                 + lesson_html
                 + "</div>"
@@ -9352,6 +9362,21 @@ class _Traveler:
             or self.finding_statuses.get(("saw_cut", subject)) != "pass"
         ):
             return None
+        incoming = input_refs(setup)
+        if len(incoming) != 1 or not route_identities_known(self.plan, setup.get("id")):
+            return None
+        graph = MaterialGraph(self.plan)
+        material = graph.nodes.get(incoming[0], ())
+        if len(material) != 1:
+            return None
+        root = material[0].root
+        if (
+            root not in graph.nodes
+            or producer_setup(self.plan, root) is not None
+            or root == "stock"
+            and _mapping(self.plan.get("stock")).get("components")
+        ):
+            return None
         native = _mapping(_mapping(_mapping(self.bundle.kernel).get("ops")).get(subject))
         plane = _mapping(numbers.get("cut_plane"))
         box = native.get("stock_bbox_before_mm")
@@ -10516,6 +10541,9 @@ class _Traveler:
                         source="tool_resolves",
                     )
                     stops.setdefault(text, []).append(op_id)
+                    if not entry["parts"] and entry["stops"]:
+                        reasons = " — ".join(dict.fromkeys(entry["stops"]))
+                        stops.setdefault(_Box(reasons, source="coordinates"), []).append(op_id)
                 continue
             levels = self.z_levels(setup, op) or {}
             depths = levels.get("levels")
@@ -12373,10 +12401,11 @@ class _Traveler:
             members = [setup["id"] for setup in group if setup["id"] in selected]
             if not members:
                 continue
+            displayed = [_text(member) or "?" for member in members]
             labels.append(
-                self.family_label(group) or members[0] + "–" + members[-1]
+                self.family_label(group) or displayed[0] + "–" + displayed[-1]
                 if len(members) == len(group) and len(members) > 1
-                else ", ".join(members)
+                else ", ".join(displayed)
             )
         return ", ".join(labels)
 
@@ -12644,7 +12673,9 @@ class _Traveler:
                 )
         if (
             op.get("do") in HAND_THREAD
-            and identity(self.bundle, op.get("tool"), "tools") not in self.route_tool_labels
+            and not _known(
+                _amount(_mapping(resolve(self.bundle, "tools", op.get("tool"))).get("lead_mm"))
+            )
             and op.get("holder") not in (None, "unknown", "not_applicable")
         ):
             tool = "; ".join(filter(None, (tool, self.reference(op["holder"], "holders"))))

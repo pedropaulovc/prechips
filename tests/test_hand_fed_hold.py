@@ -33,6 +33,7 @@ BUNDLE = ROOT / "examples" / "geometry" / "hand-fed-saw"
 
 
 MINIMUM = 76.2  # a 3 in finger-to-blade clearance
+NUMBER = r"-?\d+(?:\.\d+)?(?!\d|\.\d)"
 
 
 def entry_box(length, width=20.0):
@@ -292,7 +293,7 @@ def test_compare_lists_no_unknown_fixture_for_a_hand_fed_setup(example):
 
 def test_the_hold_prints_each_declared_feeding_step():
     text = hold_text(hand_fed_bundle())
-    (guide,) = re.findall(r"Upper blade guide: ([\d.]+) mm above the top of the work", text)
+    (guide,) = re.findall(rf"Upper blade guide: ({NUMBER}) mm above the top of the work", text)
     assert float(guide) == 6.0
     assert "Push aid: push stick." in text
     assert "Start the cut at the -X end of the line" in text
@@ -486,10 +487,10 @@ def test_a_line_running_to_the_blank_enters_and_leaves_its_allowance_outside(fee
     steps = _Traveler(bundle, [], {}, None).saw_ends(setup, setup["ops"][0])
     assert steps.startswith("Enter at X ") and "and leave at X " in steps
     assert "on the +Y face (from Setup S2 zero)" in steps
-    (allowance,) = re.findall(r"cut, ([\d.]+) mm off the scribed line on the waste side", steps)
+    (allowance,) = re.findall(rf"cut, ({NUMBER}) mm off the scribed line on the waste side", steps)
     assert float(allowance) == 0.45
     # The printed points are the computed crossings, not the line's own ends at X 145.240.
-    printed = [[float(x), float(y)] for x, y in re.findall(r"X (-?[\d.]+), Y (-?[\d.]+)", steps)]
+    printed = [[float(x), float(y)] for x, y in re.findall(rf"X ({NUMBER}), Y ({NUMBER})", steps)]
     assert printed == [[round(first, 3), 21.295], [round(-first, 3), 21.295]]
     computed = [value for c in crossings for value in c["xy"]]
     assert [value for xy in printed for value in xy] == pytest.approx(computed, abs=5e-4)
@@ -522,17 +523,17 @@ def test_op_row_coordinates_name_their_frame_when_the_job_page_prints_global_one
     traveler.setup = s1
     (layout,) = traveler.manual_arc_steps(s1["ops"][0], LAYOUT, True)
     ends = traveler.saw_ends(s2, s2["ops"][0])
-    coordinates = re.findall(r"X (-?[\d.]+), Y (-?[\d.]+)", str(layout))
+    coordinates = re.findall(rf"X ({NUMBER}), Y ({NUMBER})", str(layout))
     assert [[float(x), float(y)] for x, y in coordinates] == [
         [0.0, 808.0],
         [-145.24, 21.295],
         [145.24, 21.295],
     ]
     centre = re.search(
-        r"about the centre X -?[\d.]+, Y -?[\d.]+( \(from Setup S1 zero\))?", str(layout)
+        rf"about the centre X {NUMBER}, Y {NUMBER}( \(from Setup S1 zero\))?", str(layout)
     )
     arc_ends = re.search(
-        r"arc ends X -?[\d.]+, Y -?[\d.]+ and X -?[\d.]+, Y -?[\d.]+"
+        rf"arc ends X {NUMBER}, Y {NUMBER} and X {NUMBER}, Y {NUMBER}"
         r"( \(from Setup S1 zero\))?",
         str(layout),
     )

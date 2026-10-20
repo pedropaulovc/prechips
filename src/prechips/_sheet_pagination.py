@@ -842,22 +842,28 @@ JOB_PRINT_JS = r"""(() => {
       }
       return false;
     }
-    function ownerHeadingAtStart(start, identity) {
-      let first = start;
-      // A moved original heading introduces fresh work, not a continued tail.
-      // Descend only through its opening wrappers; a later heading cannot label
-      // source that preceded it, and a family heading cannot stand for a member.
-      while (!first.matches("h2,.variant-label")) {
-        const child = [...first.children].find((node) =>
-          !node.hasAttribute(ADDED) && getComputedStyle(node).display !== "none");
-        if (!child) return false;
-        for (let node = first.firstChild; node !== child; node = node.nextSibling) {
-          if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) return false;
-        }
-        first = child;
+    function physicalOwnerWrapper(origin) {
+      let wrapper = origin.closest("[data-setup-id],[data-setup-title]");
+      if (!wrapper) return null;
+      const id = wrapper.dataset.setupId || "", title = wrapper.dataset.setupTitle || "";
+      if (!id && !title) return null;
+      for (let parent = wrapper.parentElement; parent && parent !== section;
+          parent = parent.parentElement) {
+        if (id ? parent.dataset.setupId === id
+            : !parent.dataset.setupId && parent.dataset.setupTitle === title) wrapper = parent;
       }
-      if (first.closest("[" + ADDED + "]") || !locatorVisible(first)
-          || physicalOwner(first).identity !== identity) return false;
+      return wrapper;
+    }
+    function openingOwnerHeadingVisible(wrapper) {
+      // Only the owner's direct original opening heading can supply its identity.
+      // An inner READINGS/HOLD/etc. heading cannot make a continued tail fresh.
+      const first = [...wrapper.children].find((node) => !node.hasAttribute(ADDED));
+      const selector = wrapper.matches(".setup-variant") ? ".variant-label" : "h2";
+      if (!first?.matches(selector) || first.closest("[" + ADDED + "]")
+          || !locatorVisible(first)) return false;
+      for (let node = wrapper.firstChild; node !== first; node = node.nextSibling) {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) return false;
+      }
       const left = section.getBoundingClientRect().left,
         right = left + Number(document.documentElement.dataset.printWidth),
         within = (rect) => rect.left >= left - .01 && rect.right <= right + .01
@@ -915,8 +921,10 @@ JOB_PRINT_JS = r"""(() => {
       pageTop = box(head).top;
       pageStart = el;
       const source = owner && contextHeads.get(owner.dataset.printContext);
+      const wrapper = compactRunning && !owner ? physicalOwnerWrapper(origin) : null,
+        freshOwner = wrapper && (el === wrapper || el.contains(wrapper));
       const localOwner = compactRunning && !owner && setup.identity !== "Job"
-        && !ownerHeadingAtStart(el, setup.identity);
+        && (!freshOwner || !openingOwnerHeadingVisible(wrapper));
       if (owner || localOwner) {
         const context = document.createElement("span");
         context.className = "cont-context";
@@ -930,7 +938,8 @@ JOB_PRINT_JS = r"""(() => {
             context.style.setProperty(property, value);
           }
         } else context.textContent = owner
-          ? owner.dataset.pageContext : setup.identity + " (continued)";
+          ? owner.dataset.pageContext
+          : setup.identity + (freshOwner ? "" : " (continued)");
         cleanLocatorCopy(context);
         head.append("\n", context);
         const titleKey = source?.heading.querySelector("[data-title-source]")?.dataset.titleSource;
