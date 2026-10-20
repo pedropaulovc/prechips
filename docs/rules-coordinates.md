@@ -936,8 +936,8 @@ Every manual-arc table is cut in the plan's feature units (`mm` or `in`, else
 unknown) and records its millimetre facts (`*_mm`) in millimetres: the cutter,
 drill, cusp, band and stock values are converted, never mixed.
 
-A rough stage's `stock_left_mm` goes to `file_to_line`
-([implementation](../src/prechips/rules/manual_arc.py)). It must not exceed
+A rough stage's `stock_left_mm` that reaches `file_to_line`
+([implementation](../src/prechips/rules/manual_arc.py)) must not exceed
 policy `numbers.max_filing_stock_mm` (`stock_cap_mm`), or the result is an
 error. The cap is unknown, never zero or a pass, if absent, negative, uncited
 or not marked `numbers_verify.max_filing_stock_mm = false`.
@@ -948,9 +948,12 @@ such op (`recut_by`) instead of the cap. That last op hands the faces to the
 file. The claim test does not compare depth: an intervening op may cut the
 same faces from the other side.
 
-Unresolved registered recut ownership remains `arc_debts`: it does not waive
-the filing cap or name `recut_by`. Arc, join and profile metadata retain
-`stock_cap_mm`; known gouges and break-out crossings remain errors.
+Unresolved registered recut ownership remains `arc_debts` and `unknown`,
+never a pass or a known `recut_by` producer. Arc, join and profile metadata
+retain `stock_cap_mm` and the measured residual; an over-cap comparison is
+conditional debt until ownership establishes whether that stock reaches
+the file. Known gouges and break-out crossings remain errors regardless
+of recut uncertainty.
 
 Rough methods on a finish stage are errors; `file_to_line` finishes them.
 Finish methods cannot be clipped by `stock_removal_bounds` and stay unknown

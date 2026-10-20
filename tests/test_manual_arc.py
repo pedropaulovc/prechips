@@ -16,6 +16,7 @@ from html import unescape
 
 import pytest
 
+from prechips.findings import exit_code
 from prechips.inputs import load_bundle
 from prechips.kernel import build_job, workpiece_inputs
 from prechips.rules import coordinates, manual_arc
@@ -1545,7 +1546,9 @@ def test_unknown_registered_recut_keeps_debt_and_filing_metadata(tmp_path, metho
 
 
 @pytest.mark.parametrize("method", ["stairs", "chain_drill"])
-def test_unknown_registered_recut_does_not_waive_filing_cap(tmp_path, method):
+def test_unknown_registered_recut_keeps_over_cap_stock_unknown_until_ownership_resolves(
+    tmp_path, method
+):
     coarse = (
         op(20, "rough_profile", "{ method = 'stairs', cusp_mm = 0.4 }", allowance=0.45)
         if method == "stairs"
@@ -1553,19 +1556,35 @@ def test_unknown_registered_recut_does_not_waive_filing_cap(tmp_path, method):
     )
     fine = op(30, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2)
     bundle = registered_recut_bundle(scratch(tmp_path, coarse + fine))
+    setup = bundle.plan["setups"][0]
+    producer, later = setup["ops"]
     assert joined_chain_finding(bundle).status == "pass"
-    del bundle.plan["setups"][0]["ops"][1]["workpiece_faces"]
+    del later["workpiece_faces"]
     row = joined_chain_finding(bundle)
-    assert row.status == "error", row.sentence
-    assert row.numbers["arc_debts"]
-    assert "more than the shop's 0.5 cap" in errors(row)
+    assert row.status == "unknown", row.sentence
+    assert row.numbers["arc_debts"] and not row.numbers.get("arc_errors")
+    assert "more than the shop's 0.5 cap" in debts(row)
+    assert "if no later rough recuts it" in debts(row)
+    assert exit_code([row], {"required": {"coordinates": "*"}}, bundle) == 4
+    tables = arcs(row, 20)
     if method == "chain_drill":
-        profile = next(profile for profile in row.numbers["profiles"] if profile["op"] == 20)
-        assert profile["stock_left_mm"] > profile["stock_cap_mm"] == CAP
-        assert "recut_by" not in profile
+        tables += [profile for profile in row.numbers["profiles"] if profile["op"] == 20]
+    assert tables
+    for table in tables:
+        assert table["stock_left_mm"] > table["stock_cap_mm"] == CAP
+        assert "recut_by" not in table
+    later["workpiece_faces"] = {"one": ["#1"]}
+    resolved = joined_chain_finding(bundle)
+    assert resolved.status == "pass", resolved.sentence
+    assert arcs(resolved, 20)[0]["recut_by"] == "S1 op 30"
+    setup["ops"] = [producer]
+    unrecut = joined_chain_finding(bundle)
+    assert unrecut.status == "error", unrecut.sentence
+    assert "more than the shop's 0.5 cap" in errors(unrecut)
 
 
-def test_unknown_registered_recut_does_not_hide_a_stair_gouge(tmp_path):
+@pytest.mark.parametrize("cusp", [0.1, 0.4], ids=["within-cap", "over-cap"])
+def test_unknown_registered_recut_does_not_hide_a_stair_gouge(tmp_path, cusp):
     bundle = registered_recut_bundle(
         scratch(
             tmp_path,
@@ -1576,7 +1595,7 @@ def test_unknown_registered_recut_does_not_hide_a_stair_gouge(tmp_path):
     setup = bundle.plan["setups"][0]
     producer, later = setup["ops"]
     del later["workpiece_faces"]
-    table = {"method": "stairs", "line_clear_mm": 0.1, "stair_cusp_mm": 0.1}
+    table = {"method": "stairs", "line_clear_mm": 0.1, "stair_cusp_mm": cusp}
     args = (bundle, setup, producer, "rough", 0.2, [table], [], [], "op 20 rough", 1.0)
     safe_errors, safe_debts = coordinates._manual(*args)
     assert safe_errors == [] and safe_debts
@@ -1585,10 +1604,12 @@ def test_unknown_registered_recut_does_not_hide_a_stair_gouge(tmp_path):
     assert gouge_errors and gouge_debts == safe_debts
     assert "past the line" in " ".join(gouge_errors)
     assert table["stock_cap_mm"] == CAP and "recut_by" not in table
+    assert table["stock_left_mm"] == pytest.approx(0.2 + cusp)
 
 
+@pytest.mark.parametrize("cap", [CAP, 0.325], ids=["within-cap", "over-cap"])
 @pytest.mark.parametrize("qualified", [False, True], ids=["unknown-recut", "known-recut"])
-def test_registered_recut_does_not_hide_chain_breakout_crossings(tmp_path, qualified):
+def test_registered_recut_does_not_hide_chain_breakout_crossings(tmp_path, qualified, cap):
     fine = op(30, "rough_profile", "{ method = 'stairs', cusp_mm = 0.1 }", allowance=0.2)
     for pitch, expected in ((1.5, "pass" if qualified else "unknown"), (8.0, "error")):
         plan = scratch(
@@ -1601,6 +1622,7 @@ def test_registered_recut_does_not_hide_chain_breakout_crossings(tmp_path, quali
                 allowance=0.1,
             )
             + fine,
+            policy=POLICY.replace(f"max_filing_stock_mm = {CAP}", f"max_filing_stock_mm = {cap}"),
         )
         change(plan.with_name("inventory.toml"), "dia_mm = 3.0", "dia_mm = 0.5")
         bundle = registered_recut_bundle(plan)
@@ -1613,7 +1635,7 @@ def test_registered_recut_does_not_hide_chain_breakout_crossings(tmp_path, quali
             assert "break-out" in errors(row) and "past the line" in errors(row)
             profile = next(profile for profile in row.numbers["profiles"] if profile["op"] == 20)
             if not qualified:
-                assert profile["stock_cap_mm"] == CAP and "recut_by" not in profile
+                assert profile["stock_cap_mm"] == cap and "recut_by" not in profile
 
 
 def test_unknown_registered_recut_keeps_join_and_separate_profile_cap_metadata(tmp_path):

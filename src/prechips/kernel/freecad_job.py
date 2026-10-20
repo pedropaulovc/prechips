@@ -15744,6 +15744,18 @@ class _Setup(ThreadMaterialMixin):
                             else None
                         )
                         if claims is None:
+                            current = self.state.get("finished_names")
+                            if (
+                                current is not None
+                                and isinstance(names, list)
+                                and names
+                                and all(
+                                    isinstance(name, str) and name in self.owner.workpieces
+                                    for name in names
+                                )
+                                and current.isdisjoint(names)
+                            ):
+                                continue
                             raise ValueError(
                                 f"planned hole op {self._subject(op)} has unresolved registered "
                                 "face ownership"

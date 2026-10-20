@@ -1427,13 +1427,18 @@ Facing uses the planar face's outer-wire sweep to clear raw caps over hole
 mouths while preserving finished islands. Generic bounded clearing preserves
 known, unclaimed planned-hole columns for their own future hole operations;
 this is not a blanket reservation of every concave cylindrical face.
-For registered workpieces, a planned hole's face claims must resolve to explicit
-`workpiece_faces`, or to the sole member carried by its setup. Missing, ambiguous
-or invalid registered claims make the planned-hole inventory unknown, not empty:
-bounded clearing reports `planned-hole openings are undefined (...)` and cannot
-certify outgoing stock even when its own claims are valid. It neither guesses a
-member nor reserves every concave cylinder as a fallback. Resolved registered
-holes are still filtered to the members actually carried by the current branch.
+For registered workpieces, a planned hole's setup is excluded from the current
+branch's inventory only when its nonempty membership names known registered
+members and is disjoint from the current branch's known membership. Unresolved
+hole faces on that explicitly foreign branch do not block this branch's clearing.
+Otherwise its face claims must resolve to explicit `workpiece_faces`, or to the
+sole member carried by its setup. Missing, ambiguous or invalid claims make the
+potentially relevant planned-hole inventory unknown, not empty: bounded clearing
+reports `planned-hole openings are undefined (...)` and cannot certify outgoing
+stock even when its own claims are valid. Missing, unknown or empty setup
+membership is not proof of a foreign branch. The kernel neither guesses a member
+nor reserves every concave cylinder as a fallback. Resolved registered holes are
+still filtered to the members actually carried by the current branch.
 Each reserved column has the bore's radius and spans the matched bore's
 exact axial extent plus any adjacent cap, with numerical lift at either end,
 not the full entry-stock height. A cap is a concave cone or sphere that shares

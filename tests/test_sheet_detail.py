@@ -1196,6 +1196,93 @@ def test_public_bracket_measured_top_fields_and_member_limits_precede_facing(det
         assert not markup.find("dro-guide")
 
 
+@pytest.mark.parametrize("detail", ["pro", "hobby"])
+def test_public_later_member_datum_group_precedes_family_operations_in_source_order(detail):
+    data = mill_job(setups=2)
+    data.plan["dro"]["units"] = "mm"
+    first, later = data.plan["setups"]
+    for setup in data.plan["setups"]:
+        setup.update(
+            presentation_group="Prepare the two members",
+            stock_state={"top_z": 2.0, "bottom_z": -8.0},
+            ops=[
+                {
+                    "op": 10,
+                    "do": "face",
+                    "feature": "deck",
+                    "tool": "mill",
+                    "to_z": 0.0,
+                    "doc_mm": 0.5,
+                }
+            ],
+        )
+    data.features["features"]["deck"] = {"kind": "face", "requirements": []}
+    data.inventory["tools"]["mill"]["dia_mm"] = 6.35
+    first.pop("zero")
+    procedure = "Confirm this member's marked reference before setting the axes."
+    later["zero"]["procedure"] = procedure
+    later["zero"]["z"].update(
+        face="top",
+        method="measure_then_set",
+        measure="Measure the free-end height before clamping.",
+        gauge="mic",
+        offset_mm=-8.0,
+        tool="mill",
+    )
+    html = rendered(data, zero_recipe.evaluate(data), detail=detail)
+    markup = Markup(html)
+    family = physical_flow(markup, later["id"])
+    assert json.loads(family["attrs"]["data-setup-members"]) == [first["id"], later["id"]]
+    local = [
+        node
+        for node in markup.find("setup-variant", family)
+        if node["attrs"]["data-setup-id"] == later["id"]
+    ]
+    (authored,) = [node for node in local if procedure in content(node)]
+    (references,) = [
+        node for node in local if "Axis Set X" in content(node) and "Axis Set Y" in content(node)
+    ]
+    for axis in ("X", "Y"):
+        setting = re.search(rf"Axis Set {axis}\s*([−+-]?\d+(?:\.\d+)?)", content(references))
+        assert setting is not None
+        assert float(setting[1].replace("−", "-")) == -2.54
+    (field,) = [
+        node
+        for node in markup.find("setup-measurement", family)
+        if content(node).strip() == f"{later['id']} Z M (mm)"
+    ]
+    owner = ancestor_with_class(field, "setup-variant")
+    assert owner is not None and owner["attrs"]["data-setup-id"] == later["id"]
+    (correction,) = [
+        node
+        for node in descendants(markup, owner)
+        if content(node).startswith("M puts the raw top at Z =")
+    ]
+    operations = markup.find("route-operation", family)
+    assert {
+        (op["setup_id"], str(op["op_id"]))
+        for node in operations
+        for op in operation_owners(operation_owner(node))
+    } == {(first["id"], "10"), (later["id"], "10")}
+    positions = {id(node): index for index, node in enumerate(markup.nodes)}
+    assert (
+        positions[id(authored)]
+        < positions[id(references)]
+        < positions[id(field)]
+        < positions[id(correction)]
+        < min(positions[id(node)] for node in operations)
+    )
+    missing_zero = [
+        node
+        for node in decision_nodes(markup)
+        if any(
+            fact["source"] == "zero_check" and fact["scope"] == f"{first['id']}:zero"
+            for fact in decision_evidence(node)
+        )
+    ]
+    assert missing_zero and all("no zero recipe" in content(node) for node in missing_zero)
+
+
 @pytest.mark.parametrize("detail", TRAVELER_DETAILS)
 @pytest.mark.parametrize(
     ("part", "expected"),

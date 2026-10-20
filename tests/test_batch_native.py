@@ -13,12 +13,13 @@ from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
-from test_kernel_geometry import IDENTITY, Engine
+from test_kernel_geometry import IDENTITY, Engine, _op
 from test_kernel_retained_outputs import _probe
 from test_mounted_saw_native import POSE, _box, _mounted, _pad
 
 from prechips import kernel
 from prechips.kernel.step_faces import StepFile
+from prechips.material_routes import MaterialGraph
 from prechips.rules import coverage
 
 FRAME = {
@@ -361,6 +362,67 @@ def _cases(job, refs, selected, opposite):
         elif case == "integrated-pickup-raised-pad":
             setup["hold"]["solids"][2]["size_mm"][2] = 55.0
         setup["zero_pickups"] = {"x": _pickup_request(setup)}
+    for case, hole_setup in (
+        ("bounded-branch-baseline", None),
+        ("bounded-branch-foreign-hole", "N2"),
+        ("bounded-branch-current-hole", "N1"),
+    ):
+        candidate = variant(case)
+        current = candidate["setups"][3]
+        current["ops"].insert(
+            0,
+            {
+                **_op("N1:10", "canonical", 3, 10, 20, holder_radius=3),
+                "do": "face",
+                "workpiece_faces": {"nut1": [selected["nut1"]]},
+                "to_z": 113.03,
+                "stock_removal_bounds": {
+                    "x": [-12.7, 12.7],
+                    "y": [-6.35, 6.35],
+                    "z": [113.03, 113.665],
+                },
+            },
+        )
+        if hole_setup is not None:
+            # A schema-admitted unresolved feature, not a stale STEP ref or a
+            # contradictory member claim. Its own branch must still owe this debt.
+            candidate["features"]["unresolved-hole"] = "unknown"
+            later = candidate["setups"][4 if hole_setup == "N2" else 3]
+            later["ops"].append(
+                {
+                    **_op(hole_setup + ":30", "unresolved-hole", 2, 10, 20, holder_radius=3),
+                    "do": "bore",
+                    "hole": {
+                        "thru": False,
+                        "depth_mm": 5,
+                        "entry_z_mm": 84.455 if hole_setup == "N2" else 113.03,
+                    },
+                }
+            )
+        # Derive future membership through the authored retained route. Native
+        # cutting must independently prove the same physical child memberships.
+        registrations = deepcopy(candidate["workpieces"])
+        for registration in registrations.values():
+            registration["pose"]["binding"] = "independently authored canonical-to-batch placement"
+        graph = MaterialGraph({**candidate, "workpieces": registrations}, validate=True)
+        for setup in candidate["setups"]:
+            setup["material"] = kernel._material_inputs(graph, setup["id"], {}, "mm")
+    for suffix, members in (
+        ("missing", None),
+        ("unknown", "unknown"),
+        ("empty", []),
+        ("unknown-member", ["unknown"]),
+        ("overlapping", ["nut1", "nut2"]),
+    ):
+        candidate = deepcopy(cases["bounded-branch-foreign-hole"])
+        cases[f"bounded-branch-{suffix}-members"] = candidate
+        # Remove or widen only the transported membership information. Actual
+        # native child ownership remains independently proved by the same cuts.
+        material = candidate["setups"][4]["material"]
+        if members is None:
+            material.pop("workpieces")
+        else:
+            material["workpieces"] = members
     return cases
 
 
@@ -788,6 +850,93 @@ def test_qualified_claim_cannot_borrow_sibling_or_guess_canonical_face(batch_nat
     # The sibling's independently executed operation remains a real proof.
     untouched = "N2:20" if subject == "N1:20" else "N1:20"
     assert isinstance(result["ops"][untouched]["claimed_indices"], list)
+
+
+def _bounded_retained_branch(batch_native, case):
+    result = _result(batch_native, case)
+    job = batch_native["jobs"][case]
+    assert result["mapping_errors"] == {}, result
+    for sid, split_id, output, member in (
+        ("N1", "S1", "blank1", "nut1"),
+        ("N2", "S2", "blank2", "nut2"),
+    ):
+        request = next(setup for setup in job["setups"] if setup["id"] == sid)
+        assert request["stock_in"] == "stock_out." + output
+        if sid == "N1":
+            assert request["material"]["workpieces"] == [member]
+        proof = result["setups"][split_id]["outputs"][output]
+        assert proof["status"] == "pass", proof
+        assert proof["carries_workpieces"] == [member], proof
+        branch = result["setups"][sid]
+        assert set(branch["workpieces"]) == {member}, branch
+        assert branch["workpieces"][member]["status"] == "pass", branch
+    clearing = result["ops"]["N1:10"]
+    assert clearing["workpiece_faces"] == {"nut1": [batch_native["selected"]["nut1"]]}, clearing
+    assert clearing["claimed_indices"] == [
+        result["workpiece_mapping"]["nut1"][batch_native["selected"]["nut1"]]
+    ], clearing
+    branch = result["setups"]["N1"]
+    assert branch["stock_volume_mm3"] == pytest.approx(8398.3703, abs=1e-5), branch
+    assert branch["stock_bbox_mm"] == pytest.approx(
+        [-12.7, -6.35, 87.63, 12.7, 6.35, 113.665], abs=1e-6
+    ), branch
+    return result, branch
+
+
+@pytest.mark.parametrize("case", ["bounded-branch-baseline", "bounded-branch-foreign-hole"])
+def test_unresolved_foreign_hole_does_not_block_retained_branch_clearing(batch_native, case):
+    result, branch = _bounded_retained_branch(batch_native, case)
+    future_request = next(
+        setup for setup in batch_native["jobs"][case]["setups"] if setup["id"] == "N2"
+    )
+    assert future_request["material"]["workpieces"] == ["nut2"]
+    assert "stock_out_reason" not in branch, branch
+    # The unchanged route's 25.4 x 12.7 mm cross-section loses its 0.635 mm
+    # top cap, leaving a 25.4 mm-long child, not merely an unchanged stock proof.
+    assert branch["stock_out_volume_mm3"] == pytest.approx(8193.532, abs=1e-5), branch
+    # Entry boxes are setup-local, but _finish returns model-frame output.
+    # FRAME maps model (x, y, z) to setup (-z, y, x), so the inverse maps
+    # the retained setup box to model (setup_z, setup_y, -setup_x).
+    assert branch["stock_out_bbox_mm"] == pytest.approx(
+        [87.63, -6.35, -12.7, 113.03, 6.35, 12.7], abs=1e-6
+    ), branch
+    if case == "bounded-branch-foreign-hole":
+        foreign = result["ops"]["N2:30"]
+        assert foreign["claimed_indices"] == "unknown", foreign
+        assert "claimed faces are unresolved" in result["setups"]["N2"]["stock_out_reason"]
+        assert "stock_out_volume_mm3" not in result["setups"]["N2"]
+
+
+def test_unresolved_hole_on_current_retained_branch_keeps_bounded_clearing_debt(batch_native):
+    _, branch = _bounded_retained_branch(batch_native, "bounded-branch-current-hole")
+    assert "planned-hole openings are undefined" in branch["stock_out_reason"], branch
+    assert "stock_out_volume_mm3" not in branch, branch
+
+
+@pytest.mark.parametrize(
+    "suffix,members",
+    [
+        ("missing", None),
+        ("unknown", "unknown"),
+        ("empty", []),
+        ("unknown-member", ["unknown"]),
+        ("overlapping", ["nut1", "nut2"]),
+    ],
+)
+def test_unresolved_future_hole_without_proven_foreign_members_keeps_clearing_debt(
+    batch_native, suffix, members
+):
+    case = f"bounded-branch-{suffix}-members"
+    _, branch = _bounded_retained_branch(batch_native, case)
+    future_request = next(
+        setup for setup in batch_native["jobs"][case]["setups"] if setup["id"] == "N2"
+    )
+    if members is None:
+        assert "workpieces" not in future_request["material"]
+    else:
+        assert future_request["material"]["workpieces"] == members
+    assert "planned-hole openings are undefined" in branch["stock_out_reason"], branch
+    assert "stock_out_volume_mm3" not in branch, branch
 
 
 @pytest.mark.parametrize(
