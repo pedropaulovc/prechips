@@ -474,7 +474,7 @@ def _cases(engine, paths):
 
 
 @pytest.fixture(scope="module")
-def native_cases(tmp_path_factory, freecad_kernel):
+def native_jobs(tmp_path_factory, freecad_kernel):
     directory = tmp_path_factory.mktemp("mounted-saw-native")
     author = directory / "author.py"
     author.write_text(_AUTHOR, encoding="utf-8")
@@ -493,7 +493,12 @@ def native_cases(tmp_path_factory, freecad_kernel):
         process.stdout[-2000:] + process.stderr[-2000:]
     )
     engine = Engine(directory, freecad_kernel)
-    jobs = _cases(engine, paths)
+    return engine, _cases(engine, paths)
+
+
+@pytest.fixture(scope="module")
+def native_cases(native_jobs):
+    engine, jobs = native_jobs
     batch = engine.run({"jobs": list(jobs.values())})
     results = batch["results"]
     assert len(results) == len(jobs), batch
@@ -916,7 +921,7 @@ def test_zero_geometry_and_spindle_state_are_independent_of_cut_geometry(
         ), touch
 
 
-def test_finite_fixture_minimum_replaces_the_all_holding_kerf_plane(native_cases):
+def test_finite_fixture_minimum_replaces_the_all_holding_kerf_plane(native_cases, native_jobs):
     _, saw = _detail(native_cases, "finite-rear-post")
     proof = saw["fixture_clearance"]
     assert proof["status"] == "complete", proof
@@ -924,8 +929,17 @@ def test_finite_fixture_minimum_replaces_the_all_holding_kerf_plane(native_cases
     assert proof["scope"] == "machining_trajectory" and proof["frame"] == "setup"
     assert proof["model"] == "finite_disk_v1"
     binding = proof["binding"]
-    assert binding["setup"] == "S1" and binding["op"] == "S1:10"
-    assert len(binding["step_sha256"]) == len(binding["request_sha256"]) == 64
+    request = deepcopy(native_jobs[1]["finite-rear-post"])
+    request.pop("step_path")
+    expected = hashlib.sha256(
+        json.dumps(request, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    assert binding == {
+        "step_sha256": request["step_sha256"],
+        "request_sha256": expected,
+        "setup": "S1",
+        "op": "S1:10",
+    }
     # The actual lower flange is 1 mm above the lower jaw. The infinite kerf plane
     # would instead claim 0 to rear-post, which lies beyond every finite component.
     near = proof["minimum"]
@@ -1196,10 +1210,15 @@ for name, case in payload["cases"].items():
         thread_regions=[{}] if case.get("bounded_touch") else [],
         fixture=fixtures,
         fixture_ready=True, fixture_debts=[], fixture_gaps=[], undrawn=[], fixture_possible=[],
-        _subject=lambda op: op["subject"], owner=SimpleNamespace(job={}),
+        _subject=lambda op: op["subject"],
     )
     touch = ops[-1]["mounted_saw"]["zero"]["touches"][0]
     touch["position"] = case.get("position", 2)
+    setup.owner = job._Job({
+        "version": 1,
+        "stock": {"reason": "probe supplies raw stock directly"},
+        "setups": [native_setup],
+    })
     saw = job._FiniteSaw(setup, ops[-1], after_c)
     assembly = saw._assembly()
     assert assembly and not saw.reasons and not saw.errors, (saw.reasons, saw.errors)

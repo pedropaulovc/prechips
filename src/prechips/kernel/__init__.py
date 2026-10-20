@@ -53,6 +53,7 @@ from prechips.rules.resolution import (
     slitting_saw,
 )
 
+from .cache_recipe import _cache_recipe
 from .render_inputs import setup_annotations
 
 UNKNOWN = "unknown"
@@ -3099,33 +3100,13 @@ def _blank_mismatch(job):
     return None
 
 
-def _cache_recipe(job):
-    """The job as the cache keys it: content digests, never absolute file paths."""
-
-    def bare(spec):
-        if isinstance(spec, dict) and spec.get("shape") == "profiled":
-            return {key: value for key, value in spec.items() if key != "step_path"}
-        return spec
-
-    recipe = {name: value for name, value in job.items() if name != "step_path"}
-    stock = recipe["stock"]
-    components = stock.get("components") if isinstance(stock, dict) else None
-    if isinstance(components, dict):
-        recipe["stock"] = {
-            **stock,
-            "components": {name: bare(spec) for name, spec in components.items()},
-        }
-        return recipe
-    recipe["stock"] = bare(stock)
-    return recipe
-
-
 # The sources freecadcmd executes, relative to this directory: freecad_job.py and its
 # transitive local imports.
 # Host-only modules (this one, render_inputs.py) stay out, so editing them reuses cached
 # geometry; whatever they change in the job already changes its key.
 ENGINE_SOURCES = (
     "boolean_pool.py",
+    "cache_recipe.py",
     "chain_boundary.py",
     "freecad_job.py",
     "inspection_preservation.py",
