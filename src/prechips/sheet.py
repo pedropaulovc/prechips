@@ -14173,15 +14173,18 @@ class _Traveler:
                 + "</tbody></table>"
             )
         keys = list(dict.fromkeys(key for mapping in maps for key in mapping))
-        # A later member may be the first to need a measured-M datum/correction.
-        # The union must not put that prerequisite after the first member's cuts.
+        # Keep a later member's complete datum prerequisite group in source order,
+        # before any cuts; first-appearance union order may put only some keys late.
         first_operation = next(
             (index for index, key in enumerate(keys) if key.startswith(("operation:", "role:"))),
             len(keys),
         )
-        if "datum" in keys and keys.index("datum") > first_operation:
-            keys.remove("datum")
-            keys.insert(first_operation, "datum")
+        datum_keys = [
+            key for key in ("datum-procedure", "datum-references", "datum") if key in keys
+        ]
+        if datum_keys:
+            start = min(first_operation, *(keys.index(key) for key in datum_keys))
+            keys[start:] = datum_keys + [key for key in keys[start:] if key not in datum_keys]
         last_inline_owners = None
         last_visible_owners = tuple(ids)
         for key in keys:

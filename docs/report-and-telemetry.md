@@ -611,9 +611,11 @@ operation owners.
 Compact datum owners retain evaluated AxisSet targets, distinct from surface
 coordinates. Setup-local operative constraints stay associated with the work.
 
-Measured-M fields and conditional raw-top pre-facing instructions precede the
-dependent operations, including when only later members of a setup family need
-them. Each member retains its own nominal start surface and per-pass limit.
+Remaining local datum blocks retain procedure, evaluated AxisSet references, then
+local-instruction order before family operations, even when only later members
+supply them. Already-shared references stay at their earlier proved location.
+Measured-M fields and conditional raw-top pre-facing instructions retain each
+member's own nominal start surface and per-pass limit.
 
 Mounted-saw recipes distinguish the body-contact point from the arbor-axis
 position using the canonical zero record. Shared pro saw settings retain the

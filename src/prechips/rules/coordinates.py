@@ -3440,17 +3440,18 @@ def filing_cap(bundle):
     return cap if known else UNKNOWN
 
 
-def _filed(stock, cap, label):
-    """(errors, debts) for a rough method leaving up to ``stock`` for the file."""
+def _filed(stock, cap, label, recut):
+    """(errors, debts): an unresolved recut makes cap overage conditional, not a pass."""
     if not number(cap):
         return [], [
             f"{label} leaves up to {stock:.3f} for the file and the shop policy sets no "
             "max_filing_stock_mm"
         ]
     if stock > cap + _WALL_TOL:
-        return [
-            f"{label} leaves up to {stock:.3f} for the file, more than the shop's {cap:g} cap"
-        ], []
+        overage = f"{label} leaves up to {stock:.3f} for the file, more than the shop's {cap:g} cap"
+        if recut == UNKNOWN:
+            return [], [f"{overage}, if no later rough recuts it"]
+        return [overage], []
     return [], []
 
 
@@ -3476,7 +3477,7 @@ def _stairs(tables, allowance, cap, label, recut=None):
         table.update(stock_left_mm=stock, **_leaves(cap, recut))
     if recut and recut != UNKNOWN:
         return errors, debts
-    more, debts = _filed(stock, cap, f"{label} stairs")
+    more, debts = _filed(stock, cap, f"{label} stairs", recut)
     return errors + more, debts
 
 
@@ -3616,7 +3617,7 @@ def _chain(arcs, lines, walls, drill, allowance, cap, label, scale, recut=None):
     for table in tables:
         table.update(stock_left_mm=stock, **_leaves(cap, recut))
     if not recut or recut == UNKNOWN:
-        more, unknown = _filed(stock, cap, f"{label} chain drill")
+        more, unknown = _filed(stock, cap, f"{label} chain drill", recut)
         errors.extend(more)
         debts.extend(unknown)
     return errors, debts
