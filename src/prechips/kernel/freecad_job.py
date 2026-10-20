@@ -13162,17 +13162,19 @@ class _Setup(ThreadMaterialMixin):
                         }
                     if known:
                         sweeps = proof.get("sweeps")
-                        if isinstance(sweeps, list) and sweeps and all(
-                            isinstance(row, dict)
-                            and isinstance(row.get("minimum"), dict)
-                            and _FiniteSaw._numeric(row["minimum"].get("mm"))
-                            and row["minimum"]["mm"] >= 0
-                            and row.get("stage") in ("pre_cut", "cut", "post_cut")
-                            for row in sweeps
-                        ):
-                            minima.extend(
-                                (row["minimum"]["mm"], row["stage"]) for row in sweeps
+                        if (
+                            isinstance(sweeps, list)
+                            and sweeps
+                            and all(
+                                isinstance(row, dict)
+                                and isinstance(row.get("minimum"), dict)
+                                and _FiniteSaw._numeric(row["minimum"].get("mm"))
+                                and row["minimum"]["mm"] >= 0
+                                and row.get("stage") in ("pre_cut", "cut", "post_cut")
+                                for row in sweeps
                             )
+                        ):
+                            minima.extend((row["minimum"]["mm"], row["stage"]) for row in sweeps)
                             for row in sweeps:
                                 if (
                                     row.get("component") != "blade_body"

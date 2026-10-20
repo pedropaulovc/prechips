@@ -3513,9 +3513,14 @@ def test_the_picture_cut_names_the_op_it_belongs_to_and_never_a_guessed_one(name
         ("pre_cut", ["pre_cut"], "PRE-CUT"),
         ("cut", ["cut"], "CUT"),
         ("post_cut", ["post_cut"], "POST-CUT"),
-        ("pre_cut", ["pre_cut", "cut"], "CYCLE"),
-        ("pre_cut", ["pre_cut", "post_cut"], "CYCLE"),
+        ("pre_cut", ["pre_cut", "cut"], "PRE-CUT/CUT MINIMUM"),
+        ("pre_cut", ["pre_cut", "post_cut"], "PRE/POST-CUT MINIMUM"),
+        ("pre_cut", ["post_cut", "pre_cut"], "PRE/POST-CUT MINIMUM"),
+        ("cut", ["post_cut", "cut"], "CUT/POST-CUT MINIMUM"),
+        ("pre_cut", ["post_cut", "pre_cut", "cut"], "PRE-CUT/CUT/POST-CUT MINIMUM"),
         ("pre_cut", ["unknown"], "CYCLE"),
+        ("pre_cut", ["pre_cut", "unknown"], "CYCLE"),
+        ("pre_cut", ["pre_cut", "cut", "unknown"], "CYCLE"),
     ],
 )
 def test_native_saw_phase_never_infers_stopped_calibration_from_a_clear_move(
@@ -3615,11 +3620,12 @@ def test_cycle_minimum_names_an_included_stopped_setting_only_from_an_explicit_w
     main = _Diagram(meshes, spec)
     main.render()
     (detail,) = _holding_details(meshes, spec, main)
-    labels = [label for label, _ in detail.leaders if label.startswith("SAW CYCLE")]
+    labels = [label for label, _ in detail.leaders if label.startswith("SAW ")]
     assert len(labels) == 1
     assert f"{distance} mm FROM FIXED JAW (OP 10)" in labels[0]
     assert labels[0].count(" mm") == 1
     if witness_owner is None:
+        assert labels[0].startswith("SAW PRE/POST-CUT MINIMUM ")
         assert "INCLUDES" not in labels[0] and "STOPPED" not in labels[0]
     else:
         assert labels[0].startswith("SAW CYCLE MINIMUM ")

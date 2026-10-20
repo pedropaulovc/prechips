@@ -3717,7 +3717,9 @@ above, never this broad slab, even when finite evidence is missing. Its label
 uses `SAW PRE-CUT`, `SAW CUT` or `SAW POST-CUT` before the distance and holder,
 because clear moves and the arbor contribute too. A phase-specific label requires
 all minima tied within 0.000001 mm, across component sweeps and operations, to
-agree on that phase. Mixed or unresolved phases say `SAW CYCLE`.
+agree on that phase. Known mixed phases explicitly name every attained phase,
+such as `SAW PRE/POST-CUT MINIMUM`; a tied cutting phase always includes `CUT`.
+Unresolved phases stay generic: `SAW CYCLE`.
 `closest_cut.minimum_stages` records those tied phases without changing the
 selected minimum's component, move, stage, binding or nearest points.
 A pre-cut clear move does not by itself prove the spindle is stopped. Only when

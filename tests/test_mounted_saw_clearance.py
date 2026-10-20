@@ -219,10 +219,7 @@ def test_tied_operation_minima_do_not_hide_a_running_gap_or_disagreeing_phase(
     first["sweeps"] = [
         {
             "minimum": deepcopy(first["minimum"]),
-            **{
-                key: first["minimum"][key]
-                for key in ("component", "move_index", "mode", "stage")
-            },
+            **{key: first["minimum"][key] for key in ("component", "move_index", "mode", "stage")},
         }
     ]
     setup.saws[id(op)]["saw"]["zero"] = {
@@ -260,7 +257,7 @@ def test_tied_operation_minima_do_not_hide_a_running_gap_or_disagreeing_phase(
     _, closest = setup._cut_clearances([], True, {}, [], {})
     expected = first if delta >= 0 else second
     assert closest["op"] == ("10" if delta >= 0 else "20")
-    assert closest["mm"] == pytest.approx(expected["minimum"]["mm"], abs=0.5e-6)
+    assert closest["mm"] == 0.05
     assert closest["stage"] == expected["minimum"]["stage"]
     assert closest["tag"] == expected["minimum"]["tag"]
     assert set(closest["minimum_stages"]) == stages
@@ -276,3 +273,86 @@ def test_tied_operation_minima_do_not_hide_a_running_gap_or_disagreeing_phase(
             "tag": "setting-pad",
             "op": "10",
         }
+
+
+@pytest.mark.parametrize(
+    "surface_name,identified",
+    [("saw-setting-post:boss", False), ("support setting-post:boss", True)],
+)
+def test_coincident_named_fixtures_do_not_alias_the_verified_setting(
+    clearance_types, surface_name, identified
+):
+    # C2's native proof has a separately named calibration fixture at the same pose.
+    finite, _ = clearance_types
+    setup, op, proof = _consumer(clearance_types)
+    op["mounted_saw"].update(
+        zero={"touches": [{"surface": {"kind": "fixture", "name": surface_name, "side": "+z"}}]},
+        trajectory={
+            "start_mm": [-139.7, 0.0, 11.7348],
+            "moves": [{"to_mm": [-139.7, 0.0, 130.175], "mode": "clear"}],
+        },
+    )
+    proof["minimum"].update(
+        mm=0.0508000000000024,
+        tag="support setting-post:boss",
+        component="blade_body",
+        move_index=0,
+        mode="clear",
+        stage="pre_cut",
+        from_mm=[-120.38, -1.0, 10.210799999999999],
+        to_mm=[-120.38, -1.0, 10.159999999999997],
+    )
+    proof["sweeps"] = [
+        {
+            "minimum": deepcopy(proof["minimum"]),
+            "component": "blade_body",
+            "move_index": index,
+            "mode": "clear",
+            "stage": stage,
+        }
+        for index, stage in [(0, "pre_cut"), (10, "post_cut")]
+    ]
+    zero = {
+        "status": "pass",
+        "reasons": [],
+        "selected": 0,
+        "touches": [
+            {
+                "index": 0,
+                "status": "pass",
+                "reasons": [],
+                "collisions": [],
+                "spindle_state": "stopped",
+                "blade_side": "minus_z",
+                "surface_side": "+z",
+                "axis_xy_mm": [-139.7, 0.0],
+                "point_mm": [-119.38, 0.0, 10.16],
+                "cutting_midplane_z_mm": 11.7348,
+                "body_face_z_mm": 10.2108,
+                "paper_mm": 0.0508,
+            }
+        ],
+    }
+    expected = {"touch_index": 0, "paper_mm": 0.0508} if identified else None
+    assert finite._stopped_setting_touch(op["mounted_saw"], zero, proof["minimum"]) == expected
+    setup.saws[id(op)]["saw"]["zero"] = zero
+    proof["binding"] = finite._clearance_binding(setup, op)
+    _, closest = setup._cut_clearances([], True, {}, [], {})
+    assert closest["minimum_stages"] == ["post_cut", "pre_cut"]
+    assert closest["mm"] == 0.0508
+    assert closest["tag"] == "support setting-post:boss"
+    assert closest["component"] == "blade_body" and closest["move_index"] == 0
+    assert closest["stage"] == "pre_cut" and closest["op"] == "10"
+    assert closest["from_mm"] == [-120.38, -1.0, 10.2108]
+    assert closest["to_mm"] == [-120.38, -1.0, 10.16]
+    assert "stopped_setting_touch" not in closest
+    included = closest.get("included_stopped_setting_touch")
+    if identified:
+        assert included == {
+            **expected,
+            "mm": 0.0508,
+            "tag": "support setting-post:boss",
+            "op": "10",
+        }
+    else:
+        assert included is None

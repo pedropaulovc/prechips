@@ -1919,13 +1919,17 @@ class _Diagram:
                 label = f"STOPPED BODY SETTING: {paper} mm PAPER AT {holder.upper()}"
             else:
                 stages = cut.get("minimum_stages", [cut.get("stage")])
-                phase = (
-                    {"pre_cut": "PRE-CUT", "cut": "CUT", "post_cut": "POST-CUT"}.get(
-                        stages[0], "CYCLE"
-                    )
-                    if len(stages) == 1
-                    else "CYCLE"
-                )
+                names = {"pre_cut": "PRE-CUT", "cut": "CUT", "post_cut": "POST-CUT"}
+                if len(stages) == 1:
+                    phase = names.get(stages[0], "CYCLE")
+                elif stages and all(stage in names for stage in stages):
+                    if set(stages) == {"pre_cut", "post_cut"}:
+                        phase = "PRE/POST-CUT MINIMUM"
+                    else:
+                        phase = "/".join(names[stage] for stage in names if stage in stages)
+                        phase += " MINIMUM"
+                else:
+                    phase = "CYCLE"
                 if included is not None:
                     phase = "CYCLE MINIMUM"
                 label = f"SAW {phase} {self._dro(cut['mm'])} mm FROM {holder.upper()}"
